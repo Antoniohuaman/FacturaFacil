@@ -2,6 +2,9 @@ import type { RouteObject } from "react-router-dom";
 import { redirect } from "react-router-dom";
 
 import AppShell from "../layouts/PrivateLayout";
+import { ProtectedRoute } from "../pages/Private/features/autenticacion/guards/ProtectedRoute";
+import { RoleGuard } from "../pages/Private/features/autenticacion/guards/RoleGuard";
+import { UserRole } from "../pages/Private/features/autenticacion/types/auth.types";
 
 // Pages por módulo - Comprobantes
 import ComprobantesTabs from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/pages/ComprobantesTabs";
@@ -37,11 +40,14 @@ import FormularioCotizacion from "../pages/Private/features/Documentos-negociaci
 import FormularioNotaVenta from "../pages/Private/features/Documentos-negociacion/pages/FormularioNotaVenta";
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
-import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
 
 export const privateRoutes: RouteObject[] = [
   {
-    element: <AppShell />,
+    element: (
+      <ProtectedRoute requireContext={true}>
+        <AppShell />
+      </ProtectedRoute>
+    ),
     errorElement: <RouteErrorBoundary />,
     children: [
       { path: "/", element: <ComprobantesTabs /> },
@@ -76,22 +82,98 @@ export const privateRoutes: RouteObject[] = [
       { path: "/documentos/nueva-nota-venta", element: <FormularioNotaVenta /> },
       
       { path: "/clientes", element: <ClientesPage /> },
-      { path: "/clientes/test-api", element: <ClientesTestPage /> },
       { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
       { path: "/importar-clientes", element: <ImportarClientesPage /> },
       { path: "/indicadores", element: <IndicadoresPage /> },
-      { path: "/configuracion", element: <ConfigurationDashboard /> },
-      { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
-      { path: "/configuracion/establecimientos", element: <EstablecimientosConfiguration /> },
-      { path: "/configuracion/almacenes", element: <ConfiguracionAlmacenes /> },
-      { path: "/configuracion/usuarios", element: <UsersConfiguration /> },
+      {
+        path: "/configuracion",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <ConfigurationDashboard />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/empresa",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <CompanyConfiguration />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/establecimientos",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <EstablecimientosConfiguration />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/almacenes",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <ConfiguracionAlmacenes />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/usuarios",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <UsersConfiguration />
+          </RoleGuard>
+        )
+      },
       { path: "/configuracion/empleados", loader: () => redirect("/configuracion/usuarios") },
-      { path: "/configuracion/series", element: <SeriesConfiguration /> },
-      { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
-      { path: "/configuracion/diseno", element: <VoucherDesignConfigurationNew /> },
-      { path: "/configuracion/cajas", element: <CajasConfiguration /> },
-      { path: "/configuracion/cajas/new", element: <CajaFormPage /> },
-      { path: "/configuracion/cajas/:id", element: <CajaFormPage /> },
+      {
+        path: "/configuracion/series",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <SeriesConfiguration />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/negocio",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <BusinessConfiguration />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/diseno",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <VoucherDesignConfigurationNew />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/cajas",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <CajasConfiguration />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/cajas/new",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <CajaFormPage />
+          </RoleGuard>
+        )
+      },
+      {
+        path: "/configuracion/cajas/:id",
+        element: (
+          <RoleGuard allowedRoles={[UserRole.SUPER_ADMIN, UserRole.ADMIN]} fallbackPath="/">
+            <CajaFormPage />
+          </RoleGuard>
+        )
+      },
       { path: "/notificaciones", element: <NotificationsCenterPage /> },
     ],
   },

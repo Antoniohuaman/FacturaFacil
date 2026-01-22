@@ -13,10 +13,10 @@ import { PERU_TAX_TYPES, normalizeTaxes } from '../modelos/Tax';
 import { SUNAT_UNITS } from '../modelos/Unit';
 import type { Almacen } from '../modelos/Almacen';
 import type { Caja } from '../modelos/Caja';
-import { lsKey } from '../../../../../shared/tenant';
-import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { currencyManager } from '@/shared/currency';
 import type { CurrencyCode } from '@/shared/currency';
+import { lsKey } from '../../../../../shared/tenant';
+import { useTenant } from '../../../../../shared/tenant/TenantContext';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -419,6 +419,7 @@ const persistTenantSnapshot = (storageKey: StorageKey, snapshot: PersistedTenant
     console.warn(`[Configuration] No se pudo guardar el snapshot de tenant en ${storageKey}:`, error);
   }
 };
+
 
 type ConfigurationAction =
   | { type: 'SET_LOADING'; payload: boolean }

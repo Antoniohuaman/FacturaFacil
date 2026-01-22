@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/EstablecimientosConfiguration.tsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -20,7 +19,7 @@ import {
   Phone
 } from 'lucide-react';
 import { PageHeader, Button, Select, Input } from '@/contasis';
-import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import { useEstablecimientos } from '../hooks/useEstablecimientos';
 // import { ConfigurationCard } from '../components/comunes/TarjetaConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
@@ -52,8 +51,16 @@ interface DeleteConfirmation {
 
 export function EstablecimientosConfiguration() {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
-  const { Establecimientos } = state;
+  const {
+    establecimientos: Establecimientos,
+    isLoading: apiLoading,
+    error: apiError,
+    cargarEstablecimientos,
+    crearEstablecimiento,
+    actualizarEstablecimiento,
+    eliminarEstablecimiento,
+    toggleStatus: toggleEstablecimientoStatus,
+  } = useEstablecimientos();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
@@ -78,6 +85,11 @@ export function EstablecimientosConfiguration() {
     phone: '',
     email: ''
   });
+
+  // Carga inicial de datos
+  useEffect(() => {
+    cargarEstablecimientos();
+  }, [cargarEstablecimientos]);
 
   // Ubigeo cascading logic
   const selectedDepartment = useMemo(() => {
@@ -118,26 +130,7 @@ export function EstablecimientosConfiguration() {
     }, 5000);
   };
 
-  // Generate unique ID
-  const generateUniqueId = () => {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  };
 
-  // Generate next Establecimiento code
-  const generateNextCode = () => {
-    if (Establecimientos.length === 0) return '0001';
-
-    // Extract numeric codes only
-    const numericCodes = Establecimientos
-      .map(e => {
-        const match = e.codigoEstablecimiento.match(/\d+/);
-        return match ? parseInt(match[0]) : 0;
-      })
-      .filter(n => n > 0);
-
-    const lastCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
-    return String(lastCode + 1).padStart(4, '0');
-  };
 
   // Validate form
   const validateForm = (): boolean => {
@@ -186,8 +179,13 @@ export function EstablecimientosConfiguration() {
   };
 
   const handleNew = () => {
+    // Generar código automático basado en los existentes
+    const nextCode = Establecimientos.length > 0
+      ? String(Math.max(...Establecimientos.map(e => parseInt(e.codigoEstablecimiento) || 0)) + 1).padStart(4, '0')
+      : '0001';
+
     setFormData({
-      codigoEstablecimiento: generateNextCode(),
+      codigoEstablecimiento: nextCode,
       nombreEstablecimiento: '',
       direccionEstablecimiento: '',
       distritoEstablecimiento: '',
@@ -219,7 +217,7 @@ export function EstablecimientosConfiguration() {
     setShowForm(true);
   };
 
-  const manejarEnvio = (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -227,61 +225,54 @@ export function EstablecimientosConfiguration() {
       return;
     }
 
+    // Buscar código de ubigeo (distrito)
+    const selectedDist = availableDistricts.find(d => d.name === datosFormulario.distritoEstablecimiento);
+    const ubigeoCode = selectedDist?.code || datosFormulario.codigoPostalEstablecimiento;
+
     try {
-      let updatedEstablecimientos: Establecimiento[];
+      const dataToSave: Partial<Establecimiento> = {
+        ...datosFormulario,
+        codigoPostalEstablecimiento: ubigeoCode,
+        // Campos extendidos (se preservarán en frontend)
+        coordinates: undefined,
+        businessHours: {},
+        sunatConfiguration: {
+          isRegistered: false
+        },
+        posConfiguration: undefined,
+        inventoryConfiguration: {
+          managesInventory: false,
+          isalmacen: false,
+          allowNegativeStock: false,
+          autoTransferStock: false
+        },
+        financialConfiguration: {
+          handlesCash: true,
+          defaultCurrencyId: '',
+          acceptedCurrencies: [],
+          defaultTaxId: '',
+          bankAccounts: []
+        },
+        estadoEstablecimiento: 'ACTIVE',
+        estaActivoEstablecimiento: true,
+        isMainEstablecimiento: false,
+      };
 
       if (editingEstablecimientoId) {
-        // Update existing
-        updatedEstablecimientos = Establecimientos.map(est =>
-          est.id === editingEstablecimientoId
-            ? {
-              ...est,
-              ...datosFormulario,
-              actualizadoElEstablecimiento: new Date()
-            }
-            : est
-        );
+        // Actualizar existente
+        await actualizarEstablecimiento(editingEstablecimientoId, dataToSave);
         showToast('success', 'Establecimiento actualizado correctamente');
       } else {
-        // Create new - with unique ID
-        const newEstablecimiento: Establecimiento = {
-          id: generateUniqueId(),
-          ...datosFormulario,
-          coordinates: undefined,
-          businessHours: {},
-          sunatConfiguration: {
-            isRegistered: false
-          },
-          posConfiguration: undefined,
-          inventoryConfiguration: {
-            managesInventory: false,
-            isalmacen: false,
-            allowNegativeStock: false,
-            autoTransferStock: false
-          },
-          financialConfiguration: {
-            handlesCash: true,
-            defaultCurrencyId: '',
-            acceptedCurrencies: [],
-            defaultTaxId: '',
-            bankAccounts: []
-          },
-          estadoEstablecimiento: 'ACTIVE',
-          estaActivoEstablecimiento: true,
-          isMainEstablecimiento: false,
-          creadoElEstablecimiento: new Date(),
-          actualizadoElEstablecimiento: new Date()
-        };
-
-        updatedEstablecimientos = [...Establecimientos, newEstablecimiento];
+        // Crear nuevo
+        await crearEstablecimiento(dataToSave);
         showToast('success', 'Establecimiento creado correctamente');
       }
 
-      dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
       handleCancel();
     } catch (error) {
       console.error('Error saving Establecimiento:', error);
-      showToast('error', 'Error al guardar el establecimiento. Por favor, intenta nuevamente.');
+      const message = error instanceof Error ? error.message : 'Error al guardar el establecimiento';
+      showToast('error', message);
     }
   };
 
@@ -310,40 +301,31 @@ export function EstablecimientosConfiguration() {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteConfirmation.EstablecimientoId) return;
 
     try {
-      const updatedEstablecimientos = Establecimientos.filter(
-        est => est.id !== deleteConfirmation.EstablecimientoId
-      );
-      dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
+      await eliminarEstablecimiento(deleteConfirmation.EstablecimientoId);
       showToast('success', 'Establecimiento eliminado correctamente');
       setDeleteConfirmation({ isOpen: false, EstablecimientoId: null, EstablecimientoName: '' });
     } catch (error) {
       console.error('Error deleting Establecimiento:', error);
-      showToast('error', 'Error al eliminar el establecimiento');
+      const message = error instanceof Error ? error.message : 'Error al eliminar el establecimiento';
+      showToast('error', message);
     }
   };
 
-  const handleToggleStatus = (id: string) => {
+  const handleToggleStatus = async (id: string) => {
     const Establecimiento = Establecimientos.find(est => est.id === id);
+    const newStatus = !Establecimiento?.estaActivoEstablecimiento;
 
     try {
-      const updatedEstablecimientos = Establecimientos.map(est =>
-        est.id === id
-          ? {
-            ...est,
-            estaActivoEstablecimiento: !est.estaActivoEstablecimiento,
-            actualizadoElEstablecimiento: new Date()
-          }
-          : est
-      );
-      dispatch({ type: 'SET_EstablecimientoS', payload: updatedEstablecimientos });
-      showToast('success', Establecimiento?.estaActivoEstablecimiento ? 'Establecimiento desactivado' : 'Establecimiento activado');
+      await toggleEstablecimientoStatus(id);
+      showToast('success', newStatus ? 'Establecimiento activado' : 'Establecimiento desactivado');
     } catch (error) {
       console.error('Error toggling status:', error);
-      showToast('error', 'Error al cambiar el estado del establecimiento');
+      const message = error instanceof Error ? error.message : 'Error al cambiar el estado';
+      showToast('error', message);
     }
   };
 
@@ -622,6 +604,8 @@ export function EstablecimientosConfiguration() {
                 type="submit"
                 variant="primary"
                 icon={<CheckCircle />}
+                disabled={apiLoading}
+                loading={apiLoading}
               >
                 {editingEstablecimientoId ? 'Actualizar' : 'Crear'} Establecimiento
               </Button>
@@ -760,7 +744,7 @@ export function EstablecimientosConfiguration() {
 
           <Select
             value={filtroEstado}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')}
             size="medium"
             options={[
               { value: 'all', label: 'Todos los estados' },
@@ -776,14 +760,35 @@ export function EstablecimientosConfiguration() {
           size="md"
           icon={<Plus className="w-5 h-5" />}
           iconPosition="left"
+          disabled={apiLoading}
         >
           Nuevo Establecimiento
         </Button>
       </div>
 
       {/* Establecimientos List */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        {filteredEstablecimientos.length === 0 ? (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden relative min-h-[400px]">
+        {apiLoading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[2px]">
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="mt-4 text-sm font-medium text-gray-600">Cargando establecimientos...</p>
+            </div>
+          </div>
+        )}
+
+        {apiError && !apiLoading && (
+          <div className="p-12 text-center">
+            <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Error al cargar datos</h3>
+            <p className="text-gray-500 mb-6">{apiError}</p>
+            <Button onClick={() => cargarEstablecimientos()} variant="secondary">
+              Reintentar
+            </Button>
+          </div>
+        )}
+
+        {!apiError && filteredEstablecimientos.length === 0 ? (
           <div className="text-center py-12">
             <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -808,7 +813,7 @@ export function EstablecimientosConfiguration() {
               </button>
             )}
           </div>
-        ) : (
+        ) : !apiError && (
           <div className="divide-y divide-gray-200">
             {filteredEstablecimientos.map((Establecimiento) => (
               <div

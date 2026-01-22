@@ -8,6 +8,11 @@ import type {
 } from '../types/auth.types';
 import { tokenService } from './TokenService';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
+import {
+  adaptLoginResponse,
+  adaptBackendError,
+  mapBackendErrorCode,
+} from '../adapters/BackendAdapter';
 
 /**
  * ============================================
@@ -308,10 +313,34 @@ class AuthClient {
    * Login de usuario
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+    try {
+      // Si estamos en modo desarrollo, usar simulación
+      if (DEV_MODE) {
+        return this.request<AuthResponse>('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify(credentials),
+        });
+      }
+
+      // Llamar al endpoint real del backend .NET
+      const backendResponse = await this.request<any>('/api/v1/usuarios/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: credentials.email,
+          password: credentials.password,
+        }),
+      });
+
+      // Adaptar la respuesta del backend al formato del frontend
+      return adaptLoginResponse(backendResponse);
+    } catch (error: any) {
+      // Adaptar errores del backend
+      const adaptedError = adaptBackendError(error);
+      throw {
+        code: mapBackendErrorCode(adaptedError.code),
+        message: adaptedError.message,
+      };
+    }
   }
 
   /**
@@ -338,19 +367,44 @@ class AuthClient {
    */
   async refreshToken(refreshToken: string): Promise<{
     accessToken: string;
+    refreshToken: string;
     expiresIn: number;
   }> {
-    return this.request('/auth/refresh', {
+    // Si estamos en modo desarrollo, usar simulación
+    if (DEV_MODE) {
+      return this.request('/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
+
+    // Llamar al endpoint real del backend .NET
+    const backendResponse = await this.request<any>('/api/v1/usuarios/refresh-token', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
     });
+
+    // Retornar los nuevos tokens
+    return {
+      accessToken: backendResponse.data.token,
+      refreshToken: backendResponse.data.refreshToken,
+      expiresIn: backendResponse.data.expiresIn,
+    };
   }
 
   /**
    * Logout
    */
   async logout(): Promise<void> {
-    return this.request('/auth/logout', {
+    // Si estamos en modo desarrollo, usar simulación
+    if (DEV_MODE) {
+      return this.request('/auth/logout', {
+        method: 'POST',
+      });
+    }
+
+    // Llamar al endpoint real del backend .NET
+    await this.request('/api/v1/usuarios/logout', {
       method: 'POST',
     });
   }

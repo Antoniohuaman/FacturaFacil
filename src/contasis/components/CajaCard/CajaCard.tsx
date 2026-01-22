@@ -38,7 +38,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ children }) => {
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
           if (child.type === DropdownMenuTrigger) {
-            return React.cloneElement(child as React.ReactElement<any>, {
+            return React.cloneElement(child as React.ReactElement<{ onClick?: () => void }>, {
               onClick: () => setIsOpen(!isOpen),
             });
           }
@@ -46,7 +46,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ children }) => {
             return (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-                {React.cloneElement(child as React.ReactElement<any>, {
+                {React.cloneElement(child as React.ReactElement<{ onClose?: () => void }>, {
                   onClose: () => setIsOpen(false),
                 })}
               </>
@@ -113,11 +113,6 @@ export const CajaCard: React.FC<CajaCardProps> = ({
   onVerTurnos,
   className = '',
 }) => {
-  const handleToggleEnabled = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleEnabled(caja.id);
-  };
-
   const handleEdit = () => {
     onEdit(caja.id);
   };
@@ -195,9 +190,9 @@ export const CajaCard: React.FC<CajaCardProps> = ({
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors">
               <Switch
-                checked={caja.habilitadaCaja}
-                onCheckedChange={() => handleToggleEnabled(new MouseEvent('click') as any)}
-              />
+              checked={caja.habilitadaCaja}
+              onCheckedChange={() => onToggleEnabled(caja.id)}
+            />
             </div>
 
             <DropdownMenu>

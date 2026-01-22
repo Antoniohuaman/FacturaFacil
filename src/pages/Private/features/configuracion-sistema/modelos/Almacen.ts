@@ -14,6 +14,7 @@ export interface ConfiguracionInventarioAlmacen {
  */
 export interface Almacen {
   id: string;
+  empresaId: string;
   codigoAlmacen: string;
   nombreAlmacen: string;
   establecimientoId: string;

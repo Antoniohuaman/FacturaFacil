@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/CompanyConfiguration.tsx
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -34,6 +33,7 @@ import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
+import { useEmpresas } from '../hooks/useEmpresas';
 
 
 interface CompanyFormData {
@@ -160,6 +160,11 @@ export function CompanyConfiguration() {
   const location = useLocation();
   const { state, dispatch } = useConfigurationContext();
   const { company } = state;
+  const { 
+    isLoading: isApiLoading, 
+    actualizarEmpresa, 
+    crearEmpresa 
+  } = useEmpresas();
   const { session } = useUserSession();
   const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
@@ -196,7 +201,11 @@ export function CompanyConfiguration() {
   const [rucValidation, setRucValidation] = useState<{
     isValid: boolean;
     message: string;
-    data?: any;
+    data?: {
+      razonSocial: string;
+      direccionFiscal: string;
+      ubigeo: string;
+    };
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showProductionModal, setShowProductionModal] = useState(false);
@@ -244,6 +253,16 @@ export function CompanyConfiguration() {
     setTenantEmpresas([...withoutEmpresa, empresaEntry]);
     setTenantContextoActual(contexto);
   }, [setTenantContextoActual, setTenantEmpresas]);
+
+  // Sincronizar con el contexto global de empresa
+  const empresaIdGlobal = useTenantStore((s) => s.contextoActual?.empresaId);
+  const { cargarEmpresa } = useEmpresas();
+
+  useEffect(() => {
+    if (empresaIdGlobal && !isCreateWorkspaceMode) {
+      cargarEmpresa(empresaIdGlobal);
+    }
+  }, [empresaIdGlobal, isCreateWorkspaceMode, cargarEmpresa]);
 
   // Load existing company data
   useEffect(() => {
@@ -357,15 +376,20 @@ export function CompanyConfiguration() {
   }, [datosFormulario, originalData]);
 
   // Handle RUC validation callback from RucValidator component
-  const handleRucValidation = (result: { isValid: boolean; message: string; data?: any }) => {
+  const handleRucValidation = (result: { 
+    isValid: boolean; 
+    message: string; 
+    data?: { razonSocial: string; direccionFiscal: string; ubigeo: string } 
+  }) => {
     setRucValidation(result);
 
     if (result.isValid && result.data) {
+      const { data } = result;
       setFormData(prev => ({
         ...prev,
-        razonSocial: result.data.razonSocial,
-        direccionFiscal: result.data.direccionFiscal,
-        ubigeo: result.data.ubigeo
+        razonSocial: data.razonSocial,
+        direccionFiscal: data.direccionFiscal,
+        ubigeo: data.ubigeo
       }));
     }
   };
@@ -426,54 +450,48 @@ export function CompanyConfiguration() {
       const cleanPhones = datosFormulario.telefonos.filter(phone => phone.trim() !== '');
       const cleanEmails = datosFormulario.correosElectronicos.filter(email => email.trim() !== '');
 
-      const updatedCompany: Company = {
-        id: company?.id || '1',
+      const companyData: Partial<Company> = {
         ruc: datosFormulario.ruc,
         razonSocial: datosFormulario.razonSocial,
         nombreComercial: datosFormulario.nombreComercial || undefined,
         direccionFiscal: datosFormulario.direccionFiscal,
-        distrito: company?.distrito || '',
-        provincia: company?.provincia || '',
-        departamento: company?.departamento || '',
         codigoPostal: datosFormulario.ubigeo,
-        telefonos: cleanPhones.length > 0 ? cleanPhones : [],
-        correosElectronicos: cleanEmails.length > 0 ? cleanEmails : [],
-        sitioWeb: company?.sitioWeb,
+        telefonos: cleanPhones,
+        correosElectronicos: cleanEmails,
         actividadEconomica: datosFormulario.actividadEconomica,
-        regimenTributario: company?.regimenTributario || 'GENERAL',
         monedaBase: datosFormulario.monedaBase,
-        representanteLegal: company?.representanteLegal || {
-          nombreRepresentanteLegal: '',
-          tipoDocumentoRepresentante: 'DNI',
-          numeroDocumentoRepresentante: ''
-        },
-        certificadoDigital: company?.certificadoDigital,
         configuracionSunatEmpresa: {
           estaConfiguradoEnSunat: company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
-          usuarioSunat: company?.configuracionSunatEmpresa?.usuarioSunat,
           entornoSunat: datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
-          fechaUltimaSincronizacionSunat: company?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat
         },
-        creadoEl: company?.creadoEl || new Date(),
-        actualizadoEl: new Date(),
         estaActiva: company?.estaActiva ?? true
       };
 
-      dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
+      let updatedCompany: Company;
+      
+      if (company?.id && !isCreateWorkspaceMode) {
+        // ACTUALIZAR EMPRESA EXISTENTE
+        updatedCompany = await actualizarEmpresa(company.id, companyData);
+        // console.log('Empresa actualizada en backend:', updatedCompany);
+      } else {
+        // CREAR NUEVA EMPRESA
+        updatedCompany = await crearEmpresa(companyData);
+        // console.log('Empresa creada en backend:', updatedCompany);
+      }
 
       const workspace = createOrUpdateWorkspace({
         id: targetWorkspaceId,
-        ruc: datosFormulario.ruc,
-        razonSocial: datosFormulario.razonSocial,
-        nombreComercial: datosFormulario.nombreComercial,
-        domicilioFiscal: datosFormulario.direccionFiscal,
+        ruc: updatedCompany.ruc,
+        razonSocial: updatedCompany.razonSocial,
+        nombreComercial: updatedCompany.nombreComercial,
+        domicilioFiscal: updatedCompany.direccionFiscal,
       });
       ensuredWorkspaceIdRef.current = workspace.id;
 
       // ===================================================================
       // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
       // ===================================================================
-      const isNewCompany = !company?.id;
+      const isNewCompany = !company?.id || isCreateWorkspaceMode;
       let defaultEstablecimiento: Establecimiento | null = null;
 
       if (isNewCompany && state.Establecimientos.length === 0) {
@@ -484,12 +502,12 @@ export function CompanyConfiguration() {
         const createdEstablecimiento: Establecimiento = {
           id: 'est-main',
           codigoEstablecimiento: '0001',
-          nombreEstablecimiento: 'Establecimiento',
-          direccionEstablecimiento: datosFormulario.direccionFiscal,
+          nombreEstablecimiento: 'Establecimiento Principal',
+          direccionEstablecimiento: updatedCompany.direccionFiscal,
           distritoEstablecimiento: location?.district || 'Lima',
           provinciaEstablecimiento: location?.province || 'Lima',
           departamentoEstablecimiento: location?.department || 'Lima',
-          codigoPostalEstablecimiento: datosFormulario.ubigeo,
+          codigoPostalEstablecimiento: updatedCompany.codigoPostal,
           phone: cleanPhones[0],
           email: cleanEmails[0],
           isMainEstablecimiento: true,
@@ -506,7 +524,7 @@ export function CompanyConfiguration() {
             isRegistered: true,
             registrationDate: new Date(),
             annexCode: '0000',
-            economicActivity: company?.actividadEconomica || 'Comercio',
+            economicActivity: updatedCompany.actividadEconomica || 'Comercio',
           },
           posConfiguration: {
             hasPos: true,
@@ -553,7 +571,7 @@ export function CompanyConfiguration() {
         const defaultalmacen: Almacen = {
           id: 'alm-main',
           codigoAlmacen: '0001',
-          nombreAlmacen: 'Almacén',
+          nombreAlmacen: 'Almacén Principal',
           establecimientoId: createdEstablecimiento.id,
           nombreEstablecimientoDesnormalizado: createdEstablecimiento.nombreEstablecimiento,
           codigoEstablecimientoDesnormalizado: createdEstablecimiento.codigoEstablecimiento,
@@ -575,7 +593,7 @@ export function CompanyConfiguration() {
 
         // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
         const environmentType =
-          datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
+          updatedCompany.configuracionSunatEmpresa.entornoSunat;
 
         const defaultSeries: Series[] = buildMissingDefaultSeries({
           EstablecimientoId: createdEstablecimiento.id,
@@ -587,7 +605,7 @@ export function CompanyConfiguration() {
           dispatch({ type: 'ADD_SERIES', payload: seriesItem });
         });
 
-        // 3. CONFIGURAR MONEDA BASE (PEN - SOLES)
+        // 4. CONFIGURAR MONEDA BASE
         if (state.currencies.length === 0) {
           const defaultCurrencies: Currency[] = [
             {
@@ -624,7 +642,7 @@ export function CompanyConfiguration() {
           dispatch({ type: 'SET_CURRENCIES', payload: defaultCurrencies });
         }
 
-        // 4. CONFIGURAR IMPUESTOS POR DEFECTO (IGV 18%, IGV 10%, Exonerado, Inafecto, Exportación)
+        // 5. CONFIGURAR IMPUESTOS
         if (state.taxes.length === 0) {
           const now = new Date();
           const defaultTaxes: Tax[] = PERU_TAX_TYPES
@@ -641,9 +659,6 @@ export function CompanyConfiguration() {
           dispatch({ type: 'SET_TAXES', payload: defaultTaxes });
         }
 
-        // Las formas de pago ya están creadas en ConfigurationContext
-        // No es necesario crearlas aquí
-
         await ensureDefaultOperationalSetup({
           company: updatedCompany,
           Establecimiento: defaultEstablecimiento,
@@ -654,7 +669,6 @@ export function CompanyConfiguration() {
           },
           dispatch,
         });
-
       }
 
       const EstablecimientoForContext =
@@ -995,10 +1009,10 @@ export function CompanyConfiguration() {
                 <Button
                   variant="primary"
                   type="submit"
-                  disabled={!isFormValid || isLoading}
-                  icon={isLoading ? <Loader2 className="animate-spin" /> : undefined}
+                  disabled={!isFormValid || isLoading || isApiLoading}
+                  icon={(isLoading || isApiLoading) ? <Loader2 className="animate-spin" /> : undefined}
                 >
-                  {isLoading ? 'Guardando...' : company?.id ? 'Guardar Cambios' : 'Crear Empresa'}
+                  {(isLoading || isApiLoading) ? 'Guardando...' : company?.id ? 'Guardar Cambios' : 'Crear Empresa'}
                 </Button>
               </div>
             </div>

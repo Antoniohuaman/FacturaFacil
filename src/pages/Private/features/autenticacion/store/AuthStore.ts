@@ -77,7 +77,9 @@ export const useAuthStore = create<AuthState>()(
       name: 'senciyo-auth-store',
       partialize: (state) => ({
         user: state.user,
+        isAuthenticated: state.isAuthenticated,
         hasWorkspace: state.hasWorkspace,
+        status: state.status,
       }),
     }
   )

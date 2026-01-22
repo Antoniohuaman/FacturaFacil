@@ -50,7 +50,18 @@ class HttpClient {
 
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     if (response.status === HTTP_STATUS.UNAUTHORIZED) {
+      // Limpiar tokens
       tokenService.clearTokens();
+
+      // Limpiar AuthStore (Zustand persist)
+      localStorage.removeItem('senciyo-auth-store');
+      sessionStorage.removeItem('senciyo-auth-store');
+
+      // Limpiar otros datos de sesión
+      localStorage.removeItem('facturafacil_user_session');
+      localStorage.removeItem('senciyo-tenant-store');
+
+      // Redirigir a login
       window.location.href = '/login';
       throw new ApiError('Sesión expirada', HTTP_STATUS.UNAUTHORIZED);
     }

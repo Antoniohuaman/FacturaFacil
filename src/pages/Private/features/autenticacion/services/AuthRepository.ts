@@ -235,12 +235,18 @@ class AuthRepository {
 
       const response = await authClient.refreshToken(refreshToken);
 
-      // Actualizar access token
+      // Determinar si el usuario tiene activado "recordarme"
+      // (tokens en localStorage en lugar de sessionStorage)
+      const tokensInLocalStorage = !!localStorage.getItem('senciyo_auth_tokens');
+      const tokensInSessionStorage = !!sessionStorage.getItem('senciyo_auth_tokens');
+      const remember = tokensInLocalStorage && !tokensInSessionStorage;
+
+      // Actualizar access token manteniendo el mismo storage
       tokenService.setTokens(
         response.accessToken,
         refreshToken,
         response.expiresIn,
-        !!localStorage.getItem('senciyo_auth_tokens')
+        remember
       );
 
       // Obtener perfil actualizado
@@ -271,6 +277,35 @@ class AuthRepository {
       rateLimitService.clearAll();
       useAuthStore.getState().reset();
       useTenantStore.getState().reset();
+
+      // Limpiar UserSessionContext
+      localStorage.removeItem('facturafacil_user_session');
+
+      // Limpiar ConfigurationContext
+      localStorage.removeItem('facturaFacilConfig');
+      localStorage.removeItem('config_series_v1');
+
+      // Limpiar global session
+      const globalAny = globalThis as typeof globalThis & { __USER_SESSION__?: unknown };
+      if (globalAny.__USER_SESSION__) {
+        delete globalAny.__USER_SESSION__;
+      }
+
+      // Limpiar todos los items de localStorage relacionados con la app
+      // (items que empiezan con 'senciyo', 'factura', 'tenant', etc.)
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith('senciyo') ||
+          key.startsWith('factura') ||
+          key.startsWith('tenant-') ||
+          key.startsWith('config_')
+        )) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
     }
   }
 
@@ -342,19 +377,28 @@ class AuthRepository {
    */
   async initializeSession(): Promise<void> {
     try {
+      // Setear estado loading mientras inicializa
+      useAuthStore.setState({ status: 'loading' });
+
       // Verificar si hay tokens válidos
       if (!tokenService.hasValidTokens()) {
-        useAuthStore.setState({ status: 'unauthenticated' });
+        useAuthStore.setState({
+          status: 'unauthenticated',
+          isAuthenticated: false,
+          user: null,
+          hasWorkspace: false,
+        });
         return;
       }
 
-      // Obtener perfil
+      // Obtener perfil del backend
       const user = await authClient.getProfile();
-      
+
       // Verificar workspace
       const hasWorkspace = contextService.hasContext();
       const contextoActual = contextService.getContext();
 
+      // Actualizar estado con sesión recuperada
       useAuthStore.setState({
         user,
         isAuthenticated: true,
@@ -362,15 +406,27 @@ class AuthRepository {
         status: hasWorkspace ? 'authenticated' : 'requires_workspace',
       });
 
+      // Si hay contexto guardado, restaurarlo
       if (contextoActual) {
         useTenantStore.setState({ contextoActual });
       }
+
+      // Finalizar con éxito
+      useAuthStore.setState({ status: 'authenticated', isAuthenticated: true });
     } catch (error) {
-      // Si falla, intentar refresh
+      console.warn('[AuthRepository] Error al inicializar sesión, intentando refresh...', error);
+
+      // Si falla, intentar refresh de token
       const refreshed = await this.refreshSession();
-      
+
       if (!refreshed) {
-        useAuthStore.setState({ status: 'unauthenticated' });
+        // Si el refresh también falla, marcar como no autenticado
+        useAuthStore.setState({
+          status: 'unauthenticated',
+          isAuthenticated: false,
+          user: null,
+          hasWorkspace: false,
+        });
       }
     }
   }

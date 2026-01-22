@@ -1,6 +1,6 @@
 // src/features/configuracion-sistema/paginas/ConfiguracionAlmacenes.tsx
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -21,6 +21,8 @@ import {
 import { Button, Select, Input, Checkbox, PageHeader, Textarea } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
+import { useAlmacenes } from '../hooks/useAlmacenes';
+import { useEstablecimientos } from '../hooks/useEstablecimientos';
 import type { Almacen } from '../modelos/Almacen';
 
 interface Toast {
@@ -58,8 +60,22 @@ const FORM_STATE_INICIAL: FormState = {
 
 export function ConfiguracionAlmacenes() {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
-  const { Establecimientos, almacenes } = state;
+  const { state } = useConfigurationContext();
+  const { 
+    almacenes, 
+    loading: loadingAlmacenes, 
+    error: errorAlmacenes, 
+    crearAlmacen, 
+    actualizarAlmacen, 
+    eliminarAlmacen, 
+    alternarEstadoAlmacen 
+  } = useAlmacenes();
+
+  const {
+    establecimientos: Establecimientos,
+    isLoading: loadingEstablecimientos,
+    cargarEstablecimientos
+  } = useEstablecimientos();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstablecimiento, setFilterEstablecimiento] = useState<string>('all');
@@ -75,6 +91,11 @@ export function ConfiguracionAlmacenes() {
     nombreAlmacen: '',
     tieneMovimientosInventario: false
   });
+
+  // Carga inicial de datos de establecimientos desde el backend
+  useEffect(() => {
+    cargarEstablecimientos();
+  }, [cargarEstablecimientos]);
 
   const activeEstablecimientos = useMemo(
     () =>
@@ -105,6 +126,9 @@ export function ConfiguracionAlmacenes() {
     });
   }, [almacenes, filterEstablecimiento, filtroEstado, searchTerm]);
 
+  const loading = loadingAlmacenes || loadingEstablecimientos;
+  const apiError = errorAlmacenes;
+
   const stats = useMemo(() => ({
     total: almacenes.length,
     active: almacenes.filter(almacen => almacen.estaActivoAlmacen).length,
@@ -120,7 +144,6 @@ export function ConfiguracionAlmacenes() {
     }, 5000);
   };
 
-  const generateUniqueId = () => `alm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   const generarSiguienteCodigo = (establecimientoId: string) => {
     const almacenesDelEstablecimiento = almacenes.filter(
@@ -220,62 +243,46 @@ export function ConfiguracionAlmacenes() {
       return;
     }
 
-    try {
-      const selectedEstablecimiento = Establecimientos.find(
-        est => est.id === datosFormulario.establecimientoId
-      );
+    const selectedEstablecimiento = Establecimientos.find(
+      est => est.id === datosFormulario.establecimientoId
+    );
 
-      let updatedAlmacenes: Almacen[];
-
-      if (editingAlmacenId) {
-        updatedAlmacenes = almacenes.map(almacen =>
-          almacen.id === editingAlmacenId
-            ? {
-              ...almacen,
-              codigoAlmacen: datosFormulario.codigoAlmacen,
-              nombreAlmacen: datosFormulario.nombreAlmacen,
-              establecimientoId: datosFormulario.establecimientoId,
-              nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.nombreEstablecimiento,
-              codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.codigoEstablecimiento,
-              descripcionAlmacen: datosFormulario.descripcionAlmacen || undefined,
-              ubicacionAlmacen: datosFormulario.ubicacionAlmacen || undefined,
-              esAlmacenPrincipal: datosFormulario.esAlmacenPrincipal,
-              actualizadoElAlmacen: new Date()
-            }
-            : almacen
-        );
-        showToast('success', 'Almacén actualizado correctamente');
-      } else {
-        const nuevoAlmacen: Almacen = {
-          id: generateUniqueId(),
-          codigoAlmacen: datosFormulario.codigoAlmacen,
-          nombreAlmacen: datosFormulario.nombreAlmacen,
-          establecimientoId: datosFormulario.establecimientoId,
-          nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.nombreEstablecimiento,
-          codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.codigoEstablecimiento,
-          descripcionAlmacen: datosFormulario.descripcionAlmacen || undefined,
-          ubicacionAlmacen: datosFormulario.ubicacionAlmacen || undefined,
-          estaActivoAlmacen: true,
-          esAlmacenPrincipal: datosFormulario.esAlmacenPrincipal,
-          configuracionInventarioAlmacen: {
-            permiteStockNegativoAlmacen: false,
-            controlEstrictoStock: false,
-            requiereAprobacionMovimientos: false
-          },
-          creadoElAlmacen: new Date(),
-          actualizadoElAlmacen: new Date(),
-          tieneMovimientosInventario: false
-        };
-
-        updatedAlmacenes = [...almacenes, nuevoAlmacen];
-        showToast('success', 'Almacén creado correctamente');
+    const payload = {
+      empresaId: state.company?.id || '',
+      codigoAlmacen: datosFormulario.codigoAlmacen,
+      nombreAlmacen: datosFormulario.nombreAlmacen,
+      establecimientoId: datosFormulario.establecimientoId,
+      nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.nombreEstablecimiento,
+      codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.codigoEstablecimiento,
+      descripcionAlmacen: datosFormulario.descripcionAlmacen || undefined,
+      ubicacionAlmacen: datosFormulario.ubicacionAlmacen || undefined,
+      esAlmacenPrincipal: datosFormulario.esAlmacenPrincipal,
+      estaActivoAlmacen: true,
+      configuracionInventarioAlmacen: {
+        permiteStockNegativoAlmacen: false,
+        controlEstrictoStock: false,
+        requiereAprobacionMovimientos: false
       }
+    };
 
-      dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
-      handleCancel();
-    } catch (error) {
-      console.error('Error al guardar el almacén:', error);
-      showToast('error', 'Error al guardar el almacén. Por favor, intenta nuevamente.');
+    if (editingAlmacenId) {
+      actualizarAlmacen(editingAlmacenId, payload).then(success => {
+        if (success) {
+          showToast('success', 'Almacén actualizado correctamente');
+          handleCancel();
+        } else {
+          showToast('error', 'Error al actualizar el almacén');
+        }
+      });
+    } else {
+      crearAlmacen(payload).then(success => {
+        if (success) {
+          showToast('success', 'Almacén creado correctamente');
+          handleCancel();
+        } else {
+          showToast('error', 'Error al crear el almacén');
+        }
+      });
     }
   };
 
@@ -307,41 +314,28 @@ export function ConfiguracionAlmacenes() {
       return;
     }
 
-    try {
-      const updatedAlmacenes = almacenes.filter(
-        almacen => almacen.id !== deleteConfirmation.almacenId
-      );
-      dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
-      showToast('success', 'Almacén eliminado correctamente');
+    eliminarAlmacen(deleteConfirmation.almacenId).then(result => {
+      if (result.success) {
+        showToast('success', result.message);
+      } else {
+        showToast('error', result.message);
+      }
       setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
-    } catch (error) {
-      console.error('Error al eliminar el almacén:', error);
-      showToast('error', 'Error al eliminar el almacén');
-    }
+    });
   };
 
   const handleToggleStatus = (id: string) => {
-    const almacen = almacenes.find(item => item.id === id);
-
-    try {
-      const updatedAlmacenes = almacenes.map(item =>
-        item.id === id
-          ? {
-            ...item,
-            estaActivoAlmacen: !item.estaActivoAlmacen,
-            actualizadoElAlmacen: new Date(),
-          }
-          : item
-      );
-      dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
-      showToast(
-        'success',
-        almacen?.estaActivoAlmacen ? 'Almacén deshabilitado' : 'Almacén habilitado'
-      );
-    } catch (error) {
-      console.error('Error al cambiar el estado del almacén:', error);
-      showToast('error', 'Error al cambiar el estado del almacén');
-    }
+    alternarEstadoAlmacen(id).then(success => {
+      if (success) {
+        const almacen = almacenes.find(item => item.id === id);
+        showToast(
+          'success',
+          almacen?.estaActivoAlmacen ? 'Almacén deshabilitado' : 'Almacén habilitado'
+        );
+      } else {
+        showToast('error', 'Error al cambiar el estado del almacén');
+      }
+    });
   };
 
   if (showForm) {
@@ -413,9 +407,10 @@ export function ConfiguracionAlmacenes() {
                   onChange={e => handleEstablecimientoChange(e.target.value)}
                   required
                   error={formErrors.establecimientoId}
-                  helperText="El almacén pertenecerá a este establecimiento"
+                  disabled={loadingEstablecimientos}
+                  helperText={loadingEstablecimientos ? "Cargando establecimientos..." : "El almacén pertenecerá a este establecimiento"}
                   options={[
-                    { value: '', label: 'Seleccionar establecimiento...' },
+                    { value: '', label: loadingEstablecimientos ? 'Cargando...' : 'Seleccionar establecimiento...' },
                     ...activeEstablecimientos.map(est => ({
                       value: est.id,
                       label: `[${est.codigoEstablecimiento}] ${est.nombreEstablecimiento}`
@@ -508,6 +503,7 @@ export function ConfiguracionAlmacenes() {
                 type="submit"
                 variant="primary"
                 icon={<CheckCircle />}
+                loading={loading}
               >
                 {editingAlmacenId ? 'Actualizar' : 'Crear'} Almacén
               </Button>
@@ -705,7 +701,19 @@ export function ConfiguracionAlmacenes() {
         </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {filteredAlmacenes.length === 0 ? (
+        {loading && almacenes.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
+            <p className="text-gray-600 dark:text-gray-400">Cargando almacenes...</p>
+          </div>
+        ) : apiError ? (
+          <div className="text-center py-12">
+            <XCircle className="h-12 w-12 text-red-300 dark:text-red-900 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Error de conexión</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">{apiError}</p>
+            <Button variant="secondary" onClick={() => window.location.reload()}>Reintentar</Button>
+          </div>
+        ) : filteredAlmacenes.length === 0 ? (
           <div className="text-center py-12">
             <IconoAlmacen className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">

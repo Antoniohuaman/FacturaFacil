@@ -20,6 +20,9 @@ export { ProtectedRoute } from './guards/ProtectedRoute';
 export { RoleGuard } from './guards/RoleGuard';
 export { RequireWorkspaceGuard } from './guards/RequireWorkspaceGuard';
 
+// Providers
+export { AuthProvider } from './providers/AuthProvider';
+
 // Pages
 export { LoginPage } from './pages/LoginPage';
 export { RegisterPage } from './pages/RegisterPage';

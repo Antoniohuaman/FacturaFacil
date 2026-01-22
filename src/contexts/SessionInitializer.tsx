@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
 import { useConfigurationContext } from '../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
+import { useAuthStore } from '../pages/Private/features/autenticacion/store/AuthStore';
 
 /**
  * Componente que sincroniza el UserSessionContext con ConfigurationContext
@@ -9,6 +10,7 @@ import { useConfigurationContext } from '../pages/Private/features/configuracion
 export function SessionInitializer({ children }: { children: React.ReactNode }) {
   const { session, setSession, setCurrentEstablecimiento, updateAvailableEstablecimientos } = useUserSession();
   const { state } = useConfigurationContext();
+  const { user } = useAuthStore();
   const initializedRef = useRef(false);
 
   // Inicializar o actualizar la sesión cuando se carguen los establecimientos
@@ -20,7 +22,7 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
     if (activeEstablecimientos.length === 0) return;
 
     // Si no hay sesión activa y no hemos inicializado, crear una sesión inicial
-    if (!session && !initializedRef.current) {
+    if (!session && !initializedRef.current && user) {
       // Buscar el establecimiento principal
       const mainEstablecimiento = activeEstablecimientos.find(est => est.isMainEstablecimiento);
       // O usar el primero disponible
@@ -28,18 +30,18 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
 
       if (defaultEstablecimiento && state.company) {
         initializedRef.current = true;
-        // Crear sesión inicial con datos mock del usuario
+        // Crear sesión inicial con datos reales del usuario desde AuthStore
         setSession({
-          userId: 'user-001',
-          userName: 'Antonio Huamán',
-          userEmail: 'antonio@sensiyo.com',
+          userId: user.id,
+          userName: `${user.nombre} ${user.apellido}`,
+          userEmail: user.email,
           currentCompanyId: state.company.id,
           currentCompany: state.company,
           currentEstablecimientoId: defaultEstablecimiento.id,
           currentEstablecimiento: defaultEstablecimiento,
           availableEstablecimientos: activeEstablecimientos,
-          permissions: ['*'], // Permisos completos por defecto
-          role: 'Administrador',
+          permissions: [], // Los permisos reales deben venir del backend según el rol
+          role: user.rol,
         });
       }
       return;
@@ -71,6 +73,7 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
     updateAvailableEstablecimientos,
     state.company,
     state.Establecimientos,
+    user,
   ]);
 
   return <>{children}</>;

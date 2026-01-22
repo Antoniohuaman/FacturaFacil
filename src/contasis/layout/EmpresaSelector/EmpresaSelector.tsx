@@ -48,8 +48,8 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
 
   // Filtrar empresas por búsqueda
   const filteredEmpresas = empresas.filter(empresa =>
-    empresa.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    empresa.ruc?.includes(searchQuery)
+    empresa?.nombre?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    empresa?.ruc?.includes(searchQuery)
   );
 
   return (
@@ -64,7 +64,7 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
         {/* Logo */}
         <div 
           className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm"
-          style={{ background: actual.empresa.gradient || 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' }}
+          style={{ background: actual?.empresa?.gradient || 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' }}
         >
           <svg width="16" height="16" fill="white" viewBox="0 0 24 24" strokeWidth="0">
             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
@@ -78,10 +78,10 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
         {/* Textos */}
         <div className="flex flex-col items-start justify-center min-w-0 pr-1 gap-0.5">
           <div className="text-[13px] font-semibold text-primary leading-tight w-full text-left truncate">
-            {actual.empresa ? actual.empresa.nombre : ''}
+            {actual?.empresa?.nombre || ''}
           </div>
           <div className="text-[10px] text-secondary leading-tight w-full text-left truncate">
-            {actual.sede ? actual.sede.nombre : ''}
+            {actual?.sede?.nombre || ''}
           </div>
         </div>
 
@@ -146,7 +146,7 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
                 <div className="flex items-center gap-2.5 mb-2">
                   <div 
                     className="w-8 h-8 rounded-md flex items-center justify-center"
-                    style={{ background: actual.empresa.gradient || 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' }}
+                    style={{ background: actual.empresa?.gradient || 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' }}
                   >
                     <svg width="16" height="16" fill="white" viewBox="0 0 24 24" strokeWidth="0">
                       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
@@ -155,9 +155,9 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-primary mb-0.5">
-                      {actual.empresa.nombre}
+                      {actual?.empresa?.nombre || ''}
                     </div>
-                    {actual.empresa.ruc && (
+                    {actual?.empresa?.ruc && (
                       <div className="text-[11px] text-secondary">
                         RUC: {actual.empresa.ruc}
                       </div>
@@ -169,9 +169,9 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
                     <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                     </svg>
-                    {actual.sede.nombre}
+                    {actual?.sede?.nombre || ''}
                   </div>
-                  {actual.sede.direccion && (
+                  {actual?.sede?.direccion && (
                     <div className="text-[11px] text-secondary pl-4">
                       {actual.sede.direccion}
                     </div>
@@ -191,7 +191,7 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
                 
                 <div className="px-4">
                   {filteredEmpresas
-                    .filter(empresa => empresa.id !== actual.empresa.id)
+                    .filter(empresa => empresa?.id !== actual?.empresa?.id)
                     .map((empresa) => {
                       const empresaSedes = sedes.filter(s => s.empresaId === empresa.id);
                       const isExpanded = expandedEmpresa === empresa.id;
