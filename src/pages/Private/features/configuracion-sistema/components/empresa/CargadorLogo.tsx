@@ -2,7 +2,7 @@
 // src/features/configuration/components/empresa/LogoUploader.tsx
 import { useState, useRef } from 'react';
 import { Upload, X, Image, Eye, EyeOff, Download, RotateCcw } from 'lucide-react';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { InterruptorConfiguracion as SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
 interface LogoData {
   url: string;

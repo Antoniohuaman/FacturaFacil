@@ -78,10 +78,10 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
         {/* Textos */}
         <div className="flex flex-col items-start justify-center min-w-0 pr-1 gap-0.5">
           <div className="text-[13px] font-semibold text-primary leading-tight w-full text-left truncate">
-            {actual.empresa.nombre}
+            {actual.empresa ? actual.empresa.nombre : ''}
           </div>
           <div className="text-[10px] text-secondary leading-tight w-full text-left truncate">
-            {actual.sede.nombre}
+            {actual.sede ? actual.sede.nombre : ''}
           </div>
         </div>
 

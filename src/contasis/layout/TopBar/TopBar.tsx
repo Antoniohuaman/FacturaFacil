@@ -29,7 +29,7 @@ export interface TopBarProps {
   onVerMovimientosCaja?: () => void;
   onCerrarCaja?: () => void;
   searchDatasets?: SearchDataset[];
-  onSearchSelect?: (type: string, item: any) => void;
+  onSearchSelect?: (type: string, item: unknown) => void;
 }
 
 export const TopBar = ({ 

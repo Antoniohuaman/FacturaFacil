@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Tag, Package, AlertTriangle, Pencil, Trash2, Plus } from 'lucide-react';
-import { Button, Input, Textarea } from '@/contasis';
+import { Button, Input } from '@/contasis';
 
 export interface Category {
   id: string;
@@ -134,7 +134,7 @@ export function CategoriesSection({ categories, onUpdate }: CategoriesSectionPro
                   Descripción
                 </label>
                 <textarea
-                  value={formData.descripcion}
+                  value={datosFormulario.descripcion}
                   onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
                   rows={3}
                   placeholder="Descripción opcional"

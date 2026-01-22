@@ -8,7 +8,7 @@ export interface SearchResultsDropdownProps {
   searchQuery: string;
   hasResults: boolean;
   shouldSearch: boolean;
-  onSelectResult: (type: string, item: any) => void;
+  onSelectResult: (type: string, item: unknown) => void;
   onSeeAll?: (sectionKey: string) => void;
   renderHighlight?: (value?: string, query?: string) => React.ReactNode;
   className?: string;

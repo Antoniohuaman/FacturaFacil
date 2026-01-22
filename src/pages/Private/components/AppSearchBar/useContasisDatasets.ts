@@ -120,17 +120,26 @@ export const useContasisDatasets = () => {
     return [productosDataset, clientesDataset];
   }, [productos, clientes, hasRealData]);
 
-  const handleSearchSelect = (type: string, item: any) => {
+  const handleSearchSelect = (type: string, item: unknown) => {
+    const itemData = item as Record<string, unknown>;
     switch (type) {
-      case 'productos':
-        navigate(`/catalogo?search=${encodeURIComponent(item.codigo || item.nombre)}`);
+      case 'productos': {
+        const searchParams = new URLSearchParams({
+          search: encodeURIComponent((itemData.codigo as string) || (itemData.nombre as string) || '')
+        });
+        navigate(`/catalogo?${searchParams.toString()}`);
         break;
-      case 'clientes':
-        const searchParam = item.document || item.numeroDocumento || item.name;
-        navigate(`/clientes?search=${encodeURIComponent(searchParam)}`);
+      }
+      case 'clientes': {
+        const searchParam = (itemData.document as string) || (itemData.numeroDocumento as string) || (itemData.name as string);
+        const searchParams = new URLSearchParams({
+          search: encodeURIComponent(searchParam || '')
+        });
+        navigate(`/clientes?${searchParams.toString()}`);
         break;
+      }
       default:
-        console.log('Tipo de resultado no manejado:', type, item);
+        console.log('Tipo de resultado no manejado:', type, itemData);
     }
   };
 

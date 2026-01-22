@@ -3,10 +3,10 @@
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { X, FileText, Receipt, Clipboard, MessageSquare, Hash, CheckCircle, Info, NotebookPen } from 'lucide-react';
-import { Input, Button, RadioButton, Select, Switch } from '@/contasis';
+import { Input, Button, RadioButton, Select } from '@/contasis';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { InterruptorConfiguracion as SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -432,11 +432,11 @@ export function SeriesForm({
           <div className="space-y-4">
             <div className="border border-gray-200 rounded-lg p-4">
               <SettingsToggle
-                enabled={formData.isDefault}
+                enabled={datosFormulario.isDefault}
                 onToggle={(enabled: boolean) => handleFieldChange('isDefault', enabled)}
                 label="Serie por Defecto"
-                description={`Se selecciona automáticamente para ${voucherTypeConfig[formData.type].label} en este establecimiento`}
-                disabled={isLoading || (!formData.EstablecimientoId)}
+                description={`Se selecciona automáticamente para ${voucherTypeConfig[datosFormulario.type].label} en este establecimiento`}
+                disabled={isLoading || (!datosFormulario.EstablecimientoId)}
               />
 
               {hasDefaultInEstablecimiento() && datosFormulario.isDefault && (
@@ -453,7 +453,7 @@ export function SeriesForm({
 
             <div className="border border-gray-200 rounded-lg p-4">
               <SettingsToggle
-                enabled={formData.isActive}
+                enabled={datosFormulario.isActive}
                 onToggle={(enabled: boolean) => handleFieldChange('isActive', enabled)}
                 label="Serie Activa"
                 description="Solo las series activas pueden usarse para emitir documentos"

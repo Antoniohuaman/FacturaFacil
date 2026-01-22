@@ -29,5 +29,5 @@ export interface CommandPaletteProps {
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
   onExecuteCommand?: (commandId: string) => void;
-  searchResults?: Array<{ type: string; item: any }>;
+  searchResults?: Array<{ type: string; item: unknown }>;
 }

@@ -66,7 +66,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   };
 
-  const handleSelectResult = (type: string, item: any) => {
+  const handleSelectResult = (type: string, item: unknown) => {
     onSelect?.(type, item);
     setShowResults(false);
   };

@@ -32,8 +32,8 @@ export default function ConfigurationTopBar({
 
   const sedes = [{
     id: session?.currentEstablecimientoId || '1',
-    nombre: session?.currentEstablecimiento?.name || 'Sede Principal',
-    direccion: session?.currentEstablecimiento?.address || '',
+    nombre: session?.currentEstablecimiento?.nombreEstablecimiento || 'Sede Principal',
+    direccion: session?.currentEstablecimiento?.direccionEstablecimiento || '',
     empresaId: session?.currentCompanyId || '1'
   }];
 

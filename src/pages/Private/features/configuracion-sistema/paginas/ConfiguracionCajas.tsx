@@ -3,14 +3,14 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, AlertCircle, Banknote, ArrowLeft } from 'lucide-react';
 import { PageHeader } from '../../../../../components/PageHeader';
-import { CajaCard } from '../components/cajas/TarjetaCaja';
-import { DeleteCajaModal } from '../components/cajas/ModalEliminarCaja';
+import { TarjetaCaja } from '../components/cajas/TarjetaCaja';
+import { ModalEliminarCaja } from '../components/cajas/ModalEliminarCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
-import { Button, Select, Input, PageHeader } from '@/contasis';
+import { Button, Select, Input } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
 
 type filtroEstado = 'all' | 'enabled' | 'disabled';
@@ -180,7 +180,7 @@ export function CajasConfiguration() {
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 {filterEstablecimientoId === 'all'
                   ? 'Mostrando cajas de todos los establecimientos'
-                  : `Establecimiento: ${establecimientoActual?.name || 'N/A'}`}
+                  : `Establecimiento: ${state.Establecimientos.find((e) => e.id === establecimientoId)?.nombreEstablecimiento || 'N/A'}`}
               </p>
             </div>
             <Button
@@ -345,7 +345,6 @@ export function CajasConfiguration() {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
-    </>
   );
 }
 

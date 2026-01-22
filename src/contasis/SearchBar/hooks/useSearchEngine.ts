@@ -5,34 +5,35 @@ import { computeTextScore, computeNumericScore } from '../utils/highlighting';
 
 const SECTION_LIMIT = 5;
 
-const mapDatasetItemToCandidate = <T,>(item: any): SearchCandidate<T> => {
-  const metaText = item.meta ? Object.entries(item.meta)
+const mapDatasetItemToCandidate = <T,>(item: unknown): SearchCandidate<T> => {
+  const itemData = item as Record<string, unknown>;
+  const metaText = itemData.meta ? Object.entries(itemData.meta as Record<string, unknown>)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => `${key}: ${value}`)
     .join(' • ') : undefined;
 
   const searchFields = [
-    { value: item.label, weight: 160, isKey: true },
-    item.secondary ? { value: item.secondary, weight: 130 } : null,
-    item.description ? { value: item.description, weight: 110 } : null,
-    item.haystack ? { value: item.haystack, weight: 80 } : null,
-    ...(item.keywords ?? []),
-  ].filter((field): field is any => Boolean(field && field.value));
+    { value: itemData.label as string, weight: 160, isKey: true },
+    itemData.secondary ? { value: itemData.secondary as string, weight: 130 } : null,
+    itemData.description ? { value: itemData.description as string, weight: 110 } : null,
+    itemData.haystack ? { value: itemData.haystack as string, weight: 80 } : null,
+    ...((itemData.keywords as Array<{value: string; weight: number}>) ?? []),
+  ].filter((field): field is { value: string; weight: number; isKey?: boolean } => Boolean(field && field.value));
 
   const numericFields = [
-    ...(typeof item.amountValue === 'number' ? [{ value: item.amountValue, weight: 100 }] : []),
-    ...(item.numericValues ?? []),
+    ...(typeof itemData.amountValue === 'number' ? [{ value: itemData.amountValue, weight: 100 }] : []),
+    ...((itemData.numericValues as Array<{value: number; weight: number}>) ?? []),
   ];
 
   return {
-    id: item.id,
-    entity: item.entity,
-    title: item.label,
-    subtitle: item.secondary,
+    id: itemData.id as string,
+    entity: itemData.entity as T,
+    title: itemData.label as string,
+    subtitle: itemData.secondary as string | undefined,
     meta: metaText,
-    amountLabel: item.amountLabel,
-    amountValue: item.amountValue,
-    amountCurrency: item.amountCurrency,
+    amountLabel: itemData.amountLabel as string | undefined,
+    amountValue: itemData.amountValue as number | undefined,
+    amountCurrency: itemData.amountCurrency as string | undefined,
     searchFields,
     numericFields: numericFields.length ? numericFields : undefined,
   };
@@ -40,7 +41,7 @@ const mapDatasetItemToCandidate = <T,>(item: any): SearchCandidate<T> => {
 
 const buildSearchSection = <T,>(
   type: string,
-  items: any[],
+  items: unknown[],
   tokens: string[],
   numericQuery: string
 ) => {

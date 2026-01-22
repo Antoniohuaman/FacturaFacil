@@ -9,7 +9,7 @@ export interface NumericFieldDescriptor {
   weight: number;
 }
 
-export interface SearchDisplayItem<T = any> {
+export interface SearchDisplayItem<T = unknown> {
   type: string;
   id: string;
   entity: T;
@@ -22,23 +22,23 @@ export interface SearchDisplayItem<T = any> {
   score: number;
 }
 
-export interface SearchCandidate<T = any> extends Omit<SearchDisplayItem<T>, 'type' | 'score'> {
+export interface SearchCandidate<T = unknown> extends Omit<SearchDisplayItem<T>, 'type' | 'score'> {
   searchFields: SearchFieldDescriptor[];
   numericFields?: NumericFieldDescriptor[];
 }
 
-export interface SectionResults<T = any> {
+export interface SectionResults<T = unknown> {
   items: Array<SearchDisplayItem<T>>;
   total: number;
   hasMore: boolean;
 }
 
-export interface SearchSection<T = any> extends SectionResults<T> {
+export interface SearchSection<T = unknown> extends SectionResults<T> {
   title: string;
   routeBase: string | null;
 }
 
-export interface SearchDatasetItem<T = any> {
+export interface SearchDatasetItem<T = unknown> {
   id: string;
   label: string;
   secondary?: string;
@@ -54,7 +54,7 @@ export interface SearchDatasetItem<T = any> {
   numericValues?: NumericFieldDescriptor[];
 }
 
-export interface SearchDataset<T = any> {
+export interface SearchDataset<T = unknown> {
   key: string;
   title: string;
   routeBase: string | null;
@@ -65,7 +65,7 @@ export interface SearchBarProps {
   placeholder?: string;
   value?: string;
   onChange?: (value: string) => void;
-  onSelect?: (type: string, item: any) => void;
+  onSelect?: (type: string, item: unknown) => void;
   datasets?: SearchDataset[];
   maxResults?: number;
   className?: string;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Package } from 'lucide-react';
-import { ConfigurationCard } from '../comunes/TarjetaConfiguracion';
-import { SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { TarjetaConfiguracion } from '../comunes/TarjetaConfiguracion';
+import { InterruptorConfiguracion as SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
 export type SalesPreferences = {
   allowNegativeStock: boolean;

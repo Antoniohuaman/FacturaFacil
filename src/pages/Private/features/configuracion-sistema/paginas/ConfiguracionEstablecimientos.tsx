@@ -98,9 +98,9 @@ export function EstablecimientosConfiguration() {
 
   // Filter Establecimientos
   const filteredEstablecimientos = Establecimientos.filter(est => {
-    const matchesSearch = est.nombreEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      est.codigoEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      est.direccionEstablecimiento.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (est.nombreEstablecimiento || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (est.codigoEstablecimiento || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (est.direccionEstablecimiento || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = filtroEstado === 'all' ||
       (filtroEstado === 'active' && est.estaActivoEstablecimiento) ||
