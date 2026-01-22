@@ -1343,10 +1343,13 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               />
 
               <div className="pt-2.5 mt-2.5 border-t-2 border-dashed border-gray-300">
-                <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg p-3 shadow-md">
-                  <div className="flex justify-between items-center">
-                    <span className="text-violet-100 font-semibold text-sm">TOTAL</span>
-                    <span className="text-white font-bold text-xl">{formatPrice(totals.total ?? 0, totalsCurrencyCode)}</span>
+                <div className="rounded-md border border-gray-200 bg-white px-3 py-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2 w-2 rounded-full bg-violet-600" />
+                      <span className="text-xs font-semibold tracking-[0.16em] text-violet-700 uppercase">TOTAL</span>
+                    </div>
+                    <span className="text-2xl font-semibold text-gray-900">{formatPrice(totals.total ?? 0, totalsCurrencyCode)}</span>
                   </div>
                 </div>
               </div>
