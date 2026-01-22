@@ -381,6 +381,16 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentsError, setAttachmentsError] = useState<string | null>(null);
 
+  const paymentMethodUsage = useMemo(() => {
+    const usage = new Map<string, number>();
+    paymentLines.forEach((line) => {
+      if (typeof line.method === 'string' && line.method.length > 0) {
+        usage.set(line.method, (usage.get(line.method) ?? 0) + 1);
+      }
+    });
+    return usage;
+  }, [paymentLines]);
+
   const documentCurrencyCode = useMemo<Currency>(() => {
     const raw = (typeof moneda === 'string' ? moneda : moneda?.code) ?? 'PEN';
     return raw.toUpperCase() as Currency;
@@ -804,21 +814,24 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     }
 
     setPaymentLines((prev) =>
-      prev.map((line) => {
+      prev.map((line, index) => {
         const option = line.method ? paymentMeansOptionsMap.get(line.method) : null;
-        if (!line.method && defaultPaymentMeanOption) {
+
+        if (index === 0 && !line.method && defaultPaymentMeanOption) {
           return {
             ...line,
             method: defaultPaymentMeanOption.code,
             methodLabel: defaultPaymentMeanOption.label,
           };
         }
+
         if (option && option.label !== line.methodLabel) {
           return {
             ...line,
             methodLabel: option.label,
           };
         }
+
         return line;
       }),
     );
@@ -843,17 +856,16 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   }, [allowAllocations, allocationDrafts.length, isOpen]);
 
   const handleAddLine = useCallback(() => {
-    const defaultOption = resolveInitialMethod();
     setPaymentLines((prev) => [
       ...prev,
       {
         id: `line-${Date.now()}`,
-        method: defaultOption?.code ?? '',
-        methodLabel: defaultOption?.label ?? '',
+        method: '',
+        methodLabel: '',
         amount: UNSET_PAYMENT_AMOUNT,
       },
     ]);
-  }, [resolveInitialMethod]);
+  }, []);
 
   const handleRemoveLine = useCallback((id: string) => {
     setPaymentLines((prev) => (prev.length === 1 ? prev : prev.filter((line) => line.id !== id)));
@@ -1192,11 +1204,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                       {!hasPaymentMeans ? (
                                         <option value="">Sin opciones disponibles</option>
                                       ) : (
-                                        paymentMeansOptions.map((option) => (
-                                          <option key={option.code} value={option.code}>
-                                            {option.label}
-                                          </option>
-                                        ))
+                                        <>
+                                          <option value="">Selecciona un medio</option>
+                                          {paymentMeansOptions.map((option) => {
+                                            const optionUsage = paymentMethodUsage.get(option.code) ?? 0;
+                                            const optionDisabled = option.code !== line.method && optionUsage > 0;
+                                            return (
+                                              <option key={option.code} value={option.code} disabled={optionDisabled}>
+                                                {option.label}
+                                              </option>
+                                            );
+                                          })}
+                                        </>
                                       )}
                                     </select>
                                   </div>
