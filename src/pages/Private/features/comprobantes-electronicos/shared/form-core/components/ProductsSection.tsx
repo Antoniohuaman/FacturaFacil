@@ -107,7 +107,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'unidad', label: 'Unidad', isFixed: true, isVisible: true, align: 'center', minWidth: '140px', order: 4 },
 
   // Columnas opcionales (configurables)
-  { id: 'imagen', label: 'Imagen', isFixed: false, isVisible: false, align: 'center', width: '80px', order: 10 },
+    { id: 'imagen', label: 'Imagen', isFixed: false, isVisible: true, align: 'center', width: '80px', order: 10 },
   { id: 'alias', label: 'Alias', isFixed: false, isVisible: false, align: 'left', minWidth: '140px', order: 11 },
   { id: 'descripcion', label: 'Descripción', isFixed: false, isVisible: false, align: 'left', minWidth: '200px', order: 12 },
   { id: 'categoria', label: 'Categoría', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 13 },
@@ -118,7 +118,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'codigoBarras', label: 'Cód. Barras', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 18 },
   { id: 'codigoFabrica', label: 'Cód. Fábrica', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 19 },
   { id: 'codigoSunat', label: 'Cód. SUNAT', isFixed: false, isVisible: false, align: 'left', width: '130px', order: 20 },
-  { id: 'stock', label: 'Stock', isFixed: false, isVisible: false, align: 'center', width: '90px', order: 21 },
+    { id: 'stock', label: 'Stock', isFixed: false, isVisible: true, align: 'center', width: '90px', order: 21 },
   { id: 'precioCompra', label: 'P. Compra', isFixed: false, isVisible: false, align: 'right', width: '110px', order: 22 },
   { id: 'descuento', label: 'Descuento %', isFixed: false, isVisible: false, align: 'right', width: '120px', order: 23 },
   { id: 'peso', label: 'Peso (kg)', isFixed: false, isVisible: false, align: 'right', width: '100px', order: 24 },
