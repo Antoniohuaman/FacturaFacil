@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { PageHeader } from '../../../../../components/PageHeader';
-import { Button } from '@/contasis';
+import { PageHeader, Button } from '@/contasis';
 import { FormularioCaja } from '../components/cajas/FormularioCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -71,6 +70,15 @@ export function CajaFormPage() {
       <div className="flex flex-col h-full">
         <PageHeader 
           title="Cargando..."
+          breadcrumb={
+            <button
+              onClick={handleCancel}
+              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver a Cajas
+            </button>
+          }
           actions={
             <Button
               variant="secondary"
@@ -97,6 +105,15 @@ export function CajaFormPage() {
     <div className="flex flex-col h-full">
       <PageHeader 
         title={isEditing ? 'Editar Caja' : 'Nueva Caja'}
+        breadcrumb={
+          <button
+            onClick={() => navigate('/configuracion/cajas')}
+            className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver a Cajas
+          </button>
+        }
         actions={
           <Button
             variant="secondary"

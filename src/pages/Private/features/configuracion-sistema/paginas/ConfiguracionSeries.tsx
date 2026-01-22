@@ -24,7 +24,7 @@ import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import type { Series, DocumentType } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
-import { Button, Select, Input, Checkbox, RadioButton, PageHeader } from '@/contasis';
+import { Button, Select, Input, Checkbox, RadioButton, PageHeader, Switch } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -720,23 +720,16 @@ export function SeriesConfiguration() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Estado</label>
+                  <label className="text-sm font-medium text-gray-700">Estado de la Serie</label>
                   <p className="text-sm text-gray-500">
                     Solo las series activas pueden usarse para emitir documentos
                   </p>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Button
-                    variant="tertiary"
-                    iconOnly
-                    icon={datosFormulario.isActive ? <ToggleRight /> : <ToggleLeft />}
-                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                    className={datosFormulario.isActive ? 'text-green-600' : 'text-gray-400'}
-                  />
-                  <span className={`font-medium ${datosFormulario.isActive ? 'text-green-600' : 'text-gray-500'}`}>
-                    {datosFormulario.isActive ? 'Activa' : 'Inactiva'}
-                  </span>
-                </div>
+                <Switch
+                  checked={datosFormulario.isActive}
+                  onChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
+                  label={datosFormulario.isActive ? 'Activa' : 'Inactiva'}
+                />
               </div>
             </div>
 

@@ -14,6 +14,7 @@ import { CobranzaModal } from '../../comprobantes-electronicos/shared/modales/Co
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { useCurrency } from '../../comprobantes-electronicos/shared/form-core/hooks/useCurrency';
+import { PageHeader } from '@/contasis';
 import { CobranzasTabs } from '../components/CobranzasTabs';
 import { CobranzasFiltersBar } from '../components/CobranzasFiltersBar';
 import { ResumenCards } from '../components/ResumenCards';
@@ -347,16 +348,12 @@ export const CobranzasDashboard = () => {
   }, [activeTab, autoExportRequest, finishAutoExport, filters.rangoFechas.from, filters.rangoFechas.to, handleDateChange, setActiveTab]);
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-3 text-slate-900 dark:text-white">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-300">
-            <Coins className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold">Gestión de Cobranzas</h1>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
+    <div className="flex flex-col h-full">
+      <PageHeader
+        title="Gestión de Cobranzas"
+      />
+      <div className="flex-1 overflow-auto">
+        <div className="p-6 space-y-6 max-w-7xl mx-auto">
             <button
               type="button"
               onClick={() => setFiltersVisible((prev) => !prev)}
@@ -390,11 +387,8 @@ export const CobranzasDashboard = () => {
               <NotebookPen className="w-4 h-4" />
               Registrar Cobranza
             </button>
-          </div>
-        </div>
-      </header>
 
-      <CobranzasTabs activeTab={activeTab} onChange={setActiveTab} />
+        <CobranzasTabs activeTab={activeTab} onChange={setActiveTab} />
       {filtersVisible && (
         <div id="cobranzas-filters">
           <CobranzasFiltersBar
@@ -489,6 +483,8 @@ export const CobranzasDashboard = () => {
       />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+        </div>
+      </div>
     </div>
   );
 };
