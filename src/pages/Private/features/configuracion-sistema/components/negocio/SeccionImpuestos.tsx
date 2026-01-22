@@ -2,8 +2,8 @@
 import { useMemo, useState } from 'react';
 import { Receipt, Calculator, AlertCircle, Info, Settings } from 'lucide-react';
 import { RadioButton } from '@/contasis';
-import { InterruptorConfiguracion } from '../comunes/InterruptorConfiguracion';
-import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
+import { InterruptorConfiguracion as SettingsToggle } from '../comunes/InterruptorConfiguracion';
+import { SelectorPredeterminado as DefaultSelector } from '../comunes/SelectorPredeterminado';
 import { TarjetaConfiguracion } from '../comunes/TarjetaConfiguracion';
 import type { Tax } from '../../modelos/Tax';
 import { normalizeTaxes } from '../../modelos/Tax';
@@ -271,15 +271,16 @@ export function TaxesSection({
                         {rateLabel}
                       </td>
                       <td className="px-4 py-2 align-middle text-center">
-                        <InterruptorConfiguracion
+                        <SettingsToggle
                           enabled={tax.isActive}
                           onToggle={handleToggleActive}
                           label=""
                           disabled={isUpdating}
+                          size="sm"
                         />
                       </td>
                       <td className="px-4 py-2 align-middle text-center">
-                        <SelectorPredeterminado
+                        <DefaultSelector
                           isDefault={tax.isDefault}
                           onSetDefault={handleSetDefault}
                           disabled={isUpdating}

@@ -1,6 +1,7 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Header from "./components/Header";
+import ConfigurationTopBar from "./components/ConfigurationTopBar";
 import SideNav from "./components/SideNav";
 import { ConfigurationProvider } from "../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
 import { ComprobanteProvider } from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
@@ -27,6 +28,9 @@ export default function AppShell() {
     | null;
   const configurationTenantId = workspaceNavigationState?.workspaceId ?? tenantId;
 
+  // Detectar si estamos en rutas de configuración
+  const isInConfiguration = location.pathname === '/configuracion' || location.pathname.startsWith('/configuracion/');
+
   useEffect(() => {
     if (workspaces.length === 0 && location.pathname !== "/configuracion/empresa") {
       navigate("/configuracion/empresa", {
@@ -50,10 +54,16 @@ export default function AppShell() {
                       <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden print:block print:h-auto print:min-h-0 print:bg-white print:overflow-visible">
                         {/* Header fijo */}
                         <div className="flex-shrink-0 z-50 print:hidden">
-                          <Header
-                            sidebarCollapsed={sidebarCollapsed}
-                            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-                          />
+                          {isInConfiguration ? (
+                            <ConfigurationTopBar
+                              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                            />
+                          ) : (
+                            <Header
+                              sidebarCollapsed={sidebarCollapsed}
+                              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                            />
+                          )}
                         </div>
                         <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
                           {/* Sidebar fijo */}

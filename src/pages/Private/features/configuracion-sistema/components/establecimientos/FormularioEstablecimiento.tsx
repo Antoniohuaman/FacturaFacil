@@ -297,7 +297,7 @@ export function EstablecimientoForm({
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center gap-3 rounded-b-lg mb-4">
             <Button
               variant="secondary"
               onClick={onCancel}

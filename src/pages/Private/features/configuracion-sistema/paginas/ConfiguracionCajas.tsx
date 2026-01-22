@@ -23,7 +23,6 @@ export function CajasConfiguration() {
 
   const empresaId = session?.currentCompanyId || '';
   const establecimientoId = session?.currentEstablecimientoId || '';
-  const establecimientoActual = session?.currentEstablecimiento;
 
   const {
     cajas,
@@ -127,7 +126,15 @@ export function CajasConfiguration() {
       <div className="flex-1 bg-gray-50 dark:bg-gray-900">
         <PageHeader
           title="Cajas"
-          icon={<Banknote className="w-6 h-6 text-white" />}
+          actions={
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={() => navigate('/configuracion')}
+            >
+              Volver
+            </Button>
+          }
         />
         <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 flex items-start gap-4">
@@ -173,7 +180,7 @@ export function CajasConfiguration() {
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 {filterEstablecimientoId === 'all'
                   ? 'Mostrando cajas de todos los establecimientos'
-                  : `Establecimiento: ${establecimientoActual?.nombreEstablecimiento || 'N/A'}`}
+                  : `Establecimiento: ${state.Establecimientos.find((e) => e.id === establecimientoId)?.nombreEstablecimiento || 'N/A'}`}
               </p>
             </div>
             <Button

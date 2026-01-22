@@ -19,6 +19,9 @@ export type { CheckboxProps } from './components/Checkbox';
 export { RadioButton } from './components/RadioButton';
 export type { RadioButtonProps } from './components/RadioButton';
 
+export { Switch } from './components/Switch';
+export type { SwitchProps } from './components/Switch';
+
 export { Textarea } from './components/Textarea';
 export type { TextareaProps } from './components/Textarea';
 
@@ -31,3 +34,10 @@ export type { PageHeaderProps } from './layout/PageHeader';
 
 export { Toolbar } from './layout/Toolbar';
 export type { ToolbarProps } from './layout/Toolbar';
+
+export { TopBar } from './layout/TopBar';
+export type { TopBarProps } from './layout/TopBar';
+
+// SearchBar
+export { SearchBar } from './SearchBar';
+export type { SearchBarProps, SearchDataset, SearchDisplayItem, SearchSection } from './SearchBar';
