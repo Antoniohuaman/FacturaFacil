@@ -1,0 +1,136 @@
+[
+  {
+    "id": "est-main",
+    "codigoEstablecimiento": "0001",
+    "nombreEstablecimiento": "Establecimiento",
+    "direccionEstablecimiento": "AV. PRINCIPAL 789, MIRAFLORES, LIMA, LIMA",
+    "distritoEstablecimiento": "Pachacámac",
+    "provinciaEstablecimiento": "Lima",
+    "departamentoEstablecimiento": "Lima",
+    "codigoPostalEstablecimiento": "150122",
+    "isMainEstablecimiento": true,
+    "businessHours": {
+      "monday": {
+        "isOpen": true,
+        "openTime": "09:00",
+        "closeTime": "18:00",
+        "is24Hours": false
+      },
+      "tuesday": {
+        "isOpen": true,
+        "openTime": "09:00",
+        "closeTime": "18:00",
+        "is24Hours": false
+      },
+      "wednesday": {
+        "isOpen": true,
+        "openTime": "09:00",
+        "closeTime": "18:00",
+        "is24Hours": false
+      },
+      "thursday": {
+        "isOpen": true,
+        "openTime": "09:00",
+        "closeTime": "18:00",
+        "is24Hours": false
+      },
+      "friday": {
+        "isOpen": true,
+        "openTime": "09:00",
+        "closeTime": "18:00",
+        "is24Hours": false
+      },
+      "saturday": {
+        "isOpen": true,
+        "openTime": "09:00",
+        "closeTime": "13:00",
+        "is24Hours": false
+      },
+      "sunday": {
+        "isOpen": false,
+        "openTime": "00:00",
+        "closeTime": "00:00",
+        "is24Hours": false
+      }
+    },
+    "sunatConfiguration": {
+      "isRegistered": true,
+      "registrationDate": "2026-01-22T14:13:22.304Z",
+      "annexCode": "0000",
+      "economicActivity": "Comercio"
+    },
+    "posConfiguration": {
+      "hasPos": true,
+      "terminalCount": 1,
+      "printerConfiguration": {
+        "hasPrinter": false,
+        "printerType": "THERMAL",
+        "paperSize": "TICKET_80MM",
+        "isNetworkPrinter": false
+      },
+      "cashDrawerConfiguration": {
+        "hasCashDrawer": false,
+        "openMethod": "MANUAL",
+        "currency": "PEN"
+      },
+      "barcodeScanner": {
+        "hasScanner": false,
+        "scannerType": "USB"
+      }
+    },
+    "inventoryConfiguration": {
+      "managesInventory": true,
+      "isalmacen": false,
+      "allowNegativeStock": false,
+      "autoTransferStock": false
+    },
+    "financialConfiguration": {
+      "handlesCash": true,
+      "defaultCurrencyId": "PEN",
+      "acceptedCurrencies": [
+        "PEN",
+        "USD"
+      ],
+      "defaultTaxId": "IGV",
+      "bankAccounts": []
+    },
+    "estadoEstablecimiento": "ACTIVE",
+    "creadoElEstablecimiento": "2026-01-22T14:13:22.304Z",
+    "actualizadoElEstablecimiento": "2026-01-22T14:13:22.304Z",
+    "estaActivoEstablecimiento": true
+  },
+  {
+    "id": "1769091311152-unbgc3hy0",
+    "codigoEstablecimiento": "0002",
+    "nombreEstablecimiento": "miestallaylla",
+    "direccionEstablecimiento": "Lima",
+    "distritoEstablecimiento": "Huaraz",
+    "provinciaEstablecimiento": "Huaraz",
+    "departamentoEstablecimiento": "Áncash",
+    "codigoPostalEstablecimiento": "15046",
+    "phone": "",
+    "email": "sdsdds@gmail.com",
+    "businessHours": {},
+    "sunatConfiguration": {
+      "isRegistered": false
+    },
+    "inventoryConfiguration": {
+      "managesInventory": false,
+      "isalmacen": false,
+      "allowNegativeStock": false,
+      "autoTransferStock": false
+    },
+    "financialConfiguration": {
+      "handlesCash": true,
+      "defaultCurrencyId": "",
+      "acceptedCurrencies": [],
+      "defaultTaxId": "",
+      "bankAccounts": []
+    },
+    "estadoEstablecimiento": "ACTIVE",
+    "estaActivoEstablecimiento": true,
+    "isMainEstablecimiento": false,
+    "creadoElEstablecimiento": "2026-01-22T14:15:11.152Z",
+    "actualizadoElEstablecimiento": "2026-01-22T14:20:09.440Z"
+  }
+]
