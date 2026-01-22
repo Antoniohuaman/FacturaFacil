@@ -38,7 +38,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
           <Layers className="w-3.5 h-3.5 text-violet-600" />
-          <span>Presentaciones comerciales (opcional)</span>
+          <span>Presentaciones comerciales</span>
         </div>
         <button
           type="button"
