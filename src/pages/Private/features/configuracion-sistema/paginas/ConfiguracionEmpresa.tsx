@@ -166,7 +166,24 @@ export function CompanyConfiguration() {
   const { session } = useUserSession();
   const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
-  const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
+
+  const empresaCompleta = useTenantStore((store) => store.empresaCompleta);
+  const empresaActiva = useTenantStore((store) => store.empresaActiva);
+  const isLoadingEmpresa = useTenantStore((store) => store.isLoading);
+  const setEmpresaCompleta = useTenantStore((store) => store.setEmpresaCompleta);
+  const setLoading = useTenantStore((store) => store.setLoading);
+  const user = useAuthStore((store) => store.user);
+
+  const isCreateWorkspaceMode = useMemo(() => {
+    if (empresaCompleta?.empresaId || empresaActiva?.empresaId) {
+      console.log('[ConfiguracionEmpresa] Hay empresa cargada → Modo EDICIÓN');
+      return false;
+    }
+    const modoCreacion = workspaceState?.workspaceMode === 'create_workspace';
+    console.log('[ConfiguracionEmpresa] No hay empresa → Modo:', modoCreacion ? 'CREACIÓN' : 'EDICIÓN');
+    return modoCreacion;
+  }, [empresaCompleta?.empresaId, empresaActiva?.empresaId, workspaceState?.workspaceMode]);
+
   const initialWorkspaceId = useMemo(() => {
     if (workspaceState?.workspaceId) {
       return workspaceState.workspaceId;
@@ -177,21 +194,65 @@ export function CompanyConfiguration() {
     return activeWorkspace?.id;
   }, [activeWorkspace?.id, isCreateWorkspaceMode, workspaceState?.workspaceId]);
   const ensuredWorkspaceIdRef = useRef<string | undefined>(initialWorkspaceId);
+  const empresaCargadaRef = useRef(false);
+  const formularioLlenadoRef = useRef(false);
   const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
   const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
 
-  const empresaCompleta = useTenantStore((store) => store.empresaCompleta);
-  const isLoadingEmpresa = useTenantStore((store) => store.isLoading);
-  const setEmpresaCompleta = useTenantStore((store) => store.setEmpresaCompleta);
-  const user = useAuthStore((store) => store.user);
-
   useEffect(() => {
-    console.log('[ConfiguracionEmpresa] Estado TenantStore:', {
-      empresaCompleta,
-      isLoadingEmpresa,
-      hasEmpresaCompleta: !!empresaCompleta,
-    });
-  }, [empresaCompleta, isLoadingEmpresa]);
+    const cargarEmpresaDesdeAPI = async () => {
+      console.log('[ConfiguracionEmpresa] 🔍 useEffect de carga ejecutado', {
+        isCreateWorkspaceMode,
+        empresaActivaId: empresaActiva?.empresaId,
+        empresaCompletaId: empresaCompleta?.empresaId,
+        empresaCargada: empresaCargadaRef.current,
+      });
+
+      if (isCreateWorkspaceMode) {
+        console.log('[ConfiguracionEmpresa] ⏭️  Modo creación: no se carga empresa desde API');
+        return;
+      }
+
+      if (!empresaActiva?.empresaId) {
+        console.log('[ConfiguracionEmpresa] ⚠️  No hay empresaId disponible en empresaActiva');
+        console.log('[ConfiguracionEmpresa] empresaActiva completo:', empresaActiva);
+        return;
+      }
+
+      if (empresaCargadaRef.current) {
+        console.log('[ConfiguracionEmpresa] ✓ Empresa ya fue cargada previamente');
+        return;
+      }
+
+      if (empresaCompleta?.empresaId === empresaActiva.empresaId) {
+        console.log('[ConfiguracionEmpresa] ✓ Empresa ya está en TenantStore:', empresaCompleta.empresaId);
+        empresaCargadaRef.current = true;
+        return;
+      }
+
+      try {
+        console.log('[ConfiguracionEmpresa] 🔄 Iniciando carga desde API con empresaId:', empresaActiva.empresaId);
+        setLoading(true);
+
+        const empresaData = await empresasClient.fetchEmpresa(empresaActiva.empresaId);
+
+        console.log('[ConfiguracionEmpresa] ✅ Empresa cargada exitosamente desde API:', empresaData);
+        setEmpresaCompleta(empresaData);
+        empresaCargadaRef.current = true;
+
+        console.log('[ConfiguracionEmpresa] ✅ empresaCompleta actualizada en TenantStore');
+      } catch (error: any) {
+        console.error('[ConfiguracionEmpresa] ❌ Error al cargar empresa desde API:', {
+          error: error?.message,
+          empresaId: empresaActiva.empresaId,
+          fullError: error,
+        });
+        setLoading(false);
+      }
+    };
+
+    cargarEmpresaDesdeAPI();
+  }, [empresaActiva?.empresaId, isCreateWorkspaceMode, setEmpresaCompleta, setLoading, empresaCompleta?.empresaId]);
   const workspaceIdForSubmit = isCreateWorkspaceMode
     ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || activeWorkspace?.id;
@@ -208,6 +269,24 @@ export function CompanyConfiguration() {
     correosElectronicos: [''],
     actividadEconomica: ''
   });
+
+  useEffect(() => {
+    console.log('[ConfiguracionEmpresa] 📊 datosFormulario cambió:', {
+      ruc: datosFormulario.ruc,
+      razonSocial: datosFormulario.razonSocial,
+      nombreComercial: datosFormulario.nombreComercial,
+      telefonos: datosFormulario.telefonos,
+      isEmpty: !datosFormulario.ruc,
+    });
+  }, [datosFormulario]);
+
+  useEffect(() => {
+    if (empresaCompleta) {
+      console.log('[ConfiguracionEmpresa] 🎯 empresaCompleta CAMBIÓ, debería llenar formulario');
+      console.log('[ConfiguracionEmpresa] empresaCompleta.ruc:', empresaCompleta.ruc);
+      console.log('[ConfiguracionEmpresa] datosFormulario.ruc actual:', datosFormulario.ruc);
+    }
+  }, [empresaCompleta]);
 
   const [rucValidation, setRucValidation] = useState<{
     isValid: boolean;
@@ -261,36 +340,75 @@ export function CompanyConfiguration() {
     setTenantContextoActual(contexto);
   }, [setTenantContextoActual, setTenantEmpresas]);
 
-  // MODIFICADO: Load company data - prioridad a empresaCompleta del TenantStore
   useEffect(() => {
+    console.log('[ConfiguracionEmpresa] ====================================');
+    console.log('[ConfiguracionEmpresa] 📋 useEffect de llenado ejecutado');
+    console.log('[ConfiguracionEmpresa] isCreateWorkspaceMode:', isCreateWorkspaceMode);
+    console.log('[ConfiguracionEmpresa] hasEmpresaCompleta:', !!empresaCompleta);
+    console.log('[ConfiguracionEmpresa] empresaCompletaId:', empresaCompleta?.empresaId);
+    console.log('[ConfiguracionEmpresa] empresaActivaId:', empresaActiva?.empresaId);
+    console.log('[ConfiguracionEmpresa] formularioYaLlenado:', formularioLlenadoRef.current);
+    console.log('[ConfiguracionEmpresa] currentFormRuc:', datosFormulario.ruc);
+    console.log('[ConfiguracionEmpresa] empresaCompleta completo:', empresaCompleta);
+    console.log('[ConfiguracionEmpresa] ====================================');
+
     if (isCreateWorkspaceMode) {
+      console.log('[ConfiguracionEmpresa] ⏭️  RETORNANDO: Modo creación (isCreateWorkspaceMode=true)');
       return;
     }
 
-    // PRIORIDAD 1: Empresa completa del TenantStore (más actualizada del backend)
-    if (empresaCompleta) {
-      const loadedData = {
-        ruc: empresaCompleta.ruc || '',
-        razonSocial: empresaCompleta.razonSocial || '',
-        nombreComercial: empresaCompleta.nombreComercial || '',
-        direccionFiscal: empresaCompleta.direccionFiscal || '',
-        ubigeo: '',
-        monedaBase: (empresaCompleta.monedaBase || 'PEN') as 'PEN' | 'USD',
-        entornoSunat: (empresaCompleta.entornoSunat === 'PRODUCCION' ? 'PRODUCTION' : 'TEST') as 'TEST' | 'PRODUCTION',
-        telefonos: [empresaCompleta.telefono, empresaCompleta.telefonoSecundario].filter(Boolean) as string[],
-        correosElectronicos: [empresaCompleta.email, empresaCompleta.emailSecundario].filter(Boolean) as string[],
-        actividadEconomica: empresaCompleta.actividadEconomica || ''
-      };
+    if (!empresaCompleta) {
+      console.log('[ConfiguracionEmpresa] ⚠️  RETORNANDO: No hay empresaCompleta');
+      return;
+    }
 
-      // Si no hay teléfonos/correos, agregar campo vacío
-      if (loadedData.telefonos.length === 0) loadedData.telefonos = [''];
-      if (loadedData.correosElectronicos.length === 0) loadedData.correosElectronicos = [''];
+    if (!empresaCompleta.empresaId) {
+      console.log('[ConfiguracionEmpresa] ⚠️  RETORNANDO: empresaCompleta no tiene empresaId');
+      return;
+    }
 
-      setFormData(loadedData);
-      setOriginalData(loadedData);
-      setHasChanges(false);
+    if (formularioLlenadoRef.current && datosFormulario.ruc) {
+      console.log('[ConfiguracionEmpresa] ✓ RETORNANDO: Formulario ya fue llenado');
+      return;
+    }
 
-      console.log('[ConfiguracionEmpresa] Datos cargados desde TenantStore.empresaCompleta');
+    console.log('[ConfiguracionEmpresa] 📝 LLENANDO FORMULARIO con:', {
+      empresaId: empresaCompleta.empresaId,
+      ruc: empresaCompleta.ruc,
+      razonSocial: empresaCompleta.razonSocial,
+    });
+
+    const telefonos = [empresaCompleta.telefono, empresaCompleta.telefonoSecundario]
+      .filter((tel): tel is string => typeof tel === 'string' && tel.trim() !== '');
+
+    const correosElectronicos = [empresaCompleta.email, empresaCompleta.emailSecundario]
+      .filter((email): email is string => typeof email === 'string' && email.trim() !== '');
+
+    const loadedData: CompanyFormData = {
+      ruc: empresaCompleta.ruc || '',
+      razonSocial: empresaCompleta.razonSocial || '',
+      nombreComercial: empresaCompleta.nombreComercial || '',
+      direccionFiscal: empresaCompleta.direccionFiscal || '',
+      ubigeo: empresaCompleta.codigoPostal || empresaCompleta.codigoDistrito || '',
+      monedaBase: (empresaCompleta.monedaBase || 'PEN') as 'PEN' | 'USD',
+      entornoSunat: (empresaCompleta.entornoSunat === 'PRODUCCION' ? 'PRODUCTION' : 'TEST') as 'TEST' | 'PRODUCTION',
+      telefonos: telefonos.length > 0 ? telefonos : [''],
+      correosElectronicos: correosElectronicos.length > 0 ? correosElectronicos : [''],
+      actividadEconomica: empresaCompleta.actividadEconomica || ''
+    };
+
+    console.log('[ConfiguracionEmpresa] 🎯 Ejecutando setFormData con:', loadedData);
+
+    setFormData(loadedData);
+    setOriginalData(loadedData);
+    setHasChanges(false);
+    formularioLlenadoRef.current = true;
+
+    console.log('[ConfiguracionEmpresa] ✅ Formulario llenado exitosamente');
+  }, [empresaCompleta, isCreateWorkspaceMode, datosFormulario.ruc]);
+
+  useEffect(() => {
+    if (isCreateWorkspaceMode) {
       return;
     }
 

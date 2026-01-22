@@ -123,21 +123,41 @@ export interface EmpresaCompletaDTO {
   nombreComercial?: string;
   direccionFiscal: string;
 
+  // Ubigeo
+  codigoDistrito?: string;
+  distrito?: string;
+  codigoProvincia?: string;
+  provincia?: string;
+  codigoDepartamento?: string;
+  departamento?: string;
+  codigoPostal?: string;
+
   // Contacto
   telefono?: string;
   telefonoSecundario?: string;
   email?: string;
   emailSecundario?: string;
+  sitioWeb?: string;
+  rutaLogo?: string;
+  textoPiePagina?: string;
 
   // Configuración tributaria
   monedaBase?: string;
   regimenTributario?: string;
   actividadEconomica?: string;
 
+  // Representante legal
+  representanteLegal?: string;
+  nombreRepresentanteLegal?: string;
+  tipoDocumentoRepresentante?: string;
+  numeroDocumentoRepresentante?: string;
+
   // Configuración SUNAT
   entornoSunat?: 'PRUEBA' | 'PRODUCCION';
   usuarioSolSunat?: string;
   claveSolSunat?: string;
+  ambienteSunat?: string;
+  facturarEn?: string;
 
   // Certificado digital
   certificadoDigital?: string;
@@ -148,6 +168,7 @@ export interface EmpresaCompletaDTO {
   firmaDigital?: string;
 
   // Metadata
+  esActivo?: boolean;
   estado?: string;
   fechaCreacion?: string;
   fechaActualizacion?: string;
