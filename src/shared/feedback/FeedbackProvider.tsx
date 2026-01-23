@@ -7,7 +7,14 @@ function uid(prefix = "t") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
 
-const DEFAULT_TOAST_MS = 4500;
+const DEFAULT_TOAST_MS = 1000;
+
+const TOAST_DURATION_BY_TONE: Record<ToastItem["tone"], number> = {
+  success: 1000,
+  info: 1000,
+  warning: 1500,
+  error: 2000,
+};
 
 const initialConfirmState: ConfirmState = {
   open: false,
@@ -57,7 +64,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         message,
         title,
         sticky: opts?.sticky,
-        durationMs: opts?.durationMs,
+        durationMs: opts?.durationMs ?? TOAST_DURATION_BY_TONE.success,
       }),
     [push]
   );
@@ -69,7 +76,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         message,
         title,
         sticky: opts?.sticky,
-        durationMs: opts?.durationMs,
+        durationMs: opts?.durationMs ?? TOAST_DURATION_BY_TONE.info,
       }),
     [push]
   );
@@ -81,7 +88,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         message,
         title,
         sticky: opts?.sticky,
-        durationMs: opts?.durationMs,
+        durationMs: opts?.durationMs ?? TOAST_DURATION_BY_TONE.warning,
       }),
     [push]
   );
@@ -93,7 +100,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         message,
         title,
         sticky: opts?.sticky,
-        durationMs: opts?.durationMs,
+        durationMs: opts?.durationMs ?? TOAST_DURATION_BY_TONE.error,
       }),
     [push]
   );
