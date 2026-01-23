@@ -47,7 +47,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         
         {/* Título */}
         {typeof title === 'string' ? (
-          <h1 className="text-h3 font-poppins text-primary truncate">
+          <h1 className="text-h3 font-semibold font-poppins text-primary truncate">
             {title}
           </h1>
         ) : (
