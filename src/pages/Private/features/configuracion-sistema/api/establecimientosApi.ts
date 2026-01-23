@@ -12,6 +12,7 @@ export interface ListEstablecimientosParams {
   pageSize?: number;
   search?: string;
   empresaId?: string;
+  estado?: boolean;
 }
 
 export const establecimientosApi = {
@@ -28,6 +29,7 @@ export const establecimientosApi = {
       pageSize: params.pageSize || 20,
       search: params.search,
       empresa_id: empresaId,
+      estado: params.estado,
     });
 
     return fetchApi<ApiResponsePaginado<EstablecimientoBackendDto>>(
@@ -72,14 +74,18 @@ export const establecimientosApi = {
     });
   },
 
-  async listAll(empresaId?: string): Promise<EstablecimientoBackendDto[]> {
+  async listAll(params: {
+    empresaId?: string;
+    search?: string;
+    estado?: boolean;
+  } = {}): Promise<EstablecimientoBackendDto[]> {
     const allItems: EstablecimientoBackendDto[] = [];
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
-      const response = await this.list({ empresaId, page, pageSize: 100 });
-      
+      const response = await this.list({ ...params, page, pageSize: 100 });
+
       if (response.data && response.data.length > 0) {
         allItems.push(...response.data);
       }

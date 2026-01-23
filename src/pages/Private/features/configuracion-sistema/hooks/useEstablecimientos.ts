@@ -13,7 +13,9 @@ import type { Establecimiento } from '../modelos/Establecimiento';
  */
 export function useEstablecimientos() {
   const { state, dispatch } = useConfigurationContext();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const empresaId = getCurrentEmpresaId();
@@ -22,88 +24,64 @@ export function useEstablecimientos() {
   /**
    * Cargar establecimientos desde el backend
    */
-  const cargarEstablecimientos = useCallback(async () => {
-    if (!empresaId) {
-      setError('No se pudo determinar la empresa actual');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Llamar API
-      const items = await establecimientosApi.listAll(empresaId);
-
-      // Mapear a modelo del frontend
-      const establecimientos = items.map((dto) => {
-        return mapBackendToFrontend(dto);
-      });
-
-      // Actualizar estado global
-      dispatch({ type: 'SET_EstablecimientoS', payload: establecimientos });
-    } catch (err) {
-      console.error('Error cargando establecimientos:', err);
-      // ... rest of error handling ...
-
-      if (err instanceof ApiError) {
-        setError(`Error del servidor: ${err.message}`);
-      } else if (err instanceof NetworkError) {
-        setError(`Error de red: ${err.message}`);
-      } else {
-        setError('Error desconocido al cargar establecimientos');
+  const cargarEstablecimientos = useCallback(
+    async (search?: string, estado?: boolean) => {
+      if (!empresaId) {
+        setError('No se pudo determinar la empresa actual');
+        return;
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [empresaId, dispatch]);
+
+      try {
+        setIsFetching(true);
+        setError(null);
+        const items = await establecimientosApi.listAll({
+          empresaId,
+          search,
+          estado,
+        });
+        const establecimientos = items.map((dto) => mapBackendToFrontend(dto));
+        dispatch({ type: 'SET_EstablecimientoS', payload: establecimientos });
+      } catch (err) {
+        console.error('Error cargando establecimientos:', err);
+        if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
+        else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
+        else setError('Error desconocido al cargar establecimientos');
+      } finally {
+        setIsFetching(false);
+      }
+    },
+    [empresaId, dispatch]
+  );
 
   /**
    * Crear un nuevo establecimiento
    */
   const crearEstablecimiento = useCallback(
     async (data: Partial<Establecimiento>): Promise<Establecimiento | null> => {
-      if (!empresaId) {
-        throw new Error('No se pudo determinar la empresa actual');
-      }
+      if (!empresaId) throw new Error('No se pudo determinar la empresa actual');
 
       try {
-        setIsLoading(true);
+        setIsSaving(true);
         setError(null);
-
-        // Mapear a DTO del backend
         const inputDto = mapFrontendToBackendInput(data, empresaId);
-
-        // Llamar API
         const response = await establecimientosApi.create(inputDto);
 
         if (!response.exito || !response.data) {
           throw new Error(response.mensaje || 'Error al crear establecimiento');
         }
 
-        // Mapear respuesta a modelo del frontend (con campos extendidos)
         const nuevoEstablecimiento = mapBackendToFrontend(response.data, data);
-
-        // Actualizar estado global
         dispatch({ type: 'ADD_Establecimiento', payload: nuevoEstablecimiento });
-
         return nuevoEstablecimiento;
       } catch (err) {
         console.error('Error creando establecimiento:', err);
-
-        if (err instanceof ApiError) {
-          setError(`Error del servidor: ${err.message}`);
-        } else if (err instanceof NetworkError) {
-          setError(`Error de red: ${err.message}`);
-        } else if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Error desconocido al crear establecimiento');
-        }
-
+        if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
+        else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
+        else if (err instanceof Error) setError(err.message);
+        else setError('Error desconocido al crear establecimiento');
         throw err;
       } finally {
-        setIsLoading(false);
+        setIsSaving(false);
       }
     },
     [empresaId, dispatch]
@@ -114,50 +92,31 @@ export function useEstablecimientos() {
    */
   const actualizarEstablecimiento = useCallback(
     async (id: string, data: Partial<Establecimiento>): Promise<Establecimiento | null> => {
-      if (!empresaId) {
-        throw new Error('No se pudo determinar la empresa actual');
-      }
+      if (!empresaId) throw new Error('No se pudo determinar la empresa actual');
 
       try {
-        setIsLoading(true);
+        setIsSaving(true);
         setError(null);
-
-        // Obtener datos actuales (para preservar campos extendidos)
         const existing = Establecimientos.find((e) => e.id === id);
-
-        // Mapear a DTO del backend
         const inputDto = mapFrontendToBackendInput({ ...existing, ...data }, empresaId);
-
-        // Llamar API
         const response = await establecimientosApi.update(id, inputDto);
 
         if (!response.exito || !response.data) {
           throw new Error(response.mensaje || 'Error al actualizar establecimiento');
         }
 
-        // Mapear respuesta (preservando campos extendidos)
         const actualizado = mapBackendToFrontend(response.data, { ...existing, ...data });
-
-        // Actualizar estado global
         dispatch({ type: 'UPDATE_Establecimiento', payload: actualizado });
-
         return actualizado;
       } catch (err) {
         console.error('Error actualizando establecimiento:', err);
-
-        if (err instanceof ApiError) {
-          setError(`Error del servidor: ${err.message}`);
-        } else if (err instanceof NetworkError) {
-          setError(`Error de red: ${err.message}`);
-        } else if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Error desconocido al actualizar establecimiento');
-        }
-
+        if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
+        else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
+        else if (err instanceof Error) setError(err.message);
+        else setError('Error desconocido al actualizar establecimiento');
         throw err;
       } finally {
-        setIsLoading(false);
+        setIsSaving(false);
       }
     },
     [empresaId, dispatch, Establecimientos]
@@ -169,34 +128,24 @@ export function useEstablecimientos() {
   const eliminarEstablecimiento = useCallback(
     async (id: string): Promise<void> => {
       try {
-        setIsLoading(true);
+        setIsDeleting(true);
         setError(null);
-
-        // Llamar API
         const response = await establecimientosApi.delete(id);
 
         if (!response.exito) {
           throw new Error(response.mensaje || 'Error al eliminar establecimiento');
         }
 
-        // Actualizar estado global
         dispatch({ type: 'DELETE_Establecimiento', payload: id });
       } catch (err) {
         console.error('Error eliminando establecimiento:', err);
-
-        if (err instanceof ApiError) {
-          setError(`Error del servidor: ${err.message}`);
-        } else if (err instanceof NetworkError) {
-          setError(`Error de red: ${err.message}`);
-        } else if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Error desconocido al eliminar establecimiento');
-        }
-
+        if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
+        else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
+        else if (err instanceof Error) setError(err.message);
+        else setError('Error desconocido al eliminar establecimiento');
         throw err;
       } finally {
-        setIsLoading(false);
+        setIsDeleting(false);
       }
     },
     [dispatch]
@@ -208,11 +157,8 @@ export function useEstablecimientos() {
   const toggleStatus = useCallback(
     async (id: string): Promise<void> => {
       const establecimiento = Establecimientos.find((e) => e.id === id);
-      if (!establecimiento) {
-        throw new Error('Establecimiento no encontrado');
-      }
+      if (!establecimiento) throw new Error('Establecimiento no encontrado');
 
-      // Actualizar con el estado invertido
       await actualizarEstablecimiento(id, {
         ...establecimiento,
         estaActivoEstablecimiento: !establecimiento.estaActivoEstablecimiento,
@@ -223,7 +169,10 @@ export function useEstablecimientos() {
 
   return {
     establecimientos: Establecimientos,
-    isLoading,
+    isFetching,
+    isSaving,
+    isDeleting,
+    isLoading: isFetching || isSaving || isDeleting,
     error,
     cargarEstablecimientos,
     crearEstablecimiento,

@@ -18,12 +18,16 @@ import {
   Mail,
   Phone
 } from 'lucide-react';
+
 import { PageHeader, Button, Select, Input, Breadcrumb } from '@/contasis';
-import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+
 import { useEstablecimientos } from '../hooks/useEstablecimientos';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { ubigeoData } from '../datos/ubigeo';
+import formValidation, { commonRules, type Validators } from '@/utils/FormValidation';
+
+// --- Interfaces ---
 
 interface EstablecimientoFormData {
   codigoEstablecimiento: string;
@@ -49,12 +53,16 @@ interface DeleteConfirmation {
   EstablecimientoName: string;
 }
 
+// --- Component ---
+
 export function EstablecimientosConfiguration() {
+  // 1. Hooks & Configuration
   const navigate = useNavigate();
-  const { dispatch } = useConfigurationContext();
   const {
     establecimientos: Establecimientos,
-    isLoading: apiLoading,
+    isFetching,
+    isSaving,
+    isDeleting,
     error: apiError,
     cargarEstablecimientos,
     crearEstablecimiento,
@@ -63,18 +71,25 @@ export function EstablecimientosConfiguration() {
     toggleStatus: toggleEstablecimientoStatus,
   } = useEstablecimientos();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroEstado, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  // 2. State Management
+  
+  // UI & Feedback State
   const [showForm, setShowForm] = useState(false);
-  const [editingEstablecimientoId, setEditingEstablecimientoId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
     isOpen: false,
     EstablecimientoId: null,
     EstablecimientoName: ''
   });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filtroEstado, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Form State
+  const [editingEstablecimientoId, setEditingEstablecimientoId] = useState<string | null>(null);
+  const [validators, setValidators] = useState<Validators | null>(null);
   const [datosFormulario, setFormData] = useState<EstablecimientoFormData>({
     codigoEstablecimiento: '',
     nombreEstablecimiento: '',
@@ -87,12 +102,9 @@ export function EstablecimientosConfiguration() {
     email: ''
   });
 
-  // Carga inicial de datos
-  useEffect(() => {
-    cargarEstablecimientos();
-  }, [cargarEstablecimientos]);
+  // 3. Computed Logic (useMemo)
 
-  // Ubigeo cascading logic
+  // Ubigeo Cascading
   const selectedDepartment = useMemo(() => {
     return ubigeoData.find(dept => dept.name === datosFormulario.departamentoEstablecimiento);
   }, [datosFormulario.departamentoEstablecimiento]);
@@ -101,23 +113,68 @@ export function EstablecimientosConfiguration() {
   const selectedProvince = useMemo(() => availableProvinces.find(p => p.name === datosFormulario.provinciaEstablecimiento), [availableProvinces, datosFormulario.provinciaEstablecimiento]);
   const availableDistricts = useMemo(() => selectedProvince?.districts || [], [selectedProvince]);
 
-  const filteredEstablecimientos = Establecimientos.filter(est => {
-    const q = searchTerm.toLowerCase();
-    const matchesSearch = [est.nombreEstablecimiento, est.codigoEstablecimiento, est.direccionEstablecimiento]
-      .filter(Boolean)
-      .some(v => v.toLowerCase().includes(q));
+  // Validation Rules
+  const formRules = useMemo(() => ({
+    codigoEstablecimiento: [
+      commonRules.required('El código es obligatorio'),
+      commonRules.maxLength(4, 'El código no puede tener más de 4 caracteres'),
+      commonRules.custom((value) => {
+        if (editingEstablecimientoId) {
+          const original = Establecimientos.find(e => e.id === editingEstablecimientoId);
+          if (original?.codigoEstablecimiento === value) return true;
+        }
+        return !Establecimientos.some(est => est.codigoEstablecimiento === value);
+      }, 'Ya existe un establecimiento con este código')
+    ],
+    nombreEstablecimiento: [commonRules.required('El nombre es obligatorio')],
+    direccionEstablecimiento: [commonRules.required('La dirección es obligatoria')],
+    distritoEstablecimiento: [commonRules.required('El distrito es obligatorio')],
+    provinciaEstablecimiento: [commonRules.required('La provincia es obligatoria')],
+    departamentoEstablecimiento: [commonRules.required('El departamento es obligatorio')],
+    email: [commonRules.email('El email no es válido')]
+  }), [Establecimientos, editingEstablecimientoId]);
 
-    const matchesStatus = filtroEstado === 'all' || (filtroEstado === 'active' && est.estaActivoEstablecimiento) || (filtroEstado === 'inactive' && !est.estaActivoEstablecimiento);
-    return matchesSearch && matchesStatus;
-  });
+  // Derived List
+  const listaVisual = Establecimientos;
+
+  // 4. Effects (useEffect)
+
+  // Debounce Search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Load Data
+  useEffect(() => {
+    const estado = filtroEstado === 'all' ? undefined : filtroEstado === 'active';
+    cargarEstablecimientos(debouncedSearch, estado);
+  }, [debouncedSearch, filtroEstado, cargarEstablecimientos]);
+
+  // Initialize Validators
+  useEffect(() => {
+    if (showForm) {
+      const initialValidators: Validators = {};
+      Object.keys(formRules).forEach(key => {
+        initialValidators[key] = formValidation.createFieldValidator(formRules[key as keyof typeof formRules]);
+        if (editingEstablecimientoId && datosFormulario[key as keyof EstablecimientoFormData]) {
+          initialValidators[key].state = datosFormulario[key as keyof EstablecimientoFormData] || '';
+          initialValidators[key].valid = true; 
+        }
+      });
+      setValidators(initialValidators);
+    }
+  }, [showForm, formRules, editingEstablecimientoId]);
+
+  // 5. Helper Functions
 
   const showToast = (type: Toast['type'], message: string) => {
     const id = `${Date.now()}-${Math.random()}`;
     setToasts(prev => [...prev, { id, type, message }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
   };
-
-  const generateUniqueId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   const generateNextCode = () => {
     if (Establecimientos.length === 0) return '0001';
@@ -129,22 +186,14 @@ export function EstablecimientosConfiguration() {
     return String(last + 1).padStart(4, '0');
   };
 
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-    if (!datosFormulario.codigoEstablecimiento.trim()) errors.codigoEstablecimiento = 'El código es obligatorio';
-    else if (datosFormulario.codigoEstablecimiento.length > 4) errors.codigoEstablecimiento = 'El código no puede tener más de 4 caracteres';
-    else if (Establecimientos.some(est => est.codigoEstablecimiento === datosFormulario.codigoEstablecimiento && est.id !== editingEstablecimientoId)) errors.codigoEstablecimiento = 'Ya existe un establecimiento con este código';
-
-    if (!datosFormulario.nombreEstablecimiento.trim()) errors.nombreEstablecimiento = 'El nombre es obligatorio';
-    if (!datosFormulario.direccionEstablecimiento.trim()) errors.direccionEstablecimiento = 'La dirección es obligatoria';
-    if (!datosFormulario.distritoEstablecimiento.trim()) errors.distritoEstablecimiento = 'El distrito es obligatorio';
-    if (!datosFormulario.provinciaEstablecimiento.trim()) errors.provinciaEstablecimiento = 'La provincia es obligatoria';
-    if (!datosFormulario.departamentoEstablecimiento.trim()) errors.departamentoEstablecimiento = 'El departamento es obligatorio';
-    if (datosFormulario.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datosFormulario.email)) errors.email = 'El email no es válido';
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+  const updateField = (field: keyof EstablecimientoFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (validators) {
+      setValidators(prev => formValidation.updateValidators(field, value, prev || {}));
+    }
   };
+
+  // 6. Event Handlers
 
   const handleNew = () => {
     setFormData({
@@ -159,7 +208,6 @@ export function EstablecimientosConfiguration() {
       email: ''
     });
     setEditingEstablecimientoId(null);
-    setFormErrors({});
     setShowForm(true);
   };
 
@@ -176,18 +224,27 @@ export function EstablecimientosConfiguration() {
       email: establecimiento.email || ''
     });
     setEditingEstablecimientoId(establecimiento.id);
-    setFormErrors({});
     setShowForm(true);
   };
 
-  const manejarEnvio = async (e: React.FormEvent) => {
+  const handleSubmitSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) {
+    
+    // Create simple state object for validation
+    const formState: Record<string, string> = {};
+    Object.keys(datosFormulario).forEach(key => {
+      formState[key] = datosFormulario[key as keyof EstablecimientoFormData] || '';
+    });
+
+    const validation = formValidation.isFormValid(validators || {}, formState);
+    
+    if (!validation.status) {
+      setValidators({ ...validation.validators! });
       showToast('error', 'Por favor, corrige los errores en el formulario');
       return;
     }
 
-    // Buscar código de ubigeo (distrito)
+    // Get Ubigeo Code
     const selectedDist = availableDistricts.find(d => d.name === datosFormulario.distritoEstablecimiento);
     const ubigeoCode = selectedDist?.code || datosFormulario.codigoPostalEstablecimiento;
 
@@ -195,7 +252,6 @@ export function EstablecimientosConfiguration() {
       const dataToSave: Partial<Establecimiento> = {
         ...datosFormulario,
         codigoPostalEstablecimiento: ubigeoCode,
-        // Campos extendidos (se preservarán en frontend)
         coordinates: undefined,
         businessHours: {},
         sunatConfiguration: { isRegistered: false },
@@ -221,21 +277,9 @@ export function EstablecimientosConfiguration() {
       if (editingEstablecimientoId) {
         await actualizarEstablecimiento(editingEstablecimientoId, dataToSave);
         showToast('success', 'Establecimiento actualizado correctamente');
-        
-        // Actualización local para feedback inmediato
-        const updated = Establecimientos.map(est => 
-          est.id === editingEstablecimientoId 
-            ? { ...est, ...datosFormulario, actualizadoElEstablecimiento: new Date() } 
-            : est
-        );
-        dispatch({ type: 'SET_EstablecimientoS', payload: updated as Establecimiento[] });
       } else {
-        const result = await crearEstablecimiento(dataToSave);
+        await crearEstablecimiento(dataToSave);
         showToast('success', 'Establecimiento creado correctamente');
-        
-        if (result) {
-          dispatch({ type: 'SET_EstablecimientoS', payload: [...Establecimientos, result] });
-        }
       }
 
       handleCancel();
@@ -259,7 +303,6 @@ export function EstablecimientosConfiguration() {
       email: ''
     });
     setEditingEstablecimientoId(null);
-    setFormErrors({});
     setShowForm(false);
   };
 
@@ -275,11 +318,6 @@ export function EstablecimientosConfiguration() {
     if (!deleteConfirmation.EstablecimientoId) return;
     try {
       await eliminarEstablecimiento(deleteConfirmation.EstablecimientoId);
-      
-      // Actualización local
-      const updated = Establecimientos.filter(e => e.id !== deleteConfirmation.EstablecimientoId);
-      dispatch({ type: 'SET_EstablecimientoS', payload: updated });
-      
       showToast('success', 'Establecimiento eliminado correctamente');
       setDeleteConfirmation({ isOpen: false, EstablecimientoId: null, EstablecimientoName: '' });
     } catch (error) {
@@ -292,15 +330,6 @@ export function EstablecimientosConfiguration() {
   const handleToggleStatus = async (id: string) => {
     try {
       await toggleEstablecimientoStatus(id);
-      
-      // Actualización local
-      const updated = Establecimientos.map(est => 
-        est.id === id 
-          ? { ...est, estaActivoEstablecimiento: !est.estaActivoEstablecimiento, actualizadoElEstablecimiento: new Date() } 
-          : est
-      );
-      dispatch({ type: 'SET_EstablecimientoS', payload: updated });
-      
       const est = Establecimientos.find(e => e.id === id);
       showToast('success', est?.estaActivoEstablecimiento ? 'Establecimiento desactivado' : 'Establecimiento activado');
     } catch (error) {
@@ -309,6 +338,8 @@ export function EstablecimientosConfiguration() {
       showToast('error', message);
     }
   };
+
+  // 7. Render
 
   if (showForm) {
     return (
@@ -340,10 +371,16 @@ export function EstablecimientosConfiguration() {
                   <p className="text-sm text-gray-600 mt-1">{editingEstablecimientoId ? 'Modifica los datos del establecimiento' : 'Registra un nuevo establecimiento para tu empresa'}</p>
                 </div>
               </div>
-              <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100"><Building className="w-5 h-5 text-blue-600" /><span className="text-sm font-medium text-blue-900">Código: {datosFormulario.codigoEstablecimiento}</span></div>
+              <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
+                <Building className="w-5 h-5 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">
+                  {isSaving ? 'Guardando...' : `Código: ${datosFormulario.codigoEstablecimiento}`}
+                </span>
+                {isSaving && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>}
+              </div>
             </div>
 
-            <form onSubmit={manejarEnvio} className="space-y-6">
+            <form onSubmit={handleSubmitSave} className="space-y-6">
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center gap-3">
@@ -357,8 +394,8 @@ export function EstablecimientosConfiguration() {
 
                 <div className="p-6 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Código" type="text" value={datosFormulario.codigoEstablecimiento} onChange={(e) => { setFormData(prev => ({ ...prev, codigoEstablecimiento: e.target.value })); if (formErrors.codigoEstablecimiento) setFormErrors(prev => ({ ...prev, codigoEstablecimiento: '' })); }} error={formErrors.codigoEstablecimiento} placeholder="Ej: 0001" leftIcon={<Hash />} required maxLength={4} />
-                    <Input label="Nombre del Establecimiento" type="text" value={datosFormulario.nombreEstablecimiento} onChange={(e) => { setFormData(prev => ({ ...prev, nombreEstablecimiento: e.target.value })); if (formErrors.nombreEstablecimiento) setFormErrors(prev => ({ ...prev, nombreEstablecimiento: '' })); }} error={formErrors.nombreEstablecimiento} placeholder="Ej: Sede Central, Sucursal Norte..." leftIcon={<FileText />} required />
+                    <Input label="Código" type="text" value={datosFormulario.codigoEstablecimiento} onChange={(e) => updateField('codigoEstablecimiento', e.target.value)} error={formValidation.getFieldErrors('codigoEstablecimiento', validators)[0]} placeholder="Ej: 0001" leftIcon={<Hash />} required maxLength={4} />
+                    <Input label="Nombre del Establecimiento" type="text" value={datosFormulario.nombreEstablecimiento} onChange={(e) => updateField('nombreEstablecimiento', e.target.value)} error={formValidation.getFieldErrors('nombreEstablecimiento', validators)[0]} placeholder="Ej: Sede Central, Sucursal Norte..." leftIcon={<FileText />} required />
                   </div>
                 </div>
               </div>
@@ -369,15 +406,14 @@ export function EstablecimientosConfiguration() {
                 </div>
 
                 <div className="p-6 space-y-6">
-                  <Input label="Dirección" type="text" value={datosFormulario.direccionEstablecimiento} onChange={(e) => { setFormData(prev => ({ ...prev, direccionEstablecimiento: e.target.value })); if (formErrors.direccionEstablecimiento) setFormErrors(prev => ({ ...prev, direccionEstablecimiento: '' })); }} error={formErrors.direccionEstablecimiento} placeholder="Ej: Av. Los Pinos 123, Urbanización..." leftIcon={<Navigation />} required />
+                  <Input label="Dirección" type="text" value={datosFormulario.direccionEstablecimiento} onChange={(e) => updateField('direccionEstablecimiento', e.target.value)} error={formValidation.getFieldErrors('direccionEstablecimiento', validators)[0]} placeholder="Ej: Av. Los Pinos 123, Urbanización..." leftIcon={<Navigation />} required />
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Select label="Departamento" value={datosFormulario.departamentoEstablecimiento} onChange={(e) => { const value = e.target.value; setFormData(prev => ({ ...prev, departamentoEstablecimiento: value, provinciaEstablecimiento: '', distritoEstablecimiento: '' })); if (formErrors.departamentoEstablecimiento) setFormErrors(prev => ({ ...prev, departamentoEstablecimiento: '' })); }} options={[{ value: '', label: 'Seleccionar...' }, ...ubigeoData.map(d => ({ value: d.name, label: d.name }))]} placeholder="Seleccionar..." error={formErrors.departamentoEstablecimiento} required />
+                    <Select label="Departamento" value={datosFormulario.departamentoEstablecimiento} onChange={(e) => { const value = e.target.value; setFormData(prev => ({ ...prev, departamentoEstablecimiento: value, provinciaEstablecimiento: '', distritoEstablecimiento: '' })); if (validators) setValidators(prev => { const v = { ...(prev || {}) }; formValidation.updateValidators('departamentoEstablecimiento', value, v); if (v.provinciaEstablecimiento) v.provinciaEstablecimiento.state = ''; if (v.distritoEstablecimiento) v.distritoEstablecimiento.state = ''; return { ...v }; }); }} options={[{ value: '', label: 'Seleccionar...' }, ...ubigeoData.map(d => ({ value: d.name, label: d.name }))]} placeholder="Seleccionar..." error={formValidation.getFieldErrors('departamentoEstablecimiento', validators)[0]} required />
 
-                    <Select label="Provincia" value={datosFormulario.provinciaEstablecimiento} onChange={(e) => { const value = e.target.value; setFormData(prev => ({ ...prev, provinciaEstablecimiento: value, distritoEstablecimiento: '' })); if (formErrors.provinciaEstablecimiento) setFormErrors(prev => ({ ...prev, provinciaEstablecimiento: '' })); }} options={[{ value: '', label: datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero' }, ...availableProvinces.map(p => ({ value: p.name, label: p.name }))]} placeholder={datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero'} disabled={!datosFormulario.departamentoEstablecimiento} error={formErrors.provinciaEstablecimiento} required />
+                    <Select label="Provincia" value={datosFormulario.provinciaEstablecimiento} onChange={(e) => { const value = e.target.value; setFormData(prev => ({ ...prev, provinciaEstablecimiento: value, distritoEstablecimiento: '' })); if (validators) setValidators(prev => { const v = { ...(prev || {}) }; formValidation.updateValidators('provinciaEstablecimiento', value, v); if (v.distritoEstablecimiento) v.distritoEstablecimiento.state = ''; return { ...v }; }); }} options={[{ value: '', label: datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero' }, ...availableProvinces.map(p => ({ value: p.name, label: p.name }))]} placeholder={datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero'} disabled={!datosFormulario.departamentoEstablecimiento} error={formValidation.getFieldErrors('provinciaEstablecimiento', validators)[0]} required />
 
-                    <Select label="Distrito" value={datosFormulario.distritoEstablecimiento} onChange={(e) => { const value = e.target.value; setFormData(prev => ({ ...prev, distritoEstablecimiento: value })); if (formErrors.distritoEstablecimiento) setFormErrors(prev => ({ ...prev, distritoEstablecimiento: '' })); }} options={[{ value: '', label: datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero' }, ...availableDistricts.map(d => ({ value: d.name, label: d.name }))]} placeholder={datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero'} disabled={!datosFormulario.provinciaEstablecimiento} error={formErrors.distritoEstablecimiento} required />
-
+                    <Select label="Distrito" value={datosFormulario.distritoEstablecimiento} onChange={(e) => updateField('distritoEstablecimiento', e.target.value)} options={[{ value: '', label: datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero' }, ...availableDistricts.map(d => ({ value: d.name, label: d.name }))]} placeholder={datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero'} disabled={!datosFormulario.provinciaEstablecimiento} error={formValidation.getFieldErrors('distritoEstablecimiento', validators)[0]} required />
                   </div>
 
                   <Input label="Código Postal" type="text" value={datosFormulario.codigoPostalEstablecimiento} onChange={(e) => setFormData(prev => ({ ...prev, codigoPostalEstablecimiento: e.target.value }))} placeholder="Ej: 15001" leftIcon={<Hash />} helperText="Opcional" />
@@ -386,12 +422,26 @@ export function EstablecimientosConfiguration() {
 
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200"><div className="flex items-center gap-3"><div className="p-2 bg-purple-600 rounded-lg"><Phone className="w-5 h-5 text-white" /></div><div><h3 className="text-lg font-semibold text-gray-900">Información de Contacto</h3><p className="text-sm text-gray-600">Datos opcionales para comunicación</p></div></div></div>
-                <div className="p-6 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><Input label="Teléfono" type="tel" value={datosFormulario.phone} onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} placeholder="Ej: +51 999 999 999" leftIcon={<Phone />} helperText="Opcional" /><Input label="Correo Electrónico" type="email" value={datosFormulario.email} onChange={(e) => { setFormData(prev => ({ ...prev, email: e.target.value })); if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' })); }} error={formErrors.email} placeholder="Ej: establecimiento@empresa.com" leftIcon={<Mail />} helperText="Opcional" /></div></div>
+                <div className="p-6 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><Input label="Teléfono" type="tel" value={datosFormulario.phone} onChange={(e) => updateField('phone', e.target.value)} placeholder="Ej: +51 999 999 999" leftIcon={<Phone />} helperText="Opcional" /><Input label="Correo Electrónico" type="email" value={datosFormulario.email} onChange={(e) => updateField('email', e.target.value)} error={formValidation.getFieldErrors('email', validators)[0]} placeholder="Ej: establecimiento@empresa.com" leftIcon={<Mail />} helperText="Opcional" /></div></div>
               </div>
 
               <div className="flex items-center justify-between pt-2">
                 <p className="text-sm text-gray-500 flex items-center gap-1.5"><AlertCircle className="w-4 h-4" />Los campos marcados con <span className="text-red-500 font-medium">*</span> son obligatorios</p>
-                <div className="flex gap-3"><Button type="button" onClick={handleCancel} variant="secondary">Cancelar</Button><Button type="submit" variant="primary" icon={<CheckCircle />}>{editingEstablecimientoId ? 'Actualizar' : 'Crear'} Establecimiento</Button></div>
+                <div className="flex gap-3">
+                  <Button type="button" onClick={handleCancel} variant="secondary" disabled={isSaving}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    variant="primary" 
+                    icon={<CheckCircle />}
+                    loading={isSaving}
+                    loadingText={editingEstablecimientoId ? 'Actualizando...' : 'Creando...'}
+                    disabled={isSaving}
+                  >
+                    {editingEstablecimientoId ? 'Actualizar' : 'Crear'} Establecimiento
+                  </Button>
+                </div>
               </div>
 
             </form>
@@ -435,7 +485,25 @@ export function EstablecimientosConfiguration() {
                   <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4"><AlertCircle className="w-6 h-6 text-red-600" /></div>
                   <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">¿Eliminar establecimiento?</h3>
                   <p className="text-gray-600 text-center mb-6">¿Estás seguro de eliminar el establecimiento <span className="font-semibold">"{deleteConfirmation.EstablecimientoName}"</span>? Esta acción no se puede deshacer.</p>
-                  <div className="flex gap-3"><button onClick={() => setDeleteConfirmation({ isOpen: false, EstablecimientoId: null, EstablecimientoName: '' })} className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">Cancelar</button><button onClick={handleDelete} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">Eliminar</button></div>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setDeleteConfirmation({ isOpen: false, EstablecimientoId: null, EstablecimientoName: '' })} 
+                      className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50"
+                      disabled={isDeleting}
+                    >
+                      Cancelar
+                    </button>
+                    <Button 
+                      onClick={handleDelete} 
+                      variant="primary"
+                      className="flex-1 !bg-red-600 hover:!bg-red-700 border-transparent text-white"
+                      loading={isDeleting}
+                      loadingText="Eliminando..."
+                      disabled={isDeleting}
+                    >
+                      Eliminar
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -460,11 +528,11 @@ export function EstablecimientosConfiguration() {
               <Input type="text" placeholder="Buscar establecimientos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} leftIcon={<Search />} />
               <Select value={filtroEstado} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)} size="medium" options={[{ value: 'all', label: 'Todos los estados' }, { value: 'active', label: 'Solo activos' }, { value: 'inactive', label: 'Solo inactivos' }]} />
             </div>
-            <Button onClick={handleNew} variant="primary" size="md" icon={<Plus className="w-5 h-5" />} iconPosition="left" disabled={apiLoading}>Nuevo Establecimiento</Button>
+            <Button onClick={handleNew} variant="primary" size="md" icon={<Plus className="w-5 h-5" />} iconPosition="left" disabled={isFetching || isSaving || isDeleting}>Nuevo Establecimiento</Button>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden relative min-h-[400px]">
-            {apiLoading && (
+            {isFetching && (
               <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[2px]">
                 <div className="flex flex-col items-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -473,7 +541,7 @@ export function EstablecimientosConfiguration() {
               </div>
             )}
 
-            {apiError && !apiLoading && (
+            {apiError && !isFetching && (
               <div className="p-12 text-center">
                 <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Error al cargar datos</h3>
@@ -482,11 +550,11 @@ export function EstablecimientosConfiguration() {
               </div>
             )}
 
-            {!apiError && !apiLoading && filteredEstablecimientos.length === 0 ? (
+            {!apiError && !isFetching && listaVisual.length === 0 ? (
               <div className="text-center py-12"><Building className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">{searchTerm || filtroEstado !== 'all' ? 'No se encontraron establecimientos' : 'No hay establecimientos registrados'}</h3><p className="text-gray-500 mb-6">{searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}</p>{(!searchTerm && filtroEstado === 'all') && (<button onClick={handleNew} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"><Plus className="w-4 h-4 mr-2" />Crear Primer Establecimiento</button>)}</div>
-            ) : !apiError && !apiLoading && (
+            ) : !apiError && !isFetching && (
               <div className="divide-y divide-gray-200">
-                {filteredEstablecimientos.map(est => (
+                {listaVisual.map(est => (
                   <div key={est.id} className="p-6 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -496,7 +564,18 @@ export function EstablecimientosConfiguration() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <button onClick={() => handleEdit(est)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleToggleStatus(est.id)} className={`p-2 rounded-lg transition-colors ${est.estaActivoEstablecimiento ? 'text-red-400 hover:text-red-600 hover:bg-red-50' : 'text-green-400 hover:text-green-600 hover:bg-green-50'}`} title={est.estaActivoEstablecimiento ? 'Desactivar' : 'Activar'}><MapPin className="w-4 h-4" /></button>
+                        <button 
+                          onClick={() => handleToggleStatus(est.id)} 
+                          className={`p-2 rounded-lg transition-colors ${est.estaActivoEstablecimiento ? 'text-red-400 hover:text-red-600 hover:bg-red-50' : 'text-green-400 hover:text-green-600 hover:bg-green-50'} disabled:opacity-30`} 
+                          title={est.estaActivoEstablecimiento ? 'Desactivar' : 'Activar'}
+                          disabled={isSaving}
+                        >
+                          {isSaving && est.id === editingEstablecimientoId ? (
+                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                          ) : (
+                             <MapPin className="w-4 h-4" />
+                          )}
+                        </button>
                         <button onClick={() => openDeleteConfirmation(est)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
@@ -511,6 +590,3 @@ export function EstablecimientosConfiguration() {
     </div>
   );
 }
-
-
-
