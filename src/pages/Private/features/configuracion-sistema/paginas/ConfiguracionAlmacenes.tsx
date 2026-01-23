@@ -659,7 +659,7 @@ export function ConfiguracionAlmacenes() {
           </Button>
         </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden relative min-h-[400px]">
+      <div className="relative min-h-[400px]">
         {isFetching && (
           <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/60 z-10 flex items-center justify-center backdrop-blur-[2px]">
             <div className="flex flex-col items-center">
@@ -700,7 +700,7 @@ export function ConfiguracionAlmacenes() {
             )}
           </div>
         ) : !apiError && !isFetching && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {almacenes.map(almacen => (
               <AlmacenCard
                 key={almacen.id}
