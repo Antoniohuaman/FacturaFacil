@@ -21,18 +21,18 @@ import {
 // ============================================================================
 // VARIACIÓN 1: Solo Título (Caso más simple)
 // ============================================================================
-export const Example1_SoloTitulo = () => {
+export function ExampleSoloTitulo() {
   return (
     <PageHeader 
       title="Comprobantes Electrónicos"
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 2: Título + Acciones
 // ============================================================================
-export const Example2_TituloConAcciones = () => {
+export function ExampleTituloConAcciones() {
   return (
     <PageHeader 
       title="Clientes"
@@ -49,12 +49,12 @@ export const Example2_TituloConAcciones = () => {
       }
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 3: Breadcrumb + Título
 // ============================================================================
-export const Example3_ConBreadcrumb = () => {
+export function ExampleConBreadcrumb() {
   return (
     <PageHeader 
       breadcrumb={
@@ -69,12 +69,12 @@ export const Example3_ConBreadcrumb = () => {
       title="Comprobantes Electrónicos"
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 4: Completa (Breadcrumb + Título + Acciones)
 // ============================================================================
-export const Example4_Completa = () => {
+export function ExampleCompleta() {
   return (
     <PageHeader 
       breadcrumb={
@@ -99,12 +99,12 @@ export const Example4_Completa = () => {
       }
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 5: Título Personalizado con Badge
 // ============================================================================
-export const Example5_TituloPersonalizado = () => {
+export function ExampleTituloPersonalizado() {
   return (
     <PageHeader 
       breadcrumb={
@@ -141,12 +141,12 @@ export const Example5_TituloPersonalizado = () => {
       }
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 6: Múltiples Acciones Agrupadas
 // ============================================================================
-export const Example6_MultipleAcciones = () => {
+export function ExampleMultipleAcciones() {
   return (
     <PageHeader 
       title="Reportes de Ventas"
@@ -175,12 +175,12 @@ export const Example6_MultipleAcciones = () => {
       }
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 7: Título Largo (Prueba de truncate)
 // ============================================================================
-export const Example7_TituloLargo = () => {
+export function ExampleTituloLargo() {
   return (
     <PageHeader 
       breadcrumb={
@@ -205,12 +205,12 @@ export const Example7_TituloLargo = () => {
       }
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 8: Título con Subtítulo/Descripción
 // ============================================================================
-export const Example8_ConSubtitulo = () => {
+export function ExampleConSubtitulo() {
   return (
     <PageHeader 
       title={
@@ -231,18 +231,18 @@ export const Example8_ConSubtitulo = () => {
       }
     />
   );
-};
+}
 
 // ============================================================================
 // VARIACIÓN 9: Minimal (Solo título, sin breadcrumb ni acciones)
 // ============================================================================
-export const Example9_Minimal = () => {
+export function ExampleMinimal() {
   return (
     <PageHeader 
       title="Ayuda y Soporte"
     />
   );
-};
+}
 
 // ============================================================================
 // EJEMPLO DE USO REAL EN UNA PÁGINA

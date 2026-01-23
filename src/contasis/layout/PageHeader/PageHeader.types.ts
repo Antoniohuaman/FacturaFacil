@@ -7,6 +7,11 @@ export interface PageHeaderProps {
   title: ReactNode;
   
   /**
+   * Icono decorativo que se muestra junto al título
+   */
+  icon?: ReactNode;
+  
+  /**
    * Breadcrumb o navegación contextual (opcional)
    */
   breadcrumb?: ReactNode;

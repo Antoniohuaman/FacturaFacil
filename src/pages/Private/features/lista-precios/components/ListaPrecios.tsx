@@ -40,7 +40,6 @@ export const ListaPrecios: React.FC = () => {
     products,
     filteredProducts,
     loading,
-    error,
     activeTab,
     showColumnModal,
     showProductPriceModal,

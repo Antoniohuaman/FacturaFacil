@@ -27,7 +27,7 @@ import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
-import { Button, PageHeader } from '@/contasis';
+import { Button } from '@/contasis';
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 

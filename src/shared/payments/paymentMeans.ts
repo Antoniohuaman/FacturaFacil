@@ -6,6 +6,8 @@ export type PaymentMeanDefinition = {
   defaultLabel: string;
 };
 
+const DEFAULT_VISIBLE_PAYMENT_MEANS = new Set(['001', '002', '003', '005', '006', '008', '999']);
+
 export const PAYMENT_MEANS_CATALOG: PaymentMeanDefinition[] = [
   { code: '001', sunatName: 'Depósito en cuenta', defaultLabel: 'Depósito' },
   { code: '002', sunatName: 'Giro', defaultLabel: 'Giro' },
@@ -47,7 +49,7 @@ const buildDefaultPreferences = (): PaymentMeansPreferences => {
 
   for (const mean of PAYMENT_MEANS_CATALOG) {
     labelByCode[mean.code] = mean.defaultLabel;
-    visibleByCode[mean.code] = true;
+    visibleByCode[mean.code] = DEFAULT_VISIBLE_PAYMENT_MEANS.has(mean.code);
     favoriteByCode[mean.code] = false;
   }
 
