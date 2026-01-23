@@ -18,6 +18,7 @@ import { filterByPeriod, sortByDateDesc } from '../utils/inventory.helpers';
 import { InventoryService } from '../services/inventory.service';
 import { StockRepository } from '../repositories/stock.repository';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { useFeedback } from '../../../../../shared/feedback';
 
 type AdjustmentModalOptions = {
   almacenId?: string | null;
@@ -148,13 +149,15 @@ export const useInventory = () => {
   /**
    * Maneja el ajuste de stock
    */
+  const { success, error, warning } = useFeedback();
+
   const handleStockAdjustment = useCallback((data: StockAdjustmentData) => {
     try {
       const product = allProducts.find(p => p.id === data.productoId);
       const almacen = almacenesActivos.find(almacen => almacen.id === data.almacenId);
 
       if (!product || !almacen) {
-        alert('Producto o almacén no encontrado');
+        warning('Producto o almacén no encontrado', 'Advertencia');
         return;
       }
 
@@ -173,14 +176,14 @@ export const useInventory = () => {
       setMovimientos(prev => [result.movement, ...prev]);
 
       // Mostrar notificación de éxito
-      alert(`✅ Ajuste registrado exitosamente\n\n${data.tipo}: ${data.cantidad} unidades\nNuevo stock: ${result.movement.cantidadNueva}`);
+      success(`${data.tipo}: ${data.cantidad} u · Nuevo stock: ${result.movement.cantidadNueva}`, 'Ajuste registrado');
 
       setShowAdjustmentModal(false);
-    } catch (error) {
-      console.error('Error al registrar ajuste:', error);
-      alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo registrar el ajuste'}`);
+    } catch (err) {
+      console.error('Error al registrar ajuste:', err);
+      error(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre]);
+  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre, success, error, warning]);
 
   /**
    * Maneja la transferencia de stock
@@ -192,7 +195,7 @@ export const useInventory = () => {
       const almacenDestino = almacenesActivos.find(almacen => almacen.id === data.almacenDestinoId);
 
       if (!product || !almacenOrigen || !almacenDestino) {
-        alert('Producto o almacenes no encontrados');
+        warning('Producto o almacenes no encontrados', 'Advertencia');
         return;
       }
 
@@ -212,14 +215,14 @@ export const useInventory = () => {
       setMovimientos(prev => [...result.movements, ...prev]);
 
       // Mostrar notificación de éxito
-      alert(`✅ Transferencia realizada exitosamente\n\n${data.cantidad} unidades transferidas\nDesde: ${almacenOrigen.nombreAlmacen}\nHacia: ${almacenDestino.nombreAlmacen}`);
+      success(`${data.cantidad} u · De: ${almacenOrigen.nombreAlmacen} → ${almacenDestino.nombreAlmacen}`, 'Transferencia realizada');
 
       setShowTransferModal(false);
-    } catch (error) {
-      console.error('Error al registrar transferencia:', error);
-      alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo realizar la transferencia'}`);
+    } catch (err) {
+      console.error('Error al registrar transferencia:', err);
+      error(err instanceof Error ? err.message : 'No se pudo realizar la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre]);
+  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre, success, error, warning]);
 
   /**
    * Maneja actualización masiva de stock
@@ -242,14 +245,14 @@ export const useInventory = () => {
       setMovimientos(prev => [...result.movements, ...prev]);
 
       // Mostrar notificación de éxito
-      alert(`✅ Actualización masiva completada\n\n${result.movements.length} movimientos registrados`);
+      success(`${result.movements.length} movimientos registrados`, 'Actualización masiva completada');
 
       setShowMassUpdateModal(false);
-    } catch (error) {
-      console.error('Error en actualización masiva:', error);
-      alert(`❌ Error: ${error instanceof Error ? error.message : 'No se pudo completar la actualización masiva'}`);
+    } catch (err) {
+      console.error('Error en actualización masiva:', err);
+      error(err instanceof Error ? err.message : 'No se pudo completar la actualización masiva', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre]);
+  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre, success, error]);
 
   /**
    * Abre modal de ajuste para un producto específico
