@@ -1,6 +1,7 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
 import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { useInventory } from '../hooks';
 import MovementsTable from '../components/tables/MovementsTable';
@@ -10,7 +11,7 @@ import TransferModal from '../components/modals/TransferModal';
 import SummaryCards from '../components/panels/SummaryCards';
 import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
-import { PageHeader } from '../../../../../components/PageHeader';
+import { PageHeader } from '@/contasis';
 import * as XLSX from 'xlsx';
 import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
@@ -144,17 +145,13 @@ export const InventoryPage: React.FC = () => {
     void runAutoExport();
   }, [finishMovementsAutoExport, movementsAutoExportRequest, selectedView, setSelectedView]);
 
+  const navigate = useNavigate();
+
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-      {/* Header con PageHeader para mantener consistencia */}
+      {/* Header */}
       <PageHeader 
         title="Control de Stock"
-        icon={
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-        }
       />
 
       {/* Resumen de estadísticas - SOLO en vista Resumen */}

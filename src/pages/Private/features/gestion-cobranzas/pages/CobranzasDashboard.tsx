@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Coins, NotebookPen, Filter, Download } from 'lucide-react';
+import { NotebookPen, Filter, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type {
   Currency,
@@ -14,6 +14,7 @@ import { CobranzaModal } from '../../comprobantes-electronicos/shared/modales/Co
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { useCurrency } from '../../comprobantes-electronicos/shared/form-core/hooks/useCurrency';
+import { PageHeader } from '@/contasis';
 import { CobranzasTabs } from '../components/CobranzasTabs';
 import { CobranzasFiltersBar } from '../components/CobranzasFiltersBar';
 import { ResumenCards } from '../components/ResumenCards';
@@ -347,54 +348,51 @@ export const CobranzasDashboard = () => {
   }, [activeTab, autoExportRequest, finishAutoExport, filters.rangoFechas.from, filters.rangoFechas.to, handleDateChange, setActiveTab]);
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-3 text-slate-900 dark:text-white">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-300">
-            <Coins className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold">Gestión de Cobranzas</h1>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setFiltersVisible((prev) => !prev)}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 text-blue-600 text-sm font-semibold hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
-              aria-pressed={filtersVisible}
-              aria-expanded={filtersVisible}
-              aria-controls="cobranzas-filters"
-            >
-              <Filter className="w-4 h-4" />
-              {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
-            </button>
-            {columnsManagerButton}
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={!canExport}
-              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
-                canExport
-                  ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
-                  : 'border-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              <Download className="w-4 h-4" />
-              Exportar
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenCuentaPicker}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700"
-            >
-              <NotebookPen className="w-4 h-4" />
-              Registrar Cobranza
-            </button>
-          </div>
+    <div className="flex flex-col h-full">
+      <PageHeader
+        title="Gestión de Cobranzas"
+      />
+      {/* Toolbar - Acciones importantes */}
+      <div className="bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 shadow-sm">
+        <div className="px-6 py-4 flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setFiltersVisible((prev) => !prev)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 text-blue-600 text-sm font-semibold hover:bg-blue-50 dark:border-blue-500/40 dark:text-blue-200 dark:hover:bg-blue-900/40"
+            aria-pressed={filtersVisible}
+            aria-expanded={filtersVisible}
+            aria-controls="cobranzas-filters"
+          >
+            <Filter className="w-4 h-4" />
+            {filtersVisible ? 'Ocultar filtros' : 'Filtros'}
+          </button>
+          {columnsManagerButton}
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={!canExport}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
+              canExport
+                ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
+                : 'border-slate-200 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            <Download className="w-4 h-4" />
+            Exportar
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenCuentaPicker}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700"
+          >
+            <NotebookPen className="w-4 h-4" />
+            Registrar Cobranza
+          </button>
         </div>
-      </header>
-
-      <CobranzasTabs activeTab={activeTab} onChange={setActiveTab} />
+      </div>
+      <div className="flex-1 overflow-auto">
+        <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <CobranzasTabs activeTab={activeTab} onChange={setActiveTab} />
       {filtersVisible && (
         <div id="cobranzas-filters">
           <CobranzasFiltersBar
@@ -489,6 +487,8 @@ export const CobranzasDashboard = () => {
       />
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+        </div>
+      </div>
     </div>
   );
 };

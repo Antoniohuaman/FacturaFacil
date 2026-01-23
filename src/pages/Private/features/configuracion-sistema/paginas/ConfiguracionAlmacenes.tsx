@@ -18,7 +18,7 @@ import {
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
-import { Button, Select, Input, Checkbox, PageHeader, Textarea } from '@/contasis';
+import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { useAlmacenes } from '../hooks/useAlmacenes';
@@ -340,7 +340,30 @@ export function ConfiguracionAlmacenes() {
 
   if (showForm) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col h-full">
+        <PageHeader
+          title={editingAlmacenId ? 'Editar Almacén' : 'Nuevo Almacén'}
+          breadcrumb={
+            <Breadcrumb
+              items={[
+                { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+                { label: 'Almacenes', href: '#', onClick: () => setShowForm(false) },
+                { label: editingAlmacenId ? 'Editar Almacén' : 'Nuevo Almacén' }
+              ]}
+            />
+          }
+          actions={
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={handleCancel}
+            >
+              Volver
+            </Button>
+          }
+        />
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto p-6 space-y-6">
         <div className="fixed top-4 right-4 z-50 space-y-2">
           {toasts.map(toast => (
             <div
@@ -360,31 +383,6 @@ export function ConfiguracionAlmacenes() {
           ))}
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={handleCancel}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors group"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-200" />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {editingAlmacenId ? 'Editar Almacén' : 'Nuevo Almacén'}
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {editingAlmacenId
-                  ? 'Modifica los datos del almacén'
-                  : 'Registra un nuevo almacén para gestionar tu inventario'}
-              </p>
-            </div>
-          </div>
-          <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
-            <IconoAlmacen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {datosFormulario.codigoAlmacen}</span>
-          </div>
-        </div>
-
         <form onSubmit={manejarEnvio} className="space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -395,6 +393,11 @@ export function ConfiguracionAlmacenes() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Información Básica</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Datos principales del almacén</p>
+                </div>
+                {/* Etiqueta azul reubicada */}
+                <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 ml-auto">
+                  <IconoAlmacen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {datosFormulario.codigoAlmacen}</span>
                 </div>
               </div>
             </div>
@@ -510,6 +513,8 @@ export function ConfiguracionAlmacenes() {
             </div>
           </div>
         </form>
+          </div>
+        </div>
       </div>
     );
   }

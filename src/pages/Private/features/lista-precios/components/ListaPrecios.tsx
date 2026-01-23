@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { PageHeader } from '@/contasis';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Column, NewColumnForm, Product } from '../models/PriceTypes';
 import { usePriceList } from '../hooks/usePriceList';
@@ -295,18 +296,9 @@ export const ListaPrecios: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Lista de Precios</h1>
-          </div>
-          {error && (
-            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
-              ⚠️ {error}
-            </div>
-          )}
-        </div>
-      </div>
+      <PageHeader 
+        title="Lista de Precios"
+      />
 
       {/* Tabs Navigation */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6" role="tablist">
