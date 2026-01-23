@@ -11,6 +11,9 @@ import type {
   EmpresaStatus,
   RegimenTributario,
   EmpresaConfig,
+  ContextoSugerido,
+  EmpresaDetalle,
+  EstablecimientoDetalle,
 } from '../types/auth.types';
 
 /**
@@ -42,6 +45,44 @@ interface BackendLoginResponseDto {
   requiereCambioPassword: boolean;
   empresas?: BackendEmpresaUsuarioDto[];
   establecimientos?: BackendEstablecimientoDto[];
+  contextoSugerido?: BackendContextoSugeridoDto;
+  requiereSeleccionContexto?: boolean;
+}
+
+interface BackendContextoSugeridoDto {
+  empresaId: string;
+  establecimientoId: string;
+  empresa: BackendEmpresaDetalleDto;
+  establecimiento: BackendEstablecimientoDetalleDto;
+}
+
+interface BackendEmpresaDetalleDto {
+  id: string;
+  ruc: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  direccionFiscal?: string;
+  monedaBase?: string;
+  ambienteSunat?: string;
+  actividadEconomica?: string;
+  regimenTributario?: string;
+  telefonos?: string[];
+  correosElectronicos?: string[];
+  esActivo: boolean;
+}
+
+interface BackendEstablecimientoDetalleDto {
+  id: string;
+  codigo: string;
+  nombre: string;
+  direccion?: string;
+  distrito?: string;
+  provincia?: string;
+  departamento?: string;
+  telefono?: string;
+  correo?: string;
+  esPrincipal: boolean;
+  esActivo: boolean;
 }
 
 interface BackendEmpresaUsuarioDto {
@@ -71,6 +112,7 @@ interface BackendEstablecimientoDto {
   codigoPostal?: string;
   telefono?: string;
   correo?: string;
+  esPrincipal?: boolean;
   esActivo: boolean;
   usuarioId?: string;
   usuarioNombre?: string;
@@ -171,7 +213,7 @@ function adaptEstablecimiento(
     codigo: backendEst.codigo,
     nombre: backendEst.nombre,
     direccion: backendEst.direccion,
-    esPrincipal: backendEst.codigo === '0001', // Convenio: 0001 es principal
+    esPrincipal: backendEst.esPrincipal ?? (backendEst.codigo === '0001'), // Usar campo o fallback
     activo: backendEst.esActivo,
   };
 }
@@ -261,12 +303,50 @@ export function adaptLoginResponse(
     backendData.establecimientos || []
   );
 
-  // Determinar contexto inicial
+  // Adaptar contexto sugerido del backend si existe
+  let contextoSugerido: ContextoSugerido | undefined;
+  if (backendData.contextoSugerido) {
+    contextoSugerido = {
+      empresaId: backendData.contextoSugerido.empresaId,
+      establecimientoId: backendData.contextoSugerido.establecimientoId,
+      empresa: {
+        id: backendData.contextoSugerido.empresa.id,
+        ruc: backendData.contextoSugerido.empresa.ruc,
+        razonSocial: backendData.contextoSugerido.empresa.razonSocial,
+        nombreComercial: backendData.contextoSugerido.empresa.nombreComercial,
+        direccionFiscal: backendData.contextoSugerido.empresa.direccionFiscal,
+        monedaBase: backendData.contextoSugerido.empresa.monedaBase,
+        ambienteSunat: backendData.contextoSugerido.empresa.ambienteSunat,
+        actividadEconomica: backendData.contextoSugerido.empresa.actividadEconomica,
+        regimenTributario: backendData.contextoSugerido.empresa.regimenTributario,
+        telefonos: backendData.contextoSugerido.empresa.telefonos,
+        correosElectronicos: backendData.contextoSugerido.empresa.correosElectronicos,
+        esActivo: backendData.contextoSugerido.empresa.esActivo,
+      },
+      establecimiento: {
+        id: backendData.contextoSugerido.establecimiento.id,
+        codigo: backendData.contextoSugerido.establecimiento.codigo,
+        nombre: backendData.contextoSugerido.establecimiento.nombre,
+        direccion: backendData.contextoSugerido.establecimiento.direccion,
+        distrito: backendData.contextoSugerido.establecimiento.distrito,
+        provincia: backendData.contextoSugerido.establecimiento.provincia,
+        departamento: backendData.contextoSugerido.establecimiento.departamento,
+        telefono: backendData.contextoSugerido.establecimiento.telefono,
+        correo: backendData.contextoSugerido.establecimiento.correo,
+        esPrincipal: backendData.contextoSugerido.establecimiento.esPrincipal,
+        esActivo: backendData.contextoSugerido.establecimiento.esActivo,
+      },
+    };
+  }
+
+  // Determinar contexto inicial (fallback si no hay contexto sugerido)
   const contextoActual = determineInitialContext(backendData, empresas);
 
   // Determinar si requiere selección de contexto
   const requiereSeleccionContexto =
-    !contextoActual && empresas.length > 0;
+    backendData.requiereSeleccionContexto !== undefined
+      ? backendData.requiereSeleccionContexto
+      : !contextoActual && !contextoSugerido && empresas.length > 0;
 
   return {
     user,
@@ -274,6 +354,7 @@ export function adaptLoginResponse(
     empresas,
     requiereSeleccionContexto,
     contextoActual,
+    contextoSugerido,
   };
 }
 

@@ -184,6 +184,43 @@ export interface AuthResponse {
   empresas: Empresa[];
   requiereSeleccionContexto: boolean;
   contextoActual?: WorkspaceContext;
+  contextoSugerido?: ContextoSugerido;
+}
+
+export interface ContextoSugerido {
+  empresaId: string;
+  establecimientoId: string;
+  empresa: EmpresaDetalle;
+  establecimiento: EstablecimientoDetalle;
+}
+
+export interface EmpresaDetalle {
+  id: string;
+  ruc: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  direccionFiscal?: string;
+  monedaBase?: string;
+  ambienteSunat?: string;
+  actividadEconomica?: string;
+  regimenTributario?: string;
+  telefonos?: string[];
+  correosElectronicos?: string[];
+  esActivo: boolean;
+}
+
+export interface EstablecimientoDetalle {
+  id: string;
+  codigo: string;
+  nombre: string;
+  direccion?: string;
+  distrito?: string;
+  provincia?: string;
+  departamento?: string;
+  telefono?: string;
+  correo?: string;
+  esPrincipal: boolean;
+  esActivo: boolean;
 }
 
 export interface ContextSelectionPayload {

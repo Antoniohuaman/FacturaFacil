@@ -5,6 +5,7 @@ import { authClient } from './AuthClient';
 import { tokenService } from './TokenService';
 import { contextService } from './ContextService';
 import { rateLimitService } from './RateLimitService';
+import { autoConfigService } from './AutoConfigService';
 import { useAuthStore } from '../store/AuthStore';
 import { useTenantStore } from '../store/TenantStore';
 import type { LoginCredentials, AuthResponse } from '../types/auth.types';
@@ -170,34 +171,43 @@ class AuthRepository {
     useAuthStore.setState({
       user: response.user,
       isAuthenticated: true,
-      hasWorkspace: !response.requiereSeleccionContexto && !!response.contextoActual,
       require2FA: false,
-      status: 'authenticated',
       error: null,
     });
 
-    // Actualizar empresas en tenant store
-    useTenantStore.setState({
-      empresas: response.empresas || [],
-    });
-
-    // Si ya tiene contexto, guardarlo
-    if (response.contextoActual) {
-      contextService.saveContext(response.contextoActual);
-      useTenantStore.setState({
-        contextoActual: response.contextoActual,
+    // ========================================
+    // NUEVO: EJECUTAR AUTO-CONFIGURACIÓN
+    // ========================================
+    try {
+      await autoConfigService.ejecutarAutoConfiguracion(response);
+      
+      // Actualizar estado después de auto-config exitosa
+      useAuthStore.setState({
+        hasWorkspace: true,
+        status: 'authenticated',
       });
-
+      
+      return { success: true };
+    } catch (error) {
+      console.error('[Auth] Error en auto-configuración:', error);
+      
+      // Si falla la auto-config, verificar si requiere selección manual
+      if (response.requiereSeleccionContexto) {
+        useAuthStore.setState({ 
+          hasWorkspace: false,
+          status: 'requires_workspace' 
+        });
+        return { success: true, requiresContext: true };
+      }
+      
+      // Si no requiere contexto manual, marcar como autenticado de todos modos
+      useAuthStore.setState({
+        hasWorkspace: !!response.contextoActual || !!response.contextoSugerido,
+        status: 'authenticated',
+      });
+      
       return { success: true };
     }
-
-    // Si requiere selección de contexto
-    if (response.requiereSeleccionContexto) {
-      useAuthStore.setState({ status: 'requires_workspace' });
-      return { success: true, requiresContext: true };
-    }
-
-    return { success: true };
   }
 
   /**
