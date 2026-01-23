@@ -172,6 +172,7 @@ const EmisionTradicional = () => {
   const [cobranzaMode, setCobranzaMode] = useState<PaymentCollectionMode>('contado');
   const [lookupClient, setLookupClient] = useState<{ data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null>(null);
   const [showCreditScheduleModal, setShowCreditScheduleModal] = useState(false);
+  const [pendingReceivableHighlightId, setPendingReceivableHighlightId] = useState<string | undefined>(undefined);
   const [showObservacionesPanel, setShowObservacionesPanel] = useState(false);
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
   const { createCliente } = useClientes();
@@ -585,19 +586,14 @@ const EmisionTradicional = () => {
       return false;
     }
 
-    const success = await handleCrearComprobante(undefined, { suppressSuccessModal: true });
+    const success = await handleCrearComprobante();
     if (success) {
       setShowCobranzaModal(false);
       setShowPostIssueOptionsModal(false);
       const highlightedCuentaId = typeof window !== 'undefined'
         ? window.sessionStorage.getItem('lastCreatedReceivableId') || undefined
         : undefined;
-      navigate('/cobranzas', {
-        state: {
-          defaultTab: 'cuentas',
-          highlightCuentaId: highlightedCuentaId,
-        },
-      });
+      setPendingReceivableHighlightId(highlightedCuentaId);
     }
     return Boolean(success);
   };
@@ -756,7 +752,9 @@ const EmisionTradicional = () => {
           numero: '001-00001', // TODO: Obtener el número real del backend
           total: totals.total,
           cliente: clienteSeleccionadoGlobal?.nombre || 'Cliente',
-          vuelto: received > totals.total ? received - totals.total : 0
+          vuelto: received > totals.total ? received - totals.total : 0,
+          mode: isCreditSale ? 'credito' : 'contado',
+          creditDueDate: isCreditSale ? creditTerms?.fechaVencimientoGlobal ?? null : null,
         });
         
         // Mostrar modal de éxito
@@ -808,8 +806,23 @@ const EmisionTradicional = () => {
     }
     setShowSuccessModal(false);
     setShowPostIssueOptionsModal(false);
+    setPendingReceivableHighlightId(undefined);
     setProductSelectorKey(prev => prev + 1); // ✅ Incrementar para remontar ProductSelector
   };
+
+  const handleViewCuentaPorCobrar = useCallback(() => {
+    setShowSuccessModal(false);
+    const highlightedCuentaId = pendingReceivableHighlightId ?? (typeof window !== 'undefined'
+      ? window.sessionStorage.getItem('lastCreatedReceivableId') || undefined
+      : undefined);
+    navigate('/cobranzas', {
+      state: {
+        defaultTab: 'cuentas',
+        highlightCuentaId: highlightedCuentaId,
+      },
+    });
+    setPendingReceivableHighlightId(undefined);
+  }, [navigate, pendingReceivableHighlightId]);
 
   const handleClosePostIssueOptions = () => {
     setShowPostIssueOptionsModal(false);
@@ -1013,6 +1026,7 @@ const EmisionTradicional = () => {
             comprobante={lastComprobante}
             onPrint={handlePrint}
             onNewSale={handleNewSale}
+            onViewReceivable={lastComprobante?.mode === 'credito' ? handleViewCuentaPorCobrar : undefined}
           />
         )}
 

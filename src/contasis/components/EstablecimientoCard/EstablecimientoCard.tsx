@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Switch } from '../Switch';
 import type { EstablecimientoCardProps } from './EstablecimientoCard.types';
 
 // Componentes auxiliares - Iconos
@@ -99,8 +100,13 @@ interface DropdownMenuContentProps {
 
 const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({ children, onClose }) => (
   <div className="absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-gray-700">
-    <div className="py-1" onClick={onClose}>
-      {children}
+    <div className="py-1">
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child) && child.type === DropdownMenuItem) {
+          return React.cloneElement(child as React.ReactElement<any>, { onClose });
+        }
+        return child;
+      })}
     </div>
   </div>
 );

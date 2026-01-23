@@ -1,4 +1,4 @@
-import { CheckCircle2, Printer, Mail, MessageCircle, Link2, FileText, X, Sparkles } from 'lucide-react';
+import { CheckCircle2, Printer, Mail, MessageCircle, Link2, FileText, X, Sparkles, CreditCard } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCurrency } from '../form-core/hooks/useCurrency';
 
@@ -12,12 +12,15 @@ interface SuccessModalProps {
     total: number;
     cliente?: string;
     vuelto?: number;
+    mode?: 'contado' | 'credito';
+    creditDueDate?: string | null;
   };
   onPrint: () => void;
   onNewSale: () => void;
+  onViewReceivable?: () => void;
 }
 
-export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale }: SuccessModalProps) => {
+export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale, onViewReceivable }: SuccessModalProps) => {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showEmailInput, setShowEmailInput] = useState(false);
@@ -26,6 +29,10 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
   const { formatPrice, documentCurrency } = useCurrency();
   const saleCurrency = (comprobante as { currency?: string }).currency ?? documentCurrency.code;
   const formatSaleAmount = (value?: number) => formatPrice(value ?? 0, saleCurrency);
+  const isCreditSale = comprobante.mode === 'credito';
+  const summaryLabel = isCreditSale ? 'Total financiado' : 'Total pagado';
+  const headerTitle = isCreditSale ? 'Cuenta por cobrar creada' : '¡Venta exitosa!';
+  const creditDueDate = isCreditSale ? comprobante.creditDueDate : null;
 
   // Manejar teclas ESC y Enter
   useEffect(() => {
@@ -130,7 +137,7 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
           </div>
           
           <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-2">
-            ¡Venta exitosa! <Sparkles className="w-5 h-5" />
+            {headerTitle} <Sparkles className="w-5 h-5" />
           </h2>
           <p className="text-green-50 text-sm">
             {comprobante.tipo} {comprobante.serie}-{comprobante.numero}
@@ -143,14 +150,21 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
           {/* Resumen de venta */}
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 mb-6 border border-gray-200">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-600">Total pagado</span>
+              <span className="text-sm text-gray-600">{summaryLabel}</span>
               <span className="text-2xl font-bold text-gray-900">{formatSaleAmount(comprobante.total)}</span>
             </div>
             
-            {comprobante.vuelto !== undefined && comprobante.vuelto > 0 && (
+            {!isCreditSale && comprobante.vuelto !== undefined && comprobante.vuelto > 0 && (
               <div className="flex justify-between items-center pt-2 border-t border-gray-300">
                 <span className="text-sm text-gray-600">Vuelto</span>
                 <span className="text-lg font-semibold text-orange-600">{formatSaleAmount(comprobante.vuelto)}</span>
+              </div>
+            )}
+
+            {isCreditSale && creditDueDate && (
+              <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+                <span className="text-sm text-gray-600">Vence</span>
+                <span className="text-sm font-semibold text-gray-900">{creditDueDate}</span>
               </div>
             )}
             
@@ -273,6 +287,16 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale 
             <FileText className="w-5 h-5" />
             Nueva venta
           </button>
+
+          {isCreditSale && onViewReceivable && (
+            <button
+              onClick={onViewReceivable}
+              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition"
+            >
+              <CreditCard className="w-4 h-4" />
+              Ver cuenta por cobrar
+            </button>
+          )}
         </div>
       </div>
 

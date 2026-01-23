@@ -15,6 +15,12 @@ function FeedbackHostComponent() {
 
   return (
     <>
+      <style>{`
+        @keyframes shrink {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
       {/* Toast stack - posicionado en top-right con animaciones elegantes */}
       <div
         className="fixed right-4 top-4 z-[60] flex flex-col gap-3 pointer-events-none"

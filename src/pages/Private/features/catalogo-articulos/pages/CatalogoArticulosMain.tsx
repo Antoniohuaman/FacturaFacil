@@ -1,7 +1,6 @@
 // src/features/catalogo-articulos/pages/CatalogoArticulosMain.tsx
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { TabKey } from '../models/types';
 import { PageHeader } from '@/contasis';
 import TabNavigation from '../components/TabNavigation';
@@ -12,7 +11,6 @@ import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 
 const CatalogoArticulosMain: React.FC = () => {
   useFocusFromQuery();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>('productos');
   const { allProducts } = useProductStore();
 

@@ -28,10 +28,32 @@ import type { PageHeaderProps } from './PageHeader.types';
  */
 export const PageHeader: React.FC<PageHeaderProps> = ({ 
   title, 
+  icon,
   breadcrumb, 
   actions,
   className = '' 
 }) => {
+  const titleContent = typeof title === 'string'
+    ? (
+      <h1 className="text-h3 font-poppins text-primary truncate">
+        {title}
+      </h1>
+    )
+    : title;
+
+  const renderedTitle = icon ? (
+    <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center justify-center text-primary">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        {titleContent}
+      </div>
+    </div>
+  ) : (
+    titleContent
+  );
+
   return (
     <div 
       className={`px-6 py-4 bg-surface-0 border-b border-[color:var(--border-default)] shrink-0 flex items-stretch justify-between sticky top-0 z-10 ${className}`}
@@ -53,6 +75,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         ) : (
           title
         )}
+
+        {renderedTitle}
+
       </div>
 
       {/* Área derecha: Acciones del layout */}
