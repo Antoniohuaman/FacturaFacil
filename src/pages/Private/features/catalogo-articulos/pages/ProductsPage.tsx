@@ -1,6 +1,7 @@
 // src/features/catalogo-articulos/pages/ProductsPage.tsx
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Button } from '@/contasis';
 import type { Product } from '../models/types';
 import ProductTable from '../components/ProductTable';
 import BulkDeleteToolbar from '../components/BulkDeleteToolbar';
@@ -681,15 +682,16 @@ const ProductsPage: React.FC = () => {
               <span>Exportar</span>
             </button>
 
-            <button
+            <Button
               onClick={handleCreateProduct}
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] shadow-sm hover:shadow-md transition-all"
+              icon={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              }
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Nuevo producto</span>
-            </button>
+              Nuevo producto
+            </Button>
           </div>
         </div>
       </div>

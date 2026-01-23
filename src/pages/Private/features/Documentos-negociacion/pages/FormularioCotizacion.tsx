@@ -7,6 +7,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, FileText, Check, Settings, Save } from 'lucide-react';
+import { PageHeader } from '@/contasis';
 import { formatBusinessDateTimeIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 // Hooks reutilizables del sistema de comprobantes (solo para UI, no lógica)
@@ -372,42 +373,18 @@ const FormularioCotizacion = () => {
     <ErrorBoundary>
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
         {/* Header Simplificado */}
-        <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={goBack}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                aria-label="Volver a lista"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-              
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {isEditMode ? 'Editar Cotización' : 'Nueva Cotización'}
-                  </h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Complete los datos del documento
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Solo el icono de configuración */}
-            <button
-              onClick={() => setShowFieldsConfigModal(true)}
-              className="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="Configurar campos"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title={isEditMode ? 'Editar Cotización' : 'Nueva Cotización'}
+          description="Complete los datos del documento"
+          onBack={goBack}
+          actions={[
+            {
+              icon: Settings,
+              onClick: () => setShowFieldsConfigModal(true),
+              tooltip: "Configurar campos"
+            }
+          ]}
+        />
 
         {/* Contenido Principal con Scroll */}
         <div className="flex-1 overflow-y-auto pb-24">

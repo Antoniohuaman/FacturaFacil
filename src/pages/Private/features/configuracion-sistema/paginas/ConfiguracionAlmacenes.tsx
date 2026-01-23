@@ -18,7 +18,7 @@ import {
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
-import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb } from '@/contasis';
+import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb, AlmacenCard } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
@@ -816,6 +816,39 @@ export function ConfiguracionAlmacenes() {
           </div>
         )}
       </div>
+
+      {/* Sección de Comparación - Nuevo Diseño de Cards */}
+      {filteredAlmacenes.length > 0 && (
+        <div className="mt-8">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              🚀 Nuevo Diseño - AlmacenCard (Comparación)
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Visualización en cards con mejor UX: Switch para estado, dropdown con acciones, y diseño consistente con otros módulos.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredAlmacenes.slice(0, 4).map(almacen => (
+              <AlmacenCard
+                key={`card-${almacen.id}`}
+                almacen={almacen}
+                onToggleActivo={handleToggleStatus}
+                onEditar={handleEdit}
+                onEliminar={(id) => openDeleteConfirmation(almacenes.find(a => a.id === id)!)}
+              />
+            ))}
+          </div>
+          {filteredAlmacenes.length > 4 && (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Mostrando solo los primeros 4 almacenes para comparación. 
+                Total: {filteredAlmacenes.length} almacenes.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
         </div>
       </div>
     </div>

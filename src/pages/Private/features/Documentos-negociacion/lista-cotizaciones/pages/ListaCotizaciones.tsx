@@ -8,6 +8,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/contasis';
 import {
   Printer, MoreHorizontal, Share2, Copy, Eye, Edit2, XCircle,
   Filter, Download, Plus, ChevronDown, Calendar, FileCheck, Link, X
@@ -529,10 +530,12 @@ const ListaCotizaciones = () => {
               densityControls={{ value: density, onChange: setDensity }}
             />
 
-            <button onClick={() => navigate('/documentos/nueva-cotizacion')} className="h-[44px] px-6 flex items-center gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-[12px] transition-colors font-semibold">
-              <Plus className="w-4 h-4" />
+            <Button 
+              onClick={() => navigate('/documentos/nueva-cotizacion')}
+              icon={<Plus className="w-4 h-4" />}
+            >
               Nueva Cotización
-            </button>
+            </Button>
           </div>
         </div>
       </div>

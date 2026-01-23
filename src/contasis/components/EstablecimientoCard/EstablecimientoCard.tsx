@@ -124,7 +124,7 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
   return (
     <div 
       className={`transition-all duration-200 hover:shadow-lg rounded-lg border ${
-        !establecimiento.activo ? 'opacity-60 bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700'
+        !establecimiento.activo ? 'opacity-80 bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700'
       }`}
       data-focus={dataFocus}
     >

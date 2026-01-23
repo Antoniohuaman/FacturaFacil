@@ -87,7 +87,7 @@ export const Switch: React.FC<SwitchProps> = ({
         className={`
           relative inline-flex ${trackSizeClasses[size]} items-center rounded-full transition-colors
           focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
-          ${checked ? 'bg-success' : 'bg-surface-2'}
+          ${checked ? 'bg-success' : 'bg-surface-pressed'}
           ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
         `}
       >

@@ -135,7 +135,7 @@ export const CajaCard: React.FC<CajaCardProps> = ({
       className={`transition-all duration-200 hover:shadow-lg rounded-lg border ${
         caja.habilitadaCaja
           ? 'bg-white border-slate-200'
-          : 'opacity-60 bg-slate-50 border-slate-200'
+          : 'opacity-80 bg-slate-50 border-slate-200'
       } ${className}`}
     >
       {/* Card Header */}

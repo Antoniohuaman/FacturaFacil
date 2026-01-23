@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, AlertCircle, Plus, Search, X, Download } from 'lucide-react';
+import { Button } from '@/contasis';
 import type { Column } from '../models/PriceTypes';
 import {
   filterVisibleColumns,
@@ -106,14 +107,12 @@ export const SummaryBar = React.memo<SummaryBarProps>(({
               )}
 
               {onAssignPrice && (
-                <button
+                <Button
                   onClick={onAssignPrice}
-                  className="flex items-center px-4 py-2 text-white rounded-lg text-sm font-medium hover:opacity-95 transition-colors whitespace-nowrap shadow"
-                  style={{ backgroundColor: '#1478D4' }}
+                  icon={<Plus size={16} />}
                 >
-                  <Plus size={16} className="mr-2" />
                   Asignar precio
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -197,14 +196,12 @@ export const SummaryBar = React.memo<SummaryBarProps>(({
             {fixedCount} Precio fijo · {volumeCount} Precio por cantidad
           </div>
           {onAssignPrice && (
-            <button
+            <Button
               onClick={onAssignPrice}
-              className="flex items-center px-3 py-2 text-white rounded-md text-sm hover:opacity-90 transition-colors whitespace-nowrap"
-              style={{ backgroundColor: '#1478D4' }}
+              icon={<Plus size={16} />}
             >
-              <Plus size={16} className="mr-2" />
               Asignar precio
-            </button>
+            </Button>
           )}
         </div>
       </div>

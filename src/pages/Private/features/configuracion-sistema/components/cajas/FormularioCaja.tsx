@@ -1,6 +1,6 @@
 // Componente FormularioCaja - formulario de caja para crear/editar con validaciones en línea
 import { useState, useEffect } from 'react';
-import { Button, Select, Input, Textarea } from '@/contasis';
+import { Button, Select, Input, Textarea, Switch } from '@/contasis';
 import type { CreateCajaInput, UpdateCajaInput, MedioPago } from '../../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../../modelos/Caja';
 import type { Currency } from '../../modelos/Currency';
@@ -321,30 +321,14 @@ export function FormularioCaja({
 
       {/* Habilitada */}
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={datosFormulario.habilitadaCaja}
-          onClick={() => {
-            setFormData(prev => ({ ...prev, habilitadaCaja: !prev.habilitadaCaja }));
+        <Switch
+          checked={datosFormulario.habilitadaCaja}
+          onChange={(checked) => {
+            setFormData(prev => ({ ...prev, habilitadaCaja: checked }));
             setTouched(prev => new Set(prev).add('habilitadaCaja'));
           }}
-          className={`
-            relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-            ${datosFormulario.habilitadaCaja ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}
-          `}
-        >
-          <span
-            className={`
-              inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-              ${datosFormulario.habilitadaCaja ? 'translate-x-6' : 'translate-x-1'}
-            `}
-          />
-        </button>
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Caja Habilitada
-        </label>
+          label="Caja Habilitada"
+        />
       </div>
 
       {/* Observaciones */}
