@@ -58,18 +58,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     
     const effectiveTheme = getEffectiveTheme(theme);
     console.log('Effective theme:', effectiveTheme);
-    console.log('Document element classes before:', document.documentElement.className);
+    console.log('Document data-theme before:', document.documentElement.getAttribute('data-theme'));
     
-    // Aplicar tema al documento
+    // Aplicar tema al documento usando data-theme attribute (para semantic tokens)
     if (effectiveTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      console.log('Added dark class to document');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      console.log('Set data-theme=dark to document');
     } else {
-      document.documentElement.classList.remove('dark');
-      console.log('Removed dark class from document');
+      document.documentElement.setAttribute('data-theme', 'light');
+      console.log('Set data-theme=light to document');
     }
     
-    console.log('Document element classes after:', document.documentElement.className);
+    console.log('Document data-theme after:', document.documentElement.getAttribute('data-theme'));
     
     // Guardar tema en localStorage
     localStorage.setItem('theme', theme);
@@ -89,9 +89,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       if (theme === 'system') {
         const effectiveTheme = getEffectiveTheme(theme);
         if (effectiveTheme === 'dark') {
-          document.documentElement.classList.add('dark');
+          document.documentElement.setAttribute('data-theme', 'dark');
         } else {
-          document.documentElement.classList.remove('dark');
+          document.documentElement.setAttribute('data-theme', 'light');
         }
       }
     };

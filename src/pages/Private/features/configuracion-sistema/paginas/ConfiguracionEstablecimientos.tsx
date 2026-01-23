@@ -196,10 +196,14 @@ export function EstablecimientosConfiguration() {
 
   const handleToggleStatus = (id: string) => {
     try {
-      const updated = Establecimientos.map(est => est.id === id ? { ...est, estaActivoEstablecimiento: !est.estaActivoEstablecimiento, actualizadoElEstablecimiento: new Date() } : est);
+      const establecimiento = Establecimientos.find(e => e.id === id);
+      if (!establecimiento) return;
+      
+      const nuevoEstado = !establecimiento.estaActivoEstablecimiento;
+      const updated = Establecimientos.map(est => est.id === id ? { ...est, estaActivoEstablecimiento: nuevoEstado, actualizadoElEstablecimiento: new Date() } : est);
+      
       dispatch({ type: 'SET_EstablecimientoS', payload: updated });
-      const est = Establecimientos.find(e => e.id === id);
-      showToast('success', est?.estaActivoEstablecimiento ? 'Establecimiento desactivado' : 'Establecimiento activado');
+      showToast('success', nuevoEstado ? 'Establecimiento activado' : 'Establecimiento desactivado');
     } catch (err) {
       console.error('Error toggling status:', err);
       showToast('error', 'Error al cambiar el estado del establecimiento');

@@ -140,7 +140,7 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
       throw new Error('Empresa y establecimiento son requeridos');
     }
 
-    setLoading(true);
+    // No usar loading global para evitar parpadeo - el CajaCard puede manejar su propio estado
     setError(null);
 
     try {
@@ -151,8 +151,6 @@ export function useCajas(empresaId?: string, establecimientoId?: string): UseCaj
       const errorMsg = err instanceof Error ? err.message : 'Error al cambiar estado de caja';
       setError(errorMsg);
       throw err;
-    } finally {
-      setLoading(false);
     }
   }, [empresaId, establecimientoId, dispatch]);
 

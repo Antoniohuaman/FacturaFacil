@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Switch } from '../Switch';
 import type { EstablecimientoCardProps } from './EstablecimientoCard.types';
 
 // Componentes auxiliares - Iconos
@@ -26,28 +27,7 @@ const MoreVerticalIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-// Componente Switch
-interface SwitchProps {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}
 
-const Switch: React.FC<SwitchProps> = ({ checked, onCheckedChange }) => (
-  <button
-    role="switch"
-    aria-checked={checked}
-    onClick={() => onCheckedChange(!checked)}
-    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-      checked ? 'bg-emerald-500' : 'bg-slate-200'
-    }`}
-  >
-    <span
-      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-        checked ? 'translate-x-5' : 'translate-x-0'
-      }`}
-    />
-  </button>
-);
 
 // Componente Dropdown Menu
 interface DropdownMenuProps {
@@ -184,7 +164,8 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
             <div className="flex items-center px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors">
               <Switch 
                 checked={establecimiento.activo}
-                onCheckedChange={() => onToggleActivo(establecimiento.id)}
+                onChange={() => onToggleActivo(establecimiento.id)}
+                size="md"
               />
             </div>
             
