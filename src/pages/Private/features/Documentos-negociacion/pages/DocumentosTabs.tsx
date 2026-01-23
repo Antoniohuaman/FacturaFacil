@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ListaCotizaciones from '../lista-cotizaciones/pages/ListaCotizaciones';
 import ListaNotasVenta from '../lista-notas-venta/pages/ListaNotasVenta';
-import { PageHeader } from '../../../../../components/PageHeader';
+import { PageHeader } from '@/contasis';
 
 const DocumentosTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'cotizaciones' | 'notas-venta'>('cotizaciones');

@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { PageHeader } from '../../../../../components/PageHeader';
-import { Button } from '@/contasis';
+import { PageHeader, Button, Breadcrumb } from '@/contasis';
 import { FormularioCaja } from '../components/cajas/FormularioCaja';
 import { useCajas } from '../hooks/useCajas';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -71,6 +70,15 @@ export function CajaFormPage() {
       <div className="flex flex-col h-full">
         <PageHeader 
           title="Cargando..."
+          breadcrumb={
+            <Breadcrumb
+              items={[
+                { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+                { label: 'Cajas', href: '#', onClick: () => navigate('/configuracion/cajas') },
+                { label: 'Cargando' }
+              ]}
+            />
+          }
           actions={
             <Button
               variant="secondary"
@@ -97,6 +105,15 @@ export function CajaFormPage() {
     <div className="flex flex-col h-full">
       <PageHeader 
         title={isEditing ? 'Editar Caja' : 'Nueva Caja'}
+        breadcrumb={
+          <Breadcrumb
+            items={[
+              { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+              { label: 'Cajas', href: '#', onClick: () => navigate('/configuracion/cajas') },
+              { label: isEditing ? 'Editar Caja' : 'Nueva Caja' }
+            ]}
+          />
+        }
         actions={
           <Button
             variant="secondary"

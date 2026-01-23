@@ -2,7 +2,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, AlertCircle, Banknote, ArrowLeft } from 'lucide-react';
-import { PageHeader } from '../../../../../components/PageHeader';
 import { TarjetaCaja } from '../components/cajas/TarjetaCaja';
 import { ModalEliminarCaja } from '../components/cajas/ModalEliminarCaja';
 import { useCajas } from '../hooks/useCajas';
@@ -10,7 +9,7 @@ import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
-import { Button, Select, Input } from '@/contasis';
+import { Button, Select, Input, PageHeader, CajaCard, Breadcrumb } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
 
 type filtroEstado = 'all' | 'enabled' | 'disabled';
@@ -97,6 +96,14 @@ export function CajasConfiguration() {
     }
   };
 
+  // Handler para Ver Turnos - navega a la vista de sesiones/turnos
+  const handleVerTurnos = (id: string) => {
+    const caja = cajas.find(c => c.id === id);
+    if (caja) {
+      navigate(`/caja/sesiones?cajaId=${caja.id}&establecimientoId=${caja.establecimientoIdCaja}`);
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!cajaToDelete) return;
 
@@ -156,42 +163,40 @@ export function CajasConfiguration() {
   return (
     <div className="flex-1 bg-gray-50 dark:bg-gray-900">
       <PageHeader
-        title="Cajas"
-        icon={<Banknote className="w-6 h-6 text-white" />}
+        title="Gestión de Cajas"
+        breadcrumb={
+          <Breadcrumb
+            items={[
+              { label: 'Configuración', href: '#', onClick: () => navigate('/configuracion') },
+              { label: 'Cajas' }
+            ]}
+          />
+        }
+        actions={
+          <Button
+            onClick={handleCreate}
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-5 h-5" />}
+            iconPosition="left"
+          >
+            Nueva Caja
+          </Button>
+        }
       />
 
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Breadcrumb */}
-        <button
-          onClick={() => navigate('/configuracion')}
-          className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Configuración
-        </button>
 
         {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Gestión de Cajas
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 {filterEstablecimientoId === 'all'
                   ? 'Mostrando cajas de todos los establecimientos'
                   : `Establecimiento: ${state.Establecimientos.find((e) => e.id === establecimientoId)?.nombreEstablecimiento || 'N/A'}`}
               </p>
             </div>
-            <Button
-              onClick={handleCreate}
-              variant="primary"
-              size="md"
-              icon={<Plus className="w-5 h-5" />}
-              iconPosition="left"
-            >
-              Nueva Caja
-            </Button>
           </div>
 
           {/* Filters */}
@@ -316,20 +321,51 @@ export function CajasConfiguration() {
 
         {/* Cajas grid */}
         {!loading && filteredCajas.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCajas.map((caja) => {
-              const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
-              return (
-                <TarjetaCaja
-                  key={caja.id}
-                  caja={caja}
-                  currency={currency}
-                  onEdit={handleEdit}
-                  onToggleEnabled={handleToggleEnabled}
-                  onDelete={handleDelete}
-                />
-              );
-            })}
+          <div>
+            {/* Sección TarjetaCaja */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Versión Actual (TarjetaCaja)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCajas.map((caja) => {
+                  const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
+                  return (
+                    <TarjetaCaja
+                      key={`tarjeta-${caja.id}`}
+                      caja={caja}
+                      currency={currency}
+                      onEdit={handleEdit}
+                      onToggleEnabled={handleToggleEnabled}
+                      onDelete={handleDelete}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sección CajaCard (Nueva versión de /contasis) */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Nueva Versión (CajaCard de /contasis) - En evaluación
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCajas.map((caja) => {
+                  const currency = state.currencies.find((currencyItem) => currencyItem.id === caja.monedaIdCaja);
+                  return (
+                    <CajaCard
+                      key={`cajacard-${caja.id}`}
+                      caja={caja}
+                      currency={currency}
+                      onEdit={handleEdit}
+                      onToggleEnabled={handleToggleEnabled}
+                      onDelete={handleDelete}
+                      onVerTurnos={handleVerTurnos}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>

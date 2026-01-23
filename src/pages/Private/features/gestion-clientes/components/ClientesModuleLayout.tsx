@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { List, Upload } from 'lucide-react';
-import { PageHeader } from '../../../../../components/PageHeader';
+import { PageHeader } from '@/contasis';
 
 const CLIENTES_TABS = [
   {

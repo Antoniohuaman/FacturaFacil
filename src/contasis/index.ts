@@ -25,12 +25,18 @@ export type { SwitchProps } from './components/Switch';
 export { Textarea } from './components/Textarea';
 export type { TextareaProps } from './components/Textarea';
 
+export { CajaCard } from './components/CajaCard';
+export type { CajaCardProps } from './components/CajaCard';
+
 // Layout
 export { Sidebar } from './layout/Sidebar';
 export type { SidebarProps, Module } from './layout/Sidebar';
 
 export { PageHeader } from './layout/PageHeader';
 export type { PageHeaderProps } from './layout/PageHeader';
+
+export { Breadcrumb } from './layout/Breadcrumb/Breadcrumb';
+export type { BreadcrumbProps, BreadcrumbItem } from './layout/Breadcrumb/Breadcrumb';
 
 export { Toolbar } from './layout/Toolbar';
 export type { ToolbarProps } from './layout/Toolbar';
