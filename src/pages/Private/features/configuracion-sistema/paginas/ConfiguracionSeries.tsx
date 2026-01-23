@@ -553,7 +553,24 @@ export function SeriesConfiguration() {
       <PageHeader
         title="Configuración de Series"
         actions={
-          <div className="flex items-center gap-4">
+          <Button
+            variant="secondary"
+            icon={<ArrowLeft />}
+            onClick={() => navigate('/configuracion')}
+          >
+            Volver
+          </Button>
+        }
+      />
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-6xl mx-auto p-6 space-y-8">
+          
+          {/* Header del contenido con botón Nueva Serie */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Gestión de Series</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Administra las series de documentos para cada establecimiento</p>
+            </div>
             <Button
               onClick={handleNew}
               variant="primary"
@@ -563,21 +580,10 @@ export function SeriesConfiguration() {
             >
               Nueva Serie
             </Button>
-            <Button
-              variant="secondary"
-              icon={<ArrowLeft />}
-              onClick={() => navigate('/configuracion')}
-            >
-              Volver
-            </Button>
           </div>
-        }
-      />
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-6xl mx-auto p-6 space-y-8">
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {Object.entries(voucherTypeConfig).map(([type, config]) => {
           const count = series.filter(s => s.type === type).length;
           const Icon = config.icon;

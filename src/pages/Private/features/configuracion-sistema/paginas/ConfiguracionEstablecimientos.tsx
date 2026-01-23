@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { PageHeader, Button, Select, Input, Breadcrumb, EstablecimientoCard } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { ubigeoData } from '../datos/ubigeo';
 
@@ -139,6 +138,7 @@ export function EstablecimientosConfiguration() {
   };
 
   const handleEdit = (establecimiento: Establecimiento) => {
+    console.log('handleEdit called with establecimiento:', establecimiento);
     setFormData({
       codigoEstablecimiento: establecimiento.codigoEstablecimiento,
       nombreEstablecimiento: establecimiento.nombreEstablecimiento,
@@ -153,6 +153,7 @@ export function EstablecimientosConfiguration() {
     setEditingEstablecimientoId(establecimiento.id);
     setFormErrors({});
     setShowForm(true);
+    console.log('Form should now be visible');
   };
 
   const manejarEnvio = (e: React.FormEvent) => {
@@ -179,7 +180,11 @@ export function EstablecimientosConfiguration() {
 
   const handleCancel = () => { setFormData({ codigoEstablecimiento: '', nombreEstablecimiento: '', direccionEstablecimiento: '', distritoEstablecimiento: '', provinciaEstablecimiento: '', departamentoEstablecimiento: '', codigoPostalEstablecimiento: '', phone: '', email: '' }); setEditingEstablecimientoId(null); setFormErrors({}); setShowForm(false); };
 
-  const openDeleteConfirmation = (establecimiento: Establecimiento) => setDeleteConfirmation({ isOpen: true, EstablecimientoId: establecimiento.id, EstablecimientoName: establecimiento.nombreEstablecimiento });
+  const openDeleteConfirmation = (establecimiento: Establecimiento) => {
+    console.log('openDeleteConfirmation called with establecimiento:', establecimiento);
+    setDeleteConfirmation({ isOpen: true, EstablecimientoId: establecimiento.id, EstablecimientoName: establecimiento.nombreEstablecimiento });
+    console.log('Delete confirmation modal should now be open');
+  };
 
   const handleDelete = () => {
     if (!deleteConfirmation.EstablecimientoId) return;
@@ -195,11 +200,17 @@ export function EstablecimientosConfiguration() {
   };
 
   const handleToggleStatus = (id: string) => {
+    console.log('handleToggleStatus called with id:', id, 'type:', typeof id);
     try {
       const establecimiento = Establecimientos.find(e => e.id === id);
-      if (!establecimiento) return;
+      console.log('Found establecimiento:', establecimiento);
+      if (!establecimiento) {
+        console.warn('No establecimiento found for id:', id);
+        return;
+      }
       
       const nuevoEstado = !establecimiento.estaActivoEstablecimiento;
+      console.log('Toggling from', establecimiento.estaActivoEstablecimiento, 'to', nuevoEstado);
       const updated = Establecimientos.map(est => est.id === id ? { ...est, estaActivoEstablecimiento: nuevoEstado, actualizadoElEstablecimiento: new Date() } : est);
       
       dispatch({ type: 'SET_EstablecimientoS', payload: updated });
@@ -363,71 +374,69 @@ export function EstablecimientosConfiguration() {
             <Button onClick={handleNew} variant="primary" size="md" icon={<Plus className="w-5 h-5" />} iconPosition="left">Nuevo Establecimiento</Button>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            {filteredEstablecimientos.length === 0 ? (
-              <div className="text-center py-12"><Building className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">{searchTerm || filtroEstado !== 'all' ? 'No se encontraron establecimientos' : 'No hay establecimientos registrados'}</h3><p className="text-gray-500 mb-6">{searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}</p>{(!searchTerm && filtroEstado === 'all') && (<button onClick={handleNew} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"><Plus className="w-4 h-4 mr-2" />Crear Primer Establecimiento</button>)}</div>
-            ) : (
-              <div className="divide-y divide-gray-200">
-                {filteredEstablecimientos.map(est => (
-                  <div key={est.id} data-focus={`configuracion:establecimientos:${est.id}`} className="p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3"><h3 className="text-lg font-semibold text-gray-900">{est.nombreEstablecimiento}</h3><span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">{est.codigoEstablecimiento}</span><IndicadorEstado status={est.estaActivoEstablecimiento ? 'success' : 'error'} label={est.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'} /></div>
-                        <p className="text-gray-600 mb-2">{est.direccionEstablecimiento}</p>
-                        <div className="flex items-center space-x-6 text-sm text-gray-500"><span>{est.distritoEstablecimiento}, {est.provinciaEstablecimiento}</span><span>{est.departamentoEstablecimiento}</span></div>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <button onClick={() => handleEdit(est)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleToggleStatus(est.id)} className={`p-2 rounded-lg transition-colors ${est.estaActivoEstablecimiento ? 'text-red-400 hover:text-red-600 hover:bg-red-50' : 'text-green-400 hover:text-green-600 hover:bg-green-50'}`} title={est.estaActivoEstablecimiento ? 'Desactivar' : 'Activar'}><MapPin className="w-4 h-4" /></button>
-                        <button onClick={() => openDeleteConfirmation(est)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          {filteredEstablecimientos.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+              <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {searchTerm || filtroEstado !== 'all' ? 'No se encontraron establecimientos' : 'No hay establecimientos registrados'}
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}
+              </p>
+              {(!searchTerm && filtroEstado === 'all') && (
+                <Button 
+                  onClick={handleNew} 
+                  variant="primary" 
+                  size="md" 
+                  icon={<Plus className="w-4 h-4" />} 
+                  iconPosition="left"
+                >
+                  Crear Primer Establecimiento
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filteredEstablecimientos.map(est => (
+                    <EstablecimientoCard
+                      key={est.id}
+                      dataFocus={`configuracion:establecimientos:${est.id}`}
+                      establecimiento={{
+                        id: est.id, // Mantener como string para evitar conversiones
+                        codigo: est.codigoEstablecimiento,
+                        nombre: est.nombreEstablecimiento,
+                        activo: est.estaActivoEstablecimiento,
+                        direccion: est.direccionEstablecimiento,
+                        distrito: est.distritoEstablecimiento,
+                        provincia: est.provinciaEstablecimiento,
+                        departamento: est.departamentoEstablecimiento
+                      }}
+                      onToggleActivo={(id) => {
+                        console.log('onToggleActivo called with id:', id, 'type:', typeof id);
+                        handleToggleStatus(id);
+                      }}
+                      onEditar={(id) => {
+                        console.log('onEditar called with id:', id, 'type:', typeof id);
+                        const establecimiento = Establecimientos.find(e => e.id === id);
+                        if (establecimiento) {
+                          handleEdit(establecimiento);
+                        } else {
+                          console.warn('Establecimiento not found for edit, id:', id);
+                        }
+                      }}
+                      onEliminar={(id) => {
+                        console.log('onEliminar called with id:', id, 'type:', typeof id);
+                        const establecimiento = Establecimientos.find(e => e.id === id);
+                        if (establecimiento) {
+                          openDeleteConfirmation(establecimiento);
+                        } else {
+                          console.warn('Establecimiento not found for delete, id:', id);
+                        }
+                      }}
+                    />
+                  ))}
               </div>
             )}
-          </div>
-
-          {/* NUEVA SECCIÓN: EstablecimientoCard comparativa */}
-          <div className="mt-12 pt-8 border-t border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Vista previa con EstablecimientoCard (Nuevo diseño)</h2>
-            {filteredEstablecimientos.length === 0 ? (
-              <div className="text-center py-12">
-                <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay establecimientos para mostrar</h3>
-                <p className="text-gray-500">{searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredEstablecimientos.map(est => (
-                  <EstablecimientoCard
-                    key={est.id}
-                    establecimiento={{
-                      id: parseInt(est.id),
-                      codigo: est.codigoEstablecimiento,
-                      nombre: est.nombreEstablecimiento,
-                      activo: est.estaActivoEstablecimiento,
-                      direccion: est.direccionEstablecimiento,
-                      distrito: est.distritoEstablecimiento,
-                      provincia: est.provinciaEstablecimiento,
-                      departamento: est.departamentoEstablecimiento
-                    }}
-                    onToggleActivo={(id) => handleToggleStatus(String(id))}
-                    onEditar={(id) => {
-                      const establecimiento = Establecimientos.find(e => e.id === String(id));
-                      if (establecimiento) handleEdit(establecimiento);
-                    }}
-                    onEliminar={(id) => {
-                      const establecimiento = Establecimientos.find(e => e.id === String(id));
-                      if (establecimiento) openDeleteConfirmation(establecimiento);
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
         </div>
       </div>
     </div>

@@ -79,8 +79,13 @@ interface DropdownMenuContentProps {
 
 const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({ children, onClose }) => (
   <div className="absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-gray-700">
-    <div className="py-1" onClick={onClose}>
-      {children}
+    <div className="py-1">
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child) && child.type === DropdownMenuItem) {
+          return React.cloneElement(child as React.ReactElement<any>, { onClose });
+        }
+        return child;
+      })}
     </div>
   </div>
 );
@@ -89,11 +94,15 @@ interface DropdownMenuItemProps {
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
+  onClose?: () => void;
 }
 
-const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({ children, onClick, className = '' }) => (
+const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({ children, onClick, className = '', onClose }) => (
   <button
-    onClick={onClick}
+    onClick={() => {
+      onClick?.();
+      onClose?.();
+    }}
     className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-gray-700 flex items-center ${className}`}
   >
     {children}
@@ -109,12 +118,16 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
   establecimiento, 
   onToggleActivo, 
   onEditar, 
-  onEliminar 
+  onEliminar,
+  dataFocus
 }) => {
   return (
-    <div className={`transition-all duration-200 hover:shadow-lg rounded-lg border ${
-      !establecimiento.activo ? 'opacity-60 bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700'
-    }`}>
+    <div 
+      className={`transition-all duration-200 hover:shadow-lg rounded-lg border ${
+        !establecimiento.activo ? 'opacity-60 bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700'
+      }`}
+      data-focus={dataFocus}
+    >
       <div className="p-6">
         <div className="flex items-start gap-3">
           {/* Icono - alineado al top */}
@@ -164,25 +177,37 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
             <div className="flex items-center px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors">
               <Switch 
                 checked={establecimiento.activo}
-                onChange={() => onToggleActivo(establecimiento.id)}
+                onChange={() => {
+                  console.log('Switch clicked for establecimiento:', establecimiento.id);
+                  onToggleActivo(establecimiento.id);
+                }}
                 size="md"
               />
             </div>
             
             <DropdownMenu>
               <DropdownMenuTrigger>
-                <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors">
+                <button 
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => console.log('Dropdown trigger clicked for establecimiento:', establecimiento.id)}
+                >
                   <MoreVerticalIcon className="h-4 w-4 text-slate-600 dark:text-gray-400" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => onEditar(establecimiento.id)}>
+                <DropdownMenuItem onClick={() => {
+                  console.log('Edit dropdown clicked for establecimiento:', establecimiento.id);
+                  onEditar(establecimiento.id);
+                }}>
                   <PencilIcon className="mr-2 h-4 w-4" />
                   Editar
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={() => onEliminar(establecimiento.id)}
+                  onClick={() => {
+                    console.log('Delete dropdown clicked for establecimiento:', establecimiento.id);
+                    onEliminar(establecimiento.id);
+                  }}
                   className="text-red-600 dark:text-red-400"
                 >
                   <Trash2Icon className="mr-2 h-4 w-4" />
