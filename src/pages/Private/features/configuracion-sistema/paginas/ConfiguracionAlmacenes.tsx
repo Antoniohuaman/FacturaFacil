@@ -706,7 +706,7 @@ export function ConfiguracionAlmacenes() {
                 key={almacen.id}
                 almacen={almacen}
                 onToggleActivo={handleToggleStatus}
-                onEditar={handleEdit}
+                onEditar={() => handleEdit}
                 onEliminar={(id) => openDeleteConfirmation(almacenes.find(a => a.id === id)!)}
               />
             ))}
