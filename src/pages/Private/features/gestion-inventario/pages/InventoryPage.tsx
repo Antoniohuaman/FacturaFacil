@@ -1,7 +1,6 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
 import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { useInventory } from '../hooks';
 import MovementsTable from '../components/tables/MovementsTable';
@@ -144,8 +143,6 @@ export const InventoryPage: React.FC = () => {
 
     void runAutoExport();
   }, [finishMovementsAutoExport, movementsAutoExportRequest, selectedView, setSelectedView]);
-
-  const navigate = useNavigate();
 
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
