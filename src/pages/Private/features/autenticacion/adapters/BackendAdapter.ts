@@ -12,8 +12,6 @@ import type {
   RegimenTributario,
   EmpresaConfig,
   ContextoSugerido,
-  EmpresaDetalle,
-  EstablecimientoDetalle,
 } from '../types/auth.types';
 
 /**
@@ -264,7 +262,7 @@ function adaptEmpresas(
  * Determina el contexto inicial basado en las empresas del usuario
  */
 function determineInitialContext(
-  backendData: BackendLoginResponseDto,
+  _backendData: BackendLoginResponseDto,
   empresas: Empresa[]
 ): WorkspaceContext | undefined {
   // Si solo tiene una empresa y un establecimiento, seleccionarlo automáticamente

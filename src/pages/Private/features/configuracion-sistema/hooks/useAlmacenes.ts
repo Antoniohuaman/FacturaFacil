@@ -1,203 +1,152 @@
-﻿import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import { almacenesApi } from '../api/almacenesApi';
+import { mapBackendToFrontend, mapFrontendToBackendInput } from '../api/almacenesMapper';
+import { getCurrentEmpresaId } from '../api/config';
+import { ApiError, NetworkError } from '../api/fetchApi';
 import type { Almacen } from '../modelos/Almacen';
-import { almacenService } from '../servicios/AlmacenService';
 
-/**
- * Hook para gestionar almacenes (CRUD real + validaciones)
- */
 export function useAlmacenes() {
-  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { state, dispatch } = useConfigurationContext();
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAlmacenes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await almacenService.getAll(1, 100);
-      // Adaptar nombres de campos del backend (PascalCase/Costo) al frontend
-      const mapped = response.data.map((item: any) => ({
-        id: item.id,
-        empresaId: item.empresaId,
-        codigoAlmacen: item.codigo,
-        nombreAlmacen: item.nombre,
-        establecimientoId: item.establecimientoId,
-        nombreEstablecimientoDesnormalizado: item.establecimientoNombre,
-        codigoEstablecimientoDesnormalizado: item.establecimientoCodigo,
-        descripcionAlmacen: item.descripcion,
-        ubicacionAlmacen: item.ubicacion,
-        estaActivoAlmacen: item.esActivo,
-        esAlmacenPrincipal: item.esPrincipal,
-        configuracionInventarioAlmacen: {
-          permiteStockNegativoAlmacen: false,
-          controlEstrictoStock: true,
-          requiereAprobacionMovimientos: false,
-        },
-        creadoElAlmacen: new Date(item.createdAt),
-        actualizadoElAlmacen: new Date(item.updatedAt),
-        tieneMovimientosInventario: false, // El backend debería informar esto
-      }));
-      setAlmacenes(mapped);
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar almacenes');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const empresaId = getCurrentEmpresaId();
+  const almacenes = state.almacenes;
 
-  useEffect(() => {
-    fetchAlmacenes();
-  }, [fetchAlmacenes]);
-
-  const obtenerAlmacenesPorEstablecimiento = useMemo(() => {
-    return (establecimientoId: string) =>
-      almacenes.filter((almacen) => almacen.establecimientoId === establecimientoId);
-  }, [almacenes]);
-
-  const obtenerAlmacenesActivosPorEstablecimiento = useMemo(() => {
-    return (establecimientoId: string) =>
-      almacenes.filter(
-        (almacen) => almacen.establecimientoId === establecimientoId && almacen.estaActivoAlmacen
-      );
-  }, [almacenes]);
-
-  const esCodigoDuplicado = (
-    codigoAlmacen: string,
-    establecimientoId: string,
-    excludeId?: string
-  ): boolean => {
-    return almacenes.some(
-      (almacen) =>
-        almacen.codigoAlmacen === codigoAlmacen &&
-        almacen.establecimientoId === establecimientoId &&
-        almacen.id !== excludeId
-    );
+  const handleError = (err: unknown, operation: string): void => {
+    console.error(`Error ${operation} almacén:`, err);
+    if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
+    else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
+    else if (err instanceof Error) setError(err.message);
+    else setError(`Error desconocido al ${operation} almacén`);
   };
 
-  const generarSiguienteCodigo = (establecimientoId: string): string => {
-    const almacenesDelEstablecimiento = almacenes.filter(
-      (almacen) => almacen.establecimientoId === establecimientoId
-    );
+  const cargarAlmacenes = useCallback(
+    async (search?: string, estado?: boolean, establecimientoId?: string) => {
+      if (!empresaId) {
+        setError('No se pudo determinar la empresa actual');
+        return;
+      }
 
-    if (almacenesDelEstablecimiento.length === 0) return '0001';
+      try {
+        setIsFetching(true);
+        setError(null);
+        const items = await almacenesApi.listAll({ empresaId, search, estado, establecimientoId });
+        const almacenesData = items.map((dto) => mapBackendToFrontend(dto));
+        dispatch({ type: 'SET_ALMACENES', payload: almacenesData });
+      } catch (err) {
+        handleError(err, 'cargar');
+      } finally {
+        setIsFetching(false);
+      }
+    },
+    [empresaId, dispatch]
+  );
 
-    const numericCodes = almacenesDelEstablecimiento
-      .map((almacen) => {
-        const match = almacen.codigoAlmacen.match(/\d+/);
-        return match ? parseInt(match[0], 10) : 0;
-      })
-      .filter((numero) => numero > 0);
+  const crearAlmacen = useCallback(
+    async (data: Partial<Almacen>): Promise<Almacen | null> => {
+      if (!empresaId) throw new Error('No se pudo determinar la empresa actual');
 
-    const lastCode = numericCodes.length > 0 ? Math.max(...numericCodes) : 0;
-    return String(lastCode + 1).padStart(4, '0');
-  };
+      try {
+        setIsSaving(true);
+        setError(null);
+        const inputDto = mapFrontendToBackendInput(data, empresaId);
+        const response = await almacenesApi.create(inputDto);
 
-  const crearAlmacen = async (
-    almacen: Omit<Almacen, 'id' | 'creadoElAlmacen' | 'actualizadoElAlmacen'>
-  ): Promise<boolean> => {
-    setLoading(true);
-    try {
-      await almacenService.create({
-        codigo: almacen.codigoAlmacen,
-        nombre: almacen.nombreAlmacen,
-        establecimientoId: almacen.establecimientoId,
-        establecimientoNombre: almacen.nombreEstablecimientoDesnormalizado,
-        establecimientoCodigo: almacen.codigoEstablecimientoDesnormalizado,
-        descripcion: almacen.descripcionAlmacen,
-        ubicacion: almacen.ubicacionAlmacen,
-        esPrincipal: almacen.esAlmacenPrincipal,
-        esActivo: almacen.estaActivoAlmacen,
+        if (!response.exito || !response.data) {
+          throw new Error(response.mensaje || 'Error al crear almacén');
+        }
+
+        const nuevoAlmacen = mapBackendToFrontend(response.data, data);
+        dispatch({ type: 'ADD_ALMACEN', payload: nuevoAlmacen });
+        return nuevoAlmacen;
+      } catch (err) {
+        handleError(err, 'crear');
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [empresaId, dispatch]
+  );
+
+  const actualizarAlmacen = useCallback(
+    async (id: string, data: Partial<Almacen>): Promise<Almacen | null> => {
+      if (!empresaId) throw new Error('No se pudo determinar la empresa actual');
+
+      try {
+        setIsSaving(true);
+        setError(null);
+        const existing = almacenes.find((e) => e.id === id);
+        const inputDto = mapFrontendToBackendInput({ ...existing, ...data }, empresaId);
+        const response = await almacenesApi.update(id, inputDto);
+
+        if (!response.exito || !response.data) {
+          throw new Error(response.mensaje || 'Error al actualizar almacén');
+        }
+
+        const actualizado = mapBackendToFrontend(response.data, { ...existing, ...data });
+        dispatch({ type: 'UPDATE_ALMACEN', payload: actualizado });
+        return actualizado;
+      } catch (err) {
+        handleError(err, 'actualizar');
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [empresaId, dispatch, almacenes]
+  );
+
+  const eliminarAlmacen = useCallback(
+    async (id: string): Promise<void> => {
+      try {
+        setIsDeleting(true);
+        setError(null);
+        const response = await almacenesApi.delete(id);
+
+        if (!response.exito) {
+          throw new Error(response.mensaje || 'Error al eliminar almacén');
+        }
+
+        dispatch({ type: 'DELETE_ALMACEN', payload: id });
+      } catch (err) {
+        handleError(err, 'eliminar');
+        throw err;
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [dispatch]
+  );
+
+  const toggleStatus = useCallback(
+    async (id: string): Promise<void> => {
+      const almacen = almacenes.find((e) => e.id === id);
+      if (!almacen) throw new Error('Almacén no encontrado');
+
+      await actualizarAlmacen(id, {
+        ...almacen,
+        estaActivoAlmacen: !almacen.estaActivoAlmacen,
       });
-      await fetchAlmacenes();
-      return true;
-    } catch (err: any) {
-      setError(err.message || 'Error al crear almacén');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const actualizarAlmacen = async (id: string, updates: Partial<Almacen>): Promise<boolean> => {
-    setLoading(true);
-    try {
-      const fullAlmacen = almacenes.find(a => a.id === id);
-      if (!fullAlmacen) return false;
-
-      const merged = { ...fullAlmacen, ...updates };
-
-      await almacenService.update(id, {
-        codigo: merged.codigoAlmacen,
-        nombre: merged.nombreAlmacen,
-        establecimientoId: merged.establecimientoId,
-        establecimientoNombre: merged.nombreEstablecimientoDesnormalizado,
-        establecimientoCodigo: merged.codigoEstablecimientoDesnormalizado,
-        descripcion: merged.descripcionAlmacen,
-        ubicacion: merged.ubicacionAlmacen,
-        esPrincipal: merged.esAlmacenPrincipal,
-        esActivo: merged.estaActivoAlmacen,
-      });
-      await fetchAlmacenes();
-      return true;
-    } catch (err: any) {
-      setError(err.message || 'Error al actualizar almacén');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const eliminarAlmacen = async (id: string): Promise<{ success: boolean; message: string }> => {
-    setLoading(true);
-    try {
-      await almacenService.delete(id);
-      await fetchAlmacenes();
-      return {
-        success: true,
-        message: 'Almacén eliminado correctamente',
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        message: err.message || 'Error al eliminar el almacén',
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const alternarEstadoAlmacen = async (id: string): Promise<boolean> => {
-    const objetivo = almacenes.find((almacen) => almacen.id === id);
-    if (!objetivo) return false;
-    return actualizarAlmacen(id, {
-      estaActivoAlmacen: !objetivo.estaActivoAlmacen,
-    });
-  };
-
-  const tieneAlmacenes = (establecimientoId: string): boolean => {
-    return almacenes.some((almacen) => almacen.establecimientoId === establecimientoId);
-  };
-
-  const obtenerAlmacenPrincipal = (establecimientoId: string): Almacen | undefined => {
-    return almacenes.find(
-      (almacen) => almacen.establecimientoId === establecimientoId && almacen.esAlmacenPrincipal
-    );
-  };
+    },
+    [almacenes, actualizarAlmacen]
+  );
 
   return {
     almacenes,
-    loading,
+    isFetching,
+    isSaving,
+    isDeleting,
+    isLoading: isFetching || isSaving || isDeleting,
     error,
-    obtenerAlmacenesPorEstablecimiento,
-    obtenerAlmacenesActivosPorEstablecimiento,
-    esCodigoDuplicado,
-    generarSiguienteCodigo,
+    cargarAlmacenes,
     crearAlmacen,
     actualizarAlmacen,
     eliminarAlmacen,
-    alternarEstadoAlmacen,
-    tieneAlmacenes,
-    obtenerAlmacenPrincipal,
-    refetch: fetchAlmacenes
+    toggleStatus,
   };
 }

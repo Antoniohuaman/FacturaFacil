@@ -23,13 +23,8 @@ import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { useAlmacenes } from '../hooks/useAlmacenes';
 import { useEstablecimientos } from '../hooks/useEstablecimientos';
+import { ToastNotifications, type Toast } from '@/components/Toast';
 import type { Almacen } from '../modelos/Almacen';
-
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'warning';
-  message: string;
-}
 
 type filtroEstado = 'all' | 'active' | 'inactive';
 
@@ -63,12 +58,13 @@ export function ConfiguracionAlmacenes() {
   const { state } = useConfigurationContext();
   const { 
     almacenes, 
-    loading: loadingAlmacenes, 
-    error: errorAlmacenes, 
+    isFetching, 
+    error: apiError, 
+    cargarAlmacenes, 
     crearAlmacen, 
     actualizarAlmacen, 
     eliminarAlmacen, 
-    alternarEstadoAlmacen 
+    toggleStatus: alternarEstadoAlmacen 
   } = useAlmacenes();
 
   const {
@@ -78,6 +74,7 @@ export function ConfiguracionAlmacenes() {
   } = useEstablecimientos();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterEstablecimiento, setFilterEstablecimiento] = useState<string>('all');
   const [filtroEstado, setFilterStatus] = useState<filtroEstado>('all');
   const [showForm, setShowForm] = useState(false);
@@ -97,6 +94,23 @@ export function ConfiguracionAlmacenes() {
     cargarEstablecimientos();
   }, [cargarEstablecimientos]);
 
+  // Debounce para search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Cargar almacenes con filtros (incluye carga inicial)
+  useEffect(() => {
+    const estado = filtroEstado === 'all' ? undefined : filtroEstado === 'active';
+    const search = debouncedSearch.trim() || undefined;
+    const establecimientoId = filterEstablecimiento === 'all' ? undefined : filterEstablecimiento;
+    cargarAlmacenes(search, estado, establecimientoId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroEstado, debouncedSearch, filterEstablecimiento]);
+
   const activeEstablecimientos = useMemo(
     () =>
       Establecimientos.filter(
@@ -104,30 +118,6 @@ export function ConfiguracionAlmacenes() {
       ),
     [Establecimientos]
   );
-
-  const filteredAlmacenes = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    return almacenes.filter(almacen => {
-      const matchesSearch =
-        normalizedSearch.length === 0 ||
-        almacen.nombreAlmacen.toLowerCase().includes(normalizedSearch) ||
-        almacen.codigoAlmacen.toLowerCase().includes(normalizedSearch) ||
-        (almacen.nombreEstablecimientoDesnormalizado ?? '').toLowerCase().includes(normalizedSearch);
-
-      const matchesEstablecimiento =
-        filterEstablecimiento === 'all' || almacen.establecimientoId === filterEstablecimiento;
-
-      const matchesStatus =
-        filtroEstado === 'all' ||
-        (filtroEstado === 'active' && almacen.estaActivoAlmacen) ||
-        (filtroEstado === 'inactive' && !almacen.estaActivoAlmacen);
-
-      return matchesSearch && matchesEstablecimiento && matchesStatus;
-    });
-  }, [almacenes, filterEstablecimiento, filtroEstado, searchTerm]);
-
-  const loading = loadingAlmacenes || loadingEstablecimientos;
-  const apiError = errorAlmacenes;
 
   const stats = useMemo(() => ({
     total: almacenes.length,
@@ -235,7 +225,7 @@ export function ConfiguracionAlmacenes() {
     }
   };
 
-  const manejarEnvio = (e: React.FormEvent) => {
+  const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -265,24 +255,17 @@ export function ConfiguracionAlmacenes() {
       }
     };
 
-    if (editingAlmacenId) {
-      actualizarAlmacen(editingAlmacenId, payload).then(success => {
-        if (success) {
-          showToast('success', 'Almacén actualizado correctamente');
-          handleCancel();
-        } else {
-          showToast('error', 'Error al actualizar el almacén');
-        }
-      });
-    } else {
-      crearAlmacen(payload).then(success => {
-        if (success) {
-          showToast('success', 'Almacén creado correctamente');
-          handleCancel();
-        } else {
-          showToast('error', 'Error al crear el almacén');
-        }
-      });
+    try {
+      if (editingAlmacenId) {
+        await actualizarAlmacen(editingAlmacenId, payload);
+        showToast('success', 'Almacén actualizado correctamente');
+      } else {
+        await crearAlmacen(payload);
+        showToast('success', 'Almacén creado correctamente');
+      }
+      handleCancel();
+    } catch {
+      showToast('error', editingAlmacenId ? 'Error al actualizar el almacén' : 'Error al crear el almacén');
     }
   };
 
@@ -302,7 +285,7 @@ export function ConfiguracionAlmacenes() {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteConfirmation.almacenId) return;
 
     if (deleteConfirmation.tieneMovimientosInventario) {
@@ -314,28 +297,27 @@ export function ConfiguracionAlmacenes() {
       return;
     }
 
-    eliminarAlmacen(deleteConfirmation.almacenId).then(result => {
-      if (result.success) {
-        showToast('success', result.message);
-      } else {
-        showToast('error', result.message);
-      }
+    try {
+      await eliminarAlmacen(deleteConfirmation.almacenId);
+      showToast('success', 'Almacén eliminado correctamente');
+    } catch {
+      showToast('error', 'Error al eliminar el almacén');
+    } finally {
       setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
-    });
+    }
   };
 
-  const handleToggleStatus = (id: string) => {
-    alternarEstadoAlmacen(id).then(success => {
-      if (success) {
-        const almacen = almacenes.find(item => item.id === id);
-        showToast(
-          'success',
-          almacen?.estaActivoAlmacen ? 'Almacén deshabilitado' : 'Almacén habilitado'
-        );
-      } else {
-        showToast('error', 'Error al cambiar el estado del almacén');
-      }
-    });
+  const handleToggleStatus = async (id: string) => {
+    try {
+      const almacen = almacenes.find(item => item.id === id);
+      await alternarEstadoAlmacen(id);
+      showToast(
+        'success',
+        almacen?.estaActivoAlmacen ? 'Almacén deshabilitado' : 'Almacén habilitado'
+      );
+    } catch {
+      showToast('error', 'Error al cambiar el estado del almacén');
+    }
   };
 
   if (showForm) {
@@ -394,7 +376,6 @@ export function ConfiguracionAlmacenes() {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Información Básica</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Datos principales del almacén</p>
                 </div>
-                {/* Etiqueta azul reubicada */}
                 <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 ml-auto">
                   <IconoAlmacen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {datosFormulario.codigoAlmacen}</span>
@@ -402,28 +383,24 @@ export function ConfiguracionAlmacenes() {
               </div>
             </div>
             <div className="p-6 space-y-6">
-              {/* Establecimiento */}
-              <div>
-                <Select
-                  label="Establecimiento"
-                  value={datosFormulario.establecimientoId}
-                  onChange={e => handleEstablecimientoChange(e.target.value)}
-                  required
-                  error={formErrors.establecimientoId}
-                  disabled={loadingEstablecimientos}
-                  helperText={loadingEstablecimientos ? "Cargando establecimientos..." : "El almacén pertenecerá a este establecimiento"}
-                  options={[
-                    { value: '', label: loadingEstablecimientos ? 'Cargando...' : 'Seleccionar establecimiento...' },
-                    ...activeEstablecimientos.map(est => ({
-                      value: est.id,
-                      label: `[${est.codigoEstablecimiento}] ${est.nombreEstablecimiento}`
-                    }))
-                  ]}
-                />
-              </div>
+              <Select
+                label="Establecimiento"
+                value={datosFormulario.establecimientoId}
+                onChange={e => handleEstablecimientoChange(e.target.value)}
+                required
+                error={formErrors.establecimientoId}
+                disabled={loadingEstablecimientos}
+                helperText={loadingEstablecimientos ? "Cargando establecimientos..." : "El almacén pertenecerá a este establecimiento"}
+                options={[
+                  { value: '', label: loadingEstablecimientos ? 'Cargando...' : 'Seleccionar establecimiento...' },
+                  ...activeEstablecimientos.map(est => ({
+                    value: est.id,
+                    label: `[${est.codigoEstablecimiento}] ${est.nombreEstablecimiento}`
+                  }))
+                ]}
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Código */}
                 <Input
                   label="Código"
                   type="text"
@@ -439,7 +416,6 @@ export function ConfiguracionAlmacenes() {
                   maxLength={4}
                 />
 
-                {/* Nombre */}
                 <Input
                   label="Nombre del Almacén"
                   type="text"
@@ -455,7 +431,6 @@ export function ConfiguracionAlmacenes() {
                 />
               </div>
 
-              {/* Ubicación */}
               <Input
                 label="Ubicación Física"
                 type="text"
@@ -465,7 +440,6 @@ export function ConfiguracionAlmacenes() {
                 helperText="Opcional"
               />
 
-              {/* Descripción */}
               <Textarea
                 label="Descripción"
                 value={datosFormulario.descripcionAlmacen}
@@ -475,7 +449,6 @@ export function ConfiguracionAlmacenes() {
                 helperText="Opcional"
               />
 
-              {/* Almacén Principal */}
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
                 <Checkbox
                   checked={datosFormulario.esAlmacenPrincipal}
@@ -506,7 +479,7 @@ export function ConfiguracionAlmacenes() {
                 type="submit"
                 variant="primary"
                 icon={<CheckCircle />}
-                loading={loading}
+                loading={isFetching}
               >
                 {editingAlmacenId ? 'Actualizar' : 'Crear'} Almacén
               </Button>
@@ -521,7 +494,6 @@ export function ConfiguracionAlmacenes() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <PageHeader
         title="Configuración de Almacenes"
         actions={
@@ -534,28 +506,10 @@ export function ConfiguracionAlmacenes() {
           </Button>
         }
       />
+      <ToastNotifications toasts={toasts} />
 
       <div className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto p-6 space-y-6 pb-12">
-          {/* Toast Notifications */}
-          <div className="fixed top-4 right-4 z-50 space-y-2">
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            className={`flex items-center gap-3 min-w-[300px] px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 animate-slide-in ${toast.type === 'success'
-              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
-              : toast.type === 'error'
-                ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
-                : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200'
-              }`}
-          >
-            {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />}
-            {toast.type === 'error' && <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
-            {toast.type === 'warning' && <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />}
-            <p className="flex-1 text-sm font-medium">{toast.message}</p>
-          </div>
-        ))}
-      </div>
 
       {deleteConfirmation.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -705,20 +659,24 @@ export function ConfiguracionAlmacenes() {
           </Button>
         </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {loading && almacenes.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">Cargando almacenes...</p>
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden relative min-h-[400px]">
+        {isFetching && (
+          <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/60 z-10 flex items-center justify-center backdrop-blur-[2px]">
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="mt-4 text-sm font-medium text-gray-600 dark:text-gray-400">Cargando almacenes...</p>
+            </div>
           </div>
-        ) : apiError ? (
+        )}
+
+        {apiError && !isFetching ? (
           <div className="text-center py-12">
             <XCircle className="h-12 w-12 text-red-300 dark:text-red-900 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Error de conexión</h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6">{apiError}</p>
-            <Button variant="secondary" onClick={() => window.location.reload()}>Reintentar</Button>
+            <Button variant="secondary" onClick={() => cargarAlmacenes()}>Reintentar</Button>
           </div>
-        ) : filteredAlmacenes.length === 0 ? (
+        ) : !apiError && !isFetching && almacenes.length === 0 ? (
           <div className="text-center py-12">
             <IconoAlmacen className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -741,9 +699,9 @@ export function ConfiguracionAlmacenes() {
               </button>
             )}
           </div>
-        ) : (
+        ) : !apiError && !isFetching && (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredAlmacenes.map(almacen => (
+            {almacenes.map(almacen => (
               <div key={almacen.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

@@ -129,3 +129,36 @@ export interface EmpresaInputDto {
   facturarEn?: string;
   esActivo: boolean;
 }
+
+export interface AlmacenBackendDto {
+  id: string;
+  empresaId: string;
+  codigo: string;
+  nombre: string;
+  establecimientoId: string;
+  establecimientoCodigo: string | null;
+  establecimientoNombre: string | null;
+  descripcion: string | null;
+  ubicacion: string | null;
+  esPrincipal: boolean;
+  esActivo: boolean;
+  usuarioId: string | null;
+  usuarioNombre: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlmacenInputDto {
+  empresaId: string;
+  codigo: string;
+  nombre: string;
+  establecimientoId: string;
+  establecimientoCodigo?: string;
+  establecimientoNombre?: string;
+  descripcion?: string;
+  ubicacion?: string;
+  esPrincipal?: boolean;
+  esActivo?: boolean;
+  usuarioId?: string;
+  usuarioNombre?: string;
+}

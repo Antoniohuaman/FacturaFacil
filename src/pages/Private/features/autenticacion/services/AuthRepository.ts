@@ -31,23 +31,22 @@ class AuthRepository {
     celular: string;
     email: string;
     password: string;
-    ruc: string;
-    razonSocial: string;
-    nombreComercial?: string;
-    direccion: string;
-    telefono?: string;
-    regimen: string;
-    actividadEconomica?: string;
   }): Promise<{
     success: boolean;
+    requiresContext?: boolean;
     message?: string;
     error?: string;
   }> {
     try {
       const response = await authClient.register(data);
+      
+      // Completar autenticación automáticamente (igual que en login)
+      const result = await this.completeAuthentication(response, true); // remember = true por defecto
+      
       return {
         success: true,
-        message: response.message
+        requiresContext: result.requiresContext,
+        message: response.message || 'Usuario registrado exitosamente'
       };
     } catch (error: any) {
       return {

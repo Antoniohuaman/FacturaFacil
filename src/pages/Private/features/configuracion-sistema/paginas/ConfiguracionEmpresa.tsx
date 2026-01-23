@@ -247,6 +247,7 @@ export function CompanyConfiguration() {
   const ensuredWorkspaceIdRef = useRef<string | undefined>(initialWorkspaceId);
   const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
   const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
+  const contextoActual = useTenantStore((store) => store.contextoActual);
   const workspaceIdForSubmit = isCreateWorkspaceMode
     ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || activeWorkspace?.id;
@@ -277,6 +278,8 @@ export function CompanyConfiguration() {
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
+  const [autoConfigProcessed, setAutoConfigProcessed] = useState(false);
+  const autoConfigRef = useRef(false);
 
   const setTenantWorkspaceContext = useCallback((empresa: Company, Establecimiento: Establecimiento) => {
     const empresaEntry = {
@@ -418,6 +421,111 @@ export function CompanyConfiguration() {
     }
   }, [company, dispatch, isCreateWorkspaceMode]);
 
+  // AUTO-CONFIGURACIÓN: Detectar y cargar empresa desde login automáticamente
+  useEffect(() => {
+    console.log('[ConfiguracionEmpresa] useEffect auto-config triggered', {
+      autoConfigRefCurrent: autoConfigRef.current,
+      autoConfigProcessed,
+      isCreateWorkspaceMode,
+      hasContexto: !!contextoActual,
+      hasEmpresa: !!contextoActual?.empresa,
+      hasCompany: !!company
+    });
+
+    // Prevenir ejecuciones múltiples
+    if (autoConfigRef.current || autoConfigProcessed) {
+      console.log('[ConfiguracionEmpresa] ⏭️ Saltando auto-config (ya procesado)');
+      return;
+    }
+
+    // Verificar que hay contexto sugerido del login y NO hay company ya cargada
+    // IMPORTANTE: Permitir auto-config incluso en modo create_workspace si viene del login
+    if (contextoActual && contextoActual.empresa && !company) {
+      console.log('[ConfiguracionEmpresa] 🔄 Detectada auto-configuración desde login', contextoActual);
+      autoConfigRef.current = true;
+      
+      const empresaDelLogin = contextoActual.empresa;
+      
+      // Mapear empresa del contexto a Company del sistema
+      const companyFromLogin: Company = {
+        id: empresaDelLogin.id,
+        ruc: empresaDelLogin.ruc,
+        razonSocial: empresaDelLogin.razonSocial,
+        nombreComercial: empresaDelLogin.nombreComercial || empresaDelLogin.razonSocial,
+        direccionFiscal: empresaDelLogin.direccion || '',
+        distrito: '',
+        provincia: '',
+        departamento: '',
+        codigoPostal: '',
+        telefonos: empresaDelLogin.telefono ? [empresaDelLogin.telefono] : [],
+        correosElectronicos: empresaDelLogin.email ? [empresaDelLogin.email] : [],
+        sitioWeb: undefined,
+        logoEmpresa: undefined,
+        textoPiePagina: undefined,
+        actividadEconomica: empresaDelLogin.actividadEconomica || '',
+        regimenTributario: (empresaDelLogin.regimen?.toUpperCase() === 'MYPE' || empresaDelLogin.regimen?.toUpperCase() === 'ESPECIAL') 
+          ? empresaDelLogin.regimen.toUpperCase() as 'MYPE' | 'ESPECIAL' 
+          : 'GENERAL',
+        monedaBase: (contextoActual.configuracion?.monedaBase as 'PEN' | 'USD') || 'PEN',
+        representanteLegal: {
+          nombreRepresentanteLegal: '',
+          tipoDocumentoRepresentante: 'DNI',
+          numeroDocumentoRepresentante: ''
+        },
+        certificadoDigital: undefined,
+        configuracionSunatEmpresa: {
+          estaConfiguradoEnSunat: empresaDelLogin.configuracion?.emisionElectronica || false,
+          usuarioSunat: undefined,
+          entornoSunat: (contextoActual.configuracion?.ambienteSunat === 'PRODUCTION' ? 'PRODUCTION' : 'TESTING') as 'TESTING' | 'PRODUCTION',
+          fechaUltimaSincronizacionSunat: undefined
+        },
+        creadoEl: new Date(),
+        actualizadoEl: new Date(),
+        estaActiva: empresaDelLogin.estado === 'activa'
+      };
+
+      console.log('[ConfiguracionEmpresa] 📝 Empresa mapeada:', companyFromLogin);
+
+      // Guardar empresa en el contexto de configuración
+      dispatch({ type: 'SET_COMPANY', payload: companyFromLogin });
+
+      // Cargar datos en el formulario
+      const formDataFromLogin: CompanyFormData = {
+        ruc: companyFromLogin.ruc,
+        razonSocial: companyFromLogin.razonSocial,
+        nombreComercial: companyFromLogin.nombreComercial || '',
+        direccionFiscal: companyFromLogin.direccionFiscal,
+        ubigeo: companyFromLogin.codigoPostal || '',
+        monedaBase: companyFromLogin.monedaBase,
+        entornoSunat: companyFromLogin.configuracionSunatEmpresa.entornoSunat === 'TESTING' ? 'TEST' : 'PRODUCTION',
+        telefonos: companyFromLogin.telefonos.length > 0 ? companyFromLogin.telefonos : [''],
+        correosElectronicos: companyFromLogin.correosElectronicos.length > 0 ? companyFromLogin.correosElectronicos : [''],
+        actividadEconomica: companyFromLogin.actividadEconomica
+      };
+
+      console.log('[ConfiguracionEmpresa] 📋 Datos del formulario:', formDataFromLogin);
+
+      setFormData(formDataFromLogin);
+      setOriginalData(formDataFromLogin);
+      
+      // Marcar RUC como validado (viene del backend)
+      setRucValidation({
+        isValid: true,
+        message: 'RUC validado desde el sistema',
+        data: {
+          razonSocial: companyFromLogin.razonSocial,
+          direccionFiscal: companyFromLogin.direccionFiscal,
+          ubigeo: companyFromLogin.codigoPostal || ''
+        }
+      });
+
+      setAutoConfigProcessed(true);
+      console.log('[ConfiguracionEmpresa] ✅ Empresa cargada desde auto-configuración');
+    } else {
+      console.log('[ConfiguracionEmpresa] ℹ️ No se cumplen condiciones para auto-config');
+    }
+  }, [contextoActual, company, dispatch, autoConfigProcessed]);
+
   // Detect if form has changes compared to original data
   useEffect(() => {
     if (!originalData) {
@@ -509,10 +617,21 @@ export function CompanyConfiguration() {
     setIsLoading(true);
 
     try {
+      // ==========================================
+      // FASE 1: Detectar operación CREATE vs UPDATE
+      // ==========================================
+      const isRealExistingCompany = company?.id && !company.id.startsWith('company-') && !company.id.startsWith('est-');
+      const operationType = isRealExistingCompany ? 'UPDATE' : 'CREATE';
+      
+      console.log(`[ConfiguracionEmpresa] 🔄 Operación: ${operationType}`, { 
+        companyId: company?.id, 
+        isReal: isRealExistingCompany 
+      });
+
       const targetWorkspaceId = workspaceIdForSubmit ?? generateWorkspaceId();
       ensuredWorkspaceIdRef.current = targetWorkspaceId;
 
-      // Filter out empty phones and emails
+      // Preparar datos del formulario
       const cleanPhones = datosFormulario.telefonos.filter(phone => phone.trim() !== '');
       const cleanEmails = datosFormulario.correosElectronicos.filter(email => email.trim() !== '');
 
@@ -533,16 +652,19 @@ export function CompanyConfiguration() {
         estaActiva: company?.estaActiva ?? true
       };
 
+      // ==========================================
+      // FASE 2: Ejecutar CREATE o UPDATE (Backend hace onboarding)
+      // ==========================================
       let updatedCompany: Company;
       
-      if (company?.id && !isCreateWorkspaceMode) {
-        // ACTUALIZAR EMPRESA EXISTENTE
+      if (operationType === 'UPDATE') {
+        console.log(`[ConfiguracionEmpresa] 📝 Actualizando empresa ${company.id}...`);
         updatedCompany = await actualizarEmpresa(company.id, companyData);
-        // console.log('Empresa actualizada en backend:', updatedCompany);
+        console.log('[ConfiguracionEmpresa] ✅ Empresa actualizada:', updatedCompany);
       } else {
-        // CREAR NUEVA EMPRESA
+        console.log('[ConfiguracionEmpresa] 🆕 Creando nueva empresa...');
         updatedCompany = await crearEmpresa(companyData);
-        // console.log('Empresa creada en backend:', updatedCompany);
+        console.log('[ConfiguracionEmpresa] ✅ Empresa creada con infraestructura base:', updatedCompany);
       }
 
       const workspace = createOrUpdateWorkspace({
@@ -554,211 +676,61 @@ export function CompanyConfiguration() {
       });
       ensuredWorkspaceIdRef.current = workspace.id;
 
-      // ===================================================================
-      // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
-      // ===================================================================
-      const isNewCompany = !company?.id || isCreateWorkspaceMode;
-      let defaultEstablecimiento: Establecimiento | null = null;
+      // ==========================================
+      // Sincronizar TenantStore con la empresa guardada
+      // ==========================================
+      const empresaEntry = {
+        id: updatedCompany.id,
+        ruc: updatedCompany.ruc,
+        razonSocial: updatedCompany.razonSocial,
+        nombreComercial: updatedCompany.nombreComercial,
+        direccion: updatedCompany.direccionFiscal,
+        telefono: updatedCompany.telefonos?.[0],
+        email: updatedCompany.correosElectronicos?.[0],
+        actividadEconomica: updatedCompany.actividadEconomica,
+        regimen: (updatedCompany.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
+        estado: updatedCompany.estaActiva ? EmpresaStatus.ACTIVA : EmpresaStatus.SUSPENDIDA,
+        establecimientos: contextoActual?.empresa.establecimientos || [],
+        configuracion: {
+          emisionElectronica: true,
+        },
+      };
 
-      if (isNewCompany && state.Establecimientos.length === 0) {
-        // Parsear ubigeo para obtener Departamento, Provincia y Distrito
-        const location = parseUbigeoCode(datosFormulario.ubigeo);
+      // Actualizar empresas en TenantStore
+      const { empresas } = useTenantStore.getState();
+      const withoutEmpresa = empresas.filter((item) => item.id !== empresaEntry.id);
+      setTenantEmpresas([...withoutEmpresa, empresaEntry]);
 
-        // 1. CREAR ESTABLECIMIENTO POR DEFECTO
-        const createdEstablecimiento: Establecimiento = {
-          id: 'est-main',
-          codigoEstablecimiento: '0001',
-          nombreEstablecimiento: 'Establecimiento Principal',
-          direccionEstablecimiento: updatedCompany.direccionFiscal,
-          distritoEstablecimiento: location?.district || 'Lima',
-          provinciaEstablecimiento: location?.province || 'Lima',
-          departamentoEstablecimiento: location?.department || 'Lima',
-          codigoPostalEstablecimiento: updatedCompany.codigoPostal,
-          phone: cleanPhones[0],
-          email: cleanEmails[0],
-          isMainEstablecimiento: true,
-          businessHours: {
-            monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            wednesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            thursday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            friday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            saturday: { isOpen: true, openTime: '09:00', closeTime: '13:00', is24Hours: false },
-            sunday: { isOpen: false, openTime: '00:00', closeTime: '00:00', is24Hours: false },
-          },
-          sunatConfiguration: {
-            isRegistered: true,
-            registrationDate: new Date(),
-            annexCode: '0000',
-            economicActivity: updatedCompany.actividadEconomica || 'Comercio',
-          },
-          posConfiguration: {
-            hasPos: true,
-            terminalCount: 1,
-            printerConfiguration: {
-              hasPrinter: false,
-              printerType: 'THERMAL',
-              paperSize: 'TICKET_80MM',
-              isNetworkPrinter: false,
-            },
-            cashDrawerConfiguration: {
-              hasCashDrawer: false,
-              openMethod: 'MANUAL',
-              currency: 'PEN',
-            },
-            barcodeScanner: {
-              hasScanner: false,
-              scannerType: 'USB',
-            },
-          },
-          inventoryConfiguration: {
-            managesInventory: true,
-            isalmacen: false,
-            allowNegativeStock: false,
-            autoTransferStock: false,
-          },
-          financialConfiguration: {
-            handlesCash: true,
-            defaultCurrencyId: 'PEN',
-            acceptedCurrencies: ['PEN', 'USD'],
-            defaultTaxId: 'IGV',
-            bankAccounts: [],
-          },
-          estadoEstablecimiento: 'ACTIVE',
-          creadoElEstablecimiento: new Date(),
-          actualizadoElEstablecimiento: new Date(),
-          estaActivoEstablecimiento: true,
+      // Si hay contextoActual, actualizarlo con la empresa guardada
+      if (contextoActual) {
+        const updatedContexto = {
+          ...contextoActual,
+          empresa: empresaEntry,
+          empresaId: empresaEntry.id,
         };
-
-        defaultEstablecimiento = createdEstablecimiento;
-        dispatch({ type: 'ADD_Establecimiento', payload: createdEstablecimiento });
-
-        // 2. CREAR ALMACÉN POR DEFECTO
-        const defaultalmacen: Almacen = {
-          id: 'alm-main',
-          codigoAlmacen: '0001',
-          nombreAlmacen: 'Almacén Principal',
-          establecimientoId: createdEstablecimiento.id,
-          nombreEstablecimientoDesnormalizado: createdEstablecimiento.nombreEstablecimiento,
-          codigoEstablecimientoDesnormalizado: createdEstablecimiento.codigoEstablecimiento,
-          descripcionAlmacen: 'Almacén principal de la empresa',
-          ubicacionAlmacen: createdEstablecimiento.direccionEstablecimiento || undefined,
-          estaActivoAlmacen: true,
-          esAlmacenPrincipal: true,
-          configuracionInventarioAlmacen: {
-            permiteStockNegativoAlmacen: false,
-            controlEstrictoStock: false,
-            requiereAprobacionMovimientos: false,
-          },
-          creadoElAlmacen: new Date(),
-          actualizadoElAlmacen: new Date(),
-          tieneMovimientosInventario: false,
-        };
-
-        dispatch({ type: 'ADD_ALMACEN', payload: defaultalmacen });
-
-        // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
-        const environmentType =
-          updatedCompany.configuracionSunatEmpresa.entornoSunat;
-
-        const defaultSeries: Series[] = buildMissingDefaultSeries({
-          EstablecimientoId: createdEstablecimiento.id,
-          environmentType,
-          existingSeries: state.series,
-        });
-
-        defaultSeries.forEach((seriesItem) => {
-          dispatch({ type: 'ADD_SERIES', payload: seriesItem });
-        });
-
-        // 4. CONFIGURAR MONEDA BASE
-        if (state.currencies.length === 0) {
-          const defaultCurrencies: Currency[] = [
-            {
-              id: 'PEN',
-              code: 'PEN',
-              name: 'Sol Peruano',
-              symbol: 'S/',
-              symbolPosition: 'BEFORE',
-              decimalPlaces: 2,
-              isBaseCurrency: true,
-              exchangeRate: 1.0,
-              isActive: true,
-              lastUpdated: new Date(),
-              autoUpdate: false,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-            {
-              id: 'USD',
-              code: 'USD',
-              name: 'Dólar Americano',
-              symbol: '$',
-              symbolPosition: 'BEFORE',
-              decimalPlaces: 2,
-              isBaseCurrency: false,
-              exchangeRate: 3.70,
-              isActive: true,
-              lastUpdated: new Date(),
-              autoUpdate: true,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ];
-          dispatch({ type: 'SET_CURRENCIES', payload: defaultCurrencies });
-        }
-
-        // 5. CONFIGURAR IMPUESTOS
-        if (state.taxes.length === 0) {
-          const now = new Date();
-          const defaultTaxes: Tax[] = PERU_TAX_TYPES
-            .filter((tax) => ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'].includes(tax.code))
-            .map<Tax>((tax) => ({
-              ...tax,
-              id: tax.code,
-              includeInPrice: true,
-              isDefault: tax.code === 'IGV18',
-              createdAt: now,
-              updatedAt: now,
-            }));
-
-          dispatch({ type: 'SET_TAXES', payload: defaultTaxes });
-        }
-
-        await ensureDefaultOperationalSetup({
-          company: updatedCompany,
-          Establecimiento: defaultEstablecimiento,
-          userId: session?.userId ?? null,
-          configState: {
-            cajas: state.cajas,
-            currencies: state.currencies,
-          },
-          dispatch,
-        });
+        setTenantContextoActual(updatedContexto);
       }
 
-      const EstablecimientoForContext =
-        defaultEstablecimiento ||
-        state.Establecimientos.find((est) => est.isMainEstablecimiento) ||
-        state.Establecimientos[0] ||
-        null;
+      console.log('[ConfiguracionEmpresa] 🔄 TenantStore sincronizado');
 
-      if (EstablecimientoForContext) {
-        setTenantWorkspaceContext(updatedCompany, EstablecimientoForContext);
-      }
+      // ==========================================
+      // FASE 3: Feedback y navegación
+      // ==========================================
+      const mensajeExito = operationType === 'UPDATE'
+        ? '✅ Empresa actualizada correctamente'
+        : '✅ Empresa creada con Sede 0001 y Almacén 0001';
+      
+      console.log(`[ConfiguracionEmpresa] ${mensajeExito}`);
 
-      // En create_workspace: primero fijar contexto, luego crear/detectar "Clientes Varios".
-      // Si no hay establecimiento, igual intentamos; el clientesClient hace fallback sin reventar.
-      if (isCreateWorkspaceMode) {
-        await ensureDefaultClienteClientesVarios();
-      }
-
-      // Show success and redirect
+      // Navegar después de un breve delay para que el usuario vea el mensaje
       setTimeout(() => {
         navigate('/configuracion');
       }, 1500);
+
     } catch (error) {
-      console.error('Error saving company:', error);
+      console.error('[ConfiguracionEmpresa] ❌ Error al guardar empresa:', error);
+      const mensajeError = error instanceof Error ? error.message : 'Error desconocido';
+      alert(`Error al guardar: ${mensajeError}`);
     } finally {
       setIsLoading(false);
     }
@@ -767,10 +739,13 @@ export function CompanyConfiguration() {
   // Form validation logic
   // For new company: require RUC validation + has changes
   // For existing company: allow updates without re-validating RUC but require changes
+  const isRealExistingCompany = company?.id && !company.id.startsWith('company-') && !company.id.startsWith('est-');
+  const operationType = isRealExistingCompany ? 'UPDATE' : 'CREATE';
+  
   const isFormValid = datosFormulario.ruc.length === 11 &&
     datosFormulario.razonSocial.trim() !== '' &&
     datosFormulario.direccionFiscal.trim() !== '' &&
-    (company?.id ? true : rucValidation?.isValid === true) &&
+    (isRealExistingCompany ? true : rucValidation?.isValid === true) &&
     hasChanges; // Only enable if there are changes
 
   return (
@@ -1052,17 +1027,17 @@ export function CompanyConfiguration() {
                   <div className="flex items-center gap-2 text-green-600 dark:text-green-400 animate-in slide-in-from-left duration-300">
                     <CheckCircle2 className="w-5 h-5" />
                     <span className="text-sm font-medium">
-                      {company?.id ? 'Listo para guardar cambios' : 'Formulario completo y listo para guardar'}
+                      {operationType === 'UPDATE' ? 'Listo para actualizar' : 'Listo para crear empresa'}
                     </span>
                   </div>
                 )}
-                {company?.id && !hasChanges && (
+                {isRealExistingCompany && !hasChanges && (
                   <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                     <CheckCircle2 className="w-5 h-5" />
                     <span className="text-sm font-medium">Sin cambios pendientes</span>
                   </div>
                 )}
-                {!isFormValid && datosFormulario.ruc.length === 11 && !rucValidation?.isValid && !company?.id && (
+                {!isFormValid && datosFormulario.ruc.length === 11 && !rucValidation?.isValid && operationType === 'CREATE' && (
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                     <Shield className="w-5 h-5" />
                     <span className="text-sm font-medium">Valida el RUC para continuar</span>
@@ -1084,7 +1059,9 @@ export function CompanyConfiguration() {
                   disabled={!isFormValid || isLoading || isApiLoading}
                   icon={(isLoading || isApiLoading) ? <Loader2 className="animate-spin" /> : undefined}
                 >
-                  {(isLoading || isApiLoading) ? 'Guardando...' : company?.id ? 'Guardar Cambios' : 'Crear Empresa'}
+                  {(isLoading || isApiLoading) 
+                    ? (operationType === 'UPDATE' ? 'Actualizando...' : 'Creando empresa...') 
+                    : (operationType === 'UPDATE' ? 'Actualizar Empresa' : 'Crear Empresa')}
                 </Button>
               </div>
             </div>

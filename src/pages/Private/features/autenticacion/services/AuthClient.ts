@@ -295,18 +295,42 @@ class AuthClient {
     celular: string;
     email: string;
     password: string;
-    ruc: string;
-    razonSocial: string;
-    nombreComercial?: string;
-    direccion: string;
-    telefono?: string;
-    regimen: string;
-    actividadEconomica?: string;
-  }): Promise<{ message: string; userId: string }> {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  }): Promise<AuthResponse> {
+    try {
+      // Generar username automáticamente desde el email
+      const username = data.email.split('@')[0];
+
+      // Llamar al endpoint real del backend .NET
+      const backendResponse = await this.request<any>('/api/v1/usuarios', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: data.nombre,
+          apellido: data.apellido,
+          celular: data.celular,
+          email: data.email,
+          password: data.password,
+          username: username,
+          requiereCambioPassword: false,
+          esActivo: true,
+        }),
+      });
+
+      // Adaptar la respuesta del backend al formato del frontend
+      // (el backend ahora retorna LoginResponseDto con contextoSugerido)
+      const adaptedResponse = adaptLoginResponse(backendResponse);
+      
+      return {
+        ...adaptedResponse,
+        message: backendResponse.message || 'Usuario registrado exitosamente'
+      };
+    } catch (error: any) {
+      // Adaptar errores del backend
+      const adaptedError = adaptBackendError(error);
+      throw {
+        code: mapBackendErrorCode(adaptedError.code),
+        message: adaptedError.message,
+      };
+    }
   }
 
   /**

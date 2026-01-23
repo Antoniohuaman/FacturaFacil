@@ -138,6 +138,10 @@ const reviveAlmacen = (raw: Almacen | (Partial<Almacen> & Record<string, unknown
 
   return {
     id: (raw as Almacen).id ?? (legacy.id as string) ?? '',
+    empresaId: (raw as Almacen).empresaId
+      ?? (legacy.empresaId as string)
+      ?? (legacy.companyId as string)
+      ?? '',
     codigoAlmacen: (raw as Almacen).codigoAlmacen
       ?? (legacy.codigoAlmacen as string)
       ?? (legacy.code as string)

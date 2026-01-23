@@ -10,93 +10,44 @@ import { usePasswordStrength } from '../hooks/usePasswordStrength';
 import { authRepository } from '../services/AuthRepository';
 import {
   registerStep1Schema,
-  registerStep2Schema,
   type RegisterStep1Data,
-  type RegisterStep2Data,
 } from '../schemas';
 
 /**
  * ============================================
- * REGISTER PAGE - Registro 2 Pasos
+ * REGISTER PAGE - Registro Simple (1 Paso)
  * ============================================
  */
 
-type RegisterFormData = RegisterStep1Data & RegisterStep2Data;
-
 export function RegisterPage() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<Partial<RegisterFormData>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isConsultingSunat, setIsConsultingSunat] = useState(false);
-
-  const totalSteps = 2;
-
-  // Determinar qué schema usar según el step actual
-  const getSchemaForStep = () => {
-    switch (currentStep) {
-      case 1:
-        return registerStep1Schema;
-      case 2:
-        return registerStep2Schema;
-      default:
-        return registerStep1Schema;
-    }
-  };
 
   const {
     register,
     handleSubmit,
     watch,
     formState: { errors },
-    reset,
   } = useForm({
-    resolver: zodResolver(getSchemaForStep()),
-    defaultValues: formData,
+    resolver: zodResolver(registerStep1Schema),
   });
 
   const password = watch('password');
   const passwordStrength = usePasswordStrength(password || '');
 
-  const handleNext = (data: Partial<RegisterFormData>) => {
-    // Guardar datos del step actual
-    setFormData((prev) => ({ ...prev, ...data }));
-
-    if (currentStep < totalSteps) {
-      setCurrentStep((prev) => prev + 1);
-      reset(data); // Reset form con los nuevos valores
-    } else {
-      // Último step, enviar registro
-      handleRegister({ ...formData, ...data } as RegisterFormData);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep((prev) => prev - 1);
-    }
-  };
-
-  const handleRegister = async (completeData: RegisterFormData) => {
+  const handleRegister = async (data: RegisterStep1Data) => {
     try {
       setIsLoading(true);
       setError(null);
 
       // Llamar al authRepository para registrar al usuario
       const result = await authRepository.register({
-        nombre: completeData.nombre,
-        apellido: completeData.apellido,
-        celular: completeData.celular,
-        email: completeData.email,
-        password: completeData.password,
-        ruc: completeData.ruc,
-        razonSocial: completeData.razonSocial,
-        nombreComercial: completeData.nombreComercial,
-        direccion: completeData.direccion,
-        telefono: completeData.telefono,
-        regimen: 'general', // Valor por defecto
-        actividadEconomica: completeData.actividadEconomica,
+        nombre: data.nombre,
+        apellido: data.apellido,
+        celular: data.celular,
+        email: data.email,
+        password: data.password,
       });
 
       if (!result.success) {
@@ -104,33 +55,17 @@ export function RegisterPage() {
         return;
       }
 
-      // Registro exitoso: Hacer login automático
-      const loginResult = await authRepository.login({
-        email: completeData.email,
-        password: completeData.password,
-        recordarme: true,
-      });
-
-      if (loginResult.success) {
-        // Guardar datos de empresa en localStorage para pre-cargar en configuración
-        localStorage.setItem('pending_company_data', JSON.stringify({
-          ruc: completeData.ruc,
-          razonSocial: completeData.razonSocial,
-          nombreComercial: completeData.nombreComercial,
-          direccion: completeData.direccion,
-          telefono: completeData.telefono,
-          actividadEconomica: completeData.actividadEconomica,
-        }));
-
-        // Login exitoso, la navegación se maneja automáticamente por los guards
-        if (loginResult.requiresContext) {
-          navigate('/auth/context', { replace: true });
-        } else {
-          navigate('/', { replace: true });
-        }
+      // ✅ Registro exitoso - AuthRepository ya manejó:
+      // - Guardar tokens
+      // - Ejecutar AutoConfigService
+      // - Sincronizar TenantStore
+      // - Crear empresa por defecto en backend
+      
+      // Navegar según el estado de la autenticación
+      if (result.requiresContext) {
+        navigate('/auth/context', { replace: true });
       } else {
-        // Si el login automático falla, redirigir al login manual
-        navigate('/auth/login?registered=true');
+        navigate('/', { replace: true });
       }
     } catch (err: unknown) {
       const error = err as { message?: string };
@@ -140,56 +75,10 @@ export function RegisterPage() {
     }
   };
 
-  // Función para consultar SUNAT con RUC
-  const handleConsultarSunat = async () => {
-    const rucValue = watch('ruc');
-    
-    if (!rucValue || rucValue.length !== 11) {
-      setError('Por favor ingrese un RUC válido de 11 dígitos');
-      return;
-    }
-
-    try {
-      setIsConsultingSunat(true);
-      setError(null);
-
-      // Simulación de consulta SUNAT (en producción se haría llamada a API real)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Datos de ejemplo - en producción vendrían de la API SUNAT
-      const datosSunat = {
-        razonSocial: 'EMPRESA DEMO S.A.C.',
-        direccion: 'AV. JAVIER PRADO ESTE 123, LIMA, LIMA, SAN ISIDRO',
-        actividadEconomica: 'VENTA AL POR MENOR DE PRODUCTOS ALIMENTICIOS, BEBIDAS Y TABACO EN COMERCIOS ESPECIALIZADOS',
-      };
-
-      // Autocompletar los campos con los datos de SUNAT
-      reset({
-        ...formData,
-        ruc: rucValue,
-        razonSocial: datosSunat.razonSocial,
-        direccion: datosSunat.direccion,
-        actividadEconomica: datosSunat.actividadEconomica,
-      });
-
-      setFormData(prev => ({
-        ...prev,
-        razonSocial: datosSunat.razonSocial,
-        direccion: datosSunat.direccion,
-        actividadEconomica: datosSunat.actividadEconomica,
-      }));
-
-    } catch {
-      setError('No se pudo consultar SUNAT. Intente nuevamente.');
-    } finally {
-      setIsConsultingSunat(false);
-    }
-  };
-
   return (
-    <AuthLayout showHero={currentStep === 1}>
+    <AuthLayout showHero={true}>
       <div className="space-y-8">
-        {/* Header con Progress */}
+        {/* Header */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -210,53 +99,12 @@ export function RegisterPage() {
           </div>
 
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {currentStep === 1 && 'Crea tu cuenta'}
-            {currentStep === 2 && 'Información de tu empresa'}
+            Crea tu cuenta
           </h1>
 
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            {currentStep === 1 && 'Comienza tu experiencia con SenciYO'}
-            {currentStep === 2 && 'Validaremos tu RUC con SUNAT'}
+            Comienza tu experiencia con SenciYO
           </p>
-
-          {/* Progress Bar */}
-          <div className="flex items-center justify-center gap-2 mb-6">
-            {[1, 2].map((step) => (
-              <div key={step} className="flex items-center">
-                <div
-                  className={`
-                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all
-                    ${
-                      step < currentStep
-                        ? 'bg-green-500 text-white'
-                        : step === currentStep
-                        ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                        : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                    }
-                  `}
-                >
-                  {step < currentStep ? (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  ) : (
-                    step
-                  )}
-                </div>
-                {step < 2 && (
-                  <div
-                    className={`w-12 h-1 mx-1 rounded transition-all ${
-                      step < currentStep ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Error Alert */}
@@ -277,354 +125,169 @@ export function RegisterPage() {
           </div>
         )}
 
-        {/* Forms por Step */}
-        <form onSubmit={handleSubmit(handleNext)} className="space-y-6">
-          {/* STEP 1: Datos Personales */}
-          {currentStep === 1 && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    {...register('nombre')}
-                    className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Juan"
-                  />
-                  {errors.nombre && (
-                    <p className="mt-1.5 text-sm text-red-600">{errors.nombre.message as string}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Apellido
-                  </label>
-                  <input
-                    type="text"
-                    {...register('apellido')}
-                    className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Pérez"
-                  />
-                  {errors.apellido && (
-                    <p className="mt-1.5 text-sm text-red-600">{errors.apellido.message as string}</p>
-                  )}
-                </div>
+        {/* Formulario de Registro */}
+        <form onSubmit={handleSubmit(handleRegister)} className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  {...register('nombre')}
+                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Juan"
+                />
+                {errors.nombre && (
+                  <p className="mt-1.5 text-sm text-red-600">{errors.nombre.message as string}</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Celular
+                  Apellido
                 </label>
                 <input
-                  type="tel"
-                  {...register('celular')}
-                  maxLength={9}
+                  type="text"
+                  {...register('apellido')}
                   className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="987654321"
+                  placeholder="Pérez"
                 />
-                {errors.celular && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.celular.message as string}</p>
+                {errors.apellido && (
+                  <p className="mt-1.5 text-sm text-red-600">{errors.apellido.message as string}</p>
                 )}
               </div>
+            </div>
 
-              <EmailInput
-                register={register('email')}
-                error={errors.email?.message as string}
-                autoComplete="email"
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Celular
+              </label>
+              <input
+                type="tel"
+                {...register('celular')}
+                maxLength={9}
+                className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="987654321"
               />
+              {errors.celular && (
+                <p className="mt-1.5 text-sm text-red-600">{errors.celular.message as string}</p>
+              )}
+            </div>
 
-              <PasswordInput
-                label="Contraseña"
-                register={register('password')}
-                error={errors.password?.message as string}
-                autoComplete="new-password"
-                showStrengthMeter
-                strengthScore={passwordStrength.score}
-              />
+            <EmailInput
+              register={register('email')}
+              error={errors.email?.message as string}
+              autoComplete="email"
+            />
 
-              {/* Indicador Visual de Requisitos de Contraseña */}
-              {password && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    Tu contraseña debe incluir:
-                  </p>
-                  <div className="space-y-2">
-                    {passwordStrength.requirements.map((req, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <div
-                          className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                            passwordStrength.isValid && req.met
-                              ? 'bg-green-500 text-white'
-                              : req.met
-                              ? 'bg-gray-400 dark:bg-gray-500 text-white'
-                              : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          {passwordStrength.isValid && req.met ? '✓' : req.met ? '✓' : '○'}
-                        </div>
-                        <span
-                          className={`text-xs transition-colors ${
-                            passwordStrength.isValid && req.met
-                              ? 'text-green-600 dark:text-green-400 font-medium'
-                              : req.met
-                              ? 'text-gray-600 dark:text-gray-400 font-medium'
-                              : 'text-gray-600 dark:text-gray-400'
-                          }`}
-                        >
-                          {req.label}
-                        </span>
+            <PasswordInput
+              label="Contraseña"
+              register={register('password')}
+              error={errors.password?.message as string}
+              autoComplete="new-password"
+              showStrengthMeter
+              strengthScore={passwordStrength.score}
+            />
+
+            {/* Indicador Visual de Requisitos de Contraseña */}
+            {password && (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Tu contraseña debe incluir:
+                </p>
+                <div className="space-y-2">
+                  {passwordStrength.requirements.map((req, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div
+                        className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                          passwordStrength.isValid && req.met
+                            ? 'bg-green-500 text-white'
+                            : req.met
+                            ? 'bg-gray-400 dark:bg-gray-500 text-white'
+                            : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                        }`}
+                      >
+                        {passwordStrength.isValid && req.met ? '✓' : req.met ? '✓' : '○'}
                       </div>
-                    ))}
-                  </div>
-                  {passwordStrength.isValid && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        <span className="text-xs font-medium">¡Contraseña segura!</span>
-                      </div>
+                      <span
+                        className={`text-xs transition-colors ${
+                          passwordStrength.isValid && req.met
+                            ? 'text-green-600 dark:text-green-400 font-medium'
+                            : req.met
+                            ? 'text-gray-600 dark:text-gray-400 font-medium'
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        {req.label}
+                      </span>
                     </div>
-                  )}
+                  ))}
                 </div>
-              )}
-
-              <PasswordInput
-                label="Confirmar contraseña"
-                register={register('passwordConfirmation')}
-                error={errors.passwordConfirmation?.message as string}
-                autoComplete="new-password"
-              />
-            </div>
-          )}
-
-          {/* STEP 2: Datos de Empresa */}
-          {currentStep === 2 && (
-            <div className="space-y-6 animate-fadeIn">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  RUC
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    {...register('ruc')}
-                    maxLength={11}
-                    className="block flex-1 px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="20123456789"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleConsultarSunat}
-                    disabled={isConsultingSunat || isLoading}
-                    className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
-                  >
-                    {isConsultingSunat ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Consultando...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                        </svg>
-                        Consultar SUNAT
-                      </>
-                    )}
-                  </button>
-                </div>
-                {errors.ruc && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.ruc.message as string}</p>
-                )}
-                <p className="mt-1 text-xs text-gray-500">Datos para la creación de tu espacio de trabajo</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Razón Social
-                </label>
-                <input
-                  type="text"
-                  {...register('razonSocial')}
-                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Mi Empresa S.A.C."
-                />
-                {errors.razonSocial && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.razonSocial.message as string}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Nombre Comercial
-                </label>
-                <input
-                  type="text"
-                  {...register('nombreComercial')}
-                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Mi Tienda"
-                />
-                {errors.nombreComercial && (
-                  <p className="mt-1.5 text-sm text-red-600">
-                    {errors.nombreComercial.message as string}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Dirección Fiscal
-                </label>
-                <input
-                  type="text"
-                  {...register('direccion')}
-                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Av. Principal 123, Lima"
-                />
-                {errors.direccion && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.direccion.message as string}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  {...register('telefono')}
-                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="987654321"
-                />
-                {errors.telefono && (
-                  <p className="mt-1.5 text-sm text-red-600">{errors.telefono.message as string}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Actividad Económica
-                </label>
-                <textarea
-                  {...register('actividadEconomica')}
-                  rows={3}
-                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Venta de productos..."
-                />
-                {errors.actividadEconomica && (
-                  <p className="mt-1.5 text-sm text-red-600">
-                    {errors.actividadEconomica.message as string}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-start">
-                <input
-                  type="checkbox"
-                  {...register('aceptaTerminos')}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-                />
-                <label className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                  Acepto los{' '}
-                  <a href="/terms" className="text-blue-600 hover:text-blue-500 font-medium">
-                    Términos y Condiciones
-                  </a>{' '}
-                  y la{' '}
-                  <a href="/privacy" className="text-blue-600 hover:text-blue-500 font-medium">
-                    Política de Privacidad
-                  </a>
-                </label>
-              </div>
-              {errors.aceptaTerminos && (
-                <p className="text-sm text-red-600">{errors.aceptaTerminos.message as string}</p>
-              )}
-            </div>
-          )}
-
-          {/* Botones de Navegación */}
-          <div className="flex items-center gap-3">
-            {currentStep > 1 && (
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={isLoading}
-                className="flex-1 py-2.5 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                Atrás
-              </button>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1 flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-500/50 hover:shadow-xl"
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  {currentStep === totalSteps ? 'Creando cuenta...' : 'Procesando...'}
-                </>
-              ) : (
-                <>
-                  {currentStep === totalSteps ? (
-                    <>
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                {passwordStrength.isValid && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
                         />
                       </svg>
-                      Crear cuenta
-                    </>
-                  ) : (
-                    <>
-                      Continuar
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                      </svg>
-                    </>
-                  )}
-                </>
-              )}
-            </button>
+                      <span className="text-xs font-medium">¡Contraseña segura!</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <PasswordInput
+              label="Confirmar contraseña"
+              register={register('passwordConfirmation')}
+              error={errors.passwordConfirmation?.message as string}
+              autoComplete="new-password"
+            />
           </div>
+
+          {/* Botón de Envío */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-500/50 hover:shadow-xl"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Creando cuenta...
+              </>
+            ) : (
+              <>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Crear cuenta
+              </>
+            )}
+          </button>
 
           {/* Link to Login */}
           <div className="text-center">
