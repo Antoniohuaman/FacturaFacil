@@ -19,7 +19,7 @@ import {
   Mail,
   Phone
 } from 'lucide-react';
-import { PageHeader, Button, Select, Input, Breadcrumb } from '@/contasis';
+import { PageHeader, Button, Select, Input, Breadcrumb, EstablecimientoCard } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
@@ -380,6 +380,45 @@ export function EstablecimientosConfiguration() {
                       </div>
                     </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* NUEVA SECCIÓN: EstablecimientoCard comparativa */}
+          <div className="mt-12 pt-8 border-t border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Vista previa con EstablecimientoCard (Nuevo diseño)</h2>
+            {filteredEstablecimientos.length === 0 ? (
+              <div className="text-center py-12">
+                <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay establecimientos para mostrar</h3>
+                <p className="text-gray-500">{searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filteredEstablecimientos.map(est => (
+                  <EstablecimientoCard
+                    key={est.id}
+                    establecimiento={{
+                      id: parseInt(est.id),
+                      codigo: est.codigoEstablecimiento,
+                      nombre: est.nombreEstablecimiento,
+                      activo: est.estaActivoEstablecimiento,
+                      direccion: est.direccionEstablecimiento,
+                      distrito: est.distritoEstablecimiento,
+                      provincia: est.provinciaEstablecimiento,
+                      departamento: est.departamentoEstablecimiento
+                    }}
+                    onToggleActivo={(id) => handleToggleStatus(String(id))}
+                    onEditar={(id) => {
+                      const establecimiento = Establecimientos.find(e => e.id === String(id));
+                      if (establecimiento) handleEdit(establecimiento);
+                    }}
+                    onEliminar={(id) => {
+                      const establecimiento = Establecimientos.find(e => e.id === String(id));
+                      if (establecimiento) openDeleteConfirmation(establecimiento);
+                    }}
+                  />
                 ))}
               </div>
             )}

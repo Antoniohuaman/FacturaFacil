@@ -28,6 +28,9 @@ export type { TextareaProps } from './components/Textarea';
 export { CajaCard } from './components/CajaCard';
 export type { CajaCardProps } from './components/CajaCard';
 
+export { EstablecimientoCard } from './components/EstablecimientoCard';
+export type { EstablecimientoCardProps, Establecimiento } from './components/EstablecimientoCard';
+
 // Layout
 export { Sidebar } from './layout/Sidebar';
 export type { SidebarProps, Module } from './layout/Sidebar';

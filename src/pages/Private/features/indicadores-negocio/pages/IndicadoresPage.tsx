@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Award, Settings, ShoppingCart, Users } from "lucide-react";
+import { PageHeader } from '@/contasis';
 import DetalleVentasDiariasModal from "../components/DetalleVentasDiariasModal";
 import DetalleCrecimientoModal from "../components/DetalleCrecimientoModal";
 import Toolbar from "../components/Toolbar";
@@ -13,7 +14,6 @@ import RankingCard from "../components/RankingCard";
 import ClientesInsightsCard from "../components/ClientesInsightsCard";
 import FormasPagoCard from "../components/FormasPagoCard";
 import NotificacionIndicadorModal from "../components/NotificacionIndicadorModal";
-import PageHeader from "../../../../../components/PageHeader";
 import { useIndicadores } from "../hooks/useIndicadores";
 import { useIndicadoresFilters } from "../hooks/useIndicadoresFilters";
 import { useNotificacionesIndicador } from "../hooks/useNotificacionesIndicador";
