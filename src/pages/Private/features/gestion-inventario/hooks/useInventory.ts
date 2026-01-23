@@ -19,6 +19,11 @@ import { InventoryService } from '../services/inventory.service';
 import { StockRepository } from '../repositories/stock.repository';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 
+type AdjustmentModalOptions = {
+  almacenId?: string | null;
+  mode?: 'manual' | 'prefilled';
+};
+
 /**
  * Hook personalizado para gestión de inventario
  * Centraliza toda la lógica de negocio relacionada con stock
@@ -42,6 +47,8 @@ export const useInventory = () => {
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [suggestedQuantity, setSuggestedQuantity] = useState<number>(0);
+  const [prefilledAlmacenId, setPrefilledAlmacenId] = useState<string | null>(null);
+  const [adjustmentMode, setAdjustmentMode] = useState<'manual' | 'prefilled'>('manual');
 
   // Cargar movimientos desde localStorage al inicio
   useEffect(() => {
@@ -247,9 +254,15 @@ export const useInventory = () => {
   /**
    * Abre modal de ajuste para un producto específico
    */
-  const openAdjustmentModal = useCallback((productId: string, suggestedQty: number = 0) => {
-    setSelectedProductId(productId);
+  const openAdjustmentModal = useCallback((
+    productId: string,
+    suggestedQty: number = 0,
+    options?: AdjustmentModalOptions
+  ) => {
+    setSelectedProductId(productId || null);
     setSuggestedQuantity(suggestedQty);
+    setPrefilledAlmacenId(options?.almacenId ?? null);
+    setAdjustmentMode(options?.mode ?? (productId ? 'prefilled' : 'manual'));
     setShowAdjustmentModal(true);
   }, []);
 
@@ -277,6 +290,8 @@ export const useInventory = () => {
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
+    prefilledAlmacenId,
+    adjustmentMode,
     almacenesActivos,
     almacenes: almacenesActivos,
     stockAlerts,

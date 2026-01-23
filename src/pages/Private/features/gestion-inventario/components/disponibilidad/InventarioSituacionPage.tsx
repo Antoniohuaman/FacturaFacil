@@ -27,7 +27,10 @@ interface InventarioSituacionPageProps {
   onActualizacionMasiva?: () => void;
   onTransferir?: () => void;
   onAjustar?: () => void;
-  onAjustarProducto?: (productId: string, suggestedQty: number) => void;
+  onAjustarProducto?: (productId: string, suggestedQty: number, options?: {
+    almacenId?: string | null;
+    mode?: 'manual' | 'prefilled';
+  }) => void;
   autoExportRequest?: AutoExportRequest | null;
   onAutoExportFinished?: (fallbackPath?: string) => void;
 }
@@ -71,24 +74,26 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   // Estado local para panel de configuración
   const [mostrandoSettings, setMostrandoSettings] = useState(false);
   const autoExportHandledRef = useRef(false);
+  const selectedalmacenId = selectedalmacen?.id;
 
   // Handler para ajustar stock (abre modal de ajuste)
   const handleAjustarStock = useCallback((item: DisponibilidadItem) => {
     if (onAjustarProducto) {
       // Integra con modal existente
-      onAjustarProducto(item.productoId, item.disponible);
+      onAjustarProducto(item.productoId, item.disponible, {
+        almacenId: selectedalmacenId,
+        mode: 'prefilled'
+      });
     } else {
       // Fallback si no hay handler
       alert(`Ajustar stock de ${item.nombre} (SKU: ${item.sku})\nDisponible: ${item.disponible}`);
     }
-  }, [onAjustarProducto]);
+  }, [onAjustarProducto, selectedalmacenId]);
 
   // Sincronizar items por página del store con el hook
   React.useEffect(() => {
     cambiarItemsPorPagina(itemsPorPagina);
   }, [itemsPorPagina, cambiarItemsPorPagina]);
-
-  const selectedalmacenId = selectedalmacen?.id;
 
   const handleThresholdChange = useCallback(async ({
     productoId,

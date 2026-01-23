@@ -41,6 +41,8 @@ export const InventoryPage: React.FC = () => {
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
+    prefilledAlmacenId,
+    adjustmentMode,
     almacenes,
     stockAlerts,
     filteredMovements,
@@ -339,6 +341,8 @@ export const InventoryPage: React.FC = () => {
         onAdjust={handleStockAdjustment}
         preSelectedProductId={selectedProductId}
         preSelectedQuantity={suggestedQuantity}
+        prefilledAlmacenId={prefilledAlmacenId}
+        mode={adjustmentMode}
       />
 
       <MassUpdateModal

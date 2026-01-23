@@ -11,6 +11,8 @@ interface AdjustmentModalProps {
   onAdjust: (data: AdjustmentData) => void;
   preSelectedProductId?: string | null;
   preSelectedQuantity?: number;
+  prefilledAlmacenId?: string | null;
+  mode?: 'manual' | 'prefilled';
 }
 
 interface AdjustmentData {
@@ -28,14 +30,16 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   onClose,
   onAdjust,
   preSelectedProductId,
-  preSelectedQuantity
+  preSelectedQuantity,
+  prefilledAlmacenId,
+  mode = 'manual'
 }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
   const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
 
   // PASO 1: Primero seleccionar almacén
-  const [selectedalmacenId, setSelectedalmacenId] = useState('');
+  const [selectedalmacenId, setSelectedalmacenId] = useState(prefilledAlmacenId ?? '');
 
   // PASO 2: Luego seleccionar producto
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,19 +48,52 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   // PASO 3: Detalles del movimiento
   const [tipo, setTipo] = useState<MovimientoTipo>('ENTRADA');
   const [motivo, setMotivo] = useState<MovimientoMotivo>('COMPRA');
-  const [cantidad, setCantidad] = useState(preSelectedQuantity ? String(preSelectedQuantity) : '');
+  const [cantidad, setCantidad] = useState(
+    typeof preSelectedQuantity === 'number' ? String(preSelectedQuantity) : ''
+  );
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
 
+  const isPrefilledProduct = mode === 'prefilled' && Boolean(preSelectedProductId);
+  const isAlmacenLocked = Boolean(prefilledAlmacenId);
+
   // Actualizar cuando cambian los props
   React.useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (prefilledAlmacenId) {
+      setSelectedalmacenId(prefilledAlmacenId);
+    } else {
+      setSelectedalmacenId('');
+    }
+    setSearchTerm('');
+  }, [isOpen, prefilledAlmacenId]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     if (preSelectedProductId) {
       setSelectedProductId(preSelectedProductId);
+    } else if (!isPrefilledProduct) {
+      setSelectedProductId('');
     }
-    if (preSelectedQuantity) {
+  }, [isOpen, preSelectedProductId, isPrefilledProduct]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (typeof preSelectedQuantity === 'number' && preSelectedQuantity > 0) {
       setCantidad(String(preSelectedQuantity));
+    } else if (typeof preSelectedQuantity === 'number' && preSelectedQuantity <= 0) {
+      setCantidad('');
     }
-  }, [preSelectedProductId, preSelectedQuantity]);
+  }, [isOpen, preSelectedQuantity]);
 
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
 
@@ -198,12 +235,16 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
               <select
                 value={selectedalmacenId}
                 onChange={(e) => {
-                  setSelectedalmacenId(e.target.value);
-                  // Reset producto al cambiar almacén
-                  setSelectedProductId('');
-                  setSearchTerm('');
+                  const nextValue = e.target.value;
+                  setSelectedalmacenId(nextValue);
+                  // Reset producto al cambiar almacén solo en modo manual
+                  if (!isPrefilledProduct) {
+                    setSelectedProductId('');
+                    setSearchTerm('');
+                  }
                 }}
                 className="w-full px-4 py-2.5 border-2 border-purple-300 dark:border-purple-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white"
+                disabled={isAlmacenLocked}
                 required
               >
                 <option value="">Seleccionar almacén...</option>
@@ -216,6 +257,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
               {selectedalmacenId && selectedalmacen && (
                 <p className="mt-2 text-xs text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded">
                   ✓ Movimiento se aplicará en el almacén {selectedalmacen.nombreAlmacen} del establecimiento {selectedalmacen.nombreEstablecimientoDesnormalizado}
+                  {isAlmacenLocked && ' (fijado por el filtro actual)'}
                 </p>
               )}
             </div>
@@ -224,46 +266,56 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
             {selectedalmacenId && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  2. Buscar Producto <span className="text-red-500">*</span>
+                  {isPrefilledProduct ? '2. Producto seleccionado' : '2. Buscar Producto'}
+                  {!isPrefilledProduct && <span className="text-red-500"> *</span>}
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Buscar producto por nombre o código..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
-                  />
-                  {searchTerm && filteredProducts.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                      {filteredProducts.map((product) => {
-                        // Mostrar stock del almacén seleccionado
-                        const stockEnAlmacen = selectedalmacenId ? (product.stockPorAlmacen?.[selectedalmacenId] ?? 0) : 0;
-                        return (
-                          <button
-                            key={product.id}
-                            onClick={() => {
-                              setSelectedProductId(product.id);
-                              setSearchTerm(product.nombre);
-                            }}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium text-gray-900 dark:text-gray-200">{product.nombre}</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.codigo}</p>
+
+                {!isPrefilledProduct && (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar producto por nombre o código..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
+                    />
+                    {searchTerm && filteredProducts.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {filteredProducts.map((product) => {
+                          const stockEnAlmacen = selectedalmacenId ? (product.stockPorAlmacen?.[selectedalmacenId] ?? 0) : 0;
+                          return (
+                            <button
+                              key={product.id}
+                              onClick={() => {
+                                setSelectedProductId(product.id);
+                                setSearchTerm(product.nombre);
+                              }}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-gray-200">{product.nombre}</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.codigo}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-200">Stock: {stockEnAlmacen}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{product.unidad}</p>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-200">Stock: {stockEnAlmacen}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{product.unidad}</p>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isPrefilledProduct && !selectedProduct && (
+                  <div className="p-4 rounded-md border border-yellow-200 bg-yellow-50 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-200">
+                    El producto preseleccionado ya no está disponible. Usa el botón general de "Ajustar Stock" para seleccionar otro.
+                  </div>
+                )}
+
                 {selectedProduct && (
                   <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
                     <div className="flex items-center justify-between">
@@ -276,6 +328,11 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stockActualAlmacen}</p>
                       </div>
                     </div>
+                    {isPrefilledProduct && (
+                      <p className="mt-2 text-xs text-blue-700 dark:text-blue-200">
+                        Producto fijado desde la vista de stock. Abre el modal desde "+ Ajustar Stock" si necesitas buscar otro.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -402,7 +459,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!selectedProductId || !cantidad || Number(cantidad) <= 0}
+              disabled={!selectedProductId || !cantidad || Number(cantidad) <= 0 || !selectedalmacenId}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Registrar Movimiento
