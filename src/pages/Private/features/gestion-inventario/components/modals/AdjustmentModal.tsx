@@ -53,6 +53,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   );
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
+  const [showObservaciones, setShowObservaciones] = useState(false);
 
   const isPrefilledProduct = mode === 'prefilled' && Boolean(preSelectedProductId);
   const isAlmacenLocked = Boolean(prefilledAlmacenId);
@@ -190,23 +191,20 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
         />
 
         {/* Modal */}
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl w-full">
           {/* Header */}
-          <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+          <div className="bg-gradient-to-r from-red-600 to-red-700 px-4 py-3 sm:px-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                <div className="flex-shrink-0 w-9 h-9 bg-white/90 rounded-lg flex items-center justify-center">
                   <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-base font-semibold text-white">
                     Ajustar Stock
                   </h3>
-                  <p className="text-sm text-red-100">
-                    Registra entrada, salida o ajuste de inventario
-                  </p>
                 </div>
               </div>
               <button
@@ -221,231 +219,215 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
           </div>
 
           {/* Body */}
-          <div className="px-6 py-6 space-y-6">
-            {/* PASO 1: Almacén (PRIMERO) */}
-            <div className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <label className="text-sm font-semibold text-gray-900 dark:text-gray-200">
-                  1. Seleccionar Almacén <span className="text-red-500">*</span>
-                </label>
-              </div>
-              <select
-                value={selectedalmacenId}
-                onChange={(e) => {
-                  const nextValue = e.target.value;
-                  setSelectedalmacenId(nextValue);
-                  // Reset producto al cambiar almacén solo en modo manual
-                  if (!isPrefilledProduct) {
-                    setSelectedProductId('');
-                    setSearchTerm('');
-                  }
-                }}
-                className="w-full px-4 py-2.5 border-2 border-purple-300 dark:border-purple-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white"
-                disabled={isAlmacenLocked}
-                required
-              >
-                <option value="">Seleccionar almacén...</option>
-                {almacenes.map(wh => (
-                  <option key={wh.id} value={wh.id}>
-                    [{wh.codigoAlmacen}] {wh.nombreAlmacen} - {wh.nombreEstablecimientoDesnormalizado}
-                  </option>
-                ))}
-              </select>
-              {selectedalmacenId && selectedalmacen && (
-                <p className="mt-2 text-xs text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 rounded">
-                  ✓ Movimiento se aplicará en el almacén {selectedalmacen.nombreAlmacen} del establecimiento {selectedalmacen.nombreEstablecimientoDesnormalizado}
-                  {isAlmacenLocked && ' (fijado por el filtro actual)'}
-                </p>
-              )}
-            </div>
-
-            {/* PASO 2: Product Selection (SEGUNDO - solo si hay almacén) */}
-            {selectedalmacenId && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {isPrefilledProduct ? '2. Producto seleccionado' : '2. Buscar Producto'}
-                  {!isPrefilledProduct && <span className="text-red-500"> *</span>}
-                </label>
-
-                {!isPrefilledProduct && (
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Buscar producto por nombre o código..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
-                    />
-                    {searchTerm && filteredProducts.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {filteredProducts.map((product) => {
-                          const stockEnAlmacen = selectedalmacenId ? (product.stockPorAlmacen?.[selectedalmacenId] ?? 0) : 0;
-                          return (
-                            <button
-                              key={product.id}
-                              onClick={() => {
-                                setSelectedProductId(product.id);
-                                setSearchTerm(product.nombre);
-                              }}
-                              className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-gray-200">{product.nombre}</p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.codigo}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-200">Stock: {stockEnAlmacen}</p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">{product.unidad}</p>
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {isPrefilledProduct && !selectedProduct && (
-                  <div className="p-4 rounded-md border border-yellow-200 bg-yellow-50 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-200">
-                    El producto preseleccionado ya no está disponible. Usa el botón general de "Ajustar Stock" para seleccionar otro.
-                  </div>
-                )}
-
-                {selectedProduct && (
-                  <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-200">{selectedProduct.nombre}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">{selectedProduct.codigo}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Stock en {selectedalmacen?.codigoAlmacen}</p>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stockActualAlmacen}</p>
-                      </div>
-                    </div>
-                    {isPrefilledProduct && (
-                      <p className="mt-2 text-xs text-blue-700 dark:text-blue-200">
-                        Producto fijado desde la vista de stock. Abre el modal desde "+ Ajustar Stock" si necesitas buscar otro.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Tipo de Movimiento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Tipo de Movimiento *
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {(['ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO'] as MovimientoTipo[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => handleTipoChange(t)}
-                    className={`
-                      px-4 py-3 rounded-md text-sm font-medium transition-all border-2
-                      ${tipo === t
-                        ? t === 'ENTRADA' || t === 'AJUSTE_POSITIVO'
-                          ? 'bg-green-50 dark:bg-green-900/30 border-green-500 text-green-700 dark:text-green-400'
-                          : 'bg-red-50 dark:bg-red-900/30 border-red-500 text-red-700 dark:text-red-400'
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
-                      }
-                    `}
-                  >
-                    {t === 'ENTRADA' && '➕ Entrada'}
-                    {t === 'SALIDA' && '➖ Salida'}
-                    {t === 'AJUSTE_POSITIVO' && '⬆️ Ajuste +'}
-                    {t === 'AJUSTE_NEGATIVO' && '⬇️ Ajuste -'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Motivo */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Motivo *
-              </label>
-              <select
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value as MovimientoMotivo)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
-              >
-                {motivosPorTipo[tipo].map((m) => (
-                  <option key={m} value={m}>
-                    {motivoLabels[m]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cantidad y Stock Resultante */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Cantidad *
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={cantidad}
-                  onChange={(e) => setCantidad(e.target.value)}
-                  placeholder="0"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              {selectedProduct && selectedalmacenId && cantidad && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nuevo Stock en {selectedalmacen?.codigoAlmacen}
+          <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-4">
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Almacén
                   </label>
-                  <div className={`
-                    w-full px-4 py-2 border-2 rounded-md font-bold text-lg
-                    ${newStock < 0
-                      ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                      : newStock > stockActualAlmacen
-                      ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                      : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                    }
-                  `}>
-                    {stockActualAlmacen} → {newStock}
+                  <select
+                    value={selectedalmacenId}
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setSelectedalmacenId(nextValue);
+                      if (!isPrefilledProduct) {
+                        setSelectedProductId('');
+                        setSearchTerm('');
+                      }
+                    }}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:text-white"
+                    disabled={isAlmacenLocked}
+                    required
+                  >
+                    <option value="">Seleccionar...</option>
+                    {almacenes.map(wh => (
+                      <option key={wh.id} value={wh.id}>
+                        [{wh.codigoAlmacen}] {wh.nombreAlmacen}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedalmacenId && (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {isPrefilledProduct ? 'Producto' : 'Buscar producto'}
+                      </label>
+                      {!isPrefilledProduct && (
+                        <span className="text-[10px] text-gray-400">Obligatorio</span>
+                      )}
+                    </div>
+
+                    {!isPrefilledProduct && (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Nombre o código"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:text-white"
+                        />
+                        {searchTerm && filteredProducts.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-52 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                            {filteredProducts.map((product) => {
+                              const stockEnAlmacen = selectedalmacenId ? (product.stockPorAlmacen?.[selectedalmacenId] ?? 0) : 0;
+                              return (
+                                <button
+                                  key={product.id}
+                                  onClick={() => {
+                                    setSelectedProductId(product.id);
+                                    setSearchTerm(product.nombre);
+                                  }}
+                                  className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
+                                  <span className="font-medium text-gray-900 dark:text-gray-100">{product.nombre}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">Stock {stockEnAlmacen}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedProduct && (
+                      <div className="mt-3 rounded-md border border-dashed border-gray-300 px-3 py-2 dark:border-gray-600">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedProduct.nombre}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{selectedProduct.codigo}</p>
+                        <p className="text-xs font-medium text-gray-900 dark:text-gray-100 mt-1">
+                          Stock en {selectedalmacen?.codigoAlmacen}: <span className="tabular-nums">{stockActualAlmacen}</span>
+                        </p>
+                      </div>
+                    )}
+
+                    {isPrefilledProduct && !selectedProduct && (
+                      <p className="mt-2 text-xs text-red-500">Producto no disponible.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Tipo de movimiento
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['ENTRADA', 'SALIDA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO'] as MovimientoTipo[]).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => handleTipoChange(t)}
+                        className={`rounded-md border px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors
+                          ${tipo === t
+                            ? t === 'ENTRADA' || t === 'AJUSTE_POSITIVO'
+                              ? 'border-green-500 bg-green-50 text-green-700 dark:border-green-500/70 dark:bg-green-900/30 dark:text-green-300'
+                              : 'border-red-500 bg-red-50 text-red-600 dark:border-red-500/70 dark:bg-red-900/30 dark:text-red-300'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'}
+                        `}
+                      >
+                        {t === 'ENTRADA' && 'Entrada'}
+                        {t === 'SALIDA' && 'Salida'}
+                        {t === 'AJUSTE_POSITIVO' && 'Ajuste +'}
+                        {t === 'AJUSTE_NEGATIVO' && 'Ajuste -'}
+                      </button>
+                    ))}
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Motivo
+                  </label>
+                  <select
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.target.value as MovimientoMotivo)}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:text-white"
+                  >
+                    {motivosPorTipo[tipo].map((m) => (
+                      <option key={m} value={m}>
+                        {motivoLabels[m]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                      Cantidad
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={cantidad}
+                      onChange={(e) => setCantidad(e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:text-white"
+                    />
+                  </div>
+                  {selectedProduct && selectedalmacenId && cantidad && (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                        Nuevo stock
+                      </label>
+                      <div className={`rounded-md border px-3 py-2 text-sm font-semibold tabular-nums
+                        ${newStock < 0
+                          ? 'border-red-300 bg-red-50 text-red-600 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          : newStock > stockActualAlmacen
+                          ? 'border-green-300 bg-green-50 text-green-600 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        }
+                      `}>
+                        {stockActualAlmacen} → {newStock}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Documento
+                  </label>
+                  <input
+                    type="text"
+                    value={documentoReferencia}
+                    onChange={(e) => setDocumentoReferencia(e.target.value)}
+                    placeholder="Ej: FC-001-2024"
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setShowObservaciones(prev => !prev)}
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-semibold text-gray-700 dark:text-gray-200"
+              >
+                <span>Observaciones</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showObservaciones ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showObservaciones && (
+                <div className="px-3 pb-3">
+                  <textarea
+                    rows={3}
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                    placeholder="Detalles adicionales"
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:text-white"
+                  />
+                </div>
               )}
-            </div>
-
-            {/* Documento Referencia */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Documento de Referencia
-              </label>
-              <input
-                type="text"
-                value={documentoReferencia}
-                onChange={(e) => setDocumentoReferencia(e.target.value)}
-                placeholder="Ej: FC-001-2024, GR-045, etc."
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            {/* Observaciones */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Observaciones
-              </label>
-              <textarea
-                rows={3}
-                value={observaciones}
-                onChange={(e) => setObservaciones(e.target.value)}
-                placeholder="Detalles adicionales sobre este movimiento..."
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
-              />
             </div>
           </div>
 
