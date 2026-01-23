@@ -18,7 +18,7 @@ import {
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
-import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb } from '@/contasis';
+import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb, AlmacenCard } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { useAlmacenes } from '../hooks/useAlmacenes';
@@ -700,88 +700,21 @@ export function ConfiguracionAlmacenes() {
             )}
           </div>
         ) : !apiError && !isFetching && (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
             {almacenes.map(almacen => (
-              <div key={almacen.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{almacen.nombreAlmacen}</h3>
-                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full">
-                        {almacen.codigoAlmacen}
-                      </span>
-                      {almacen.esAlmacenPrincipal && (
-                        <span className="px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full">
-                          Principal
-                        </span>
-                      )}
-                      {almacen.tieneMovimientosInventario && (
-                        <span className="px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full flex items-center gap-1">
-                          <Package className="w-3 h-3" />
-                          Con movimientos
-                        </span>
-                      )}
-                      <IndicadorEstado
-                        status={almacen.estaActivoAlmacen ? 'success' : 'error'}
-                        label={almacen.estaActivoAlmacen ? 'Activo' : 'Inactivo'}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                        <Building className="w-4 h-4" />
-                        Establecimiento:{' '}
-                        <span className="font-medium">
-                          [{almacen.codigoEstablecimientoDesnormalizado || 'N/D'}]{' '}
-                          {almacen.nombreEstablecimientoDesnormalizado || 'Sin nombre'}
-                        </span>
-                      </p>
-                      {almacen.ubicacionAlmacen && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                          <MapPin className="w-4 h-4" />
-                          {almacen.ubicacionAlmacen}
-                        </p>
-                      )}
-                      {almacen.descripcionAlmacen && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{almacen.descripcionAlmacen}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Button
-                      onClick={() => handleEdit(almacen)}
-                      variant="tertiary"
-                      iconOnly
-                      icon={<Edit />}
-                      size="sm"
-                      title="Editar"
-                    />
-
-                    <Button
-                      onClick={() => handleToggleStatus(almacen.id)}
-                      variant="tertiary"
-                      iconOnly
-                      icon={almacen.estaActivoAlmacen ? <XCircle /> : <CheckCircle />}
-                      size="sm"
-                      title={almacen.estaActivoAlmacen ? 'Deshabilitar' : 'Habilitar'}
-                    />
-
-                    <Button
-                      onClick={() => openDeleteConfirmation(almacen)}
-                      variant="tertiary"
-                      iconOnly
-                      icon={<Trash2 />}
-                      size="sm"
-                      title="Eliminar"
-                    />
-                  </div>
-                </div>
-              </div>
+              <AlmacenCard
+                key={almacen.id}
+                almacen={almacen}
+                onToggleActivo={handleToggleStatus}
+                onEditar={handleEdit}
+                onEliminar={(id) => openDeleteConfirmation(almacenes.find(a => a.id === id)!)}
+              />
             ))}
           </div>
         )}
       </div>
+
+
         </div>
       </div>
     </div>

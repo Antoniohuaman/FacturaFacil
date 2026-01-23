@@ -1,0 +1,1 @@
+export { AlmacenCard, type Almacen } from './AlmacenCard';

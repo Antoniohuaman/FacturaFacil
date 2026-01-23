@@ -66,14 +66,16 @@ export function CajasConfiguration() {
 
   const handleToggleEnabled = async (id: string) => {
     try {
-      await toggleCajaEnabled(id);
       const caja = cajas.find(c => c.id === id);
-      if (caja) {
-        success(
-          caja.habilitadaCaja ? 'Caja deshabilitada' : 'Caja habilitada',
-          `La caja "${caja.nombreCaja}" ha sido ${caja.habilitadaCaja ? 'deshabilitada' : 'habilitada'} exitosamente.`
-        );
-      }
+      if (!caja) return;
+      
+      const estadoAnterior = caja.habilitadaCaja;
+      await toggleCajaEnabled(id);
+      
+      success(
+        estadoAnterior ? 'Caja deshabilitada' : 'Caja habilitada',
+        `La caja "${caja.nombreCaja}" ha sido ${estadoAnterior ? 'deshabilitada' : 'habilitada'} exitosamente.`
+      );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al cambiar estado de caja';
       showError('Error', errorMsg);

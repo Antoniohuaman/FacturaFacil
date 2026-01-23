@@ -4,7 +4,7 @@
  */
 
 export interface Establecimiento {
-  id: number;
+  id: string; // Cambiar de number a string para evitar conversiones
   codigo: string;
   nombre: string;
   activo: boolean;
@@ -16,7 +16,8 @@ export interface Establecimiento {
 
 export interface EstablecimientoCardProps {
   establecimiento: Establecimiento;
-  onToggleActivo: (id: number) => void;
-  onEditar: (id: number) => void;
-  onEliminar: (id: number) => void;
+  onToggleActivo: (id: string) => void; // Cambiar de number a string
+  onEditar: (id: string) => void; // Cambiar de number a string  
+  onEliminar: (id: string) => void; // Cambiar de number a string
+  dataFocus?: string; // Para navegación programática
 }

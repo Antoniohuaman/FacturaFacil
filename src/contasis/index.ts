@@ -31,6 +31,9 @@ export type { CajaCardProps } from './components/CajaCard';
 export { EstablecimientoCard } from './components/EstablecimientoCard';
 export type { EstablecimientoCardProps, Establecimiento } from './components/EstablecimientoCard';
 
+export { AlmacenCard } from './components/AlmacenCard';
+export type { Almacen } from './components/AlmacenCard';
+
 // Layout
 export { Sidebar } from './layout/Sidebar';
 export type { SidebarProps, Module } from './layout/Sidebar';

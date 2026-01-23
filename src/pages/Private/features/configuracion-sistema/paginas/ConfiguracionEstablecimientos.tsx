@@ -205,6 +205,7 @@ export function EstablecimientosConfiguration() {
   };
 
   const handleEdit = (establecimiento: Establecimiento) => {
+    console.log('handleEdit called with establecimiento:', establecimiento);
     setFormData({
       codigoEstablecimiento: establecimiento.codigoEstablecimiento,
       nombreEstablecimiento: establecimiento.nombreEstablecimiento,
@@ -218,6 +219,7 @@ export function EstablecimientosConfiguration() {
     });
     setEditingEstablecimientoId(establecimiento.id);
     setShowForm(true);
+    console.log('Form should now be visible');
   };
 
   const handleSubmitSave = async (e: React.FormEvent) => {
@@ -508,9 +510,12 @@ export function EstablecimientosConfiguration() {
             <Button onClick={handleNew} variant="primary" size="md" icon={<Plus className="w-5 h-5" />} iconPosition="left" disabled={isFetching || isSaving || isDeleting}>Nuevo Establecimiento</Button>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden relative min-h-[400px]">
+          
+
+          {/* NUEVA SECCIÓN: EstablecimientoCard comparativa */}
+          <div className="relative min-h-[400px]">
             {isFetching && (
-              <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center backdrop-blur-[2px]">
+              <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-[2px]">
                 <div className="flex flex-col items-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                   <p className="mt-4 text-sm font-medium text-gray-600">Cargando establecimientos...</p>
@@ -528,56 +533,34 @@ export function EstablecimientosConfiguration() {
             )}
 
             {!apiError && !isFetching && listaVisual.length === 0 ? (
-              <div className="text-center py-12"><Building className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900 mb-2">{searchTerm || filtroEstado !== 'all' ? 'No se encontraron establecimientos' : 'No hay establecimientos registrados'}</h3><p className="text-gray-500 mb-6">{searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}</p>{(!searchTerm && filtroEstado === 'all') && (<button onClick={handleNew} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"><Plus className="w-4 h-4 mr-2" />Crear Primer Establecimiento</button>)}</div>
-            ) : !apiError && !isFetching && (
-              <div className="divide-y divide-gray-200">
-                {listaVisual.map(est => (
-                  <div key={est.id} className="p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3"><h3 className="text-lg font-semibold text-gray-900">{est.nombreEstablecimiento}</h3><span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">{est.codigoEstablecimiento}</span><IndicadorEstado status={est.estaActivoEstablecimiento ? 'success' : 'error'} label={est.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'} /></div>
-                        <p className="text-gray-600 mb-2">{est.direccionEstablecimiento}</p>
-                        <div className="flex items-center space-x-6 text-sm text-gray-500"><span>{est.distritoEstablecimiento}, {est.provinciaEstablecimiento}</span><span>{est.departamentoEstablecimiento}</span></div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button onClick={() => handleEdit(est)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar"><Edit className="w-4 h-4" /></button>
-                        <button 
-                          onClick={() => handleToggleStatus(est.id)} 
-                          className={`p-2 rounded-lg transition-colors ${est.estaActivoEstablecimiento ? 'text-red-400 hover:text-red-600 hover:bg-red-50' : 'text-green-400 hover:text-green-600 hover:bg-green-50'} disabled:opacity-30`} 
-                          title={est.estaActivoEstablecimiento ? 'Desactivar' : 'Activar'}
-                          disabled={isSaving}
-                        >
-                          {isSaving && est.id === editingEstablecimientoId ? (
-                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                          ) : (
-                             <MapPin className="w-4 h-4" />
-                          )}
-                        </button>
-                        <button onClick={() => openDeleteConfirmation(est)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* NUEVA SECCIÓN: EstablecimientoCard comparativa */}
-          <div className="mt-12 pt-8 border-t border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Vista previa con EstablecimientoCard (Nuevo diseño)</h2>
-            {listaVisual.length === 0 ? (
               <div className="text-center py-12">
                 <Building className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay establecimientos para mostrar</h3>
-                <p className="text-gray-500">{searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {searchTerm || filtroEstado !== 'all' ? 'No se encontraron establecimientos' : 'No hay establecimientos registrados'}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {searchTerm || filtroEstado !== 'all' ? 'Intenta cambiar los filtros de búsqueda' : 'Comienza registrando tu primer establecimiento'}
+                </p>
+                {(!searchTerm && filtroEstado === 'all') && (
+                  <Button 
+                    onClick={handleNew} 
+                    variant="primary" 
+                    size="md" 
+                    icon={<Plus className="w-4 h-4" />} 
+                    iconPosition="left"
+                  >
+                    Crear Primer Establecimiento
+                  </Button>
+                )}
               </div>
-            ) : (
+            ) : !apiError && !isFetching && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {listaVisual.map(est => (
                   <EstablecimientoCard
                     key={est.id}
+                    dataFocus={`configuracion:establecimientos:${est.id}`}
                     establecimiento={{
-                      id: parseInt(est.id),
+                      id: est.id,
                       codigo: est.codigoEstablecimiento,
                       nombre: est.nombreEstablecimiento,
                       activo: est.estaActivoEstablecimiento,
@@ -586,13 +569,13 @@ export function EstablecimientosConfiguration() {
                       provincia: est.provinciaEstablecimiento,
                       departamento: est.departamentoEstablecimiento
                     }}
-                    onToggleActivo={(id) => handleToggleStatus(String(id))}
+                    onToggleActivo={(id) => handleToggleStatus(id)}
                     onEditar={(id) => {
-                      const establecimiento = Establecimientos.find(e => e.id === String(id));
+                      const establecimiento = Establecimientos.find(e => e.id === id);
                       if (establecimiento) handleEdit(establecimiento);
                     }}
                     onEliminar={(id) => {
-                      const establecimiento = Establecimientos.find(e => e.id === String(id));
+                      const establecimiento = Establecimientos.find(e => e.id === id);
                       if (establecimiento) openDeleteConfirmation(establecimiento);
                     }}
                   />
@@ -600,7 +583,6 @@ export function EstablecimientosConfiguration() {
               </div>
             )}
           </div>
-
         </div>
 
       </div>
