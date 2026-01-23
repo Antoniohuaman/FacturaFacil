@@ -1,4 +1,4 @@
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/contasis';
 
 export function NotificationsCenterPage() {
   return (

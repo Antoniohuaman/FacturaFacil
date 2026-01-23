@@ -19,7 +19,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useCaja } from '../../../control-caja/context/CajaContext';
-import { PageHeader } from '../../../../../../components/PageHeader';
+import { PageHeader, Button } from '@/contasis';
 
 export function PuntoVentaHome() {
   const navigate = useNavigate();
@@ -61,9 +61,23 @@ export function PuntoVentaHome() {
 
       {/* Header */}
       <PageHeader
-        title="Punto de Venta"
-        icon={
-          <ShoppingCart className="w-6 h-6 text-white" />
+        title={
+          <div className="flex items-center gap-3">
+            <span className="text-h3 font-poppins text-primary">Punto de Venta</span>
+            <span className="px-3 py-1 text-xs font-medium rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+              POS
+            </span>
+          </div>
+        }
+        actions={
+          <Button
+            variant="primary"
+            icon={<ShoppingCart className="w-5 h-5" />}
+            onClick={() => navigate('/punto-venta/nueva-venta')}
+            disabled={!isCajaOpen}
+          >
+            Nueva Venta
+          </Button>
         }
       />
 

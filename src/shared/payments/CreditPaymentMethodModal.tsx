@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { Button, Input } from '@/contasis';
 import CreditScheduleEditor from '../../pages/Private/features/configuracion-sistema/components/negocio/EditorCronogramaCredito';
 import type { PaymentMethod } from '../../pages/Private/features/configuracion-sistema/modelos/PaymentMethod';
 import type { CreditInstallmentDefinition } from './paymentTerms';
@@ -184,17 +185,16 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
 
         <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto px-4 py-3 space-y-3">
           <div className="space-y-1">
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">Nombre</label>
-            <input
+            <Input
+              label="Nombre"
               type="text"
               value={normalizePaymentMethodLabel(formData.name)}
               readOnly
-              className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
-              placeholder=""
+              placeholder="Se autogenera según las cuotas"
+              helperText="Se autogenera automáticamente según las cuotas configuradas"
               required
               maxLength={50}
             />
-            <p className="text-[11px] text-slate-500">Se autogenera según las cuotas.</p>
           </div>
 
           <div className="space-y-2 rounded-xl border border-slate-200 bg-white/60 p-3">
@@ -218,22 +218,22 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-1">
-            <button
+            <Button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+              variant="secondary"
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isSubmitting || !formData.code.trim() || !formData.name.trim()}
-              className="flex items-center space-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              variant="primary"
+              loading={isSubmitting}
             >
-              {isSubmitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-              <span>{editingMethod ? 'Actualizar' : 'Crear'}</span>
-            </button>
+              {editingMethod ? 'Actualizar' : 'Crear'} Crédito
+            </Button>
           </div>
         </form>
       </div>
