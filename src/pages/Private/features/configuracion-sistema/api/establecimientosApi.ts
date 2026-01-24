@@ -38,16 +38,28 @@ export const establecimientosApi = {
   },
 
   async getById(id: string): Promise<ApiResponse<EstablecimientoBackendDto>> {
+    const empresaId = getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
     return fetchApi<ApiResponse<EstablecimientoBackendDto>>(
-      `/establecimientos/${id}`
+      `/establecimientos/${id}${queryString}`
     );
   },
 
   async create(
     data: EstablecimientoInputDto
   ): Promise<ApiResponse<EstablecimientoBackendDto>> {
+    const empresaId = data.empresaId || getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
     return fetchApi<ApiResponse<EstablecimientoBackendDto>>(
-      '/establecimientos',
+      `/establecimientos${queryString}`,
       {
         method: 'POST',
         body: JSON.stringify(data),
@@ -59,8 +71,14 @@ export const establecimientosApi = {
     id: string,
     data: EstablecimientoInputDto
   ): Promise<ApiResponse<EstablecimientoBackendDto>> {
+    const empresaId = data.empresaId || getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
     return fetchApi<ApiResponse<EstablecimientoBackendDto>>(
-      `/establecimientos/${id}`,
+      `/establecimientos/${id}${queryString}`,
       {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -69,7 +87,13 @@ export const establecimientosApi = {
   },
 
   async delete(id: string): Promise<ApiResponse<null>> {
-    return fetchApi<ApiResponse<null>>(`/establecimientos/${id}`, {
+    const empresaId = getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
+    return fetchApi<ApiResponse<null>>(`/establecimientos/${id}${queryString}`, {
       method: 'DELETE',
     });
   },

@@ -132,7 +132,7 @@ export function SeriesList({
   })).filter(group => group.series.length > 0);
 
   const getEstablecimientoName = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombreEstablecimiento || 'Desconocido';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombre || 'Desconocido';
   };
 
   const getTypeStats = () => {
@@ -248,7 +248,7 @@ export function SeriesList({
               { value: 'ALL', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
+                label: `${est.codigo} - ${est.nombre}`
               }))
             ]}
           />
@@ -364,11 +364,11 @@ export function SeriesList({
               <div className="flex items-center space-x-3 pb-2 border-b border-gray-200">
                 <Building2 className="w-5 h-5 text-gray-600" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {Establecimiento.codigoEstablecimiento} - {Establecimiento.nombreEstablecimiento}
+                  {Establecimiento.codigo} - {Establecimiento.nombre}
                 </h3>
                 <IndicadorEstado
-                  status={Establecimiento.estaActivoEstablecimiento ? 'success' : 'error'}
-                  label={Establecimiento.estaActivoEstablecimiento ? 'Activo' : 'Inactivo'}
+                  status={Establecimiento.esActivo ? 'success' : 'error'}
+                  label={Establecimiento.esActivo ? 'Activo' : 'Inactivo'}
                   size="sm"
                 />
                 <span className="text-sm text-gray-500">
@@ -435,7 +435,7 @@ export function SeriesList({
                         </div>
                       </td>
                       <td className="py-4 px-4 text-gray-600">
-                        {Establecimiento?.codigoEstablecimiento} - {Establecimiento?.nombreEstablecimiento}
+                        {Establecimiento?.codigo} - {Establecimiento?.nombre}
                       </td>
                       <td className="py-4 px-4">
                         <span className="font-mono text-sm">

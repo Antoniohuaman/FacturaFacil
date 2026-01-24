@@ -100,11 +100,11 @@ export function UserCard({
   };
 
   const getEstablecimientoName = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombreEstablecimiento || 'Establecimiento no encontrado';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombre || 'Establecimiento no encontrado';
   };
 
   const getEstablecimientoCode = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.codigoEstablecimiento || 'N/A';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.codigo || 'N/A';
   };
 
   const formatDate = (date: Date) => {

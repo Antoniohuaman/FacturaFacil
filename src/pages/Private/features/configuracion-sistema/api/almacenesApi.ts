@@ -40,16 +40,28 @@ export const almacenesApi = {
   },
 
   async getById(id: string): Promise<ApiResponse<AlmacenBackendDto>> {
+    const empresaId = getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
     return fetchApi<ApiResponse<AlmacenBackendDto>>(
-      `/almacenes/${id}`
+      `/almacenes/${id}${queryString}`
     );
   },
 
   async create(
     data: AlmacenInputDto
   ): Promise<ApiResponse<AlmacenBackendDto>> {
+    const empresaId = data.empresaId || getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
     return fetchApi<ApiResponse<AlmacenBackendDto>>(
-      '/almacenes',
+      `/almacenes${queryString}`,
       {
         method: 'POST',
         body: JSON.stringify(data),
@@ -61,8 +73,14 @@ export const almacenesApi = {
     id: string,
     data: AlmacenInputDto
   ): Promise<ApiResponse<AlmacenBackendDto>> {
+    const empresaId = data.empresaId || getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
     return fetchApi<ApiResponse<AlmacenBackendDto>>(
-      `/almacenes/${id}`,
+      `/almacenes/${id}${queryString}`,
       {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -71,7 +89,13 @@ export const almacenesApi = {
   },
 
   async delete(id: string): Promise<ApiResponse<null>> {
-    return fetchApi<ApiResponse<null>>(`/almacenes/${id}`, {
+    const empresaId = getCurrentEmpresaId();
+    if (!empresaId) {
+      throw new Error('No se pudo determinar el ID de la empresa');
+    }
+
+    const queryString = buildQueryString({ empresa_id: empresaId });
+    return fetchApi<ApiResponse<null>>(`/almacenes/${id}${queryString}`, {
       method: 'DELETE',
     });
   },
@@ -80,6 +104,7 @@ export const almacenesApi = {
     empresaId?: string;
     search?: string;
     estado?: boolean;
+    establecimientoId?: string;
   } = {}): Promise<AlmacenBackendDto[]> {
     const allItems: AlmacenBackendDto[] = [];
     let page = 1;

@@ -1,26 +1,19 @@
-// src/features/configuracion-sistema/paginas/ConfiguracionAlmacenes.tsx
-
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Plus,
-  Edit,
-  Trash2,
-  Building,
   Search,
   AlertCircle,
   CheckCircle,
   XCircle,
   Hash,
   FileText,
-  MapPin,
   Package,
   Boxes as IconoAlmacen
 } from 'lucide-react';
 import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb, AlmacenCard } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
-import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { useAlmacenes } from '../hooks/useAlmacenes';
 import { useEstablecimientos } from '../hooks/useEstablecimientos';
 import { ToastNotifications, type Toast } from '@/components/Toast';
@@ -31,26 +24,26 @@ type filtroEstado = 'all' | 'active' | 'inactive';
 interface DeleteConfirmationState {
   isOpen: boolean;
   almacenId: string | null;
-  nombreAlmacen: string;
+  nombre: string;
   tieneMovimientosInventario: boolean;
 }
 
 interface FormState {
-  codigoAlmacen: string;
-  nombreAlmacen: string;
+  codigo: string;
+  nombre: string;
   establecimientoId: string;
-  descripcionAlmacen: string;
-  ubicacionAlmacen: string;
-  esAlmacenPrincipal: boolean;
+  descripcion: string;
+  ubicacion: string;
+  principal: boolean;
 }
 
 const FORM_STATE_INICIAL: FormState = {
-  codigoAlmacen: '',
-  nombreAlmacen: '',
+  codigo: '',
+  nombre: '',
   establecimientoId: '',
-  descripcionAlmacen: '',
-  ubicacionAlmacen: '',
-  esAlmacenPrincipal: false
+  descripcion: '',
+  ubicacion: '',
+  principal: false
 };
 
 export function ConfiguracionAlmacenes() {
@@ -85,16 +78,14 @@ export function ConfiguracionAlmacenes() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmationState>({
     isOpen: false,
     almacenId: null,
-    nombreAlmacen: '',
+    nombre: '',
     tieneMovimientosInventario: false
   });
 
-  // Carga inicial de datos de establecimientos desde el backend
   useEffect(() => {
     cargarEstablecimientos();
   }, [cargarEstablecimientos]);
 
-  // Debounce para search term
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -102,7 +93,6 @@ export function ConfiguracionAlmacenes() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Cargar almacenes con filtros (incluye carga inicial)
   useEffect(() => {
     const estado = filtroEstado === 'all' ? undefined : filtroEstado === 'active';
     const search = debouncedSearch.trim() || undefined;
@@ -114,15 +104,15 @@ export function ConfiguracionAlmacenes() {
   const activeEstablecimientos = useMemo(
     () =>
       Establecimientos.filter(
-        est => est.estaActivoEstablecimiento !== false && est.estadoEstablecimiento !== 'INACTIVE'
+        est => est.esActivo !== false && est.estado !== 'INACTIVE'
       ),
     [Establecimientos]
   );
 
   const stats = useMemo(() => ({
     total: almacenes.length,
-    active: almacenes.filter(almacen => almacen.estaActivoAlmacen).length,
-    inactive: almacenes.filter(almacen => !almacen.estaActivoAlmacen).length,
+    active: almacenes.filter(almacen => almacen.esActivo).length,
+    inactive: almacenes.filter(almacen => !almacen.esActivo).length,
     withMovements: almacenes.filter(almacen => almacen.tieneMovimientosInventario).length
   }), [almacenes]);
 
@@ -144,7 +134,7 @@ export function ConfiguracionAlmacenes() {
 
     const numericCodes = almacenesDelEstablecimiento
       .map(almacen => {
-        const match = almacen.codigoAlmacen.match(/\d+/);
+        const match = almacen.codigo.match(/\d+/);
         return match ? parseInt(match[0], 10) : 0;
       })
       .filter(n => n > 0);
@@ -156,24 +146,24 @@ export function ConfiguracionAlmacenes() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!datosFormulario.codigoAlmacen.trim()) {
-      errors.codigoAlmacen = 'El código es obligatorio';
-    } else if (datosFormulario.codigoAlmacen.length > 4) {
-      errors.codigoAlmacen = 'El código no puede tener más de 4 caracteres';
+    if (!datosFormulario.codigo.trim()) {
+      errors.codigo = 'El código es obligatorio';
+    } else if (datosFormulario.codigo.length > 4) {
+      errors.codigo = 'El código no puede tener más de 4 caracteres';
     } else {
       const isDuplicate = almacenes.some(
         almacen =>
-          almacen.codigoAlmacen === datosFormulario.codigoAlmacen &&
+          almacen.codigo === datosFormulario.codigo &&
           almacen.establecimientoId === datosFormulario.establecimientoId &&
           almacen.id !== editingAlmacenId
       );
       if (isDuplicate) {
-        errors.codigoAlmacen = 'Ya existe un almacén con este código en el establecimiento seleccionado';
+        errors.codigo = 'Ya existe un almacén con este código en el establecimiento seleccionado';
       }
     }
 
-    if (!datosFormulario.nombreAlmacen.trim()) {
-      errors.nombreAlmacen = 'El nombre es obligatorio';
+    if (!datosFormulario.nombre.trim()) {
+      errors.nombre = 'El nombre es obligatorio';
     }
 
     if (!datosFormulario.establecimientoId) {
@@ -188,12 +178,12 @@ export function ConfiguracionAlmacenes() {
     const firstEstId = activeEstablecimientos[0]?.id || '';
 
     setFormData({
-      codigoAlmacen: firstEstId ? generarSiguienteCodigo(firstEstId) : '0001',
-      nombreAlmacen: '',
+      codigo: firstEstId ? generarSiguienteCodigo(firstEstId) : '0001',
+      nombre: '',
       establecimientoId: firstEstId,
-      descripcionAlmacen: '',
-      ubicacionAlmacen: '',
-      esAlmacenPrincipal: false
+      descripcion: '',
+      ubicacion: '',
+      principal: false
     });
     setEditingAlmacenId(null);
     setFormErrors({});
@@ -202,12 +192,12 @@ export function ConfiguracionAlmacenes() {
 
   const handleEdit = (almacen: Almacen) => {
     setFormData({
-      codigoAlmacen: almacen.codigoAlmacen,
-      nombreAlmacen: almacen.nombreAlmacen,
+      codigo: almacen.codigo,
+      nombre: almacen.nombre,
       establecimientoId: almacen.establecimientoId,
-      descripcionAlmacen: almacen.descripcionAlmacen || '',
-      ubicacionAlmacen: almacen.ubicacionAlmacen || '',
-      esAlmacenPrincipal: almacen.esAlmacenPrincipal
+      descripcion: almacen.descripcion || '',
+      ubicacion: almacen.ubicacion || '',
+      principal: almacen.principal
     });
     setEditingAlmacenId(almacen.id);
     setFormErrors({});
@@ -218,7 +208,7 @@ export function ConfiguracionAlmacenes() {
     setFormData(prev => ({
       ...prev,
       establecimientoId: EstablecimientoId,
-      codigoAlmacen: generarSiguienteCodigo(EstablecimientoId)
+      codigo: generarSiguienteCodigo(EstablecimientoId)
     }));
     if (formErrors.establecimientoId) {
       setFormErrors(prev => ({ ...prev, establecimientoId: '' }));
@@ -239,17 +229,19 @@ export function ConfiguracionAlmacenes() {
 
     const payload = {
       empresaId: state.company?.id || '',
-      codigoAlmacen: datosFormulario.codigoAlmacen,
-      nombreAlmacen: datosFormulario.nombreAlmacen,
+      codigo: datosFormulario.codigo,
+      nombre: datosFormulario.nombre,
       establecimientoId: datosFormulario.establecimientoId,
-      nombreEstablecimientoDesnormalizado: selectedEstablecimiento?.nombreEstablecimiento,
-      codigoEstablecimientoDesnormalizado: selectedEstablecimiento?.codigoEstablecimiento,
-      descripcionAlmacen: datosFormulario.descripcionAlmacen || undefined,
-      ubicacionAlmacen: datosFormulario.ubicacionAlmacen || undefined,
-      esAlmacenPrincipal: datosFormulario.esAlmacenPrincipal,
-      estaActivoAlmacen: true,
-      configuracionInventarioAlmacen: {
-        permiteStockNegativoAlmacen: false,
+      establecimientoNombre: selectedEstablecimiento?.nombre,
+      establecimientoCodigo: selectedEstablecimiento?.codigo,
+      descripcion: datosFormulario.descripcion || undefined,
+      ubicacion: datosFormulario.ubicacion || undefined,
+      principal: datosFormulario.principal,
+      esActivo: editingAlmacenId 
+        ? almacenes.find(a => a.id === editingAlmacenId)?.esActivo ?? true
+        : true,
+      configuracionInventario: {
+        permiteStockNegativo: false,
         controlEstrictoStock: false,
         requiereAprobacionMovimientos: false
       }
@@ -280,7 +272,7 @@ export function ConfiguracionAlmacenes() {
     setDeleteConfirmation({
       isOpen: true,
       almacenId: almacen.id,
-      nombreAlmacen: almacen.nombreAlmacen,
+      nombre: almacen.nombre,
       tieneMovimientosInventario: almacen.tieneMovimientosInventario || false
     });
   };
@@ -293,7 +285,7 @@ export function ConfiguracionAlmacenes() {
         'error',
         'No se puede eliminar este almacén porque tiene movimientos de inventario asociados. Puedes deshabilitarlo en su lugar.'
       );
-      setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
+      setDeleteConfirmation({ isOpen: false, almacenId: null, nombre: '', tieneMovimientosInventario: false });
       return;
     }
 
@@ -303,7 +295,7 @@ export function ConfiguracionAlmacenes() {
     } catch {
       showToast('error', 'Error al eliminar el almacén');
     } finally {
-      setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
+      setDeleteConfirmation({ isOpen: false, almacenId: null, nombre: '', tieneMovimientosInventario: false });
     }
   };
 
@@ -313,7 +305,7 @@ export function ConfiguracionAlmacenes() {
       await alternarEstadoAlmacen(id);
       showToast(
         'success',
-        almacen?.estaActivoAlmacen ? 'Almacén deshabilitado' : 'Almacén habilitado'
+        almacen?.esActivo ? 'Almacén deshabilitado' : 'Almacén habilitado'
       );
     } catch {
       showToast('error', 'Error al cambiar el estado del almacén');
@@ -378,7 +370,7 @@ export function ConfiguracionAlmacenes() {
                 </div>
                 <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 ml-auto">
                   <IconoAlmacen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {datosFormulario.codigoAlmacen}</span>
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-200">Código: {datosFormulario.codigo}</span>
                 </div>
               </div>
             </div>
@@ -395,7 +387,7 @@ export function ConfiguracionAlmacenes() {
                   { value: '', label: loadingEstablecimientos ? 'Cargando...' : 'Seleccionar establecimiento...' },
                   ...activeEstablecimientos.map(est => ({
                     value: est.id,
-                    label: `[${est.codigoEstablecimiento}] ${est.nombreEstablecimiento}`
+                    label: `[${est.codigo}] ${est.nombre}`
                   }))
                 ]}
               />
@@ -404,12 +396,12 @@ export function ConfiguracionAlmacenes() {
                 <Input
                   label="Código"
                   type="text"
-                  value={datosFormulario.codigoAlmacen}
+                  value={datosFormulario.codigo}
                   onChange={e => {
-                    setFormData(prev => ({ ...prev, codigoAlmacen: e.target.value }));
-                    if (formErrors.codigoAlmacen) setFormErrors(prev => ({ ...prev, codigoAlmacen: '' }));
+                    setFormData(prev => ({ ...prev, codigo: e.target.value }));
+                    if (formErrors.codigo) setFormErrors(prev => ({ ...prev, codigo: '' }));
                   }}
-                  error={formErrors.codigoAlmacen}
+                  error={formErrors.codigo}
                   placeholder="Ej: 0001"
                   leftIcon={<Hash />}
                   required
@@ -419,12 +411,12 @@ export function ConfiguracionAlmacenes() {
                 <Input
                   label="Nombre del Almacén"
                   type="text"
-                  value={datosFormulario.nombreAlmacen}
+                  value={datosFormulario.nombre}
                   onChange={e => {
-                    setFormData(prev => ({ ...prev, nombreAlmacen: e.target.value }));
-                    if (formErrors.nombreAlmacen) setFormErrors(prev => ({ ...prev, nombreAlmacen: '' }));
+                    setFormData(prev => ({ ...prev, nombre: e.target.value }));
+                    if (formErrors.nombre) setFormErrors(prev => ({ ...prev, nombre: '' }));
                   }}
-                  error={formErrors.nombreAlmacen}
+                  error={formErrors.nombre}
                   placeholder="Ej: Almacén Principal, Almacén Norte..."
                   leftIcon={<FileText />}
                   required
@@ -434,16 +426,16 @@ export function ConfiguracionAlmacenes() {
               <Input
                 label="Ubicación Física"
                 type="text"
-                value={datosFormulario.ubicacionAlmacen}
-                onChange={e => setFormData(prev => ({ ...prev, ubicacionAlmacen: e.target.value }))}
+                value={datosFormulario.ubicacion}
+                onChange={e => setFormData(prev => ({ ...prev, ubicacion: e.target.value }))}
                 placeholder="Ej: Piso 1 - Zona A, Edificio Principal..."
                 helperText="Opcional"
               />
 
               <Textarea
                 label="Descripción"
-                value={datosFormulario.descripcionAlmacen}
-                onChange={e => setFormData(prev => ({ ...prev, descripcionAlmacen: e.target.value }))}
+                value={datosFormulario.descripcion}
+                onChange={e => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
                 rows={3}
                 placeholder="Descripción adicional del almacén..."
                 helperText="Opcional"
@@ -451,8 +443,8 @@ export function ConfiguracionAlmacenes() {
 
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
                 <Checkbox
-                  checked={datosFormulario.esAlmacenPrincipal}
-                  onChange={e => setFormData(prev => ({ ...prev, esAlmacenPrincipal: e.target.checked }))}
+                  checked={datosFormulario.principal}
+                  onChange={e => setFormData(prev => ({ ...prev, principal: e.target.checked }))}
                   label="Marcar como almacén principal"
                 />
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-7">
@@ -526,13 +518,13 @@ export function ConfiguracionAlmacenes() {
               <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
                 {deleteConfirmation.tieneMovimientosInventario ? (
                   <>
-                    El almacén <span className="font-semibold">"{deleteConfirmation.nombreAlmacen}"</span> tiene
+                    El almacén <span className="font-semibold">"{deleteConfirmation.nombre}"</span> tiene
                     movimientos de inventario asociados y no puede ser eliminado. Puedes deshabilitarlo en su lugar.
                   </>
                 ) : (
                   <>
                     ¿Estás seguro de eliminar el almacén{' '}
-                    <span className="font-semibold">"{deleteConfirmation.nombreAlmacen}"</span>? Esta acción no se
+                    <span className="font-semibold">"{deleteConfirmation.nombre}"</span>? Esta acción no se
                     puede deshacer.
                   </>
                 )}
@@ -543,7 +535,7 @@ export function ConfiguracionAlmacenes() {
                     setDeleteConfirmation({
                       isOpen: false,
                       almacenId: null,
-                      nombreAlmacen: '',
+                      nombre: '',
                       tieneMovimientosInventario: false
                     })
                   }
@@ -632,7 +624,7 @@ export function ConfiguracionAlmacenes() {
               { value: 'all', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `[${est.codigoEstablecimiento}] ${est.nombreEstablecimiento}`
+                label: `[${est.codigo}] ${est.nombre}`
               }))
             ]}
           />
@@ -706,7 +698,7 @@ export function ConfiguracionAlmacenes() {
                 key={almacen.id}
                 almacen={almacen}
                 onToggleActivo={handleToggleStatus}
-                onEditar={() => handleEdit}
+                onEditar={() => handleEdit(almacen)}
                 onEliminar={(id) => openDeleteConfirmation(almacenes.find(a => a.id === id)!)}
               />
             ))}

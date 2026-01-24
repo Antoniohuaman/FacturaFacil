@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { Switch } from '../Switch';
 
-// Tipos - usando el modelo real del sistema
 export interface Almacen {
   id: string;
-  codigoAlmacen: string;
-  nombreAlmacen: string;
+  codigo: string;
+  nombre: string;
   establecimientoId: string;
-  nombreEstablecimientoDesnormalizado?: string;
-  codigoEstablecimientoDesnormalizado?: string;
-  descripcionAlmacen?: string;
-  ubicacionAlmacen?: string;
-  estaActivoAlmacen: boolean;
-  esAlmacenPrincipal: boolean;
+  establecimientoNombre?: string;
+  establecimientoCodigo?: string;
+  descripcion?: string;
+  ubicacion?: string;
+  esActivo: boolean;
+  principal: boolean;
   tieneMovimientosInventario?: boolean;
   dataFocus?: string;
 }
@@ -25,7 +24,6 @@ interface AlmacenCardProps {
   dataFocus?: string;
 }
 
-// Componentes auxiliares - Iconos
 const PackageIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -63,7 +61,6 @@ const MapPinIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-// Componente Dropdown Menu
 interface DropdownMenuProps {
   children: React.ReactNode;
 }
@@ -145,7 +142,6 @@ const DropdownMenuSeparator: React.FC = () => (
   <div className="my-1 h-px bg-slate-200 dark:bg-slate-700" />
 );
 
-// Componente principal AlmacenCard
 export const AlmacenCard: React.FC<AlmacenCardProps> = ({ 
   almacen, 
   onToggleActivo, 
@@ -156,7 +152,7 @@ export const AlmacenCard: React.FC<AlmacenCardProps> = ({
   return (
     <div 
       className={`transition-all duration-200 hover:shadow-lg rounded-lg border ${
-        !almacen.estaActivoAlmacen 
+        !almacen.esActivo 
           ? 'opacity-80 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700' 
           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
       }`}
@@ -166,7 +162,7 @@ export const AlmacenCard: React.FC<AlmacenCardProps> = ({
         <div className="flex items-start gap-3">
           {/* Icono - alineado al top */}
           <div className={`p-2.5 rounded-lg flex-shrink-0 ${
-            almacen.estaActivoAlmacen 
+            almacen.esActivo 
               ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' 
               : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
           }`}>
@@ -179,12 +175,12 @@ export const AlmacenCard: React.FC<AlmacenCardProps> = ({
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100 truncate">
-                  {almacen.nombreAlmacen}
+                  {almacen.nombre}
                 </h3>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex-shrink-0">
-                  {almacen.codigoAlmacen}
+                  {almacen.codigo}
                 </span>
-                {almacen.esAlmacenPrincipal && (
+                {almacen.principal && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 flex-shrink-0">
                     Principal
                   </span>
@@ -196,11 +192,11 @@ export const AlmacenCard: React.FC<AlmacenCardProps> = ({
                   </span>
                 )}
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                  almacen.estaActivoAlmacen 
+                  almacen.esActivo 
                     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
                     : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
                 }`}>
-                  {almacen.estaActivoAlmacen ? 'Activo' : 'Inactivo'}
+                  {almacen.esActivo ? 'Activo' : 'Inactivo'}
                 </span>
               </div>
             </div>
@@ -211,22 +207,22 @@ export const AlmacenCard: React.FC<AlmacenCardProps> = ({
                 <BuildingIcon className="w-4 h-4" />
                 Establecimiento: 
                 <span className="font-medium">
-                  [{almacen.codigoEstablecimientoDesnormalizado || 'N/D'}] {almacen.nombreEstablecimientoDesnormalizado || 'Sin nombre'}
+                  [{almacen.establecimientoCodigo || 'N/D'}] {almacen.establecimientoNombre || 'Sin nombre'}
                 </span>
               </p>
               
               {/* Fila 3: Ubicación (opcional) */}
-              {almacen.ubicacionAlmacen && (
+              {almacen.ubicacion && (
                 <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed flex items-center gap-2">
                   <MapPinIcon className="w-4 h-4" />
-                  {almacen.ubicacionAlmacen}
+                  {almacen.ubicacion}
                 </p>
               )}
               
               {/* Fila 4: Descripción (opcional) */}
-              {almacen.descripcionAlmacen && (
+              {almacen.descripcion && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                  {almacen.descripcionAlmacen}
+                  {almacen.descripcion}
                 </p>
               )}
             </div>
@@ -236,7 +232,7 @@ export const AlmacenCard: React.FC<AlmacenCardProps> = ({
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex items-center px-2 py-1 rounded-md transition-colors">
               <Switch 
-                checked={almacen.estaActivoAlmacen}
+                checked={almacen.esActivo}
                 onChange={() => onToggleActivo(almacen.id)}
                 label=""
               />

@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps -- dependencias extensas; ajuste diferido */
 import { useState, useCallback } from 'react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { establecimientosApi } from '../api/establecimientosApi';
@@ -7,10 +6,6 @@ import { getCurrentEmpresaId } from '../api/config';
 import { ApiError, NetworkError } from '../api/fetchApi';
 import type { Establecimiento } from '../modelos/Establecimiento';
 
-/**
- * Hook para gestionar establecimientos con integración al backend
- * Estrategia híbrida: campos básicos en backend + campos extendidos en frontend
- */
 export function useEstablecimientos() {
   const { state, dispatch } = useConfigurationContext();
   const [isFetching, setIsFetching] = useState(false);
@@ -21,9 +16,6 @@ export function useEstablecimientos() {
   const empresaId = getCurrentEmpresaId();
   const Establecimientos = state.Establecimientos;
 
-  /**
-   * Cargar establecimientos desde el backend
-   */
   const cargarEstablecimientos = useCallback(
     async (search?: string, estado?: boolean) => {
       if (!empresaId) {
@@ -161,7 +153,7 @@ export function useEstablecimientos() {
 
       await actualizarEstablecimiento(id, {
         ...establecimiento,
-        estaActivoEstablecimiento: !establecimiento.estaActivoEstablecimiento,
+        esActivo: !establecimiento.esActivo,
       });
     },
     [Establecimientos, actualizarEstablecimiento]

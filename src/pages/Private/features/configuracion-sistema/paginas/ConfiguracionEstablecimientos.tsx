@@ -1,12 +1,9 @@
-// src/features/configuration/pages/EstablecimientosConfiguration.tsx
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   MapPin,
   Plus,
-  Edit,
-  Trash2,
   Building,
   Search,
   AlertCircle,
@@ -20,22 +17,22 @@ import {
 } from 'lucide-react';
 import { useEstablecimientos } from '../hooks/useEstablecimientos'
 import { PageHeader, Button, Select, Input, Breadcrumb, EstablecimientoCard } from '@/contasis';
-import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { ToastNotifications, type Toast } from '@/components/Toast';
 import type { Establecimiento } from '../modelos/Establecimiento';
-import { ubigeoData } from '../datos/ubigeo';
+import { useUbigeoCascade } from '@/services/api/ubigeo/hooks/useUbigeoCascade';
 import formValidation, { commonRules, type Validators } from '@/utils/FormValidation';
 
-// --- Interfaces ---
-
 interface EstablecimientoFormData {
-  codigoEstablecimiento: string;
-  nombreEstablecimiento: string;
-  direccionEstablecimiento: string;
-  distritoEstablecimiento: string;
-  provinciaEstablecimiento: string;
-  departamentoEstablecimiento: string;
-  codigoPostalEstablecimiento: string;
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  codigoDepartamento: string;
+  departamento: string;
+  codigoProvincia: string;
+  provincia: string;
+  codigoDistrito: string;
+  distrito: string;
+  codigoPostal: string;
   phone: string;
   email: string;
 }
@@ -46,10 +43,7 @@ interface DeleteConfirmation {
   EstablecimientoName: string;
 }
 
-// --- Component ---
-
 export function EstablecimientosConfiguration() {
-  // 1. Hooks & Configuration
   const navigate = useNavigate();
   const {
     establecimientos: Establecimientos,
@@ -64,9 +58,6 @@ export function EstablecimientosConfiguration() {
     toggleStatus: toggleEstablecimientoStatus,
   } = useEstablecimientos();
 
-  // 2. State Management
-  
-  // UI & Feedback State
   const [showForm, setShowForm] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
@@ -75,64 +66,61 @@ export function EstablecimientosConfiguration() {
     EstablecimientoName: ''
   });
 
-  // Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filtroEstado, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // Form State
   const [editingEstablecimientoId, setEditingEstablecimientoId] = useState<string | null>(null);
   const [validators, setValidators] = useState<Validators | null>(null);
   const [datosFormulario, setFormData] = useState<EstablecimientoFormData>({
-    codigoEstablecimiento: '',
-    nombreEstablecimiento: '',
-    direccionEstablecimiento: '',
-    distritoEstablecimiento: '',
-    provinciaEstablecimiento: '',
-    departamentoEstablecimiento: '',
-    codigoPostalEstablecimiento: '',
+    codigo: '',
+    nombre: '',
+    direccion: '',
+    codigoDepartamento: '',
+    departamento: '',
+    codigoProvincia: '',
+    provincia: '',
+    codigoDistrito: '',
+    distrito: '',
+    codigoPostal: '',
     phone: '',
     email: ''
   });
 
-  // 3. Computed Logic (useMemo)
+  const {
+    selection: ubigeoSelection,
+    departamentos,
+    provincias,
+    distritos,
+    setDepartamento,
+    setProvincia,
+    setDistrito,
+    isLoading: isLoadingUbigeo
+  } = useUbigeoCascade();
 
-  // Ubigeo Cascading
-  const selectedDepartment = useMemo(() => {
-    return ubigeoData.find(dept => dept.name === datosFormulario.departamentoEstablecimiento);
-  }, [datosFormulario.departamentoEstablecimiento]);
-
-  const availableProvinces = useMemo(() => selectedDepartment?.provinces || [], [selectedDepartment]);
-  const selectedProvince = useMemo(() => availableProvinces.find(p => p.name === datosFormulario.provinciaEstablecimiento), [availableProvinces, datosFormulario.provinciaEstablecimiento]);
-  const availableDistricts = useMemo(() => selectedProvince?.districts || [], [selectedProvince]);
-
-  // Validation Rules
   const formRules = useMemo(() => ({
-    codigoEstablecimiento: [
+    codigo: [
       commonRules.required('El código es obligatorio'),
       commonRules.maxLength(4, 'El código no puede tener más de 4 caracteres'),
       commonRules.custom((value) => {
         if (editingEstablecimientoId) {
           const original = Establecimientos.find(e => e.id === editingEstablecimientoId);
-          if (original?.codigoEstablecimiento === value) return true;
+          if (original?.codigo === value) return true;
         }
-        return !Establecimientos.some(est => est.codigoEstablecimiento === value);
+        return !Establecimientos.some(est => est.codigo === value);
       }, 'Ya existe un establecimiento con este código')
     ],
-    nombreEstablecimiento: [commonRules.required('El nombre es obligatorio')],
-    direccionEstablecimiento: [commonRules.required('La dirección es obligatoria')],
-    distritoEstablecimiento: [commonRules.required('El distrito es obligatorio')],
-    provinciaEstablecimiento: [commonRules.required('La provincia es obligatoria')],
-    departamentoEstablecimiento: [commonRules.required('El departamento es obligatorio')],
-    email: [commonRules.email('El email no es válido')]
+    nombre: [commonRules.required('El nombre es obligatorio')],
+    direccion: [commonRules.required('La dirección es obligatoria')],
+    distrito: [commonRules.required('El distrito es obligatorio')],
+    provincia: [commonRules.required('La provincia es obligatoria')],
+    departamento: [commonRules.required('El departamento es obligatorio')],
+    phone: [commonRules.custom((value) => !value || /^\+?[(]?[0-9]{1,4}[)]?[\s-]?[(]?[0-9]{1,4}[)]?[\s-]?[0-9]{1,4}[\s-]?[0-9]{1,9}$/.test(value), 'Debe ser un número de teléfono válido')],
+    email: [commonRules.custom((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), 'Debe ser un valor de correo válido')]
   }), [Establecimientos, editingEstablecimientoId]);
 
-  // Derived List
   const listaVisual = Establecimientos;
 
-  // 4. Effects (useEffect)
-
-  // Debounce Search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -140,13 +128,11 @@ export function EstablecimientosConfiguration() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Load Data
   useEffect(() => {
     const estado = filtroEstado === 'all' ? undefined : filtroEstado === 'active';
     cargarEstablecimientos(debouncedSearch, estado);
   }, [debouncedSearch, filtroEstado, cargarEstablecimientos]);
 
-  // Initialize Validators
   useEffect(() => {
     if (showForm) {
       const initialValidators: Validators = {};
@@ -161,6 +147,73 @@ export function EstablecimientosConfiguration() {
     }
   }, [showForm, formRules, editingEstablecimientoId]);
 
+  useEffect(() => {
+    if (ubigeoSelection.departamento) {
+      setFormData(prev => ({
+        ...prev,
+        codigoDepartamento: ubigeoSelection.departamento!.codigo,
+        departamento: ubigeoSelection.departamento!.nombre
+      }));
+      
+      if (validators?.departamento) {
+        setValidators(prev => ({
+          ...prev!,
+          departamento: {
+            ...prev!.departamento,
+            state: ubigeoSelection.departamento!.nombre,
+            valid: true,
+            errors: []
+          }
+        }));
+      }
+    }
+
+    if (ubigeoSelection.provincia) {
+      setFormData(prev => ({
+        ...prev,
+        codigoProvincia: ubigeoSelection.provincia!.codigo,
+        provincia: ubigeoSelection.provincia!.nombre
+      }));
+      
+      if (validators?.provincia) {
+        setValidators(prev => ({
+          ...prev!,
+          provincia: {
+            ...prev!.provincia,
+            state: ubigeoSelection.provincia!.nombre,
+            valid: true,
+            errors: []
+          }
+        }));
+      }
+    }
+
+    if (ubigeoSelection.distrito) {
+      setFormData(prev => ({
+        ...prev,
+        codigoDistrito: ubigeoSelection.distrito!.codigo,
+        distrito: ubigeoSelection.distrito!.nombre
+      }));
+      
+      if (validators?.distrito) {
+        setValidators(prev => ({
+          ...prev!,
+          distrito: {
+            ...prev!.distrito,
+            state: ubigeoSelection.distrito!.nombre,
+            valid: true,
+            errors: []
+          }
+        }));
+      }
+    }
+
+    if (ubigeoSelection.departamento && ubigeoSelection.provincia && ubigeoSelection.distrito) {
+      const codigoPostalGenerado = `${ubigeoSelection.departamento.codigo}${ubigeoSelection.provincia.codigo}${ubigeoSelection.distrito.codigo}`;
+      setFormData(prev => ({ ...prev, codigoPostal: codigoPostalGenerado }));
+    }
+  }, [ubigeoSelection.departamento, ubigeoSelection.provincia, ubigeoSelection.distrito, validators]);
+
   // 5. Helper Functions
 
   const showToast = (type: Toast['type'], message: string) => {
@@ -172,7 +225,7 @@ export function EstablecimientosConfiguration() {
   const generateNextCode = () => {
     if (Establecimientos.length === 0) return '0001';
     const numericCodes = Establecimientos.map(e => {
-      const m = e.codigoEstablecimiento.match(/\d+/);
+      const m = e.codigo.match(/\d+/);
       return m ? Number(m[0]) : 0;
     }).filter(n => n > 0);
     const last = numericCodes.length ? Math.max(...numericCodes) : 0;
@@ -181,7 +234,7 @@ export function EstablecimientosConfiguration() {
 
   const updateField = (field: keyof EstablecimientoFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (validators) {
+    if (validators && validators[field]) {
       setValidators(prev => formValidation.updateValidators(field, value, prev || {}));
     }
   };
@@ -190,42 +243,79 @@ export function EstablecimientosConfiguration() {
 
   const handleNew = () => {
     setFormData({
-      codigoEstablecimiento: generateNextCode(),
-      nombreEstablecimiento: '',
-      direccionEstablecimiento: '',
-      distritoEstablecimiento: '',
-      provinciaEstablecimiento: '',
-      departamentoEstablecimiento: '',
-      codigoPostalEstablecimiento: '',
+      codigo: generateNextCode(),
+      nombre: '',
+      direccion: '',
+      codigoDepartamento: '',
+      departamento: '',
+      codigoProvincia: '',
+      provincia: '',
+      codigoDistrito: '',
+      distrito: '',
+      codigoPostal: '',
       phone: '',
       email: ''
     });
+    setDepartamento(null);
+    setProvincia(null);
+    setDistrito(null);
     setEditingEstablecimientoId(null);
     setShowForm(true);
   };
 
   const handleEdit = (establecimiento: Establecimiento) => {
-    console.log('handleEdit called with establecimiento:', establecimiento);
     setFormData({
-      codigoEstablecimiento: establecimiento.codigoEstablecimiento,
-      nombreEstablecimiento: establecimiento.nombreEstablecimiento,
-      direccionEstablecimiento: establecimiento.direccionEstablecimiento,
-      distritoEstablecimiento: establecimiento.distritoEstablecimiento,
-      provinciaEstablecimiento: establecimiento.provinciaEstablecimiento,
-      departamentoEstablecimiento: establecimiento.departamentoEstablecimiento,
-      codigoPostalEstablecimiento: establecimiento.codigoPostalEstablecimiento || '',
+      codigo: establecimiento.codigo,
+      nombre: establecimiento.nombre,
+      direccion: establecimiento.direccion,
+      codigoDepartamento: establecimiento.codigoDepartamento || '',
+      departamento: establecimiento.departamento || '',
+      codigoProvincia: establecimiento.codigoProvincia || '',
+      provincia: establecimiento.provincia || '',
+      codigoDistrito: establecimiento.codigoDistrito || '',
+      distrito: establecimiento.distrito || '',
+      codigoPostal: establecimiento.codigoPostal || '',
       phone: establecimiento.phone || '',
       email: establecimiento.email || ''
     });
+    
     setEditingEstablecimientoId(establecimiento.id);
     setShowForm(true);
-    console.log('Form should now be visible');
+    
+    setTimeout(() => {
+      if (establecimiento.codigoDepartamento && establecimiento.departamento) {
+        setDepartamento({
+          codigo: establecimiento.codigoDepartamento,
+          nombre: establecimiento.departamento
+        });
+      }
+      
+      setTimeout(() => {
+        if (establecimiento.codigoProvincia && establecimiento.provincia) {
+          setProvincia({
+            codigoDepartamento: establecimiento.codigoDepartamento || '',
+            codigo: establecimiento.codigoProvincia,
+            nombre: establecimiento.provincia
+          });
+        }
+        
+        setTimeout(() => {
+          if (establecimiento.codigoDistrito && establecimiento.distrito) {
+            setDistrito({
+              codigoDepartamento: establecimiento.codigoDepartamento || '',
+              codigoProvincia: establecimiento.codigoProvincia || '',
+              codigo: establecimiento.codigoDistrito,
+              nombre: establecimiento.distrito
+            });
+          }
+        }, 100);
+      }, 100);
+    }, 100);
   };
 
   const handleSubmitSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Create simple state object for validation
     const formState: Record<string, string> = {};
     Object.keys(datosFormulario).forEach(key => {
       formState[key] = datosFormulario[key as keyof EstablecimientoFormData] || '';
@@ -239,14 +329,20 @@ export function EstablecimientosConfiguration() {
       return;
     }
 
-    // Get Ubigeo Code
-    const selectedDist = availableDistricts.find(d => d.name === datosFormulario.distritoEstablecimiento);
-    const ubigeoCode = selectedDist?.code || datosFormulario.codigoPostalEstablecimiento;
-
     try {
       const dataToSave: Partial<Establecimiento> = {
-        ...datosFormulario,
-        codigoPostalEstablecimiento: ubigeoCode,
+        codigo: datosFormulario.codigo,
+        nombre: datosFormulario.nombre,
+        direccion: datosFormulario.direccion,
+        phone: datosFormulario.phone || undefined,
+        email: datosFormulario.email || undefined,
+        codigoDepartamento: datosFormulario.codigoDepartamento,
+        departamento: datosFormulario.departamento,
+        codigoProvincia: datosFormulario.codigoProvincia,
+        provincia: datosFormulario.provincia,
+        codigoDistrito: datosFormulario.codigoDistrito,
+        distrito: datosFormulario.distrito,
+        codigoPostal: datosFormulario.codigoPostal || undefined,
         coordinates: undefined,
         businessHours: {},
         sunatConfiguration: { isRegistered: false },
@@ -264,9 +360,11 @@ export function EstablecimientosConfiguration() {
           defaultTaxId: '',
           bankAccounts: []
         },
-        estadoEstablecimiento: 'ACTIVE',
-        estaActivoEstablecimiento: true,
-        isMainEstablecimiento: false,
+        estado: 'ACTIVE',
+        esActivo: editingEstablecimientoId
+          ? Establecimientos.find(e => e.id === editingEstablecimientoId)?.esActivo ?? true
+          : true,
+        principal: false,
       };
 
       if (editingEstablecimientoId) {
@@ -287,16 +385,22 @@ export function EstablecimientosConfiguration() {
 
   const handleCancel = () => {
     setFormData({
-      codigoEstablecimiento: '',
-      nombreEstablecimiento: '',
-      direccionEstablecimiento: '',
-      distritoEstablecimiento: '',
-      provinciaEstablecimiento: '',
-      departamentoEstablecimiento: '',
-      codigoPostalEstablecimiento: '',
+      codigo: '',
+      nombre: '',
+      direccion: '',
+      codigoDepartamento: '',
+      departamento: '',
+      codigoProvincia: '',
+      provincia: '',
+      codigoDistrito: '',
+      distrito: '',
+      codigoPostal: '',
       phone: '',
       email: ''
     });
+    setDepartamento(null);
+    setProvincia(null);
+    setDistrito(null);
     setEditingEstablecimientoId(null);
     setShowForm(false);
   };
@@ -305,7 +409,7 @@ export function EstablecimientosConfiguration() {
     setDeleteConfirmation({
       isOpen: true,
       EstablecimientoId: establecimiento.id,
-      EstablecimientoName: establecimiento.nombreEstablecimiento
+      EstablecimientoName: establecimiento.nombre
     });
   };
 
@@ -326,7 +430,7 @@ export function EstablecimientosConfiguration() {
     try {
       await toggleEstablecimientoStatus(id);
       const est = Establecimientos.find(e => e.id === id);
-      showToast('success', est?.estaActivoEstablecimiento ? 'Establecimiento desactivado' : 'Establecimiento activado');
+      showToast('success', est?.esActivo ? 'Establecimiento desactivado' : 'Establecimiento activado');
     } catch (error) {
       console.error('Error toggling status:', error);
       const message = error instanceof Error ? error.message : 'Error al cambiar el estado';
@@ -360,7 +464,7 @@ export function EstablecimientosConfiguration() {
               <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
                 <Building className="w-5 h-5 text-blue-600" />
                 <span className="text-sm font-medium text-blue-900">
-                  {isSaving ? 'Guardando...' : `Código: ${datosFormulario.codigoEstablecimiento}`}
+                  {isSaving ? 'Guardando...' : `Código: ${datosFormulario.codigo}`}
                 </span>
                 {isSaving && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>}
               </div>
@@ -380,8 +484,8 @@ export function EstablecimientosConfiguration() {
 
                 <div className="p-6 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Código" type="text" value={datosFormulario.codigoEstablecimiento} onChange={(e) => updateField('codigoEstablecimiento', e.target.value)} error={formValidation.getFieldErrors('codigoEstablecimiento', validators)[0]} placeholder="Ej: 0001" leftIcon={<Hash />} required maxLength={4} />
-                    <Input label="Nombre del Establecimiento" type="text" value={datosFormulario.nombreEstablecimiento} onChange={(e) => updateField('nombreEstablecimiento', e.target.value)} error={formValidation.getFieldErrors('nombreEstablecimiento', validators)[0]} placeholder="Ej: Sede Central, Sucursal Norte..." leftIcon={<FileText />} required />
+                    <Input label="Código" type="text" value={datosFormulario.codigo} onChange={(e) => updateField('codigo', e.target.value)} error={formValidation.getFieldErrors('codigo', validators)[0]} placeholder="Ej: 0001" leftIcon={<Hash />} required maxLength={4} />
+                    <Input label="Nombre del Establecimiento" type="text" value={datosFormulario.nombre} onChange={(e) => updateField('nombre', e.target.value)} error={formValidation.getFieldErrors('nombre', validators)[0]} placeholder="Ej: Sede Central, Sucursal Norte..." leftIcon={<FileText />} required />
                   </div>
                 </div>
               </div>
@@ -392,23 +496,102 @@ export function EstablecimientosConfiguration() {
                 </div>
 
                 <div className="p-6 space-y-6">
-                  <Input label="Dirección" type="text" value={datosFormulario.direccionEstablecimiento} onChange={(e) => updateField('direccionEstablecimiento', e.target.value)} error={formValidation.getFieldErrors('direccionEstablecimiento', validators)[0]} placeholder="Ej: Av. Los Pinos 123, Urbanización..." leftIcon={<Navigation />} required />
+                  <Input label="Dirección" type="text" value={datosFormulario.direccion} onChange={(e) => updateField('direccion', e.target.value)} error={formValidation.getFieldErrors('direccion', validators)[0]} placeholder="Ej: Av. Los Pinos 123, Urbanización..." leftIcon={<Navigation />} required />
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Select label="Departamento" value={datosFormulario.departamentoEstablecimiento} onChange={(e) => { const value = e.target.value; setFormData(prev => ({ ...prev, departamentoEstablecimiento: value, provinciaEstablecimiento: '', distritoEstablecimiento: '' })); if (validators) setValidators(prev => { const v = { ...(prev || {}) }; formValidation.updateValidators('departamentoEstablecimiento', value, v); if (v.provinciaEstablecimiento) v.provinciaEstablecimiento.state = ''; if (v.distritoEstablecimiento) v.distritoEstablecimiento.state = ''; return { ...v }; }); }} options={[{ value: '', label: 'Seleccionar...' }, ...ubigeoData.map(d => ({ value: d.name, label: d.name }))]} placeholder="Seleccionar..." error={formValidation.getFieldErrors('departamentoEstablecimiento', validators)[0]} required />
+                    <Select
+                      label="Departamento"
+                      value={datosFormulario.codigoDepartamento}
+                      onChange={(e) => {
+                        const selected = departamentos.find(d => d.codigo === e.target.value);
+                        setDepartamento(selected || null);
+                      }}
+                      options={[
+                        { value: '', label: 'Seleccione un departamento' },
+                        ...departamentos.map(dep => ({
+                          value: dep.codigo,
+                          label: dep.nombre
+                        })),
 
-                    <Select label="Provincia" value={datosFormulario.provinciaEstablecimiento} onChange={(e) => { const value = e.target.value; setFormData(prev => ({ ...prev, provinciaEstablecimiento: value, distritoEstablecimiento: '' })); if (validators) setValidators(prev => { const v = { ...(prev || {}) }; formValidation.updateValidators('provinciaEstablecimiento', value, v); if (v.distritoEstablecimiento) v.distritoEstablecimiento.state = ''; return { ...v }; }); }} options={[{ value: '', label: datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero' }, ...availableProvinces.map(p => ({ value: p.name, label: p.name }))]} placeholder={datosFormulario.departamentoEstablecimiento ? 'Seleccionar...' : 'Selecciona departamento primero'} disabled={!datosFormulario.departamentoEstablecimiento} error={formValidation.getFieldErrors('provinciaEstablecimiento', validators)[0]} required />
+                        ...(datosFormulario.codigoDepartamento && 
+                            !departamentos.find(d => d.codigo === datosFormulario.codigoDepartamento) && 
+                            datosFormulario.departamento
+                          ? [{ value: datosFormulario.codigoDepartamento, label: datosFormulario.departamento }]
+                          : [])
+                      ]}
+                      required
+                      disabled={isLoadingUbigeo}
+                      error={formValidation.getFieldErrors('departamento', validators)[0]}
+                    />
 
-                    <Select label="Distrito" value={datosFormulario.distritoEstablecimiento} onChange={(e) => updateField('distritoEstablecimiento', e.target.value)} options={[{ value: '', label: datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero' }, ...availableDistricts.map(d => ({ value: d.name, label: d.name }))]} placeholder={datosFormulario.provinciaEstablecimiento ? 'Seleccionar...' : 'Selecciona provincia primero'} disabled={!datosFormulario.provinciaEstablecimiento} error={formValidation.getFieldErrors('distritoEstablecimiento', validators)[0]} required />
+                    <Select
+                      label="Provincia"
+                      value={datosFormulario.codigoProvincia}
+                      onChange={(e) => {
+                        const selected = provincias.find(p => p.codigo === e.target.value);
+                        setProvincia(selected || null);
+                      }}
+                      options={[
+                        { value: '', label: 'Seleccione una provincia' },
+                        ...provincias.map(prov => ({
+                          value: prov.codigo,
+                          label: prov.nombre
+                        })),
+
+                        ...(datosFormulario.codigoProvincia && 
+                            !provincias.find(p => p.codigo === datosFormulario.codigoProvincia) && 
+                            datosFormulario.provincia
+                          ? [{ value: datosFormulario.codigoProvincia, label: datosFormulario.provincia }]
+                          : [])
+                      ]}
+                      required
+                      disabled={!datosFormulario.codigoDepartamento || isLoadingUbigeo}
+                      error={formValidation.getFieldErrors('provincia', validators)[0]}
+                    />
+
+                    <Select
+                      label="Distrito"
+                      value={datosFormulario.codigoDistrito}
+                      onChange={(e) => {
+                        const selected = distritos.find(d => d.codigo === e.target.value);
+                        setDistrito(selected || null);
+                      }}
+                      options={[
+                        { value: '', label: 'Seleccione un distrito' },
+                        ...distritos.map(dist => ({
+                          value: dist.codigo,
+                          label: dist.nombre
+                        })),
+
+                        ...(datosFormulario.codigoDistrito && 
+                            !distritos.find(d => d.codigo === datosFormulario.codigoDistrito) && 
+                            datosFormulario.distrito
+                          ? [{ value: datosFormulario.codigoDistrito, label: datosFormulario.distrito }]
+                          : [])
+                      ]}
+                      required
+                      disabled={!datosFormulario.codigoProvincia || isLoadingUbigeo}
+                      error={formValidation.getFieldErrors('distrito', validators)[0]}
+                    />
                   </div>
-
-                  <Input label="Código Postal" type="text" value={datosFormulario.codigoPostalEstablecimiento} onChange={(e) => setFormData(prev => ({ ...prev, codigoPostalEstablecimiento: e.target.value }))} placeholder="Ej: 15001" leftIcon={<Hash />} helperText="Opcional" />
+                  <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                    <Input
+                      label="Código Postal"
+                      type="text"
+                      value={datosFormulario.codigoPostal}
+                      onChange={(e) => updateField('codigoPostal', e.target.value)}
+                      placeholder="Ej: 15001"
+                      leftIcon={<Hash />}
+                      helperText="Opcional"
+                      maxLength={10}
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200"><div className="flex items-center gap-3"><div className="p-2 bg-purple-600 rounded-lg"><Phone className="w-5 h-5 text-white" /></div><div><h3 className="text-lg font-semibold text-gray-900">Información de Contacto</h3><p className="text-sm text-gray-600">Datos opcionales para comunicación</p></div></div></div>
-                <div className="p-6 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><Input label="Teléfono" type="tel" value={datosFormulario.phone} onChange={(e) => updateField('phone', e.target.value)} placeholder="Ej: +51 999 999 999" leftIcon={<Phone />} helperText="Opcional" /><Input label="Correo Electrónico" type="email" value={datosFormulario.email} onChange={(e) => updateField('email', e.target.value)} error={formValidation.getFieldErrors('email', validators)[0]} placeholder="Ej: establecimiento@empresa.com" leftIcon={<Mail />} helperText="Opcional" /></div></div>
+                <div className="p-6 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><Input label="Teléfono" type="tel" value={datosFormulario.phone} onChange={(e) => updateField('phone', e.target.value)} error={formValidation.getFieldErrors('phone', validators)[0]} placeholder="Ej: +51 999 999 999" leftIcon={<Phone />} helperText="Opcional" /><Input label="Correo Electrónico" type="email" value={datosFormulario.email} onChange={(e) => updateField('email', e.target.value)} error={formValidation.getFieldErrors('email', validators)[0]} placeholder="Ej: establecimiento@empresa.com" leftIcon={<Mail />} helperText="Opcional" /></div></div>
               </div>
 
               <div className="flex items-center justify-between pt-2">
@@ -494,18 +677,18 @@ export function EstablecimientosConfiguration() {
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Activos</p><p className="text-2xl font-bold text-gray-900">{Establecimientos.filter(e => e.estaActivoEstablecimiento).length}</p></div><div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center"><MapPin className="w-6 h-6 text-green-600" /></div></div>
+              <div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Activos</p><p className="text-2xl font-bold text-gray-900">{Establecimientos.filter(e => e.esActivo).length}</p></div><div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center"><MapPin className="w-6 h-6 text-green-600" /></div></div>
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Inactivos</p><p className="text-2xl font-bold text-gray-900">{Establecimientos.filter(e => !e.estaActivoEstablecimiento).length}</p></div><div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center"><MapPin className="w-6 h-6 text-red-600" /></div></div>
+              <div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-500">Inactivos</p><p className="text-2xl font-bold text-gray-900">{Establecimientos.filter(e => !e.esActivo).length}</p></div><div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center"><MapPin className="w-6 h-6 text-red-600" /></div></div>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
               <Input type="text" placeholder="Buscar establecimientos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} leftIcon={<Search />} />
-              <Select value={filtroEstado} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)} size="medium" options={[{ value: 'all', label: 'Todos los estados' }, { value: 'active', label: 'Solo activos' }, { value: 'inactive', label: 'Solo inactivos' }]} />
+              <Select value={filtroEstado} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')} size="medium" options={[{ value: 'all', label: 'Todos los estados' }, { value: 'active', label: 'Solo activos' }, { value: 'inactive', label: 'Solo inactivos' }]} />
             </div>
             <Button onClick={handleNew} variant="primary" size="md" icon={<Plus className="w-5 h-5" />} iconPosition="left" disabled={isFetching || isSaving || isDeleting}>Nuevo Establecimiento</Button>
           </div>
@@ -561,16 +744,18 @@ export function EstablecimientosConfiguration() {
                     dataFocus={`configuracion:establecimientos:${est.id}`}
                     establecimiento={{
                       id: est.id,
-                      codigo: est.codigoEstablecimiento,
-                      nombre: est.nombreEstablecimiento,
-                      activo: est.estaActivoEstablecimiento,
-                      direccion: est.direccionEstablecimiento,
-                      distrito: est.distritoEstablecimiento,
-                      provincia: est.provinciaEstablecimiento,
-                      departamento: est.departamentoEstablecimiento
+                      codigo: est.codigo,
+                      nombre: est.nombre,
+                      esActivo: est.esActivo,
+                      direccion: est.direccion,
+                      distrito: est.distrito,
+                      provincia: est.provincia,
+                      departamento: est.departamento
                     }}
                     onToggleActivo={(id) => handleToggleStatus(id)}
                     onEditar={(id) => {
+                      console.log(est);
+                      
                       const establecimiento = Establecimientos.find(e => e.id === id);
                       if (establecimiento) handleEdit(establecimiento);
                     }}

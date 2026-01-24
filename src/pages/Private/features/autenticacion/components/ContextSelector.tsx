@@ -151,7 +151,7 @@ export function ContextSelector({
           </label>
           <div className="grid grid-cols-1 gap-2">
             {selectedEmpresa.establecimientos
-              .filter((e) => e.activo)
+              .filter((e) => e.esActivo)
               .map((establecimiento) => (
                 <button
                   key={establecimiento.id}

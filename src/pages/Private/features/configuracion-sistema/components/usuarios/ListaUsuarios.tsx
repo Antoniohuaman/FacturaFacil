@@ -134,7 +134,7 @@ export function UsersList({
 
 
   const getEstablecimientoName = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombreEstablecimiento || 'Establecimiento no encontrado';
+    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombre || 'Establecimiento no encontrado';
   };
 
   const manejarOrden = (field: SortField) => {
@@ -269,7 +269,7 @@ export function UsersList({
               { value: 'ALL', label: 'Todos los establecimientos' },
               ...Establecimientos.map(est => ({
                 value: est.id,
-                label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
+                label: `${est.codigo} - ${est.nombre}`
               }))
             ]}
           />

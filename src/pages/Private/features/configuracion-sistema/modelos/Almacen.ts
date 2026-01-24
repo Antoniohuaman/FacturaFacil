@@ -1,50 +1,40 @@
-// src/features/configuracion-sistema/modelos/almacen.ts
-
-export interface ConfiguracionInventarioAlmacen {
-  permiteStockNegativoAlmacen: boolean;
+export interface ConfiguracionInventario {
+  permiteStockNegativo: boolean;
   controlEstrictoStock: boolean;
   requiereAprobacionMovimientos: boolean;
   capacidadMaxima?: number;
   unidadCapacidad?: 'units' | 'm3' | 'm2';
 }
 
-/**
- * Representa un almacén dentro de un establecimiento
- * Jerarquía: RUC (Company) → Establecimiento → Almacén
- */
 export interface Almacen {
   id: string;
   empresaId: string;
-  codigoAlmacen: string;
-  nombreAlmacen: string;
+  codigo: string;
+  nombre: string;
   establecimientoId: string;
-  nombreEstablecimientoDesnormalizado?: string;
-  codigoEstablecimientoDesnormalizado?: string;
-  descripcionAlmacen?: string;
-  ubicacionAlmacen?: string;
-  estaActivoAlmacen: boolean;
-  esAlmacenPrincipal: boolean;
-  configuracionInventarioAlmacen: ConfiguracionInventarioAlmacen;
-  creadoElAlmacen: Date;
-  actualizadoElAlmacen: Date;
+  establecimientoNombre?: string;
+  establecimientoCodigo?: string;
+  descripcion?: string;
+  ubicacion?: string;
+  esActivo: boolean;
+  principal: boolean;
+  configuracionInventario: ConfiguracionInventario;
+  createdAt: Date;
+  updatedAt: Date;
   creadoPor?: string;
   actualizadoPor?: string;
   tieneMovimientosInventario?: boolean;
 }
 
-/**
- * DTO para crear o actualizar un almacén desde formularios.
- * Usa los mismos nombres de campos que el modelo canónico.
- */
 export interface AlmacenFormData {
-  codigoAlmacen: string;
-  nombreAlmacen: string;
+  codigo: string;
+  nombre: string;
   establecimientoId: string;
-  nombreEstablecimientoDesnormalizado?: string;
-  codigoEstablecimientoDesnormalizado?: string;
-  descripcionAlmacen?: string;
-  ubicacionAlmacen?: string;
-  estaActivoAlmacen: boolean;
-  esAlmacenPrincipal: boolean;
-  configuracionInventarioAlmacen: ConfiguracionInventarioAlmacen;
+  establecimientoNombre?: string;
+  establecimientoCodigo?: string;
+  descripcion?: string;
+  ubicacion?: string;
+  esActivo: boolean;
+  principal: boolean;
+  configuracionInventario: ConfiguracionInventario;
 }

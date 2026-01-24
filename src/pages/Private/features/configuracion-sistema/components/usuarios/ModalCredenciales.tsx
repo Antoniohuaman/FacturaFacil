@@ -247,7 +247,7 @@ ${EstablecimientosText || '  - Ninguno'}
                       key={Establecimiento.id}
                       className="bg-white border border-indigo-200 rounded px-2 py-1.5"
                     >
-                      <div className="text-xs font-medium text-indigo-900">{Establecimiento.nombreEstablecimiento}</div>
+                      <div className="text-xs font-medium text-indigo-900">{Establecimiento.nombre}</div>
                       <div className="text-[10px] text-indigo-600 line-clamp-1">{Establecimiento.direccionEstablecimiento}</div>
                     </div>
                   ))}

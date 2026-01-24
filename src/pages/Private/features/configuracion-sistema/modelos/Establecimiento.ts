@@ -1,23 +1,22 @@
 export interface Establecimiento {
   id: string;
-  codigoEstablecimiento: string; // SUNAT Establecimiento code (4 digits)
-  nombreEstablecimiento: string;
-  direccionEstablecimiento: string;
-  distritoEstablecimiento: string;
-  provinciaEstablecimiento: string;
-  departamentoEstablecimiento: string;
-  codigoPostalEstablecimiento?: string;
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  distrito: string;
+  provincia: string;
+  departamento: string;
+  codigoDistrito: string;
+  codigoProvincia: string;
+  codigoDepartamento: string;
+  codigoPostal?: string;
   phone?: string;
   email?: string;
-  
-  // Geographic information
   coordinates?: {
     latitude: number;
     longitude: number;
   };
-  
-  // Business information
-  isMainEstablecimiento: boolean;
+  principal: boolean;
   businessHours: {
     monday?: BusinessHours;
     tuesday?: BusinessHours;
@@ -27,17 +26,13 @@ export interface Establecimiento {
     saturday?: BusinessHours;
     sunday?: BusinessHours;
   };
-  
-  // SUNAT configuration
   sunatConfiguration: {
     isRegistered: boolean;
     registrationDate?: Date;
-    annexCode?: string; // Código de anexo SUNAT
+    annexCode?: string;
     economicActivity?: string;
-    tributaryAddress?: string; // Domicilio fiscal if different
+    tributaryAddress?: string;
   };
-  
-  // Point of sale configuration
   posConfiguration?: {
     hasPos: boolean;
     terminalCount: number;
@@ -58,8 +53,6 @@ export interface Establecimiento {
       scannerType: 'USB' | 'BLUETOOTH' | 'WIFI';
     };
   };
-  
-  // Inventory configuration
   inventoryConfiguration: {
     managesInventory: boolean;
     isalmacen: boolean;
@@ -67,8 +60,6 @@ export interface Establecimiento {
     autoTransferStock: boolean;
     parentalmacenId?: string;
   };
-  
-  // Financial configuration
   financialConfiguration: {
     handlesCash: boolean;
     defaultCurrencyId: string;
@@ -77,11 +68,11 @@ export interface Establecimiento {
     bankAccounts: BankAccount[];
   };
   
-  estadoEstablecimiento: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  estado: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   notes?: string;
-  creadoElEstablecimiento: Date;
-  actualizadoElEstablecimiento: Date;
-  estaActivoEstablecimiento: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  esActivo: boolean;
 }
 
 export interface BusinessHours {
@@ -109,12 +100,13 @@ export interface UpdateEstablecimientoRequest extends Partial<CreateEstablecimie
 
 export interface EstablecimientoSummary {
   id: string;
-  codigoEstablecimiento: string;
-  nombreEstablecimiento: string;
-  direccionEstablecimiento: string;
-  distritoEstablecimiento: string;
-  estadoEstablecimiento: Establecimiento['estadoEstablecimiento'];
-  isMainEstablecimiento: boolean;
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  distrito: string;
+  estado: Establecimiento['estado'];
+  principal: boolean;
+  esActivo: boolean;
   userCount?: number;
   hasPos: boolean;
 }
@@ -166,9 +158,12 @@ export interface CreateEstablecimientoRequest {
   codigoEstablecimiento: string;
   nombreEstablecimiento: string;
   direccionEstablecimiento: string;
-  distritoEstablecimiento: string;
-  provinciaEstablecimiento: string;
+  codigoDepartamento: string;
   departamentoEstablecimiento: string;
+  codigoProvincia: string;
+  provinciaEstablecimiento: string;
+  codigoDistrito: string;
+  distritoEstablecimiento: string;
   codigoPostalEstablecimiento?: string;
   phone?: string;
   email?: string;

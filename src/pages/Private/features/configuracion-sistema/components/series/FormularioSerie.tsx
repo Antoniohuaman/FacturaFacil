@@ -394,10 +394,10 @@ export function SeriesForm({
               options={[
                 { value: '', label: 'Seleccionar establecimiento' },
                 ...Establecimientos
-                  .filter(est => est.estaActivoEstablecimiento)
+                  .filter(est => est.esActivo)
                   .map(est => ({
                     value: est.id,
-                    label: `${est.codigoEstablecimiento} - ${est.nombreEstablecimiento}`
+                    label: `${est.codigo} - ${est.nombre}`
                   }))
               ]}
             />

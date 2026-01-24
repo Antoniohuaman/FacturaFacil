@@ -167,7 +167,7 @@ export function ContextSelectPage() {
           estadoEstablecimiento: 'ACTIVE',
           creadoElEstablecimiento: new Date(),
           actualizadoElEstablecimiento: new Date(),
-          estaActivoEstablecimiento: selectedEstablecimiento.activo
+          estaActivoEstablecimiento: selectedEstablecimiento.esActivo
         };
 
         dispatch({ type: 'ADD_Establecimiento', payload: newEstablecimiento });
@@ -335,7 +335,7 @@ export function ContextSelectPage() {
             </h2>
             <div className="grid grid-cols-1 gap-3">
               {selectedEmpresa.establecimientos
-                .filter((e) => e.activo)
+                .filter((e) => e.esActivo)
                 .map((establecimiento) => (
                   <button
                     key={establecimiento.id}

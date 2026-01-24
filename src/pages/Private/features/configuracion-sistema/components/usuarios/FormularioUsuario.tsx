@@ -458,7 +458,7 @@ export function UserForm({
                     />
                     <div className="ml-3 flex-1">
                       <div className="font-medium text-gray-900">
-                        {Establecimiento.nombreEstablecimiento}
+                        {Establecimiento.nombre}
                       </div>
                       <div className="text-sm text-gray-500">
                         {Establecimiento.direccionEstablecimiento}

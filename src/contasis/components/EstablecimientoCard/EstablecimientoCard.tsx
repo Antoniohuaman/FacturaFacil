@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Switch } from '../Switch';
 import type { EstablecimientoCardProps } from './EstablecimientoCard.types';
- 
-// Componentes auxiliares - Iconos
+
 const BuildingIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -26,10 +25,7 @@ const MoreVerticalIcon: React.FC<{ className?: string }> = ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
   </svg>
 );
- 
- 
- 
-// Componente Dropdown Menu
+
 interface DropdownMenuProps {
   children: React.ReactNode;
 }
@@ -124,7 +120,7 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
   return (
     <div
       className={`transition-all duration-200 hover:shadow-lg rounded-lg border ${
-        !establecimiento.activo ? 'opacity-80 bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700'
+        !establecimiento.esActivo ? 'opacity-80 bg-slate-50 dark:bg-gray-800 border-slate-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-700'
       }`}
       data-focus={dataFocus}
     >
@@ -132,7 +128,7 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
         <div className="flex items-start gap-3">
           {/* Icono - alineado al top */}
           <div className={`p-2.5 rounded-lg flex-shrink-0 ${
-            establecimiento.activo
+            establecimiento.esActivo
               ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
               : 'bg-slate-200 dark:bg-gray-700 text-slate-500 dark:text-gray-400'
           }`}>
@@ -151,11 +147,11 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
                   {establecimiento.codigo}
                 </span>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                  establecimiento.activo
+                  establecimiento.esActivo
                     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
                     : 'bg-slate-200 dark:bg-gray-700 text-slate-600 dark:text-gray-300'
                 }`}>
-                  {establecimiento.activo ? 'Activo' : 'Inactivo'}
+                  {establecimiento.esActivo ? 'Activo' : 'Inactivo'}
                 </span>
               </div>
             </div>
@@ -176,7 +172,7 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex items-center px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors">
               <Switch
-                checked={establecimiento.activo}
+                checked={establecimiento.esActivo}
                 onChange={() => {
                   console.log('Switch clicked for establecimiento:', establecimiento.id);
                   onToggleActivo(establecimiento.id);

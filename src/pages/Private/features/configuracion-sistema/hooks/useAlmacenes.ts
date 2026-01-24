@@ -127,10 +127,9 @@ export function useAlmacenes() {
     async (id: string): Promise<void> => {
       const almacen = almacenes.find((e) => e.id === id);
       if (!almacen) throw new Error('Almacén no encontrado');
-
       await actualizarAlmacen(id, {
         ...almacen,
-        estaActivoAlmacen: !almacen.estaActivoAlmacen,
+        esActivo: !almacen.esActivo,
       });
     },
     [almacenes, actualizarAlmacen]
