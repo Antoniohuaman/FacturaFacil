@@ -256,8 +256,9 @@ export function ConfiguracionAlmacenes() {
         showToast('success', 'Almacén creado correctamente');
       }
       handleCancel();
-    } catch {
-      showToast('error', editingAlmacenId ? 'Error al actualizar el almacén' : 'Error al crear el almacén');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : (editingAlmacenId ? 'Error al actualizar el almacén' : 'Error al crear el almacén');
+      showToast('error', errorMessage);
     }
   };
 

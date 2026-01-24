@@ -377,9 +377,8 @@ export function EstablecimientosConfiguration() {
 
       handleCancel();
     } catch (error) {
-      console.error('Error saving Establecimiento:', error);
-      const message = error instanceof Error ? error.message : 'Error al guardar el establecimiento';
-      showToast('error', message);
+      const errorMessage = error instanceof Error ? error.message : 'Error al guardar el establecimiento';
+      showToast('error', errorMessage);
     }
   };
 
@@ -420,9 +419,8 @@ export function EstablecimientosConfiguration() {
       showToast('success', 'Establecimiento eliminado correctamente');
       setDeleteConfirmation({ isOpen: false, EstablecimientoId: null, EstablecimientoName: '' });
     } catch (error) {
-      console.error('Error deleting Establecimiento:', error);
-      const message = error instanceof Error ? error.message : 'Error al eliminar el establecimiento';
-      showToast('error', message);
+      const errorMessage = error instanceof Error ? error.message : 'Error al eliminar el establecimiento';
+      showToast('error', errorMessage);
     }
   };
 
@@ -432,9 +430,8 @@ export function EstablecimientosConfiguration() {
       const est = Establecimientos.find(e => e.id === id);
       showToast('success', est?.esActivo ? 'Establecimiento desactivado' : 'Establecimiento activado');
     } catch (error) {
-      console.error('Error toggling status:', error);
-      const message = error instanceof Error ? error.message : 'Error al cambiar el estado';
-      showToast('error', message);
+      const errorMessage = error instanceof Error ? error.message : 'Error al cambiar el estado';
+      showToast('error', errorMessage);
     }
   };
 
