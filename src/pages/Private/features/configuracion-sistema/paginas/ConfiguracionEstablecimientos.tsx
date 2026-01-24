@@ -375,6 +375,9 @@ export function EstablecimientosConfiguration() {
         showToast('success', 'Establecimiento creado correctamente');
       }
 
+      // 🔄 Sincronizar cambios con TenantStore (Header/TopBar)
+      window.dispatchEvent(new Event('tenant-sync-request'));
+
       handleCancel();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error al guardar el establecimiento';

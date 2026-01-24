@@ -19,7 +19,7 @@ export interface EmpresaSedeActual {
 }
 
 export interface EmpresaSelectorProps {
-  actual: EmpresaSedeActual;
+  actual: EmpresaSedeActual | null;
   empresas?: Empresa[];
   sedes?: Sede[];
   onChangeEmpresa?: (empresaId: string) => void;

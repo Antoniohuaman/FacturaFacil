@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useEffect } from 'react';
 import { SearchBar } from '../../SearchBar';
 import { CajaStatus } from '../CajaStatus/index.ts';
 import { CrearMenu } from '../CrearMenu/index.ts';
@@ -9,18 +9,21 @@ import type { DocumentoTipo } from '../CrearMenu/index.ts';
 import type { UserData } from '../UserMenu/index.ts';
 import type { Empresa, Sede } from '../EmpresaSelector/index.ts';
 import type { SearchDataset } from '../../SearchBar';
+import { useTenantStore } from '../../../pages/Private/features/autenticacion/store/TenantStore';
+import { useTenantSync } from '../../../pages/Private/features/autenticacion/hooks/useTenantSync';
+import { useUserSession } from '../../../contexts/UserSessionContext';
+import { useCaja } from '../../../pages/Private/features/control-caja/context/CajaContext';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 export interface TopBarProps {
   onToggleSidebar: () => void;
-  onToggleTheme?: () => void;
-  theme?: 'light' | 'dark';
   showCaja?: boolean;
-  empresas: Empresa[];
-  sedes: Sede[];
+  empresas?: Empresa[];
+  sedes?: Sede[];
   initialEmpresaId?: string;
   initialSedeId?: string;
   cajaData?: CajaData;
-  user: UserData;
+  user?: UserData;
   onChangeEmpresa?: (empresaId: string) => void;
   onChangeSede?: (sedeId: string) => void;
   onCrearDocumento?: (tipo: DocumentoTipo) => void;
@@ -34,15 +37,12 @@ export interface TopBarProps {
 
 export const TopBar = ({ 
   onToggleSidebar, 
-  onToggleTheme, 
-  theme = 'light', 
   showCaja = false,
-  empresas,
-  sedes,
-  initialEmpresaId = '1',
-  initialSedeId = '1',
-  cajaData,
-  user,
+  empresas: empresasProps = [],
+  initialEmpresaId,
+  initialSedeId,
+  cajaData: cajaDataProps,
+  user: userProps,
   onChangeEmpresa,
   onChangeSede,
   onCrearDocumento,
@@ -53,8 +53,40 @@ export const TopBar = ({
   searchDatasets = [],
   onSearchSelect,
 }: TopBarProps) => {
-  const [empresaActualId, setEmpresaActualId] = useState(initialEmpresaId);
-  const [sedeActualId, setSedeActualId] = useState(initialSedeId);
+  // ✅ Obtener datos reales de contextos
+  const { empresas: empresasReales, contextoActual, setContextoActual } = useTenantStore();
+  const { session } = useUserSession();
+  const { status: cajaStatus } = useCaja();
+  const { theme } = useTheme();
+
+  // ✅ Mapear empresas y sedes reales del store
+  const empresasMapeadas = useMemo(() => {
+    const data = empresasReales && empresasReales.length > 0 ? empresasReales : empresasProps;
+    return (data as any[]).map((e: any) => ({
+      id: e.id,
+      nombre: e.nombreComercial || e.razonSocial || e.nombre,
+      ruc: e.ruc,
+      gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+      establecimientos: e.establecimientos || []
+    }));
+  }, [empresasReales, empresasProps]);
+
+  const sedesMapeadas = useMemo(() => {
+    const data = empresasReales && empresasReales.length > 0 ? empresasReales : empresasProps;
+    return (data as any[]).flatMap((e: any) => 
+      (e.establecimientos || []).map((s: any) => ({
+        id: s.id,
+        nombre: s.nombre,
+        direccion: s.direccion,
+        empresaId: e.id
+      }))
+    );
+  }, [empresasReales, empresasProps]);
+
+  // ✅ Usar contexto actual del store si está disponible
+  const empresaActualId = contextoActual?.empresaId || initialEmpresaId || '1';
+  const sedeActualId = contextoActual?.establecimientoId || initialSedeId || '1';
+
   const handleVerMovimientos = () => {
     onVerMovimientosCaja?.();
   };
@@ -75,19 +107,72 @@ export const TopBar = ({
     onCrearProducto?.();
   };
 
+  // 🔄 Sincronizar cambios de establecimientos desde Configuración
+  const { recargarEmpresasEnTenantStore } = useTenantSync();
+
+  useEffect(() => {
+    const handleTenantSync = () => {
+      recargarEmpresasEnTenantStore();
+    };
+
+    window.addEventListener('tenant-sync-request', handleTenantSync);
+    return () => window.removeEventListener('tenant-sync-request', handleTenantSync);
+  }, [recargarEmpresasEnTenantStore]);
+
   const handleChangeEmpresa = (empresaId: string) => {
-    setEmpresaActualId(empresaId);
-    // Cambiar a la primera sede de la nueva empresa
-    const primeraSedeEmpresa = sedes.find(s => s.empresaId === empresaId);
-    if (primeraSedeEmpresa) {
-      setSedeActualId(primeraSedeEmpresa.id);
+    const empresaReal = empresasReales.find((e: any) => e.id === empresaId);
+    if (empresaReal && empresaReal.establecimientos && empresaReal.establecimientos.length > 0) {
+      setContextoActual({
+        empresaId: empresaReal.id,
+        establecimientoId: empresaReal.establecimientos[0].id,
+        empresa: empresaReal,
+        establecimiento: empresaReal.establecimientos[0],
+        permisos: [],
+        configuracion: {}
+      });
     }
     onChangeEmpresa?.(empresaId);
   };
 
   const handleChangeSede = (sedeId: string) => {
-    setSedeActualId(sedeId);
+    const sede = sedesMapeadas.find((s: any) => s.id === sedeId);
+    if (sede) {
+      const empresaReal = empresasReales.find((e: any) => e.id === sede.empresaId);
+      const establecimientoObj = (empresaReal?.establecimientos || []).find((es: any) => es.id === sedeId);
+      if (empresaReal && establecimientoObj) {
+        setContextoActual({
+          empresaId: empresaReal.id,
+          establecimientoId: sedeId,
+          empresa: empresaReal,
+          establecimiento: establecimientoObj,
+          permisos: [],
+          configuracion: {}
+        });
+      }
+    }
     onChangeSede?.(sedeId);
+  };
+
+  // Datos actuales para mostrar
+  const empresaActual = empresasMapeadas.find((e: any) => e.id === empresaActualId);
+  const sedeActual = sedesMapeadas.find((s: any) => s.id === sedeActualId);
+
+  const actual = (empresaActual && sedeActual) ? {
+    empresa: empresaActual,
+    sede: sedeActual
+  } : null;
+
+  // User data - construir un UserData válido
+  const userDisplay: UserData = userProps || {
+    id: session?.userId || '',
+    nombre: session?.userName || 'Usuario',
+    apellido: '',
+    email: session?.userEmail || '',
+    rol: (session?.role as any) || 'usuario',
+    estado: 'activo',
+    emailVerificado: false,
+    require2FA: false,
+    fechaCreacion: new Date().toISOString()
   };
 
   return (
@@ -135,10 +220,10 @@ export const TopBar = ({
       {/* Right Section */}
       <div className="flex items-center">
         {/* Caja Status - solo visible cuando showCaja es true y cajaData existe */}
-        {showCaja && cajaData && (
+        {showCaja && cajaDataProps && (
           <>
             <CajaStatus
-              data={cajaData}
+              data={cajaDataProps}
               onVerMovimientos={handleVerMovimientos}
               onCerrarCaja={handleCerrarCaja}
             />
@@ -147,16 +232,15 @@ export const TopBar = ({
         )}
 
         {/* Selector de Empresa */}
-        <EmpresaSelector
-          actual={{
-            empresa: empresas.find(e => e.id === empresaActualId)!,
-            sede: sedes.find(s => s.id === sedeActualId)!
-          }}
-          empresas={empresas}
-          sedes={sedes}
-          onChangeEmpresa={handleChangeEmpresa}
-          onChangeSede={handleChangeSede}
-        />
+        {empresasMapeadas.length > 0 && (
+          <EmpresaSelector
+            actual={actual}
+            empresas={empresasMapeadas}
+            sedes={sedesMapeadas}
+            onChangeEmpresa={handleChangeEmpresa}
+            onChangeSede={handleChangeSede}
+          />
+        )}
 
         {/* Spacer 32px */}
         <div className="w-8"></div>
@@ -197,9 +281,8 @@ export const TopBar = ({
 
         {/* User Menu */}
         <UserMenu
-          user={user}
-          theme={theme}
-          onToggleTheme={onToggleTheme}
+          user={userDisplay}
+          theme={theme === 'dark' ? 'dark' : 'light'}
         />
       </div>
     </header>
