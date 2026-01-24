@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image as ImageIcon, X } from 'lucide-react';
+import { Image as ImageIcon, X, Check } from 'lucide-react';
 
 type LocalImageItem = {
   id: string;
@@ -25,13 +25,15 @@ interface ProductImageUploadProps {
   onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
+  showCheck?: boolean;
 }
 
 export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
   imagePreview,
   onUpload,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  showCheck
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [images, setImages] = useState<LocalImageItem[]>(() => (imagePreview ? [{ id: 'external', url: imagePreview }] : []));
@@ -189,10 +191,15 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
 
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
+      <div className="relative mb-1">
+        <label className="block text-xs font-medium text-gray-700">
         Imagen
         {isFieldRequired('imagen') && <span className="text-red-500 ml-1">*</span>}
-      </label>
+        </label>
+        {showCheck && (
+          <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
+        )}
+      </div>
 
       <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-2.5">
         <div className="group relative aspect-square w-full max-h-[260px] overflow-hidden rounded-lg border border-gray-200 bg-white">

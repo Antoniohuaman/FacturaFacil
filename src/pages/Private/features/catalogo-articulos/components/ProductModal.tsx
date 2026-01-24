@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Sliders, X } from 'lucide-react';
 import CategoryModal from './CategoryModal';
 import { FieldsConfigPanel } from './FieldsConfigPanel';
@@ -181,6 +181,107 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const showPresentacionesComerciales = isFieldVisible('presentacionesComerciales');
   const showAvailability = Establecimientos.length > 1;
 
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+  const [hasSubmitAttempt, setHasSubmitAttempt] = useState(false);
+
+  const markTouched = useCallback((fieldId: string) => {
+    setTouchedFields(prev => (prev[fieldId] ? prev : { ...prev, [fieldId]: true }));
+  }, []);
+
+  const isFilled = useCallback((fieldId: string): boolean => {
+    switch (fieldId) {
+      case 'nombre':
+        return formData.nombre.trim().length > 0;
+      case 'codigo':
+        return formData.codigo.trim().length > 0;
+      case 'categoria':
+        return (formData.categoria ?? '').trim().length > 0;
+      case 'codigoBarras':
+        return (formData.codigoBarras ?? '').trim().length > 0;
+      case 'alias':
+        return (formData.alias ?? '').trim().length > 0;
+      case 'marca':
+        return (formData.marca ?? '').trim().length > 0;
+      case 'modelo':
+        return (formData.modelo ?? '').trim().length > 0;
+      case 'descripcion':
+        return (formData.descripcion ?? '').trim().length > 0;
+      case 'codigoSunat':
+        return (formData.codigoSunat ?? '').trim().length > 0;
+      case 'codigoFabrica':
+        return (formData.codigoFabrica ?? '').trim().length > 0;
+      case 'tipoExistencia':
+        return Boolean(formData.tipoExistencia);
+      case 'impuesto':
+        return (formData.impuesto ?? '').trim().length > 0;
+      case 'unidad':
+        return Boolean(formData.unidad);
+      case 'tipoUnidadMedida':
+        return Boolean(formData.tipoUnidadMedida);
+      case 'establecimiento':
+        return (formData.establecimientoIds ?? []).length > 0;
+      case 'imagen':
+        return Boolean(imagePreview);
+      case 'precioCompra':
+        return formData.precioCompra !== undefined && formData.precioCompra !== null;
+      case 'porcentajeGanancia':
+        return formData.porcentajeGanancia !== undefined && formData.porcentajeGanancia !== null;
+      case 'descuentoProducto':
+        return formData.descuentoProducto !== undefined && formData.descuentoProducto !== null;
+      case 'peso':
+        return formData.peso !== undefined && formData.peso !== null;
+      case 'presentacionesComerciales':
+        return (formData.unidadesMedidaAdicionales ?? []).length > 0;
+      case 'tipoProducto':
+        return Boolean(productType);
+      default: {
+        const rawValue = (formData as Record<string, unknown>)[fieldId];
+        if (typeof rawValue === 'string') return rawValue.trim().length > 0;
+        if (Array.isArray(rawValue)) return rawValue.length > 0;
+        if (typeof rawValue === 'number') return !Number.isNaN(rawValue);
+        if (typeof rawValue === 'boolean') return rawValue;
+        return Boolean(rawValue);
+      }
+    }
+  }, [formData, imagePreview, productType]);
+
+  const hasFieldError = useCallback((fieldId: string) => {
+    switch (fieldId) {
+      case 'establecimiento':
+        return Boolean(errors.establecimientoIds);
+      case 'tipoUnidadMedida':
+        return Boolean(errors.tipoUnidadMedida);
+      default:
+        return Boolean((errors as Record<string, unknown>)[fieldId]);
+    }
+  }, [errors]);
+
+  const shouldShowCheck = useCallback((fieldId: string) => {
+    if (hasFieldError(fieldId)) return false;
+    const filled = isFilled(fieldId);
+    if (!filled) return false;
+    if (fieldId === 'nombre' || fieldId === 'codigo') {
+      return Boolean(touchedFields[fieldId] || hasSubmitAttempt);
+    }
+    if (touchedFields[fieldId] !== undefined) {
+      return Boolean(touchedFields[fieldId]);
+    }
+    return true;
+  }, [hasFieldError, hasSubmitAttempt, isFilled, touchedFields]);
+
+  const shouldBlueHint = useCallback(
+    (fieldId: string) => (fieldId === 'nombre' || fieldId === 'codigo') && !isFilled(fieldId),
+    [isFilled]
+  );
+
+  const handleSubmitWithTouch = useCallback(
+    (event?: React.FormEvent | React.MouseEvent) => {
+      setHasSubmitAttempt(true);
+      handleSubmit(event);
+    },
+    [handleSubmit]
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -213,25 +314,45 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-3 py-3">
-          <ProductTypeSelector productType={productType} onChange={setProductType} />
+        <form onSubmit={handleSubmitWithTouch} className="flex-1 overflow-y-auto px-3 py-3">
+          <ProductTypeSelector
+            productType={productType}
+            onChange={setProductType}
+            showCheck={shouldShowCheck('tipoProducto')}
+          />
 
           <div className="space-y-2.5">
             {/* A) DEFAULT / OBLIGATORIO */}
             <div className="flex flex-col lg:flex-row gap-2 items-start">
               <div className="w-full lg:flex-1 lg:max-w-[500px] space-y-2.5">
                 {/* Nombre (obligatorio) */}
-                <ProductNameField formData={formData} setFormData={setFormData} errors={errors} />
+                <ProductNameField
+                  formData={formData}
+                  setFormData={setFormData}
+                  errors={errors}
+                  onBlur={() => markTouched('nombre')}
+                  showCheck={shouldShowCheck('nombre')}
+                  showBlueHint={shouldBlueHint('nombre')}
+                />
 
                 {/* Código + Código de barras (misma fila) */}
                 <div className={`grid grid-cols-1 gap-2 ${showBarcode ? 'lg:grid-cols-2' : ''}`}>
-                  <ProductCodeField formData={formData} setFormData={setFormData} errors={errors} />
+                  <ProductCodeField
+                    formData={formData}
+                    setFormData={setFormData}
+                    errors={errors}
+                    onBlur={() => markTouched('codigo')}
+                    showCheck={shouldShowCheck('codigo')}
+                    showBlueHint={shouldBlueHint('codigo')}
+                  />
                   <ProductBarcodeField
                     formData={formData}
                     setFormData={setFormData}
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('codigoBarras')}
+                    showCheck={shouldShowCheck('codigoBarras')}
                   />
                 </div>
 
@@ -245,12 +366,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
                     taxOptions={taxOptions}
+                    onBlur={() => markTouched('impuesto')}
+                    showCheck={shouldShowCheck('impuesto')}
                   />
                   {showAvailability && (
                     <ProductAvailabilitySection
                       formData={formData}
                       setFormData={setFormData}
                       Establecimientos={Establecimientos}
+                      showCheck={shouldShowCheck('establecimiento')}
+                      onFieldTouched={() => markTouched('establecimiento')}
                     />
                   )}
                 </div>
@@ -261,6 +386,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     formData={formData}
                     baseUnitOptions={baseUnitOptions}
                     handleBaseUnitChange={handleBaseUnitChange}
+                    onBlur={() => markTouched('unidad')}
+                    showCheck={shouldShowCheck('unidad')}
                   />
                   <ProductCategoryField
                     formData={formData}
@@ -270,6 +397,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     categories={globalCategories}
                     onOpenCategoryModal={() => setShowCategoryModal(true)}
+                    onBlur={() => markTouched('categoria')}
+                    showCheck={shouldShowCheck('categoria')}
                   />
                 </div>
 
@@ -279,6 +408,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   errors={errors}
                   isUsingFallbackUnits={isUsingFallbackUnits}
                   handleMeasureTypeChange={handleMeasureTypeChange}
+                  showCheck={shouldShowCheck('tipoUnidadMedida')}
                 />
 
                 {/* Alias + Código SUNAT (misma fila) */}
@@ -289,6 +419,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('alias')}
+                    showCheck={shouldShowCheck('alias')}
                   />
                   <ProductSunatCodeField
                     formData={formData}
@@ -296,6 +428,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('codigoSunat')}
+                    showCheck={shouldShowCheck('codigoSunat')}
                   />
                 </div>
               </div>
@@ -307,6 +441,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   onUpload={handleImageUpload}
                   isFieldVisible={isFieldVisible}
                   isFieldRequired={isFieldRequired}
+                  showCheck={shouldShowCheck('imagen')}
                 />
               </div>
             </div>
@@ -325,6 +460,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 formatFactorValue={formatFactorValue}
                 unitInfoMessage={unitInfoMessage}
                 setUnitInfoMessage={setUnitInfoMessage}
+                showCheck={shouldShowCheck('presentacionesComerciales')}
               />
             )}
 
@@ -339,6 +475,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 isFieldRequired={isFieldRequired}
                 isDescriptionExpanded={isDescriptionExpanded}
                 onToggleDescription={() => setIsDescriptionExpanded(prev => !prev)}
+                onBlur={() => markTouched('descripcion')}
+                showCheck={shouldShowCheck('descripcion')}
               />
 
               {/* 11. Fila compacta: Peso + Marca + Modelo + Código fábrica */}
@@ -350,6 +488,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('peso')}
+                    showCheck={shouldShowCheck('peso')}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -359,6 +499,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('marca')}
+                    showCheck={shouldShowCheck('marca')}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -368,6 +510,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('modelo')}
+                    showCheck={shouldShowCheck('modelo')}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -377,6 +521,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('codigoFabrica')}
+                    showCheck={shouldShowCheck('codigoFabrica')}
                   />
                 </div>
               </div>
@@ -390,6 +536,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('tipoExistencia')}
+                    showCheck={shouldShowCheck('tipoExistencia')}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -399,6 +547,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('descuentoProducto')}
+                    showCheck={shouldShowCheck('descuentoProducto')}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -408,6 +558,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('porcentajeGanancia')}
+                    showCheck={shouldShowCheck('porcentajeGanancia')}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -417,6 +569,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
+                    onBlur={() => markTouched('precioCompra')}
+                    showCheck={shouldShowCheck('precioCompra')}
                   />
                 </div>
               </div>
@@ -424,7 +578,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </form>
 
-        <ProductActions loading={loading} onCancel={onClose} onSubmit={handleSubmit} />
+        <ProductActions loading={loading} onCancel={onClose} onSubmit={handleSubmitWithTouch} />
 
         <FieldsConfigPanel
           isOpen={isPanelOpen}

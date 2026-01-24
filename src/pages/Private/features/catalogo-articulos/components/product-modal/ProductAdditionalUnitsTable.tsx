@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Plus, Info, X, MinusCircle } from 'lucide-react';
+import { Layers, Plus, Info, X, MinusCircle, Check } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
 import type { ProductFormData } from '../../models/types';
 import type { AdditionalUnitError } from '../../hooks/useProductForm';
@@ -17,6 +17,7 @@ interface ProductAdditionalUnitsTableProps {
   formatFactorValue: (value?: number) => string;
   unitInfoMessage: string | null;
   setUnitInfoMessage: (message: string | null) => void;
+  showCheck?: boolean;
 }
 
 export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTableProps> = ({
@@ -31,14 +32,18 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
   findUnitByCode,
   formatFactorValue,
   unitInfoMessage,
-  setUnitInfoMessage
+  setUnitInfoMessage,
+  showCheck
 }) => {
   return (
     <div className="mt-4 space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
+        <div className="relative flex items-center gap-2 text-xs font-medium text-gray-800 pr-4">
           <Layers className="w-3.5 h-3.5 text-violet-600" />
           <span>Presentaciones comerciales</span>
+          {showCheck && (
+            <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
+          )}
         </div>
         <button
           type="button"

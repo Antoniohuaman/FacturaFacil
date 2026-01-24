@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Check } from 'lucide-react';
 import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ProductFormData } from '../../models/types';
 
@@ -6,12 +7,16 @@ interface ProductAvailabilitySectionProps {
   formData: ProductFormData;
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>;
   Establecimientos: Establecimiento[];
+  showCheck?: boolean;
+  onFieldTouched?: () => void;
 }
 
 export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProps> = ({
   formData,
   setFormData,
-  Establecimientos
+  Establecimientos,
+  showCheck,
+  onFieldTouched
 }) => {
   const activeEstablecimientos = useMemo(
     () => Establecimientos.filter(est => est.estaActivoEstablecimiento !== false),
@@ -35,7 +40,12 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
 
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-gray-700">Disponibilidad</label>
+      <div className="relative">
+        <label className="block text-xs font-medium text-gray-700">Disponibilidad</label>
+        {showCheck && (
+          <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
+        )}
+      </div>
 
       <div className="rounded-md border border-gray-200 bg-white p-1.5 max-h-36 overflow-y-auto">
         {activeEstablecimientos.map(est => {
@@ -55,6 +65,7 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
                     ? [...formData.establecimientoIds, est.id]
                     : formData.establecimientoIds.filter(id => id !== est.id);
                   setFormData(prev => ({ ...prev, establecimientoIds: Array.from(new Set(next)) }));
+                  onFieldTouched?.();
                 }}
                 className="w-3.5 h-3.5 text-violet-600 border-gray-300 rounded focus:ring-violet-500 focus:ring-1"
               />

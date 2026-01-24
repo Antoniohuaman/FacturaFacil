@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Percent } from 'lucide-react';
+import { Percent, Check } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
 
 interface ProductPricingSectionProps {
@@ -8,6 +8,8 @@ interface ProductPricingSectionProps {
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
   taxOptions: { id: string; code: string; value: string; label: string }[];
+  onBlur?: () => void;
+  showCheck?: boolean;
 }
 
 export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
@@ -16,6 +18,8 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
   isFieldVisible,
   isFieldRequired,
   taxOptions,
+  onBlur,
+  showCheck,
 }) => {
   const optionsWithLegacy = useMemo(() => {
     const trimmedValue = formData.impuesto?.trim();
@@ -53,7 +57,8 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
           id="impuesto"
           value={formData.impuesto}
           onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          onBlur={onBlur}
+          className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
           {optionsWithLegacy.map(option => (
             <option key={option.id} value={option.value}>
@@ -61,6 +66,9 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
             </option>
           ))}
         </select>
+        {showCheck && (
+          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
+        )}
       </div>
     </div>
   );

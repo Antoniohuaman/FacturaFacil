@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Ruler, Droplet, Clock3, Boxes, Weight } from 'lucide-react';
+import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Check } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
 import type { ProductFormData, UnitMeasureType } from '../../models/types';
@@ -29,23 +29,32 @@ interface ProductUnitsSectionProps {
 type ProductUnitFamilyFieldProps = Pick<
   ProductUnitsSectionProps,
   'formData' | 'errors' | 'isUsingFallbackUnits' | 'handleMeasureTypeChange'
->;
+> & {
+  showCheck?: boolean;
+};
 
 type ProductMinimumUnitFieldProps = Pick<
   ProductUnitsSectionProps,
   'formData' | 'baseUnitOptions' | 'handleBaseUnitChange'
->;
+> & {
+  onBlur?: () => void;
+  showCheck?: boolean;
+};
 
 export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
   formData,
   errors,
   isUsingFallbackUnits,
-  handleMeasureTypeChange
+  handleMeasureTypeChange,
+  showCheck
 }) => {
   return (
     <div>
-      <div className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
+      <div className="relative flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
         <span>Familia de unidades</span>
+        {showCheck && (
+          <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
+        )}
       </div>
       <div className="flex gap-1 overflow-x-auto pb-1" role="group" aria-label="Familia de unidades">
         {UNIT_MEASURE_TYPE_OPTIONS.map(option => {
@@ -84,7 +93,9 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
 export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = ({
   formData,
   baseUnitOptions,
-  handleBaseUnitChange
+  handleBaseUnitChange,
+  onBlur,
+  showCheck
 }) => {
   return (
     <div>
@@ -97,7 +108,8 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
           id="unidad"
           value={formData.unidad}
           onChange={(e) => handleBaseUnitChange(e.target.value as ProductFormData['unidad'])}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          onBlur={onBlur}
+          className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
           {baseUnitOptions.length > 0 ? (
             baseUnitOptions.map(unit => (
@@ -112,6 +124,9 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
             </>
           )}
         </select>
+        {showCheck && (
+          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
+        )}
       </div>
     </div>
   );
