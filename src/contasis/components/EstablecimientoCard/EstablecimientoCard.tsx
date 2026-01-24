@@ -36,41 +36,41 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ children }) => {
     </div>
   );
 };
- 
+
 interface DropdownMenuTriggerProps {
   children: React.ReactNode;
   onClick?: () => void;
 }
- 
+
 const DropdownMenuTrigger: React.FC<DropdownMenuTriggerProps> = ({ children, onClick }) => (
   <div onClick={onClick}>{children}</div>
 );
- 
+
 interface DropdownMenuContentProps {
   children: React.ReactNode;
   onClose?: () => void;
 }
- 
+
 const DropdownMenuContent: React.FC<DropdownMenuContentProps> = ({ children, onClose }) => (
   <div className="absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-gray-700">
     <div className="py-1">
       {React.Children.map(children, child => {
         if (React.isValidElement(child) && child.type === DropdownMenuItem) {
-          return React.cloneElement(child as React.ReactElement<{ onClose?: () => void }>, { onClose });
+          return React.cloneElement(child as React.ReactElement<{ onClose?: () => void }>, { onClose });      
         }
         return child;
       })}
     </div>
   </div>
 );
- 
+
 interface DropdownMenuItemProps {
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
   onClose?: () => void;
 }
- 
+
 const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({ children, onClick, className = '', onClose }) => (
   <button
     onClick={() => {
@@ -82,11 +82,11 @@ const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({ children, onClick, 
     {children}
   </button>
 );
- 
+
 const DropdownMenuSeparator: React.FC = () => (
   <div className="my-1 h-px bg-slate-200 dark:bg-gray-700" />
 );
- 
+
 // Componente principal EstablecimientoCard
 export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
   establecimiento,
@@ -112,7 +112,7 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
           }`}>
             <Building2 className="w-5 h-5" />
           </div>
-         
+
           {/* Contenido principal */}
           <div className="flex-1 min-w-0">
             {/* Fila 1: Nombre + Código + Badge de Estado */}
@@ -133,19 +133,19 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
                 </span>
               </div>
             </div>
-           
+
             {/* Fila 2: Dirección completa */}
             <p className="text-sm text-slate-700 dark:text-gray-300 mb-1 leading-relaxed">
               {establecimiento.direccion}
             </p>
-           
+
             {/* Fila 3: Ubicación geográfica */}
             <p className="text-xs text-slate-500 dark:text-gray-400">
               {establecimiento.distrito}, {establecimiento.provincia}
               {establecimiento.departamento && ` • ${establecimiento.departamento}`}
             </p>
           </div>
- 
+
           {/* Controles - alineados al top */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex items-center px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors">
@@ -158,7 +158,7 @@ export const EstablecimientoCard: React.FC<EstablecimientoCardProps> = ({
                 size="md"
               />
             </div>
-           
+
             <DropdownMenu>
               <DropdownMenuTrigger>
                 <button
