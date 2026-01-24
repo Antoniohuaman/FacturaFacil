@@ -178,6 +178,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const showCategory = isFieldVisible('categoria');
   const showAlias = isFieldVisible('alias');
   const showSunat = isFieldVisible('codigoSunat');
+  const showPresentacionesComerciales = isFieldVisible('presentacionesComerciales');
   const showAvailability = Establecimientos.length > 1;
 
   if (!isOpen) return null;
@@ -310,20 +311,22 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
             </div>
 
-            <ProductAdditionalUnitsTable
-              unidadesMedidaAdicionales={formData.unidadesMedidaAdicionales}
-              baseUnitCode={formData.unidad}
-              additionalUnitErrors={additionalUnitErrors}
-              addAdditionalUnit={addAdditionalUnit}
-              removeAdditionalUnit={removeAdditionalUnit}
-              updateAdditionalUnit={updateAdditionalUnit}
-              getAdditionalUnitOptions={getAdditionalUnitOptions}
-              remainingUnitsForAdditional={remainingUnitsForAdditional}
-              findUnitByCode={findUnitByCode}
-              formatFactorValue={formatFactorValue}
-              unitInfoMessage={unitInfoMessage}
-              setUnitInfoMessage={setUnitInfoMessage}
-            />
+            {showPresentacionesComerciales && (
+              <ProductAdditionalUnitsTable
+                unidadesMedidaAdicionales={formData.unidadesMedidaAdicionales}
+                baseUnitCode={formData.unidad}
+                additionalUnitErrors={additionalUnitErrors}
+                addAdditionalUnit={addAdditionalUnit}
+                removeAdditionalUnit={removeAdditionalUnit}
+                updateAdditionalUnit={updateAdditionalUnit}
+                getAdditionalUnitOptions={getAdditionalUnitOptions}
+                remainingUnitsForAdditional={remainingUnitsForAdditional}
+                findUnitByCode={findUnitByCode}
+                formatFactorValue={formatFactorValue}
+                unitInfoMessage={unitInfoMessage}
+                setUnitInfoMessage={setUnitInfoMessage}
+              />
+            )}
 
             {/* B) CAMPOS COMPLEMENTARIOS */}
             <div className="space-y-2.5">
