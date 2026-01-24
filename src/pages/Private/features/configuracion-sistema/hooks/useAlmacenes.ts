@@ -52,7 +52,6 @@ export function useAlmacenes() {
 
       try {
         setIsSaving(true);
-        setError(null);
         const inputDto = mapFrontendToBackendInput(data, empresaId);
         const response = await almacenesApi.create(inputDto);
 
@@ -64,7 +63,7 @@ export function useAlmacenes() {
         dispatch({ type: 'ADD_ALMACEN', payload: nuevoAlmacen });
         return nuevoAlmacen;
       } catch (err) {
-        handleError(err, 'crear');
+        console.error('Error creando almacén:', err);
         throw err;
       } finally {
         setIsSaving(false);
@@ -79,7 +78,6 @@ export function useAlmacenes() {
 
       try {
         setIsSaving(true);
-        setError(null);
         const existing = almacenes.find((e) => e.id === id);
         const inputDto = mapFrontendToBackendInput({ ...existing, ...data }, empresaId);
         const response = await almacenesApi.update(id, inputDto);
@@ -92,7 +90,7 @@ export function useAlmacenes() {
         dispatch({ type: 'UPDATE_ALMACEN', payload: actualizado });
         return actualizado;
       } catch (err) {
-        handleError(err, 'actualizar');
+        console.error('Error actualizando almacén:', err);
         throw err;
       } finally {
         setIsSaving(false);
@@ -105,7 +103,6 @@ export function useAlmacenes() {
     async (id: string): Promise<void> => {
       try {
         setIsDeleting(true);
-        setError(null);
         const response = await almacenesApi.delete(id);
 
         if (!response.exito) {
@@ -114,7 +111,7 @@ export function useAlmacenes() {
 
         dispatch({ type: 'DELETE_ALMACEN', payload: id });
       } catch (err) {
-        handleError(err, 'eliminar');
+        console.error('Error eliminando almacén:', err);
         throw err;
       } finally {
         setIsDeleting(false);

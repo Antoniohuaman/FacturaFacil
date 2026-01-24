@@ -54,7 +54,6 @@ export function useEstablecimientos() {
 
       try {
         setIsSaving(true);
-        setError(null);
         const inputDto = mapFrontendToBackendInput(data, empresaId);
         const response = await establecimientosApi.create(inputDto);
 
@@ -67,10 +66,6 @@ export function useEstablecimientos() {
         return nuevoEstablecimiento;
       } catch (err) {
         console.error('Error creando establecimiento:', err);
-        if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
-        else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
-        else if (err instanceof Error) setError(err.message);
-        else setError('Error desconocido al crear establecimiento');
         throw err;
       } finally {
         setIsSaving(false);
@@ -88,7 +83,6 @@ export function useEstablecimientos() {
 
       try {
         setIsSaving(true);
-        setError(null);
         const existing = Establecimientos.find((e) => e.id === id);
         const inputDto = mapFrontendToBackendInput({ ...existing, ...data }, empresaId);
         const response = await establecimientosApi.update(id, inputDto);
@@ -102,10 +96,6 @@ export function useEstablecimientos() {
         return actualizado;
       } catch (err) {
         console.error('Error actualizando establecimiento:', err);
-        if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
-        else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
-        else if (err instanceof Error) setError(err.message);
-        else setError('Error desconocido al actualizar establecimiento');
         throw err;
       } finally {
         setIsSaving(false);
@@ -121,7 +111,6 @@ export function useEstablecimientos() {
     async (id: string): Promise<void> => {
       try {
         setIsDeleting(true);
-        setError(null);
         const response = await establecimientosApi.delete(id);
 
         if (!response.exito) {
@@ -131,10 +120,6 @@ export function useEstablecimientos() {
         dispatch({ type: 'DELETE_Establecimiento', payload: id });
       } catch (err) {
         console.error('Error eliminando establecimiento:', err);
-        if (err instanceof ApiError) setError(`Error del servidor: ${err.message}`);
-        else if (err instanceof NetworkError) setError(`Error de red: ${err.message}`);
-        else if (err instanceof Error) setError(err.message);
-        else setError('Error desconocido al eliminar establecimiento');
         throw err;
       } finally {
         setIsDeleting(false);
