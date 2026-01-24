@@ -159,8 +159,8 @@ export const useProductFieldsConfig = () => {
 
   // Restablecer a configuración por defecto
   const resetToDefault = () => {
-    saveConfig(DEFAULT_FIELDS_CONFIG);
-  };
+  saveConfig(DEFAULT_FIELDS_CONFIG.map((f) => ({ ...f })));
+};
 
   // Obtener solo campos visibles
   const getVisibleFields = () => {
