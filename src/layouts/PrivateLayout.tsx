@@ -73,7 +73,6 @@ export default function AppShell() {
                           ) : (
                             <TopBar
                               onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-                              sidebarCollapsed={sidebarCollapsed}
                             />
                           )}
                         </div>

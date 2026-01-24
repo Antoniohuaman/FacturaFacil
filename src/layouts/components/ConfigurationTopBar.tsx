@@ -7,14 +7,10 @@ import { useContasisDatasets } from '../../pages/Private/components/AppSearchBar
 
 interface ConfigurationTopBarProps {
   onToggleSidebar: () => void;
-  onToggleTheme?: () => void;
-  theme?: 'light' | 'dark';
 }
 
 export default function ConfigurationTopBar({
-  onToggleSidebar,
-  onToggleTheme,
-  theme = 'light'
+  onToggleSidebar
 }: ConfigurationTopBarProps) {
   const navigate = useNavigate();
   const { session } = useUserSession();
@@ -80,8 +76,6 @@ export default function ConfigurationTopBar({
 
   const topBarProps: TopBarProps = {
     onToggleSidebar,
-    onToggleTheme,
-    theme,
     showCaja: status === 'abierta' || status === 'cerrada',
     empresas,
     sedes,

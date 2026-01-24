@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2, Wand2, Plus } from 'lucide-react';
+import { Input, Button, Select } from '@/contasis';
 import type { Category } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
@@ -18,64 +19,51 @@ interface VisibilityProps {
 
 export const ProductNameField: React.FC<SharedFieldProps> = ({ formData, setFormData, errors }) => {
   return (
-    <div>
-      <label htmlFor="nombre" className="block text-xs font-medium text-gray-700 mb-1">
-        Nombre <span className="text-red-500">*</span>
-      </label>
-      <div className="relative">
-        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-        <input
-          type="text"
-          id="nombre"
-          value={formData.nombre}
-          onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-          className={`
-            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
-            ${errors.nombre ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-          `}
-          placeholder="Ingresa el nombre del producto"
-        />
-      </div>
-      {errors.nombre && <p className="text-red-600 text-xs mt-1">{errors.nombre}</p>}
-    </div>
+    <Input
+      label="Nombre"
+      required
+      type="text"
+      id="nombre"
+      value={formData.nombre}
+      onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+      placeholder="Ingresa el nombre del producto"
+      error={errors.nombre}
+      leftIcon={<Tag size={18} />}
+    />
   );
 };
 
 export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setFormData, errors }) => {
   return (
-    <div>
-      <label htmlFor="codigo" className="block text-xs font-medium text-gray-700 mb-1">
-        Código <span className="text-red-500">*</span>
-      </label>
-      <div className="flex gap-2 w-full">
-        <div className="relative flex-1 min-w-0">
-          <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input
-            type="text"
-            id="codigo"
-            value={formData.codigo}
-            onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
-            className={`
-              w-full h-9 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
-              ${errors.codigo ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-            `}
-            placeholder="Código único"
-          />
-        </div>
-        <button
+    <div className="flex gap-2 w-full">
+      <div className="flex-1">
+        <Input
+          label="Código"
+          required
+          type="text"
+          id="codigo"
+          value={formData.codigo}
+          onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
+          placeholder="Código único"
+          error={errors.codigo}
+          leftIcon={<Barcode size={18} />}
+        />
+      </div>
+      <div className="flex items-end">
+        <Button
           type="button"
-          className="shrink-0 h-9 w-9 inline-flex items-center justify-center bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors"
-          aria-label="Generar código"
-          title="Generar código"
+          variant="secondary"
+          size="sm"
+          iconOnly
+          icon={<Wand2 size={18} />}
           onClick={() => {
             const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
             setFormData(prev => ({ ...prev, codigo: randomCode }));
           }}
-        >
-          <Wand2 className="w-4 h-4 text-gray-700" />
-        </button>
+          title="Generar código"
+          aria-label="Generar código"
+        />
       </div>
-      {errors.codigo && <p className="text-red-600 text-xs mt-1">{errors.codigo}</p>}
     </div>
   );
 };
@@ -95,31 +83,20 @@ export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps> =
   };
 
   return (
-    <div>
-      <label htmlFor="codigoBarras" className="block text-xs font-medium text-gray-700 mb-1">
-        Código de barras
-        {isFieldRequired('codigoBarras') && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <div className="relative">
-        <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-        <input
-          type="text"
-          id="codigoBarras"
-          value={formData.codigoBarras ?? ''}
-          onChange={(e) => handleBarcodeChange(e.target.value)}
-          className={`
-            w-full h-9 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500
-            ${errors.codigoBarras ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-          `}
-          placeholder="8-14 dígitos"
-          inputMode="numeric"
-          maxLength={BARCODE_MAX_LENGTH}
-          autoComplete="off"
-          aria-invalid={errors.codigoBarras ? 'true' : 'false'}
-        />
-      </div>
-      {errors.codigoBarras && <p className="text-red-600 text-xs mt-1">{errors.codigoBarras}</p>}
-    </div>
+    <Input
+      label="Código de barras"
+      required={isFieldRequired('codigoBarras')}
+      type="text"
+      id="codigoBarras"
+      value={formData.codigoBarras ?? ''}
+      onChange={(e) => handleBarcodeChange(e.target.value)}
+      placeholder="8-14 dígitos"
+      error={errors.codigoBarras}
+      leftIcon={<ScanLine size={18} />}
+      inputMode="numeric"
+      maxLength={BARCODE_MAX_LENGTH}
+      autoComplete="off"
+    />
   );
 };
 
@@ -133,27 +110,17 @@ export const ProductAliasField: React.FC<SharedFieldProps & VisibilityProps> = (
   if (!isFieldVisible('alias')) return null;
 
   return (
-    <div>
-      <label htmlFor="alias" className="block text-xs font-medium text-gray-700 mb-1">
-        Alias del producto
-        {isFieldRequired('alias') && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <div className="relative">
-        <Quote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-        <input
-          type="text"
-          id="alias"
-          value={formData.alias}
-          onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
-          className={`
-            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
-            ${errors.alias ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-          `}
-          placeholder="Nombre alternativo"
-        />
-      </div>
-      {errors.alias && <p className="text-red-600 text-xs mt-1">{errors.alias}</p>}
-    </div>
+    <Input
+      label="Alias del producto"
+      required={isFieldRequired('alias')}
+      type="text"
+      id="alias"
+      value={formData.alias}
+      onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
+      placeholder="Nombre alternativo"
+      error={errors.alias}
+      leftIcon={<Quote size={18} />}
+    />
   );
 };
 
@@ -174,42 +141,35 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
   if (!isFieldVisible('categoria')) return null;
 
   return (
-    <div>
-      <label htmlFor="categoria" className="block text-xs font-medium text-gray-700 mb-1">
-        Categoría
-        {isFieldRequired('categoria') && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <div className="flex gap-2 w-full">
-        <div className="relative flex-1 min-w-0">
-          <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <select
-            id="categoria"
-            value={formData.categoria}
-            onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
-            className={`
-              w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
-              ${errors.categoria ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-            `}
-          >
-            <option value="">Seleccionar categoría</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.nombre}>
-                {cat.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="button"
-          className="shrink-0 h-9 w-9 inline-flex items-center justify-center text-violet-700 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors"
-          aria-label="Crear categoría"
-          title="Crear categoría"
-          onClick={onOpenCategoryModal}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+    <div className="flex gap-2 w-full">
+      <div className="flex-1">
+        <Select
+          label="Categoría"
+          required={isFieldRequired('categoria')}
+          value={formData.categoria}
+          onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
+          error={errors.categoria}
+          options={[
+            { value: '', label: 'Seleccionar categoría' },
+            ...categories.map(cat => ({
+              value: cat.nombre,
+              label: cat.nombre
+            }))
+          ]}
+        />
       </div>
-      {errors.categoria && <p className="text-red-600 text-xs mt-1">{errors.categoria}</p>}
+      <div className="flex items-end">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          iconOnly
+          icon={<Plus size={18} />}
+          onClick={onOpenCategoryModal}
+          title="Crear categoría"
+          aria-label="Crear categoría"
+        />
+      </div>
     </div>
   );
 };
@@ -224,24 +184,17 @@ export const ProductBrandField: React.FC<SharedFieldProps & VisibilityProps> = (
   if (!isFieldVisible('marca')) return null;
 
   return (
-    <div>
-      <label htmlFor="marca" className="block text-xs font-medium text-gray-700 mb-1">
-        Marca
-        {isFieldRequired('marca') && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <div className="relative">
-        <BadgeIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-        <input
-          type="text"
-          id="marca"
-          value={formData.marca}
-          onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-          placeholder="Marca del producto"
-        />
-      </div>
-      {errors.marca && <p className="text-red-600 text-xs mt-1">{errors.marca}</p>}
-    </div>
+    <Input
+      label="Marca"
+      required={isFieldRequired('marca')}
+      type="text"
+      id="marca"
+      value={formData.marca}
+      onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
+      placeholder="Marca del producto"
+      error={errors.marca}
+      leftIcon={<BadgeIcon size={18} />}
+    />
   );
 };
 
@@ -255,23 +208,16 @@ export const ProductModelField: React.FC<SharedFieldProps & VisibilityProps> = (
   if (!isFieldVisible('modelo')) return null;
 
   return (
-    <div>
-      <label htmlFor="modelo" className="block text-xs font-medium text-gray-700 mb-1">
-        Modelo
-        {isFieldRequired('modelo') && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <div className="relative">
-        <Package2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-        <input
-          type="text"
-          id="modelo"
-          value={formData.modelo}
-          onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-          placeholder="Modelo del producto"
-        />
-      </div>
-      {errors.modelo && <p className="text-red-600 text-xs mt-1">{errors.modelo}</p>}
-    </div>
+    <Input
+      label="Modelo"
+      required={isFieldRequired('modelo')}
+      type="text"
+      id="modelo"
+      value={formData.modelo}
+      onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+      placeholder="Modelo del producto"
+      error={errors.modelo}
+      leftIcon={<Package2 size={18} />}
+    />
   );
 };

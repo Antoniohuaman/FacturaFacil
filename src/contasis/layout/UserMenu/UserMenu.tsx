@@ -6,7 +6,6 @@ import type { UserMenuProps } from './types';
 
 export const UserMenu = ({
   user,
-  theme = 'light',
   onProfileClick,
   onSettingsClick,
   onHelpClick,

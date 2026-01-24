@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { X as XIcon } from 'lucide-react';
 import { useConsultasExternas } from '../hooks';
 import type { ClienteFormData } from '../models';
 import { onlyDigits, getDocLabelFromCode } from '../utils/documents';
@@ -13,6 +14,7 @@ import { useClienteFormConfig } from '../hooks/useClienteFormConfig';
 import type { ClienteFieldId } from './clienteFormConfig';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
+import { Button, Input, Select, Textarea } from '@/contasis';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
@@ -473,12 +475,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             onSelectAll={selectAllFields}
             onReset={resetDefaults}
           />
-          <button
+          <Button
             onClick={onCancel}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-          >
-            <span className="h-5 w-5 text-gray-400 dark:text-gray-300">✕</span>
-          </button>
+            variant="tertiary"
+            icon={<XIcon size={18} />}
+            iconOnly
+            size="sm"
+          />
         </div>
       </div>
 
@@ -570,24 +573,18 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           {isFieldRenderable('numeroDocumento') && (
             <div className="grid grid-cols-[1fr,auto] gap-2 mb-2">
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Número de documento{' '}
-                  {shouldShowRequiredIndicator('numeroDocumento') && <span className="text-red-500">*</span>}
-                </label>
-                <input
+                <Input
+                  label="Número de documento"
                   type="text"
                   inputMode={esDNI || esRUC ? 'numeric' : 'text'}
                   value={formData.numeroDocumento}
                   onChange={handleNumeroDocumentoChange}
                   onBlur={handleNumeroDocumentoBlur}
                   maxLength={documentoMaxLength}
-                  className={getFieldInputClass(
-                    'numeroDocumento',
-                    'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                  )}
                   placeholder={esDNI ? '8 dígitos' : esRUC ? '11 dígitos' : 'Documento'}
+                  error={getFieldError('numeroDocumento')}
+                  required={shouldShowRequiredIndicator('numeroDocumento')}
                 />
-                {renderFieldError('numeroDocumento')}
               </div>
               {(esRUC || esDNI) && (
                 <div>
@@ -725,33 +722,28 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                           Razón social{' '}
                           {shouldShowRequiredIndicator('razonSocial') && <span className="text-red-500">*</span>}
                         </label>
-                        <input
+                      <div>
+                        <Input
+                          label="Razón Social"
                           type="text"
                           value={formData.razonSocial}
                           onChange={(e) => handleFieldChange('razonSocial', e.target.value, 'razonSocial')}
-                          className={getFieldInputClass(
-                            'razonSocial',
-                            'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                          )}
+                          error={getFieldError('razonSocial')}
+                          required={shouldShowRequiredIndicator('razonSocial')}
                         />
-                        {renderFieldError('razonSocial')}
+                      </div>
                       </div>
                     )}
                     {isFieldRenderable('nombreComercial') && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Nombre comercial {shouldShowRequiredIndicator('nombreComercial') && <span className="text-red-500">*</span>}
-                        </label>
-                        <input
+                        <Input
+                          label="Nombre comercial"
                           type="text"
                           value={formData.nombreComercial}
                           onChange={(e) => handleFieldChange('nombreComercial', e.target.value, 'nombreComercial')}
-                          className={getFieldInputClass(
-                            'nombreComercial',
-                            'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                          )}
+                          error={getFieldError('nombreComercial')}
+                          required={shouldShowRequiredIndicator('nombreComercial')}
                         />
-                        {renderFieldError('nombreComercial')}
                       </div>
                     )}
                   </div>
@@ -791,75 +783,52 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     <div className="grid grid-cols-2 gap-2">
                       {isFieldRenderable('primerNombre') && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Primer nombre{' '}
-                            {shouldShowRequiredIndicator('primerNombre') && <span className="text-red-500">*</span>}
-                          </label>
-                          <input
+                          <Input
+                            label="Primer nombre"
                             type="text"
                             value={formData.primerNombre}
                             onChange={(e) => handleFieldChange('primerNombre', e.target.value, 'primerNombre')}
-                            className={getFieldInputClass(
-                              'primerNombre',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                            )}
+                            error={getFieldError('primerNombre')}
+                            required={shouldShowRequiredIndicator('primerNombre')}
                           />
-                          {renderFieldError('primerNombre')}
                         </div>
                       )}
                       {isFieldRenderable('segundoNombre') && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Segundo nombre {shouldShowRequiredIndicator('segundoNombre') && <span className="text-red-500">*</span>}
-                          </label>
-                          <input
+                          <Input
+                            label="Segundo nombre"
                             type="text"
                             value={formData.segundoNombre}
                             onChange={(e) => handleFieldChange('segundoNombre', e.target.value, 'segundoNombre')}
-                            className={getFieldInputClass(
-                              'segundoNombre',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                            )}
+                            error={getFieldError('segundoNombre')}
+                            required={shouldShowRequiredIndicator('segundoNombre')}
                           />
-                          {renderFieldError('segundoNombre')}
                         </div>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       {isFieldRenderable('apellidoPaterno') && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Apellido paterno{' '}
-                            {shouldShowRequiredIndicator('apellidoPaterno') && <span className="text-red-500">*</span>}
-                          </label>
-                          <input
+                          <Input
+                            label="Apellido paterno"
                             type="text"
                             value={formData.apellidoPaterno}
                             onChange={(e) => handleFieldChange('apellidoPaterno', e.target.value, 'apellidoPaterno')}
-                            className={getFieldInputClass(
-                              'apellidoPaterno',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                            )}
+                            error={getFieldError('apellidoPaterno')}
+                            required={shouldShowRequiredIndicator('apellidoPaterno')}
                           />
-                          {renderFieldError('apellidoPaterno')}
                         </div>
                       )}
                       {isFieldRenderable('apellidoMaterno') && (
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Apellido materno{' '}
-                            {shouldShowRequiredIndicator('apellidoMaterno') && <span className="text-red-500">*</span>}
-                          </label>
-                          <input
+                          <Input
+                            label="Apellido materno"
                             type="text"
                             value={formData.apellidoMaterno}
                             onChange={(e) => handleFieldChange('apellidoMaterno', e.target.value, 'apellidoMaterno')}
-                            className={getFieldInputClass(
-                              'apellidoMaterno',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                            )}
+                            error={getFieldError('apellidoMaterno')}
+                            required={shouldShowRequiredIndicator('apellidoMaterno')}
                           />
-                          {renderFieldError('apellidoMaterno')}
                         </div>
                       )}
                     </div>
@@ -868,14 +837,12 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 
                 {isFieldRenderable('nombreCompleto') && (
                   <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Nombre completo
-                    </label>
-                    <input
+                    <Input
+                      label="Nombre completo"
                       type="text"
                       value={formData.nombreCompleto}
+                      disabled
                       readOnly
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
                     />
                   </div>
                 )}
@@ -916,20 +883,15 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 )}
                 {isFieldRenderable('paginaWeb') && (
                   <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Página web {shouldShowRequiredIndicator('paginaWeb') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
+                    <Input
+                      label="Página web"
                       type="url"
                       value={formData.paginaWeb}
                       onChange={(e) => handleFieldChange('paginaWeb', e.target.value, 'paginaWeb')}
-                      className={getFieldInputClass(
-                        'paginaWeb',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
                       placeholder="https://ejemplo.com"
+                      error={getFieldError('paginaWeb')}
+                      required={shouldShowRequiredIndicator('paginaWeb')}
                     />
-                    {renderFieldError('paginaWeb')}
                   </div>
                 )}
               </div>
@@ -944,128 +906,94 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {isFieldRenderable('pais') && (
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        País {shouldShowRequiredIndicator('pais') && <span className="text-red-500">*</span>}
-                      </label>
-                      <select
+                      <Select
+                        label="País"
                         value={formData.pais}
                         onChange={(e) => handleFieldChange('pais', e.target.value, 'pais')}
-                        className={getFieldInputClass(
-                          'pais',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      >
-                        <option value="PE">Perú</option>
-                        <option value="US">Estados Unidos</option>
-                        <option value="ES">España</option>
-                      </select>
-                      {renderFieldError('pais')}
+                        options={[
+                          { value: 'PE', label: 'Perú' },
+                          { value: 'US', label: 'Estados Unidos' },
+                          { value: 'ES', label: 'España' }
+                        ]}
+                        error={getFieldError('pais')}
+                        required={shouldShowRequiredIndicator('pais')}
+                      />
                     </div>
                   )}
                   {isFieldRenderable('departamento') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Departamento {shouldShowRequiredIndicator('departamento') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
+                      <Input
+                        label="Departamento"
                         type="text"
                         value={formData.departamento}
                         onChange={(e) => handleFieldChange('departamento', e.target.value, 'departamento')}
-                        className={getFieldInputClass(
-                          'departamento',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
+                        error={getFieldError('departamento')}
+                        required={shouldShowRequiredIndicator('departamento')}
                       />
-                      {renderFieldError('departamento')}
                     </div>
                   )}
                   {isFieldRenderable('provincia') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Provincia {shouldShowRequiredIndicator('provincia') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
+                      <Input
+                        label="Provincia"
                         type="text"
                         value={formData.provincia}
                         onChange={(e) => handleFieldChange('provincia', e.target.value, 'provincia')}
-                        className={getFieldInputClass(
-                          'provincia',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
+                        error={getFieldError('provincia')}
+                        required={shouldShowRequiredIndicator('provincia')}
                       />
-                      {renderFieldError('provincia')}
                     </div>
                   )}
                   {isFieldRenderable('distrito') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Distrito {shouldShowRequiredIndicator('distrito') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
+                      <Input
+                        label="Distrito"
                         type="text"
                         value={formData.distrito}
                         onChange={(e) => handleFieldChange('distrito', e.target.value, 'distrito')}
-                        className={getFieldInputClass(
-                          'distrito',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
+                        error={getFieldError('distrito')}
+                        required={shouldShowRequiredIndicator('distrito')}
                       />
-                      {renderFieldError('distrito')}
                     </div>
                   )}
                   {isFieldRenderable('ubigeo') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Ubigeo {shouldShowRequiredIndicator('ubigeo') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
+                      <Input
+                        label="Ubigeo"
                         type="text"
                         value={formData.ubigeo}
                         onChange={(e) => handleFieldChange('ubigeo', e.target.value, 'ubigeo')}
                         maxLength={6}
-                        className={getFieldInputClass(
-                          'ubigeo',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
                         placeholder="6 dígitos"
+                        error={getFieldError('ubigeo')}
+                        required={shouldShowRequiredIndicator('ubigeo')}
                       />
-                      {renderFieldError('ubigeo')}
                     </div>
                   )}
                 </div>
                 {isFieldRenderable('direccion') && (
                   <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Dirección {shouldShowRequiredIndicator('direccion') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
+                    <Input
+                      label="Dirección"
                       type="text"
                       value={formData.direccion}
                       onChange={(e) => handleFieldChange('direccion', e.target.value, 'direccion')}
-                      className={getFieldInputClass(
-                        'direccion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
+                      error={getFieldError('direccion')}
+                      required={shouldShowRequiredIndicator('direccion')}
                     />
-                    {renderFieldError('direccion')}
                   </div>
                 )}
                 {isFieldRenderable('referenciaDireccion') && (
                   <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Referencia {shouldShowRequiredIndicator('referenciaDireccion') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
+                    <Input
+                      label="Referencia"
                       type="text"
                       value={formData.referenciaDireccion}
                       onChange={(e) => handleFieldChange('referenciaDireccion', e.target.value, 'referenciaDireccion')}
-                      className={getFieldInputClass(
-                        'referenciaDireccion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
                       placeholder="Ej: Al costado del mercado"
+                      error={getFieldError('referenciaDireccion')}
+                      required={shouldShowRequiredIndicator('referenciaDireccion')}
                     />
-                    {renderFieldError('referenciaDireccion')}
                   </div>
                 )}
               </div>
@@ -1082,11 +1010,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 </h3>
                 {isFieldRenderable('estadoCliente') && (
                   <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Estado de la cuenta{' '}
-                      {shouldShowRequiredIndicator('estadoCliente') && <span className="text-red-500">*</span>}
-                    </label>
-                    <select
+                    <Select
+                      label="Estado de la cuenta"
                       value={formData.estadoCliente}
                       onChange={(e) =>
                         handleFieldChange(
@@ -1095,33 +1020,25 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                           'estadoCliente'
                         )
                       }
-                      className={getFieldInputClass(
-                        'estadoCliente',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
-                    >
-                      <option value="Habilitado">Habilitado</option>
-                      <option value="Deshabilitado">Deshabilitado</option>
-                    </select>
-                    {renderFieldError('estadoCliente')}
+                      options={[
+                        { value: 'Habilitado', label: 'Habilitado' },
+                        { value: 'Deshabilitado', label: 'Deshabilitado' }
+                      ]}
+                      error={getFieldError('estadoCliente')}
+                      required={shouldShowRequiredIndicator('estadoCliente')}
+                    />
                   </div>
                 )}
                 {isFieldRenderable('motivoDeshabilitacion') && formData.estadoCliente === 'Deshabilitado' && (
                   <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Motivo deshabilitación{' '}
-                      {shouldShowRequiredIndicator('motivoDeshabilitacion') && <span className="text-red-500">*</span>}
-                    </label>
-                    <textarea
+                    <Textarea
+                      label="Motivo deshabilitación"
                       value={formData.motivoDeshabilitacion}
                       onChange={(e) => handleFieldChange('motivoDeshabilitacion', e.target.value, 'motivoDeshabilitacion')}
                       rows={2}
-                      className={getFieldInputClass(
-                        'motivoDeshabilitacion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none'
-                      )}
+                      error={getFieldError('motivoDeshabilitacion')}
+                      required={shouldShowRequiredIndicator('motivoDeshabilitacion')}
                     />
-                    {renderFieldError('motivoDeshabilitacion')}
                   </div>
                 )}
               </div>
@@ -1299,31 +1216,23 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {isFieldRenderable('formaPago') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Forma de pago {shouldShowRequiredIndicator('formaPago') && <span className="text-red-500">*</span>}
-                      </label>
-                      <select
+                      <Select
+                        label="Forma de pago"
                         value={formData.formaPago}
-                        onChange={(e) =>
-                          handleFieldChange('formaPago', e.target.value as ClienteFormData['formaPago'], 'formaPago')
-                        }
-                        className={getFieldInputClass(
-                          'formaPago',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      >
-                        <option value="Contado">Contado</option>
-                        <option value="Credito">Crédito</option>
-                      </select>
-                      {renderFieldError('formaPago')}
+                        onChange={(e) => handleFieldChange('formaPago', e.target.value as ClienteFormData['formaPago'], 'formaPago')}
+                        options={[
+                          { value: 'Contado', label: 'Contado' },
+                          { value: 'Credito', label: 'Crédito' }
+                        ]}
+                        error={getFieldError('formaPago')}
+                        required={shouldShowRequiredIndicator('formaPago')}
+                      />
                     </div>
                   )}
                   {isFieldRenderable('monedaPreferida') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Moneda preferida {shouldShowRequiredIndicator('monedaPreferida') && <span className="text-red-500">*</span>}
-                      </label>
-                      <select
+                      <Select
+                        label="Moneda preferida"
                         value={formData.monedaPreferida}
                         onChange={(e) =>
                           handleFieldChange(
@@ -1332,64 +1241,50 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                             'monedaPreferida'
                           )
                         }
-                        className={getFieldInputClass(
-                          'monedaPreferida',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      >
-                        <option value="PEN">Soles (PEN)</option>
-                        <option value="USD">Dólares (USD)</option>
-                        <option value="EUR">Euros (EUR)</option>
-                      </select>
-                      {renderFieldError('monedaPreferida')}
+                        options={[
+                          { value: 'PEN', label: 'Soles (PEN)' },
+                          { value: 'USD', label: 'Dólares (USD)' },
+                          { value: 'EUR', label: 'Euros (EUR)' }
+                        ]}
+                        error={getFieldError('monedaPreferida')}
+                        required={shouldShowRequiredIndicator('monedaPreferida')}
+                      />
                     </div>
                   )}
                   {isFieldRenderable('listaPrecio') && (
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Perfil de precio
-                        <span className="ml-1 text-[11px] font-normal text-gray-400 dark:text-gray-500">(Opcional)</span>
-                      </label>
-                      <select
+                      <Select
+                        label="Perfil de precio"
                         value={formData.listaPrecio}
                         onChange={(e) => handleFieldChange('listaPrecio', e.target.value, 'listaPrecio')}
+                        options={[
+                          { value: '', label: 'Sin perfil (Precio Base)' },
+                          ...priceProfiles.map((profile) => ({
+                            value: profile.id,
+                            label: profile.label
+                          }))
+                        ]}
                         disabled={priceProfiles.length === 0}
-                        className={getFieldInputClass(
-                          'listaPrecio',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-800'
-                        )}
-                      >
-                        <option value="">Sin perfil (Precio Base)</option>
-                        {priceProfiles.map((profile) => (
-                          <option key={profile.id} value={profile.id}>
-                            {profile.label}
-                          </option>
-                        ))}
-                      </select>
+                        error={getFieldError('listaPrecio')}
+                      />
                       {priceProfiles.length === 0 && (
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           Configura columnas vendibles en Lista de Precios para habilitar perfiles.
                         </p>
                       )}
-                      {renderFieldError('listaPrecio')}
                     </div>
                   )}
                   {isFieldRenderable('usuarioAsignado') && (
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Usuario asignado {shouldShowRequiredIndicator('usuarioAsignado') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
+                      <Input
+                        label="Usuario asignado"
                         type="text"
                         value={formData.usuarioAsignado}
                         onChange={(e) => handleFieldChange('usuarioAsignado', e.target.value, 'usuarioAsignado')}
-                        className={getFieldInputClass(
-                          'usuarioAsignado',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
                         placeholder="Buscar usuario"
+                        error={getFieldError('usuarioAsignado')}
+                        required={shouldShowRequiredIndicator('usuarioAsignado')}
                       />
-                      {renderFieldError('usuarioAsignado')}
                     </div>
                   )}
                 </div>
@@ -1432,20 +1327,15 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 </h3>
                 {isFieldRenderable('observaciones') && (
                   <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Observaciones {shouldShowRequiredIndicator('observaciones') && <span className="text-red-500">*</span>}
-                    </label>
-                    <textarea
+                    <Textarea
+                      label="Observaciones"
                       value={formData.observaciones}
                       onChange={(e) => handleFieldChange('observaciones', e.target.value, 'observaciones')}
                       rows={3}
-                      className={getFieldInputClass(
-                        'observaciones',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400'
-                      )}
                       placeholder="Notas adicionales sobre el cliente"
+                      error={getFieldError('observaciones')}
+                      required={shouldShowRequiredIndicator('observaciones')}
                     />
-                    {renderFieldError('observaciones')}
                   </div>
                 )}
 
@@ -1490,19 +1380,18 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
       {/* Footer */}
       <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-        <button
+        <Button
           onClick={onCancel}
-          className="px-6 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors"
+          variant="secondary"
         >
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleSaveClick}
-          className="px-6 py-2 text-sm font-medium text-white border rounded-full hover:opacity-90 transition-opacity"
-          style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}
+          variant="primary"
         >
           {isEditing ? 'Actualizar' : 'Guardar'}
-        </button>
+        </Button>
       </div>
     </div>
   );

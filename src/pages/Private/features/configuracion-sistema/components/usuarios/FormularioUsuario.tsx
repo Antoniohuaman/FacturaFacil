@@ -362,7 +362,7 @@ export function UserForm({
               onBlur={() => handleBlur('email')}
               error={errors.email && touchedFields.has('email') ? errors.email : undefined}
               placeholder="juan@empresa.com"
-              leftIcon={<Mail />}
+              leftIcon={<Mail size={18} />}
               disabled={isLoading}
               required
             />
@@ -376,7 +376,7 @@ export function UserForm({
               onBlur={() => handleBlur('phone')}
               error={errors.phone && touchedFields.has('phone') ? errors.phone : undefined}
               placeholder="+51 987 654 321"
-              leftIcon={<Phone />}
+              leftIcon={<Phone size={18} />}
               disabled={isLoading}
             />
           </div>

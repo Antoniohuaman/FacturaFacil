@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, FileText, Check, Settings, Save } from 'lucide-react';
+import { Check, Settings, Save } from 'lucide-react';
 import { PageHeader } from '@/contasis';
 import { formatBusinessDateTimeIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
 
