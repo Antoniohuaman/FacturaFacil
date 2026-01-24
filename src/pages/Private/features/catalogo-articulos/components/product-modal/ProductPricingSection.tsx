@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Percent, Check } from 'lucide-react';
+import { Percent } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
 
 interface ProductPricingSectionProps {
@@ -10,6 +10,7 @@ interface ProductPricingSectionProps {
   taxOptions: { id: string; code: string; value: string; label: string }[];
   onBlur?: () => void;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
@@ -20,6 +21,7 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
   taxOptions,
   onBlur,
   showCheck,
+  renderCheck,
 }) => {
   const optionsWithLegacy = useMemo(() => {
     const trimmedValue = formData.impuesto?.trim();
@@ -47,10 +49,13 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor="impuesto" className="block text-xs font-medium text-gray-700">
-        Impuesto
-        {isFieldRequired('impuesto') && <span className="text-red-500 ml-1">*</span>}
-      </label>
+      <div className="flex items-center justify-between">
+        <label htmlFor="impuesto" className="text-xs font-medium text-gray-700">
+          Impuesto
+          {isFieldRequired('impuesto') && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        {showCheck && renderCheck?.()}
+      </div>
       <div className="relative">
         <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
         <select
@@ -58,7 +63,7 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
           value={formData.impuesto}
           onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
           onBlur={onBlur}
-          className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
           {optionsWithLegacy.map(option => (
             <option key={option.id} value={option.value}>
@@ -66,9 +71,6 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
             </option>
           ))}
         </select>
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
       </div>
     </div>
   );

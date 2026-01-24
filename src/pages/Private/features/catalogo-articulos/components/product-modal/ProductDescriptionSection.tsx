@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Weight, Check } from 'lucide-react';
+import { FileText, Weight } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
 
@@ -13,6 +13,7 @@ interface ProductDescriptionSectionProps {
   onToggleDescription: () => void;
   onBlur?: () => void;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductDescriptionField: React.FC<ProductDescriptionSectionProps> = ({
@@ -24,7 +25,8 @@ export const ProductDescriptionField: React.FC<ProductDescriptionSectionProps> =
   isDescriptionExpanded,
   onToggleDescription,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   return (
     <>
@@ -54,9 +56,7 @@ export const ProductDescriptionField: React.FC<ProductDescriptionSectionProps> =
               className="w-full pl-9 pr-7 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 resize-none"
               placeholder="Descripción detallada..."
             />
-            {showCheck && (
-              <Check className="absolute right-3 top-3 w-3 h-3 text-emerald-500/70" />
-            )}
+            {showCheck && renderCheck?.('absolute right-2 top-3')}
           </div>
           {errors.descripcion && <p className="text-red-600 text-xs mt-1">{errors.descripcion}</p>}
         </div>
@@ -73,6 +73,7 @@ interface ProductWeightFieldProps {
   isFieldRequired: (fieldId: string) => boolean;
   onBlur?: () => void;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductWeightField: React.FC<ProductWeightFieldProps> = ({
@@ -82,7 +83,8 @@ export const ProductWeightField: React.FC<ProductWeightFieldProps> = ({
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('peso')) return null;
 
@@ -106,9 +108,7 @@ export const ProductWeightField: React.FC<ProductWeightFieldProps> = ({
           placeholder="0.000"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">KG</div>
-        {showCheck && (
-          <Check className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-8 top-1/2 -translate-y-1/2')}
       </div>
       {errors.peso && <p className="text-red-600 text-xs mt-1">{errors.peso}</p>}
     </div>

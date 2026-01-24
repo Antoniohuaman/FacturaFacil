@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wallet, TrendingUp, TicketPercent, Check } from 'lucide-react';
+import { Wallet, TrendingUp, TicketPercent } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
 
@@ -11,6 +11,7 @@ interface ProductFinancialSectionProps {
   isFieldRequired: (fieldId: string) => boolean;
   onBlur?: () => void;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> = ({
@@ -20,7 +21,8 @@ export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> =
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('precioCompra')) return null;
 
@@ -44,9 +46,7 @@ export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> =
           className="w-full h-9 pl-16 pr-10 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.00"
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-3 top-1/2 -translate-y-1/2')}
       </div>
       {errors.precioCompra && <p className="text-red-600 text-xs mt-1">{errors.precioCompra}</p>}
     </div>
@@ -60,7 +60,8 @@ export const ProductProfitPercentField: React.FC<ProductFinancialSectionProps> =
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('porcentajeGanancia')) return null;
 
@@ -87,9 +88,7 @@ export const ProductProfitPercentField: React.FC<ProductFinancialSectionProps> =
           placeholder="0.00"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
-        {showCheck && (
-          <Check className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-8 top-1/2 -translate-y-1/2')}
       </div>
       {errors.porcentajeGanancia && <p className="text-red-600 text-xs mt-1">{errors.porcentajeGanancia}</p>}
     </div>
@@ -103,7 +102,8 @@ export const ProductDiscountField: React.FC<ProductFinancialSectionProps> = ({
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('descuentoProducto')) return null;
 
@@ -130,9 +130,7 @@ export const ProductDiscountField: React.FC<ProductFinancialSectionProps> = ({
           placeholder="0.00"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
-        {showCheck && (
-          <Check className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-8 top-1/2 -translate-y-1/2')}
       </div>
       {errors.descuentoProducto && <p className="text-red-600 text-xs mt-1">{errors.descuentoProducto}</p>}
     </div>

@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { Check } from 'lucide-react';
 import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ProductFormData } from '../../models/types';
 
@@ -9,6 +8,7 @@ interface ProductAvailabilitySectionProps {
   Establecimientos: Establecimiento[];
   showCheck?: boolean;
   onFieldTouched?: () => void;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProps> = ({
@@ -16,7 +16,8 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
   setFormData,
   Establecimientos,
   showCheck,
-  onFieldTouched
+  onFieldTouched,
+  renderCheck
 }) => {
   const activeEstablecimientos = useMemo(
     () => Establecimientos.filter(est => est.estaActivoEstablecimiento !== false),
@@ -40,11 +41,9 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
 
   return (
     <div className="space-y-1.5">
-      <div className="relative">
-        <label className="block text-xs font-medium text-gray-700">Disponibilidad</label>
-        {showCheck && (
-          <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-gray-700">Disponibilidad</label>
+        {showCheck && renderCheck?.()}
       </div>
 
       <div className="rounded-md border border-gray-200 bg-white p-1.5 max-h-36 overflow-y-auto">

@@ -1,22 +1,28 @@
 import React from 'react';
-import { Boxes, Check } from 'lucide-react';
+import { Boxes } from 'lucide-react';
 import type { ProductType } from '../../hooks/useProductForm';
 
 interface ProductTypeSelectorProps {
   productType: ProductType;
   onChange: (type: ProductType) => void;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
-export const ProductTypeSelector: React.FC<ProductTypeSelectorProps> = ({ productType, onChange, showCheck }) => {
+export const ProductTypeSelector: React.FC<ProductTypeSelectorProps> = ({
+  productType,
+  onChange,
+  showCheck,
+  renderCheck
+}) => {
   return (
     <div className="mb-3">
-      <div className="relative flex items-center gap-2 mb-2">
-        <Boxes className="w-3.5 h-3.5 text-gray-500" />
-        <label className="text-xs font-medium text-gray-700">Tipo de producto</label>
-        {showCheck && (
-          <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <Boxes className="w-3.5 h-3.5 text-gray-500" />
+          <label className="text-xs font-medium text-gray-700">Tipo de producto</label>
+        </div>
+        {showCheck && renderCheck?.()}
       </div>
       <div className="inline-flex rounded-md border border-gray-300 p-0.5 bg-gray-50">
         <button

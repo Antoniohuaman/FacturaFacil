@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image as ImageIcon, X, Check } from 'lucide-react';
+import { Image as ImageIcon, X } from 'lucide-react';
 
 type LocalImageItem = {
   id: string;
@@ -26,6 +26,7 @@ interface ProductImageUploadProps {
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
@@ -33,7 +34,8 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
   onUpload,
   isFieldVisible,
   isFieldRequired,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [images, setImages] = useState<LocalImageItem[]>(() => (imagePreview ? [{ id: 'external', url: imagePreview }] : []));
@@ -191,14 +193,12 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
 
   return (
     <div>
-      <div className="relative mb-1">
-        <label className="block text-xs font-medium text-gray-700">
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-medium text-gray-700">
         Imagen
         {isFieldRequired('imagen') && <span className="text-red-500 ml-1">*</span>}
         </label>
-        {showCheck && (
-          <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.()}
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-2.5">

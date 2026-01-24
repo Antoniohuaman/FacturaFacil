@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Sliders, X } from 'lucide-react';
+import { Check, Sliders, X } from 'lucide-react';
 import CategoryModal from './CategoryModal';
 import { FieldsConfigPanel } from './FieldsConfigPanel';
 import { ProductTypeSelector } from './product-modal/ProductTypeSelector';
@@ -181,14 +181,38 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const showPresentacionesComerciales = isFieldVisible('presentacionesComerciales');
   const showAvailability = Establecimientos.length > 1;
 
-  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+  type FieldId =
+    | 'nombre'
+    | 'codigo'
+    | 'codigoBarras'
+    | 'impuesto'
+    | 'establecimiento'
+    | 'unidad'
+    | 'categoria'
+    | 'tipoUnidadMedida'
+    | 'alias'
+    | 'codigoSunat'
+    | 'imagen'
+    | 'presentacionesComerciales'
+    | 'descripcion'
+    | 'peso'
+    | 'marca'
+    | 'modelo'
+    | 'codigoFabrica'
+    | 'tipoExistencia'
+    | 'descuentoProducto'
+    | 'porcentajeGanancia'
+    | 'precioCompra'
+    | 'tipoProducto';
+
+  const [touchedFields, setTouchedFields] = useState<Partial<Record<FieldId, boolean>>>({});
   const [hasSubmitAttempt, setHasSubmitAttempt] = useState(false);
 
-  const markTouched = useCallback((fieldId: string) => {
+  const markTouched = useCallback((fieldId: FieldId) => {
     setTouchedFields(prev => (prev[fieldId] ? prev : { ...prev, [fieldId]: true }));
   }, []);
 
-  const isFilled = useCallback((fieldId: string): boolean => {
+  const isFilled = useCallback((fieldId: FieldId): boolean => {
     switch (fieldId) {
       case 'nombre':
         return formData.nombre.trim().length > 0;
@@ -234,18 +258,12 @@ const ProductModal: React.FC<ProductModalProps> = ({
         return (formData.unidadesMedidaAdicionales ?? []).length > 0;
       case 'tipoProducto':
         return Boolean(productType);
-      default: {
-        const rawValue = (formData as Record<string, unknown>)[fieldId];
-        if (typeof rawValue === 'string') return rawValue.trim().length > 0;
-        if (Array.isArray(rawValue)) return rawValue.length > 0;
-        if (typeof rawValue === 'number') return !Number.isNaN(rawValue);
-        if (typeof rawValue === 'boolean') return rawValue;
-        return Boolean(rawValue);
-      }
+      default:
+        return false;
     }
   }, [formData, imagePreview, productType]);
 
-  const hasFieldError = useCallback((fieldId: string) => {
+  const hasFieldError = useCallback((fieldId: FieldId) => {
     switch (fieldId) {
       case 'establecimiento':
         return Boolean(errors.establecimientoIds);
@@ -256,7 +274,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     }
   }, [errors]);
 
-  const shouldShowCheck = useCallback((fieldId: string) => {
+  const shouldShowCheck = useCallback((fieldId: FieldId) => {
     if (hasFieldError(fieldId)) return false;
     const filled = isFilled(fieldId);
     if (!filled) return false;
@@ -270,7 +288,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   }, [hasFieldError, hasSubmitAttempt, isFilled, touchedFields]);
 
   const shouldBlueHint = useCallback(
-    (fieldId: string) => (fieldId === 'nombre' || fieldId === 'codigo') && !isFilled(fieldId),
+    (fieldId: FieldId) => (fieldId === 'nombre' || fieldId === 'codigo') && !isFilled(fieldId),
     [isFilled]
   );
 
@@ -281,6 +299,17 @@ const ProductModal: React.FC<ProductModalProps> = ({
     },
     [handleSubmit]
   );
+
+  const FieldCheck = ({ className }: { className?: string }) => (
+    <span
+      className={`inline-flex items-center justify-center w-4 h-4 rounded-full border border-emerald-400/60 bg-emerald-50/80 ${className ?? ''}`}
+      aria-hidden
+    >
+      <Check className="w-2.5 h-2.5 text-emerald-600" strokeWidth={3} />
+    </span>
+  );
+
+  const renderCheck = (className?: string) => <FieldCheck className={className} />;
 
   if (!isOpen) return null;
 
@@ -319,6 +348,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
             productType={productType}
             onChange={setProductType}
             showCheck={shouldShowCheck('tipoProducto')}
+            renderCheck={renderCheck}
           />
 
           <div className="space-y-2.5">
@@ -333,6 +363,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   onBlur={() => markTouched('nombre')}
                   showCheck={shouldShowCheck('nombre')}
                   showBlueHint={shouldBlueHint('nombre')}
+                  renderCheck={renderCheck}
                 />
 
                 {/* Código + Código de barras (misma fila) */}
@@ -344,6 +375,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     onBlur={() => markTouched('codigo')}
                     showCheck={shouldShowCheck('codigo')}
                     showBlueHint={shouldBlueHint('codigo')}
+                    renderCheck={renderCheck}
                   />
                   <ProductBarcodeField
                     formData={formData}
@@ -353,6 +385,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('codigoBarras')}
                     showCheck={shouldShowCheck('codigoBarras')}
+                    renderCheck={renderCheck}
                   />
                 </div>
 
@@ -368,6 +401,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     taxOptions={taxOptions}
                     onBlur={() => markTouched('impuesto')}
                     showCheck={shouldShowCheck('impuesto')}
+                    renderCheck={renderCheck}
                   />
                   {showAvailability && (
                     <ProductAvailabilitySection
@@ -376,6 +410,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       Establecimientos={Establecimientos}
                       showCheck={shouldShowCheck('establecimiento')}
                       onFieldTouched={() => markTouched('establecimiento')}
+                      renderCheck={renderCheck}
                     />
                   )}
                 </div>
@@ -388,6 +423,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     handleBaseUnitChange={handleBaseUnitChange}
                     onBlur={() => markTouched('unidad')}
                     showCheck={shouldShowCheck('unidad')}
+                    renderCheck={renderCheck}
                   />
                   <ProductCategoryField
                     formData={formData}
@@ -399,6 +435,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     onOpenCategoryModal={() => setShowCategoryModal(true)}
                     onBlur={() => markTouched('categoria')}
                     showCheck={shouldShowCheck('categoria')}
+                    renderCheck={renderCheck}
                   />
                 </div>
 
@@ -409,6 +446,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   isUsingFallbackUnits={isUsingFallbackUnits}
                   handleMeasureTypeChange={handleMeasureTypeChange}
                   showCheck={shouldShowCheck('tipoUnidadMedida')}
+                  renderCheck={renderCheck}
                 />
 
                 {/* Alias + Código SUNAT (misma fila) */}
@@ -421,6 +459,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('alias')}
                     showCheck={shouldShowCheck('alias')}
+                    renderCheck={renderCheck}
                   />
                   <ProductSunatCodeField
                     formData={formData}
@@ -430,6 +469,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('codigoSunat')}
                     showCheck={shouldShowCheck('codigoSunat')}
+                    renderCheck={renderCheck}
                   />
                 </div>
               </div>
@@ -442,6 +482,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   isFieldVisible={isFieldVisible}
                   isFieldRequired={isFieldRequired}
                   showCheck={shouldShowCheck('imagen')}
+                  renderCheck={renderCheck}
                 />
               </div>
             </div>
@@ -461,6 +502,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 unitInfoMessage={unitInfoMessage}
                 setUnitInfoMessage={setUnitInfoMessage}
                 showCheck={shouldShowCheck('presentacionesComerciales')}
+                renderCheck={renderCheck}
               />
             )}
 
@@ -477,6 +519,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 onToggleDescription={() => setIsDescriptionExpanded(prev => !prev)}
                 onBlur={() => markTouched('descripcion')}
                 showCheck={shouldShowCheck('descripcion')}
+                renderCheck={renderCheck}
               />
 
               {/* 11. Fila compacta: Peso + Marca + Modelo + Código fábrica */}
@@ -490,6 +533,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('peso')}
                     showCheck={shouldShowCheck('peso')}
+                    renderCheck={renderCheck}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -501,6 +545,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('marca')}
                     showCheck={shouldShowCheck('marca')}
+                    renderCheck={renderCheck}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -512,6 +557,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('modelo')}
                     showCheck={shouldShowCheck('modelo')}
+                    renderCheck={renderCheck}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -523,6 +569,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('codigoFabrica')}
                     showCheck={shouldShowCheck('codigoFabrica')}
+                    renderCheck={renderCheck}
                   />
                 </div>
               </div>
@@ -538,6 +585,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('tipoExistencia')}
                     showCheck={shouldShowCheck('tipoExistencia')}
+                    renderCheck={renderCheck}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -549,6 +597,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('descuentoProducto')}
                     showCheck={shouldShowCheck('descuentoProducto')}
+                    renderCheck={renderCheck}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -560,6 +609,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('porcentajeGanancia')}
                     showCheck={shouldShowCheck('porcentajeGanancia')}
+                    renderCheck={renderCheck}
                   />
                 </div>
                 <div className="md:col-span-3">
@@ -571,6 +621,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     isFieldRequired={isFieldRequired}
                     onBlur={() => markTouched('precioCompra')}
                     showCheck={shouldShowCheck('precioCompra')}
+                    renderCheck={renderCheck}
                   />
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Check } from 'lucide-react';
+import { Layers, Ruler, Droplet, Clock3, Boxes, Weight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
 import type { ProductFormData, UnitMeasureType } from '../../models/types';
@@ -31,6 +31,7 @@ type ProductUnitFamilyFieldProps = Pick<
   'formData' | 'errors' | 'isUsingFallbackUnits' | 'handleMeasureTypeChange'
 > & {
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 };
 
 type ProductMinimumUnitFieldProps = Pick<
@@ -39,6 +40,7 @@ type ProductMinimumUnitFieldProps = Pick<
 > & {
   onBlur?: () => void;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 };
 
 export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
@@ -46,15 +48,14 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
   errors,
   isUsingFallbackUnits,
   handleMeasureTypeChange,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   return (
     <div>
-      <div className="relative flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
+      <div className="flex items-center justify-between gap-1 text-xs font-medium text-gray-700 mb-1">
         <span>Familia de unidades</span>
-        {showCheck && (
-          <Check className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.()}
       </div>
       <div className="flex gap-1 overflow-x-auto pb-1" role="group" aria-label="Familia de unidades">
         {UNIT_MEASURE_TYPE_OPTIONS.map(option => {
@@ -95,13 +96,17 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
   baseUnitOptions,
   handleBaseUnitChange,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   return (
     <div>
-      <label htmlFor="unidad" className="block text-xs font-medium text-gray-700 mb-1">
-        Unidad mínima <span className="text-red-500">*</span>
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor="unidad" className="text-xs font-medium text-gray-700">
+          Unidad mínima <span className="text-red-500">*</span>
+        </label>
+        {showCheck && renderCheck?.()}
+      </div>
       <div className="relative">
         <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
         <select
@@ -109,7 +114,7 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
           value={formData.unidad}
           onChange={(e) => handleBaseUnitChange(e.target.value as ProductFormData['unidad'])}
           onBlur={onBlur}
-          className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
           {baseUnitOptions.length > 0 ? (
             baseUnitOptions.map(unit => (
@@ -124,9 +129,6 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
             </>
           )}
         </select>
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
       </div>
     </div>
   );

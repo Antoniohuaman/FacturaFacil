@@ -1,5 +1,5 @@
 import React from 'react';
-import { Factory, FileBadge2, Boxes, Check } from 'lucide-react';
+import { Factory, FileBadge2, Boxes } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
 
@@ -12,6 +12,7 @@ interface ProductCodesFieldProps {
   isFieldRequired: (fieldId: string) => boolean;
   onBlur?: () => void;
   showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductFactoryCodeField: React.FC<ProductCodesFieldProps> = ({
@@ -21,7 +22,8 @@ export const ProductFactoryCodeField: React.FC<ProductCodesFieldProps> = ({
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('codigoFabrica')) return null;
 
@@ -42,9 +44,7 @@ export const ProductFactoryCodeField: React.FC<ProductCodesFieldProps> = ({
           className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Código del fabricante"
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.codigoFabrica && <p className="text-red-600 text-xs mt-1">{errors.codigoFabrica}</p>}
     </div>
@@ -58,7 +58,8 @@ export const ProductSunatCodeField: React.FC<ProductCodesFieldProps> = ({
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('codigoSunat')) return null;
 
@@ -79,9 +80,7 @@ export const ProductSunatCodeField: React.FC<ProductCodesFieldProps> = ({
           className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Código tributario"
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.codigoSunat && <p className="text-red-600 text-xs mt-1">{errors.codigoSunat}</p>}
     </div>
@@ -95,16 +94,20 @@ export const ProductExistenceTypeField: React.FC<ProductCodesFieldProps> = ({
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('tipoExistencia')) return null;
 
   return (
     <div>
-      <label htmlFor="tipoExistencia" className="block text-xs font-medium text-gray-700 mb-1">
-        Tipo de existencia
-        {isFieldRequired('tipoExistencia') && <span className="text-red-500 ml-1">*</span>}
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor="tipoExistencia" className="text-xs font-medium text-gray-700">
+          Tipo de existencia
+          {isFieldRequired('tipoExistencia') && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        {showCheck && renderCheck?.()}
+      </div>
       <div className="relative">
         <Boxes className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
         <select
@@ -115,7 +118,7 @@ export const ProductExistenceTypeField: React.FC<ProductCodesFieldProps> = ({
           }
           onBlur={onBlur}
           className={`
-            w-full h-9 pl-9 pr-7 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
             ${errors.tipoExistencia ? 'border-red-300 bg-red-50' : 'border-gray-300'}
           `}
         >
@@ -129,9 +132,6 @@ export const ProductExistenceTypeField: React.FC<ProductCodesFieldProps> = ({
           <option value="EMBALAJES">Embalajes</option>
           <option value="OTROS">Otros</option>
         </select>
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
       </div>
       {errors.tipoExistencia && <p className="text-red-600 text-xs mt-1">{errors.tipoExistencia}</p>}
     </div>

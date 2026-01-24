@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2, Wand2, Plus, Check } from 'lucide-react';
+import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2, Wand2, Plus } from 'lucide-react';
 import type { Category } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
@@ -15,6 +15,7 @@ interface FieldUiProps {
   onBlur?: () => void;
   showCheck?: boolean;
   showBlueHint?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 interface VisibilityProps {
@@ -28,7 +29,8 @@ export const ProductNameField: React.FC<SharedFieldProps & FieldUiProps> = ({
   errors,
   onBlur,
   showCheck,
-  showBlueHint
+  showBlueHint,
+  renderCheck
 }) => {
   return (
     <div>
@@ -50,9 +52,7 @@ export const ProductNameField: React.FC<SharedFieldProps & FieldUiProps> = ({
           `}
           placeholder="Ingresa el nombre del producto"
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.nombre && <p className="text-red-600 text-xs mt-1">{errors.nombre}</p>}
     </div>
@@ -65,7 +65,8 @@ export const ProductCodeField: React.FC<SharedFieldProps & FieldUiProps> = ({
   errors,
   onBlur,
   showCheck,
-  showBlueHint
+  showBlueHint,
+  renderCheck
 }) => {
   return (
     <div>
@@ -88,9 +89,7 @@ export const ProductCodeField: React.FC<SharedFieldProps & FieldUiProps> = ({
             `}
             placeholder="Código único"
           />
-          {showCheck && (
-            <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-          )}
+          {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
         </div>
         <button
           type="button"
@@ -118,7 +117,8 @@ export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps & 
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('codigoBarras')) return null;
 
@@ -151,9 +151,7 @@ export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps & 
           autoComplete="off"
           aria-invalid={errors.codigoBarras ? 'true' : 'false'}
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.codigoBarras && <p className="text-red-600 text-xs mt-1">{errors.codigoBarras}</p>}
     </div>
@@ -167,7 +165,8 @@ export const ProductAliasField: React.FC<SharedFieldProps & VisibilityProps & Fi
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('alias')) return null;
 
@@ -191,9 +190,7 @@ export const ProductAliasField: React.FC<SharedFieldProps & VisibilityProps & Fi
           `}
           placeholder="Nombre alternativo"
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.alias && <p className="text-red-600 text-xs mt-1">{errors.alias}</p>}
     </div>
@@ -214,16 +211,20 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
   categories,
   onOpenCategoryModal,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('categoria')) return null;
 
   return (
     <div>
-      <label htmlFor="categoria" className="block text-xs font-medium text-gray-700 mb-1">
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor="categoria" className="text-xs font-medium text-gray-700">
         Categoría
         {isFieldRequired('categoria') && <span className="text-red-500 ml-1">*</span>}
-      </label>
+        </label>
+        {showCheck && renderCheck?.()}
+      </div>
       <div className="flex gap-2 w-full">
         <div className="relative flex-1 min-w-0">
           <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -233,7 +234,7 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
             onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
             onBlur={onBlur}
             className={`
-              w-full h-9 pl-9 pr-7 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+              w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
               ${errors.categoria ? 'border-red-300 bg-red-50' : 'border-gray-300'}
             `}
           >
@@ -244,9 +245,6 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
               </option>
             ))}
           </select>
-          {showCheck && (
-            <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-          )}
         </div>
         <button
           type="button"
@@ -270,7 +268,8 @@ export const ProductBrandField: React.FC<SharedFieldProps & VisibilityProps & Fi
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('marca')) return null;
 
@@ -291,9 +290,7 @@ export const ProductBrandField: React.FC<SharedFieldProps & VisibilityProps & Fi
           className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Marca del producto"
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.marca && <p className="text-red-600 text-xs mt-1">{errors.marca}</p>}
     </div>
@@ -307,7 +304,8 @@ export const ProductModelField: React.FC<SharedFieldProps & VisibilityProps & Fi
   isFieldVisible,
   isFieldRequired,
   onBlur,
-  showCheck
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('modelo')) return null;
 
@@ -328,9 +326,7 @@ export const ProductModelField: React.FC<SharedFieldProps & VisibilityProps & Fi
           className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Modelo del producto"
         />
-        {showCheck && (
-          <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-500/70" />
-        )}
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.modelo && <p className="text-red-600 text-xs mt-1">{errors.modelo}</p>}
     </div>
