@@ -24,7 +24,7 @@ import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import type { Series, DocumentType } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
-import { Button, Select, Input, Checkbox, RadioButton, PageHeader, Switch } from '@/contasis';
+import { Button, Select, Input, Checkbox, RadioButton, PageHeader, Switch, SerieComprobanteCard } from '@/contasis';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -939,6 +939,77 @@ export function SeriesConfiguration() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Comparison Section: New SerieComprobanteCard Component */}
+        <div className="mt-12 pt-8 border-t border-gray-200">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Componente de Tarjeta de Serie (Comparación)
+            </h3>
+            <p className="text-sm text-gray-600">
+              Versión mejorada y compacta del componente SerieComprobanteCard
+            </p>
+          </div>
+
+          <div className="space-y-8">
+            {seriesByEstablecimiento
+              .filter(({ series: est }) => est.length > 0)
+              .map(({ Establecimiento, series: EstablecimientoSeries }) => (
+                <div key={`comparison-${Establecimiento.id}`} className="space-y-4">
+                  <div className="flex items-center space-x-3 pb-2 border-b border-gray-200">
+                    <Building2 className="w-5 h-5 text-gray-600" />
+                    <h4 className="text-lg font-semibold text-gray-900">
+                      {Establecimiento.codigoEstablecimiento} - {Establecimiento.nombreEstablecimiento} (Nueva Tarjeta)
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {EstablecimientoSeries.map((seriesItem) => (
+                      <SerieComprobanteCard
+                        key={seriesItem.id}
+                        serie={{
+                          id: seriesItem.id,
+                          codigo: seriesItem.series,
+                          nombre: seriesItem.series,
+                          tipo: seriesItem.type,
+                          numeroActual: seriesItem.currentNumber.toString(),
+                          estadoUso: seriesItem.hasUsage ? 'En uso' : 'Sin uso',
+                          activo: seriesItem.isActive,
+                          esPorDefecto: seriesItem.isDefault,
+                          tieneUso: seriesItem.hasUsage
+                        }}
+                        onToggleActivo={(id) => {
+                          const seriesItemToToggle = series.find(s => s.id === id);
+                          if (seriesItemToToggle) {
+                            toggleSeriesStatus(seriesItemToToggle);
+                          }
+                        }}
+                        onEditar={(id) => {
+                          const seriesItemToEdit = series.find(s => s.id === id);
+                          if (seriesItemToEdit) {
+                            handleEdit(seriesItemToEdit);
+                          }
+                        }}
+                        onEliminar={(id) => {
+                          const seriesItemToDelete = series.find(s => s.id === id);
+                          if (seriesItemToDelete) {
+                            setDeleteModal({ show: true, series: seriesItemToDelete });
+                          }
+                        }}
+                        onAjustarCorrelativo={(id) => {
+                          const seriesItemToAdjust = series.find(s => s.id === id);
+                          if (seriesItemToAdjust) {
+                            setAdjustModal({ show: true, series: seriesItemToAdjust });
+                            setNewCorrelative(seriesItemToAdjust.currentNumber.toString());
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
 
         {filteredSeries.length === 0 && series.length > 0 && (
