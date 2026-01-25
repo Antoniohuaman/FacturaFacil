@@ -50,6 +50,7 @@ function VoucherDesignConfigurationContent() {
     updateFooter,
     updateDocumentFields,
     updateProductFields,
+    updateTicketPaperWidth,
     resetToDefault,
     exportConfig,
     importConfig
@@ -195,6 +196,35 @@ function VoucherDesignConfigurationContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Configuration Panel */}
               <div className="space-y-4">
+                {activeDesign === 'TICKET' && (
+                  <div className="bg-white rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Ancho de papel (Ticket)</p>
+                        <p className="text-xs text-gray-500">Este valor gobierna la vista previa y la impresión real</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {[58, 80].map((mm) => {
+                          const isActive = (config.ticketPaperWidth ?? 80) === mm;
+                          return (
+                            <button
+                              key={mm}
+                              onClick={() => updateTicketPaperWidth(mm as 58 | 80)}
+                              className={`px-4 py-2 rounded-lg border-2 transition-all text-sm font-medium ${
+                                isActive
+                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                  : 'border-gray-200 hover:border-blue-300 text-gray-700 bg-white'
+                              }`}
+                            >
+                              {mm}mm
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Tabs */}
                 <div className="bg-white rounded-lg border border-gray-200 p-2">
                   <div className="grid grid-cols-5 gap-2">
@@ -252,7 +282,11 @@ function VoucherDesignConfigurationContent() {
 
               {/* Preview Panel - Sticky */}
               <div className="lg:sticky lg:top-24 lg:self-start">
-                <VoucherPreview config={config} designType={activeDesign} />
+                <VoucherPreview
+                  config={config}
+                  designType={activeDesign}
+                  ticketPaperWidth={config.ticketPaperWidth}
+                />
               </div>
             </div>
           </div>

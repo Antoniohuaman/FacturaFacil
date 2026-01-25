@@ -12,9 +12,10 @@ import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 interface VoucherPreviewProps {
   config: VoucherDesignConfigurationExtended;
   designType: 'A4' | 'TICKET';
+  ticketPaperWidth?: 58 | 80;
 }
 
-export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designType }) => {
+export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designType, ticketPaperWidth }) => {
   const { logo, watermark, footer, documentFields, productFields } = config;
   const { state } = useConfigurationContext();
 
@@ -56,7 +57,8 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
   );
 
   if (designType === 'TICKET') {
-    return <TicketPreview config={config} sampleData={sampleData} />;
+    const paperWidthMm = ticketPaperWidth ?? config.ticketPaperWidth ?? 80;
+    return <TicketPreview config={config} sampleData={sampleData} paperWidthMm={paperWidthMm} />;
   }
 
   return (
@@ -601,7 +603,11 @@ const A4WatermarkOverlay: React.FC<A4WatermarkOverlayProps> = ({ watermark }) =>
 };
 
 // Componente para vista previa de Ticket
-const TicketPreview: React.FC<{ config: VoucherDesignConfigurationExtended; sampleData: any }> = ({ config, sampleData }) => {
+const TicketPreview: React.FC<{ config: VoucherDesignConfigurationExtended; sampleData: any; paperWidthMm: 58 | 80 }> = ({
+  config,
+  sampleData,
+  paperWidthMm,
+}) => {
   const { logo, watermark, footer, documentFields, productFields } = config;
 
   const ticketProductFields =
@@ -615,14 +621,17 @@ const TicketPreview: React.FC<{ config: VoucherDesignConfigurationExtended; samp
       <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Eye className="w-4 h-4 text-blue-600" />
-          <h4 className="font-semibold text-gray-900 text-sm">Vista Previa - Formato Ticket (80mm)</h4>
+          <h4 className="font-semibold text-gray-900 text-sm">Vista Previa - Formato Ticket ({paperWidthMm}mm)</h4>
         </div>
         <span className="text-xs text-gray-500">Tiempo real</span>
       </div>
 
       {/* Área de preview */}
       <div className="p-4 bg-gray-50 flex justify-center">
-        <div className="w-[302px] bg-white shadow-md font-mono text-[10px] leading-tight relative">
+        <div
+          className="bg-white shadow-md font-mono text-[10px] leading-tight relative"
+          style={{ width: `${paperWidthMm}mm` }}
+        >
           {/* Marca de agua */}
           {watermark.enabled && watermark.type === 'text' && watermark.text && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 0 }}>
