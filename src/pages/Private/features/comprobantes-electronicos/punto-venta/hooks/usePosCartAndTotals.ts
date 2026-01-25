@@ -17,8 +17,6 @@ export interface PosPriceListOption {
   isBase: boolean;
 }
 
-type PricingNotifier = (title: string, message: string) => void;
-
 const PRICE_COLUMN_STORAGE_KEY = 'pos_price_column';
 
 type CatalogUnit = { code: string; isBase: boolean; label?: string };
@@ -193,12 +191,6 @@ export const usePosCartAndTotals = () => {
     }
   }, [selectedPriceListId]);
 
-  const pricingNotifierRef = useRef<PricingNotifier | null>(null);
-  const missingPriceWarningsRef = useRef<Set<string>>(new Set());
-
-  const registerPricingNotifier = useCallback((notifier?: PricingNotifier) => {
-    pricingNotifierRef.current = notifier ?? null;
-  }, []);
 
   const getUnitOptionsForProduct = useCallback(
     (sku: string): ProductUnitOption[] => {
@@ -269,17 +261,6 @@ export const usePosCartAndTotals = () => {
         setIfDifferent('priceColumnLabel', activePriceListLabel);
       }
     } else {
-      if (resolvedColumnId) {
-        const warningKey = `${sku}:${normalizedUnit || 'default'}:${resolvedColumnId}`;
-        if (!missingPriceWarningsRef.current.has(warningKey)) {
-          pricingNotifierRef.current?.(
-            'Precio no configurado',
-            `El producto ${item.name || sku} no tiene precio para ${activePriceListLabel}.`
-          );
-          missingPriceWarningsRef.current.add(warningKey);
-        }
-      }
-
       // Importante: no re-escribir 0 / flags si ya están en el estado esperado;
       // evita bucles de re-render cuando el price book no tiene precio.
       if (item.price !== 0) {
@@ -303,10 +284,6 @@ export const usePosCartAndTotals = () => {
       updateCartItem(item.id, updates);
     }
   }, [activePriceListLabel, baseColumnId, getPreferredUnitForSku, getUnitPriceWithFallback, resolveSku, selectedPriceListId, updateCartItem]);
-
-  useEffect(() => {
-    missingPriceWarningsRef.current.clear();
-  }, [selectedPriceListId]);
 
   useEffect(() => {
     if (!selectedPriceListId) {
@@ -636,7 +613,6 @@ export const usePosCartAndTotals = () => {
     priceListOptions,
     selectedPriceListId,
     setSelectedPriceListId,
-    registerPricingNotifier,
     getUnitOptionsForProduct,
     formatUnitLabel,
     getPreferredUnitForSku,
