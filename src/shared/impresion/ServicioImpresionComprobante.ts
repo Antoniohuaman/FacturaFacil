@@ -5,7 +5,7 @@ export type FormatoImpresionComprobante = 'A4' | 'TICKET';
 
 export type OpcionesImpresionComprobante = {
   formato: FormatoImpresionComprobante;
-  render: (container: HTMLElement) => ReactElement;
+  render: () => ReactElement;
   titulo?: string;
 };
 
@@ -115,7 +115,7 @@ export async function imprimirComprobante(opciones: OpcionesImpresionComprobante
 
     const root = createRoot(contenedor);
     try {
-      const elemento = opciones.render(contenedor);
+      const elemento = opciones.render();
       root.render(elemento);
 
       await esperarFrame();
