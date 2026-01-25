@@ -22,8 +22,10 @@ import { CobranzaModal } from '../../shared/modales/CobranzaModal';
 import type {
   CartItem,
   ClientData,
+  CompanyData,
   PaymentCollectionPayload,
   PaymentTotals,
+  PreviewData,
   TipoComprobante,
 } from '../../models/comprobante.types';
 import { useCobranzasContext } from '../../../gestion-cobranzas/context/CobranzasContext';
@@ -41,6 +43,10 @@ import { formatBusinessDateShort, getBusinessTodayISODate } from '@/shared/time/
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { loadColumnsConfig, persistColumnsConfig, resolveTenantColumnsKey } from '../utils/columnPersistence';
+import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
+import { PreviewDocument } from '../../shared/ui/PreviewDocument';
+import { PreviewTicket } from '../../shared/ui/PreviewTicket';
+import { UserSessionProvider, useCurrentCompany } from '@/contexts/UserSessionContext';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -196,6 +202,7 @@ const InvoiceListDashboard = () => {
   const { state, dispatch } = useComprobanteContext();
   const invoices = state.comprobantes;
   const { cuentas, registerCobranza } = useCobranzasContext();
+  const currentCompany = useCurrentCompany();
 
   // Hook de selección masiva
   const selection = useSelection();
@@ -474,12 +481,89 @@ const InvoiceListDashboard = () => {
   };
 
   // Handler para Imprimir
-  const handlePrint = (invoice: any) => {
-    // Seleccionar el comprobante e imprimir
-    console.log('Imprimiendo:', invoice.id);
-    // TODO: Implementar lógica de impresión real
-    window.print();
-  };
+  const handlePrint = useCallback(async (invoice: any) => {
+    const tipoComprobante = resolveTipoComprobante(invoice?.type);
+    const formato = tipoComprobante === 'boleta' ? 'TICKET' : 'A4';
+
+    const { serie } = extractSerieCorrelativo(invoice as Comprobante);
+
+    const documentoCliente = String(invoice?.clientDoc ?? '').trim();
+    const tipoDocumentoCliente: ClientData['tipoDocumento'] = documentoCliente.length === 11 ? 'RUC' : 'DNI';
+
+    const cliente: ClientData = {
+      nombre: String(invoice?.client ?? 'Cliente'),
+      tipoDocumento: tipoDocumentoCliente,
+      documento: documentoCliente,
+      direccion: invoice?.address || undefined,
+      email: invoice?.email || undefined,
+    };
+
+    const direccionEmpresa = currentCompany
+      ? [
+          currentCompany.direccionFiscal,
+          currentCompany.distrito,
+          currentCompany.provincia,
+          currentCompany.departamento,
+        ]
+          .filter(Boolean)
+          .join(', ')
+      : '';
+
+    const companyData: CompanyData = {
+      name: currentCompany?.nombreComercial || currentCompany?.razonSocial || 'Empresa',
+      razonSocial: currentCompany?.razonSocial || 'Empresa',
+      ruc: currentCompany?.ruc || '',
+      address: direccionEmpresa,
+      phone: currentCompany?.telefonos?.[0] || '',
+      email: currentCompany?.correosElectronicos?.[0] || '',
+    };
+
+    const moneda = invoice?.currency === 'USD' ? 'USD' : 'PEN';
+    const total = Number(invoice?.total ?? 0);
+
+    const totals: PaymentTotals = (invoice?.totals as PaymentTotals | undefined) ?? {
+      subtotal: total,
+      igv: 0,
+      total,
+      currency: moneda,
+    };
+
+    const data: PreviewData = {
+      companyData,
+      clientData: cliente,
+      documentType: tipoComprobante,
+      series: serie || String(invoice?.id ?? ''),
+      number: null,
+      issueDate: String(invoice?.date ?? ''),
+      dueDate: invoice?.dueDate || undefined,
+      currency: moneda,
+      paymentMethod: String(invoice?.paymentMethod ?? 'CONTADO'),
+      cartItems:
+        (invoice?.productos as CartItem[] | undefined) ??
+        (invoice?.cartItems as CartItem[] | undefined) ??
+        [],
+      totals,
+      observations: invoice?.observations || undefined,
+      internalNotes: invoice?.internalNote || undefined,
+      creditTerms: invoice?.creditTerms || undefined,
+    };
+
+    const qrUrl = String(invoice?.qrUrl ?? '');
+
+    await imprimirComprobante({
+      formato,
+      titulo: String(invoice?.id ?? 'Comprobante'),
+      render: () => (
+        <UserSessionProvider>
+          {formato === 'TICKET' ? (
+            <PreviewTicket data={data} qrUrl={qrUrl} />
+          ) : (
+            <PreviewDocument data={data} qrUrl={qrUrl} />
+          )}
+        </UserSessionProvider>
+      ),
+    });
+  }, [currentCompany]);
 
   // Handler para Compartir
   const handleShare = (invoice: any) => {
