@@ -1,13 +1,15 @@
+import { useState } from 'react';
 import {
   Hash,
   Circle,
-  Pencil,
-  Trash2,
   FileCheck,
   Receipt,
   Clipboard,
   MessageSquare,
-  NotebookPen
+  NotebookPen,
+  MoreVertical,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 // Tipos completos de voucher
@@ -40,38 +42,109 @@ const voucherTypeConfig = {
     label: 'Factura Electrónica',
     icon: FileCheck,
     color: 'blue',
-    colorClass: 'text-blue-600',
-    bgClass: 'bg-blue-50'
+    colorClass: 'text-blue-600 dark:text-blue-400',
+    bgClass: 'bg-blue-50 dark:bg-blue-900/30'
   },
   RECEIPT: {
     label: 'Boleta Electrónica',
     icon: Receipt,
-    color: 'green',
-    colorClass: 'text-green-600',
-    bgClass: 'bg-green-50'
+    color: 'emerald',
+    colorClass: 'text-emerald-600 dark:text-emerald-400',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-900/30'
   },
   SALE_NOTE: {
     label: 'Nota de Venta',
     icon: Clipboard,
     color: 'orange',
-    colorClass: 'text-orange-600',
-    bgClass: 'bg-orange-50'
+    colorClass: 'text-orange-600 dark:text-orange-400',
+    bgClass: 'bg-orange-50 dark:bg-orange-900/30'
   },
   QUOTE: {
     label: 'Cotización',
     icon: MessageSquare,
     color: 'purple',
-    colorClass: 'text-purple-600',
-    bgClass: 'bg-purple-50'
+    colorClass: 'text-purple-600 dark:text-purple-400',
+    bgClass: 'bg-purple-50 dark:bg-purple-900/30'
   },
   COLLECTION: {
     label: 'Recibo de Cobranza',
     icon: NotebookPen,
     color: 'cyan',
-    colorClass: 'text-cyan-600',
-    bgClass: 'bg-cyan-50'
+    colorClass: 'text-cyan-600 dark:text-cyan-400',
+    bgClass: 'bg-cyan-50 dark:bg-cyan-900/30'
   }
 };
+
+// Componente Switch compacto
+const Switch = ({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) => (
+  <button
+    role="switch"
+    aria-checked={checked}
+    onClick={() => onCheckedChange(!checked)}
+    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+      checked ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
+    }`}
+  >
+    <span
+      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+        checked ? 'translate-x-5' : 'translate-x-0'
+      }`}
+    />
+  </button>
+);
+
+// Componente Dropdown Menu compacto
+const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <div className="relative inline-block text-left">
+      {children && Array.isArray(children) ? children.map((child, index) => {
+        if (child?.type?.name === 'DropdownMenuTrigger') {
+          return (
+            <div key={index} onClick={() => setIsOpen(!isOpen)}>
+              {child.props.children}
+            </div>
+          );
+        }
+        if (child?.type?.name === 'DropdownMenuContent' && isOpen) {
+          return (
+            <div key={index}>
+              <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+              <div className="absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-slate-800 shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white dark:ring-opacity-10">
+                <div className="py-1" onClick={() => setIsOpen(false)}>
+                  {child.props.children}
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      }) : null}
+    </div>
+  );
+};
+
+const DropdownMenuTrigger = ({ children }: { children: React.ReactNode }) => (
+  <>{children}</>
+);
+
+const DropdownMenuContent = ({ children }: { children: React.ReactNode }) => (
+  <>{children}</>
+);
+
+const DropdownMenuItem = ({ children, onClick, className = '' }: { children: React.ReactNode; onClick?: () => void; className?: string }) => (
+  <button
+    onClick={onClick}
+    className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center dark:text-slate-200 ${className}`}
+  >
+    {children}
+  </button>
+);
+
+const DropdownMenuSeparator = () => (
+  <div className="my-1 h-px bg-slate-200 dark:bg-slate-700" />
+);
 
 export function SerieComprobanteCard({
   serie,
@@ -84,126 +157,124 @@ export function SerieComprobanteCard({
   const config = voucherTypeConfig[serie.tipo];
   const IconComponent = config.icon;
 
+  const getTipoColor = (activo: boolean) => {
+    if (!activo) return 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400';
+    return `${config.bgClass} ${config.colorClass}`;
+  };
+
   return (
-    <div
+    <div 
       data-focus={`configuracion:series:${serie.id}`}
-      className={`
-        border-2 rounded-lg p-4 transition-all hover:shadow-md
-        ${serie.activo
-          ? 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700'
-          : 'border-gray-100 bg-gray-50 dark:bg-gray-900 dark:border-gray-800'
-        }
-        ${className}
-      `}
+      className={`transition-all duration-200 hover:shadow-lg rounded-lg border ${
+        !serie.activo 
+          ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700' 
+          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+      } ${className}`}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          {/* Icon Container */}
-          <div className={`w-10 h-10 ${config.bgClass} dark:bg-gray-700 rounded-lg flex items-center justify-center`}>
-            <IconComponent className={`w-5 h-5 ${config.colorClass} dark:${config.colorClass}`} />
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-start gap-3">
+          {/* Icono del tipo */}
+          <div className={`p-2 rounded-lg flex-shrink-0 ${getTipoColor(serie.activo)}`}>
+            <IconComponent className="w-5 h-5" />
           </div>
-
-          {/* Serie Info */}
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold text-gray-900 dark:text-white text-lg">
+          
+          {/* Contenido principal */}
+          <div className="flex-1 min-w-0">
+            {/* Código y Badge de Estado */}
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-base text-slate-900 dark:text-slate-100">
                 {serie.codigo}
-              </span>
+              </h3>
+              
+              {/* Badge por defecto */}
               {serie.esPorDefecto && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                   Por defecto
                 </span>
               )}
-              {!serie.activo && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">
-                  Inactiva
-                </span>
-              )}
+              
+              {/* Badge de estado */}
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                serie.activo 
+                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+              }`}>
+                {serie.activo ? 'Activo' : 'Inactivo'}
+              </span>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            
+            {/* Descripción/Tipo */}
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               {config.label}
             </p>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex items-center space-x-1">
-          {/* Toggle Switch - Mejorado con mejor UX */}
-          <button
-            onClick={() => onToggleActivo(serie.id)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              serie.activo
-                ? `bg-${config.color}-600 focus:ring-${config.color}-500`
-                : 'bg-gray-300 dark:bg-gray-600 focus:ring-gray-500'
-            }`}
-            title={serie.activo ? 'Desactivar' : 'Activar'}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                serie.activo ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-
-          {/* Edit Button */}
-          <button
-            onClick={() => onEditar(serie.id)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-            title="Editar"
-          >
-            <Pencil className="w-4 h-4 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" />
-          </button>
-
-          {/* Delete Button con validación */}
-          <button
-            onClick={() => onEliminar(serie.id)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Eliminar"
-            disabled={serie.esPorDefecto || serie.tieneUso}
-          >
-            <Trash2 className={`w-4 h-4 ${
-              serie.esPorDefecto || serie.tieneUso
-                ? 'text-gray-400'
-                : 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300'
-            }`} />
-          </button>
+          {/* Controles */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+              <Switch 
+                checked={serie.activo}
+                onCheckedChange={() => onToggleActivo(serie.id)}
+              />
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <button className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                  <MoreVertical className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => onEditar(serie.id)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => onEliminar(serie.id)}
+                  className={serie.esPorDefecto || serie.tieneUso ? 'opacity-50 cursor-not-allowed' : 'text-red-600 dark:text-red-400'}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
-      {/* Details Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Current Number */}
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Número Actual</p>
-          <div className="flex items-center space-x-2">
-            <span className="font-mono font-semibold text-gray-900 dark:text-white">
-              {serie.numeroActual.padStart(8, '0')}
-            </span>
-            <button
-              onClick={() => onAjustarCorrelativo(serie.id)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-              title="Ajustar correlativo"
-            >
-              <Hash className="w-4 h-4 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" />
-            </button>
+      {/* Información de números */}
+      <div className="px-4 pb-4">
+        <div className="grid grid-cols-2 gap-3">
+          {/* Número Actual */}
+          <div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Número Actual</p>
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {serie.numeroActual.padStart(8, '0')}
+              </span>
+              <button
+                onClick={() => onAjustarCorrelativo(serie.id)}
+                className="hover:bg-slate-100 dark:hover:bg-slate-700 rounded p-0.5 transition-colors"
+                title="Ajustar correlativo"
+              >
+                <Hash className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Usage Status */}
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Estado de Uso</p>
-          <div className="flex items-center space-x-2">
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              serie.estadoUso === 'En uso'
-                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-            }`}>
-              <Circle className={`w-1.5 h-1.5 mr-1 fill-current ${
-                serie.estadoUso === 'En uso' ? 'text-yellow-600' : 'text-gray-400'
+          {/* Estado de Uso */}
+          <div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Estado de Uso</p>
+            <div className="flex items-center gap-1.5">
+              <Circle className={`w-3 h-3 ${
+                serie.estadoUso === 'En uso' ? 'text-yellow-500 fill-current' : 'text-slate-400 dark:text-slate-500'
               }`} />
-              {serie.estadoUso}
-            </span>
+              <span className="text-xs text-slate-600 dark:text-slate-300">
+                {serie.estadoUso}
+              </span>
+            </div>
           </div>
         </div>
       </div>
