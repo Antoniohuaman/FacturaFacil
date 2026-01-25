@@ -46,7 +46,7 @@ import { loadColumnsConfig, persistColumnsConfig, resolveTenantColumnsKey } from
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
 import { PreviewDocument } from '../../shared/ui/PreviewDocument';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
-import { UserSessionProvider, useCurrentCompany } from '@/contexts/UserSessionContext';
+import { useCurrentCompany } from '@/contexts/UserSessionContext';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -553,15 +553,12 @@ const InvoiceListDashboard = () => {
     await imprimirComprobante({
       formato,
       titulo: String(invoice?.id ?? 'Comprobante'),
-      render: () => (
-        <UserSessionProvider>
-          {formato === 'TICKET' ? (
-            <PreviewTicket data={data} qrUrl={qrUrl} />
-          ) : (
-            <PreviewDocument data={data} qrUrl={qrUrl} />
-          )}
-        </UserSessionProvider>
-      ),
+      render: () =>
+        formato === 'TICKET' ? (
+          <PreviewTicket data={data} qrUrl={qrUrl} />
+        ) : (
+          <PreviewDocument data={data} qrUrl={qrUrl} />
+        ),
     });
   }, [currentCompany]);
 
@@ -757,13 +754,15 @@ const InvoiceListDashboard = () => {
   const endRecord = Math.min(currentPage * recordsPerPage, totalRecords);
   
   // Orden local por F. Emisión DESC y paginación (no mutamos el contexto)
-  const sortedInvoices = [...searchedInvoices].sort((a: any, b: any) => {
-    try {
-      return parseInvoiceDate(b.date).getTime() - parseInvoiceDate(a.date).getTime();
-    } catch (e) {
-      return 0;
-    }
-  });
+  const sortedInvoices = useMemo(() => {
+    return [...searchedInvoices].sort((a: any, b: any) => {
+      try {
+        return parseInvoiceDate(b.date).getTime() - parseInvoiceDate(a.date).getTime();
+      } catch {
+        return 0;
+      }
+    });
+  }, [searchedInvoices]);
 
   // Datos paginados - solo los registros de la página actual
   const paginatedInvoices = sortedInvoices.slice(
