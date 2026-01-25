@@ -5,14 +5,19 @@ import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/m
 import { formatMoney } from '@/shared/currency';
 import { useCurrentEstablecimiento } from '@/contexts/UserSessionContext';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
+import type { DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
 
 interface PreviewTicketProps {
   data: PreviewData;
   qrUrl: string;
+  disenoEfectivo?: DisenoEfectivoImpresion;
 }
 
-export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => {
-  const config = useVoucherDesignConfigReader('TICKET');
+export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disenoEfectivo }) => {
+  // Compatibilidad: mientras existan flujos no migrados al servicio central,
+  // mantenemos fallback a storage. El servicio central siempre debe pasar disenoEfectivo.
+  const fallbackConfig = useVoucherDesignConfigReader('TICKET');
+  const config = disenoEfectivo?.config ?? fallbackConfig;
   const currentEstablecimiento = useCurrentEstablecimiento();
 
   const {
@@ -44,6 +49,8 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   const productFields = config.productFields as VoucherDesignTicketConfig['productFields'];
   const descriptionMaxLength = productFields.descripcion?.maxLength ?? 30;
 
+  const anchoTicketMm = disenoEfectivo?.anchoTicketMm ?? 80;
+
   const EstablecimientoNameFromData = (data as unknown as { EstablecimientoName?: string }).EstablecimientoName;
   const rawEstablecimientoName =
     EstablecimientoNameFromData || currentEstablecimiento?.nombreEstablecimiento || '';
@@ -65,7 +72,14 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl }) => 
   }, [totals.total, currency]);
 
   return (
-    <div className="w-full max-w-xs mx-auto bg-white p-4 font-mono text-xs leading-tight relative" style={{ fontFamily: 'Courier, monospace' }}>
+    <div
+      className="bg-white p-4 font-mono text-xs leading-tight relative"
+      style={{
+        fontFamily: 'Courier, monospace',
+        width: `${anchoTicketMm}mm`,
+        margin: 0,
+      }}
+    >
       {/* Marca de agua - soporte para texto e imagen */}
       {config.watermark.enabled && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>

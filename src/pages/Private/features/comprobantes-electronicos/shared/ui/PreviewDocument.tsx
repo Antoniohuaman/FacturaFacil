@@ -4,14 +4,19 @@ import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useConfiguracionDisenoComprobante';
 import { formatMoney } from '@/shared/currency';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
+import type { DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
 
 interface PreviewDocumentProps {
   data: PreviewData;
   qrUrl: string;
+  disenoEfectivo?: DisenoEfectivoImpresion;
 }
 
-export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl }) => {
-  const config = useVoucherDesignConfigReader('A4');
+export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, disenoEfectivo }) => {
+  // Compatibilidad: mientras existan flujos no migrados al servicio central,
+  // mantenemos fallback a storage. El servicio central siempre debe pasar disenoEfectivo.
+  const fallbackConfig = useVoucherDesignConfigReader('A4');
+  const config = disenoEfectivo?.config ?? fallbackConfig;
   const {
     companyData,
     clientData,

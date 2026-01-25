@@ -550,15 +550,20 @@ const InvoiceListDashboard = () => {
 
     const qrUrl = String(invoice?.qrUrl ?? '');
 
+    const tamanoPapel = (invoice as unknown as { tamanoPapel?: 'mm58' | 'mm80' | 'a5' | 'a4' }).tamanoPapel;
+
     await imprimirComprobante({
       formato,
       titulo: String(invoice?.id ?? 'Comprobante'),
-      render: () =>
-        formato === 'TICKET' ? (
-          <PreviewTicket data={data} qrUrl={qrUrl} />
+      tamanoPapel,
+      render: (contexto) => {
+        const disenoEfectivo = contexto?.disenoEfectivo;
+        return formato === 'TICKET' ? (
+          <PreviewTicket data={data} qrUrl={qrUrl} disenoEfectivo={disenoEfectivo} />
         ) : (
-          <PreviewDocument data={data} qrUrl={qrUrl} />
-        ),
+          <PreviewDocument data={data} qrUrl={qrUrl} disenoEfectivo={disenoEfectivo} />
+        );
+      },
     });
   }, [currentCompany]);
 

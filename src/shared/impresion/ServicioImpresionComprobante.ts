@@ -1,13 +1,29 @@
 import { createElement, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ImpresionProviders } from './ImpresionProviders';
+import {
+  FormatoSalida,
+  TipoDocumentoImprimible,
+  type TamanoPapel as TamanoPapelContrato,
+} from './ContratoImpresion';
+import {
+  resolverDisenoImpresion,
+  type DisenoEfectivoImpresion,
+} from './ResolverDisenoImpresion';
 
 export type FormatoImpresionComprobante = 'A4' | 'TICKET';
 
+export type TamanoPapelImpresionComprobante = 'mm58' | 'mm80' | 'a5' | 'a4';
+
+export type RenderizadorImpresionComprobante = (contexto?: {
+  disenoEfectivo: DisenoEfectivoImpresion;
+}) => ReactElement;
+
 export type OpcionesImpresionComprobante = {
   formato: FormatoImpresionComprobante;
-  render: () => ReactElement;
+  render: RenderizadorImpresionComprobante;
   titulo?: string;
+  tamanoPapel?: TamanoPapelImpresionComprobante;
 };
 
 const esperarFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -33,6 +49,31 @@ const copiarEstilos = (documentoOrigen: Document, documentoDestino: Document) =>
     documentoDestino.head.appendChild(styleDestino);
   });
 };
+
+const inyectarCssImpresion = (documentoDestino: Document, disenoEfectivo: DisenoEfectivoImpresion) => {
+  const style = documentoDestino.createElement('style');
+  style.setAttribute('data-impresion-servicio', 'true');
+
+  if (disenoEfectivo.formatoSalida === FormatoSalida.Ticket) {
+    const anchoMm = disenoEfectivo.anchoTicketMm === 58 ? 58 : 80;
+    style.textContent = `
+      @page { size: ${anchoMm}mm auto; margin: 0; }
+      html, body { width: ${anchoMm}mm; margin: 0; padding: 0; background: white; }
+      #impresion-root { width: ${anchoMm}mm; margin: 0; padding: 0; }
+      *, *::before, *::after { box-sizing: border-box; }
+    `;
+  } else {
+    const size = disenoEfectivo.tamanoHoja === 'A5' ? 'A5' : 'A4';
+    style.textContent = `
+      @page { size: ${size}; margin: 0; }
+      html, body { margin: 0; padding: 0; background: white; }
+      *, *::before, *::after { box-sizing: border-box; }
+    `;
+  }
+
+  documentoDestino.head.appendChild(style);
+};
+
 
 export async function imprimirComprobante(opciones: OpcionesImpresionComprobante): Promise<void> {
   if (typeof document === 'undefined') {
@@ -109,6 +150,15 @@ export async function imprimirComprobante(opciones: OpcionesImpresionComprobante
 
     copiarEstilos(document, documentoIframe);
 
+    const formatoSalida = opciones.formato === 'TICKET' ? FormatoSalida.Ticket : FormatoSalida.Hoja;
+    const disenoEfectivo = await resolverDisenoImpresion({
+      tipoDocumento: TipoDocumentoImprimible.ComprobanteElectronico,
+      formatoSalida,
+      tamanoPapel: (opciones.tamanoPapel as TamanoPapelContrato | undefined) ?? undefined,
+    });
+
+    inyectarCssImpresion(documentoIframe, disenoEfectivo);
+
     const contenedor = documentoIframe.getElementById('impresion-root');
     if (!contenedor) {
       throw new Error('No se encontró el contenedor para renderizar la impresión.');
@@ -116,7 +166,7 @@ export async function imprimirComprobante(opciones: OpcionesImpresionComprobante
 
     const root = createRoot(contenedor);
     try {
-      const elemento = opciones.render();
+      const elemento = opciones.render({ disenoEfectivo });
       root.render(createElement(ImpresionProviders, null, elemento));
 
       await esperarFrame();
