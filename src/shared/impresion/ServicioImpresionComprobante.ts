@@ -1,5 +1,6 @@
-import type { ReactElement } from 'react';
+import { createElement, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ImpresionProviders } from './ImpresionProviders';
 
 export type FormatoImpresionComprobante = 'A4' | 'TICKET';
 
@@ -116,7 +117,7 @@ export async function imprimirComprobante(opciones: OpcionesImpresionComprobante
     const root = createRoot(contenedor);
     try {
       const elemento = opciones.render();
-      root.render(elemento);
+      root.render(createElement(ImpresionProviders, null, elemento));
 
       await esperarFrame();
       await esperarFrame();
