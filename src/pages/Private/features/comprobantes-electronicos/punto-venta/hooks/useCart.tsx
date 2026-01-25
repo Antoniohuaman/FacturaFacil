@@ -11,6 +11,7 @@ import { useProductStore } from '../../../catalogo-articulos/hooks/useProductSto
 import type { Product as CatalogProduct } from '../../../catalogo-articulos/models/types';
 import { summarizeProductStock, calculateRequiredUnidadMinima } from '../../../../../../shared/inventory/stockGateway';
 import { convertFromUnidadMinima } from '../../../../../../shared/inventory/unitConversion';
+import { learnBasePriceIfMissing } from '../../../lista-precios/utils/learnBasePrice';
 
 export interface UseCartReturn {
   // Estado del carrito
@@ -357,8 +358,20 @@ export const useCart = (): UseCartReturn => {
       return;
     }
 
-    setCartItems(prev =>
-      prev.map(item =>
+    setCartItems(prev => {
+      const existing = prev.find(item => item.id === id);
+      if (existing && Number.isFinite(newPrice) && newPrice > 0) {
+        const sku = (existing.code || String(existing.id)).trim();
+        const unitCode = String(existing.unidadMedida || existing.unit || '').trim();
+        learnBasePriceIfMissing({
+          sku,
+          unitCode,
+          value: newPrice,
+          productName: existing.name
+        });
+      }
+
+      return prev.map(item =>
         item.id === id
           ? {
               ...item,
@@ -369,8 +382,8 @@ export const useCart = (): UseCartReturn => {
               isManualPrice: true
             }
           : item
-      )
-    );
+      );
+    });
   }, []);
 
   /**

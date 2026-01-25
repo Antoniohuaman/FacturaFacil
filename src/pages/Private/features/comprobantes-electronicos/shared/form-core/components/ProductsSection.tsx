@@ -7,6 +7,7 @@ import { RadioButton } from '@/contasis';
 import { usePriceBook } from '../hooks/usePriceBook';
 import type { PriceColumnOption } from '../hooks/usePriceBook';
 import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
+import { learnBasePriceIfMissing } from '../../../../lista-precios/utils/learnBasePrice';
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
 import type { Product } from '../../../../catalogo-articulos/models/types';
 import { useCurrency } from '../hooks/useCurrency';
@@ -669,6 +670,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
     const baseValue = stripGlobalRuleValue(normalizedBase);
 
+    const sku = resolveSku(item);
+    const unitCode = resolveUnitCode(item);
+    learnBasePriceIfMissing({
+      sku,
+      unitCode,
+      value: normalizedBase,
+      productName: item.name
+    });
+
     updateCartItem(item.id, {
       basePrice: baseValue,
       price: normalizedBase,
@@ -686,7 +696,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       }
       return next;
     });
-  }, [clearDraftForItem, convertBaseToDocument, convertDocumentToBase, formatBaseAsDocument, stripGlobalRuleValue, updateCartItem]);
+  }, [clearDraftForItem, convertBaseToDocument, convertDocumentToBase, formatBaseAsDocument, resolveSku, resolveUnitCode, stripGlobalRuleValue, updateCartItem]);
 
   const handleGlobalModeChange = useCallback((mode: GlobalPricingMode) => {
     setGlobalPricing(prev => ({ ...prev, mode }));
