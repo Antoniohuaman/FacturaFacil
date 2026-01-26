@@ -23,7 +23,7 @@
 - [ ] Razon social (solo lectura desde SUNAT)
 - [ ] Nombre comercial
 - [ ] Domicilio fiscal
-- [ ] Codigo ubigeo
+- [*] Codigo ubigeo
 - [ ] Moneda base (PEN / USD)
 - [ ] Ambiente SUNAT
   - [ ] Modo Prueba (TEST)
@@ -43,39 +43,39 @@
 ---
 
 ## Establecimientos
-- [ ] Listado de establecimientos
-- [ ] Busqueda por codigo / nombre / direccion
-- [ ] Filtro por estado (todos / activos / inactivos)
-- [ ] Crear nuevo establecimiento
-  - [ ] Codigo
-  - [ ] Nombre
-  - [ ] Direccion
-  - [ ] Departamento / Provincia / Distrito (ubigeo cascada)
-  - [ ] Codigo postal
-  - [ ] Telefono / correo
-- [ ] Editar establecimiento existente
-- [ ] Validaciones (codigos unicos, obligatorios, email valido)
-- [ ] Eliminar establecimiento (confirmacion)
-- [ ] Feedback con toasts (exito / error)
+- [*] Listado de establecimientos
+- [*] Busqueda por codigo / nombre / direccion
+- [*] Filtro por estado (todos / activos / inactivos)
+- [*] Crear nuevo establecimiento
+  - [*] Codigo
+  - [*] Nombre
+  - [*] Direccion
+  - [*] Departamento / Provincia / Distrito (ubigeo cascada)
+  - [*] Codigo postal
+  - [*] Telefono / correo
+- [*] Editar establecimiento existente
+- [*] Validaciones (codigos unicos, obligatorios, email valido)
+- [*] Eliminar establecimiento (confirmacion)
+- [*] Feedback con toasts (exito / error)
 
 ---
 
 ## Almacenes
-- [ ] Listado de almacenes por establecimiento
-- [ ] Filtro por establecimiento
-- [ ] Filtro por estado (activo / inactivo)
-- [ ] Busqueda por nombre / codigo / establecimiento
-- [ ] Estadisticas
-  - [ ] Total de almacenes
-  - [ ] Activos / inactivos
+- [*] Listado de almacenes por establecimiento
+- [*] Filtro por establecimiento
+- [*] Filtro por estado (activo / inactivo)
+- [*] Busqueda por nombre / codigo / establecimiento
+- [*] Estadisticas
+  - [*] Total de almacenes
+  - [*] Activos / inactivos
   - [ ] Con movimientos
-- [ ] Crear almacen
-  - [ ] Codigo y nombre
-  - [ ] Establecimiento asociado
-  - [ ] Descripcion y ubicacion
-  - [ ] Marcar como almacen principal
-- [ ] Editar almacen
-- [ ] Eliminar almacen (con control si tiene movimientos)
+- [*] Crear almacen
+  - [*] Codigo y nombre
+  - [*] Establecimiento asociado
+  - [*] Descripcion y ubicacion
+  - [*] Marcar como almacen principal
+- [*] Editar almacen
+- [*] Eliminar almacen (con control si tiene movimientos)
 
 ---
 

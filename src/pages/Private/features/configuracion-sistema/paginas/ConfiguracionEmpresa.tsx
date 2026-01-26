@@ -16,23 +16,17 @@ import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import { RucValidator } from '../components/empresa/ValidadorRuc';
-import { parseUbigeoCode } from '../datos/ubigeo';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
-import type { Almacen } from '../modelos/Almacen';
-import type { Series } from '../modelos/Series';
 import type { Currency } from '../modelos/Currency';
-import type { Tax } from '../modelos/Tax';
-import { PERU_TAX_TYPES } from '../modelos/Tax';
 import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
-import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { useEmpresas } from '../hooks/useEmpresas';
 import { clientesClient } from '../../gestion-clientes/api';
 import type { CreateClienteDTO } from '../../gestion-clientes/models';
@@ -280,6 +274,7 @@ export function CompanyConfiguration() {
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
   const [autoConfigProcessed, setAutoConfigProcessed] = useState(false);
   const autoConfigRef = useRef(false);
+  const operationalSetupRef = useRef(false);
 
   const setTenantWorkspaceContext = useCallback((empresa: Company, Establecimiento: Establecimiento) => {
     const empresaEntry = {
@@ -296,11 +291,11 @@ export function CompanyConfiguration() {
       establecimientos: [
         {
           id: Establecimiento.id,
-          codigo: Establecimiento.codigoEstablecimiento,
-          nombre: Establecimiento.nombreEstablecimiento,
-          direccion: Establecimiento.direccionEstablecimiento,
-          esPrincipal: Establecimiento.isMainEstablecimiento,
-          activo: Establecimiento.estaActivoEstablecimiento,
+          codigo: Establecimiento.codigo,
+          nombre: Establecimiento.nombre,
+          direccion: Establecimiento.direccion,
+          esPrincipal: Establecimiento.principal,
+          activo: Establecimiento.esActivo,
         },
       ],
       configuracion: {
@@ -524,16 +519,14 @@ export function CompanyConfiguration() {
     } else {
       console.log('[ConfiguracionEmpresa] ℹ️ No se cumplen condiciones para auto-config');
     }
-  }, [contextoActual, company, dispatch, autoConfigProcessed]);
+  }, [contextoActual, company, dispatch, autoConfigProcessed, isCreateWorkspaceMode]);
 
-  // Detect if form has changes compared to original data
   useEffect(() => {
     if (!originalData) {
-      setHasChanges(true); // New company, always has changes
+      setHasChanges(true);
       return;
     }
 
-    // Deep comparison of form data vs original data
     const hasFormChanges =
       datosFormulario.ruc !== originalData.ruc ||
       datosFormulario.razonSocial !== originalData.razonSocial ||
@@ -612,8 +605,7 @@ export function CompanyConfiguration() {
     setShowProductionModal(false);
   };
 
-  const manejarEnvio = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const syncEmpresaToBackend = useCallback(async (isAutomatic = false) => {
     setIsLoading(true);
 
     try {
@@ -658,8 +650,8 @@ export function CompanyConfiguration() {
       let updatedCompany: Company;
       
       if (operationType === 'UPDATE') {
-        console.log(`[ConfiguracionEmpresa] 📝 Actualizando empresa ${company.id}...`);
-        updatedCompany = await actualizarEmpresa(company.id, companyData);
+        console.log(`[ConfiguracionEmpresa] 📝 Actualizando empresa ${company!.id}...`);
+        updatedCompany = await actualizarEmpresa(company!.id, companyData);
         console.log('[ConfiguracionEmpresa] ✅ Empresa actualizada:', updatedCompany);
       } else {
         console.log('[ConfiguracionEmpresa] 🆕 Creando nueva empresa...');
@@ -722,19 +714,118 @@ export function CompanyConfiguration() {
       
       console.log(`[ConfiguracionEmpresa] ${mensajeExito}`);
 
-      // Navegar después de un breve delay para que el usuario vea el mensaje
-      setTimeout(() => {
-        navigate('/configuracion');
-      }, 1500);
+      if (!isAutomatic) {
+        setTimeout(() => {
+          navigate('/configuracion');
+        }, 1500);
+      }
 
+      return { success: true, empresa: updatedCompany };
     } catch (error) {
       console.error('[ConfiguracionEmpresa] ❌ Error al guardar empresa:', error);
       const mensajeError = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al guardar: ${mensajeError}`);
+      
+      if (!isAutomatic) {
+        alert(`Error al guardar: ${mensajeError}`);
+      }
+      
+      return { success: false, error: mensajeError, empresa: undefined };
     } finally {
       setIsLoading(false);
     }
+  }, [company, datosFormulario, workspaceIdForSubmit, actualizarEmpresa, crearEmpresa, createOrUpdateWorkspace, contextoActual, setTenantEmpresas, setTenantContextoActual, navigate]);
+
+  const manejarEnvio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await syncEmpresaToBackend(false);
   };
+
+  useEffect(() => {
+    const executeAutoSync = async () => {
+      if (!autoConfigProcessed || !company || operationalSetupRef.current) {
+        return;
+      }
+
+      const isRealCompany = company.id && !company.id.startsWith('company-') && !company.id.startsWith('est-');
+      if (!isRealCompany) {
+        console.log('[ConfiguracionEmpresa] ⏭️ Empresa temporal, saltando sync automático');
+        return;
+      }
+
+      console.log('[ConfiguracionEmpresa] 🚀 Ejecutando sincronización automática completa...');
+      operationalSetupRef.current = true;
+
+      try {
+        const result = await syncEmpresaToBackend(true);
+        
+        if (!result.success) {
+          console.error('[ConfiguracionEmpresa] ❌ Error en sync automático:', result.error);
+          return;
+        }
+
+        const establecimientoActual = contextoActual?.establecimiento;
+        
+        if (!establecimientoActual) {
+          console.warn('[ConfiguracionEmpresa] ⚠️ No hay establecimiento en contexto');
+          return;
+        }
+
+        const establecimientoMapped: Establecimiento = {
+          id: establecimientoActual.id,
+          codigo: establecimientoActual.codigo,
+          nombre: establecimientoActual.nombre,
+          direccion: establecimientoActual.direccion,
+          distrito: '',
+          provincia: '',
+          departamento: '',
+          codigoDistrito: '',
+          codigoProvincia: '',
+          codigoDepartamento: '',
+          principal: establecimientoActual.esPrincipal || false,
+          businessHours: {},
+          sunatConfiguration: {
+            isRegistered: false
+          },
+          inventoryConfiguration: {
+            managesInventory: true,
+            isalmacen: true,
+            allowNegativeStock: false,
+            autoTransferStock: false
+          },
+          financialConfiguration: {
+            handlesCash: true,
+            defaultCurrencyId: 'PEN',
+            acceptedCurrencies: ['PEN', 'USD'],
+            defaultTaxId: 'IGV',
+            bankAccounts: []
+          },
+          estado: 'ACTIVE',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          esActivo: establecimientoActual.activo
+        };
+
+        console.log('[ConfiguracionEmpresa] 📦 Creando Caja 1 por defecto...');
+        await ensureDefaultOperationalSetup({
+          company: result.empresa!,
+          Establecimiento: establecimientoMapped,
+          userId: session?.userId || null,
+          configState: state,
+          dispatch,
+        });
+
+        console.log('[ConfiguracionEmpresa] 👥 Creando cliente "Clientes Varios"...');
+        await ensureDefaultClienteClientesVarios();
+
+        console.log('[ConfiguracionEmpresa] ✅ Sincronización automática completada');
+      } catch (error) {
+        console.error('[ConfiguracionEmpresa] ❌ Error en sincronización automática:', error);
+      }
+    };
+
+    executeAutoSync();
+  }, [autoConfigProcessed, company, contextoActual, session, state, dispatch, syncEmpresaToBackend]);
+
 
   // Form validation logic
   // For new company: require RUC validation + has changes
