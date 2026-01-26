@@ -85,6 +85,13 @@ export const useInventarioDisponibilidad = () => {
     return almacenesActivos.filter(w => w.establecimientoId === currentEstablecimientoId);
   }, [almacenesActivos, currentEstablecimientoId]);
 
+  const defaultalmacenId = useMemo(() => {
+    if (almacenesDisponibles.length === 1) {
+      return almacenesDisponibles[0].id;
+    }
+    return '';
+  }, [almacenesDisponibles]);
+
   const almacenescope = useMemo(() => {
     if (!almacenesActivos.length) {
       return [] as string[];
@@ -109,31 +116,44 @@ export const useInventarioDisponibilidad = () => {
 
   useEffect(() => {
     setFiltros(prev => {
-      if (prev.establecimientoId === currentEstablecimientoId) {
-        const almacenSigueValido = !prev.almacenId
-          ? true
-          : almacenesActivos.some(
-              w => w.id === prev.almacenId && w.establecimientoId === currentEstablecimientoId
-            );
-        if (almacenSigueValido) {
+      const nextEstablecimientoId = currentEstablecimientoId;
+
+      if (!nextEstablecimientoId) {
+        if (!prev.establecimientoId && !prev.almacenId) {
           return prev;
         }
-        return { ...prev, almacenId: '' };
+        return {
+          ...prev,
+          establecimientoId: '',
+          almacenId: '',
+        };
       }
 
-      const almacenSigueValido = prev.almacenId
-        ? almacenesActivos.some(
-            w => w.id === prev.almacenId && w.establecimientoId === currentEstablecimientoId
-          )
-        : true;
+      const isSameEstablecimiento = prev.establecimientoId === nextEstablecimientoId;
+
+      const almacenSigueValido = !prev.almacenId
+        ? true
+        : almacenesActivos.some(w => w.id === prev.almacenId && w.establecimientoId === nextEstablecimientoId);
+
+      const preferredAlmacenId = almacenSigueValido ? prev.almacenId : '';
+      const nextAlmacenId = preferredAlmacenId || defaultalmacenId;
+
+      if (
+        isSameEstablecimiento &&
+        prev.establecimientoId === nextEstablecimientoId &&
+        prev.almacenId === nextAlmacenId
+      ) {
+        return prev;
+      }
+
       return {
         ...prev,
-        establecimientoId: currentEstablecimientoId,
-        almacenId: almacenSigueValido ? prev.almacenId : '',
+        establecimientoId: nextEstablecimientoId,
+        almacenId: nextAlmacenId,
       };
     });
     setPaginaActual(1);
-  }, [currentEstablecimientoId, almacenesActivos]);
+  }, [currentEstablecimientoId, almacenesActivos, defaultalmacenId]);
 
   /**
    * Calcular situación del stock
