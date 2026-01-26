@@ -8,6 +8,9 @@ export interface Company {
   provincia: string;
   departamento: string;
   codigoPostal?: string;
+  codigoDepartamento?: string;
+  codigoProvincia?: string;
+  codigoDistrito?: string;
 
   // Contacto - múltiples teléfonos y correos
   telefonos: string[];
@@ -53,6 +56,9 @@ export interface CreateCompanyRequest {
   provincia: string;
   departamento: string;
   codigoPostal?: string;
+  codigoDepartamento?: string;
+  codigoProvincia?: string;
+  codigoDistrito?: string;
   telefonos: string[];
   correosElectronicos: string[];
   sitioWeb?: string;

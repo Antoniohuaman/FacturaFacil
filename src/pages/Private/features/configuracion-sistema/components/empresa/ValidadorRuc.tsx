@@ -1,18 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 // src/features/configuration/components/empresa/RucValidator.tsx
 import { useState } from 'react';
 import { CheckCircle2, AlertTriangle, Search, Building2 } from 'lucide-react';
 import { Button } from '@/contasis';
+import { sunatService } from '@/services/api';
+import type { RucValidationResult } from '@/services/api';
 
 interface RucValidatorProps {
   value: string;
   onChange: (value: string) => void;
   onValidation: (result: { isValid: boolean; message: string; data?: any }) => void;
   disabled?: boolean;
+  onToast?: (type: 'success' | 'error' | 'warning', message: string) => void;
+  error?: string;
 }
 
-export function RucValidator({ value, onChange, onValidation, disabled = false }: RucValidatorProps) {
+export function RucValidator({ value, onChange, onValidation, disabled = false, onToast, error }: RucValidatorProps) {
   const [isValidating, setIsValidating] = useState(false);
   const [validation, setValidation] = useState<{
     isValid: boolean;
@@ -22,75 +25,21 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
 
   const [lastValidatedRuc, setLastValidatedRuc] = useState('');
 
-  // Mock SUNAT validation
-  const validateRuc = async (ruc: string): Promise<{ isValid: boolean; message: string; data?: any }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Basic RUC validation
-    if (ruc.length !== 11) {
-      return { isValid: false, message: 'El RUC debe tener 11 dígitos' };
-    }
-    
-    if (!/^\d+$/.test(ruc)) {
-      return { isValid: false, message: 'El RUC solo debe contener números' };
-    }
-
-    // Mock different scenarios based on RUC
-    const lastDigit = parseInt(ruc.slice(-1));
-    
-    if (lastDigit === 0) {
-      return { 
-        isValid: false, 
-        message: 'RUC no encontrado en SUNAT. Verifica que esté correctamente escrito.' 
-      };
-    }
-    
-    if (lastDigit === 1) {
-      return { 
-        isValid: false, 
-        message: 'Error de conexión con SUNAT. Intenta nuevamente en unos momentos.' 
-      };
-    }
-
-    // Successful validation with mock data
-    const mockCompanies = {
-      '20123456789': {
-        razonSocial: 'EMPRESA EJEMPLO S.A.C.',
-        direccionFiscal: 'JR. LOS EJEMPLOS 123, LIMA, LIMA, LIMA',
-        ubigeo: '150101'
-      },
-      '20111111112': {
-        razonSocial: 'COMERCIAL DEMO EIRL',
-        direccionFiscal: 'AV. DEMO 456, SAN ISIDRO, LIMA, LIMA',
-        ubigeo: '150127'
-      }
-    };
-
-    const mockData = mockCompanies[ruc as keyof typeof mockCompanies] || {
-      razonSocial: 'EMPRESA VALIDADA S.A.C.',
-      direccionFiscal: 'AV. PRINCIPAL 789, MIRAFLORES, LIMA, LIMA',
-      ubigeo: '150122'
-    };
-
-    return {
-      isValid: true,
-      message: 'RUC válido. Datos completados automáticamente desde SUNAT.',
-      data: mockData
-    };
-  };
-
-  // Handle RUC input change
   const handleRucChange = (inputValue: string) => {
     const numericValue = inputValue.replace(/\D/g, '').slice(0, 11);
     onChange(numericValue);
 
-    // Reset validation if RUC changed
+    if (numericValue === '') {
+      setValidation(null);
+      setLastValidatedRuc('');
+      onValidation({ isValid: false, message: 'El RUC es obligatorio' });
+      return;
+    }
+
     if (validation && numericValue !== lastValidatedRuc) {
       setValidation(null);
       onValidation({ isValid: false, message: 'RUC modificado, necesita validación' });
     }
-
   };
 
   const handleValidate = async () => {
@@ -98,18 +47,29 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
 
     setIsValidating(true);
     setValidation(null);
+
     try {
-      const result = await validateRuc(value);
+      onToast?.('warning', 'Consultando RUC en SUNAT...');
+      
+      const result = await sunatService.validateRuc(value);
+
+      if (result.isValid) {
+        onToast?.('success', '✓ RUC validado correctamente');
+      } else {
+        onToast?.('error', result.message);
+      }
+
       setValidation(result);
       setLastValidatedRuc(value);
       onValidation(result);
-    } catch (error) {
-      const errorResult = {
+    } catch {
+      const errorResult: RucValidationResult = {
         isValid: false,
-        message: 'Error al conectar con SUNAT. Intenta nuevamente.'
+        message: 'Error al conectar con SUNAT. Intenta nuevamente.',
       };
       setValidation(errorResult);
       onValidation(errorResult);
+      onToast?.('error', 'Error de conexión con SUNAT');
     } finally {
       setIsValidating(false);
     }
@@ -148,7 +108,7 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
               }
               ${validation?.isValid
                 ? 'border-green-400 bg-green-50 ring-2 ring-green-200'
-                : validation?.isValid === false
+                : validation?.isValid === false || error
                   ? 'border-red-400 bg-red-50 ring-2 ring-red-200'
                   : ''
               }
@@ -227,6 +187,14 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
             </div>
           </div>
         </div>
+      )}
+
+      {/* Empty RUC Warning */}
+      {value === '' && !validation && (
+        <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 mt-1">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          El RUC es obligatorio. Ingresa 11 dígitos para continuar
+        </p>
       )}
     </div>
   );

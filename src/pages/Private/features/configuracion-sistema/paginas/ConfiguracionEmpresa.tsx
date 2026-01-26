@@ -11,6 +11,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { Button, Select, Input, RadioButton, PageHeader, Textarea } from '@/contasis';
+import { ToastNotifications, type Toast } from '@/components/Toast';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
@@ -26,7 +27,7 @@ import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
-import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
+import { EmpresaStatus, RegimenTributario } from '../../autenticacion/types/auth.types';
 import { useEmpresas } from '../hooks/useEmpresas';
 import { clientesClient } from '../../gestion-clientes/api';
 import type { CreateClienteDTO } from '../../gestion-clientes/models';
@@ -42,6 +43,9 @@ interface CompanyFormData {
   telefonos: string[];
   correosElectronicos: string[];
   actividadEconomica: string;
+  codigoDepartamento?: string;
+  codigoProvincia?: string;
+  codigoDistrito?: string;
 }
 
 type WorkspaceNavigationState = {
@@ -273,50 +277,59 @@ export function CompanyConfiguration() {
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
   const [autoConfigProcessed, setAutoConfigProcessed] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const autoConfigRef = useRef(false);
   const operationalSetupRef = useRef(false);
 
-  const setTenantWorkspaceContext = useCallback((empresa: Company, Establecimiento: Establecimiento) => {
-    const empresaEntry = {
-      id: empresa.id,
-      ruc: empresa.ruc,
-      razonSocial: empresa.razonSocial,
-      nombreComercial: empresa.nombreComercial,
-      direccion: empresa.direccionFiscal,
-      telefono: empresa.telefonos?.[0],
-      email: empresa.correosElectronicos?.[0],
-      actividadEconomica: empresa.actividadEconomica,
-      regimen: (empresa.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
-      estado: EmpresaStatus.ACTIVA,
-      establecimientos: [
-        {
-          id: Establecimiento.id,
-          codigo: Establecimiento.codigo,
-          nombre: Establecimiento.nombre,
-          direccion: Establecimiento.direccion,
-          esPrincipal: Establecimiento.principal,
-          activo: Establecimiento.esActivo,
-        },
-      ],
-      configuracion: {
-        emisionElectronica: true,
-      },
-    };
+  const showToast = (type: Toast['type'], message: string) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  };
 
-    const contexto: WorkspaceContext = {
-      empresaId: empresa.id,
-      establecimientoId: Establecimiento.id,
-      empresa: empresaEntry,
-      establecimiento: empresaEntry.establecimientos[0],
-      permisos: ['*'],
-      configuracion: {},
-    };
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
 
-    const { empresas } = useTenantStore.getState();
-    const withoutEmpresa = empresas.filter((item) => item.id !== empresaEntry.id);
-    setTenantEmpresas([...withoutEmpresa, empresaEntry]);
-    setTenantContextoActual(contexto);
-  }, [setTenantContextoActual, setTenantEmpresas]);
+    if (!datosFormulario.ruc.trim()) {
+      errors.ruc = 'El RUC es obligatorio';
+    } else if (datosFormulario.ruc.length !== 11) {
+      errors.ruc = 'El RUC debe tener 11 dígitos';
+    } else if (!rucValidation?.isValid && operationType === 'CREATE') {
+      errors.ruc = 'Debes validar el RUC con SUNAT';
+    }
+
+    if (!datosFormulario.razonSocial.trim()) {
+      errors.razonSocial = 'La razón social es obligatoria';
+    }
+
+    if (!datosFormulario.direccionFiscal.trim()) {
+      errors.direccionFiscal = 'El domicilio fiscal es obligatorio';
+    }
+
+    datosFormulario.correosElectronicos.forEach((email, index) => {
+      if (email.trim()) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          errors[`email_${index}`] = 'Formato de correo inválido';
+        }
+      }
+    });
+
+    datosFormulario.telefonos.forEach((phone, index) => {
+      if (phone.trim()) {
+        const phoneRegex = /^[+]?[0-9\s()-]{7,}$/;
+        if (!phoneRegex.test(phone)) {
+          errors[`phone_${index}`] = 'Formato de teléfono inválido';
+        }
+      }
+    });
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   // Sincronizar con el contexto global de empresa
   const empresaIdGlobal = useTenantStore((s) => s.contextoActual?.empresaId);
@@ -351,92 +364,18 @@ export function CompanyConfiguration() {
       setFormData(loadedData);
       setOriginalData(loadedData);
       setHasChanges(false);
-    } else {
-      // No hay empresa en el contexto, intentar cargar desde pending_company_data
-      const pendingData = localStorage.getItem('pending_company_data');
-      if (pendingData) {
-        try {
-          const parsedData = JSON.parse(pendingData);
-
-          // Crear objeto Company completo para el contexto
-          const newCompany: Company = {
-            id: 'company-1',
-            ruc: parsedData.ruc || '',
-            razonSocial: parsedData.razonSocial || '',
-            nombreComercial: parsedData.nombreComercial || parsedData.razonSocial || '',
-            direccionFiscal: parsedData.direccion || '',
-            distrito: '',
-            provincia: '',
-            departamento: '',
-            codigoPostal: '',
-            telefonos: parsedData.telefono ? [parsedData.telefono] : [],
-            correosElectronicos: [],
-            sitioWeb: undefined,
-            logoEmpresa: undefined,
-            textoPiePagina: undefined,
-            actividadEconomica: parsedData.actividadEconomica || '',
-            regimenTributario: 'GENERAL',
-            monedaBase: 'PEN',
-            representanteLegal: {
-              nombreRepresentanteLegal: '',
-              tipoDocumentoRepresentante: 'DNI',
-              numeroDocumentoRepresentante: ''
-            },
-            certificadoDigital: undefined,
-            configuracionSunatEmpresa: {
-              estaConfiguradoEnSunat: false,
-              usuarioSunat: undefined,
-              entornoSunat: 'TESTING',
-              fechaUltimaSincronizacionSunat: undefined
-            },
-            creadoEl: new Date(),
-            actualizadoEl: new Date(),
-            estaActiva: true
-          };
-
-          // Guardar la empresa en el contexto
-          dispatch({ type: 'SET_COMPANY', payload: newCompany });
-
-          // Cargar los datos en el formulario
-          setFormData(prev => ({
-            ...prev,
-            ruc: parsedData.ruc || '',
-            razonSocial: parsedData.razonSocial || '',
-            nombreComercial: parsedData.nombreComercial || '',
-            direccionFiscal: parsedData.direccion || '',
-            telefonos: parsedData.telefono ? [parsedData.telefono] : [''],
-          }));
-
-          // Limpiar los datos pendientes después de procesarlos
-          localStorage.removeItem('pending_company_data');
-        } catch (error) {
-          console.error('Error al cargar datos pendientes de empresa:', error);
-        }
-      }
     }
   }, [company, dispatch, isCreateWorkspaceMode]);
 
   // AUTO-CONFIGURACIÓN: Detectar y cargar empresa desde login automáticamente
   useEffect(() => {
-    console.log('[ConfiguracionEmpresa] useEffect auto-config triggered', {
-      autoConfigRefCurrent: autoConfigRef.current,
-      autoConfigProcessed,
-      isCreateWorkspaceMode,
-      hasContexto: !!contextoActual,
-      hasEmpresa: !!contextoActual?.empresa,
-      hasCompany: !!company
-    });
-
     // Prevenir ejecuciones múltiples
     if (autoConfigRef.current || autoConfigProcessed) {
-      console.log('[ConfiguracionEmpresa] ⏭️ Saltando auto-config (ya procesado)');
       return;
     }
 
     // Verificar que hay contexto sugerido del login y NO hay company ya cargada
-    // IMPORTANTE: Permitir auto-config incluso en modo create_workspace si viene del login
     if (contextoActual && contextoActual.empresa && !company) {
-      console.log('[ConfiguracionEmpresa] 🔄 Detectada auto-configuración desde login', contextoActual);
       autoConfigRef.current = true;
       
       const empresaDelLogin = contextoActual.empresa;
@@ -479,8 +418,6 @@ export function CompanyConfiguration() {
         estaActiva: empresaDelLogin.estado === 'activa'
       };
 
-      console.log('[ConfiguracionEmpresa] 📝 Empresa mapeada:', companyFromLogin);
-
       // Guardar empresa en el contexto de configuración
       dispatch({ type: 'SET_COMPANY', payload: companyFromLogin });
 
@@ -498,8 +435,6 @@ export function CompanyConfiguration() {
         actividadEconomica: companyFromLogin.actividadEconomica
       };
 
-      console.log('[ConfiguracionEmpresa] 📋 Datos del formulario:', formDataFromLogin);
-
       setFormData(formDataFromLogin);
       setOriginalData(formDataFromLogin);
       
@@ -515,9 +450,6 @@ export function CompanyConfiguration() {
       });
 
       setAutoConfigProcessed(true);
-      console.log('[ConfiguracionEmpresa] ✅ Empresa cargada desde auto-configuración');
-    } else {
-      console.log('[ConfiguracionEmpresa] ℹ️ No se cumplen condiciones para auto-config');
     }
   }, [contextoActual, company, dispatch, autoConfigProcessed, isCreateWorkspaceMode]);
 
@@ -546,7 +478,16 @@ export function CompanyConfiguration() {
   const handleRucValidation = (result: { 
     isValid: boolean; 
     message: string; 
-    data?: { razonSocial: string; direccionFiscal: string; ubigeo: string } 
+    data?: {
+      razonSocial: string;
+      nombreComercial: string;
+      direccionFiscal: string;
+      ubigeo: string;
+      actividadEconomica: string;
+      codigoDepartamento: string;
+      codigoProvincia: string;
+      codigoDistrito: string;
+    }
   }) => {
     setRucValidation(result);
 
@@ -555,8 +496,13 @@ export function CompanyConfiguration() {
       setFormData(prev => ({
         ...prev,
         razonSocial: data.razonSocial,
+        nombreComercial: data.nombreComercial || prev.nombreComercial,
         direccionFiscal: data.direccionFiscal,
-        ubigeo: data.ubigeo
+        ubigeo: data.ubigeo,
+        actividadEconomica: data.actividadEconomica || prev.actividadEconomica,
+        codigoDepartamento: data.codigoDepartamento,
+        codigoProvincia: data.codigoProvincia,
+        codigoDistrito: data.codigoDistrito,
       }));
     }
   };
@@ -614,11 +560,6 @@ export function CompanyConfiguration() {
       // ==========================================
       const isRealExistingCompany = company?.id && !company.id.startsWith('company-') && !company.id.startsWith('est-');
       const operationType = isRealExistingCompany ? 'UPDATE' : 'CREATE';
-      
-      console.log(`[ConfiguracionEmpresa] 🔄 Operación: ${operationType}`, { 
-        companyId: company?.id, 
-        isReal: isRealExistingCompany 
-      });
 
       const targetWorkspaceId = workspaceIdForSubmit ?? generateWorkspaceId();
       ensuredWorkspaceIdRef.current = targetWorkspaceId;
@@ -637,6 +578,9 @@ export function CompanyConfiguration() {
         correosElectronicos: cleanEmails,
         actividadEconomica: datosFormulario.actividadEconomica,
         monedaBase: datosFormulario.monedaBase,
+        codigoDepartamento: datosFormulario.codigoDepartamento,
+        codigoProvincia: datosFormulario.codigoProvincia,
+        codigoDistrito: datosFormulario.codigoDistrito,
         configuracionSunatEmpresa: {
           estaConfiguradoEnSunat: company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
           entornoSunat: datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
@@ -650,13 +594,9 @@ export function CompanyConfiguration() {
       let updatedCompany: Company;
       
       if (operationType === 'UPDATE') {
-        console.log(`[ConfiguracionEmpresa] 📝 Actualizando empresa ${company!.id}...`);
         updatedCompany = await actualizarEmpresa(company!.id, companyData);
-        console.log('[ConfiguracionEmpresa] ✅ Empresa actualizada:', updatedCompany);
       } else {
-        console.log('[ConfiguracionEmpresa] 🆕 Creando nueva empresa...');
         updatedCompany = await crearEmpresa(companyData);
-        console.log('[ConfiguracionEmpresa] ✅ Empresa creada con infraestructura base:', updatedCompany);
       }
 
       const workspace = createOrUpdateWorkspace({
@@ -703,17 +643,9 @@ export function CompanyConfiguration() {
         setTenantContextoActual(updatedContexto);
       }
 
-      console.log('[ConfiguracionEmpresa] 🔄 TenantStore sincronizado');
-
       // ==========================================
       // FASE 3: Feedback y navegación
       // ==========================================
-      const mensajeExito = operationType === 'UPDATE'
-        ? '✅ Empresa actualizada correctamente'
-        : '✅ Empresa creada con Sede 0001 y Almacén 0001';
-      
-      console.log(`[ConfiguracionEmpresa] ${mensajeExito}`);
-
       if (!isAutomatic) {
         setTimeout(() => {
           navigate('/configuracion');
@@ -737,7 +669,19 @@ export function CompanyConfiguration() {
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
-    await syncEmpresaToBackend(false);
+
+    if (!validateForm()) {
+      showToast('error', 'Por favor, corrige los errores en el formulario');
+      return;
+    }
+
+    const result = await syncEmpresaToBackend(false);
+    
+    if (result.success) {
+      showToast('success', operationType === 'UPDATE' ? 'Empresa actualizada correctamente' : 'Empresa creada correctamente');
+    } else {
+      showToast('error', result.error || 'Error al guardar la empresa');
+    }
   };
 
   useEffect(() => {
@@ -748,25 +692,23 @@ export function CompanyConfiguration() {
 
       const isRealCompany = company.id && !company.id.startsWith('company-') && !company.id.startsWith('est-');
       if (!isRealCompany) {
-        console.log('[ConfiguracionEmpresa] ⏭️ Empresa temporal, saltando sync automático');
         return;
       }
 
-      console.log('[ConfiguracionEmpresa] 🚀 Ejecutando sincronización automática completa...');
       operationalSetupRef.current = true;
 
       try {
         const result = await syncEmpresaToBackend(true);
         
         if (!result.success) {
-          console.error('[ConfiguracionEmpresa] ❌ Error en sync automático:', result.error);
+          console.error('[ConfiguracionEmpresa] Error en sincronización automática:', result.error);
           return;
         }
 
         const establecimientoActual = contextoActual?.establecimiento;
         
         if (!establecimientoActual) {
-          console.warn('[ConfiguracionEmpresa] ⚠️ No hay establecimiento en contexto');
+          console.warn('[ConfiguracionEmpresa] No hay establecimiento en contexto');
           return;
         }
 
@@ -805,7 +747,6 @@ export function CompanyConfiguration() {
           esActivo: establecimientoActual.activo
         };
 
-        console.log('[ConfiguracionEmpresa] 📦 Creando Caja 1 por defecto...');
         await ensureDefaultOperationalSetup({
           company: result.empresa!,
           Establecimiento: establecimientoMapped,
@@ -814,12 +755,9 @@ export function CompanyConfiguration() {
           dispatch,
         });
 
-        console.log('[ConfiguracionEmpresa] 👥 Creando cliente "Clientes Varios"...');
         await ensureDefaultClienteClientesVarios();
-
-        console.log('[ConfiguracionEmpresa] ✅ Sincronización automática completada');
       } catch (error) {
-        console.error('[ConfiguracionEmpresa] ❌ Error en sincronización automática:', error);
+        console.error('[ConfiguracionEmpresa] Error en sincronización automática:', error);
       }
     };
 
@@ -855,10 +793,11 @@ export function CompanyConfiguration() {
         }
       />
 
+      <ToastNotifications toasts={toasts} />
+
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto p-6 space-y-8">
-          <form onSubmit={manejarEnvio} className="space-y-8">
-            {/* Company Legal Data */}
+          <form onSubmit={manejarEnvio} className="space-y-8">{/* Company Legal Data */}
             <TarjetaConfiguracion
               title="Datos Legales y Tributarios"
               density="compact"
@@ -867,9 +806,25 @@ export function CompanyConfiguration() {
                 {/* RUC Validator Component */}
                 <RucValidator
                   value={datosFormulario.ruc}
-                  onChange={(ruc) => setFormData(prev => ({ ...prev, ruc }))}
+                  onChange={(ruc) => {
+                    setFormData(prev => ({ ...prev, ruc }));
+                    if (formErrors.ruc) {
+                      setFormErrors(prev => ({ ...prev, ruc: '' }));
+                    }
+                  }}
                   onValidation={handleRucValidation}
+                  onToast={showToast}
+                  error={formErrors.ruc}
                 />
+                
+                {formErrors.ruc && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2.5 mt-1.5">
+                    <p className="text-sm text-red-700 dark:text-red-300 flex items-center gap-1.5 font-medium">
+                      <X className="w-4 h-4" />
+                      {formErrors.ruc}
+                    </p>
+                  </div>
+                )}
 
                 {/* Business Name */}
                 <div>
@@ -877,12 +832,18 @@ export function CompanyConfiguration() {
                     label="Razón Social"
                     type="text"
                     value={datosFormulario.razonSocial}
-                    onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, razonSocial: e.target.value }));
+                      if (formErrors.razonSocial) {
+                        setFormErrors(prev => ({ ...prev, razonSocial: '' }));
+                      }
+                    }}
                     placeholder="Se completará automáticamente al validar el RUC"
                     readOnly
                     disabled
                     rightIcon={datosFormulario.razonSocial ? <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" /> : undefined}
                     required
+                    error={formErrors.razonSocial}
                   />
                 </div>
 
@@ -892,8 +853,14 @@ export function CompanyConfiguration() {
                     label="Nombre Comercial"
                     type="text"
                     value={datosFormulario.nombreComercial}
-                    onChange={(e) => setFormData(prev => ({ ...prev, nombreComercial: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, nombreComercial: e.target.value }));
+                      if (formErrors.nombreComercial) {
+                        setFormErrors(prev => ({ ...prev, nombreComercial: '' }));
+                      }
+                    }}
                     placeholder="Nombre con el que se conoce tu empresa"
+                    error={formErrors.nombreComercial}
                   />
                 </div>
 
@@ -902,11 +869,17 @@ export function CompanyConfiguration() {
                   <Textarea
                     label="Domicilio Fiscal"
                     value={datosFormulario.direccionFiscal}
-                    onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }));
+                      if (formErrors.direccionFiscal) {
+                        setFormErrors(prev => ({ ...prev, direccionFiscal: '' }));
+                      }
+                    }}
                     placeholder="Se completará automáticamente al validar el RUC"
                     rows={2}
                     disabled
                     required
+                    error={formErrors.direccionFiscal}
                   />
                 </div>
 
@@ -1016,9 +989,15 @@ export function CompanyConfiguration() {
                           <Input
                             type="tel"
                             value={phone}
-                            onChange={(e) => handleArrayFieldChange('telefonos', index, e.target.value)}
+                            onChange={(e) => {
+                              handleArrayFieldChange('telefonos', index, e.target.value);
+                              if (formErrors[`phone_${index}`]) {
+                                setFormErrors(prev => ({ ...prev, [`phone_${index}`]: '' }));
+                              }
+                            }}
                             placeholder="+51 987 654 321"
                             leftIcon={<Phone size={18} />}
+                            error={formErrors[`phone_${index}`]}
                           />
                         </div>
                         {datosFormulario.telefonos.length > 1 && (
@@ -1055,9 +1034,15 @@ export function CompanyConfiguration() {
                           <Input
                             type="email"
                             value={email}
-                            onChange={(e) => handleArrayFieldChange('correosElectronicos', index, e.target.value)}
+                            onChange={(e) => {
+                              handleArrayFieldChange('correosElectronicos', index, e.target.value);
+                              if (formErrors[`email_${index}`]) {
+                                setFormErrors(prev => ({ ...prev, [`email_${index}`]: '' }));
+                              }
+                            }}
                             placeholder="contacto@miempresa.com"
                             leftIcon={<Mail size={18} />}
+                            error={formErrors[`email_${index}`]}
                           />
                         </div>
                         {datosFormulario.correosElectronicos.length > 1 && (
