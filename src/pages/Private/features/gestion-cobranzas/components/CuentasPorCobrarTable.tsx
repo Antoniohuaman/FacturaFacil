@@ -1,5 +1,6 @@
 import { AlertTriangle, Clock, FileText, Wallet } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Button } from '@/contasis';
 import type { TableColumnState } from '../columns/types';
 import type { CuentasPorCobrarColumnKey } from '../columns/columnConfig';
 import type { CuentaPorCobrarSummary } from '../models/cobranzas.types';
@@ -113,15 +114,15 @@ const cuentasColumnRenderers: Record<CuentasPorCobrarColumnKey, CuentaCellRender
   ),
   acciones: (cuenta, { onRegistrarCobranza, onVerComprobante, onVerHistorial }) => (
     <div className="flex items-center justify-center gap-1">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => onRegistrarCobranza(cuenta)}
-        className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-md border border-blue-200 px-3 text-[11px] font-semibold text-blue-700 hover:bg-blue-50"
-        title="Registrar Cobranza"
+        icon={<Wallet className="w-3.5 h-3.5" />}
+        className="text-[11px] whitespace-nowrap"
       >
-        <Wallet className="w-3.5 h-3.5" />
         Registrar Cobranza
-      </button>
+      </Button>
       <button
         type="button"
         onClick={() => onVerComprobante(cuenta)}

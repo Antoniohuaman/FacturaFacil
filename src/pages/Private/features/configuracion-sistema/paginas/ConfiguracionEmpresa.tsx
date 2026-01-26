@@ -839,9 +839,9 @@ export function CompanyConfiguration() {
                       }
                     }}
                     placeholder="Se completará automáticamente al validar el RUC"
-                    readOnly
-                    disabled
-                    rightIcon={datosFormulario.razonSocial ? <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" /> : undefined}
+                    variant={rucValidation?.isValid ? "validated-readonly" : "default"}
+                    helperText={rucValidation?.isValid ? "Auto-completado desde SUNAT" : undefined}
+                    readOnly={rucValidation?.isValid}
                     required
                     error={formErrors.razonSocial}
                   />
@@ -859,7 +859,10 @@ export function CompanyConfiguration() {
                         setFormErrors(prev => ({ ...prev, nombreComercial: '' }));
                       }
                     }}
-                    placeholder="Nombre con el que se conoce tu empresa"
+                    placeholder={rucValidation?.isValid ? "Auto-completado desde SUNAT" : "Nombre con el que se conoce tu empresa"}
+                    variant={rucValidation?.isValid && datosFormulario.nombreComercial ? "validated-readonly" : "default"}
+                    helperText={rucValidation?.isValid && datosFormulario.nombreComercial ? "Auto-completado desde SUNAT" : undefined}
+                    readOnly={rucValidation?.isValid && !!datosFormulario.nombreComercial}
                     error={formErrors.nombreComercial}
                   />
                 </div>
@@ -888,6 +891,9 @@ export function CompanyConfiguration() {
                   type="text"
                   value={datosFormulario.actividadEconomica}
                   onChange={(e) => setFormData(prev => ({ ...prev, actividadEconomica: e.target.value }))}
+                  variant={rucValidation?.isValid && datosFormulario.actividadEconomica ? "validated-readonly" : "default"}
+                  helperText={rucValidation?.isValid && datosFormulario.actividadEconomica ? "Auto-completado desde SUNAT" : undefined}
+                  readOnly={rucValidation?.isValid && !!datosFormulario.actividadEconomica}
                 />
               </div>
             </TarjetaConfiguracion>

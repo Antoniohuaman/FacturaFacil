@@ -1,6 +1,6 @@
 import { forwardRef, useState } from 'react';
 import type { InputHTMLAttributes, ReactNode } from 'react';
-import { AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   /**
@@ -39,6 +39,25 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
    * ID único para accesibilidad
    */
   id?: string;
+  /**
+   * Variante de input validado
+   */
+  variant?: 'default' | 'validated-editable' | 'validated-readonly';
+  /**
+   * Mensaje de confirmación para variante validada
+   */
+  validationMessage?: {
+    title: string;
+    description?: string;
+  };
+  /**
+   * Si se debe mostrar el mensaje de validación expandido
+   */
+  showValidationMessage?: boolean;
+  /**
+   * Callback cuando el usuario modifica el valor (para resetear validación)
+   */
+  onValueChange?: (value: string) => void;
 }
 
 /**
@@ -49,11 +68,34 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
  * 
  * @example
  * ```tsx
+ * // Input básico
  * <Input
  *   label="Nombre"
  *   placeholder="Ingrese su nombre"
  *   required
  *   error="Este campo es requerido"
+ * />
+ * 
+ * // Input validado editable (RUC)
+ * <Input
+ *   label="RUC"
+ *   value="20508997567"
+ *   variant="validated-editable"
+ *   validationMessage={{
+ *     title: "RUC Validado Correctamente",
+ *     description: "Datos completados desde SUNAT"
+ *   }}
+ *   showValidationMessage
+ *   onValueChange={(value) => resetValidation()}
+ * />
+ * 
+ * // Input validado readonly (Razón Social)
+ * <Input
+ *   label="Razón Social"
+ *   value="CONTASIS S.A.C."
+ *   variant="validated-readonly"
+ *   helperText="Auto-completado desde SUNAT"
+ *   readOnly
  * />
  * ```
  */
@@ -70,6 +112,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   type = 'text',
   id,
   disabled,
+  variant = 'default',
+  validationMessage,
+  showValidationMessage = false,
+  onValueChange,
+  onChange,
   ...props
 }, ref) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -79,6 +126,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   const isPassword = type === 'password';
   const inputType = isPassword && showPassword ? 'text' : type;
   
+  // Verificar si es variante validada
+  const isValidated = variant === 'validated-editable' || variant === 'validated-readonly';
+  
   // Clases para el tamaño
   const sizeClasses = {
     small: 'h-8 text-ui-sm leading-8',
@@ -86,9 +136,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     large: 'h-12 text-body leading-[3rem]'
   };
   
-  // Clases de padding según iconos
+  // Clases de padding según iconos y variante
   const paddingLeft = leftIcon ? 'pl-11' : 'px-4';
-  const paddingRight = rightIcon || isPassword ? 'pr-11' : 'px-4';
+  const paddingRight = isValidated ? 'pr-11' : (rightIcon || isPassword ? 'pr-11' : 'px-4');
+  
+  // Manejar cambios en el input
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (onChange) onChange(e);
+    if (onValueChange) onValueChange(e.target.value);
+  };
   
   return (
     <div className={containerClassName}>
@@ -106,7 +162,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       <div className="relative">
         {/* Left Icon */}
         {leftIcon && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary">
+          <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${
+            isValidated ? 'text-success' : 'text-tertiary'
+          }`}>
             {leftIcon}
           </span>
         )}
@@ -117,17 +175,32 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           id={inputId}
           type={inputType}
           disabled={disabled}
-          className={`w-full ${sizeClasses[size]} ${paddingLeft} ${paddingRight} font-sans border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary hover:border-strong disabled:opacity-50 disabled:cursor-not-allowed bg-surface-1 text-primary ${
-            error ? 'border-error' : 'border-strong'
+          onChange={handleChange}
+          className={`w-full ${sizeClasses[size]} ${paddingLeft} ${paddingRight} font-sans rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed text-primary ${
+            isValidated ? 
+              variant === 'validated-editable' ?
+                'border-2 border-success bg-surface-1 cursor-text hover:border-success/80' :
+                'border-2 border-success/40 bg-surface-2 cursor-default select-all text-secondary' :
+            error ? 'border border-error bg-surface-1 hover:border-strong' : 
+            'border border-strong bg-surface-1 hover:border-strong'
           } ${className}`}
           aria-label={label || props['aria-label']}
           aria-invalid={!!error}
-          aria-describedby={error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
+          aria-describedby={
+            error ? `${inputId}-error` : 
+            (showValidationMessage && validationMessage) ? `${inputId}-validation` :
+            helperText ? `${inputId}-helper` : undefined
+          }
           {...props}
         />
         
-        {/* Right Icon or Password Toggle */}
-        {isPassword ? (
+        {/* Right: Validated Check or Icons */}
+        {isValidated ? (
+          <CheckCircle 
+            size={variant === 'validated-readonly' ? 18 : 20} 
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-success pointer-events-none" 
+          />
+        ) : isPassword ? (
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
@@ -162,6 +235,28 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           id={`${inputId}-helper`}
         >
           {helperText}
+        </div>
+      )}
+      
+      {/* Mensaje de Validación Completo (Solo para validated-editable) */}
+      {!error && variant === 'validated-editable' && showValidationMessage && validationMessage && (
+        <div 
+          className="mt-3 p-3 bg-success/10 border-l-4 border-success rounded" 
+          id={`${inputId}-validation`}
+        >
+          <div className="flex items-start gap-2">
+            <CheckCircle size={16} className="text-success flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-ui-sm font-semibold text-success mb-0.5">
+                {validationMessage.title}
+              </p>
+              {validationMessage.description && (
+                <p className="text-caption text-success/80">
+                  {validationMessage.description}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

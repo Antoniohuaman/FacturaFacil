@@ -14,7 +14,7 @@ import { CobranzaModal } from '../../comprobantes-electronicos/shared/modales/Co
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { useCurrency } from '../../comprobantes-electronicos/shared/form-core/hooks/useCurrency';
-import { PageHeader } from '@/contasis';
+import { PageHeader, Button } from '@/contasis';
 import { CobranzasTabs } from '../components/CobranzasTabs';
 import { CobranzasFiltersBar } from '../components/CobranzasFiltersBar';
 import { ResumenCards } from '../components/ResumenCards';
@@ -380,14 +380,14 @@ export const CobranzasDashboard = () => {
             <Download className="w-4 h-4" />
             Exportar
           </button>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="md"
             onClick={handleOpenCuentaPicker}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700"
+            icon={<NotebookPen className="w-4 h-4" />}
           >
-            <NotebookPen className="w-4 h-4" />
             Registrar Cobranza
-          </button>
+          </Button>
         </div>
       </div>
       <div className="flex-1 overflow-auto">
