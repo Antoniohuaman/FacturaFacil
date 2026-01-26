@@ -73,9 +73,10 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
 
   return (
     <div
-      className="bg-white p-4 font-mono text-xs leading-tight relative"
+      className="bg-white p-4 font-mono text-[11px] text-black leading-tight relative"
       style={{
-        fontFamily: 'Courier, monospace',
+        fontFamily:
+          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         width: `${anchoTicketMm}mm`,
         margin: 0,
       }}
@@ -137,7 +138,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
                   }}
                   className="bg-gray-200 border border-gray-300 flex items-center justify-center"
                 >
-                  <span className="text-xs font-semibold text-gray-600">LOGO</span>
+                  <span className="text-xs font-semibold">LOGO</span>
                 </div>
               )}
             </div>
@@ -195,7 +196,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
         {/* Products - tabla con columnas configurables */}
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
           {/* Header de tabla */}
-          <div className="flex gap-1 text-[9px] font-bold mb-2">
+          <div className="flex gap-1 text-[10px] font-semibold mb-2">
             {productFields.numero.visible && <span className="w-8">N°</span>}
             {productFields.codigo.visible && <span className="w-16">CÓD.</span>}
             {productFields.descripcion.visible && <span className="flex-1">DESC.</span>}
@@ -211,7 +212,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
             return (
               <div key={item.id} className="mb-2">
                 {/* Línea principal de producto */}
-                <div className="flex gap-1 text-[9px]">
+                <div className="flex gap-1 text-[10px]">
                   {productFields.numero.visible && (
                     <span className="w-8">{index + 1}</span>
                   )}
@@ -239,7 +240,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
 
                 {/* Línea secundaria para marca y código de barras */}
                 {(productFields.marca.visible || productFields.codigoBarras.visible) && (item.marca || item.codigoBarras) && (
-                  <div className="mt-0.5 text-[8px] text-gray-600 flex gap-2">
+                  <div className="mt-0.5 text-[10px] flex gap-2">
                     {productFields.marca.visible && item.marca && (
                       <span>Marca: {truncateText(item.marca, 16)}</span>
                     )}
@@ -292,9 +293,9 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
               ))}
             </div>
             {creditTerms.schedule.length > 4 && (
-              <p className="mt-1 text-[10px] text-gray-500">+{creditTerms.schedule.length - 4} cuota(s) adicionales</p>
+              <p className="mt-1 text-[10px]">+{creditTerms.schedule.length - 4} cuota(s) adicionales</p>
             )}
-            <p className="mt-2 text-[11px] text-gray-600">Vence: {creditTerms.fechaVencimientoGlobal}</p>
+            <p className="mt-2 text-[11px]">Vence: {creditTerms.fechaVencimientoGlobal}</p>
           </div>
         )}
 
@@ -309,7 +310,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
         </div>
 
         {/* Bloque legal configurable */}
-        <div className="text-center text-[10px] text-gray-600 leading-tight mb-4">
+        <div className="text-center text-[10px] leading-tight mb-4">
           <p>Representación impresa de la {documentTitle.toLowerCase()}</p>
           <p className="mt-1">Consulta tu comprobante en nuestra web</p>
           <p className="mt-0.5">https://comprobantes.facturafacil.com/</p>
@@ -319,7 +320,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
         {/* Mensaje final configurable */}
         <div className="text-center text-xs leading-tight mb-3">
           <p className="font-semibold">¡Gracias por su compra!</p>
-          <p className="text-[10px] text-gray-600">Conserve este comprobante</p>
+          <p className="text-[10px]">Conserve este comprobante</p>
         </div>
 
         {/* Footer personalizado si está configurado */}
@@ -335,7 +336,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
               style={{
                 fontSize: config.footer.fontSize === 'small' ? '10px' : config.footer.fontSize === 'large' ? '13px' : '11px',
                 fontWeight: config.footer.fontWeight,
-                color: config.footer.textColor || '#374151'
+                color: config.footer.textColor || '#000'
               }}
             >
               {config.footer.customText}

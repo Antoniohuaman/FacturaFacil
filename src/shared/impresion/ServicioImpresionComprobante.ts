@@ -58,9 +58,9 @@ const inyectarCssImpresion = (documentoDestino: Document, disenoEfectivo: Diseno
     const anchoMm = disenoEfectivo.anchoTicketMm === 58 ? 58 : 80;
     style.textContent = `
       @page { size: ${anchoMm}mm auto; margin: 0; }
-      html, body { width: ${anchoMm}mm; margin: 0; padding: 0; background: white; }
-      #impresion-root { width: ${anchoMm}mm; margin: 0; padding: 0; }
-      *, *::before, *::after { box-sizing: border-box; }
+      html, body { width: ${anchoMm}mm; margin: 0; padding: 0; background: white; color: #000; }
+      #impresion-root { width: ${anchoMm}mm; margin: 0; padding: 0; color: #000; }
+      *, *::before, *::after { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     `;
   } else {
     const size = disenoEfectivo.tamanoHoja === 'A5' ? 'A5' : 'A4';
