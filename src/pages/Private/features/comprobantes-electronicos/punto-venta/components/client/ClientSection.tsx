@@ -274,7 +274,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
                       void handleQuickSearch();
                     }
                   }}
-                  placeholder="08661874"
+                  placeholder="Ingresa el #"
                   className="w-full px-3 py-1.5 pr-8 text-[12px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
                 />
                 {(Boolean(documentQuery) || Boolean(nameSearchQuery) || Boolean(clienteSeleccionado)) && (
