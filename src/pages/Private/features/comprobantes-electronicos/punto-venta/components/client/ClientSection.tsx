@@ -93,13 +93,32 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   const isValidLookupDocument = useMemo(() => {
     if (!normalizedDocQuery) return false;
     if (tipoComprobante === 'factura') {
-      return (
-        normalizedDocQuery.length === 11 &&
-        (normalizedDocQuery.startsWith('10') || normalizedDocQuery.startsWith('20'))
-      );
+      return normalizedDocQuery.length === 11 && (normalizedDocQuery[0] === '1' || normalizedDocQuery[0] === '2');
     }
     return normalizedDocQuery.length === 8;
   }, [normalizedDocQuery, tipoComprobante]);
+
+  const lookupButtonClassName = useMemo(() => {
+    const isEnabled = !isLookupLoading && isValidLookupDocument;
+    return `px-3 flex items-center justify-center gap-1 transition disabled:opacity-60 disabled:hover:text-slate-600 ${
+      isEnabled
+        ? 'bg-blue-50 text-blue-700 hover:text-blue-800 hover:bg-blue-100/60'
+        : 'bg-slate-200/40 text-slate-600 hover:text-slate-900'
+    }`;
+  }, [isLookupLoading, isValidLookupDocument]);
+
+  const shouldShowAddress = useMemo(() => {
+    const value = clienteSeleccionado?.direccion;
+    const normalized = (value ?? '').trim();
+    if (!normalized) return false;
+    const lower = normalized.toLowerCase();
+    return (
+      lower !== 'sin dirección' &&
+      lower !== 'sin direccion' &&
+      lower !== 'dirección no definida' &&
+      lower !== 'direccion no definida'
+    );
+  }, [clienteSeleccionado?.direccion]);
 
   const handleClear = () => {
     setClienteSeleccionado(null);
@@ -146,7 +165,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     }
 
     if (tipoComprobante === 'factura') {
-      const isRucDoc = digits.length === 11 && (digits.startsWith('10') || digits.startsWith('20'));
+      const isRucDoc = digits.length === 11 && (digits[0] === '1' || digits[0] === '2');
       if (!isRucDoc) {
         setClientDocError('Ingresa un RUC válido (11 dígitos)');
         return;
@@ -230,7 +249,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   return (
     <div className="p-2.5 bg-white border-b border-gray-200">
       <div className="space-y-1.5">
-        <div className="grid grid-cols-[10.5rem_minmax(0,1fr)] gap-2">
+        <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-2">
           <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
             <User className="h-2.5 w-2.5" />
             Número de documento
@@ -241,7 +260,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
           </label>
         </div>
 
-        <div className="grid grid-cols-[10.5rem_minmax(0,1fr)] gap-2">
+        <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-2">
           <div>
             <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
               <div className="relative flex-1">
@@ -273,7 +292,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
               <button
                 type="button"
                 onClick={() => void handleQuickSearch()}
-                className="px-3 flex items-center justify-center gap-1 bg-slate-200/40 text-slate-600 hover:text-slate-900 transition disabled:opacity-60 disabled:hover:text-slate-600"
+                className={lookupButtonClassName}
                 title={lookupLabel}
                 aria-label={lookupLabel}
                 disabled={isLookupLoading || !isValidLookupDocument}
@@ -307,8 +326,13 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       {shouldShowResults && (
         <div className="mt-2 border border-slate-200 rounded-xl max-h-28 overflow-y-auto bg-white shadow-sm">
           {clientesFiltrados.length > 0 ? (
-            clientesFiltrados.map((cliente) => {
-              const snap = clienteToSaleSnapshot(cliente);
+            clientesFiltrados
+              .map((cliente) => ({
+                cliente,
+                snap: clienteToSaleSnapshot(cliente),
+              }))
+              .filter(({ snap }) => (tipoComprobante === 'factura' ? snap.tipoDocumento === 'RUC' : true))
+              .map(({ cliente, snap }) => {
               const docCode = snap.sunatCode || (snap.tipoDocumento === 'RUC' ? '6' : snap.tipoDocumento === 'DNI' ? '1' : snap.tipoDocumento === 'SIN_DOCUMENTO' ? '0' : undefined);
               const trimmedNumber = snap.dni.trim();
               const label = getDocLabelFromCode(docCode);
@@ -343,16 +367,11 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
 
       {clienteSeleccionado && (
         <>
-          {clienteSeleccionado.tipoDocumento === 'RUC' &&
-            clienteSeleccionado.documento.startsWith('20') &&
-            clienteSeleccionado.direccion &&
-            clienteSeleccionado.direccion.trim() !== '' &&
-            clienteSeleccionado.direccion !== 'Sin dirección' &&
-            clienteSeleccionado.direccion !== 'Dirección no definida' && (
-              <div className="mt-2 text-[10px] text-slate-500 truncate">
-                {clienteSeleccionado.direccion}
-              </div>
-            )}
+          {shouldShowAddress && (
+            <div className="mt-2 text-[10px] text-slate-500 truncate">
+              {clienteSeleccionado.direccion}
+            </div>
+          )}
         </>
       )}
     </div>
