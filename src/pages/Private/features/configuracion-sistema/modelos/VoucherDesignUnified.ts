@@ -182,6 +182,11 @@ export interface VoucherDesignConfigurationExtended {
   footer: FooterConfiguration;
   documentFields: DocumentFieldsConfiguration;
   productFields: ProductFieldsConfiguration | VoucherDesignTicketConfig['productFields'];
+  /**
+   * Solo aplica a TICKET. Permite que la UI nueva controle 58/80 sin hardcode.
+   * Se persiste en: ticketConfig.general.paperWidth
+   */
+  ticketPaperWidth?: 58 | 80;
 }
 
 // ===================================================================

@@ -11,12 +11,27 @@ interface SharedFieldProps {
   errors: FormError;
 }
 
+interface FieldUiProps {
+  onBlur?: () => void;
+  showCheck?: boolean;
+  showBlueHint?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
+}
+
 interface VisibilityProps {
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
 }
 
-export const ProductNameField: React.FC<SharedFieldProps> = ({ formData, setFormData, errors }) => {
+export const ProductNameField: React.FC<SharedFieldProps & FieldUiProps> = ({
+  formData,
+  setFormData,
+  errors,
+  onBlur,
+  showCheck,
+  showBlueHint,
+  renderCheck
+}) => {
   return (
     <div>
       <label htmlFor="nombre" className="block text-xs font-medium text-gray-700 mb-1">
@@ -29,19 +44,30 @@ export const ProductNameField: React.FC<SharedFieldProps> = ({ formData, setForm
           id="nombre"
           value={formData.nombre}
           onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
+          onBlur={onBlur}
           className={`
-            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+            w-full h-9 pl-9 pr-7 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
             ${errors.nombre ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+            ${showBlueHint && !errors.nombre ? 'bg-blue-50/40 ring-1 ring-blue-200/60 focus:ring-blue-300/70 focus:border-blue-300' : ''}
           `}
           placeholder="Ingresa el nombre del producto"
         />
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.nombre && <p className="text-red-600 text-xs mt-1">{errors.nombre}</p>}
     </div>
   );
 };
 
-export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setFormData, errors }) => {
+export const ProductCodeField: React.FC<SharedFieldProps & FieldUiProps> = ({
+  formData,
+  setFormData,
+  errors,
+  onBlur,
+  showCheck,
+  showBlueHint,
+  renderCheck
+}) => {
   return (
     <div>
       <label htmlFor="codigo" className="block text-xs font-medium text-gray-700 mb-1">
@@ -55,12 +81,15 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
             id="codigo"
             value={formData.codigo}
             onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
+            onBlur={onBlur}
             className={`
-              w-full h-9 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+              w-full h-9 pl-9 pr-7 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
               ${errors.codigo ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+              ${showBlueHint && !errors.codigo ? 'bg-blue-50/40 ring-1 ring-blue-200/60 focus:ring-blue-300/70 focus:border-blue-300' : ''}
             `}
             placeholder="Código único"
           />
+          {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
         </div>
         <button
           type="button"
@@ -70,6 +99,7 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
           onClick={() => {
             const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
             setFormData(prev => ({ ...prev, codigo: randomCode }));
+            onBlur?.();
           }}
         >
           <Wand2 className="w-4 h-4 text-gray-700" />
@@ -80,12 +110,15 @@ export const ProductCodeField: React.FC<SharedFieldProps> = ({ formData, setForm
   );
 };
 
-export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps> = ({
+export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps & FieldUiProps> = ({
   formData,
   setFormData,
   errors,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('codigoBarras')) return null;
 
@@ -107,8 +140,9 @@ export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps> =
           id="codigoBarras"
           value={formData.codigoBarras ?? ''}
           onChange={(e) => handleBarcodeChange(e.target.value)}
+          onBlur={onBlur}
           className={`
-            w-full h-9 pl-9 pr-3 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500
+            w-full h-9 pl-9 pr-7 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500
             ${errors.codigoBarras ? 'border-red-300 bg-red-50' : 'border-gray-300'}
           `}
           placeholder="8-14 dígitos"
@@ -117,18 +151,22 @@ export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps> =
           autoComplete="off"
           aria-invalid={errors.codigoBarras ? 'true' : 'false'}
         />
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.codigoBarras && <p className="text-red-600 text-xs mt-1">{errors.codigoBarras}</p>}
     </div>
   );
 };
 
-export const ProductAliasField: React.FC<SharedFieldProps & VisibilityProps> = ({
+export const ProductAliasField: React.FC<SharedFieldProps & VisibilityProps & FieldUiProps> = ({
   formData,
   setFormData,
   errors,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('alias')) return null;
 
@@ -145,19 +183,21 @@ export const ProductAliasField: React.FC<SharedFieldProps & VisibilityProps> = (
           id="alias"
           value={formData.alias}
           onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
+          onBlur={onBlur}
           className={`
-            w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
+            w-full h-9 pl-9 pr-7 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
             ${errors.alias ? 'border-red-300 bg-red-50' : 'border-gray-300'}
           `}
           placeholder="Nombre alternativo"
         />
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.alias && <p className="text-red-600 text-xs mt-1">{errors.alias}</p>}
     </div>
   );
 };
 
-interface CategoryFieldProps extends SharedFieldProps, VisibilityProps {
+interface CategoryFieldProps extends SharedFieldProps, VisibilityProps, FieldUiProps {
   categories: Category[];
   onOpenCategoryModal: () => void;
 }
@@ -169,16 +209,22 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
   isFieldVisible,
   isFieldRequired,
   categories,
-  onOpenCategoryModal
+  onOpenCategoryModal,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('categoria')) return null;
 
   return (
     <div>
-      <label htmlFor="categoria" className="block text-xs font-medium text-gray-700 mb-1">
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor="categoria" className="text-xs font-medium text-gray-700">
         Categoría
         {isFieldRequired('categoria') && <span className="text-red-500 ml-1">*</span>}
-      </label>
+        </label>
+        {showCheck && renderCheck?.()}
+      </div>
       <div className="flex gap-2 w-full">
         <div className="relative flex-1 min-w-0">
           <Folder className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -186,6 +232,7 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
             id="categoria"
             value={formData.categoria}
             onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
+            onBlur={onBlur}
             className={`
               w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 transition-colors
               ${errors.categoria ? 'border-red-300 bg-red-50' : 'border-gray-300'}
@@ -214,12 +261,15 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
   );
 };
 
-export const ProductBrandField: React.FC<SharedFieldProps & VisibilityProps> = ({
+export const ProductBrandField: React.FC<SharedFieldProps & VisibilityProps & FieldUiProps> = ({
   formData,
   setFormData,
   errors,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('marca')) return null;
 
@@ -236,21 +286,26 @@ export const ProductBrandField: React.FC<SharedFieldProps & VisibilityProps> = (
           id="marca"
           value={formData.marca}
           onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          onBlur={onBlur}
+          className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Marca del producto"
         />
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.marca && <p className="text-red-600 text-xs mt-1">{errors.marca}</p>}
     </div>
   );
 };
 
-export const ProductModelField: React.FC<SharedFieldProps & VisibilityProps> = ({
+export const ProductModelField: React.FC<SharedFieldProps & VisibilityProps & FieldUiProps> = ({
   formData,
   setFormData,
   errors,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('modelo')) return null;
 
@@ -267,9 +322,11 @@ export const ProductModelField: React.FC<SharedFieldProps & VisibilityProps> = (
           id="modelo"
           value={formData.modelo}
           onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          onBlur={onBlur}
+          className="w-full h-9 pl-9 pr-7 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="Modelo del producto"
         />
+        {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
       </div>
       {errors.modelo && <p className="text-red-600 text-xs mt-1">{errors.modelo}</p>}
     </div>

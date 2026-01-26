@@ -11,8 +11,8 @@ export interface Establecimiento {
 
 export interface EstablecimientoCardProps {
   establecimiento: Establecimiento;
-  onToggleActivo: (id: string) => void;
-  onEditar: (id: string) => void;
-  onEliminar: (id: string) => void;
-  dataFocus?: string;
+  onToggleActivo: (id: string) => void; // Cambiar de number a string
+  onEditar: (id: string) => void; // Cambiar de number a string
+  onEliminar: (id: string) => void; // Cambiar de number a string
+  dataFocus?: string; // Para navegación programática
 }

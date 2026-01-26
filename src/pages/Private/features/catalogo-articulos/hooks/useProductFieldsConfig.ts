@@ -23,12 +23,12 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
   
   // CAMPOS PERSONALIZABLES (el usuario decide si mostrar y si son obligatorios)
   // Campos personalizados deben iniciar ocultos para respetar el principio de "mostrar lo mínimo"
-  { id: 'categoria', label: 'Categoría', icon: '🏷️', visible: false, required: false, isSystemRequired: false, category: 'basic' },
+  { id: 'categoria', label: 'Categoría', icon: '🏷️', visible: true, required: false, isSystemRequired: false, category: 'basic' },
   { id: 'descripcion', label: 'Descripción', icon: '📝', visible: false, required: false, isSystemRequired: false, category: 'basic' },
   { id: 'codigoBarras', label: 'Código de barras', icon: '🏷️', visible: true, required: false, isSystemRequired: false, category: 'codes' },
   { id: 'marca', label: 'Marca', icon: '🏭', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
   { id: 'modelo', label: 'Modelo', icon: '📋', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
-  { id: 'imagen', label: 'Imagen', icon: '🎨', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
+  { id: 'imagen', label: 'Imagen', icon: '🎨', visible: true, required: false, isSystemRequired: false, category: 'advanced' },
   { id: 'peso', label: 'Peso', icon: '⚖️', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
   { id: 'precioCompra', label: 'Precio de compra', icon: '💸', visible: false, required: false, isSystemRequired: false, category: 'pricing' },
   { id: 'porcentajeGanancia', label: '% Ganancia', icon: '📈', visible: false, required: false, isSystemRequired: false, category: 'pricing' },
@@ -37,11 +37,36 @@ const DEFAULT_FIELDS_CONFIG: ProductFieldConfig[] = [
   { id: 'descuentoProducto', label: 'Descuento', icon: '💸', visible: false, required: false, isSystemRequired: false, category: 'pricing' },
   { id: 'alias', label: 'Nombre alternativo', icon: '📛', visible: false, required: false, isSystemRequired: false, category: 'advanced' },
   { id: 'tipoExistencia', label: 'Tipo de existencia', icon: '📦', visible: false, required: false, isSystemRequired: false, category: 'inventory' },
+  { id: 'presentacionesComerciales', label: 'Presentaciones comerciales', icon: '📦', visible: false, required: false, isSystemRequired: false, category: 'inventory' },
 ];
 
 const STORAGE_KEY = 'productFieldsConfig';
 
 export const useProductFieldsConfig = () => {
+  const mergeWithDefaults = (stored: ProductFieldConfig[]) => {
+    const defaultsMap = new Map(DEFAULT_FIELDS_CONFIG.map(field => [field.id, field]));
+    const merged: ProductFieldConfig[] = [];
+
+    stored.forEach((field) => {
+      const reference = defaultsMap.get(field.id);
+      if (!reference) {
+        return;
+      }
+      merged.push({
+        ...reference,
+        visible: field.visible ?? reference.visible,
+        required: field.required ?? reference.required,
+      });
+      defaultsMap.delete(field.id);
+    });
+
+    defaultsMap.forEach((field) => {
+      merged.push(field);
+    });
+
+    return merged;
+  };
+
   function migrateLegacyToNamespaced() {
     try {
       const empresaId = ensureEmpresaId();
@@ -90,7 +115,7 @@ export const useProductFieldsConfig = () => {
           const filteredConfig = parsed.filter((field: ProductFieldConfig) =>
             field.id !== 'cantidad' && field.id !== 'tipoExistencia' && field.id !== 'precio'
           );
-          setFieldsConfig(filteredConfig);
+          setFieldsConfig(mergeWithDefaults(filteredConfig));
         } catch (error) {
           console.error('Error al cargar configuración de campos:', error);
         }
@@ -134,8 +159,8 @@ export const useProductFieldsConfig = () => {
 
   // Restablecer a configuración por defecto
   const resetToDefault = () => {
-    saveConfig(DEFAULT_FIELDS_CONFIG);
-  };
+  saveConfig(DEFAULT_FIELDS_CONFIG.map((f) => ({ ...f })));
+};
 
   // Obtener solo campos visibles
   const getVisibleFields = () => {

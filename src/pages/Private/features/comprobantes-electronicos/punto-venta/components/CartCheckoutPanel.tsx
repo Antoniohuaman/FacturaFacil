@@ -550,6 +550,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="shrink-0">
             <ClientSection
+              tipoComprobante={tipoComprobante}
               clienteSeleccionado={clienteSeleccionado}
               setClienteSeleccionado={setClienteSeleccionado}
               onLookupClientSelected={(value) => onLookupClientSelected?.(value)}

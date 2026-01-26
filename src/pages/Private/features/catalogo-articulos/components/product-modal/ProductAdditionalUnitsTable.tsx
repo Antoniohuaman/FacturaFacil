@@ -17,6 +17,8 @@ interface ProductAdditionalUnitsTableProps {
   formatFactorValue: (value?: number) => string;
   unitInfoMessage: string | null;
   setUnitInfoMessage: (message: string | null) => void;
+  showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTableProps> = ({
@@ -31,7 +33,9 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
   findUnitByCode,
   formatFactorValue,
   unitInfoMessage,
-  setUnitInfoMessage
+  setUnitInfoMessage,
+  showCheck,
+  renderCheck
 }) => {
   return (
     <div className="mt-4 space-y-2">
@@ -39,6 +43,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
         <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
           <Layers className="w-3.5 h-3.5 text-violet-600" />
           <span>Presentaciones comerciales</span>
+          {showCheck && renderCheck?.('ml-2')}
         </div>
         <button
           type="button"

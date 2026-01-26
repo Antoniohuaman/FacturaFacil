@@ -29,23 +29,33 @@ interface ProductUnitsSectionProps {
 type ProductUnitFamilyFieldProps = Pick<
   ProductUnitsSectionProps,
   'formData' | 'errors' | 'isUsingFallbackUnits' | 'handleMeasureTypeChange'
->;
+> & {
+  showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
+};
 
 type ProductMinimumUnitFieldProps = Pick<
   ProductUnitsSectionProps,
   'formData' | 'baseUnitOptions' | 'handleBaseUnitChange'
->;
+> & {
+  onBlur?: () => void;
+  showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
+};
 
 export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
   formData,
   errors,
   isUsingFallbackUnits,
-  handleMeasureTypeChange
+  handleMeasureTypeChange,
+  showCheck,
+  renderCheck
 }) => {
   return (
     <div>
-      <div className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-1">
+      <div className="flex items-center justify-between gap-1 text-xs font-medium text-gray-700 mb-1">
         <span>Familia de unidades</span>
+        {showCheck && renderCheck?.()}
       </div>
       <div className="flex gap-1 overflow-x-auto pb-1" role="group" aria-label="Familia de unidades">
         {UNIT_MEASURE_TYPE_OPTIONS.map(option => {
@@ -84,19 +94,26 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
 export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = ({
   formData,
   baseUnitOptions,
-  handleBaseUnitChange
+  handleBaseUnitChange,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   return (
     <div>
-      <label htmlFor="unidad" className="block text-xs font-medium text-gray-700 mb-1">
-        Unidad mínima <span className="text-red-500">*</span>
-      </label>
+      <div className="flex items-center justify-between mb-1">
+        <label htmlFor="unidad" className="text-xs font-medium text-gray-700">
+          Unidad mínima <span className="text-red-500">*</span>
+        </label>
+        {showCheck && renderCheck?.()}
+      </div>
       <div className="relative">
         <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
         <select
           id="unidad"
           value={formData.unidad}
           onChange={(e) => handleBaseUnitChange(e.target.value as ProductFormData['unidad'])}
+          onBlur={onBlur}
           className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
           {baseUnitOptions.length > 0 ? (

@@ -114,7 +114,9 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px]"
               aria-label="Filtrar por almacén"
             >
-              <option value="">Todos los almacenes</option>
+              {almacenesDisponibles.length > 1 && (
+                <option value="">Todos los almacenes</option>
+              )}
               {almacenesDisponibles.map((alm) => (
                 <option key={alm.id} value={alm.id}>
                   {alm.codigoAlmacen} - {alm.nombreAlmacen}

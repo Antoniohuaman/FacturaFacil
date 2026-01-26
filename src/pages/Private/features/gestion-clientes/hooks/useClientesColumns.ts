@@ -62,13 +62,14 @@ const LEGACY_STORAGE_BASE_KEY = 'clientes_visible_columns';
 
 export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
   { id: 'avatar', label: 'Avatar', defaultVisible: true },
-  { id: 'tipoDocumento', label: 'Tipo doc.' },
-  { id: 'numeroDocumento', label: 'N° documento' },
-  { id: 'nombreRazonSocial', label: 'Nombre / Razón social' },
+  { id: 'tipoDocumento', label: 'Tipo doc.', defaultVisible: true },
+  { id: 'numeroDocumento', label: 'N° documento', defaultVisible: true },
+  { id: 'nombreRazonSocial', label: 'Nombre / Razón social', defaultVisible: true },
   { id: 'direccion', label: 'Dirección', defaultVisible: true },
-  { id: 'tipoCuenta', label: 'Tipo cuenta' },
+  { id: 'tipoCuenta', label: 'Tipo cuenta', defaultVisible: true },
   { id: 'telefono', label: 'Teléfono', defaultVisible: true },
   { id: 'correo', label: 'Correo', defaultVisible: true },
+  { id: 'acciones', label: 'Acciones', defaultVisible: true },
   { id: 'tipoPersona', label: 'Tipo persona', defaultVisible: false },
   { id: 'nombreComercial', label: 'Nombre comercial', defaultVisible: false },
   { id: 'paginaWeb', label: 'Página web', defaultVisible: false },
@@ -97,10 +98,9 @@ export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
   { id: 'observaciones', label: 'Observaciones', defaultVisible: false },
   { id: 'adjuntos', label: 'Adjuntos', defaultVisible: false },
   { id: 'imagenes', label: 'Imágenes', defaultVisible: false },
-  { id: 'estadoCliente', label: 'Estado cliente', defaultVisible: true },
+  { id: 'estadoCliente', label: 'Estado cliente', defaultVisible: false },
   { id: 'fechaRegistro', label: 'Fecha registro', defaultVisible: false },
-  { id: 'fechaUltimaModificacion', label: 'Últ. modif.', defaultVisible: false },
-  { id: 'acciones', label: 'Acciones', fixed: true }
+  { id: 'fechaUltimaModificacion', label: 'Últ. modif.', defaultVisible: false }
 ];
 
 const createDefaultConfig = (): ClienteColumnConfig[] =>

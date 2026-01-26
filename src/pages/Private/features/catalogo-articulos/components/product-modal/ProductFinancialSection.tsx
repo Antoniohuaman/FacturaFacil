@@ -9,6 +9,9 @@ interface ProductFinancialSectionProps {
   errors: FormError;
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
+  onBlur?: () => void;
+  showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> = ({
@@ -16,7 +19,10 @@ export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> =
   setFormData,
   errors,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('precioCompra')) return null;
 
@@ -36,9 +42,11 @@ export const ProductPurchasePriceField: React.FC<ProductFinancialSectionProps> =
           min="0"
           value={formData.precioCompra}
           onChange={(e) => setFormData(prev => ({ ...prev, precioCompra: parseFloat(e.target.value) || 0 }))}
-          className="w-full h-9 pl-16 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          onBlur={onBlur}
+          className="w-full h-9 pl-16 pr-10 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.00"
         />
+        {showCheck && renderCheck?.('absolute right-3 top-1/2 -translate-y-1/2')}
       </div>
       {errors.precioCompra && <p className="text-red-600 text-xs mt-1">{errors.precioCompra}</p>}
     </div>
@@ -50,7 +58,10 @@ export const ProductProfitPercentField: React.FC<ProductFinancialSectionProps> =
   setFormData,
   errors,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('porcentajeGanancia')) return null;
 
@@ -72,10 +83,12 @@ export const ProductProfitPercentField: React.FC<ProductFinancialSectionProps> =
           onChange={(e) =>
             setFormData(prev => ({ ...prev, porcentajeGanancia: parseFloat(e.target.value) || 0 }))
           }
+          onBlur={onBlur}
           className="w-full h-9 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.00"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
+        {showCheck && renderCheck?.('absolute right-8 top-1/2 -translate-y-1/2')}
       </div>
       {errors.porcentajeGanancia && <p className="text-red-600 text-xs mt-1">{errors.porcentajeGanancia}</p>}
     </div>
@@ -87,7 +100,10 @@ export const ProductDiscountField: React.FC<ProductFinancialSectionProps> = ({
   setFormData,
   errors,
   isFieldVisible,
-  isFieldRequired
+  isFieldRequired,
+  onBlur,
+  showCheck,
+  renderCheck
 }) => {
   if (!isFieldVisible('descuentoProducto')) return null;
 
@@ -109,10 +125,12 @@ export const ProductDiscountField: React.FC<ProductFinancialSectionProps> = ({
           onChange={(e) =>
             setFormData(prev => ({ ...prev, descuentoProducto: parseFloat(e.target.value) || 0 }))
           }
+          onBlur={onBlur}
           className="w-full h-9 pl-9 pr-12 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
           placeholder="0.00"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">%</div>
+        {showCheck && renderCheck?.('absolute right-8 top-1/2 -translate-y-1/2')}
       </div>
       {errors.descuentoProducto && <p className="text-red-600 text-xs mt-1">{errors.descuentoProducto}</p>}
     </div>

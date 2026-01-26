@@ -2,15 +2,23 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { CartItem, Currency, PaymentTotals, DiscountInput, DiscountMode } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
-import { CheckSquare, Square, SlidersHorizontal, Percent } from 'lucide-react';
+import { CheckSquare, Square, SlidersHorizontal, Percent, Wrench } from 'lucide-react';
 import { RadioButton } from '@/contasis';
 import { usePriceBook } from '../hooks/usePriceBook';
 import type { PriceColumnOption } from '../hooks/usePriceBook';
 import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
+import { learnBasePriceIfMissing } from '../../../../lista-precios/utils/learnBasePrice';
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
 import type { Product } from '../../../../catalogo-articulos/models/types';
 import { useCurrency } from '../hooks/useCurrency';
 import { TaxBreakdownSummary } from '../../ui/TaxBreakdownSummary';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import type { Almacen } from '../../../../configuracion-sistema/modelos/Almacen';
+import type { StockAdjustmentData } from '../../../../gestion-inventario/models';
+import AdjustmentModal from '../../../../gestion-inventario/components/modals/AdjustmentModal';
+import { registrarAjusteDeStock } from '../../../../../../../shared/inventory/accionesStock';
+import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 
 type UnitOption = {
   code: string;
@@ -150,10 +158,28 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
    getGlobalDiscountPreviewTotals,
   refreshKey = 0,
   preferredPriceColumnId,
-  // selectedEstablecimientoId, // TODO: Usar para filtrar stock por establecimiento
+  selectedEstablecimientoId,
 }) => {
   const { baseCurrency, documentCurrency, formatPrice, convertPrice } = useCurrency();
   const documentDecimals = documentCurrency.decimalPlaces ?? 2;
+
+  const { session } = useUserSession();
+  const { state: configState } = useConfigurationContext();
+
+  const almacenesActivosDelEstablecimiento = useMemo<Almacen[]>(() => {
+    if (!selectedEstablecimientoId) {
+      return [];
+    }
+    return configState.almacenes.filter(
+      (almacen) => almacen.estaActivoAlmacen && almacen.establecimientoId === selectedEstablecimientoId
+    );
+  }, [configState.almacenes, selectedEstablecimientoId]);
+
+  const prefilledAlmacenIdParaAjuste = useMemo(() => {
+    return almacenesActivosDelEstablecimiento.length === 1 ? almacenesActivosDelEstablecimiento[0].id : null;
+  }, [almacenesActivosDelEstablecimiento]);
+
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
 
   const convertBaseToDocument = useCallback(
     (amount: number) => convertPrice(amount ?? 0, baseCurrency.code as Currency, documentCurrency.code as Currency),
@@ -216,6 +242,51 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   } = usePriceBook();
 
   const { allProducts: catalogProducts } = useProductStore();
+
+  const refrescarStockEnCarrito = useCallback(() => {
+    if (!selectedEstablecimientoId) {
+      return;
+    }
+
+    cartItems.forEach((item) => {
+      const catalogProduct = catalogProducts.find(
+        (product) => product.id === item.id || (product.codigo && product.codigo === item.code)
+      );
+
+      if (!catalogProduct) {
+        return;
+      }
+
+      const summary = summarizeProductStock({
+        product: catalogProduct,
+        almacenes: configState.almacenes,
+        EstablecimientoId: selectedEstablecimientoId,
+      });
+
+      if (item.stock !== summary.totalAvailable) {
+        updateCartItem(item.id, { stock: summary.totalAvailable });
+      }
+    });
+  }, [cartItems, catalogProducts, configState.almacenes, selectedEstablecimientoId, updateCartItem]);
+
+  const handleConfirmarAjusteDeStock = useCallback((data: StockAdjustmentData) => {
+    const producto = catalogProducts.find((p) => p.id === data.productoId);
+    const almacen = configState.almacenes.find((w) => w.id === data.almacenId);
+
+    if (!producto || !almacen) {
+      return;
+    }
+
+    registrarAjusteDeStock({
+      producto,
+      almacen,
+      datosAjuste: data,
+      usuario: session?.userName || 'Usuario',
+    });
+
+    setShowAdjustmentModal(false);
+    refrescarStockEnCarrito();
+  }, [catalogProducts, configState.almacenes, refrescarStockEnCarrito, session?.userName]);
 
   const getUnitOptionsForProduct = useCallback(
     (sku: string) => {
@@ -669,6 +740,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
     const baseValue = stripGlobalRuleValue(normalizedBase);
 
+    const sku = resolveSku(item);
+    const unitCode = resolveUnitCode(item);
+    learnBasePriceIfMissing({
+      sku,
+      unitCode,
+      value: normalizedBase,
+      productName: item.name
+    });
+
     updateCartItem(item.id, {
       basePrice: baseValue,
       price: normalizedBase,
@@ -686,7 +766,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       }
       return next;
     });
-  }, [clearDraftForItem, convertBaseToDocument, convertDocumentToBase, formatBaseAsDocument, stripGlobalRuleValue, updateCartItem]);
+  }, [clearDraftForItem, convertBaseToDocument, convertDocumentToBase, formatBaseAsDocument, resolveSku, resolveUnitCode, stripGlobalRuleValue, updateCartItem]);
 
   const handleGlobalModeChange = useCallback((mode: GlobalPricingMode) => {
     setGlobalPricing(prev => ({ ...prev, mode }));
@@ -1111,6 +1191,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               <SlidersHorizontal size={16} />
             </button>
 
+            <button
+              onClick={() => setShowAdjustmentModal(true)}
+              className="p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md"
+              title="Ajustar stock"
+              aria-label="Ajustar stock"
+            >
+              <Wrench size={16} />
+            </button>
+
             <div className="relative">
               <button
                 ref={priceModeButtonRef}
@@ -1189,6 +1278,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           </div>
         </div>
       </div>
+
+      <AdjustmentModal
+        isOpen={showAdjustmentModal}
+        onClose={() => setShowAdjustmentModal(false)}
+        onAdjust={handleConfirmarAjusteDeStock}
+        prefilledAlmacenId={prefilledAlmacenIdParaAjuste}
+        mode="manual"
+      />
 
       {/* ✅ Panel de configuración de columnas COMPACTO */}
       {showColumnConfig && (

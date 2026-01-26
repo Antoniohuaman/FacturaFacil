@@ -8,6 +8,9 @@ interface ProductPricingSectionProps {
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
   taxOptions: { id: string; code: string; value: string; label: string }[];
+  onBlur?: () => void;
+  showCheck?: boolean;
+  renderCheck?: (className?: string) => React.ReactNode;
 }
 
 export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
@@ -16,6 +19,9 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
   isFieldVisible,
   isFieldRequired,
   taxOptions,
+  onBlur,
+  showCheck,
+  renderCheck,
 }) => {
   const optionsWithLegacy = useMemo(() => {
     const trimmedValue = formData.impuesto?.trim();
@@ -43,16 +49,20 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor="impuesto" className="block text-xs font-medium text-gray-700">
-        Impuesto
-        {isFieldRequired('impuesto') && <span className="text-red-500 ml-1">*</span>}
-      </label>
+      <div className="flex items-center justify-between">
+        <label htmlFor="impuesto" className="text-xs font-medium text-gray-700">
+          Impuesto
+          {isFieldRequired('impuesto') && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        {showCheck && renderCheck?.()}
+      </div>
       <div className="relative">
         <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
         <select
           id="impuesto"
           value={formData.impuesto}
           onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
+          onBlur={onBlur}
           className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
           {optionsWithLegacy.map(option => (

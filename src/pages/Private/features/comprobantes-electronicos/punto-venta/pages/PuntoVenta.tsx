@@ -43,7 +43,6 @@ const PuntoVenta = () => {
     priceListOptions,
     selectedPriceListId,
     setSelectedPriceListId,
-    registerPricingNotifier,
     getUnitOptionsForProduct,
     formatUnitLabel,
     getPreferredUnitForSku,
@@ -99,7 +98,6 @@ const PuntoVenta = () => {
     handlePrint,
     handleNewSale,
     paymentMethods,
-    warning,
   } = usePosComprobanteFlow({ cartItems, totals });
 
   const { state: configState } = useConfigurationContext();
@@ -166,11 +164,6 @@ const PuntoVenta = () => {
 
   const lastAutoClientIdRef = useRef<string | number | null>(null);
   const lastAutoProfileRef = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    registerPricingNotifier(warning);
-    return () => registerPricingNotifier(undefined);
-  }, [registerPricingNotifier, warning]);
 
   useEffect(() => {
     if (!priceListOptions.length) {
