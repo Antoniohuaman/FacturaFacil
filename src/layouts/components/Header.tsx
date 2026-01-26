@@ -3,8 +3,6 @@ import { Bell, Settings, Menu } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
-import { EmpresaSelector } from '@/contasis/layout/EmpresaSelector/EmpresaSelector';
-import { useTenantStore } from '../../pages/Private/features/autenticacion/store/TenantStore';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
@@ -52,70 +50,6 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
     userRole: session?.role || "Usuario",
     userEmail: session?.userEmail || "",
     userInitials: session?.userName?.split(' ').map(n => n[0]).join('').toUpperCase() || "U"
-  };
-
-  // ✅ Tenant State para el selector
-  const { 
-    empresas, 
-    contextoActual, 
-    setContextoActual 
-  } = useTenantStore();
-
-  // Mapeo de datos para el EmpresaSelector
-  const empresasMapeadas = empresas.map((e: any) => ({
-    id: e.id,
-    nombre: e.nombreComercial || e.razonSocial,
-    ruc: e.ruc,
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' // Default gradient o del backend
-  }));
-
-  const sedesMapeadas = empresas.flatMap((e: any) => e.establecimientos.map((s: any) => ({
-    id: s.id,
-    nombre: s.nombre,
-    direccion: s.direccion,
-    empresaId: e.id
-  })));
-
-  const empresaActual = empresasMapeadas.find((e: any) => e.id === contextoActual?.empresaId);
-  const sedeActual = sedesMapeadas.find((s: any) => s.id === contextoActual?.establecimientoId);
-
-  const actual = (empresaActual && sedeActual) ? {
-    empresa: empresaActual,
-    sede: sedeActual
-  } : null;
-
-  const handleEmpresaChange = (empresaId: string) => {
-    const empresa = empresas.find((e: any) => e.id === empresaId);
-    if (empresa && empresa.establecimientos.length > 0) {
-      setContextoActual({
-        empresaId: empresa.id,
-        establecimientoId: empresa.establecimientos[0].id,
-        empresa,
-        establecimiento: empresa.establecimientos[0],
-        permisos: [],
-        configuracion: {}
-      });
-      // Recargar la página o forzar actualización de datos si es necesario
-      // window.location.reload(); 
-    }
-  };
-
-  const handleSedeChange = (sedeId: string) => {
-    const sede = sedesMapeadas.find((s: any) => s.id === sedeId);
-    if (sede) {
-      const empresa = empresas.find((e: any) => e.id === sede.empresaId);
-      const establecimientoObj = empresa?.establecimientos.find((es: any) => es.id === sedeId);
-      if (empresa && establecimientoObj) {
-        setContextoActual({
-          empresaId: empresa.id,
-          establecimientoId: sedeId,
-          empresa,
-          establecimiento: establecimientoObj,
-          permisos: [],
-          configuracion: {}
-        });
-      }
-    }
   };
 
   // Cerrar menus al hacer click fuera
@@ -215,19 +149,6 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
       {/* Información de sesión activa */}
       <div className="flex items-center space-x-4 text-sm">
-        {/* Selector de Empresa */}
-        <div className="max-w-xs">
-          {actual && (
-            <EmpresaSelector 
-              actual={actual}
-              empresas={empresasMapeadas}
-              sedes={sedesMapeadas}
-              onChangeEmpresa={handleEmpresaChange}
-              onChangeSede={handleSedeChange}
-            />
-          )}
-        </div>
-
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>
           <button

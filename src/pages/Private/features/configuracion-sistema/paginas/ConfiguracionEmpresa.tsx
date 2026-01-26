@@ -10,7 +10,7 @@ import {
   Shield,
   ArrowLeft
 } from 'lucide-react';
-import { Button, Select, Input, RadioButton, PageHeader } from '@/contasis';
+import { Button, Select, Input, RadioButton, PageHeader, Textarea } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
@@ -872,30 +872,18 @@ export function CompanyConfiguration() {
                 />
 
                 {/* Business Name */}
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Razón Social <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={datosFormulario.razonSocial}
-                      onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
-                      className={`
-                    w-full h-10 px-3 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                    bg-gray-50 dark:bg-gray-800 transition-all duration-200
-                    ${datosFormulario.razonSocial ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
-                    text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
-                  `}
-                      readOnly
-                      placeholder="Se completará automáticamente al validar el RUC"
-                    />
-                    {datosFormulario.razonSocial && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <Input
+                    label="Razón Social"
+                    type="text"
+                    value={datosFormulario.razonSocial}
+                    onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
+                    placeholder="Se completará automáticamente al validar el RUC"
+                    readOnly
+                    disabled
+                    rightIcon={datosFormulario.razonSocial ? <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" /> : undefined}
+                    required
+                  />
                 </div>
 
                 {/* Trade Name */}
@@ -910,30 +898,16 @@ export function CompanyConfiguration() {
                 </div>
 
                 {/* Fiscal Address */}
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Domicilio Fiscal <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      value={datosFormulario.direccionFiscal}
-                      onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
-                      className={`
-                    w-full min-h-[72px] px-3 py-2 text-sm pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                    bg-gray-50 dark:bg-gray-800 transition-all duration-200
-                    ${datosFormulario.direccionFiscal ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' : 'border-gray-300 dark:border-gray-600'}
-                    text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
-                  `}
-                      rows={2}
-                      readOnly
-                      placeholder="Se completará automáticamente al validar el RUC"
-                    />
-                    {datosFormulario.direccionFiscal && (
-                      <div className="absolute right-3 top-3">
-                        <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <Textarea
+                    label="Domicilio Fiscal"
+                    value={datosFormulario.direccionFiscal}
+                    onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
+                    placeholder="Se completará automáticamente al validar el RUC"
+                    rows={2}
+                    disabled
+                    required
+                  />
                 </div>
 
                 <Input
@@ -1044,7 +1018,7 @@ export function CompanyConfiguration() {
                             value={phone}
                             onChange={(e) => handleArrayFieldChange('telefonos', index, e.target.value)}
                             placeholder="+51 987 654 321"
-                            leftIcon={<Phone />}
+                            leftIcon={<Phone size={18} />}
                           />
                         </div>
                         {datosFormulario.telefonos.length > 1 && (
@@ -1083,7 +1057,7 @@ export function CompanyConfiguration() {
                             value={email}
                             onChange={(e) => handleArrayFieldChange('correosElectronicos', index, e.target.value)}
                             placeholder="contacto@miempresa.com"
-                            leftIcon={<Mail />}
+                            leftIcon={<Mail size={18} />}
                           />
                         </div>
                         {datosFormulario.correosElectronicos.length > 1 && (

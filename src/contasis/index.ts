@@ -34,6 +34,9 @@ export type { EstablecimientoCardProps, Establecimiento } from './components/Est
 export { AlmacenCard } from './components/AlmacenCard';
 export type { Almacen } from './components/AlmacenCard';
 
+export { SerieComprobanteCard } from './components/SerieComprobanteCard';
+export type { SerieComprobante } from './components/SerieComprobanteCard';
+
 // Layout
 export { Sidebar } from './layout/Sidebar';
 export type { SidebarProps, Module } from './layout/Sidebar';

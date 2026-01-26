@@ -145,7 +145,7 @@ export function EstablecimientosConfiguration() {
       });
       setValidators(initialValidators);
     }
-  }, [showForm, formRules, editingEstablecimientoId]);
+  }, [showForm, formRules, editingEstablecimientoId, datosFormulario.codigo]);
 
   useEffect(() => {
     if (ubigeoSelection.departamento) {
@@ -375,6 +375,9 @@ export function EstablecimientosConfiguration() {
         showToast('success', 'Establecimiento creado correctamente');
       }
 
+      // 🔄 Sincronizar cambios con TenantStore (Header/TopBar)
+      window.dispatchEvent(new Event('tenant-sync-request'));
+
       handleCancel();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error al guardar el establecimiento';
@@ -481,8 +484,27 @@ export function EstablecimientosConfiguration() {
 
                 <div className="p-6 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Input label="Código" type="text" value={datosFormulario.codigo} onChange={(e) => updateField('codigo', e.target.value)} error={formValidation.getFieldErrors('codigo', validators)[0]} placeholder="Ej: 0001" leftIcon={<Hash />} required maxLength={4} />
-                    <Input label="Nombre del Establecimiento" type="text" value={datosFormulario.nombre} onChange={(e) => updateField('nombre', e.target.value)} error={formValidation.getFieldErrors('nombre', validators)[0]} placeholder="Ej: Sede Central, Sucursal Norte..." leftIcon={<FileText />} required />
+                    <Input 
+                      label="Código *" 
+                      type="text" 
+                      value={datosFormulario.codigo} 
+                      onChange={(e) => updateField('codigo', e.target.value)} 
+                      error={formValidation.getFieldErrors('codigo', validators)[0]} 
+                      placeholder="0001" 
+                      leftIcon={<Hash size={18} />} 
+                      helperText="Código único para el establecimiento"
+                      maxLength={4} 
+                    />
+                    <Input 
+                      label="Nombre del Establecimiento *" 
+                      type="text" 
+                      value={datosFormulario.nombre} 
+                      onChange={(e) => updateField('nombre', e.target.value)} 
+                      error={formValidation.getFieldErrors('nombre', validators)[0]} 
+                      placeholder="Sede Central, Sucursal Norte..." 
+                      leftIcon={<FileText size={18} />}
+                      helperText="Nombre visible para este punto de venta"
+                    />
                   </div>
                 </div>
               </div>
@@ -493,7 +515,16 @@ export function EstablecimientosConfiguration() {
                 </div>
 
                 <div className="p-6 space-y-6">
-                  <Input label="Dirección" type="text" value={datosFormulario.direccion} onChange={(e) => updateField('direccion', e.target.value)} error={formValidation.getFieldErrors('direccion', validators)[0]} placeholder="Ej: Av. Los Pinos 123, Urbanización..." leftIcon={<Navigation />} required />
+                  <Input 
+                    label="Dirección Completa *" 
+                    type="text" 
+                    value={datosFormulario.direccion} 
+                    onChange={(e) => updateField('direccion', e.target.value)} 
+                    error={formValidation.getFieldErrors('direccion', validators)[0]} 
+                    placeholder="Jr. Los Tulipanes 123, Urb. Las Flores..." 
+                    leftIcon={<Navigation size={18} />}
+                    helperText="Incluye calle, número, urbanización, distrito y provincia"
+                  />
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Select
@@ -577,10 +608,10 @@ export function EstablecimientosConfiguration() {
                       type="text"
                       value={datosFormulario.codigoPostal}
                       onChange={(e) => updateField('codigoPostal', e.target.value)}
-                      placeholder="Ej: 15001"
-                      leftIcon={<Hash />}
-                      helperText="Opcional"
-                      maxLength={10}
+                      placeholder="150101"
+                      leftIcon={<Hash size={18} />}
+                      helperText="Código UBIGEO de 6 dígitos (opcional)"
+                      maxLength={6}
                     />
                   </div>
                 </div>
@@ -588,7 +619,30 @@ export function EstablecimientosConfiguration() {
 
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200"><div className="flex items-center gap-3"><div className="p-2 bg-purple-600 rounded-lg"><Phone className="w-5 h-5 text-white" /></div><div><h3 className="text-lg font-semibold text-gray-900">Información de Contacto</h3><p className="text-sm text-gray-600">Datos opcionales para comunicación</p></div></div></div>
-                <div className="p-6 space-y-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><Input label="Teléfono" type="tel" value={datosFormulario.phone} onChange={(e) => updateField('phone', e.target.value)} error={formValidation.getFieldErrors('phone', validators)[0]} placeholder="Ej: +51 999 999 999" leftIcon={<Phone />} helperText="Opcional" /><Input label="Correo Electrónico" type="email" value={datosFormulario.email} onChange={(e) => updateField('email', e.target.value)} error={formValidation.getFieldErrors('email', validators)[0]} placeholder="Ej: establecimiento@empresa.com" leftIcon={<Mail />} helperText="Opcional" /></div></div>
+                <div className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input 
+                      label="Teléfono" 
+                      type="tel" 
+                      value={datosFormulario.phone} 
+                      onChange={(e) => updateField('phone', e.target.value)} 
+                      error={formValidation.getFieldErrors('phone', validators)[0]} 
+                      placeholder="+51 999 999 999" 
+                      leftIcon={<Phone size={18} />} 
+                      helperText="Número de contacto (opcional)"
+                    />
+                    <Input 
+                      label="Correo Electrónico" 
+                      type="email" 
+                      value={datosFormulario.email} 
+                      onChange={(e) => updateField('email', e.target.value)} 
+                      error={formValidation.getFieldErrors('email', validators)[0]} 
+                      placeholder="establecimiento@empresa.com" 
+                      leftIcon={<Mail size={18} />} 
+                      helperText="Email de contacto (opcional)"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-between pt-2">
@@ -684,7 +738,7 @@ export function EstablecimientosConfiguration() {
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-              <Input type="text" placeholder="Buscar establecimientos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} leftIcon={<Search />} />
+              <Input type="text" placeholder="Buscar establecimientos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} leftIcon={<Search size={18} />} />
               <Select value={filtroEstado} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as 'all' | 'active' | 'inactive')} size="medium" options={[{ value: 'all', label: 'Todos los estados' }, { value: 'active', label: 'Solo activos' }, { value: 'inactive', label: 'Solo inactivos' }]} />
             </div>
             <Button onClick={handleNew} variant="primary" size="md" icon={<Plus className="w-5 h-5" />} iconPosition="left" disabled={isFetching || isSaving || isDeleting}>Nuevo Establecimiento</Button>

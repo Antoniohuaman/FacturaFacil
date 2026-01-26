@@ -142,6 +142,7 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
             </div>
             
             <div className="px-3 pb-3">
+              {actual ? (
               <div className="p-3 bg-primary-light dark:bg-surface-2 border-[1.5px] border-primary rounded-lg">
                 <div className="flex items-center gap-2.5 mb-2">
                   <div 
@@ -178,6 +179,11 @@ export const EmpresaSelector: React.FC<EmpresaSelectorProps> = ({
                   )}
                 </div>
               </div>
+              ) : (
+                <div className="p-3 bg-gray-100 dark:bg-surface-2 rounded-lg text-center text-secondary text-sm">
+                  Selecciona una empresa
+                </div>
+              )}
             </div>
 
             {/* Cambiar a */}

@@ -404,7 +404,7 @@ export function ConfiguracionAlmacenes() {
                   }}
                   error={formErrors.codigo}
                   placeholder="Ej: 0001"
-                  leftIcon={<Hash />}
+                  leftIcon={<Hash size={18} />}
                   required
                   maxLength={4}
                 />
@@ -419,7 +419,7 @@ export function ConfiguracionAlmacenes() {
                   }}
                   error={formErrors.nombre}
                   placeholder="Ej: Almacén Principal, Almacén Norte..."
-                  leftIcon={<FileText />}
+                  leftIcon={<FileText size={18} />}
                   required
                 />
               </div>
@@ -615,7 +615,7 @@ export function ConfiguracionAlmacenes() {
             placeholder="Buscar almacenes..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            leftIcon={<Search />}
+            leftIcon={<Search size={18} />}
           />
 
           <Select

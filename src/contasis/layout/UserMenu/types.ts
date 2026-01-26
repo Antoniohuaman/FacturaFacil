@@ -8,7 +8,6 @@ export interface UserData {
 export interface UserMenuProps {
   user: UserData;
   theme?: 'light' | 'dark';
-  onToggleTheme?: () => void;
   onProfileClick?: () => void;
   onSettingsClick?: () => void;
   onHelpClick?: () => void;

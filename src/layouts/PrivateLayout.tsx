@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Header from "./components/Header";
 import ConfigurationTopBar from "./components/ConfigurationTopBar";
+import { TopBar } from "../contasis/layout/TopBar/TopBar";
 import SideNav from "./components/SideNav";
 import { ConfigurationProvider } from "../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
 import { ComprobanteProvider } from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
@@ -31,6 +32,12 @@ export default function AppShell() {
   // Detectar si estamos en rutas de configuración
   const isInConfiguration = location.pathname === '/configuracion' || location.pathname.startsWith('/configuracion/');
 
+  // Detectar si estamos en rutas de Comprobantes o Punto de Venta
+  const isInComprobantes = location.pathname === '/' || 
+                           location.pathname === '/comprobantes' || 
+                           location.pathname.startsWith('/comprobantes/') ||
+                           location.pathname.startsWith('/punto-venta/');
+
   useEffect(() => {
     if (workspaces.length === 0 && location.pathname !== "/configuracion/empresa") {
       navigate("/configuracion/empresa", {
@@ -58,9 +65,13 @@ export default function AppShell() {
                             <ConfigurationTopBar
                               onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
                             />
-                          ) : (
+                          ) : isInComprobantes ? (
                             <Header
                               sidebarCollapsed={sidebarCollapsed}
+                              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                            />
+                          ) : (
+                            <TopBar
                               onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
                             />
                           )}

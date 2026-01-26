@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { User, Settings, Moon, Sun, Monitor, ChevronRight } from 'lucide-react';
 import { RadioButton } from '../../components/RadioButton';
+import { useTheme } from '../../../contexts/ThemeContext';
 import type { UserMenuProps } from './types';
 
 export const UserMenu = ({
   user,
-  theme = 'light',
-  onToggleTheme,
   onProfileClick,
   onSettingsClick,
   onHelpClick,
@@ -17,6 +16,7 @@ export const UserMenu = ({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const { theme: contextTheme, setTheme } = useTheme();
 
   // Cerrar menú al hacer click fuera
   useEffect(() => {
@@ -127,15 +127,14 @@ export const UserMenu = ({
                   <button 
                     className="w-full px-4 py-2.5 text-left text-sm text-primary hover:bg-surface-hover transition-colors flex items-center gap-3"
                     onClick={() => {
-                      if (onToggleTheme && theme !== 'light') {
-                        onToggleTheme();
-                      }
+                      setTheme('light');
+                      setIsThemeMenuOpen(false);
                     }}
                   >
                     <RadioButton
                       name="theme"
                       value="light"
-                      checked={theme === 'light'}
+                      checked={contextTheme === 'light'}
                       onChange={() => {}}
                     />
                     <div className="flex items-center justify-center w-8 h-8 rounded-md border-2 border-secondary bg-surface-0">
@@ -148,15 +147,14 @@ export const UserMenu = ({
                   <button 
                     className="w-full px-4 py-2.5 text-left text-sm text-primary hover:bg-surface-hover transition-colors flex items-center gap-3"
                     onClick={() => {
-                      if (onToggleTheme && theme !== 'dark') {
-                        onToggleTheme();
-                      }
+                      setTheme('dark');
+                      setIsThemeMenuOpen(false);
                     }}
                   >
                     <RadioButton
                       name="theme"
                       value="dark"
-                      checked={theme === 'dark'}
+                      checked={contextTheme === 'dark'}
                       onChange={() => {}}
                     />
                     <div className="flex items-center justify-center w-8 h-8 rounded-md border-2 border-secondary bg-surface-0">
@@ -169,13 +167,14 @@ export const UserMenu = ({
                   <button 
                     className="w-full px-4 py-2.5 text-left text-sm text-primary hover:bg-surface-hover transition-colors flex items-center gap-3"
                     onClick={() => {
-                      // Sistema theme - no hay acción por ahora
+                      setTheme('system');
+                      setIsThemeMenuOpen(false);
                     }}
                   >
                     <RadioButton
                       name="theme"
                       value="system"
-                      checked={false}
+                      checked={contextTheme === 'system'}
                       onChange={() => {}}
                     />
                     <div className="flex items-center justify-center w-8 h-8 rounded-md border-2 border-secondary bg-surface-0 overflow-hidden">
