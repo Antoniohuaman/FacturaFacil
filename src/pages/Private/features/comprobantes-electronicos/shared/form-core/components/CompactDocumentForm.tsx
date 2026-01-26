@@ -4,7 +4,7 @@
 // Reorganiza los campos para reducir scroll manteniendo toda la lógica
 // ===================================================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileText,
   ChevronDown,
@@ -21,7 +21,8 @@ import {
   Mail,
   Building2,
   Eye,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -164,7 +165,7 @@ interface CompactDocumentFormProps {
   onOptionalFieldsChange?: (fields: Record<string, any>) => void;
 
   // Señalizar al contenedor si el cliente actual proviene de lookup externo
-  onLookupClientSelected?: (client: { data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' }) => void;
+  onLookupClientSelected?: (client: { data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null) => void;
 }
 
 const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
@@ -215,6 +216,27 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [showCreditPaymentMethodModal, setShowCreditPaymentMethodModal] = useState(false);
   const [lastValidFormaPago, setLastValidFormaPago] = useState<string>(formaPago);
+
+  const onOptionalFieldsChangeRef = useRef(onOptionalFieldsChange);
+  const onClienteChangeRef = useRef(onClienteChange);
+  const onLookupClientSelectedRef = useRef(onLookupClientSelected);
+  const localDireccionRef = useRef(localDireccion);
+
+  useEffect(() => {
+    onOptionalFieldsChangeRef.current = onOptionalFieldsChange;
+  }, [onOptionalFieldsChange]);
+
+  useEffect(() => {
+    onClienteChangeRef.current = onClienteChange;
+  }, [onClienteChange]);
+
+  useEffect(() => {
+    onLookupClientSelectedRef.current = onLookupClientSelected;
+  }, [onLookupClientSelected]);
+
+  useEffect(() => {
+    localDireccionRef.current = localDireccion;
+  }, [localDireccion]);
 
   useEffect(() => {
     const mapped = mapSelectedClienteFromProps(clienteSeleccionado);
@@ -287,6 +309,28 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const searchLower = searchQuery.trim().toLowerCase();
   const searchDigits = searchQuery.replace(/\D+/g, '');
 
+  const lookupLabel = tipoComprobante === 'factura' ? 'SUNAT' : 'RENIEC';
+  const expectedLookupDigitsLength = tipoComprobante === 'factura' ? 11 : 8;
+  const hasLettersInSearch = useMemo(() => /\p{L}/u.test(searchQuery), [searchQuery]);
+  const isValidLookupDocument = useMemo(() => {
+    if (hasLettersInSearch) return false;
+    return searchDigits.length === expectedLookupDigitsLength;
+  }, [expectedLookupDigitsLength, hasLettersInSearch, searchDigits.length]);
+
+  const lookupButtonClassName = useMemo(() => {
+    const isEnabled = !isLookupLoading && isValidLookupDocument;
+    return `inline-flex items-center justify-center whitespace-nowrap rounded-lg ${
+      isEnabled
+        ? 'bg-blue-50 text-blue-700 hover:text-blue-800 hover:bg-blue-100/60'
+        : 'bg-slate-200/40 text-slate-600 hover:text-slate-900'
+    }`;
+  }, [isLookupLoading, isValidLookupDocument]);
+
+  const formatClienteDisplayValue = (cliente: SelectedCliente) => {
+    const docLabel = formatSaleDocumentLabel(cliente.tipoDocumento, cliente.dni);
+    return `${docLabel} · ${cliente.nombre}`;
+  };
+
   useEffect(() => {
     if (!searchLower && !searchDigits) {
       return;
@@ -306,6 +350,21 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     return clientes;
   }, [clientes, searchDigits, searchLower]);
 
+  useEffect(() => {
+    if (!config.optionalFields.direccion.visible) {
+      return;
+    }
+
+    const nextDireccion = (clienteSeleccionadoLocal?.direccion ?? '').trim();
+    if (localDireccionRef.current === nextDireccion) {
+      return;
+    }
+
+    localDireccionRef.current = nextDireccion;
+    setLocalDireccion(nextDireccion);
+    onOptionalFieldsChangeRef.current?.({ direccion: nextDireccion });
+  }, [clienteSeleccionadoLocal, config.optionalFields.direccion.visible]);
+
   // Handlers para cliente
   const handleSeleccionarCliente = (cliente: Cliente) => {
     const snap = clienteToSaleSnapshot(cliente);
@@ -314,7 +373,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       clienteId: snap.clienteId,
       nombre: snap.nombre,
       dni: snap.dni,
-      direccion: snap.direccion || 'Dirección no definida',
+      direccion: snap.direccion || '',
       tipoDocumento: snap.tipoDocumento,
       email: snap.email,
       sunatCode: snap.sunatCode ?? saleDocTypeToSunatCode(snap.tipoDocumento),
@@ -324,7 +383,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
     setClienteSeleccionadoLocal(selected);
 
-    onClienteChange?.({
+    onClienteChangeRef.current?.({
       clienteId: selected.clienteId,
       nombre: selected.nombre,
       dni: selected.dni,
@@ -334,39 +393,62 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       priceProfileId: selected.priceProfileId,
     });
 
+    setSearchQuery(formatClienteDisplayValue(selected));
+    setClientDocError(null);
+  };
+
+  const handleClearSearch = () => {
     setSearchQuery('');
+    setClienteSeleccionadoLocal(null);
     setClientDocError(null);
+    setIsLookupLoading(false);
+    onClienteChangeRef.current?.(null);
+    onLookupClientSelectedRef.current?.(null);
+
+    if (config.optionalFields.direccion.visible) {
+      localDireccionRef.current = '';
+      setLocalDireccion('');
+      onOptionalFieldsChangeRef.current?.({ direccion: '' });
+    }
   };
 
-  const isValidDocumentForLookup = () => {
-    const digitsOnly = searchQuery.replace(/\D+/g, '');
-    if (!digitsOnly) {
-      return false;
+  const handleSearchInputChange = (value: string) => {
+    if (clienteSeleccionadoLocal) {
+      setClienteSeleccionadoLocal(null);
+      onClienteChangeRef.current?.(null);
     }
-
-    if (tipoComprobante === 'factura') {
-      if (digitsOnly.length !== 11) {
-        setClientDocError('El RUC debe tener 11 dígitos');
-        return false;
-      }
+    if (clientDocError) {
       setClientDocError(null);
-      return true;
     }
 
-    if (digitsOnly.length !== 8) {
-      setClientDocError('El DNI debe tener 8 dígitos');
-      return false;
-    }
-    setClientDocError(null);
-    return true;
-  };
-
-  const handleLookupClick = async () => {
-    if (!isValidDocumentForLookup()) {
+    const containsLetters = /\p{L}/u.test(value);
+    if (containsLetters) {
+      setSearchQuery(value);
       return;
     }
 
-    const digitsOnly = searchQuery.replace(/\D+/g, '');
+    const digitsOnly = value.replace(/\D+/g, '');
+    if (!digitsOnly) {
+      setSearchQuery(value);
+      return;
+    }
+
+    setSearchQuery(digitsOnly.slice(0, expectedLookupDigitsLength));
+  };
+
+  const handleLookupClick = async () => {
+    if (!isValidLookupDocument) {
+      if (!hasLettersInSearch && searchDigits) {
+        setClientDocError(
+          tipoComprobante === 'factura'
+            ? 'El RUC debe tener 11 dígitos'
+            : 'El DNI debe tener 8 dígitos',
+        );
+      }
+      return;
+    }
+
+    const digitsOnly = searchDigits;
     const expectedType: SaleDocumentType = tipoComprobante === 'factura' ? 'RUC' : 'DNI';
     setIsLookupLoading(true);
     try {
@@ -390,17 +472,14 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         return;
       }
 
-      const lookupType = inferDocumentTypeFromNumber(fromLookup.documento);
-      const normalizedLookupNumber =
-        lookupType === 'RUC' || lookupType === 'DNI'
-          ? fromLookup.documento.replace(/\D+/g, '')
-          : fromLookup.documento;
+      const lookupType: SaleDocumentType = expectedType;
+      const normalizedLookupNumber = digitsOnly;
 
       const selectedClient: SelectedCliente = {
         clienteId: undefined,
         nombre: fromLookup.nombre,
         dni: normalizedLookupNumber,
-        direccion: fromLookup.direccion || 'Dirección no definida',
+        direccion: fromLookup.direccion || '',
         email: fromLookup.email,
         tipoDocumento: lookupType,
         sunatCode: saleDocTypeToSunatCode(lookupType),
@@ -408,7 +487,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       };
 
       setClienteSeleccionadoLocal(selectedClient);
-      onClienteChange?.({
+      onClienteChangeRef.current?.({
         clienteId: selectedClient.clienteId,
         nombre: selectedClient.nombre,
         dni: selectedClient.dni,
@@ -417,7 +496,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         tipoDocumento: selectedClient.tipoDocumento,
         priceProfileId: selectedClient.priceProfileId,
       });
-      onLookupClientSelected?.({
+      onLookupClientSelectedRef.current?.({
         data: {
           nombre: fromLookup.nombre,
           documento: selectedClient.dni,
@@ -427,7 +506,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         },
         origen: fromLookup.origen,
       });
-      setSearchQuery(selectedClient.dni);
+      setSearchQuery(formatClienteDisplayValue(selectedClient));
       setClientDocError(null);
     } finally {
       setIsLookupLoading(false);
@@ -552,47 +631,78 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
           {/* COLUMNA 1: Cliente/Dirección/Email/Envío (~42% → xl:col-span-5) */}
           <div className="col-span-12 xl:col-span-5 space-y-2">
             {/* Cliente (reducido ~10-12%, lupa compacta) */}
-            {!clienteSeleccionadoLocal ? (
-              <div>
-                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="cliente-buscar">
-                  <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Cliente<span className="ml-0.5 text-red-500">*</span>
-                </label>
-                <div className="flex w-full items-center gap-3 relative">
-                  <Search className="absolute left-2.5 top-2.5 text-gray-400 w-4 h-4 pointer-events-none" />
+            <div>
+              <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="cliente-buscar">
+                <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                Cliente<span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <div className="flex h-9 w-full rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="relative flex-1">
                   <input
                     type="text"
                     placeholder="Buscar por nombre o documento..."
                     id="cliente-buscar"
-                    className="h-9 flex-1 w-full pl-9 pr-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
+                    className="h-9 w-full px-3 pr-8 text-[13px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => handleSearchInputChange(e.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        if (isValidLookupDocument) {
+                          void handleLookupClick();
+                          return;
+                        }
+                        if (!hasLettersInSearch && searchDigits) {
+                          setClientDocError(
+                            tipoComprobante === 'factura'
+                              ? 'El RUC debe tener 11 dígitos'
+                              : 'El DNI debe tener 8 dígitos',
+                          );
+                        }
+                      }
+                    }}
                   />
-                  {/* Search button aligned center and same height as input */}
-                  <button
-                    type="button"
-                    aria-label={tipoComprobante === 'factura' ? 'Buscar en SUNAT' : 'Buscar en RENIEC'}
-                    className="inline-flex h-9 px-3 items-center justify-center rounded-lg bg-indigo-500 text-white hover:opacity-90 focus:ring-2 focus:ring-indigo-300 transition-colors text-[11px] font-medium gap-2 shrink-0 whitespace-nowrap"
-                    title={tipoComprobante === 'factura' ? 'Buscar en SUNAT' : 'Buscar en RENIEC'}
-                    onClick={handleLookupClick}
-                    disabled={isLookupLoading}
-                  >
-                    <Search className="w-3.5 h-3.5" />
-                    <span>{tipoComprobante === 'factura' ? 'SUNAT' : 'RENIEC'}</span>
-                  </button>
+                  {(Boolean(searchQuery) || Boolean(clienteSeleccionadoLocal)) && (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      title="Limpiar"
+                      aria-label="Limpiar"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
+                <button
+                  type="button"
+                  aria-label={lookupLabel}
+                  title={lookupLabel}
+                  className={`${lookupButtonClassName} h-9 px-3 text-[11px] font-medium gap-2 shrink-0 disabled:opacity-60 disabled:hover:text-slate-600`}
+                  onClick={() => void handleLookupClick()}
+                  disabled={isLookupLoading || !isValidLookupDocument}
+                >
+                  {isLookupLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Search className="w-3.5 h-3.5" />
+                  )}
+                  <span>{lookupLabel}</span>
+                </button>
+              </div>
 
-                {clientDocError && (
-                  <p className="mt-1 text-xs text-red-600">{clientDocError}</p>
-                )}
+              {clientDocError && (
+                <p className="mt-1 text-xs text-red-600">{clientDocError}</p>
+              )}
 
-                {/* Resultados de búsqueda */}
-                {searchQuery && (
-                  <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white">
-                    {clientesFiltrados.length > 0 ? (
-                      clientesFiltrados.map((cliente) => {
-                        const snap = clienteToSaleSnapshot(cliente);
-                        return (
+              {/* Resultados de búsqueda */}
+              {!clienteSeleccionadoLocal && Boolean(searchQuery.trim()) && (
+                <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white">
+                  {clientesFiltrados.length > 0 ? (
+                    clientesFiltrados
+                      .map((cliente) => ({ cliente, snap: clienteToSaleSnapshot(cliente) }))
+                      .filter(({ snap }) => (tipoComprobante === 'factura' ? snap.tipoDocumento === 'RUC' : true))
+                      .map(({ cliente, snap }) => (
                         <button
                           key={String(cliente.id)}
                           onClick={() => handleSeleccionarCliente(cliente)}
@@ -605,54 +715,17 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                             {formatSaleDocumentLabel(snap.tipoDocumento, snap.dni)}
                           </p>
                         </button>
-                        );
-                      })
-                    ) : (
-                      <div className="px-3 py-3 text-center">
-                        <p className="text-[12px] text-gray-500">No se encontraron clientes</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* '+ Nuevo Cliente' intentionally removed — creation handled elsewhere */}
-              </div>
-            ) : (
-              <div>
-                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5">
-                  <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Cliente Seleccionado
-                </label>
-                <div className="h-9 flex items-center bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl px-2.5 border border-violet-200">
-                  <div className="flex items-center gap-2 sm:gap-3 w-full">
-                    <div className="flex items-center gap-2 min-w-0 flex-1 text-[13px]">
-                      <span className="inline-flex items-center rounded-full border border-violet-100 bg-white/70 px-2 py-0.5 text-[12px] font-semibold text-violet-700">
-                        {formatSaleDocumentLabel(clienteSeleccionadoLocal.tipoDocumento, clienteSeleccionadoLocal.dni)}
-                      </span>
-                      <span
-                        className="font-semibold text-gray-900 truncate"
-                        title={clienteSeleccionadoLocal.nombre}
-                      >
-                        {clienteSeleccionadoLocal.nombre}
-                      </span>
+                      ))
+                  ) : (
+                    <div className="px-3 py-3 text-center">
+                      <p className="text-[12px] text-gray-500">No se encontraron clientes</p>
                     </div>
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <button
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition"
-                        onClick={() => {
-                          setClienteSeleccionadoLocal(null);
-                          setSearchQuery('');
-                        }}
-                        title="Cambiar cliente"
-                        aria-label="Cambiar cliente"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* '+ Nuevo Cliente' intentionally removed — creation handled elsewhere */}
+            </div>
 
             {/* Dirección */}
             {config.optionalFields.direccion.visible && (
@@ -666,7 +739,12 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   type="text"
                   required={config.optionalFields.direccion.required}
                   value={localDireccion}
-                  onChange={(e) => { setLocalDireccion(e.target.value); onOptionalFieldsChange?.({ direccion: e.target.value }); }}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    localDireccionRef.current = next;
+                    setLocalDireccion(next);
+                    onOptionalFieldsChangeRef.current?.({ direccion: next });
+                  }}
                   id="direccion"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="Dirección del cliente"
