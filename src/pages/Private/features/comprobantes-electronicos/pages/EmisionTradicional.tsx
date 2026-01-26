@@ -886,6 +886,7 @@ const EmisionTradicional = () => {
               onClearGlobalDiscount={handleClearGlobalDiscount}
               getGlobalDiscountPreviewTotals={getDiscountPreviewTotals}
               refreshKey={productSelectorKey}
+              selectedEstablecimientoId={currentEstablecimientoId}
               preferredPriceColumnId={preferredPriceColumnId}
             />
 

@@ -3,18 +3,22 @@
 // ===================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Scan, Plus, Filter, Package, X, LayoutGrid, List, Star } from 'lucide-react';
+import { Search, Scan, Plus, Filter, Package, X, LayoutGrid, List, Star, Wrench } from 'lucide-react';
 import type { Product, CartItem, Currency } from '../../models/comprobante.types';
 import { useProductSearch } from '../../shared/form-core/hooks/useProductSearch';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { useFeedback } from '../../../../../../shared/feedback';
-import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId, useUserSession } from '../../../../../../contexts/UserSessionContext';
 
 // Importar el modal REAL de productos del catálogo
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
 import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 import type { PosPriceListOption } from '../hooks/usePosCartAndTotals';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import type { StockAdjustmentData } from '../../../gestion-inventario/models';
+import AdjustmentModal from '../../../gestion-inventario/components/modals/AdjustmentModal';
+import { registrarAjusteDeStock } from '../../../../../../shared/inventory/accionesStock';
 
 export interface ProductGridProps {
   // Lista de productos disponibles
@@ -111,8 +115,10 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   activePriceListLabel,
 }) => {
   const { formatPrice } = useCurrency();
-  const { addProduct, categories: catalogoCategories } = useProductStore();
+  const { allProducts: catalogProducts, addProduct, categories: catalogoCategories } = useProductStore();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const { session } = useUserSession();
+  const { state: configState } = useConfigurationContext();
   
   const {
     searchQuery,
@@ -128,7 +134,56 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     clearSearch
   } = useProductSearch({ EstablecimientoId: currentEstablecimientoId });
 
-  const { warning: showWarningToast } = useFeedback();
+  const { warning: showWarningToast, success: showSuccessToast, error: showErrorToast } = useFeedback();
+
+  const almacenesActivosDelEstablecimiento = useMemo(() => {
+    if (!currentEstablecimientoId) {
+      return [];
+    }
+    return configState.almacenes.filter(
+      (almacen) => almacen.estaActivoAlmacen && almacen.establecimientoId === currentEstablecimientoId
+    );
+  }, [configState.almacenes, currentEstablecimientoId]);
+
+  const prefilledAlmacenIdParaAjuste = useMemo(() => {
+    return almacenesActivosDelEstablecimiento.length === 1 ? almacenesActivosDelEstablecimiento[0].id : null;
+  }, [almacenesActivosDelEstablecimiento]);
+
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [selectedProductIdForAdjustment, setSelectedProductIdForAdjustment] = useState<string | null>(null);
+
+  const openStockAdjustmentModal = useCallback((productId: string) => {
+    setSelectedProductIdForAdjustment(productId);
+    setShowAdjustmentModal(true);
+  }, []);
+
+  const handleConfirmarAjusteDeStock = useCallback((data: StockAdjustmentData) => {
+    const producto = catalogProducts.find((p) => p.id === data.productoId);
+    const almacen = configState.almacenes.find((w) => w.id === data.almacenId);
+
+    if (!producto || !almacen) {
+      showWarningToast('Producto o almacén no encontrado', 'Advertencia');
+      return;
+    }
+
+    try {
+      const resultado = registrarAjusteDeStock({
+        producto,
+        almacen,
+        datosAjuste: data,
+        usuario: session?.userName || 'Usuario',
+      });
+
+      showSuccessToast(
+        `${data.tipo}: ${data.cantidad} u · Nuevo stock: ${resultado.movimiento.cantidadNueva}`,
+        'Ajuste registrado'
+      );
+      setShowAdjustmentModal(false);
+    } catch (err) {
+      console.error('Error al registrar ajuste:', err);
+      showErrorToast(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
+    }
+  }, [catalogProducts, configState.almacenes, session?.userName, showErrorToast, showSuccessToast, showWarningToast]);
 
   const favoriteProducts = useMemo(() => products.filter((product) => product.isFavorite), [products]);
   const hasFavoriteProducts = favoriteProducts.length > 0;
@@ -906,8 +961,22 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 {unitLabel}
               </p>
 
-              <p className="text-xs text-gray-600 font-semibold">
-                Stock: {stockValue}
+              <p className="text-xs text-gray-600 font-semibold flex items-center gap-1">
+                <span>Stock: {stockValue}</span>
+                {stockValue <= 0 && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openStockAdjustmentModal(product.id);
+                    }}
+                    className="p-0.5 text-gray-600 hover:opacity-80 transition-opacity rounded"
+                    title="Ajustar stock"
+                    aria-label="Ajustar stock"
+                  >
+                    <Wrench size={14} />
+                  </button>
+                )}
               </p>
             </div>
 
@@ -1056,6 +1125,16 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       </div>
 
       {/* Modal de creación de productos - USANDO EL MODAL REAL DEL CATÁLOGO */}
+      <AdjustmentModal
+        isOpen={showAdjustmentModal}
+        onClose={() => setShowAdjustmentModal(false)}
+        onAdjust={handleConfirmarAjusteDeStock}
+        preSelectedProductId={selectedProductIdForAdjustment}
+        preSelectedQuantity={0}
+        prefilledAlmacenId={prefilledAlmacenIdParaAjuste}
+        mode="prefilled"
+      />
+
       <ProductModal
         isOpen={showProductModal}
         onClose={() => setShowProductModal(false)}
