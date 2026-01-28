@@ -4,7 +4,6 @@
 // ===================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, ChevronDown, FileText, Percent, Printer, Wallet2, SlidersHorizontal, ShoppingCart } from 'lucide-react';
 import type { CartSidebarProps, Product, ComprobanteCreditTerms, Currency, DiscountInput, DiscountMode, PaymentTotals } from '../../models/comprobante.types';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
@@ -16,6 +15,7 @@ import { ClientSection } from './client/ClientSection';
 import type { ProductUnitOption } from '../../../lista-precios/models/PriceTypes';
 import type { SaleDocumentType } from '../../../gestion-clientes/utils/saleClienteMapping';
 import { TaxBreakdownSummary } from '../../shared/ui/TaxBreakdownSummary';
+import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
 
 export interface CartCheckoutPanelProps extends CartSidebarProps {
   onAddProduct?: (product: Product) => void;
@@ -115,9 +115,8 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onClearDiscount,
   getDiscountPreviewTotals,
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { formatPrice, changeCurrency, availableCurrencies } = useCurrency();
+  const { iniciarAperturaCaja } = useRetornoAperturaCaja();
   const [showNotes, setShowNotes] = useState(false);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
   const docMenuRef = useRef<HTMLDivElement>(null);
@@ -533,8 +532,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const returnTo = `${location.pathname}${location.search}`;
-                  navigate(`/control-caja?tab=apertura&returnTo=${encodeURIComponent(returnTo)}`);
+                  iniciarAperturaCaja();
                 }}
                 className="mt-1 inline-flex text-xs font-medium text-yellow-800 underline underline-offset-2 hover:text-yellow-900"
               >

@@ -8,10 +8,12 @@ import { DollarSign, Save, AlertCircle } from 'lucide-react';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { calcularMontoInicialTotal } from '../utils';
 import { formatBusinessDateTimeIso, formatBusinessDateTimeLocal, parseBusinessDateTimeLocal } from '@/shared/time/businessTime';
+import { CLAVE_RETORNO_APERTURA_CAJA, useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
 
 const AperturaCaja: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  useRetornoAperturaCaja();
   const { session } = useUserSession();
   
   // Valores numéricos para cálculos
@@ -35,7 +37,9 @@ const AperturaCaja: React.FC = () => {
   const usuarioId = session?.userId || 'default';
 
   // Obtener la URL de retorno de los parámetros o sessionStorage
-  const returnTo = searchParams.get('returnTo') || sessionStorage.getItem('returnAfterCajaOpen');
+  const returnToLegacy = searchParams.get('returnTo') || sessionStorage.getItem('returnAfterCajaOpen');
+  const returnToNuevo = sessionStorage.getItem(CLAVE_RETORNO_APERTURA_CAJA);
+  const returnTo = returnToLegacy || returnToNuevo;
 
   const montoTotal = calcularMontoInicialTotal(montoEfectivoNum, montoTarjetaNum, montoYapeNum);
 
@@ -88,9 +92,9 @@ const AperturaCaja: React.FC = () => {
       sessionStorage.removeItem('returnAfterCajaOpen');
       
       // Redirigir después de un pequeño delay para que el usuario vea el toast de éxito
-      if (returnTo) {
+      if (returnToLegacy) {
         setTimeout(() => {
-          navigate(returnTo, { replace: true });
+          navigate(returnToLegacy, { replace: true });
         }, 1500);
       }
     } catch (error) {

@@ -40,7 +40,7 @@ import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
 import { PreviewDocument } from '../shared/ui/PreviewDocument';
 
 import { useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -59,6 +59,9 @@ import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSumm
 import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
 import type { CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
 import { calculateCurrencyAwareTotals } from '../shared/core/currencyTotals';
+import { useCaja } from '../../control-caja/context/CajaContext';
+import { BloqueoCajaCerrada } from '../shared/ui/BloqueoCajaCerrada';
+import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
@@ -66,6 +69,21 @@ const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInsta
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
+  const { status: cajaStatus } = useCaja();
+  const gateCajaCerradaActivo = cajaStatus !== 'abierta';
+  const abrirCajaButtonRef = useRef<HTMLButtonElement>(null);
+  const { iniciarAperturaCaja } = useRetornoAperturaCaja();
+
+  const handleGateFocusCapture = useCallback(
+    (event: FocusEvent) => {
+      if (!gateCajaCerradaActivo) return;
+      event.stopPropagation();
+      const target = event.target as HTMLElement | null;
+      target?.blur?.();
+      queueMicrotask(() => abrirCajaButtonRef.current?.focus());
+    },
+    [gateCajaCerradaActivo],
+  );
 
   // ✅ Hook para side preview (solo si flag habilitado)
   const sidePreview = ENABLE_SIDE_PREVIEW_EMISION ? useSidePreviewPane() : null;
@@ -849,85 +867,120 @@ const EmisionTradicional = () => {
             >
               <div className="max-w-7xl mx-auto p-4 space-y-4">
 
-            {/* ✅ Formulario Compacto - Todos los campos organizados */}
-            <CompactDocumentForm
-              tipoComprobante={tipoComprobante}
-              setTipoComprobante={setTipoComprobante}
-              serieSeleccionada={serieSeleccionada}
-              setSerieSeleccionada={setSerieSeleccionada}
-              seriesFiltradas={seriesFiltradas}
-              moneda={currentCurrency}
-              setMoneda={changeCurrency}
-              currencyOptions={availableCurrencies}
-              baseCurrencyCode={baseCurrency.code as Currency}
-              formaPago={formaPago}
-              setFormaPago={setFormaPago}
-              isCreditMethod={isCreditMethod}
-              creditDueDate={creditTerms?.fechaVencimientoGlobal ?? null}
-              onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
-              onVistaPrevia={sidePreview?.togglePane}
-              onClienteChange={setClienteSeleccionadoGlobal}
-              onLookupClientSelected={setLookupClient}
-              fechaEmision={fechaEmision}
-              onFechaEmisionChange={setFechaEmision}
-              onOptionalFieldsChange={(fields: Record<string, any>) => setOptionalFields(prev => ({ ...prev, ...fields }))}
-            />
-
-            {/* Products Section - Sin cambios */}
-            <ProductsSection
-              cartItems={cartItems}
-              addProductsFromSelector={addProductsFromSelector}
-              updateCartItem={updateCartItem}
-              removeFromCart={removeFromCart}
-              totals={totals}
-              totalsBeforeDiscount={totalsBeforeDiscount}
-              globalDiscount={appliedGlobalDiscount}
-              onApplyGlobalDiscount={handleApplyGlobalDiscount}
-              onClearGlobalDiscount={handleClearGlobalDiscount}
-              getGlobalDiscountPreviewTotals={getDiscountPreviewTotals}
-              refreshKey={productSelectorKey}
-              selectedEstablecimientoId={currentEstablecimientoId}
-              preferredPriceColumnId={preferredPriceColumnId}
-            />
-
-            {isCreditMethod && (
-              <div className="mt-6">
-                <CreditScheduleSummaryCard
-                  creditTerms={creditTerms}
-                  currency={currentCurrency}
-                  total={totals.total}
-                  onConfigure={handleOpenCreditScheduleModal}
-                  errors={creditTemplateErrors}
-                  paymentMethodName={selectedPaymentMethod?.name}
-                />
-              </div>
+            {gateCajaCerradaActivo && (
+              <BloqueoCajaCerrada
+                ref={abrirCajaButtonRef}
+                onAbrirCaja={iniciarAperturaCaja}
+              />
             )}
 
-            {/* Action Buttons Section - ahora con acciones dinámicas */}
-            <ActionButtonsSection
-              onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
-              onCancelar={goToComprobantes}
-              onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
-              secondaryAction={
-                fieldsConfig.notesSection
-                  ? {
-                      label: 'Observaciones',
-                      onClick: () => setShowObservacionesPanel(true),
-                      icon: <FileText className="h-4 w-4" />,
-                      title: 'Agregar observaciones visibles para el cliente u observación interna',
-                    }
-                  : undefined
-              }
-              isCartEmpty={cartItems.length === 0}
-              primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
-                label: issueButtonLabel,
-                onClick: handleIssue,
-                disabled: isProcessing || cartItems.length === 0,
-                title: isCreditPaymentSelection
-                  ? 'Emitir y generar la cuenta por cobrar'
-                  : 'Abrir el modal de cobranza para registrar este pago',
-              } : undefined}
-            />
+            <div className="relative">
+              <div
+                className={
+                  gateCajaCerradaActivo
+                    ? 'space-y-4 select-none blur-[1px] pointer-events-none transition-[filter]'
+                    : 'space-y-4'
+                }
+                onFocusCapture={gateCajaCerradaActivo ? handleGateFocusCapture : undefined}
+              >
+                {/* ✅ Formulario Compacto - Todos los campos organizados */}
+                <CompactDocumentForm
+                  tipoComprobante={tipoComprobante}
+                  setTipoComprobante={setTipoComprobante}
+                  serieSeleccionada={serieSeleccionada}
+                  setSerieSeleccionada={setSerieSeleccionada}
+                  seriesFiltradas={seriesFiltradas}
+                  moneda={currentCurrency}
+                  setMoneda={changeCurrency}
+                  currencyOptions={availableCurrencies}
+                  baseCurrencyCode={baseCurrency.code as Currency}
+                  formaPago={formaPago}
+                  setFormaPago={setFormaPago}
+                  isCreditMethod={isCreditMethod}
+                  creditDueDate={creditTerms?.fechaVencimientoGlobal ?? null}
+                  onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
+                  onVistaPrevia={sidePreview?.togglePane}
+                  onClienteChange={setClienteSeleccionadoGlobal}
+                  onLookupClientSelected={setLookupClient}
+                  fechaEmision={fechaEmision}
+                  onFechaEmisionChange={setFechaEmision}
+                  onOptionalFieldsChange={(fields: Record<string, any>) => setOptionalFields(prev => ({ ...prev, ...fields }))}
+                />
+
+                {/* Products Section - Sin cambios */}
+                <ProductsSection
+                  cartItems={cartItems}
+                  addProductsFromSelector={addProductsFromSelector}
+                  updateCartItem={updateCartItem}
+                  removeFromCart={removeFromCart}
+                  totals={totals}
+                  totalsBeforeDiscount={totalsBeforeDiscount}
+                  globalDiscount={appliedGlobalDiscount}
+                  onApplyGlobalDiscount={handleApplyGlobalDiscount}
+                  onClearGlobalDiscount={handleClearGlobalDiscount}
+                  getGlobalDiscountPreviewTotals={getDiscountPreviewTotals}
+                  refreshKey={productSelectorKey}
+                  selectedEstablecimientoId={currentEstablecimientoId}
+                  preferredPriceColumnId={preferredPriceColumnId}
+                />
+
+                {isCreditMethod && (
+                  <div className="mt-6">
+                    <CreditScheduleSummaryCard
+                      creditTerms={creditTerms}
+                      currency={currentCurrency}
+                      total={totals.total}
+                      onConfigure={handleOpenCreditScheduleModal}
+                      errors={creditTemplateErrors}
+                      paymentMethodName={selectedPaymentMethod?.name}
+                    />
+                  </div>
+                )}
+
+                {/* Action Buttons Section - ahora con acciones dinámicas */}
+                <ActionButtonsSection
+                  onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
+                  onCancelar={goToComprobantes}
+                  onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
+                  secondaryAction={
+                    fieldsConfig.notesSection
+                      ? {
+                          label: 'Observaciones',
+                          onClick: () => setShowObservacionesPanel(true),
+                          icon: <FileText className="h-4 w-4" />,
+                          title: 'Agregar observaciones visibles para el cliente u observación interna',
+                        }
+                      : undefined
+                  }
+                  isCartEmpty={cartItems.length === 0}
+                  primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
+                    label: issueButtonLabel,
+                    onClick: handleIssue,
+                    disabled: isProcessing || cartItems.length === 0,
+                    title: isCreditPaymentSelection
+                      ? 'Emitir y generar la cuenta por cobrar'
+                      : 'Abrir el modal de cobranza para registrar este pago',
+                  } : undefined}
+                />
+              </div>
+
+              {gateCajaCerradaActivo && (
+                <div
+                  className="absolute inset-0 z-10 bg-white/0"
+                  aria-hidden="true"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    abrirCajaButtonRef.current?.focus();
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    abrirCajaButtonRef.current?.focus();
+                  }}
+                />
+              )}
+            </div>
             </div>
           </div>
 
