@@ -8,7 +8,10 @@ import {
   Loader2,
   X,
   Shield,
-  ArrowLeft
+  ArrowLeft,
+  Search,
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import { Button, Select, Input, RadioButton, PageHeader, Textarea } from '@/contasis';
 import { ToastNotifications, type Toast } from '@/components/Toast';
@@ -16,10 +19,11 @@ import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
-import { RucValidator } from '../components/empresa/ValidadorRuc';
+
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { sunatService } from '../../../../../services/api';
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import type { Currency } from '../modelos/Currency';
@@ -279,6 +283,7 @@ export function CompanyConfiguration() {
   const [autoConfigProcessed, setAutoConfigProcessed] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isValidatingRuc, setIsValidatingRuc] = useState(false);
   const autoConfigRef = useRef(false);
   const operationalSetupRef = useRef(false);
 
@@ -796,26 +801,131 @@ export function CompanyConfiguration() {
       <ToastNotifications toasts={toasts} />
 
       <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto p-6 space-y-8">
-          <form onSubmit={manejarEnvio} className="space-y-8">{/* Company Legal Data */}
+        <div className="max-w-4xl mx-auto p-6 space-y-10">
+          <form onSubmit={manejarEnvio} className="space-y-10">{/* Company Legal Data */}
             <TarjetaConfiguracion
               title="Datos Legales y Tributarios"
               density="compact"
             >
-              <div className="space-y-2">
-                {/* RUC Validator Component */}
-                <RucValidator
-                  value={datosFormulario.ruc}
-                  onChange={(ruc) => {
-                    setFormData(prev => ({ ...prev, ruc }));
-                    if (formErrors.ruc) {
-                      setFormErrors(prev => ({ ...prev, ruc: '' }));
-                    }
-                  }}
-                  onValidation={handleRucValidation}
-                  onToast={showToast}
-                  error={formErrors.ruc}
-                />
+              <div className="space-y-6">
+                {/* RUC Input with validation - Mantener siempre input + botón + cuadro informativo */}
+                <div className="space-y-2">
+                  <label className="block text-ui-base font-medium text-tertiary">
+                    RUC <span className="text-error">*</span>
+                  </label>
+                  
+                  {/* Input + Botón - Siempre presentes */}
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <Input
+                        value={datosFormulario.ruc}
+                        leftIcon={<FileText size={18} />}
+                        placeholder="Ingrese RUC de 11 dígitos"
+                        maxLength={11}
+                        variant={rucValidation?.isValid ? "validated-editable" : "default"}
+                        onChange={(e) => {
+                          const newRuc = e.target.value.replace(/\D/g, '').slice(0, 11);
+                          setFormData(prev => ({ ...prev, ruc: newRuc }));
+                          if (formErrors.ruc) {
+                            setFormErrors(prev => ({ ...prev, ruc: '' }));
+                          }
+                          // Si cambia el RUC, resetear validación
+                          if (newRuc !== datosFormulario.ruc) {
+                            setRucValidation(null);
+                          }
+                        }}
+                        error={formErrors.ruc}
+                        disabled={isValidatingRuc}
+                      />
+                    </div>
+                    
+                    {/* Botón - Siempre presente, cambia según estado */}
+                    <Button
+                      type="button"
+                      onClick={async () => {
+                        if (datosFormulario.ruc.length !== 11 || isValidatingRuc) return;
+                        
+                        setIsValidatingRuc(true);
+                        setRucValidation(null);
+                        
+                        try {
+                          showToast('warning', 'Consultando RUC en SUNAT...');
+                          
+                          const result = await sunatService.validateRuc(datosFormulario.ruc);
+                          
+                          if (result.isValid) {
+                            showToast('success', '✓ RUC validado correctamente');
+                          } else {
+                            showToast('error', result.message);
+                          }
+                          
+                          handleRucValidation(result);
+                        } catch {
+                          const errorResult = {
+                            isValid: false,
+                            message: 'Error al conectar con SUNAT. Intenta nuevamente.'
+                          };
+                          handleRucValidation(errorResult);
+                          showToast('error', 'Error de conexión con SUNAT');
+                        } finally {
+                          setIsValidatingRuc(false);
+                        }
+                      }}
+                      disabled={datosFormulario.ruc.length !== 11 || isValidatingRuc}
+                      loading={isValidatingRuc}
+                      variant={rucValidation?.isValid ? "secondary" : "primary"}
+                      size="md"
+                      icon={rucValidation?.isValid ? <CheckCircle2 size={18} /> : <Search size={18} />}
+                      className="whitespace-nowrap h-10"
+                    >
+                      {isValidatingRuc ? 'Consultando...' : 
+                       rucValidation?.isValid ? 'Validado' : 'Consultar SUNAT'}
+                    </Button>
+                  </div>
+                  
+                  {/* Cuadro Verde - Validación Exitosa */}
+                  {rucValidation?.isValid && (
+                    <div className="bg-success/10 border border-success/30 rounded-lg p-3 animate-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-start gap-2">
+                        <div className="w-7 h-7 bg-success/20 rounded-full flex items-center justify-center flex-shrink-0">
+                          <CheckCircle2 className="w-4 h-4 text-success" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-caption font-semibold text-success">✓ RUC Validado Correctamente</p>
+                          <p className="text-caption text-success/80 mt-0.5 leading-tight">{rucValidation.message}</p>
+                          {rucValidation.data && (
+                            <p className="text-caption text-success/80 mt-0.5 leading-tight">
+                              SUNAT: {rucValidation.data.razonSocial}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Cuadro Rojo - Error de Validación */}
+                  {rucValidation?.isValid === false && (
+                    <div className="bg-error/10 border border-error/30 rounded-lg p-3 animate-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-start gap-2">
+                        <div className="w-7 h-7 bg-error/20 rounded-full flex items-center justify-center flex-shrink-0">
+                          <AlertTriangle className="w-4 h-4 text-error" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-caption font-semibold text-error">Error de Validación</p>
+                          <p className="text-caption text-error/80 mt-0.5 leading-tight">{rucValidation.message}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Advertencia RUC Vacío */}
+                  {datosFormulario.ruc === '' && !rucValidation && (
+                    <p className="text-caption text-error flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      El RUC es obligatorio. Ingresa 11 dígitos para continuar
+                    </p>
+                  )}
+                </div>
                 
                 {formErrors.ruc && (
                   <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2.5 mt-1.5">
@@ -840,14 +950,13 @@ export function CompanyConfiguration() {
                     }}
                     placeholder="Se completará automáticamente al validar el RUC"
                     variant={rucValidation?.isValid ? "validated-readonly" : "default"}
-                    helperText={rucValidation?.isValid ? "Auto-completado desde SUNAT" : undefined}
                     readOnly={rucValidation?.isValid}
                     required
                     error={formErrors.razonSocial}
                   />
                 </div>
 
-                {/* Trade Name */}
+                {/* Trade Name - Siempre editable */}
                 <div>
                   <Input
                     label="Nombre Comercial"
@@ -860,9 +969,6 @@ export function CompanyConfiguration() {
                       }
                     }}
                     placeholder={rucValidation?.isValid ? "Auto-completado desde SUNAT" : "Nombre con el que se conoce tu empresa"}
-                    variant={rucValidation?.isValid && datosFormulario.nombreComercial ? "validated-readonly" : "default"}
-                    helperText={rucValidation?.isValid && datosFormulario.nombreComercial ? "Auto-completado desde SUNAT" : undefined}
-                    readOnly={rucValidation?.isValid && !!datosFormulario.nombreComercial}
                     error={formErrors.nombreComercial}
                   />
                 </div>
@@ -903,7 +1009,7 @@ export function CompanyConfiguration() {
               title="Parámetros Globales"
               density="compact"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Base Currency */}
                 <Select
                   label="Moneda Base"
@@ -982,9 +1088,9 @@ export function CompanyConfiguration() {
               title="Información de Contacto"
               density="compact"
             >
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {/* Phones */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Teléfonos
                   </label>
@@ -1029,7 +1135,7 @@ export function CompanyConfiguration() {
                 </div>
 
                 {/* Emails */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Correos Electrónicos
                   </label>

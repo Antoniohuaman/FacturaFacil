@@ -32,6 +32,7 @@ export default {
         'h2': ['24px', { lineHeight: '1.4', fontWeight: '500' }],
         'h3': ['20px', { lineHeight: '1.4', fontWeight: '600' }],
         'h4': ['18px', { lineHeight: '1.5', fontWeight: '500' }],
+        'h5': ['16px', { lineHeight: '1.5', fontWeight: '600' }],
 
         // 💬 TEXTO BASE Y UI (Inter)
         'body': ['16px', { lineHeight: '1.6', fontWeight: '400' }],

@@ -1,2 +1,10 @@
 export { EmpresaSelector } from './EmpresaSelector';
-export type { Empresa, Sede, EmpresaSedeActual, EmpresaSelectorProps } from './types';
+export type { 
+  Empresa, 
+  Establecimiento, 
+  EmpresaEstablecimientoActual, 
+  EmpresaSelectorProps,
+  // Para compatibilidad hacia atrás (deprecated)
+  Sede,
+  EmpresaSedeActual
+} from './types';

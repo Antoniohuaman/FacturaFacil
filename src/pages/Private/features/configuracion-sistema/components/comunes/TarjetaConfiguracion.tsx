@@ -52,7 +52,7 @@ export function TarjetaConfiguracion({
             
             <div className="flex-1">
               <div className="flex items-center space-x-2">
-                <h3 className={`${isCompact ? 'text-sm leading-tight' : 'text-sm'} font-semibold text-gray-900`}>
+                <h3 className={`${isCompact ? 'text-h5 leading-tight' : 'text-h5'} font-display font-semibold text-gray-900`}>
                   {title}
                 </h3>
                 

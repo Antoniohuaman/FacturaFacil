@@ -1,5 +1,7 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ConfirmationModal from '../../../../app/shared/src/components/ConfirmationModal';
+import { useAuth } from '../../../pages/Private/features/autenticacion/hooks/useAuth';
 import { SearchBar } from '../../SearchBar';
 import { CajaStatus } from '../CajaStatus/index.ts';
 import { CrearMenu } from '../CrearMenu/index.ts';
@@ -58,6 +60,8 @@ export const TopBar = ({
   const { empresas: empresasReales, contextoActual, setContextoActual } = useTenantStore();
   const { session } = useUserSession();
   const { theme } = useTheme();
+  const { logout } = useAuth();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // ✅ Mapear empresas y sedes reales del store
   const empresasMapeadas = useMemo(() => {
@@ -109,6 +113,20 @@ export const TopBar = ({
 
   const handleCrearProducto = () => {
     onCrearProducto?.();
+  };
+
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setShowLogoutModal(false);
+    
+    // Ejecutar logout real usando useAuth
+    await logout();
+    
+    // Redirigir al login
+    navigate('/auth/login', { replace: true });
   };
 
   // 🔄 Sincronizar cambios de establecimientos desde Configuración
@@ -182,6 +200,7 @@ export const TopBar = ({
   };
 
   return (
+    <>
     <header className="h-14 border-b border-[color:var(--border-default)] flex items-center px-4 gap-4 z-[100] shrink-0">
       {/* Left Section */}
       <div className="flex items-center gap-4">
@@ -290,8 +309,22 @@ export const TopBar = ({
         <UserMenu
           user={userDisplay}
           theme={theme === 'dark' ? 'dark' : 'light'}
-        />
+          onLogoutClick={handleLogout}
+        />      
       </div>
     </header>
+    
+    {/* Modal de Confirmación de Logout */}
+    <ConfirmationModal
+      isOpen={showLogoutModal}
+      title="Cerrar sesión"
+      message="¿Estás seguro que deseas cerrar tu sesión?"
+      confirmText="Cerrar sesión"
+      cancelText="Cancelar"
+      confirmButtonStyle="danger"
+      onConfirm={handleConfirmLogout}
+      onCancel={() => setShowLogoutModal(false)}
+    />
+  </>
   );
 };
