@@ -4,13 +4,16 @@ import App from "./App.tsx";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { FeedbackProvider } from "./shared/feedback/FeedbackProvider";
 import { TenantProvider } from "./shared/tenant/TenantProvider";
+import { ProveedorAyudaGuiada } from "./shared/tour";
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
     <FeedbackProvider>
-      <TenantProvider>
-        <App />
-      </TenantProvider>
+      <ProveedorAyudaGuiada>
+        <TenantProvider>
+          <App />
+        </TenantProvider>
+      </ProveedorAyudaGuiada>
     </FeedbackProvider>
   </ThemeProvider>
 );
