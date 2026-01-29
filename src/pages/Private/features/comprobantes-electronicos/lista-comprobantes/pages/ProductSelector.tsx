@@ -134,7 +134,8 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
 
-  const searchRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const noResultsPanelRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -262,6 +263,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         setQuantities(prev => ({ ...prev, [product.id]: 1 }));
       }
       setSelectedProducts(newSelected);
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     } else {
       // Single selection mode - immediate add
       const quantity = quantities[product.id] || 1;
@@ -358,12 +362,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     setShowDropdown(false);
   };
 
-  const getDisplayText = () => {
-    if (isMultipleMode && selectedProducts.size > 0) {
-      return `${selectedProducts.size} producto${selectedProducts.size > 1 ? 's' : ''} seleccionado${selectedProducts.size > 1 ? 's' : ''}`;
-    }
-    return searchTerm;
-  };
+
 
   const highlightMatch = (text: string, term: string) => {
     if (!term.trim()) return text;
@@ -410,11 +409,12 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
           <input
             type="text"
             placeholder="Buscar producto por nombre, código o categoría..."
-            value={getDisplayText()}
+            value={searchTerm}
             onChange={handleSearchChange}
             onFocus={handleSearchFocus}
             className="w-full px-4 py-3 pr-10 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
             disabled={isLoading}
+            ref={inputRef}
           />
           
           {isLoading ? (
