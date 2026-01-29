@@ -171,7 +171,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     setQuantities({});
     setHoveredIndex(-1);
     requestAnimationFrame(() => {
-      searchRef.current?.focus();
+      inputRef.current?.focus();
     });
   }, [addProduct, mapCatalogProductToSelectorProduct, onAddProducts]);
 
