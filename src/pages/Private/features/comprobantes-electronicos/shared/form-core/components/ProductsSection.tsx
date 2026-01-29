@@ -180,6 +180,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   }, [almacenesActivosDelEstablecimiento]);
 
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [lastAddedProductId, setLastAddedProductId] = useState<CartItem['id'] | null>(null);
 
   const convertBaseToDocument = useCallback(
     (amount: number) => convertPrice(amount ?? 0, baseCurrency.code as Currency, documentCurrency.code as Currency),
@@ -205,6 +206,21 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   const globalDiscountAmount = totals.discount?.amount ?? 0;
   const canEditGlobalDiscount =
     Boolean(totalsBeforeDiscount && onApplyGlobalDiscount && onClearGlobalDiscount && getGlobalDiscountPreviewTotals);
+
+  const handleAddProductsFromSelector = useCallback((products: Parameters<ProductsSectionProps['addProductsFromSelector']>[0]) => {
+    addProductsFromSelector(products);
+    if (products.length === 1) {
+      setLastAddedProductId(products[0].product.id as CartItem['id']);
+    }
+  }, [addProductsFromSelector]);
+
+  useEffect(() => {
+    if (!lastAddedProductId) return;
+    const timeoutId = window.setTimeout(() => {
+      setLastAddedProductId(null);
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [lastAddedProductId]);
   // ===================================================================
   // ESTADO DE CONFIGURACIÓN DE COLUMNAS
   // ===================================================================
@@ -1363,7 +1379,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       <div className="mb-4 p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100">
         <ProductSelector
           key={`selector-${refreshKey}`}
-          onAddProducts={addProductsFromSelector}
+          onAddProducts={handleAddProductsFromSelector}
           existingProducts={cartItems.map(item => String(item.id))}
         />
       </div>
@@ -1393,7 +1409,12 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           </thead>
           <tbody>
             {cartItems.map(item => (
-              <tr key={item.id} className="border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150">
+              <tr
+                key={item.id}
+                className={`border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150 ${
+                  item.id === lastAddedProductId ? 'bg-blue-50' : ''
+                }`}
+              >
                 {visibleColumns.map(col => (
                   <React.Fragment key={`${item.id}-${col.id}`}>
                     {renderCell(col.id, item)}
