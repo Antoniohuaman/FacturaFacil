@@ -9,6 +9,7 @@ interface TourFlotanteProps {
   onSiguiente: () => void;
   onAtras: () => void;
   onOmitir: () => void;
+  onSaltarPaso: () => void;
   onFinalizar: () => void;
 }
 
@@ -71,6 +72,7 @@ export function TourFlotante({
   onSiguiente,
   onAtras,
   onOmitir,
+  onSaltarPaso,
   onFinalizar,
 }: TourFlotanteProps) {
   const contenedorRef = useRef<HTMLDivElement>(null);
@@ -136,6 +138,14 @@ export function TourFlotante({
         role="dialog"
         aria-label="Ayuda guiada"
       >
+        <button
+          type="button"
+          onClick={onOmitir}
+          aria-label="Cerrar ayuda guiada"
+          className="absolute top-2 right-2 text-slate-400 hover:text-slate-600 dark:hover:text-gray-300"
+        >
+          ×
+        </button>
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-400">Paso {indicePaso + 1} de {totalPasos}</p>
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{paso.titulo}</h3>
@@ -152,13 +162,15 @@ export function TourFlotante({
                 Atrás
               </button>
             )}
-            <button
-              type="button"
-              onClick={onOmitir}
-              className="px-3 py-1.5 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-            >
-              Omitir
-            </button>
+            {!esUltimoPaso && (
+              <button
+                type="button"
+                onClick={onSaltarPaso}
+                className="px-3 py-1.5 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                Saltar
+              </button>
+            )}
           </div>
           <button
             type="button"

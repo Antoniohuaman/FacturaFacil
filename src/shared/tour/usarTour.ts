@@ -90,6 +90,19 @@ export function useTourGuiado() {
     aplicarPaso(siguiente);
   }, [aplicarPaso, cerrarTour, estado, marcarTourCompletado]);
 
+  const saltarPaso = useCallback(() => {
+    if (!estado) {
+      return;
+    }
+    const siguiente = resolverPasoDisponible(estado.definicion, estado.indicePaso + 1, 1);
+    if (!siguiente) {
+      marcarTourCompletado(estado.definicion.id, estado.definicion.version);
+      cerrarTour();
+      return;
+    }
+    aplicarPaso(siguiente);
+  }, [aplicarPaso, cerrarTour, estado, marcarTourCompletado]);
+
   const retroceder = useCallback(() => {
     if (!estado) {
       return;
@@ -160,11 +173,12 @@ export function useTourGuiado() {
       elementoObjetivo: estado?.elemento ?? null,
       iniciarTour,
       avanzar,
+      saltarPaso,
       retroceder,
       omitir,
       finalizar,
       cerrarTour,
     }),
-    [avanzar, cerrarTour, estado, finalizar, iniciarTour, omitir, retroceder]
+    [avanzar, cerrarTour, estado, finalizar, iniciarTour, omitir, retroceder, saltarPaso]
   );
 }

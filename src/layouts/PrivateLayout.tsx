@@ -113,6 +113,7 @@ function TourGlobalOverlays() {
     totalPasos,
     elementoObjetivo,
     avanzar,
+    saltarPaso,
     retroceder,
     omitir,
     finalizar,
@@ -127,6 +128,7 @@ function TourGlobalOverlays() {
       onSiguiente={avanzar}
       onAtras={retroceder}
       onOmitir={omitir}
+      onSaltarPaso={saltarPaso}
       onFinalizar={finalizar}
     />
   );
