@@ -1376,7 +1376,10 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       )}
 
       {/* Add Product Form compacto */}
-      <div className="mb-4 p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100">
+      <div
+        data-tour="primera-venta-productos-buscar"
+        className="mb-4 p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100"
+      >
         <ProductSelector
           key={`selector-${refreshKey}`}
           onAddProducts={handleAddProductsFromSelector}
@@ -1385,7 +1388,10 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       </div>
 
       {/* ✅ Products Table compacta con inputs h-8 */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div
+        data-tour="primera-venta-productos-lista"
+        className="overflow-x-auto rounded-lg border border-gray-200"
+      >
         <table className="w-full text-sm">
           <thead className="bg-gradient-to-r from-violet-50 to-purple-50 border-b-2 border-violet-200">
             <tr>
@@ -1429,7 +1435,10 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       {/* Totales Section - Tarjeta compacta sticky */}
       <div className="mt-4 border-t border-gray-200 pt-4">
         <div className="flex justify-end">
-          <div className="w-80 bg-white rounded-lg border border-gray-200 p-4 shadow-sm md:sticky md:top-4">
+          <div
+            data-tour="primera-venta-totales"
+            className="w-80 bg-white rounded-lg border border-gray-200 p-4 shadow-sm md:sticky md:top-4"
+          >
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm">
                 <div className="flex items-center gap-2">

@@ -17,6 +17,7 @@ import { CajaProvider, useCaja } from "../pages/Private/features/control-caja/co
 import { ToastContainer } from "../pages/Private/features/control-caja/components/common/Toast";
 import { FeedbackHost } from "../shared/feedback/FeedbackHost";
 import { generateWorkspaceId } from "../shared/tenant";
+import { TourFlotante, usarTour } from "../shared/tour";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -81,6 +82,7 @@ export default function AppShell() {
                         </div>
                       </div>
                       <CajaGlobalOverlays />
+                      <TourGlobalOverlays />
                     </DocumentoProvider>
                   </CobranzasProvider>
                 </ComprobanteProvider>
@@ -101,5 +103,31 @@ function CajaGlobalOverlays() {
       <FeedbackHost />
       <ToastContainer toasts={toasts} onClose={removeToast} />
     </>
+  );
+}
+
+function TourGlobalOverlays() {
+  const {
+    pasoActual,
+    indicePaso,
+    totalPasos,
+    elementoObjetivo,
+    avanzar,
+    retroceder,
+    omitir,
+    finalizar,
+  } = usarTour();
+
+  return (
+    <TourFlotante
+      paso={pasoActual}
+      indicePaso={indicePaso}
+      totalPasos={totalPasos}
+      elementoObjetivo={elementoObjetivo}
+      onSiguiente={avanzar}
+      onAtras={retroceder}
+      onOmitir={omitir}
+      onFinalizar={finalizar}
+    />
   );
 }

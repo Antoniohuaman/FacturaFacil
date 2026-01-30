@@ -62,6 +62,8 @@ import { calculateCurrencyAwareTotals } from '../shared/core/currencyTotals';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { BloqueoCajaCerrada } from '../shared/ui/BloqueoCajaCerrada';
 import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
+import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
+import { tourPrimeraVenta } from '../tour/tourPrimeraVenta';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
@@ -73,6 +75,8 @@ const EmisionTradicional = () => {
   const gateCajaCerradaActivo = cajaStatus !== 'abierta';
   const abrirCajaButtonRef = useRef<HTMLButtonElement>(null);
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
+  const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
+  const autoTourLanzadoRef = useRef(false);
 
   const handleGateFocusCapture = useCallback(
     (event: FocusEvent) => {
@@ -100,6 +104,23 @@ const EmisionTradicional = () => {
     }
     setProductSelectorKey(prev => prev + 1);
   }, [currentEstablecimientoId]);
+
+  useEffect(() => {
+    if (autoTourLanzadoRef.current) {
+      return;
+    }
+    if (!ayudaActivada) {
+      return;
+    }
+    if (
+      estaTourCompletado(tourPrimeraVenta.id, tourPrimeraVenta.version)
+      || estaTourOmitido(tourPrimeraVenta.id, tourPrimeraVenta.version)
+    ) {
+      return;
+    }
+    autoTourLanzadoRef.current = true;
+    solicitarInicioTour(tourPrimeraVenta.id);
+  }, [ayudaActivada, estaTourCompletado, estaTourOmitido]);
 
   // ✅ Estado para modal de configuración de campos
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
@@ -868,10 +889,12 @@ const EmisionTradicional = () => {
               <div className="max-w-7xl mx-auto p-4 space-y-4">
 
             {gateCajaCerradaActivo && (
-              <BloqueoCajaCerrada
-                ref={abrirCajaButtonRef}
-                onAbrirCaja={iniciarAperturaCaja}
-              />
+              <div data-tour="primera-venta-caja">
+                <BloqueoCajaCerrada
+                  ref={abrirCajaButtonRef}
+                  onAbrirCaja={iniciarAperturaCaja}
+                />
+              </div>
             )}
 
             <div className="relative">
@@ -938,30 +961,32 @@ const EmisionTradicional = () => {
                 )}
 
                 {/* Action Buttons Section - ahora con acciones dinámicas */}
-                <ActionButtonsSection
-                  onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
-                  onCancelar={goToComprobantes}
-                  onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
-                  secondaryAction={
-                    fieldsConfig.notesSection
-                      ? {
-                          label: 'Observaciones',
-                          onClick: () => setShowObservacionesPanel(true),
-                          icon: <FileText className="h-4 w-4" />,
-                          title: 'Agregar observaciones visibles para el cliente u observación interna',
-                        }
-                      : undefined
-                  }
-                  isCartEmpty={cartItems.length === 0}
-                  primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
-                    label: issueButtonLabel,
-                    onClick: handleIssue,
-                    disabled: isProcessing || cartItems.length === 0,
-                    title: isCreditPaymentSelection
-                      ? 'Emitir y generar la cuenta por cobrar'
-                      : 'Abrir el modal de cobranza para registrar este pago',
-                  } : undefined}
-                />
+                <div data-tour="primera-venta-emitir">
+                  <ActionButtonsSection
+                    onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
+                    onCancelar={goToComprobantes}
+                    onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
+                    secondaryAction={
+                      fieldsConfig.notesSection
+                        ? {
+                            label: 'Observaciones',
+                            onClick: () => setShowObservacionesPanel(true),
+                            icon: <FileText className="h-4 w-4" />,
+                            title: 'Agregar observaciones visibles para el cliente u observación interna',
+                          }
+                        : undefined
+                    }
+                    isCartEmpty={cartItems.length === 0}
+                    primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
+                      label: issueButtonLabel,
+                      onClick: handleIssue,
+                      disabled: isProcessing || cartItems.length === 0,
+                      title: isCreditPaymentSelection
+                        ? 'Emitir y generar la cuenta por cobrar'
+                        : 'Abrir el modal de cobranza para registrar este pago',
+                    } : undefined}
+                  />
+                </div>
               </div>
 
               {gateCajaCerradaActivo && (

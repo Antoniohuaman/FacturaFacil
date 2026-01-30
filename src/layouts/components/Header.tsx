@@ -8,7 +8,7 @@ import CompanySelector from '@/components/CompanySelector';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
-import { usarAyudaGuiada } from '@/shared/tour';
+import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 
 interface HeaderProps {
@@ -121,6 +121,11 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
   const handleVerGuiaPantalla = () => {
     if (!ayudaActivada) {
+      return;
+    }
+    if (location.pathname === '/comprobantes/emision') {
+      solicitarInicioTour('primera-venta');
+      setMostrarMenuAyuda(false);
       return;
     }
     feedback.info('Guías disponibles próximamente', 'Ayuda');

@@ -631,7 +631,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
           {/* COLUMNA 1: Cliente/Dirección/Email/Envío (~42% → xl:col-span-5) */}
           <div className="col-span-12 xl:col-span-5 space-y-2">
             {/* Cliente (reducido ~10-12%, lupa compacta) */}
-            <div>
+            <div data-tour="primera-venta-cliente">
               <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="cliente-buscar">
                 <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
                 Cliente<span className="ml-0.5 text-red-500">*</span>
