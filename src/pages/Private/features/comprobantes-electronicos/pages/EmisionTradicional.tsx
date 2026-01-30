@@ -502,6 +502,10 @@ const EmisionTradicional = () => {
   const paymentMethodCode = selectedPaymentMethod?.code?.toUpperCase() ?? '';
   const isCreditPaymentSelection = paymentMethodCode === 'CREDITO';
   const issueButtonLabel = useMemo(() => {
+    if (!isCreditPaymentSelection) {
+      return 'IR A COBRANZA';
+    }
+
     switch (tipoComprobante) {
       case 'factura':
         return 'EMITIR FACTURA';
@@ -510,7 +514,7 @@ const EmisionTradicional = () => {
       default:
         return 'EMITIR DOCUMENTO';
     }
-  }, [tipoComprobante]);
+  }, [isCreditPaymentSelection, tipoComprobante]);
 
   const paymentMethodLabel = getPaymentMethodLabel(formaPago);
 
