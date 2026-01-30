@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CreditCard, Plus, Trash2, X } from 'lucide-react';
 import type {
   CartItem,
@@ -28,12 +28,49 @@ import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { getRate } from '@/shared/currency';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../../../shared/payments/paymentMeans';
 import { AttachmentsSection } from '../components/AttachmentsSection';
+import type { DefinicionTour } from '@/shared/tour';
+import { usarAyudaGuiada, usarTour } from '@/shared/tour';
 const tolerance = 0.01;
 const UNSET_PAYMENT_AMOUNT = Number.NaN;
 type CobranzaModalContextType = 'emision' | 'cobranzas';
 const MAX_ATTACHMENT_FILES = 3;
 const MAX_ATTACHMENT_SIZE_MB = 5;
 const ALLOWED_ATTACHMENT_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'docx'];
+
+const TOUR_COBRANZA_MODAL: DefinicionTour = {
+  id: 'cobranza_modal',
+  version: 1,
+  pasos: [
+    {
+      idPaso: 'cobranza-medios',
+      selector: '[data-tour="cobranza-medios"]',
+      titulo: 'Medios de pago',
+      descripcion: 'Selecciona el medio con el que el cliente pagará.',
+      posicion: 'abajo',
+    },
+    {
+      idPaso: 'cobranza-monto',
+      selector: '[data-tour="cobranza-monto"]',
+      titulo: 'Monto recibido',
+      descripcion: 'Ingresa el monto que está entregando el cliente.',
+      posicion: 'abajo',
+    },
+    {
+      idPaso: 'cobranza-totales',
+      selector: '[data-tour="cobranza-totales"]',
+      titulo: 'Totales',
+      descripcion: 'Verifica total, recibido y la diferencia.',
+      posicion: 'arriba',
+    },
+    {
+      idPaso: 'cobranza-cobrar',
+      selector: '[data-tour="cobranza-cobrar"]',
+      titulo: 'Cobrar',
+      descripcion: 'Confirma el cobro para registrar la venta.',
+      posicion: 'arriba',
+    },
+  ],
+};
 
 const clampCurrency = (value: number) => Number(Number(value ?? 0).toFixed(2));
 const buildAttachmentMetadata = (file: File) => {
@@ -230,6 +267,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   context = 'emision',
 }) => {
   const { formatPrice, availableCurrencies } = useCurrency();
+  const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
+  const { tourActivo, iniciarTour, cerrarTour } = usarTour();
+  const intentoTourRef = useRef<number | null>(null);
+  const intentosRestantesRef = useRef(0);
   const { state } = useConfigurationContext();
   const { cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
@@ -1068,6 +1109,70 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     void handleSubmit('contado');
   }, [handleSubmit]);
 
+  useEffect(() => {
+    if (!isOpen && tourActivo?.id === TOUR_COBRANZA_MODAL.id) {
+      cerrarTour();
+    }
+  }, [cerrarTour, isOpen, tourActivo?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    if (!isOpen || mode !== 'contado') {
+      return undefined;
+    }
+    if (!ayudaActivada) {
+      return undefined;
+    }
+    if (tourActivo) {
+      return undefined;
+    }
+    if (
+      estaTourCompletado(TOUR_COBRANZA_MODAL.id, TOUR_COBRANZA_MODAL.version) ||
+      estaTourOmitido(TOUR_COBRANZA_MODAL.id, TOUR_COBRANZA_MODAL.version)
+    ) {
+      return undefined;
+    }
+
+    intentosRestantesRef.current = 8;
+
+    const intentarIniciar = () => {
+      if (!isOpen || mode !== 'contado' || tourActivo) {
+        return;
+      }
+      const elementosListos = TOUR_COBRANZA_MODAL.pasos.every((paso) =>
+        Boolean(document.querySelector(paso.selector))
+      );
+      if (elementosListos) {
+        iniciarTour(TOUR_COBRANZA_MODAL);
+        return;
+      }
+      intentosRestantesRef.current -= 1;
+      if (intentosRestantesRef.current <= 0) {
+        return;
+      }
+      intentoTourRef.current = window.setTimeout(intentarIniciar, 120);
+    };
+
+    intentoTourRef.current = window.setTimeout(intentarIniciar, 60);
+
+    return () => {
+      if (intentoTourRef.current) {
+        window.clearTimeout(intentoTourRef.current);
+        intentoTourRef.current = null;
+      }
+    };
+  }, [
+    ayudaActivada,
+    estaTourCompletado,
+    estaTourOmitido,
+    iniciarTour,
+    isOpen,
+    mode,
+    tourActivo,
+  ]);
+
   if (!isOpen) return null;
 
   return (
@@ -1160,7 +1265,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
             {mode === 'contado' ? (
               <div className="grid flex-1 min-h-0 grid-cols-1 gap-3 lg:grid-cols-2">
-                <section className="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-3">
+                <section
+                  className="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-3"
+                  data-tour="cobranza-medios"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-sm font-semibold text-slate-800">Medios de pago</h4>
                     <button
@@ -1228,6 +1336,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                                       type="number"
                                       min="0"
                                       step="0.01"
+                                      data-tour={index === 0 ? 'cobranza-monto' : undefined}
                                       className="h-9 w-full rounded border border-slate-200 px-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none"
                                       value={Number.isNaN(line.amount) ? '' : line.amount}
                                       onChange={(event) => updateLine(line.id, 'amount', Number(event.target.value))}
@@ -1456,7 +1565,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 
         <footer className="border-t border-slate-200 bg-white px-4 py-2">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700">
+            <div
+              className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700"
+              data-tour="cobranza-totales"
+            >
               <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Total {formatCollectionCurrency(amountToApplyInCollection)}</span>
               {mode === 'contado' && (
                 <>
@@ -1480,6 +1592,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 type="button"
                 onClick={handleCobrar}
                 disabled={cobrarDisabled}
+                data-tour="cobranza-cobrar"
                 className={`rounded-md px-4 py-1.5 text-sm font-semibold text-white transition ${
                   cobrarDisabled ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
                 }`}
