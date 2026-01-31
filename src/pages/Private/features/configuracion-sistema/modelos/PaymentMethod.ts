@@ -1,8 +1,4 @@
-import type {
-  CreditInstallmentDefinition,
-  CuotaCalendarioCredito,
-  ModoCronogramaCredito,
-} from '../../../../../shared/payments/paymentTerms';
+import type { CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
 export interface PaymentMethod {
   id: string;
   code: string; // Internal code for identification
@@ -58,8 +54,6 @@ export interface PaymentMethod {
   
   // Credit schedule template (only for credit methods)
   creditSchedule?: CreditInstallmentDefinition[];
-  creditScheduleModo?: ModoCronogramaCredito;
-  creditScheduleCalendario?: CuotaCalendarioCredito[];
   
   isDefault: boolean;
   isActive: boolean;
