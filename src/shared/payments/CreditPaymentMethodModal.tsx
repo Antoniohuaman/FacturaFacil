@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import CreditScheduleEditor from '../../pages/Private/features/configuracion-sistema/components/negocio/EditorCronogramaCredito';
 import type { PaymentMethod } from '../../pages/Private/features/configuracion-sistema/modelos/PaymentMethod';
 import type { CreditInstallmentDefinition } from './paymentTerms';
-import { buildCreditPaymentMethodName, validateCreditScheduleTemplate } from './paymentTerms';
+import { buildCreditPaymentMethodName, validateCreditSchedule } from './paymentTerms';
 import { normalizePaymentMethodLabel } from './normalizePaymentMethodLabel';
 
 interface CreditPaymentMethodModalProps {
@@ -71,7 +71,7 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
     }
 
     if (formData.code === 'CREDITO' && formData.creditSchedule.length > 0) {
-      const scheduleErrors = validateCreditScheduleTemplate(formData.creditSchedule);
+      const scheduleErrors = validateCreditSchedule(formData.creditSchedule, 'plantilla');
       if (scheduleErrors.length > 0) {
         setFormErrors(scheduleErrors);
         return;
