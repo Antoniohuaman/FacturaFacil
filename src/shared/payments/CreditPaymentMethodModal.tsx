@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import CreditScheduleEditor from '../../pages/Private/features/configuracion-sistema/components/negocio/EditorCronogramaCredito';
 import type { PaymentMethod } from '../../pages/Private/features/configuracion-sistema/modelos/PaymentMethod';
-import type {
-  CreditInstallmentDefinition,
-  CuotaCalendarioCredito,
-  ModoCronogramaCredito,
-} from './paymentTerms';
+import type { CreditInstallmentDefinition } from './paymentTerms';
 import { buildCreditPaymentMethodName, validateCreditSchedule } from './paymentTerms';
 import { normalizePaymentMethodLabel } from './normalizePaymentMethodLabel';
 
@@ -19,18 +15,10 @@ interface CreditPaymentMethodModalProps {
   onCreated?: (method: PaymentMethod) => void;
 }
 
-const emptyForm: {
-  code: string;
-  name: string;
-  creditSchedule: CreditInstallmentDefinition[];
-  creditScheduleModo: ModoCronogramaCredito;
-  creditScheduleCalendario: CuotaCalendarioCredito[];
-} = {
+const emptyForm: { code: string; name: string; creditSchedule: CreditInstallmentDefinition[] } = {
   code: 'CREDITO',
   name: '',
   creditSchedule: [],
-  creditScheduleModo: 'plantilla',
-  creditScheduleCalendario: [],
 };
 
 export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> = ({
@@ -49,18 +37,7 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
     if (!open) return;
     if (editingMethod) {
       const schedule = editingMethod.creditSchedule ? [...editingMethod.creditSchedule] : [];
-      const calendarSchedule = editingMethod.creditScheduleCalendario
-        ? [...editingMethod.creditScheduleCalendario]
-        : [];
-      const mode: ModoCronogramaCredito = editingMethod.creditScheduleModo
-        ?? (calendarSchedule.length > 0 ? 'calendario' : 'plantilla');
-      setFormData({
-        code: editingMethod.code,
-        name: editingMethod.name,
-        creditSchedule: schedule,
-        creditScheduleModo: mode,
-        creditScheduleCalendario: calendarSchedule,
-      });
+      setFormData({ code: editingMethod.code, name: editingMethod.name, creditSchedule: schedule });
     } else {
       setFormData(emptyForm);
     }
@@ -75,41 +52,9 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
     setFormData(prev => ({
       ...prev,
       creditSchedule: schedule,
-      creditScheduleModo: 'plantilla',
       name: hasMeaningfulInstallment
         ? buildCreditPaymentMethodName(schedule)
         : (editingMethod ? prev.name : ''),
-    }));
-    if (formErrors.length) {
-      setFormErrors([]);
-    }
-  };
-
-  const handleCalendarScheduleChange = (schedule: CuotaCalendarioCredito[]) => {
-    const hasMeaningfulInstallment = schedule.some((item) =>
-      ((item.fechaVencimientoISO ?? '') !== '') || ((item.monto ?? 0) !== 0)
-    );
-
-    setFormData(prev => ({
-      ...prev,
-      creditScheduleCalendario: schedule,
-      creditScheduleModo: 'calendario',
-      name: hasMeaningfulInstallment
-        ? (editingMethod ? prev.name : 'Crédito')
-        : (editingMethod ? prev.name : ''),
-    }));
-    if (formErrors.length) {
-      setFormErrors([]);
-    }
-  };
-
-  const handleModoChange = (nextMode: ModoCronogramaCredito) => {
-    setFormData(prev => ({
-      ...prev,
-      creditScheduleModo: nextMode,
-      name: nextMode === 'plantilla'
-        ? (prev.creditSchedule.length ? buildCreditPaymentMethodName(prev.creditSchedule) : (editingMethod ? prev.name : ''))
-        : (prev.creditScheduleCalendario.length ? (editingMethod ? prev.name : 'Crédito') : (editingMethod ? prev.name : '')),
     }));
     if (formErrors.length) {
       setFormErrors([]);
@@ -125,19 +70,11 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
       return;
     }
 
-    if (formData.code === 'CREDITO') {
-      if (formData.creditScheduleModo === 'calendario') {
-        const scheduleErrors = validateCreditSchedule(formData.creditScheduleCalendario, 'calendario');
-        if (scheduleErrors.length > 0) {
-          setFormErrors(scheduleErrors);
-          return;
-        }
-      } else if (formData.creditSchedule.length > 0) {
-        const scheduleErrors = validateCreditSchedule(formData.creditSchedule, 'plantilla');
-        if (scheduleErrors.length > 0) {
-          setFormErrors(scheduleErrors);
-          return;
-        }
+    if (formData.code === 'CREDITO' && formData.creditSchedule.length > 0) {
+      const scheduleErrors = validateCreditSchedule(formData.creditSchedule, 'plantilla');
+      if (scheduleErrors.length > 0) {
+        setFormErrors(scheduleErrors);
+        return;
       }
     }
 
@@ -145,14 +82,9 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
     setIsSubmitting(true);
 
     try {
-      const useCalendar = formData.creditScheduleModo === 'calendario';
       const normalizedSchedule =
-        formData.code === 'CREDITO' && !useCalendar && formData.creditSchedule.length > 0
+        formData.code === 'CREDITO' && formData.creditSchedule.length > 0
           ? formData.creditSchedule
-          : undefined;
-      const normalizedCalendar =
-        formData.code === 'CREDITO' && useCalendar && formData.creditScheduleCalendario.length > 0
-          ? formData.creditScheduleCalendario
           : undefined;
 
       let updatedMethods: PaymentMethod[];
@@ -164,9 +96,7 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
             ? {
                 ...pm,
                 name: normalizedName,
-                creditScheduleModo: pm.code === 'CREDITO' ? formData.creditScheduleModo : undefined,
-                creditSchedule: pm.code === 'CREDITO' ? normalizedSchedule : undefined,
-                creditScheduleCalendario: pm.code === 'CREDITO' ? normalizedCalendar : undefined,
+                creditSchedule: pm.code === 'CREDITO' ? normalizedSchedule : undefined
               }
             : pm
         );
@@ -205,8 +135,6 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
             allowedCurrencies: ['PEN']
           },
           creditSchedule: normalizedSchedule,
-          creditScheduleModo: formData.creditScheduleModo,
-          creditScheduleCalendario: normalizedCalendar,
           isDefault: false,
           isActive: true,
           createdAt: new Date(),
@@ -277,16 +205,7 @@ export const CreditPaymentMethodModal: React.FC<CreditPaymentMethodModalProps> =
               </div>
               <span className="text-[11px] text-slate-500">Opcional</span>
             </div>
-            <CreditScheduleEditor
-              value={formData.creditSchedule}
-              onChange={handleCreditScheduleChange}
-              compact
-              mode={formData.creditScheduleModo}
-              onModeChange={handleModoChange}
-              calendarValue={formData.creditScheduleCalendario}
-              onCalendarChange={handleCalendarScheduleChange}
-              showModeSelector
-            />
+            <CreditScheduleEditor value={formData.creditSchedule} onChange={handleCreditScheduleChange} compact />
             {formErrors.length > 0 && (
               <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
                 <ul className="list-disc pl-4 space-y-1">
