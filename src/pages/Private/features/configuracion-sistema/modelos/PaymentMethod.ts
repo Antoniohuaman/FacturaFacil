@@ -77,6 +77,8 @@ export interface CreatePaymentMethodRequest {
   display: PaymentMethod['display'];
   validation: PaymentMethod['validation'];
   creditSchedule?: CreditInstallmentDefinition[];
+  creditScheduleModo?: ModoCronogramaCredito;
+  creditScheduleCalendario?: CuotaCalendarioCredito[];
 }
 
 export interface UpdatePaymentMethodRequest extends Partial<CreatePaymentMethodRequest> {
