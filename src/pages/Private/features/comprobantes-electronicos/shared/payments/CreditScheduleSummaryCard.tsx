@@ -10,6 +10,7 @@ interface CreditScheduleSummaryCardProps {
   onConfigure?: () => void;
   errors?: string[];
   paymentMethodName?: string;
+  context?: 'emision' | 'cxc';
 }
 
 export const CreditScheduleSummaryCard = ({
@@ -19,6 +20,7 @@ export const CreditScheduleSummaryCard = ({
   onConfigure,
   errors,
   paymentMethodName,
+  context = 'cxc',
 }: CreditScheduleSummaryCardProps) => {
   const { formatPrice } = useCurrency();
   const cuotas = creditTerms?.schedule ?? [];
@@ -63,6 +65,7 @@ export const CreditScheduleSummaryCard = ({
             installments={cuotas}
             currency={resolvedCurrency as Currency}
             mode="readonly"
+            context={context}
             className="border-none"
             scrollMaxHeight={undefined}
             showDaysOverdue

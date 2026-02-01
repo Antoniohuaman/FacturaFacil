@@ -15,6 +15,7 @@ interface CreditInstallmentsTableProps {
   installments: CreditInstallment[];
   currency: Currency;
   mode?: TableMode;
+  context?: 'emision' | 'cxc';
   allocations?: CreditInstallmentAllocationInput[];
   onChangeAllocations?: (allocations: CreditInstallmentAllocationInput[]) => void;
   className?: string;
@@ -46,6 +47,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   installments,
   currency,
   mode = 'readonly',
+  context = 'cxc',
   allocations = [],
   onChangeAllocations,
   className,
@@ -146,7 +148,11 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
             <tbody>
               {installments.map((installment) => {
                 const saldo = getSaldo(installment);
-                const estado = saldo <= TOLERANCE ? 'CANCELADO' : (installment.estado || 'pendiente').toUpperCase();
+                const estado = context === 'emision'
+                  ? 'PENDIENTE'
+                  : saldo <= TOLERANCE
+                    ? 'CANCELADO'
+                    : (installment.estado || 'pendiente').toUpperCase();
                 const allocatedAmount = allocationMap.get(installment.numeroCuota) ?? 0;
                 const isSelected = allocatedAmount > TOLERANCE;
                 const remainingAfterAllocation = Number(Math.max(0, saldo - allocatedAmount).toFixed(2));

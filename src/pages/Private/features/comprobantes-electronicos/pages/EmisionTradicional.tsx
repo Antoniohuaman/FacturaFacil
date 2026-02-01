@@ -68,6 +68,8 @@ import { tourPrimeraVenta } from '../tour/tourPrimeraVenta';
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
 
+const CREDIT_SCHEDULE_TOLERANCE = 0.01;
+
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -389,6 +391,8 @@ const EmisionTradicional = () => {
     total: totals.total,
     issueDate: fechaEmision,
   });
+
+  const shouldShowCreditSchedule = isCreditMethod && totals.total > CREDIT_SCHEDULE_TOLERANCE;
 
   // ✅ View model para side preview
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
@@ -951,7 +955,7 @@ const EmisionTradicional = () => {
                   preferredPriceColumnId={preferredPriceColumnId}
                 />
 
-                {isCreditMethod && (
+                {shouldShowCreditSchedule && (
                   <div className="mt-6">
                     <CreditScheduleSummaryCard
                       creditTerms={creditTerms}
@@ -960,6 +964,7 @@ const EmisionTradicional = () => {
                       onConfigure={handleOpenCreditScheduleModal}
                       errors={creditTemplateErrors}
                       paymentMethodName={selectedPaymentMethod?.name}
+                      context="emision"
                     />
                   </div>
                 )}

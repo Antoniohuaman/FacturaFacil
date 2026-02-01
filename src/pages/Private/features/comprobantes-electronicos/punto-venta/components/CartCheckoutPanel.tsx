@@ -75,6 +75,8 @@ const AMOUNT_ERROR_MESSAGE = 'El descuento debe ser menor al total.';
 
 const sanitizeDecimalInput = (rawValue: string): string => rawValue.replace(/[^0-9.,]/g, '');
 
+const CREDIT_SCHEDULE_TOLERANCE = 0.01;
+
 export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   cartItems,
   totals,
@@ -139,6 +141,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   ), [availablePaymentMethods, formaPagoId]);
   const selectedPaymentCode = (selectedPaymentMethod?.code || '').toUpperCase();
   const isCreditPaymentSelection = selectedPaymentCode === 'CREDITO';
+  const shouldShowCreditSchedule = Boolean(isCreditMethod && totals.total > CREDIT_SCHEDULE_TOLERANCE);
 
   // Estado de la caja
   const isCashBoxClosed = cashBoxStatus === 'closed';
@@ -587,7 +590,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           </div>
 
           <div className="shrink-0 space-y-3 px-3 pb-3">
-            {isCreditMethod && (
+            {shouldShowCreditSchedule && (
               <CreditScheduleSummaryCard
                 creditTerms={creditTerms}
                 currency={currency}
@@ -595,6 +598,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 onConfigure={onConfigureCreditSchedule}
                 errors={creditScheduleErrors}
                 paymentMethodName={creditPaymentMethodName || selectedPaymentMethod?.name}
+                context="emision"
               />
             )}
 
