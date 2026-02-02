@@ -45,7 +45,6 @@ interface InvoiceListTableProps {
 	onNavigateToDocuments: () => void;
 	onGenerateCobranza?: (invoice: Comprobante) => void;
 	canGenerateCobranza?: (invoice: Comprobante) => boolean;
-	onCreateInvoice: () => void;
 	hasDateFilter: boolean;
 }
 
@@ -102,7 +101,6 @@ export const InvoiceListTable = ({
 	onNavigateToDocuments,
 	onGenerateCobranza,
 	canGenerateCobranza,
-	onCreateInvoice,
 	hasDateFilter
 }: InvoiceListTableProps) => {
 	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -292,17 +290,11 @@ export const InvoiceListTable = ({
 										<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
 											Haz tu primera venta con todo completo en tan solo 2 minutos!	 
 										</h3>
-										<p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md">
+										<p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
 											{hasDateFilter
 												? 'Selecciona el tipo de comprobante con el que quieres empezar'
 												: 'Aún no se han emitido comprobantes. Comienza creando tu primer comprobante desde Punto de Venta o Emisión Tradicional.'}
 										</p>
-										<button
-											onClick={onCreateInvoice}
-											className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-										>
-											Crear comprobante
-										</button>
 									</div>
 								</td>
 							</tr>

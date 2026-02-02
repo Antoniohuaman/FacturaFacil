@@ -1119,7 +1119,6 @@ const InvoiceListDashboard = () => {
           onNavigateToDocuments={() => navigate('/documentos')}
           onGenerateCobranza={handleGenerateCobranza}
           canGenerateCobranza={canGenerateCobranza}
-          onCreateInvoice={() => navigate('/comprobantes/emision')}
           hasDateFilter={Boolean(dateFrom || dateTo)}
         />
 
