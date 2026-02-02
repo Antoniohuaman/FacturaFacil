@@ -290,11 +290,11 @@ export const InvoiceListTable = ({
 									<div className="flex flex-col items-center justify-center text-center">
 										<FileText className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
 										<h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-											Haz tu primera venta en 2 minutos (Modo Prueba)
+											Haz tu primera venta con todo completo en tan solo 2 minutos!	 
 										</h3>
 										<p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md">
 											{hasDateFilter
-												? 'Elije Boleta o Factura, y completa todos los datos desde un solo lugar'
+												? 'Selecciona el tipo de comprobante con el que quieres empezar'
 												: 'Aún no se han emitido comprobantes. Comienza creando tu primer comprobante desde Punto de Venta o Emisión Tradicional.'}
 										</p>
 										<button
