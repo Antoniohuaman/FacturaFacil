@@ -81,6 +81,8 @@ export const PAYMENT_METHODS = [
   { value: 'yape', label: 'Yape' }
 ];
 
+export const FORMA_PAGO_CREDITO_MANUAL = '__credito_manual__';
+
 // ===================================================================
 // CONFIGURACIONES DE TIENDA (PLACEHOLDER PARA DESARROLLO)
 // ===================================================================

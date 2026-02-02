@@ -1,21 +1,27 @@
 import React, { useCallback, useMemo } from 'react';
-import { CheckSquare, Square } from 'lucide-react';
+import { CheckSquare, Square, Trash2 } from 'lucide-react';
 import type { CreditInstallment } from '../../../../../../shared/payments/paymentTerms';
 import type { Currency } from '../../models/comprobante.types';
 import { useCurrency } from '../form-core/hooks/useCurrency';
+import { obtenerFechaMinimaPrimeraCuota, sanitizarImporteTexto } from './creditoManualTransaccion';
 
 export type CreditInstallmentAllocationInput = {
   installmentNumber: number;
   amount: number;
 };
 
-type TableMode = 'readonly' | 'allocation';
+type TableMode = 'readonly' | 'allocation' | 'manual';
 
 interface CreditInstallmentsTableProps {
   installments: CreditInstallment[];
   currency: Currency;
   mode?: TableMode;
   context?: 'emision' | 'cxc';
+  manualReadOnly?: boolean;
+  onManualChange?: (installments: CreditInstallment[]) => void;
+  onManualRemove?: (installmentNumber: number) => void;
+  manualTotal?: number;
+  manualFechaEmision?: string;
   allocations?: CreditInstallmentAllocationInput[];
   onChangeAllocations?: (allocations: CreditInstallmentAllocationInput[]) => void;
   className?: string;
@@ -48,6 +54,11 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   currency,
   mode = 'readonly',
   context = 'cxc',
+  manualReadOnly = false,
+  onManualChange,
+  onManualRemove,
+  manualTotal,
+  manualFechaEmision,
   allocations = [],
   onChangeAllocations,
   className,
@@ -110,16 +121,42 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
     onChangeAllocations(sanitized);
   }, [allocations, disabled, onChangeAllocations]);
 
+  const isManualMode = mode === 'manual';
+  const canEditManual = isManualMode && !manualReadOnly;
+  const cellPadding = compact ? 'px-3 py-2' : 'px-4 py-3';
+  const textSize = compact ? 'text-[12px]' : 'text-sm';
+
   if (!installments.length) {
+    if (isManualMode) {
+      return (
+        <div className={`rounded-xl border border-slate-200 bg-white ${className ?? ''}`}>
+          <div className="overflow-x-auto">
+            <table className={`min-w-full ${textSize} text-slate-600`}>
+              <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className={`${cellPadding} text-left w-14`}>N°</th>
+                  <th className={`${cellPadding} text-left w-20`}>Días</th>
+                  {showDaysOverdue && <th className={`${cellPadding} text-left w-24`}>Vencidos</th>}
+                  <th className={`${cellPadding} text-left w-32`}>Fecha venc.</th>
+                  <th className={`${cellPadding} text-right w-16`}>%</th>
+                  <th className={`${cellPadding} text-right w-28`}>Importe</th>
+                  <th className={`${cellPadding} text-right w-28`}>Saldo actual</th>
+                  <th className={`${cellPadding} text-center w-28`}>Estado</th>
+                  <th className={`${cellPadding} text-center w-12`} aria-hidden="true" />
+                </tr>
+              </thead>
+              <tbody />
+            </table>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className={`rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500 ${className ?? ''}`}>
         {emptyState}
       </div>
     );
   }
-
-  const cellPadding = compact ? 'px-3 py-2' : 'px-4 py-3';
-  const textSize = compact ? 'text-[12px]' : 'text-sm';
 
   return (
     <div className={`rounded-xl border border-slate-200 bg-white ${className ?? ''}`}>
@@ -141,6 +178,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                 <th className={`${cellPadding} text-right w-28`}>Importe</th>
                 <th className={`${cellPadding} text-right w-28`}>Saldo actual</th>
                 <th className={`${cellPadding} text-center w-28`}>Estado</th>
+                {isManualMode && <th className={`${cellPadding} text-center w-12`} aria-hidden="true" />}
                 {mode === 'allocation' && <th className={`${cellPadding} text-right w-32`}>Monto a aplicar</th>}
                 {mode === 'allocation' && showRemainingResult && <th className={`${cellPadding} text-right w-32`}>Saldo resultante</th>}
               </tr>
@@ -175,14 +213,93 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                       </td>
                     )}
                     <td className={`${cellPadding} font-semibold text-slate-900`}>{installment.numeroCuota}</td>
-                    <td className={`${cellPadding}`}>{installment.diasCredito}</td>
+                    <td className={`${cellPadding}`}>
+                      {isManualMode && !installment.fechaVencimiento ? '—' : installment.diasCredito}
+                    </td>
                     {showDaysOverdue && (
                       <td className={`${cellPadding} text-slate-900`}>{overdueDays > 0 ? `${overdueDays} días` : '—'}</td>
                     )}
-                    <td className={`${cellPadding}`}>{installment.fechaVencimiento}</td>
-                    <td className={`${cellPadding} text-right`}>{installment.porcentaje}%</td>
+                    <td className={`${cellPadding}`}>
+                      {isManualMode ? (
+                        <input
+                          type="date"
+                          value={installment.fechaVencimiento || ''}
+                          min={
+                            installment.numeroCuota === 1 && manualFechaEmision
+                              ? obtenerFechaMinimaPrimeraCuota(manualFechaEmision)
+                              : undefined
+                          }
+                          disabled={!canEditManual}
+                          onChange={(event) => {
+                            if (!onManualChange) return;
+                            const next = installments.map((entry) =>
+                              entry.numeroCuota === installment.numeroCuota
+                                ? { ...entry, fechaVencimiento: event.target.value }
+                                : entry,
+                            );
+                            onManualChange(next);
+                          }}
+                          className="h-7 w-full rounded border border-slate-200 bg-white px-2 text-[12px] text-slate-700 focus:border-indigo-300 focus:outline-none disabled:bg-slate-50"
+                        />
+                      ) : (
+                        installment.fechaVencimiento
+                      )}
+                    </td>
+                    <td className={`${cellPadding} text-right`}>
+                      {isManualMode ? `${installment.porcentaje.toFixed(2)}%` : `${installment.porcentaje}%`}
+                    </td>
                     <td className={`${cellPadding} text-right font-semibold text-slate-900`}>
-                      {formatPrice(installment.importe, currency)}
+                      {isManualMode ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={Number.isFinite(installment.importe) ? String(installment.importe) : ''}
+                          disabled={!canEditManual}
+                          onChange={(event) => {
+                            if (!onManualChange) return;
+                            if (!event.target.value) {
+                              const next = installments.map((entry) =>
+                                entry.numeroCuota === installment.numeroCuota
+                                  ? { ...entry, importe: Number.NaN }
+                                  : entry,
+                              );
+                              onManualChange(next);
+                              return;
+                            }
+
+                            const parsed = sanitizarImporteTexto(event.target.value);
+                            if (parsed === null) {
+                              const next = installments.map((entry) =>
+                                entry.numeroCuota === installment.numeroCuota
+                                  ? { ...entry, importe: Number.NaN }
+                                  : entry,
+                              );
+                              onManualChange(next);
+                              return;
+                            }
+
+                            const total = Number(manualTotal ?? 0);
+                            const sumaOtros = installments.reduce((sum, entry) => {
+                              if (entry.numeroCuota === installment.numeroCuota) {
+                                return sum;
+                              }
+                              return Number.isFinite(entry.importe) ? sum + Number(entry.importe) : sum;
+                            }, 0);
+                            const maxPermitido = Math.max(0, total - sumaOtros);
+                            const nextValue = Math.min(parsed, maxPermitido);
+
+                            const next = installments.map((entry) =>
+                              entry.numeroCuota === installment.numeroCuota
+                                ? { ...entry, importe: nextValue }
+                                : entry,
+                            );
+                            onManualChange(next);
+                          }}
+                          className="h-7 w-full rounded border border-slate-200 bg-white px-2 text-right text-[12px] text-slate-700 focus:border-indigo-300 focus:outline-none disabled:bg-slate-50"
+                        />
+                      ) : (
+                        formatPrice(installment.importe, currency)
+                      )}
                     </td>
                     <td className={`${cellPadding} text-right text-slate-900`}>
                       {formatPrice(saldo, currency)}
@@ -200,6 +317,24 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                         {estado}
                       </span>
                     </td>
+                    {isManualMode && (
+                      <td className={`${cellPadding} text-center`}>
+                        <button
+                          type="button"
+                          onClick={() => onManualRemove?.(installment.numeroCuota)}
+                          disabled={!canEditManual}
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition ${
+                            canEditManual
+                              ? 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                              : 'text-slate-300 cursor-not-allowed'
+                          }`}
+                          aria-label="Eliminar cuota"
+                          title="Eliminar cuota"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    )}
                     {mode === 'allocation' && (
                       <td className={`${cellPadding} text-right`}>
                         <input

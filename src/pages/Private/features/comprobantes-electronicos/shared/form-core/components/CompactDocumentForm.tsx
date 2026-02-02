@@ -28,6 +28,7 @@ import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { PaymentMethod as ConfigurationPaymentMethod } from '../../../../configuracion-sistema/modelos/PaymentMethod';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
+import { FORMA_PAGO_CREDITO_MANUAL } from '../../../models/constants';
 import type { TipoComprobante, Currency } from '../../../models/comprobante.types';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
@@ -197,6 +198,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const { paymentMethods } = state;
   const { config } = useFieldsConfiguration();
   const CREATE_CREDIT_OPTION = '__create_credit__';
+  const MANUAL_CREDIT_OPTION = FORMA_PAGO_CREDITO_MANUAL;
 
   // Estados para cliente
   const [clienteSeleccionadoLocal, setClienteSeleccionadoLocal] = useState<SelectedCliente | null>(
@@ -857,6 +859,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   >
                     {paymentMethods.length > 0 ? (
                       <>
+                        <option value={MANUAL_CREDIT_OPTION}>Crédito</option>
                         {paymentMethods
                           .filter(pm => pm.isActive)
                           .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
@@ -867,6 +870,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                       </>
                     ) : (
                       <>
+                        <option value={MANUAL_CREDIT_OPTION}>Crédito</option>
                         <option value="contado">Contado (por defecto)</option>
                         <option value={CREATE_CREDIT_OPTION}>+ Crear crédito (cuotas)</option>
                       </>

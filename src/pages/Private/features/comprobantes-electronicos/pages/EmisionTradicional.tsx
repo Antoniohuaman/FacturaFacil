@@ -57,18 +57,26 @@ import { CobranzaModal } from '../shared/modales/CobranzaModal';
 import { useCreditTermsConfigurator } from '../hooks/useCreditTermsConfigurator';
 import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSummaryCard';
 import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
-import type { CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
+import type { CreditInstallment, CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
 import { calculateCurrencyAwareTotals } from '../shared/core/currencyTotals';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { BloqueoCajaCerrada } from '../shared/ui/BloqueoCajaCerrada';
 import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
 import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
 import { tourPrimeraVenta } from '../tour/tourPrimeraVenta';
+import { FORMA_PAGO_CREDITO_MANUAL } from '../models/constants';
+import {
+  construirCreditTermsManual,
+  normalizarCuotasManual,
+  sumarImportes,
+  validarFechasManual,
+} from '../shared/payments/creditoManualTransaccion';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
 
 const CREDIT_SCHEDULE_TOLERANCE = 0.01;
+const TOLERANCIA_CREDITO_MANUAL = 0.01;
 
 
 const EmisionTradicional = () => {
@@ -186,6 +194,8 @@ const EmisionTradicional = () => {
   } | null>(null);
   const [fechaEmision, setFechaEmision] = useState<string>(getBusinessTodayISODate());
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
+  const [cuotasManual, setCuotasManual] = useState<CreditInstallment[]>([]);
+  const [creditoManualConfirmado, setCreditoManualConfirmado] = useState(false);
 
   // ✅ Hook para cargar datos de duplicación (refactorizado)
   useDuplicateDataLoader({
@@ -392,7 +402,47 @@ const EmisionTradicional = () => {
     issueDate: fechaEmision,
   });
 
-  const shouldShowCreditSchedule = isCreditMethod && totals.total > CREDIT_SCHEDULE_TOLERANCE;
+  const esCreditoManual = formaPago === FORMA_PAGO_CREDITO_MANUAL;
+
+  const cuotasManualNormalizadas = useMemo(
+    () => normalizarCuotasManual(cuotasManual, totals.total, fechaEmision),
+    [cuotasManual, fechaEmision, totals.total],
+  );
+
+  const totalCuotasManual = useMemo(
+    () => sumarImportes(cuotasManualNormalizadas),
+    [cuotasManualNormalizadas],
+  );
+
+  const faltaManualCruda = totals.total - totalCuotasManual;
+  const faltaManual = Math.max(0, faltaManualCruda);
+  const fechasManualValidas = useMemo(
+    () => validarFechasManual(cuotasManualNormalizadas, fechaEmision),
+    [cuotasManualNormalizadas, fechaEmision],
+  );
+  const importesManualCompletos = useMemo(
+    () => cuotasManualNormalizadas.every((cuota) => Number.isFinite(cuota.importe) && cuota.importe > 0),
+    [cuotasManualNormalizadas],
+  );
+
+  const puedeConfirmarManual = cuotasManualNormalizadas.length > 0
+    && Math.abs(faltaManualCruda) <= TOLERANCIA_CREDITO_MANUAL
+    && fechasManualValidas
+    && importesManualCompletos
+    && totals.total > 0;
+
+  const creditTermsManual = useMemo(
+    () => construirCreditTermsManual(cuotasManualNormalizadas, totals.total, fechaEmision),
+    [cuotasManualNormalizadas, fechaEmision, totals.total],
+  );
+
+  const creditTermsForView = esCreditoManual ? creditTermsManual : creditTerms;
+  const creditTermsForSubmit = esCreditoManual
+    ? (creditoManualConfirmado ? creditTermsManual : undefined)
+    : creditTerms;
+
+  const shouldShowCreditSchedule = (isCreditMethod && totals.total > CREDIT_SCHEDULE_TOLERANCE)
+    || (esCreditoManual && totals.total > 0);
 
   // ✅ View model para side preview
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
@@ -408,7 +458,7 @@ const EmisionTradicional = () => {
     clientDoc: clienteSeleccionadoGlobal?.dni,
     fechaEmision,
     optionalFields,
-    creditTerms,
+    creditTerms: creditTermsForSubmit,
   } : null;
 
   const hasMinimumDataForPreview = ENABLE_SIDE_PREVIEW_EMISION &&
@@ -466,6 +516,22 @@ const EmisionTradicional = () => {
     }
   }, [isCreditMethod, showCreditScheduleModal]);
 
+  useEffect(() => {
+    if (!esCreditoManual) {
+      setCuotasManual([]);
+      setCreditoManualConfirmado(false);
+    }
+  }, [esCreditoManual]);
+
+  useEffect(() => {
+    if (!esCreditoManual) {
+      return;
+    }
+    if (creditoManualConfirmado && !puedeConfirmarManual) {
+      setCreditoManualConfirmado(false);
+    }
+  }, [esCreditoManual, creditoManualConfirmado, puedeConfirmarManual]);
+
   const handleOpenCreditScheduleModal = () => {
     if (!isCreditMethod) {
       return;
@@ -487,6 +553,50 @@ const EmisionTradicional = () => {
     setShowCreditScheduleModal(false);
   };
 
+  const handleCambiarCuotasManual = useCallback((next: CreditInstallment[]) => {
+    setCuotasManual(normalizarCuotasManual(next, totals.total, fechaEmision));
+    setCreditoManualConfirmado(false);
+  }, [fechaEmision, totals.total]);
+
+  const handleAgregarCuotaManual = useCallback(() => {
+    setCuotasManual((prev) => {
+      const normalizadas = normalizarCuotasManual(prev, totals.total, fechaEmision);
+      return [
+        ...normalizadas,
+        {
+          numeroCuota: normalizadas.length + 1,
+          diasCredito: 0,
+          porcentaje: 0,
+          fechaVencimiento: '',
+          importe: Number.NaN,
+          pagado: 0,
+          saldo: 0,
+          estado: 'pendiente',
+          pagos: [],
+        },
+      ];
+    });
+    setCreditoManualConfirmado(false);
+  }, [fechaEmision, totals.total]);
+
+  const handleEliminarCuotaManual = useCallback((numeroCuota: number) => {
+    setCuotasManual((prev) => {
+      const filtradas = prev.filter((_, index) => index !== numeroCuota - 1);
+      return normalizarCuotasManual(filtradas, totals.total, fechaEmision);
+    });
+    setCreditoManualConfirmado(false);
+  }, [fechaEmision, totals.total]);
+
+  const handleConfirmarCreditoManual = useCallback(() => {
+    if (puedeConfirmarManual) {
+      setCreditoManualConfirmado(true);
+    }
+  }, [puedeConfirmarManual]);
+
+  const handleEditarCreditoManual = useCallback(() => {
+    setCreditoManualConfirmado(false);
+  }, []);
+
 
   // Crear nuevo método de pago se gestiona ahora desde el dropdown de Forma de Pago (modal reutilizado).
 
@@ -504,7 +614,7 @@ const EmisionTradicional = () => {
   };
 
   const paymentMethodCode = selectedPaymentMethod?.code?.toUpperCase() ?? '';
-  const isCreditPaymentSelection = paymentMethodCode === 'CREDITO';
+  const isCreditPaymentSelection = esCreditoManual || paymentMethodCode === 'CREDITO';
   const issueButtonLabel = useMemo(() => {
     if (!isCreditPaymentSelection) {
       return 'IR A COBRANZA';
@@ -520,7 +630,7 @@ const EmisionTradicional = () => {
     }
   }, [isCreditPaymentSelection, tipoComprobante]);
 
-  const paymentMethodLabel = getPaymentMethodLabel(formaPago);
+  const paymentMethodLabel = esCreditoManual ? 'CRÉDITO' : getPaymentMethodLabel(formaPago);
 
   const printPreviewData = useMemo<PreviewData>(() => {
     const resolvedClient: ClientData = draftClientData ?? {
@@ -548,11 +658,11 @@ const EmisionTradicional = () => {
       totals: totalsWithCurrency,
       observations: observaciones,
       internalNotes: notaInterna,
-      creditTerms,
+      creditTerms: creditTermsForSubmit,
     };
   }, [
     cartItems,
-    creditTerms,
+    creditTermsForSubmit,
     currentCurrency,
     draftClientData,
     fechaEmision,
@@ -566,6 +676,22 @@ const EmisionTradicional = () => {
     totals,
     configState.company,
   ]);
+
+  const validarCreditoManual = () => {
+    if (!cuotasManualNormalizadas.length) {
+      error('Cronograma no definido', 'Agrega al menos una cuota para este crédito.');
+      return false;
+    }
+    if (!fechasManualValidas) {
+      error('Fechas inválidas', 'La primera cuota debe ser posterior a la fecha de emisión y todas deben tener fecha válida.');
+      return false;
+    }
+    if (!creditoManualConfirmado || !puedeConfirmarManual) {
+      error('Cronograma incompleto', 'Confirma las cuotas para continuar con el crédito.');
+      return false;
+    }
+    return true;
+  };
 
   const ensureDataBeforeCobranza = (paymentMode?: PaymentCollectionMode) => {
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
@@ -583,19 +709,25 @@ const EmisionTradicional = () => {
     }
 
     if (isCreditPaymentSelection) {
-      if (!isCreditMethod) {
-        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
-        return;
-      }
-      if (creditTemplateErrors.length > 0) {
-        creditTemplateErrors.forEach((validationError) =>
-          error('Cronograma de crédito incompleto', validationError),
-        );
-        return;
-      }
-      if (!creditTerms) {
-        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
-        return;
+      if (esCreditoManual) {
+        if (!validarCreditoManual()) {
+          return;
+        }
+      } else {
+        if (!isCreditMethod) {
+          error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
+          return;
+        }
+        if (creditTemplateErrors.length > 0) {
+          creditTemplateErrors.forEach((validationError) =>
+            error('Cronograma de crédito incompleto', validationError),
+          );
+          return;
+        }
+        if (!creditTerms) {
+          error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+          return;
+        }
       }
     }
 
@@ -618,19 +750,25 @@ const EmisionTradicional = () => {
       return false;
     }
 
-    if (!isCreditMethod) {
-      error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
-      return false;
-    }
-    if (creditTemplateErrors.length > 0) {
-      creditTemplateErrors.forEach((validationError) =>
-        error('Cronograma de crédito incompleto', validationError),
-      );
-      return false;
-    }
-    if (!creditTerms) {
-      error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
-      return false;
+    if (esCreditoManual) {
+      if (!validarCreditoManual()) {
+        return false;
+      }
+    } else {
+      if (!isCreditMethod) {
+        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito.');
+        return false;
+      }
+      if (creditTemplateErrors.length > 0) {
+        creditTemplateErrors.forEach((validationError) =>
+          error('Cronograma de crédito incompleto', validationError),
+        );
+        return false;
+      }
+      if (!creditTerms) {
+        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+        return false;
+      }
     }
 
     const success = await handleCrearComprobante();
@@ -671,19 +809,25 @@ const EmisionTradicional = () => {
     }
 
     if (isCreditSale) {
-      if (!isCreditMethod) {
-        error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para emitir en cuotas.');
-        return false;
-      }
-      if (creditTemplateErrors.length > 0) {
-        creditTemplateErrors.forEach((validationError) =>
-          error('Cronograma de crédito incompleto', validationError),
-        );
-        return false;
-      }
-      if (!creditTerms) {
-        error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
-        return false;
+      if (esCreditoManual) {
+        if (!validarCreditoManual()) {
+          return false;
+        }
+      } else {
+        if (!isCreditMethod) {
+          error('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para emitir en cuotas.');
+          return false;
+        }
+        if (creditTemplateErrors.length > 0) {
+          creditTemplateErrors.forEach((validationError) =>
+            error('Cronograma de crédito incompleto', validationError),
+          );
+          return false;
+        }
+        if (!creditTerms) {
+          error('Cronograma no disponible', 'No se pudo generar el cronograma de crédito. Intenta configurarlo nuevamente.');
+          return false;
+        }
       }
     }
 
@@ -721,7 +865,7 @@ const EmisionTradicional = () => {
         costCenter: optionalFields.centroCosto,
         waybill: optionalFields.guiaRemision,
         paymentDetails: isRegisteringCobro ? paymentPayload : undefined,
-        creditTerms: isCreditSale ? creditTerms : undefined,
+        creditTerms: isCreditSale ? creditTermsForSubmit : undefined,
         registrarPago: Boolean(isRegisteringCobro && paymentPayload?.lines.length)
       });
 
@@ -801,7 +945,7 @@ const EmisionTradicional = () => {
           cliente: clienteSeleccionadoGlobal?.nombre || 'Cliente',
           vuelto: received > totals.total ? received - totals.total : 0,
           mode: isCreditSale ? 'credito' : 'contado',
-          creditDueDate: isCreditSale ? creditTerms?.fechaVencimientoGlobal ?? null : null,
+          creditDueDate: isCreditSale ? creditTermsForSubmit?.fechaVencimientoGlobal ?? null : null,
         });
         
         // Mostrar modal de éxito
@@ -928,7 +1072,7 @@ const EmisionTradicional = () => {
                   formaPago={formaPago}
                   setFormaPago={setFormaPago}
                   isCreditMethod={isCreditMethod}
-                  creditDueDate={creditTerms?.fechaVencimientoGlobal ?? null}
+                  creditDueDate={creditTermsForSubmit?.fechaVencimientoGlobal ?? null}
                   onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
                   onVistaPrevia={sidePreview?.togglePane}
                   onClienteChange={setClienteSeleccionadoGlobal}
@@ -958,13 +1102,25 @@ const EmisionTradicional = () => {
                 {shouldShowCreditSchedule && (
                   <div className="mt-6">
                     <CreditScheduleSummaryCard
-                      creditTerms={creditTerms}
+                      creditTerms={creditTermsForView}
                       currency={currentCurrency}
                       total={totals.total}
                       onConfigure={handleOpenCreditScheduleModal}
-                      errors={creditTemplateErrors}
-                      paymentMethodName={selectedPaymentMethod?.name}
+                      errors={esCreditoManual ? undefined : creditTemplateErrors}
+                      paymentMethodName={esCreditoManual ? 'Crédito' : selectedPaymentMethod?.name}
                       context="emision"
+                      creditoManual={esCreditoManual ? {
+                        cuotas: cuotasManualNormalizadas,
+                        estaEditando: !creditoManualConfirmado,
+                        falta: faltaManual,
+                        puedeConfirmar: puedeConfirmarManual,
+                        fechaEmision,
+                        onAgregar: handleAgregarCuotaManual,
+                        onConfirmar: handleConfirmarCreditoManual,
+                        onEditar: handleEditarCreditoManual,
+                        onCambiar: handleCambiarCuotasManual,
+                        onEliminar: handleEliminarCuotaManual,
+                      } : undefined}
                     />
                   </div>
                 )}
@@ -1087,8 +1243,8 @@ const EmisionTradicional = () => {
           onComplete={handleCobranzaComplete}
           isProcessing={isProcessing}
           EstablecimientoId={session?.currentEstablecimientoId}
-          creditTerms={creditTerms}
-          creditPaymentMethodLabel={selectedPaymentMethod?.name}
+          creditTerms={creditTermsForSubmit}
+          creditPaymentMethodLabel={esCreditoManual ? 'Crédito' : selectedPaymentMethod?.name}
           modeIntent={cobranzaMode}
         />
 
@@ -1103,7 +1259,7 @@ const EmisionTradicional = () => {
           currency={currentCurrency}
           observations={observaciones}
           internalNotes={notaInterna}
-          creditTerms={creditTerms}
+          creditTerms={creditTermsForSubmit}
         />
 
         {/* Modal de éxito con acciones de compartir */}
