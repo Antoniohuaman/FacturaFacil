@@ -1,6 +1,5 @@
 import { ensureBusinessDateIso, shiftBusinessDate, toBusinessDate } from '@/shared/time/businessTime';
 import type { CreditInstallment } from '../../../../../../shared/payments/paymentTerms';
-import { computeGlobalDueDate } from '../../../../../../shared/payments/paymentTerms';
 import type { ComprobanteCreditTerms } from '../../models/comprobante.types';
 
 const MILISEGUNDOS_DIA = 1000 * 60 * 60 * 24;
@@ -104,6 +103,8 @@ export const validarFechasManual = (
     return false;
   }
 
+  let fechaAnterior = primera.fechaVencimiento;
+
   return cuotas.every((cuota, index) => {
     if (!cuota.fechaVencimiento) {
       return false;
@@ -111,7 +112,17 @@ export const validarFechasManual = (
     if (index === 0) {
       return true;
     }
-    return Boolean(toBusinessDate(cuota.fechaVencimiento, 'start'));
+    const fechaActual = toBusinessDate(cuota.fechaVencimiento, 'start');
+    const fechaPrev = toBusinessDate(fechaAnterior, 'start');
+    if (!fechaActual || !fechaPrev) {
+      return false;
+    }
+    const esValida = fechaActual.getTime() >= fechaPrev.getTime();
+    if (!esValida) {
+      return false;
+    }
+    fechaAnterior = cuota.fechaVencimiento;
+    return true;
   });
 };
 
@@ -133,7 +144,7 @@ export const construirCreditTermsManual = (
 
   return {
     schedule: normalizadas,
-    fechaVencimientoGlobal: computeGlobalDueDate(normalizadas),
+    fechaVencimientoGlobal: normalizadas[normalizadas.length - 1]?.fechaVencimiento || '',
     totalPorcentaje: normalizadas.reduce((acc, cuota) => acc + cuota.porcentaje, 0),
   };
 };

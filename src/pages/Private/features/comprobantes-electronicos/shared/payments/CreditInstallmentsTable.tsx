@@ -125,6 +125,9 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   const canEditManual = isManualMode && !manualReadOnly;
   const cellPadding = compact ? 'px-3 py-2' : 'px-4 py-3';
   const textSize = compact ? 'text-[12px]' : 'text-sm';
+  const minPrimeraCuota = manualFechaEmision
+    ? obtenerFechaMinimaPrimeraCuota(manualFechaEmision)
+    : undefined;
 
   if (!installments.length) {
     if (isManualMode) {
@@ -225,16 +228,36 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                           type="date"
                           value={installment.fechaVencimiento || ''}
                           min={
-                            installment.numeroCuota === 1 && manualFechaEmision
-                              ? obtenerFechaMinimaPrimeraCuota(manualFechaEmision)
+                            isManualMode
+                              ? (installment.numeroCuota === 1
+                                ? minPrimeraCuota
+                                : (installments.find((entry) => entry.numeroCuota === installment.numeroCuota - 1)?.fechaVencimiento
+                                  || minPrimeraCuota))
                               : undefined
                           }
                           disabled={!canEditManual}
                           onChange={(event) => {
                             if (!onManualChange) return;
+                            const rawValue = event.target.value;
+                            if (!rawValue) {
+                              const next = installments.map((entry) =>
+                                entry.numeroCuota === installment.numeroCuota
+                                  ? { ...entry, fechaVencimiento: '' }
+                                  : entry,
+                              );
+                              onManualChange(next);
+                              return;
+                            }
+
+                            const minimo = installment.numeroCuota === 1
+                              ? minPrimeraCuota
+                              : (installments.find((entry) => entry.numeroCuota === installment.numeroCuota - 1)?.fechaVencimiento
+                                || minPrimeraCuota);
+                            const valorFinal = minimo && rawValue < minimo ? minimo : rawValue;
+
                             const next = installments.map((entry) =>
                               entry.numeroCuota === installment.numeroCuota
-                                ? { ...entry, fechaVencimiento: event.target.value }
+                                ? { ...entry, fechaVencimiento: valorFinal }
                                 : entry,
                             );
                             onManualChange(next);
