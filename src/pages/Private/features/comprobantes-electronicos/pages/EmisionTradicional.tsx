@@ -615,6 +615,9 @@ const EmisionTradicional = () => {
 
   const paymentMethodCode = selectedPaymentMethod?.code?.toUpperCase() ?? '';
   const isCreditPaymentSelection = esCreditoManual || paymentMethodCode === 'CREDITO';
+  const creditDueDateForForm = isCreditPaymentSelection
+    ? (creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento ?? '')
+    : '';
   const issueButtonLabel = useMemo(() => {
     if (!isCreditPaymentSelection) {
       return 'IR A COBRANZA';
@@ -651,7 +654,7 @@ const EmisionTradicional = () => {
       series: serieSeleccionada || 'SERIE',
       number: lastComprobante?.numero ?? null,
       issueDate: fechaEmision,
-      dueDate: optionalFields?.fechaVencimiento,
+      dueDate: creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento,
       currency: currentCurrency,
       paymentMethod: paymentMethodLabel || 'CONTADO',
       cartItems,
@@ -1071,8 +1074,8 @@ const EmisionTradicional = () => {
                   baseCurrencyCode={baseCurrency.code as Currency}
                   formaPago={formaPago}
                   setFormaPago={setFormaPago}
-                  isCreditMethod={isCreditMethod}
-                  creditDueDate={creditTermsForSubmit?.fechaVencimientoGlobal ?? null}
+                  isCreditMethod={isCreditPaymentSelection}
+                  creditDueDate={creditDueDateForForm || null}
                   onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
                   onVistaPrevia={sidePreview?.togglePane}
                   onClienteChange={setClienteSeleccionadoGlobal}
@@ -1248,7 +1251,7 @@ const EmisionTradicional = () => {
           modeIntent={cobranzaMode}
         />
 
-        <PreviewModal
+          <PreviewModal
           isOpen={showPreview}
           onClose={closePreview}
           cartItems={cartItems}
@@ -1260,6 +1263,7 @@ const EmisionTradicional = () => {
           observations={observaciones}
           internalNotes={notaInterna}
           creditTerms={creditTermsForSubmit}
+            dueDate={creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento}
         />
 
         {/* Modal de éxito con acciones de compartir */}

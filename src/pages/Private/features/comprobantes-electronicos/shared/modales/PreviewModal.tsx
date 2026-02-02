@@ -19,6 +19,7 @@ interface PreviewModalProps {
   observations?: string;
   internalNotes?: string;
   creditTerms?: ComprobanteCreditTerms;
+  dueDate?: string;
   onCreateDocument?: () => void;
 }
 
@@ -34,6 +35,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   observations,
   internalNotes,
   creditTerms,
+  dueDate,
   onCreateDocument
 }) => {
   const {
@@ -55,6 +57,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
     observations,
     internalNotes,
     undefined,
+    dueDate,
     creditTerms
   );
 

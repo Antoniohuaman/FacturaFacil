@@ -25,6 +25,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
     clientData,
     documentType,
     series,
+    dueDate,
     currency,
     paymentMethod,
     cartItems,
@@ -35,6 +36,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
 
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
+  const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
   const currentDateTime = new Date().toLocaleString('es-PE', {
     day: '2-digit',
     month: '2-digit',
@@ -185,7 +187,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
               <p><span className="font-semibold">{config.documentFields.centroCosto.label}:</span> -</p>
             )}
             {config.documentFields.fechaVencimiento.visible && (
-              <p><span className="font-semibold">{config.documentFields.fechaVencimiento.label}:</span> {currentDateTime.split(' ')[0]}</p>
+              <p><span className="font-semibold">{config.documentFields.fechaVencimiento.label}:</span> {resolvedDueDate}</p>
             )}
             {config.documentFields.vendedor.visible && (
               <p><span className="font-semibold">{config.documentFields.vendedor.label}:</span> -</p>

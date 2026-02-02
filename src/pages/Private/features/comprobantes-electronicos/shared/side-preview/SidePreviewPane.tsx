@@ -137,6 +137,7 @@ export const SidePreviewPane: React.FC<SidePreviewPaneProps> = ({
       debouncedViewModel.observaciones,
       debouncedViewModel.notaInterna,
       clientData,
+      debouncedViewModel.optionalFields?.fechaVencimiento,
       debouncedViewModel.creditTerms
     );
   }, [debouncedViewModel, generatePreviewData]);

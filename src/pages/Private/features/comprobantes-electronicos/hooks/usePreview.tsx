@@ -44,6 +44,7 @@ export const usePreview = () => {
     observations?: string,
     internalNotes?: string,
     clientData?: ClientData,
+    dueDate?: string,
     creditTerms?: ComprobanteCreditTerms,
   ): PreviewData => {
     // En vista previa no asignamos correlativo, solo mostramos la serie
@@ -64,7 +65,7 @@ export const usePreview = () => {
       series,
       number: mockNumber,
       issueDate,
-      dueDate: creditTerms?.fechaVencimientoGlobal,
+      dueDate: creditTerms?.fechaVencimientoGlobal ?? dueDate,
       currency,
       paymentMethod,
       cartItems,

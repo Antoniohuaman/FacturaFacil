@@ -23,6 +23,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
     documentType,
     series,
     issueDate,
+    dueDate,
     currency,
     paymentMethod,
     cartItems,
@@ -34,6 +35,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
   const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
   const taxBreakdown = totals.taxBreakdown ?? [];
+  const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
 
   // Obtener columnas visibles
   const visibleColumns = Object.entries(config.productFields).filter(([_, value]) => value.visible);
@@ -315,7 +317,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
               <p><span className="font-medium">Moneda:</span> {currency === 'USD' ? 'Dólares Americanos' : 'Soles'}</p>
               <p><span className="font-medium">Forma de Pago:</span> {paymentMethod}</p>
               {config.documentFields.fechaVencimiento.visible && (
-                <p><span className="font-medium">{config.documentFields.fechaVencimiento.label}:</span> {issueDate}</p>
+                <p><span className="font-medium">{config.documentFields.fechaVencimiento.label}:</span> {resolvedDueDate}</p>
               )}
               {config.documentFields.establecimiento.visible && (
                 <p><span className="font-medium">{config.documentFields.establecimiento.label}:</span> Principal</p>
