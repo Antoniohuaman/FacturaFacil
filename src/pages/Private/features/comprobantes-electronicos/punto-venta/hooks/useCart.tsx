@@ -25,6 +25,7 @@ export interface UseCartReturn {
   updateCartItem: (id: string, updates: Partial<CartItem>) => void;
   updateCartItemPrice: (id: string, newPrice: number) => void;
   clearCart: () => void;
+  setCartItemsFromDraft: (items: CartItem[]) => void;
 
   // Funciones especiales
   addProductsFromSelector: (products: { product: Product; quantity: number }[]) => void;
@@ -393,6 +394,44 @@ export const useCart = (): UseCartReturn => {
     setCartItems([]);
   }, []);
 
+  const setCartItemsFromDraft = useCallback((items: CartItem[]) => {
+    if (!Array.isArray(items) || items.length === 0) {
+      setCartItems([]);
+      return;
+    }
+
+    const normalized = items.map((item) => {
+      const rawQuantity = Number.isFinite(item.quantity) ? item.quantity : SYSTEM_CONFIG.MIN_CART_QUANTITY;
+      const quantity = Math.min(
+        SYSTEM_CONFIG.MAX_CART_QUANTITY,
+        Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, rawQuantity)
+      );
+      const price = Number.isFinite(item.price) ? item.price : 0;
+      const igvPercent = inferIgvPercent(item);
+      const subtotal = Number.isFinite(item.subtotal)
+        ? item.subtotal
+        : stripTaxFromPrice(price, igvPercent);
+      const total = Number.isFinite(item.total) ? item.total : price;
+      const resolvedUnit = item.unidadMedida || item.unit;
+      const igvConfig = resolveIgvConfigFromLabel(item.impuesto, effectiveDefaultIgvConfig);
+
+      return {
+        ...item,
+        unidadMedida: resolvedUnit,
+        unit: resolvedUnit ?? item.unit,
+        quantity,
+        price,
+        subtotal,
+        total,
+        igv: Number.isFinite(item.igv) ? item.igv : igvPercent,
+        igvType: item.igvType ?? igvConfig.igvType,
+        impuesto: item.impuesto ?? igvConfig.impuestoLabel,
+      };
+    });
+
+    setCartItems(normalized);
+  }, [effectiveDefaultIgvConfig]);
+
   const setCartItemQuantity = useCallback((id: string, nextQuantity: number) => {
     setCartItems(prev => {
       const item = prev.find(i => i.id === id);
@@ -493,6 +532,7 @@ export const useCart = (): UseCartReturn => {
     updateCartItem,
     updateCartItemPrice,
     clearCart,
+    setCartItemsFromDraft,
 
     // Funciones especiales
     addProductsFromSelector,

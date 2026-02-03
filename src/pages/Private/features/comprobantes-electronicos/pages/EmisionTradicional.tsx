@@ -45,7 +45,7 @@ import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
-import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode } from '../models/comprobante.types';
+import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode, CartItem, TipoComprobante } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { clientesClient } from '../../gestion-clientes/api';
 import { clienteToSaleSnapshot, type SaleDocumentType } from '../../gestion-clientes/utils/saleClienteMapping';
@@ -66,6 +66,13 @@ import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
 import { tourPrimeraVenta } from '../tour/tourPrimeraVenta';
 import { FORMA_PAGO_CREDITO_MANUAL } from '../models/constants';
 import {
+  crearClaveBorradorEnProgreso,
+  leerBorradorEnProgreso,
+  guardarBorradorEnProgreso,
+  limpiarBorradorEnProgreso as limpiarBorradorEnProgresoStorage,
+} from '@/shared/borradores/almacenamientoBorradorEnProgreso';
+import { useBorradorEnProgreso } from '@/shared/borradores/useBorradorEnProgreso';
+import {
   construirCreditTermsManual,
   normalizarCuotasManual,
   sumarImportes,
@@ -77,6 +84,33 @@ const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInsta
 
 const CREDIT_SCHEDULE_TOLERANCE = 0.01;
 const TOLERANCIA_CREDITO_MANUAL = 0.01;
+
+type ClienteSeleccionadoEmision = {
+  clienteId?: number | string;
+  nombre: string;
+  dni: string;
+  direccion: string;
+  email?: string;
+  tipoDocumento?: SaleDocumentType;
+  priceProfileId?: string;
+} | null;
+
+type EstadoBorradorEmisionTradicional = {
+  tipoComprobante: TipoComprobante;
+  serieSeleccionada: string;
+  fechaEmision: string;
+  clienteSeleccionadoGlobal: ClienteSeleccionadoEmision;
+  formaPago: string;
+  moneda: Currency;
+  observaciones: string;
+  notaInterna: string;
+  optionalFields: Record<string, unknown>;
+  appliedGlobalDiscount: DiscountInput | null;
+  creditTemplates: CreditInstallmentDefinition[];
+  cuotasManual: CreditInstallment[];
+  creditoManualConfirmado: boolean;
+  cartItems: CartItem[];
+};
 
 
 const EmisionTradicional = () => {
@@ -137,7 +171,7 @@ const EmisionTradicional = () => {
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { session } = useUserSession();
-  const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
+  const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart, setCartItemsFromDraft } = useCart();
   const {
     currentCurrency,
     currencyInfo,
@@ -183,15 +217,7 @@ const EmisionTradicional = () => {
     error
   } = useComprobanteActions();
   // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
-  const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<{
-    clienteId?: number | string;
-    nombre: string;
-    dni: string;
-    direccion: string;
-    email?: string;
-    tipoDocumento?: SaleDocumentType;
-    priceProfileId?: string;
-  } | null>(null);
+  const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<ClienteSeleccionadoEmision>(null);
   const [fechaEmision, setFechaEmision] = useState<string>(getBusinessTodayISODate());
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
   const [cuotasManual, setCuotasManual] = useState<CreditInstallment[]>([]);
@@ -443,6 +469,128 @@ const EmisionTradicional = () => {
 
   const shouldShowCreditSchedule = (isCreditMethod && totals.total > CREDIT_SCHEDULE_TOLERANCE)
     || (esCreditoManual && totals.total > 0);
+
+  const claveBorradorEnProgreso = useMemo(() => crearClaveBorradorEnProgreso({
+    app: 'facturafacil',
+    tenantId: session?.currentCompanyId ?? null,
+    establecimientoId: currentEstablecimientoId ?? session?.currentEstablecimientoId ?? null,
+    tipoDocumento: 'comprobante_emision_tradicional',
+  }), [currentEstablecimientoId, session?.currentCompanyId, session?.currentEstablecimientoId]);
+
+  const borradoresMigradosRef = useRef<Set<string>>(new Set());
+
+  const {
+    limpiar: limpiarBorradorEnProgreso,
+    restaurar: restaurarBorradorEnProgreso,
+  } = useBorradorEnProgreso<EstadoBorradorEmisionTradicional, EstadoBorradorEmisionTradicional>({
+    habilitado: true,
+    clave: claveBorradorEnProgreso,
+    version: 1,
+    ttlDias: 7,
+    debounceMs: 400,
+    extraerEstado: () => ({
+      tipoComprobante,
+      serieSeleccionada,
+      fechaEmision,
+      clienteSeleccionadoGlobal,
+      formaPago,
+      moneda: currentCurrency,
+      observaciones,
+      notaInterna,
+      optionalFields: optionalFields as Record<string, unknown>,
+      appliedGlobalDiscount,
+      creditTemplates,
+      cuotasManual,
+      creditoManualConfirmado,
+      cartItems,
+    }),
+    convertirAStorage: (estado) => estado,
+    aplicarDesdeStorage: (borrador) => {
+      if (borrador.tipoComprobante) {
+        setTipoComprobante(borrador.tipoComprobante);
+      }
+      if (borrador.serieSeleccionada) {
+        setSerieSeleccionada(borrador.serieSeleccionada);
+      }
+      if (borrador.fechaEmision) {
+        setFechaEmision(borrador.fechaEmision);
+      }
+      if (borrador.formaPago) {
+        setFormaPago(borrador.formaPago);
+      }
+      if (borrador.moneda) {
+        changeCurrency(borrador.moneda);
+      }
+      setClienteSeleccionadoGlobal(borrador.clienteSeleccionadoGlobal ?? null);
+      setObservaciones(borrador.observaciones ?? '');
+      setNotaInterna(borrador.notaInterna ?? '');
+      setOptionalFields((borrador.optionalFields ?? {}) as Record<string, unknown>);
+      setAppliedGlobalDiscount(borrador.appliedGlobalDiscount ?? null);
+      setCreditTemplates(borrador.creditTemplates ?? []);
+      setCuotasManual(borrador.cuotasManual ?? []);
+      setCreditoManualConfirmado(Boolean(borrador.creditoManualConfirmado));
+      if (Array.isArray(borrador.cartItems)) {
+        setCartItemsFromDraft(borrador.cartItems);
+      }
+    },
+    debePersistir: (estado) => {
+      const tieneCampos = Boolean(
+        estado.cartItems.length > 0 ||
+        estado.clienteSeleccionadoGlobal ||
+        estado.observaciones.trim() ||
+        estado.notaInterna.trim() ||
+        Object.keys(estado.optionalFields || {}).length > 0 ||
+        estado.appliedGlobalDiscount ||
+        estado.creditTemplates.length > 0 ||
+        estado.cuotasManual.length > 0 ||
+        estado.fechaEmision ||
+        estado.moneda ||
+        estado.tipoComprobante ||
+        estado.serieSeleccionada ||
+        estado.formaPago
+      );
+      return tieneCampos;
+    },
+  });
+
+  useEffect(() => {
+    if (borradoresMigradosRef.current.has(claveBorradorEnProgreso)) {
+      return;
+    }
+
+    borradoresMigradosRef.current.add(claveBorradorEnProgreso);
+
+    const actual = leerBorradorEnProgreso<EstadoBorradorEmisionTradicional>(claveBorradorEnProgreso, 1);
+    if (actual) {
+      return;
+    }
+
+    const claveLegacy = crearClaveBorradorEnProgreso({
+      app: 'facturafacil',
+      tenantId: session?.currentCompanyId ?? null,
+      establecimientoId: currentEstablecimientoId ?? session?.currentEstablecimientoId ?? null,
+      tipoDocumento: 'comprobante_emision_tradicional',
+      serie: serieSeleccionada || null,
+      modo: tipoComprobante,
+    });
+
+    const legacy = leerBorradorEnProgreso<EstadoBorradorEmisionTradicional>(claveLegacy, 1);
+    if (!legacy) {
+      return;
+    }
+
+    guardarBorradorEnProgreso(claveBorradorEnProgreso, legacy);
+    limpiarBorradorEnProgresoStorage(claveLegacy);
+    restaurarBorradorEnProgreso();
+  }, [
+    claveBorradorEnProgreso,
+    currentEstablecimientoId,
+    serieSeleccionada,
+    session?.currentCompanyId,
+    session?.currentEstablecimientoId,
+    tipoComprobante,
+    restaurarBorradorEnProgreso,
+  ]);
 
   // ✅ View model para side preview
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
@@ -873,6 +1021,7 @@ const EmisionTradicional = () => {
       });
 
       if (success) {
+        limpiarBorradorEnProgreso();
         setShowCobranzaModal(false);
         if (lookupClient && !(clienteSeleccionadoGlobal?.clienteId !== undefined && clienteSeleccionadoGlobal?.clienteId !== null)) {
           const { data } = lookupClient;
@@ -993,6 +1142,7 @@ const EmisionTradicional = () => {
   };
 
   const handleNewSale = () => {
+    limpiarBorradorEnProgreso();
     clearCart();
     resetForm();
     if (currentCurrency !== baseCurrency.code) {
@@ -1078,11 +1228,22 @@ const EmisionTradicional = () => {
                   creditDueDate={creditDueDateForForm || null}
                   onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
                   onVistaPrevia={sidePreview?.togglePane}
+                  clienteSeleccionado={clienteSeleccionadoGlobal ?? undefined}
                   onClienteChange={setClienteSeleccionadoGlobal}
                   onLookupClientSelected={setLookupClient}
                   fechaEmision={fechaEmision}
                   onFechaEmisionChange={setFechaEmision}
                   onOptionalFieldsChange={(fields: Record<string, any>) => setOptionalFields(prev => ({ ...prev, ...fields }))}
+                  valoresIniciales={{
+                    fechaEmision,
+                    fechaVencimiento: typeof optionalFields.fechaVencimiento === 'string' ? optionalFields.fechaVencimiento : undefined,
+                    direccion: typeof optionalFields.direccion === 'string' ? optionalFields.direccion : undefined,
+                    direccionEnvio: typeof optionalFields.direccionEnvio === 'string' ? optionalFields.direccionEnvio : undefined,
+                    correo: typeof optionalFields.correo === 'string' ? optionalFields.correo : undefined,
+                    ordenCompra: typeof optionalFields.ordenCompra === 'string' ? optionalFields.ordenCompra : undefined,
+                    guiaRemision: typeof optionalFields.guiaRemision === 'string' ? optionalFields.guiaRemision : undefined,
+                    centroCosto: typeof optionalFields.centroCosto === 'string' ? optionalFields.centroCosto : undefined,
+                  }}
                 />
 
                 {/* Products Section - Sin cambios */}
@@ -1132,7 +1293,10 @@ const EmisionTradicional = () => {
                 <div data-tour="primera-venta-emitir">
                   <ActionButtonsSection
                     onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
-                    onCancelar={goToComprobantes}
+                    onCancelar={() => {
+                      limpiarBorradorEnProgreso();
+                      goToComprobantes();
+                    }}
                     onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
                     secondaryAction={
                       fieldsConfig.notesSection

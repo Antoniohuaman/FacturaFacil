@@ -57,6 +57,17 @@ type SelectedCliente = {
   priceProfileId?: string;
 };
 
+type ValoresInicialesCompactDocumentForm = {
+  fechaEmision?: string;
+  fechaVencimiento?: string;
+  direccion?: string;
+  direccionEnvio?: string;
+  correo?: string;
+  ordenCompra?: string;
+  guiaRemision?: string;
+  centroCosto?: string;
+};
+
 const inferDocumentTypeFromNumber = (value: string): SaleDocumentType => {
   const digits = value.replace(/\D+/g, '');
   if (!digits) {
@@ -167,6 +178,9 @@ interface CompactDocumentFormProps {
 
   // Señalizar al contenedor si el cliente actual proviene de lookup externo
   onLookupClientSelected?: (client: { data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null) => void;
+
+  // Valores iniciales para rehidratar campos opcionales
+  valoresIniciales?: ValoresInicialesCompactDocumentForm;
 }
 
 const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
@@ -191,6 +205,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   onFechaEmisionChange,
   onOptionalFieldsChange,
   onLookupClientSelected,
+  valoresIniciales,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
   const { clientes, fetchClientes } = useClientes();
@@ -218,6 +233,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [showCreditPaymentMethodModal, setShowCreditPaymentMethodModal] = useState(false);
   const [lastValidFormaPago, setLastValidFormaPago] = useState<string>(formaPago);
+  const valoresInicialesAplicadosRef = useRef(false);
 
   const onOptionalFieldsChangeRef = useRef(onOptionalFieldsChange);
   const onClienteChangeRef = useRef(onClienteChange);
@@ -266,6 +282,85 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   useEffect(() => {
     setLastValidFormaPago(formaPago);
   }, [formaPago]);
+
+  useEffect(() => {
+    if (valoresInicialesAplicadosRef.current) {
+      return;
+    }
+
+    if (!valoresIniciales) {
+      return;
+    }
+
+    const {
+      fechaEmision: fechaEmisionInicial,
+      fechaVencimiento: fechaVencimientoInicial,
+      direccion: direccionInicial,
+      direccionEnvio: direccionEnvioInicial,
+      correo: correoInicial,
+      ordenCompra: ordenCompraInicial,
+      guiaRemision: guiaRemisionInicial,
+      centroCosto: centroCostoInicial,
+    } = valoresIniciales;
+
+    const tieneDatos =
+      fechaEmisionInicial !== undefined ||
+      fechaVencimientoInicial !== undefined ||
+      direccionInicial !== undefined ||
+      direccionEnvioInicial !== undefined ||
+      correoInicial !== undefined ||
+      ordenCompraInicial !== undefined ||
+      guiaRemisionInicial !== undefined ||
+      centroCostoInicial !== undefined;
+
+    if (!tieneDatos) {
+      return;
+    }
+
+    valoresInicialesAplicadosRef.current = true;
+
+    if (fechaEmisionInicial !== undefined) {
+      setLocalFechaEmision(fechaEmisionInicial);
+    }
+
+    if (fechaVencimientoInicial !== undefined) {
+      setLocalFechaVencimiento(fechaVencimientoInicial);
+    }
+
+    if (direccionInicial !== undefined) {
+      localDireccionRef.current = direccionInicial;
+      setLocalDireccion(direccionInicial);
+    }
+
+    if (direccionEnvioInicial !== undefined) {
+      setLocalDireccionEnvio(direccionEnvioInicial);
+    }
+
+    if (correoInicial !== undefined) {
+      setLocalCorreo(correoInicial);
+    }
+
+    if (ordenCompraInicial !== undefined) {
+      setLocalOrdenCompra(ordenCompraInicial);
+    }
+
+    if (guiaRemisionInicial !== undefined) {
+      setLocalGuiaRemision(guiaRemisionInicial);
+    }
+
+    if (centroCostoInicial !== undefined) {
+      setLocalCentroCosto(centroCostoInicial);
+    }
+  }, [valoresIniciales]);
+
+  useEffect(() => {
+    if (!fechaEmision) {
+      return;
+    }
+    if (fechaEmision !== localFechaEmision) {
+      setLocalFechaEmision(fechaEmision);
+    }
+  }, [fechaEmision, localFechaEmision]);
 
   const handlePersistPaymentMethods = (methods: ConfigurationPaymentMethod[]) => {
     dispatch({ type: 'SET_PAYMENT_METHODS', payload: methods });
@@ -515,34 +610,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     }
   };
 
-  // Notify parent about initial values so the parent has the same view
   useEffect(() => {
-    // On mount, push current values to parent so fields that are not
-    // explicitly edited still get sent (e.g., fechaVencimiento default)
-    onFechaEmisionChange?.(localFechaEmision);
-    onOptionalFieldsChange?.({
-      fechaEmision: localFechaEmision,
-      fechaVencimiento: localFechaVencimiento,
-      direccion: localDireccion,
-      direccionEnvio: localDireccionEnvio,
-      correo: localCorreo,
-      ordenCompra: localOrdenCompra,
-      guiaRemision: localGuiaRemision,
-      centroCosto: localCentroCosto
-    });
-
-    if (clienteSeleccionadoLocal) {
-      onClienteChange?.({
-        nombre: clienteSeleccionadoLocal.nombre,
-        dni: clienteSeleccionadoLocal.dni,
-        direccion: clienteSeleccionadoLocal.direccion,
-        email: clienteSeleccionadoLocal.email,
-        tipoDocumento: clienteSeleccionadoLocal.tipoDocumento,
-        priceProfileId: clienteSeleccionadoLocal.priceProfileId,
-      });
+    if (!fechaEmision) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    if (fechaEmision !== localFechaEmision) {
+      setLocalFechaEmision(fechaEmision);
+    }
+  }, [fechaEmision, localFechaEmision]);
 
   // Sincronizar fecha de vencimiento con el cronograma de crédito cuando aplique
   useEffect(() => {
@@ -552,9 +628,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
 
     if (creditDueDate !== localFechaVencimiento) {
       setLocalFechaVencimiento(creditDueDate);
-      onOptionalFieldsChange?.({ fechaVencimiento: creditDueDate });
+      onOptionalFieldsChangeRef.current?.({ fechaVencimiento: creditDueDate });
     }
-  }, [creditDueDate, isCreditMethod, localFechaVencimiento, onOptionalFieldsChange]);
+  }, [creditDueDate, isCreditMethod, localFechaVencimiento]);
 
   return (
     <>
@@ -766,7 +842,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   type="email"
                   required={config.optionalFields.correo.required}
                   value={localCorreo}
-                  onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChange?.({ correo: e.target.value }); }}
+                  onChange={(e) => { setLocalCorreo(e.target.value); onOptionalFieldsChangeRef.current?.({ correo: e.target.value }); }}
                   id="email"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="cliente@empresa.com"
@@ -786,7 +862,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   type="text"
                   required={config.optionalFields.direccionEnvio.required}
                   value={localDireccionEnvio}
-                  onChange={(e) => { setLocalDireccionEnvio(e.target.value); onOptionalFieldsChange?.({ direccionEnvio: e.target.value }); }}
+                  onChange={(e) => { setLocalDireccionEnvio(e.target.value); onOptionalFieldsChangeRef.current?.({ direccionEnvio: e.target.value }); }}
                   id="direccion-envio"
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="Ej: Av. Principal 123, Lima"
@@ -837,7 +913,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   onChange={(e) => {
                     setLocalFechaEmision(e.target.value);
                     onFechaEmisionChange?.(e.target.value);
-                    onOptionalFieldsChange?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
+                    onOptionalFieldsChangeRef.current?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
                   }}
                   id="fecha-emision"
                   className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
@@ -925,7 +1001,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     type="date"
                     required={config.optionalFields.fechaVencimiento.required}
                     value={localFechaVencimiento}
-                    onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChange?.({ fechaVencimiento: e.target.value }); }}
+                    onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChangeRef.current?.({ fechaVencimiento: e.target.value }); }}
                     id="fecha-vencimiento"
                     className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                   />
@@ -969,7 +1045,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     type="text"
                     required={config.optionalFields.ordenCompra.required}
                     value={localOrdenCompra}
-                    onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChange?.({ ordenCompra: e.target.value }); }}
+                    onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChangeRef.current?.({ ordenCompra: e.target.value }); }}
                     id="orden-compra"
                     className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                     placeholder="Ej: OC01-0000236"
@@ -991,7 +1067,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                       type="text"
                       required={config.optionalFields.guiaRemision.required}
                       value={localGuiaRemision}
-                      onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChange?.({ guiaRemision: e.target.value }); }}
+                      onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChangeRef.current?.({ guiaRemision: e.target.value }); }}
                       id="guia-remision"
                       className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                       placeholder="T001-000256"
@@ -1011,7 +1087,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                       type="text"
                       required={config.optionalFields.centroCosto.required}
                       value={localCentroCosto}
-                      onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChange?.({ centroCosto: e.target.value }); }}
+                      onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChangeRef.current?.({ centroCosto: e.target.value }); }}
                       id="centro-costo"
                       className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                       placeholder="CC-001"
