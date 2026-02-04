@@ -59,12 +59,6 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
 
     if (!dataToLoad) return;
 
-    if (isFromConversion) {
-      console.log('� Cargando datos desde conversión de documento:', dataToLoad);
-    } else {
-      console.log('�📋 Cargando datos de comprobante duplicado:', dataToLoad);
-    }
-
     // 1. Cargar cliente si existe
     if (dataToLoad.client || (dataToLoad as any).cliente) {
       const clienteData = (dataToLoad as any).cliente || {

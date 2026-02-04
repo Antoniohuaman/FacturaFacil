@@ -13,6 +13,11 @@ export type ConfiguracionBorradorEnProgreso<TEstado, TBorrador> = {
   version: number;
   ttlDias?: number;
   debounceMs?: number;
+  /**
+   * Por defecto, si `debePersistir` devuelve false se limpia el borrador existente.
+   * Para flujos donde solo se debe limpiar explícitamente (p.ej. Cancelar / éxito), setear en false.
+   */
+  limpiarSiNoDebePersistir?: boolean;
   extraerEstado: () => TEstado;
   convertirAStorage: (estado: TEstado) => TBorrador;
   aplicarDesdeStorage: (borrador: TBorrador) => void;
@@ -51,6 +56,7 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
     version,
     ttlDias = TTL_POR_DEFECTO_DIAS,
     debounceMs = DEBOUNCE_POR_DEFECTO_MS,
+    limpiarSiNoDebePersistir = true,
     extraerEstado,
     convertirAStorage,
     aplicarDesdeStorage,
@@ -72,6 +78,7 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
     extraerEstado,
     convertirAStorage,
     debePersistir,
+    limpiarSiNoDebePersistir,
   });
 
   const limpiar = useCallback(() => {
@@ -95,12 +102,14 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
     if (!habilitado) return;
     const estado = extraerEstado();
     if (debePersistir && !debePersistir(estado)) {
-      limpiarBorradorEnProgreso(clave);
+      if (limpiarSiNoDebePersistir) {
+        limpiarBorradorEnProgreso(clave);
+      }
       return;
     }
     const borrador = construirBorrador(estado, version, ttlDias, convertirAStorage);
     guardarBorradorEnProgreso(clave, borrador);
-  }, [clave, convertirAStorage, debePersistir, extraerEstado, habilitado, ttlDias, version]);
+  }, [clave, convertirAStorage, debePersistir, extraerEstado, habilitado, limpiarSiNoDebePersistir, ttlDias, version]);
 
   useEffect(() => {
     restaurar();
@@ -125,6 +134,7 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
       extraerEstado,
       convertirAStorage,
       debePersistir,
+      limpiarSiNoDebePersistir,
     };
 
     if (!habilitado) {
@@ -167,15 +177,19 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
       return;
     }
 
-    // Evitar limpiar un borrador existente antes de que la restauración ocurra.
-    if (debePersistir && !debePersistir(estado) && !restauradasPorClaveRef.current.has(clave)) {
-      const existente = leerBorradorEnProgreso<TBorrador>(clave, version);
-      if (existente) {
+    if (debePersistir && !debePersistir(estado)) {
+      if (!limpiarSiNoDebePersistir) {
         return;
       }
-    }
 
-    if (debePersistir && !debePersistir(estado)) {
+      // Evitar limpiar un borrador existente antes de que la restauración ocurra.
+      if (!restauradasPorClaveRef.current.has(clave)) {
+        const existente = leerBorradorEnProgreso<TBorrador>(clave, version);
+        if (existente) {
+          return;
+        }
+      }
+
       limpiarBorradorEnProgreso(clave);
       return;
     }
@@ -183,7 +197,9 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
     timeoutRef.current = setTimeout(() => {
       const estadoActual = extraerEstado();
       if (debePersistir && !debePersistir(estadoActual)) {
-        limpiarBorradorEnProgreso(clave);
+        if (limpiarSiNoDebePersistir) {
+          limpiarBorradorEnProgreso(clave);
+        }
         return;
       }
       const borrador = construirBorrador(estadoActual, version, ttlDias, convertirAStorage);
@@ -198,6 +214,7 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
     extraerEstado,
     convertirAStorage,
     debePersistir,
+    limpiarSiNoDebePersistir,
   ]);
 
   useEffect(() => {
@@ -214,6 +231,7 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
         extraerEstado: extraerEstadoActual,
         convertirAStorage: convertirAStorageActual,
         debePersistir: debePersistirActual,
+        limpiarSiNoDebePersistir: limpiarSiNoDebePersistirActual,
       } = ultimaConfigRef.current;
 
       if (!habilitadoActual) {
@@ -226,7 +244,9 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
         const estado = extraerEstadoActual();
         const puedePersistir = !debePersistirActual || debePersistirActual(estado);
         if (!puedePersistir) {
-          limpiarBorradorEnProgreso(claveActual);
+          if (limpiarSiNoDebePersistirActual) {
+            limpiarBorradorEnProgreso(claveActual);
+          }
         } else {
           const borrador = construirBorrador(estado, versionActual, ttlDiasActual, convertirAStorageActual);
           guardarBorradorEnProgreso(claveActual, borrador);

@@ -204,18 +204,30 @@ const EmisionTradicional = () => {
   const { tipoComprobante, setTipoComprobante: setTipoComprobanteCore, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
 
   const tipoFromQueryAppliedRef = useRef(false);
+  const [tipoFromQueryResolved, setTipoFromQueryResolved] = useState(false);
   useEffect(() => {
     // Prioridad: Duplicación > ?tipo=... > Borrador/Defaults; se aplica 1 vez para evitar loops.
-    if (tipoFromQueryAppliedRef.current) return;
-    if (!tipoFromQuery) return;
-    if (isDuplicateFlow) return;
+    if (tipoFromQueryResolved) return;
+    if (isDuplicateFlow) {
+      setTipoFromQueryResolved(true);
+      return;
+    }
+    if (!tipoFromQuery) {
+      setTipoFromQueryResolved(true);
+      return;
+    }
+    if (tipoFromQueryAppliedRef.current) {
+      setTipoFromQueryResolved(true);
+      return;
+    }
 
     // Solo forzar si es distinto (setTipoComprobante también resetea la serie).
     if (tipoComprobante !== tipoFromQuery) {
       setTipoComprobanteCore(tipoFromQuery);
     }
     tipoFromQueryAppliedRef.current = true;
-  }, [isDuplicateFlow, setTipoComprobanteCore, tipoComprobante, tipoFromQuery]);
+    setTipoFromQueryResolved(true);
+  }, [isDuplicateFlow, setTipoComprobanteCore, tipoComprobante, tipoFromQuery, tipoFromQueryResolved]);
 
   const { openPreview, showPreview, closePreview } = usePreview();
   const { state: configState } = useConfigurationContext();
@@ -554,10 +566,17 @@ const EmisionTradicional = () => {
     ?? session?.currentEstablecimientoId
     ?? null;
 
-  const borradorHabilitado = Boolean(session?.currentCompanyId && establecimientoIdBorrador);
+  const borradorHabilitado = Boolean(
+    session?.currentCompanyId &&
+    establecimientoIdBorrador &&
+    // Evita restaurar/guardar mientras se resuelve el tipo inicial desde query param.
+    tipoFromQueryResolved &&
+    // Duplicación/conversión no debe restaurar ni sobreescribir el borrador en progreso.
+    !isDuplicateFlow,
+  );
 
   const borradorDefaultsRef = useRef<EstadoBorradorEmisionDefaults | null>(null);
-  if (!borradorDefaultsRef.current) {
+  if (!borradorDefaultsRef.current && tipoFromQueryResolved && !isDuplicateFlow) {
     borradorDefaultsRef.current = {
       tipoComprobante,
       serieSeleccionada,
@@ -572,7 +591,8 @@ const EmisionTradicional = () => {
     tenantId: session?.currentCompanyId ?? null,
     establecimientoId: establecimientoIdBorrador,
     tipoDocumento: 'comprobante_emision_tradicional',
-  }), [establecimientoIdBorrador, session?.currentCompanyId]);
+    modo: tipoComprobante,
+  }), [establecimientoIdBorrador, session?.currentCompanyId, tipoComprobante]);
 
   const {
     limpiar: limpiarBorradorEnProgreso,
@@ -582,6 +602,7 @@ const EmisionTradicional = () => {
     version: 1,
     ttlDias: 7,
     debounceMs: 400,
+    limpiarSiNoDebePersistir: false,
     extraerEstado: () => ({
       tipoComprobante,
       serieSeleccionada,
@@ -621,7 +642,9 @@ const EmisionTradicional = () => {
       setNotaInterna(borrador.notaInterna ?? '');
       setOptionalFields((borrador.optionalFields ?? {}) as Record<string, unknown>);
       setAppliedGlobalDiscount(borrador.appliedGlobalDiscount ?? null);
-      setCreditTemplates(borrador.creditTemplates ?? []);
+      const templatesToRestore = borrador.creditTemplates ?? [];
+      // Restaurar templates después de que el hook de crédito procese el cambio de forma de pago.
+      queueMicrotask(() => setCreditTemplates(templatesToRestore));
       setCuotasManual(borrador.cuotasManual ?? []);
       setCreditoManualConfirmado(Boolean(borrador.creditoManualConfirmado));
       if (Array.isArray(borrador.cartItems)) {
@@ -630,12 +653,20 @@ const EmisionTradicional = () => {
     },
     debePersistir: (estado) => {
       const defaults = borradorDefaultsRef.current;
+
+      const tieneOptionalFieldsReales = Object.values(estado.optionalFields || {}).some((value) => {
+        if (typeof value === 'string') return value.trim().length > 0;
+        if (typeof value === 'number') return Number.isFinite(value) && value !== 0;
+        if (typeof value === 'boolean') return value;
+        return value !== null && value !== undefined;
+      });
+
       const tieneDatosReales = Boolean(
         estado.cartItems.length > 0 ||
         estado.clienteSeleccionadoGlobal ||
         estado.observaciones.trim() ||
         estado.notaInterna.trim() ||
-        Object.keys(estado.optionalFields || {}).length > 0 ||
+        tieneOptionalFieldsReales ||
         estado.appliedGlobalDiscount ||
         estado.creditTemplates.length > 0 ||
         estado.cuotasManual.length > 0 ||
@@ -1360,6 +1391,11 @@ const EmisionTradicional = () => {
                     onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
                     onCancelar={() => {
                       limpiarBorradorEnProgreso();
+                      clearCart();
+                      resetForm();
+                      setShowDraftModal(false);
+                      setShowObservacionesPanel(false);
+                      setProductSelectorKey(prev => prev + 1);
                       goToComprobantes();
                     }}
                     onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
