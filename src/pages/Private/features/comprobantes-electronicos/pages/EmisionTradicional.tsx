@@ -476,7 +476,6 @@ const EmisionTradicional = () => {
 
   const {
     limpiar: limpiarBorradorEnProgreso,
-    restaurar: restaurarBorradorEnProgreso,
   } = useBorradorEnProgreso<EstadoBorradorEmisionTradicional, EstadoBorradorEmisionTradicional>({
     habilitado: true,
     clave: claveBorradorEnProgreso,
