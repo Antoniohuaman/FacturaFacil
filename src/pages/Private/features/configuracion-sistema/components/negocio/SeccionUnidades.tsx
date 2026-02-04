@@ -13,7 +13,6 @@ import {
 import { Button, Select, Input } from '@/contasis';
 import type { Unit } from '../../modelos/Unit';
 import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
-import { TarjetaConfiguracion } from '../comunes/TarjetaConfiguracion';
 import { SUNAT_UNITS, UNIT_CATEGORIES } from '../../modelos/Unit';
 
 interface UnitsSectionProps {
@@ -22,7 +21,6 @@ interface UnitsSectionProps {
   isLoading?: boolean;
 }
 
-type ViewMode = 'grid' | 'list';
 type FilterMode = 'all' | 'favorites' | 'visible' | 'hidden' | 'system' | 'custom';
 
 export function UnitsSection({
@@ -39,7 +37,6 @@ export function UnitsSection({
   // Estados para UX mejorada
   const [defaultUnitId, setDefaultUnitId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [selectedCategory, setSelectedCategory] = useState<Unit['category'] | 'all'>('all');
 
@@ -257,119 +254,6 @@ export function UnitsSection({
     }
   };
 
-  // Función para obtener el icono de categoría
-  const getCategoryIcon = (category: Unit['category']) => {
-    const iconMap = {
-      QUANTITY: Hash,
-      WEIGHT: Scale,
-      LENGTH: Ruler,
-      AREA: Square,
-      VOLUME: Box,
-      TIME: Clock,
-      ENERGY: Zap,
-      PACKAGING: Package,
-      OTHER: MoreHorizontal,
-    };
-    return iconMap[category] || MoreHorizontal;
-  };
-
-  // Función para obtener clases de color de categoría
-  const getCategoryColorClasses = (category: Unit['category']) => {
-    const colorMap = {
-      QUANTITY: {
-        border: 'border-blue-200',
-        bg: 'bg-blue-50',
-        bgHover: 'hover:bg-blue-100',
-        bgIcon: 'bg-blue-500',
-        text: 'text-blue-900',
-        textLight: 'text-blue-700',
-        badge: 'bg-blue-100 text-blue-800',
-        hoverBg: 'hover:bg-blue-200',
-      },
-      WEIGHT: {
-        border: 'border-green-200',
-        bg: 'bg-green-50',
-        bgHover: 'hover:bg-green-100',
-        bgIcon: 'bg-green-500',
-        text: 'text-green-900',
-        textLight: 'text-green-700',
-        badge: 'bg-green-100 text-green-800',
-        hoverBg: 'hover:bg-green-200',
-      },
-      LENGTH: {
-        border: 'border-yellow-200',
-        bg: 'bg-yellow-50',
-        bgHover: 'hover:bg-yellow-100',
-        bgIcon: 'bg-yellow-500',
-        text: 'text-yellow-900',
-        textLight: 'text-yellow-700',
-        badge: 'bg-yellow-100 text-yellow-800',
-        hoverBg: 'hover:bg-yellow-200',
-      },
-      AREA: {
-        border: 'border-purple-200',
-        bg: 'bg-purple-50',
-        bgHover: 'hover:bg-purple-100',
-        bgIcon: 'bg-purple-500',
-        text: 'text-purple-900',
-        textLight: 'text-purple-700',
-        badge: 'bg-purple-100 text-purple-800',
-        hoverBg: 'hover:bg-purple-200',
-      },
-      VOLUME: {
-        border: 'border-indigo-200',
-        bg: 'bg-indigo-50',
-        bgHover: 'hover:bg-indigo-100',
-        bgIcon: 'bg-indigo-500',
-        text: 'text-indigo-900',
-        textLight: 'text-indigo-700',
-        badge: 'bg-indigo-100 text-indigo-800',
-        hoverBg: 'hover:bg-indigo-200',
-      },
-      TIME: {
-        border: 'border-red-200',
-        bg: 'bg-red-50',
-        bgHover: 'hover:bg-red-100',
-        bgIcon: 'bg-red-500',
-        text: 'text-red-900',
-        textLight: 'text-red-700',
-        badge: 'bg-red-100 text-red-800',
-        hoverBg: 'hover:bg-red-200',
-      },
-      ENERGY: {
-        border: 'border-orange-200',
-        bg: 'bg-orange-50',
-        bgHover: 'hover:bg-orange-100',
-        bgIcon: 'bg-orange-500',
-        text: 'text-orange-900',
-        textLight: 'text-orange-700',
-        badge: 'bg-orange-100 text-orange-800',
-        hoverBg: 'hover:bg-orange-200',
-      },
-      PACKAGING: {
-        border: 'border-pink-200',
-        bg: 'bg-pink-50',
-        bgHover: 'hover:bg-pink-100',
-        bgIcon: 'bg-pink-500',
-        text: 'text-pink-900',
-        textLight: 'text-pink-700',
-        badge: 'bg-pink-100 text-pink-800',
-        hoverBg: 'hover:bg-pink-200',
-      },
-      OTHER: {
-        border: 'border-gray-200',
-        bg: 'bg-gray-50',
-        bgHover: 'hover:bg-gray-100',
-        bgIcon: 'bg-gray-500',
-        text: 'text-gray-900',
-        textLight: 'text-gray-700',
-        badge: 'bg-gray-100 text-gray-800',
-        hoverBg: 'hover:bg-gray-200',
-      },
-    };
-    return colorMap[category] || colorMap.OTHER;
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -387,37 +271,38 @@ export function UnitsSection({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header mejorado */}
-      <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-        <div>
-          <h3 className="text-xl font-bold text-gray-900">Unidades de Medida</h3>
-          
+    <div className="space-y-4">
+      {/* Header compacto */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-gray-900 truncate">Unidades de Medida</h3>
+          <div className="mt-0.5 text-xs text-gray-600 flex items-center gap-3">
+            <span>
+              {filteredUnits.length} unidad{filteredUnits.length !== 1 ? 'es' : ''}
+              {filteredUnits.length !== units.length ? ` de ${units.length}` : ''}
+            </span>
+            {favoriteUnits.length > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Heart className="w-3.5 h-3.5 text-red-500" />
+                <span>{favoriteUnits.length} favorita{favoriteUnits.length !== 1 ? 's' : ''}</span>
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <Button
-            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-            variant="secondary"
-            icon={viewMode === 'grid' ? <List /> : <Grid3X3 />}
-          >
-            <span className="hidden sm:inline">{viewMode === 'grid' ? 'Lista' : 'Tarjetas'}</span>
-          </Button>
-          <Button
-            onClick={() => setShowForm(true)}
-            disabled={isSubmitting}
-            variant="primary"
-            icon={<Plus />}
-          >
-            Nueva Unidad
-          </Button>
-        </div>
+        <Button
+          onClick={() => setShowForm(true)}
+          disabled={isSubmitting}
+          variant="primary"
+          icon={<Plus />}
+        >
+          Nueva Unidad
+        </Button>
       </div>
 
-      {/* Barra de búsqueda y filtros */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:space-y-0 lg:space-x-4">
-          {/* Búsqueda */}
-          <div className="flex-1">
+      {/* Barra de búsqueda y filtros (compacta) */}
+      <div className="bg-white rounded-lg border border-gray-200 p-3">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+          <div className="flex-1 min-w-0">
             <Input
               type="text"
               placeholder="Buscar por código, nombre o descripción..."
@@ -427,7 +312,6 @@ export function UnitsSection({
             />
           </div>
 
-          {/* Filtros */}
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={filterMode}
@@ -448,7 +332,7 @@ export function UnitsSection({
               onChange={(e) => setSelectedCategory(e.target.value as Unit['category'] | 'all')}
               size="medium"
               options={[
-                { value: 'all', label: 'Todas las categorías' },
+                { value: 'all', label: 'Categorías' },
                 ...UNIT_CATEGORIES.map((cat) => ({
                   value: cat.value,
                   label: cat.label
@@ -471,86 +355,40 @@ export function UnitsSection({
             )}
           </div>
         </div>
-
-        {/* Resumen de resultados */}
-        <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
-          <span>
-            {filteredUnits.length} unidad{filteredUnits.length !== 1 ? 'es' : ''}
-            {filteredUnits.length !== units.length && ` de ${units.length} total`}
-          </span>
-          {favoriteUnits.length > 0 && (
-            <span className="flex items-center space-x-1">
-              <Heart className="w-4 h-4 text-red-500" />
-              <span>{favoriteUnits.length} favorita{favoriteUnits.length !== 1 ? 's' : ''}</span>
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* Sección de Favoritos */}
-      {favoriteUnits.length > 0 && (
-        <TarjetaConfiguracion
-          title="⭐ Unidades Favoritas"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {favoriteUnits.map((unit) => {
-              const CategoryIcon = getCategoryIcon(unit.category);
-              const colors = getCategoryColorClasses(unit.category);
-
-              return (
-                <div
-                  key={unit.id}
-                  className={`relative p-3 rounded-lg border-2 ${colors.border} ${colors.bg} ${colors.bgHover} transition-colors group`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-8 h-8 ${colors.bgIcon} rounded-lg flex items-center justify-center`}>
-                      <CategoryIcon className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <span className={`font-mono text-sm font-bold ${colors.text}`}>
-                          {unit.code}
-                        </span>
-                        {isDefaultUnit(unit) && (
-                          <span className="px-1.5 py-0.5 bg-green-500 text-white text-xs rounded-full">
-                            Def
-                          </span>
-                        )}
-                      </div>
-                      <p className={`text-xs ${colors.textLight} truncate`}>{unit.name}</p>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={() => toggleFavorite(unit.id)}
-                    variant="tertiary"
-                    iconOnly
-                    icon={<Heart className="text-red-500 fill-current" />}
-                    size="sm"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </TarjetaConfiguracion>
-      )}
-
-      {/* Formulario Mejorado */}
+      {/* Formulario (panel compacto) */}
       {showForm && (
-        <TarjetaConfiguracion
-          title={editingId ? '✏️ Editar Unidad de Medida' : '➕ Nueva Unidad de Medida'}
-          description={editingId ? 'Modifica los datos de la unidad seleccionada' : 'Crea una unidad personalizada para tus productos'}
-        >
-          <form onSubmit={manejarEnvio} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">
+                {editingId ? 'Editar unidad' : 'Nueva unidad'}
+              </div>
+              <div className="text-xs text-gray-600">
+                {editingId ? 'Modifica los datos de la unidad seleccionada.' : 'Crea una unidad personalizada para tus productos.'}
+              </div>
+            </div>
+            <Button
+              type="button"
+              onClick={resetForm}
+              disabled={isSubmitting}
+              variant="secondary"
+              size="sm"
+            >
+              Cerrar
+            </Button>
+          </div>
+
+          <form onSubmit={manejarEnvio} className="mt-4 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               <Input
                 label="Código SUNAT"
                 type="text"
                 value={datosFormulario.code}
                 onChange={(e) => handleCodeChange(e.target.value)}
                 error={errors.code}
-                helperText={errors.code || "Máximo 6 caracteres en mayúsculas"}
+                helperText={errors.code || 'Máx. 6 (A-Z, 0-9)'}
                 placeholder="PCE"
                 maxLength={6}
                 required
@@ -578,58 +416,36 @@ export function UnitsSection({
               />
             </div>
 
-            {/* SUNAT Units Reference - Mejorada */}
             {!editingId && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-                <div className="flex items-center space-x-2 mb-3">
-                  <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
-                    <Scale className="w-4 h-4 text-white" />
-                  </div>
-                  <h4 className="font-semibold text-blue-900">Códigos SUNAT Recomendados</h4>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-                  {SUNAT_UNITS.slice(0, 12).map((unit) => {
-                    const CategoryIcon = getCategoryIcon(unit.category);
-                    const colors = getCategoryColorClasses(unit.category);
-
-                    return (
-                      <button
-                        key={unit.code}
-                        type="button"
-                        onClick={() => {
-                          setFormData({ code: unit.code, name: unit.name, category: unit.category });
-                          setErrors({});
-                        }}
-                        className="flex items-center space-x-2 p-2 bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all duration-200 hover:scale-105"
-                      >
-                        <div className={`w-6 h-6 ${colors.bgIcon} rounded flex items-center justify-center`}>
-                          <CategoryIcon className="w-3 h-3 text-white" />
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <div className="font-mono font-bold text-gray-900">{unit.code}</div>
-                          <div className="text-xs text-gray-600 truncate">{unit.name}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-3 p-2 bg-blue-100 rounded-lg">
-                  <p className="text-xs text-blue-800 flex items-center space-x-1">
-                    <span>💡</span>
-                    <span>Haz clic en cualquier unidad para usarla como plantilla</span>
-                  </p>
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                <div className="text-xs font-semibold text-gray-800">Plantillas SUNAT (clic para rellenar)</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {SUNAT_UNITS.slice(0, 12).map((unit) => (
+                    <button
+                      key={unit.code}
+                      type="button"
+                      onClick={() => {
+                        setFormData({ code: unit.code, name: unit.name, category: unit.category });
+                        setErrors({});
+                      }}
+                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
+                      title={`${unit.name} (${unit.code})`}
+                    >
+                      <span className="font-mono text-[11px] font-bold text-gray-900">{unit.code}</span>
+                      <span className="max-w-[14rem] truncate">{unit.name}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
 
-            <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <Button
                 type="button"
                 onClick={resetForm}
                 disabled={isSubmitting}
                 variant="secondary"
+                size="sm"
               >
                 Cancelar
               </Button>
@@ -637,286 +453,177 @@ export function UnitsSection({
                 type="submit"
                 disabled={isSubmitting || Object.keys(errors).length > 0}
                 variant="primary"
+                size="sm"
               >
                 {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                <span>{editingId ? '💾 Actualizar' : '✨ Crear'}</span>
+                <span>{editingId ? 'Actualizar' : 'Crear'}</span>
               </Button>
             </div>
           </form>
-        </TarjetaConfiguracion>
+        </div>
       )}
 
-      {/* Vista Principal de Unidades */}
-      {filteredUnits.length > 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h4 className="text-lg font-semibold text-gray-900">
-                📋 Unidades Configuradas
-              </h4>
-              <div className="text-sm text-gray-500">
-                Vista: {viewMode === 'grid' ? 'Tarjetas' : 'Lista'}
-              </div>
-            </div>
-          </div>
+      {/* Tabla compacta (scroll interno) */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between">
+          <div className="text-sm font-semibold text-gray-900">Unidades</div>
+          <div className="text-xs text-gray-500">{filteredUnits.length} resultado{filteredUnits.length !== 1 ? 's' : ''}</div>
+        </div>
 
-          <div className="p-4">
-            {viewMode === 'grid' ? (
-              /* Vista de Tarjetas */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filteredUnits.length > 0 ? (
+          <div className="max-h-[60vh] overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10">
+                <tr className="text-xs font-semibold text-gray-600 border-b border-gray-200">
+                  <th className="px-4 py-2 text-left">Código</th>
+                  <th className="px-4 py-2 text-left">Nombre</th>
+                  <th className="px-4 py-2 text-left">Categoría</th>
+                  <th className="px-4 py-2 text-center">Visible</th>
+                  <th className="px-4 py-2 text-center">Fav</th>
+                  <th className="px-4 py-2 text-right">Usos</th>
+                  <th className="px-4 py-2 text-left">Tipo</th>
+                  <th className="px-4 py-2 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
                 {filteredUnits.map((unit) => {
-                  const CategoryIcon = getCategoryIcon(unit.category);
-                  const colors = getCategoryColorClasses(unit.category);
+                  const categoryLabel = UNIT_CATEGORIES.find(c => c.value === unit.category)?.label ?? unit.category;
+                  const system = isSystemUnit(unit);
+                  const visible = isVisibleUnit(unit);
+                  const favorite = isFavoriteUnit(unit);
+                  const isDefault = isDefaultUnit(unit);
 
                   return (
-                    <div
+                    <tr
                       key={unit.id}
-                      className={`relative group p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-lg ${isFavoriteUnit(unit)
-                          ? `${colors.border} ${colors.bg} ${colors.bgHover}`
-                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-                        }`}
+                      className="hover:bg-gray-50"
                     >
-                      {/* Indicadores superiores */}
-                      <div className="absolute top-2 right-2 flex items-center space-x-1">
-                        {isFavoriteUnit(unit) && (
-                          <Heart className="w-4 h-4 text-red-500 fill-current" />
-                        )}
-                        {!isVisibleUnit(unit) && (
-                          <EyeOff className="w-4 h-4 text-gray-400" />
-                        )}
-                        {isDefaultUnit(unit) && (
-                          <div className="px-2 py-1 bg-green-500 text-white text-xs rounded-full font-medium">
-                            DEF
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Contenido principal */}
-                      <div className="flex items-start space-x-3">
-                        <div className={`w-12 h-12 ${colors.bgIcon} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                          <CategoryIcon className="w-6 h-6 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-mono text-lg font-bold text-gray-900">
-                              {unit.code}
+                      <td className="px-4 py-2.5 align-middle">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-semibold text-gray-900">{unit.code}</span>
+                          {isDefault && (
+                            <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-[11px] font-semibold">
+                              DEF
                             </span>
-                            {isSystemUnit(unit) && (
-                              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                SUNAT
-                              </span>
-                            )}
-                          </div>
-                          <h5 className="font-medium text-gray-900 mb-1 truncate">
-                            {unit.name}
-                          </h5>
-                          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                            {unit.description}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span className={`px-2 py-1 ${colors.badge} text-xs rounded-full`}>
-                              {UNIT_CATEGORIES.find(c => c.value === unit.category)?.label}
-                            </span>
-                            {unit.usageCount && unit.usageCount > 0 && (
-                              <span className="text-xs text-gray-500">
-                                {unit.usageCount} usos
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      </div>
+                      </td>
 
-                      {/* Acciones (aparecen al hover) */}
-                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                        <div className="flex items-center space-x-2">
+                      <td className="px-4 py-2.5 align-middle min-w-[14rem]">
+                        <div className="text-gray-900 font-medium leading-tight">{unit.name}</div>
+                        <div className="text-xs text-gray-500 truncate max-w-[34rem]">{unit.description}</div>
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle">
+                        <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px] font-medium">
+                          {categoryLabel}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle text-center">
+                        <Button
+                          onClick={() => toggleVisibility(unit.id)}
+                          disabled={isDefault}
+                          variant="tertiary"
+                          iconOnly
+                          size="sm"
+                          icon={visible ? <Eye /> : <EyeOff />}
+                          title={visible ? 'Visible' : 'Oculta'}
+                        />
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle text-center">
+                        <Button
+                          onClick={() => toggleFavorite(unit.id)}
+                          variant="tertiary"
+                          iconOnly
+                          size="sm"
+                          icon={<Heart className={favorite ? 'text-red-500 fill-current' : 'text-gray-400'} />}
+                          title={favorite ? 'Quitar de favoritas' : 'Marcar como favorita'}
+                        />
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle text-right text-gray-700">
+                        {unit.usageCount && unit.usageCount > 0 ? unit.usageCount : '—'}
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${system
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-slate-100 text-slate-700'
+                            }`}
+                        >
+                          {system ? 'SUNAT' : 'Personalizada'}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle">
+                        <div className="flex items-center justify-end gap-1.5">
                           <SelectorPredeterminado
-                            isDefault={isDefaultUnit(unit)}
+                            isDefault={isDefault}
                             onSetDefault={() => setDefaultUnit(unit.id)}
                             size="sm"
                           />
-                          <Button
-                            onClick={() => toggleFavorite(unit.id)}
-                            variant="tertiary"
-                            iconOnly
-                            icon={<Heart className={isFavoriteUnit(unit) ? 'text-red-500 fill-current' : 'text-gray-600'} />}
-                            size="sm"
-                          />
-                          <Button
-                            onClick={() => toggleVisibility(unit.id)}
-                            disabled={isDefaultUnit(unit)}
-                            variant="tertiary"
-                            iconOnly
-                            icon={isVisibleUnit(unit) ? <Eye /> : <EyeOff />}
-                            size="sm"
-                          />
-                          {!isSystemUnit(unit) && (
+
+                          {!system && (
                             <>
                               <Button
                                 onClick={() => handleEdit(unit)}
                                 variant="tertiary"
                                 iconOnly
-                                icon={<Edit3 />}
                                 size="sm"
+                                icon={<Edit3 />}
+                                title="Editar"
                               />
                               <Button
                                 onClick={() => deleteUnit(unit.id)}
-                                disabled={isDefaultUnit(unit)}
+                                disabled={isDefault}
                                 variant="tertiary"
                                 iconOnly
-                                icon={<Trash2 className="text-red-600" />}
                                 size="sm"
+                                icon={<Trash2 className="text-red-600" />}
+                                title="Eliminar"
                               />
                             </>
                           )}
                         </div>
-                      </div>
-                    </div>
+                      </td>
+                    </tr>
                   );
                 })}
-              </div>
-            ) : (
-              /* Vista de Lista */
-              <div className="space-y-2">
-                {filteredUnits.map((unit) => {
-                  const CategoryIcon = getCategoryIcon(unit.category);
-                  const colors = getCategoryColorClasses(unit.category);
-
-                  return (
-                    <div
-                      key={unit.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isFavoriteUnit(unit)
-                          ? `${colors.border} ${colors.bg}`
-                          : 'border-gray-200 bg-white hover:bg-gray-50'
-                        }`}
-                    >
-                      <div className="flex items-center space-x-4 flex-1">
-                        <div className={`w-10 h-10 ${colors.bgIcon} rounded-lg flex items-center justify-center`}>
-                          <CategoryIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-3 mb-1">
-                            <span className="font-mono text-lg font-bold text-gray-900">
-                              {unit.code}
-                            </span>
-                            <span className="font-medium text-gray-900">
-                              {unit.name}
-                            </span>
-                            <div className="flex items-center space-x-2">
-                              {isSystemUnit(unit) && (
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                  SUNAT
-                                </span>
-                              )}
-                              {isFavoriteUnit(unit) && (
-                                <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">
-                                  ⭐ Favorita
-                                </span>
-                              )}
-                              {isDefaultUnit(unit) && (
-                                <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
-                                  Por defecto
-                                </span>
-                              )}
-                              {!isVisibleUnit(unit) && (
-                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                  Oculta
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            <span className={`px-2 py-1 ${colors.badge} text-xs rounded-full`}>
-                              {UNIT_CATEGORIES.find(c => c.value === unit.category)?.label}
-                            </span>
-                            <span>{unit.description}</span>
-                            {unit.usageCount && unit.usageCount > 0 && (
-                              <span className="text-xs text-gray-500">
-                                {unit.usageCount} usos
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <SelectorPredeterminado
-                          isDefault={isDefaultUnit(unit)}
-                          onSetDefault={() => setDefaultUnit(unit.id)}
-                          size="sm"
-                        />
-                        <Button
-                          onClick={() => toggleFavorite(unit.id)}
-                          variant="tertiary"
-                          iconOnly
-                          icon={<Heart className={isFavoriteUnit(unit) ? 'text-red-500 fill-current' : 'text-gray-400'} />}
-                          size="sm"
-                        />
-                        <Button
-                          onClick={() => toggleVisibility(unit.id)}
-                          disabled={isDefaultUnit(unit)}
-                          variant="tertiary"
-                          iconOnly
-                          icon={isVisibleUnit(unit) ? <Eye /> : <EyeOff />}
-                          size="sm"
-                        />
-                        {!isSystemUnit(unit) && (
-                          <>
-                            <Button
-                              onClick={() => handleEdit(unit)}
-                              variant="tertiary"
-                              iconOnly
-                              icon={<Edit3 />}
-                              size="sm"
-                            />
-                            <Button
-                              onClick={() => deleteUnit(unit.id)}
-                              disabled={isDefaultUnit(unit)}
-                              variant="tertiary"
-                              iconOnly
-                              icon={<Trash2 className="text-red-600" />}
-                              size="sm"
-                            />
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-10 text-center">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+              <Scale className="w-6 h-6 text-gray-400" />
+            </div>
+            <div className="mt-3 text-sm font-semibold text-gray-900">
+              {searchTerm || filterMode !== 'all' || selectedCategory !== 'all'
+                ? 'No se encontraron unidades'
+                : 'No hay unidades configuradas'}
+            </div>
+            <div className="mt-1 text-xs text-gray-600">
+              {searchTerm || filterMode !== 'all' || selectedCategory !== 'all'
+                ? 'Ajusta filtros o búsqueda para ver resultados.'
+                : 'Crea tu primera unidad para empezar.'}
+            </div>
+            {(!searchTerm && filterMode === 'all' && selectedCategory === 'all') && (
+              <div className="mt-4">
+                <Button
+                  onClick={() => setShowForm(true)}
+                  variant="primary"
+                  icon={<Plus />}
+                >
+                  Crear Primera Unidad
+                </Button>
               </div>
             )}
           </div>
-        </div>
-      ) : (
-        /* Estado vacío */
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Scale className="w-10 h-10 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm || filterMode !== 'all' || selectedCategory !== 'all'
-              ? 'No se encontraron unidades'
-              : 'No hay unidades configuradas'
-            }
-          </h3>
-          <p className="text-gray-600 mb-6">
-            {searchTerm || filterMode !== 'all' || selectedCategory !== 'all'
-              ? 'Intenta ajustar los filtros de búsqueda'
-              : 'Comienza agregando tu primera unidad de medida'
-            }
-          </p>
-          {(!searchTerm && filterMode === 'all' && selectedCategory === 'all') && (
-            <Button
-              onClick={() => setShowForm(true)}
-              variant="primary"
-              icon={<Plus />}
-            >
-              Crear Primera Unidad
-            </Button>
-          )}
-        </div>
-      )}
-
-      
+        )}
+      </div>
     </div>
   );
 }
