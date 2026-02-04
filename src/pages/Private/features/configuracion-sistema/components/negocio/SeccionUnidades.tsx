@@ -1,9 +1,14 @@
 // src/features/configuration/components/negocio/UnitsSection.tsx
 import { useState, useMemo } from 'react';
 import {
-  Scale, Plus, Edit3, Trash2, Eye, EyeOff, Search,
-  Grid3X3, List, Heart, Package, Zap, Clock,
-  Hash, Ruler, Square, Box, MoreHorizontal
+  Scale,
+  Plus,
+  Edit3,
+  Trash2,
+  Eye,
+  EyeOff,
+  Search,
+  Heart
 } from 'lucide-react';
 import { Button, Select, Input } from '@/contasis';
 import type { Unit } from '../../modelos/Unit';
