@@ -67,9 +67,6 @@ import { tourPrimeraVenta } from '../tour/tourPrimeraVenta';
 import { FORMA_PAGO_CREDITO_MANUAL } from '../models/constants';
 import {
   crearClaveBorradorEnProgreso,
-  leerBorradorEnProgreso,
-  guardarBorradorEnProgreso,
-  limpiarBorradorEnProgreso as limpiarBorradorEnProgresoStorage,
 } from '@/shared/borradores/almacenamientoBorradorEnProgreso';
 import { useBorradorEnProgreso } from '@/shared/borradores/useBorradorEnProgreso';
 import {
@@ -473,11 +470,9 @@ const EmisionTradicional = () => {
   const claveBorradorEnProgreso = useMemo(() => crearClaveBorradorEnProgreso({
     app: 'facturafacil',
     tenantId: session?.currentCompanyId ?? null,
-    establecimientoId: currentEstablecimientoId ?? session?.currentEstablecimientoId ?? null,
+    establecimientoId: session?.currentEstablecimientoId ?? null,
     tipoDocumento: 'comprobante_emision_tradicional',
-  }), [currentEstablecimientoId, session?.currentCompanyId, session?.currentEstablecimientoId]);
-
-  const borradoresMigradosRef = useRef<Set<string>>(new Set());
+  }), [session?.currentCompanyId, session?.currentEstablecimientoId]);
 
   const {
     limpiar: limpiarBorradorEnProgreso,
@@ -553,44 +548,6 @@ const EmisionTradicional = () => {
     },
   });
 
-  useEffect(() => {
-    if (borradoresMigradosRef.current.has(claveBorradorEnProgreso)) {
-      return;
-    }
-
-    borradoresMigradosRef.current.add(claveBorradorEnProgreso);
-
-    const actual = leerBorradorEnProgreso<EstadoBorradorEmisionTradicional>(claveBorradorEnProgreso, 1);
-    if (actual) {
-      return;
-    }
-
-    const claveLegacy = crearClaveBorradorEnProgreso({
-      app: 'facturafacil',
-      tenantId: session?.currentCompanyId ?? null,
-      establecimientoId: currentEstablecimientoId ?? session?.currentEstablecimientoId ?? null,
-      tipoDocumento: 'comprobante_emision_tradicional',
-      serie: serieSeleccionada || null,
-      modo: tipoComprobante,
-    });
-
-    const legacy = leerBorradorEnProgreso<EstadoBorradorEmisionTradicional>(claveLegacy, 1);
-    if (!legacy) {
-      return;
-    }
-
-    guardarBorradorEnProgreso(claveBorradorEnProgreso, legacy);
-    limpiarBorradorEnProgresoStorage(claveLegacy);
-    restaurarBorradorEnProgreso();
-  }, [
-    claveBorradorEnProgreso,
-    currentEstablecimientoId,
-    serieSeleccionada,
-    session?.currentCompanyId,
-    session?.currentEstablecimientoId,
-    tipoComprobante,
-    restaurarBorradorEnProgreso,
-  ]);
 
   // ✅ View model para side preview
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
