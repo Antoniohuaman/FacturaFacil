@@ -280,6 +280,18 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   }, [clienteSeleccionado]);
 
   useEffect(() => {
+    // Cuando el cliente se rehidrata desde el contenedor (borrador/restauración),
+    // el input debe reflejarlo aunque el usuario no haya tipeado nada.
+    if (!clienteSeleccionadoLocal) {
+      return;
+    }
+    if (searchQuery.trim().length > 0) {
+      return;
+    }
+    setSearchQuery(formatClienteDisplayValue(clienteSeleccionadoLocal));
+  }, [clienteSeleccionadoLocal, searchQuery]);
+
+  useEffect(() => {
     setLastValidFormaPago(formaPago);
   }, [formaPago]);
 

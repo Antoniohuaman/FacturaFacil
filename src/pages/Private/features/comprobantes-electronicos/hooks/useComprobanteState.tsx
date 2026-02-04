@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -46,10 +46,23 @@ export const useComprobanteState = () => {
   const [notaInterna, setNotaInterna] = useState('');
   const [formaPago, setFormaPago] = useState(defaultPaymentMethod);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const ultimoDefaultFormaPagoRef = useRef<string>(defaultPaymentMethod);
   
   // Actualizar formaPago cuando cambie defaultPaymentMethod (ej: después de crear una nueva)
   useEffect(() => {
-    setFormaPago(defaultPaymentMethod);
+    setFormaPago((prev) => {
+      // Si el usuario (o un borrador restaurado) ya eligió una forma de pago distinta,
+      // no sobreescribirla cuando termine de cargar el default desde configuración.
+      if (!prev) {
+        return defaultPaymentMethod;
+      }
+      if (prev === ultimoDefaultFormaPagoRef.current) {
+        return defaultPaymentMethod;
+      }
+      return prev;
+    });
+    ultimoDefaultFormaPagoRef.current = defaultPaymentMethod;
   }, [defaultPaymentMethod]);
 
   // Navigation and external state

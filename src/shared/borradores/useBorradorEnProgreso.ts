@@ -63,6 +63,7 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
   const omitirGuardadoRef = useRef(false);
   const ultimoSnapshotRef = useRef<string | null>(null);
   const huboEdicionLocalRef = useRef(false);
+  const ultimaClaveRef = useRef<string>(clave);
   const ultimaConfigRef = useRef({
     clave,
     habilitado,
@@ -80,9 +81,10 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
   const restaurar = useCallback(() => {
     if (!habilitado) return;
     if (restauradasPorClaveRef.current.has(clave)) return;
-    if (huboEdicionLocalRef.current) return;
     const borrador = leerBorradorEnProgreso<TBorrador>(clave, version);
     if (!borrador) return;
+    // Si hay un borrador real en storage, se prioriza restaurarlo incluso si hubo cambios locales
+    // (muchos cambios iniciales son defaults/config y no ediciones explícitas del usuario).
     omitirGuardadoRef.current = true;
     aplicarDesdeStorage(borrador.datos);
     restauradasPorClaveRef.current.add(clave);
@@ -105,6 +107,16 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
   }, [restaurar]);
 
   useEffect(() => {
+    if (ultimaClaveRef.current !== clave) {
+      ultimaClaveRef.current = clave;
+      ultimoSnapshotRef.current = null;
+      huboEdicionLocalRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    }
+
     ultimaConfigRef.current = {
       clave,
       habilitado,
@@ -135,7 +147,9 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
       if (ultimoSnapshotRef.current === null) {
         ultimoSnapshotRef.current = snapshot;
       } else if (snapshot !== ultimoSnapshotRef.current) {
-        if (!omitirGuardadoRef.current) {
+        // Solo marcar edición local luego de que el borrador haya sido restaurado para esta clave.
+        // Esto evita bloquear la restauración cuando el estado cambia por defaults/carga de contexto.
+        if (!omitirGuardadoRef.current && restauradasPorClaveRef.current.has(clave)) {
           huboEdicionLocalRef.current = true;
         }
         ultimoSnapshotRef.current = snapshot;
@@ -151,6 +165,14 @@ export const useBorradorEnProgreso = <TEstado, TBorrador>(
     if (omitirGuardadoRef.current) {
       omitirGuardadoRef.current = false;
       return;
+    }
+
+    // Evitar limpiar un borrador existente antes de que la restauración ocurra.
+    if (debePersistir && !debePersistir(estado) && !restauradasPorClaveRef.current.has(clave)) {
+      const existente = leerBorradorEnProgreso<TBorrador>(clave, version);
+      if (existente) {
+        return;
+      }
     }
 
     if (debePersistir && !debePersistir(estado)) {
