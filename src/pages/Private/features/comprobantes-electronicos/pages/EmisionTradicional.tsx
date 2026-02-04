@@ -109,6 +109,14 @@ type EstadoBorradorEmisionTradicional = {
   cartItems: CartItem[];
 };
 
+type EstadoBorradorEmisionDefaults = {
+  tipoComprobante: TipoComprobante;
+  serieSeleccionada: string;
+  fechaEmision: string;
+  formaPago: string;
+  moneda: Currency;
+};
+
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
@@ -467,17 +475,34 @@ const EmisionTradicional = () => {
   const shouldShowCreditSchedule = (isCreditMethod && totals.total > CREDIT_SCHEDULE_TOLERANCE)
     || (esCreditoManual && totals.total > 0);
 
+  const establecimientoIdBorrador = currentEstablecimientoId
+    ?? session?.currentEstablecimientoId
+    ?? null;
+
+  const borradorHabilitado = Boolean(session?.currentCompanyId && establecimientoIdBorrador);
+
+  const borradorDefaultsRef = useRef<EstadoBorradorEmisionDefaults | null>(null);
+  if (!borradorDefaultsRef.current) {
+    borradorDefaultsRef.current = {
+      tipoComprobante,
+      serieSeleccionada,
+      fechaEmision,
+      formaPago,
+      moneda: currentCurrency,
+    };
+  }
+
   const claveBorradorEnProgreso = useMemo(() => crearClaveBorradorEnProgreso({
     app: 'facturafacil',
     tenantId: session?.currentCompanyId ?? null,
-    establecimientoId: session?.currentEstablecimientoId ?? null,
+    establecimientoId: establecimientoIdBorrador,
     tipoDocumento: 'comprobante_emision_tradicional',
-  }), [session?.currentCompanyId, session?.currentEstablecimientoId]);
+  }), [establecimientoIdBorrador, session?.currentCompanyId]);
 
   const {
     limpiar: limpiarBorradorEnProgreso,
   } = useBorradorEnProgreso<EstadoBorradorEmisionTradicional, EstadoBorradorEmisionTradicional>({
-    habilitado: true,
+    habilitado: borradorHabilitado,
     clave: claveBorradorEnProgreso,
     version: 1,
     ttlDias: 7,
@@ -528,7 +553,8 @@ const EmisionTradicional = () => {
       }
     },
     debePersistir: (estado) => {
-      const tieneCampos = Boolean(
+      const defaults = borradorDefaultsRef.current;
+      const tieneDatosReales = Boolean(
         estado.cartItems.length > 0 ||
         estado.clienteSeleccionadoGlobal ||
         estado.observaciones.trim() ||
@@ -537,15 +563,22 @@ const EmisionTradicional = () => {
         estado.appliedGlobalDiscount ||
         estado.creditTemplates.length > 0 ||
         estado.cuotasManual.length > 0 ||
-        estado.fechaEmision ||
-        estado.moneda ||
-        estado.tipoComprobante ||
-        estado.serieSeleccionada ||
-        estado.formaPago
+        estado.creditoManualConfirmado
       );
-      return tieneCampos;
+
+      const cambioEnDefaults = Boolean(defaults && (
+        estado.tipoComprobante !== defaults.tipoComprobante ||
+        estado.serieSeleccionada !== defaults.serieSeleccionada ||
+        estado.fechaEmision !== defaults.fechaEmision ||
+        estado.formaPago !== defaults.formaPago ||
+        estado.moneda !== defaults.moneda
+      ));
+
+      return tieneDatosReales || cambioEnDefaults;
     },
   });
+
+  // Resumen: snapshot de defaults en el primer render; persistencia solo con cambios reales o datos; habilitación por tenant+establecimiento.
 
 
   // ✅ View model para side preview
