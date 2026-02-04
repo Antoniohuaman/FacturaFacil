@@ -210,6 +210,10 @@ export function UnitsSection({
     await onUpdate(updatedUnits);
   };
 
+  // Mantener handler referenciado aunque no exista UI para favoritos.
+  // Evita TS6133 (noUnusedLocals) sin alterar comportamiento.
+  void toggleFavorite;
+
   const toggleVisibility = async (unitId: string) => {
     const unit = units.find(u => u.id === unitId);
     if (isDefaultUnit(unit!)) return; // Can't hide default unit
@@ -479,9 +483,6 @@ export function UnitsSection({
                   <th className="px-4 py-2 text-left">Nombre</th>
                   <th className="px-4 py-2 text-left">Categoría</th>
                   <th className="px-4 py-2 text-center">Visible</th>
-                  <th className="px-4 py-2 text-center">Fav</th>
-                  <th className="px-4 py-2 text-right">Usos</th>
-                  <th className="px-4 py-2 text-left">Tipo</th>
                   <th className="px-4 py-2 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -490,7 +491,6 @@ export function UnitsSection({
                   const categoryLabel = UNIT_CATEGORIES.find(c => c.value === unit.category)?.label ?? unit.category;
                   const system = isSystemUnit(unit);
                   const visible = isVisibleUnit(unit);
-                  const favorite = isFavoriteUnit(unit);
                   const isDefault = isDefaultUnit(unit);
 
                   return (
@@ -530,32 +530,6 @@ export function UnitsSection({
                           icon={visible ? <Eye /> : <EyeOff />}
                           title={visible ? 'Visible' : 'Oculta'}
                         />
-                      </td>
-
-                      <td className="px-4 py-2.5 align-middle text-center">
-                        <Button
-                          onClick={() => toggleFavorite(unit.id)}
-                          variant="tertiary"
-                          iconOnly
-                          size="sm"
-                          icon={<Heart className={favorite ? 'text-red-500 fill-current' : 'text-gray-400'} />}
-                          title={favorite ? 'Quitar de favoritas' : 'Marcar como favorita'}
-                        />
-                      </td>
-
-                      <td className="px-4 py-2.5 align-middle text-right text-gray-700">
-                        {unit.usageCount && unit.usageCount > 0 ? unit.usageCount : '—'}
-                      </td>
-
-                      <td className="px-4 py-2.5 align-middle">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${system
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-slate-100 text-slate-700'
-                            }`}
-                        >
-                          {system ? 'SUNAT' : 'Personalizada'}
-                        </span>
                       </td>
 
                       <td className="px-4 py-2.5 align-middle">
