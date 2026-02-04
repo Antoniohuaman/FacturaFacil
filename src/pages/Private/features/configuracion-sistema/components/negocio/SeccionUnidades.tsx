@@ -456,7 +456,6 @@ export function UnitsSection({
                 {filteredUnits.map((unit) => {
                   const sunat = SUNAT_UNITS.find(s => normalizeCode(s.code) === normalizeCode(unit.code));
                   const sunatName = sunat?.name ?? unit.name;
-                  const sunatDescription = sunat?.description ?? unit.description;
                   const categoryLabel = UNIT_CATEGORIES.find(c => c.value === unit.category)?.label ?? unit.category;
                   const visible = isVisibleUnit(unit);
                   const isDefault = isDefaultInCategory(unit);
@@ -474,7 +473,6 @@ export function UnitsSection({
 
                       <td className="px-4 py-2.5 align-middle min-w-[18rem]">
                         <div className="text-gray-900 font-medium leading-tight">{sunatName}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[34rem]">{sunatDescription}</div>
                       </td>
 
                       <td className="px-4 py-2.5 align-middle">
@@ -587,7 +585,7 @@ export function UnitsSection({
             <div className="px-5 py-4 overflow-auto">
               {(() => {
                 const modalSunat = SUNAT_UNITS.find(u => normalizeCode(u.code) === normalizeCode(modalForm.code));
-                const sunatLabel = modalSunat ? `${modalSunat.name} — ${modalSunat.description}` : '';
+                const sunatLabel = modalSunat ? modalSunat.name : '';
 
                 return (
                   <div className="space-y-4">
