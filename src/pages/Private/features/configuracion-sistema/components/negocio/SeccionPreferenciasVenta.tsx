@@ -49,14 +49,13 @@ export function SalesPreferencesSection({
   return (
     <TarjetaConfiguracion
       title="Control de stock en ventas"
-      description="Bloquea la venta de productos sin stock."
       icon={Package}
     >
       <div className="space-y-3">
         <SettingsToggle
           enabled={isStrictModeEnabled}
           onToggle={handleStrictStockToggle}
-          label="Stock estricto"
+          label=""
           disabled={isUpdating}
           size="md"
         />

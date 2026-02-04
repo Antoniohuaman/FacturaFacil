@@ -142,10 +142,8 @@ export function AccountingAccountsSection({ onBack }: AccountingAccountsSectionP
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-0.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Datos contables</p>
+        <div>
           <h2 className="text-xl font-semibold text-gray-900">Cuentas contables</h2>
-          <p className="text-sm text-gray-600">Administra los códigos de tu plan contable.</p>
         </div>
         <div className="flex items-center gap-2">
           {onBack && (

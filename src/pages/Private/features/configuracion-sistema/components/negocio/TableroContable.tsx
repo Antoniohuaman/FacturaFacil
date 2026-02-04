@@ -7,9 +7,8 @@ interface AccountingDashboardProps {
 export function AccountingDashboard({ onOpenAccounts }: AccountingDashboardProps) {
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
+      <div>
         <h2 className="text-xl font-semibold text-gray-900">Datos contables</h2>
-        <p className="text-sm text-gray-600">Configura catálogos contables para integraciones.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
