@@ -1,14 +1,13 @@
 // src/features/configuration/components/negocio/UnitsSection.tsx
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Scale,
   Plus,
   Edit3,
-  Trash2,
   Eye,
   EyeOff,
   Search,
-  Heart
+  X
 } from 'lucide-react';
 import { Button, Select, Input } from '@/contasis';
 import type { Unit } from '../../modelos/Unit';
@@ -21,21 +20,75 @@ interface UnitsSectionProps {
   isLoading?: boolean;
 }
 
-type FilterMode = 'all' | 'favorites' | 'visible' | 'hidden' | 'system' | 'custom';
+type FilterMode = 'all' | 'visible' | 'hidden';
+
+type Category = Unit['category'];
+
+type UnitModalMode = 'create' | 'edit';
+
+type UnitModalForm = {
+  code: string;
+  category: Category;
+  commercialSymbol: string;
+};
+
+const normalizeCode = (value?: string): string => (value || '').trim().toUpperCase();
+
+const createEmptyDefaultByCategory = (): Record<Category, string | null> => ({
+  QUANTITY: null,
+  WEIGHT: null,
+  LENGTH: null,
+  AREA: null,
+  VOLUME: null,
+  TIME: null,
+  ENERGY: null,
+  PACKAGING: null,
+  OTHER: null,
+});
+
+const createDefaultCategoryVisibility = (): Record<Category, boolean> => ({
+  QUANTITY: true,
+  WEIGHT: true,
+  LENGTH: true,
+  AREA: true,
+  VOLUME: true,
+  TIME: true,
+  ENERGY: true,
+  PACKAGING: true,
+  OTHER: true,
+});
+
+const sanitizeCommercialSymbol = (value: string): string => value.replace(/\s+/g, ' ').trim();
+
+const isValidCommercialSymbol = (value: string): boolean => {
+  if (!value) return false;
+  if (value.length > 10) return false;
+  return /^[A-Za-z0-9 ._/-]+$/.test(value);
+};
 
 export function UnitsSection({
   units,
   onUpdate,
   isLoading = false
 }: UnitsSectionProps) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [datosFormulario, setFormData] = useState({ code: '', name: '', category: 'OTHER' as Unit['category'] });
+  const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
+  const [unitModalMode, setUnitModalMode] = useState<UnitModalMode>('create');
+  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
+  const [modalForm, setModalForm] = useState<UnitModalForm>({
+    code: '',
+    category: 'OTHER',
+    commercialSymbol: '',
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ code?: string; name?: string }>({});
+  const [errors, setErrors] = useState<{ code?: string; commercialSymbol?: string }>({});
 
   // Estados para UX mejorada
-  const [defaultUnitId, setDefaultUnitId] = useState<string | null>(null);
+  const [defaultUnitIdByCategory, setDefaultUnitIdByCategory] = useState<Record<Category, string | null>>(
+    () => createEmptyDefaultByCategory()
+  );
+  const [categoryVisibility, setCategoryVisibility] = useState<Record<Category, boolean>>(
+    () => createDefaultCategoryVisibility()
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [selectedCategory, setSelectedCategory] = useState<Unit['category'] | 'all'>('all');
@@ -44,10 +97,24 @@ export function UnitsSection({
   // useEffect removido para evitar conflictos de inicialización
 
   // Funciones helper
-  const isSystemUnit = (unit: Unit) => unit.isSystem || SUNAT_UNITS.some(s => s.code === unit.code);
-  const isDefaultUnit = (unit: Unit) => defaultUnitId === unit.id;
-  const isFavoriteUnit = (unit: Unit) => unit.isFavorite || false;
+  const isDefaultInCategory = (unit: Unit) => defaultUnitIdByCategory[unit.category] === unit.id;
   const isVisibleUnit = (unit: Unit) => unit.isVisible !== false; // Por defecto visible
+
+  useEffect(() => {
+    // Infer UI state from current units: if all units of a category are invisible, treat the category as hidden.
+    setCategoryVisibility(prev => {
+      const next = { ...prev };
+      (UNIT_CATEGORIES.map(c => c.value) as Category[]).forEach((cat) => {
+        const unitsInCategory = units.filter(u => u.category === cat);
+        if (unitsInCategory.length === 0) {
+          next[cat] = prev[cat] ?? true;
+          return;
+        }
+        next[cat] = unitsInCategory.some(u => u.isVisible !== false);
+      });
+      return next;
+    });
+  }, [units]);
 
   // Filtros y búsqueda
   const filteredUnits = useMemo(() => {
@@ -70,153 +137,185 @@ export function UnitsSection({
 
       // Filtro por modo
       switch (filterMode) {
-        case 'favorites':
-          return unit.isFavorite || false;
         case 'visible':
           return unit.isVisible !== false;
         case 'hidden':
           return unit.isVisible === false;
-        case 'system':
-          return unit.isSystem || SUNAT_UNITS.some(s => s.code === unit.code);
-        case 'custom':
-          return !unit.isSystem && !SUNAT_UNITS.some(s => s.code === unit.code);
         default:
           return true;
       }
     });
 
-    // Ordenar: favoritos primero, luego por nombre
+    // Ordenar: por código, luego por nombre (estable y normativa)
     return filtered.sort((a, b) => {
-      const aFav = a.isFavorite || false;
-      const bFav = b.isFavorite || false;
-
-      if (aFav && !bFav) return -1;
-      if (!aFav && bFav) return 1;
-      if (aFav && bFav) {
-        return (a.displayOrder || 0) - (b.displayOrder || 0);
-      }
+      const byCode = a.code.localeCompare(b.code);
+      if (byCode !== 0) return byCode;
       return a.name.localeCompare(b.name);
     });
   }, [units, searchTerm, selectedCategory, filterMode]);
 
-  const favoriteUnits = units.filter(isFavoriteUnit).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-
-
-  const resetForm = () => {
-    setFormData({ code: '', name: '', category: 'OTHER' });
-    setEditingId(null);
-    setShowForm(false);
+  const closeUnitModal = () => {
+    setIsUnitModalOpen(false);
+    setUnitModalMode('create');
+    setEditingUnitId(null);
+    setModalForm({ code: '', category: 'OTHER', commercialSymbol: '' });
     setErrors({});
   };
 
-  const validateForm = () => {
-    const newErrors: { code?: string; name?: string } = {};
+  const openCreateUnitModal = () => {
+    setUnitModalMode('create');
+    setEditingUnitId(null);
 
-    if (!datosFormulario.code.trim()) {
-      newErrors.code = 'El código es obligatorio';
-    } else if (datosFormulario.code.length > 6) {
-      newErrors.code = 'El código no puede tener más de 6 caracteres';
-    } else if (!/^[A-Z0-9]+$/.test(datosFormulario.code)) {
-      newErrors.code = 'El código solo puede contener letras y números';
-    } else if (units.some(u => u.code === datosFormulario.code && u.id !== editingId)) {
-      newErrors.code = 'Ya existe una unidad con este código';
-    }
-
-    if (!datosFormulario.name.trim()) {
-      newErrors.name = 'El nombre es obligatorio';
-    } else if (datosFormulario.name.length < 3) {
-      newErrors.name = 'El nombre debe tener al menos 3 caracteres';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const firstSunat = SUNAT_UNITS[0];
+    setModalForm({
+      code: firstSunat?.code ?? '',
+      category: (firstSunat?.category as Category) ?? 'OTHER',
+      commercialSymbol: firstSunat?.symbol ?? '',
+    });
+    setErrors({});
+    setIsUnitModalOpen(true);
   };
 
-  const handleEdit = (unit: Unit) => {
-    setFormData({ code: unit.code, name: unit.name, category: unit.category });
-    setEditingId(unit.id);
-    setShowForm(true);
+  const openEditUnitModal = (unit: Unit) => {
+    setUnitModalMode('edit');
+    setEditingUnitId(unit.id);
+    setModalForm({
+      code: unit.code,
+      category: unit.category,
+      commercialSymbol: unit.symbol || '',
+    });
+    setErrors({});
+    setIsUnitModalOpen(true);
   };
 
-  const manejarEnvio = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleModalCodeChange = (nextCode: string) => {
+    const normalized = normalizeCode(nextCode);
+    const sunat = SUNAT_UNITS.find(u => normalizeCode(u.code) === normalized);
+    setModalForm(prev => ({
+      ...prev,
+      code: normalized,
+      category: (sunat?.category as Category) ?? prev.category,
+      commercialSymbol: prev.commercialSymbol || sunat?.symbol || '',
+    }));
+    setErrors(prev => ({ ...prev, code: undefined }));
+  };
 
-    if (!validateForm()) return;
+  const handleModalCommercialSymbolChange = (value: string) => {
+    const sanitized = sanitizeCommercialSymbol(value);
+    setModalForm(prev => ({ ...prev, commercialSymbol: sanitized }));
+    setErrors(prev => ({ ...prev, commercialSymbol: undefined }));
+  };
+
+  const handleModalSubmit = async () => {
+    const newErrors: { code?: string; commercialSymbol?: string } = {};
+    const code = normalizeCode(modalForm.code);
+    const symbol = sanitizeCommercialSymbol(modalForm.commercialSymbol);
+
+    if (!code) {
+      newErrors.code = 'Selecciona un código SUNAT';
+    } else {
+      const existsInSunat = SUNAT_UNITS.some(unit => normalizeCode(unit.code) === code);
+      if (!existsInSunat) {
+        newErrors.code = 'El código debe existir en el catálogo SUNAT';
+      }
+    }
+
+    if (!isValidCommercialSymbol(symbol)) {
+      newErrors.commercialSymbol = 'Símbolo inválido (máx 10, letras/números y . _ - /)';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
     setIsSubmitting(true);
-
     try {
       let updatedUnits: Unit[];
 
-      if (editingId) {
-        // Update existing
+      if (unitModalMode === 'edit') {
+        const targetId = editingUnitId;
+        if (!targetId) return;
+
         updatedUnits = units.map(u =>
-          u.id === editingId
+          u.id === targetId
             ? {
               ...u,
-              name: datosFormulario.name,
-              code: datosFormulario.code.toUpperCase(),
-              category: datosFormulario.category,
-              updatedAt: new Date()
+              symbol: symbol,
+              updatedAt: new Date(),
             }
             : u
         );
       } else {
-        // Create new
+        const existing = units.find(u => normalizeCode(u.code) === code);
+        if (existing) {
+          setErrors({ code: 'Este código ya existe. Usa Editar para personalizar el símbolo.' });
+          return;
+        }
+
+        const sunatUnit = SUNAT_UNITS.find(unit => normalizeCode(unit.code) === code);
+        if (!sunatUnit) {
+          setErrors({ code: 'El código seleccionado no existe en SUNAT.' });
+          return;
+        }
+
+        const now = new Date();
         const newUnit: Unit = {
-          id: `custom-${Date.now()}`,
-          code: datosFormulario.code.toUpperCase(),
-          name: datosFormulario.name,
-          symbol: datosFormulario.code.toUpperCase(),
-          description: datosFormulario.name,
-          category: datosFormulario.category,
-          decimalPlaces: 0,
+          id: `sunat-${sunatUnit.code}`,
+          code: sunatUnit.code,
+          name: sunatUnit.name,
+          symbol: symbol || sunatUnit.symbol,
+          description: sunatUnit.description,
+          category: (modalForm.category || sunatUnit.category) as Category,
+          baseUnit: 'baseUnit' in sunatUnit ? (sunatUnit.baseUnit as string | undefined) : undefined,
+          conversionFactor: 'conversionFactor' in sunatUnit ? (sunatUnit.conversionFactor as number | undefined) : undefined,
+          decimalPlaces: sunatUnit.decimalPlaces,
           isActive: true,
-          isSystem: false,
-          isFavorite: false,
+          isSystem: true,
           isVisible: true,
-          usageCount: 0,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: now,
+          updatedAt: now,
         };
+
         updatedUnits = [...units, newUnit];
       }
 
       await onUpdate(updatedUnits);
-      resetForm();
+      closeUnitModal();
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const setDefaultUnit = async (unitId: string) => {
-    // Actualiza el estado temporal para mantener la UX
-    setDefaultUnitId(unitId);
-    // En el futuro, esto actualizará la configuración real
-    // Por ahora solo mantenemos el estado local para la interfaz
+  const setDefaultUnitForCategory = (unit: Unit) => {
+    setDefaultUnitIdByCategory(prev => ({
+      ...prev,
+      [unit.category]: unit.id,
+    }));
   };
 
-  const toggleFavorite = async (unitId: string) => {
-    const updatedUnits = units.map(u =>
-      u.id === unitId
-        ? {
-          ...u,
-          isFavorite: !u.isFavorite,
-          displayOrder: !u.isFavorite ? Math.max(...units.filter(x => x.isFavorite).map(x => x.displayOrder || 0), 0) + 1 : undefined,
-          updatedAt: new Date()
-        }
-        : u
-    );
-    await onUpdate(updatedUnits);
-  };
+  const toggleSelectedCategoryVisibility = async () => {
+    if (selectedCategory === 'all') return;
+    const cat = selectedCategory as Category;
+    const nextVisible = !categoryVisibility[cat];
 
-  // Mantener handler referenciado aunque no exista UI para favoritos.
-  // Evita TS6133 (noUnusedLocals) sin alterar comportamiento.
-  void toggleFavorite;
+    setIsSubmitting(true);
+    try {
+      const updatedUnits = units.map(u =>
+        u.category === cat
+          ? { ...u, isVisible: nextVisible, updatedAt: new Date() }
+          : u
+      );
+      await onUpdate(updatedUnits);
+      setCategoryVisibility(prev => ({ ...prev, [cat]: nextVisible }));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const toggleVisibility = async (unitId: string) => {
     const unit = units.find(u => u.id === unitId);
-    if (isDefaultUnit(unit!)) return; // Can't hide default unit
+    if (unit && isDefaultInCategory(unit)) return; // Can't hide default unit in its category
 
     const updatedUnits = units.map(u =>
       u.id === unitId
@@ -224,38 +323,6 @@ export function UnitsSection({
         : u
     );
     await onUpdate(updatedUnits);
-  };
-
-  const deleteUnit = async (unitId: string) => {
-    const unit = units.find(u => u.id === unitId);
-    if (isDefaultUnit(unit!)) {
-      alert('No se puede eliminar la unidad por defecto');
-      return;
-    }
-    if (isSystemUnit(unit!)) {
-      alert('No se pueden eliminar las unidades del sistema SUNAT');
-      return;
-    }
-
-    if (confirm('¿Estás seguro de que deseas eliminar esta unidad?')) {
-      const updatedUnits = units.filter(u => u.id !== unitId);
-      await onUpdate(updatedUnits);
-    }
-  };
-
-  const handleCodeChange = (value: string) => {
-    const upperValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-    setFormData(prev => ({ ...prev, code: upperValue }));
-    if (errors.code) {
-      setErrors(prev => ({ ...prev, code: undefined }));
-    }
-  };
-
-  const handleNameChange = (value: string) => {
-    setFormData(prev => ({ ...prev, name: value }));
-    if (errors.name) {
-      setErrors(prev => ({ ...prev, name: undefined }));
-    }
   };
 
   if (isLoading) {
@@ -285,16 +352,10 @@ export function UnitsSection({
               {filteredUnits.length} unidad{filteredUnits.length !== 1 ? 'es' : ''}
               {filteredUnits.length !== units.length ? ` de ${units.length}` : ''}
             </span>
-            {favoriteUnits.length > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <Heart className="w-3.5 h-3.5 text-red-500" />
-                <span>{favoriteUnits.length} favorita{favoriteUnits.length !== 1 ? 's' : ''}</span>
-              </span>
-            )}
           </div>
         </div>
         <Button
-          onClick={() => setShowForm(true)}
+          onClick={openCreateUnitModal}
           disabled={isSubmitting}
           variant="primary"
           icon={<Plus />}
@@ -323,11 +384,8 @@ export function UnitsSection({
               size="medium"
               options={[
                 { value: 'all', label: 'Todas' },
-                { value: 'favorites', label: 'Favoritas' },
                 { value: 'visible', label: 'Visibles' },
                 { value: 'hidden', label: 'Ocultas' },
-                { value: 'system', label: 'Sistema' },
-                { value: 'custom', label: 'Personalizadas' }
               ]}
             />
 
@@ -343,6 +401,18 @@ export function UnitsSection({
                 }))
               ]}
             />
+
+            {selectedCategory !== 'all' && (
+              <Button
+                onClick={toggleSelectedCategoryVisibility}
+                disabled={isSubmitting}
+                variant="tertiary"
+                iconOnly
+                size="sm"
+                icon={categoryVisibility[selectedCategory as Category] ? <Eye /> : <EyeOff />}
+                title={categoryVisibility[selectedCategory as Category] ? 'Ocultar categoría' : 'Mostrar categoría'}
+              />
+            )}
 
             {(searchTerm || filterMode !== 'all' || selectedCategory !== 'all') && (
               <Button
@@ -361,112 +431,6 @@ export function UnitsSection({
         </div>
       </div>
 
-      {/* Formulario (panel compacto) */}
-      {showForm && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-gray-900">
-                {editingId ? 'Editar unidad' : 'Nueva unidad'}
-              </div>
-              <div className="text-xs text-gray-600">
-                {editingId ? 'Modifica los datos de la unidad seleccionada.' : 'Crea una unidad personalizada para tus productos.'}
-              </div>
-            </div>
-            <Button
-              type="button"
-              onClick={resetForm}
-              disabled={isSubmitting}
-              variant="secondary"
-              size="sm"
-            >
-              Cerrar
-            </Button>
-          </div>
-
-          <form onSubmit={manejarEnvio} className="mt-4 space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-              <Input
-                label="Código SUNAT"
-                type="text"
-                value={datosFormulario.code}
-                onChange={(e) => handleCodeChange(e.target.value)}
-                error={errors.code}
-                helperText={errors.code || 'Máx. 6 (A-Z, 0-9)'}
-                placeholder="PCE"
-                maxLength={6}
-                required
-              />
-
-              <Input
-                label="Nombre"
-                type="text"
-                value={datosFormulario.name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                error={errors.name}
-                placeholder="Piezas"
-                required
-              />
-
-              <Select
-                label="Categoría"
-                value={datosFormulario.category}
-                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as Unit['category'] }))}
-                options={UNIT_CATEGORIES.map((cat) => ({
-                  value: cat.value,
-                  label: cat.label
-                }))}
-                required
-              />
-            </div>
-
-            {!editingId && (
-              <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                <div className="text-xs font-semibold text-gray-800">Plantillas SUNAT (clic para rellenar)</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {SUNAT_UNITS.slice(0, 12).map((unit) => (
-                    <button
-                      key={unit.code}
-                      type="button"
-                      onClick={() => {
-                        setFormData({ code: unit.code, name: unit.name, category: unit.category });
-                        setErrors({});
-                      }}
-                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50"
-                      title={`${unit.name} (${unit.code})`}
-                    >
-                      <span className="font-mono text-[11px] font-bold text-gray-900">{unit.code}</span>
-                      <span className="max-w-[14rem] truncate">{unit.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                onClick={resetForm}
-                disabled={isSubmitting}
-                variant="secondary"
-                size="sm"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting || Object.keys(errors).length > 0}
-                variant="primary"
-                size="sm"
-              >
-                {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                <span>{editingId ? 'Actualizar' : 'Crear'}</span>
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-
       {/* Tabla compacta (scroll interno) */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between">
@@ -479,19 +443,23 @@ export function UnitsSection({
             <table className="min-w-full text-sm">
               <thead className="sticky top-0 bg-white z-10">
                 <tr className="text-xs font-semibold text-gray-600 border-b border-gray-200">
-                  <th className="px-4 py-2 text-left">Código</th>
-                  <th className="px-4 py-2 text-left">Nombre</th>
+                  <th className="px-4 py-2 text-left">Código SUNAT</th>
+                  <th className="px-4 py-2 text-left">Descripción SUNAT</th>
                   <th className="px-4 py-2 text-left">Categoría</th>
                   <th className="px-4 py-2 text-center">Visible</th>
+                  <th className="px-4 py-2 text-left">Símbolo comercial</th>
+                  <th className="px-4 py-2 text-center">Por defecto</th>
                   <th className="px-4 py-2 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredUnits.map((unit) => {
+                  const sunat = SUNAT_UNITS.find(s => normalizeCode(s.code) === normalizeCode(unit.code));
+                  const sunatName = sunat?.name ?? unit.name;
+                  const sunatDescription = sunat?.description ?? unit.description;
                   const categoryLabel = UNIT_CATEGORIES.find(c => c.value === unit.category)?.label ?? unit.category;
-                  const system = isSystemUnit(unit);
                   const visible = isVisibleUnit(unit);
-                  const isDefault = isDefaultUnit(unit);
+                  const isDefault = isDefaultInCategory(unit);
 
                   return (
                     <tr
@@ -501,17 +469,12 @@ export function UnitsSection({
                       <td className="px-4 py-2.5 align-middle">
                         <div className="flex items-center gap-2">
                           <span className="font-mono font-semibold text-gray-900">{unit.code}</span>
-                          {isDefault && (
-                            <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-[11px] font-semibold">
-                              DEF
-                            </span>
-                          )}
                         </div>
                       </td>
 
-                      <td className="px-4 py-2.5 align-middle min-w-[14rem]">
-                        <div className="text-gray-900 font-medium leading-tight">{unit.name}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[34rem]">{unit.description}</div>
+                      <td className="px-4 py-2.5 align-middle min-w-[18rem]">
+                        <div className="text-gray-900 font-medium leading-tight">{sunatName}</div>
+                        <div className="text-xs text-gray-500 truncate max-w-[34rem]">{sunatDescription}</div>
                       </td>
 
                       <td className="px-4 py-2.5 align-middle">
@@ -533,35 +496,26 @@ export function UnitsSection({
                       </td>
 
                       <td className="px-4 py-2.5 align-middle">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <SelectorPredeterminado
-                            isDefault={isDefault}
-                            onSetDefault={() => setDefaultUnit(unit.id)}
-                            size="sm"
-                          />
+                        <span className="font-mono text-gray-900">{unit.symbol || '-'}</span>
+                      </td>
 
-                          {!system && (
-                            <>
-                              <Button
-                                onClick={() => handleEdit(unit)}
-                                variant="tertiary"
-                                iconOnly
-                                size="sm"
-                                icon={<Edit3 />}
-                                title="Editar"
-                              />
-                              <Button
-                                onClick={() => deleteUnit(unit.id)}
-                                disabled={isDefault}
-                                variant="tertiary"
-                                iconOnly
-                                size="sm"
-                                icon={<Trash2 className="text-red-600" />}
-                                title="Eliminar"
-                              />
-                            </>
-                          )}
-                        </div>
+                      <td className="px-4 py-2.5 align-middle text-center">
+                        <SelectorPredeterminado
+                          isDefault={isDefault}
+                          onSetDefault={() => setDefaultUnitForCategory(unit)}
+                          size="sm"
+                        />
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle text-right">
+                        <Button
+                          onClick={() => openEditUnitModal(unit)}
+                          variant="tertiary"
+                          iconOnly
+                          size="sm"
+                          icon={<Edit3 />}
+                          title="Editar símbolo comercial"
+                        />
                       </td>
                     </tr>
                   );
@@ -587,7 +541,7 @@ export function UnitsSection({
             {(!searchTerm && filterMode === 'all' && selectedCategory === 'all') && (
               <div className="mt-4">
                 <Button
-                  onClick={() => setShowForm(true)}
+                  onClick={openCreateUnitModal}
                   variant="primary"
                   icon={<Plus />}
                 >
@@ -598,6 +552,122 @@ export function UnitsSection({
           </div>
         )}
       </div>
+
+      {/* Modal Crear/Editar */}
+      {isUnitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
+          <div
+            className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
+            onClick={!isSubmitting ? closeUnitModal : undefined}
+          />
+
+          <div className="relative w-full max-w-[760px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900">
+                  {unitModalMode === 'edit' ? 'Editar unidad' : 'Nueva unidad'}
+                </div>
+                <div className="text-xs text-gray-600">
+                  {unitModalMode === 'edit'
+                    ? 'Solo puedes cambiar el símbolo comercial.'
+                    : 'Selecciona un código SUNAT y personaliza el símbolo comercial.'}
+                </div>
+              </div>
+              <Button
+                onClick={closeUnitModal}
+                disabled={isSubmitting}
+                variant="tertiary"
+                iconOnly
+                size="sm"
+                icon={<X />}
+                title="Cerrar"
+              />
+            </div>
+
+            <div className="px-5 py-4 overflow-auto">
+              {(() => {
+                const modalSunat = SUNAT_UNITS.find(u => normalizeCode(u.code) === normalizeCode(modalForm.code));
+                const sunatLabel = modalSunat ? `${modalSunat.name} — ${modalSunat.description}` : '';
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div>
+                        <Select
+                          label="Código SUNAT"
+                          value={normalizeCode(modalForm.code)}
+                          onChange={(e) => handleModalCodeChange(e.target.value)}
+                          options={SUNAT_UNITS.map((u) => ({
+                            value: u.code,
+                            label: `(${u.code}) ${u.name}`
+                          }))}
+                          disabled={unitModalMode === 'edit'}
+                          required
+                        />
+                        {errors.code && <div className="mt-1 text-xs text-red-600">{errors.code}</div>}
+                      </div>
+
+                      <Input
+                        label="Descripción SUNAT"
+                        type="text"
+                        value={sunatLabel}
+                        onChange={() => { /* read-only */ }}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <Select
+                        label="Categoría"
+                        value={modalForm.category}
+                        onChange={(e) => setModalForm(prev => ({ ...prev, category: e.target.value as Category }))}
+                        options={UNIT_CATEGORIES.map((cat) => ({
+                          value: cat.value,
+                          label: cat.label
+                        }))}
+                        disabled={unitModalMode === 'edit'}
+                        required
+                      />
+
+                      <Input
+                        label="Símbolo comercial"
+                        type="text"
+                        value={modalForm.commercialSymbol}
+                        onChange={(e) => handleModalCommercialSymbolChange(e.target.value)}
+                        error={errors.commercialSymbol}
+                        helperText={errors.commercialSymbol || 'Máx. 10 (A-Z, 0-9 y . _ - /)'}
+                        placeholder="UND"
+                        maxLength={10}
+                        required
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200">
+              <Button
+                onClick={closeUnitModal}
+                disabled={isSubmitting}
+                variant="secondary"
+                size="sm"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleModalSubmit}
+                disabled={isSubmitting}
+                variant="primary"
+                size="sm"
+              >
+                {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                <span>{unitModalMode === 'edit' ? 'Guardar' : 'Crear'}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
