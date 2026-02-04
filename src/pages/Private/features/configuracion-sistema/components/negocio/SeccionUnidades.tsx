@@ -12,7 +12,120 @@ import {
 import { Button, Select, Input } from '@/contasis';
 import type { Unit } from '../../modelos/Unit';
 import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
-import { SUNAT_UNITS, UNIT_CATEGORIES } from '../../modelos/Unit';
+
+type Family = Unit['category'];
+
+type UnitCatalogItem = {
+  code: string;
+  name: string; // Texto exacto mostrado como “Descripción SUNAT”
+  description: string;
+  category: Family;
+  decimalPlaces: number;
+  baseUnit?: string;
+  conversionFactor?: number;
+};
+
+// Familias (antes “Categorías”) - exactamente 9
+const UNIT_FAMILIES: Array<{ value: Family; label: string }> = [
+  { value: 'OTHER', label: 'Servicios' },
+  { value: 'TIME', label: 'Tiempos' },
+  { value: 'WEIGHT', label: 'Pesos' },
+  { value: 'VOLUME', label: 'Volúmenes' },
+  { value: 'LENGTH', label: 'Longitudes' },
+  { value: 'AREA', label: 'Áreas' },
+  { value: 'ENERGY', label: 'Energías' },
+  { value: 'QUANTITY', label: 'Cantidades' },
+  { value: 'PACKAGING', label: 'Empaques' },
+];
+
+// Catálogo SUNAT actualizado (dataset exacto provisto)
+const SUNAT_UNITS: UnitCatalogItem[] = [
+  // 1) Servicios
+  { code: 'ZZ', name: 'Servicio', description: 'Servicio', category: 'OTHER', decimalPlaces: 0 },
+
+  // 2) Tiempos
+  { code: 'HUR', name: 'Hora', description: 'Hora', category: 'TIME', decimalPlaces: 2, baseUnit: 'HUR', conversionFactor: 1 },
+  { code: 'HT', name: 'Media hora', description: 'Media hora', category: 'TIME', decimalPlaces: 2, baseUnit: 'HUR', conversionFactor: 0.5 },
+  { code: 'SEC', name: 'Segundo', description: 'Segundo', category: 'TIME', decimalPlaces: 6, baseUnit: 'HUR', conversionFactor: 1 / 3600 },
+
+  // 3) Pesos
+  { code: 'KGM', name: 'Kilogramo', description: 'Kilogramo', category: 'WEIGHT', decimalPlaces: 3, baseUnit: 'KGM', conversionFactor: 1 },
+  { code: 'GRM', name: 'Gramos', description: 'Gramos', category: 'WEIGHT', decimalPlaces: 3, baseUnit: 'KGM', conversionFactor: 0.001 },
+  { code: 'MGM', name: 'Miligramos', description: 'Miligramos', category: 'WEIGHT', decimalPlaces: 3, baseUnit: 'KGM', conversionFactor: 0.000001 },
+  { code: 'TNE', name: 'Toneladas', description: 'Toneladas', category: 'WEIGHT', decimalPlaces: 3, baseUnit: 'KGM', conversionFactor: 1000 },
+  { code: 'ONZ', name: 'Onzas', description: 'Onzas', category: 'WEIGHT', decimalPlaces: 3, baseUnit: 'KGM', conversionFactor: 0.028349523125 },
+  { code: 'LBR', name: 'Libras', description: 'Libras', category: 'WEIGHT', decimalPlaces: 3, baseUnit: 'KGM', conversionFactor: 0.45359237 },
+
+  // 4) Volúmenes
+  { code: 'LTR', name: 'Litro', description: 'Litro', category: 'VOLUME', decimalPlaces: 2, baseUnit: 'LTR', conversionFactor: 1 },
+  { code: 'MLT', name: 'Mililitro', description: 'Mililitro', category: 'VOLUME', decimalPlaces: 2, baseUnit: 'LTR', conversionFactor: 0.001 },
+  { code: 'GLL', name: 'Galón', description: 'Galón', category: 'VOLUME', decimalPlaces: 2, baseUnit: 'LTR', conversionFactor: 3.78541 },
+  { code: 'GLI', name: 'Galón inglés', description: 'Galón inglés', category: 'VOLUME', decimalPlaces: 2, baseUnit: 'LTR', conversionFactor: 4.54609 },
+  { code: 'MTQ', name: 'Metro cúbico', description: 'Metro cúbico', category: 'VOLUME', decimalPlaces: 3, baseUnit: 'MTQ', conversionFactor: 1 },
+  { code: 'CMQ', name: 'Centímetro cúbico', description: 'Centímetro cúbico', category: 'VOLUME', decimalPlaces: 3, baseUnit: 'MTQ', conversionFactor: 0.000001 },
+  { code: 'MMQ', name: 'Milímetro cúbico', description: 'Milímetro cúbico', category: 'VOLUME', decimalPlaces: 3, baseUnit: 'MTQ', conversionFactor: 0.000000001 },
+  { code: 'FTQ', name: 'Pies cúbicos', description: 'Pies cúbicos', category: 'VOLUME', decimalPlaces: 3, baseUnit: 'MTQ', conversionFactor: 0.028316846592 },
+
+  // 5) Longitudes
+  { code: 'MTR', name: 'Metro', description: 'Metro', category: 'LENGTH', decimalPlaces: 2, baseUnit: 'MTR', conversionFactor: 1 },
+  { code: 'CMT', name: 'Centímetro', description: 'Centímetro', category: 'LENGTH', decimalPlaces: 2, baseUnit: 'MTR', conversionFactor: 0.01 },
+  { code: 'MMT', name: 'Milímetro', description: 'Milímetro', category: 'LENGTH', decimalPlaces: 2, baseUnit: 'MTR', conversionFactor: 0.001 },
+  { code: 'KTM', name: 'Kilómetro', description: 'Kilómetro', category: 'LENGTH', decimalPlaces: 2, baseUnit: 'MTR', conversionFactor: 1000 },
+  { code: 'INH', name: 'Pulgadas', description: 'Pulgadas', category: 'LENGTH', decimalPlaces: 2, baseUnit: 'MTR', conversionFactor: 0.0254 },
+  { code: 'YRD', name: 'Yarda', description: 'Yarda', category: 'LENGTH', decimalPlaces: 2, baseUnit: 'MTR', conversionFactor: 0.9144 },
+  { code: 'FOT', name: 'Pies', description: 'Pies', category: 'LENGTH', decimalPlaces: 2, baseUnit: 'MTR', conversionFactor: 0.3048 },
+
+  // 6) Áreas
+  { code: 'CMK', name: 'Centímetro cuadrado', description: 'Centímetro cuadrado', category: 'AREA', decimalPlaces: 2, baseUnit: 'MTK', conversionFactor: 0.0001 },
+  { code: 'MMK', name: 'Milímetro cuadrado', description: 'Milímetro cuadrado', category: 'AREA', decimalPlaces: 2, baseUnit: 'MTK', conversionFactor: 0.000001 },
+  { code: 'MTK', name: 'Metro cuadrado', description: 'Metro cuadrado', category: 'AREA', decimalPlaces: 2, baseUnit: 'MTK', conversionFactor: 1 },
+  { code: 'FTK', name: 'Pies cuadrados', description: 'Pies cuadrados', category: 'AREA', decimalPlaces: 2, baseUnit: 'MTK', conversionFactor: 0.09290304 },
+
+  // 7) Energías
+  { code: 'KWH', name: 'Kilovatio hora', description: 'Kilovatio hora', category: 'ENERGY', decimalPlaces: 3, baseUnit: 'KWH', conversionFactor: 1 },
+  { code: 'MWH', name: 'Megavatio hora', description: 'Megavatio hora', category: 'ENERGY', decimalPlaces: 3, baseUnit: 'KWH', conversionFactor: 1000 },
+
+  // 8) Cantidades
+  { code: 'NIU', name: 'Unidad', description: 'Unidad', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'C62', name: 'Piezas', description: 'Piezas', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'CEN', name: 'Ciento de unidades', description: 'Ciento de unidades', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'MIL', name: 'Millar', description: 'Millar', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'UM', name: 'Millón', description: 'Millón', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'DZN', name: 'Docena', description: 'Docena', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'QD', name: 'Cuarto de docena', description: 'Cuarto de docena', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'HD', name: 'Media docena', description: 'Media docena', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'DZP', name: 'Docena de paquetes', description: 'Docena de paquetes', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'PR', name: 'Par', description: 'Par', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'SET', name: 'Juego', description: 'Juego', category: 'QUANTITY', decimalPlaces: 0 },
+  { code: 'KT', name: 'Kit', description: 'Kit', category: 'QUANTITY', decimalPlaces: 0 },
+
+  // 9) Empaques
+  { code: 'BX', name: 'Caja', description: 'Caja', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'BG', name: 'Bolsa', description: 'Bolsa', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'BO', name: 'Botellas', description: 'Botellas', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'BJ', name: 'Balde', description: 'Balde', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'BLL', name: 'Barril', description: 'Barril', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'SA', name: 'Saco', description: 'Saco', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'PK', name: 'Paquete', description: 'Paquete', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'CH', name: 'Envase', description: 'Envase', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'JR', name: 'Frasco', description: 'Frasco', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'JG', name: 'Jarra', description: 'Jarra', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'AV', name: 'Cápsula', description: 'Cápsula', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'CT', name: 'Cartón', description: 'Cartón', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'CA', name: 'Latas', description: 'Latas', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'BE', name: 'Fardo', description: 'Fardo', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'CY', name: 'Cilindro', description: 'Cilindro', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'U2', name: 'Blister', description: 'Blister', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'LEF', name: 'Hoja', description: 'Hoja', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'ST', name: 'Pliego', description: 'Pliego', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'TU', name: 'Tubos', description: 'Tubos', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'RL', name: 'Carrete', description: 'Carrete', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'RD', name: 'Varilla', description: 'Varilla', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'PG', name: 'Placas', description: 'Placas', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'PF', name: 'Paletas', description: 'Paletas', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'BT', name: 'Tornillo', description: 'Tornillo', category: 'PACKAGING', decimalPlaces: 0 },
+  { code: 'RM', name: 'Resma', description: 'Resma', category: 'PACKAGING', decimalPlaces: 0 },
+];
 
 interface UnitsSectionProps {
   units: Unit[];
@@ -22,19 +135,17 @@ interface UnitsSectionProps {
 
 type FilterMode = 'all' | 'visible' | 'hidden';
 
-type Category = Unit['category'];
-
 type UnitModalMode = 'create' | 'edit';
 
 type UnitModalForm = {
   code: string;
-  category: Category;
+  family: Family;
   commercialSymbol: string;
 };
 
 const normalizeCode = (value?: string): string => (value || '').trim().toUpperCase();
 
-const createEmptyDefaultByCategory = (): Record<Category, string | null> => ({
+const createEmptyDefaultByFamily = (): Record<Family, string | null> => ({
   QUANTITY: null,
   WEIGHT: null,
   LENGTH: null,
@@ -46,7 +157,7 @@ const createEmptyDefaultByCategory = (): Record<Category, string | null> => ({
   OTHER: null,
 });
 
-const createDefaultCategoryVisibility = (): Record<Category, boolean> => ({
+const createDefaultFamilyVisibility = (): Record<Family, boolean> => ({
   QUANTITY: true,
   WEIGHT: true,
   LENGTH: true,
@@ -62,8 +173,9 @@ const sanitizeCommercialSymbol = (value: string): string => value.replace(/\s+/g
 
 const isValidCommercialSymbol = (value: string): boolean => {
   if (!value) return false;
-  if (value.length > 10) return false;
-  return /^[A-Za-z0-9 ._/-]+$/.test(value);
+  // Debe permitir el valor por defecto = “Descripción SUNAT” (puede tener espacios y tildes)
+  if (value.length > 60) return false;
+  return /^[\p{L}\p{N} ._/-]+$/u.test(value);
 };
 
 export function UnitsSection({
@@ -71,54 +183,87 @@ export function UnitsSection({
   onUpdate,
   isLoading = false
 }: UnitsSectionProps) {
+  const effectiveUnits = useMemo<Unit[]>(() => {
+    const now = new Date();
+    const existingByCode = new Map<string, Unit>();
+    for (const unit of units) {
+      existingByCode.set(normalizeCode(unit.code), unit);
+    }
+
+    return SUNAT_UNITS.map((catalog) => {
+      const existing = existingByCode.get(normalizeCode(catalog.code));
+      const commercialSymbol = sanitizeCommercialSymbol(existing?.symbol ?? '') || catalog.name;
+
+      return {
+        id: existing?.id ?? `sunat-${catalog.code}`,
+        code: catalog.code,
+        name: catalog.name,
+        symbol: commercialSymbol,
+        description: catalog.description,
+        category: catalog.category,
+        baseUnit: catalog.baseUnit,
+        conversionFactor: catalog.conversionFactor,
+        decimalPlaces: catalog.decimalPlaces,
+        isActive: existing?.isActive ?? true,
+        isSystem: true,
+        isFavorite: existing?.isFavorite,
+        isVisible: existing?.isVisible ?? true,
+        displayOrder: existing?.displayOrder,
+        usageCount: existing?.usageCount,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: existing?.updatedAt ?? now,
+      };
+    });
+  }, [units]);
+
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [unitModalMode, setUnitModalMode] = useState<UnitModalMode>('create');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [modalForm, setModalForm] = useState<UnitModalForm>({
     code: '',
-    category: 'OTHER',
+    family: 'OTHER',
     commercialSymbol: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ code?: string; commercialSymbol?: string }>({});
 
   // Estados para UX mejorada
-  const [defaultUnitIdByCategory, setDefaultUnitIdByCategory] = useState<Record<Category, string | null>>(
-    () => createEmptyDefaultByCategory()
+  const [defaultUnitIdByFamily, setDefaultUnitIdByFamily] = useState<Record<Family, string | null>>(
+    () => createEmptyDefaultByFamily()
   );
-  const [categoryVisibility, setCategoryVisibility] = useState<Record<Category, boolean>>(
-    () => createDefaultCategoryVisibility()
+  const [familyVisibility, setFamilyVisibility] = useState<Record<Family, boolean>>(
+    () => createDefaultFamilyVisibility()
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
-  const [selectedCategory, setSelectedCategory] = useState<Unit['category'] | 'all'>('all');
+  const [selectedFamily, setSelectedFamily] = useState<Unit['category'] | 'all'>('all');
 
   // Ya no es necesario inicializar aquí - las unidades se cargan desde ConfigurationContext
   // useEffect removido para evitar conflictos de inicialización
 
   // Funciones helper
-  const isDefaultInCategory = (unit: Unit) => defaultUnitIdByCategory[unit.category] === unit.id;
+  const isDefaultInFamily = (unit: Unit) => defaultUnitIdByFamily[unit.category] === unit.id;
   const isVisibleUnit = (unit: Unit) => unit.isVisible !== false; // Por defecto visible
 
   useEffect(() => {
     // Infer UI state from current units: if all units of a category are invisible, treat the category as hidden.
-    setCategoryVisibility(prev => {
+    setFamilyVisibility(prev => {
       const next = { ...prev };
-      (UNIT_CATEGORIES.map(c => c.value) as Category[]).forEach((cat) => {
-        const unitsInCategory = units.filter(u => u.category === cat);
-        if (unitsInCategory.length === 0) {
-          next[cat] = prev[cat] ?? true;
+      (UNIT_FAMILIES.map(c => c.value) as Family[]).forEach((family) => {
+        const unitsInFamily = effectiveUnits.filter(u => u.category === family);
+        if (unitsInFamily.length === 0) {
+          next[family] = prev[family] ?? true;
           return;
         }
-        next[cat] = unitsInCategory.some(u => u.isVisible !== false);
+        next[family] = unitsInFamily.some(u => u.isVisible !== false);
       });
       return next;
     });
-  }, [units]);
+  }, [effectiveUnits]);
 
   // Filtros y búsqueda
   const filteredUnits = useMemo(() => {
-    const filtered = units.filter(unit => {
+    const filtered = effectiveUnits.filter(unit => {
       // Filtro por búsqueda
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -131,7 +276,7 @@ export function UnitsSection({
       }
 
       // Filtro por categoría
-      if (selectedCategory !== 'all' && unit.category !== selectedCategory) {
+      if (selectedFamily !== 'all' && unit.category !== selectedFamily) {
         return false;
       }
 
@@ -152,13 +297,13 @@ export function UnitsSection({
       if (byCode !== 0) return byCode;
       return a.name.localeCompare(b.name);
     });
-  }, [units, searchTerm, selectedCategory, filterMode]);
+  }, [effectiveUnits, searchTerm, selectedFamily, filterMode]);
 
   const closeUnitModal = () => {
     setIsUnitModalOpen(false);
     setUnitModalMode('create');
     setEditingUnitId(null);
-    setModalForm({ code: '', category: 'OTHER', commercialSymbol: '' });
+    setModalForm({ code: '', family: 'OTHER', commercialSymbol: '' });
     setErrors({});
   };
 
@@ -169,8 +314,8 @@ export function UnitsSection({
     const firstSunat = SUNAT_UNITS[0];
     setModalForm({
       code: firstSunat?.code ?? '',
-      category: (firstSunat?.category as Category) ?? 'OTHER',
-      commercialSymbol: firstSunat?.symbol ?? '',
+      family: (firstSunat?.category as Family) ?? 'OTHER',
+      commercialSymbol: firstSunat?.name ?? '',
     });
     setErrors({});
     setIsUnitModalOpen(true);
@@ -179,10 +324,12 @@ export function UnitsSection({
   const openEditUnitModal = (unit: Unit) => {
     setUnitModalMode('edit');
     setEditingUnitId(unit.id);
+    const sunat = SUNAT_UNITS.find(s => normalizeCode(s.code) === normalizeCode(unit.code));
+    const sunatName = sunat?.name ?? unit.name;
     setModalForm({
       code: unit.code,
-      category: unit.category,
-      commercialSymbol: unit.symbol || '',
+      family: unit.category,
+      commercialSymbol: unit.symbol || sunatName,
     });
     setErrors({});
     setIsUnitModalOpen(true);
@@ -194,8 +341,8 @@ export function UnitsSection({
     setModalForm(prev => ({
       ...prev,
       code: normalized,
-      category: (sunat?.category as Category) ?? prev.category,
-      commercialSymbol: prev.commercialSymbol || sunat?.symbol || '',
+      family: (sunat?.category as Family) ?? prev.family,
+      commercialSymbol: prev.commercialSymbol || sunat?.name || '',
     }));
     setErrors(prev => ({ ...prev, code: undefined }));
   };
@@ -237,7 +384,7 @@ export function UnitsSection({
         const targetId = editingUnitId;
         if (!targetId) return;
 
-        updatedUnits = units.map(u =>
+        updatedUnits = effectiveUnits.map(u =>
           u.id === targetId
             ? {
               ...u,
@@ -247,37 +394,18 @@ export function UnitsSection({
             : u
         );
       } else {
-        const existing = units.find(u => normalizeCode(u.code) === code);
-        if (existing) {
-          setErrors({ code: 'Este código ya existe. Usa Editar para personalizar el símbolo.' });
-          return;
-        }
-
         const sunatUnit = SUNAT_UNITS.find(unit => normalizeCode(unit.code) === code);
         if (!sunatUnit) {
           setErrors({ code: 'El código seleccionado no existe en SUNAT.' });
           return;
         }
 
-        const now = new Date();
-        const newUnit: Unit = {
-          id: `sunat-${sunatUnit.code}`,
-          code: sunatUnit.code,
-          name: sunatUnit.name,
-          symbol: symbol || sunatUnit.symbol,
-          description: sunatUnit.description,
-          category: (modalForm.category || sunatUnit.category) as Category,
-          baseUnit: 'baseUnit' in sunatUnit ? (sunatUnit.baseUnit as string | undefined) : undefined,
-          conversionFactor: 'conversionFactor' in sunatUnit ? (sunatUnit.conversionFactor as number | undefined) : undefined,
-          decimalPlaces: sunatUnit.decimalPlaces,
-          isActive: true,
-          isSystem: true,
-          isVisible: true,
-          createdAt: now,
-          updatedAt: now,
-        };
-
-        updatedUnits = [...units, newUnit];
+        // Persistimos el catálogo efectivo (exacto) con el símbolo elegido.
+        updatedUnits = effectiveUnits.map(u =>
+          normalizeCode(u.code) === code
+            ? { ...u, symbol, isVisible: true, isActive: true, updatedAt: new Date() }
+            : u
+        );
       }
 
       await onUpdate(updatedUnits);
@@ -288,36 +416,36 @@ export function UnitsSection({
   };
 
   const setDefaultUnitForCategory = (unit: Unit) => {
-    setDefaultUnitIdByCategory(prev => ({
+    setDefaultUnitIdByFamily(prev => ({
       ...prev,
       [unit.category]: unit.id,
     }));
   };
 
   const toggleSelectedCategoryVisibility = async () => {
-    if (selectedCategory === 'all') return;
-    const cat = selectedCategory as Category;
-    const nextVisible = !categoryVisibility[cat];
+    if (selectedFamily === 'all') return;
+    const cat = selectedFamily as Family;
+    const nextVisible = !familyVisibility[cat];
 
     setIsSubmitting(true);
     try {
-      const updatedUnits = units.map(u =>
+      const updatedUnits = effectiveUnits.map(u =>
         u.category === cat
           ? { ...u, isVisible: nextVisible, updatedAt: new Date() }
           : u
       );
       await onUpdate(updatedUnits);
-      setCategoryVisibility(prev => ({ ...prev, [cat]: nextVisible }));
+      setFamilyVisibility(prev => ({ ...prev, [cat]: nextVisible }));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const toggleVisibility = async (unitId: string) => {
-    const unit = units.find(u => u.id === unitId);
-    if (unit && isDefaultInCategory(unit)) return; // Can't hide default unit in its category
+    const unit = effectiveUnits.find(u => u.id === unitId);
+    if (unit && isDefaultInFamily(unit)) return; // Can't hide default unit in its family
 
-    const updatedUnits = units.map(u =>
+    const updatedUnits = effectiveUnits.map(u =>
       u.id === unitId
         ? { ...u, isVisible: !u.isVisible, updatedAt: new Date() }
         : u
@@ -350,7 +478,7 @@ export function UnitsSection({
           <div className="mt-0.5 text-xs text-gray-600 flex items-center gap-3">
             <span>
               {filteredUnits.length} unidad{filteredUnits.length !== 1 ? 'es' : ''}
-              {filteredUnits.length !== units.length ? ` de ${units.length}` : ''}
+              {filteredUnits.length !== effectiveUnits.length ? ` de ${effectiveUnits.length}` : ''}
             </span>
           </div>
         </div>
@@ -390,36 +518,36 @@ export function UnitsSection({
             />
 
             <Select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value as Unit['category'] | 'all')}
+              value={selectedFamily}
+              onChange={(e) => setSelectedFamily(e.target.value as Unit['category'] | 'all')}
               size="medium"
               options={[
-                { value: 'all', label: 'Categorías' },
-                ...UNIT_CATEGORIES.map((cat) => ({
-                  value: cat.value,
-                  label: cat.label
+                { value: 'all', label: 'Familias' },
+                ...UNIT_FAMILIES.map((family) => ({
+                  value: family.value,
+                  label: family.label
                 }))
               ]}
             />
 
-            {selectedCategory !== 'all' && (
+            {selectedFamily !== 'all' && (
               <Button
                 onClick={toggleSelectedCategoryVisibility}
                 disabled={isSubmitting}
                 variant="tertiary"
                 iconOnly
                 size="sm"
-                icon={categoryVisibility[selectedCategory as Category] ? <Eye /> : <EyeOff />}
-                title={categoryVisibility[selectedCategory as Category] ? 'Ocultar categoría' : 'Mostrar categoría'}
+                icon={familyVisibility[selectedFamily as Family] ? <Eye /> : <EyeOff />}
+                title={familyVisibility[selectedFamily as Family] ? 'Ocultar familia' : 'Mostrar familia'}
               />
             )}
 
-            {(searchTerm || filterMode !== 'all' || selectedCategory !== 'all') && (
+            {(searchTerm || filterMode !== 'all' || selectedFamily !== 'all') && (
               <Button
                 onClick={() => {
                   setSearchTerm('');
                   setFilterMode('all');
-                  setSelectedCategory('all');
+                  setSelectedFamily('all');
                 }}
                 variant="tertiary"
                 size="sm"
@@ -445,7 +573,7 @@ export function UnitsSection({
                 <tr className="text-xs font-semibold text-gray-600 border-b border-gray-200">
                   <th className="px-4 py-2 text-left">Código SUNAT</th>
                   <th className="px-4 py-2 text-left">Descripción SUNAT</th>
-                  <th className="px-4 py-2 text-left">Categoría</th>
+                  <th className="px-4 py-2 text-left">Familia</th>
                   <th className="px-4 py-2 text-center">Visible</th>
                   <th className="px-4 py-2 text-left">Símbolo comercial</th>
                   <th className="px-4 py-2 text-center">Por defecto</th>
@@ -456,9 +584,11 @@ export function UnitsSection({
                 {filteredUnits.map((unit) => {
                   const sunat = SUNAT_UNITS.find(s => normalizeCode(s.code) === normalizeCode(unit.code));
                   const sunatName = sunat?.name ?? unit.name;
-                  const categoryLabel = UNIT_CATEGORIES.find(c => c.value === unit.category)?.label ?? unit.category;
+                  const familyLabel = UNIT_FAMILIES.find(c => c.value === unit.category)?.label ?? unit.category;
                   const visible = isVisibleUnit(unit);
-                  const isDefault = isDefaultInCategory(unit);
+                  const isDefault = isDefaultInFamily(unit);
+                  const commercialSymbol = unit.symbol || sunatName;
+                  const isDefaultCommercialSymbol = sanitizeCommercialSymbol(commercialSymbol) === sanitizeCommercialSymbol(sunatName);
 
                   return (
                     <tr
@@ -477,7 +607,7 @@ export function UnitsSection({
 
                       <td className="px-4 py-2.5 align-middle">
                         <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 px-2 py-0.5 text-[11px] font-medium">
-                          {categoryLabel}
+                          {familyLabel}
                         </span>
                       </td>
 
@@ -494,7 +624,11 @@ export function UnitsSection({
                       </td>
 
                       <td className="px-4 py-2.5 align-middle">
-                        <span className="font-mono text-gray-900">{unit.symbol || '-'}</span>
+                        <span
+                          className={`font-mono ${isDefaultCommercialSymbol ? 'text-gray-500' : 'text-gray-900'}`}
+                        >
+                          {commercialSymbol}
+                        </span>
                       </td>
 
                       <td className="px-4 py-2.5 align-middle text-center">
@@ -527,16 +661,16 @@ export function UnitsSection({
               <Scale className="w-6 h-6 text-gray-400" />
             </div>
             <div className="mt-3 text-sm font-semibold text-gray-900">
-              {searchTerm || filterMode !== 'all' || selectedCategory !== 'all'
+              {searchTerm || filterMode !== 'all' || selectedFamily !== 'all'
                 ? 'No se encontraron unidades'
                 : 'No hay unidades configuradas'}
             </div>
             <div className="mt-1 text-xs text-gray-600">
-              {searchTerm || filterMode !== 'all' || selectedCategory !== 'all'
+              {searchTerm || filterMode !== 'all' || selectedFamily !== 'all'
                 ? 'Ajusta filtros o búsqueda para ver resultados.'
                 : 'Crea tu primera unidad para empezar.'}
             </div>
-            {(!searchTerm && filterMode === 'all' && selectedCategory === 'all') && (
+            {(!searchTerm && filterMode === 'all' && selectedFamily === 'all') && (
               <div className="mt-4">
                 <Button
                   onClick={openCreateUnitModal}
@@ -616,12 +750,12 @@ export function UnitsSection({
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       <Select
-                        label="Categoría"
-                        value={modalForm.category}
-                        onChange={(e) => setModalForm(prev => ({ ...prev, category: e.target.value as Category }))}
-                        options={UNIT_CATEGORIES.map((cat) => ({
-                          value: cat.value,
-                          label: cat.label
+                        label="Familia"
+                        value={modalForm.family}
+                        onChange={(e) => setModalForm(prev => ({ ...prev, family: e.target.value as Family }))}
+                        options={UNIT_FAMILIES.map((family) => ({
+                          value: family.value,
+                          label: family.label
                         }))}
                         disabled={unitModalMode === 'edit'}
                         required
@@ -633,9 +767,9 @@ export function UnitsSection({
                         value={modalForm.commercialSymbol}
                         onChange={(e) => handleModalCommercialSymbolChange(e.target.value)}
                         error={errors.commercialSymbol}
-                        helperText={errors.commercialSymbol || 'Máx. 10 (A-Z, 0-9 y . _ - /)'}
-                        placeholder="UND"
-                        maxLength={10}
+                        helperText={errors.commercialSymbol || 'Máx. 60 (letras/números y . _ - /)'}
+                        placeholder={sunatLabel || 'Símbolo'}
+                        maxLength={60}
                         required
                       />
                     </div>
