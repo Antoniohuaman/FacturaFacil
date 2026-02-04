@@ -129,7 +129,7 @@ export function BankAccountsSection() {
           </div>
           <h3 className="mt-3 text-base font-semibold text-gray-900">Aún no tienes cuentas bancarias</h3>
           <p className="mt-1 text-sm text-gray-600">
-            Registra las cuentas que usarás para pagos y conciliaciones.
+            Registra tus cuentas que usarás cuando gestiones tus cobranzas.
           </p>
           <div className="mt-4">
             <Button
@@ -256,7 +256,7 @@ export function BankAccountsSection() {
             <Banknote className="h-4 w-4 text-blue-600" />
             <span>Cuentas bancarias</span>
           </div>
-          <p className="text-sm text-gray-600">Gestiona cuentas bancarias del negocio.</p>
+          
         </div>
         <div className="flex items-center gap-2">
           <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">{accounts.length} cuentas</div>

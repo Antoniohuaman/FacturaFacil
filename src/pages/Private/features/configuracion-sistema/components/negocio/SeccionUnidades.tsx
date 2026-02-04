@@ -387,9 +387,7 @@ export function UnitsSection({
       <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
         <div>
           <h3 className="text-xl font-bold text-gray-900">Unidades de Medida</h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Gestiona las unidades SUNAT y crea unidades personalizadas
-          </p>
+          
         </div>
         <div className="flex items-center space-x-3">
           <Button
@@ -488,7 +486,6 @@ export function UnitsSection({
       {favoriteUnits.length > 0 && (
         <TarjetaConfiguracion
           title="⭐ Unidades Favoritas"
-          description="Acceso rápido a tus unidades más utilizadas"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {favoriteUnits.map((unit) => {
@@ -914,58 +911,7 @@ export function UnitsSection({
         </div>
       )}
 
-      {/* Sección de Ayuda Mejorada */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-        <div className="flex items-start space-x-4">
-          <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Scale className="w-6 h-6 text-white" />
-          </div>
-          <div className="flex-1">
-            <h4 className="text-lg font-semibold text-blue-900 mb-3">
-              💡 Guía Rápida de Unidades
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <div className="flex items-start space-x-2">
-                  <span className="text-blue-600 font-bold">⚡</span>
-                  <span className="text-blue-800">
-                    <strong>Favoritos:</strong> Marca las unidades que más uses para acceso rápido
-                  </span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <span className="text-blue-600 font-bold">👁️</span>
-                  <span className="text-blue-800">
-                    <strong>Visibilidad:</strong> Oculta unidades que no necesites en selectores
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-start space-x-2">
-                  <span className="text-blue-600 font-bold">🏆</span>
-                  <span className="text-blue-800">
-                    <strong>Por defecto:</strong> Se selecciona automáticamente en nuevos productos
-                  </span>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <span className="text-blue-600 font-bold">📋</span>
-                  <span className="text-blue-800">
-                    <strong>SUNAT:</strong> Usa códigos oficiales para facturación electrónica
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-              <p className="text-xs text-blue-700 flex items-center space-x-1">
-                <span>ℹ️</span>
-                <span>
-                  Las unidades del sistema SUNAT no se pueden eliminar, pero sí ocultar.
-                  Tus unidades personalizadas aparecen destacadas y son completamente editables.
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      
     </div>
   );
 }
