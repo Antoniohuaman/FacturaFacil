@@ -1,6 +1,6 @@
 // src/features/configuration/components/negocio/TaxesSection.tsx
 import { useMemo, useState } from 'react';
-import { Receipt, Calculator, AlertCircle, Info, Settings } from 'lucide-react';
+import { Receipt, Calculator, Settings } from 'lucide-react';
 import { RadioButton } from '@/contasis';
 import { InterruptorConfiguracion as SettingsToggle } from '../comunes/InterruptorConfiguracion';
 import { SelectorPredeterminado as DefaultSelector } from '../comunes/SelectorPredeterminado';
@@ -44,34 +44,7 @@ export function TaxesSection({
     }
   };
 
-  const getExampleCalculation = () => {
-    const basePrice = 100;
-    const igvRate = 0.18; // 18%
-
-    if (pricesIncludeTax) {
-      // Prices include IGV
-      const priceWithIgv = basePrice;
-      const priceWithoutIgv = basePrice / (1 + igvRate);
-      const igvAmount = priceWithIgv - priceWithoutIgv;
-
-      return {
-        display: `S/ ${basePrice.toFixed(2)}`,
-        breakdown: `Base: S/ ${priceWithoutIgv.toFixed(2)} + IGV: S/ ${igvAmount.toFixed(2)} = S/ ${priceWithIgv.toFixed(2)}`
-      };
-    } else {
-      // Prices don't include IGV
-      const priceWithoutIgv = basePrice;
-      const igvAmount = priceWithoutIgv * igvRate;
-      const priceWithIgv = priceWithoutIgv + igvAmount;
-
-      return {
-        display: `S/ ${priceWithoutIgv.toFixed(2)}`,
-        breakdown: `Base: S/ ${priceWithoutIgv.toFixed(2)} + IGV: S/ ${igvAmount.toFixed(2)} = S/ ${priceWithIgv.toFixed(2)}`
-      };
-    }
-  };
-
-  const example = getExampleCalculation();
+  
 
   if (isLoading) {
     return (
@@ -97,7 +70,6 @@ export function TaxesSection({
       {/* Price Configuration */}
       <TarjetaConfiguracion
         title="Configuración de Precios"
-        description="Define si los precios de tus productos incluyen o no el IGV"
         icon={Calculator}
       >
         <div className="space-y-6">
@@ -120,15 +92,6 @@ export function TaxesSection({
                 />
                 <div className="flex-1">
                   <h4 className="font-medium text-gray-900">Precios con IGV</h4>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Los precios que ingresas ya incluyen el IGV (18%)
-                  </p>
-                  <div className="mt-3 p-2 bg-white rounded border">
-                    <p className="text-xs text-gray-500">Ejemplo:</p>
-                    <p className="font-mono text-sm text-gray-900">
-                      Precio ingresado: S/ 100.00 (incluye IGV)
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -151,48 +114,22 @@ export function TaxesSection({
                 />
                 <div className="flex-1">
                   <h4 className="font-medium text-gray-900">Precios sin IGV</h4>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Los precios que ingresas no incluyen IGV, se calcula automáticamente
-                  </p>
-                  <div className="mt-3 p-2 bg-white rounded border">
-                    <p className="text-xs text-gray-500">Ejemplo:</p>
-                    <p className="font-mono text-sm text-gray-900">
-                      Precio base: S/ 100.00 + IGV: S/ 18.00 = S/ 118.00
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Example Calculation */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <Calculator className="w-4 h-4 text-gray-600" />
-              <h4 className="font-medium text-gray-900">Ejemplo de Cálculo</h4>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm">
-                <span className="text-gray-600">Precio mostrado al cliente:</span>
-                <span className="ml-2 font-mono font-semibold">{example.display}</span>
-              </p>
-              <p className="text-xs text-gray-500">{example.breakdown}</p>
-            </div>
-          </div>
+          
         </div>
       </TarjetaConfiguracion>
 
       {/* Tax Affectations */}
       <TarjetaConfiguracion
         title="Afectaciones Tributarias"
-        description="Configura los tipos de afectación fiscal disponibles para tus productos"
         icon={Settings}
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">
-              Define aquí los impuestos disponibles y cuál será el predeterminado.
-            </p>
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
@@ -294,41 +231,8 @@ export function TaxesSection({
             </table>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-3">
-            <div className="flex items-start space-x-3">
-              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-medium text-blue-900">Estado de impuestos</h4>
-                <p className="text-sm text-blue-800 mt-1">
-                  <span className="font-semibold">Visible</span> controla qué impuestos aparecen
-                  como opciones en los desplegables de productos y ventas.
-                </p>
-                <p className="text-sm text-blue-800 mt-1">
-                  El impuesto marcado como <span className="font-semibold">por defecto</span> es
-                  la selección inicial sugerida en esos desplegables y siempre debe estar visible.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       </TarjetaConfiguracion>
-
-      {/* Help and Documentation */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-amber-900">Importante sobre Configuración Fiscal</h4>
-            <ul className="text-sm text-amber-800 mt-2 space-y-1">
-              <li>• La configuración de precios afecta cómo se muestran y calculan los importes en todo el sistema</li>
-              <li>• Siempre debe existir exactamente un impuesto marcado como por defecto y este debe estar visible</li>
-              <li>• Visible define qué impuestos aparecen en los desplegables; ocultar uno lo quita de esas opciones</li>
-              <li>• Cambiar el impuesto por defecto no modifica comprobantes ya emitidos, solo nuevas operaciones</li>
-              <li>• Consulta con un contador si no estás seguro de la configuración fiscal correcta</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
