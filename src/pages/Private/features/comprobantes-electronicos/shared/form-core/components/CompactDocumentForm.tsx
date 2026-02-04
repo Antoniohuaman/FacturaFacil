@@ -234,6 +234,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const [showCreditPaymentMethodModal, setShowCreditPaymentMethodModal] = useState(false);
   const [lastValidFormaPago, setLastValidFormaPago] = useState<string>(formaPago);
   const valoresInicialesAplicadosRef = useRef(false);
+  const autoFilledSearchQueryRef = useRef<string | null>(null);
 
   const onOptionalFieldsChangeRef = useRef(onOptionalFieldsChange);
   const onClienteChangeRef = useRef(onClienteChange);
@@ -288,8 +289,32 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     if (searchQuery.trim().length > 0) {
       return;
     }
-    setSearchQuery(formatClienteDisplayValue(clienteSeleccionadoLocal));
+    const nextQuery = formatClienteDisplayValue(clienteSeleccionadoLocal);
+    autoFilledSearchQueryRef.current = nextQuery;
+    setSearchQuery(nextQuery);
   }, [clienteSeleccionadoLocal, searchQuery]);
+
+  useEffect(() => {
+    // Si el cliente se limpia desde fuera, limpiar el input solo si estaba auto-rellenado.
+    if (clienteSeleccionadoLocal) {
+      return;
+    }
+    if (!autoFilledSearchQueryRef.current) {
+      return;
+    }
+    if (searchQuery !== autoFilledSearchQueryRef.current) {
+      return;
+    }
+    autoFilledSearchQueryRef.current = null;
+    setSearchQuery('');
+  }, [clienteSeleccionadoLocal, searchQuery]);
+
+  useEffect(() => {
+    // Si el usuario escribe manualmente, olvidar el último auto-relleno.
+    if (autoFilledSearchQueryRef.current && searchQuery !== autoFilledSearchQueryRef.current) {
+      autoFilledSearchQueryRef.current = null;
+    }
+  }, [searchQuery]);
 
   useEffect(() => {
     setLastValidFormaPago(formaPago);
@@ -502,7 +527,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       priceProfileId: selected.priceProfileId,
     });
 
-    setSearchQuery(formatClienteDisplayValue(selected));
+    const nextQuery = formatClienteDisplayValue(selected);
+    setSearchQuery(nextQuery);
+    autoFilledSearchQueryRef.current = nextQuery;
     setClientDocError(null);
   };
 
@@ -615,7 +642,9 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         },
         origen: fromLookup.origen,
       });
-      setSearchQuery(formatClienteDisplayValue(selectedClient));
+      const nextQuery = formatClienteDisplayValue(selectedClient);
+      setSearchQuery(nextQuery);
+      autoFilledSearchQueryRef.current = nextQuery;
       setClientDocError(null);
     } finally {
       setIsLookupLoading(false);

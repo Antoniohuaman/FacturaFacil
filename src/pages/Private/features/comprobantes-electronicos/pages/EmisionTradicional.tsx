@@ -39,7 +39,7 @@ import { SuccessModal } from '../shared/modales/SuccessModal';
 import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
 import { PreviewDocument } from '../shared/ui/PreviewDocument';
 
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
@@ -120,12 +120,26 @@ type EstadoBorradorEmisionDefaults = {
 
 const EmisionTradicional = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { status: cajaStatus } = useCaja();
   const gateCajaCerradaActivo = cajaStatus !== 'abierta';
   const abrirCajaButtonRef = useRef<HTMLButtonElement>(null);
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
   const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
   const autoTourLanzadoRef = useRef(false);
+
+  const isDuplicateFlow = useMemo(() => {
+    const state = location.state as any;
+    return Boolean(state?.duplicate || (state?.fromConversion === true && state?.conversionData));
+  }, [location.state]);
+
+  const tipoFromQuery = useMemo<TipoComprobante | null>(() => {
+    const tipo = new URLSearchParams(location.search).get('tipo');
+    if (tipo === 'factura' || tipo === 'boleta') {
+      return tipo;
+    }
+    return null;
+  }, [location.search]);
 
   const handleGateFocusCapture = useCallback(
     (event: FocusEvent) => {
@@ -187,7 +201,22 @@ const EmisionTradicional = () => {
     convertPrice,
   } = useCurrency();
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
-  const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
+  const { tipoComprobante, setTipoComprobante: setTipoComprobanteCore, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
+
+  const tipoFromQueryAppliedRef = useRef(false);
+  useEffect(() => {
+    // Prioridad: Duplicación > ?tipo=... > Borrador/Defaults; se aplica 1 vez para evitar loops.
+    if (tipoFromQueryAppliedRef.current) return;
+    if (!tipoFromQuery) return;
+    if (isDuplicateFlow) return;
+
+    // Solo forzar si es distinto (setTipoComprobante también resetea la serie).
+    if (tipoComprobante !== tipoFromQuery) {
+      setTipoComprobanteCore(tipoFromQuery);
+    }
+    tipoFromQueryAppliedRef.current = true;
+  }, [isDuplicateFlow, setTipoComprobanteCore, tipoComprobante, tipoFromQuery]);
+
   const { openPreview, showPreview, closePreview } = usePreview();
   const { state: configState } = useConfigurationContext();
 
@@ -228,6 +257,52 @@ const EmisionTradicional = () => {
   const [cuotasManual, setCuotasManual] = useState<CreditInstallment[]>([]);
   const [creditoManualConfirmado, setCreditoManualConfirmado] = useState(false);
 
+  const clienteSeleccionadoGlobalRef = useRef<ClienteSeleccionadoEmision>(null);
+  useEffect(() => {
+    clienteSeleccionadoGlobalRef.current = clienteSeleccionadoGlobal;
+  }, [clienteSeleccionadoGlobal]);
+
+  const setTipoComprobanteFromUI = useCallback((nextTipo: TipoComprobante) => {
+    if (nextTipo === tipoComprobante) {
+      return;
+    }
+
+    setTipoComprobanteCore(nextTipo);
+
+    const cliente = clienteSeleccionadoGlobalRef.current;
+    if (!cliente) {
+      return;
+    }
+
+    const tipoDoc = String(cliente.tipoDocumento ?? '').trim().toUpperCase();
+    const numeroDoc = onlyDigits(cliente.dni ?? '');
+    const esRuc = tipoDoc === 'RUC' || numeroDoc.length === 11;
+    const esCompatible = nextTipo === 'factura' ? esRuc : !esRuc;
+
+    if (esCompatible) {
+      return;
+    }
+
+    setClienteSeleccionadoGlobal(null);
+    setOptionalFields((prev) => {
+      const next = { ...prev };
+      if (typeof next.direccion === 'string' && next.direccion === cliente.direccion) {
+        delete next.direccion;
+      }
+      if (typeof next.correo === 'string' && next.correo === cliente.email) {
+        delete next.correo;
+      }
+      return next;
+    });
+
+    error(
+      'Cliente incompatible',
+      nextTipo === 'factura'
+        ? 'Para Factura selecciona un cliente con RUC.'
+        : 'Para Boleta selecciona un cliente con DNI o Sin documento.',
+    );
+  }, [error, setTipoComprobanteCore, tipoComprobante]);
+
   // ✅ Hook para cargar datos de duplicación (refactorizado)
   useDuplicateDataLoader({
     setClienteSeleccionadoGlobal,
@@ -236,7 +311,7 @@ const EmisionTradicional = () => {
     setNotaInterna,
     setFormaPago,
     changeCurrency,
-    setTipoComprobante,
+    setTipoComprobante: setTipoComprobanteCore,
     setOptionalFields
   });
 
@@ -525,8 +600,9 @@ const EmisionTradicional = () => {
     }),
     convertirAStorage: (estado) => estado,
     aplicarDesdeStorage: (borrador) => {
-      if (borrador.tipoComprobante) {
-        setTipoComprobante(borrador.tipoComprobante);
+      const permitirTipoDesdeBorrador = !isDuplicateFlow && !tipoFromQuery;
+      if (borrador.tipoComprobante && permitirTipoDesdeBorrador) {
+        setTipoComprobanteCore(borrador.tipoComprobante);
       }
       if (borrador.serieSeleccionada) {
         setSerieSeleccionada(borrador.serieSeleccionada);
@@ -1203,7 +1279,7 @@ const EmisionTradicional = () => {
                 {/* ✅ Formulario Compacto - Todos los campos organizados */}
                 <CompactDocumentForm
                   tipoComprobante={tipoComprobante}
-                  setTipoComprobante={setTipoComprobante}
+                  setTipoComprobante={setTipoComprobanteFromUI}
                   serieSeleccionada={serieSeleccionada}
                   setSerieSeleccionada={setSerieSeleccionada}
                   seriesFiltradas={seriesFiltradas}
