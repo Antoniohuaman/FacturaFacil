@@ -2,46 +2,22 @@ import { useState, useCallback } from 'react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import type { PaymentMethod, CreatePaymentMethodRequest } from '../modelos/PaymentMethod';
 import { SUNAT_PAYMENT_METHODS } from '../modelos/PaymentMethod';
-import type { Currency, CreateCurrencyRequest, ExchangeRate } from '../modelos/Currency';
+import type { Currency } from '../modelos/Currency';
 import type { Unit } from '../modelos';
 import type { Tax } from '../modelos/Tax';
 import { PERU_TAX_TYPES } from '../modelos/Tax';
 
 interface UseBusinessReturn {
-  // Payment Methods
   paymentMethods: PaymentMethod[];
   createPaymentMethod: (data: CreatePaymentMethodRequest) => Promise<PaymentMethod>;
   updatePaymentMethod: (id: string, data: Partial<PaymentMethod>) => Promise<PaymentMethod>;
   deletePaymentMethod: (id: string) => Promise<void>;
   setDefaultPaymentMethod: (id: string) => Promise<void>;
-  
-  // Currencies
   currencies: Currency[];
-  createCurrency: (data: CreateCurrencyRequest) => Promise<Currency>;
-  updateCurrency: (id: string, data: Partial<Currency>) => Promise<Currency>;
-  deleteCurrency: (id: string) => Promise<void>;
-  setBaseCurrency: (id: string) => Promise<void>;
-  updateExchangeRate: (currencyId: string, rate: number) => Promise<void>;
-  getExchangeRateHistory: (currencyId: string) => Promise<ExchangeRate[]>;
-  
-  // Units
   units: Unit[];
-  createUnit: (data: Partial<Unit>) => Promise<Unit>;
-  updateUnit: (id: string, data: Partial<Unit>) => Promise<Unit>;
-  deleteUnit: (id: string) => Promise<void>;
-  
-  // Taxes
   taxes: Tax[];
-  createTax: (data: Partial<Tax>) => Promise<Tax>;
-  updateTax: (id: string, data: Partial<Tax>) => Promise<Tax>;
-  deleteTax: (id: string) => Promise<void>;
-  setDefaultTax: (id: string) => Promise<void>;
-  
-  // Loading and error states
   loading: boolean;
   error: string | null;
-  
-  // Utilities
   initializeDefaults: () => Promise<void>;
   getBusinessConfigurationStatus: () => {
     hasPaymentMethods: boolean;
@@ -52,7 +28,6 @@ interface UseBusinessReturn {
   };
 }
 
-// TODO: reemplazar por API real de configuración de métodos de pago (no agregar más datos mock)
 const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
   {
     id: 'pm-1',
@@ -127,9 +102,6 @@ const MOCK_CURRENCIES: Currency[] = [
   },
 ];
 
-// Canonical default tax options for business configuration, derived from PERU_TAX_TYPES
-// to avoid mantener múltiples listas divergentes. La normalización de invariantes se
-// realiza también en el reducer global, pero aquí generamos un set coherente.
 const MOCK_TAXES: Tax[] = PERU_TAX_TYPES
   .filter(tax => ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'].includes(tax.code))
   .map<Tax>((tax, index) => {
@@ -154,16 +126,13 @@ export function useBusiness(): UseBusinessReturn {
   const units = state.units;
   const taxes = state.taxes;
 
-  // Initialize default business data
   const initializeDefaults = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Set default data if not already present
       if (paymentMethods.length === 0) {
         dispatch({ type: 'SET_PAYMENT_METHODS', payload: MOCK_PAYMENT_METHODS });
       }
@@ -183,19 +152,16 @@ export function useBusiness(): UseBusinessReturn {
     }
   }, [paymentMethods, currencies, taxes, dispatch]);
 
-  // Payment Methods
   const createPaymentMethod = useCallback(async (data: CreatePaymentMethodRequest): Promise<PaymentMethod> => {
     setLoading(true);
     setError(null);
     
     try {
-      // Validate code uniqueness
       const exists = paymentMethods.some(pm => pm.code === data.code);
       if (exists) {
         throw new Error('Ya existe un método de pago con este código');
       }
       
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 600));
       
       const newPaymentMethod: PaymentMethod = {
@@ -230,7 +196,6 @@ export function useBusiness(): UseBusinessReturn {
     setError(null);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
       
       const updated: PaymentMethod = {
@@ -267,7 +232,6 @@ export function useBusiness(): UseBusinessReturn {
     setError(null);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 400));
       
       const updatedList = paymentMethods.filter(pm => pm.id !== id);
@@ -291,10 +255,8 @@ export function useBusiness(): UseBusinessReturn {
     setError(null);
     
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Update all payment methods to set new default
       const updatedMethods = paymentMethods.map(pm => ({
         ...pm,
         isDefault: pm.id === id
@@ -308,7 +270,6 @@ export function useBusiness(): UseBusinessReturn {
     }
   }, [paymentMethods, dispatch]);
 
-  // Business configuration status
   const getBusinessConfigurationStatus = useCallback(() => {
     return {
       hasPaymentMethods: paymentMethods.length > 0,
@@ -320,40 +281,16 @@ export function useBusiness(): UseBusinessReturn {
   }, [paymentMethods, currencies, units, taxes]);
 
   return {
-    // Payment Methods
     paymentMethods,
     createPaymentMethod,
     updatePaymentMethod,
     deletePaymentMethod,
     setDefaultPaymentMethod,
-    
-    // Currencies (placeholder functions)
     currencies,
-    createCurrency: async () => { throw new Error('Not implemented'); },
-    updateCurrency: async () => { throw new Error('Not implemented'); },
-    deleteCurrency: async () => { throw new Error('Not implemented'); },
-    setBaseCurrency: async () => { throw new Error('Not implemented'); },
-    updateExchangeRate: async () => { throw new Error('Not implemented'); },
-    getExchangeRateHistory: async () => { throw new Error('Not implemented'); },
-    
-    // Units (placeholder functions)
     units,
-    createUnit: async () => { throw new Error('Not implemented'); },
-    updateUnit: async () => { throw new Error('Not implemented'); },
-    deleteUnit: async () => { throw new Error('Not implemented'); },
-    
-    // Taxes (placeholder functions)
     taxes,
-    createTax: async () => { throw new Error('Not implemented'); },
-    updateTax: async () => { throw new Error('Not implemented'); },
-    deleteTax: async () => { throw new Error('Not implemented'); },
-    setDefaultTax: async () => { throw new Error('Not implemented'); },
-    
-    // Loading and error states
     loading,
     error,
-    
-    // Utilities
     initializeDefaults,
     getBusinessConfigurationStatus
   };
