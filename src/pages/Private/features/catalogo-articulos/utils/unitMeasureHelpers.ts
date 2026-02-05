@@ -9,15 +9,15 @@ export interface UnitFamilyOption {
 
 // Familias UI exactas (9) - orden requerido
 export const UNIT_FAMILY_OPTIONS: UnitFamilyOption[] = [
-  { value: 'OTHER', label: 'Servicios' },
-  { value: 'TIME', label: 'Tiempos' },
-  { value: 'WEIGHT', label: 'Pesos' },
-  { value: 'VOLUME', label: 'Volúmenes' },
-  { value: 'LENGTH', label: 'Longitudes' },
-  { value: 'AREA', label: 'Áreas' },
-  { value: 'ENERGY', label: 'Energías' },
   { value: 'QUANTITY', label: 'Cantidades' },
   { value: 'PACKAGING', label: 'Empaques' },
+  { value: 'WEIGHT', label: 'Pesos' },
+  { value: 'OTHER', label: 'Servicios' },
+  { value: 'VOLUME', label: 'Volúmenes' },
+  { value: 'AREA', label: 'Áreas' },
+  { value: 'LENGTH', label: 'Longitudes' },
+  { value: 'TIME', label: 'Tiempos' },
+  { value: 'ENERGY', label: 'Energías' },
 ];
 
 const FALLBACK_FAMILY: UnitFamily = 'QUANTITY';
