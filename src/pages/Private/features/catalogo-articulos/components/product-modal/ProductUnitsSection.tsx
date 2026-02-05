@@ -88,10 +88,11 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
   );
 };
 
-const resolveUnitLabelText = (unit: Unit): string => {
+// eslint-disable-next-line react-refresh/only-export-components
+export const resolveUnitLabelText = (unit: Unit): string => {
   const symbol = String(unit.symbol ?? '').trim();
   if (symbol) return symbol;
-  return unit.name;
+  return `(${unit.code}) ${unit.name}`;
 };
 
 export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = ({
@@ -122,7 +123,7 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
           {baseUnitOptions.length > 0 ? (
             baseUnitOptions.map(unit => (
               <option key={unit.id} value={unit.code}>
-                ({unit.code}) {resolveUnitLabelText(unit)}
+                {resolveUnitLabelText(unit)}
               </option>
             ))
           ) : (

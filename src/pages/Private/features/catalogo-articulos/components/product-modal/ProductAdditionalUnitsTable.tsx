@@ -3,6 +3,7 @@ import { Layers, Plus, Info, X, MinusCircle } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
 import type { ProductFormData } from '../../models/types';
 import type { AdditionalUnitError } from '../../hooks/useProductForm';
+import { resolveUnitLabelText } from './ProductUnitsSection';
 
 interface ProductAdditionalUnitsTableProps {
   unidadesMedidaAdicionales: ProductFormData['unidadesMedidaAdicionales'];
@@ -94,7 +95,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
                     <option value="">Seleccionar</option>
                     {options.map(option => (
                       <option key={option.id} value={option.code}>
-                        ({option.code}) {option.name}
+                        {resolveUnitLabelText(option)}
                       </option>
                     ))}
                   </select>
