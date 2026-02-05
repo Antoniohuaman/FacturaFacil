@@ -9,10 +9,8 @@ import type {
 import type { Product as CatalogProduct } from '../../../../catalogo-articulos/models/types';
 import { usePriceCalculator } from '../../../../lista-precios/hooks/usePriceCalculator';
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
-import { DEFAULT_UNIT_CODE, roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
+import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
 import { isMinAllowedColumn } from '../../../../lista-precios/utils/price-helpers/columns';
-import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
-import { SUNAT_UNITS } from '../../../../configuracion-sistema/modelos';
 
 export interface PriceColumnOption {
   columnId: string;
@@ -35,12 +33,6 @@ export interface UnitPriceResult {
   usedUnitCode?: string;
   usedColumnId?: string;
 }
-
-type UnitDictionaryEntry = {
-  code: string;
-  name?: string;
-  symbol?: string;
-};
 
 const normalizeUnitCode = (value?: string): string | undefined => {
   if (!value) return undefined;
@@ -88,76 +80,9 @@ const getUnitFactorFromCatalog = (product: CatalogProduct | undefined, targetUni
 
 export const usePriceBook = () => {
   const { columns, products } = usePriceCalculator();
-  const { state: configurationState } = useConfigurationContext();
-  const configuredUnits = configurationState.units;
   const { allProducts: catalogProducts } = useProductStore();
 
-  const unitEntries = useMemo<UnitDictionaryEntry[]>(() => {
-    const canonicalEntries: UnitDictionaryEntry[] = SUNAT_UNITS
-      .map(unit => ({
-        code: normalizeUnitCode(unit.code) ?? '',
-        name: unit.name,
-        symbol: unit.symbol
-      }))
-      .filter(entry => entry.code);
-    const companyEntries: UnitDictionaryEntry[] = configuredUnits
-      .map(unit => ({
-        code: normalizeUnitCode(unit.code) ?? '',
-        name: unit.name,
-        symbol: unit.symbol
-      }))
-      .filter(entry => entry.code);
-
-    const merged = new Map<string, UnitDictionaryEntry>();
-    [...canonicalEntries, ...companyEntries].forEach(entry => {
-      if (!entry.code) return;
-      merged.set(entry.code, entry);
-    });
-
-    return Array.from(merged.values());
-  }, [configuredUnits]);
-
-  const unitCodeDictionary = useMemo(() => {
-    const map = new Map<string, UnitDictionaryEntry>();
-    unitEntries.forEach(entry => {
-      map.set(entry.code, entry);
-    });
-    return map;
-  }, [unitEntries]);
-
-  const unitAliasDictionary = useMemo(() => {
-    const map = new Map<string, string>();
-    unitEntries.forEach(entry => {
-      map.set(entry.code, entry.code);
-      if (entry.name) {
-        const normalizedName = normalizeUnitCode(entry.name);
-        if (normalizedName) {
-          map.set(normalizedName, entry.code);
-        }
-      }
-      if (entry.symbol) {
-        const normalizedSymbol = normalizeUnitCode(entry.symbol);
-        if (normalizedSymbol) {
-          map.set(normalizedSymbol, entry.code);
-        }
-      }
-    });
-    return map;
-  }, [unitEntries]);
-
-  const coerceUnitCode = useCallback((value?: string) => {
-    const normalized = normalizeUnitCode(value);
-    if (!normalized) return undefined;
-    return unitAliasDictionary.get(normalized) || normalized;
-  }, [unitAliasDictionary]);
-
-  const formatUnitLabel = useCallback((value?: string) => {
-    const code = coerceUnitCode(value);
-    if (!code) return '';
-    const entry = unitCodeDictionary.get(code);
-    const descriptor = entry?.name || entry?.symbol;
-    return descriptor ? `${code} ${descriptor}` : code;
-  }, [coerceUnitCode, unitCodeDictionary]);
+  const coerceUnitCode = useCallback((value?: string) => normalizeUnitCode(value), []);
 
   const selectableColumns = useMemo<Column[]>(() => {
     return columns
@@ -185,6 +110,31 @@ export const usePriceBook = () => {
     });
     return map;
   }, [catalogProducts]);
+
+  const resolveUnitLabelForProduct = useCallback(
+    (product: CatalogProduct | undefined, unitCode?: string) => {
+      const normalized = normalizeUnitCode(unitCode);
+      if (!normalized) return '';
+      if (!product) return normalized;
+
+      const baseCode = normalizeUnitCode(product.unidad);
+      if (baseCode && baseCode === normalized) {
+        return product.unitSymbol || product.unitName || normalized;
+      }
+
+      const match = product.unidadesMedidaAdicionales?.find(
+        unit => normalizeUnitCode(unit.unidadCodigo) === normalized
+      );
+
+      return match?.unidadSymbol || match?.unidadName || normalized;
+    },
+    []
+  );
+
+  const getUnitLabelForSku = useCallback(
+    (sku: string, unitCode?: string) => resolveUnitLabelForProduct(catalogProductMap.get(sku), unitCode),
+    [catalogProductMap, resolveUnitLabelForProduct]
+  );
 
   const getUnitPriceWithFallback = useCallback((input: DerivedUnitPriceInput): UnitPriceResult => {
     const sku = input.sku;
@@ -229,7 +179,7 @@ export const usePriceBook = () => {
     const normalizedSelectedUnit = coerceUnitCode(input.selectedUnitCode)
       || coerceUnitCode(catalogProduct?.unidad)
       || coerceUnitCode(priceBookProduct.activeUnitCode)
-      || DEFAULT_UNIT_CODE;
+      || '';
 
     const explicitPriceValue = resolvePriceValue(columnPrices[normalizedSelectedUnit]);
     if (typeof explicitPriceValue === 'number') {
@@ -244,7 +194,7 @@ export const usePriceBook = () => {
 
     const baseUnitCode = coerceUnitCode(catalogProduct?.unidad)
       || coerceUnitCode(priceBookProduct.activeUnitCode)
-      || DEFAULT_UNIT_CODE;
+      || '';
 
     const baseUnitPriceValue = baseUnitCode ? resolvePriceValue(columnPrices[baseUnitCode]) : undefined;
     const factor = getUnitFactorFromCatalog(catalogProduct, normalizedSelectedUnit);
@@ -273,6 +223,7 @@ export const usePriceBook = () => {
 
     const registerUnit = (
       registry: Map<string, ProductUnitOption>,
+      sku: string,
       code?: string,
       isBase = false
     ) => {
@@ -287,7 +238,7 @@ export const usePriceBook = () => {
       }
       registry.set(normalized, {
         code: normalized,
-        label: formatUnitLabel(normalized),
+        label: getUnitLabelForSku(sku, normalized),
         isBase
       });
     };
@@ -296,22 +247,19 @@ export const usePriceBook = () => {
       const registry = new Map<string, ProductUnitOption>();
       const catalogProduct = catalogProductMap.get(product.sku);
 
-      registerUnit(registry, catalogProduct?.unidad, true);
-      catalogProduct?.unidadesMedidaAdicionales?.forEach(unit => registerUnit(registry, unit?.unidadCodigo));
+      registerUnit(registry, product.sku, catalogProduct?.unidad, true);
+      catalogProduct?.unidadesMedidaAdicionales?.forEach(unit => registerUnit(registry, product.sku, unit?.unidadCodigo));
 
-      registerUnit(registry, product.activeUnitCode, true);
+      registerUnit(registry, product.sku, product.activeUnitCode, true);
       Object.values(product.prices).forEach(unitPrices => {
-        Object.keys(unitPrices || {}).forEach(unitCode => registerUnit(registry, unitCode));
+        Object.keys(unitPrices || {}).forEach(unitCode => registerUnit(registry, product.sku, unitCode));
       });
 
-      if (registry.size === 0) {
-        registerUnit(registry, DEFAULT_UNIT_CODE, true);
-      }
       map.set(product.sku, Array.from(registry.values()));
     });
 
     return map;
-  }, [catalogProductMap, coerceUnitCode, formatUnitLabel, products]);
+  }, [catalogProductMap, coerceUnitCode, getUnitLabelForSku, products]);
 
   const getPriceOptionsFor = useCallback((sku: string, unitCode?: string): PriceColumnOption[] => {
     if (!sku) return [];
@@ -340,7 +288,7 @@ export const usePriceBook = () => {
     const options = unitOptionsBySku.get(sku);
     const candidate = coerceUnitCode(requestedUnit);
     if (!options || options.length === 0) {
-      return candidate || DEFAULT_UNIT_CODE;
+      return candidate || '';
     }
     if (candidate) {
       if (options.some(option => option.code === candidate)) {
@@ -366,7 +314,7 @@ export const usePriceBook = () => {
     globalIncreaseColumn,
     getUnitOptionsForSku,
     getPreferredUnitForSku,
-    formatUnitLabel,
+    getUnitLabelForSku,
     getPriceOptionsFor,
     resolveMinPrice,
     getUnitPriceWithFallback

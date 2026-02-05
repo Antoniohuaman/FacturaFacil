@@ -9,7 +9,6 @@ import type { CatalogProduct, Column, FixedPrice, Product } from '../models/Pric
 import type { ImportTableColumnConfig, PriceImportPreviewRow } from '../models/PriceImportTypes';
 import {
   BASE_COLUMN_ID,
-  DEFAULT_UNIT_CODE,
   MIN_ALLOWED_COLUMN_ID,
   filterVisibleColumns,
   getColumnDisplayName,
@@ -284,14 +283,14 @@ const parseRawRows = (
 
     const unitCell = String(normalizedValues[headerIndex[UNIT_HEADER]] ?? '').trim().toUpperCase();
     const allowedUnits = collectAllowedUnits(catalogProduct, existingProduct);
-    const fallbackUnit = unitCell || catalogProduct?.unidad?.toUpperCase() || existingProduct?.activeUnitCode?.toUpperCase() || DEFAULT_UNIT_CODE;
+    const fallbackUnit = unitCell || catalogProduct?.unidad?.toUpperCase() || existingProduct?.activeUnitCode?.toUpperCase() || '';
     const unitCode = fallbackUnit;
 
     if (allowedUnits.size > 0 && unitCode && !allowedUnits.has(unitCode)) {
       errors.push(`La unidad ${unitCode} no es válida para este SKU.`);
     }
 
-    if (!unitCell && allowedUnits.size > 1) {
+    if (!unitCell && unitCode && allowedUnits.size > 1) {
       warnings.push(`Se usó la unidad ${unitCode} por defecto.`);
     }
 

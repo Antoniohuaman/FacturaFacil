@@ -169,7 +169,7 @@ const FormularioCotizacion = () => {
             name: item.name || item.descripcion,
             description: item.descripcion || '',
             price: item.price || item.precioUnitario,
-            unit: item.unit || item.unidad || 'UND',
+            unit: item.unit || item.unidad || '',
             stock: 9999,
             category: '',
             taxType: item.taxType || item.tipoImpuesto || 'IGV'

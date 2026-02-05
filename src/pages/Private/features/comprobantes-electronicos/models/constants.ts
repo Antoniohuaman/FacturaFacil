@@ -2,7 +2,7 @@
 // CONSTANTES DEL SISTEMA DE COMPROBANTES ELECTRÓNICOS
 // ===================================================================
 
-import type { CurrencyInfo, CajaIntegrationConfig, UnidadMedida } from './comprobante.types';
+import type { CurrencyInfo, CajaIntegrationConfig } from './comprobante.types';
 import { DEFAULT_BASE_CURRENCY_CODE } from '@/shared/currency';
 
 // ===================================================================
@@ -24,16 +24,6 @@ export const CURRENCIES: Record<string, CurrencyInfo> = {
 };
 
 export const DEFAULT_CURRENCY = DEFAULT_BASE_CURRENCY_CODE;
-
-// ===================================================================
-// UNIDADES DE MEDIDA SUNAT
-// ===================================================================
-export const UNIDADES_MEDIDA: UnidadMedida[] = [
-  { value: 'UNIDAD', label: 'NIU', fullLabel: '(NIU) UNIDAD' },
-  { value: 'DOCENA', label: 'DZN', fullLabel: '(DZN) DOCENA' },
-  { value: 'CENTIMOS', label: 'CMT', fullLabel: '(CMT) CENTIMOS' },
-  { value: 'KILOGRAMO', label: 'KGM', fullLabel: '(KGM) KILOGRAMO' }
-];
 
 // ===================================================================
 // SERIES DE COMPROBANTES

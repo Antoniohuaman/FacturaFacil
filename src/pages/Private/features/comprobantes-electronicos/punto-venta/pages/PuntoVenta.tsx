@@ -44,7 +44,7 @@ const PuntoVenta = () => {
     selectedPriceListId,
     setSelectedPriceListId,
     getUnitOptionsForProduct,
-    formatUnitLabel,
+    getUnitLabelForSku,
     getPreferredUnitForSku,
     getPriceForProduct,
     onCartItemUnitChange,
@@ -253,7 +253,7 @@ const PuntoVenta = () => {
                 selectedPriceListId={selectedPriceListId}
                 onPriceListChange={setSelectedPriceListId}
                 getUnitOptionsForProduct={getUnitOptionsForProduct}
-                formatUnitLabel={formatUnitLabel}
+                getUnitLabelForSku={getUnitLabelForSku}
                 getPreferredUnitForSku={getPreferredUnitForSku}
                 getPriceForProduct={getPriceForProduct}
                 activePriceListLabel={activePriceListLabel}
@@ -274,7 +274,6 @@ const PuntoVenta = () => {
                   onUpdatePrice={updateCartItemPrice}
                   onCartItemUnitChange={onCartItemUnitChange}
                   getUnitOptionsForProduct={getUnitOptionsForProduct}
-                  formatUnitLabel={formatUnitLabel}
                   discount={discount}
                   onApplyDiscount={applyDiscount}
                   onClearDiscount={clearDiscount}

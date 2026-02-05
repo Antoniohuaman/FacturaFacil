@@ -1,6 +1,6 @@
 import type { Product as CatalogProduct } from '../../pages/Private/features/catalogo-articulos/models/types';
 
-const DEFAULT_UNIT_CODE = 'NIU';
+const DEFAULT_UNIT_CODE = '';
 
 const toNumber = (value: unknown): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {

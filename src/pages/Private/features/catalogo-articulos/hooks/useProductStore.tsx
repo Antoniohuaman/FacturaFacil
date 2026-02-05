@@ -570,7 +570,9 @@ function mergeFilters(current: FilterOptions, changes: Partial<FilterOptions>): 
 
 function buildProduct(existing: Product | undefined, input: Partial<ProductInput>): Product {
   const now = new Date();
-  const unidad = (input.unidad ?? existing?.unidad ?? 'NIU') as Product['unidad'];
+  const unidad = (input.unidad ?? existing?.unidad ?? '') as Product['unidad'];
+  const unitSymbol = input.unitSymbol ?? existing?.unitSymbol;
+  const unitName = input.unitName ?? existing?.unitName;
   const rawBarcode = input.codigoBarras ?? existing?.codigoBarras;
   const normalizedBarcode = normalizeBarcodeValue(rawBarcode);
   const producto: Product = {
@@ -580,6 +582,8 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     codigo: (input.codigo ?? existing?.codigo ?? generateId('PROD')).trim(),
     nombre: (input.nombre ?? existing?.nombre ?? 'Producto sin nombre').trim(),
     unidad,
+    unitSymbol,
+    unitName,
     precio: existing?.precio ?? 0,
     categoria: input.categoria ?? existing?.categoria ?? '',
     descripcion: input.descripcion ?? existing?.descripcion,
@@ -634,6 +638,8 @@ function mapFormDataToInput(data: ProductFormData): ProductInput {
     nombre: data.nombre,
     codigo: data.codigo,
     unidad: data.unidad,
+    unitSymbol: data.unidadSymbol,
+    unitName: data.unidadName,
     categoria: data.categoria?.trim() || '',
     descripcion: data.descripcion,
     impuesto: data.impuesto,

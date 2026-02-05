@@ -1,6 +1,6 @@
 import type { CatalogProduct, Column, Product } from '../../models/PriceTypes';
 import type { EffectivePriceMatrix, EffectivePriceResult } from '../../models/EffectivePriceTypes';
-import { DEFAULT_UNIT_CODE, getFixedPriceValue, roundCurrency } from './pricing';
+import { getFixedPriceValue, roundCurrency } from './pricing';
 import { applyGlobalRule, findBaseColumn, isGlobalColumn } from './columns';
 
 export const getEffectivePriceFromBase = (
@@ -49,7 +49,10 @@ const collectUnitMetas = (product: Product, catalogProduct?: CatalogProduct): Un
   });
 
   if (metas.length === 0) {
-    addUnit(product.activeUnitCode || catalogProduct?.unidad || DEFAULT_UNIT_CODE, true, 1);
+    const fallbackUnit = product.activeUnitCode || catalogProduct?.unidad;
+    if (fallbackUnit) {
+      addUnit(fallbackUnit, true, 1);
+    }
   }
 
   return metas;

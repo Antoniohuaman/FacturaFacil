@@ -35,6 +35,7 @@ interface Product {
   imagen?: string;
   codigoSunat?: string;
   unidad?: string; // ✅ Nombre de la unidad del producto
+  unitSymbol?: string;
 }
 
 interface ProductSelectorProps {
@@ -103,6 +104,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       imagen: p.imagen,
       codigoSunat: p.codigoSunat,
       unidad: p.unidad,
+      unitSymbol: p.unitSymbol,
     };
   }, [EstablecimientoId, almacenes]);
 

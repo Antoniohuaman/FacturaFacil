@@ -15,7 +15,6 @@ interface CartItemsListProps {
   onRemoveItem: (id: string) => void;
   onUpdateUnit: (id: string, unitCode: string) => void;
   getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
-  formatUnitLabel: (code?: string) => string;
 }
 
 export const CartItemsList: React.FC<CartItemsListProps> = ({
@@ -28,8 +27,12 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
   onRemoveItem,
   onUpdateUnit,
   getUnitOptionsForProduct,
-  formatUnitLabel,
 }) => {
+  const resolveItemUnitLabel = (unitCode?: string, unitSymbol?: string) => {
+    const symbol = (unitSymbol ?? '').trim();
+    if (symbol) return symbol;
+    return (unitCode ?? '').trim();
+  };
   const { formatPrice, convertPrice, baseCurrency, documentCurrency, availableCurrencies } = useCurrency();
   const documentCurrencyCode = (currency ?? documentCurrency.code) as Currency;
   const currencyMeta = availableCurrencies.find((item) => item.code === documentCurrencyCode);
@@ -130,14 +133,14 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
           const normalizedOptions = unitOptions.length > 0
             ? unitOptions
             : fallbackUnit
-              ? [{ code: fallbackUnit, label: formatUnitLabel(fallbackUnit) || fallbackUnit, isBase: true }]
+              ? [{ code: fallbackUnit, label: resolveItemUnitLabel(fallbackUnit, item.unitSymbol) || fallbackUnit, isBase: true }]
               : [];
           const currentUnitCode = fallbackUnit || normalizedOptions[0]?.code || '';
           const optionsWithSelection = currentUnitCode && normalizedOptions.every(option => option.code !== currentUnitCode)
             ? [
                 {
                   code: currentUnitCode,
-                  label: formatUnitLabel(currentUnitCode) || currentUnitCode,
+                  label: resolveItemUnitLabel(currentUnitCode, item.unitSymbol) || currentUnitCode,
                   isBase: true,
                 },
                 ...normalizedOptions,

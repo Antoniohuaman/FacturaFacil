@@ -4,7 +4,6 @@ import type { EffectivePriceMatrix, EffectivePriceResult } from '../utils/priceH
 import { isGlobalColumn } from '../utils/priceHelpers';
 import { VolumeMatrixModal } from './modals/VolumeMatrixModal';
 import { PriceModal } from './modals/PriceModal';
-import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { ProductPricingTable } from './product-pricing/ProductPricingTable';
 import type { CellStatus, InlineCellState } from './product-pricing/types';
 import { FALLBACK_UNIT_CODE, cellKey, getDefaultValidityRange } from './product-pricing/utils';
@@ -49,13 +48,6 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const baseColumnId = orderedColumns.find(column => column.isBase)?.id;
   const firstVolumeColumn = useMemo(() => orderedColumns.find(column => column.mode === 'volume' && !isGlobalColumn(column)), [orderedColumns]);
 
-  const { state: configState } = useConfigurationContext();
-  const measurementUnits = configState.units;
-
-  const unitsByCode = useMemo(() => {
-    return new Map(measurementUnits.map(unit => [unit.code, unit] as const));
-  }, [measurementUnits]);
-
   const resolveEffectivePrice = useCallback((sku: string, columnId: string, unitCode: string): EffectivePriceResult | undefined => {
     return effectivePrices[sku]?.[columnId]?.[unitCode];
   }, [effectivePrices]);
@@ -88,13 +80,21 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     return product.activeUnitCode || getBaseUnitForSKU(product.sku);
   }, [getBaseUnitForSKU]);
 
-  const getUnitDisplay = useCallback((code: string): string => {
-    const unit = unitsByCode.get(code);
-    if (!unit) return code;
-    const symbol = unit.symbol || unit.code;
-    const name = unit.name || '';
-    return `${symbol} ${name}`.trim();
-  }, [unitsByCode]);
+  const getUnitDisplay = useCallback((sku: string, code: string): string => {
+    if (!code) return '';
+    const catalogProduct = catalogProducts.find(product => product.codigo === sku);
+    if (!catalogProduct) return code;
+    if (catalogProduct.unidad === code) {
+      const symbol = catalogProduct.unitSymbol || '';
+      const name = catalogProduct.unitName || '';
+      return `${symbol} ${name}`.trim() || code;
+    }
+    const additional = catalogProduct.unidadesMedidaAdicionales?.find(unit => unit.unidadCodigo === code);
+    if (!additional) return code;
+    const symbol = additional.unidadSymbol || '';
+    const name = additional.unidadName || '';
+    return `${symbol} ${name}`.trim() || code;
+  }, [catalogProducts]);
 
   const getUnitOptions = useCallback((product: Product) => {
     const catalogProduct = catalogProducts.find(p => p.codigo === product.sku);
@@ -106,7 +106,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       seen.add(code);
       list.push({
         code,
-        label: getUnitDisplay(code),
+        label: getUnitDisplay(product.sku, code),
         isBase,
         factor
       });

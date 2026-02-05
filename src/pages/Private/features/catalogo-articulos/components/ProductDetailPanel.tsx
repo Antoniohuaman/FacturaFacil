@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { DetailPane } from '@/components/layouts/MasterDetail';
 import type { Product } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
-import type { Unit } from '../../configuracion-sistema/modelos';
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
   style: 'currency',
@@ -21,7 +20,6 @@ const dateFormatter = new Intl.DateTimeFormat('es-PE', {
 type ProductDetailPanelProps = {
   product: Product;
   Establecimientos: Establecimiento[];
-  units: Unit[];
   onEdit: (product: Product) => void;
   onClose: () => void;
 };
@@ -67,15 +65,8 @@ function normalizeSentence(value?: string): string | undefined {
     .join(' ');
 }
 
-function getUnitLabel(units: Unit[], code?: string): string | undefined {
-  if (!code) {
-    return undefined;
-  }
-  const unit = units.find((item) => item.code === code);
-  if (!unit) {
-    return code;
-  }
-  return `${unit.code} · ${unit.name}`;
+function resolveUnitLabel(product: Product): string | undefined {
+  return product.unitSymbol || product.unitName || product.unidad || undefined;
 }
 
 function renderInfoSection(title: string, items: InfoItem[]) {
@@ -135,7 +126,6 @@ function renderRecordList(
 const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
   product,
   Establecimientos,
-  units,
   onEdit,
   onClose
 }) => {
@@ -145,7 +135,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
     return map;
   }, [Establecimientos]);
 
-  const subtitleValue = [product.codigo, getUnitLabel(units, product.unidad)].filter(Boolean).join(' • ');
+  const subtitleValue = [product.codigo, resolveUnitLabel(product)].filter(Boolean).join(' • ');
   const additionalUnits = product.unidadesMedidaAdicionales ?? [];
   const enabledEstablecimientoIds = product.disponibleEnTodos
     ? Establecimientos.filter(est => est.estaActivoEstablecimiento !== false).map(est => est.id)
@@ -254,7 +244,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
   ]);
 
   const unitsSection = renderInfoSection('Unidades y presentación', [
-    { label: 'Unidad mínima', value: getUnitLabel(units, product.unidad) },
+    { label: 'Unidad mínima', value: resolveUnitLabel(product) },
     {
       label: 'Unidades adicionales',
       value:
@@ -265,7 +255,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
                 key={`${unit.unidadCodigo}-${unit.factorConversion}`}
                 className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:text-slate-200"
               >
-                {unit.unidadCodigo} · x{unit.factorConversion}
+                {(unit.unidadSymbol || unit.unidadCodigo)} · x{unit.factorConversion}
               </span>
             ))}
           </div>

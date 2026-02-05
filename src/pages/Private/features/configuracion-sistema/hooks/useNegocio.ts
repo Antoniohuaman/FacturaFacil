@@ -127,51 +127,6 @@ const MOCK_CURRENCIES: Currency[] = [
   },
 ];
 
-const MOCK_UNITS: Unit[] = [
-  {
-    id: 'unit-1',
-    code: 'UND',
-    name: 'Unidad',
-    symbol: 'Unid.',
-    description: 'Unidad de medida básica',
-    category: 'QUANTITY',
-    baseUnit: undefined,
-    conversionFactor: 1,
-    decimalPlaces: 0,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'unit-2',
-    code: 'KG',
-    name: 'Kilogramo',
-    symbol: 'kg',
-    description: 'Kilogramo',
-    category: 'WEIGHT',
-    baseUnit: undefined,
-    conversionFactor: 1,
-    decimalPlaces: 3,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'unit-3',
-    code: 'LT',
-    name: 'Litro',
-    symbol: 'L',
-    description: 'Litro',
-    category: 'VOLUME',
-    baseUnit: undefined,
-    conversionFactor: 1,
-    decimalPlaces: 2,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
 // Canonical default tax options for business configuration, derived from PERU_TAX_TYPES
 // to avoid mantener múltiples listas divergentes. La normalización de invariantes se
 // realiza también en el reducer global, pero aquí generamos un set coherente.
@@ -217,10 +172,6 @@ export function useBusiness(): UseBusinessReturn {
         dispatch({ type: 'SET_CURRENCIES', payload: MOCK_CURRENCIES });
       }
       
-      if (units.length === 0) {
-        dispatch({ type: 'SET_UNITS', payload: MOCK_UNITS });
-      }
-      
       if (taxes.length === 0) {
         dispatch({ type: 'SET_TAXES', payload: MOCK_TAXES });
       }
@@ -230,7 +181,7 @@ export function useBusiness(): UseBusinessReturn {
     } finally {
       setLoading(false);
     }
-  }, [paymentMethods, currencies, units, taxes, dispatch]);
+  }, [paymentMethods, currencies, taxes, dispatch]);
 
   // Payment Methods
   const createPaymentMethod = useCallback(async (data: CreatePaymentMethodRequest): Promise<PaymentMethod> => {

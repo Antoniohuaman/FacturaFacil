@@ -32,12 +32,6 @@ export interface CurrencyInfo {
 // INTERFACES DE PRODUCTOS Y CARRITO
 // ===================================================================
 
-export interface UnidadMedida {
-  value: string;
-  label: string;
-  fullLabel: string;
-}
-
 // Tipos para búsqueda de productos
 export interface ProductSearchFilters {
   query?: string;
@@ -67,6 +61,7 @@ export interface Product {
   barcode?: string;
   unit?: string;
   unidadMedida?: string;
+  unitSymbol?: string;
   impuesto?: string;
   priceColumnId?: string;
   priceColumnLabel?: string;
@@ -122,6 +117,7 @@ export interface CartItem {
   codigoSunat?: string;
   unidad?: string; // ✅ Nombre de la unidad del producto (ej: "UNIDAD", "KILOGRAMO")
   unit?: string; // ✅ Alias usado por el POS para mostrar la unidad
+  unitSymbol?: string; // ✅ Símbolo comercial snapshot del producto
 }
 
 // ===================================================================

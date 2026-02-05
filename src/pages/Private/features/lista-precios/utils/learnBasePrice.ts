@@ -1,6 +1,6 @@
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Price, Product } from '../models/PriceTypes';
-import { BASE_COLUMN_ID, DEFAULT_UNIT_CODE, getCanonicalColumnId } from './priceHelpers';
+import { BASE_COLUMN_ID, getCanonicalColumnId } from './priceHelpers';
 import { ensureTenantStorageMigration, readTenantJson, writeTenantJson } from './storage';
 
 type StoredProduct = Omit<Product, 'prices'> & {
@@ -77,7 +77,7 @@ export function learnBasePriceIfMissing(params: {
       nextProduct.name = (params.productName ?? '').trim() || sku;
     }
 
-    const activeUnit = (nextProduct.activeUnitCode || unitCode || DEFAULT_UNIT_CODE).toUpperCase();
+    const activeUnit = (nextProduct.activeUnitCode || unitCode).toUpperCase();
     nextProduct.activeUnitCode = nextProduct.activeUnitCode || activeUnit;
 
     const rawPrices = (nextProduct.prices ?? {}) as Record<string, unknown>;

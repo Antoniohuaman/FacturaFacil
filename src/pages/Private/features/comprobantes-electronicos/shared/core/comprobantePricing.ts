@@ -11,7 +11,7 @@ import { describeUnitConversion } from '../../../../../../shared/inventory/unitC
  */
 export interface LinePricingInput {
   /**
-   * Código de la unidad mínima del producto (ej. "KGM", "UND", "LTR").
+   * Código de la unidad mínima del producto (ej. "KGM", "LTR").
    * Se usa solo para trazabilidad / debugging.
    */
   unidadMinimaCode: string;
@@ -26,7 +26,7 @@ export interface LinePricingInput {
    *
    * Ejemplos:
    *  - unidadMinima = KGM, unidadSeleccionada = GRM -> factor = 0.001
-   *  - unidadMinima = UND, unidadSeleccionada = CAJA (10 und) -> factor = 10
+   *  - unidadMinima = BASE, unidadSeleccionada = CAJA (10 unidades) -> factor = 10
    *  - unidadMinima = LTR, unidadSeleccionada = ML -> factor = 0.001
    */
   factorToUnidadMinima: number;
@@ -46,7 +46,7 @@ export interface LinePricingInput {
    *
    * Ejemplos:
    *  - S/ 5.80 por 1 KGM
-   *  - S/ 2.00 por 1 UND
+   *  - S/ 2.00 por 1 unidad base
    */
   precioBaseUnidadMinima: number;
 
@@ -109,7 +109,7 @@ export interface LinePricingResult {
    *
    * Ejemplos:
    *  - 350 GRM con factor 0.001 -> 0.35 KGM
-   *  - 2 CAJAS con factor 10 -> 20 UND
+   *  - 2 CAJAS con factor 10 -> 20 unidades base
    */
   cantidadEnUnidadMinima: number;
 

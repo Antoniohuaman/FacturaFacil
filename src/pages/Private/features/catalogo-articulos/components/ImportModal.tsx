@@ -9,13 +9,15 @@ interface ImportModalProps {
   onClose: () => void;
   onFileSelected: (file: File) => void;
   tipo: 'basica' | 'completa';
+  units: Array<{ code: string; name: string }>;
 }
 
 const ImportModal: React.FC<ImportModalProps> = ({
   isOpen,
   onClose,
   onFileSelected,
-  tipo
+  tipo,
+  units
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -26,7 +28,6 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const Establecimientos = configState.Establecimientos.filter(
     (est) => est.estaActivoEstablecimiento !== false
   );
-  const units = configState.units.filter(u => u.isActive && u.isVisible !== false);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();

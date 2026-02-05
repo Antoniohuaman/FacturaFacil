@@ -22,7 +22,7 @@ import { useCatalogSync } from '../../pages/Private/features/lista-precios/hooks
 import { usePriceProducts } from '../../pages/Private/features/lista-precios/hooks/usePriceProducts';
 import type { Column } from '../../pages/Private/features/lista-precios/models/PriceTypes';
 import type { EffectivePriceMatrix } from '../../pages/Private/features/lista-precios/models/EffectivePriceTypes';
-import { DEFAULT_UNIT_CODE, getColumnDisplayName } from '../../pages/Private/features/lista-precios/utils/priceHelpers';
+import { getColumnDisplayName } from '../../pages/Private/features/lista-precios/utils/priceHelpers';
 
 // Interfaces de tipos
 interface BaseCommand {
@@ -1123,7 +1123,7 @@ const SearchBarContent = ({
       return [];
     }
     return priceListProducts.reduce<SearchDatasetItem<ListaPrecioSearchEntity>[]>((acc, product) => {
-      const unitCode = product.activeUnitCode || DEFAULT_UNIT_CODE;
+      const unitCode = product.activeUnitCode || '';
       const baseEntry = priceEffectivePrices[product.sku]?.[baseColumn.id]?.[unitCode];
       const baseValue = baseEntry?.value;
       if (typeof baseValue !== 'number') {

@@ -25,10 +25,6 @@ const FALLBACK_FAMILY: UnitFamily = 'QUANTITY';
 const normalize = (value?: string): string => (value || '').trim().toUpperCase();
 
 export const isUnitInFamily = (unit: Unit, family: UnitFamily): boolean => {
-  // Regla crítica: ZZ siempre se considera Servicios en la UI, aunque su category sea distinta.
-  if (family === 'OTHER') {
-    return unit.category === 'OTHER' || normalize(unit.code) === 'ZZ';
-  }
   return unit.category === family;
 };
 
@@ -44,9 +40,6 @@ export const isUnitCodeInFamily = (
 ): boolean => {
   const normalized = normalize(unitCode);
   if (!normalized) return false;
-  if (family === 'OTHER' && normalized === 'ZZ') {
-    return true;
-  }
   const unit = units.find(u => normalize(u.code) === normalized);
   if (!unit) {
     // Si no existe en catálogo activo, no bloquear.
@@ -61,10 +54,6 @@ export const inferUnitFamilyFromCode = (
 ): UnitFamily => {
   const normalized = normalize(unitCode);
   if (!normalized) return FALLBACK_FAMILY;
-
-  if (normalized === 'ZZ') {
-    return 'OTHER';
-  }
 
   const unit = units?.find(u => normalize(u.code) === normalized);
   if (unit) {

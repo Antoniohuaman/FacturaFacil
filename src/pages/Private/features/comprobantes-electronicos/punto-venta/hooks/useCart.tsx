@@ -112,12 +112,13 @@ const stripTaxFromPrice = (price: number, igvPercent: number): number => {
   return safePrice / (1 + igvPercent / 100);
 };
 
-const formatUnitLabel = (unit?: string): string => {
-  if (!unit) {
-    return 'UND';
+const formatUnitLabel = (unitSymbol?: string, unitCode?: string): string => {
+  const symbol = (unitSymbol ?? '').trim();
+  if (symbol) {
+    return symbol;
   }
-  const trimmed = unit.trim();
-  return trimmed || 'UND';
+  const code = (unitCode ?? '').trim();
+  return code;
 };
 
 const formatQuantityDisplay = (value: number): string => {
@@ -239,7 +240,7 @@ export const useCart = (): UseCartReturn => {
       unitCode: product.unidadMedida || product.unit,
     });
 
-    const unitLabel = formatUnitLabel(product.unidadMedida || product.unit);
+    const unitLabel = formatUnitLabel(product.unitSymbol, product.unidadMedida || product.unit);
     const message = `Producto: ${product.name}\nStock disponible: ${formatQuantityDisplay(availableInUnit)} ${unitLabel}\nCantidad solicitada: ${formatQuantityDisplay(nextQuantity)} ${unitLabel}`;
 
     if (!allowNegativeStock) {
@@ -258,6 +259,7 @@ export const useCart = (): UseCartReturn => {
       ...product,
       unidadMedida: resolvedUnit,
       unit: resolvedUnit ?? product.unit,
+      unitSymbol: product.unitSymbol || undefined,
       quantity,
       subtotal: stripTaxFromPrice(price, igvConfig.igvPercent),
       total: price,
@@ -419,6 +421,7 @@ export const useCart = (): UseCartReturn => {
         ...item,
         unidadMedida: resolvedUnit,
         unit: resolvedUnit ?? item.unit,
+        unitSymbol: item.unitSymbol || undefined,
         quantity,
         price,
         subtotal,

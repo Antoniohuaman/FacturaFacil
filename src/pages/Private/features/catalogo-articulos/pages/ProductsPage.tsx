@@ -210,15 +210,19 @@ const ProductsPage: React.FC = () => {
   }, [allProducts]);
 
   const unitOptions = useMemo(() => {
-    const activeUnits = configState.units.filter(unit => unit.isActive && unit.isVisible !== false);
-    const uniqueCodes = new Map<string, string>();
-    activeUnits.forEach(unit => {
-      if (!uniqueCodes.has(unit.code)) {
-        uniqueCodes.set(unit.code, unit.name);
+    const uniqueCodes = new Map<string, { symbol?: string; name?: string }>();
+    allProducts.forEach(product => {
+      const code = product.unidad;
+      if (!code || uniqueCodes.has(code)) {
+        return;
       }
+      uniqueCodes.set(code, { symbol: product.unitSymbol, name: product.unitName });
     });
-    return Array.from(uniqueCodes.entries()).map(([code, name]) => ({ code, name }));
-  }, [configState.units]);
+    return Array.from(uniqueCodes.entries()).map(([code, meta]) => ({
+      code,
+      name: `${meta?.symbol || ''} ${meta?.name || ''}`.trim() || code
+    }));
+  }, [allProducts]);
 
   // Eliminado: tipos de existencia (inventario) para desacoplar del stock
 
@@ -761,7 +765,6 @@ const ProductsPage: React.FC = () => {
               <ProductDetailPanel
                 product={activeProduct}
                 Establecimientos={Establecimientos}
-                units={configState.units}
                 onEdit={handleEditProduct}
                 onClose={handleCloseProductDetail}
               />

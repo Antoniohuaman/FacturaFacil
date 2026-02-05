@@ -28,7 +28,7 @@ type InlineCancelHandler = () => void;
 type ToggleHandler = (sku: string) => void;
 
 type UnitOptionsResolver = (product: Product) => UnitOption[];
-type UnitDisplayResolver = (code: string) => string;
+type UnitDisplayResolver = (sku: string, code: string) => string;
 type BaseUnitResolver = (sku: string) => string;
 
 interface ProductPricingTableProps {
@@ -233,8 +233,8 @@ export const ProductPricingTable: React.FC<ProductPricingTableProps> = ({
                     product={product}
                     options={getUnitOptions(product)}
                     activeUnit={resolveActiveUnit(product)}
-                    activeUnitLabel={getUnitDisplay(resolveActiveUnit(product))}
-                    baseUnitLabel={getUnitDisplay(getBaseUnitForSKU(product.sku))}
+                    activeUnitLabel={getUnitDisplay(product.sku, resolveActiveUnit(product))}
+                    baseUnitLabel={getUnitDisplay(product.sku, getBaseUnitForSKU(product.sku))}
                     isOpen={unitMenuOpenSku === product.sku}
                     onToggle={() => onToggleUnitMenu(product.sku)}
                     onSelect={onUnitSelect}

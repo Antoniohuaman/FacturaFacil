@@ -47,6 +47,8 @@ interface UseProductFormParams {
 
 const buildDefaultFormData = (
   defaultUnit: Product['unidad'],
+  defaultUnitSymbol: string | undefined,
+  defaultUnitName: string | undefined,
   defaultCategoryName: string,
   defaultEstablecimientoIds: string[],
   defaultTaxLabel?: string
@@ -54,6 +56,8 @@ const buildDefaultFormData = (
   nombre: '',
   codigo: '',
   unidad: defaultUnit,
+  unidadSymbol: defaultUnitSymbol,
+  unidadName: defaultUnitName,
   unidadesMedidaAdicionales: [],
   categoria: defaultCategoryName,
   impuesto: defaultTaxLabel ?? 'IGV (18.00%)',
@@ -87,6 +91,20 @@ export const useProductForm = ({
   onSave,
   onClose
 }: UseProductFormParams) => {
+  const resolveUnitSnapshot = useCallback(
+    (code?: string) => {
+      const normalized = (code ?? '').trim();
+      if (!normalized) {
+        return { symbol: undefined, name: undefined };
+      }
+      const unit = availableUnits.find(u => u.code === normalized);
+      return {
+        symbol: unit?.symbol,
+        name: unit?.name
+      };
+    },
+    [availableUnits]
+  );
   const activeEstablecimientoIds = useMemo(
     () => activeEstablecimientos.filter(est => est.estaActivoEstablecimiento !== false).map(est => est.id),
     [activeEstablecimientos]
@@ -136,19 +154,16 @@ export const useProductForm = ({
   const getDefaultUnitForType = useCallback(
     (type: ProductType): Product['unidad'] => {
       if (availableUnits.length === 0) {
-        return (type === 'BIEN' ? 'NIU' : 'ZZ') as Product['unidad'];
+        return '' as Product['unidad'];
       }
 
-      if (type === 'BIEN') {
-        const niuUnit = availableUnits.find(u => u.code === 'NIU');
-        if (niuUnit) return niuUnit.code as Product['unidad'];
-        const favoriteUnit = availableUnits.find(u => u.isFavorite);
-        if (favoriteUnit) return favoriteUnit.code as Product['unidad'];
-        return availableUnits[0].code as Product['unidad'];
+      if (type === 'SERVICIO') {
+        const serviceUnit = availableUnits.find(u => u.category === 'OTHER');
+        if (serviceUnit) return serviceUnit.code as Product['unidad'];
       }
 
-      const zzUnit = availableUnits.find(u => u.code === 'ZZ');
-      if (zzUnit) return zzUnit.code as Product['unidad'];
+      const favoriteUnit = availableUnits.find(u => u.isFavorite);
+      if (favoriteUnit) return favoriteUnit.code as Product['unidad'];
       return availableUnits[0].code as Product['unidad'];
     },
     [availableUnits]
@@ -156,11 +171,14 @@ export const useProductForm = ({
 
   const initialUnit = getDefaultUnitForType('BIEN');
   const initialUnitFamily = inferUnitFamilyFromCode(initialUnit, availableUnits);
+  const initialUnitSnapshot = resolveUnitSnapshot(initialUnit);
 
   const [formData, setFormData] = useState<ProductFormData>(
     () =>
       buildDefaultFormData(
         initialUnit,
+        initialUnitSnapshot.symbol,
+        initialUnitSnapshot.name,
         defaultCategoryName,
         resolveDefaultEnabledEstablecimientos(),
         defaultTaxLabel
@@ -181,8 +199,8 @@ export const useProductForm = ({
     return filterUnitsByFamily(sortedUnits, selectedUnitFamily);
   }, [sortedUnits, selectedUnitFamily]);
 
-  const baseUnitOptions = filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedUnits;
-  const isUsingFallbackUnits = filteredUnitsForFamily.length === 0;
+  const baseUnitOptions = filteredUnitsForFamily;
+  const isUsingFallbackUnits = filteredUnitsForFamily.length === 0 && sortedUnits.length > 0;
 
   const remainingUnitsForAdditional = useMemo(() => {
     const usedCodes = new Set<string>([
@@ -221,40 +239,33 @@ export const useProductForm = ({
       setFormData(prev => {
         const filtered = filterUnitsByFamily(sortedUnits, nextFamily);
         const hasUnitsForFamily = filtered.length > 0;
-        const availableForFamily = hasUnitsForFamily ? filtered : sortedUnits;
+        const availableForFamily = filtered;
 
         const currentUnitValid = hasUnitsForFamily
           ? availableForFamily.some(unit => unit.code === prev.unidad)
-          : true; // en fallback (sin unidades), no forzar cambios.
+          : false;
 
         let nextUnit = prev.unidad as Product['unidad'];
 
-        if (!currentUnitValid && hasUnitsForFamily) {
-          const prioritizedCode =
-            nextFamily === 'OTHER'
-              ? 'ZZ'
-              : nextFamily === 'QUANTITY'
-                ? 'NIU'
-                : undefined;
-
-          const prioritized = prioritizedCode
-            ? availableForFamily.find(u => u.code === prioritizedCode)
-            : undefined;
-
-          nextUnit = (prioritized?.code || availableForFamily[0]?.code || prev.unidad) as Product['unidad'];
+        if (!currentUnitValid) {
+          const prioritized = availableForFamily.find(unit => unit.isFavorite) ?? availableForFamily[0];
+          nextUnit = (prioritized?.code || '') as Product['unidad'];
         }
 
         // Limpiamos presentaciones que coinciden con la nueva unidad mínima o que no están dentro de la familia.
         sanitizedUnits = prev.unidadesMedidaAdicionales.filter(unit => {
           if (unit.unidadCodigo === nextUnit) return false;
           if (!unit.unidadCodigo) return false;
-          if (!hasUnitsForFamily) return true; // fallback: no bloquear
+          if (!hasUnitsForFamily) return false;
           return isUnitCodeInFamily(unit.unidadCodigo, sortedUnits, nextFamily);
         });
 
+        const snapshot = resolveUnitSnapshot(nextUnit);
         return {
           ...prev,
           unidad: nextUnit,
+          unidadSymbol: snapshot.symbol,
+          unidadName: snapshot.name,
           unidadesMedidaAdicionales: sanitizedUnits
         };
       });
@@ -270,12 +281,13 @@ export const useProductForm = ({
         setUnitInfoMessage(`Se limpiaron presentaciones que no son compatibles con la familia ${friendlyLabel}.`);
       }
     },
-    [formData.unidadesMedidaAdicionales, selectedUnitFamily, sortedUnits]
+    [formData.unidadesMedidaAdicionales, selectedUnitFamily, sortedUnits, resolveUnitSnapshot]
   );
 
   const handleBaseUnitChange = useCallback(
     (nextUnit: Product['unidad']) => {
       let removedByBaseChange = false;
+      const snapshot = resolveUnitSnapshot(nextUnit);
       setFormData(prev => {
         const filteredAdditional = prev.unidadesMedidaAdicionales.filter(unit => unit.unidadCodigo !== nextUnit);
         if (filteredAdditional.length !== prev.unidadesMedidaAdicionales.length) {
@@ -294,6 +306,8 @@ export const useProductForm = ({
         return {
           ...prev,
           unidad: nextUnit,
+          unidadSymbol: snapshot.symbol,
+          unidadName: snapshot.name,
           unidadesMedidaAdicionales: filteredAdditional
         };
       });
@@ -302,21 +316,27 @@ export const useProductForm = ({
         setUnitInfoMessage('Se limpiaron presentaciones que coincidían con la nueva unidad mínima.');
       }
     },
-    []
+    [resolveUnitSnapshot]
   );
 
   const addAdditionalUnit = useCallback(() => {
     if (remainingUnitsForAdditional.length === 0) return;
     const nextUnit = remainingUnitsForAdditional[0];
+    const snapshot = resolveUnitSnapshot(nextUnit.code);
     setFormData(prev => ({
       ...prev,
       unidadesMedidaAdicionales: [
         ...prev.unidadesMedidaAdicionales,
-        { unidadCodigo: nextUnit.code, factorConversion: 1 }
+        {
+          unidadCodigo: nextUnit.code,
+          factorConversion: 1,
+          unidadSymbol: snapshot.symbol,
+          unidadName: snapshot.name
+        }
       ]
     }));
     setAdditionalUnitErrors(prev => [...prev, {}]);
-  }, [remainingUnitsForAdditional]);
+  }, [remainingUnitsForAdditional, resolveUnitSnapshot]);
 
   const removeAdditionalUnit = useCallback((index: number) => {
     setFormData(prev => ({
@@ -332,10 +352,21 @@ export const useProductForm = ({
         ...prev,
         unidadesMedidaAdicionales: prev.unidadesMedidaAdicionales.map((unit, i) =>
           i === index
-            ? {
-                ...unit,
-                [field]: field === 'factorConversion' ? Number(value) : value
-              }
+            ? (() => {
+                if (field === 'factorConversion') {
+                  return {
+                    ...unit,
+                    factorConversion: Number(value)
+                  };
+                }
+                const snapshot = resolveUnitSnapshot(value);
+                return {
+                  ...unit,
+                  unidadCodigo: value,
+                  unidadSymbol: snapshot.symbol,
+                  unidadName: snapshot.name
+                };
+              })()
             : unit
         )
       }));
@@ -352,7 +383,7 @@ export const useProductForm = ({
         return next;
       });
     },
-    []
+    [resolveUnitSnapshot]
   );
 
   const getAdditionalUnitOptions = useCallback(
@@ -380,20 +411,26 @@ export const useProductForm = ({
   useEffect(() => {
     const defaultUnit = getDefaultUnitForType(productType);
     setSelectedUnitFamily(inferUnitFamilyFromCode(defaultUnit, availableUnits));
+    const snapshot = resolveUnitSnapshot(defaultUnit);
     setFormData(prev => ({
       ...prev,
       unidad: defaultUnit,
+      unidadSymbol: snapshot.symbol,
+      unidadName: snapshot.name,
       unidadesMedidaAdicionales: []
     }));
     setAdditionalUnitErrors([]);
-  }, [productType, getDefaultUnitForType, availableUnits]);
+  }, [productType, getDefaultUnitForType, availableUnits, resolveUnitSnapshot]);
 
   const initializeFormForNewProduct = useCallback(() => {
     const defaultUnit = getDefaultUnitForType('BIEN');
     setSelectedUnitFamily(inferUnitFamilyFromCode(defaultUnit, availableUnits));
+    const snapshot = resolveUnitSnapshot(defaultUnit);
     setFormData(
       buildDefaultFormData(
         defaultUnit,
+        snapshot.symbol,
+        snapshot.name,
         defaultCategoryName,
         resolveDefaultEnabledEstablecimientos(),
         defaultTaxLabel
@@ -409,15 +446,19 @@ export const useProductForm = ({
     defaultCategoryName,
     defaultTaxLabel,
     getDefaultUnitForType,
-    resolveDefaultEnabledEstablecimientos
-  , availableUnits]);
+    resolveDefaultEnabledEstablecimientos,
+    availableUnits,
+    resolveUnitSnapshot
+  ]);
 
   const initializeFormFromProduct = useCallback(
     (productData: Product) => {
       const additionalUnits =
         productData.unidadesMedidaAdicionales?.map(unit => ({
           unidadCodigo: unit.unidadCodigo,
-          factorConversion: unit.factorConversion
+          factorConversion: unit.factorConversion,
+          unidadSymbol: unit.unidadSymbol,
+          unidadName: unit.unidadName
         })) || [];
       const inferredFamily = inferUnitFamilyFromCode(productData.unidad, availableUnits);
       const familyUnits = filterUnitsByFamily(sortedUnits, inferredFamily);
@@ -433,10 +474,14 @@ export const useProductForm = ({
         ? activeEstablecimientoIds
         : uniqueIds(productData.establecimientoIds || []);
 
+      const unitSnapshot = resolveUnitSnapshot(productData.unidad);
+
       setFormData({
         nombre: productData.nombre,
         codigo: productData.codigo,
         unidad: productData.unidad,
+        unidadSymbol: productData.unitSymbol ?? unitSnapshot.symbol,
+        unidadName: productData.unitName ?? unitSnapshot.name,
         unidadesMedidaAdicionales: sanitizedUnits,
         categoria: productData.categoria,
         impuesto: productData.impuesto || defaultTaxLabel || 'IGV (18.00%)',
@@ -458,12 +503,13 @@ export const useProductForm = ({
 
       setImagePreview(productData.imagen || '');
       setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
-      setProductType(productData.unidad === 'ZZ' ? 'SERVICIO' : 'BIEN');
+      const productUnit = availableUnits.find(u => u.code === productData.unidad);
+      setProductType(productUnit?.category === 'OTHER' ? 'SERVICIO' : 'BIEN');
       setSelectedUnitFamily(inferredFamily);
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    }, [activeEstablecimientoIds, defaultTaxLabel, sortedUnits, uniqueIds, availableUnits]
+    }, [activeEstablecimientoIds, defaultTaxLabel, sortedUnits, uniqueIds, availableUnits, resolveUnitSnapshot]
   );
 
   useEffect(() => {

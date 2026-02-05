@@ -3,6 +3,8 @@
 export interface AdditionalUnitMeasure {
   unidadCodigo: string;
   factorConversion: number;
+  unidadSymbol?: string;
+  unidadName?: string;
 }
 
 export interface Product {
@@ -10,6 +12,8 @@ export interface Product {
   codigo: string;
   nombre: string;
   unidad: string;
+  unitSymbol?: string;
+  unitName?: string;
   precio: number;
   categoria: string;
   imagen?: string;
@@ -107,6 +111,8 @@ export interface ProductFormData {
   nombre: string;
   codigo: string;
   unidad: string;
+  unidadSymbol?: string;
+  unidadName?: string;
   unidadesMedidaAdicionales: AdditionalUnitMeasure[];
   categoria: string;
   impuesto?: string;

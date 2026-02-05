@@ -2,7 +2,7 @@ import { currencyManager } from '@/shared/currency';
 import type { Price, PriceCalculation, Product } from '../../models/PriceTypes';
 import { calculateVolumePrice } from './volume';
 
-export const DEFAULT_UNIT_CODE = 'NIU';
+export const DEFAULT_UNIT_CODE = '';
 
 const getBaseCurrencyDecimals = () => currencyManager.getSnapshot().baseCurrency.decimalPlaces ?? 2;
 

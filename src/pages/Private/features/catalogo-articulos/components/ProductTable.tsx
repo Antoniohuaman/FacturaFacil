@@ -45,7 +45,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
   const { state: configState } = useConfigurationContext();
   const EstablecimientosFromContext = configState.Establecimientos || [];
   const Establecimientos = EstablecimientosProp || EstablecimientosFromContext;
-  const units = configState.units || [];
 
   const {
     rows,
@@ -119,7 +118,6 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   onToggleFavorite={onToggleFavorite}
                   onEdit={onEditProduct}
                   onDelete={onDeleteProduct}
-                  units={units}
                   Establecimientos={Establecimientos}
                   EstablecimientoScope={EstablecimientoScope}
                   formatCurrency={formatCurrency}

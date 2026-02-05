@@ -32,7 +32,7 @@ const clamp = (value: number, min: number, max: number) => {
 const buildCatalogUnitOptions = (
   products: CatalogProduct[],
   sku: string,
-  formatUnitLabel: (code?: string) => string,
+  getUnitLabelForSku: (sku: string, unitCode?: string) => string,
 ) => {
   const product = products.find((p: CatalogProduct) => p.codigo === sku);
   if (!product) return [] as CatalogUnit[];
@@ -59,18 +59,21 @@ const buildCatalogUnitOptions = (
     }
   });
 
-  return Array.from(dedup.values()).map((opt) => ({ ...opt, label: formatUnitLabel(opt.code) || opt.code }));
+  return Array.from(dedup.values()).map((opt) => ({
+    ...opt,
+    label: getUnitLabelForSku(sku, opt.code) || opt.code
+  }));
 };
 
 const mergeUnitOptions = (
   catalogProducts: CatalogProduct[],
   sku: string,
-  formatUnitLabel: (code?: string) => string,
+  getUnitLabelForSku: (sku: string, unitCode?: string) => string,
   priceBookUnits: (sku: string) => ProductUnitOption[],
 ): ProductUnitOption[] => {
-  const catalog = buildCatalogUnitOptions(catalogProducts, sku, formatUnitLabel).map((opt: CatalogUnit) => ({
+  const catalog = buildCatalogUnitOptions(catalogProducts, sku, getUnitLabelForSku).map((opt: CatalogUnit) => ({
     code: opt.code,
-    label: opt.label || formatUnitLabel(opt.code) || opt.code,
+    label: opt.label || getUnitLabelForSku(sku, opt.code) || opt.code,
     isBase: opt.isBase,
   }));
   const priceUnits = priceBookUnits(sku);
@@ -146,12 +149,13 @@ export const usePosCartAndTotals = () => {
     });
     return map;
   }, [catalogProducts]);
+
   const {
     priceColumns,
     baseColumnId,
     getUnitOptionsForSku,
     getPreferredUnitForSku,
-    formatUnitLabel,
+    getUnitLabelForSku,
     getUnitPriceWithFallback,
   } = usePriceBook();
 
@@ -162,6 +166,7 @@ export const usePosCartAndTotals = () => {
       isBase: column.isBase,
     }))
   ), [priceColumns]);
+
   const columnLabelById = useMemo(() => {
     const map = new Map<string, string>();
     priceListOptions.forEach((option) => map.set(option.id, option.label));
@@ -191,13 +196,12 @@ export const usePosCartAndTotals = () => {
     }
   }, [selectedPriceListId]);
 
-
   const getUnitOptionsForProduct = useCallback(
     (sku: string): ProductUnitOption[] => {
       if (!sku) return [];
-      return mergeUnitOptions(catalogProducts, sku, formatUnitLabel, getUnitOptionsForSku);
+      return mergeUnitOptions(catalogProducts, sku, getUnitLabelForSku, getUnitOptionsForSku);
     },
-    [catalogProducts, formatUnitLabel, getUnitOptionsForSku],
+    [catalogProducts, getUnitLabelForSku, getUnitOptionsForSku],
   );
 
   const activePriceListLabel = columnLabelById.get(selectedPriceListId) || columnLabelById.get(baseColumnId || '') || '';
@@ -614,7 +618,7 @@ export const usePosCartAndTotals = () => {
     selectedPriceListId,
     setSelectedPriceListId,
     getUnitOptionsForProduct,
-    formatUnitLabel,
+    getUnitLabelForSku,
     getPreferredUnitForSku,
     getPriceForProduct,
     onCartItemUnitChange: handleItemUnitChange,

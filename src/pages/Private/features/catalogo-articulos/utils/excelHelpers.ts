@@ -52,7 +52,7 @@ export const BASIC_IMPORT_COLUMNS: ExcelColumn[] = [
   { key: 'tipoProducto', label: 'Tipo de producto', required: true, example: 'Bien', type: 'select' },
   { key: 'nombre', label: 'Nombre', required: true, example: 'Producto de ejemplo', type: 'text' },
   { key: 'codigo', label: 'Código', required: true, example: 'PROD001', type: 'text' },
-  { key: 'unidad', label: 'Unidad', required: true, example: 'NIU', type: 'select' },
+  { key: 'unidad', label: 'Unidad', required: true, example: '', type: 'select' },
   { key: 'categoria', label: 'Categoría', required: false, example: 'General', type: 'text' },
   { key: 'impuesto', label: 'Impuesto', required: true, example: 'IGV (18.00%)', type: 'select' },
   { key: 'establecimientos', label: 'Disponibilidad', required: false, example: '0001,0002', type: 'multiselect' }
@@ -94,11 +94,16 @@ export function generateExcelTemplate(
 
   // Preparar datos de ejemplo con 2 filas
   const headers = columns.map(col => col.label);
-  const exampleRow1 = columns.map(col => col.example || '');
+  const exampleUnit = availableUnits[0]?.code || '';
+  const exampleRow1 = columns.map(col => {
+    if (col.key === 'unidad') return exampleUnit;
+    return col.example || '';
+  });
   const exampleRow2 = columns.map(col => {
     if (col.key === 'codigo') return 'PROD002';
     if (col.key === 'nombre') return 'Otro producto';
     if (col.key === 'tipoProducto') return 'Servicio';
+    if (col.key === 'unidad') return exampleUnit;
     return col.example || '';
   });
 
@@ -321,7 +326,15 @@ function parseRow(
   // Unidad
   const unidadValue = String(row['Unidad'] || '').trim().toUpperCase();
   const unidad = availableUnits.find(u => u.code.toUpperCase() === unidadValue);
-  if (!unidad) {
+  if (!unidadValue) {
+    errores.push({
+      fila,
+      columna: 'Unidad',
+      mensaje: 'Unidad es obligatoria',
+      valorRecibido: unidadValue
+    });
+    rowErrors.push('Unidad no válida');
+  } else if (availableUnits.length > 0 && !unidad) {
     errores.push({
       fila,
       columna: 'Unidad',
@@ -410,7 +423,7 @@ function parseRow(
   return {
     nombre: String(row['Nombre'] || '').trim(),
     codigo: codigo,
-    unidad: unidad?.code || 'NIU',
+    unidad: unidad?.code || unidadValue || '',
     unidadesMedidaAdicionales: [],
     categoria: categoriaValue || '',
     impuesto: impuestoValue,

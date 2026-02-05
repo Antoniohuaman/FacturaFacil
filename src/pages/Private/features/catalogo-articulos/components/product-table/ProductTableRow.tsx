@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Product } from '../../models/types';
-import type { Unit } from '../../../configuracion-sistema/modelos';
 import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ColumnKey } from './columnConfig';
 import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';
@@ -231,19 +230,12 @@ interface ProductTableRowProps {
   onToggleFavorite: (productId: string) => void;
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
-  units: Unit[];
   Establecimientos: Establecimiento[];
   EstablecimientoScope?: string;
   formatCurrency: (amount: number) => string;
   onRowClick?: (productId: string) => void;
   isActive?: boolean;
 }
-
-const getUnitLabel = (units: Unit[], code?: string) => {
-  if (!code) return '';
-  const unit = units.find(unitItem => unitItem.code === code);
-  return unit ? `${unit.code} - ${unit.name}` : code;
-};
 
 const formatDate = (value?: Date | string) => {
   if (!value) return '-';
@@ -266,7 +258,6 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   onToggleFavorite,
   onEdit,
   onDelete,
-  units,
   Establecimientos,
   EstablecimientoScope = 'ALL',
   formatCurrency,
@@ -363,7 +354,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         return (
           <td className="px-6 py-4 whitespace-nowrap">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              {getUnitLabel(units, row.unidad)}
+              {row.unitSymbol || row.unitName || row.unidad || '-'}
             </span>
           </td>
         );

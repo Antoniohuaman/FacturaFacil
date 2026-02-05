@@ -17,11 +17,11 @@ export const getVolumePreview = (ranges: VolumeRange[], maxItems = 2): string =>
   const preview = previewRanges.map(range => {
     let rangeText = '';
     if (range.maxQuantity === null) {
-      rangeText = `${range.minQuantity}+ und.`;
+      rangeText = `${range.minQuantity}+`;
     } else if (range.minQuantity === range.maxQuantity) {
-      rangeText = `${range.minQuantity} und.`;
+      rangeText = `${range.minQuantity}`;
     } else {
-      rangeText = `${range.minQuantity}-${range.maxQuantity} und.`;
+      rangeText = `${range.minQuantity}-${range.maxQuantity}`;
     }
     return `${rangeText} → ${formatPrice(range.price)}`;
   }).join(' | ');

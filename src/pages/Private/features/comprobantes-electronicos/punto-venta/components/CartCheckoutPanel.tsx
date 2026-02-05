@@ -67,7 +67,6 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   onNotaInternaChange?: (value: string) => void;
   onCartItemUnitChange: (id: string, unitCode: string) => void;
   getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
-  formatUnitLabel: (code?: string) => string;
 }
 
 const PERCENT_ERROR_MESSAGE = 'El descuento debe ser menor al 100%.';
@@ -111,7 +110,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onNotaInternaChange,
   onCartItemUnitChange,
   getUnitOptionsForProduct,
-  formatUnitLabel,
   discount,
   onApplyDiscount,
   onClearDiscount,
@@ -574,7 +572,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                     onRemoveItem={onRemoveItem}
                     onUpdateUnit={onCartItemUnitChange}
                     getUnitOptionsForProduct={getUnitOptionsForProduct}
-                    formatUnitLabel={formatUnitLabel}
                   />
                 </div>
               </div>

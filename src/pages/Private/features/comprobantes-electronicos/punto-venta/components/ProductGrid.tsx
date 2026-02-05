@@ -48,7 +48,7 @@ export interface ProductGridProps {
   selectedPriceListId: string;
   onPriceListChange: (id: string) => void;
   getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
-  formatUnitLabel: (code?: string) => string;
+  getUnitLabelForSku: (sku: string, unitCode?: string) => string;
   getPreferredUnitForSku: (sku: string, requestedUnit?: string) => string;
   getPriceForProduct: (sku: string, unitCode?: string, columnId?: string) => number | undefined;
   activePriceListLabel?: string;
@@ -109,7 +109,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   selectedPriceListId,
   onPriceListChange,
   getUnitOptionsForProduct,
-  formatUnitLabel,
+  getUnitLabelForSku,
   getPreferredUnitForSku,
   getPriceForProduct,
   activePriceListLabel,
@@ -488,14 +488,14 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     const normalizedOptions = unitOptions.length > 0
       ? unitOptions
       : fallbackUnitCode
-        ? [{ code: fallbackUnitCode, label: formatUnitLabel(fallbackUnitCode) || fallbackUnitCode, isBase: true }]
+        ? [{ code: fallbackUnitCode, label: getUnitLabelForSku(sku, fallbackUnitCode) || fallbackUnitCode, isBase: true }]
         : [];
     const baseUnitOption = normalizedOptions[0];
     const currentUnit = baseUnitOption?.code || fallbackUnitCode || product.unidadMedida || product.unit || '';
     const resolvedPrice = resolveProductPrice(product, currentUnit);
     const formattedPrice = formatPrice(resolvedPrice, currency);
     const unitLabel = baseUnitOption?.label
-      || (currentUnit ? formatUnitLabel(currentUnit) : undefined)
+      || (currentUnit ? getUnitLabelForSku(sku, currentUnit) : undefined)
       || currentUnit
       || 'Unidad';
     const stockValue = Math.max(0, typeof product.stock === 'number' ? product.stock : 0);

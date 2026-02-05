@@ -29,7 +29,7 @@ type UnitOption = {
 const buildCatalogUnitOptions = (
   products: Product[] | undefined,
   sku: string,
-  formatUnitLabel: (unitCode: string, isBase?: boolean) => string
+  getUnitLabelForSku: (sku: string, unitCode?: string) => string
 ): UnitOption[] => {
   if (!products?.length) return [];
 
@@ -41,7 +41,7 @@ const buildCatalogUnitOptions = (
   if (product.unidad) {
     const code = product.unidad ?? '';
     if (code) {
-      options.push({ code, label: formatUnitLabel(code, true), isBase: true });
+      options.push({ code, label: getUnitLabelForSku(sku, code), isBase: true });
     }
   }
 
@@ -51,7 +51,7 @@ const buildCatalogUnitOptions = (
     const code = u.unidadCodigo;
     const exists = options.some((opt) => opt.code === code);
     if (!exists) {
-      options.push({ code, label: formatUnitLabel(code, false) });
+      options.push({ code, label: getUnitLabelForSku(sku, code) });
     }
   });
 
@@ -61,15 +61,15 @@ const buildCatalogUnitOptions = (
 const mergeUnitOptions = (
   products: Product[] | undefined,
   sku: string,
-  formatUnitLabel: (unitCode: string, isBase?: boolean) => string,
+  getUnitLabelForSku: (sku: string, unitCode?: string) => string,
   priceBookUnitOptions: UnitOption[]
 ): UnitOption[] => {
-  const catalogOptions = buildCatalogUnitOptions(products, sku, formatUnitLabel);
+  const catalogOptions = buildCatalogUnitOptions(products, sku, getUnitLabelForSku);
   const combined = [...catalogOptions];
 
   priceBookUnitOptions.forEach((pbUnit) => {
     if (combined.some((opt) => opt.code === pbUnit.code)) return;
-    combined.push({ ...pbUnit, label: formatUnitLabel(pbUnit.code, pbUnit.isBase) });
+    combined.push({ ...pbUnit, label: pbUnit.label || getUnitLabelForSku(sku, pbUnit.code) });
   });
 
   return combined;
@@ -251,7 +251,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     globalIncreaseColumn,
     getUnitOptionsForSku,
     getPreferredUnitForSku,
-    formatUnitLabel,
+    getUnitLabelForSku,
     getPriceOptionsFor,
     resolveMinPrice,
     getUnitPriceWithFallback
@@ -307,9 +307,9 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   const getUnitOptionsForProduct = useCallback(
     (sku: string) => {
       const priceBookUnits = getUnitOptionsForSku(sku);
-      return mergeUnitOptions(catalogProducts, sku, formatUnitLabel, priceBookUnits);
+      return mergeUnitOptions(catalogProducts, sku, getUnitLabelForSku, priceBookUnits);
     },
-    [catalogProducts, formatUnitLabel, getUnitOptionsForSku]
+    [catalogProducts, getUnitLabelForSku, getUnitOptionsForSku]
   );
 
   const normalizedDiscountDefault = useMemo(() => {
@@ -1062,11 +1062,11 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         const unitOptions = getUnitOptionsForProduct(sku);
         const normalizedUnits = unitOptions.length > 0
           ? unitOptions
-          : [{ code: resolvedUnit, label: formatUnitLabel(resolvedUnit) || (item.unidad ?? resolvedUnit), isBase: true }];
+          : [{ code: resolvedUnit, label: getUnitLabelForSku(sku, resolvedUnit) || (item.unidad ?? resolvedUnit), isBase: true }];
 
         const availableUnits = normalizedUnits.some(option => option.code === resolvedUnit)
           ? normalizedUnits
-          : [...normalizedUnits, { code: resolvedUnit, label: formatUnitLabel(resolvedUnit) || resolvedUnit }];
+          : [...normalizedUnits, { code: resolvedUnit, label: getUnitLabelForSku(sku, resolvedUnit) || resolvedUnit }];
 
         return (
           <td className="px-4 py-4">

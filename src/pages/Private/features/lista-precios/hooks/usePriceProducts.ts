@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price, Column } from '../models/PriceTypes';
 import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/PriceImportTypes';
 import { lsKey } from '../utils/tenantHelpers';
-import { buildEffectivePriceMatrix, DEFAULT_UNIT_CODE, getFixedPriceValue, getCanonicalColumnId } from '../utils/priceHelpers';
+import { buildEffectivePriceMatrix, getFixedPriceValue, getCanonicalColumnId } from '../utils/priceHelpers';
 import { ensureTenantStorageMigration, readTenantJson, writeTenantJson } from '../utils/storage';
 
 /**
@@ -69,7 +69,7 @@ const isUnitPriceMap = (value: unknown): value is ProductUnitPrices => {
 };
 
 const getBaseUnitForProduct = (catalogProduct?: CatalogProduct, fallback?: string): string => {
-  return catalogProduct?.unidad || fallback || DEFAULT_UNIT_CODE;
+  return catalogProduct?.unidad || fallback || '';
 };
 
 const normalizeStoredProduct = (

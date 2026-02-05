@@ -3,7 +3,6 @@ import { X, Search } from 'lucide-react';
 import { getBusinessDefaultValidityRange } from '@/shared/time/businessTime';
 import { useCurrencyManager } from '@/shared/currency';
 import type { Column, Product, PriceForm, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
-import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { isGlobalColumn } from '../../utils/priceHelpers';
 
 interface PriceModalProps {
@@ -45,18 +44,24 @@ export const PriceModal: React.FC<PriceModalProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedProductName, setSelectedProductName] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { state: configState } = useConfigurationContext();
   const { baseCurrency, formatMoney } = useCurrencyManager();
   const formatCurrency = useCallback((amount: number) => formatMoney(amount, baseCurrency.code), [formatMoney, baseCurrency.code]);
-  const unitsByCode = useMemo(() => new Map(configState.units.map(unit => [unit.code, unit] as const)), [configState.units]);
 
-  const formatUnitLabel = useCallback((code: string) => {
-    const unit = unitsByCode.get(code);
-    if (!unit) return code;
-    const symbol = unit.symbol || unit.code;
-    const name = unit.name || '';
-    return `${symbol} ${name}`.trim();
-  }, [unitsByCode]);
+  const getUnitLabelForSku = useCallback((sku: string, unitCode?: string) => {
+    if (!unitCode) return '';
+    const product = catalogProducts.find(item => item.codigo === sku);
+    if (!product) return unitCode;
+    if (product.unidad === unitCode) {
+      const symbol = product.unitSymbol || '';
+      const name = product.unitName || '';
+      return `${symbol} ${name}`.trim() || unitCode;
+    }
+    const additional = product.unidadesMedidaAdicionales?.find(unit => unit.unidadCodigo === unitCode);
+    if (!additional) return unitCode;
+    const symbol = additional.unidadSymbol || '';
+    const name = additional.unidadName || '';
+    return `${symbol} ${name}`.trim() || unitCode;
+  }, [catalogProducts]);
 
   const deriveDefaultUnit = useCallback((sku: string) => {
     if (!sku) return initialUnitCode || '';
@@ -78,7 +83,7 @@ export const PriceModal: React.FC<PriceModalProps> = ({
       seen.add(code);
       options.push({
         code,
-        label: formatUnitLabel(code),
+        label: getUnitLabelForSku(sku, code) || code,
         isBase,
         factor
       });
@@ -88,13 +93,13 @@ export const PriceModal: React.FC<PriceModalProps> = ({
     catalogProduct.unidadesMedidaAdicionales?.forEach(unit => addOption(unit.unidadCodigo, false, unit.factorConversion));
 
     return options;
-  }, [catalogProducts, formData.sku, formatUnitLabel]);
+  }, [catalogProducts, formData.sku, getUnitLabelForSku]);
 
   const availableUnitOptions = useMemo(() => {
     if (unitOptions && unitOptions.length > 0) {
       return unitOptions.map(option => ({
         ...option,
-        label: option.label || formatUnitLabel(option.code)
+        label: option.label || getUnitLabelForSku(formData.sku, option.code) || option.code
       }));
     }
     if (catalogUnitOptions.length > 0) {
@@ -104,10 +109,10 @@ export const PriceModal: React.FC<PriceModalProps> = ({
     if (!fallbackUnit) return [] as ProductUnitOption[];
     return [{
       code: fallbackUnit,
-      label: formatUnitLabel(fallbackUnit),
+      label: getUnitLabelForSku(formData.sku, fallbackUnit) || fallbackUnit,
       isBase: true
     }];
-  }, [unitOptions, catalogUnitOptions, deriveDefaultUnit, formData.sku, formatUnitLabel]);
+  }, [unitOptions, catalogUnitOptions, deriveDefaultUnit, formData.sku, getUnitLabelForSku]);
 
   const editableColumns = useMemo(() => columns.filter(column => !isGlobalColumn(column)), [columns]);
 

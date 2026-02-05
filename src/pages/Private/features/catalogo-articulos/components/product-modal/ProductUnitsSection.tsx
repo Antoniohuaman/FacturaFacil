@@ -103,6 +103,7 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
   showCheck,
   renderCheck
 }) => {
+  const hasUnits = baseUnitOptions.length > 0;
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
@@ -118,19 +119,17 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
           value={formData.unidad}
           onChange={(e) => handleBaseUnitChange(e.target.value as ProductFormData['unidad'])}
           onBlur={onBlur}
+          disabled={!hasUnits}
           className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
         >
-          {baseUnitOptions.length > 0 ? (
+          {hasUnits ? (
             baseUnitOptions.map(unit => (
               <option key={unit.id} value={unit.code}>
                 {resolveUnitLabelText(unit)}
               </option>
             ))
           ) : (
-            <>
-              <option value="NIU">(NIU) Unidad</option>
-              <option value="ZZ">(ZZ) Servicio</option>
-            </>
+            <option value="">Sin unidades configuradas</option>
           )}
         </select>
       </div>
@@ -162,6 +161,11 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
           baseUnitOptions={baseUnitOptions}
           handleBaseUnitChange={handleBaseUnitChange}
         />
+        {baseUnitOptions.length === 0 && (
+          <p className="text-[11px] text-amber-600 mt-2">
+            Configura tus unidades de medida en Configuración de Negocio.
+          </p>
+        )}
       </div>
     </div>
   );

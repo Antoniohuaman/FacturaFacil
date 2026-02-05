@@ -83,14 +83,14 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
 
     // Convertir productos del catálogo al formato POS
     const posProducts: POSProduct[] = filtered.map(product => {
-      const mappedUnit = mapUnitToPOS(product.unidad);
-      const priceFromList = getUnitPrice(product.codigo, undefined, mappedUnit);
+      const unitCode = product.unidad || '';
+      const priceFromList = getUnitPrice(product.codigo, undefined, unitCode);
       const resolvedPrice = priceFromList ?? product.precio ?? 0;
       const stockInfo = getAvailableStockForUnit({
         product,
         almacenes,
         EstablecimientoId: establecimientoId,
-        unitCode: mappedUnit,
+        unitCode,
       });
       const requiresStockControl = Boolean(
         product.stockPorAlmacen ||
@@ -115,8 +115,9 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         // para que el flujo de carrito pueda resolver correctamente igvType
         // y tasa de IGV por ítem.
         impuesto: product.impuesto,
-        unit: mappedUnit,
-        unidadMedida: mappedUnit,
+        unit: unitCode,
+        unidadMedida: unitCode,
+        unitSymbol: product.unitSymbol || product.unitName || unitCode || undefined,
         requiresStockControl,
         isFavorite: Boolean(product.isFavorite),
         // Datos adicionales del catálogo
@@ -135,18 +136,3 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
 
   return availableProducts;
 };
-
-/**
- * Mapea las unidades del catálogo al formato POS
- */
-function mapUnitToPOS(unit: CatalogoProduct['unidad']): string {
-  const unitMap: Record<CatalogoProduct['unidad'], string> = {
-    'UNIDAD': 'NIU',
-    'DOCENA': 'DZN',
-    'KILOGRAMO': 'KGM',
-    'LITRO': 'LTR',
-    'METRO': 'MTR'
-  };
-
-  return unitMap[unit] || unit;
-}

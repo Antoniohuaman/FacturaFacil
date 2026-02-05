@@ -1,6 +1,6 @@
 // src/features/catalogo-articulos/pages/ImportPage.tsx
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import ImportModal from '../components/ImportModal';
 import { useProductStore } from '../hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -20,6 +20,20 @@ const ImportPage: React.FC = () => {
   const { importProducts, allProducts, categories } = useProductStore();
   const { state: configState } = useConfigurationContext();
 
+  const availableUnits = useMemo(() => {
+    const unique = new Map<string, { symbol?: string; name?: string }>();
+    allProducts.forEach(product => {
+      if (!product.unidad || unique.has(product.unidad)) {
+        return;
+      }
+      unique.set(product.unidad, { symbol: product.unitSymbol, name: product.unitName });
+    });
+    return Array.from(unique.entries()).map(([code, meta]) => ({
+      code,
+      name: `${meta?.symbol || ''} ${meta?.name || ''}`.trim() || code
+    }));
+  }, [allProducts]);
+
   const handleFileSelected = async (file: File) => {
     setSelectedFile(file);
     setIsProcessing(true);
@@ -30,7 +44,7 @@ const ImportPage: React.FC = () => {
         file,
         importType,
         allProducts,
-        configState.units.filter(u => u.isActive && u.isVisible !== false),
+        availableUnits,
         configState.Establecimientos.filter(est => est.estaActivoEstablecimiento !== false),
         categories
       );
@@ -437,6 +451,7 @@ const ImportPage: React.FC = () => {
         onClose={() => setShowImportModal(false)}
         onFileSelected={handleFileSelected}
         tipo={importType}
+        units={availableUnits}
       />
     </div>
   );
