@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Scale,
-  Plus,
   Edit3,
   Eye,
   EyeOff,
@@ -12,7 +11,6 @@ import {
 import { Button, Select, Input } from '@/contasis';
 import type { Unit } from '../../modelos';
 import { SUNAT_UNITS } from '../../modelos';
-import { SelectorPredeterminado } from '../comunes/SelectorPredeterminado';
 
 type Family = Unit['category'];
 
@@ -38,27 +36,14 @@ interface UnitsSectionProps {
 
 type FilterMode = 'all' | 'visible' | 'hidden';
 
-type UnitModalMode = 'create' | 'edit';
-
-type UnitModalForm = {
+type SymbolModalState = {
+  unitId: string;
   code: string;
-  family: Family;
-  commercialSymbol: string;
+  name: string;
+  symbol: string;
 };
 
 const normalizeCode = (value?: string): string => (value || '').trim().toUpperCase();
-
-const createEmptyDefaultByFamily = (): Record<Family, string | null> => ({
-  QUANTITY: null,
-  WEIGHT: null,
-  LENGTH: null,
-  AREA: null,
-  VOLUME: null,
-  TIME: null,
-  ENERGY: null,
-  PACKAGING: null,
-  OTHER: null,
-});
 
 const createDefaultFamilyVisibility = (): Record<Family, boolean> => ({
   QUANTITY: true,
@@ -83,25 +68,6 @@ const formatDefaultCommercialSymbol = (code: string, sunatName: string): string 
   return `(${normalizedCode}) ${normalizedName}`;
 };
 
-const ensureCommercialSymbolForCatalogUnit = (args: {
-  code: string;
-  sunatName: string;
-  existingSymbol?: string;
-}): string => {
-  const defaultSymbol = formatDefaultCommercialSymbol(args.code, args.sunatName);
-  const candidate = sanitizeCommercialSymbol(args.existingSymbol ?? '');
-  if (!candidate) return defaultSymbol;
-  if (!isValidCommercialSymbol(candidate)) return defaultSymbol;
-  return candidate;
-};
-
-const isValidCommercialSymbol = (value: string): boolean => {
-  if (!value) return false;
-  if (value.length > 60) return false;
-  // Letras/números/espacios y . _ - / ( )
-  return /^[\p{L}\p{N} ._()/-]+$/u.test(value);
-};
-
 export function UnitsSection({
   units,
   onUpdate,
@@ -116,11 +82,8 @@ export function UnitsSection({
 
     return SUNAT_UNITS.map((catalog) => {
       const existing = existingByCode.get(normalizeCode(catalog.code));
-      const commercialSymbol = ensureCommercialSymbolForCatalogUnit({
-        code: catalog.code,
-        sunatName: catalog.name,
-        existingSymbol: existing?.symbol,
-      });
+      const sanitizedSymbol = sanitizeCommercialSymbol(existing?.symbol ?? '');
+      const commercialSymbol = sanitizedSymbol || formatDefaultCommercialSymbol(catalog.code, catalog.name);
 
       return {
         id: existing?.id ?? `sunat-${catalog.code}`,
@@ -146,16 +109,10 @@ export function UnitsSection({
 
   const autoSanitizedOnceRef = useRef(false);
 
-  const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
-  const [unitModalMode, setUnitModalMode] = useState<UnitModalMode>('create');
-  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
-  const [modalForm, setModalForm] = useState<UnitModalForm>({
-    code: '',
-    family: 'OTHER',
-    commercialSymbol: '',
-  });
+  const [isSymbolModalOpen, setIsSymbolModalOpen] = useState(false);
+  const [symbolModalState, setSymbolModalState] = useState<SymbolModalState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ code?: string; commercialSymbol?: string }>({});
+  const [symbolError, setSymbolError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -170,13 +127,8 @@ export function UnitsSection({
 
     const needsSanitization = SUNAT_UNITS.some((catalog) => {
       const existing = existingByCode.get(normalizeCode(catalog.code));
-      const rawSymbol = String(existing?.symbol ?? '');
-      const rawTrimmed = rawSymbol.trim();
-      const existingSymbol = sanitizeCommercialSymbol(rawSymbol);
-      if (!existingSymbol) return true;
-      // Persistir solo si está vacío o inválido (no por no tener prefijo "(CODE)").
-      if (rawTrimmed && !isValidCommercialSymbol(rawTrimmed)) return true;
-      return !isValidCommercialSymbol(existingSymbol);
+      const existingSymbol = sanitizeCommercialSymbol(String(existing?.symbol ?? ''));
+      return !existingSymbol;
     });
 
     if (!needsSanitization) return;
@@ -192,9 +144,6 @@ export function UnitsSection({
   }, [effectiveUnits, isLoading, isSubmitting, onUpdate, units]);
 
   // Estados para UX mejorada
-  const [defaultUnitIdByFamily, setDefaultUnitIdByFamily] = useState<Record<Family, string | null>>(
-    () => createEmptyDefaultByFamily()
-  );
   const [familyVisibility, setFamilyVisibility] = useState<Record<Family, boolean>>(
     () => createDefaultFamilyVisibility()
   );
@@ -206,7 +155,6 @@ export function UnitsSection({
   // useEffect removido para evitar conflictos de inicialización
 
   // Funciones helper
-  const isDefaultInFamily = (unit: Unit) => defaultUnitIdByFamily[unit.category] === unit.id;
   const isVisibleUnit = (unit: Unit) => unit.isVisible !== false; // Por defecto visible
 
   useEffect(() => {
@@ -234,7 +182,7 @@ export function UnitsSection({
         const matchesSearch =
           unit.name.toLowerCase().includes(searchLower) ||
           unit.code.toLowerCase().includes(searchLower) ||
-          unit.symbol!.toLowerCase().includes(searchLower) ||
+          (unit.symbol || formatDefaultCommercialSymbol(unit.code, unit.name)).toLowerCase().includes(searchLower) ||
           unit.description!.toLowerCase().includes(searchLower);
         if (!matchesSearch) return false;
       }
@@ -263,141 +211,51 @@ export function UnitsSection({
     });
   }, [effectiveUnits, searchTerm, selectedFamily, filterMode]);
 
-  const closeUnitModal = () => {
-    setIsUnitModalOpen(false);
-    setUnitModalMode('create');
-    setEditingUnitId(null);
-    setModalForm({ code: '', family: 'OTHER', commercialSymbol: '' });
-    setErrors({});
+  const closeSymbolModal = () => {
+    setIsSymbolModalOpen(false);
+    setSymbolModalState(null);
+    setSymbolError(null);
   };
 
-  const openCreateUnitModal = () => {
-    setUnitModalMode('create');
-    setEditingUnitId(null);
-
-    const firstSunat = SUNAT_UNITS[0];
-    setModalForm({
-      code: firstSunat?.code ?? '',
-      family: (firstSunat?.category as Family) ?? 'OTHER',
-      commercialSymbol: formatDefaultCommercialSymbol(firstSunat?.code ?? '', firstSunat?.name ?? ''),
-    });
-    setErrors({});
-    setIsUnitModalOpen(true);
-  };
-
-  const openEditUnitModal = (unit: Unit) => {
-    setUnitModalMode('edit');
-    setEditingUnitId(unit.id);
-    const sunat = SUNAT_UNITS.find(s => normalizeCode(s.code) === normalizeCode(unit.code));
-    const sunatName = sunat?.name ?? unit.name;
-    setModalForm({
+  const openEditSymbolModal = (unit: Unit) => {
+    const defaultSymbol = formatDefaultCommercialSymbol(unit.code, unit.name);
+    setSymbolModalState({
+      unitId: unit.id,
       code: unit.code,
-      family: unit.category,
-      commercialSymbol: unit.symbol || formatDefaultCommercialSymbol(unit.code, sunatName),
+      name: unit.name,
+      symbol: unit.symbol || defaultSymbol,
     });
-    setErrors({});
-    setIsUnitModalOpen(true);
+    setSymbolError(null);
+    setIsSymbolModalOpen(true);
   };
 
-  const handleModalCodeChange = (nextCode: string) => {
-    const normalized = normalizeCode(nextCode);
-    const sunat = SUNAT_UNITS.find(u => normalizeCode(u.code) === normalized);
-    setModalForm(prev => ({
-      ...prev,
-      code: normalized,
-      family: (sunat?.category as Family) ?? prev.family,
-      commercialSymbol: (() => {
-        const prevSunat = SUNAT_UNITS.find(u => normalizeCode(u.code) === normalizeCode(prev.code));
-        const prevDefault = formatDefaultCommercialSymbol(prev.code, prevSunat?.name ?? '');
-        const nextDefault = formatDefaultCommercialSymbol(normalized, sunat?.name ?? '');
+  const handleSymbolSubmit = async () => {
+    if (!symbolModalState) return;
+    const trimmed = sanitizeCommercialSymbol(symbolModalState.symbol);
+    const fallback = formatDefaultCommercialSymbol(symbolModalState.code, symbolModalState.name);
+    const nextSymbol = trimmed || fallback;
 
-        // Si no tocó el símbolo (sigue igual al default anterior), mantenerlo sincronizado con el código.
-        if (!sanitizeCommercialSymbol(prev.commercialSymbol) || sanitizeCommercialSymbol(prev.commercialSymbol) === sanitizeCommercialSymbol(prevDefault)) {
-          return nextDefault;
-        }
-        return prev.commercialSymbol;
-      })(),
-    }));
-    setErrors(prev => ({ ...prev, code: undefined }));
-  };
-
-  const handleModalCommercialSymbolChange = (value: string) => {
-    setModalForm(prev => ({ ...prev, commercialSymbol: value }));
-    setErrors(prev => ({ ...prev, commercialSymbol: undefined }));
-  };
-
-  const handleModalSubmit = async () => {
-    const newErrors: { code?: string; commercialSymbol?: string } = {};
-    const code = normalizeCode(modalForm.code);
-    const sunat = SUNAT_UNITS.find(unit => normalizeCode(unit.code) === code);
-    const sunatName = sunat?.name ?? '';
-    const defaultSymbol = formatDefaultCommercialSymbol(code, sunatName);
-
-    const rawInput = modalForm.commercialSymbol;
-    const cleanedInput = sanitizeCommercialSymbol(rawInput);
-    const symbol = cleanedInput || defaultSymbol;
-
-    if (!code) {
-      newErrors.code = 'Selecciona un código SUNAT';
-    } else {
-      const existsInSunat = SUNAT_UNITS.some(unit => normalizeCode(unit.code) === code);
-      if (!existsInSunat) {
-        newErrors.code = 'El código debe existir en el catálogo SUNAT';
-      }
-    }
-
-    if (!isValidCommercialSymbol(symbol)) {
-      newErrors.commercialSymbol = 'Símbolo inválido (máx 60; letras/números, espacios y . _ - / ( ))';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+    if (!nextSymbol) {
+      setSymbolError('El simbolo comercial no puede estar vacio.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      let updatedUnits: Unit[];
-
-      if (unitModalMode === 'edit') {
-        const targetId = editingUnitId;
-        if (!targetId) return;
-
-        updatedUnits = effectiveUnits.map(u =>
-          u.id === targetId
-            ? {
-              ...u,
-              symbol: symbol,
-              updatedAt: new Date(),
-            }
-            : u
-        );
-      } else {
-        if (!sunat) {
-          setErrors({ code: 'El código seleccionado no existe en SUNAT.' });
-          return;
-        }
-
-        // Persistimos el catálogo efectivo (exacto) con el símbolo elegido.
-        updatedUnits = effectiveUnits.map(u =>
-          normalizeCode(u.code) === code
-            ? { ...u, symbol, isVisible: true, isActive: true, updatedAt: new Date() }
-            : u
-        );
-      }
-
+      const updatedUnits = effectiveUnits.map(u =>
+        u.id === symbolModalState.unitId
+          ? {
+            ...u,
+            symbol: nextSymbol,
+            updatedAt: new Date(),
+          }
+          : u
+      );
       await onUpdate(updatedUnits);
-      closeUnitModal();
+      closeSymbolModal();
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const setDefaultUnitForCategory = (unit: Unit) => {
-    setDefaultUnitIdByFamily(prev => ({
-      ...prev,
-      [unit.category]: unit.id,
-    }));
   };
 
   const toggleSelectedCategoryVisibility = async () => {
@@ -420,9 +278,6 @@ export function UnitsSection({
   };
 
   const toggleVisibility = async (unitId: string) => {
-    const unit = effectiveUnits.find(u => u.id === unitId);
-    if (unit && isDefaultInFamily(unit)) return; // Can't hide default unit in its family
-
     const updatedUnits = effectiveUnits.map(u =>
       u.id === unitId
         ? { ...u, isVisible: !u.isVisible, updatedAt: new Date() }
@@ -460,14 +315,6 @@ export function UnitsSection({
             </span>
           </div>
         </div>
-        <Button
-          onClick={openCreateUnitModal}
-          disabled={isSubmitting}
-          variant="primary"
-          icon={<Plus />}
-        >
-          Nueva Unidad
-        </Button>
       </div>
 
       {/* Barra de búsqueda y filtros (compacta) */}
@@ -554,7 +401,6 @@ export function UnitsSection({
                   <th className="px-4 py-2 text-left">Familia</th>
                   <th className="px-4 py-2 text-center">Visible</th>
                   <th className="px-4 py-2 text-left">Símbolo comercial</th>
-                  <th className="px-4 py-2 text-center">Por defecto</th>
                   <th className="px-4 py-2 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -564,7 +410,6 @@ export function UnitsSection({
                   const sunatName = sunat?.name ?? unit.name;
                   const familyLabel = UNIT_FAMILIES.find(c => c.value === unit.category)?.label ?? unit.category;
                   const visible = isVisibleUnit(unit);
-                  const isDefault = isDefaultInFamily(unit);
                   const commercialSymbol = unit.symbol || formatDefaultCommercialSymbol(unit.code, sunatName);
 
                   return (
@@ -591,7 +436,6 @@ export function UnitsSection({
                       <td className="px-4 py-2.5 align-middle text-center">
                         <Button
                           onClick={() => toggleVisibility(unit.id)}
-                          disabled={isDefault}
                           variant="tertiary"
                           iconOnly
                           size="sm"
@@ -608,17 +452,9 @@ export function UnitsSection({
                         </span>
                       </td>
 
-                      <td className="px-4 py-2.5 align-middle text-center">
-                        <SelectorPredeterminado
-                          isDefault={isDefault}
-                          onSetDefault={() => setDefaultUnitForCategory(unit)}
-                          size="sm"
-                        />
-                      </td>
-
                       <td className="px-4 py-2.5 align-middle text-right">
                         <Button
-                          onClick={() => openEditUnitModal(unit)}
+                          onClick={() => openEditSymbolModal(unit)}
                           variant="tertiary"
                           iconOnly
                           size="sm"
@@ -645,45 +481,28 @@ export function UnitsSection({
             <div className="mt-1 text-xs text-gray-600">
               {searchTerm || filterMode !== 'all' || selectedFamily !== 'all'
                 ? 'Ajusta filtros o búsqueda para ver resultados.'
-                : 'Crea tu primera unidad para empezar.'}
+                : 'No hay unidades disponibles.'}
             </div>
-            {(!searchTerm && filterMode === 'all' && selectedFamily === 'all') && (
-              <div className="mt-4">
-                <Button
-                  onClick={openCreateUnitModal}
-                  variant="primary"
-                  icon={<Plus />}
-                >
-                  Crear Primera Unidad
-                </Button>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* Modal Crear/Editar */}
-      {isUnitModalOpen && (
+      {/* Modal editar simbolo */}
+      {isSymbolModalOpen && symbolModalState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
           <div
             className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
-            onClick={!isSubmitting ? closeUnitModal : undefined}
+            onClick={!isSubmitting ? closeSymbolModal : undefined}
           />
 
           <div className="relative w-full max-w-[760px] max-h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-gray-900">
-                  {unitModalMode === 'edit' ? 'Editar unidad' : 'Nueva unidad'}
-                </div>
-                <div className="text-xs text-gray-600">
-                  {unitModalMode === 'edit'
-                    ? 'Solo puedes cambiar el símbolo comercial.'
-                    : 'Selecciona un código SUNAT y personaliza el símbolo comercial.'}
-                </div>
+                <div className="text-sm font-semibold text-gray-900">Editar simbolo comercial</div>
+                <div className="text-xs text-gray-600">Solo puedes cambiar el simbolo comercial.</div>
               </div>
               <Button
-                onClick={closeUnitModal}
+                onClick={closeSymbolModal}
                 disabled={isSubmitting}
                 variant="tertiary"
                 iconOnly
@@ -694,70 +513,43 @@ export function UnitsSection({
             </div>
 
             <div className="px-5 py-4 overflow-auto">
-              {(() => {
-                const modalSunat = SUNAT_UNITS.find(u => normalizeCode(u.code) === normalizeCode(modalForm.code));
-                const sunatLabel = modalSunat ? modalSunat.name : '';
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <Input
+                    label="Codigo SUNAT"
+                    type="text"
+                    value={symbolModalState.code}
+                    onChange={() => { /* read-only */ }}
+                    disabled
+                  />
+                  <Input
+                    label="Descripcion SUNAT"
+                    type="text"
+                    value={symbolModalState.name}
+                    onChange={() => { /* read-only */ }}
+                    disabled
+                  />
+                </div>
 
-                return (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      <div>
-                        <Select
-                          label="Código SUNAT"
-                          value={normalizeCode(modalForm.code)}
-                          onChange={(e) => handleModalCodeChange(e.target.value)}
-                          options={SUNAT_UNITS.map((u) => ({
-                            value: u.code,
-                            label: `(${u.code}) ${u.name}`
-                          }))}
-                          disabled={unitModalMode === 'edit'}
-                          required
-                        />
-                        {errors.code && <div className="mt-1 text-xs text-red-600">{errors.code}</div>}
-                      </div>
-
-                      <Input
-                        label="Descripción SUNAT"
-                        type="text"
-                        value={sunatLabel}
-                        onChange={() => { /* read-only */ }}
-                        disabled
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      <Select
-                        label="Familia"
-                        value={modalForm.family}
-                        onChange={(e) => setModalForm(prev => ({ ...prev, family: e.target.value as Family }))}
-                        options={UNIT_FAMILIES.map((family) => ({
-                          value: family.value,
-                          label: family.label
-                        }))}
-                        disabled={unitModalMode === 'edit'}
-                        required
-                      />
-
-                      <Input
-                        label="Símbolo comercial"
-                        type="text"
-                        value={modalForm.commercialSymbol}
-                        onChange={(e) => handleModalCommercialSymbolChange(e.target.value)}
-                        error={errors.commercialSymbol}
-                        helperText={errors.commercialSymbol || 'Máx. 60 (letras/números, espacios y . _ - / ( ))'}
-                        placeholder={sunatLabel || 'Símbolo'}
-                        maxLength={60}
-                        required
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
+                <Input
+                  label="Simbolo comercial"
+                  type="text"
+                  value={symbolModalState.symbol}
+                  onChange={(e) => {
+                    setSymbolModalState(prev => (prev ? { ...prev, symbol: e.target.value } : prev));
+                    setSymbolError(null);
+                  }}
+                  error={symbolError ?? undefined}
+                  helperText={symbolError || 'El simbolo no puede estar vacio.'}
+                  placeholder={formatDefaultCommercialSymbol(symbolModalState.code, symbolModalState.name)}
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200">
               <Button
-                onClick={closeUnitModal}
+                onClick={closeSymbolModal}
                 disabled={isSubmitting}
                 variant="secondary"
                 size="sm"
@@ -765,13 +557,13 @@ export function UnitsSection({
                 Cancelar
               </Button>
               <Button
-                onClick={handleModalSubmit}
+                onClick={handleSymbolSubmit}
                 disabled={isSubmitting}
                 variant="primary"
                 size="sm"
               >
                 {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                <span>{unitModalMode === 'edit' ? 'Guardar' : 'Crear'}</span>
+                <span>Guardar</span>
               </Button>
             </div>
           </div>

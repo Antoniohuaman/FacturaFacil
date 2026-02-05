@@ -61,6 +61,52 @@ type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
 
+const normalizeCode = (value?: string): string => (value || '').trim().toUpperCase();
+
+const sanitizeCommercialSymbol = (value?: string): string =>
+  (value ?? '').replace(/[\r\n\t]+/g, ' ').trim();
+
+const formatDefaultCommercialSymbol = (code: string, sunatName: string): string => {
+  const normalizedCode = normalizeCode(code);
+  const normalizedName = (sunatName ?? '').trim();
+  return `(${normalizedCode}) ${normalizedName}`;
+};
+
+const DEFAULT_FAVORITE_CODES = new Set(['NIU', 'KGM', 'LTR', 'MTR', 'ZZ']);
+
+const normalizeUnitsWithCatalog = (units: Unit[]): Unit[] => {
+  const now = new Date();
+  const existingByCode = new Map<string, Unit>();
+  units.forEach(unit => existingByCode.set(normalizeCode(unit.code), unit));
+
+  return SUNAT_UNITS.map((catalog, index) => {
+    const existing = existingByCode.get(normalizeCode(catalog.code));
+    const sanitizedSymbol = sanitizeCommercialSymbol(existing?.symbol);
+    const symbol = sanitizedSymbol || formatDefaultCommercialSymbol(catalog.code, catalog.name);
+    const isFavoriteDefault = DEFAULT_FAVORITE_CODES.has(catalog.code);
+
+    return {
+      id: existing?.id ?? `sunat-${catalog.code}`,
+      code: catalog.code,
+      name: catalog.name,
+      symbol,
+      description: catalog.description,
+      category: catalog.category,
+      baseUnit: catalog.baseUnit,
+      conversionFactor: catalog.conversionFactor,
+      decimalPlaces: catalog.decimalPlaces,
+      isActive: existing?.isActive ?? true,
+      isSystem: true,
+      isFavorite: existing?.isFavorite ?? isFavoriteDefault,
+      isVisible: existing?.isVisible ?? true,
+      displayOrder: existing?.displayOrder ?? index,
+      usageCount: existing?.usageCount ?? (isFavoriteDefault ? 10 : 0),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: existing?.updatedAt ?? now,
+    };
+  });
+};
+
 type PersistedCaja = Caja | (Partial<Caja> & Record<string, unknown>);
 
 type RawTenantConfig = {
@@ -581,7 +627,7 @@ function configurationReducer(
       return { ...state, currencies: action.payload };
     
     case 'SET_UNITS':
-      return { ...state, units: action.payload };
+      return { ...state, units: normalizeUnitsWithCatalog(action.payload) };
     
     case 'SET_TAXES':
       return { ...state, taxes: normalizeTaxes(action.payload) };
@@ -818,18 +864,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     });
 
     // Initialize SUNAT units - Carga todas las unidades de medida del catálogo SUNAT
-    const sunatUnitsWithDefaults: Unit[] = SUNAT_UNITS.map((sunatUnit, index) => ({
-      id: `sunat-${sunatUnit.code}`,
-      ...sunatUnit,
-      isActive: true,
-      isSystem: true,
-      isFavorite: ['NIU', 'KGM', 'LTR', 'MTR', 'ZZ'].includes(sunatUnit.code), // Unidades favoritas por defecto
-      isVisible: true,
-      displayOrder: index,
-      usageCount: ['NIU', 'KGM', 'LTR', 'MTR', 'ZZ'].includes(sunatUnit.code) ? 10 : 0,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }));
+    const sunatUnitsWithDefaults: Unit[] = normalizeUnitsWithCatalog([]);
 
     dispatch({
       type: 'SET_UNITS',
