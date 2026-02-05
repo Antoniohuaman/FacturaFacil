@@ -192,19 +192,28 @@ export const useProductForm = ({
         const serviceUnits = availableUnits.filter(unit => unit.category === 'SERVICIOS');
         const serviceVisible = serviceUnits.filter(unit => unit.isActive !== false && unit.isVisible !== false);
         const pool = serviceVisible.length ? serviceVisible : serviceUnits;
+        const preferredZZ = pool.find(unit => unit.code === 'ZZ') ?? serviceUnits.find(unit => unit.code === 'ZZ');
+        if (preferredZZ) return preferredZZ.code as Product['unidad'];
         const defaultService = pool.find(unit => unit.isDefault) ?? pool[0];
         if (defaultService) return defaultService.code as Product['unidad'];
       }
 
-      const favoriteUnit = sortedVisibleUnits.find(unit => unit.isFavorite) ?? sortedUnits.find(unit => unit.isFavorite);
+      const nonServiceUnits = availableUnits.filter(unit => unit.category !== 'SERVICIOS');
+      const nonServiceVisible = nonServiceUnits.filter(unit => unit.isActive !== false && unit.isVisible !== false);
+      const pool = nonServiceVisible.length ? nonServiceVisible : nonServiceUnits;
+
+      const preferredNIU = pool.find(unit => unit.code === 'NIU') ?? nonServiceUnits.find(unit => unit.code === 'NIU');
+      if (preferredNIU) return preferredNIU.code as Product['unidad'];
+
+      const favoriteUnit = pool.find(unit => unit.isFavorite) ?? nonServiceUnits.find(unit => unit.isFavorite);
       if (favoriteUnit) return favoriteUnit.code as Product['unidad'];
 
-      const defaultUnit = sortedVisibleUnits.find(unit => unit.isDefault) ?? sortedVisibleUnits[0];
+      const defaultUnit = pool.find(unit => unit.isDefault) ?? pool[0];
       if (defaultUnit) return defaultUnit.code as Product['unidad'];
 
-      return (sortedUnits[0]?.code ?? '') as Product['unidad'];
+      return '' as Product['unidad'];
     },
-    [availableUnits, sortedUnits, sortedVisibleUnits]
+    [availableUnits]
   );
 
   const resolveFamilyFromCode = useCallback(
