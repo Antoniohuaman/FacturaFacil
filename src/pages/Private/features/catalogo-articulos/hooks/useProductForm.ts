@@ -12,9 +12,11 @@ import {
   normalizeBarcodeValue
 } from '../utils/formatters';
 import {
-  UNIT_MEASURE_TYPE_OPTIONS,
-  filterUnitsByMeasureType,
+  UNIT_FAMILY_OPTIONS,
+  type UnitFamily,
+  filterUnitsByFamily,
   inferUnitMeasureType,
+  inferUnitFamilyFromCode,
   isUnitAllowedForMeasureType
 } from '../utils/unitMeasureHelpers';
 
@@ -165,6 +167,7 @@ export const useProductForm = ({
 
   const initialUnit = getDefaultUnitForType('BIEN');
   const initialMeasureType = inferMeasureTypeFromUnitCode(initialUnit);
+  const initialUnitFamily = inferUnitFamilyFromCode(initialUnit, availableUnits);
 
   const [formData, setFormData] = useState<ProductFormData>(
     () =>
@@ -177,6 +180,7 @@ export const useProductForm = ({
       )
   );
   const [productType, setProductType] = useState<ProductType>('BIEN');
+  const [selectedUnitFamily, setSelectedUnitFamily] = useState<UnitFamily>(initialUnitFamily);
   const [errors, setErrors] = useState<FormError>({});
   const [additionalUnitErrors, setAdditionalUnitErrors] = useState<AdditionalUnitError[]>([]);
   const [loading, setLoading] = useState(false);
@@ -186,12 +190,12 @@ export const useProductForm = ({
   const [unitInfoMessage, setUnitInfoMessage] = useState<string | null>(null);
   const [hasInitializedForm, setHasInitializedForm] = useState(false);
 
-  const filteredUnitsForType = useMemo(() => {
-    return filterUnitsByMeasureType(sortedUnits, formData.tipoUnidadMedida);
-  }, [sortedUnits, formData.tipoUnidadMedida]);
+  const filteredUnitsForFamily = useMemo(() => {
+    return filterUnitsByFamily(sortedUnits, selectedUnitFamily);
+  }, [sortedUnits, selectedUnitFamily]);
 
-  const baseUnitOptions = filteredUnitsForType.length > 0 ? filteredUnitsForType : sortedUnits;
-  const isUsingFallbackUnits = filteredUnitsForType.length === 0 && !!formData.tipoUnidadMedida;
+  const baseUnitOptions = filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedUnits;
+  const isUsingFallbackUnits = filteredUnitsForFamily.length === 0;
 
   const remainingUnitsForAdditional = useMemo(() => {
     const usedCodes = new Set<string>([
@@ -218,23 +222,55 @@ export const useProductForm = ({
   }, []);
 
   const handleMeasureTypeChange = useCallback(
-    (nextType: UnitMeasureType) => {
-      if (formData.tipoUnidadMedida === nextType) return;
+    (nextFamily: UnitFamily) => {
+      if (selectedUnitFamily === nextFamily) return;
+
       const previousAdditionalCount = formData.unidadesMedidaAdicionales.length;
       let sanitizedUnits: ProductFormData['unidadesMedidaAdicionales'] = [];
 
+      // Primero cambia la selección de chip.
+      setSelectedUnitFamily(nextFamily);
+
       setFormData(prev => {
-        const filtered = filterUnitsByMeasureType(sortedUnits, nextType);
-        const availableForType = filtered.length > 0 ? filtered : sortedUnits;
-        const currentUnitValid = availableForType.some(unit => unit.code === prev.unidad);
-        const nextUnit = (currentUnitValid ? prev.unidad : availableForType[0]?.code || prev.unidad) as Product['unidad'];
-        sanitizedUnits = prev.unidadesMedidaAdicionales.filter(unit =>
-          unit.unidadCodigo !== nextUnit && isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, nextType)
-        );
+        const filtered = filterUnitsByFamily(sortedUnits, nextFamily);
+        const hasUnitsForFamily = filtered.length > 0;
+        const availableForFamily = hasUnitsForFamily ? filtered : sortedUnits;
+
+        const currentUnitValid = hasUnitsForFamily
+          ? availableForFamily.some(unit => unit.code === prev.unidad)
+          : true; // en fallback (sin unidades), no forzar cambios.
+
+        let nextUnit = prev.unidad as Product['unidad'];
+
+        if (!currentUnitValid && hasUnitsForFamily) {
+          const prioritizedCode =
+            nextFamily === 'OTHER'
+              ? 'ZZ'
+              : nextFamily === 'QUANTITY'
+                ? 'NIU'
+                : undefined;
+
+          const prioritized = prioritizedCode
+            ? availableForFamily.find(u => u.code === prioritizedCode)
+            : undefined;
+
+          nextUnit = (prioritized?.code || availableForFamily[0]?.code || prev.unidad) as Product['unidad'];
+        }
+
+        // Limpiamos presentaciones que coinciden con la nueva unidad mínima o que no están dentro de la familia.
+        sanitizedUnits = prev.unidadesMedidaAdicionales.filter(unit => {
+          if (unit.unidadCodigo === nextUnit) return false;
+          const normalizedCode = String(unit.unidadCodigo || '').trim().toUpperCase();
+          if (!normalizedCode) return false;
+          if (!hasUnitsForFamily) return true; // fallback: no bloquear
+          if (nextFamily === 'OTHER' && normalizedCode === 'ZZ') return true;
+          const match = sortedUnits.find(u => String(u.code || '').trim().toUpperCase() === normalizedCode);
+          if (!match) return true;
+          return match.category === nextFamily;
+        });
 
         return {
           ...prev,
-          tipoUnidadMedida: nextType,
           unidad: nextUnit,
           unidadesMedidaAdicionales: sanitizedUnits
         };
@@ -248,12 +284,11 @@ export const useProductForm = ({
       }));
 
       if (sanitizedUnits.length < previousAdditionalCount) {
-        const friendlyLabel =
-          UNIT_MEASURE_TYPE_OPTIONS.find(option => option.value === nextType)?.label || 'familia';
+        const friendlyLabel = UNIT_FAMILY_OPTIONS.find(option => option.value === nextFamily)?.label || 'familia';
         setUnitInfoMessage(`Se limpiaron presentaciones que no son compatibles con la familia ${friendlyLabel}.`);
       }
     },
-    [formData.tipoUnidadMedida, formData.unidadesMedidaAdicionales, sortedUnits]
+    [formData.unidadesMedidaAdicionales, selectedUnitFamily, sortedUnits]
   );
 
   const handleBaseUnitChange = useCallback(
@@ -362,6 +397,7 @@ export const useProductForm = ({
 
   useEffect(() => {
     const defaultUnit = getDefaultUnitForType(productType);
+    setSelectedUnitFamily(inferUnitFamilyFromCode(defaultUnit, availableUnits));
     setFormData(prev => ({
       ...prev,
       unidad: defaultUnit,
@@ -369,11 +405,12 @@ export const useProductForm = ({
       unidadesMedidaAdicionales: []
     }));
     setAdditionalUnitErrors([]);
-  }, [productType, getDefaultUnitForType, inferMeasureTypeFromUnitCode]);
+  }, [productType, getDefaultUnitForType, inferMeasureTypeFromUnitCode, availableUnits]);
 
   const initializeFormForNewProduct = useCallback(() => {
     const defaultUnit = getDefaultUnitForType('BIEN');
     const inferredType = inferMeasureTypeFromUnitCode(defaultUnit);
+    setSelectedUnitFamily(inferUnitFamilyFromCode(defaultUnit, availableUnits));
     setFormData(
       buildDefaultFormData(
         defaultUnit,
@@ -395,7 +432,7 @@ export const useProductForm = ({
     getDefaultUnitForType,
     inferMeasureTypeFromUnitCode,
     resolveDefaultEnabledEstablecimientos
-  ]);
+  , availableUnits]);
 
   const initializeFormFromProduct = useCallback(
     (productData: Product) => {
@@ -440,10 +477,11 @@ export const useProductForm = ({
       setImagePreview(productData.imagen || '');
       setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
       setProductType(productData.unidad === 'ZZ' ? 'SERVICIO' : 'BIEN');
+      setSelectedUnitFamily(inferUnitFamilyFromCode(productData.unidad, availableUnits));
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    }, [activeEstablecimientoIds, defaultTaxLabel, inferMeasureTypeFromUnitCode, sortedUnits, uniqueIds]
+    }, [activeEstablecimientoIds, defaultTaxLabel, inferMeasureTypeFromUnitCode, sortedUnits, uniqueIds, availableUnits]
   );
 
   useEffect(() => {
@@ -665,13 +703,14 @@ export const useProductForm = ({
     imagePreview,
     productType,
     setProductType,
+    selectedUnitFamily,
     isDescriptionExpanded,
     setIsDescriptionExpanded,
     unitInfoMessage,
     setUnitInfoMessage,
     showCategoryModal,
     setShowCategoryModal,
-    filteredUnitsForType,
+    filteredUnitsForType: filteredUnitsForFamily,
     baseUnitOptions,
     isUsingFallbackUnits,
     remainingUnitsForAdditional,

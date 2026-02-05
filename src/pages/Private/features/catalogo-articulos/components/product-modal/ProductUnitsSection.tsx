@@ -1,34 +1,36 @@
 import React from 'react';
-import { Layers, Ruler, Droplet, Clock3, Boxes, Weight } from 'lucide-react';
+import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Package, Zap } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
-import type { ProductFormData, UnitMeasureType } from '../../models/types';
+import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
-import { UNIT_MEASURE_TYPE_OPTIONS } from '../../utils/unitMeasureHelpers';
+import { UNIT_FAMILY_OPTIONS, type UnitFamily } from '../../utils/unitMeasureHelpers';
 
-const UNIT_TYPE_META: Record<
-  UnitMeasureType,
-  { label: string; Icon: LucideIcon }
-> = {
-  UNIDADES: { label: 'Unidades', Icon: Boxes },
-  PESO: { label: 'Peso', Icon: Weight },
-  VOLUMEN: { label: 'Volumen', Icon: Droplet },
-  LONGITUD_AREA: { label: 'Longitud / área', Icon: Ruler },
-  TIEMPO_SERVICIO: { label: 'Tiempo / servicio', Icon: Clock3 }
+const UNIT_FAMILY_META: Record<UnitFamily, { label: string; Icon: LucideIcon }> = {
+  OTHER: { label: 'Servicios', Icon: Layers },
+  TIME: { label: 'Tiempos', Icon: Clock3 },
+  WEIGHT: { label: 'Pesos', Icon: Weight },
+  VOLUME: { label: 'Volúmenes', Icon: Droplet },
+  LENGTH: { label: 'Longitudes', Icon: Ruler },
+  AREA: { label: 'Áreas', Icon: Ruler },
+  ENERGY: { label: 'Energías', Icon: Zap },
+  QUANTITY: { label: 'Cantidades', Icon: Boxes },
+  PACKAGING: { label: 'Empaques', Icon: Package },
 };
 
 interface ProductUnitsSectionProps {
   formData: ProductFormData;
   errors: FormError;
+  selectedUnitFamily: UnitFamily;
   baseUnitOptions: Unit[];
   isUsingFallbackUnits: boolean;
-  handleMeasureTypeChange: (nextType: UnitMeasureType) => void;
+  handleMeasureTypeChange: (nextFamily: UnitFamily) => void;
   handleBaseUnitChange: (nextUnit: ProductFormData['unidad']) => void;
 }
 
 type ProductUnitFamilyFieldProps = Pick<
   ProductUnitsSectionProps,
-  'formData' | 'errors' | 'isUsingFallbackUnits' | 'handleMeasureTypeChange'
+  'errors' | 'isUsingFallbackUnits' | 'handleMeasureTypeChange' | 'selectedUnitFamily'
 > & {
   showCheck?: boolean;
   renderCheck?: (className?: string) => React.ReactNode;
@@ -44,8 +46,8 @@ type ProductMinimumUnitFieldProps = Pick<
 };
 
 export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
-  formData,
   errors,
+  selectedUnitFamily,
   isUsingFallbackUnits,
   handleMeasureTypeChange,
   showCheck,
@@ -57,16 +59,16 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
         <span>Familia de unidades</span>
         {showCheck && renderCheck?.()}
       </div>
-      <div className="flex gap-1 overflow-x-auto pb-1" role="group" aria-label="Familia de unidades">
-        {UNIT_MEASURE_TYPE_OPTIONS.map(option => {
-          const isActive = formData.tipoUnidadMedida === option.value;
-          const meta = UNIT_TYPE_META[option.value as UnitMeasureType] ?? { label: option.label, Icon: Layers };
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Familia de unidades">
+        {UNIT_FAMILY_OPTIONS.map(option => {
+          const isActive = selectedUnitFamily === option.value;
+          const meta = UNIT_FAMILY_META[option.value] ?? { label: option.label, Icon: Layers };
           const Icon = meta.Icon;
           return (
             <button
               type="button"
               key={option.value}
-              onClick={() => handleMeasureTypeChange(option.value as UnitMeasureType)}
+              onClick={() => handleMeasureTypeChange(option.value)}
               aria-pressed={isActive}
               className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 ${
                 isActive
@@ -89,6 +91,12 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
       {errors.tipoUnidadMedida && <p className="text-red-600 text-xs mt-1">{errors.tipoUnidadMedida}</p>}
     </div>
   );
+};
+
+const resolveUnitLabelText = (unit: Unit): string => {
+  const symbol = String(unit.symbol ?? '').trim();
+  if (symbol) return symbol;
+  return unit.name;
 };
 
 export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = ({
@@ -119,13 +127,13 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
           {baseUnitOptions.length > 0 ? (
             baseUnitOptions.map(unit => (
               <option key={unit.id} value={unit.code}>
-                ({unit.code}) {unit.name}
+                ({unit.code}) {resolveUnitLabelText(unit)}
               </option>
             ))
           ) : (
             <>
               <option value="NIU">(NIU) Unidad</option>
-              <option value="ZZ">(ZZ) Servicios</option>
+              <option value="ZZ">(ZZ) Servicio</option>
             </>
           )}
         </select>
@@ -137,6 +145,7 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
 export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
   formData,
   errors,
+  selectedUnitFamily,
   baseUnitOptions,
   isUsingFallbackUnits,
   handleMeasureTypeChange,
@@ -146,8 +155,8 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
       <div className="md:col-span-8">
         <ProductUnitFamilyField
-          formData={formData}
           errors={errors}
+          selectedUnitFamily={selectedUnitFamily}
           isUsingFallbackUnits={isUsingFallbackUnits}
           handleMeasureTypeChange={handleMeasureTypeChange}
         />

@@ -139,6 +139,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     imagePreview,
     productType,
     setProductType,
+    selectedUnitFamily,
     isDescriptionExpanded,
     setIsDescriptionExpanded,
     unitInfoMessage,
@@ -441,8 +442,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
                 {/* Familia de unidades (se mantiene igual) */}
                 <ProductUnitFamilyField
-                  formData={formData}
                   errors={errors}
+                  selectedUnitFamily={selectedUnitFamily}
                   isUsingFallbackUnits={isUsingFallbackUnits}
                   handleMeasureTypeChange={handleMeasureTypeChange}
                   showCheck={shouldShowCheck('tipoUnidadMedida')}
