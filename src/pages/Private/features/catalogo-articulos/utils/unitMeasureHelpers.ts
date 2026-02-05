@@ -1,4 +1,4 @@
-import type { Unit } from '../../configuracion-sistema/modelos/Unit';
+import type { Unit } from '../../configuracion-sistema/modelos';
 
 export type UnitFamily = Unit['category'];
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Product } from '../../models/types';
-import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
+import type { Unit } from '../../../configuracion-sistema/modelos';
 import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ColumnKey } from './columnConfig';
 import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';

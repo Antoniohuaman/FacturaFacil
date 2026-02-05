@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type React from 'react';
 import type { Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
-import type { Unit } from '../../configuracion-sistema/modelos/Unit';
+import type { Unit } from '../../configuracion-sistema/modelos';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 import type { Product, ProductFormData } from '../models/types';
 import type { ProductInput } from './useProductStore';

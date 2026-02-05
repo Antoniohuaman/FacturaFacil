@@ -12,7 +12,7 @@ import { useProductStore } from '../../../../catalogo-articulos/hooks/useProduct
 import { DEFAULT_UNIT_CODE, roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
 import { isMinAllowedColumn } from '../../../../lista-precios/utils/price-helpers/columns';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
-import { SUNAT_UNITS } from '../../../../configuracion-sistema/modelos/Unit';
+import { SUNAT_UNITS } from '../../../../configuracion-sistema/modelos';
 
 export interface PriceColumnOption {
   columnId: string;

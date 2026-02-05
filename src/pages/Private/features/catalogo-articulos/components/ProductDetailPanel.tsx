@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { DetailPane } from '@/components/layouts/MasterDetail';
 import type { Product } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
-import type { Unit } from '../../configuracion-sistema/modelos/Unit';
+import type { Unit } from '../../configuracion-sistema/modelos';
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
   style: 'currency',

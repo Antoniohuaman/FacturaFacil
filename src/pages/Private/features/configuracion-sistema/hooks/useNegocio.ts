@@ -3,7 +3,7 @@ import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import type { PaymentMethod, CreatePaymentMethodRequest } from '../modelos/PaymentMethod';
 import { SUNAT_PAYMENT_METHODS } from '../modelos/PaymentMethod';
 import type { Currency, CreateCurrencyRequest, ExchangeRate } from '../modelos/Currency';
-import type { Unit } from '../modelos/Unit';
+import type { Unit } from '../modelos';
 import type { Tax } from '../modelos/Tax';
 import { PERU_TAX_TYPES } from '../modelos/Tax';
 
