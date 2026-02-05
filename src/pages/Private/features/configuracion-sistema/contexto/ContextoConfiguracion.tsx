@@ -74,12 +74,61 @@ const formatDefaultCommercialSymbol = (code: string, sunatName: string): string 
 
 const DEFAULT_FAVORITE_CODES = new Set(['NIU', 'KGM', 'LTR', 'MTR', 'ZZ']);
 
+type UnitFamily = Unit['category'];
+
+const compareByDisplayOrder = (left: Unit, right: Unit) =>
+  (left.displayOrder ?? 0) - (right.displayOrder ?? 0);
+
+const pickDefaultForFamily = (units: Unit[], preferVisible: boolean): Unit | undefined => {
+  if (!units.length) return undefined;
+  const visibleUnits = units.filter(unit => unit.isVisible !== false);
+  const candidates = preferVisible && visibleUnits.length ? visibleUnits : units;
+
+  const alreadyDefault = candidates.filter(unit => unit.isDefault);
+  if (alreadyDefault.length) {
+    return [...alreadyDefault].sort(compareByDisplayOrder)[0];
+  }
+
+  const favoriteUnits = candidates.filter(unit => unit.isFavorite);
+  if (favoriteUnits.length) {
+    return [...favoriteUnits].sort(compareByDisplayOrder)[0];
+  }
+
+  // Fallback estable: primero por displayOrder (o 0 si falta).
+  return [...candidates].sort(compareByDisplayOrder)[0];
+};
+
+const ensureDefaultPerFamily = (units: Unit[], now: Date): Unit[] => {
+  const families = Array.from(new Set(SUNAT_UNITS.map(unit => unit.category))) as UnitFamily[];
+  const nextDefaults = new Map<UnitFamily, string>();
+
+  families.forEach((family) => {
+    const unitsInFamily = units.filter(unit => unit.category === family);
+    const selected = pickDefaultForFamily(unitsInFamily, true);
+    if (selected) {
+      nextDefaults.set(family, selected.id);
+    }
+  });
+
+  return units.map(unit => {
+    const shouldBeDefault = nextDefaults.get(unit.category) === unit.id;
+    if (unit.isDefault === shouldBeDefault) {
+      return unit;
+    }
+    return {
+      ...unit,
+      isDefault: shouldBeDefault,
+      updatedAt: now,
+    };
+  });
+};
+
 const normalizeUnitsWithCatalog = (units: Unit[]): Unit[] => {
   const now = new Date();
   const existingByCode = new Map<string, Unit>();
   units.forEach(unit => existingByCode.set(normalizeCode(unit.code), unit));
 
-  return SUNAT_UNITS.map((catalog, index) => {
+  const normalized = SUNAT_UNITS.map((catalog, index) => {
     const existing = existingByCode.get(normalizeCode(catalog.code));
     const sanitizedSymbol = sanitizeCommercialSymbol(existing?.symbol);
     const symbol = sanitizedSymbol || formatDefaultCommercialSymbol(catalog.code, catalog.name);
@@ -99,12 +148,15 @@ const normalizeUnitsWithCatalog = (units: Unit[]): Unit[] => {
       isSystem: true,
       isFavorite: existing?.isFavorite ?? isFavoriteDefault,
       isVisible: existing?.isVisible ?? true,
+      isDefault: existing?.isDefault ?? false,
       displayOrder: existing?.displayOrder ?? index,
       usageCount: existing?.usageCount ?? (isFavoriteDefault ? 10 : 0),
       createdAt: existing?.createdAt ?? now,
       updatedAt: existing?.updatedAt ?? now,
     };
   });
+
+  return ensureDefaultPerFamily(normalized, now);
 };
 
 type PersistedCaja = Caja | (Partial<Caja> & Record<string, unknown>);

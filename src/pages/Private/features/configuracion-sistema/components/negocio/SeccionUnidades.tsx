@@ -99,6 +99,7 @@ export function UnitsSection({
         isSystem: true,
         isFavorite: existing?.isFavorite,
         isVisible: existing?.isVisible ?? true,
+        isDefault: existing?.isDefault ?? false,
         displayOrder: existing?.displayOrder,
         usageCount: existing?.usageCount,
         createdAt: existing?.createdAt ?? now,
@@ -258,6 +259,21 @@ export function UnitsSection({
     }
   };
 
+  const handleSetDefaultUnit = async (unit: Unit) => {
+    const now = new Date();
+    const updatedUnits = effectiveUnits.map(current => {
+      if (current.category !== unit.category) return current;
+      const shouldBeDefault = current.id === unit.id;
+      if (current.isDefault === shouldBeDefault) return current;
+      return {
+        ...current,
+        isDefault: shouldBeDefault,
+        updatedAt: now,
+      };
+    });
+    await onUpdate(updatedUnits);
+  };
+
   const toggleSelectedCategoryVisibility = async () => {
     if (selectedFamily === 'all') return;
     const cat = selectedFamily as Family;
@@ -278,11 +294,37 @@ export function UnitsSection({
   };
 
   const toggleVisibility = async (unitId: string) => {
-    const updatedUnits = effectiveUnits.map(u =>
+    const now = new Date();
+    const target = effectiveUnits.find(u => u.id === unitId);
+    if (!target) return;
+
+    const nextVisible = !(target.isVisible ?? true);
+    let updatedUnits = effectiveUnits.map(u =>
       u.id === unitId
-        ? { ...u, isVisible: !u.isVisible, updatedAt: new Date() }
+        ? { ...u, isVisible: nextVisible, updatedAt: now }
         : u
     );
+
+    if (target.isDefault && !nextVisible) {
+      const familyCandidates = updatedUnits
+        .filter(u => u.category === target.category && u.id !== target.id && u.isVisible !== false)
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+      const replacement = familyCandidates[0];
+
+      if (replacement) {
+        updatedUnits = updatedUnits.map(u => {
+          if (u.category !== target.category) return u;
+          const shouldBeDefault = u.id === replacement.id;
+          if (u.isDefault === shouldBeDefault) return u;
+          return {
+            ...u,
+            isDefault: shouldBeDefault,
+            updatedAt: now,
+          };
+        });
+      }
+    }
+
     await onUpdate(updatedUnits);
   };
 
@@ -401,6 +443,7 @@ export function UnitsSection({
                   <th className="px-4 py-2 text-left">Familia</th>
                   <th className="px-4 py-2 text-center">Visible</th>
                   <th className="px-4 py-2 text-left">Símbolo comercial</th>
+                  <th className="px-4 py-2 text-center">Por defecto</th>
                   <th className="px-4 py-2 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -450,6 +493,18 @@ export function UnitsSection({
                         >
                           {commercialSymbol}
                         </span>
+                      </td>
+
+                      <td className="px-4 py-2.5 align-middle text-center">
+                        <input
+                          type="radio"
+                          name={`default-${unit.category}`}
+                          checked={unit.isDefault === true}
+                          onChange={() => handleSetDefaultUnit(unit)}
+                          disabled={isSubmitting}
+                          aria-label={`Marcar (${unit.code}) ${sunatName} como unidad por defecto en ${familyLabel}`}
+                          className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
                       </td>
 
                       <td className="px-4 py-2.5 align-middle text-right">

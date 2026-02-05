@@ -31,6 +31,7 @@ export interface Unit {
 	isSystem?: boolean;
 	isFavorite?: boolean;
 	isVisible?: boolean;
+	isDefault?: boolean;
 	displayOrder?: number;
 	usageCount?: number;
 	createdAt: Date;
