@@ -7,7 +7,7 @@ export type { Series } from './Series';
 export type { PaymentMethod } from './PaymentMethod';
 export type { Currency } from './Currency';
 export type UnitCategory =
-	| 'OTHER'
+	| 'SERVICIOS'
 	| 'TIME'
 	| 'WEIGHT'
 	| 'VOLUME'
@@ -52,7 +52,7 @@ export interface SunatUnitCatalogItem {
 // Catálogo SUNAT actualizado (dataset exacto provisto)
 export const SUNAT_UNITS: SunatUnitCatalogItem[] = [
 	// 1) Servicios
-	{ code: 'ZZ', name: 'Servicio', description: 'Servicio', category: 'OTHER', decimalPlaces: 0 },
+	{ code: 'ZZ', name: 'Servicio', description: 'Servicio', category: 'SERVICIOS', decimalPlaces: 0 },
 
 	// 2) Tiempos
 	{ code: 'HUR', name: 'Hora', description: 'Hora', category: 'TIME', decimalPlaces: 2, baseUnit: 'HUR', conversionFactor: 1 },
@@ -137,6 +137,102 @@ export const SUNAT_UNITS: SunatUnitCatalogItem[] = [
 	{ code: 'BT', name: 'Tornillo', description: 'Tornillo', category: 'PACKAGING', decimalPlaces: 0 },
 	{ code: 'RM', name: 'Resma', description: 'Resma', category: 'PACKAGING', decimalPlaces: 0 },
 ];
+
+export const normalizeCode = (value?: string): string => (value || '').trim().toUpperCase();
+
+export const sanitizeCommercialSymbol = (value?: string): string =>
+	(value ?? '').replace(/[\r\n\t]+/g, ' ').trim();
+
+export const formatDefaultCommercialSymbol = (code: string, sunatName: string): string => {
+	const normalizedCode = normalizeCode(code);
+	const normalizedName = (sunatName ?? '').trim();
+	return `(${normalizedCode}) ${normalizedName}`;
+};
+
+const DEFAULT_FAVORITE_CODES = new Set(['NIU', 'KGM', 'LTR', 'MTR', 'ZZ']);
+
+const compareByDisplayOrder = (left: Unit, right: Unit) =>
+	(left.displayOrder ?? 0) - (right.displayOrder ?? 0);
+
+const pickDefaultForFamily = (units: Unit[], preferVisible: boolean): Unit | undefined => {
+	if (!units.length) return undefined;
+	const visibleUnits = units.filter(unit => unit.isVisible !== false);
+	const candidates = preferVisible && visibleUnits.length ? visibleUnits : units;
+
+	const alreadyDefault = candidates.filter(unit => unit.isDefault);
+	if (alreadyDefault.length) {
+		return [...alreadyDefault].sort(compareByDisplayOrder)[0];
+	}
+
+	const favoriteUnits = candidates.filter(unit => unit.isFavorite);
+	if (favoriteUnits.length) {
+		return [...favoriteUnits].sort(compareByDisplayOrder)[0];
+	}
+
+	// Fallback estable: primero por displayOrder (o 0 si falta).
+	return [...candidates].sort(compareByDisplayOrder)[0];
+};
+
+export const ensureDefaultPerFamily = (units: Unit[], now: Date): Unit[] => {
+	const families = Array.from(new Set(SUNAT_UNITS.map(unit => unit.category))) as UnitCategory[];
+	const nextDefaults = new Map<UnitCategory, string>();
+
+	families.forEach((family) => {
+		const unitsInFamily = units.filter(unit => unit.category === family);
+		const selected = pickDefaultForFamily(unitsInFamily, true);
+		if (selected) {
+			nextDefaults.set(family, selected.id);
+		}
+	});
+
+	return units.map(unit => {
+		const shouldBeDefault = nextDefaults.get(unit.category) === unit.id;
+		if (unit.isDefault === shouldBeDefault) {
+			return unit;
+		}
+		return {
+			...unit,
+			isDefault: shouldBeDefault,
+			updatedAt: now,
+		};
+	});
+};
+
+export const normalizeUnitsWithCatalog = (units: Unit[]): Unit[] => {
+	const now = new Date();
+	const existingByCode = new Map<string, Unit>();
+	units.forEach(unit => existingByCode.set(normalizeCode(unit.code), unit));
+
+	const normalized = SUNAT_UNITS.map((catalog, index) => {
+		const existing = existingByCode.get(normalizeCode(catalog.code));
+		const sanitizedSymbol = sanitizeCommercialSymbol(existing?.symbol);
+		const symbol = sanitizedSymbol || formatDefaultCommercialSymbol(catalog.code, catalog.name);
+		const isFavoriteDefault = DEFAULT_FAVORITE_CODES.has(catalog.code);
+
+		return {
+			id: existing?.id ?? `sunat-${catalog.code}`,
+			code: catalog.code,
+			name: catalog.name,
+			symbol,
+			description: catalog.description,
+			category: catalog.category,
+			baseUnit: catalog.baseUnit,
+			conversionFactor: catalog.conversionFactor,
+			decimalPlaces: catalog.decimalPlaces,
+			isActive: existing?.isActive ?? true,
+			isSystem: true,
+			isFavorite: existing?.isFavorite ?? isFavoriteDefault,
+			isVisible: existing?.isVisible ?? true,
+			isDefault: existing?.isDefault ?? false,
+			displayOrder: existing?.displayOrder ?? index,
+			usageCount: existing?.usageCount ?? (isFavoriteDefault ? 10 : 0),
+			createdAt: existing?.createdAt ?? now,
+			updatedAt: existing?.updatedAt ?? now,
+		};
+	});
+
+	return ensureDefaultPerFamily(normalized, now);
+};
 export type { Tax as TaxConfiguration } from './Tax';
 export type { Configuration, ConfigurationModule, ConfigurationStep } from './Configuration';
 export type { Caja, CreateCajaInput, UpdateCajaInput, MedioPago, DispositivosCaja } from './Caja';

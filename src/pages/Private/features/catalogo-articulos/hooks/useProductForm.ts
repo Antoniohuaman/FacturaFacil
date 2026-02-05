@@ -158,7 +158,7 @@ export const useProductForm = ({
       }
 
       if (type === 'SERVICIO') {
-        const serviceUnit = availableUnits.find(u => u.category === 'OTHER');
+        const serviceUnit = availableUnits.find(u => u.category === 'SERVICIOS');
         if (serviceUnit) return serviceUnit.code as Product['unidad'];
       }
 
@@ -504,7 +504,7 @@ export const useProductForm = ({
       setImagePreview(productData.imagen || '');
       setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
       const productUnit = availableUnits.find(u => u.code === productData.unidad);
-      setProductType(productUnit?.category === 'OTHER' ? 'SERVICIO' : 'BIEN');
+      setProductType(productUnit?.category === 'SERVICIOS' ? 'SERVICIO' : 'BIEN');
       setSelectedUnitFamily(inferredFamily);
       setErrors({});
       setUnitInfoMessage(null);

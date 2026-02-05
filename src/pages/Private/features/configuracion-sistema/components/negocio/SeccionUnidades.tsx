@@ -10,13 +10,19 @@ import {
 } from 'lucide-react';
 import { Button, Select, Input } from '@/contasis';
 import type { Unit } from '../../modelos';
-import { SUNAT_UNITS } from '../../modelos';
+import {
+  SUNAT_UNITS,
+  formatDefaultCommercialSymbol,
+  normalizeCode,
+  normalizeUnitsWithCatalog,
+  sanitizeCommercialSymbol
+} from '../../modelos';
 
 type Family = Unit['category'];
 
 // Familias (antes “Categorías”) - exactamente 9
 const UNIT_FAMILIES: Array<{ value: Family; label: string }> = [
-  { value: 'OTHER', label: 'Servicios' },
+  { value: 'SERVICIOS', label: 'Servicios' },
   { value: 'TIME', label: 'Tiempos' },
   { value: 'WEIGHT', label: 'Pesos' },
   { value: 'VOLUME', label: 'Volúmenes' },
@@ -43,8 +49,6 @@ type SymbolModalState = {
   symbol: string;
 };
 
-const normalizeCode = (value?: string): string => (value || '').trim().toUpperCase();
-
 const createDefaultFamilyVisibility = (): Record<Family, boolean> => ({
   QUANTITY: true,
   WEIGHT: true,
@@ -54,59 +58,15 @@ const createDefaultFamilyVisibility = (): Record<Family, boolean> => ({
   TIME: true,
   ENERGY: true,
   PACKAGING: true,
-  OTHER: true,
+  SERVICIOS: true,
 });
-
-const sanitizeCommercialSymbol = (value: string): string => {
-  // Permitir espacios tal cual (no colapsar), pero evitar saltos de línea/tabs.
-  return value.replace(/[\r\n\t]+/g, ' ').trim();
-};
-
-const formatDefaultCommercialSymbol = (code: string, sunatName: string): string => {
-  const normalizedCode = normalizeCode(code).toUpperCase();
-  const normalizedName = (sunatName ?? '').trim();
-  return `(${normalizedCode}) ${normalizedName}`;
-};
 
 export function UnitsSection({
   units,
   onUpdate,
   isLoading = false
 }: UnitsSectionProps) {
-  const effectiveUnits = useMemo<Unit[]>(() => {
-    const now = new Date();
-    const existingByCode = new Map<string, Unit>();
-    for (const unit of units) {
-      existingByCode.set(normalizeCode(unit.code), unit);
-    }
-
-    return SUNAT_UNITS.map((catalog) => {
-      const existing = existingByCode.get(normalizeCode(catalog.code));
-      const sanitizedSymbol = sanitizeCommercialSymbol(existing?.symbol ?? '');
-      const commercialSymbol = sanitizedSymbol || formatDefaultCommercialSymbol(catalog.code, catalog.name);
-
-      return {
-        id: existing?.id ?? `sunat-${catalog.code}`,
-        code: catalog.code,
-        name: catalog.name,
-        symbol: commercialSymbol,
-        description: catalog.description,
-        category: catalog.category,
-        baseUnit: catalog.baseUnit,
-        conversionFactor: catalog.conversionFactor,
-        decimalPlaces: catalog.decimalPlaces,
-        isActive: existing?.isActive ?? true,
-        isSystem: true,
-        isFavorite: existing?.isFavorite,
-        isVisible: existing?.isVisible ?? true,
-        isDefault: existing?.isDefault ?? false,
-        displayOrder: existing?.displayOrder,
-        usageCount: existing?.usageCount,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: existing?.updatedAt ?? now,
-      };
-    });
-  }, [units]);
+  const effectiveUnits = useMemo<Unit[]>(() => normalizeUnitsWithCatalog(units), [units]);
 
   const autoSanitizedOnceRef = useRef(false);
 

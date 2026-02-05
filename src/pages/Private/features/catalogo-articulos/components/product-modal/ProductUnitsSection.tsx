@@ -6,7 +6,7 @@ import type { ProductFormData } from '../../models/types';
 import { UNIT_FAMILY_OPTIONS, type UnitFamily } from '../../utils/unitMeasureHelpers';
 
 const UNIT_FAMILY_META: Record<UnitFamily, { label: string; Icon: LucideIcon }> = {
-  OTHER: { label: 'Servicios', Icon: Layers },
+  SERVICIOS: { label: 'Servicios', Icon: Layers },
   TIME: { label: 'Tiempos', Icon: Clock3 },
   WEIGHT: { label: 'Pesos', Icon: Weight },
   VOLUME: { label: 'Volúmenes', Icon: Droplet },

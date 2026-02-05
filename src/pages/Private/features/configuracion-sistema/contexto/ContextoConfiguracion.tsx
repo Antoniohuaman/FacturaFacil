@@ -10,7 +10,7 @@ import type { Currency } from '../modelos/Currency';
 import type { Unit } from '../modelos';
 import type { Tax } from '../modelos/Tax';
 import { PERU_TAX_TYPES, normalizeTaxes } from '../modelos/Tax';
-import { SUNAT_UNITS } from '../modelos';
+import { normalizeUnitsWithCatalog } from '../modelos';
 import type { Almacen } from '../modelos/Almacen';
 import type { Caja } from '../modelos/Caja';
 import { lsKey } from '../../../../../shared/tenant';
@@ -61,103 +61,6 @@ type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
 
-const normalizeCode = (value?: string): string => (value || '').trim().toUpperCase();
-
-const sanitizeCommercialSymbol = (value?: string): string =>
-  (value ?? '').replace(/[\r\n\t]+/g, ' ').trim();
-
-const formatDefaultCommercialSymbol = (code: string, sunatName: string): string => {
-  const normalizedCode = normalizeCode(code);
-  const normalizedName = (sunatName ?? '').trim();
-  return `(${normalizedCode}) ${normalizedName}`;
-};
-
-const DEFAULT_FAVORITE_CODES = new Set(['NIU', 'KGM', 'LTR', 'MTR', 'ZZ']);
-
-type UnitFamily = Unit['category'];
-
-const compareByDisplayOrder = (left: Unit, right: Unit) =>
-  (left.displayOrder ?? 0) - (right.displayOrder ?? 0);
-
-const pickDefaultForFamily = (units: Unit[], preferVisible: boolean): Unit | undefined => {
-  if (!units.length) return undefined;
-  const visibleUnits = units.filter(unit => unit.isVisible !== false);
-  const candidates = preferVisible && visibleUnits.length ? visibleUnits : units;
-
-  const alreadyDefault = candidates.filter(unit => unit.isDefault);
-  if (alreadyDefault.length) {
-    return [...alreadyDefault].sort(compareByDisplayOrder)[0];
-  }
-
-  const favoriteUnits = candidates.filter(unit => unit.isFavorite);
-  if (favoriteUnits.length) {
-    return [...favoriteUnits].sort(compareByDisplayOrder)[0];
-  }
-
-  // Fallback estable: primero por displayOrder (o 0 si falta).
-  return [...candidates].sort(compareByDisplayOrder)[0];
-};
-
-const ensureDefaultPerFamily = (units: Unit[], now: Date): Unit[] => {
-  const families = Array.from(new Set(SUNAT_UNITS.map(unit => unit.category))) as UnitFamily[];
-  const nextDefaults = new Map<UnitFamily, string>();
-
-  families.forEach((family) => {
-    const unitsInFamily = units.filter(unit => unit.category === family);
-    const selected = pickDefaultForFamily(unitsInFamily, true);
-    if (selected) {
-      nextDefaults.set(family, selected.id);
-    }
-  });
-
-  return units.map(unit => {
-    const shouldBeDefault = nextDefaults.get(unit.category) === unit.id;
-    if (unit.isDefault === shouldBeDefault) {
-      return unit;
-    }
-    return {
-      ...unit,
-      isDefault: shouldBeDefault,
-      updatedAt: now,
-    };
-  });
-};
-
-const normalizeUnitsWithCatalog = (units: Unit[]): Unit[] => {
-  const now = new Date();
-  const existingByCode = new Map<string, Unit>();
-  units.forEach(unit => existingByCode.set(normalizeCode(unit.code), unit));
-
-  const normalized = SUNAT_UNITS.map((catalog, index) => {
-    const existing = existingByCode.get(normalizeCode(catalog.code));
-    const sanitizedSymbol = sanitizeCommercialSymbol(existing?.symbol);
-    const symbol = sanitizedSymbol || formatDefaultCommercialSymbol(catalog.code, catalog.name);
-    const isFavoriteDefault = DEFAULT_FAVORITE_CODES.has(catalog.code);
-
-    return {
-      id: existing?.id ?? `sunat-${catalog.code}`,
-      code: catalog.code,
-      name: catalog.name,
-      symbol,
-      description: catalog.description,
-      category: catalog.category,
-      baseUnit: catalog.baseUnit,
-      conversionFactor: catalog.conversionFactor,
-      decimalPlaces: catalog.decimalPlaces,
-      isActive: existing?.isActive ?? true,
-      isSystem: true,
-      isFavorite: existing?.isFavorite ?? isFavoriteDefault,
-      isVisible: existing?.isVisible ?? true,
-      isDefault: existing?.isDefault ?? false,
-      displayOrder: existing?.displayOrder ?? index,
-      usageCount: existing?.usageCount ?? (isFavoriteDefault ? 10 : 0),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: existing?.updatedAt ?? now,
-    };
-  });
-
-  return ensureDefaultPerFamily(normalized, now);
-};
 
 type PersistedCaja = Caja | (Partial<Caja> & Record<string, unknown>);
 
@@ -167,6 +70,7 @@ type RawTenantConfig = {
   Establecimientos: Establecimiento[];
   almacenes: Almacen[];
   cajas: PersistedCaja[];
+  units?: Unit[];
   salesPreferences: SalesPreferences;
 };
 
@@ -176,6 +80,7 @@ type PersistedTenantConfig = {
   Establecimientos: Establecimiento[];
   almacenes: Almacen[];
   cajas: Caja[];
+  units: Unit[];
   salesPreferences: SalesPreferences;
 };
 
@@ -218,6 +123,12 @@ const reviveEstablecimiento = (est: Establecimiento): Establecimiento => ({
         registrationDate: reviveDate(est.sunatConfiguration.registrationDate),
       }
     : est.sunatConfiguration,
+});
+
+const reviveUnit = (unit: Unit): Unit => ({
+  ...unit,
+  createdAt: reviveDate(unit.createdAt) ?? new Date(),
+  updatedAt: reviveDate(unit.updatedAt) ?? new Date(),
 });
 
 const reviveAlmacen = (raw: Almacen | (Partial<Almacen> & Record<string, unknown>)): Almacen => {
@@ -358,6 +269,7 @@ const reviveTenantConfig = (config: RawTenantConfig): PersistedTenantConfig => (
   Establecimientos: config.Establecimientos.map(reviveEstablecimiento),
   almacenes: config.almacenes.map(reviveAlmacen),
   cajas: config.cajas.map(reviveCaja),
+  units: Array.isArray(config.units) ? config.units.map(reviveUnit) : [],
 });
 
 const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
@@ -369,6 +281,9 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
     Array.isArray(value.almacenes) &&
     Array.isArray(value.cajas);
 
+  const hasUnits =
+    !('units' in value) || Array.isArray((value as RawTenantConfig).units);
+
   const prefs = value.salesPreferences;
   const hasPrefs =
     isRecord(prefs) &&
@@ -378,7 +293,7 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
   const company = value.company;
   const hasCompany = company === null || isRecord(company);
 
-  return hasArrays && hasPrefs && hasCompany;
+  return hasArrays && hasPrefs && hasCompany && hasUnits;
 };
 
 const reviveSeries = (series: Series): Series => ({
@@ -766,6 +681,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   );
 
   const tenantHydratedRef = useRef(false);
+  const unitsHydratedRef = useRef(false);
 
   const seriesHydratedRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
@@ -798,6 +714,10 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       dispatch({ type: 'SET_ALMACENES', payload: persisted.almacenes });
       dispatch({ type: 'SET_CAJAS', payload: persisted.cajas });
       dispatch({ type: 'SET_SALES_PREFERENCES', payload: persisted.salesPreferences });
+      if (persisted.units.length) {
+        dispatch({ type: 'SET_UNITS', payload: persisted.units });
+        unitsHydratedRef.current = true;
+      }
     }
 
     tenantHydratedRef.current = true;
@@ -839,6 +759,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.Establecimientos.length > 0 ||
       state.almacenes.length > 0 ||
       state.cajas.length > 0 ||
+      state.units.length > 0 ||
       state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
       state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax;
 
@@ -852,6 +773,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       Establecimientos: state.Establecimientos,
       almacenes: state.almacenes,
       cajas: state.cajas,
+      units: state.units,
       salesPreferences: state.salesPreferences,
     };
 
@@ -862,6 +784,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     state.Establecimientos,
     state.salesPreferences,
     state.almacenes,
+    state.units,
     tenantConfigKey,
     tenantId,
   ]);
@@ -916,12 +839,14 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     });
 
     // Initialize SUNAT units - Carga todas las unidades de medida del catálogo SUNAT
-    const sunatUnitsWithDefaults: Unit[] = normalizeUnitsWithCatalog([]);
+    if (!unitsHydratedRef.current) {
+      const sunatUnitsWithDefaults: Unit[] = normalizeUnitsWithCatalog([]);
 
-    dispatch({
-      type: 'SET_UNITS',
-      payload: sunatUnitsWithDefaults
-    });
+      dispatch({
+        type: 'SET_UNITS',
+        payload: sunatUnitsWithDefaults
+      });
+    }
 
     // Mock taxes aligned with canonical PERU_TAX_TYPES definitions
     const now = new Date();

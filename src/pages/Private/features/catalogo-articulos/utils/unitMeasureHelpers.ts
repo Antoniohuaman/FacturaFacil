@@ -12,7 +12,7 @@ export const UNIT_FAMILY_OPTIONS: UnitFamilyOption[] = [
   { value: 'QUANTITY', label: 'Cantidades' },
   { value: 'PACKAGING', label: 'Empaques' },
   { value: 'WEIGHT', label: 'Pesos' },
-  { value: 'OTHER', label: 'Servicios' },
+  { value: 'SERVICIOS', label: 'Servicios' },
   { value: 'VOLUME', label: 'Volúmenes' },
   { value: 'AREA', label: 'Áreas' },
   { value: 'LENGTH', label: 'Longitudes' },
