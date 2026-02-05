@@ -1,5 +1,5 @@
 // src/features/configuration/components/negocio/UnitsSection.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Scale,
   Plus,
@@ -169,13 +169,45 @@ const createDefaultFamilyVisibility = (): Record<Family, boolean> => ({
   OTHER: true,
 });
 
-const sanitizeCommercialSymbol = (value: string): string => value.replace(/\s+/g, ' ').trim();
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const sanitizeCommercialSymbol = (value: string): string => {
+  // Permitir espacios tal cual (no colapsar), pero evitar saltos de línea/tabs.
+  return value.replace(/[\r\n\t]+/g, ' ').trim();
+};
+
+const formatDefaultCommercialSymbol = (code: string, sunatName: string): string => {
+  const normalizedCode = normalizeCode(code).toUpperCase();
+  const normalizedName = (sunatName ?? '').trim();
+  return `(${normalizedCode}) ${normalizedName}`;
+};
+
+const symbolHasLeadingCode = (symbol: string, code: string): boolean => {
+  const normalizedCode = normalizeCode(code).toUpperCase();
+  const trimmed = sanitizeCommercialSymbol(symbol);
+  if (!trimmed) return false;
+  const pattern = new RegExp(`^\\(\\s*${escapeRegExp(normalizedCode)}\\s*\\)`, 'i');
+  return pattern.test(trimmed);
+};
+
+const ensureCommercialSymbolForCatalogUnit = (args: {
+  code: string;
+  sunatName: string;
+  existingSymbol?: string;
+}): string => {
+  const defaultSymbol = formatDefaultCommercialSymbol(args.code, args.sunatName);
+  const candidate = sanitizeCommercialSymbol(args.existingSymbol ?? '');
+  if (!candidate) return defaultSymbol;
+  if (symbolHasLeadingCode(candidate, args.code)) return candidate;
+  // Legacy (DOC/CAJ/solo nombre/solo código/etc.): se reemplaza por el default exacto.
+  return defaultSymbol;
+};
 
 const isValidCommercialSymbol = (value: string): boolean => {
   if (!value) return false;
-  // Debe permitir el valor por defecto = “Descripción SUNAT” (puede tener espacios y tildes)
   if (value.length > 60) return false;
-  return /^[\p{L}\p{N} ._/-]+$/u.test(value);
+  // Letras/números/espacios y . _ - / ( )
+  return /^[\p{L}\p{N} ._()/-]+$/u.test(value);
 };
 
 export function UnitsSection({
@@ -192,7 +224,11 @@ export function UnitsSection({
 
     return SUNAT_UNITS.map((catalog) => {
       const existing = existingByCode.get(normalizeCode(catalog.code));
-      const commercialSymbol = sanitizeCommercialSymbol(existing?.symbol ?? '') || catalog.name;
+      const commercialSymbol = ensureCommercialSymbolForCatalogUnit({
+        code: catalog.code,
+        sunatName: catalog.name,
+        existingSymbol: existing?.symbol,
+      });
 
       return {
         id: existing?.id ?? `sunat-${catalog.code}`,
@@ -216,6 +252,8 @@ export function UnitsSection({
     });
   }, [units]);
 
+  const autoSanitizedOnceRef = useRef(false);
+
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [unitModalMode, setUnitModalMode] = useState<UnitModalMode>('create');
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
@@ -226,6 +264,36 @@ export function UnitsSection({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ code?: string; commercialSymbol?: string }>({});
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (isSubmitting) return;
+    if (autoSanitizedOnceRef.current) return;
+
+    // Si existen símbolos legacy (o ausentes), persistimos el catálogo ya saneado una sola vez.
+    const existingByCode = new Map<string, Unit>();
+    for (const unit of units) {
+      existingByCode.set(normalizeCode(unit.code), unit);
+    }
+
+    const needsSanitization = SUNAT_UNITS.some((catalog) => {
+      const existing = existingByCode.get(normalizeCode(catalog.code));
+      const existingSymbol = sanitizeCommercialSymbol(existing?.symbol ?? '');
+      if (!existingSymbol) return true;
+      return !symbolHasLeadingCode(existingSymbol, catalog.code);
+    });
+
+    if (!needsSanitization) return;
+
+    autoSanitizedOnceRef.current = true;
+    void (async () => {
+      try {
+        await onUpdate(effectiveUnits);
+      } catch {
+        // No bloquear UI si falla la persistencia automática.
+      }
+    })();
+  }, [effectiveUnits, isLoading, isSubmitting, onUpdate, units]);
 
   // Estados para UX mejorada
   const [defaultUnitIdByFamily, setDefaultUnitIdByFamily] = useState<Record<Family, string | null>>(
@@ -315,7 +383,7 @@ export function UnitsSection({
     setModalForm({
       code: firstSunat?.code ?? '',
       family: (firstSunat?.category as Family) ?? 'OTHER',
-      commercialSymbol: firstSunat?.name ?? '',
+      commercialSymbol: formatDefaultCommercialSymbol(firstSunat?.code ?? '', firstSunat?.name ?? ''),
     });
     setErrors({});
     setIsUnitModalOpen(true);
@@ -329,7 +397,7 @@ export function UnitsSection({
     setModalForm({
       code: unit.code,
       family: unit.category,
-      commercialSymbol: unit.symbol || sunatName,
+      commercialSymbol: unit.symbol || formatDefaultCommercialSymbol(unit.code, sunatName),
     });
     setErrors({});
     setIsUnitModalOpen(true);
@@ -342,21 +410,41 @@ export function UnitsSection({
       ...prev,
       code: normalized,
       family: (sunat?.category as Family) ?? prev.family,
-      commercialSymbol: prev.commercialSymbol || sunat?.name || '',
+      commercialSymbol: (() => {
+        const prevSunat = SUNAT_UNITS.find(u => normalizeCode(u.code) === normalizeCode(prev.code));
+        const prevDefault = formatDefaultCommercialSymbol(prev.code, prevSunat?.name ?? '');
+        const nextDefault = formatDefaultCommercialSymbol(normalized, sunat?.name ?? '');
+
+        // Si no tocó el símbolo (sigue igual al default anterior), mantenerlo sincronizado con el código.
+        if (!sanitizeCommercialSymbol(prev.commercialSymbol) || sanitizeCommercialSymbol(prev.commercialSymbol) === sanitizeCommercialSymbol(prevDefault)) {
+          return nextDefault;
+        }
+        return prev.commercialSymbol;
+      })(),
     }));
     setErrors(prev => ({ ...prev, code: undefined }));
   };
 
   const handleModalCommercialSymbolChange = (value: string) => {
-    const sanitized = sanitizeCommercialSymbol(value);
-    setModalForm(prev => ({ ...prev, commercialSymbol: sanitized }));
+    setModalForm(prev => ({ ...prev, commercialSymbol: value }));
     setErrors(prev => ({ ...prev, commercialSymbol: undefined }));
   };
 
   const handleModalSubmit = async () => {
     const newErrors: { code?: string; commercialSymbol?: string } = {};
     const code = normalizeCode(modalForm.code);
-    const symbol = sanitizeCommercialSymbol(modalForm.commercialSymbol);
+    const sunat = SUNAT_UNITS.find(unit => normalizeCode(unit.code) === code);
+    const sunatName = sunat?.name ?? '';
+    const defaultSymbol = formatDefaultCommercialSymbol(code, sunatName);
+
+    const rawInput = modalForm.commercialSymbol;
+    const cleanedInput = sanitizeCommercialSymbol(rawInput);
+    const symbol = (() => {
+      if (!cleanedInput) return defaultSymbol;
+      if (symbolHasLeadingCode(cleanedInput, code)) return cleanedInput;
+      // Si el usuario escribe sin prefijo, lo agregamos para conservar estándar.
+      return `(${code.toUpperCase()}) ${cleanedInput}`;
+    })();
 
     if (!code) {
       newErrors.code = 'Selecciona un código SUNAT';
@@ -368,7 +456,7 @@ export function UnitsSection({
     }
 
     if (!isValidCommercialSymbol(symbol)) {
-      newErrors.commercialSymbol = 'Símbolo inválido (máx 10, letras/números y . _ - /)';
+      newErrors.commercialSymbol = 'Símbolo inválido (máx 60; letras/números, espacios y . _ - / ( ))';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -394,8 +482,7 @@ export function UnitsSection({
             : u
         );
       } else {
-        const sunatUnit = SUNAT_UNITS.find(unit => normalizeCode(unit.code) === code);
-        if (!sunatUnit) {
+        if (!sunat) {
           setErrors({ code: 'El código seleccionado no existe en SUNAT.' });
           return;
         }
@@ -587,8 +674,7 @@ export function UnitsSection({
                   const familyLabel = UNIT_FAMILIES.find(c => c.value === unit.category)?.label ?? unit.category;
                   const visible = isVisibleUnit(unit);
                   const isDefault = isDefaultInFamily(unit);
-                  const commercialSymbol = unit.symbol || sunatName;
-                  const isDefaultCommercialSymbol = sanitizeCommercialSymbol(commercialSymbol) === sanitizeCommercialSymbol(sunatName);
+                  const commercialSymbol = unit.symbol || formatDefaultCommercialSymbol(unit.code, sunatName);
 
                   return (
                     <tr
@@ -625,7 +711,7 @@ export function UnitsSection({
 
                       <td className="px-4 py-2.5 align-middle">
                         <span
-                          className={`font-mono ${isDefaultCommercialSymbol ? 'text-gray-500' : 'text-gray-900'}`}
+                          className="font-mono text-gray-900"
                         >
                           {commercialSymbol}
                         </span>
@@ -767,7 +853,7 @@ export function UnitsSection({
                         value={modalForm.commercialSymbol}
                         onChange={(e) => handleModalCommercialSymbolChange(e.target.value)}
                         error={errors.commercialSymbol}
-                        helperText={errors.commercialSymbol || 'Máx. 60 (letras/números y . _ - /)'}
+                        helperText={errors.commercialSymbol || 'Máx. 60 (letras/números, espacios y . _ - / ( ))'}
                         placeholder={sunatLabel || 'Símbolo'}
                         maxLength={60}
                         required
