@@ -151,7 +151,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     remainingUnitsForAdditional,
     findUnitByCode,
     formatFactorValue,
-    handleMeasureTypeChange,
+    handleUnitFamilyChange,
     handleBaseUnitChange,
     addAdditionalUnit,
     removeAdditionalUnit,
@@ -190,7 +190,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
     | 'establecimiento'
     | 'unidad'
     | 'categoria'
-    | 'tipoUnidadMedida'
     | 'alias'
     | 'codigoSunat'
     | 'imagen'
@@ -241,8 +240,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
         return (formData.impuesto ?? '').trim().length > 0;
       case 'unidad':
         return Boolean(formData.unidad);
-      case 'tipoUnidadMedida':
-        return Boolean(formData.tipoUnidadMedida);
       case 'establecimiento':
         return (formData.establecimientoIds ?? []).length > 0;
       case 'imagen':
@@ -268,8 +265,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
     switch (fieldId) {
       case 'establecimiento':
         return Boolean(errors.establecimientoIds);
-      case 'tipoUnidadMedida':
-        return Boolean(errors.tipoUnidadMedida);
       default:
         return Boolean((errors as Record<string, unknown>)[fieldId]);
     }
@@ -442,12 +437,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
                 {/* Familia de unidades (se mantiene igual) */}
                 <ProductUnitFamilyField
-                  errors={errors}
                   selectedUnitFamily={selectedUnitFamily}
                   isUsingFallbackUnits={isUsingFallbackUnits}
-                  handleMeasureTypeChange={handleMeasureTypeChange}
-                  showCheck={shouldShowCheck('tipoUnidadMedida')}
-                  renderCheck={renderCheck}
+                  handleUnitFamilyChange={handleUnitFamilyChange}
                 />
 
                 {/* Alias + Código SUNAT (misma fila) */}

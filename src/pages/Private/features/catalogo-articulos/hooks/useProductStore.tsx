@@ -7,7 +7,6 @@ import type {
   PaginationConfig,
   ProductFormData
 } from '../models/types';
-import { inferUnitMeasureType } from '../utils/unitMeasureHelpers';
 import { normalizeBarcodeValue } from '../utils/formatters';
 import {
   runCatalogStorageMigration,
@@ -581,7 +580,6 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     codigo: (input.codigo ?? existing?.codigo ?? generateId('PROD')).trim(),
     nombre: (input.nombre ?? existing?.nombre ?? 'Producto sin nombre').trim(),
     unidad,
-    tipoUnidadMedida: input.tipoUnidadMedida ?? existing?.tipoUnidadMedida ?? inferUnitMeasureType(unidad),
     precio: existing?.precio ?? 0,
     categoria: input.categoria ?? existing?.categoria ?? '',
     descripcion: input.descripcion ?? existing?.descripcion,
@@ -636,7 +634,6 @@ function mapFormDataToInput(data: ProductFormData): ProductInput {
     nombre: data.nombre,
     codigo: data.codigo,
     unidad: data.unidad,
-    tipoUnidadMedida: data.tipoUnidadMedida ?? inferUnitMeasureType(data.unidad),
     categoria: data.categoria?.trim() || '',
     descripcion: data.descripcion,
     impuesto: data.impuesto,

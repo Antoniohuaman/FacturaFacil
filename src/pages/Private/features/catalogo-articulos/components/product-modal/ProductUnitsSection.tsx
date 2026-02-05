@@ -3,7 +3,6 @@ import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Package, Zap } from 'luc
 import type { LucideIcon } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos/Unit';
 import type { ProductFormData } from '../../models/types';
-import type { FormError } from '../../hooks/useProductForm';
 import { UNIT_FAMILY_OPTIONS, type UnitFamily } from '../../utils/unitMeasureHelpers';
 
 const UNIT_FAMILY_META: Record<UnitFamily, { label: string; Icon: LucideIcon }> = {
@@ -20,17 +19,16 @@ const UNIT_FAMILY_META: Record<UnitFamily, { label: string; Icon: LucideIcon }> 
 
 interface ProductUnitsSectionProps {
   formData: ProductFormData;
-  errors: FormError;
   selectedUnitFamily: UnitFamily;
   baseUnitOptions: Unit[];
   isUsingFallbackUnits: boolean;
-  handleMeasureTypeChange: (nextFamily: UnitFamily) => void;
+  handleUnitFamilyChange: (nextFamily: UnitFamily) => void;
   handleBaseUnitChange: (nextUnit: ProductFormData['unidad']) => void;
 }
 
 type ProductUnitFamilyFieldProps = Pick<
   ProductUnitsSectionProps,
-  'errors' | 'isUsingFallbackUnits' | 'handleMeasureTypeChange' | 'selectedUnitFamily'
+  'isUsingFallbackUnits' | 'handleUnitFamilyChange' | 'selectedUnitFamily'
 > & {
   showCheck?: boolean;
   renderCheck?: (className?: string) => React.ReactNode;
@@ -46,10 +44,9 @@ type ProductMinimumUnitFieldProps = Pick<
 };
 
 export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
-  errors,
   selectedUnitFamily,
   isUsingFallbackUnits,
-  handleMeasureTypeChange,
+  handleUnitFamilyChange,
   showCheck,
   renderCheck
 }) => {
@@ -68,7 +65,7 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
             <button
               type="button"
               key={option.value}
-              onClick={() => handleMeasureTypeChange(option.value)}
+              onClick={() => handleUnitFamilyChange(option.value)}
               aria-pressed={isActive}
               className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 ${
                 isActive
@@ -82,13 +79,11 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
           );
         })}
       </div>
-      {/* Help text removed per UI request - kept markup/logic untouched */}
       {isUsingFallbackUnits && (
         <p className="text-[11px] text-amber-600 mt-1">
           No hay unidades activas para esta familia. Mostramos todas las disponibles hasta que configures más.
         </p>
       )}
-      {errors.tipoUnidadMedida && <p className="text-red-600 text-xs mt-1">{errors.tipoUnidadMedida}</p>}
     </div>
   );
 };
@@ -144,21 +139,19 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
 
 export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
   formData,
-  errors,
   selectedUnitFamily,
   baseUnitOptions,
   isUsingFallbackUnits,
-  handleMeasureTypeChange,
+  handleUnitFamilyChange,
   handleBaseUnitChange
 }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
       <div className="md:col-span-8">
         <ProductUnitFamilyField
-          errors={errors}
           selectedUnitFamily={selectedUnitFamily}
           isUsingFallbackUnits={isUsingFallbackUnits}
-          handleMeasureTypeChange={handleMeasureTypeChange}
+          handleUnitFamilyChange={handleUnitFamilyChange}
         />
       </div>
 

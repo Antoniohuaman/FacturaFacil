@@ -4,14 +4,6 @@ import type { Product } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 import type { Unit } from '../../configuracion-sistema/modelos/Unit';
 
-const UNIT_TYPE_LABELS: Record<string, string> = {
-  UNIDADES: 'Unidades',
-  PESO: 'Peso',
-  VOLUMEN: 'Volumen',
-  LONGITUD_AREA: 'Longitud / Área',
-  TIEMPO_SERVICIO: 'Tiempo / Servicio'
-};
-
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
   style: 'currency',
   currency: 'PEN',
@@ -263,7 +255,6 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
 
   const unitsSection = renderInfoSection('Unidades y presentación', [
     { label: 'Unidad mínima', value: getUnitLabel(units, product.unidad) },
-    { label: 'Tipo de unidad', value: UNIT_TYPE_LABELS[product.tipoUnidadMedida] ?? product.tipoUnidadMedida },
     {
       label: 'Unidades adicionales',
       value:

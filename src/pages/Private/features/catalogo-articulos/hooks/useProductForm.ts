@@ -3,7 +3,7 @@ import type React from 'react';
 import type { Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { Unit } from '../../configuracion-sistema/modelos/Unit';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
-import type { Product, ProductFormData, UnitMeasureType } from '../models/types';
+import type { Product, ProductFormData } from '../models/types';
 import type { ProductInput } from './useProductStore';
 import {
   BARCODE_MIN_LENGTH,
@@ -15,9 +15,8 @@ import {
   UNIT_FAMILY_OPTIONS,
   type UnitFamily,
   filterUnitsByFamily,
-  inferUnitMeasureType,
   inferUnitFamilyFromCode,
-  isUnitAllowedForMeasureType
+  isUnitCodeInFamily
 } from '../utils/unitMeasureHelpers';
 
 export type ProductType = 'BIEN' | 'SERVICIO';
@@ -26,7 +25,6 @@ export type FormError = {
   [K in keyof ProductFormData]?: string;
 } & {
   establecimientoIds?: string;
-  tipoUnidadMedida?: string;
   defaultTaxLabel?: string;
 };
 
@@ -49,7 +47,6 @@ interface UseProductFormParams {
 
 const buildDefaultFormData = (
   defaultUnit: Product['unidad'],
-  inferredType: UnitMeasureType,
   defaultCategoryName: string,
   defaultEstablecimientoIds: string[],
   defaultTaxLabel?: string
@@ -57,7 +54,6 @@ const buildDefaultFormData = (
   nombre: '',
   codigo: '',
   unidad: defaultUnit,
-  tipoUnidadMedida: inferredType,
   unidadesMedidaAdicionales: [],
   categoria: defaultCategoryName,
   impuesto: defaultTaxLabel ?? 'IGV (18.00%)',
@@ -158,22 +154,13 @@ export const useProductForm = ({
     [availableUnits]
   );
 
-  const inferMeasureTypeFromUnitCode = useCallback(
-    (unitCode: string): UnitMeasureType => {
-      return inferUnitMeasureType(unitCode, availableUnits);
-    },
-    [availableUnits]
-  );
-
   const initialUnit = getDefaultUnitForType('BIEN');
-  const initialMeasureType = inferMeasureTypeFromUnitCode(initialUnit);
   const initialUnitFamily = inferUnitFamilyFromCode(initialUnit, availableUnits);
 
   const [formData, setFormData] = useState<ProductFormData>(
     () =>
       buildDefaultFormData(
         initialUnit,
-        initialMeasureType,
         defaultCategoryName,
         resolveDefaultEnabledEstablecimientos(),
         defaultTaxLabel
@@ -221,7 +208,7 @@ export const useProductForm = ({
     return formatter.format(value);
   }, []);
 
-  const handleMeasureTypeChange = useCallback(
+  const handleUnitFamilyChange = useCallback(
     (nextFamily: UnitFamily) => {
       if (selectedUnitFamily === nextFamily) return;
 
@@ -260,13 +247,9 @@ export const useProductForm = ({
         // Limpiamos presentaciones que coinciden con la nueva unidad mínima o que no están dentro de la familia.
         sanitizedUnits = prev.unidadesMedidaAdicionales.filter(unit => {
           if (unit.unidadCodigo === nextUnit) return false;
-          const normalizedCode = String(unit.unidadCodigo || '').trim().toUpperCase();
-          if (!normalizedCode) return false;
+          if (!unit.unidadCodigo) return false;
           if (!hasUnitsForFamily) return true; // fallback: no bloquear
-          if (nextFamily === 'OTHER' && normalizedCode === 'ZZ') return true;
-          const match = sortedUnits.find(u => String(u.code || '').trim().toUpperCase() === normalizedCode);
-          if (!match) return true;
-          return match.category === nextFamily;
+          return isUnitCodeInFamily(unit.unidadCodigo, sortedUnits, nextFamily);
         });
 
         return {
@@ -279,8 +262,7 @@ export const useProductForm = ({
       setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
       setErrors(prev => ({
         ...prev,
-        unidad: undefined,
-        tipoUnidadMedida: undefined
+        unidad: undefined
       }));
 
       if (sanitizedUnits.length < previousAdditionalCount) {
@@ -401,20 +383,17 @@ export const useProductForm = ({
     setFormData(prev => ({
       ...prev,
       unidad: defaultUnit,
-      tipoUnidadMedida: inferMeasureTypeFromUnitCode(defaultUnit),
       unidadesMedidaAdicionales: []
     }));
     setAdditionalUnitErrors([]);
-  }, [productType, getDefaultUnitForType, inferMeasureTypeFromUnitCode, availableUnits]);
+  }, [productType, getDefaultUnitForType, availableUnits]);
 
   const initializeFormForNewProduct = useCallback(() => {
     const defaultUnit = getDefaultUnitForType('BIEN');
-    const inferredType = inferMeasureTypeFromUnitCode(defaultUnit);
     setSelectedUnitFamily(inferUnitFamilyFromCode(defaultUnit, availableUnits));
     setFormData(
       buildDefaultFormData(
         defaultUnit,
-        inferredType,
         defaultCategoryName,
         resolveDefaultEnabledEstablecimientos(),
         defaultTaxLabel
@@ -430,7 +409,6 @@ export const useProductForm = ({
     defaultCategoryName,
     defaultTaxLabel,
     getDefaultUnitForType,
-    inferMeasureTypeFromUnitCode,
     resolveDefaultEnabledEstablecimientos
   , availableUnits]);
 
@@ -441,10 +419,15 @@ export const useProductForm = ({
           unidadCodigo: unit.unidadCodigo,
           factorConversion: unit.factorConversion
         })) || [];
-      const inferredType = productData.tipoUnidadMedida || inferMeasureTypeFromUnitCode(productData.unidad);
-      const sanitizedUnits = additionalUnits.filter(unit =>
-        isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, inferredType)
-      );
+      const inferredFamily = inferUnitFamilyFromCode(productData.unidad, availableUnits);
+      const familyUnits = filterUnitsByFamily(sortedUnits, inferredFamily);
+      const hasUnitsForFamily = familyUnits.length > 0;
+      const sanitizedUnits = additionalUnits.filter(unit => {
+        if (!unit.unidadCodigo) return false;
+        if (unit.unidadCodigo === productData.unidad) return false;
+        if (!hasUnitsForFamily) return true;
+        return isUnitCodeInFamily(unit.unidadCodigo, sortedUnits, inferredFamily);
+      });
 
       const enabledIdsFromProduct = productData.disponibleEnTodos
         ? activeEstablecimientoIds
@@ -454,7 +437,6 @@ export const useProductForm = ({
         nombre: productData.nombre,
         codigo: productData.codigo,
         unidad: productData.unidad,
-        tipoUnidadMedida: inferredType,
         unidadesMedidaAdicionales: sanitizedUnits,
         categoria: productData.categoria,
         impuesto: productData.impuesto || defaultTaxLabel || 'IGV (18.00%)',
@@ -477,11 +459,11 @@ export const useProductForm = ({
       setImagePreview(productData.imagen || '');
       setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
       setProductType(productData.unidad === 'ZZ' ? 'SERVICIO' : 'BIEN');
-      setSelectedUnitFamily(inferUnitFamilyFromCode(productData.unidad, availableUnits));
+      setSelectedUnitFamily(inferredFamily);
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    }, [activeEstablecimientoIds, defaultTaxLabel, inferMeasureTypeFromUnitCode, sortedUnits, uniqueIds, availableUnits]
+    }, [activeEstablecimientoIds, defaultTaxLabel, sortedUnits, uniqueIds, availableUnits]
   );
 
   useEffect(() => {
@@ -537,10 +519,6 @@ export const useProductForm = ({
 
     if (isFieldVisible('unidad') && (!formData.unidad || formData.unidad.trim() === '')) {
       newErrors.unidad = 'La unidad de medida es requerida';
-    }
-
-    if (!formData.tipoUnidadMedida) {
-      newErrors.tipoUnidadMedida = 'Selecciona una familia de unidades';
     }
 
     // Disponibilidad por establecimiento: no es requerida para guardar.
@@ -603,7 +581,7 @@ export const useProductForm = ({
           rowErrors.unidad = 'No puede coincidir con la unidad base';
         } else if (seenUnits.has(unit.unidadCodigo)) {
           rowErrors.unidad = 'Unidad repetida';
-        } else if (!isUnitAllowedForMeasureType(unit.unidadCodigo, sortedUnits, formData.tipoUnidadMedida)) {
+        } else if (!isUsingFallbackUnits && !isUnitCodeInFamily(unit.unidadCodigo, sortedUnits, selectedUnitFamily)) {
           rowErrors.unidad = 'No coincide con la familia seleccionada';
         }
         seenUnits.add(unit.unidadCodigo);
@@ -627,7 +605,9 @@ export const useProductForm = ({
     isFieldRequired,
     isFieldVisible,
     product,
-    sortedUnits
+    sortedUnits,
+    isUsingFallbackUnits,
+    selectedUnitFamily
   ]);
 
   const handleSubmit = useCallback(
@@ -710,13 +690,13 @@ export const useProductForm = ({
     setUnitInfoMessage,
     showCategoryModal,
     setShowCategoryModal,
-    filteredUnitsForType: filteredUnitsForFamily,
+    filteredUnitsForFamily,
     baseUnitOptions,
     isUsingFallbackUnits,
     remainingUnitsForAdditional,
     findUnitByCode,
     formatFactorValue,
-    handleMeasureTypeChange,
+    handleUnitFamilyChange,
     handleBaseUnitChange,
     addAdditionalUnit,
     removeAdditionalUnit,

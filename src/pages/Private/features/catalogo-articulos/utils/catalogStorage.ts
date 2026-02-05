@@ -1,7 +1,6 @@
 import { tryEnsureEmpresaId, tryLsKey } from '../../../../../shared/tenant';
 import type { Product, Package } from '../models/types';
 import type { Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
-import { inferUnitMeasureType } from './unitMeasureHelpers';
 
 const LEGACY_KEYS = [
   'catalog_products',
@@ -137,12 +136,10 @@ function deserializeProduct(item: ProductLike): Product {
   const fechaActualizacion = item.fechaActualizacion ? new Date(item.fechaActualizacion) : fechaCreacion;
 
   return {
-    ...item,
     id: String(item.id ?? Date.now().toString()),
     codigo: String(item.codigo ?? ''),
     nombre: String(item.nombre ?? ''),
     unidad: String(item.unidad ?? ''),
-    tipoUnidadMedida: (item.tipoUnidadMedida as Product['tipoUnidadMedida']) ?? inferUnitMeasureType(String(item.unidad ?? '')),
     precio: Number(item.precio ?? 0),
     categoria: String(item.categoria ?? ''),
     descripcion: item.descripcion ? String(item.descripcion) : undefined,
@@ -162,15 +159,17 @@ function deserializeProduct(item: ProductLike): Product {
     descuentoProducto: typeof item.descuentoProducto === 'number' ? item.descuentoProducto : undefined,
     marca: item.marca ? String(item.marca) : undefined,
     modelo: item.modelo ? String(item.modelo) : undefined,
+    isFavorite: Boolean(item.isFavorite),
     peso: typeof item.peso === 'number' ? item.peso : undefined,
     tipoExistencia: (item.tipoExistencia as Product['tipoExistencia']) ?? 'MERCADERIAS',
-    fechaCreacion,
-    fechaActualizacion,
     cantidad: typeof item.cantidad === 'number' ? item.cantidad : undefined,
     stockPorEstablecimiento: item.stockPorEstablecimiento as Product['stockPorEstablecimiento'],
     stockPorAlmacen: item.stockPorAlmacen as Product['stockPorAlmacen'],
+    stockReservadoPorAlmacen: item.stockReservadoPorAlmacen as Product['stockReservadoPorAlmacen'],
     stockMinimoPorAlmacen: item.stockMinimoPorAlmacen as Product['stockMinimoPorAlmacen'],
-    stockMaximoPorAlmacen: item.stockMaximoPorAlmacen as Product['stockMaximoPorAlmacen']
+    stockMaximoPorAlmacen: item.stockMaximoPorAlmacen as Product['stockMaximoPorAlmacen'],
+    fechaCreacion,
+    fechaActualizacion
   } as Product;
 }
 
