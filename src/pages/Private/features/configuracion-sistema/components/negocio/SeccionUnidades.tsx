@@ -169,8 +169,6 @@ const createDefaultFamilyVisibility = (): Record<Family, boolean> => ({
   OTHER: true,
 });
 
-const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 const sanitizeCommercialSymbol = (value: string): string => {
   // Permitir espacios tal cual (no colapsar), pero evitar saltos de línea/tabs.
   return value.replace(/[\r\n\t]+/g, ' ').trim();
@@ -182,14 +180,6 @@ const formatDefaultCommercialSymbol = (code: string, sunatName: string): string 
   return `(${normalizedCode}) ${normalizedName}`;
 };
 
-const symbolHasLeadingCode = (symbol: string, code: string): boolean => {
-  const normalizedCode = normalizeCode(code).toUpperCase();
-  const trimmed = sanitizeCommercialSymbol(symbol);
-  if (!trimmed) return false;
-  const pattern = new RegExp(`^\\(\\s*${escapeRegExp(normalizedCode)}\\s*\\)`, 'i');
-  return pattern.test(trimmed);
-};
-
 const ensureCommercialSymbolForCatalogUnit = (args: {
   code: string;
   sunatName: string;
@@ -198,9 +188,8 @@ const ensureCommercialSymbolForCatalogUnit = (args: {
   const defaultSymbol = formatDefaultCommercialSymbol(args.code, args.sunatName);
   const candidate = sanitizeCommercialSymbol(args.existingSymbol ?? '');
   if (!candidate) return defaultSymbol;
-  if (symbolHasLeadingCode(candidate, args.code)) return candidate;
-  // Legacy (DOC/CAJ/solo nombre/solo código/etc.): se reemplaza por el default exacto.
-  return defaultSymbol;
+  if (!isValidCommercialSymbol(candidate)) return defaultSymbol;
+  return candidate;
 };
 
 const isValidCommercialSymbol = (value: string): boolean => {
@@ -278,9 +267,13 @@ export function UnitsSection({
 
     const needsSanitization = SUNAT_UNITS.some((catalog) => {
       const existing = existingByCode.get(normalizeCode(catalog.code));
-      const existingSymbol = sanitizeCommercialSymbol(existing?.symbol ?? '');
+      const rawSymbol = String(existing?.symbol ?? '');
+      const rawTrimmed = rawSymbol.trim();
+      const existingSymbol = sanitizeCommercialSymbol(rawSymbol);
       if (!existingSymbol) return true;
-      return !symbolHasLeadingCode(existingSymbol, catalog.code);
+      // Persistir solo si está vacío o inválido (no por no tener prefijo "(CODE)").
+      if (rawTrimmed && !isValidCommercialSymbol(rawTrimmed)) return true;
+      return !isValidCommercialSymbol(existingSymbol);
     });
 
     if (!needsSanitization) return;
@@ -439,12 +432,7 @@ export function UnitsSection({
 
     const rawInput = modalForm.commercialSymbol;
     const cleanedInput = sanitizeCommercialSymbol(rawInput);
-    const symbol = (() => {
-      if (!cleanedInput) return defaultSymbol;
-      if (symbolHasLeadingCode(cleanedInput, code)) return cleanedInput;
-      // Si el usuario escribe sin prefijo, lo agregamos para conservar estándar.
-      return `(${code.toUpperCase()}) ${cleanedInput}`;
-    })();
+    const symbol = cleanedInput || defaultSymbol;
 
     if (!code) {
       newErrors.code = 'Selecciona un código SUNAT';
