@@ -69,7 +69,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   }, [currentEstablecimientoId, Establecimientos]);
 
   const availableUnits = useMemo(
-    () => configState.units.filter(unit => unit.isActive && unit.isVisible !== false),
+    () => configState.units,
     [configState.units]
   );
 
@@ -140,6 +140,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     productType,
     setProductType,
     selectedUnitFamily,
+    unitFamilies,
     isDescriptionExpanded,
     setIsDescriptionExpanded,
     unitInfoMessage,
@@ -440,6 +441,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   selectedUnitFamily={selectedUnitFamily}
                   isUsingFallbackUnits={isUsingFallbackUnits}
                   handleUnitFamilyChange={handleUnitFamilyChange}
+                  unitFamilies={unitFamilies}
                 />
 
                 {/* Alias + Código SUNAT (misma fila) */}

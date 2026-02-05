@@ -11,13 +11,7 @@ import {
   isBarcodeValueValid,
   normalizeBarcodeValue
 } from '../utils/formatters';
-import {
-  UNIT_FAMILY_OPTIONS,
-  type UnitFamily,
-  filterUnitsByFamily,
-  inferUnitFamilyFromCode,
-  isUnitCodeInFamily
-} from '../utils/unitMeasureHelpers';
+type UnitFamily = Unit['category'];
 
 export type ProductType = 'BIEN' | 'SERVICIO';
 
@@ -91,6 +85,31 @@ export const useProductForm = ({
   onSave,
   onClose
 }: UseProductFormParams) => {
+  const resolveFamilyLabel = useCallback((family: UnitFamily): string => {
+    switch (family) {
+      case 'SERVICIOS':
+        return 'Servicios';
+      case 'TIME':
+        return 'Tiempos';
+      case 'WEIGHT':
+        return 'Pesos';
+      case 'VOLUME':
+        return 'Volúmenes';
+      case 'LENGTH':
+        return 'Longitudes';
+      case 'AREA':
+        return 'Áreas';
+      case 'ENERGY':
+        return 'Energías';
+      case 'QUANTITY':
+        return 'Cantidades';
+      case 'PACKAGING':
+        return 'Empaques';
+      default:
+        return family;
+    }
+  }, []);
+
   const resolveUnitSnapshot = useCallback(
     (code?: string) => {
       const normalized = (code ?? '').trim();
@@ -149,6 +168,18 @@ export const useProductForm = ({
     });
   }, [availableUnits]);
 
+  const visibleUnits = useMemo(() => {
+    return availableUnits.filter(unit => unit.isActive !== false && unit.isVisible !== false);
+  }, [availableUnits]);
+
+  const sortedVisibleUnits = useMemo(() => {
+    return [...visibleUnits].sort((a, b) => {
+      const displayDelta = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+      if (displayDelta !== 0) return displayDelta;
+      return a.name.localeCompare(b.name);
+    });
+  }, [visibleUnits]);
+
   const defaultCategoryName = useMemo(() => categories[0]?.nombre || '', [categories]);
 
   const getDefaultUnitForType = useCallback(
@@ -158,19 +189,38 @@ export const useProductForm = ({
       }
 
       if (type === 'SERVICIO') {
-        const serviceUnit = availableUnits.find(u => u.category === 'SERVICIOS');
-        if (serviceUnit) return serviceUnit.code as Product['unidad'];
+        const serviceUnits = availableUnits.filter(unit => unit.category === 'SERVICIOS');
+        const serviceVisible = serviceUnits.filter(unit => unit.isActive !== false && unit.isVisible !== false);
+        const pool = serviceVisible.length ? serviceVisible : serviceUnits;
+        const defaultService = pool.find(unit => unit.isDefault) ?? pool[0];
+        if (defaultService) return defaultService.code as Product['unidad'];
       }
 
-      const favoriteUnit = availableUnits.find(u => u.isFavorite);
+      const favoriteUnit = sortedVisibleUnits.find(unit => unit.isFavorite) ?? sortedUnits.find(unit => unit.isFavorite);
       if (favoriteUnit) return favoriteUnit.code as Product['unidad'];
-      return availableUnits[0].code as Product['unidad'];
+
+      const defaultUnit = sortedVisibleUnits.find(unit => unit.isDefault) ?? sortedVisibleUnits[0];
+      if (defaultUnit) return defaultUnit.code as Product['unidad'];
+
+      return (sortedUnits[0]?.code ?? '') as Product['unidad'];
+    },
+    [availableUnits, sortedUnits, sortedVisibleUnits]
+  );
+
+  const resolveFamilyFromCode = useCallback(
+    (code?: string): UnitFamily => {
+      const normalized = (code ?? '').trim();
+      if (!normalized) {
+        return availableUnits[0]?.category ?? 'QUANTITY';
+      }
+      const unit = availableUnits.find(u => u.code === normalized);
+      return unit?.category ?? availableUnits[0]?.category ?? 'QUANTITY';
     },
     [availableUnits]
   );
 
   const initialUnit = getDefaultUnitForType('BIEN');
-  const initialUnitFamily = inferUnitFamilyFromCode(initialUnit, availableUnits);
+  const initialUnitFamily = resolveFamilyFromCode(initialUnit);
   const initialUnitSnapshot = resolveUnitSnapshot(initialUnit);
 
   const [formData, setFormData] = useState<ProductFormData>(
@@ -186,6 +236,23 @@ export const useProductForm = ({
   );
   const [productType, setProductType] = useState<ProductType>('BIEN');
   const [selectedUnitFamily, setSelectedUnitFamily] = useState<UnitFamily>(initialUnitFamily);
+  const unitFamilies = useMemo(() => {
+    const seen = new Set<UnitFamily>();
+    const ordered = [...sortedUnits].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    const families = ordered.map(unit => unit.category).filter(category => {
+      if (seen.has(category)) return false;
+      const hasVisible = visibleUnits.some(u => u.category === category);
+      const isSelected = category === selectedUnitFamily;
+      if (!hasVisible && !isSelected) return false;
+      seen.add(category);
+      return true;
+    });
+
+    if (!families.length && visibleUnits.length) {
+      return Array.from(new Set(visibleUnits.map(unit => unit.category)));
+    }
+    return families;
+  }, [selectedUnitFamily, sortedUnits, visibleUnits]);
   const [errors, setErrors] = useState<FormError>({});
   const [additionalUnitErrors, setAdditionalUnitErrors] = useState<AdditionalUnitError[]>([]);
   const [loading, setLoading] = useState(false);
@@ -196,19 +263,31 @@ export const useProductForm = ({
   const [hasInitializedForm, setHasInitializedForm] = useState(false);
 
   const filteredUnitsForFamily = useMemo(() => {
-    return filterUnitsByFamily(sortedUnits, selectedUnitFamily);
-  }, [sortedUnits, selectedUnitFamily]);
+    return sortedVisibleUnits.filter(unit => unit.category === selectedUnitFamily);
+  }, [sortedVisibleUnits, selectedUnitFamily]);
 
-  const baseUnitOptions = filteredUnitsForFamily;
-  const isUsingFallbackUnits = filteredUnitsForFamily.length === 0 && sortedUnits.length > 0;
+  const baseUnitOptions = useMemo(() => {
+    const primaryOptions = filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
+    const selected = availableUnits.find(unit => unit.code === formData.unidad);
+    if (!selected || selected.isVisible !== false) {
+      return primaryOptions;
+    }
+    if (primaryOptions.some(unit => unit.code === selected.code)) {
+      return primaryOptions;
+    }
+    return [selected, ...primaryOptions];
+  }, [filteredUnitsForFamily, sortedVisibleUnits, availableUnits, formData.unidad]);
+
+  const isUsingFallbackUnits = filteredUnitsForFamily.length === 0 && sortedVisibleUnits.length > 0;
 
   const remainingUnitsForAdditional = useMemo(() => {
     const usedCodes = new Set<string>([
       formData.unidad,
       ...formData.unidadesMedidaAdicionales.map(unit => unit.unidadCodigo)
     ]);
-    return baseUnitOptions.filter(unit => !usedCodes.has(unit.code));
-  }, [formData.unidad, formData.unidadesMedidaAdicionales, baseUnitOptions]);
+    const allowedOptions = filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
+    return allowedOptions.filter(unit => !usedCodes.has(unit.code));
+  }, [formData.unidad, formData.unidadesMedidaAdicionales, filteredUnitsForFamily, sortedVisibleUnits]);
 
   const findUnitByCode = useCallback(
     (code?: string) => {
@@ -237,18 +316,20 @@ export const useProductForm = ({
       setSelectedUnitFamily(nextFamily);
 
       setFormData(prev => {
-        const filtered = filterUnitsByFamily(sortedUnits, nextFamily);
-        const hasUnitsForFamily = filtered.length > 0;
-        const availableForFamily = filtered;
+        const visibleForFamily = sortedVisibleUnits.filter(unit => unit.category === nextFamily);
+        const hasUnitsForFamily = visibleForFamily.length > 0;
+        const availableForFamily = hasUnitsForFamily ? visibleForFamily : sortedVisibleUnits;
 
-        const currentUnitValid = hasUnitsForFamily
-          ? availableForFamily.some(unit => unit.code === prev.unidad)
-          : false;
+        const currentUnit = availableUnits.find(unit => unit.code === prev.unidad);
+        const currentUnitValid = currentUnit ? currentUnit.category === nextFamily : false;
 
         let nextUnit = prev.unidad as Product['unidad'];
 
         if (!currentUnitValid) {
-          const prioritized = availableForFamily.find(unit => unit.isFavorite) ?? availableForFamily[0];
+          const prioritized =
+            availableForFamily.find(unit => unit.isDefault) ??
+            availableForFamily.find(unit => unit.isFavorite) ??
+            availableForFamily[0];
           nextUnit = (prioritized?.code || '') as Product['unidad'];
         }
 
@@ -257,7 +338,9 @@ export const useProductForm = ({
           if (unit.unidadCodigo === nextUnit) return false;
           if (!unit.unidadCodigo) return false;
           if (!hasUnitsForFamily) return false;
-          return isUnitCodeInFamily(unit.unidadCodigo, sortedUnits, nextFamily);
+          const resolved = availableUnits.find(item => item.code === unit.unidadCodigo);
+          if (!resolved) return true;
+          return resolved.category === nextFamily;
         });
 
         const snapshot = resolveUnitSnapshot(nextUnit);
@@ -277,11 +360,12 @@ export const useProductForm = ({
       }));
 
       if (sanitizedUnits.length < previousAdditionalCount) {
-        const friendlyLabel = UNIT_FAMILY_OPTIONS.find(option => option.value === nextFamily)?.label || 'familia';
-        setUnitInfoMessage(`Se limpiaron presentaciones que no son compatibles con la familia ${friendlyLabel}.`);
+        setUnitInfoMessage(
+          `Se limpiaron presentaciones que no son compatibles con la familia ${resolveFamilyLabel(nextFamily)}.`
+        );
       }
     },
-    [formData.unidadesMedidaAdicionales, selectedUnitFamily, sortedUnits, resolveUnitSnapshot]
+    [formData.unidadesMedidaAdicionales, selectedUnitFamily, sortedVisibleUnits, availableUnits, resolveUnitSnapshot, resolveFamilyLabel]
   );
 
   const handleBaseUnitChange = useCallback(
@@ -388,7 +472,8 @@ export const useProductForm = ({
 
   const getAdditionalUnitOptions = useCallback(
     (rowIndex: number) => {
-      return baseUnitOptions.filter(unit => {
+      const allowedOptions = filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
+      return allowedOptions.filter(unit => {
         if (unit.code === formData.unidad) return false;
         return (
           unit.code === formData.unidadesMedidaAdicionales[rowIndex]?.unidadCodigo ||
@@ -396,7 +481,7 @@ export const useProductForm = ({
         );
       });
     },
-    [baseUnitOptions, formData.unidad, formData.unidadesMedidaAdicionales]
+    [filteredUnitsForFamily, sortedVisibleUnits, formData.unidad, formData.unidadesMedidaAdicionales]
   );
 
   useEffect(() => {
@@ -410,7 +495,7 @@ export const useProductForm = ({
 
   useEffect(() => {
     const defaultUnit = getDefaultUnitForType(productType);
-    setSelectedUnitFamily(inferUnitFamilyFromCode(defaultUnit, availableUnits));
+    setSelectedUnitFamily(resolveFamilyFromCode(defaultUnit));
     const snapshot = resolveUnitSnapshot(defaultUnit);
     setFormData(prev => ({
       ...prev,
@@ -420,11 +505,11 @@ export const useProductForm = ({
       unidadesMedidaAdicionales: []
     }));
     setAdditionalUnitErrors([]);
-  }, [productType, getDefaultUnitForType, availableUnits, resolveUnitSnapshot]);
+  }, [productType, getDefaultUnitForType, resolveFamilyFromCode, resolveUnitSnapshot]);
 
   const initializeFormForNewProduct = useCallback(() => {
     const defaultUnit = getDefaultUnitForType('BIEN');
-    setSelectedUnitFamily(inferUnitFamilyFromCode(defaultUnit, availableUnits));
+    setSelectedUnitFamily(resolveFamilyFromCode(defaultUnit));
     const snapshot = resolveUnitSnapshot(defaultUnit);
     setFormData(
       buildDefaultFormData(
@@ -447,7 +532,7 @@ export const useProductForm = ({
     defaultTaxLabel,
     getDefaultUnitForType,
     resolveDefaultEnabledEstablecimientos,
-    availableUnits,
+    resolveFamilyFromCode,
     resolveUnitSnapshot
   ]);
 
@@ -460,14 +545,16 @@ export const useProductForm = ({
           unidadSymbol: unit.unidadSymbol,
           unidadName: unit.unidadName
         })) || [];
-      const inferredFamily = inferUnitFamilyFromCode(productData.unidad, availableUnits);
-      const familyUnits = filterUnitsByFamily(sortedUnits, inferredFamily);
+      const inferredFamily = resolveFamilyFromCode(productData.unidad);
+      const familyUnits = sortedVisibleUnits.filter(unit => unit.category === inferredFamily);
       const hasUnitsForFamily = familyUnits.length > 0;
       const sanitizedUnits = additionalUnits.filter(unit => {
         if (!unit.unidadCodigo) return false;
         if (unit.unidadCodigo === productData.unidad) return false;
         if (!hasUnitsForFamily) return true;
-        return isUnitCodeInFamily(unit.unidadCodigo, sortedUnits, inferredFamily);
+        const resolved = availableUnits.find(item => item.code === unit.unidadCodigo);
+        if (!resolved) return true;
+        return resolved.category === inferredFamily;
       });
 
       const enabledIdsFromProduct = productData.disponibleEnTodos
@@ -509,7 +596,7 @@ export const useProductForm = ({
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    }, [activeEstablecimientoIds, defaultTaxLabel, sortedUnits, uniqueIds, availableUnits, resolveUnitSnapshot]
+    }, [activeEstablecimientoIds, defaultTaxLabel, sortedVisibleUnits, uniqueIds, availableUnits, resolveFamilyFromCode, resolveUnitSnapshot]
   );
 
   useEffect(() => {
@@ -627,8 +714,11 @@ export const useProductForm = ({
           rowErrors.unidad = 'No puede coincidir con la unidad base';
         } else if (seenUnits.has(unit.unidadCodigo)) {
           rowErrors.unidad = 'Unidad repetida';
-        } else if (!isUsingFallbackUnits && !isUnitCodeInFamily(unit.unidadCodigo, sortedUnits, selectedUnitFamily)) {
-          rowErrors.unidad = 'No coincide con la familia seleccionada';
+        } else if (!isUsingFallbackUnits) {
+          const resolved = availableUnits.find(item => item.code === unit.unidadCodigo);
+          if (resolved && resolved.category !== selectedUnitFamily) {
+            rowErrors.unidad = 'No coincide con la familia seleccionada';
+          }
         }
         seenUnits.add(unit.unidadCodigo);
       }
@@ -651,7 +741,7 @@ export const useProductForm = ({
     isFieldRequired,
     isFieldVisible,
     product,
-    sortedUnits,
+    availableUnits,
     isUsingFallbackUnits,
     selectedUnitFamily
   ]);
@@ -737,6 +827,7 @@ export const useProductForm = ({
     showCategoryModal,
     setShowCategoryModal,
     filteredUnitsForFamily,
+    unitFamilies,
     baseUnitOptions,
     isUsingFallbackUnits,
     remainingUnitsForAdditional,

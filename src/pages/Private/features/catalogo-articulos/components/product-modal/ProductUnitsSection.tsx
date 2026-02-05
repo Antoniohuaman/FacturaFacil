@@ -3,7 +3,8 @@ import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Package, Zap } from 'luc
 import type { LucideIcon } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos';
 import type { ProductFormData } from '../../models/types';
-import { UNIT_FAMILY_OPTIONS, type UnitFamily } from '../../utils/unitMeasureHelpers';
+
+type UnitFamily = Unit['category'];
 
 const UNIT_FAMILY_META: Record<UnitFamily, { label: string; Icon: LucideIcon }> = {
   SERVICIOS: { label: 'Servicios', Icon: Layers },
@@ -20,6 +21,7 @@ const UNIT_FAMILY_META: Record<UnitFamily, { label: string; Icon: LucideIcon }> 
 interface ProductUnitsSectionProps {
   formData: ProductFormData;
   selectedUnitFamily: UnitFamily;
+  unitFamilies: UnitFamily[];
   baseUnitOptions: Unit[];
   isUsingFallbackUnits: boolean;
   handleUnitFamilyChange: (nextFamily: UnitFamily) => void;
@@ -28,7 +30,7 @@ interface ProductUnitsSectionProps {
 
 type ProductUnitFamilyFieldProps = Pick<
   ProductUnitsSectionProps,
-  'isUsingFallbackUnits' | 'handleUnitFamilyChange' | 'selectedUnitFamily'
+  'isUsingFallbackUnits' | 'handleUnitFamilyChange' | 'selectedUnitFamily' | 'unitFamilies'
 > & {
   showCheck?: boolean;
   renderCheck?: (className?: string) => React.ReactNode;
@@ -47,6 +49,7 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
   selectedUnitFamily,
   isUsingFallbackUnits,
   handleUnitFamilyChange,
+  unitFamilies,
   showCheck,
   renderCheck
 }) => {
@@ -57,15 +60,15 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
         {showCheck && renderCheck?.()}
       </div>
       <div className="flex flex-wrap gap-1" role="group" aria-label="Familia de unidades">
-        {UNIT_FAMILY_OPTIONS.map(option => {
-          const isActive = selectedUnitFamily === option.value;
-          const meta = UNIT_FAMILY_META[option.value] ?? { label: option.label, Icon: Layers };
+        {unitFamilies.map(family => {
+          const isActive = selectedUnitFamily === family;
+          const meta = UNIT_FAMILY_META[family] ?? { label: family, Icon: Layers };
           const Icon = meta.Icon;
           return (
             <button
               type="button"
-              key={option.value}
-              onClick={() => handleUnitFamilyChange(option.value)}
+              key={family}
+              onClick={() => handleUnitFamilyChange(family)}
               aria-pressed={isActive}
               className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 ${
                 isActive
@@ -140,6 +143,7 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
 export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
   formData,
   selectedUnitFamily,
+  unitFamilies,
   baseUnitOptions,
   isUsingFallbackUnits,
   handleUnitFamilyChange,
@@ -152,6 +156,7 @@ export const ProductUnitsSection: React.FC<ProductUnitsSectionProps> = ({
           selectedUnitFamily={selectedUnitFamily}
           isUsingFallbackUnits={isUsingFallbackUnits}
           handleUnitFamilyChange={handleUnitFamilyChange}
+          unitFamilies={unitFamilies}
         />
       </div>
 
