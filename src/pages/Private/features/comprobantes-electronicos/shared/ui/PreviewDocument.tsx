@@ -2,9 +2,11 @@
 import React from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useConfiguracionDisenoComprobante';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { formatMoney } from '@/shared/currency';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
 import type { DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
+import { getUnitDisplayForPrint } from '@/shared/units/unitDisplay';
 
 interface PreviewDocumentProps {
   data: PreviewData;
@@ -17,6 +19,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
   // mantenemos fallback a storage. El servicio central siempre debe pasar disenoEfectivo.
   const fallbackConfig = useVoucherDesignConfigReader('A4');
   const config = disenoEfectivo?.config ?? fallbackConfig;
+  const { state: configState } = useConfigurationContext();
   const {
     companyData,
     clientData,
@@ -36,6 +39,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
   const taxBreakdown = totals.taxBreakdown ?? [];
   const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
+  const unitPrintFormat = disenoEfectivo?.formatoSalida ?? 'hoja';
 
   // Obtener columnas visibles
   const visibleColumns = Object.entries(config.productFields).filter(([_, value]) => value.visible);
@@ -370,7 +374,16 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
                   case 'imagen': content = '🖼️'; break;
                   case 'descripcion': content = item.name; break;
                   case 'cantidad': content = item.quantity.toString(); break;
-                  case 'unidadMedida': content = item.unitSymbol || item.unidad || item.unidadMedida || '-'; break;
+                  case 'unidadMedida':
+                    content =
+                      getUnitDisplayForPrint({
+                        units: configState.units,
+                        code: item.unidadMedida || item.unit || item.unidad,
+                        fallbackSymbol: item.unitSymbol,
+                        fallbackName: item.unidad,
+                        format: unitPrintFormat,
+                      }) || '-';
+                    break;
                   case 'precioUnitario': content = formatCurrencyValue(item.price); break;
                   case 'total': content = formatCurrencyValue(item.price * item.quantity); break;
                   case 'marca': content = item.marca || '-'; break;

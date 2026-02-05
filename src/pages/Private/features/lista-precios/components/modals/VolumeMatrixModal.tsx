@@ -4,6 +4,8 @@ import { getBusinessDefaultValidityRange } from '@/shared/time/businessTime';
 import { useCurrencyManager } from '@/shared/currency';
 import type { Column, Product, VolumePriceForm, VolumeRange, CatalogProduct, ProductUnitOption } from '../../models/PriceTypes';
 import { generateDefaultVolumeRanges, validateVolumeRanges } from '../../utils/priceHelpers';
+import { useConfigurationContext } from '@/pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 interface VolumeMatrixModalProps {
   isOpen: boolean;
@@ -42,23 +44,36 @@ export const VolumeMatrixModal: React.FC<VolumeMatrixModalProps> = ({
   const [selectedProductName, setSelectedProductName] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { baseCurrency, formatMoney } = useCurrencyManager();
+  const { state: configState } = useConfigurationContext();
   const formatCurrency = useCallback((amount: number) => formatMoney(amount, baseCurrency.code), [formatMoney, baseCurrency.code]);
 
   const getUnitLabelForSku = useCallback((sku: string, unitCode?: string) => {
     if (!unitCode) return '';
     const product = catalogProducts.find(item => item.codigo === sku);
-    if (!product) return unitCode;
+    if (!product) {
+      return getUnitDisplayForUI({ units: configState.units, code: unitCode }) || unitCode;
+    }
     if (product.unidad === unitCode) {
-      const symbol = product.unitSymbol || '';
-      const name = product.unitName || '';
-      return `${symbol} ${name}`.trim() || unitCode;
+      return (
+        getUnitDisplayForUI({
+          units: configState.units,
+          code: unitCode,
+          fallbackSymbol: product.unitSymbol,
+          fallbackName: product.unitName,
+        }) || unitCode
+      );
     }
     const additional = product.unidadesMedidaAdicionales?.find(unit => unit.unidadCodigo === unitCode);
     if (!additional) return unitCode;
-    const symbol = additional.unidadSymbol || '';
-    const name = additional.unidadName || '';
-    return `${symbol} ${name}`.trim() || unitCode;
-  }, [catalogProducts]);
+    return (
+      getUnitDisplayForUI({
+        units: configState.units,
+        code: unitCode,
+        fallbackSymbol: additional.unidadSymbol,
+        fallbackName: additional.unidadName,
+      }) || unitCode
+    );
+  }, [catalogProducts, configState.units]);
 
   const deriveDefaultUnit = useCallback((sku: string) => {
     if (!sku) return initialUnitCode || '';

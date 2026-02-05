@@ -4,6 +4,8 @@ import type { CartItem, Currency } from '../../../models/comprobante.types';
 import { useCurrency } from '../../../shared/form-core/hooks/useCurrency';
 import type { ProductUnitOption } from '../../../../lista-precios/models/PriceTypes';
 import { SYSTEM_CONFIG } from '../../../models/constants';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 interface CartItemsListProps {
   cartItems: CartItem[];
@@ -28,11 +30,14 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
   onUpdateUnit,
   getUnitOptionsForProduct,
 }) => {
-  const resolveItemUnitLabel = (unitCode?: string, unitSymbol?: string) => {
-    const symbol = (unitSymbol ?? '').trim();
-    if (symbol) return symbol;
-    return (unitCode ?? '').trim();
-  };
+  const { state: configState } = useConfigurationContext();
+  const resolveItemUnitLabel = (unitCode?: string, unitSymbol?: string, unitName?: string) =>
+    getUnitDisplayForUI({
+      units: configState.units,
+      code: unitCode,
+      fallbackSymbol: unitSymbol,
+      fallbackName: unitName,
+    }) || (unitCode ?? '').trim();
   const { formatPrice, convertPrice, baseCurrency, documentCurrency, availableCurrencies } = useCurrency();
   const documentCurrencyCode = (currency ?? documentCurrency.code) as Currency;
   const currencyMeta = availableCurrencies.find((item) => item.code === documentCurrencyCode);
@@ -133,14 +138,18 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
           const normalizedOptions = unitOptions.length > 0
             ? unitOptions
             : fallbackUnit
-              ? [{ code: fallbackUnit, label: resolveItemUnitLabel(fallbackUnit, item.unitSymbol) || fallbackUnit, isBase: true }]
+              ? [{
+                  code: fallbackUnit,
+                  label: resolveItemUnitLabel(fallbackUnit, item.unitSymbol, item.unidad) || fallbackUnit,
+                  isBase: true,
+                }]
               : [];
           const currentUnitCode = fallbackUnit || normalizedOptions[0]?.code || '';
           const optionsWithSelection = currentUnitCode && normalizedOptions.every(option => option.code !== currentUnitCode)
             ? [
                 {
                   code: currentUnitCode,
-                  label: resolveItemUnitLabel(currentUnitCode, item.unitSymbol) || currentUnitCode,
+                  label: resolveItemUnitLabel(currentUnitCode, item.unitSymbol, item.unidad) || currentUnitCode,
                   isBase: true,
                 },
                 ...normalizedOptions,

@@ -8,6 +8,8 @@ import type {
   OrdenamientoDisponibilidad,
   SituacionStock
 } from '../../models/disponibilidad.types';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -50,6 +52,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   onUpdateThreshold,
   selectednombreAlmacen
 }) => {
+  const { state: configState } = useConfigurationContext();
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const [savingCellId, setSavingCellId] = useState<string | null>(null);
   const [cellErrors, setCellErrors] = useState<Record<string, string>>({});
@@ -495,7 +498,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
               {/* Unidad mínima */}
               {columnasVisibles.includes('unidadMinima') && (
                 <td className={`${cellClass} text-center text-gray-700 dark:text-gray-300 uppercase`}>
-                  {item.unidadMinima || '—'}
+                  {getUnitDisplayForUI({ units: configState.units, code: item.unidadMinima }) || '—'}
                 </td>
               )}
 

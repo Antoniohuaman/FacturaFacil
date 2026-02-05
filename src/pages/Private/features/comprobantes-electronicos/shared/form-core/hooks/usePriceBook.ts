@@ -11,6 +11,8 @@ import { usePriceCalculator } from '../../../../lista-precios/hooks/usePriceCalc
 import { useProductStore } from '../../../../catalogo-articulos/hooks/useProductStore';
 import { roundCurrency } from '../../../../lista-precios/utils/price-helpers/pricing';
 import { isMinAllowedColumn } from '../../../../lista-precios/utils/price-helpers/columns';
+import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 export interface PriceColumnOption {
   columnId: string;
@@ -81,6 +83,7 @@ const getUnitFactorFromCatalog = (product: CatalogProduct | undefined, targetUni
 export const usePriceBook = () => {
   const { columns, products } = usePriceCalculator();
   const { allProducts: catalogProducts } = useProductStore();
+  const { state: configState } = useConfigurationContext();
 
   const coerceUnitCode = useCallback((value?: string) => normalizeUnitCode(value), []);
 
@@ -115,20 +118,36 @@ export const usePriceBook = () => {
     (product: CatalogProduct | undefined, unitCode?: string) => {
       const normalized = normalizeUnitCode(unitCode);
       if (!normalized) return '';
-      if (!product) return normalized;
+      if (!product) {
+        return getUnitDisplayForUI({ units: configState.units, code: normalized }) || normalized;
+      }
 
       const baseCode = normalizeUnitCode(product.unidad);
       if (baseCode && baseCode === normalized) {
-        return product.unitSymbol || product.unitName || normalized;
+        return (
+          getUnitDisplayForUI({
+            units: configState.units,
+            code: normalized,
+            fallbackSymbol: product.unitSymbol,
+            fallbackName: product.unitName,
+          }) || normalized
+        );
       }
 
       const match = product.unidadesMedidaAdicionales?.find(
         unit => normalizeUnitCode(unit.unidadCodigo) === normalized
       );
 
-      return match?.unidadSymbol || match?.unidadName || normalized;
+      return (
+        getUnitDisplayForUI({
+          units: configState.units,
+          code: normalized,
+          fallbackSymbol: match?.unidadSymbol,
+          fallbackName: match?.unidadName,
+        }) || normalized
+      );
     },
-    []
+    [configState.units]
   );
 
   const getUnitLabelForSku = useCallback(

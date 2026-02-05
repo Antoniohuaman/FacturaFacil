@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ArrowRight, Package, Building2, AlertCircle } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 interface TransferModalProps {
   isOpen: boolean;
@@ -55,6 +56,14 @@ const TransferModal: React.FC<TransferModalProps> = ({
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
   const almacenOrigen = almacenes.find(w => w.id === almacenOrigenId);
   const almacenDestino = almacenes.find(w => w.id === almacenDestinoId);
+  const unitLabel = selectedProduct
+    ? getUnitDisplayForUI({
+        units: configState.units,
+        code: selectedProduct.unidad,
+        fallbackSymbol: selectedProduct.unitSymbol,
+        fallbackName: selectedProduct.unitName,
+      }) || selectedProduct.unidad
+    : '';
 
   // Calcular stock disponible en origen
   const stockDisponibleOrigen = selectedProduct?.stockPorAlmacen?.[almacenOrigenId] ?? 0;
@@ -218,7 +227,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Stock disponible:</span>
                       <span className={`text-lg font-bold ${stockDisponibleOrigen > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {stockDisponibleOrigen} {selectedProduct.unidad}
+                        {stockDisponibleOrigen} {unitLabel}
                       </span>
                     </div>
                   </div>
@@ -262,7 +271,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Stock actual:</span>
                       <span className="text-lg font-bold text-gray-900 dark:text-gray-200">
-                        {stockActualDestino} {selectedProduct.unidad}
+                        {stockActualDestino} {unitLabel}
                       </span>
                     </div>
                   </div>

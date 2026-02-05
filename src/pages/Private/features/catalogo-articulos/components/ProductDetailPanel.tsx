@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { DetailPane } from '@/components/layouts/MasterDetail';
 import type { Product } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
   style: 'currency',
@@ -65,8 +67,13 @@ function normalizeSentence(value?: string): string | undefined {
     .join(' ');
 }
 
-function resolveUnitLabel(product: Product): string | undefined {
-  return product.unitSymbol || product.unitName || product.unidad || undefined;
+function resolveUnitLabel(product: Product, units: Array<{ code: string; name?: string; symbol?: string }> | undefined): string | undefined {
+  return getUnitDisplayForUI({
+    units,
+    code: product.unidad,
+    fallbackSymbol: product.unitSymbol,
+    fallbackName: product.unitName,
+  });
 }
 
 function renderInfoSection(title: string, items: InfoItem[]) {
@@ -129,13 +136,14 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
   onEdit,
   onClose
 }) => {
+  const { state: configState } = useConfigurationContext();
   const EstablecimientosById = useMemo(() => {
     const map = new Map<string, Establecimiento>();
     Establecimientos.forEach((est) => map.set(est.id, est));
     return map;
   }, [Establecimientos]);
 
-  const subtitleValue = [product.codigo, resolveUnitLabel(product)].filter(Boolean).join(' • ');
+  const subtitleValue = [product.codigo, resolveUnitLabel(product, configState.units)].filter(Boolean).join(' • ');
   const additionalUnits = product.unidadesMedidaAdicionales ?? [];
   const enabledEstablecimientoIds = product.disponibleEnTodos
     ? Establecimientos.filter(est => est.estaActivoEstablecimiento !== false).map(est => est.id)
@@ -244,7 +252,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
   ]);
 
   const unitsSection = renderInfoSection('Unidades y presentación', [
-    { label: 'Unidad mínima', value: resolveUnitLabel(product) },
+    { label: 'Unidad mínima', value: resolveUnitLabel(product, configState.units) },
     {
       label: 'Unidades adicionales',
       value:
@@ -255,7 +263,12 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
                 key={`${unit.unidadCodigo}-${unit.factorConversion}`}
                 className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:text-slate-200"
               >
-                {(unit.unidadSymbol || unit.unidadCodigo)} · x{unit.factorConversion}
+                {getUnitDisplayForUI({
+                  units: configState.units,
+                  code: unit.unidadCodigo,
+                  fallbackSymbol: unit.unidadSymbol,
+                  fallbackName: unit.unidadName,
+                }) || unit.unidadCodigo} · x{unit.factorConversion}
               </span>
             ))}
           </div>

@@ -18,6 +18,7 @@ import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToa
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import { MasterDetailLayout } from '@/components/layouts/MasterDetail';
 import ProductDetailPanel from '../components/ProductDetailPanel';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'text' | 'currency' | 'number' }> = [
   { key: 'codigo', label: 'Código', type: 'text' },
@@ -220,9 +221,15 @@ const ProductsPage: React.FC = () => {
     });
     return Array.from(uniqueCodes.entries()).map(([code, meta]) => ({
       code,
-      name: `${meta?.symbol || ''} ${meta?.name || ''}`.trim() || code
+      name:
+        getUnitDisplayForUI({
+          units: configState.units,
+          code,
+          fallbackSymbol: meta?.symbol,
+          fallbackName: meta?.name,
+        }) || code,
     }));
-  }, [allProducts]);
+  }, [allProducts, configState.units]);
 
   // Eliminado: tipos de existencia (inventario) para desacoplar del stock
 

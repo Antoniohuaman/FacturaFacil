@@ -7,6 +7,8 @@ import { PriceModal } from './modals/PriceModal';
 import { ProductPricingTable } from './product-pricing/ProductPricingTable';
 import type { CellStatus, InlineCellState } from './product-pricing/types';
 import { FALLBACK_UNIT_CODE, cellKey, getDefaultValidityRange } from './product-pricing/utils';
+import { useConfigurationContext } from '@/pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 interface ProductPricingProps {
   columns: Column[];
@@ -38,6 +40,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   effectivePrices,
   registerAssignHandler
 }) => {
+  const { state: configState } = useConfigurationContext();
   const tableColumns = useMemo(() => (
     columns
       .filter((column) => column.visible !== false && column.isVisibleInTable !== false)
@@ -83,18 +86,30 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const getUnitDisplay = useCallback((sku: string, code: string): string => {
     if (!code) return '';
     const catalogProduct = catalogProducts.find(product => product.codigo === sku);
-    if (!catalogProduct) return code;
+    if (!catalogProduct) {
+      return getUnitDisplayForUI({ units: configState.units, code }) || code;
+    }
     if (catalogProduct.unidad === code) {
-      const symbol = catalogProduct.unitSymbol || '';
-      const name = catalogProduct.unitName || '';
-      return `${symbol} ${name}`.trim() || code;
+      return (
+        getUnitDisplayForUI({
+          units: configState.units,
+          code,
+          fallbackSymbol: catalogProduct.unitSymbol,
+          fallbackName: catalogProduct.unitName,
+        }) || code
+      );
     }
     const additional = catalogProduct.unidadesMedidaAdicionales?.find(unit => unit.unidadCodigo === code);
     if (!additional) return code;
-    const symbol = additional.unidadSymbol || '';
-    const name = additional.unidadName || '';
-    return `${symbol} ${name}`.trim() || code;
-  }, [catalogProducts]);
+    return (
+      getUnitDisplayForUI({
+        units: configState.units,
+        code,
+        fallbackSymbol: additional.unidadSymbol,
+        fallbackName: additional.unidadName,
+      }) || code
+    );
+  }, [catalogProducts, configState.units]);
 
   const getUnitOptions = useCallback((product: Product) => {
     const catalogProduct = catalogProducts.find(p => p.codigo === product.sku);

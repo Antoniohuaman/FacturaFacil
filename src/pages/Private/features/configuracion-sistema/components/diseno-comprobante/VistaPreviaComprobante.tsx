@@ -8,6 +8,7 @@ import React, { useMemo } from 'react';
 import { Eye, QrCode } from 'lucide-react';
 import type { VoucherDesignConfigurationExtended } from '../../modelos/VoucherDesignUnified';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
+import { getUnitDisplayForPrint } from '@/shared/units/unitDisplay';
 
 interface VoucherPreviewProps {
   config: VoucherDesignConfigurationExtended;
@@ -289,6 +290,7 @@ const A4Body: React.FC<A4BodyProps> = ({
   visibleProductFields,
   sampleData,
 }) => {
+  const { state } = useConfigurationContext();
   return (
     <>
       <div className="grid grid-cols-2 gap-3 mb-3 text-[11px] leading-snug">
@@ -386,7 +388,16 @@ const A4Body: React.FC<A4BodyProps> = ({
                   case 'imagen': content = '🖼️'; break;
                   case 'descripcion': content = item.name; break;
                   case 'cantidad': content = item.quantity.toString(); break;
-                  case 'unidadMedida': content = item.unitSymbol || item.unit || '-'; break;
+                  case 'unidadMedida':
+                    content =
+                      getUnitDisplayForPrint({
+                        units: state.units,
+                        code: item.unit || item.unidad,
+                        fallbackSymbol: item.unitSymbol,
+                        fallbackName: item.unidad,
+                        format: 'hoja',
+                      }) || '-';
+                    break;
                   case 'precioUnitario': content = `S/ ${item.price.toFixed(2)}`; break;
                   case 'total': content = `S/ ${(item.price * item.quantity).toFixed(2)}`; break;
                   case 'marca': content = item.brand; break;
@@ -608,6 +619,7 @@ const TicketPreview: React.FC<{ config: VoucherDesignConfigurationExtended; samp
   sampleData,
   paperWidthMm,
 }) => {
+  const { state } = useConfigurationContext();
   const { logo, watermark, footer, documentFields, productFields } = config;
 
   const ticketProductFields =
@@ -746,6 +758,19 @@ const TicketPreview: React.FC<{ config: VoucherDesignConfigurationExtended; samp
                       }
                       if (key === 'marca') {
                         return <span key={key}>{item.brand}</span>;
+                      }
+                      if (key === 'unidadMedida') {
+                        return (
+                          <span key={key}>
+                            {getUnitDisplayForPrint({
+                              units: state.units,
+                              code: item.unit || item.unidad,
+                              fallbackSymbol: item.unitSymbol,
+                              fallbackName: item.unidad,
+                              format: 'ticket',
+                            }) || '-'}
+                          </span>
+                        );
                       }
                       return <span key={key} />;
                     })}

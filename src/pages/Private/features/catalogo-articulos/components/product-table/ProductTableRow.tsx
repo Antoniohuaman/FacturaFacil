@@ -4,6 +4,8 @@ import type { Product } from '../../models/types';
 import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ColumnKey } from './columnConfig';
 import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 const getEstablecimientoShortName = (name: string, maxLength = 18) => {
   const trimmed = name.trim().replace(/\s+/g, ' ');
@@ -264,6 +266,8 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
   onRowClick,
   isActive = false
 }) => {
+  const { state: configState } = useConfigurationContext();
+
   const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
     if (!onRowClick) {
       return;
@@ -276,6 +280,17 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
     }
     onRowClick(row.id);
   };
+
+  const unitLabel = useMemo(
+    () =>
+      getUnitDisplayForUI({
+        units: configState.units,
+        code: row.unidad,
+        fallbackSymbol: row.unitSymbol,
+        fallbackName: row.unitName,
+      }) || '-',
+    [configState.units, row.unidad, row.unitSymbol, row.unitName]
+  );
 
   const renderColumnCell = (columnKey: ColumnKey): React.ReactElement | null => {
     switch (columnKey) {
@@ -354,7 +369,7 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
         return (
           <td className="px-6 py-4 whitespace-nowrap">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              {row.unitSymbol || row.unitName || row.unidad || '-'}
+              {unitLabel}
             </span>
           </td>
         );

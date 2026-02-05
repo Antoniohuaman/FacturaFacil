@@ -17,6 +17,7 @@ import {
   summarizeProductStock,
 } from '../../../../../shared/inventory/stockGateway';
 import type { ProductStockSummary } from '../../../../../shared/inventory/stockGateway';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 interface UseAvailableProductsOptions {
   /**
@@ -43,7 +44,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
   const { establecimientoId, soloConStock = false } = options;
   const { allProducts } = useProductStore();
   const { getUnitPrice, baseColumn } = usePriceCalculator();
-  const { state: { almacenes } } = useConfigurationContext();
+  const { state: { almacenes, units } } = useConfigurationContext();
 
   const availableProducts = useMemo(() => {
     if (!establecimientoId) {
@@ -98,6 +99,14 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         typeof product.cantidad === 'number'
       );
 
+      const unitLabel =
+        getUnitDisplayForUI({
+          units,
+          code: unitCode,
+          fallbackSymbol: product.unitSymbol,
+          fallbackName: product.unitName,
+        }) || unitCode;
+
       return {
         id: product.id,
         code: product.codigo,
@@ -117,7 +126,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         impuesto: product.impuesto,
         unit: unitCode,
         unidadMedida: unitCode,
-        unitSymbol: product.unitSymbol || product.unitName || unitCode || undefined,
+        unitSymbol: unitLabel || undefined,
         requiresStockControl,
         isFavorite: Boolean(product.isFavorite),
         // Datos adicionales del catálogo
@@ -132,7 +141,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
     });
 
     return posProducts;
-  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice, almacenes]);
+  }, [allProducts, establecimientoId, soloConStock, baseColumn?.id, baseColumn?.name, getUnitPrice, almacenes, units]);
 
   return availableProducts;
 };

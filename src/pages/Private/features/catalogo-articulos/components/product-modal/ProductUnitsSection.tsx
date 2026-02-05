@@ -3,6 +3,7 @@ import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Package, Zap } from 'luc
 import type { LucideIcon } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos';
 import type { ProductFormData } from '../../models/types';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 type UnitFamily = Unit['category'];
 
@@ -93,9 +94,13 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const resolveUnitLabelText = (unit: Unit): string => {
-  const symbol = String(unit.symbol ?? '').trim();
-  if (symbol) return symbol;
-  return `(${unit.code}) ${unit.name}`;
+  return (
+    getUnitDisplayForUI({
+      code: unit.code,
+      fallbackSymbol: unit.symbol,
+      fallbackName: unit.name,
+    }) || `(${unit.code}) ${unit.name}`
+  );
 };
 
 export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = ({

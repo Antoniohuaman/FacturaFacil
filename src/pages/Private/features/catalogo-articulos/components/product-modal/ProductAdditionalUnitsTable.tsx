@@ -75,10 +75,13 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
         <div className="divide-y divide-gray-100 border border-gray-100 rounded-md">
           {unidadesMedidaAdicionales.map((unit, index) => {
             const options = getAdditionalUnitOptions(index);
-            const baseUnitLabel = findUnitByCode(baseUnitCode)?.code || baseUnitCode || '—';
+            const baseUnit = findUnitByCode(baseUnitCode);
+            const baseUnitLabel = baseUnit ? resolveUnitLabelText(baseUnit) : baseUnitCode || '—';
+            const selectedUnit = findUnitByCode(unit.unidadCodigo);
+            const selectedUnitLabel = selectedUnit ? resolveUnitLabelText(selectedUnit) : unit.unidadCodigo;
             const conversionText =
               unit.unidadCodigo && unit.factorConversion
-                ? `1 ${unit.unidadCodigo} = ${formatFactorValue(unit.factorConversion)} ${baseUnitLabel}`
+                ? `1 ${selectedUnitLabel} = ${formatFactorValue(unit.factorConversion)} ${baseUnitLabel}`
                 : 'Selecciona unidad y completa "Contiene" para ver la conversión.';
 
             return (

@@ -19,6 +19,7 @@ import type { StockAdjustmentData } from '../../../../gestion-inventario/models'
 import AdjustmentModal from '../../../../gestion-inventario/components/modals/AdjustmentModal';
 import { registrarAjusteDeStock } from '../../../../../../../shared/inventory/accionesStock';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 type UnitOption = {
   code: string;
@@ -1060,13 +1061,24 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         const sku = resolveSku(item);
         const resolvedUnit = resolveUnitCode(item);
         const unitOptions = getUnitOptionsForProduct(sku);
+        const fallbackUnitLabel =
+          getUnitDisplayForUI({
+            units: configState.units,
+            code: resolvedUnit,
+            fallbackSymbol: item.unitSymbol,
+            fallbackName: item.unidad,
+          }) || resolvedUnit;
         const normalizedUnits = unitOptions.length > 0
           ? unitOptions
-          : [{ code: resolvedUnit, label: getUnitLabelForSku(sku, resolvedUnit) || (item.unidad ?? resolvedUnit), isBase: true }];
+          : [{
+              code: resolvedUnit,
+              label: getUnitLabelForSku(sku, resolvedUnit) || fallbackUnitLabel,
+              isBase: true,
+            }];
 
         const availableUnits = normalizedUnits.some(option => option.code === resolvedUnit)
           ? normalizedUnits
-          : [...normalizedUnits, { code: resolvedUnit, label: getUnitLabelForSku(sku, resolvedUnit) || resolvedUnit }];
+          : [...normalizedUnits, { code: resolvedUnit, label: getUnitLabelForSku(sku, resolvedUnit) || fallbackUnitLabel }];
 
         return (
           <td className="px-4 py-4">
