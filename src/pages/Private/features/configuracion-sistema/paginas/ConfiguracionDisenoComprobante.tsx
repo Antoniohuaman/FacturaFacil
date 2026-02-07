@@ -280,22 +280,38 @@ function VoucherDesignConfigurationContent() {
                                       : 'border-gray-200 hover:border-gray-300 bg-white'
                                   }`}
                                 >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="text-sm font-semibold text-gray-900">
-                                        {plantilla.nombre}
-                                      </p>
-                                      {plantilla.descripcionCorta && (
-                                        <p className="text-xs text-gray-500 mt-1">
-                                          {plantilla.descripcionCorta}
-                                        </p>
+                                  <div className="space-y-3">
+                                    <div className="h-64 bg-gray-50 border border-gray-200 rounded-md flex items-center justify-center overflow-hidden">
+                                      {plantilla.rutaMiniatura ? (
+                                        <img
+                                          src={plantilla.rutaMiniatura}
+                                          alt={`Vista previa ${plantilla.nombre}`}
+                                          className="w-full h-full object-contain"
+                                          loading="lazy"
+                                        />
+                                      ) : (
+                                        <span className="text-xs text-gray-400">Sin vista previa</span>
                                       )}
                                     </div>
-                                    {estaSeleccionada && (
-                                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                                        Predeterminada
-                                      </span>
-                                    )}
+                                    <div>
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                          <p className="text-sm font-semibold text-gray-900">
+                                            {plantilla.nombre}
+                                          </p>
+                                          {plantilla.descripcionCorta && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              {plantilla.descripcionCorta}
+                                            </p>
+                                          )}
+                                        </div>
+                                        {estaSeleccionada && (
+                                          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                            Predeterminada
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
                                   </div>
                                 </button>
                               );
