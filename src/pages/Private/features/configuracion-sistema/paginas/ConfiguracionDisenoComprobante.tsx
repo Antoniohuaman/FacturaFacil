@@ -28,6 +28,7 @@ import { ProductFieldsConfigPanel } from '../components/diseno-comprobante/Panel
 import { TicketProductFieldsConfigPanel } from '../components/diseno-comprobante/PanelCamposProductoTicket';
 import { NotificationProvider } from '../components/compartido/SistemaNotificaciones';
 import { useNotifications } from '../components/compartido/SistemaNotificaciones.contexto';
+import { CATALOGO_PLANTILLAS_COMPROBANTE } from '../components/diseno-comprobante/plantillas/CatalogoPlantillasComprobante';
 import { PageHeader, Button } from '@/contasis';
 import type {
   DesignType,
@@ -35,7 +36,7 @@ import type {
   VoucherDesignTicketConfig,
 } from '../modelos/VoucherDesignUnified';
 
-type ActiveTab = 'logo' | 'watermark' | 'footer' | 'documentFields' | 'productFields' | 'general';
+type ActiveTab = 'plantillas' | 'logo' | 'watermark' | 'footer' | 'documentFields' | 'productFields' | 'general';
 
 function VoucherDesignConfigurationContent() {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ function VoucherDesignConfigurationContent() {
     updateDocumentFields,
     updateProductFields,
     updateTicketPaperWidth,
+    updatePlantillaId,
     resetToDefault,
     exportConfig,
     importConfig
@@ -84,6 +86,7 @@ function VoucherDesignConfigurationContent() {
   };
 
   const tabs = [
+    { id: 'plantillas' as ActiveTab, label: 'Plantillas', icon: FileText, color: 'gray' },
     { id: 'logo' as ActiveTab, label: 'Logo', icon: ImageIcon, color: 'blue' },
     { id: 'watermark' as ActiveTab, label: 'Marca de Agua', icon: Droplet, color: 'purple' },
     { id: 'footer' as ActiveTab, label: 'Pie de Página', icon: FileSignature, color: 'green' },
@@ -227,7 +230,7 @@ function VoucherDesignConfigurationContent() {
 
                 {/* Tabs */}
                 <div className="bg-white rounded-lg border border-gray-200 p-2">
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-6 gap-2">
                     {tabs.map((tab) => {
                       const Icon = tab.icon;
                       const isActive = activeTab === tab.id;
@@ -252,6 +255,61 @@ function VoucherDesignConfigurationContent() {
                 {/* Content Panel */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                   <div className="max-h-[calc(100vh-400px)] overflow-y-auto pr-2">
+                    {activeTab === 'plantillas' && activeDesign === 'A4' && (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                          <p className="text-sm font-semibold text-gray-900">Plantillas disponibles</p>
+                          <p className="text-xs text-gray-500">
+                            Selecciona una plantilla base para el formato A4.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {CATALOGO_PLANTILLAS_COMPROBANTE
+                            .filter((plantilla) => plantilla.formato === 'A4' || plantilla.formato === 'AMBOS')
+                            .map((plantilla) => {
+                              const estaSeleccionada = config.plantillaId === plantilla.id;
+                              return (
+                                <button
+                                  key={plantilla.id}
+                                  type="button"
+                                  onClick={() => updatePlantillaId(plantilla.id)}
+                                  className={`text-left p-4 rounded-lg border-2 transition-all w-full ${
+                                    estaSeleccionada
+                                      ? 'border-blue-500 bg-blue-50'
+                                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-900">
+                                        {plantilla.nombre}
+                                      </p>
+                                      {plantilla.descripcionCorta && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          {plantilla.descripcionCorta}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {estaSeleccionada && (
+                                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                        Predeterminada
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                    {activeTab === 'plantillas' && activeDesign === 'TICKET' && (
+                      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <p className="text-sm font-semibold text-gray-900">
+                          Las plantillas para ticket se habilitarán próximamente.
+                        </p>
+                      </div>
+                    )}
                     {activeTab === 'logo' && (
                       <LogoConfigPanel config={config.logo} onChange={updateLogo} />
                     )}

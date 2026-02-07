@@ -179,6 +179,7 @@ export interface VoucherDesignConfig {
 // CONFIGURACIÓN SIMPLIFICADA PARA EL HOOK
 // ===================================================================
 export interface VoucherDesignConfigurationExtended {
+  plantillaId: string;
   logo: LogoConfiguration;
   watermark: WatermarkConfiguration;
   footer: FooterConfiguration;

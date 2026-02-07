@@ -93,7 +93,8 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
 
         if (designType === 'A4') {
           // A4 no tiene campos avanzados fuera de lo que esta UI edita
-          const plantillaId = basePersistido.a4Config?.plantillaId || 'predeterminada';
+          const plantillaId =
+            config.plantillaId || basePersistido.a4Config?.plantillaId || 'predeterminada';
           fullConfig.a4Config = {
             ...(config as unknown as VoucherDesignA4Config),
             plantillaId,
@@ -119,7 +120,7 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
           fullConfig.ticketConfig = {
             ...baseTicket,
             // Lo que edita la UI nueva
-            plantillaId: baseTicket.plantillaId || 'predeterminada',
+            plantillaId: config.plantillaId || baseTicket.plantillaId || 'predeterminada',
             logo: config.logo as VoucherDesignTicketConfig['logo'],
             watermark: config.watermark,
             footer: config.footer as VoucherDesignTicketConfig['footer'],
@@ -194,6 +195,10 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
     setConfig((prev) => ({ ...prev, ticketPaperWidth: paperWidth }));
   }, []);
 
+  const updatePlantillaId = useCallback((plantillaId: string) => {
+    setConfig((prev) => ({ ...prev, plantillaId }));
+  }, []);
+
   // Restaurar valores por defecto
   const resetToDefault = useCallback(() => {
     const defaultConfig = getDefaultConfig(designType);
@@ -258,6 +263,7 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
     updateDocumentFields,
     updateProductFields,
     updateTicketPaperWidth,
+    updatePlantillaId,
     resetToDefault,
     exportConfig,
     importConfig,
@@ -330,6 +336,7 @@ export const useVoucherDesignConfigReader = (designType: DesignType) => {
 
 function getDefaultConfig(designType: DesignType): VoucherDesignConfigurationExtended {
   return {
+    plantillaId: 'predeterminada',
     logo: CONFIGURACION_LOGO_PREDETERMINADA,
     watermark: CONFIGURACION_MARCA_AGUA_PREDETERMINADA,
     footer: CONFIGURACION_PIE_PAGINA_PREDETERMINADA,
@@ -352,12 +359,14 @@ function normalizarConfigExtendida(
   const watermark = 'watermark' in extracted
     ? extracted.watermark
     : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
+  const plantillaId = extracted.plantillaId || 'predeterminada';
   const ticketPaperWidth =
     designType === 'TICKET'
       ? ((extracted as VoucherDesignTicketConfig).general?.paperWidth === 58 ? 58 : 80)
       : undefined;
 
   return {
+    plantillaId,
     logo: extracted.logo,
     watermark,
     footer: extracted.footer,
