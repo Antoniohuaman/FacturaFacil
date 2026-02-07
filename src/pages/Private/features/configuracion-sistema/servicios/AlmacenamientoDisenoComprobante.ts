@@ -42,8 +42,7 @@ export class AlmacenamientoLocalDisenoComprobante implements AlmacenamientoDisen
 
       if (parsed.createdAt) parsed.createdAt = new Date(parsed.createdAt);
       if (parsed.updatedAt) parsed.updatedAt = new Date(parsed.updatedAt);
-
-      return parsed;
+      return normalizarConfigPlantilla(parsed, type);
     } catch (error) {
       console.error('[AlmacenamientoDisenoComprobante] Error loading config, using defaults:', error);
       return this.getDefaultConfig(type);
@@ -153,6 +152,36 @@ export class AlmacenamientoLocalDisenoComprobante implements AlmacenamientoDisen
   private getDefaultConfig(type: DesignType): VoucherDesignConfig {
     return type === 'A4' ? DISENO_A4_PREDETERMINADO : DISENO_TICKET_PREDETERMINADO;
   }
+}
+
+function normalizarConfigPlantilla(
+  config: VoucherDesignConfig,
+  type: DesignType
+): VoucherDesignConfig {
+  if (type === 'A4') {
+    if (config.a4Config && !config.a4Config.plantillaId) {
+      return {
+        ...config,
+        a4Config: {
+          ...config.a4Config,
+          plantillaId: 'predeterminada',
+        },
+      };
+    }
+    return config;
+  }
+
+  if (config.ticketConfig && !config.ticketConfig.plantillaId) {
+    return {
+      ...config,
+      ticketConfig: {
+        ...config.ticketConfig,
+        plantillaId: 'predeterminada',
+      },
+    };
+  }
+
+  return config;
 }
 
 // Factory para facilitar testing y cambio de implementación

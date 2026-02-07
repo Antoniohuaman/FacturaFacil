@@ -95,6 +95,7 @@ export interface ProductFieldsConfiguration {
 // A4 CONFIGURATION
 // ===================================================================
 export interface VoucherDesignA4Config {
+  plantillaId: string;
   logo: LogoConfiguration;
   watermark: WatermarkConfiguration;
   footer: FooterConfiguration;
@@ -106,6 +107,7 @@ export interface VoucherDesignA4Config {
 // TICKET CONFIGURATION
 // ===================================================================
 export interface VoucherDesignTicketConfig {
+  plantillaId: string;
   logo: Omit<LogoConfiguration, 'position'> & { position: 'center' };
   watermark: WatermarkConfiguration; // Agregado: soporte para watermark en ticket
   footer: Omit<FooterConfiguration, 'textAlignment'> & { textAlignment: 'center' };
@@ -289,6 +291,7 @@ export const CAMPOS_PRODUCTO_TICKET_PREDETERMINADOS: VoucherDesignTicketConfig['
 };
 
 export const CONFIGURACION_A4_PREDETERMINADA: VoucherDesignA4Config = {
+  plantillaId: 'predeterminada',
   logo: CONFIGURACION_LOGO_PREDETERMINADA,
   watermark: CONFIGURACION_MARCA_AGUA_PREDETERMINADA,
   footer: CONFIGURACION_PIE_PAGINA_PREDETERMINADA,
@@ -297,6 +300,7 @@ export const CONFIGURACION_A4_PREDETERMINADA: VoucherDesignA4Config = {
 };
 
 export const CONFIGURACION_TICKET_PREDETERMINADA: VoucherDesignTicketConfig = {
+  plantillaId: 'predeterminada',
   logo: {
     enabled: false,
     width: 60,

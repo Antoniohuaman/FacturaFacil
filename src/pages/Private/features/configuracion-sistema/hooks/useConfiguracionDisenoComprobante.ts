@@ -54,24 +54,8 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
             designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
 
           if (extracted) {
-            // Watermark ahora está disponible tanto en A4 como en TICKET
-            const watermark = 'watermark' in extracted
-              ? extracted.watermark
-              : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
-
-            const ticketPaperWidth =
-              designType === 'TICKET'
-                ? ((extracted as VoucherDesignTicketConfig).general?.paperWidth === 58 ? 58 : 80)
-                : undefined;
-
-            setConfig({
-              logo: extracted.logo,
-              watermark,
-              footer: extracted.footer,
-              documentFields: extracted.documentFields,
-              productFields: extracted.productFields,
-              ticketPaperWidth,
-            });
+            const normalizado = normalizarConfigExtendida(extracted, designType);
+            setConfig(normalizado);
           }
         }
       } catch (err) {
@@ -109,10 +93,15 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
 
         if (designType === 'A4') {
           // A4 no tiene campos avanzados fuera de lo que esta UI edita
-          fullConfig.a4Config = config as unknown as VoucherDesignA4Config;
+          const plantillaId = basePersistido.a4Config?.plantillaId || 'predeterminada';
+          fullConfig.a4Config = {
+            ...(config as unknown as VoucherDesignA4Config),
+            plantillaId,
+          };
           fullConfig.ticketConfig = undefined;
         } else {
           const baseTicket = (basePersistido.ticketConfig || {
+            plantillaId: 'predeterminada',
             logo: CONFIGURACION_TICKET_PREDETERMINADA.logo,
             watermark: CONFIGURACION_TICKET_PREDETERMINADA.watermark,
             footer: CONFIGURACION_TICKET_PREDETERMINADA.footer,
@@ -130,6 +119,7 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
           fullConfig.ticketConfig = {
             ...baseTicket,
             // Lo que edita la UI nueva
+            plantillaId: baseTicket.plantillaId || 'predeterminada',
             logo: config.logo as VoucherDesignTicketConfig['logo'],
             watermark: config.watermark,
             footer: config.footer as VoucherDesignTicketConfig['footer'],
@@ -244,27 +234,11 @@ export const useVoucherDesignConfig = (designType: DesignType) => {
           designType === 'A4' ? imported.a4Config : imported.ticketConfig;
 
         if (extracted) {
-          // Watermark ahora está disponible tanto en A4 como en TICKET
-          const watermark = 'watermark' in extracted
-            ? extracted.watermark
-            : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
-
-          const ticketPaperWidth =
-            designType === 'TICKET'
-              ? ((extracted as VoucherDesignTicketConfig).general?.paperWidth === 58 ? 58 : 80)
-              : undefined;
-
           // Guardado seguro: persistir el config completo importado para no perder campos avanzados
           await storage.save(designType, imported);
 
-          setConfig({
-            logo: extracted.logo,
-            watermark,
-            footer: extracted.footer,
-            documentFields: extracted.documentFields,
-            productFields: extracted.productFields,
-            ticketPaperWidth,
-          });
+          const normalizado = normalizarConfigExtendida(extracted, designType);
+          setConfig(normalizado);
         }
       } catch (err) {
         console.error('[useVoucherDesignConfig] Import error:', err);
@@ -312,24 +286,8 @@ export const useVoucherDesignConfigReader = (designType: DesignType) => {
             designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
 
           if (extracted) {
-            // Watermark ahora está disponible tanto en A4 como en TICKET
-            const watermark = 'watermark' in extracted
-              ? extracted.watermark
-              : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
-
-            const ticketPaperWidth =
-              designType === 'TICKET'
-                ? ((extracted as VoucherDesignTicketConfig).general?.paperWidth === 58 ? 58 : 80)
-                : undefined;
-
-            setConfig({
-              logo: extracted.logo,
-              watermark,
-              footer: extracted.footer,
-              documentFields: extracted.documentFields,
-              productFields: extracted.productFields,
-              ticketPaperWidth,
-            });
+            const normalizado = normalizarConfigExtendida(extracted, designType);
+            setConfig(normalizado);
           }
         }
       } catch (err) {
@@ -350,17 +308,8 @@ export const useVoucherDesignConfigReader = (designType: DesignType) => {
           designType === 'A4' ? loaded.a4Config : loaded.ticketConfig;
 
         if (extracted) {
-          setConfig({
-            logo: extracted.logo,
-            watermark: extracted.watermark || CONFIGURACION_MARCA_AGUA_PREDETERMINADA,
-            footer: extracted.footer,
-            documentFields: extracted.documentFields,
-            productFields: extracted.productFields,
-            ticketPaperWidth:
-              designType === 'TICKET'
-                ? ((extracted as VoucherDesignTicketConfig).general?.paperWidth === 58 ? 58 : 80)
-                : undefined,
-          });
+          const normalizado = normalizarConfigExtendida(extracted, designType);
+          setConfig(normalizado);
         }
       }
     };
@@ -393,5 +342,27 @@ function getDefaultConfig(designType: DesignType): VoucherDesignConfigurationExt
         ? CAMPOS_PRODUCTO_A4_PREDETERMINADOS
         : CAMPOS_PRODUCTO_TICKET_PREDETERMINADOS,
     ticketPaperWidth: designType === 'TICKET' ? 80 : undefined,
+  };
+}
+
+function normalizarConfigExtendida(
+  extracted: VoucherDesignA4Config | VoucherDesignTicketConfig,
+  designType: DesignType
+): VoucherDesignConfigurationExtended {
+  const watermark = 'watermark' in extracted
+    ? extracted.watermark
+    : CONFIGURACION_MARCA_AGUA_PREDETERMINADA;
+  const ticketPaperWidth =
+    designType === 'TICKET'
+      ? ((extracted as VoucherDesignTicketConfig).general?.paperWidth === 58 ? 58 : 80)
+      : undefined;
+
+  return {
+    logo: extracted.logo,
+    watermark,
+    footer: extracted.footer,
+    documentFields: extracted.documentFields,
+    productFields: extracted.productFields,
+    ticketPaperWidth,
   };
 }
