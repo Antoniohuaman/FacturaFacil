@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Tooltip } from '@/shared/ui';
 import {
 	AlertTriangle,
 	Ban,
@@ -407,25 +408,27 @@ const InvoiceCell = ({
 				}`}
 			>
 				<div className="flex items-center justify-center gap-1">
-					<button
-						onClick={onPrint}
-						className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-						title="Imprimir"
-						aria-label={`Imprimir comprobante ${invoice.id}`}
-					>
-						<Printer className="w-4 h-4" />
-					</button>
-					<div className="relative">
+					<Tooltip contenido="Imprimir">
 						<button
-							onClick={(event) => toggleMenu(invoice.id, event.currentTarget.getBoundingClientRect())}
-							className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-							title="Más acciones"
-							aria-label={`Más acciones para comprobante ${invoice.id}`}
-							aria-expanded={openMenuId === invoice.id}
-							aria-haspopup="true"
+							onClick={onPrint}
+							className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+							aria-label="Imprimir comprobante"
 						>
-							<MoreHorizontal className="w-4 h-4" />
+							<Printer className="w-4 h-4" />
 						</button>
+					</Tooltip>
+					<div className="relative">
+						<Tooltip contenido="Más acciones">
+							<button
+								onClick={(event) => toggleMenu(invoice.id, event.currentTarget.getBoundingClientRect())}
+								className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+								aria-label="Más acciones"
+								aria-expanded={openMenuId === invoice.id}
+								aria-haspopup="true"
+							>
+								<MoreHorizontal className="w-4 h-4" />
+							</button>
+						</Tooltip>
 						{openMenuId === invoice.id && menuPosition &&
 							createPortal(
 								<>

@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, ChevronDown, Clock, Copy, Edit, Filter, MoreHorizontal, Search, Send, Trash2 } from 'lucide-react';
 import type { ColumnConfig } from '../../types/columnConfig';
 import type { Draft } from '../../mockData/drafts.mock';
+import { Tooltip } from '@/shared/ui';
 
 interface DraftsTableProps {
   drafts: Draft[];
@@ -111,46 +112,51 @@ export const DraftsTable: React.FC<DraftsTableProps> = ({
       case 'actions':
         return (
           <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => onEditDraft(draft.id)}
-              className="p-1.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-              title="Editar"
-              aria-label={`Editar borrador ${draft.id}`}
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onEmitDraft(draft.id)}
-              className="p-1.5 text-green-500 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
-              title="Emitir"
-              aria-label={`Emitir borrador ${draft.id}`}
-            >
-              <Send className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onDuplicateDraft(draft.id)}
-              className="p-1.5 text-purple-500 hover:text-purple-700 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
-              title="Duplicar"
-              aria-label={`Duplicar borrador ${draft.id}`}
-            >
-              <Copy className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onDeleteDraft(draft.id)}
-              className="p-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-              title="Eliminar"
-              aria-label={`Eliminar borrador ${draft.id}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onShareDraft(draft.id)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
-              title="Más opciones"
-              aria-label={`Más opciones para borrador ${draft.id}`}
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
+            <Tooltip contenido="Editar">
+              <button
+                onClick={() => onEditDraft(draft.id)}
+                className="p-1.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Editar borrador"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            <Tooltip contenido="Emitir">
+              <button
+                onClick={() => onEmitDraft(draft.id)}
+                className="p-1.5 text-green-500 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
+                aria-label="Emitir borrador"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            <Tooltip contenido="Duplicar">
+              <button
+                onClick={() => onDuplicateDraft(draft.id)}
+                className="p-1.5 text-purple-500 hover:text-purple-700 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500"
+                aria-label="Duplicar borrador"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            <Tooltip contenido="Eliminar">
+              <button
+                onClick={() => onDeleteDraft(draft.id)}
+                className="p-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                aria-label="Eliminar borrador"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            <Tooltip contenido="Más opciones">
+              <button
+                onClick={() => onShareDraft(draft.id)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
+                aria-label="Más opciones del borrador"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            </Tooltip>
           </div>
         );
       default: {

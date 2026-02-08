@@ -5,6 +5,7 @@
 
 import React, { type ReactNode } from 'react';
 import { Eye, X, Save, CreditCard } from 'lucide-react';
+import { Tooltip } from '@/shared/ui';
 
 interface ActionButtonsSectionProps {
   onVistaPrevia?: () => void;
@@ -54,16 +55,17 @@ const ActionButtonsSection: React.FC<ActionButtonsSectionProps> = ({
         <div className="flex items-center gap-3">
           {/* Preview button on the left */}
           {onVistaPrevia && (
-            <button
-              className="group flex items-center gap-2 px-3 py-2 h-9 text-violet-600 bg-white/70 hover:bg-white border border-violet-200 hover:border-violet-300 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm text-[13px]"
-              onClick={onVistaPrevia}
-              disabled={isCartEmpty}
-              title="Ver vista previa del comprobante (Ctrl+P)"
-              aria-label="Vista previa"
-            >
-              <Eye className="h-4 w-4" />
-              Vista previa
-            </button>
+            <Tooltip contenido="Vista previa del comprobante (Ctrl+P)">
+              <button
+                className="group flex items-center gap-2 px-3 py-2 h-9 text-violet-600 bg-white/70 hover:bg-white border border-violet-200 hover:border-violet-300 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm text-[13px]"
+                onClick={onVistaPrevia}
+                disabled={isCartEmpty}
+                aria-label="Abrir vista previa del comprobante"
+              >
+                <Eye className="h-4 w-4" />
+                Vista previa
+              </button>
+            </Tooltip>
           )}
 
           {/* Cart status removed for Emisión Tradicional (belongs to POS flow) */}

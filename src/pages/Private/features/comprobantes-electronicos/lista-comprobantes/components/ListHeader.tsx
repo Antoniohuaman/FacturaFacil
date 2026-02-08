@@ -32,6 +32,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/contasis';
+import { Tooltip } from '@/shared/ui';
 import type { ColumnConfig } from '../types/columnConfig';
 
 interface DatePreset {
@@ -295,32 +296,34 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
           <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
 
           {/* Botones de acción */}
-          <button
-            title="Filtros (Atajo: F)"
-            aria-label="Abrir filtros"
-            className={`relative p-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              activeFiltersCount > 0
-                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-            onClick={onOpenFilters}
-          >
-            <Filter className="w-5 h-5" />
-            {activeFiltersCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
+          <Tooltip contenido="Filtros (Atajo: F)">
+            <button
+              aria-label="Abrir filtros"
+              className={`relative p-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                activeFiltersCount > 0
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              onClick={onOpenFilters}
+            >
+              <Filter className="w-5 h-5" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </Tooltip>
 
-          <button
-            title="Refrescar lista"
-            aria-label="Refrescar comprobantes"
-            className="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onClick={() => window.location.reload()}
-          >
-            <RefreshCw className="w-5 h-5" />
-          </button>
+          <Tooltip contenido="Refrescar lista">
+            <button
+              aria-label="Refrescar lista"
+              className="p-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          </Tooltip>
 
           <button
             title="Exportar (Atajo: E)"

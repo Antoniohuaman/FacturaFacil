@@ -8,6 +8,7 @@ import { MoreHorizontal, Eye, Edit2, Copy, Share2, Printer, XCircle } from 'luci
 import { useState, useRef, useEffect } from 'react';
 import type { ReactElement } from 'react';
 import type { ColumnConfig } from './TableHeader';
+import { Tooltip } from '@/shared/ui';
 
 interface Comprobante {
   id: string;
@@ -100,28 +101,34 @@ export const TableRow: React.FC<TableRowProps> = ({
     if (column.key === 'actions') {
       return (
         <div className="flex items-center justify-end space-x-1">
-          <button
-            onClick={() => onView(invoice)}
-            className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-            title="Ver"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onEdit(invoice)}
-            className="p-1.5 text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-            title="Editar"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
-          <button
-            ref={buttonRef}
-            onClick={handleMenuClick}
-            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-            title="Más opciones"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
+          <Tooltip contenido="Ver">
+            <button
+              onClick={() => onView(invoice)}
+              className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+              aria-label="Ver comprobante"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip contenido="Editar">
+            <button
+              onClick={() => onEdit(invoice)}
+              className="p-1.5 text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+              aria-label="Editar comprobante"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip contenido="Más opciones">
+            <button
+              ref={buttonRef}
+              onClick={handleMenuClick}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              aria-label="Más opciones del comprobante"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </div>
       );
     }
