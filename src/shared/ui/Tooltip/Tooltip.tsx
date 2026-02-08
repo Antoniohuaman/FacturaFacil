@@ -223,6 +223,8 @@ export const Tooltip = ({
       };
     }
 
+    const ariaDescriptoPor = !deshabilitado && abierto && idTooltip ? idTooltip : undefined;
+
     return {
       ref: (valor: HTMLElement | null) => {
         asignarRef(elementoHijo.ref as Ref<HTMLElement> | undefined, valor);
@@ -233,9 +235,9 @@ export const Tooltip = ({
       onFocus: combinarHandlers(abrir, propsHijo.onFocus),
       onBlur: combinarHandlers(cerrar, propsHijo.onBlur),
       onKeyDown: combinarHandlers(manejarTecla, propsHijo.onKeyDown),
-      "aria-describedby": idTooltip,
+      "aria-describedby": ariaDescriptoPor,
     };
-  }, [abrir, cerrar, deshabilitado, elementoHijo.ref, idTooltip, manejarTecla, propsHijo.onBlur, propsHijo.onFocus, propsHijo.onKeyDown, propsHijo.onMouseEnter, propsHijo.onMouseLeave]);
+  }, [abierto, abrir, cerrar, deshabilitado, elementoHijo.ref, idTooltip, manejarTecla, propsHijo.onBlur, propsHijo.onFocus, propsHijo.onKeyDown, propsHijo.onMouseEnter, propsHijo.onMouseLeave]);
 
   const claseBase =
     "rounded-lg px-3 py-2 text-xs leading-snug shadow-lg ring-1 ring-black/5 pointer-events-none";
@@ -248,7 +250,7 @@ export const Tooltip = ({
     zIndex: INDICE_Z_TOOLTIP,
     top: posicion?.top ?? -9999,
     left: posicion?.left ?? -9999,
-    maxWidth: multilinea ? VALORES_PREDETERMINADOS_TOOLTIP.anchoMaximoPx : undefined,
+    maxWidth: multilinea ? `${VALORES_PREDETERMINADOS_TOOLTIP.anchoMaximoPx}px` : undefined,
   };
 
   const nodoTooltip = !abierto || deshabilitado ? null : (
