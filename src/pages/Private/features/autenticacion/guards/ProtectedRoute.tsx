@@ -16,8 +16,8 @@ interface ProtectedRouteProps {
   requireContext?: boolean; // Si requiere workspace configurado
 }
 
-export function ProtectedRoute({ children, requireContext = false }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, status, hasWorkspace } = useAuth();
+export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, status } = useAuth();
   const location = useLocation();
 
   // Mostrar loading mientras se inicializa
@@ -32,20 +32,16 @@ export function ProtectedRoute({ children, requireContext = false }: ProtectedRo
     );
   }
 
-  // Si no está autenticado, redirigir al login
-  if (!isAuthenticated) {
-    return <Navigate to={AUTH_PATHS.LOGIN} state={{ from: location }} replace />;
-  }
-
   // Si requiere 2FA, redirigir
   if (status === 'requires_2fa') {
     return <Navigate to={AUTH_PATHS.TWO_FACTOR} replace />;
   }
 
-  // Si requiere contexto y no lo tiene, redirigir a selección
-  if (requireContext && !hasWorkspace) {
-    return <Navigate to={AUTH_PATHS.DASHBOARD} replace />;
+  // Si no está autenticado, redirigir al login
+  if (!isAuthenticated) {
+    return <Navigate to={AUTH_PATHS.LOGIN} state={{ from: location }} replace />;
   }
+
 
   return <>{children}</>;
 }
