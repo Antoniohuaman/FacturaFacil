@@ -13,7 +13,6 @@ import { AUTH_PATHS } from '../utils/path';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requireContext?: boolean; // Si requiere workspace configurado
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
