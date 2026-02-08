@@ -11,15 +11,12 @@ export const AUTH_PATHS = {
   LOGIN: '/auth/login',
   REGISTER: '/auth/register',
   TWO_FACTOR: '/auth/2fa',
-  PASSWORD_RESET_REQUEST: '/auth/password-reset',
-  PASSWORD_RESET_CONFIRM: '/auth/password-reset/confirm',
+  PASSWORD_RESET_REQUEST: '/auth/reset',
+  PASSWORD_RESET_CONFIRM: '/auth/reset/confirm',
   SET_PASSWORD: '/auth/set-password/:token',
-  
-  // Semi-privadas (requieren auth pero no workspace)
-  CONTEXT_SELECT: '/auth/select-context',
-  
-  // Privadas (requieren auth + workspace)
-  DASHBOARD: '/app/dashboard',
+
+  // Privadas (requieren auth)
+  DASHBOARD: '/comprobantes',
 } as const;
 
 export type AuthPath = typeof AUTH_PATHS[keyof typeof AUTH_PATHS];
@@ -64,9 +61,8 @@ export function requiresWorkspace(pathname: string): boolean {
     AUTH_PATHS.PASSWORD_RESET_REQUEST,
     AUTH_PATHS.PASSWORD_RESET_CONFIRM,
     AUTH_PATHS.SET_PASSWORD,
-    AUTH_PATHS.CONTEXT_SELECT,
-    '/auth/set-password/', // Pattern match
+    '/auth/set-password/',
   ];
-  
+
   return !workspaceExemptPaths.some(path => pathname.startsWith(path));
 }

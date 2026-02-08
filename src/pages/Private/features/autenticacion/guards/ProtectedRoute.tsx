@@ -16,7 +16,7 @@ interface ProtectedRouteProps {
   requireContext?: boolean; // Si requiere workspace configurado
 }
 
-export function ProtectedRoute({ children, requireContext = true }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requireContext = false }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, status, hasWorkspace } = useAuth();
   const location = useLocation();
 
@@ -44,7 +44,7 @@ export function ProtectedRoute({ children, requireContext = true }: ProtectedRou
 
   // Si requiere contexto y no lo tiene, redirigir a selección
   if (requireContext && !hasWorkspace) {
-    return <Navigate to={AUTH_PATHS.CONTEXT_SELECT} replace />;
+    return <Navigate to={AUTH_PATHS.DASHBOARD} replace />;
   }
 
   return <>{children}</>;

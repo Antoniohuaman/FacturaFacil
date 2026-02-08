@@ -3,7 +3,6 @@ import type { RouteObject } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { TwoFactorPage } from './pages/TwoFactorPage';
-import { ContextSelectPage } from './pages/ContextSelectPage';
 import { PasswordResetRequestPage } from './pages/PasswordResetRequestPage';
 import { PasswordResetPage } from './pages/PasswordResetPage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
@@ -45,16 +44,8 @@ export const authRoutes: RouteObject[] = [
       {
         path: '2fa',
         element: (
-          <ProtectedRoute requireContext={false}>
+          <ProtectedRoute>
             <TwoFactorPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'context',
-        element: (
-          <ProtectedRoute requireContext={false}>
-            <ContextSelectPage />
           </ProtectedRoute>
         ),
       },

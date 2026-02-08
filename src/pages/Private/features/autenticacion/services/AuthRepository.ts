@@ -62,7 +62,6 @@ class AuthRepository {
   async login(credentials: LoginCredentials): Promise<{
     success: boolean;
     requires2FA?: boolean;
-    requiresContext?: boolean;
     error?: string;
   }> {
     try {
@@ -117,7 +116,6 @@ class AuthRepository {
    */
   async verify2FA(otp: string): Promise<{
     success: boolean;
-    requiresContext?: boolean;
     error?: string;
   }> {
     try {
@@ -156,7 +154,6 @@ class AuthRepository {
     remember: boolean
   ): Promise<{
     success: boolean;
-    requiresContext?: boolean;
   }> {
     // Guardar tokens
     tokenService.setTokens(
@@ -170,7 +167,7 @@ class AuthRepository {
     useAuthStore.setState({
       user: response.user,
       isAuthenticated: true,
-      hasWorkspace: !response.requiereSeleccionContexto && !!response.contextoActual,
+      hasWorkspace: true,
       require2FA: false,
       status: 'authenticated',
       error: null,
@@ -189,12 +186,6 @@ class AuthRepository {
       });
 
       return { success: true };
-    }
-
-    // Si requiere selección de contexto
-    if (response.requiereSeleccionContexto) {
-      useAuthStore.setState({ status: 'requires_workspace' });
-      return { success: true, requiresContext: true };
     }
 
     return { success: true };
@@ -350,21 +341,13 @@ class AuthRepository {
 
       // Obtener perfil
       const user = await authClient.getProfile();
-      
-      // Verificar workspace
-      const hasWorkspace = contextService.hasContext();
-      const contextoActual = contextService.getContext();
 
       useAuthStore.setState({
         user,
         isAuthenticated: true,
-        hasWorkspace,
-        status: hasWorkspace ? 'authenticated' : 'requires_workspace',
+        hasWorkspace: true,
+        status: 'authenticated',
       });
-
-      if (contextoActual) {
-        useTenantStore.setState({ contextoActual });
-      }
     } catch (error) {
       // Si falla, intentar refresh
       const refreshed = await this.refreshSession();

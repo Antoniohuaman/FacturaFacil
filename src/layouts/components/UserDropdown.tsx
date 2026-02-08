@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../pages/Private/features/autenticacion/hooks/useAuth';
+import { useUserSession } from '../../contexts/UserSessionContext';
 import ConfirmationModal from '../../../app/shared/src/components/ConfirmationModal';
 
 interface UserDropdownProps {
@@ -20,6 +21,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { logout } = useAuth();
+  const { clearSession } = useUserSession();
   const [showThemeOptions, setShowThemeOptions] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -50,6 +52,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
     
     // Ejecutar logout real
     await logout();
+    clearSession();
     
     // Redirigir al login
     navigate('/auth/login');

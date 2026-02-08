@@ -5,6 +5,7 @@ import { AuthLayout } from '../layouts/AuthLayout';
 import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../hooks';
 import type { LoginFormData } from '../schemas/login.schema';
+import { AUTH_PATHS } from '../utils/path';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -13,11 +14,9 @@ export function LoginPage() {
   // Redirigir si ya está autenticado
   useEffect(() => {
     if (isAuthenticated && status === 'authenticated') {
-      navigate('/', { replace: true });
-    } else if (status === 'requires_workspace') {
-      navigate('/auth/context', { replace: true });
+      navigate(AUTH_PATHS.DASHBOARD, { replace: true });
     } else if (status === 'requires_2fa') {
-      navigate('/auth/verify-2fa', { replace: true });
+      navigate(AUTH_PATHS.TWO_FACTOR, { replace: true });
     }
   }, [isAuthenticated, status, navigate]);
 

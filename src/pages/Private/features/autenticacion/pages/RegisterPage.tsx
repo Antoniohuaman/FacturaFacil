@@ -8,6 +8,7 @@ import { EmailInput } from '../components/EmailInput';
 import { PasswordInput } from '../components/PasswordInput';
 import { usePasswordStrength } from '../hooks/usePasswordStrength';
 import { authRepository } from '../services/AuthRepository';
+import { AUTH_PATHS } from '../utils/path';
 import {
   registerStep1Schema,
   registerStep2Schema,
@@ -112,25 +113,11 @@ export function RegisterPage() {
       });
 
       if (loginResult.success) {
-        // Guardar datos de empresa en localStorage para pre-cargar en configuración
-        localStorage.setItem('pending_company_data', JSON.stringify({
-          ruc: completeData.ruc,
-          razonSocial: completeData.razonSocial,
-          nombreComercial: completeData.nombreComercial,
-          direccion: completeData.direccion,
-          telefono: completeData.telefono,
-          actividadEconomica: completeData.actividadEconomica,
-        }));
-
-        // Login exitoso, la navegación se maneja automáticamente por los guards
-        if (loginResult.requiresContext) {
-          navigate('/auth/context', { replace: true });
-        } else {
-          navigate('/', { replace: true });
-        }
+        // Login exitoso, navegar al dashboard principal
+        navigate(AUTH_PATHS.DASHBOARD, { replace: true });
       } else {
         // Si el login automático falla, redirigir al login manual
-        navigate('/auth/login?registered=true');
+        navigate(AUTH_PATHS.LOGIN + '?registered=true');
       }
     } catch (err: unknown) {
       const error = err as { message?: string };

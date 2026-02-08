@@ -51,7 +51,7 @@ class HttpClient {
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     if (response.status === HTTP_STATUS.UNAUTHORIZED) {
       tokenService.clearTokens();
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
       throw new ApiError('Sesión expirada', HTTP_STATUS.UNAUTHORIZED);
     }
 

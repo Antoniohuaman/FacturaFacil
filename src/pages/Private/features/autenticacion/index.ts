@@ -18,13 +18,11 @@ export { useTenantStore } from './store/TenantStore';
 // Guards
 export { ProtectedRoute } from './guards/ProtectedRoute';
 export { RoleGuard } from './guards/RoleGuard';
-export { RequireWorkspaceGuard } from './guards/RequireWorkspaceGuard';
 
 // Pages
 export { LoginPage } from './pages/LoginPage';
 export { RegisterPage } from './pages/RegisterPage';
 export { TwoFactorPage } from './pages/TwoFactorPage';
-export { ContextSelectPage } from './pages/ContextSelectPage';
 export { PasswordResetRequestPage } from './pages/PasswordResetRequestPage';
 export { PasswordResetPage } from './pages/PasswordResetPage';
 export { SetPasswordPage } from './pages/SetPasswordPage';

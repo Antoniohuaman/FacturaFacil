@@ -17,7 +17,7 @@ import { AUTH_PATHS } from '../utils/path';
 
 export function TwoFactorPage() {
   const navigate = useNavigate();
-  const { verify2FA, user, requiresContext } = useAuth();
+  const { verify2FA, user } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,12 +53,7 @@ export function TwoFactorPage() {
       const result = await verify2FA(data.otp);
 
       if (result.success) {
-        // Si requiere selección de contexto
-        if (result.requiresContext || requiresContext) {
-          navigate(AUTH_PATHS.CONTEXT_SELECT, { replace: true });
-        } else {
-          navigate(AUTH_PATHS.DASHBOARD, { replace: true });
-        }
+        navigate(AUTH_PATHS.DASHBOARD, { replace: true });
       } else {
         setError(result.error || 'Código incorrecto');
       }
@@ -67,7 +62,7 @@ export function TwoFactorPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [navigate, requiresContext, verify2FA]);
+  }, [navigate, verify2FA]);
 
   // Auto-submit cuando se completan 6 dígitos
   useEffect(() => {
@@ -77,7 +72,6 @@ export function TwoFactorPage() {
   }, [otp, isLoading, handleSubmit, onSubmit]);
 
   const handleResend = () => {
-    // TODO: Implementar reenvío de OTP
     setCanResend(false);
     setCooldown(60); // 60 segundos de cooldown
   };
