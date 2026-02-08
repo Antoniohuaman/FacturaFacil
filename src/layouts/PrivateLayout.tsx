@@ -1,5 +1,5 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { useState } from "react";
 import Header from "./components/Header";
 import ConfigurationTopBar from "./components/ConfigurationTopBar";
 import SideNav from "./components/SideNav";
@@ -16,14 +16,12 @@ import { TenantDataResetEffect } from "../shared/tenant/TenantDataResetEffect";
 import { CajaProvider, useCaja } from "../pages/Private/features/control-caja/context/CajaContext";
 import { ToastContainer } from "../pages/Private/features/control-caja/components/common/Toast";
 import { FeedbackHost } from "../shared/feedback/FeedbackHost";
-import { generateWorkspaceId } from "../shared/tenant";
 import { TourFlotante, usarTour } from "../shared/tour";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
-  const { workspaces, tenantId } = useTenant();
+  const { tenantId } = useTenant();
   const workspaceNavigationState = location.state as
     | { workspaceId?: string; workspaceMode?: "create_workspace" | "edit_workspace" }
     | null;
@@ -31,15 +29,6 @@ export default function AppShell() {
 
   // Detectar si estamos en rutas de configuración
   const isInConfiguration = location.pathname === '/configuracion' || location.pathname.startsWith('/configuracion/');
-
-  useEffect(() => {
-    if (workspaces.length === 0 && location.pathname !== "/configuracion/empresa") {
-      navigate("/configuracion/empresa", {
-        replace: true,
-        state: { workspaceMode: "create_workspace", workspaceId: generateWorkspaceId() },
-      });
-    }
-  }, [workspaces.length, location.pathname, navigate]);
 
   return (
     <ThemeProvider>

@@ -12,11 +12,18 @@ import type { Tax } from '../modelos/Tax';
 import { PERU_TAX_TYPES, normalizeTaxes } from '../modelos/Tax';
 import { normalizeUnitsWithCatalog } from '../modelos';
 import type { Almacen } from '../modelos/Almacen';
-import type { Caja } from '../modelos/Caja';
-import { lsKey } from '../../../../../shared/tenant';
+import type { Caja, CreateCajaInput } from '../modelos/Caja';
+import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
+import { cajasDataSource } from '../api/fuenteDatosCajas';
+import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
+import { parseUbigeoCode } from '../datos/ubigeo';
+import { generateWorkspaceId, lsKey } from '../../../../../shared/tenant';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { currencyManager } from '@/shared/currency';
 import type { CurrencyCode } from '@/shared/currency';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { useTenantStore } from '../../autenticacion/store/TenantStore';
+import { EmpresaStatus, RegimenTributario, type Empresa as EmpresaTenant, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -61,6 +68,293 @@ type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
 
+type DatosConfiguracionInicialEmpresa = {
+  direccionFiscal: string;
+  ubigeo: string;
+  entornoSunat: 'TEST' | 'PRODUCTION';
+  telefonos: string[];
+  correosElectronicos: string[];
+  actividadEconomica: string;
+};
+
+type ResultadoConfiguracionInicialEmpresa = {
+  establecimiento: Establecimiento;
+  almacen: Almacen;
+  series: Series[];
+  monedas: Currency[];
+  impuestos: Tax[];
+};
+
+type ParametrosConfiguracionInicialEmpresa = {
+  empresa: Company;
+  datos: DatosConfiguracionInicialEmpresa;
+  seriesExistentes: Series[];
+  monedasExistentes: Currency[];
+  impuestosExistentes: Tax[];
+};
+
+export const construirConfiguracionInicialEmpresa = ({
+  empresa,
+  datos,
+  seriesExistentes,
+  monedasExistentes,
+  impuestosExistentes,
+}: ParametrosConfiguracionInicialEmpresa): ResultadoConfiguracionInicialEmpresa => {
+  const ubicacion = parseUbigeoCode(datos.ubigeo);
+  const telefonosLimpios = datos.telefonos.filter((telefono) => telefono.trim() !== '');
+  const correosLimpios = datos.correosElectronicos.filter((correo) => correo.trim() !== '');
+  const ahora = new Date();
+
+  const establecimiento: Establecimiento = {
+    id: 'est-main',
+    codigoEstablecimiento: '0001',
+    nombreEstablecimiento: 'Establecimiento',
+    direccionEstablecimiento: datos.direccionFiscal,
+    distritoEstablecimiento: ubicacion?.district || 'Lima',
+    provinciaEstablecimiento: ubicacion?.province || 'Lima',
+    departamentoEstablecimiento: ubicacion?.department || 'Lima',
+    codigoPostalEstablecimiento: datos.ubigeo,
+    phone: telefonosLimpios[0],
+    email: correosLimpios[0],
+    isMainEstablecimiento: true,
+    businessHours: {
+      monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+      tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+      wednesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+      thursday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+      friday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
+      saturday: { isOpen: true, openTime: '09:00', closeTime: '13:00', is24Hours: false },
+      sunday: { isOpen: false, openTime: '00:00', closeTime: '00:00', is24Hours: false },
+    },
+    sunatConfiguration: {
+      isRegistered: true,
+      registrationDate: ahora,
+      annexCode: '0000',
+      economicActivity: empresa.actividadEconomica || 'Comercio',
+    },
+    posConfiguration: {
+      hasPos: true,
+      terminalCount: 1,
+      printerConfiguration: {
+        hasPrinter: false,
+        printerType: 'THERMAL',
+        paperSize: 'TICKET_80MM',
+        isNetworkPrinter: false,
+      },
+      cashDrawerConfiguration: {
+        hasCashDrawer: false,
+        openMethod: 'MANUAL',
+        currency: 'PEN',
+      },
+      barcodeScanner: {
+        hasScanner: false,
+        scannerType: 'USB',
+      },
+    },
+    inventoryConfiguration: {
+      managesInventory: true,
+      isalmacen: false,
+      allowNegativeStock: false,
+      autoTransferStock: false,
+    },
+    financialConfiguration: {
+      handlesCash: true,
+      defaultCurrencyId: 'PEN',
+      acceptedCurrencies: ['PEN', 'USD'],
+      defaultTaxId: 'IGV',
+      bankAccounts: [],
+    },
+    estadoEstablecimiento: 'ACTIVE',
+    creadoElEstablecimiento: ahora,
+    actualizadoElEstablecimiento: ahora,
+    estaActivoEstablecimiento: true,
+  };
+
+  const almacen: Almacen = {
+    id: 'alm-main',
+    codigoAlmacen: '0001',
+    nombreAlmacen: 'Almacén',
+    establecimientoId: establecimiento.id,
+    nombreEstablecimientoDesnormalizado: establecimiento.nombreEstablecimiento,
+    codigoEstablecimientoDesnormalizado: establecimiento.codigoEstablecimiento,
+    descripcionAlmacen: 'Almacén principal de la empresa',
+    ubicacionAlmacen: establecimiento.direccionEstablecimiento || undefined,
+    estaActivoAlmacen: true,
+    esAlmacenPrincipal: true,
+    configuracionInventarioAlmacen: {
+      permiteStockNegativoAlmacen: false,
+      controlEstrictoStock: false,
+      requiereAprobacionMovimientos: false,
+    },
+    creadoElAlmacen: ahora,
+    actualizadoElAlmacen: ahora,
+    tieneMovimientosInventario: false,
+  };
+
+  const tipoEntornoSunat = datos.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
+  const series = buildMissingDefaultSeries({
+    EstablecimientoId: establecimiento.id,
+    environmentType: tipoEntornoSunat,
+    existingSeries: seriesExistentes,
+  });
+
+  const monedas: Currency[] = monedasExistentes.length
+    ? []
+    : [
+        {
+          id: 'PEN',
+          code: 'PEN',
+          name: 'Sol Peruano',
+          symbol: 'S/',
+          symbolPosition: 'BEFORE',
+          decimalPlaces: 2,
+          isBaseCurrency: true,
+          exchangeRate: 1.0,
+          isActive: true,
+          lastUpdated: ahora,
+          autoUpdate: false,
+          createdAt: ahora,
+          updatedAt: ahora,
+        },
+        {
+          id: 'USD',
+          code: 'USD',
+          name: 'Dólar Americano',
+          symbol: '$',
+          symbolPosition: 'BEFORE',
+          decimalPlaces: 2,
+          isBaseCurrency: false,
+          exchangeRate: 3.70,
+          isActive: true,
+          lastUpdated: ahora,
+          autoUpdate: true,
+          createdAt: ahora,
+          updatedAt: ahora,
+        },
+      ];
+
+  const impuestos: Tax[] = impuestosExistentes.length
+    ? []
+    : PERU_TAX_TYPES
+        .filter((tax) => ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'].includes(tax.code))
+        .map((tax) => ({
+          ...tax,
+          id: tax.code,
+          includeInPrice: true,
+          isDefault: tax.code === 'IGV18',
+          createdAt: ahora,
+          updatedAt: ahora,
+        }));
+
+  return {
+    establecimiento,
+    almacen,
+    series,
+    monedas,
+    impuestos,
+  };
+};
+
+type ParametrosConfiguracionOperativaPredeterminada = {
+  empresa: Company | null;
+  Establecimiento: Establecimiento | null;
+  userId: string | null;
+  estadoConfiguracion: {
+    cajas: Caja[];
+    currencies: Currency[];
+  };
+  dispatch: (action: { type: 'ADD_CAJA' | 'UPDATE_CAJA'; payload: Caja }) => void;
+};
+
+export async function asegurarConfiguracionOperativaPredeterminada({
+  empresa,
+  Establecimiento,
+  userId,
+  estadoConfiguracion,
+  dispatch,
+}: ParametrosConfiguracionOperativaPredeterminada): Promise<void> {
+  if (!empresa?.id || !Establecimiento?.id) {
+    return;
+  }
+
+  const empresaId = empresa.id;
+  const establecimientoId = Establecimiento.id;
+
+  const derivarIdMonedaBase = (): string => {
+    const codigoPreferido = empresa.monedaBase || 'PEN';
+
+    const porId = estadoConfiguracion.currencies.find((currency) => currency.id === codigoPreferido);
+    if (porId) return porId.id;
+
+    const porCodigo = estadoConfiguracion.currencies.find((currency) => currency.code === codigoPreferido);
+    if (porCodigo) return porCodigo.id;
+
+    const monedaPen = estadoConfiguracion.currencies.find(
+      (currency) => currency.id === 'PEN' || currency.code === 'PEN',
+    );
+    if (monedaPen) return monedaPen.id;
+
+    return codigoPreferido;
+  };
+
+  const monedaId = derivarIdMonedaBase();
+
+  let cajaPorDefecto: Caja | undefined;
+
+  try {
+    const cajasAlmacenadas = await cajasDataSource.list(empresaId, establecimientoId);
+    cajaPorDefecto = cajasAlmacenadas.find((caja) => {
+      if (caja.empresaId !== empresaId || caja.establecimientoIdCaja !== establecimientoId) {
+        return false;
+      }
+      return caja.nombreCaja.trim().toLowerCase() === 'caja 1';
+    });
+  } catch {
+    cajaPorDefecto = undefined;
+  }
+
+  if (!cajaPorDefecto) {
+    cajaPorDefecto = estadoConfiguracion.cajas.find((caja) => {
+      if (caja.empresaId !== empresaId || caja.establecimientoIdCaja !== establecimientoId) {
+        return false;
+      }
+      return caja.nombreCaja.trim().toLowerCase() === 'caja 1';
+    });
+  }
+
+  if (cajaPorDefecto) {
+    if (!userId) {
+      return;
+    }
+
+    if (cajaPorDefecto.usuariosAutorizadosCaja.includes(userId)) {
+      return;
+    }
+
+    const actualizada = await cajasDataSource.update(empresaId, establecimientoId, cajaPorDefecto.id, {
+      usuariosAutorizadosCaja: [...cajaPorDefecto.usuariosAutorizadosCaja, userId],
+    });
+
+    dispatch({ type: 'UPDATE_CAJA', payload: actualizada });
+    return;
+  }
+
+  const mediosPagoPermitidos = [...MEDIOS_PAGO_DISPONIBLES];
+
+  const entradaCreacion: CreateCajaInput = {
+    establecimientoIdCaja: establecimientoId,
+    nombreCaja: 'Caja 1',
+    monedaIdCaja: monedaId,
+    mediosPagoPermitidos,
+    limiteMaximoCaja: CAJA_CONSTRAINTS.LIMITE_MIN,
+    margenDescuadreCaja: CAJA_CONSTRAINTS.MARGEN_MIN,
+    habilitadaCaja: true,
+    usuariosAutorizadosCaja: userId ? [userId] : [],
+  };
+
+  const nuevaCaja = await cajasDataSource.create(empresaId, establecimientoId, entradaCreacion);
+  dispatch({ type: 'ADD_CAJA', payload: nuevaCaja });
+}
 
 type PersistedCaja = Caja | (Partial<Caja> & Record<string, unknown>);
 
@@ -433,6 +727,72 @@ const persistTenantSnapshot = (storageKey: StorageKey, snapshot: PersistedTenant
   }
 };
 
+type DatosEmpresaDemo = {
+  ruc: string;
+  razonSocial: string;
+  nombreComercial: string;
+  direccionFiscal: string;
+  ubigeo: string;
+  actividadEconomica: string;
+  telefonos: string[];
+  correosElectronicos: string[];
+  monedaBase: 'PEN' | 'USD';
+  entornoSunat: 'TEST' | 'PRODUCTION';
+};
+
+const DATOS_EMPRESA_DEMO: DatosEmpresaDemo = {
+  ruc: '20000000000',
+  razonSocial: 'SENCIYO S.A.C.',
+  nombreComercial: 'SENCIYO',
+  direccionFiscal: 'AV. PRINCIPAL 123, LIMA, LIMA, LIMA',
+  ubigeo: '150101',
+  actividadEconomica: 'COMERCIO AL POR MENOR',
+  telefonos: ['949970564'],
+  correosElectronicos: ['contacto@senciyo.com'],
+  monedaBase: 'PEN',
+  entornoSunat: 'TEST',
+};
+
+const construirEmpresaDemo = (datos: DatosEmpresaDemo): Company => {
+  const ubicacion = parseUbigeoCode(datos.ubigeo);
+  const telefonosLimpios = datos.telefonos.filter((telefono) => telefono.trim() !== '');
+  const correosLimpios = datos.correosElectronicos.filter((correo) => correo.trim() !== '');
+  const ahora = new Date();
+
+  return {
+    id: '1',
+    ruc: datos.ruc,
+    razonSocial: datos.razonSocial,
+    nombreComercial: datos.nombreComercial || undefined,
+    direccionFiscal: datos.direccionFiscal,
+    distrito: ubicacion?.district || 'Lima',
+    provincia: ubicacion?.province || 'Lima',
+    departamento: ubicacion?.department || 'Lima',
+    codigoPostal: datos.ubigeo,
+    telefonos: telefonosLimpios,
+    correosElectronicos: correosLimpios,
+    sitioWeb: undefined,
+    actividadEconomica: datos.actividadEconomica,
+    regimenTributario: 'GENERAL',
+    monedaBase: datos.monedaBase,
+    representanteLegal: {
+      nombreRepresentanteLegal: '',
+      tipoDocumentoRepresentante: 'DNI',
+      numeroDocumentoRepresentante: '',
+    },
+    certificadoDigital: undefined,
+    configuracionSunatEmpresa: {
+      estaConfiguradoEnSunat: false,
+      usuarioSunat: undefined,
+      entornoSunat: datos.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
+      fechaUltimaSincronizacionSunat: undefined,
+    },
+    creadoEl: ahora,
+    actualizadoEl: ahora,
+    estaActiva: true,
+  };
+};
+
 type ConfigurationAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
@@ -653,8 +1013,11 @@ interface ConfigurationProviderProps {
 }
 
 export function ConfigurationProvider({ children, tenantIdOverride }: ConfigurationProviderProps) {
-  const { tenantId: activeTenantId } = useTenant();
+  const { tenantId: activeTenantId, activeWorkspace, createOrUpdateWorkspace } = useTenant();
   const tenantId = tenantIdOverride ?? activeTenantId;
+  const { session, setCurrentCompany } = useUserSession();
+  const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
+  const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
   const seriesStorageKey = useMemo<StorageKey>(() => {
     if (!tenantId) return null;
     return lsKey(LLAVE_ALMACENAMIENTO_SERIES, tenantId);
@@ -682,6 +1045,8 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
   const tenantHydratedRef = useRef(false);
   const unitsHydratedRef = useRef(false);
+  const instalacionDemoRef = useRef(false);
+  const sincronizacionWorkspaceRef = useRef(false);
 
   const seriesHydratedRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
@@ -743,6 +1108,240 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     }
     seriesHydratedRef.current = true;
   }, [dispatch, seriesStorageKey, tenantId]);
+
+  useEffect(() => {
+    if (tenantId) return;
+    if (sincronizacionWorkspaceRef.current) return;
+
+    const workspaceDemo = createOrUpdateWorkspace({
+      id: generateWorkspaceId(),
+      ruc: DATOS_EMPRESA_DEMO.ruc,
+      razonSocial: DATOS_EMPRESA_DEMO.razonSocial,
+      nombreComercial: DATOS_EMPRESA_DEMO.nombreComercial,
+      domicilioFiscal: DATOS_EMPRESA_DEMO.direccionFiscal,
+    });
+
+    sincronizacionWorkspaceRef.current = Boolean(workspaceDemo.id);
+  }, [createOrUpdateWorkspace, tenantId]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    if (!tenantHydratedRef.current) return;
+    if (!seriesHydratedRef.current) return;
+    if (instalacionDemoRef.current) return;
+
+    const snapshot = loadTenantConfigFromStorage(tenantConfigKey);
+    const seriesAlmacenadas = loadStoredSeries(seriesStorageKey);
+
+    const almacenamientoVacio =
+      !snapshot ||
+      (!snapshot.company &&
+        snapshot.Establecimientos.length === 0 &&
+        snapshot.almacenes.length === 0 &&
+        snapshot.cajas.length === 0 &&
+        snapshot.units.length === 0);
+
+    const estadoTieneDatos =
+      Boolean(state.company) ||
+      state.Establecimientos.length > 0 ||
+      state.almacenes.length > 0 ||
+      state.cajas.length > 0 ||
+      state.series.length > 0;
+
+    if (!almacenamientoVacio || seriesAlmacenadas.length > 0 || estadoTieneDatos) {
+      instalacionDemoRef.current = true;
+      return;
+    }
+
+    const empresaDemo = construirEmpresaDemo(DATOS_EMPRESA_DEMO);
+    dispatch({ type: 'SET_COMPANY', payload: empresaDemo });
+
+    const resultadoConfiguracion = construirConfiguracionInicialEmpresa({
+      empresa: empresaDemo,
+      datos: {
+        direccionFiscal: DATOS_EMPRESA_DEMO.direccionFiscal,
+        ubigeo: DATOS_EMPRESA_DEMO.ubigeo,
+        entornoSunat: DATOS_EMPRESA_DEMO.entornoSunat,
+        telefonos: DATOS_EMPRESA_DEMO.telefonos,
+        correosElectronicos: DATOS_EMPRESA_DEMO.correosElectronicos,
+        actividadEconomica: DATOS_EMPRESA_DEMO.actividadEconomica,
+      },
+      seriesExistentes: state.series,
+      monedasExistentes: state.currencies,
+      impuestosExistentes: state.taxes,
+    });
+
+    dispatch({ type: 'ADD_Establecimiento', payload: resultadoConfiguracion.establecimiento });
+    dispatch({ type: 'ADD_ALMACEN', payload: resultadoConfiguracion.almacen });
+
+    resultadoConfiguracion.series.forEach((seriesItem) => {
+      dispatch({ type: 'ADD_SERIES', payload: seriesItem });
+    });
+
+    if (resultadoConfiguracion.monedas.length) {
+      dispatch({ type: 'SET_CURRENCIES', payload: resultadoConfiguracion.monedas });
+    }
+
+    if (resultadoConfiguracion.impuestos.length) {
+      dispatch({ type: 'SET_TAXES', payload: resultadoConfiguracion.impuestos });
+    }
+
+    const monedasParaCaja = resultadoConfiguracion.monedas.length
+      ? resultadoConfiguracion.monedas
+      : state.currencies;
+
+    void asegurarConfiguracionOperativaPredeterminada({
+      empresa: empresaDemo,
+      Establecimiento: resultadoConfiguracion.establecimiento,
+      userId: session?.userId ?? null,
+      estadoConfiguracion: {
+        cajas: state.cajas,
+        currencies: monedasParaCaja,
+      },
+      dispatch,
+    });
+
+    instalacionDemoRef.current = true;
+  }, [
+    dispatch,
+    seriesStorageKey,
+    session?.userId,
+    state.Establecimientos.length,
+    state.almacenes.length,
+    state.cajas,
+    state.company,
+    state.currencies,
+    state.series,
+    state.taxes,
+    tenantConfigKey,
+    tenantId,
+  ]);
+
+  useEffect(() => {
+    if (!state.company) {
+      return;
+    }
+
+    const idWorkspace = tenantId ?? activeWorkspace?.id ?? generateWorkspaceId();
+    const datosWorkspace = {
+      id: idWorkspace,
+      ruc: state.company.ruc,
+      razonSocial: state.company.razonSocial,
+      nombreComercial: state.company.nombreComercial,
+      domicilioFiscal: state.company.direccionFiscal,
+    };
+
+    const requiereActualizarWorkspace =
+      !activeWorkspace ||
+      activeWorkspace.id !== datosWorkspace.id ||
+      activeWorkspace.ruc !== datosWorkspace.ruc ||
+      activeWorkspace.razonSocial !== datosWorkspace.razonSocial ||
+      activeWorkspace.nombreComercial !== datosWorkspace.nombreComercial ||
+      activeWorkspace.domicilioFiscal !== datosWorkspace.domicilioFiscal;
+
+    if (requiereActualizarWorkspace) {
+      createOrUpdateWorkspace(datosWorkspace);
+    }
+  }, [
+    activeWorkspace,
+    createOrUpdateWorkspace,
+    state.company,
+    tenantId,
+  ]);
+
+  useEffect(() => {
+    const empresa = state.company;
+    if (!empresa) return;
+
+    const establecimientoPrincipal =
+      state.Establecimientos.find((item) => item.isMainEstablecimiento) ??
+      state.Establecimientos[0];
+
+    if (!establecimientoPrincipal) return;
+
+    const empresaTenant: EmpresaTenant = {
+      id: empresa.id,
+      ruc: empresa.ruc,
+      razonSocial: empresa.razonSocial,
+      nombreComercial: empresa.nombreComercial,
+      direccion: empresa.direccionFiscal,
+      telefono: empresa.telefonos?.[0],
+      email: empresa.correosElectronicos?.[0],
+      actividadEconomica: empresa.actividadEconomica,
+      regimen: (empresa.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
+      estado: EmpresaStatus.ACTIVA,
+      establecimientos: [
+        {
+          id: establecimientoPrincipal.id,
+          codigo: establecimientoPrincipal.codigoEstablecimiento,
+          nombre: establecimientoPrincipal.nombreEstablecimiento,
+          direccion: establecimientoPrincipal.direccionEstablecimiento,
+          esPrincipal: establecimientoPrincipal.isMainEstablecimiento,
+          activo: establecimientoPrincipal.estaActivoEstablecimiento,
+        },
+      ],
+      configuracion: {
+        emisionElectronica: true,
+      },
+    };
+
+    const contextoTenant: WorkspaceContext = {
+      empresaId: empresa.id,
+      establecimientoId: establecimientoPrincipal.id,
+      empresa: empresaTenant,
+      establecimiento: empresaTenant.establecimientos[0],
+      permisos: ['*'],
+      configuracion: {},
+    };
+
+    const { empresas, contextoActual } = useTenantStore.getState();
+    const empresaEnStore = empresas.find((item) => item.id === empresaTenant.id);
+
+    const requiereActualizarEmpresa =
+      !empresaEnStore ||
+      empresaEnStore.ruc !== empresaTenant.ruc ||
+      empresaEnStore.razonSocial !== empresaTenant.razonSocial ||
+      empresaEnStore.nombreComercial !== empresaTenant.nombreComercial ||
+      empresaEnStore.direccion !== empresaTenant.direccion ||
+      empresaEnStore.establecimientos.length !== empresaTenant.establecimientos.length;
+
+    if (requiereActualizarEmpresa) {
+      const empresasActualizadas = [...empresas.filter((item) => item.id !== empresaTenant.id), empresaTenant];
+      setTenantEmpresas(empresasActualizadas);
+    }
+
+    if (
+      !contextoActual ||
+      contextoActual.empresaId !== contextoTenant.empresaId ||
+      contextoActual.establecimientoId !== contextoTenant.establecimientoId
+    ) {
+      setTenantContextoActual(contextoTenant);
+    }
+
+    const requiereActualizarSesion =
+      session?.currentCompanyId === empresa.id &&
+      (!session.currentCompany ||
+        session.currentCompany.ruc !== empresa.ruc ||
+        session.currentCompany.razonSocial !== empresa.razonSocial ||
+        session.currentCompany.nombreComercial !== empresa.nombreComercial ||
+        session.currentCompany.direccionFiscal !== empresa.direccionFiscal);
+
+    if (requiereActualizarSesion) {
+      setCurrentCompany(empresa.id, empresa);
+    }
+  }, [
+    session?.currentCompany,
+    session?.currentCompany?.direccionFiscal,
+    session?.currentCompany?.nombreComercial,
+    session?.currentCompany?.razonSocial,
+    session?.currentCompany?.ruc,
+    session?.currentCompanyId,
+    setCurrentCompany,
+    setTenantContextoActual,
+    setTenantEmpresas,
+    state.Establecimientos,
+    state.company,
+  ]);
 
   useEffect(() => {
     if (!seriesHydratedRef.current) return;

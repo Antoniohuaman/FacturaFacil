@@ -12,28 +12,22 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { Button, Select, Input, RadioButton, PageHeader } from '@/contasis';
-import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import {
+  asegurarConfiguracionOperativaPredeterminada,
+  construirConfiguracionInicialEmpresa,
+  useConfigurationContext,
+} from '../contexto/ContextoConfiguracion';
 import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import { RucValidator } from '../components/empresa/ValidadorRuc';
-import { parseUbigeoCode } from '../datos/ubigeo';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
-import type { Almacen } from '../modelos/Almacen';
-import type { Series } from '../modelos/Series';
-import type { Currency } from '../modelos/Currency';
-import type { Tax } from '../modelos/Tax';
-import { PERU_TAX_TYPES } from '../modelos/Tax';
-import type { Caja, CreateCajaInput } from '../modelos/Caja';
-import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
-import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
-import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { clientesClient } from '../../gestion-clientes/api';
 import type { CreateClienteDTO } from '../../gestion-clientes/models';
 
@@ -56,106 +50,6 @@ type WorkspaceNavigationState = {
   workspaceId?: string;
 } | null;
 
-type EnsureDefaultOperationalSetupParams = {
-  company: Company | null;
-  Establecimiento: Establecimiento | null;
-  userId: string | null;
-  configState: {
-    cajas: Caja[];
-    currencies: Currency[];
-  };
-  dispatch: (action: { type: 'ADD_CAJA' | 'UPDATE_CAJA'; payload: Caja }) => void;
-};
-
-async function ensureDefaultOperationalSetup({
-  company,
-  Establecimiento,
-  userId,
-  configState,
-  dispatch,
-}: EnsureDefaultOperationalSetupParams): Promise<void> {
-  if (!company?.id || !Establecimiento?.id) {
-    return;
-  }
-
-  const empresaId = company.id;
-  const establecimientoId = Establecimiento.id;
-
-  const deriveBaseCurrencyId = (): string => {
-    const preferredCode = company.monedaBase || 'PEN';
-
-    const byId = configState.currencies.find((currency) => currency.id === preferredCode);
-    if (byId) return byId.id;
-
-    const byCode = configState.currencies.find((currency) => currency.code === preferredCode);
-    if (byCode) return byCode.id;
-
-    const penCurrency = configState.currencies.find(
-      (currency) => currency.id === 'PEN' || currency.code === 'PEN',
-    );
-    if (penCurrency) return penCurrency.id;
-
-    return preferredCode;
-  };
-
-  const monedaId = deriveBaseCurrencyId();
-
-  let existingDefaultCaja: Caja | undefined;
-
-  try {
-    const storedCajas = await cajasDataSource.list(empresaId, establecimientoId);
-    existingDefaultCaja = storedCajas.find((caja) => {
-      if (caja.empresaId !== empresaId || caja.establecimientoIdCaja !== establecimientoId) {
-        return false;
-      }
-      return caja.nombreCaja.trim().toLowerCase() === 'caja 1';
-    });
-  } catch {
-    existingDefaultCaja = undefined;
-  }
-
-  if (!existingDefaultCaja) {
-    existingDefaultCaja = configState.cajas.find((caja) => {
-      if (caja.empresaId !== empresaId || caja.establecimientoIdCaja !== establecimientoId) {
-        return false;
-      }
-      return caja.nombreCaja.trim().toLowerCase() === 'caja 1';
-    });
-  }
-
-  if (existingDefaultCaja) {
-    if (!userId) {
-      return;
-    }
-
-    if (existingDefaultCaja.usuariosAutorizadosCaja.includes(userId)) {
-      return;
-    }
-
-    const updated = await cajasDataSource.update(empresaId, establecimientoId, existingDefaultCaja.id, {
-      usuariosAutorizadosCaja: [...existingDefaultCaja.usuariosAutorizadosCaja, userId],
-    });
-
-    dispatch({ type: 'UPDATE_CAJA', payload: updated });
-    return;
-  }
-
-  const mediosPagoPermitidos = [...MEDIOS_PAGO_DISPONIBLES];
-
-  const createInput: CreateCajaInput = {
-    establecimientoIdCaja: establecimientoId,
-    nombreCaja: 'Caja 1',
-    monedaIdCaja: monedaId,
-    mediosPagoPermitidos,
-    limiteMaximoCaja: CAJA_CONSTRAINTS.LIMITE_MIN,
-    margenDescuadreCaja: CAJA_CONSTRAINTS.MARGEN_MIN,
-    habilitadaCaja: true,
-    usuariosAutorizadosCaja: userId ? [userId] : [],
-  };
-
-  const nuevaCaja = await cajasDataSource.create(empresaId, establecimientoId, createInput);
-  dispatch({ type: 'ADD_CAJA', payload: nuevaCaja });
-}
 
 const DEFAULT_CLIENTES_VARIOS = {
   tipoDocumento: '1',
@@ -544,184 +438,51 @@ export function CompanyConfiguration() {
       let defaultEstablecimiento: Establecimiento | null = null;
 
       if (isNewCompany && state.Establecimientos.length === 0) {
-        // Parsear ubigeo para obtener Departamento, Provincia y Distrito
-        const location = parseUbigeoCode(datosFormulario.ubigeo);
-
-        // 1. CREAR ESTABLECIMIENTO POR DEFECTO
-        const createdEstablecimiento: Establecimiento = {
-          id: 'est-main',
-          codigoEstablecimiento: '0001',
-          nombreEstablecimiento: 'Establecimiento',
-          direccionEstablecimiento: datosFormulario.direccionFiscal,
-          distritoEstablecimiento: location?.district || 'Lima',
-          provinciaEstablecimiento: location?.province || 'Lima',
-          departamentoEstablecimiento: location?.department || 'Lima',
-          codigoPostalEstablecimiento: datosFormulario.ubigeo,
-          phone: cleanPhones[0],
-          email: cleanEmails[0],
-          isMainEstablecimiento: true,
-          businessHours: {
-            monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            wednesday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            thursday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            friday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
-            saturday: { isOpen: true, openTime: '09:00', closeTime: '13:00', is24Hours: false },
-            sunday: { isOpen: false, openTime: '00:00', closeTime: '00:00', is24Hours: false },
+        const resultadoConfiguracion = construirConfiguracionInicialEmpresa({
+          empresa: updatedCompany,
+          datos: {
+            direccionFiscal: datosFormulario.direccionFiscal,
+            ubigeo: datosFormulario.ubigeo,
+            entornoSunat: datosFormulario.entornoSunat,
+            telefonos: cleanPhones,
+            correosElectronicos: cleanEmails,
+            actividadEconomica: datosFormulario.actividadEconomica,
           },
-          sunatConfiguration: {
-            isRegistered: true,
-            registrationDate: new Date(),
-            annexCode: '0000',
-            economicActivity: company?.actividadEconomica || 'Comercio',
-          },
-          posConfiguration: {
-            hasPos: true,
-            terminalCount: 1,
-            printerConfiguration: {
-              hasPrinter: false,
-              printerType: 'THERMAL',
-              paperSize: 'TICKET_80MM',
-              isNetworkPrinter: false,
-            },
-            cashDrawerConfiguration: {
-              hasCashDrawer: false,
-              openMethod: 'MANUAL',
-              currency: 'PEN',
-            },
-            barcodeScanner: {
-              hasScanner: false,
-              scannerType: 'USB',
-            },
-          },
-          inventoryConfiguration: {
-            managesInventory: true,
-            isalmacen: false,
-            allowNegativeStock: false,
-            autoTransferStock: false,
-          },
-          financialConfiguration: {
-            handlesCash: true,
-            defaultCurrencyId: 'PEN',
-            acceptedCurrencies: ['PEN', 'USD'],
-            defaultTaxId: 'IGV',
-            bankAccounts: [],
-          },
-          estadoEstablecimiento: 'ACTIVE',
-          creadoElEstablecimiento: new Date(),
-          actualizadoElEstablecimiento: new Date(),
-          estaActivoEstablecimiento: true,
-        };
-
-        defaultEstablecimiento = createdEstablecimiento;
-        dispatch({ type: 'ADD_Establecimiento', payload: createdEstablecimiento });
-
-        // 2. CREAR ALMACÉN POR DEFECTO
-        const defaultalmacen: Almacen = {
-          id: 'alm-main',
-          codigoAlmacen: '0001',
-          nombreAlmacen: 'Almacén',
-          establecimientoId: createdEstablecimiento.id,
-          nombreEstablecimientoDesnormalizado: createdEstablecimiento.nombreEstablecimiento,
-          codigoEstablecimientoDesnormalizado: createdEstablecimiento.codigoEstablecimiento,
-          descripcionAlmacen: 'Almacén principal de la empresa',
-          ubicacionAlmacen: createdEstablecimiento.direccionEstablecimiento || undefined,
-          estaActivoAlmacen: true,
-          esAlmacenPrincipal: true,
-          configuracionInventarioAlmacen: {
-            permiteStockNegativoAlmacen: false,
-            controlEstrictoStock: false,
-            requiereAprobacionMovimientos: false,
-          },
-          creadoElAlmacen: new Date(),
-          actualizadoElAlmacen: new Date(),
-          tieneMovimientosInventario: false,
-        };
-
-        dispatch({ type: 'ADD_ALMACEN', payload: defaultalmacen });
-
-        // 3. CREAR SERIES POR DEFECTO (FACTURA, BOLETA y documentos internos serieables)
-        const environmentType =
-          datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION';
-
-        const defaultSeries: Series[] = buildMissingDefaultSeries({
-          EstablecimientoId: createdEstablecimiento.id,
-          environmentType,
-          existingSeries: state.series,
+          seriesExistentes: state.series,
+          monedasExistentes: state.currencies,
+          impuestosExistentes: state.taxes,
         });
 
-        defaultSeries.forEach((seriesItem) => {
+        defaultEstablecimiento = resultadoConfiguracion.establecimiento;
+        dispatch({ type: 'ADD_Establecimiento', payload: resultadoConfiguracion.establecimiento });
+        dispatch({ type: 'ADD_ALMACEN', payload: resultadoConfiguracion.almacen });
+
+        resultadoConfiguracion.series.forEach((seriesItem) => {
           dispatch({ type: 'ADD_SERIES', payload: seriesItem });
         });
 
-        // 3. CONFIGURAR MONEDA BASE (PEN - SOLES)
-        if (state.currencies.length === 0) {
-          const defaultCurrencies: Currency[] = [
-            {
-              id: 'PEN',
-              code: 'PEN',
-              name: 'Sol Peruano',
-              symbol: 'S/',
-              symbolPosition: 'BEFORE',
-              decimalPlaces: 2,
-              isBaseCurrency: true,
-              exchangeRate: 1.0,
-              isActive: true,
-              lastUpdated: new Date(),
-              autoUpdate: false,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-            {
-              id: 'USD',
-              code: 'USD',
-              name: 'Dólar Americano',
-              symbol: '$',
-              symbolPosition: 'BEFORE',
-              decimalPlaces: 2,
-              isBaseCurrency: false,
-              exchangeRate: 3.70,
-              isActive: true,
-              lastUpdated: new Date(),
-              autoUpdate: true,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ];
-          dispatch({ type: 'SET_CURRENCIES', payload: defaultCurrencies });
+        if (resultadoConfiguracion.monedas.length) {
+          dispatch({ type: 'SET_CURRENCIES', payload: resultadoConfiguracion.monedas });
         }
 
-        // 4. CONFIGURAR IMPUESTOS POR DEFECTO (IGV 18%, IGV 10%, Exonerado, Inafecto, Exportación)
-        if (state.taxes.length === 0) {
-          const now = new Date();
-          const defaultTaxes: Tax[] = PERU_TAX_TYPES
-            .filter((tax) => ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'].includes(tax.code))
-            .map<Tax>((tax) => ({
-              ...tax,
-              id: tax.code,
-              includeInPrice: true,
-              isDefault: tax.code === 'IGV18',
-              createdAt: now,
-              updatedAt: now,
-            }));
-
-          dispatch({ type: 'SET_TAXES', payload: defaultTaxes });
+        if (resultadoConfiguracion.impuestos.length) {
+          dispatch({ type: 'SET_TAXES', payload: resultadoConfiguracion.impuestos });
         }
 
-        // Las formas de pago ya están creadas en ConfigurationContext
-        // No es necesario crearlas aquí
+        const monedasParaCaja = resultadoConfiguracion.monedas.length
+          ? resultadoConfiguracion.monedas
+          : state.currencies;
 
-        await ensureDefaultOperationalSetup({
-          company: updatedCompany,
+        await asegurarConfiguracionOperativaPredeterminada({
+          empresa: updatedCompany,
           Establecimiento: defaultEstablecimiento,
           userId: session?.userId ?? null,
-          configState: {
+          estadoConfiguracion: {
             cajas: state.cajas,
-            currencies: state.currencies,
+            currencies: monedasParaCaja,
           },
           dispatch,
         });
-
       }
 
       const EstablecimientoForContext =
@@ -759,6 +520,31 @@ export function CompanyConfiguration() {
     datosFormulario.direccionFiscal.trim() !== '' &&
     (company?.id ? true : rucValidation?.isValid === true) &&
     hasChanges; // Only enable if there are changes
+
+  if (!company) {
+    return (
+      <div className="flex flex-col h-full">
+        <PageHeader
+          title="Configuración de Empresa"
+          actions={
+            <Button
+              variant="secondary"
+              icon={<ArrowLeft />}
+              onClick={() => navigate('/configuracion')}
+            >
+              Volver
+            </Button>
+          }
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-gray-600 dark:text-gray-300">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Cargando datos de la empresa...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
