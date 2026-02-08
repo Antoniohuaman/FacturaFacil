@@ -35,10 +35,10 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
     null;
 
   const nombreEmpresa =
-    activeWorkspace?.nombreComercial ||
     activeWorkspace?.razonSocial ||
-    session?.currentCompany?.nombreComercial ||
     session?.currentCompany?.razonSocial ||
+    activeWorkspace?.nombreComercial ||
+    session?.currentCompany?.nombreComercial ||
     'Empresa sin nombre';
 
   const nombreEstablecimiento = establecimientoActual?.nombreEstablecimiento || 'Sin establecimiento';
