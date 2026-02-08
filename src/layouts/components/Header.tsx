@@ -3,8 +3,7 @@ import { Bell, Settings, Menu, HelpCircle } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
-import SelectorEstablecimiento from './EstablishmentSelector';
-import CompanySelector from '@/components/CompanySelector';
+import SelectorEmpresaEstablecimientoUnificado from './SelectorEmpresaEstablecimientoUnificado';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
@@ -179,13 +178,8 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
       {/* Información de sesión activa */}
       <div className="flex items-center space-x-4 text-sm">
-        {/* Selector de Empresa */}
-        <div className="max-w-xs">
-          <CompanySelector />
-        </div>
-
-        {/* Selector de Establecimiento */}
-        <SelectorEstablecimiento />
+        {/* Selector unificado de empresa + establecimiento */}
+        <SelectorEmpresaEstablecimientoUnificado />
 
         {/* Estado de caja con dropdown */}
         <div className="relative" ref={cashMenuRef}>
