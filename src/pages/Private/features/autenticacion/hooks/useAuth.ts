@@ -115,7 +115,7 @@ export function useAuth() {
 
   // ==================== COMPUTED ====================
 
-  const isLoading = status === 'loading';
+  const isLoading = status === 'loading' || status === 'idle';
   const requiresContext = status === 'requires_workspace';
 
   return {

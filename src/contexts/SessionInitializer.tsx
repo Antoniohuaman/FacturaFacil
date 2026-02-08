@@ -13,9 +13,13 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
   const initializedRef = useRef(false);
   const isAuthenticated = useAuthStore((store) => store.isAuthenticated);
   const authUser = useAuthStore((store) => store.user);
+  const authStatus = useAuthStore((store) => store.status);
+  const authReady = authStatus !== 'idle' && authStatus !== 'loading';
 
   // Inicializar o actualizar la sesión cuando se carguen los establecimientos
   useEffect(() => {
+    if (!authReady) return;
+
     if (!isAuthenticated || !authUser) {
       if (session) {
         clearSession();
@@ -84,6 +88,7 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
     state.Establecimientos,
     isAuthenticated,
     authUser,
+    authReady,
     clearSession,
   ]);
 

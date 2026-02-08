@@ -238,7 +238,14 @@ class AuthRepository {
 
       // Obtener perfil actualizado
       const user = await authClient.getProfile();
-      useAuthStore.setState({ user });
+      useAuthStore.setState({
+        user,
+        isAuthenticated: true,
+        hasWorkspace: true,
+        require2FA: false,
+        status: 'authenticated',
+        error: null,
+      });
 
       return true;
     } catch (error) {
@@ -264,6 +271,14 @@ class AuthRepository {
       rateLimitService.clearAll();
       useAuthStore.getState().reset();
       useTenantStore.getState().reset();
+      useAuthStore.setState({
+        user: null,
+        isAuthenticated: false,
+        hasWorkspace: false,
+        require2FA: false,
+        status: 'unauthenticated',
+        error: null,
+      });
     }
   }
 
@@ -334,10 +349,20 @@ class AuthRepository {
    * Inicializar sesión (al cargar la app)
    */
   async initializeSession(): Promise<void> {
+    useAuthStore.setState({ status: 'loading', error: null });
+
     try {
       // Verificar si hay tokens válidos
       if (!tokenService.hasValidTokens()) {
-        useAuthStore.setState({ status: 'unauthenticated' });
+        tokenService.clearTokens();
+        useAuthStore.setState({
+          user: null,
+          isAuthenticated: false,
+          hasWorkspace: false,
+          require2FA: false,
+          status: 'unauthenticated',
+          error: null,
+        });
         return;
       }
 
@@ -348,14 +373,23 @@ class AuthRepository {
         user,
         isAuthenticated: true,
         hasWorkspace: true,
+        require2FA: false,
         status: 'authenticated',
+        error: null,
       });
     } catch (error) {
       // Si falla, intentar refresh
       const refreshed = await this.refreshSession();
-      
+
       if (!refreshed) {
-        useAuthStore.setState({ status: 'unauthenticated' });
+        useAuthStore.setState({
+          user: null,
+          isAuthenticated: false,
+          hasWorkspace: false,
+          require2FA: false,
+          status: 'unauthenticated',
+          error: null,
+        });
       }
     }
   }
