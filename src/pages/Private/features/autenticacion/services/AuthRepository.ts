@@ -30,20 +30,22 @@ class AuthRepository {
     celular: string;
     email: string;
     password: string;
-    ruc: string;
-    razonSocial: string;
-    nombreComercial?: string;
-    direccion: string;
-    telefono?: string;
-    regimen: string;
-    actividadEconomica?: string;
   }): Promise<{
     success: boolean;
     message?: string;
     error?: string;
   }> {
     try {
-      const response = await authClient.register(data);
+      // TODO: backend: separar registro usuario vs empresa
+      const response = await authClient.register({
+        ...data,
+        ruc: '20000000001',
+        razonSocial: 'Empresa Demo',
+        nombreComercial: 'Empresa Demo',
+        direccion: 'Pendiente',
+        regimen: 'general',
+        actividadEconomica: 'Pendiente',
+      });
       return {
         success: true,
         message: response.message
