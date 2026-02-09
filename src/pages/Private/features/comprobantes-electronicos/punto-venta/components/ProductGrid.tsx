@@ -189,6 +189,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const hasFavoriteProducts = favoriteProducts.length > 0;
 
   const [showProductModal, setShowProductModal] = useState(false);
+  const [productNamePrefill, setProductNamePrefill] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
@@ -595,6 +596,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   }, [handleSearch, searchMode, trackScanKeystroke, tryScanAndAddToCart]);
 
   const handleCreateProduct = () => {
+    setProductNamePrefill(searchQuery.trim());
     setShowProductModal(true);
   };
 
@@ -1139,6 +1141,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         isOpen={showProductModal}
         onClose={() => setShowProductModal(false)}
         onSave={handleProductCreated}
+        prefillName={productNamePrefill}
         categories={catalogoCategories}
       />
     </div>
