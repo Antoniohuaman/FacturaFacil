@@ -41,6 +41,7 @@ interface ProductModalProps {
   onClose: () => void;
   onSave: (productData: ProductInput) => void;
   product?: Product;
+  prefillName?: string;
   categories: Category[];
 }
 
@@ -49,6 +50,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onSave,
   product,
+  prefillName,
   categories
 }) => {
   const { addCategory, categories: globalCategories, allProducts } = useProductStore();
@@ -172,7 +174,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
     onClose,
     defaultTaxLabel,
     activeEstablecimientos: Establecimientos,
-    defaultEstablecimientoId
+    defaultEstablecimientoId,
+    prefillName
   });
 
   const showBarcode = isFieldVisible('codigoBarras');

@@ -37,6 +37,7 @@ interface UseProductFormParams {
   onSave: (productData: ProductInput) => void;
   onClose: () => void;
   defaultTaxLabel?: string;
+  prefillName?: string;
 }
 
 const buildDefaultFormData = (
@@ -83,7 +84,8 @@ export const useProductForm = ({
   isFieldVisible,
   isFieldRequired,
   onSave,
-  onClose
+  onClose,
+  prefillName
 }: UseProductFormParams) => {
   const resolveFamilyLabel = useCallback((family: UnitFamily): string => {
     switch (family) {
@@ -520,16 +522,19 @@ export const useProductForm = ({
     const defaultUnit = getDefaultUnitForType('BIEN');
     setSelectedUnitFamily(resolveFamilyFromCode(defaultUnit));
     const snapshot = resolveUnitSnapshot(defaultUnit);
-    setFormData(
-      buildDefaultFormData(
-        defaultUnit,
-        snapshot.symbol,
-        snapshot.name,
-        defaultCategoryName,
-        resolveDefaultEnabledEstablecimientos(),
-        defaultTaxLabel
-      )
+    const nextFormData = buildDefaultFormData(
+      defaultUnit,
+      snapshot.symbol,
+      snapshot.name,
+      defaultCategoryName,
+      resolveDefaultEnabledEstablecimientos(),
+      defaultTaxLabel
     );
+    const trimmedPrefill = prefillName?.trim() ?? '';
+    if (trimmedPrefill) {
+      nextFormData.nombre = trimmedPrefill;
+    }
+    setFormData(nextFormData);
     setImagePreview('');
     setProductType('BIEN');
     setAdditionalUnitErrors([]);
@@ -540,6 +545,7 @@ export const useProductForm = ({
     defaultCategoryName,
     defaultTaxLabel,
     getDefaultUnitForType,
+    prefillName,
     resolveDefaultEnabledEstablecimientos,
     resolveFamilyFromCode,
     resolveUnitSnapshot

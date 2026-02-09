@@ -135,6 +135,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [productNamePrefill, setProductNamePrefill] = useState('');
 
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -155,8 +156,9 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     [catalogProducts, EstablecimientoId, mapCatalogProductToSelectorProduct]
   );
   const handleCreateProductClick = useCallback(() => {
+    setProductNamePrefill(searchTerm.trim());
     setShowProductModal(true);
-  }, []);
+  }, [searchTerm]);
 
   const handleProductModalClose = useCallback(() => {
     setShowProductModal(false);
@@ -655,6 +657,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
         isOpen={showProductModal}
         onClose={handleProductModalClose}
         onSave={handleProductCreated}
+        prefillName={productNamePrefill}
         categories={catalogCategories}
       />
     </div>
