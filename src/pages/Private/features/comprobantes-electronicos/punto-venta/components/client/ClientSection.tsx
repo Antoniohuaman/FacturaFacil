@@ -129,11 +129,20 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     if (clienteSeleccionado) {
       setClienteSeleccionado(null);
     }
-    setDocumentQuery(value);
+    if (/^\d+$/.test(value)) {
+      const maxDigits = tipoComprobante === 'factura' ? 11 : 8;
+      setDocumentQuery(value.slice(0, maxDigits));
+    } else {
+      setDocumentQuery(value);
+    }
     if (!value || clientDocError) {
       setClientDocError(null);
     }
   };
+
+  const inputValue = clienteSeleccionado
+    ? `${clienteSeleccionado.documento} - ${clienteSeleccionado.nombre}`
+    : documentQuery;
 
   const handleQuickSearch = async () => {
     const digits = onlyDigits(documentQuery);
@@ -243,7 +252,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
             <div className="relative flex-1">
               <input
                 type="text"
-                value={documentQuery}
+                value={inputValue}
                 onChange={(e) => handleDocumentInputChange(e.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
@@ -251,7 +260,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
                     void handleQuickSearch();
                   }
                 }}
-                placeholder="Ingresa el #"
+                placeholder="Buscar por nombre o documento..."
                 className="w-full px-3 py-1.5 pr-8 text-[12px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
               />
               {(Boolean(documentQuery) || Boolean(clienteSeleccionado)) && (
