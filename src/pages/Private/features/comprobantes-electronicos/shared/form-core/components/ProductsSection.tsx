@@ -1233,15 +1233,17 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
             </button>
 
             <div className="relative">
-              <button
-                ref={priceModeButtonRef}
-                onClick={() => setShowGlobalPricing(prev => !prev)}
-                className={`p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md ${globalPricing.mode !== 'none' ? 'text-violet-700' : ''}`}
-                title="Modo de precios globales"
-                aria-label="Configurar regla global de precios"
-              >
-                <Percent size={16} />
-              </button>
+              <Tooltip contenido="Descuento global del comprobante.">
+                <button
+                  ref={priceModeButtonRef}
+                  onClick={() => setShowGlobalPricing(prev => !prev)}
+                  className={`p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md ${globalPricing.mode !== 'none' ? 'text-violet-700' : ''}`}
+                  title="Aplicar descuento global"
+                  aria-label="Descuento global del comprobante"
+                >
+                  <Percent size={16} />
+                </button>
+              </Tooltip>
               {showGlobalPricing && (
                 <div
                   ref={priceModePopoverRef}

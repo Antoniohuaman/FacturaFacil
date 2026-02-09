@@ -8,6 +8,7 @@ import { FileText, ChevronDown, Calendar, Hash, DollarSign, CreditCard, User, Se
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
+import { Tooltip } from '@/shared/ui';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 
 interface DocumentInfoCardProps {
@@ -142,10 +143,12 @@ const DocumentInfoCard: React.FC<DocumentInfoCardProps> = ({
 
         {/* Forma de Pago */}
         <div>
-          <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-            <CreditCard className="w-4 h-4 mr-1.5 text-purple-600" />
-            Forma de Pago
-          </label>
+          <Tooltip contenido="Crédito habilita cuotas.">
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <CreditCard className="w-4 h-4 mr-1.5 text-purple-600" />
+              Forma de Pago
+            </label>
+          </Tooltip>
           <select
             className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-900 transition-all duration-200 hover:border-gray-400 bg-white appearance-none cursor-pointer"
             value={formaPago}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
+import { Tooltip } from '@/shared/ui';
 import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
 import {
@@ -390,21 +391,24 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     <div className="space-y-4">
       {/* Mode Toggle */}
       <div className="flex items-center justify-end">
-        <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-600 font-bold">Selección múltiple</span>
-          <button
-            onClick={() => handleModeChange(!isMultipleMode)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              isMultipleMode ? 'bg-blue-600' : 'bg-gray-200'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                isMultipleMode ? 'translate-x-6' : 'translate-x-1'
+        <Tooltip contenido="Selecciona varios productos.">
+          <div className="flex items-center space-x-3">
+            <span className="text-sm text-gray-600 font-bold">Selección múltiple</span>
+            <button
+              onClick={() => handleModeChange(!isMultipleMode)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isMultipleMode ? 'bg-blue-600' : 'bg-gray-200'
               }`}
-            />
-          </button>
-        </div>
+              aria-label="Selecciona varios productos"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  isMultipleMode ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </Tooltip>
       </div>
 
       {/* Search Input */}
