@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
 import { useConfigurationContext } from '../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { useAuthStore } from '../pages/Private/features/autenticacion/store/AuthStore';
+import { clientesClient } from '../pages/Private/features/gestion-clientes/api';
 
 /**
  * Componente que sincroniza el UserSessionContext con ConfigurationContext
@@ -11,6 +12,7 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
   const { session, setSession, setCurrentEstablecimiento, updateAvailableEstablecimientos, clearSession } = useUserSession();
   const { state } = useConfigurationContext();
   const initializedRef = useRef(false);
+  const ensuredClienteGeneralRef = useRef<string | null>(null);
   const isAuthenticated = useAuthStore((store) => store.isAuthenticated);
   const authUser = useAuthStore((store) => store.user);
   const authStatus = useAuthStore((store) => store.status);
@@ -91,6 +93,22 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
     authReady,
     clearSession,
   ]);
+
+  useEffect(() => {
+    if (!authReady || !isAuthenticated || !session?.currentCompanyId) {
+      return;
+    }
+
+    if (ensuredClienteGeneralRef.current === session.currentCompanyId) {
+      return;
+    }
+
+    ensuredClienteGeneralRef.current = session.currentCompanyId;
+
+    clientesClient.ensureClienteGeneral().catch((error) => {
+      console.warn('[session] No se pudo asegurar Cliente General', error);
+    });
+  }, [authReady, isAuthenticated, session?.currentCompanyId]);
 
   return <>{children}</>;
 }

@@ -52,7 +52,11 @@ import { clienteToSaleSnapshot, type SaleDocumentType } from '../../gestion-clie
 import { onlyDigits } from '../../gestion-clientes/utils/documents';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
-import { validateComprobanteNormativa, validateComprobanteReadyForCobranza } from '../shared/core/comprobanteValidation';
+import {
+  resolveBoletaClienteRequirement,
+  validateComprobanteNormativa,
+  validateComprobanteReadyForCobranza,
+} from '../shared/core/comprobanteValidation';
 import { CobranzaModal } from '../shared/modales/CobranzaModal';
 import { useCreditTermsConfigurator } from '../hooks/useCreditTermsConfigurator';
 import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSummaryCard';
@@ -755,6 +759,33 @@ const EmisionTradicional = () => {
     totals,
   }), [cartItems, currentCurrency, draftClientData, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals]);
 
+  const ensureClienteGeneralParaBoleta = useCallback(async (): Promise<boolean> => {
+    const requirement = resolveBoletaClienteRequirement(buildCobranzaValidationInput());
+
+    if (!requirement.allowsMissingClient || clienteSeleccionadoGlobal) {
+      return true;
+    }
+
+    const clienteGeneral = await clientesClient.getClienteGeneral();
+    if (!clienteGeneral) {
+      error('Cliente requerido', 'No se encontró el Cliente General para continuar con la boleta.');
+      return false;
+    }
+
+    const snap = clienteToSaleSnapshot(clienteGeneral);
+    setClienteSeleccionadoGlobal({
+      clienteId: snap.clienteId,
+      nombre: snap.nombre,
+      dni: snap.dni,
+      direccion: snap.direccion,
+      email: snap.email,
+      tipoDocumento: snap.tipoDocumento,
+      priceProfileId: snap.priceProfileId,
+    });
+
+    return true;
+  }, [buildCobranzaValidationInput, clienteSeleccionadoGlobal, error, setClienteSeleccionadoGlobal]);
+
   useEffect(() => {
     if (!isCreditMethod && showCreditScheduleModal) {
       setShowCreditScheduleModal(false);
@@ -942,7 +973,12 @@ const EmisionTradicional = () => {
     return true;
   };
 
-  const ensureDataBeforeCobranza = (paymentMode?: PaymentCollectionMode) => {
+  const ensureDataBeforeCobranza = async (paymentMode?: PaymentCollectionMode) => {
+    const ensuredCliente = await ensureClienteGeneralParaBoleta();
+    if (!ensuredCliente) {
+      return false;
+    }
+
     const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
       onError: (validationError) => error('Faltan datos para continuar', validationError.message),
       paymentMode,
@@ -951,9 +987,9 @@ const EmisionTradicional = () => {
     return validation.isValid;
   };
 
-  const handleOpenCobranzaModal = () => {
+  const handleOpenCobranzaModal = async () => {
     const paymentModeForValidation: PaymentCollectionMode | undefined = isCreditPaymentSelection ? 'credito' : undefined;
-    if (!ensureDataBeforeCobranza(paymentModeForValidation)) {
+    if (!await ensureDataBeforeCobranza(paymentModeForValidation)) {
       return;
     }
 
@@ -995,7 +1031,7 @@ const EmisionTradicional = () => {
       return false;
     }
 
-    if (!ensureDataBeforeCobranza('credito')) {
+    if (!await ensureDataBeforeCobranza('credito')) {
       return false;
     }
 
@@ -1032,12 +1068,12 @@ const EmisionTradicional = () => {
     return Boolean(success);
   };
 
-  const handleIssue = () => {
+  const handleIssue = async () => {
     if (isCreditPaymentSelection) {
       void handleEmitirCredito();
       return;
     }
-    handleOpenCobranzaModal();
+    await handleOpenCobranzaModal();
   };
 
   const handleCrearComprobante = async (

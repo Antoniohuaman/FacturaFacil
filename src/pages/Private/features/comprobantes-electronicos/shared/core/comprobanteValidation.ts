@@ -31,6 +31,28 @@ export interface ComprobanteValidationResult {
   errors: ComprobanteValidationError[];
 }
 
+const BOLETA_CLIENTE_GENERAL_THRESHOLD = 700;
+
+export const isClienteGeneral = (cliente?: ClientData | null): boolean => {
+  if (!cliente) return false;
+  const tipo = (cliente.tipoDocumentoCodigo ?? cliente.tipoDocumento ?? '').toString().trim().toUpperCase();
+  const normalizedTipo = tipo === '1' ? 'DNI' : tipo;
+  const numero = (cliente.documento ?? '').toString().trim();
+
+  return normalizedTipo === 'DNI' && numero === '00000000';
+};
+
+export const resolveBoletaClienteRequirement = (input: ComprobanteValidationInput) => {
+  const tipo = (input.tipoComprobante || '').toString().trim().toLowerCase();
+  const total = Number(input.totals?.total ?? 0);
+  const isBoleta = tipo === 'boleta';
+
+  return {
+    allowsMissingClient: isBoleta && total < BOLETA_CLIENTE_GENERAL_THRESHOLD,
+    requiresRealClient: isBoleta && total >= BOLETA_CLIENTE_GENERAL_THRESHOLD,
+  };
+};
+
 export const validateComprobanteNormativa = (
   input: ComprobanteValidationInput
 ): ComprobanteValidationResult => {
@@ -52,10 +74,19 @@ export const validateComprobanteNormativa = (
     });
   }
 
+  const boletaRequirement = resolveBoletaClienteRequirement(input);
+
   if (!input.cliente) {
+    if (!boletaRequirement.allowsMissingClient) {
+      errors.push({
+        field: 'cliente',
+        message: 'Debe seleccionar un cliente antes de continuar.',
+      });
+    }
+  } else if (boletaRequirement.requiresRealClient && isClienteGeneral(input.cliente)) {
     errors.push({
       field: 'cliente',
-      message: 'Debe seleccionar un cliente antes de continuar.',
+      message: 'Para boletas de S/ 700 o más debe seleccionar un cliente con documento válido.',
     });
   }
 

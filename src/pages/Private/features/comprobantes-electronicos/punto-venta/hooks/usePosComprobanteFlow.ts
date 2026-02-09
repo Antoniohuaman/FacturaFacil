@@ -10,7 +10,7 @@ import { onlyDigits } from '../../../../features/gestion-clientes/utils/document
 import { clientesClient } from '../../../../features/gestion-clientes/api';
 import { useClientes } from '../../../../features/gestion-clientes/hooks/useClientes';
 import { clienteToSaleSnapshot, type SaleDocumentType } from '../../../../features/gestion-clientes/utils/saleClienteMapping';
-import { validateComprobanteReadyForCobranza } from '../../shared/core/comprobanteValidation';
+import { resolveBoletaClienteRequirement, validateComprobanteReadyForCobranza } from '../../shared/core/comprobanteValidation';
 import type {
   CartItem,
   ClientData,
@@ -190,15 +190,47 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     [cartItems, clienteDraftData, currentCurrency, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals],
   );
 
+  const ensureClienteGeneralParaBoleta = useCallback(async (): Promise<boolean> => {
+    const requirement = resolveBoletaClienteRequirement(buildCobranzaValidationInput());
+
+    if (!requirement.allowsMissingClient || clienteSeleccionadoState) {
+      return true;
+    }
+
+    const clienteGeneral = await clientesClient.getClienteGeneral();
+    if (!clienteGeneral) {
+      warning('Cliente requerido', 'No se encontró el Cliente General para continuar con la boleta.');
+      return false;
+    }
+
+    const snap = clienteToSaleSnapshot(clienteGeneral);
+    setClienteSeleccionado({
+      id: snap.clienteId,
+      nombre: snap.nombre,
+      tipoDocumento: snap.tipoDocumento,
+      documento: snap.dni,
+      direccion: snap.direccion,
+      email: snap.email,
+      priceProfileId: snap.priceProfileId,
+    });
+
+    return true;
+  }, [buildCobranzaValidationInput, clienteSeleccionadoState, setClienteSeleccionado, warning]);
+
   const ensureDataBeforeCobranza = useCallback(
-    (toastTitle: string, paymentMode?: PaymentCollectionMode) => {
+    async (toastTitle: string, paymentMode?: PaymentCollectionMode) => {
+      const ensuredCliente = await ensureClienteGeneralParaBoleta();
+      if (!ensuredCliente) {
+        return false;
+      }
+
       const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
         onError: (validationError) => warning(toastTitle, validationError.message),
         paymentMode,
       });
       return validation.isValid;
     },
-    [buildCobranzaValidationInput, warning],
+    [buildCobranzaValidationInput, ensureClienteGeneralParaBoleta, warning],
   );
 
   const validateCreditSchedule = (notify: (title: string, message: string) => void = warning) => {
@@ -219,8 +251,8 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     return true;
   };
 
-  const handleConfirmSale = () => {
-    if (!ensureDataBeforeCobranza('Faltan datos para procesar la venta', isCreditPaymentSelection ? 'credito' : undefined)) {
+  const handleConfirmSale = async () => {
+    if (!await ensureDataBeforeCobranza('Faltan datos para procesar la venta', isCreditPaymentSelection ? 'credito' : undefined)) {
       return;
     }
     if (isCreditPaymentSelection && !validateCreditSchedule()) {
@@ -370,7 +402,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
       warning('Forma de pago incompatible', 'Selecciona una forma de pago configurada como crédito para postergar el cobro.');
       return false;
     }
-    if (!ensureDataBeforeCobranza('Faltan datos para emitir a crédito', 'credito')) {
+    if (!await ensureDataBeforeCobranza('Faltan datos para emitir a crédito', 'credito')) {
       return false;
     }
     if (!validateCreditSchedule()) {

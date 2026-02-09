@@ -20,6 +20,8 @@ import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || !import.meta.env.VITE_API_URL;
 const DEV_CLIENTES_BASE_KEY = 'dev_clientes';
+const CLIENTE_GENERAL_DOC_NUMBER = '00000000';
+const CLIENTE_GENERAL_DOC_TYPE: DocumentType = 'DNI';
 
 const resolveDevClientesStorageKey = () => {
   try {
@@ -51,6 +53,15 @@ class ClientesClient {
   private extractDocumentParts(document?: string): { tipo?: DocumentType; numero?: string } {
     const parsed = parseLegacyDocumentString(document);
     return { tipo: parsed.type, numero: parsed.number };
+  }
+
+  private isClienteGeneral(cliente: Cliente): boolean {
+    const parsed = this.extractDocumentParts(cliente.document);
+    const rawTipo = (cliente.tipoDocumento || parsed.tipo || '').toString().trim().toUpperCase();
+    const normalizedTipo = rawTipo === '1' ? 'DNI' : rawTipo;
+    const rawNumero = (cliente.numeroDocumento || parsed.numero || '').toString().trim();
+
+    return normalizedTipo === CLIENTE_GENERAL_DOC_TYPE && rawNumero === CLIENTE_GENERAL_DOC_NUMBER;
   }
 
   private buildClienteFromPayload(
@@ -563,6 +574,56 @@ class ClientesClient {
       body: JSON.stringify(data),
       signal: options.signal,
     });
+  }
+
+  async getClienteGeneral(options: { signal?: AbortSignal } = {}): Promise<Cliente | null> {
+    try {
+      const response = await this.getClientes(
+        {
+          search: CLIENTE_GENERAL_DOC_NUMBER,
+          limit: 25,
+          page: 1,
+        },
+        options,
+      );
+
+      const match = response.data.find((cliente) => this.isClienteGeneral(cliente));
+      return match ?? null;
+    } catch (error) {
+      console.warn('[clientes] No se pudo obtener Cliente General', error);
+      return null;
+    }
+  }
+
+  async ensureClienteGeneral(options: { signal?: AbortSignal } = {}): Promise<Cliente | null> {
+    const existing = await this.getClienteGeneral(options);
+    if (existing) {
+      return existing;
+    }
+
+    const payload: CreateClienteDTO = {
+      documentType: CLIENTE_GENERAL_DOC_TYPE,
+      documentNumber: CLIENTE_GENERAL_DOC_NUMBER,
+      name: 'Cliente General',
+      type: 'Cliente',
+
+      tipoDocumento: CLIENTE_GENERAL_DOC_TYPE,
+      numeroDocumento: CLIENTE_GENERAL_DOC_NUMBER,
+      tipoPersona: 'Natural',
+      tipoCuenta: 'Cliente',
+      primerNombre: 'Cliente',
+      apellidoPaterno: 'General',
+      apellidoMaterno: '-',
+      nombreCompleto: 'Cliente General',
+      estadoCliente: 'Habilitado',
+    };
+
+    try {
+      return await this.createCliente(payload, options);
+    } catch (error) {
+      console.warn('[clientes] No se pudo crear Cliente General', error);
+      return null;
+    }
   }
 
   /**
