@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { CartItem, Currency, PaymentTotals, DiscountInput, DiscountMode } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
-import { CheckSquare, Square, SlidersHorizontal, Percent, Wrench } from 'lucide-react';
+import { CheckSquare, Square, Percent, Wrench } from 'lucide-react';
 import { RadioButton } from '@/contasis';
 import { usePriceBook } from '../hooks/usePriceBook';
 import type { PriceColumnOption } from '../hooks/usePriceBook';
@@ -1213,14 +1213,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           </div>
           <div className="flex items-center gap-2">
             {/* Icono de sliders para configuración */}
-            <button
-              onClick={() => setShowColumnConfig(!showColumnConfig)}
-              className="p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md"
-              title="Personalizar columnas"
-              aria-label="Configurar columnas visibles"
-            >
-              <SlidersHorizontal size={16} />
-            </button>
+            <Tooltip contenido="Elige qué columnas ver en la lista.">
+              <button
+                onClick={() => setShowColumnConfig(!showColumnConfig)}
+                className="inline-flex h-8 items-center justify-center rounded-md hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors text-[12px] font-medium text-slate-600 px-2"
+                aria-label="Elegir columnas visibles"
+              >
+                + Columnas
+              </button>
+            </Tooltip>
 
             <button
               onClick={() => setShowAdjustmentModal(true)}

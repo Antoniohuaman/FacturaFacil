@@ -31,7 +31,7 @@ import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 import { FORMA_PAGO_CREDITO_MANUAL } from '../../../models/constants';
 import type { TipoComprobante, Currency } from '../../../models/comprobante.types';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
-import { IconPersonalizeTwoSliders } from './IconPersonalizeTwoSliders.tsx';
+import { Tooltip } from '@/shared/ui';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
 import { usePriceProfilesCatalog } from '../../../../lista-precios/hooks/usePriceProfilesCatalog';
 import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
@@ -732,14 +732,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               </button>
             )}
             {onOpenFieldsConfig && (
-              <button
-                aria-label="Personalizar campos"
-                title="Personalizar campos"
-                onClick={onOpenFieldsConfig}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
-              >
-                <IconPersonalizeTwoSliders className="text-slate-600" />
-              </button>
+              <Tooltip contenido="Activa campos adicionales del comprobante.">
+                <button
+                  aria-label="Activar campos adicionales"
+                  onClick={onOpenFieldsConfig}
+                  className="inline-flex h-8 items-center justify-center rounded-md hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors text-[12px] font-medium text-slate-600 px-2"
+                >
+                  + Campos
+                </button>
+              </Tooltip>
             )}
           </div>
         }
