@@ -9,6 +9,7 @@ import { Eye, QrCode } from 'lucide-react';
 import type { VoucherDesignConfigurationExtended } from '../../modelos/VoucherDesignUnified';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import { getUnitDisplayForPrint } from '@/shared/units/unitDisplay';
+import { resolveClientDocumentLabel } from '@/shared/impresion/ResolverDisenoImpresion';
 
 interface VoucherPreviewProps {
   config: VoucherDesignConfigurationExtended;
@@ -36,6 +37,7 @@ export const VoucherPreview: React.FC<VoucherPreviewProps> = ({ config, designTy
       client: {
         name: 'Juan Pérez García [Ejemplo]',
         document: '12345678',
+        documentType: 'DNI',
         address: 'Av. Principal 456, Lima'
       },
       document: {
@@ -291,6 +293,7 @@ const A4Body: React.FC<A4BodyProps> = ({
   sampleData,
 }) => {
   const { state } = useConfigurationContext();
+  const clientDocumentLabel = resolveClientDocumentLabel(sampleData.client.documentType);
   return (
     <>
       <div className="grid grid-cols-2 gap-3 mb-3 text-[11px] leading-snug">
@@ -300,7 +303,7 @@ const A4Body: React.FC<A4BodyProps> = ({
             <span className="font-medium">Cliente:</span> {sampleData.client.name}
           </p>
           <p>
-            <span className="font-medium">DNI:</span> {sampleData.client.document}
+            <span className="font-medium">{clientDocumentLabel}:</span> {sampleData.client.document}
           </p>
           {documentFields.direccion.visible && (
             <p>
@@ -696,7 +699,7 @@ const TicketPreview: React.FC<{ config: VoucherDesignConfigurationExtended; samp
               </div>
               <p className="text-[9px]">Fecha: {sampleData.document.date} {sampleData.document.time}</p>
               <p className="text-[9px]">Cliente: {sampleData.client.name}</p>
-              <p className="text-[9px]">DNI: {sampleData.client.document}</p>
+              <p className="text-[9px]">{resolveClientDocumentLabel(sampleData.client.documentType)}: {sampleData.client.document}</p>
               {documentFields.vendedor.visible && (
                 <p className="text-[9px]">{documentFields.vendedor.label}: Carlos Ventas</p>
               )}

@@ -700,6 +700,7 @@ const EmisionTradicional = () => {
     currency: currentCurrency,
     client: clienteSeleccionadoGlobal?.nombre,
     clientDoc: clienteSeleccionadoGlobal?.dni,
+    clientDocType: clienteSeleccionadoGlobal?.tipoDocumento,
     fechaEmision,
     optionalFields,
     creditTerms: creditTermsForSubmit,
@@ -734,6 +735,7 @@ const EmisionTradicional = () => {
     return {
       nombre: clienteSeleccionadoGlobal.nombre,
       tipoDocumento: normalizedType === 'RUC' ? 'ruc' : 'dni',
+      tipoDocumentoCodigo: rawType,
       documento: normalizedNumber,
       direccion: clienteSeleccionadoGlobal.direccion,
       email: clienteSeleccionadoGlobal.email,

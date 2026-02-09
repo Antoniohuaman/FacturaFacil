@@ -24,6 +24,7 @@ export interface SidePreviewPaneProps {
     currency: string;
     client?: string;
     clientDoc?: string;
+    clientDocType?: string;
     fechaEmision?: string;
     optionalFields?: Record<string, any>;
     creditTerms?: ComprobanteCreditTerms;

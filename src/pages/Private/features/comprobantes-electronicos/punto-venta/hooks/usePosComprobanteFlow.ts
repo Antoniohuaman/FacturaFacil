@@ -119,6 +119,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     return {
       nombre: clienteSeleccionado.nombre,
       tipoDocumento,
+      tipoDocumentoCodigo: clienteSeleccionado.tipoDocumento,
       documento: documentoNormalizado,
       direccion: clienteSeleccionado.direccion,
       email: clienteSeleccionado.email,

@@ -53,6 +53,15 @@ export type ResolverDisenoImpresionArgs = {
   tamanoPapel?: TamanoPapel;
 };
 
+export type ClientDocumentLabel = 'RUC' | 'DNI' | 'Documento';
+
+export const resolveClientDocumentLabel = (rawType?: string | null): ClientDocumentLabel => {
+  const normalized = (rawType ?? '').toString().trim().toUpperCase();
+  if (normalized === 'RUC') return 'RUC';
+  if (normalized === 'DNI') return 'DNI';
+  return 'Documento';
+};
+
 function esTamanoTicket(tamano: TamanoPapel | undefined): tamano is 'mm58' | 'mm80' {
   return tamano === TamanoPapel.Mm58 || tamano === TamanoPapel.Mm80;
 }

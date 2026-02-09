@@ -5,7 +5,7 @@ import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hoo
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { formatMoney } from '@/shared/currency';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
-import type { DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
+import { resolveClientDocumentLabel, type DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
 import { getUnitDisplayForPrint } from '@/shared/units/unitDisplay';
 
 interface PreviewDocumentProps {
@@ -40,6 +40,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
   const taxBreakdown = totals.taxBreakdown ?? [];
   const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
   const unitPrintFormat = disenoEfectivo?.formatoSalida ?? 'hoja';
+  const clientDocumentLabel = resolveClientDocumentLabel(clientData.tipoDocumentoCodigo ?? clientData.tipoDocumento);
 
   // Obtener columnas visibles
   const visibleColumns = Object.entries(config.productFields).filter(([_, value]) => value.visible);
@@ -307,7 +308,7 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
             <h3 className="font-semibold mb-3 text-gray-900">DATOS DEL CLIENTE:</h3>
             <div className="space-y-1 text-xs">
               <p><span className="font-medium">Cliente:</span> {clientData.nombre}</p>
-              <p><span className="font-medium">{clientData.tipoDocumento.toUpperCase()}:</span> {clientData.documento}</p>
+              <p><span className="font-medium">{clientDocumentLabel}:</span> {clientData.documento}</p>
               {config.documentFields.direccion.visible && clientData.direccion && (
                 <p><span className="font-medium">{config.documentFields.direccion.label}:</span> {clientData.direccion}</p>
               )}

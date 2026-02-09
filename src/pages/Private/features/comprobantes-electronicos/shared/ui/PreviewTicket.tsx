@@ -5,7 +5,7 @@ import type { VoucherDesignTicketConfig } from '../../../configuracion-sistema/m
 import { formatMoney } from '@/shared/currency';
 import { useCurrentEstablecimiento } from '@/contexts/UserSessionContext';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
-import type { DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
+import { resolveClientDocumentLabel, type DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
 
 interface PreviewTicketProps {
   data: PreviewData;
@@ -58,6 +58,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
     EstablecimientoNameFromData || currentEstablecimiento?.nombreEstablecimiento || '';
   const EstablecimientoName = rawEstablecimientoName.trim();
   const shouldShowEstablecimiento = Boolean(config.documentFields.establecimiento.visible && EstablecimientoName);
+  const clientDocumentLabel = resolveClientDocumentLabel(clientData.tipoDocumentoCodigo ?? clientData.tipoDocumento);
 
   const truncateText = (text: string, maxLength: number) => {
     return text.length > maxLength ? `${text.substring(0, maxLength - 3)}...` : text;
@@ -163,7 +164,7 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
 
           <div className="space-y-0.5 text-xs">
             <p><span className="font-semibold">Cliente:</span> {truncateText(clientData.nombre, 32)}</p>
-            <p><span className="font-semibold">{clientData.tipoDocumento.toUpperCase()}:</span> {clientData.documento}</p>
+            <p><span className="font-semibold">{clientDocumentLabel}:</span> {clientData.documento}</p>
             <p><span className="font-semibold">Forma de pago:</span> {paymentMethod}</p>
             {shouldShowEstablecimiento && (
               <p><span className="font-semibold">{config.documentFields.establecimiento.label}:</span> {truncateText(EstablecimientoName, 35)}</p>

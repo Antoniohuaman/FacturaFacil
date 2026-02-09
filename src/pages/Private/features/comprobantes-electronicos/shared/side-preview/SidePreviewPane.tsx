@@ -9,7 +9,7 @@ import type { SidePreviewPaneProps } from './types';
 import { PreviewDocument } from '../ui/PreviewDocument';
 import { PreviewTicket } from '../ui/PreviewTicket';
 import { usePreview } from '../../hooks/usePreview';
-import type { PreviewData, PreviewFormat } from '../../models/comprobante.types';
+import type { ClientData, PreviewData, PreviewFormat } from '../../models/comprobante.types';
 
 export const SidePreviewPane: React.FC<SidePreviewPaneProps> = ({
   isOpen,
@@ -119,10 +119,14 @@ export const SidePreviewPane: React.FC<SidePreviewPaneProps> = ({
     if (!debouncedViewModel) return null;
 
     // Construir clientData desde el viewModel (o valores por defecto)
+    const rawClientDocType = debouncedViewModel.clientDocType;
+    const normalizedDocType: ClientData['tipoDocumento'] =
+      rawClientDocType?.toUpperCase() === 'RUC' ? 'ruc' : 'dni';
     const clientData = debouncedViewModel.client ? {
       nombre: debouncedViewModel.client,
       documento: debouncedViewModel.clientDoc || '00000000',
-      tipoDocumento: 'dni' as const,
+      tipoDocumento: normalizedDocType,
+      tipoDocumentoCodigo: rawClientDocType,
       direccion: debouncedViewModel.optionalFields?.direccion || 'Dirección no especificada',
       email: debouncedViewModel.optionalFields?.correo
     } : undefined;

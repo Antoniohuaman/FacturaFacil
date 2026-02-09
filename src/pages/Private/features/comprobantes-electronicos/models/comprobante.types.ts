@@ -284,6 +284,7 @@ export interface ClientData {
   id?: string;
   nombre: string;
   tipoDocumento: 'DNI' | 'RUC' | 'dni' | 'ruc';
+  tipoDocumentoCodigo?: string;
   documento: string;
   direccion?: string;
   email?: string;

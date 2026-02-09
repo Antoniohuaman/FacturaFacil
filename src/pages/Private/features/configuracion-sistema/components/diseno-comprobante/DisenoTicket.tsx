@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Eye, Settings } from 'lucide-react';
+import { resolveClientDocumentLabel } from '@/shared/impresion/ResolverDisenoImpresion';
 
 interface TicketDesignProps {
   onDesignChange: (design: TicketVoucherDesign) => void;
@@ -373,6 +374,7 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
   const renderTicketPreview = () => {
     const ticketWidth = `${design.paperSettings.width}mm`;
     const charCount = design.paperSettings.characterWidth;
+    const clientDocumentLabel = resolveClientDocumentLabel('DNI');
 
     return (
       <div className="bg-white shadow-lg mx-auto font-mono text-black" style={{ width: ticketWidth }}>
@@ -427,7 +429,7 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
                 {design.customer.title}
               </div>
               <div className={`text-${design.customer.alignment} ${getFontSizeClass(design.customer.fontSize)}`}>
-                {design.customer.showDocumentType && design.customer.showDocumentNumber && <div>DNI: 12345678</div>}
+                {design.customer.showDocumentType && design.customer.showDocumentNumber && <div>{clientDocumentLabel}: 12345678</div>}
                 {design.customer.showName && <div>CLIENTE DEMO</div>}
                 {design.customer.showAddress && <div>AV. CLIENTE 456</div>}
               </div>
