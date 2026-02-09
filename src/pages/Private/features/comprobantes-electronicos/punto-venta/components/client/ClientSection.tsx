@@ -41,7 +41,6 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   const { resolveProfileId } = usePriceProfilesCatalog();
   const { clientes, fetchClientes } = useClientes();
   const [documentQuery, setDocumentQuery] = useState('');
-  const [nameSearchQuery, setNameSearchQuery] = useState('');
   const [clientDocError, setClientDocError] = useState<string | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
 
@@ -50,43 +49,41 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
       return;
     }
     setDocumentQuery(clienteSeleccionado.documento);
-    setNameSearchQuery(clienteSeleccionado.nombre);
   }, [clienteSeleccionado]);
 
   useEffect(() => {
-    if (!documentQuery.trim() && !nameSearchQuery.trim()) {
+    if (!documentQuery.trim()) {
       return;
     }
 
-    const query = documentQuery.trim() ? documentQuery.trim() : nameSearchQuery.trim();
+    const query = documentQuery.trim();
 
     const handle = window.setTimeout(() => {
       void fetchClientes({ search: query, limit: 25, page: 1 });
     }, 250);
 
     return () => window.clearTimeout(handle);
-  }, [documentQuery, fetchClientes, nameSearchQuery]);
+  }, [documentQuery, fetchClientes]);
 
   const selectCliente = (cliente: ClientePOS) => {
     setClienteSeleccionado(cliente);
     setDocumentQuery(cliente.documento);
-    setNameSearchQuery(cliente.nombre);
     setClientDocError(null);
   };
 
   const normalizedDocQuery = useMemo(() => onlyDigits(documentQuery), [documentQuery]);
-  const normalizedNameQuery = useMemo(() => nameSearchQuery.trim().toLowerCase(), [nameSearchQuery]);
+  const normalizedSearchQuery = useMemo(() => documentQuery.trim().toLowerCase(), [documentQuery]);
 
   const clientesFiltrados = useMemo(() => {
-    if (!normalizedDocQuery && !normalizedNameQuery) {
+    if (!normalizedSearchQuery) {
       return [] as Cliente[];
     }
     return clientes;
-  }, [clientes, normalizedDocQuery, normalizedNameQuery]);
+  }, [clientes, normalizedSearchQuery]);
 
   const shouldShowResults = useMemo(
-    () => !clienteSeleccionado && (Boolean(documentQuery.trim()) || Boolean(nameSearchQuery.trim())),
-    [clienteSeleccionado, documentQuery, nameSearchQuery],
+    () => !clienteSeleccionado && Boolean(documentQuery.trim()),
+    [clienteSeleccionado, documentQuery],
   );
 
   const lookupLabel = tipoComprobante === 'factura' ? 'SUNAT' : 'RENIEC';
@@ -123,7 +120,6 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   const handleClear = () => {
     setClienteSeleccionado(null);
     setDocumentQuery('');
-    setNameSearchQuery('');
     setClientDocError(null);
     setIsLookupLoading(false);
     onLookupClientSelected?.(null);
@@ -132,23 +128,9 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   const handleDocumentInputChange = (value: string) => {
     if (clienteSeleccionado) {
       setClienteSeleccionado(null);
-      setNameSearchQuery('');
     }
     setDocumentQuery(value);
     if (!value || clientDocError) {
-      setClientDocError(null);
-    }
-  };
-
-  const handleNameInputChange = (value: string) => {
-    if (clienteSeleccionado) {
-      setClienteSeleccionado(null);
-    }
-    setNameSearchQuery(value);
-    if (value && documentQuery) {
-      setDocumentQuery('');
-    }
-    if (clientDocError) {
       setClientDocError(null);
     }
   };
@@ -249,77 +231,60 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
   return (
     <div className="p-2.5 bg-white border-b border-gray-200">
       <div className="space-y-1.5">
-        <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-2">
+        <div>
           <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
             <User className="h-2.5 w-2.5" />
-            Número de documento
-          </label>
-          <label className="flex items-center gap-1 text-[9px] font-bold text-gray-500 uppercase tracking-wide">
-            <User className="h-2.5 w-2.5" />
-            Nombre
+            Cliente
           </label>
         </div>
 
-        <div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-2">
-          <div>
-            <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  value={documentQuery}
-                  onChange={(e) => handleDocumentInputChange(e.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      void handleQuickSearch();
-                    }
-                  }}
-                  placeholder="Ingresa el #"
-                  className="w-full px-3 py-1.5 pr-8 text-[12px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
-                />
-                {(Boolean(documentQuery) || Boolean(nameSearchQuery) || Boolean(clienteSeleccionado)) && (
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    title="Limpiar"
-                    aria-label="Limpiar"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleQuickSearch()}
-                className={lookupButtonClassName}
-                title={lookupLabel}
-                aria-label={lookupLabel}
-                disabled={isLookupLoading || !isValidLookupDocument}
-              >
-                {isLookupLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-                <span className="text-[11px] font-semibold">{lookupLabel}</span>
-              </button>
-            </div>
-            {clientDocError && (
-              <p className="mt-1 text-[10px] text-red-600">{clientDocError}</p>
-            )}
-          </div>
-
+        <div>
           <div className="flex rounded-full border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <input
-              type="text"
-              value={nameSearchQuery}
-              onChange={(e) => handleNameInputChange(e.target.value)}
-              placeholder="Nombre del cliente"
-              className="flex-1 px-3 py-1.5 text-[12px] font-semibold text-slate-800 placeholder:normal-case placeholder:text-slate-400 bg-transparent"
-            />
-            {/* Botón de editar/crear cliente eliminado: edición solo desde /clientes */}
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={documentQuery}
+                onChange={(e) => handleDocumentInputChange(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleQuickSearch();
+                  }
+                }}
+                placeholder="Ingresa el #"
+                className="w-full px-3 py-1.5 pr-8 text-[12px] font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
+              />
+              {(Boolean(documentQuery) || Boolean(clienteSeleccionado)) && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  title="Limpiar"
+                  aria-label="Limpiar"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleQuickSearch()}
+              className={lookupButtonClassName}
+              title={lookupLabel}
+              aria-label={lookupLabel}
+              disabled={isLookupLoading || !isValidLookupDocument}
+            >
+              {isLookupLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              <span className="text-[11px] font-semibold">{lookupLabel}</span>
+            </button>
           </div>
+          {clientDocError && (
+            <p className="mt-1 text-[10px] text-red-600">{clientDocError}</p>
+          )}
         </div>
       </div>
 
