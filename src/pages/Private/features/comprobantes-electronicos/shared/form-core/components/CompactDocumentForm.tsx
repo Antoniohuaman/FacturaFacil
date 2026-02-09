@@ -712,7 +712,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               <Tooltip contenido="Más tipos de comprobante.">
                 <button
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
-                  title="Más tipos de comprobante"
                   aria-label="Más tipos de comprobante"
                 >
                   <Plus className="h-4 w-4 text-slate-500" />
@@ -728,7 +727,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               <Tooltip contenido="Vista previa del comprobante.">
                 <button
                   aria-label="Vista previa del comprobante"
-                  title="Vista previa del comprobante"
                   onClick={onVistaPrevia}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                 >
@@ -969,12 +967,14 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
               
               {/* Fila 2: Forma de Pago + Moneda (perfectamente alineados) */}
               <div className="col-span-6">
-                <Tooltip contenido="Crédito habilita cuotas.">
-                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="forma-pago">
-                    <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
-                    Forma de Pago
-                  </label>
-                </Tooltip>
+                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="forma-pago">
+                  <Tooltip contenido="Crédito habilita cuotas.">
+                    <span className="inline-flex items-center">
+                      <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                      Forma de Pago
+                    </span>
+                  </Tooltip>
+                </label>
                 <div className="relative">
                   <select
                     id="forma-pago"
