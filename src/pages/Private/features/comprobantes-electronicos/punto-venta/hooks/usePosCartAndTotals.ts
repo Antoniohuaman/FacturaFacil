@@ -119,6 +119,7 @@ export const usePosCartAndTotals = () => {
     updateCartItem,
     updateCartItemPrice,
     clearCart,
+    setCartItemsFromDraft,
   } = useCart();
 
   const { baseCurrency, documentCurrency, convertPrice } = useCurrency();
@@ -604,8 +605,16 @@ export const usePosCartAndTotals = () => {
   }, [appliedDiscount, baseCurrencyCode, convertPrice, documentCurrencyCode]);
 
   const cartActions = useMemo(
-    () => ({ addToCart, removeFromCart, updateCartQuantity, setCartItemQuantity, updateCartItemPrice, clearCart }),
-    [addToCart, removeFromCart, setCartItemQuantity, updateCartQuantity, updateCartItemPrice, clearCart],
+    () => ({
+      addToCart,
+      removeFromCart,
+      updateCartQuantity,
+      setCartItemQuantity,
+      updateCartItemPrice,
+      clearCart,
+      setCartItemsFromDraft,
+    }),
+    [addToCart, clearCart, removeFromCart, setCartItemQuantity, setCartItemsFromDraft, updateCartItemPrice, updateCartQuantity],
   );
 
   return {

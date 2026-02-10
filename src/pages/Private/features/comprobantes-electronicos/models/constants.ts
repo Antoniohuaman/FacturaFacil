@@ -139,7 +139,7 @@ export const UI_MESSAGES = {
   CART_LOADING: "Procesando...",
   SEARCH_LOADING: "Buscando productos...",
   NO_PRODUCTS_FOUND: "No se encontraron productos",
-  CAJA_CLOSED_WARNING: "La caja está cerrada. No se pueden procesar ventas.",
+  CAJA_CLOSED_WARNING: "Caja cerrada. Solo necesitas abrirla para cobrar al contado. Puedes emitir a crédito.",
   CREATE_PRODUCT_SUCCESS: "Producto creado exitosamente",
   PAYMENT_SUCCESS: "Venta procesada exitosamente"
 };

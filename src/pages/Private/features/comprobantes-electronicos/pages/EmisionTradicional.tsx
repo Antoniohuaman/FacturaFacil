@@ -40,7 +40,7 @@ import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
 import { PreviewDocument } from '../shared/ui/PreviewDocument';
 
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -63,7 +63,6 @@ import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSumm
 import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
 import type { CreditInstallment, CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
 import { calculateCurrencyAwareTotals } from '../shared/core/currencyTotals';
-import { useCaja } from '../../control-caja/context/CajaContext';
 import { BloqueoCajaCerrada } from '../shared/ui/BloqueoCajaCerrada';
 import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
 import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
@@ -125,8 +124,6 @@ type EstadoBorradorEmisionDefaults = {
 const EmisionTradicional = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { status: cajaStatus } = useCaja();
-  const gateCajaCerradaActivo = cajaStatus !== 'abierta';
   const abrirCajaButtonRef = useRef<HTMLButtonElement>(null);
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
   const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
@@ -144,17 +141,6 @@ const EmisionTradicional = () => {
     }
     return null;
   }, [location.search]);
-
-  const handleGateFocusCapture = useCallback(
-    (event: FocusEvent) => {
-      if (!gateCajaCerradaActivo) return;
-      event.stopPropagation();
-      const target = event.target as HTMLElement | null;
-      target?.blur?.();
-      queueMicrotask(() => abrirCajaButtonRef.current?.focus());
-    },
-    [gateCajaCerradaActivo],
-  );
 
   // ✅ Hook para side preview (solo si flag habilitado)
   const sidePreview = ENABLE_SIDE_PREVIEW_EMISION ? useSidePreviewPane() : null;
@@ -600,6 +586,7 @@ const EmisionTradicional = () => {
 
   const {
     limpiar: limpiarBorradorEnProgreso,
+    forzarGuardado: forzarGuardadoBorrador,
   } = useBorradorEnProgreso<EstadoBorradorEmisionTradicional, EstadoBorradorEmisionTradicional>({
     habilitado: borradorHabilitado,
     clave: claveBorradorEnProgreso,
@@ -688,6 +675,11 @@ const EmisionTradicional = () => {
       return tieneDatosReales || cambioEnDefaults;
     },
   });
+
+  const handleAbrirCaja = useCallback(() => {
+    forzarGuardadoBorrador();
+    iniciarAperturaCaja();
+  }, [forzarGuardadoBorrador, iniciarAperturaCaja]);
 
   // Resumen: snapshot de defaults en el primer render; persistencia solo con cambios reales o datos; habilitación por tenant+establecimiento.
 
@@ -1018,6 +1010,7 @@ const EmisionTradicional = () => {
 
     if (!isCajaOpen) {
       error('Caja cerrada', 'Abre una caja para registrar cobranzas al contado o emite a crédito.');
+      queueMicrotask(() => abrirCajaButtonRef.current?.focus());
       return;
     }
 
@@ -1327,24 +1320,17 @@ const EmisionTradicional = () => {
             >
               <div className="max-w-7xl mx-auto p-4 space-y-4">
 
-            {gateCajaCerradaActivo && (
+            {!isCajaOpen && (
               <div data-tour="primera-venta-caja">
                 <BloqueoCajaCerrada
                   ref={abrirCajaButtonRef}
-                  onAbrirCaja={iniciarAperturaCaja}
+                  onAbrirCaja={handleAbrirCaja}
                 />
               </div>
             )}
 
             <div className="relative">
-              <div
-                className={
-                  gateCajaCerradaActivo
-                    ? 'space-y-4 select-none blur-[1px] pointer-events-none transition-[filter]'
-                    : 'space-y-4'
-                }
-                onFocusCapture={gateCajaCerradaActivo ? handleGateFocusCapture : undefined}
-              >
+              <div className="space-y-4">
                 {/* ✅ Formulario Compacto - Todos los campos organizados */}
                 <CompactDocumentForm
                   tipoComprobante={tipoComprobante}
@@ -1459,23 +1445,6 @@ const EmisionTradicional = () => {
                   />
                 </div>
               </div>
-
-              {gateCajaCerradaActivo && (
-                <div
-                  className="absolute inset-0 z-10 bg-white/0"
-                  aria-hidden="true"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    abrirCajaButtonRef.current?.focus();
-                  }}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    abrirCajaButtonRef.current?.focus();
-                  }}
-                />
-              )}
             </div>
             </div>
           </div>

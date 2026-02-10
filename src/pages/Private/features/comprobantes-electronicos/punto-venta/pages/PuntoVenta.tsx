@@ -3,8 +3,12 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useCurrentCompanyId, useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
+import { crearClaveBorradorEnProgreso } from '@/shared/borradores/almacenamientoBorradorEnProgreso';
+import { useBorradorEnProgreso } from '@/shared/borradores/useBorradorEnProgreso';
+import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
 
 // Hooks POS orquestadores
 import { usePosCartAndTotals } from '../hooks/usePosCartAndTotals';
@@ -40,6 +44,7 @@ const PuntoVenta = () => {
     setCartItemQuantity,
     updateCartItemPrice,
     clearCart,
+    setCartItemsFromDraft,
     priceListOptions,
     selectedPriceListId,
     setSelectedPriceListId,
@@ -58,10 +63,13 @@ const PuntoVenta = () => {
   const {
     navigate,
     currentCurrency,
+    changeCurrency,
     tipoComprobante,
     setTipoComprobante,
     serieSeleccionada,
+    setSerieSeleccionada,
     formaPago,
+    setFormaPago,
     observaciones,
     setObservaciones,
     notaInterna,
@@ -99,6 +107,93 @@ const PuntoVenta = () => {
     handleNewSale,
     paymentMethods,
   } = usePosComprobanteFlow({ cartItems, totals });
+
+  type EstadoBorradorPos = {
+    tipoComprobante: typeof tipoComprobante;
+    serieSeleccionada: string;
+    formaPago: string;
+    moneda: typeof currentCurrency;
+    observaciones: string;
+    notaInterna: string;
+    clienteSeleccionado: typeof clienteSeleccionado;
+    cartItems: typeof cartItems;
+  };
+
+  const currentCompanyId = useCurrentCompanyId();
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const borradorHabilitado = Boolean(currentCompanyId && currentEstablecimientoId);
+  const claveBorradorEnProgreso = useMemo(() => crearClaveBorradorEnProgreso({
+    app: 'facturafacil',
+    tenantId: currentCompanyId ?? null,
+    establecimientoId: currentEstablecimientoId ?? null,
+    tipoDocumento: 'comprobante_pos',
+    modo: tipoComprobante,
+  }), [currentCompanyId, currentEstablecimientoId, tipoComprobante]);
+
+  const {
+    limpiar: limpiarBorradorEnProgreso,
+    forzarGuardado: forzarGuardadoBorrador,
+  } = useBorradorEnProgreso<EstadoBorradorPos, EstadoBorradorPos>({
+    habilitado: borradorHabilitado,
+    clave: claveBorradorEnProgreso,
+    version: 1,
+    ttlDias: 7,
+    debounceMs: 400,
+    limpiarSiNoDebePersistir: false,
+    extraerEstado: () => ({
+      tipoComprobante,
+      serieSeleccionada,
+      formaPago,
+      moneda: currentCurrency,
+      observaciones,
+      notaInterna,
+      clienteSeleccionado,
+      cartItems,
+    }),
+    convertirAStorage: (estado) => estado,
+    aplicarDesdeStorage: (borrador) => {
+      if (borrador.tipoComprobante) {
+        setTipoComprobante(borrador.tipoComprobante);
+      }
+      if (borrador.serieSeleccionada) {
+        setSerieSeleccionada(borrador.serieSeleccionada);
+      }
+      if (borrador.formaPago) {
+        setFormaPago(borrador.formaPago);
+      }
+      if (borrador.moneda) {
+        changeCurrency(borrador.moneda);
+      }
+      setObservaciones(borrador.observaciones ?? '');
+      setNotaInterna(borrador.notaInterna ?? '');
+      setClienteSeleccionado(borrador.clienteSeleccionado ?? null);
+      if (Array.isArray(borrador.cartItems)) {
+        setCartItemsFromDraft(borrador.cartItems);
+      }
+    },
+    debePersistir: (estado) => Boolean(
+      estado.cartItems.length > 0
+      || estado.clienteSeleccionado
+      || estado.observaciones.trim()
+      || estado.notaInterna.trim()
+      || estado.formaPago
+      || estado.moneda
+      || estado.serieSeleccionada
+    ),
+  });
+
+  const { iniciarAperturaCaja } = useRetornoAperturaCaja();
+  const handleAbrirCaja = useCallback(() => {
+    forzarGuardadoBorrador();
+    iniciarAperturaCaja();
+  }, [forzarGuardadoBorrador, iniciarAperturaCaja]);
+
+  useEffect(() => {
+    if (!showSuccessModal) {
+      return;
+    }
+    limpiarBorradorEnProgreso();
+  }, [limpiarBorradorEnProgreso, showSuccessModal]);
 
   const { state: configState } = useConfigurationContext();
 
@@ -305,6 +400,7 @@ const PuntoVenta = () => {
                   notaInterna={notaInterna}
                   onObservacionesChange={setObservaciones}
                   onNotaInternaChange={setNotaInterna}
+                  onAbrirCaja={handleAbrirCaja}
                 />
               </div>
             </div>

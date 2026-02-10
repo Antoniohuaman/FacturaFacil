@@ -70,7 +70,7 @@ export const useComprobanteState = () => {
   const { status: cajaStatus } = useCaja();
 
   // Computed states
-  const isCajaOpen = useMemo(() => cajaStatus !== 'cerrada', [cajaStatus]);
+  const isCajaOpen = useMemo(() => cajaStatus === 'abierta', [cajaStatus]);
   const canProcess = useMemo(() => !isProcessing && isCajaOpen, [isProcessing, isCajaOpen]);
 
   // Convertir forma de pago a formato para mostrar usando el contexto

@@ -82,8 +82,7 @@ export function PuntoVentaHome() {
                   Caja Cerrada
                 </h3>
                 <p className="text-amber-700 mt-1 text-sm">
-                  Para usar el Punto de Venta necesitas abrir la caja primero.
-                  Esto te permitirá registrar ventas y manejar efectivo de forma segura.
+                  La caja solo es necesaria para cobrar al contado. Puedes preparar ventas y emitir a crédito.
                 </p>
                 <div className="mt-4">
                   <button
@@ -122,8 +121,7 @@ export function PuntoVentaHome() {
                 </p>
                 <button
                   onClick={() => navigate('/punto-venta/nueva-venta')}
-                  disabled={!isCajaOpen}
-                  className="inline-flex items-center px-8 py-4 bg-white text-emerald-600 text-lg font-bold rounded-xl hover:bg-emerald-50 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="inline-flex items-center px-8 py-4 bg-white text-emerald-600 text-lg font-bold rounded-xl hover:bg-emerald-50 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105"
                 >
                   <ShoppingCart className="w-6 h-6 mr-3" />
                   Nueva Venta

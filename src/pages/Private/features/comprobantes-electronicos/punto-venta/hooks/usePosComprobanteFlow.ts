@@ -36,7 +36,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   useConfigurationContext();
 
   const { currentCurrency, currencyInfo, baseCurrency, changeCurrency } = useCurrency();
-  const { tipoComprobante, setTipoComprobante, serieSeleccionada } = useDocumentType();
+  const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada } = useDocumentType();
   const { createCliente } = useClientes();
 
   const {
@@ -448,12 +448,14 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
     tipoComprobante,
     setTipoComprobante,
     serieSeleccionada,
+    setSerieSeleccionada,
     formaPago,
     setFormaPago,
     observaciones,
     setObservaciones,
     notaInterna,
     setNotaInterna,
+    changeCurrency,
     isProcessing,
     isCajaOpen,
     cajaStatus,

@@ -8,7 +8,10 @@ export const BloqueoCajaCerrada = forwardRef<HTMLButtonElement, BloqueoCajaCerra
   const tooltipId = useId();
   const [showWhy, setShowWhy] = useState(false);
 
-  const whyText = useMemo(() => 'La caja debe estar abierta para registrar ventas.', []);
+  const whyText = useMemo(
+    () => 'La caja solo es necesaria para cobrar al contado. Puedes seguir emitiendo a credito.',
+    [],
+  );
 
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3">
@@ -39,7 +42,9 @@ export const BloqueoCajaCerrada = forwardRef<HTMLButtonElement, BloqueoCajaCerra
               )}
             </span>
           </div>
-          <p className="mt-1 text-xs text-amber-800">Para vender, primero abre tu caja.</p>
+          <p className="mt-1 text-xs text-amber-800">
+            Caja cerrada. Solo necesitas abrirla para cobrar al contado. Puedes emitir a credito.
+          </p>
         </div>
 
         <button
