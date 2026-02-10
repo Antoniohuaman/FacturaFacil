@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, X, Check, ShoppingCart, Plus, Minus } from 'lucide-react';
+import { Search, X, Check, ShoppingCart, Plus, Minus, HelpCircle } from 'lucide-react';
 import { Tooltip } from '@/shared/ui';
 import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
@@ -388,7 +388,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   const showCreateProductHint = showDropdown && trimmedSearch.length > 0 && filteredProducts.length === 0 && !isLoading;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Mode Toggle */}
       <div className="flex items-center justify-end">
         <Tooltip contenido="Selecciona varios productos.">
@@ -420,10 +420,20 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
             value={searchTerm}
             onChange={handleSearchChange}
             onFocus={handleSearchFocus}
-            className="w-full px-4 py-3 pr-10 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+            className="w-full px-4 py-3 pr-16 text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
             disabled={isLoading}
             ref={inputRef}
           />
+
+          <Tooltip contenido="Se agrega automáticamente al seleccionarlo.">
+            <button
+              type="button"
+              aria-label="Ayuda: agregar producto"
+              className="absolute right-9 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-full text-gray-400 transition-colors hover:text-gray-600 animate-pulse motion-reduce:animate-none"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          </Tooltip>
           
           {isLoading ? (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -639,21 +649,6 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
               Intenta con otro término de búsqueda
             </p>
           </div>
-        )}
-      </div>
-
-      {/* Help text */}
-      <div className="text-xs text-gray-500 flex items-center justify-between">
-        <span>
-          {isMultipleMode 
-            ? 'Selecciona varios productos con checkboxes y presiona "Agregar"' 
-            : 'Busca un producto y se agregará automáticamente al seleccionarlo'
-          }
-        </span>
-        {showDropdown && filteredProducts.length > 0 && (
-          <span className="text-gray-400">
-            Use ↑↓ para navegar, Enter para seleccionar, Esc para cerrar
-          </span>
         )}
       </div>
 
