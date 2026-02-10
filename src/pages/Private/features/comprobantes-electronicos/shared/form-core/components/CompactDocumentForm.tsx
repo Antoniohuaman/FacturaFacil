@@ -680,7 +680,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         description=""
         icon={FileText}
         compactLabel="Nuevo comprobante"
-        helpText="Completa la información del comprobante electrónico siguiendo las normas de SUNAT"
         contentClassName="p-3"
         actions={
           <div className="flex items-center gap-2">
