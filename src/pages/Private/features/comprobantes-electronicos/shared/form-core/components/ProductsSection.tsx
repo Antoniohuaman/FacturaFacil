@@ -142,6 +142,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
 ];
 
 const STORAGE_KEY = 'comprobantes_table_columns_config';
+const PRODUCTS_TABLE_MAX_HEIGHT = 'calc(100vh - 28rem)';
 
 // ===================================================================
 // COMPONENTE PRINCIPAL
@@ -1204,9 +1205,9 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2.5 md:p-3">
       {/* Header compacto */}
-      <div className="mb-2.5 pb-2.5 border-b border-gray-200">
+      <div className="mb-2 pb-2 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-[15px] font-semibold text-slate-700 leading-tight">Productos del Comprobante</h3>
@@ -1396,7 +1397,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       {/* Add Product Form compacto */}
       <div
         data-tour="primera-venta-productos-buscar"
-        className="mb-4 p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100"
+        className="mb-3 p-2.5 md:p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100"
       >
         <ProductSelector
           key={`selector-${refreshKey}`}
@@ -1408,54 +1409,58 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       {/* ✅ Products Table compacta con inputs h-8 */}
       <div
         data-tour="primera-venta-productos-lista"
-        className="overflow-x-auto rounded-lg border border-gray-200"
+        className="rounded-lg border border-gray-200"
       >
-        <table className="w-full text-sm">
-          <thead className="bg-gradient-to-r from-violet-50 to-purple-50 border-b-2 border-violet-200">
-            <tr>
-              {visibleColumns.map(col => (
-                <th
-                  key={col.id}
-                  className={`px-3 py-2.5 text-[11px] font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap ${
-                    col.align === 'center' ? 'text-center' :
-                    col.align === 'right' ? 'text-right' :
-                    'text-left'
-                  }`}
-                  style={{
-                    width: col.width,
-                    minWidth: col.minWidth
-                  }}
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {cartItems.map(item => (
-              <tr
-                key={item.id}
-                className={`border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150 ${
-                  item.id === lastAddedProductId ? 'bg-blue-50' : ''
-                }`}
-              >
-                {visibleColumns.map(col => (
-                  <React.Fragment key={`${item.id}-${col.id}`}>
-                    {renderCell(col.id, item)}
-                  </React.Fragment>
+        <div className="overflow-x-auto">
+          <div className="overflow-y-auto" style={{ maxHeight: PRODUCTS_TABLE_MAX_HEIGHT }}>
+            <table className="w-full text-sm">
+              <thead className="bg-gradient-to-r from-violet-50 to-purple-50 border-b-2 border-violet-200">
+                <tr>
+                  {visibleColumns.map(col => (
+                    <th
+                      key={col.id}
+                      className={`px-3 py-2.5 text-[11px] font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap ${
+                        col.align === 'center' ? 'text-center' :
+                        col.align === 'right' ? 'text-right' :
+                        'text-left'
+                      }`}
+                      style={{
+                        width: col.width,
+                        minWidth: col.minWidth
+                      }}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cartItems.map(item => (
+                  <tr
+                    key={item.id}
+                    className={`border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150 ${
+                      item.id === lastAddedProductId ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    {visibleColumns.map(col => (
+                      <React.Fragment key={`${item.id}-${col.id}`}>
+                        {renderCell(col.id, item)}
+                      </React.Fragment>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Totales Section - Tarjeta compacta sticky */}
-      <div className="mt-4 border-t border-gray-200 pt-4">
+      <div className="mt-3 border-t border-gray-200 pt-3">
         <div className="flex justify-end">
           <div
             data-tour="primera-venta-totales"
-            className="w-80 bg-white rounded-lg border border-gray-200 p-4 shadow-sm md:sticky md:top-4"
+            className="w-80 bg-white rounded-lg border border-gray-200 p-3 shadow-sm md:sticky md:top-4"
           >
             <div className="space-y-2">
               <div className="flex justify-between items-center text-sm">
