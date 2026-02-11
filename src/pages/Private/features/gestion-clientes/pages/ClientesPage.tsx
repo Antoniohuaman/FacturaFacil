@@ -24,6 +24,7 @@ import {
 	isSunatDocCode,
 } from '../utils/documents';
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
+import { resolveCustomerNameFields } from '../utils/names';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
@@ -80,42 +81,26 @@ const resolveTipoPersona = (client: Cliente, documentCode: string): string => {
 	return inferredDocumentType === 'RUC' ? 'Juridica' : 'Natural';
 };
 
-const resolveNameParts = (client: Cliente): {
-	primerNombre: string;
-	segundoNombre: string;
-	apellidoPaterno: string;
-	apellidoMaterno: string;
-} => {
-	const primerNombre = client.primerNombre?.trim() ?? '';
-	const segundoNombre = client.segundoNombre?.trim() ?? '';
-	const apellidoPaterno = client.apellidoPaterno?.trim() ?? '';
-	const apellidoMaterno = client.apellidoMaterno?.trim() ?? '';
-
-	if (primerNombre || segundoNombre || apellidoPaterno || apellidoMaterno) {
-		return { primerNombre, segundoNombre, apellidoPaterno, apellidoMaterno };
-	}
-
-	const source = (client.nombreCompleto ?? client.name ?? '').trim();
-	if (!source) {
-		return { primerNombre: '', segundoNombre: '', apellidoPaterno: '', apellidoMaterno: '' };
-	}
-
-	const parts = source.split(' ').filter(Boolean);
-	if (parts.length === 1) {
-		return { primerNombre: parts[0], segundoNombre: '', apellidoPaterno: '', apellidoMaterno: '' };
-	}
-	if (parts.length === 2) {
-		return { primerNombre: parts[0], segundoNombre: '', apellidoPaterno: parts[1], apellidoMaterno: '' };
-	}
-	if (parts.length === 3) {
-		return { primerNombre: parts[0], segundoNombre: parts[1], apellidoPaterno: parts[2], apellidoMaterno: '' };
-	}
+const resolveNameParts = (client: Cliente) => {
+	const resolved = resolveCustomerNameFields({
+		tipoDocumento: client.tipoDocumento,
+		tipoPersona: client.tipoPersona,
+		razonSocial: client.razonSocial,
+		nombreCompleto: client.nombreCompleto,
+		primerNombre: client.primerNombre,
+		segundoNombre: client.segundoNombre,
+		apellidoPaterno: client.apellidoPaterno,
+		apellidoMaterno: client.apellidoMaterno,
+		fallbackFullName: client.name,
+		preferExistingParts: true,
+		splitMode: 'cliente',
+	});
 
 	return {
-		primerNombre: parts[0],
-		segundoNombre: parts.slice(1, parts.length - 2).join(' '),
-		apellidoPaterno: parts[parts.length - 2] ?? '',
-		apellidoMaterno: parts[parts.length - 1] ?? '',
+		primerNombre: resolved.primerNombre,
+		segundoNombre: resolved.segundoNombre,
+		apellidoPaterno: resolved.apellidoPaterno,
+		apellidoMaterno: resolved.apellidoMaterno,
 	};
 };
 
@@ -859,30 +844,24 @@ function ClientesPage() {
 
 			const esRUC = docType === '6';
 			const nombreBase = client.nombreCompleto || client.name || '';
-			const nombreParts = nombreBase.split(' ').filter(Boolean);
+			const resolvedNames = resolveCustomerNameFields({
+				tipoDocumento: docType,
+				tipoPersona: client.tipoPersona,
+				razonSocial: client.razonSocial,
+				nombreCompleto: client.nombreCompleto,
+				primerNombre: client.primerNombre,
+				segundoNombre: client.segundoNombre,
+				apellidoPaterno: client.apellidoPaterno,
+				apellidoMaterno: client.apellidoMaterno,
+				fallbackFullName: nombreBase,
+				preferExistingParts: true,
+				splitMode: 'import',
+			});
 
-			let fallbackSegundoNombre = '';
-			let fallbackApellidoPaterno = '';
-			let fallbackApellidoMaterno = '';
-
-			if (nombreParts.length >= 4) {
-				fallbackSegundoNombre = nombreParts.slice(1, nombreParts.length - 2).join(' ');
-				fallbackApellidoPaterno = nombreParts[nombreParts.length - 2] || '';
-				fallbackApellidoMaterno = nombreParts[nombreParts.length - 1] || '';
-			} else if (nombreParts.length === 3) {
-				fallbackSegundoNombre = '';
-				fallbackApellidoPaterno = nombreParts[1] || '';
-				fallbackApellidoMaterno = nombreParts[2] || '';
-			} else if (nombreParts.length === 2) {
-				fallbackSegundoNombre = '';
-				fallbackApellidoPaterno = nombreParts[1] || '';
-				fallbackApellidoMaterno = '';
-			}
-
-			const primerNombre = client.primerNombre ?? (!esRUC ? nombreParts[0] || '' : '');
-			const segundoNombre = client.segundoNombre ?? (!esRUC ? fallbackSegundoNombre : '');
-			const apellidoPaterno = client.apellidoPaterno ?? (!esRUC ? fallbackApellidoPaterno : '');
-			const apellidoMaterno = client.apellidoMaterno ?? (!esRUC ? fallbackApellidoMaterno : '');
+			const primerNombre = resolvedNames.primerNombre;
+			const segundoNombre = resolvedNames.segundoNombre;
+			const apellidoPaterno = resolvedNames.apellidoPaterno;
+			const apellidoMaterno = resolvedNames.apellidoMaterno;
 
 			const emails = client.emails?.length
 				? client.emails

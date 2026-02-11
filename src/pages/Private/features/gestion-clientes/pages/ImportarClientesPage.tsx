@@ -30,6 +30,7 @@ import {
   resolveDocumentDefinition,
 } from '../utils/documents';
 import { isValidEmail, mergeEmails, sanitizePhones } from '../utils/contact';
+import { buildFullName, normalizeHumanName, splitFullName } from '../utils/names';
 import { formatBusinessDateTimeForTicket, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
 type ValidationError = {
@@ -462,11 +463,13 @@ const buildDtoFromBasicRecord = (
 
   const tipoPersona = documentType === 'RUC' ? 'Juridica' : 'Natural';
   const nombreCompleto = documentType === 'RUC'
-    ? row.razonSocial.trim()
-    : [row.nombre1, row.nombre2, row.apellidoPaterno, row.apellidoMaterno]
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .join(' ');
+    ? normalizeHumanName(row.razonSocial)
+    : buildFullName({
+        primerNombre: row.nombre1,
+        segundoNombre: row.nombre2,
+        apellidoPaterno: row.apellidoPaterno,
+        apellidoMaterno: row.apellidoMaterno,
+      });
 
   const payload: CreateClienteDTO = {
     documentType,
@@ -481,7 +484,7 @@ const buildDtoFromBasicRecord = (
   };
 
   if (documentType === 'RUC') {
-    payload.razonSocial = row.razonSocial.trim();
+    payload.razonSocial = normalizeHumanName(row.razonSocial);
   } else {
     payload.primerNombre = row.nombre1.trim();
     if (row.nombre2.trim()) {
@@ -627,20 +630,19 @@ const buildDtoFromCompleteRecord = (
     return null;
   }
 
-  const nombreNaturalPartes = [
-    row.nombre1,
-    row.nombre2,
-    row.apellidoPaterno,
-    row.apellidoMaterno,
-  ]
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .join(' ');
+  const nombreNaturalPartes = buildFullName({
+    primerNombre: row.nombre1,
+    segundoNombre: row.nombre2,
+    apellidoPaterno: row.apellidoPaterno,
+    apellidoMaterno: row.apellidoMaterno,
+  });
 
-  const nombreNatural = docDefinition.legacy === 'RUC' ? undefined : buildNombreNatural(nombreNaturalPartes);
+  const nombreNatural = docDefinition.legacy === 'RUC'
+    ? undefined
+    : splitFullName(nombreNaturalPartes, 'import');
   const nombrePrincipal = docDefinition.legacy === 'RUC'
-    ? row.razonSocial.trim()
-    : nombreNaturalPartes || row.razonSocial.trim();
+    ? normalizeHumanName(row.razonSocial)
+    : nombreNaturalPartes || normalizeHumanName(row.razonSocial);
 
   if (!nombrePrincipal) {
     errors.push('Nombre o razón social requerido');
@@ -661,7 +663,7 @@ const buildDtoFromCompleteRecord = (
     numeroDocumento: documentNumber || undefined,
     tipoPersona: docDefinition.legacy === 'RUC' ? 'Juridica' : 'Natural',
     tipoCuenta: clientType,
-    razonSocial: docDefinition.legacy === 'RUC' ? row.razonSocial.trim() : undefined,
+    razonSocial: docDefinition.legacy === 'RUC' ? normalizeHumanName(row.razonSocial) : undefined,
     nombreComercial: row.nombreComercial || undefined,
     primerNombre: docDefinition.legacy === 'RUC' ? undefined : nombreNatural?.primerNombre,
     segundoNombre: docDefinition.legacy === 'RUC' ? undefined : nombreNatural?.segundoNombre,
@@ -810,48 +812,6 @@ const parseCompleteSheet = (rows: Array<Array<string | number>>): ParseResult =>
     errors,
     totalRows,
     validRows: dtos.length,
-  };
-};
-
-const buildNombreNatural = (nombreCompleto: string): {
-  primerNombre?: string;
-  segundoNombre?: string;
-  apellidoPaterno?: string;
-  apellidoMaterno?: string;
-} => {
-  const partes = nombreCompleto
-    .split(' ')
-    .map((parte) => parte.trim())
-    .filter(Boolean);
-
-  if (partes.length === 0) {
-    return {};
-  }
-
-  if (partes.length === 1) {
-    return { primerNombre: partes[0] };
-  }
-
-  if (partes.length === 2) {
-    return {
-      primerNombre: partes[0],
-      apellidoPaterno: partes[1],
-    };
-  }
-
-  if (partes.length === 3) {
-    return {
-      primerNombre: partes[0],
-      apellidoPaterno: partes[1],
-      apellidoMaterno: partes[2],
-    };
-  }
-
-  return {
-    primerNombre: partes[0],
-    segundoNombre: partes.slice(1, partes.length - 2).join(' ') || undefined,
-    apellidoPaterno: partes[partes.length - 2],
-    apellidoMaterno: partes[partes.length - 1],
   };
 };
 
