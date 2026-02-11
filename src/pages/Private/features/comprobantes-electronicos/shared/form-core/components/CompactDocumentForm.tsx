@@ -871,6 +871,11 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="Dirección del cliente"
                 />
+                {tipoComprobante === 'factura' && (
+                  <p className="mt-1 text-xs text-blue-600">
+                    Confirma la dirección. Si cambió, actualiza en Clientes.
+                  </p>
+                )}
               </div>
             )}
 
