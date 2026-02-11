@@ -40,6 +40,8 @@ import FormularioNotaVenta from "../pages/Private/features/Documentos-negociacio
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
 
+const showClientesTestPage = import.meta.env.DEV || import.meta.env.VITE_DEV_MODE === "true";
+
 export const privateRoutes: RouteObject[] = [
   {
     element: (
@@ -81,7 +83,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "/documentos/nueva-nota-venta", element: <FormularioNotaVenta /> },
       
       { path: "/clientes", element: <ClientesPage /> },
-      { path: "/clientes/test-api", element: <ClientesTestPage /> },
+      ...(showClientesTestPage ? [{ path: "/clientes/test-api", element: <ClientesTestPage /> }] : []),
       { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
       { path: "/importar-clientes", element: <ImportarClientesPage /> },
       { path: "/indicadores", element: <IndicadoresPage /> },
