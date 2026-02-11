@@ -13,13 +13,14 @@ import { useClientesColumns } from '../hooks/useClientesColumns';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { Cliente, ClienteFormData, DocumentType, ClientType } from '../models';
-import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
 import type { DocumentCode } from '../utils/documents';
+import { serializeFiles, deserializeFiles } from '../utils/fileSerialization';
 import {
 	documentCodeFromType,
 	documentTypeFromCode,
-	normalizeDocumentNumber,
 	parseLegacyDocumentString,
+	resolveDocumentCodeFromInputs,
+	resolveDocumentNumberFromInputs,
 	isSunatDocCode,
 } from '../utils/documents';
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
@@ -49,47 +50,19 @@ const booleanToLabel = (value?: boolean | null): string => {
 
 type PriceProfileLabelResolver = (value?: string | null) => string;
 
-const normalizeDocumentCodeValue = (value?: string | null): DocumentCode | '' => {
-	if (!value) return '';
-	const trimmed = value.trim();
-	if (!trimmed) return '';
-	const normalized = trimmed.toUpperCase();
-	if (documentTypeFromCode(normalized as DocumentCode)) {
-		return normalized as DocumentCode;
-	}
-	const fromType = documentCodeFromType(trimmed as DocumentType);
-	return fromType ?? '';
-};
+const resolveDocumentCode = (client: Cliente): DocumentCode | '' =>
+	resolveDocumentCodeFromInputs({
+		tipoDocumento: client.tipoDocumento,
+		legacyDocument: client.document,
+	});
 
-const resolveDocumentCode = (client: Cliente): string => {
-	const fromTipo = normalizeDocumentCodeValue(client.tipoDocumento);
-	if (fromTipo) {
-		return fromTipo;
-	}
-
-	const parsed = parseLegacyDocumentString(client.document);
-	if (parsed.code) {
-		return parsed.code;
-	}
-	if (parsed.type) {
-		const fromParsedType = documentCodeFromType(parsed.type);
-		if (fromParsedType) {
-			return fromParsedType;
-		}
-	}
-
-	return '';
-};
-
-const resolveDocumentNumber = (client: Cliente, documentCode?: string): string => {
-	const parsed = parseLegacyDocumentString(client.document);
-	const baseNumber = (client.numeroDocumento ?? parsed.number ?? '').trim();
-	const normalizedCode = documentCode?.trim().toUpperCase() as DocumentCode | undefined;
-	if (!normalizedCode || !documentTypeFromCode(normalizedCode)) {
-		return baseNumber;
-	}
-	return normalizeDocumentNumber(normalizedCode, baseNumber);
-};
+const resolveDocumentNumber = (client: Cliente, documentCode?: DocumentCode | ''): string =>
+	resolveDocumentNumberFromInputs({
+		tipoDocumento: client.tipoDocumento,
+		numeroDocumento: client.numeroDocumento,
+		legacyDocument: client.document,
+		documentCode,
+	});
 
 const resolveTipoCuenta = (client: Cliente): string => client.tipoCuenta ?? client.type ?? '';
 

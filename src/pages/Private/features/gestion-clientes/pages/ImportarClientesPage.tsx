@@ -22,13 +22,12 @@ import type {
 } from '../models';
 import type { DocumentCode, DocumentDefinition } from '../utils/documents';
 import {
-  DOCUMENT_DEFINITIONS,
   buildDocumentReference,
   documentTypeFromCode,
-  findDocumentDefinition,
   normalizeDocumentNumber,
   normalizeKey,
   onlyDigits,
+  resolveDocumentDefinition,
 } from '../utils/documents';
 import { isValidEmail, mergeEmails, sanitizePhones } from '../utils/contact';
 import { formatBusinessDateTimeForTicket, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
@@ -244,15 +243,6 @@ const ESTADO_MAP: Record<string, 'Habilitado' | 'Deshabilitado'> = {
 };
 
 const UBIGEO_EXPECTED_DIGITS = 6;
-
-const getDefinitionByCode = (code?: string): DocumentDefinition | undefined => {
-  if (!code) return undefined;
-  const normalized = code.trim().toUpperCase();
-  return DOCUMENT_DEFINITIONS.find((definition) => definition.code === normalized as DocumentCode);
-};
-
-const resolveDocumentDefinition = (value: string): DocumentDefinition | undefined =>
-  getDefinitionByCode(value) ?? findDocumentDefinition(value);
 
 const normalizeUbigeoCode = (rawValue: string, errors?: string[]): string => {
   const trimmed = (rawValue ?? '').trim();

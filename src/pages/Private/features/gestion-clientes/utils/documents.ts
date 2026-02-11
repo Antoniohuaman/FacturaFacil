@@ -65,6 +65,21 @@ export const DOCUMENT_TYPE_TO_CODE = DOCUMENT_DEFINITIONS.reduce(
   {} as Record<DocumentType, DocumentCode>
 );
 
+/*
+Document normalization comparison cases (expected outputs match current behavior)
+- code: 6, raw: "20123456789" -> normalizeDocumentNumber: "20123456789"
+- code: 6, raw: "2012345678" -> normalizeDocumentNumber: "02012345678"
+- code: 6, raw: "20-123-456-789" -> normalizeDocumentNumber: "20123456789"
+- code: 1, raw: "12345678" -> normalizeDocumentNumber: "12345678"
+- code: 1, raw: "12-345-678" -> normalizeDocumentNumber: "12345678"
+- code: 1, raw: "00000000" -> normalizeDocumentNumber: "00000000"
+- code: 1, raw: "ABC" -> normalizeDocumentNumber: "" (error: solo digitos)
+- code: 0, raw: "ABC-123" -> normalizeDocumentNumber: "ABC-123" (sin restriccion)
+- legacy: "RUC 20123456789" -> resolveDocumentDisplayType: "RUC", resolveDocumentDisplayNumber: "20123456789"
+- legacy: "DNI 12345678" -> resolveDocumentDisplayType: "DNI", resolveDocumentDisplayNumber: "12345678"
+- legacy: "Sin documento" -> resolveDocumentDisplayType: "Sin documento", resolveDocumentDisplayNumber: "-"
+*/
+
 const DIGIT_ONLY_CODES: Partial<Record<DocumentCode, number>> = DOCUMENT_DEFINITIONS.reduce(
   (acc, def) => {
     if (def.requiredDigits) {
@@ -140,7 +155,28 @@ export const documentCodeFromType = (type?: DocumentType | null): DocumentCode |
   return DOCUMENT_TYPE_TO_CODE[type];
 };
 
+export const getDocumentDefinitionFromCode = (code?: string | null): DocumentDefinition | undefined => {
+  if (!code) return undefined;
+  const normalized = code.trim().toUpperCase();
+  return DOCUMENT_DEFINITIONS.find((definition) => definition.code === (normalized as DocumentCode));
+};
+
+export const resolveDocumentDefinition = (value: string): DocumentDefinition | undefined =>
+  getDocumentDefinitionFromCode(value) ?? findDocumentDefinition(value);
+
 export const onlyDigits = (value: string): string => value.replace(/\D+/g, '');
+
+export const normalizeDocumentCodeValue = (value?: string | null): DocumentCode | '' => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const normalized = trimmed.toUpperCase();
+  if (documentTypeFromCode(normalized as DocumentCode)) {
+    return normalized as DocumentCode;
+  }
+  const fromType = documentCodeFromType(trimmed as DocumentType);
+  return fromType ?? '';
+};
 
 export const normalizeDocumentNumber = (
   code: DocumentCode | undefined,
@@ -170,6 +206,41 @@ export const normalizeDocumentNumber = (
   return digits.padStart(requiredDigits, '0');
 };
 
+export const resolveDocumentCodeFromInputs = (params: {
+  tipoDocumento?: string | null;
+  legacyDocument?: string | null;
+}): DocumentCode | '' => {
+  const fromTipo = normalizeDocumentCodeValue(params.tipoDocumento);
+  if (fromTipo) return fromTipo;
+
+  const parsed = parseLegacyDocumentString(params.legacyDocument);
+  if (parsed.code) return parsed.code;
+  if (parsed.type) {
+    const fromParsedType = documentCodeFromType(parsed.type);
+    if (fromParsedType) return fromParsedType;
+  }
+
+  return '';
+};
+
+export const resolveDocumentNumberFromInputs = (params: {
+  tipoDocumento?: string | null;
+  numeroDocumento?: string | null;
+  legacyDocument?: string | null;
+  documentCode?: DocumentCode | '';
+}): string => {
+  const parsed = parseLegacyDocumentString(params.legacyDocument);
+  const baseNumber = (params.numeroDocumento ?? parsed.number ?? '').toString().trim();
+  const rawCode = params.documentCode ?? normalizeDocumentCodeValue(params.tipoDocumento);
+  const normalizedCode = rawCode ? (rawCode.trim().toUpperCase() as DocumentCode) : undefined;
+
+  if (!normalizedCode || !documentTypeFromCode(normalizedCode)) {
+    return baseNumber;
+  }
+
+  return normalizeDocumentNumber(normalizedCode, baseNumber);
+};
+
 export const parseLegacyDocumentString = (
   document?: string | null
 ): { code?: DocumentCode; type?: DocumentType; number?: string } => {
@@ -197,6 +268,56 @@ export const parseLegacyDocumentString = (
   }
 
   return { number: trimmed };
+};
+
+export const resolveDocumentDisplayType = (params: {
+  tipoDocumento?: string | null;
+  numeroDocumento?: string | null;
+  legacyDocument?: string | null;
+}): string => {
+  const code = normalizeDocumentCodeValue(params.tipoDocumento);
+  const number = (params.numeroDocumento ?? '').trim();
+
+  if (code) {
+    if (code === '0' || !number) return 'Sin documento';
+    return getDocLabelFromCode(code);
+  }
+
+  const legacy = (params.legacyDocument ?? '').trim();
+  if (!legacy || legacy === 'Sin documento') return 'Sin documento';
+
+  const parsed = parseLegacyDocumentString(legacy);
+  if (parsed.type === 'RUC') return 'RUC';
+  if (parsed.type === 'DNI') return 'DNI';
+  if (parsed.code) return getDocLabelFromCode(parsed.code);
+  if (parsed.type) {
+    const fromType = documentCodeFromType(parsed.type);
+    return fromType ? getDocLabelFromCode(fromType) : 'Documento';
+  }
+
+  return 'Documento';
+};
+
+export const resolveDocumentDisplayNumber = (params: {
+  tipoDocumento?: string | null;
+  numeroDocumento?: string | null;
+  legacyDocument?: string | null;
+}): string => {
+  const code = normalizeDocumentCodeValue(params.tipoDocumento);
+  const number = (params.numeroDocumento ?? '').trim();
+  if (code) {
+    return number || '-';
+  }
+
+  const legacy = (params.legacyDocument ?? '').trim();
+  if (!legacy || legacy === 'Sin documento') return '-';
+
+  const parsed = parseLegacyDocumentString(legacy);
+  if (parsed.number !== undefined) {
+    return parsed.number || '-';
+  }
+
+  return legacy;
 };
 
 export const buildDocumentReference = (code?: string, number?: string): string => {
