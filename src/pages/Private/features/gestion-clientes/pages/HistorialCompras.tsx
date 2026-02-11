@@ -5,6 +5,14 @@ import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/ex
 import DetalleCompraModal from '../components/DetalleCompraModal';
 import { useCompras } from '../hooks';
 import type { CompraDetalle, Producto } from '../models';
+import {
+  formatearEtiquetaEstado,
+  formatearFechaCorta,
+  formatearMoneda,
+  obtenerClaseBadgeCobroHistorial,
+  obtenerClaseBadgeEstadoComprobanteHistorial,
+  obtenerClaseTipoComprobanteHistorial,
+} from '../utils/formatoHistorial';
 
 type TabId = 'ventas' | 'productos' | 'cobros' | 'anulaciones';
 
@@ -27,72 +35,6 @@ const sanitizeFilenameSegment = (value: string) =>
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
 
-const currencySymbol = (currency?: string) => {
-  const code = currency?.toUpperCase();
-  if (code === 'USD') return '$';
-  if (code === 'EUR') return '€';
-  if (code === 'CLP') return '$';
-  if (code === 'MXN') return '$';
-  return 'S/';
-};
-
-const formatCurrency = (value: number, currency?: string) =>
-  `${currencySymbol(currency)} ${value.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-const formatShortDate = (value: string) =>
-  new Date(value).toLocaleDateString('es-PE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-
-const estadoComprobanteBadge = (color?: string) => {
-  switch (color) {
-    case 'green':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'orange':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-    case 'red':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    case 'blue':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-  }
-};
-
-const cobroBadgeClass = (estado?: string) => {
-  switch (estado?.toLowerCase()) {
-    case 'cancelado':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-    case 'parcial':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-    case 'vencido':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-    case 'anulado':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-  }
-};
-
-const tipoColor = (tipo: string) => {
-  const normalized = tipo.toLowerCase();
-  if (normalized.includes('fact')) {
-    return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-  }
-  if (normalized.includes('boleta')) {
-    return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
-  }
-  return 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300';
-};
-
-const formatEstadoLabel = (value?: string) => {
-  if (!value) return '—';
-  return value.charAt(0).toUpperCase() + value.slice(1);
-};
 
 const LoadingSpinner = ({ message }: { message?: string }) => (
   <div className="flex items-center justify-center py-10">
@@ -374,9 +316,9 @@ const HistorialCompras: React.FC = () => {
       fecha: venta.fechaDisplay ?? '—',
       tipo: venta.tipoComprobante,
       serieNumero: venta.comprobante,
-      importe: formatCurrency(venta.monto, venta.moneda),
+      importe: formatearMoneda(venta.monto, venta.moneda),
       estadoComprobante: venta.estadoComprobante,
-      cobro: formatEstadoLabel(venta.estadoCobro),
+      cobro: formatearEtiquetaEstado(venta.estadoCobro),
       productos: String(venta.productos ?? '—'),
     }));
     try {
@@ -402,8 +344,8 @@ const HistorialCompras: React.FC = () => {
     const rows = productosPageItems.map((item) => ({
       producto: item.producto.nombre,
       cantidadTotal: item.cantidad,
-      montoTotal: item.moneda ? formatCurrency(item.monto, item.moneda) : '—',
-      ultimaCompra: item.ultimaFecha ? formatShortDate(item.ultimaFecha) : 'Sin registro',
+      montoTotal: item.moneda ? formatearMoneda(item.monto, item.moneda) : '—',
+      ultimaCompra: item.ultimaFecha ? formatearFechaCorta(item.ultimaFecha) : 'Sin registro',
     }));
     try {
       await exportDatasetToExcel({
@@ -430,7 +372,7 @@ const HistorialCompras: React.FC = () => {
       fecha: venta.fechaDisplay ?? '—',
       tipo: venta.tipoComprobante,
       serieNumero: venta.comprobante,
-      importe: formatCurrency(venta.monto, venta.moneda),
+      importe: formatearMoneda(venta.monto, venta.moneda),
       estado: venta.estadoComprobante,
     }));
     try {
@@ -456,12 +398,12 @@ const HistorialCompras: React.FC = () => {
       { header: 'Estado', key: 'estado' },
     ];
     const rows = filteredCobros.map((cobro) => ({
-      fecha: formatShortDate(cobro.fecha),
+      fecha: formatearFechaCorta(cobro.fecha),
       documentoCobranza: cobro.numero,
       comprobante: String(cobro.comprobanteNumero ?? cobro.comprobanteId ?? '—'),
       medioPago: cobro.medioPago,
-      importe: formatCurrency(cobro.monto, cobro.moneda),
-      estado: formatEstadoLabel(cobro.estado),
+      importe: formatearMoneda(cobro.monto, cobro.moneda),
+      estado: formatearEtiquetaEstado(cobro.estado),
     }));
     try {
       await exportDatasetToExcel({
@@ -520,7 +462,7 @@ const HistorialCompras: React.FC = () => {
           loading={loadingList}
           error={Boolean(error)}
           value={metrics.montoTotal !== null && metrics.currency
-            ? formatCurrency(metrics.montoTotal, metrics.currency)
+            ? formatearMoneda(metrics.montoTotal, metrics.currency)
             : '—'}
         />
         <MetricCard
@@ -529,7 +471,7 @@ const HistorialCompras: React.FC = () => {
           loading={loadingList}
           error={Boolean(error)}
           value={metrics.ticketPromedio !== null && metrics.currency
-            ? formatCurrency(metrics.ticketPromedio, metrics.currency)
+            ? formatearMoneda(metrics.ticketPromedio, metrics.currency)
             : '—'}
         />
         <MetricCard
@@ -652,20 +594,20 @@ const HistorialCompras: React.FC = () => {
                         <tr key={venta.id} className="text-gray-700 dark:text-gray-200">
                           <td className="px-4 py-3">{venta.fechaDisplay ?? '—'}</td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${tipoColor(venta.tipoComprobante)}`}>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${obtenerClaseTipoComprobanteHistorial(venta.tipoComprobante)}`}>
                               {venta.tipoComprobante}
                             </span>
                           </td>
                           <td className="px-4 py-3 font-medium">{venta.comprobante}</td>
-                          <td className="px-4 py-3 text-right font-semibold">{formatCurrency(venta.monto, venta.moneda)}</td>
+                          <td className="px-4 py-3 text-right font-semibold">{formatearMoneda(venta.monto, venta.moneda)}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${estadoComprobanteBadge(venta.estadoComprobanteColor)}`}>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${obtenerClaseBadgeEstadoComprobanteHistorial(venta.estadoComprobanteColor)}`}>
                               {venta.estadoComprobante}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${cobroBadgeClass(venta.estadoCobro)}`}>
-                              {formatEstadoLabel(venta.estadoCobro)}
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${obtenerClaseBadgeCobroHistorial(venta.estadoCobro)}`}>
+                              {formatearEtiquetaEstado(venta.estadoCobro)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">{venta.productos}</td>
@@ -726,8 +668,8 @@ const HistorialCompras: React.FC = () => {
                         <tr key={item.producto.id} className="text-gray-700 dark:text-gray-200">
                           <td className="px-4 py-3 font-medium">{item.producto.nombre}</td>
                           <td className="px-4 py-3 text-center">{item.cantidad}</td>
-                          <td className="px-4 py-3 text-right">{item.moneda ? formatCurrency(item.monto, item.moneda) : '—'}</td>
-                          <td className="px-4 py-3">{item.ultimaFecha ? formatShortDate(item.ultimaFecha) : 'Sin registro'}</td>
+                          <td className="px-4 py-3 text-right">{item.moneda ? formatearMoneda(item.monto, item.moneda) : '—'}</td>
+                          <td className="px-4 py-3">{item.ultimaFecha ? formatearFechaCorta(item.ultimaFecha) : 'Sin registro'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -771,14 +713,14 @@ const HistorialCompras: React.FC = () => {
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       {filteredCobros.map((cobro) => (
                         <tr key={cobro.id} className="text-gray-700 dark:text-gray-200">
-                          <td className="px-4 py-3">{formatShortDate(cobro.fecha)}</td>
+                          <td className="px-4 py-3">{formatearFechaCorta(cobro.fecha)}</td>
                           <td className="px-4 py-3 font-medium">{cobro.numero}</td>
                           <td className="px-4 py-3">{cobro.comprobanteNumero ?? cobro.comprobanteId}</td>
                           <td className="px-4 py-3">{cobro.medioPago}</td>
-                          <td className="px-4 py-3 text-right font-semibold">{formatCurrency(cobro.monto, cobro.moneda)}</td>
+                          <td className="px-4 py-3 text-right font-semibold">{formatearMoneda(cobro.monto, cobro.moneda)}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${cobroBadgeClass(cobro.estado)}`}>
-                              {formatEstadoLabel(cobro.estado)}
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${obtenerClaseBadgeCobroHistorial(cobro.estado)}`}>
+                              {formatearEtiquetaEstado(cobro.estado)}
                             </span>
                           </td>
                         </tr>
@@ -820,9 +762,9 @@ const HistorialCompras: React.FC = () => {
                           <td className="px-4 py-3">{venta.fechaDisplay ?? '—'}</td>
                           <td className="px-4 py-3">{venta.tipoComprobante}</td>
                           <td className="px-4 py-3 font-medium">{venta.comprobante}</td>
-                          <td className="px-4 py-3 text-right">{formatCurrency(venta.monto, venta.moneda)}</td>
+                          <td className="px-4 py-3 text-right">{formatearMoneda(venta.monto, venta.moneda)}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${estadoComprobanteBadge(venta.estadoComprobanteColor)}`}>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${obtenerClaseBadgeEstadoComprobanteHistorial(venta.estadoComprobanteColor)}`}>
                               {venta.estadoComprobante}
                             </span>
                           </td>
