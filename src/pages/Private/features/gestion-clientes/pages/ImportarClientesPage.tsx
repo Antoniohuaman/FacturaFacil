@@ -4,6 +4,8 @@ import {
   Download,
   Upload,
   Info,
+  HelpCircle,
+  ChevronDown,
   AlertCircle,
   FileSpreadsheet,
   RefreshCcw,
@@ -32,6 +34,7 @@ import {
 import { isValidEmail, normalizeEmailList, sanitizePhones } from '../utils/contact';
 import { buildFullName, normalizeHumanName, splitFullName } from '../utils/names';
 import { formatBusinessDateTimeForTicket, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
+import { Tooltip } from '@/shared/ui';
 
 type ValidationError = {
   rowNumber: number;
@@ -1001,6 +1004,7 @@ const ImportarClientesPage: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
+  const [quickGuideOpen, setQuickGuideOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1164,16 +1168,8 @@ const ImportarClientesPage: React.FC = () => {
   return (
     <ClientesModuleLayout activeTab="importar">
       <div className="flex-1 bg-gray-50 dark:bg-gray-900">
-        <div className="px-6 py-6 lg:px-12 lg:py-10">
-          <div className="space-y-2 mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Importación de clientes</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Importa registros nuevos o actualiza clientes existentes usando el número de documento como identificador.
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{modeMeta.instructions}</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-6">
+        <div className="px-6 py-5 lg:px-12 lg:py-8">
+          <div className="flex flex-wrap gap-2 mb-4">
           {(Object.keys(IMPORT_MODE_CONFIG) as ImportMode[]).map((modeKey) => {
             const meta = IMPORT_MODE_CONFIG[modeKey];
             const isActive = modeKey === mode;
@@ -1193,14 +1189,22 @@ const ImportarClientesPage: React.FC = () => {
           })}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.7fr,1fr]">
-          <div className="space-y-6">
+          <div className="grid gap-5 lg:grid-cols-[1.7fr,1fr]">
+          <div className="space-y-5">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
-              <div className="p-6 space-y-5">
+              <div className="p-5 space-y-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Archivo de importación</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Descarga la plantilla correspondiente, complétala y súbela sin modificar los encabezados.</p>
+                    <Tooltip contenido="Se actualiza por N° documento. No agregues ni reordenes columnas." ubicacion="derecha">
+                      <button
+                        type="button"
+                        aria-label="Ayuda sobre archivo de importación"
+                        className="inline-flex items-center justify-center rounded-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
                   </div>
                   <div className="flex gap-2">
                     {mode === 'BASICO' ? (
@@ -1236,12 +1240,16 @@ const ImportarClientesPage: React.FC = () => {
                   </div>
                 </div>
 
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Usa la plantilla oficial y no cambies los encabezados.
+                </p>
+
                 <div
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
-                  className={`rounded-2xl border-2 border-dashed transition-colors p-8 text-center cursor-pointer ${
+                  className={`rounded-2xl border-2 border-dashed transition-colors p-6 text-center cursor-pointer ${
                     dragActive
                       ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
                       : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-400/80'
@@ -1323,7 +1331,7 @@ const ImportarClientesPage: React.FC = () => {
             </div>
 
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
-              <div className="p-6 space-y-6">
+              <div className="p-5 space-y-5">
                 <div className="flex items-center gap-2 text-gray-700 dark:text-gray-200">
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   <div>
@@ -1373,58 +1381,75 @@ const ImportarClientesPage: React.FC = () => {
 
           <aside className="space-y-6">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
-              <div className="p-6 space-y-4">
-                <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100">
-                  <Info className="w-5 h-5 text-blue-500" />
-                  <div>
-                    <h3 className="text-lg font-semibold">Guía rápida</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{modeMeta.description}</p>
+              <div className="p-5">
+                <button
+                  type="button"
+                  onClick={() => setQuickGuideOpen((prev) => !prev)}
+                  aria-expanded={quickGuideOpen}
+                  aria-controls="quick-guide-content"
+                  className="flex w-full items-center justify-between gap-3 text-left text-gray-800 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800 rounded-xl"
+                >
+                  <div className="flex items-center gap-2">
+                    <Info className="w-5 h-5 text-blue-500" />
+                    <div>
+                      <h3 className="text-lg font-semibold">Guía rápida</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">3 pasos para importar sin errores.</p>
+                    </div>
                   </div>
-                </div>
+                  <ChevronDown
+                    className={`w-4 h-4 text-gray-500 transition-transform ${
+                      quickGuideOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
 
-                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                  <div className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">1</div>
-                    <span>Descarga la plantilla oficial desde el botón y evita modificar los encabezados.</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">2</div>
-                    <span>Llena los campos obligatorios usando los códigos SUNAT (0, 1, 4, 6, 7, A, B, etc.) para el tipo de documento.</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">3</div>
-                    <span>Importa el archivo: si el número de documento ya existe, se actualiza; si no existe, se crea un nuevo cliente.</span>
-                  </div>
-                </div>
+                {quickGuideOpen && (
+                  <div id="quick-guide-content" className="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">1</div>
+                        <span>Descarga la plantilla oficial.</span>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">2</div>
+                        <span>Completa los campos obligatorios con codigos SUNAT.</span>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">3</div>
+                        <span>Importa: si existe el documento, se actualiza; si no, se crea.</span>
+                      </div>
+                    </div>
 
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos obligatorios</p>
-                    <ul className="space-y-1 text-gray-700 dark:text-gray-300 list-disc list-inside">
-                      {modeMeta.requiredColumns.map((column) => (
-                        <li key={column}>{column}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos opcionales</p>
-                    <ul className="space-y-1 text-gray-600 dark:text-gray-400 list-disc list-inside">
-                      {modeMeta.optionalColumns.map((column) => (
-                        <li key={column}>{column}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos obligatorios</p>
+                        <ul className="space-y-1 text-gray-700 dark:text-gray-300 list-disc list-inside">
+                          {modeMeta.requiredColumns.map((column) => (
+                            <li key={column}>{column}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos opcionales</p>
+                        <ul className="space-y-1 text-gray-600 dark:text-gray-400 list-disc list-inside">
+                          {modeMeta.optionalColumns.map((column) => (
+                            <li key={column}>{column}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
 
-                <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-xs text-blue-800 dark:text-blue-200">
-                  <p className="font-semibold mb-1">Recomendaciones</p>
-                  <ul className="space-y-1 list-disc list-inside">
-                    <li>No insertes columnas ni cambies su orden.</li>
-                    <li>Usa textos simples (sin fórmulas) y elimina celdas combinadas.</li>
-                    <li>Verifica que el correo tenga formato válido y que el teléfono tenga entre 6 y 15 dígitos.</li>
-                    <li>Razón social es obligatoria para RUC; apellidos y nombres lo son para los demás códigos.</li>
-                  </ul>
-                </div>
+                    <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-xs text-blue-800 dark:text-blue-200">
+                      <p className="font-semibold mb-1">Recomendaciones</p>
+                      <ul className="space-y-1 list-disc list-inside">
+                        <li>No insertes ni reordenes columnas.</li>
+                        <li>Evita formulas y celdas combinadas.</li>
+                        <li>Valida correo y telefono (6 a 15 digitos).</li>
+                        <li>Razon social para RUC; nombres para otros codigos.</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
