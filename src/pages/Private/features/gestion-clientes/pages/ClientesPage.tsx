@@ -23,7 +23,15 @@ import {
 	resolveDocumentNumberFromInputs,
 	isSunatDocCode,
 } from '../utils/documents';
-import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
+import {
+	normalizeEmailList,
+	normalizeEmailListLoose,
+	normalizePhoneEntriesForForm,
+	normalizePhoneEntriesForPayload,
+	normalizePhoneList,
+	sanitizePhones,
+	splitPhoneStringToEntries,
+} from '../utils/contact';
 import { resolveCustomerNameFields } from '../utils/names';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
@@ -106,10 +114,10 @@ const resolveNameParts = (client: Cliente) => {
 
 const resolveEmails = (client: Cliente): string[] => {
 	if (client.emails?.length) {
-		return mergeEmails(client.emails);
+		return normalizeEmailList(client.emails);
 	}
 	if (client.email) {
-		return mergeEmails(splitEmails(client.email));
+		return normalizeEmailList(client.email);
 	}
 	return [];
 };
@@ -119,7 +127,7 @@ const resolvePhones = (client: Cliente): Array<{ numero: string; tipo: string }>
 		return sanitizePhones(client.telefonos);
 	}
 	if (client.phone) {
-		return sanitizePhones(splitPhones(client.phone));
+		return normalizePhoneList(client.phone);
 	}
 	return [];
 };
@@ -727,13 +735,8 @@ function ClientesPage() {
 		// Determinar DocumentType legacy desde el código SUNAT
 		const legacyDocType = documentTypeFromCode(formData.tipoDocumento) || 'SIN_DOCUMENTO';
 
-		const sanitizedEmails = formData.emails.filter(email => email.trim() !== '');
-		const sanitizedTelefonos = formData.telefonos
-			.filter(t => t.numero.trim() !== '')
-			.map(t => ({
-				numero: t.numero.trim(),
-				tipo: t.tipo || 'Móvil',
-			}));
+		const sanitizedEmails = normalizeEmailListLoose(formData.emails);
+		const sanitizedTelefonos = normalizePhoneEntriesForPayload(formData.telefonos);
 		const primaryPhone = sanitizedTelefonos[0]?.numero;
 		const profileForPayload = normalizeProfileSelectionValue(formData.listaPrecio);
 
@@ -865,23 +868,13 @@ function ClientesPage() {
 
 			const emails = client.emails?.length
 				? client.emails
-				: client.email
-					? client.email.split(',').map(email => email.trim()).filter(Boolean)
-					: [];
+				: normalizeEmailListLoose(client.email);
 
 			const telefonosRaw = client.telefonos?.length
 				? client.telefonos
-				: client.phone
-					? client.phone.split(',').map((numero, index) => ({
-							numero: numero.trim(),
-							tipo: index === 0 ? 'Móvil' : 'Otro',
-						})).filter(t => t.numero !== '')
-					: [];
+				: splitPhoneStringToEntries(client.phone);
 
-			const telefonos = telefonosRaw.map(t => ({
-				numero: t.numero,
-				tipo: t.tipo || 'Móvil',
-			}));
+			const telefonos = normalizePhoneEntriesForForm(telefonosRaw);
 
 			const [adjuntos, imagenes] = await Promise.all([
 				deserializeFiles(client.adjuntos),
@@ -1028,13 +1021,8 @@ function ClientesPage() {
 		
 		const legacyDocType = documentTypeFromCode(formData.tipoDocumento) || 'SIN_DOCUMENTO';
 
-		const sanitizedEmails = formData.emails.filter(email => email.trim() !== '');
-		const sanitizedTelefonos = formData.telefonos
-			.filter(t => t.numero.trim() !== '')
-			.map(t => ({
-				numero: t.numero.trim(),
-				tipo: t.tipo || 'Móvil',
-			}));
+		const sanitizedEmails = normalizeEmailListLoose(formData.emails);
+		const sanitizedTelefonos = normalizePhoneEntriesForPayload(formData.telefonos);
 		const primaryPhone = sanitizedTelefonos[0]?.numero;
 		const profileForPayload = normalizeProfileSelectionValue(formData.listaPrecio);
 

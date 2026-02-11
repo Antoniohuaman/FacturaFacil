@@ -29,7 +29,7 @@ import {
   onlyDigits,
   resolveDocumentDefinition,
 } from '../utils/documents';
-import { isValidEmail, mergeEmails, sanitizePhones } from '../utils/contact';
+import { isValidEmail, normalizeEmailList, sanitizePhones } from '../utils/contact';
 import { buildFullName, normalizeHumanName, splitFullName } from '../utils/names';
 import { formatBusinessDateTimeForTicket, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
@@ -284,7 +284,7 @@ const collectEmails = (
     }
     rawEmails.push(trimmed);
   }
-  return mergeEmails(rawEmails).slice(0, max);
+  return normalizeEmailList(rawEmails).slice(0, max);
 };
 
 const collectPhones = (
@@ -442,7 +442,7 @@ const buildDtoFromBasicRecord = (
     errors.push(`Tipo de cuenta inválido (${row.tipoCuenta || 'vacío'})`);
   }
 
-  const emails = mergeEmails(row.correo ? [row.correo] : []);
+  const emails = normalizeEmailList(row.correo ? [row.correo] : []);
   if (row.correo && emails.length === 0) {
     errors.push(`Correo inválido (${row.correo})`);
   }

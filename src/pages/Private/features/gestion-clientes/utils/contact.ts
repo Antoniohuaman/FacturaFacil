@@ -8,6 +8,28 @@ export const isValidEmail = (value?: string | null): boolean => {
   return EMAIL_REGEX.test(value.trim());
 };
 
+const splitRawCommaList = (value?: string | null): string[] => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+};
+
+export const normalizeEmailList = (raw?: string | string[] | null): string[] => {
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : splitRawCommaList(raw);
+  return mergeEmails(list);
+};
+
+export const normalizeEmailListLoose = (raw?: string | string[] | null): string[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((email) => email.trim() !== '');
+  }
+  return splitRawCommaList(raw);
+};
+
 export const splitEmails = (value?: string | null): string[] => {
   if (!value) return [];
   return value
@@ -46,6 +68,21 @@ export const splitPhones = (value?: string | null): Telefono[] => {
     .filter((telefono): telefono is Telefono => Boolean(telefono));
 };
 
+export const splitPhoneStringToEntries = (value?: string | null): Telefono[] => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((raw, index) => {
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      return {
+        numero: trimmed,
+        tipo: index === 0 ? 'Móvil' : 'Otro',
+      } satisfies Telefono;
+    })
+    .filter((telefono): telefono is Telefono => Boolean(telefono));
+};
+
 export const sanitizePhones = (telefonos?: Telefono[] | null): Telefono[] => {
   if (!telefonos) return [];
   return telefonos
@@ -55,4 +92,34 @@ export const sanitizePhones = (telefonos?: Telefono[] | null): Telefono[] => {
     }))
     .filter((telefono) => telefono.numero.length >= 6 && telefono.numero.length <= 15)
     .slice(0, 3);
+};
+
+export const normalizePhoneList = (raw?: string | string[] | null): Telefono[] => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    const rawEntries = raw.map((numero, index) => ({
+      numero,
+      tipo: index === 0 ? 'Móvil' : 'Alterno',
+    }));
+    return sanitizePhones(rawEntries);
+  }
+  return sanitizePhones(splitPhones(raw));
+};
+
+export const normalizePhoneEntriesForForm = (telefonos?: Telefono[] | null): Telefono[] => {
+  if (!telefonos) return [];
+  return telefonos.map((telefono) => ({
+    numero: telefono.numero,
+    tipo: telefono.tipo || 'Móvil',
+  }));
+};
+
+export const normalizePhoneEntriesForPayload = (telefonos?: Telefono[] | null): Telefono[] => {
+  if (!telefonos) return [];
+  return telefonos
+    .map((telefono) => ({
+      numero: telefono.numero.trim(),
+      tipo: telefono.tipo || 'Móvil',
+    }))
+    .filter((telefono) => telefono.numero !== '');
 };
