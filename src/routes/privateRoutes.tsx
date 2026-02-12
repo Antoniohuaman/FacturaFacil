@@ -20,7 +20,7 @@ import { ConfigurationDashboard } from "../pages/Private/features/configuracion-
 import { CompanyConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEmpresa";
 import { EstablecimientosConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEstablecimientos";
 import { ConfiguracionAlmacenes } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionAlmacenes";
-import { UsersConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionUsuarios";
+import { ConfiguracionUsuarios } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionUsuarios";
 import { SeriesConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionSeries";
 import { BusinessConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionNegocio";
 import { VoucherDesignConfigurationNew } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionDisenoComprobante";
@@ -91,7 +91,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
       { path: "/configuracion/establecimientos", element: <EstablecimientosConfiguration /> },
       { path: "/configuracion/almacenes", element: <ConfiguracionAlmacenes /> },
-      { path: "/configuracion/usuarios", element: <UsersConfiguration /> },
+      { path: "/configuracion/usuarios", element: <ConfiguracionUsuarios /> },
       { path: "/configuracion/empleados", loader: () => redirect("/configuracion/usuarios") },
       { path: "/configuracion/series", element: <SeriesConfiguration /> },
       { path: "/configuracion/negocio", element: <BusinessConfiguration /> },

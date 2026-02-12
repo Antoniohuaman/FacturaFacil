@@ -1,9 +1,8 @@
 // src/features/configuration/components/usuarios/UserCard.tsx
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   FileText,
   Shield,
-  Building2,
   Calendar,
   MoreVertical,
   Edit3,
@@ -18,44 +17,88 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { User } from '../../modelos/User';
-import type { Establecimiento } from '../../modelos/Establecimiento';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
 import { useUserSession } from '@/contexts/UserSessionContext';
+import { useTenantStore } from '../../../autenticacion/store/TenantStore';
+import { SYSTEM_ROLES } from '../../modelos/Role';
+import {
+  construirNombreCompleto,
+  construirResumenEmpresas,
+  construirResumenEstablecimientos,
+  construirResumenRoles,
+  obtenerAsignacionEmpresa,
+  obtenerAsignacionesUsuario,
+  obtenerEstadoUsuarioPorAsignaciones,
+  obtenerEstablecimientosIdsAsignacion,
+  obtenerMapaEstablecimientos,
+} from '../../utilidades/usuariosAsignaciones';
 
 // Type helper for user status
 type UserStatus = User['status'];
 
-interface UserCardProps {
-  user: User;
-  Establecimientos: Establecimiento[];
-  onEdit: () => void;
-  onDelete: () => void;
-  onChangeStatus: (status: UserStatus, reason?: string) => void;
-  onAssignRole: () => void;
-  onRemoveRole: (EstablecimientoId: string) => void;
-  showActions?: boolean;
-  compact?: boolean;
+interface PropsTarjetaUsuario {
+  usuario: User;
+  alEditar: () => void;
+  alEliminar: () => void;
+  alCambiarEstado: (estado: UserStatus, motivo?: string) => void;
+  alAsignarRol: () => void;
+  alQuitarAcceso: (establecimientoId: string) => void;
+  mostrarAcciones?: boolean;
+  compacto?: boolean;
 }
 
-export function UserCard({
-  user,
-  Establecimientos,
-  onEdit,
-  onDelete,
-  onChangeStatus,
-  onAssignRole,
-  onRemoveRole,
-  showActions = true,
-  compact = false
-}: UserCardProps) {
+export function TarjetaUsuario({
+  usuario,
+  alEditar,
+  alEliminar,
+  alCambiarEstado,
+  alAsignarRol,
+  alQuitarAcceso,
+  mostrarAcciones = true,
+  compacto = false
+}: PropsTarjetaUsuario) {
   const { session } = useUserSession();
-  const isCurrentUser = session?.userId === user.id;
-  const [showMenu, setShowMenu] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [statusReason, setStatusReason] = useState('');
-  const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const empresas = useTenantStore((store) => store.empresas);
+  const contextoActual = useTenantStore((store) => store.contextoActual);
+  const isCurrentUser = session?.userId === usuario.id;
+  const [mostrarMenu, setMostrarMenu] = useState(false);
+  const [mostrarModalEstado, setMostrarModalEstado] = useState(false);
+  const [motivoEstado, setMotivoEstado] = useState('');
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
 
-  const getStatusConfig = (status: UserStatus) => {
+  const empresaActual = useMemo(() => {
+    if (!contextoActual?.empresaId) return null;
+    return empresas.find((empresa) => empresa.id === contextoActual.empresaId) ?? null;
+  }, [contextoActual?.empresaId, empresas]);
+
+  const asignaciones = useMemo(
+    () => obtenerAsignacionesUsuario(
+      usuario,
+      empresaActual?.id,
+      empresaActual?.razonSocial ?? empresaActual?.nombreComercial,
+    ),
+    [empresaActual?.id, empresaActual?.nombreComercial, empresaActual?.razonSocial, usuario],
+  );
+
+  const mapaEstablecimientos = useMemo(
+    () => obtenerMapaEstablecimientos(empresas),
+    [empresas],
+  );
+
+  const asignacionEmpresaActual = empresaActual?.id
+    ? obtenerAsignacionEmpresa(asignaciones, empresaActual.id)
+    : undefined;
+  const establecimientosEmpresaActual = asignacionEmpresaActual
+    ? obtenerEstablecimientosIdsAsignacion(asignacionEmpresaActual)
+    : [];
+
+  const resumenRoles = construirResumenRoles(asignaciones, SYSTEM_ROLES);
+  const resumenEmpresas = construirResumenEmpresas(asignaciones);
+  const resumenEstablecimientos = construirResumenEstablecimientos(asignaciones, mapaEstablecimientos);
+  const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
+  const nombreCompleto = construirNombreCompleto(usuario.personalInfo.firstName, usuario.personalInfo.lastName);
+
+  const obtenerConfigEstado = (status: UserStatus) => {
     const configs: Record<UserStatus, {
       label: string;
       color: 'success' | 'warning' | 'error';
@@ -100,15 +143,7 @@ export function UserCard({
     return configs[status];
   };
 
-  const getEstablecimientoName = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.nombreEstablecimiento || 'Establecimiento no encontrado';
-  };
-
-  const getEstablecimientoCode = (EstablecimientoId: string) => {
-    return Establecimientos.find(est => est.id === EstablecimientoId)?.codigoEstablecimiento || 'N/A';
-  };
-
-  const formatDate = (date: Date) => {
+  const formatearFecha = (date: Date) => {
     return date.toLocaleDateString('es-ES', { 
       year: 'numeric', 
       month: 'short', 
@@ -116,8 +151,8 @@ export function UserCard({
     });
   };
 
-  const getInitials = (fullName: string) => {
-    return fullName
+  const obtenerIniciales = (nombre: string) => {
+    return nombre
       .split(' ')
       .map(name => name[0])
       .join('')
@@ -125,35 +160,35 @@ export function UserCard({
       .toUpperCase();
   };
 
-  const handleStatusChange = async (newStatus: UserStatus) => {
+  const manejarCambioEstado = async (newStatus: UserStatus) => {
     if (isCurrentUser && newStatus === 'INACTIVE') {
       return;
     }
-    if (newStatus === 'INACTIVE' && !statusReason.trim()) {
-      setShowStatusModal(true);
+    if (newStatus === 'INACTIVE' && !motivoEstado.trim()) {
+      setMostrarModalEstado(true);
       return;
     }
 
-    setIsChangingStatus(true);
+    setCambiandoEstado(true);
     try {
-      await onChangeStatus(newStatus, statusReason || undefined);
-      setShowStatusModal(false);
-      setStatusReason('');
+      await alCambiarEstado(newStatus, motivoEstado || undefined);
+      setMostrarModalEstado(false);
+      setMotivoEstado('');
     } finally {
-      setIsChangingStatus(false);
+      setCambiandoEstado(false);
     }
   };
 
-  const configEstado = getStatusConfig(user.status);
+  const configEstado = obtenerConfigEstado(estadoUsuario);
   const StatusIcon = configEstado.icon;
 
   return (
     <>
       <div
-        data-focus={`configuracion:usuarios:${user.id}`}
+        data-focus={`configuracion:usuarios:${usuario.id}`}
         className={`
         bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200
-        ${!compact ? 'p-6' : 'p-4'}
+        ${!compacto ? 'p-6' : 'p-4'}
       `}
       >
         {/* Header */}
@@ -162,20 +197,20 @@ export function UserCard({
             {/* Avatar */}
             <div className={`
               flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-semibold text-white
-              ${user.status === 'ACTIVE' 
+              ${estadoUsuario === 'ACTIVE' 
                 ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
-                : user.status === 'INACTIVE'
+                : estadoUsuario === 'INACTIVE'
                   ? 'bg-gradient-to-br from-yellow-500 to-yellow-600'
                   : 'bg-gradient-to-br from-gray-500 to-gray-600'
               }
             `}>
-              {getInitials(user.personalInfo.fullName)}
+              {obtenerIniciales(nombreCompleto)}
             </div>
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-1">
                 <h3 className="font-semibold text-gray-900 truncate">
-                  {user.personalInfo.fullName}
+                  {nombreCompleto}
                 </h3>
                 <IndicadorEstado
                   status={configEstado.color}
@@ -185,39 +220,39 @@ export function UserCard({
               </div>
               
               <p className="text-sm text-gray-600 truncate mb-1">
-                {user.personalInfo.email}
+                {usuario.personalInfo.email}
               </p>
               
-              {user.personalInfo.phone && (
+              {usuario.personalInfo.phone && (
                 <p className="text-xs text-gray-500">
-                  📱 {user.personalInfo.phone}
+                  📱 {usuario.personalInfo.phone}
                 </p>
               )}
             </div>
           </div>
 
-          {showActions && (
+          {mostrarAcciones && (
             <div className="relative flex-shrink-0">
               <button
-                onClick={() => setShowMenu(!showMenu)}
+                onClick={() => setMostrarMenu(!mostrarMenu)}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
 
               {/* Dropdown Menu */}
-              {showMenu && (
+              {mostrarMenu && (
                 <>
                   <div 
                     className="fixed inset-0 z-10" 
-                    onClick={() => setShowMenu(false)}
+                    onClick={() => setMostrarMenu(false)}
                   />
                   
                   <div className="absolute right-0 top-10 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
                     <button
                       onClick={() => {
-                        onEdit();
-                        setShowMenu(false);
+                        alEditar();
+                        setMostrarMenu(false);
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                     >
@@ -227,8 +262,8 @@ export function UserCard({
                     
                     <button
                       onClick={() => {
-                        onAssignRole();
-                        setShowMenu(false);
+                        alAsignarRol();
+                        setMostrarMenu(false);
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                     >
@@ -236,11 +271,11 @@ export function UserCard({
                       <span>Asignar Rol</span>
                     </button>
                     
-                    {user.status === 'INACTIVE' && (
+                    {estadoUsuario === 'INACTIVE' && (
                       <button
                         onClick={() => {
-                          onChangeStatus('ACTIVE');
-                          setShowMenu(false);
+                          manejarCambioEstado('ACTIVE');
+                          setMostrarMenu(false);
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
                       >
@@ -249,12 +284,12 @@ export function UserCard({
                       </button>
                     )}
                     
-                    {user.status === 'ACTIVE' && (
+                    {estadoUsuario === 'ACTIVE' && (
                       !isCurrentUser && (
                         <button
                           onClick={() => {
-                            setShowStatusModal(true);
-                            setShowMenu(false);
+                            setMostrarModalEstado(true);
+                            setMostrarMenu(false);
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
                         >
@@ -265,13 +300,13 @@ export function UserCard({
                     )}
 
                     {/* Delete - Only show if user has no transactions */}
-                    {!isCurrentUser && !user.hasTransactions && (
+                    {!isCurrentUser && !usuario.hasTransactions && (
                       <>
                         <div className="border-t border-gray-100 my-1"></div>
                         <button
                           onClick={() => {
-                            onDelete();
-                            setShowMenu(false);
+                            alEliminar();
+                            setMostrarMenu(false);
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
                         >
@@ -288,12 +323,12 @@ export function UserCard({
         </div>
 
         {/* Document Info */}
-        {user.personalInfo.documentType && user.personalInfo.documentNumber && (
+        {usuario.personalInfo.documentType && usuario.personalInfo.documentNumber && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center space-x-2">
               <FileText className="w-4 h-4 text-gray-600" />
               <span className="text-sm font-medium text-gray-700">
-                {user.personalInfo.documentType}: {user.personalInfo.documentNumber}
+                {usuario.personalInfo.documentType}: {usuario.personalInfo.documentNumber}
               </span>
             </div>
           </div>
@@ -312,77 +347,48 @@ export function UserCard({
           </p>
           
           {/* Additional status info */}
-          {user.status === 'INACTIVE' && user.createdAt && (
+          {estadoUsuario === 'INACTIVE' && usuario.createdAt && (
             <p className="text-xs text-gray-600 mt-2">
               <Clock className="w-3 h-3 inline mr-1" />
-              Creado {formatDate(user.createdAt)}
+              Creado {formatearFecha(usuario.createdAt)}
             </p>
           )}
           
-          {user.status === 'ACTIVE' && user.assignment.hireDate && (
+          {estadoUsuario === 'ACTIVE' && usuario.assignment.hireDate && (
             <p className="text-xs text-gray-600 mt-2">
               <CheckCircle className="w-3 h-3 inline mr-1" />
-              Contratado {formatDate(user.assignment.hireDate)}
+              Contratado {formatearFecha(usuario.assignment.hireDate)}
             </p>
           )}
           
-          {user.status === 'INACTIVE' && user.notes && (
+          {estadoUsuario === 'INACTIVE' && usuario.notes && (
             <p className="text-xs text-gray-600 mt-2">
               <AlertCircle className="w-3 h-3 inline mr-1" />
-              Notas: {user.notes}
+              Notas: {usuario.notes}
             </p>
           )}
         </div>
 
-        {/* Establecimientos asignados */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-medium text-gray-700 flex items-center space-x-2">
-              <Building2 className="w-4 h-4" />
-              <span>Establecimientos asignados</span>
-            </h4>
-            <span className="text-xs text-gray-500">
-              {user.assignment.EstablecimientoIds.length} asignado{user.assignment.EstablecimientoIds.length !== 1 ? 's' : ''}
-            </span>
+        <div className="mb-4 space-y-2">
+          <div className="text-sm text-gray-700">
+            <span className="font-medium">Empresas:</span> {resumenEmpresas.resumen}
+          </div>
+          <div className="text-sm text-gray-700">
+            <span className="font-medium">Roles:</span> {resumenRoles.resumen}
+          </div>
+          <div className="text-sm text-gray-700">
+            <span className="font-medium">Establecimientos:</span> {resumenEstablecimientos.resumen}
           </div>
 
-          <div className="text-xs text-gray-500 mb-2">
-            {user.systemAccess.roles.length > 0
-              ? `Rol: ${user.systemAccess.roles.map(role => role.name).filter(Boolean).join(', ')}`
-              : 'Sin rol asignado'}
-          </div>
-          
-          {user.assignment.EstablecimientoIds.length === 0 ? (
-            <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <Shield className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 mb-2">Sin establecimientos asignados</p>
-              <button
-                onClick={onEdit}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Editar usuario
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {user.assignment.EstablecimientoIds.map((EstablecimientoId: string, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-blue-900 text-sm">
-                        {getEstablecimientoCode(EstablecimientoId)}
-                      </span>
-                      <span className="text-blue-700 text-sm">
-                        {getEstablecimientoName(EstablecimientoId)}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Shield className="w-3 h-3 text-blue-600" />
-                      <span className="text-sm text-blue-800 font-medium">Acceso activo</span>
-                    </div>
+          {establecimientosEmpresaActual.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {establecimientosEmpresaActual.map((establecimientoId) => (
+                <div key={establecimientoId} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md">
+                  <div className="text-sm text-gray-700">
+                    {mapaEstablecimientos.get(establecimientoId)?.nombre ?? establecimientoId}
                   </div>
                   <button
-                    onClick={() => onRemoveRole && onRemoveRole(EstablecimientoId)}
+                    onClick={() => alQuitarAcceso(establecimientoId)}
                     className="p-1 text-red-500 hover:bg-red-100 rounded transition-colors"
                     title="Quitar acceso"
                   >
@@ -395,20 +401,20 @@ export function UserCard({
         </div>
 
         {/* Quick Actions */}
-        {showActions && (
+        {mostrarAcciones && (
           <div className="flex items-center justify-between pt-4 border-t border-gray-200">
             <div className="flex items-center space-x-2">
               <button
-                onClick={onAssignRole}
+                onClick={alAsignarRol}
                 className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Asignar Rol</span>
               </button>
               
-              {user.status === 'INACTIVE' && (
+              {estadoUsuario === 'INACTIVE' && (
                 <button
-                  onClick={() => onChangeStatus('ACTIVE')}
+                  onClick={() => manejarCambioEstado('ACTIVE')}
                   className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
                 >
                   <UserCheck className="w-4 h-4" />
@@ -419,7 +425,7 @@ export function UserCard({
             
             <div className="flex items-center space-x-2">
               <button
-                onClick={onEdit}
+                onClick={alEditar}
                 className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Editar usuario"
               >
@@ -433,20 +439,20 @@ export function UserCard({
         <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100 mt-4">
           <div className="flex items-center space-x-1">
             <Calendar className="w-3 h-3" />
-            <span>Creado {formatDate(user.createdAt)}</span>
+            <span>Creado {formatearFecha(usuario.createdAt)}</span>
           </div>
           
-          {user.updatedAt && user.updatedAt !== user.createdAt && (
+          {usuario.updatedAt && usuario.updatedAt !== usuario.createdAt && (
             <div className="flex items-center space-x-1">
               <Edit3 className="w-3 h-3" />
-              <span>Editado {formatDate(user.updatedAt)}</span>
+              <span>Editado {formatearFecha(usuario.updatedAt)}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Status Change Modal */}
-      {showStatusModal && (
+      {mostrarModalEstado && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-md">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -454,7 +460,7 @@ export function UserCard({
                 Desactivar Usuario
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {user.personalInfo.fullName}
+                {nombreCompleto}
               </p>
             </div>
 
@@ -464,8 +470,8 @@ export function UserCard({
                   Motivo de desactivación *
                 </label>
                 <textarea
-                  value={statusReason}
-                  onChange={(e) => setStatusReason(e.target.value)}
+                  value={motivoEstado}
+                  onChange={(e) => setMotivoEstado(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
                   rows={3}
                   placeholder="Especifica el motivo por el cual se desactiva al usuario..."
@@ -488,20 +494,20 @@ export function UserCard({
               <div className="flex items-center justify-end space-x-3">
                 <button
                   onClick={() => {
-                    setShowStatusModal(false);
-                    setStatusReason('');
+                    setMostrarModalEstado(false);
+                    setMotivoEstado('');
                   }}
-                  disabled={isChangingStatus}
+                  disabled={cambiandoEstado}
                   className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={() => handleStatusChange('INACTIVE')}
-                  disabled={!statusReason.trim() || isChangingStatus}
+                  onClick={() => manejarCambioEstado('INACTIVE')}
+                  disabled={!motivoEstado.trim() || cambiandoEstado}
                   className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
                 >
-                  {isChangingStatus && (
+                  {cambiandoEstado && (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   )}
                   <span>Desactivar</span>

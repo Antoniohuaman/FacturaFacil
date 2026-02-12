@@ -14,11 +14,26 @@ import { normalizeUnitsWithCatalog } from '../modelos';
 import type { Almacen } from '../modelos/Almacen';
 import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
-import type { Role, SystemRoleDefinition } from '../modelos/Role';
 import { SYSTEM_ROLE_IDS, SYSTEM_ROLES } from '../modelos/Role';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { parseUbigeoCode } from '../datos/ubigeo';
+import {
+  construirNombreCompleto,
+  construirRolesSistema,
+  mapearSesionAUsuarioConfiguracion,
+  normalizarCorreo,
+  normalizarUsuario,
+  obtenerAsignacionEmpresa,
+  obtenerAsignacionesActualizadas,
+  obtenerAsignacionesUsuario,
+  obtenerEstadoUsuarioPorAsignaciones,
+  obtenerEstablecimientosIdsAsignacion,
+  obtenerEstablecimientosUnicos,
+  obtenerIdsRolesUnicos,
+  obtenerRolesPorEstablecimientoAsignacion,
+  unirIdsUnicos,
+} from '../utilidades/usuariosAsignaciones';
 import { generateWorkspaceId, lsKey } from '../../../../../shared/tenant';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { currencyManager } from '@/shared/currency';
@@ -69,99 +84,6 @@ const LLAVE_ALMACENAMIENTO_CONFIGURACION = 'facturaFacilConfig';
 type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
-
-type SessionValue = ReturnType<typeof useUserSession>['session'];
-type SessionUser = NonNullable<SessionValue>;
-
-const normalizeEmail = (email?: string) => (email ?? '').trim().toLowerCase();
-
-const getNameParts = (fullName: string) => {
-  const trimmed = fullName.trim();
-  const parts = trimmed.split(/\s+/).filter(Boolean);
-  const firstName = parts[0] || trimmed;
-  const lastName = parts.slice(1).join(' ') || parts[0] || trimmed;
-
-  return {
-    firstName: firstName || '',
-    lastName: lastName || '',
-    fullName: trimmed || firstName || lastName || '',
-  };
-};
-
-const buildDeterministicUserCode = (userId: string) => {
-  const normalized = userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
-  const base = normalized || userId.slice(0, 8);
-  return `USR-${base.toUpperCase()}`;
-};
-
-const resolveSystemRole = (
-  roleId: string,
-  systemRoles: SystemRoleDefinition[],
-): Role | null => {
-  const role = systemRoles.find((item) => item.id === roleId);
-  if (!role || !role.permissions) {
-    return null;
-  }
-
-  const now = new Date();
-  return {
-    id: role.id,
-    name: role.name ?? '',
-    description: role.description ?? '',
-    type: role.type ?? 'SYSTEM',
-    level: role.level ?? 'ADMIN',
-    permissions: role.permissions,
-    restrictions: role.restrictions ?? {},
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  };
-};
-
-export const mapSessionToConfigUser = (
-  session: SessionUser,
-  contextoActual: WorkspaceContext | null,
-  systemRoles: SystemRoleDefinition[],
-  systemRoleIds: typeof SYSTEM_ROLE_IDS,
-): User => {
-  const fullName = session.userName ?? '';
-  const { firstName, lastName, fullName: normalizedFullName } = getNameParts(fullName);
-  const activeEstablecimientoId =
-    contextoActual?.establecimientoId ??
-    session.currentEstablecimientoId ??
-    session.currentEstablecimiento?.id ??
-    '';
-  const superAdminRole = resolveSystemRole(systemRoleIds.SUPER_ADMIN, systemRoles);
-  const roleIds = [systemRoleIds.SUPER_ADMIN];
-  const roles = superAdminRole ? [superAdminRole] : [];
-
-  return {
-    id: session.userId,
-    code: buildDeterministicUserCode(session.userId),
-    personalInfo: {
-      firstName,
-      lastName,
-      fullName: normalizedFullName,
-      email: session.userEmail ?? '',
-    },
-    assignment: {
-      EstablecimientoId: activeEstablecimientoId || undefined,
-      EstablecimientoIds: activeEstablecimientoId ? [activeEstablecimientoId] : [],
-    },
-    systemAccess: {
-      username: session.userEmail ? session.userEmail.split('@')[0] : session.userId,
-      email: session.userEmail ?? '',
-      roleIds,
-      roles,
-      permissions: [],
-      loginAttempts: 0,
-      isLocked: false,
-    },
-    status: 'ACTIVE',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-};
 
 type DatosConfiguracionInicialEmpresa = {
   direccionFiscal: string;
@@ -822,7 +744,7 @@ const persistTenantSnapshot = (storageKey: StorageKey, snapshot: PersistedTenant
   }
 };
 
-type DatosEmpresaDemo = {
+type DatosEmpresaBase = {
   ruc: string;
   razonSocial: string;
   nombreComercial: string;
@@ -835,7 +757,7 @@ type DatosEmpresaDemo = {
   entornoSunat: 'TEST' | 'PRODUCTION';
 };
 
-const DATOS_EMPRESA_DEMO: DatosEmpresaDemo = {
+const DATOS_EMPRESA_BASE: DatosEmpresaBase = {
   ruc: '20000000000',
   razonSocial: 'SENCIYO S.A.C.',
   nombreComercial: 'SENCIYO',
@@ -848,7 +770,7 @@ const DATOS_EMPRESA_DEMO: DatosEmpresaDemo = {
   entornoSunat: 'TEST',
 };
 
-const construirEmpresaDemo = (datos: DatosEmpresaDemo): Company => {
+const construirEmpresaBase = (datos: DatosEmpresaBase): Company => {
   const ubicacion = parseUbigeoCode(datos.ubigeo);
   const telefonosLimpios = datos.telefonos.filter((telefono) => telefono.trim() !== '');
   const correosLimpios = datos.correosElectronicos.filter((correo) => correo.trim() !== '');
@@ -1141,7 +1063,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
   const tenantHydratedRef = useRef(false);
   const unitsHydratedRef = useRef(false);
-  const instalacionDemoRef = useRef(false);
+  const instalacionBaseRef = useRef(false);
   const sincronizacionWorkspaceRef = useRef(false);
 
   const seriesHydratedRef = useRef(false);
@@ -1209,22 +1131,22 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     if (tenantId) return;
     if (sincronizacionWorkspaceRef.current) return;
 
-    const workspaceDemo = createOrUpdateWorkspace({
+    const workspaceBase = createOrUpdateWorkspace({
       id: generateWorkspaceId(),
-      ruc: DATOS_EMPRESA_DEMO.ruc,
-      razonSocial: DATOS_EMPRESA_DEMO.razonSocial,
-      nombreComercial: DATOS_EMPRESA_DEMO.nombreComercial,
-      domicilioFiscal: DATOS_EMPRESA_DEMO.direccionFiscal,
+      ruc: DATOS_EMPRESA_BASE.ruc,
+      razonSocial: DATOS_EMPRESA_BASE.razonSocial,
+      nombreComercial: DATOS_EMPRESA_BASE.nombreComercial,
+      domicilioFiscal: DATOS_EMPRESA_BASE.direccionFiscal,
     });
 
-    sincronizacionWorkspaceRef.current = Boolean(workspaceDemo.id);
+    sincronizacionWorkspaceRef.current = Boolean(workspaceBase.id);
   }, [createOrUpdateWorkspace, tenantId]);
 
   useEffect(() => {
     if (!tenantId) return;
     if (!tenantHydratedRef.current) return;
     if (!seriesHydratedRef.current) return;
-    if (instalacionDemoRef.current) return;
+    if (instalacionBaseRef.current) return;
 
     const snapshot = loadTenantConfigFromStorage(tenantConfigKey);
     const seriesAlmacenadas = loadStoredSeries(seriesStorageKey);
@@ -1245,22 +1167,22 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.series.length > 0;
 
     if (!almacenamientoVacio || seriesAlmacenadas.length > 0 || estadoTieneDatos) {
-      instalacionDemoRef.current = true;
+      instalacionBaseRef.current = true;
       return;
     }
 
-    const empresaDemo = construirEmpresaDemo(DATOS_EMPRESA_DEMO);
-    dispatch({ type: 'SET_COMPANY', payload: empresaDemo });
+    const empresaBase = construirEmpresaBase(DATOS_EMPRESA_BASE);
+    dispatch({ type: 'SET_COMPANY', payload: empresaBase });
 
     const resultadoConfiguracion = construirConfiguracionInicialEmpresa({
-      empresa: empresaDemo,
+      empresa: empresaBase,
       datos: {
-        direccionFiscal: DATOS_EMPRESA_DEMO.direccionFiscal,
-        ubigeo: DATOS_EMPRESA_DEMO.ubigeo,
-        entornoSunat: DATOS_EMPRESA_DEMO.entornoSunat,
-        telefonos: DATOS_EMPRESA_DEMO.telefonos,
-        correosElectronicos: DATOS_EMPRESA_DEMO.correosElectronicos,
-        actividadEconomica: DATOS_EMPRESA_DEMO.actividadEconomica,
+        direccionFiscal: DATOS_EMPRESA_BASE.direccionFiscal,
+        ubigeo: DATOS_EMPRESA_BASE.ubigeo,
+        entornoSunat: DATOS_EMPRESA_BASE.entornoSunat,
+        telefonos: DATOS_EMPRESA_BASE.telefonos,
+        correosElectronicos: DATOS_EMPRESA_BASE.correosElectronicos,
+        actividadEconomica: DATOS_EMPRESA_BASE.actividadEconomica,
       },
       seriesExistentes: state.series,
       monedasExistentes: state.currencies,
@@ -1287,7 +1209,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       : state.currencies;
 
     void asegurarConfiguracionOperativaPredeterminada({
-      empresa: empresaDemo,
+      empresa: empresaBase,
       Establecimiento: resultadoConfiguracion.establecimiento,
       userId: session?.userId ?? null,
       estadoConfiguracion: {
@@ -1297,7 +1219,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       dispatch,
     });
 
-    instalacionDemoRef.current = true;
+    instalacionBaseRef.current = true;
   }, [
     dispatch,
     seriesStorageKey,
@@ -1443,89 +1365,147 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     if (!tenantId) return;
     if (!session?.userId || !session.userName || !session.userEmail) return;
 
-    const activeCompanyId = contextoActual?.empresaId ?? session.currentCompanyId ?? '';
-    if (state.company?.id && activeCompanyId && activeCompanyId !== state.company.id) {
+    const empresaActivaId = contextoActual?.empresaId ?? session.currentCompanyId ?? state.company?.id ?? '';
+    if (state.company?.id && empresaActivaId && empresaActivaId !== state.company.id) {
       return;
     }
 
-    const activeEstablecimientoId =
+    const establecimientoActivoId =
       contextoActual?.establecimientoId ??
       session.currentEstablecimientoId ??
       session.currentEstablecimiento?.id ??
       '';
-    if (!activeEstablecimientoId) return;
+    if (!establecimientoActivoId) return;
 
-    const normalizedEmail = normalizeEmail(session.userEmail);
-    const existingUser = state.users.find((user) =>
-      user.id === session.userId ||
-      (normalizedEmail && normalizeEmail(user.personalInfo.email) === normalizedEmail)
+    const empresaNombreActiva =
+      contextoActual?.empresa?.razonSocial ??
+      contextoActual?.empresa?.nombreComercial ??
+      state.company?.razonSocial ??
+      state.company?.nombreComercial;
+
+    const correoNormalizado = normalizarCorreo(session.userEmail);
+    const usuarioExistente = state.users.find((usuario) =>
+      usuario.id === session.userId ||
+      (correoNormalizado && normalizarCorreo(usuario.personalInfo.email) === correoNormalizado)
     );
 
-    const superAdminUser = mapSessionToConfigUser(
+    const usuarioSesion = mapearSesionAUsuarioConfiguracion(
       session,
-      contextoActual,
+      {
+        empresaId: empresaActivaId,
+        empresaNombre: empresaNombreActiva,
+        establecimientoId: establecimientoActivoId,
+      },
       SYSTEM_ROLES,
-      SYSTEM_ROLE_IDS,
+      SYSTEM_ROLE_IDS.SUPER_ADMIN,
     );
 
-    if (!existingUser) {
-      dispatch({ type: 'ADD_USER', payload: superAdminUser });
+    if (!usuarioExistente) {
+      dispatch({ type: 'ADD_USER', payload: usuarioSesion });
       return;
     }
 
-    const mergedEstablecimientos = existingUser.assignment.EstablecimientoIds.includes(activeEstablecimientoId)
-      ? existingUser.assignment.EstablecimientoIds
-      : [...existingUser.assignment.EstablecimientoIds, activeEstablecimientoId];
+    const usuarioNormalizado = normalizarUsuario(
+      usuarioExistente,
+      empresaActivaId,
+      empresaNombreActiva,
+    );
+    const asignaciones = obtenerAsignacionesUsuario(
+      usuarioNormalizado,
+      empresaActivaId,
+      empresaNombreActiva,
+    );
+    const asignacionEmpresa = obtenerAsignacionEmpresa(asignaciones, empresaActivaId);
 
-    const mergedRoleIds = existingUser.systemAccess.roleIds.includes(SYSTEM_ROLE_IDS.SUPER_ADMIN)
-      ? existingUser.systemAccess.roleIds
-      : [...existingUser.systemAccess.roleIds, SYSTEM_ROLE_IDS.SUPER_ADMIN];
+    const establecimientosActualizados = unirIdsUnicos(
+      asignacionEmpresa ? obtenerEstablecimientosIdsAsignacion(asignacionEmpresa) : [],
+      establecimientoActivoId ? [establecimientoActivoId] : [],
+    );
+    const rolesPorEstablecimiento = asignacionEmpresa
+      ? obtenerRolesPorEstablecimientoAsignacion(asignacionEmpresa)
+      : {};
+    const rolesActualizados = {
+      ...rolesPorEstablecimiento,
+      ...(establecimientoActivoId ? { [establecimientoActivoId]: SYSTEM_ROLE_IDS.SUPER_ADMIN } : {}),
+    };
+    const establecimientosAsignados = establecimientosActualizados.map((id) => ({
+      establecimientoId: id,
+      roleId: rolesActualizados[id] ?? '',
+    }));
+    const asignacionesActualizadas = obtenerAsignacionesActualizadas(
+      asignaciones,
+      empresaActivaId,
+      {
+        empresaNombre: empresaNombreActiva ?? asignacionEmpresa?.empresaNombre,
+        establecimientos: establecimientosAsignados,
+        estado: 'ACTIVE',
+      },
+    );
+    const idsRolesGlobales = obtenerIdsRolesUnicos(asignacionesActualizadas);
+    const rolesGlobales = construirRolesSistema(idsRolesGlobales, SYSTEM_ROLES);
+    const establecimientosGlobales = obtenerEstablecimientosUnicos(asignacionesActualizadas);
+    const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(
+      asignacionesActualizadas,
+      usuarioExistente.status,
+    );
 
-    const existingRolesById = new Map(existingUser.systemAccess.roles.map((role) => [role.id, role]));
-    superAdminUser.systemAccess.roles.forEach((role) => {
-      if (!existingRolesById.has(role.id)) {
-        existingRolesById.set(role.id, role);
-      }
-    });
+    const nombreCompleto = usuarioSesion.personalInfo.fullName || usuarioExistente.personalInfo.fullName;
+    const correo = usuarioSesion.personalInfo.email || usuarioExistente.personalInfo.email;
+    const nombres = usuarioSesion.personalInfo.firstName || usuarioExistente.personalInfo.firstName;
+    const apellidos = usuarioSesion.personalInfo.lastName || usuarioExistente.personalInfo.lastName;
+    const nombreSincronizado = construirNombreCompleto(nombres, apellidos) || nombreCompleto;
 
-    const nextFullName = superAdminUser.personalInfo.fullName || existingUser.personalInfo.fullName;
-    const nextEmail = superAdminUser.personalInfo.email || existingUser.personalInfo.email;
+    const faltaAsignacionEmpresa = !asignacionEmpresa;
+    const faltaRolSuperAdmin = !usuarioExistente.systemAccess.roleIds.includes(SYSTEM_ROLE_IDS.SUPER_ADMIN);
+    const faltaEstablecimiento =
+      establecimientoActivoId &&
+      !usuarioExistente.assignment.EstablecimientoIds.includes(establecimientoActivoId);
 
-    const needsUpdate =
-      existingUser.personalInfo.fullName !== nextFullName ||
-      existingUser.personalInfo.email !== nextEmail ||
-      existingUser.status !== 'ACTIVE' ||
-      mergedEstablecimientos.length !== existingUser.assignment.EstablecimientoIds.length ||
-      mergedRoleIds.length !== existingUser.systemAccess.roleIds.length ||
-      existingRolesById.size !== existingUser.systemAccess.roles.length;
+    const necesitaActualizacion =
+      usuarioExistente.personalInfo.fullName !== nombreSincronizado ||
+      usuarioExistente.personalInfo.email !== correo ||
+      usuarioExistente.personalInfo.firstName !== nombres ||
+      usuarioExistente.personalInfo.lastName !== apellidos ||
+      usuarioExistente.status !== estadoGlobal ||
+      faltaEstablecimiento ||
+      faltaRolSuperAdmin ||
+      faltaAsignacionEmpresa ||
+      establecimientosGlobales.length !== usuarioExistente.assignment.EstablecimientoIds.length ||
+      idsRolesGlobales.length !== usuarioExistente.systemAccess.roleIds.length ||
+      rolesGlobales.length !== usuarioExistente.systemAccess.roles.length;
 
-    if (!needsUpdate) return;
+    if (!necesitaActualizacion) return;
 
-    const updatedUser: User = {
-      ...existingUser,
+    const usuarioActualizado: User = {
+      ...usuarioExistente,
       personalInfo: {
-        ...existingUser.personalInfo,
-        fullName: nextFullName,
-        email: nextEmail,
+        ...usuarioExistente.personalInfo,
+        firstName: nombres,
+        lastName: apellidos,
+        fullName: nombreSincronizado,
+        email: correo,
       },
       assignment: {
-        ...existingUser.assignment,
-        EstablecimientoId: activeEstablecimientoId,
-        EstablecimientoIds: mergedEstablecimientos,
+        ...usuarioExistente.assignment,
+        EstablecimientoId: establecimientoActivoId,
+        EstablecimientoIds: establecimientosGlobales,
       },
       systemAccess: {
-        ...existingUser.systemAccess,
-        roleIds: mergedRoleIds,
-        roles: Array.from(existingRolesById.values()),
+        ...usuarioExistente.systemAccess,
+        roleIds: idsRolesGlobales,
+        roles: rolesGlobales,
       },
-      status: 'ACTIVE',
+      asignacionesPorEmpresa: asignacionesActualizadas,
+      status: estadoGlobal,
       updatedAt: new Date(),
     };
 
-    dispatch({ type: 'UPDATE_USER', payload: updatedUser });
+    dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
   }, [
     contextoActual,
     contextoActual?.empresaId,
+    contextoActual?.empresa?.nombreComercial,
+    contextoActual?.empresa?.razonSocial,
     contextoActual?.establecimientoId,
     dispatch,
     session,
@@ -1536,6 +1516,8 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     session?.userId,
     session?.userName,
     state.company?.id,
+    state.company?.nombreComercial,
+    state.company?.razonSocial,
     state.users,
     tenantId,
   ]);

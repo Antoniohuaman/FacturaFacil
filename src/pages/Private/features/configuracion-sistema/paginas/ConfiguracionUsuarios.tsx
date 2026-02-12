@@ -1,5 +1,5 @@
 // src/features/configuration/pages/UsersConfiguration.tsx
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -9,50 +9,56 @@ import {
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
-import { UsersList } from '../components/usuarios/ListaUsuarios';
-import { UserForm } from '../components/usuarios/FormularioUsuario';
-import { RolesList } from '../components/roles/ListaRoles';
-import { CredentialsModal } from '../components/usuarios/ModalCredenciales';
+import { ListaUsuarios } from '../components/usuarios/ListaUsuarios.tsx';
+import { FormularioUsuario } from '../components/usuarios/FormularioUsuario';
+import { ListaRoles } from '../components/roles/ListaRoles';
+import { ModalCredenciales } from '../components/usuarios/ModalCredenciales';
 import { SYSTEM_ROLES } from '../modelos/Role';
 import type { User } from '../modelos/User';
-import type { Role } from '../modelos/Role';
 import { Button, PageHeader } from '@/contasis';
+import { useTenantStore } from '../../autenticacion/store/TenantStore';
+import {
+  construirAsignacionesDesdeFormulario,
+  construirNombreCompleto,
+  construirRolesSistema,
+  normalizarCorreo,
+  obtenerAsignacionesActualizadas,
+  obtenerAsignacionEmpresa,
+  obtenerAsignacionesUsuario,
+  obtenerEstadoUsuarioPorAsignaciones,
+  obtenerEstablecimientosUnicos,
+  obtenerIdsRolesUnicos,
+  obtenerMapaEstablecimientos,
+} from '../utilidades/usuariosAsignaciones';
 
-// Modal for Role Assignment
-import RoleAssignment from '../components/usuarios/AsignacionRol';
+type EstadoUsuario = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
 
-type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
+type DatosFormularioUsuario = {
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  telefono: string;
+  tipoDocumento: 'DNI' | 'CE' | 'PASSPORT' | '';
+  numeroDocumento: string;
+  contrasena: string;
+  asignacionesPorEmpresa: User['asignacionesPorEmpresa'];
+};
 
-interface UserFormData {
-  fullName: string;
-  email: string;
-  phone: string;
-  documentType: 'DNI' | 'CE' | 'PASSPORT' | '';
-  documentNumber: string;
-  EstablecimientoIds: string[];
-  password: string;
-}
-
-export function UsersConfiguration() {
+export function ConfiguracionUsuarios() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
-  const { users, Establecimientos } = state;
+  const { users: usuarios, Establecimientos: establecimientos } = state;
+  const empresas = useTenantStore((store) => store.empresas);
+  const contextoActual = useTenantStore((store) => store.contextoActual);
 
-  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
-  const [showUserForm, setShowUserForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{ show: boolean; user?: User }>({
+  const [pestanaActiva, setPestanaActiva] = useState<'usuarios' | 'roles'>('usuarios');
+  const [mostrarFormularioUsuario, setMostrarFormularioUsuario] = useState(false);
+  const [usuarioEnEdicion, setUsuarioEnEdicion] = useState<User | null>(null);
+  const [modalEliminar, setModalEliminar] = useState<{ show: boolean; user?: User }>({
     show: false
   });
-  const [roleAssignmentModal, setRoleAssignmentModal] = useState<{ show: boolean; user?: User }>(
-    {
-      show: false
-    }
-  );
-  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
-  const [roleError, setRoleError] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [credentialsModal, setCredentialsModal] = useState<{
+  const [cargando, setCargando] = useState(false);
+  const [modalCredenciales, setModalCredenciales] = useState<{
     show: boolean;
     user?: User;
     credentials?: {
@@ -63,250 +69,263 @@ export function UsersConfiguration() {
     };
   }>({ show: false });
 
-  // Get existing emails for validation
-  const existingEmails = users
-    .filter(user => user.id !== editingUser?.id)
-    .map(user => user.personalInfo.email.toLowerCase());
+  const empresaActual = useMemo(() => {
+    if (!contextoActual?.empresaId) return null;
+    return empresas.find((empresa) => empresa.id === contextoActual.empresaId) ?? null;
+  }, [contextoActual?.empresaId, empresas]);
 
-  const generateLocalUserId = () => {
+  const correosExistentes = usuarios
+    .filter(usuario => usuario.id !== usuarioEnEdicion?.id)
+    .map(usuario => normalizarCorreo(usuario.personalInfo.email));
+
+  const generarIdUsuarioLocal = () => {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
       return crypto.randomUUID();
     }
     return `user-${Date.now()}`;
   };
 
-  const generateLocalUserCode = () => {
-    const nextIndex = users.length + 1;
+  const generarCodigoUsuarioLocal = () => {
+    const nextIndex = usuarios.length + 1;
     return `USR-${String(nextIndex).padStart(3, '0')}`;
   };
 
-  // Reset form
-  const resetUserForm = () => {
-    setEditingUser(null);
-    setShowUserForm(false);
+  const reiniciarFormularioUsuario = () => {
+    setUsuarioEnEdicion(null);
+    setMostrarFormularioUsuario(false);
   };
 
-  // Handle create/edit user
-  const handleSubmitUser = async (data: UserFormData) => {
-    if (data.EstablecimientoIds.length === 0) {
+  const manejarEnvioUsuario = async (data: DatosFormularioUsuario) => {
+    const asignacionesFormulario = data.asignacionesPorEmpresa ?? [];
+    if (asignacionesFormulario.length === 0) {
       return;
     }
 
-    setIsLoading(true);
+    setCargando(true);
 
     try {
-      // Split full name into first and last name
-      const nameParts = data.fullName.trim().split(' ');
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(' ') || nameParts[0];
-      const primaryEstablecimientoId =
-        data.EstablecimientoIds.length === 1 ? data.EstablecimientoIds[0] : undefined;
+      const asignacionesNormalizadas = construirAsignacionesDesdeFormulario(
+        asignacionesFormulario ?? [],
+        empresas,
+      );
+      const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesNormalizadas);
+      const idsRoles = obtenerIdsRolesUnicos(asignacionesNormalizadas);
+      const rolesSistema = construirRolesSistema(idsRoles, SYSTEM_ROLES);
+      const estadoPorAsignaciones = obtenerEstadoUsuarioPorAsignaciones(
+        asignacionesNormalizadas,
+        usuarioEnEdicion?.status ?? 'ACTIVE',
+      );
+      const nombreCompleto = construirNombreCompleto(data.nombres, data.apellidos);
+      const establecimientoPrincipal = idsEstablecimientos.length === 1 ? idsEstablecimientos[0] : undefined;
 
-      if (editingUser) {
-        // Update existing user
-        const updatedUser: User = {
-          ...editingUser,
+      if (usuarioEnEdicion) {
+        const usuarioActualizado: User = {
+          ...usuarioEnEdicion,
           personalInfo: {
-            ...editingUser.personalInfo,
-            firstName,
-            lastName,
-            fullName: data.fullName,
-            email: data.email,
-            phone: data.phone,
-            documentType: data.documentType || undefined,
-            documentNumber: data.documentNumber || undefined,
+            ...usuarioEnEdicion.personalInfo,
+            firstName: data.nombres,
+            lastName: data.apellidos,
+            fullName: nombreCompleto,
+            email: data.correo,
+            phone: data.telefono,
+            documentType: data.tipoDocumento || undefined,
+            documentNumber: data.numeroDocumento || undefined,
           },
           assignment: {
-            ...editingUser.assignment,
-            EstablecimientoId: primaryEstablecimientoId,
-            EstablecimientoIds: data.EstablecimientoIds,
+            ...usuarioEnEdicion.assignment,
+            EstablecimientoId: establecimientoPrincipal,
+            EstablecimientoIds: idsEstablecimientos,
           },
+          systemAccess: {
+            ...usuarioEnEdicion.systemAccess,
+            username: data.correo.split('@')[0],
+            email: data.correo,
+            roleIds: idsRoles,
+            roles: rolesSistema,
+          },
+          asignacionesPorEmpresa: asignacionesNormalizadas,
+          status: estadoPorAsignaciones,
           updatedAt: new Date(),
         };
 
-        dispatch({ type: 'UPDATE_USER', payload: updatedUser });
+        dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
       } else {
-        // Create new user
-        const newUser: User = {
-          id: generateLocalUserId(),
-          code: generateLocalUserCode(),
+        const nuevoUsuario: User = {
+          id: generarIdUsuarioLocal(),
+          code: generarCodigoUsuarioLocal(),
           personalInfo: {
-            firstName,
-            lastName,
-            fullName: data.fullName,
-            documentType: data.documentType || undefined,
-            documentNumber: data.documentNumber || undefined,
-            email: data.email,
-            phone: data.phone,
+            firstName: data.nombres,
+            lastName: data.apellidos,
+            fullName: nombreCompleto,
+            documentType: data.tipoDocumento || undefined,
+            documentNumber: data.numeroDocumento || undefined,
+            email: data.correo,
+            phone: data.telefono,
           },
           assignment: {
-            EstablecimientoId: primaryEstablecimientoId,
-            EstablecimientoIds: data.EstablecimientoIds,
+            EstablecimientoId: establecimientoPrincipal,
+            EstablecimientoIds: idsEstablecimientos,
           },
           systemAccess: {
-            username: data.email.split('@')[0],
-            email: data.email,
-            roleIds: [],
-            roles: [],
+            username: data.correo.split('@')[0],
+            email: data.correo,
+            roleIds: idsRoles,
+            roles: rolesSistema,
             permissions: [],
             loginAttempts: 0,
             isLocked: false,
           },
-          status: 'ACTIVE',
+          asignacionesPorEmpresa: asignacionesNormalizadas,
+          status: estadoPorAsignaciones,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
 
-        dispatch({ type: 'ADD_USER', payload: newUser });
+        dispatch({ type: 'ADD_USER', payload: nuevoUsuario });
 
-        // Open role assignment modal first, then credentials
-        setRoleAssignmentModal({ show: true, user: newUser });
-        setSelectedRoleIds([]);
-
-        // Store credentials for later display
-        setCredentialsModal({
-          show: false,
-          user: newUser,
+        setModalCredenciales({
+          show: true,
+          user: nuevoUsuario,
           credentials: {
-            fullName: data.fullName,
-            email: data.email,
-            username: data.email.split('@')[0],
-            password: data.password
+            fullName: nombreCompleto,
+            email: data.correo,
+            username: data.correo.split('@')[0],
+            password: data.contrasena,
           }
         });
       }
 
-      resetUserForm();
+      reiniciarFormularioUsuario();
     } catch {
       return;
     } finally {
-      setIsLoading(false);
+      setCargando(false);
     }
   };
 
-  // Handle edit user
-  const handleEditUser = (user: User) => {
-    setEditingUser(user);
-    setShowUserForm(true);
+  const manejarEditarUsuario = (usuario: User) => {
+    setUsuarioEnEdicion(usuario);
+    setMostrarFormularioUsuario(true);
   };
 
-  // Handle delete user
-  const handleDeleteUser = async (user: User) => {
-    setIsLoading(true);
+  const manejarEliminarUsuario = async (usuario: User) => {
+    setCargando(true);
 
     try {
-      dispatch({ type: 'DELETE_USER', payload: user.id });
-      setDeleteModal({ show: false });
+      dispatch({ type: 'DELETE_USER', payload: usuario.id });
+      setModalEliminar({ show: false });
     } catch {
       return;
     } finally {
-      setIsLoading(false);
+      setCargando(false);
     }
   };
 
-  // Handle change user status
-  const handleChangeStatus = async (user: User, newStatus: UserStatus, reason?: string) => {
-    setIsLoading(true);
+  const manejarCambioEstado = async (usuario: User, nuevoEstado: EstadoUsuario, motivo?: string) => {
+    setCargando(true);
 
     try {
-      const updatedUser: User = {
-        ...user,
-        status: newStatus,
-        notes: reason || user.notes,
-        updatedAt: new Date(),
-      };
+      const empresaId = contextoActual?.empresaId ?? empresaActual?.id;
+      const nombreEmpresa = empresaActual?.razonSocial ?? empresaActual?.nombreComercial;
+      const asignaciones = obtenerAsignacionesUsuario(usuario, empresaId, nombreEmpresa);
 
-      dispatch({ type: 'UPDATE_USER', payload: updatedUser });
-    } catch {
-      return;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle assign role
-  const handleAssignRole = (user: User) => {
-    setRoleAssignmentModal({ show: true, user });
-    setSelectedRoleIds(user.systemAccess.roleIds);
-    setRoleError('');
-  };
-
-  // Handle save role assignment
-  const handleSaveRoleAssignment = () => {
-    if (!roleAssignmentModal.user) return;
-
-    if (selectedRoleIds.length === 0) {
-      setRoleError('Debes seleccionar al menos un rol');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Map roleIds to actual Role objects
-      const now = new Date();
-      const selectedRoles: Role[] = SYSTEM_ROLES
-        .filter((role) => selectedRoleIds.includes(role.id))
-        .map((role) => ({
-          id: role.id,
-          name: role.name ?? '',
-          description: role.description ?? '',
-          type: role.type ?? 'SYSTEM',
-          level: role.level ?? 'STAFF',
-          permissions: role.permissions!,
-          restrictions: role.restrictions ?? {},
-          isActive: true,
-          createdAt: now,
-          updatedAt: now,
-        }));
-
-      const updatedUser: User = {
-        ...roleAssignmentModal.user,
-        systemAccess: {
-          ...roleAssignmentModal.user.systemAccess,
-          roleIds: selectedRoleIds,
-          roles: selectedRoles,
-        },
-        updatedAt: new Date(),
-      };
-
-      dispatch({ type: 'UPDATE_USER', payload: updatedUser });
-      setRoleAssignmentModal({ show: false });
-      setSelectedRoleIds([]);
-      setRoleError('');
-
-      // Show credentials modal if this was a new user
-      if (credentialsModal.credentials && credentialsModal.user?.id === updatedUser.id) {
-        setCredentialsModal({
-          ...credentialsModal,
-          show: true,
-          user: updatedUser,
-        });
+      if (!empresaId) {
+        const usuarioActualizado: User = {
+          ...usuario,
+          status: nuevoEstado,
+          notes: motivo || usuario.notes,
+          updatedAt: new Date(),
+        };
+        dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
+        return;
       }
+
+      const asignacionesActualizadas = obtenerAsignacionesActualizadas(asignaciones, empresaId, {
+        estado: nuevoEstado === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+        empresaNombre: nombreEmpresa,
+      });
+      const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);
+      const idsRoles = obtenerIdsRolesUnicos(asignacionesActualizadas);
+      const rolesSistema = construirRolesSistema(idsRoles, SYSTEM_ROLES);
+      const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(asignacionesActualizadas, usuario.status);
+
+      const usuarioActualizado: User = {
+        ...usuario,
+        assignment: {
+          ...usuario.assignment,
+          EstablecimientoId: idsEstablecimientos.length === 1 ? idsEstablecimientos[0] : usuario.assignment.EstablecimientoId,
+          EstablecimientoIds: idsEstablecimientos,
+        },
+        systemAccess: {
+          ...usuario.systemAccess,
+          roleIds: idsRoles,
+          roles: rolesSistema,
+        },
+        asignacionesPorEmpresa: asignacionesActualizadas,
+        status: estadoGlobal,
+        notes: motivo || usuario.notes,
+        updatedAt: new Date(),
+      };
+
+      dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
     } catch {
       return;
     } finally {
-      setIsLoading(false);
+      setCargando(false);
     }
   };
+  const manejarAsignarRol = (usuario: User) => {
+    manejarEditarUsuario(usuario);
+  };
 
-  // Handle remove Establecimiento from user
-  const handleRemoveEstablecimiento = (user: User, EstablecimientoId: string) => {
-    // Remove Establecimiento from user's list
-    const updatedEstablecimientoIds = user.assignment.EstablecimientoIds.filter(
-      id => id !== EstablecimientoId
+  const manejarQuitarAcceso = (usuario: User, establecimientoId: string) => {
+    const mapaEstablecimientos = obtenerMapaEstablecimientos(empresas);
+    const empresaId = mapaEstablecimientos.get(establecimientoId)?.empresaId
+      ?? contextoActual?.empresaId
+      ?? empresaActual?.id;
+
+    if (!empresaId) {
+      return;
+    }
+
+    const nombreEmpresa = empresaActual?.razonSocial ?? empresaActual?.nombreComercial;
+    const asignaciones = obtenerAsignacionesUsuario(usuario, empresaId, nombreEmpresa);
+    const asignacionEmpresa = obtenerAsignacionEmpresa(asignaciones, empresaId);
+
+    if (!asignacionEmpresa) {
+      return;
+    }
+
+    const nuevosEstablecimientos = asignacionEmpresa.establecimientos.filter(
+      (item) => item.establecimientoId !== establecimientoId,
     );
+    const asignacionesActualizadas = obtenerAsignacionesActualizadas(asignaciones, empresaId, {
+      empresaNombre: nombreEmpresa,
+      establecimientos: nuevosEstablecimientos,
+    });
+    const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);
+    const idsRoles = obtenerIdsRolesUnicos(asignacionesActualizadas);
+    const rolesSistema = construirRolesSistema(idsRoles, SYSTEM_ROLES);
+    const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(asignacionesActualizadas, usuario.status);
 
-    const updatedUser: User = {
-      ...user,
+    const usuarioActualizado: User = {
+      ...usuario,
       assignment: {
-        ...user.assignment,
-        EstablecimientoIds: updatedEstablecimientoIds,
+        ...usuario.assignment,
+        EstablecimientoId: idsEstablecimientos.length === 1 ? idsEstablecimientos[0] : usuario.assignment.EstablecimientoId,
+        EstablecimientoIds: idsEstablecimientos,
       },
+      systemAccess: {
+        ...usuario.systemAccess,
+        roleIds: idsRoles,
+        roles: rolesSistema,
+      },
+      asignacionesPorEmpresa: asignacionesActualizadas,
+      status: estadoGlobal,
       updatedAt: new Date(),
     };
 
-    dispatch({ type: 'UPDATE_USER', payload: updatedUser });
+    dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
   };
 
   return (
@@ -315,9 +334,9 @@ export function UsersConfiguration() {
         title="Configuración de Usuarios"
         actions={
           <div className="flex items-center gap-4">
-            {activeTab === 'users' && (
+            {pestanaActiva === 'usuarios' && (
               <Button
-                onClick={() => setShowUserForm(true)}
+                onClick={() => setMostrarFormularioUsuario(true)}
                 variant="primary"
                 size="md"
                 icon={<Plus className="w-5 h-5" />}
@@ -343,21 +362,21 @@ export function UsersConfiguration() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('users')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'users'
+            onClick={() => setPestanaActiva('usuarios')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${pestanaActiva === 'usuarios'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
             <div className="flex items-center space-x-2">
               <Users className="w-5 h-5" />
-              <span>Usuarios ({users.length})</span>
+              <span>Usuarios ({usuarios.length})</span>
             </div>
           </button>
 
           <button
-            onClick={() => setActiveTab('roles')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'roles'
+            onClick={() => setPestanaActiva('roles')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${pestanaActiva === 'roles'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
@@ -371,118 +390,67 @@ export function UsersConfiguration() {
       </div>
 
       {/* Users Tab */}
-      {activeTab === 'users' && (
-        <UsersList
-          users={users}
-          Establecimientos={Establecimientos}
-          onEdit={handleEditUser}
-          onDelete={(user) => setDeleteModal({ show: true, user })}
-          onChangeStatus={handleChangeStatus}
-          onAssignRole={handleAssignRole}
-          onRemoveRole={handleRemoveEstablecimiento}
-          onCreate={() => setShowUserForm(true)}
-          isLoading={isLoading}
+      {pestanaActiva === 'usuarios' && (
+        <ListaUsuarios
+          usuarios={usuarios}
+          alEditar={manejarEditarUsuario}
+          alEliminar={(usuario) => setModalEliminar({ show: true, user: usuario })}
+          alCambiarEstado={manejarCambioEstado}
+          alAsignarRol={manejarAsignarRol}
+          alQuitarAcceso={manejarQuitarAcceso}
+          alCrear={() => setMostrarFormularioUsuario(true)}
+          cargando={cargando}
         />
       )}
 
       {/* Roles Tab */}
-      {activeTab === 'roles' && (
-        <RolesList
+      {pestanaActiva === 'roles' && (
+        <ListaRoles
           roles={SYSTEM_ROLES}
-          users={users}
-          isLoading={isLoading}
+          users={usuarios}
+          isLoading={cargando}
         />
       )}
 
       {/* User Form Modal */}
-      {showUserForm && (
-        <UserForm
-          user={editingUser || undefined}
-          Establecimientos={Establecimientos}
-          existingEmails={existingEmails}
-          onSubmit={handleSubmitUser}
-          onCancel={resetUserForm}
-          isLoading={isLoading}
+      {mostrarFormularioUsuario && (
+        <FormularioUsuario
+          usuario={usuarioEnEdicion || undefined}
+          empresasDisponibles={empresas}
+          empresaActual={empresaActual}
+          correosExistentes={correosExistentes}
+          alEnviar={manejarEnvioUsuario}
+          alCancelar={reiniciarFormularioUsuario}
+          cargando={cargando}
         />
       )}
 
-      {/* Role Assignment Modal */}
-      {roleAssignmentModal.show && roleAssignmentModal.user && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Asignar Roles - {roleAssignmentModal.user.personalInfo.fullName}
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Selecciona los roles que tendrá este usuario en el sistema
-              </p>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <RoleAssignment
-                selectedRoleIds={selectedRoleIds}
-                onChange={setSelectedRoleIds}
-                error={roleError}
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={() => {
-                  setRoleAssignmentModal({ show: false });
-                  setSelectedRoleIds([]);
-                  setRoleError('');
-                  setCredentialsModal({ show: false });
-                }}
-                disabled={isLoading}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={handleSaveRoleAssignment}
-                disabled={isLoading || selectedRoleIds.length === 0}
-              >
-                {isLoading ? 'Guardando...' : 'Asignar Roles'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Credentials Modal */}
-      {credentialsModal.show && credentialsModal.credentials && credentialsModal.user && (
-        <CredentialsModal
-          isOpen={credentialsModal.show}
-          onClose={() => setCredentialsModal({ show: false })}
-          credentials={credentialsModal.credentials}
-          user={credentialsModal.user}
-          Establecimientos={Establecimientos}
+      {modalCredenciales.show && modalCredenciales.credentials && modalCredenciales.user && (
+        <ModalCredenciales
+          isOpen={modalCredenciales.show}
+          onClose={() => setModalCredenciales({ show: false })}
+          credentials={modalCredenciales.credentials}
+          user={modalCredenciales.user}
+          Establecimientos={establecimientos}
         />
       )}
 
       {/* Delete Confirmation Modal */}
       <ModalConfirmacion
-        isOpen={deleteModal.show}
-        onClose={() => setDeleteModal({ show: false })}
-        onConfirm={() => deleteModal.user && handleDeleteUser(deleteModal.user)}
+        isOpen={modalEliminar.show}
+        onClose={() => setModalEliminar({ show: false })}
+        onConfirm={() => modalEliminar.user && manejarEliminarUsuario(modalEliminar.user)}
         title="Eliminar Usuario"
         message={
-          deleteModal.user?.hasTransactions
-            ? `No puedes eliminar a "${deleteModal.user?.personalInfo.fullName}" porque tiene transacciones registradas en el sistema. En su lugar, puedes inhabilitarlo para bloquear su acceso.`
-            : `¿Estás seguro de que deseas eliminar permanentemente a "${deleteModal.user?.personalInfo.fullName}"? Esta acción no se puede deshacer y eliminará todos sus datos del sistema.`
+          modalEliminar.user?.hasTransactions
+            ? `No puedes eliminar a "${modalEliminar.user?.personalInfo.fullName}" porque tiene transacciones registradas en el sistema. En su lugar, puedes inhabilitarlo para bloquear su acceso.`
+            : `¿Estás seguro de que deseas eliminar permanentemente a "${modalEliminar.user?.personalInfo.fullName}"? Esta acción no se puede deshacer y eliminará todos sus datos del sistema.`
         }
         type="danger"
-        confirmText={deleteModal.user?.hasTransactions ? "Entendido" : "Eliminar"}
+        confirmText={modalEliminar.user?.hasTransactions ? "Entendido" : "Eliminar"}
         cancelText="Cancelar"
-        isLoading={isLoading}
+        isLoading={cargando}
       />
         </div>
       </div>

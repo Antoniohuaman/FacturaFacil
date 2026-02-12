@@ -1,15 +1,15 @@
 import { Shield, AlertCircle, Info } from 'lucide-react';
 import type { Role } from '../../modelos/Role';
 import type { User } from '../../modelos/User';
-import { RoleCard } from './TarjetaRol';
+import { TarjetaRol } from './TarjetaRol';
 
-interface RolesListProps {
+interface PropsListaRoles {
   roles: Partial<Role>[];
   users?: User[];
   isLoading?: boolean;
 }
 
-export function RolesList({ roles, users = [], isLoading = false }: RolesListProps) {
+export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaRoles) {
 
   // Count users per role
   const getUserCountForRole = (roleId?: string): number => {
@@ -129,10 +129,10 @@ export function RolesList({ roles, users = [], isLoading = false }: RolesListPro
       {/* Roles Grid */}
       <div className="grid grid-cols-1 gap-6">
         {roles.map((role, index) => (
-          <RoleCard
+          <TarjetaRol
             key={role.id ?? index}
-            role={role}
-            userCount={getUserCountForRole(role.id)}
+            rol={role}
+            cantidadUsuarios={getUserCountForRole(role.id)}
           />
         ))}
       </div>

@@ -61,8 +61,8 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
         ubigeo: '150101'
       },
       '20111111112': {
-        razonSocial: 'COMERCIAL DEMO EIRL',
-        direccionFiscal: 'AV. DEMO 456, SAN ISIDRO, LIMA, LIMA',
+        razonSocial: 'COMERCIAL EJEMPLO EIRL',
+        direccionFiscal: 'AV. PRINCIPAL 456, SAN ISIDRO, LIMA, LIMA',
         ubigeo: '150127'
       }
     };

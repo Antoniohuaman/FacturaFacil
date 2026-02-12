@@ -1,6 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import type { Role } from './Role';
 
+export type EstadoAsignacionUsuario = 'ACTIVE' | 'INACTIVE';
+
+export type AsignacionEstablecimientoUsuario = {
+  establecimientoId: string;
+  roleId: string;
+  estado?: EstadoAsignacionUsuario;
+};
+
+export type AsignacionEmpresaUsuario = {
+  empresaId: string;
+  empresaNombre?: string;
+  establecimientos: AsignacionEstablecimientoUsuario[];
+  establecimientoIds?: string[];
+  rolesPorEstablecimiento?: Record<string, string>;
+  roleIds?: string[];
+  estado: EstadoAsignacionUsuario;
+};
+
 export interface User {
   id: string;
   code: string; // User code for internal identification
@@ -77,6 +95,7 @@ export interface User {
 
   // Status and Metadata
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
+  asignacionesPorEmpresa?: AsignacionEmpresaUsuario[];
   avatar?: string;
   notes?: string;
   hasTransactions?: boolean; // Flag to track if user has any transactions (sales, purchases, etc.)
@@ -130,6 +149,7 @@ export interface CreateUserRequest {
     sessionTimeout?: number;
     maxConcurrentSessions?: number;
   };
+  asignacionesPorEmpresa?: AsignacionEmpresaUsuario[];
   notes?: string;
 }
 

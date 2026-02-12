@@ -40,8 +40,8 @@ class AuthRepository {
       const response = await authClient.register({
         ...data,
         ruc: '20000000001',
-        razonSocial: 'Empresa Demo',
-        nombreComercial: 'Empresa Demo',
+        razonSocial: 'Empresa Inicial',
+        nombreComercial: 'Empresa Inicial',
         direccion: 'Pendiente',
         regimen: 'general',
         actividadEconomica: 'Pendiente',

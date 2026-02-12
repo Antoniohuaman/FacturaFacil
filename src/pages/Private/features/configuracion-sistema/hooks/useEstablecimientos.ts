@@ -50,7 +50,7 @@ const MOCK_EstablecimientoS: Establecimiento[] = [
     departamentoEstablecimiento: 'LIMA',
     codigoPostalEstablecimiento: '15001',
     phone: '(01) 123-4567',
-  email: 'principal@empresademo.com',
+  email: 'principal@empresa.com',
     isMainEstablecimiento: true,
     businessHours: {
       monday: { isOpen: true, openTime: '09:00', closeTime: '18:00', is24Hours: false },
@@ -124,7 +124,7 @@ const MOCK_EstablecimientoS: Establecimiento[] = [
     departamentoEstablecimiento: 'LIMA',
     codigoPostalEstablecimiento: '15036',
     phone: '(01) 234-5678',
-  email: 'sanisidro@empresademo.com',
+  email: 'sanisidro@empresa.com',
     isMainEstablecimiento: false,
     businessHours: {
       monday: { isOpen: true, openTime: '10:00', closeTime: '20:00', is24Hours: false },

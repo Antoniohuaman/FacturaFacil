@@ -1,37 +1,50 @@
 // src/features/configuration/components/usuarios/UserForm.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
-import type { User as UserModel } from '../../modelos/User';
-import type { Establecimiento } from '../../modelos/Establecimiento';
+import type { Empresa } from '../../../autenticacion/types/auth.types';
+import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionUsuario } from '../../modelos/User';
+import { SYSTEM_ROLES } from '../../modelos/Role';
+import {
+  construirResumenLista,
+  normalizarCorreo,
+  obtenerAsignacionesActualizadas,
+  obtenerAsignacionesUsuario,
+} from '../../utilidades/usuariosAsignaciones';
 
-interface UserFormData {
-  fullName: string;
-  email: string;
-  phone: string;
-  documentType: 'DNI' | 'CE' | 'PASSPORT' | '';
-  documentNumber: string;
-  EstablecimientoIds: string[];
-  password: string;
+type DatosFormularioUsuario = {
+  nombres: string;
+  apellidos: string;
+  correo: string;
+  telefono: string;
+  tipoDocumento: 'DNI' | 'CE' | 'PASSPORT' | '';
+  numeroDocumento: string;
+  contrasena: string;
+  asignacionesPorEmpresa: AsignacionEmpresaUsuario[];
+};
+
+interface PropsFormularioUsuario {
+  usuario?: UsuarioModelo;
+  empresasDisponibles: Empresa[];
+  empresaActual?: Empresa | null;
+  correosExistentes: string[];
+  alEnviar: (data: DatosFormularioUsuario) => Promise<void>;
+  alCancelar: () => void;
+  cargando?: boolean;
 }
 
-interface UserFormProps {
-  user?: UserModel;
-  Establecimientos: Establecimiento[];
-  existingEmails: string[];
-  onSubmit: (data: UserFormData) => Promise<void>;
-  onCancel: () => void;
-  isLoading?: boolean;
-}
-
-const documentTypes = [
+const tiposDocumento = [
   { value: 'DNI' as const, label: 'DNI', placeholder: '12345678', maxLength: 8 },
   { value: 'CE' as const, label: 'Carnet de Extranjería', placeholder: '123456789', maxLength: 9 },
   { value: 'PASSPORT' as const, label: 'Pasaporte', placeholder: 'A1234567', maxLength: 12 }
 ];
 
-// Password generator utility
-const generateSecurePassword = (): string => {
+const opcionesEstadoAsignacion: Array<{ value: EstadoAsignacionUsuario; label: string }> = [
+  { value: 'ACTIVE', label: 'Activo' },
+  { value: 'INACTIVE', label: 'Inactivo' },
+];
+
+const generarContrasenaSegura = (): string => {
   const length = 12;
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -56,21 +69,18 @@ const generateSecurePassword = (): string => {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-// Password strength calculator
-const calculatePasswordStrength = (password: string): { score: number; label: string; color: string } => {
-  if (!password) return { score: 0, label: 'Sin contraseña', color: 'gray' }
+const calcularFortalezaContrasena = (contrasena: string): { score: number; label: string; color: string } => {
+  if (!contrasena) return { score: 0, label: 'Sin contraseña', color: 'gray' }
 
   let score = 0;
 
-  // Length
-  if (password.length >= 8) score += 1;
-  if (password.length >= 12) score += 1;
+  if (contrasena.length >= 8) score += 1;
+  if (contrasena.length >= 12) score += 1;
 
-  // Complexity
-  if (/[a-z]/.test(password)) score += 1;
-  if (/[A-Z]/.test(password)) score += 1;
-  if (/[0-9]/.test(password)) score += 1;
-  const hasSymbol = /[!@#$%^&*()_+=\]{};':"\\|,.<>/?-]/.test(password) || /\[/.test(password);
+  if (/[a-z]/.test(contrasena)) score += 1;
+  if (/[A-Z]/.test(contrasena)) score += 1;
+  if (/[0-9]/.test(contrasena)) score += 1;
+  const hasSymbol = /[!@#$%^&*()_+=\]{};':"\\|,.<>/?-]/.test(contrasena) || /\[/.test(contrasena);
   if (hasSymbol) score += 1;
 
   if (score <= 2) return { score, label: 'Débil', color: 'red' }
@@ -78,104 +88,142 @@ const calculatePasswordStrength = (password: string): { score: number; label: st
   return { score, label: 'Fuerte', color: 'green' }
 }
 
-export function UserForm({
-  user,
-  Establecimientos,
-  existingEmails,
-  onSubmit,
-  onCancel,
-  isLoading = false
-}: UserFormProps) {
-  const [datosFormulario, setFormData] = useState<UserFormData>({
-    fullName: '',
-    email: '',
-    phone: '',
-    documentType: '',
-    documentNumber: '',
-    EstablecimientoIds: [],
-    password: generateSecurePassword()
+export function FormularioUsuario({
+  usuario,
+  empresasDisponibles,
+  empresaActual,
+  correosExistentes,
+  alEnviar,
+  alCancelar,
+  cargando = false
+}: PropsFormularioUsuario) {
+  const [datosFormulario, setDatosFormulario] = useState<DatosFormularioUsuario>({
+    nombres: '',
+    apellidos: '',
+    correo: '',
+    telefono: '',
+    tipoDocumento: '',
+    numeroDocumento: '',
+    contrasena: generarContrasenaSegura(),
+    asignacionesPorEmpresa: [],
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
-  const [showPassword, setShowPassword] = useState(false);
-  const [passwordCopied, setPasswordCopied] = useState(false);
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  const [erroresPorEmpresa, setErroresPorEmpresa] = useState<Record<string, { establecimientos?: string; roles?: string }>>({});
+  const [mostrarContrasena, setMostrarContrasena] = useState(false);
+  const [contrasenaCopiada, setContrasenaCopiada] = useState(false);
 
+  const empresasOrdenadas = useMemo(
+    () => [...empresasDisponibles].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)),
+    [empresasDisponibles],
+  );
 
   useEffect(() => {
-    if (user) {
-      setFormData({
-        fullName: user.personalInfo.fullName,
-        email: user.personalInfo.email,
-        phone: user.personalInfo.phone || '',
-        documentType: user.personalInfo.documentType || '',
-        documentNumber: user.personalInfo.documentNumber || '',
-        EstablecimientoIds: user.assignment.EstablecimientoIds,
-        password: '' // Don't show password when editing
-      });
-    }
-  }, [user]);
+    if (!usuario) return;
 
-  const validateField = (
-    field: keyof UserFormData,
-    value: UserFormData[keyof UserFormData]
+    const asignaciones = obtenerAsignacionesUsuario(
+      usuario,
+      empresaActual?.id,
+      empresaActual?.razonSocial ?? empresaActual?.nombreComercial,
+    );
+
+    setDatosFormulario({
+      nombres: usuario.personalInfo.firstName,
+      apellidos: usuario.personalInfo.lastName,
+      correo: usuario.personalInfo.email,
+      telefono: usuario.personalInfo.phone || '',
+      tipoDocumento: usuario.personalInfo.documentType || '',
+      numeroDocumento: usuario.personalInfo.documentNumber || '',
+      contrasena: '',
+      asignacionesPorEmpresa: asignaciones,
+    });
+  }, [empresaActual?.id, empresaActual?.nombreComercial, empresaActual?.razonSocial, usuario]);
+
+  useEffect(() => {
+    if (usuario) return;
+    if (empresasOrdenadas.length !== 1) return;
+    if (datosFormulario.asignacionesPorEmpresa.length > 0) return;
+
+    const empresa = empresasOrdenadas[0];
+    setDatosFormulario((prev) => ({
+      ...prev,
+      asignacionesPorEmpresa: [
+        {
+          empresaId: empresa.id,
+          empresaNombre: empresa.razonSocial,
+          establecimientos: [],
+          estado: 'ACTIVE',
+        },
+      ],
+    }));
+  }, [datosFormulario.asignacionesPorEmpresa.length, empresasOrdenadas, usuario]);
+
+  const validarCampo = (
+    campo: keyof DatosFormularioUsuario,
+    valor: DatosFormularioUsuario[keyof DatosFormularioUsuario]
   ): string | null => {
-    switch (field) {
-      case 'fullName': {
-        const fullName = typeof value === 'string' ? value : '';
-        if (!fullName || fullName.trim().length < 3) {
-          return 'El nombre debe tener al menos 3 caracteres';
+    switch (campo) {
+      case 'nombres': {
+        const nombres = typeof valor === 'string' ? valor : '';
+        if (!nombres || nombres.trim().length < 2) {
+          return 'Los nombres son obligatorios';
         }
-        if (fullName.trim().length > 100) {
-          return 'El nombre no puede tener más de 100 caracteres';
-        }
-        if (!/^[a-zA-ZÀ-ÿ\u00f1\u00d1\s]+$/.test(fullName.trim())) {
-          return 'El nombre solo puede contener letras y espacios';
+        if (!/^[a-zA-ZÀ-ÿ\u00f1\u00d1\s]+$/.test(nombres.trim())) {
+          return 'Los nombres solo pueden contener letras y espacios';
         }
         break;
       }
-
-      case 'email': {
-        const email = typeof value === 'string' ? value : '';
-        if (!email || email.trim() === '') {
-          return 'El email es obligatorio';
+      case 'apellidos': {
+        const apellidos = typeof valor === 'string' ? valor : '';
+        if (!apellidos || apellidos.trim().length < 2) {
+          return 'Los apellidos son obligatorios';
         }
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-          return 'Ingresa un email válido';
-        }
-        if (existingEmails.includes(email.toLowerCase()) && email.toLowerCase() !== user?.personalInfo.email?.toLowerCase()) {
-          return 'Ya existe un usuario con este email';
+        if (!/^[a-zA-ZÀ-ÿ\u00f1\u00d1\s]+$/.test(apellidos.trim())) {
+          return 'Los apellidos solo pueden contener letras y espacios';
         }
         break;
       }
-
-      case 'phone': {
-        const phone = typeof value === 'string' ? value : '';
-        if (phone && phone.trim()) {
-          const phoneRegex = /^[+]?[\d\s()-]{9,15}$/;
-          if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+      case 'correo': {
+        const correo = typeof valor === 'string' ? valor : '';
+        if (!correo || correo.trim() === '') {
+          return 'El correo es obligatorio';
+        }
+        const correoRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!correoRegex.test(correo)) {
+          return 'Ingresa un correo válido';
+        }
+        const correoNormalizado = normalizarCorreo(correo);
+        const correoActual = normalizarCorreo(usuario?.personalInfo.email);
+        if (correosExistentes.includes(correoNormalizado) && correoNormalizado !== correoActual) {
+          return 'Ya existe un usuario con este correo';
+        }
+        break;
+      }
+      case 'telefono': {
+        const telefono = typeof valor === 'string' ? valor : '';
+        if (telefono && telefono.trim()) {
+          const telefonoRegex = /^[+]?[\d\s()-]{9,15}$/;
+          if (!telefonoRegex.test(telefono.replace(/\s/g, ''))) {
             return 'Ingresa un teléfono válido';
           }
         }
         break;
       }
-
-      case 'documentNumber': {
-        const documentNumber = typeof value === 'string' ? value : '';
-        if (datosFormulario.documentType && documentNumber) {
-          const docType = documentTypes.find(dt => dt.value === datosFormulario.documentType);
+      case 'numeroDocumento': {
+        const numeroDocumento = typeof valor === 'string' ? valor : '';
+        if (datosFormulario.tipoDocumento && numeroDocumento) {
+          const docType = tiposDocumento.find(dt => dt.value === datosFormulario.tipoDocumento);
           if (docType) {
-            if (datosFormulario.documentType === 'DNI') {
-              if (!/^\d{8}$/.test(documentNumber)) {
+            if (datosFormulario.tipoDocumento === 'DNI') {
+              if (!/^\d{8}$/.test(numeroDocumento)) {
                 return 'El DNI debe tener 8 dígitos';
               }
-            } else if (datosFormulario.documentType === 'CE') {
-              if (!/^\d{9}$/.test(documentNumber)) {
+            } else if (datosFormulario.tipoDocumento === 'CE') {
+              if (!/^\d{9}$/.test(numeroDocumento)) {
                 return 'El CE debe tener 9 dígitos';
               }
-            } else if (datosFormulario.documentType === 'PASSPORT') {
-              if (documentNumber.length < 6 || documentNumber.length > 12) {
+            } else if (datosFormulario.tipoDocumento === 'PASSPORT') {
+              if (numeroDocumento.length < 6 || numeroDocumento.length > 12) {
                 return 'El pasaporte debe tener entre 6 y 12 caracteres';
               }
             }
@@ -183,21 +231,12 @@ export function UserForm({
         }
         break;
       }
-
-      case 'EstablecimientoIds': {
-        const ids = Array.isArray(value) ? value : [];
-        if (ids.length === 0) {
-          return 'Debes seleccionar al menos un establecimiento';
-        }
-        break;
-      }
-
-      case 'password': {
-        const password = typeof value === 'string' ? value : '';
-        if (!user && (!password || password.trim() === '')) {
+      case 'contrasena': {
+        const contrasena = typeof valor === 'string' ? valor : '';
+        if (!usuario && (!contrasena || contrasena.trim() === '')) {
           return 'La contraseña es obligatoria';
         }
-        if (password && password.length < 8) {
+        if (contrasena && contrasena.length < 8) {
           return 'La contraseña debe tener al menos 8 caracteres';
         }
         break;
@@ -205,116 +244,296 @@ export function UserForm({
     }
 
     return null;
-  }
+  };
 
-  const handleFieldChange = <K extends keyof UserFormData>(field: K, value: UserFormData[K]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setTouchedFields(prev => new Set(prev).add(field));
+  const validarAsignaciones = (asignaciones: AsignacionEmpresaUsuario[]) => {
+    const erroresLocales: Record<string, { establecimientos?: string; roles?: string }> = {};
+    asignaciones.forEach((asignacion) => {
+      const erroresAsignacion: { establecimientos?: string; roles?: string } = {};
+      if (asignacion.establecimientos.length === 0) {
+        erroresAsignacion.establecimientos = 'Selecciona al menos un establecimiento';
+      }
+      const faltanRoles = asignacion.establecimientos.some(
+        (establecimiento) => !establecimiento.roleId,
+      );
+      if (faltanRoles) {
+        erroresAsignacion.roles = 'Selecciona un rol por establecimiento';
+      }
+      if (Object.keys(erroresAsignacion).length > 0) {
+        erroresLocales[asignacion.empresaId] = erroresAsignacion;
+      }
+    });
+    return erroresLocales;
+  };
 
-    // Validate field
-    const error = validateField(field, value);
-    setErrors(prev => ({
+  const manejarCambioCampo = <K extends keyof DatosFormularioUsuario>(campo: K, valor: DatosFormularioUsuario[K]) => {
+    setDatosFormulario(prev => ({ ...prev, [campo]: valor }));
+
+    const error = validarCampo(campo, valor);
+    setErrores(prev => ({
       ...prev,
-      [field]: error || ''
+      [campo]: error || ''
     }));
 
-    // Clear document number if document type changes
-    if (field === 'documentType') {
-      setFormData(prev => ({ ...prev, documentNumber: '' }));
-      setErrors(prev => ({ ...prev, documentNumber: '' }));
+    if (campo === 'tipoDocumento') {
+      setDatosFormulario(prev => ({ ...prev, numeroDocumento: '' }));
+      setErrores(prev => ({ ...prev, numeroDocumento: '' }));
     }
-  }
+  };
 
-  const handleBlur = (field: keyof UserFormData) => {
-    setTouchedFields(prev => new Set(prev).add(field));
-    const error = validateField(field, datosFormulario[field]);
-    setErrors(prev => ({
+  const manejarBlur = (campo: keyof DatosFormularioUsuario) => {
+    const error = validarCampo(campo, datosFormulario[campo]);
+    setErrores(prev => ({
       ...prev,
-      [field]: error || ''
+      [campo]: error || ''
     }));
-  }
+  };
 
-  const isFormValid = () => {
-    const requiredFields: Array<keyof UserFormData> = user
-      ? ['fullName', 'email', 'EstablecimientoIds']
-      : ['fullName', 'email', 'EstablecimientoIds', 'password'];
+  const manejarSeleccionEmpresa = (empresa: Empresa) => {
+    const existe = datosFormulario.asignacionesPorEmpresa.some(asignacion => asignacion.empresaId === empresa.id);
+    if (existe) {
+      if (datosFormulario.asignacionesPorEmpresa.length === 1) {
+        setErrores(prev => ({ ...prev, empresas: 'Selecciona al menos una empresa' }));
+        return;
+      }
+      setDatosFormulario(prev => ({
+        ...prev,
+        asignacionesPorEmpresa: prev.asignacionesPorEmpresa.filter(asignacion => asignacion.empresaId !== empresa.id),
+      }));
+      return;
+    }
 
-    // Check required fields
-    for (const field of requiredFields) {
-      const error = validateField(field, datosFormulario[field]);
+    setDatosFormulario(prev => ({
+      ...prev,
+      asignacionesPorEmpresa: obtenerAsignacionesActualizadas(prev.asignacionesPorEmpresa, empresa.id, {
+        empresaNombre: empresa.razonSocial,
+        establecimientos: [],
+        estado: 'ACTIVE',
+      }),
+    }));
+  };
+
+  const manejarCambioAsignacion = (empresaId: string, cambios: Partial<AsignacionEmpresaUsuario>) => {
+    setDatosFormulario(prev => ({
+      ...prev,
+      asignacionesPorEmpresa: obtenerAsignacionesActualizadas(prev.asignacionesPorEmpresa, empresaId, cambios),
+    }));
+  };
+
+  const manejarToggleEstablecimiento = (empresaId: string, establecimientoId: string) => {
+    const asignacion = datosFormulario.asignacionesPorEmpresa.find(item => item.empresaId === empresaId);
+    if (!asignacion) return;
+    const existe = asignacion.establecimientos.some(
+      (establecimiento) => establecimiento.establecimientoId === establecimientoId,
+    );
+    const nuevosEstablecimientos = existe
+      ? asignacion.establecimientos.filter(
+          (establecimiento) => establecimiento.establecimientoId !== establecimientoId,
+        )
+      : [...asignacion.establecimientos, { establecimientoId, roleId: '' }];
+
+    if (existe && nuevosEstablecimientos.length === 0 && datosFormulario.asignacionesPorEmpresa.length > 1) {
+      setDatosFormulario(prev => ({
+        ...prev,
+        asignacionesPorEmpresa: prev.asignacionesPorEmpresa.filter(item => item.empresaId !== empresaId),
+      }));
+      return;
+    }
+
+    manejarCambioAsignacion(empresaId, { establecimientos: nuevosEstablecimientos });
+  };
+
+  const manejarSeleccionRolEstablecimiento = (empresaId: string, establecimientoId: string, rolId: string) => {
+    const asignacion = datosFormulario.asignacionesPorEmpresa.find(item => item.empresaId === empresaId);
+    if (!asignacion) return;
+    const nuevosEstablecimientos = asignacion.establecimientos.some(
+      (establecimiento) => establecimiento.establecimientoId === establecimientoId,
+    )
+      ? asignacion.establecimientos.map((establecimiento) =>
+          establecimiento.establecimientoId === establecimientoId
+            ? { ...establecimiento, roleId: rolId }
+            : establecimiento,
+        )
+      : [...asignacion.establecimientos, { establecimientoId, roleId: rolId }];
+    manejarCambioAsignacion(empresaId, { establecimientos: nuevosEstablecimientos });
+  };
+
+  const manejarCambioEstadoAsignacion = (empresaId: string, estado: EstadoAsignacionUsuario) => {
+    manejarCambioAsignacion(empresaId, { estado });
+  };
+
+  const manejarGenerarContrasena = () => {
+    const nuevaContrasena = generarContrasenaSegura();
+    manejarCambioCampo('contrasena', nuevaContrasena);
+    setContrasenaCopiada(false);
+  };
+
+  const manejarCopiarContrasena = async () => {
+    try {
+      await navigator.clipboard.writeText(datosFormulario.contrasena);
+      setContrasenaCopiada(true);
+      setTimeout(() => setContrasenaCopiada(false), 2000);
+    } catch {
+      return;
+    }
+  };
+
+  const configuracionDocumento = tiposDocumento.find(dt => dt.value === datosFormulario.tipoDocumento);
+  const fortalezaContrasena = calcularFortalezaContrasena(datosFormulario.contrasena);
+
+  const esValido = () => {
+    const camposRequeridos: Array<keyof DatosFormularioUsuario> = usuario
+      ? ['nombres', 'apellidos', 'correo']
+      : ['nombres', 'apellidos', 'correo', 'contrasena'];
+
+    for (const campo of camposRequeridos) {
+      const error = validarCampo(campo, datosFormulario[campo]);
       if (error) return false;
     }
 
-    // Check optional fields if they have values
-    const optionalFields: Array<keyof UserFormData> = ['phone', 'documentNumber'];
-    for (const field of optionalFields) {
-      if (datosFormulario[field]) {
-        const error = validateField(field, datosFormulario[field]);
+    const camposOpcionales: Array<keyof DatosFormularioUsuario> = ['telefono', 'numeroDocumento'];
+    for (const campo of camposOpcionales) {
+      if (datosFormulario[campo]) {
+        const error = validarCampo(campo, datosFormulario[campo]);
         if (error) return false;
       }
     }
 
-    return true;
-  }
+    if (datosFormulario.asignacionesPorEmpresa.length === 0) {
+      return false;
+    }
+
+    const erroresAsignaciones = validarAsignaciones(datosFormulario.asignacionesPorEmpresa);
+    return Object.keys(erroresAsignaciones).length === 0;
+  };
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate all fields
-    const newErrors: Record<string, string> = {}
-    const fieldsToValidate: Array<keyof UserFormData> = user
-      ? ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds']
-      : ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds', 'password'];
+    const nuevosErrores: Record<string, string> = {};
+    const camposValidar: Array<keyof DatosFormularioUsuario> = usuario
+      ? ['nombres', 'apellidos', 'correo', 'telefono', 'numeroDocumento']
+      : ['nombres', 'apellidos', 'correo', 'telefono', 'numeroDocumento', 'contrasena'];
 
-    fieldsToValidate.forEach((field) => {
-      const error = validateField(field, datosFormulario[field]);
-      if (error) newErrors[field] = error;
+    camposValidar.forEach((campo) => {
+      const error = validarCampo(campo, datosFormulario[campo]);
+      if (error) nuevosErrores[campo] = error;
     });
 
-    setErrors(newErrors);
-    setTouchedFields(new Set(fieldsToValidate));
+    const erroresAsignaciones = validarAsignaciones(datosFormulario.asignacionesPorEmpresa);
+    setErrores(nuevosErrores);
+    setErroresPorEmpresa(erroresAsignaciones);
 
-    if (Object.keys(newErrors).some(key => newErrors[key])) {
+    if (Object.keys(nuevosErrores).some(key => nuevosErrores[key])) {
       return;
     }
 
-    await onSubmit(datosFormulario);
-  }
-
-  const getDocumentTypeConfig = () => {
-    return documentTypes.find(dt => dt.value === datosFormulario.documentType);
-  }
-
-  const handleEstablecimientoToggle = (EstablecimientoId: string) => {
-    const currentIds = datosFormulario.EstablecimientoIds;
-    const newIds = currentIds.includes(EstablecimientoId)
-      ? currentIds.filter(id => id !== EstablecimientoId)
-      : [...currentIds, EstablecimientoId];
-
-    handleFieldChange('EstablecimientoIds', newIds);
-  }
-
-  const handleGeneratePassword = () => {
-    const newPassword = generateSecurePassword();
-    handleFieldChange('password', newPassword);
-    setPasswordCopied(false);
-  }
-
-  const handleCopyPassword = async () => {
-    try {
-      await navigator.clipboard.writeText(datosFormulario.password);
-      setPasswordCopied(true);
-      setTimeout(() => setPasswordCopied(false), 2000);
-    } catch {
+    if (datosFormulario.asignacionesPorEmpresa.length === 0) {
+      setErrores(prev => ({ ...prev, empresas: 'Selecciona al menos una empresa' }));
       return;
     }
-  }
 
-  const passwordStrength = calculatePasswordStrength(datosFormulario.password);
+    if (Object.keys(erroresAsignaciones).length > 0) {
+      return;
+    }
+
+    await alEnviar(datosFormulario);
+  };
+
+  const renderizarAsignacionEmpresa = (asignacion: AsignacionEmpresaUsuario) => {
+    const empresa = empresasOrdenadas.find(item => item.id === asignacion.empresaId);
+    const establecimientos: Empresa['establecimientos'] = empresa?.establecimientos ?? [];
+    const establecimientosSeleccionados = asignacion.establecimientos.map(
+      (item) => item.establecimientoId,
+    );
+    const resumenEstablecimientos = construirResumenLista(
+      establecimientos
+        .filter((item) => establecimientosSeleccionados.includes(item.id))
+        .map((item) => item.nombre),
+    );
+
+    return (
+      <details key={asignacion.empresaId} className="border border-gray-200 rounded-lg">
+        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-medium text-gray-900">
+          <span>{empresa?.razonSocial ?? asignacion.empresaNombre ?? asignacion.empresaId}</span>
+          <span className="text-xs text-gray-500">{resumenEstablecimientos.resumen}</span>
+        </summary>
+        <div className="px-4 pb-4 space-y-4">
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-700">Establecimientos</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {establecimientos.map((establecimiento) => (
+                <label
+                  key={establecimiento.id}
+                  className="flex items-center gap-2 text-sm text-gray-700"
+                >
+                  <Checkbox
+                    checked={establecimientosSeleccionados.includes(establecimiento.id)}
+                    onChange={() => manejarToggleEstablecimiento(asignacion.empresaId, establecimiento.id)}
+                    disabled={cargando}
+                  />
+                  <span>{establecimiento.nombre}</span>
+                </label>
+              ))}
+            </div>
+            {erroresPorEmpresa[asignacion.empresaId]?.establecimientos && (
+              <p className="text-xs text-red-600">{erroresPorEmpresa[asignacion.empresaId]?.establecimientos}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-700">Roles</div>
+            <div className="space-y-3">
+              {establecimientosSeleccionados.map((establecimientoId) => {
+                const establecimiento = establecimientos.find((item) => item.id === establecimientoId);
+                const rolSeleccionado = asignacion.establecimientos.find(
+                  (item) => item.establecimientoId === establecimientoId,
+                )?.roleId ?? '';
+                return (
+                  <div key={establecimientoId} className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-2 items-center">
+                    <div className="text-sm text-gray-700">
+                      {establecimiento?.nombre ?? establecimientoId}
+                    </div>
+                    <Select
+                      value={rolSeleccionado}
+                      onChange={(e) => manejarSeleccionRolEstablecimiento(
+                        asignacion.empresaId,
+                        establecimientoId,
+                        e.target.value,
+                      )}
+                      options={[
+                        { value: '', label: 'Selecciona un rol' },
+                        ...SYSTEM_ROLES.map((rol) => ({
+                          value: rol.id,
+                          label: rol.name ?? 'Rol sin nombre',
+                        })),
+                      ]}
+                      disabled={cargando}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            {erroresPorEmpresa[asignacion.empresaId]?.roles && (
+              <p className="text-xs text-red-600">{erroresPorEmpresa[asignacion.empresaId]?.roles}</p>
+            )}
+          </div>
+
+          <Select
+            label="Estado"
+            value={asignacion.estado}
+            onChange={(e) => manejarCambioEstadoAsignacion(asignacion.empresaId, e.target.value as EstadoAsignacionUsuario)}
+            options={opcionesEstadoAsignacion}
+            disabled={cargando}
+          />
+        </div>
+      </details>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg">
           <div className="flex items-center justify-between">
@@ -324,10 +543,10 @@ export function UserForm({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {user ? 'Editar Usuario' : 'Registrar Nuevo Usuario'}
+                  {usuario ? 'Editar usuario' : 'Registrar nuevo usuario'}
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {user ? 'Modifica los datos del usuario' : 'Completa la información para registrar al usuario'}
+                  {usuario ? 'Actualiza los datos del usuario' : 'Completa la informacion para registrar al usuario'}
                 </p>
               </div>
             </div>
@@ -336,183 +555,172 @@ export function UserForm({
               size="sm"
               icon={<X />}
               iconOnly
-              onClick={onCancel}
-              disabled={isLoading}
+              onClick={alCancelar}
+              disabled={cargando}
             />
           </div>
         </div>
 
         <form onSubmit={manejarEnvio} className="p-6 space-y-6">
-          {/* Personal Information */}
           <div className="space-y-4">
             <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
               <User className="w-4 h-4" />
-              <span>Información Personal</span>
+              <span>Datos personales</span>
             </h4>
 
-            {/* Full Name */}
-            <Input
-              label="Nombre Completo"
-              type="text"
-              value={datosFormulario.fullName}
-              onChange={(e) => handleFieldChange('fullName', e.target.value)}
-              onBlur={() => handleBlur('fullName')}
-              error={errors.fullName && touchedFields.has('fullName') ? errors.fullName : undefined}
-              placeholder="Juan Pérez García"
-              disabled={isLoading}
-              required
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Nombres"
+                type="text"
+                value={datosFormulario.nombres}
+                onChange={(e) => manejarCambioCampo('nombres', e.target.value)}
+                onBlur={() => manejarBlur('nombres')}
+                error={errores.nombres}
+                placeholder="Juan"
+                disabled={cargando}
+                required
+              />
+              <Input
+                label="Apellidos"
+                type="text"
+                value={datosFormulario.apellidos}
+                onChange={(e) => manejarCambioCampo('apellidos', e.target.value)}
+                onBlur={() => manejarBlur('apellidos')}
+                error={errores.apellidos}
+                placeholder="Perez Garcia"
+                disabled={cargando}
+                required
+              />
+            </div>
 
-            {/* Email */}
             <Input
-              label="Correo Electrónico"
+              label="Correo electronico"
               type="email"
-              value={datosFormulario.email}
-              onChange={(e) => handleFieldChange('email', e.target.value.toLowerCase())}
-              onBlur={() => handleBlur('email')}
-              error={errors.email && touchedFields.has('email') ? errors.email : undefined}
-              placeholder="juan@empresa.com"
+              value={datosFormulario.correo}
+              onChange={(e) => manejarCambioCampo('correo', e.target.value.toLowerCase())}
+              onBlur={() => manejarBlur('correo')}
+              error={errores.correo}
+              placeholder="usuario@empresa.com"
               leftIcon={<Mail />}
-              disabled={isLoading}
+              disabled={cargando}
               required
             />
 
-            {/* Phone */}
             <Input
-              label="Teléfono"
+              label="Telefono"
               type="tel"
-              value={datosFormulario.phone}
-              onChange={(e) => handleFieldChange('phone', e.target.value)}
-              onBlur={() => handleBlur('phone')}
-              error={errors.phone && touchedFields.has('phone') ? errors.phone : undefined}
+              value={datosFormulario.telefono}
+              onChange={(e) => manejarCambioCampo('telefono', e.target.value)}
+              onBlur={() => manejarBlur('telefono')}
+              error={errores.telefono}
               placeholder="+51 987 654 321"
               leftIcon={<Phone />}
-              disabled={isLoading}
+              disabled={cargando}
             />
           </div>
 
-          {/* Document Information */}
           <div className="space-y-4">
             <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
               <FileText className="w-4 h-4" />
-              <span>Documento de Identidad</span>
+              <span>Documento de identidad</span>
               <span className="text-sm font-normal text-gray-500">(Opcional)</span>
             </h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Document Type */}
               <Select
-                label="Tipo de Documento"
-                value={datosFormulario.documentType}
-                onChange={(e) => handleFieldChange('documentType', e.target.value as UserFormData['documentType'])}
+                label="Tipo de documento"
+                value={datosFormulario.tipoDocumento}
+                onChange={(e) => manejarCambioCampo('tipoDocumento', e.target.value as DatosFormularioUsuario['tipoDocumento'])}
                 options={[
                   { value: '', label: 'Seleccionar tipo' },
-                  ...documentTypes.map(docType => ({
+                  ...tiposDocumento.map(docType => ({
                     value: docType.value,
                     label: docType.label
                   }))
                 ]}
-                disabled={isLoading}
+                disabled={cargando}
               />
 
-              {/* Document Number */}
               <Input
-                label="Número de Documento"
+                label="Numero de documento"
                 type="text"
-                value={datosFormulario.documentNumber}
+                value={datosFormulario.numeroDocumento}
                 onChange={(e) => {
                   let value = e.target.value;
 
-                  // Format based on document type
-                  if (datosFormulario.documentType === 'DNI') {
+                  if (datosFormulario.tipoDocumento === 'DNI') {
                     value = value.replace(/\D/g, '').slice(0, 8);
-                  } else if (datosFormulario.documentType === 'CE') {
+                  } else if (datosFormulario.tipoDocumento === 'CE') {
                     value = value.replace(/\D/g, '').slice(0, 9);
-                  } else if (datosFormulario.documentType === 'PASSPORT') {
+                  } else if (datosFormulario.tipoDocumento === 'PASSPORT') {
                     value = value.toUpperCase().slice(0, 12);
                   }
 
-                  handleFieldChange('documentNumber', value);
+                  manejarCambioCampo('numeroDocumento', value);
                 }}
-                placeholder={getDocumentTypeConfig()?.placeholder}
-                error={errors.documentNumber}
+                placeholder={configuracionDocumento?.placeholder}
+                error={errores.numeroDocumento}
               />
             </div>
           </div>
 
-          {/* Establecimientos */}
           <div className="space-y-4">
             <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
               <Building2 className="w-4 h-4" />
-              <span>Establecimientos</span>
+              <span>Empresas y accesos</span>
               <span className="text-sm font-normal text-red-500">*</span>
             </h4>
-            <p className="text-sm text-gray-600">
-              Selecciona los establecimientos a los que el usuario tendrá acceso
-            </p>
-
-            <div className="space-y-2">
-              {Establecimientos.length > 0 ? (
-                Establecimientos.map((Establecimiento) => (
-                  <label
-                    key={Establecimiento.id}
-                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${datosFormulario.EstablecimientoIds.includes(Establecimiento.id)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                  >
+            {empresasOrdenadas.length > 1 ? (
+              <div className="space-y-2">
+                <div className="text-sm text-gray-600">Selecciona las empresas donde este usuario tendra acceso</div>
+                {empresasOrdenadas.map((empresa) => (
+                  <label key={empresa.id} className="flex items-center gap-2 text-sm text-gray-700">
                     <Checkbox
-                      checked={datosFormulario.EstablecimientoIds.includes(Establecimiento.id)}
-                      onChange={() => handleEstablecimientoToggle(Establecimiento.id)}
-                      disabled={isLoading}
+                      checked={datosFormulario.asignacionesPorEmpresa.some(asignacion => asignacion.empresaId === empresa.id)}
+                      onChange={() => manejarSeleccionEmpresa(empresa)}
+                      disabled={cargando}
                     />
-                    <div className="ml-3 flex-1">
-                      <div className="font-medium text-gray-900">
-                        {Establecimiento.nombreEstablecimiento}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {Establecimiento.direccionEstablecimiento}
-                      </div>
-                    </div>
+                    <span>{empresa.razonSocial}</span>
                   </label>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Building2 className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                  <p>No hay establecimientos disponibles</p>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-700">
+                Empresa asignada por defecto: {empresasOrdenadas[0]?.razonSocial ?? 'Empresa sin nombre'}
+              </div>
+            )}
 
-            {errors.EstablecimientoIds && touchedFields.has('EstablecimientoIds') && (
+            {errores.empresas && (
               <p className="text-sm text-red-600 mt-2 flex items-center space-x-1">
                 <AlertCircle className="w-4 h-4" />
-                <span>{errors.EstablecimientoIds}</span>
+                <span>{errores.empresas}</span>
               </p>
             )}
+
+            <div className="space-y-3">
+              {datosFormulario.asignacionesPorEmpresa.map(renderizarAsignacionEmpresa)}
+            </div>
           </div>
 
-          {/* Password Section - Only for new users */}
-          {!user && (
+          {!usuario && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
                   <Lock className="w-4 h-4" />
-                  <span>Acceso al Sistema</span>
+                  <span>Acceso al sistema</span>
                   <span className="text-sm font-normal text-red-500">*</span>
                 </h4>
               </div>
 
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6 space-y-4">
-                {/* Username Display */}
+              <div className="border border-gray-200 rounded-lg p-4 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre de Usuario
+                    Nombre de usuario
                   </label>
                   <div className="flex items-center space-x-2 px-4 py-3 bg-white border border-gray-300 rounded-lg">
                     <User className="w-5 h-5 text-gray-400" />
                     <span className="text-gray-900 font-medium">
-                      {datosFormulario.email.split('@')[0] || 'usuario'}
+                      {datosFormulario.correo.split('@')[0] || 'usuario'}
                     </span>
                     <span className="text-xs text-gray-500 ml-auto">
                       (basado en el email)
@@ -520,7 +728,6 @@ export function UserForm({
                   </div>
                 </div>
 
-                {/* Password Input */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Contraseña
@@ -528,34 +735,33 @@ export function UserForm({
                   <div className="relative">
                     <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={datosFormulario.password}
-                      onChange={(e) => handleFieldChange('password', e.target.value)}
-                      onBlur={() => handleBlur('password')}
-                      className={`w-full pl-10 pr-32 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${errors.password && touchedFields.has('password')
+                      type={mostrarContrasena ? 'text' : 'password'}
+                      value={datosFormulario.contrasena}
+                      onChange={(e) => manejarCambioCampo('contrasena', e.target.value)}
+                      onBlur={() => manejarBlur('contrasena')}
+                      className={`w-full pl-10 pr-32 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${errores.contrasena
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-300 bg-white'
                         }`}
                       placeholder="Ingresa una contraseña segura"
-                      disabled={isLoading}
+                      disabled={cargando}
                     />
 
-                    {/* Action Buttons */}
                     <div className="absolute right-2 top-2 flex items-center space-x-1">
                       <Button
                         variant="tertiary"
                         size="sm"
-                        icon={showPassword ? <EyeOff /> : <Eye />}
+                        icon={mostrarContrasena ? <EyeOff /> : <Eye />}
                         iconOnly
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={() => setMostrarContrasena(!mostrarContrasena)}
                       />
 
                       <Button
                         variant="tertiary"
                         size="sm"
-                        icon={passwordCopied ? <Check /> : <Copy />}
+                        icon={contrasenaCopiada ? <Check /> : <Copy />}
                         iconOnly
-                        onClick={handleCopyPassword}
+                        onClick={manejarCopiarContrasena}
                       />
 
                       <Button
@@ -563,89 +769,73 @@ export function UserForm({
                         size="sm"
                         icon={<RefreshCw />}
                         iconOnly
-                        onClick={handleGeneratePassword}
+                        onClick={manejarGenerarContrasena}
                       />
                     </div>
                   </div>
 
-                  {/* Password Strength Indicator */}
-                  {datosFormulario.password && (
+                  {datosFormulario.contrasena && (
                     <div className="mt-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Fortaleza de la contraseña:</span>
-                        <span className={`font-semibold ${passwordStrength.color === 'green' ? 'text-green-600' :
-                            passwordStrength.color === 'yellow' ? 'text-yellow-600' :
-                              passwordStrength.color === 'red' ? 'text-red-600' :
+                        <span className={`font-semibold ${fortalezaContrasena.color === 'green' ? 'text-green-600' :
+                            fortalezaContrasena.color === 'yellow' ? 'text-yellow-600' :
+                              fortalezaContrasena.color === 'red' ? 'text-red-600' :
                                 'text-gray-600'
                           }`}>
-                          {passwordStrength.label}
+                          {fortalezaContrasena.label}
                         </span>
                       </div>
 
-                      {/* Strength Bar */}
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div
-                          className={`h-full transition-all duration-300 rounded-full ${passwordStrength.color === 'green' ? 'bg-green-500' :
-                              passwordStrength.color === 'yellow' ? 'bg-yellow-500' :
-                                passwordStrength.color === 'red' ? 'bg-red-500' :
+                          className={`h-full transition-all duration-300 rounded-full ${fortalezaContrasena.color === 'green' ? 'bg-green-500' :
+                              fortalezaContrasena.color === 'yellow' ? 'bg-yellow-500' :
+                                fortalezaContrasena.color === 'red' ? 'bg-red-500' :
                                   'bg-gray-400'
                             }`}
-                          style={{ width: `${(passwordStrength.score / 6) * 100}%` }}
+                          style={{ width: `${(fortalezaContrasena.score / 6) * 100}%` }}
                         />
                       </div>
 
-                      {/* Password Requirements */}
                       <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                        <div className={`flex items-center space-x-1 ${datosFormulario.password.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${datosFormulario.password.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${datosFormulario.contrasena.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${datosFormulario.contrasena.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Mín. 8 caracteres</span>
                         </div>
-                        <div className={`flex items-center space-x-1 ${/[A-Z]/.test(datosFormulario.password) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(datosFormulario.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${/[A-Z]/.test(datosFormulario.contrasena) ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(datosFormulario.contrasena) ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Mayúsculas</span>
                         </div>
-                        <div className={`flex items-center space-x-1 ${/[a-z]/.test(datosFormulario.password) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(datosFormulario.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${/[a-z]/.test(datosFormulario.contrasena) ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(datosFormulario.contrasena) ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Minúsculas</span>
                         </div>
-                        <div className={`flex items-center space-x-1 ${/[0-9]/.test(datosFormulario.password) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(datosFormulario.password) ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div className={`flex items-center space-x-1 ${/[0-9]/.test(datosFormulario.contrasena) ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(datosFormulario.contrasena) ? 'bg-green-500' : 'bg-gray-300'}`} />
                           <span>Números</span>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {errors.password && touchedFields.has('password') && (
+                  {errores.contrasena && (
                     <p className="text-sm text-red-600 mt-2 flex items-center space-x-1">
                       <AlertCircle className="w-4 h-4" />
-                      <span>{errors.password}</span>
+                      <span>{errores.contrasena}</span>
                     </p>
                   )}
-                </div>
-
-                {/* Info Box */}
-                <div className="flex items-start space-x-2 p-3 bg-blue-100 border border-blue-300 rounded-lg">
-                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium">💡 Tip de seguridad</p>
-                    <p className="mt-1">
-                      Comparte estas credenciales de forma segura con el usuario.
-                      Puedes copiar la contraseña usando el botón <Copy className="w-3 h-3 inline" />.
-                    </p>
-                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Submit Button */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
             <Button
               variant="secondary"
               size="md"
-              onClick={onCancel}
-              disabled={isLoading}
+              onClick={alCancelar}
+              disabled={cargando}
             >
               Cancelar
             </Button>
@@ -653,9 +843,9 @@ export function UserForm({
               variant="primary"
               size="md"
               type="submit"
-              disabled={isLoading || !isFormValid()}
+              disabled={cargando || !esValido()}
             >
-              {isLoading ? 'Guardando...' : (user ? 'Actualizar' : 'Registrar')}
+              {cargando ? 'Guardando...' : (usuario ? 'Actualizar' : 'Registrar')}
             </Button>
           </div>
         </form>

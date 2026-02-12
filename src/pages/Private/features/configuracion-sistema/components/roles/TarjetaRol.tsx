@@ -3,9 +3,9 @@ import { useState } from 'react';
 import type { Role } from '../../modelos/Role';
 import { ROLE_LEVELS } from '../../modelos/Role';
 
-interface RoleCardProps {
-  role: Partial<Role>;
-  userCount?: number;
+interface PropsTarjetaRol {
+  rol: Partial<Role>;
+  cantidadUsuarios?: number;
 }
 
 type PermissionModule = Record<string, boolean | number | string[] | undefined>;
@@ -79,9 +79,9 @@ const PERMISSION_TRANSLATIONS: Record<string, string> = {
   canModifySystemSettings: 'Modificar configuración del sistema',
 };
 
-export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
+export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
   const [showPermissions, setShowPermissions] = useState(false);
-  const roleFocusId = role.id ?? role.name ?? 'rol-sin-id';
+  const roleFocusId = rol.id ?? rol.name ?? 'rol-sin-id';
 
   const getLevelColor = (level?: Role['level']) => {
     if (!level) return 'gray';
@@ -106,9 +106,9 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
   };
 
   const getPermissionCount = () => {
-    if (!role.permissions) return 0;
+    if (!rol.permissions) return 0;
     let count = 0;
-    Object.values(role.permissions).forEach(modulePermissions => {
+    Object.values(rol.permissions).forEach(modulePermissions => {
       Object.values(modulePermissions).forEach(permission => {
         if (permission === true) count++;
       });
@@ -189,10 +189,10 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
           <div className="flex items-start space-x-3 flex-1">
             <div className={`
               flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center
-              ${role.level === 'ADMIN' ? 'bg-gradient-to-br from-red-500 to-red-600' :
-                role.level === 'MANAGER' ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
-                role.level === 'SUPERVISOR' ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
-                role.level === 'STAFF' ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
+              ${rol.level === 'ADMIN' ? 'bg-gradient-to-br from-red-500 to-red-600' :
+                rol.level === 'MANAGER' ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
+                rol.level === 'SUPERVISOR' ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
+                rol.level === 'STAFF' ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
                 'bg-gradient-to-br from-gray-500 to-gray-600'
               }
             `}>
@@ -202,12 +202,12 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-1">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {role.name}
+                  {rol.name}
                 </h3>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getLevelColorClasses(role.level)}`}>
-                  {ROLE_LEVELS.find(l => l.value === role.level)?.label}
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getLevelColorClasses(rol.level)}`}>
+                  {ROLE_LEVELS.find(l => l.value === rol.level)?.label}
                 </span>
-                {role.type === 'SYSTEM' && (
+                {rol.type === 'SYSTEM' && (
                   <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full border border-purple-200">
                     Sistema
                   </span>
@@ -215,7 +215,7 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
               </div>
 
               <p className="text-sm text-gray-600 mb-3">
-                {role.description}
+                {rol.description}
               </p>
 
               {/* Stats */}
@@ -226,7 +226,7 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
                 </div>
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Users className="w-4 h-4" />
-                  <span>{userCount} usuario{userCount !== 1 ? 's' : ''}</span>
+                  <span>{cantidadUsuarios} usuario{cantidadUsuarios !== 1 ? 's' : ''}</span>
                 </div>
               </div>
             </div>
@@ -248,10 +248,10 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
       </div>
 
       {/* Permissions Details */}
-      {showPermissions && role.permissions && (
+      {showPermissions && rol.permissions && (
         <div className="px-6 pb-6 pt-0 border-t border-gray-200">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4">
-            {Object.entries(role.permissions).map(([moduleName, permissions]) =>
+            {Object.entries(rol.permissions).map(([moduleName, permissions]) =>
               renderPermissionModule(moduleName, permissions as PermissionModule)
             )}
           </div>

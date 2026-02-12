@@ -1,4 +1,4 @@
-// src/features/configuration/components/usuarios/CredentialsModal.tsx
+// src/features/configuration/components/usuarios/ModalCredenciales.tsx
 import { useState } from 'react';
 import { X, Copy, Check, User, Lock, Shield, Building2, MessageCircle } from 'lucide-react';
 import { Button } from '@/contasis';
@@ -6,7 +6,7 @@ import type { User as UserModel } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import type { Role } from '../../modelos/Role';
 
-interface CredentialsModalProps {
+interface PropsModalCredenciales {
   isOpen: boolean;
   onClose: () => void;
   credentials: {
@@ -19,7 +19,7 @@ interface CredentialsModalProps {
   Establecimientos: Establecimiento[];
 }
 
-export function CredentialsModal({ isOpen, onClose, credentials, user, Establecimientos }: CredentialsModalProps) {
+export function ModalCredenciales({ isOpen, onClose, credentials, user, Establecimientos }: PropsModalCredenciales) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   if (!isOpen) return null;

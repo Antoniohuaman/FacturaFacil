@@ -6,13 +6,13 @@ import { Shield, ChevronDown, ChevronRight, Info, AlertTriangle } from 'lucide-r
 
 type PermissionModule = Record<string, boolean | number | string[] | undefined>;
 
-interface RoleAssignmentProps {
+interface PropsAsignacionRol {
   selectedRoleIds: string[];
   onChange: (roleIds: string[]) => void;
   error?: string;
 }
 
-export default function RoleAssignment({ selectedRoleIds, onChange, error }: RoleAssignmentProps) {
+export default function AsignacionRol({ selectedRoleIds, onChange, error }: PropsAsignacionRol) {
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
   const [showPermissions, setShowPermissions] = useState<string | null>(null);
 
