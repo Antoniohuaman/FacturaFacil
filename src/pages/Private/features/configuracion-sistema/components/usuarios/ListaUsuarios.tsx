@@ -4,7 +4,6 @@ import {
   Users,
   Search,
   UserCheck,
-  Mail,
   X,
   Shield,
   Power,
@@ -96,7 +95,6 @@ export function UsersList({
     return {
       total: users.length,
       active: users.filter(user => user.status === 'ACTIVE').length,
-      invited: users.filter(user => user.status === 'INACTIVE').length,
       inactive: users.filter(user => user.status === 'INACTIVE').length
     };
   };
@@ -183,7 +181,7 @@ export function UsersList({
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
           <div className="flex items-center justify-between">
             <div>
@@ -201,16 +199,6 @@ export function UsersList({
               <p className="text-2xl font-bold text-green-900">{stats.active}</p>
             </div>
             <UserCheck className="w-8 h-8 text-green-600" />
-          </div>
-        </div>
-
-        <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-yellow-600">Invitados</p>
-              <p className="text-2xl font-bold text-yellow-900">{stats.invited}</p>
-            </div>
-            <Mail className="w-8 h-8 text-yellow-600" />
           </div>
         </div>
 
@@ -255,7 +243,6 @@ export function UsersList({
             options={[
               { value: 'ALL', label: 'Todos los estados' },
               { value: 'ACTIVE', label: 'Solo activos' },
-              { value: 'INVITED', label: 'Solo invitados' },
               { value: 'INACTIVE', label: 'Solo inactivos' }
             ]}
           />

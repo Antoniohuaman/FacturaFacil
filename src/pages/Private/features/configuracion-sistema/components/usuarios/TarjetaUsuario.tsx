@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/usuarios/UserCard.tsx
 import { useState } from 'react';
 import {
@@ -19,6 +18,7 @@ import {
   Power,
   PowerOff
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
@@ -58,7 +58,7 @@ export function UserCard({
     const configs: Record<UserStatus, {
       label: string;
       color: 'success' | 'warning' | 'error';
-      icon: any;
+      icon: LucideIcon;
       bgColor: string;
       textColor: string;
       description: string;

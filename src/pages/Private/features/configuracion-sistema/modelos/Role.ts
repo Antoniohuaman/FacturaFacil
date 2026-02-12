@@ -151,9 +151,18 @@ export interface RoleSummary {
   isActive: boolean;
 }
 
+export type SystemRoleDefinition = Partial<Role> & { id: string };
+
+export const SYSTEM_ROLE_IDS = {
+  SUPER_ADMIN: 'role-super-admin',
+  MANAGER: 'role-manager',
+  STAFF: 'role-staff',
+} as const;
+
 // Predefined system roles
-export const SYSTEM_ROLES: Partial<Role>[] = [
+export const SYSTEM_ROLES: SystemRoleDefinition[] = [
   {
+    id: SYSTEM_ROLE_IDS.SUPER_ADMIN,
     name: 'Super Administrador',
     description: 'Acceso completo a todas las funcionalidades del sistema',
     type: 'SYSTEM',
@@ -236,6 +245,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
     },
   },
   {
+    id: SYSTEM_ROLE_IDS.MANAGER,
     name: 'Gerente',
     description: 'Acceso a gestión de ventas, inventario y reportes',
     type: 'SYSTEM',
@@ -319,6 +329,7 @@ export const SYSTEM_ROLES: Partial<Role>[] = [
     },
   },
   {
+    id: SYSTEM_ROLE_IDS.STAFF,
     name: 'Vendedor',
     description: 'Acceso básico a ventas y consulta de inventario',
     type: 'SYSTEM',

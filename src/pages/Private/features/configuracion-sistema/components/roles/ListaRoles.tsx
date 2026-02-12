@@ -12,8 +12,8 @@ interface RolesListProps {
 export function RolesList({ roles, users = [], isLoading = false }: RolesListProps) {
 
   // Count users per role
-  const getUserCountForRole = (roleIndex: number): number => {
-    const roleId = `role-${roleIndex + 1}`;
+  const getUserCountForRole = (roleId?: string): number => {
+    if (!roleId) return 0;
     return users.filter(user =>
       user.systemAccess.roleIds.includes(roleId) &&
       user.status === 'ACTIVE'
@@ -130,9 +130,9 @@ export function RolesList({ roles, users = [], isLoading = false }: RolesListPro
       <div className="grid grid-cols-1 gap-6">
         {roles.map((role, index) => (
           <RoleCard
-            key={index}
+            key={role.id ?? index}
             role={role}
-            userCount={getUserCountForRole(index)}
+            userCount={getUserCountForRole(role.id)}
           />
         ))}
       </div>

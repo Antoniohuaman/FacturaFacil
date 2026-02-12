@@ -142,7 +142,6 @@ export function UsersConfiguration() {
           systemAccess: {
             username: data.email.split('@')[0],
             email: data.email,
-            password: data.password, // Note: In production, this should be hashed on the backend
             requiresPasswordChange: data.requirePasswordChange,
             requiresPinForActions: false,
             roleIds: [],
@@ -180,8 +179,8 @@ export function UsersConfiguration() {
       }
 
       resetUserForm();
-    } catch (error) {
-      console.error('Error saving user:', error);
+    } catch {
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -200,8 +199,8 @@ export function UsersConfiguration() {
     try {
       dispatch({ type: 'DELETE_USER', payload: user.id });
       setDeleteModal({ show: false });
-    } catch (error) {
-      console.error('Error deleting user:', error);
+    } catch {
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -220,8 +219,8 @@ export function UsersConfiguration() {
       };
 
       dispatch({ type: 'UPDATE_USER', payload: updatedUser });
-    } catch (error) {
-      console.error('Error changing user status:', error);
+    } catch {
+      return;
     } finally {
       setIsLoading(false);
     }
@@ -247,22 +246,23 @@ export function UsersConfiguration() {
 
     try {
       // Map roleIds to actual Role objects
+      const now = new Date();
       const selectedRoles: Role[] = SYSTEM_ROLES
-        .map((role, index) => {
-          if (selectedRoleIds.includes(`role-${index + 1}`)) {
-            return {
-              ...role,
-              id: `role-${index + 1}`,
-              isActive: true,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              createdBy: 'system',
-              updatedBy: 'system',
-            } as Role;
-          }
-          return null;
-        })
-        .filter((role): role is Role => role !== null);
+        .filter((role) => selectedRoleIds.includes(role.id))
+        .map((role) => ({
+          id: role.id,
+          name: role.name ?? '',
+          description: role.description ?? '',
+          type: role.type ?? 'SYSTEM',
+          level: role.level ?? 'STAFF',
+          permissions: role.permissions!,
+          restrictions: role.restrictions ?? {},
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: 'system',
+          updatedBy: 'system',
+        }));
 
       const updatedUser: User = {
         ...roleAssignmentModal.user,
@@ -287,8 +287,8 @@ export function UsersConfiguration() {
           user: updatedUser,
         });
       }
-    } catch (error) {
-      console.error('Error assigning roles:', error);
+    } catch {
+      return;
     } finally {
       setIsLoading(false);
     }

@@ -37,8 +37,8 @@ export function CredentialsModal({ isOpen, onClose, credentials, user, Estableci
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch {
+      return;
     }
   };
 
@@ -70,8 +70,8 @@ ${EstablecimientosText || '  - Ninguno'}
       await navigator.clipboard.writeText(allCredentials);
       setCopiedField('all');
       setTimeout(() => setCopiedField(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy all:', err);
+    } catch {
+      return;
     }
   };
 

@@ -1,6 +1,3 @@
-/* eslint-disable no-case-declarations -- switch con declaraciones; refactor diferido */
-/* eslint-disable no-useless-escape -- regex literal heredado; limpieza diferida */
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/usuarios/UserForm.tsx
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
@@ -74,7 +71,8 @@ const calculatePasswordStrength = (password: string): { score: number; label: st
   if (/[a-z]/.test(password)) score += 1;
   if (/[A-Z]/.test(password)) score += 1;
   if (/[0-9]/.test(password)) score += 1;
-  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score += 1;
+  const hasSymbol = /[!@#$%^&*()_+=\]{};':"\\|,.<>/?-]/.test(password) || /\[/.test(password);
+  if (hasSymbol) score += 1;
 
   if (score <= 2) return { score, label: 'Débil', color: 'red' }
   if (score <= 4) return { score, label: 'Media', color: 'yellow' }
@@ -121,83 +119,98 @@ export function UserForm({
     }
   }, [user]);
 
-  const validateField = (field: string, value: any): string | null => {
+  const validateField = (
+    field: keyof UserFormData,
+    value: UserFormData[keyof UserFormData]
+  ): string | null => {
     switch (field) {
-      case 'fullName':
-        if (!value || value.trim().length < 3) {
+      case 'fullName': {
+        const fullName = typeof value === 'string' ? value : '';
+        if (!fullName || fullName.trim().length < 3) {
           return 'El nombre debe tener al menos 3 caracteres';
         }
-        if (value.trim().length > 100) {
+        if (fullName.trim().length > 100) {
           return 'El nombre no puede tener más de 100 caracteres';
         }
-        if (!/^[a-zA-ZÀ-ÿ\u00f1\u00d1\s]+$/.test(value.trim())) {
+        if (!/^[a-zA-ZÀ-ÿ\u00f1\u00d1\s]+$/.test(fullName.trim())) {
           return 'El nombre solo puede contener letras y espacios';
         }
         break;
+      }
 
-      case 'email':
-        if (!value || value.trim() === '') {
+      case 'email': {
+        const email = typeof value === 'string' ? value : '';
+        if (!email || email.trim() === '') {
           return 'El email es obligatorio';
         }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) {
+        if (!emailRegex.test(email)) {
           return 'Ingresa un email válido';
         }
-        if (existingEmails.includes(value.toLowerCase()) && value.toLowerCase() !== user?.personalInfo.email?.toLowerCase()) {
+        if (existingEmails.includes(email.toLowerCase()) && email.toLowerCase() !== user?.personalInfo.email?.toLowerCase()) {
           return 'Ya existe un usuario con este email';
         }
         break;
+      }
 
-      case 'phone':
-        if (value && value.trim()) {
-          const phoneRegex = /^[\+]?[0-9\s\-\(\)]{9,15}$/;
-          if (!phoneRegex.test(value.replace(/\s/g, ''))) {
+      case 'phone': {
+        const phone = typeof value === 'string' ? value : '';
+        if (phone && phone.trim()) {
+          const phoneRegex = /^[+]?[\d\s()-]{9,15}$/;
+          if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
             return 'Ingresa un teléfono válido';
           }
         }
         break;
+      }
 
-      case 'documentNumber':
-        if (datosFormulario.documentType && value) {
+      case 'documentNumber': {
+        const documentNumber = typeof value === 'string' ? value : '';
+        if (datosFormulario.documentType && documentNumber) {
           const docType = documentTypes.find(dt => dt.value === datosFormulario.documentType);
           if (docType) {
             if (datosFormulario.documentType === 'DNI') {
-              if (!/^\d{8}$/.test(value)) {
+              if (!/^\d{8}$/.test(documentNumber)) {
                 return 'El DNI debe tener 8 dígitos';
               }
             } else if (datosFormulario.documentType === 'CE') {
-              if (!/^\d{9}$/.test(value)) {
+              if (!/^\d{9}$/.test(documentNumber)) {
                 return 'El CE debe tener 9 dígitos';
               }
             } else if (datosFormulario.documentType === 'PASSPORT') {
-              if (value.length < 6 || value.length > 12) {
+              if (documentNumber.length < 6 || documentNumber.length > 12) {
                 return 'El pasaporte debe tener entre 6 y 12 caracteres';
               }
             }
           }
         }
         break;
+      }
 
-      case 'EstablecimientoIds':
-        if (!value || value.length === 0) {
+      case 'EstablecimientoIds': {
+        const ids = Array.isArray(value) ? value : [];
+        if (ids.length === 0) {
           return 'Debes seleccionar al menos un establecimiento';
         }
         break;
+      }
 
-      case 'password':
-        if (!user && (!value || value.trim() === '')) {
+      case 'password': {
+        const password = typeof value === 'string' ? value : '';
+        if (!user && (!password || password.trim() === '')) {
           return 'La contraseña es obligatoria';
         }
-        if (value && value.length < 8) {
+        if (password && password.length < 8) {
           return 'La contraseña debe tener al menos 8 caracteres';
         }
         break;
+      }
     }
 
     return null;
   }
 
-  const handleFieldChange = (field: string, value: any) => {
+  const handleFieldChange = <K extends keyof UserFormData>(field: K, value: UserFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setTouchedFields(prev => new Set(prev).add(field));
 
@@ -215,9 +228,9 @@ export function UserForm({
     }
   }
 
-  const handleBlur = (field: string) => {
+  const handleBlur = (field: keyof UserFormData) => {
     setTouchedFields(prev => new Set(prev).add(field));
-    const error = validateField(field, datosFormulario[field as keyof UserFormData]);
+    const error = validateField(field, datosFormulario[field]);
     setErrors(prev => ({
       ...prev,
       [field]: error || ''
@@ -225,21 +238,21 @@ export function UserForm({
   }
 
   const isFormValid = () => {
-    const requiredFields = user
+    const requiredFields: Array<keyof UserFormData> = user
       ? ['fullName', 'email', 'EstablecimientoIds']
       : ['fullName', 'email', 'EstablecimientoIds', 'password'];
 
     // Check required fields
     for (const field of requiredFields) {
-      const error = validateField(field, datosFormulario[field as keyof UserFormData]);
+      const error = validateField(field, datosFormulario[field]);
       if (error) return false;
     }
 
     // Check optional fields if they have values
-    const optionalFields = ['phone', 'documentNumber'];
+    const optionalFields: Array<keyof UserFormData> = ['phone', 'documentNumber'];
     for (const field of optionalFields) {
-      if (datosFormulario[field as keyof UserFormData]) {
-        const error = validateField(field, datosFormulario[field as keyof UserFormData]);
+      if (datosFormulario[field]) {
+        const error = validateField(field, datosFormulario[field]);
         if (error) return false;
       }
     }
@@ -252,12 +265,12 @@ export function UserForm({
 
     // Validate all fields
     const newErrors: Record<string, string> = {}
-    const fieldsToValidate = user
+    const fieldsToValidate: Array<keyof UserFormData> = user
       ? ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds']
       : ['fullName', 'email', 'phone', 'documentNumber', 'EstablecimientoIds', 'password'];
 
-    fieldsToValidate.forEach(field => {
-      const error = validateField(field, datosFormulario[field as keyof UserFormData]);
+    fieldsToValidate.forEach((field) => {
+      const error = validateField(field, datosFormulario[field]);
       if (error) newErrors[field] = error;
     });
 
@@ -295,8 +308,8 @@ export function UserForm({
       await navigator.clipboard.writeText(datosFormulario.password);
       setPasswordCopied(true);
       setTimeout(() => setPasswordCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy password:', err);
+    } catch {
+      return;
     }
   }
 
@@ -394,7 +407,7 @@ export function UserForm({
               <Select
                 label="Tipo de Documento"
                 value={datosFormulario.documentType}
-                onChange={(e) => handleFieldChange('documentType', e.target.value)}
+                onChange={(e) => handleFieldChange('documentType', e.target.value as UserFormData['documentType'])}
                 options={[
                   { value: '', label: 'Seleccionar tipo' },
                   ...documentTypes.map(docType => ({

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { Shield, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { Role } from '../../modelos/Role';
@@ -8,6 +7,8 @@ interface RoleCardProps {
   role: Partial<Role>;
   userCount?: number;
 }
+
+type PermissionModule = Record<string, boolean | number | string[] | undefined>;
 
 // Permission translations
 const PERMISSION_TRANSLATIONS: Record<string, string> = {
@@ -115,7 +116,7 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
     return count;
   };
 
-  const renderPermissionModule = (moduleName: string, permissions: any) => {
+  const renderPermissionModule = (moduleName: string, permissions: PermissionModule) => {
     const permissionEntries = Object.entries(permissions).filter(([key, value]) => {
       // Exclude special properties that are not boolean permissions
       if (key === 'maxDiscountPercentage' || key === 'EstablecimientoIds') return false;
@@ -251,7 +252,7 @@ export function RoleCard({ role, userCount = 0 }: RoleCardProps) {
         <div className="px-6 pb-6 pt-0 border-t border-gray-200">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4">
             {Object.entries(role.permissions).map(([moduleName, permissions]) =>
-              renderPermissionModule(moduleName, permissions)
+              renderPermissionModule(moduleName, permissions as PermissionModule)
             )}
           </div>
         </div>

@@ -1,9 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Checkbox } from '@/contasis';
 import type { Role } from '../../modelos/Role';
 import { ROLE_LEVELS, SYSTEM_ROLES } from '../../modelos/Role';
 import { Shield, ChevronDown, ChevronRight, Info, AlertTriangle } from 'lucide-react';
+
+type PermissionModule = Record<string, boolean | number | string[] | undefined>;
 
 interface RoleAssignmentProps {
   selectedRoleIds: string[];
@@ -12,28 +13,25 @@ interface RoleAssignmentProps {
 }
 
 export default function RoleAssignment({ selectedRoleIds, onChange, error }: RoleAssignmentProps) {
-  const [roles, setRoles] = useState<Role[]>([]);
   const [expandedRole, setExpandedRole] = useState<string | null>(null);
   const [showPermissions, setShowPermissions] = useState<string | null>(null);
 
-  // Mock roles data - in real app this would come from a hook
-  useEffect(() => {
-    const mockRoles: Role[] = SYSTEM_ROLES.map((role: Partial<Role>, index: number) => ({
-      id: `role-${index + 1}`,
-      name: role.name!,
-      description: role.description!,
-      type: role.type!,
-      level: role.level!,
+  const roles = useMemo<Role[]>(() => {
+    const now = new Date();
+    return SYSTEM_ROLES.map((role) => ({
+      id: role.id,
+      name: role.name ?? '',
+      description: role.description ?? '',
+      type: role.type ?? 'SYSTEM',
+      level: role.level ?? 'STAFF',
       permissions: role.permissions!,
-      restrictions: {},
+      restrictions: role.restrictions ?? {},
       isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin',
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 'system',
+      updatedBy: 'system',
     }));
-
-    setRoles(mockRoles);
   }, []);
 
   const handleRoleToggle = (roleId: string) => {
@@ -45,7 +43,7 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
   };
 
   const getLevelColor = (level: Role['level']) => {
-    const levelConfig = ROLE_LEVELS.find((l: any) => l.value === level);
+    const levelConfig = ROLE_LEVELS.find((l) => l.value === level);
     return levelConfig?.color || 'gray';
   };
 
@@ -67,15 +65,16 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
 
   const getPermissionCount = (role: Role) => {
     let count = 0;
-    Object.values(role.permissions as Record<string, any>).forEach((modulePermissions: any) => {
-      Object.values(modulePermissions as Record<string, any>).forEach((permission: any) => {
+    const modules = Object.values(role.permissions as Record<string, PermissionModule>);
+    modules.forEach((modulePermissions) => {
+      Object.values(modulePermissions).forEach((permission) => {
         if (permission === true) count++;
       });
     });
     return count;
   };
 
-  const renderPermissionModule = (moduleName: string, permissions: any) => {
+  const renderPermissionModule = (moduleName: string, permissions: PermissionModule) => {
     const permissionEntries = Object.entries(permissions).filter(([, value]) =>
       typeof value === 'boolean' && value === true
     );
