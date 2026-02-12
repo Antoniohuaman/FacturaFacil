@@ -122,22 +122,6 @@ export function TarjetaUsuario({
         bgColor: 'bg-red-50 border-red-200',
         textColor: 'text-red-800',
         description: 'Usuario deshabilitado sin acceso'
-      },
-      SUSPENDED: { 
-        label: 'Suspendido', 
-        color: 'warning' as const, 
-        icon: Clock,
-        bgColor: 'bg-yellow-50 border-yellow-200',
-        textColor: 'text-yellow-800',
-        description: 'Usuario suspendido temporalmente'
-      },
-      TERMINATED: { 
-        label: 'Terminado', 
-        color: 'error' as const, 
-        icon: UserX,
-        bgColor: 'bg-gray-50 border-gray-200',
-        textColor: 'text-gray-800',
-        description: 'Usuario terminado'
       }
     };
     return configs[status];

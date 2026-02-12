@@ -94,7 +94,7 @@ export interface User {
   };
 
   // Status and Metadata
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
+  status: 'ACTIVE' | 'INACTIVE';
   asignacionesPorEmpresa?: AsignacionEmpresaUsuario[];
   avatar?: string;
   notes?: string;
@@ -178,8 +178,6 @@ export const ASSIGNMENT_TYPES = [
 export const USER_STATUS = [
   { value: 'ACTIVE', label: 'Activo', color: 'green' },
   { value: 'INACTIVE', label: 'Inactivo', color: 'gray' },
-  { value: 'SUSPENDED', label: 'Suspendido', color: 'yellow' },
-  { value: 'TERMINATED', label: 'Desvinculado', color: 'red' },
 ] as const;
 
 export const DOCUMENT_TYPES = [

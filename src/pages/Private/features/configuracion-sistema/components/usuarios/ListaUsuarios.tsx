@@ -176,10 +176,6 @@ export function ListaUsuarios({
         return { etiqueta: 'Activo', color: 'success' as const };
       case 'INACTIVE':
         return { etiqueta: 'Inactivo', color: 'warning' as const };
-      case 'SUSPENDED':
-        return { etiqueta: 'Suspendido', color: 'error' as const };
-      case 'TERMINATED':
-        return { etiqueta: 'Desvinculado', color: 'error' as const };
       default:
         return { etiqueta: 'Inactivo', color: 'warning' as const };
     }
@@ -307,7 +303,6 @@ export function ListaUsuarios({
                 { value: 'TODOS', label: 'Todos los estados' },
                 { value: 'ACTIVE', label: 'Activos' },
                 { value: 'INACTIVE', label: 'Inactivos' },
-                { value: 'SUSPENDED', label: 'Suspendidos' },
               ]}
             />
           </div>

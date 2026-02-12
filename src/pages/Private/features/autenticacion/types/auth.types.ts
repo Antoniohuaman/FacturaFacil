@@ -21,7 +21,6 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 export const UserStatus = {
   ACTIVO: 'activo',
   INACTIVO: 'inactivo',
-  SUSPENDIDO: 'suspendido',
   PENDIENTE: 'pendiente',
 } as const;
 

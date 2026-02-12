@@ -20,8 +20,6 @@ interface UseUsersReturn {
   updateUser: (id: string, data: UpdateUserRequest) => Promise<User>;
   deleteUser: (id: string) => Promise<void>;
   activateUser: (id: string) => Promise<void>;
-  suspendUser: (id: string, reason?: string) => Promise<void>;
-  terminateUser: (id: string, reason?: string) => Promise<void>;
   
   // Getters
   getUser: (id: string) => User | undefined;
@@ -46,8 +44,6 @@ interface UseUsersReturn {
     total: number;
     active: number;
     inactive: number;
-    suspended: number;
-    terminated: number;
     byEstablecimiento: Record<string, number>;
     byRole: Record<string, number>;
   };
@@ -485,68 +481,6 @@ export function useUsers(): UseUsersReturn {
     [dispatch, users],
   );
 
-  // Suspend user
-  const suspendUser = useCallback(
-    async (id: string, reason?: string) => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const notes = reason ? `Suspendido: ${reason}` : 'Suspendido';
-        const updatedUsers = users.map(user =>
-          user.id === id
-            ? {
-                ...user,
-                status: 'SUSPENDED' as const,
-                notes,
-                updatedAt: new Date(),
-              }
-            : user,
-        );
-
-        dispatch({ type: 'SET_USERS', payload: updatedUsers });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error suspending user');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [dispatch, users],
-  );
-
-  // Terminate user
-  const terminateUser = useCallback(
-    async (id: string, reason?: string) => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const notes = reason ? `Desvinculado: ${reason}` : 'Desvinculado';
-        const updatedUsers = users.map(user =>
-          user.id === id
-            ? {
-                ...user,
-                status: 'TERMINATED' as const,
-                notes,
-                updatedAt: new Date(),
-              }
-            : user,
-        );
-
-        dispatch({ type: 'SET_USERS', payload: updatedUsers });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error terminating user');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [dispatch, users],
-  );
-
   // Update last login
   const updateLastLogin = useCallback(
     async (userId: string) => {
@@ -721,8 +655,6 @@ export function useUsers(): UseUsersReturn {
       total: users.length,
       active: 0,
       inactive: 0,
-      suspended: 0,
-      terminated: 0,
       byEstablecimiento: {} as Record<string, number>,
       byRole: {} as Record<string, number>,
     };
@@ -734,12 +666,6 @@ export function useUsers(): UseUsersReturn {
           break;
         case 'INACTIVE':
           stats.inactive++;
-          break;
-        case 'SUSPENDED':
-          stats.suspended++;
-          break;
-        case 'TERMINATED':
-          stats.terminated++;
           break;
       }
 
@@ -775,8 +701,6 @@ export function useUsers(): UseUsersReturn {
     updateUser,
     deleteUser,
     activateUser,
-    suspendUser,
-    terminateUser,
 
     // Getters
     getUser,

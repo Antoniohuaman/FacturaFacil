@@ -31,7 +31,7 @@ import {
   obtenerMapaEstablecimientos,
 } from '../utilidades/usuariosAsignaciones';
 
-type EstadoUsuario = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'TERMINATED';
+type EstadoUsuario = 'ACTIVE' | 'INACTIVE';
 
 type DatosFormularioUsuario = {
   nombres: string;

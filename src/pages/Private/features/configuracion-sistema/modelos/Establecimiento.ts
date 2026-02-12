@@ -77,7 +77,7 @@ export interface Establecimiento {
     bankAccounts: BankAccount[];
   };
   
-  estadoEstablecimiento: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  estadoEstablecimiento: 'ACTIVE' | 'INACTIVE';
   notes?: string;
   creadoElEstablecimiento: Date;
   actualizadoElEstablecimiento: Date;
@@ -122,7 +122,6 @@ export interface EstablecimientoSummary {
 export const Establecimiento_STATUS = [
   { value: 'ACTIVE', label: 'Activo', color: 'green' },
   { value: 'INACTIVE', label: 'Inactivo', color: 'gray' },
-  { value: 'SUSPENDED', label: 'Suspendido', color: 'yellow' },
 ] as const;
 
 export const PRINTER_TYPES = [
