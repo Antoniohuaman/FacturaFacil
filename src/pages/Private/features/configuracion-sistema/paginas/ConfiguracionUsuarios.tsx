@@ -7,7 +7,7 @@ import {
   ArrowLeft,
   Shield
 } from 'lucide-react';
-import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import { useConfigurationContext, useEmpresasConfiguradas } from '../contexto/ContextoConfiguracion';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import { ListaUsuarios } from '../components/usuarios/ListaUsuarios.tsx';
 import { FormularioUsuario } from '../components/usuarios/FormularioUsuario';
@@ -48,7 +48,7 @@ export function ConfiguracionUsuarios() {
   const navigate = useNavigate();
   const { state, dispatch } = useConfigurationContext();
   const { users: usuarios, Establecimientos: establecimientos } = state;
-  const empresas = useTenantStore((store) => store.empresas);
+  const empresas = useEmpresasConfiguradas();
   const contextoActual = useTenantStore((store) => store.contextoActual);
 
   const [pestanaActiva, setPestanaActiva] = useState<'usuarios' | 'roles'>('usuarios');
@@ -119,6 +119,8 @@ export function ConfiguracionUsuarios() {
       const establecimientoPrincipal = idsEstablecimientos.length === 1 ? idsEstablecimientos[0] : undefined;
 
       if (usuarioEnEdicion) {
+        const correoInmutable = usuarioEnEdicion.personalInfo.email;
+        const usernameInmutable = usuarioEnEdicion.systemAccess.username;
         const usuarioActualizado: User = {
           ...usuarioEnEdicion,
           personalInfo: {
@@ -126,7 +128,7 @@ export function ConfiguracionUsuarios() {
             firstName: data.nombres,
             lastName: data.apellidos,
             fullName: nombreCompleto,
-            email: data.correo,
+            email: correoInmutable,
             phone: data.telefono,
             documentType: data.tipoDocumento || undefined,
             documentNumber: data.numeroDocumento || undefined,
@@ -138,8 +140,8 @@ export function ConfiguracionUsuarios() {
           },
           systemAccess: {
             ...usuarioEnEdicion.systemAccess,
-            username: data.correo.split('@')[0],
-            email: data.correo,
+            username: usernameInmutable,
+            email: correoInmutable,
             roleIds: idsRoles,
             roles: rolesSistema,
           },
@@ -417,7 +419,6 @@ export function ConfiguracionUsuarios() {
         <FormularioUsuario
           usuario={usuarioEnEdicion || undefined}
           empresasDisponibles={empresas}
-          empresaActual={empresaActual}
           correosExistentes={correosExistentes}
           alEnviar={manejarEnvioUsuario}
           alCancelar={reiniciarFormularioUsuario}

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Select, Input, Button } from '@/contasis';
 import { useUserSession } from '@/contexts/UserSessionContext';
-import { useTenantStore } from '../../../autenticacion/store/TenantStore';
+import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import type { User } from '../../modelos/User';
 import { SYSTEM_ROLES } from '../../modelos/Role';
 import { TarjetaUsuario } from './TarjetaUsuario';
@@ -20,7 +20,7 @@ import {
   construirResumenEmpresas,
   construirResumenEstablecimientos,
   construirResumenRoles,
-  obtenerAsignacionesUsuario,
+  obtenerAsignacionesUsuarioGlobal,
   obtenerEstadoUsuarioPorAsignaciones,
   obtenerIdsRolesUnicos,
   obtenerMapaEstablecimientos,
@@ -57,8 +57,7 @@ export function ListaUsuarios({
   cargando = false,
 }: PropsListaUsuarios) {
   const { session } = useUserSession();
-  const empresas = useTenantStore((store) => store.empresas);
-  const contextoActual = useTenantStore((store) => store.contextoActual);
+  const empresas = useEmpresasConfiguradas();
   const usuarioActualId = session?.userId ?? '';
 
   const [busqueda, setBusqueda] = useState('');
@@ -72,11 +71,6 @@ export function ListaUsuarios({
   const [motivoEstado, setMotivoEstado] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
 
-  const empresaActual = useMemo(() => {
-    if (!contextoActual?.empresaId) return null;
-    return empresas.find((empresa) => empresa.id === contextoActual.empresaId) ?? null;
-  }, [contextoActual?.empresaId, empresas]);
-
   const mapaEstablecimientos = useMemo(
     () => obtenerMapaEstablecimientos(empresas),
     [empresas],
@@ -84,11 +78,7 @@ export function ListaUsuarios({
 
   const usuariosProcesados = useMemo(() => {
     return usuarios.map((usuario) => {
-      const asignaciones = obtenerAsignacionesUsuario(
-        usuario,
-        empresaActual?.id,
-        empresaActual?.razonSocial ?? empresaActual?.nombreComercial,
-      );
+      const asignaciones = obtenerAsignacionesUsuarioGlobal(usuario, empresas);
       const estado = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
       const resumenEmpresas = construirResumenEmpresas(asignaciones);
       const resumenRoles = construirResumenRoles(asignaciones, SYSTEM_ROLES);
@@ -109,7 +99,7 @@ export function ListaUsuarios({
         nombre,
       };
     });
-  }, [empresaActual?.id, empresaActual?.nombreComercial, empresaActual?.razonSocial, mapaEstablecimientos, usuarios]);
+  }, [empresas, mapaEstablecimientos, usuarios]);
 
   const usuariosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();

@@ -2,7 +2,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
-import { filtrarEmpresasValidas } from '../../../autenticacion/store/TenantStore';
 import type { Empresa } from '../../../autenticacion/types/auth.types';
 import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionUsuario } from '../../modelos/User';
 import { SYSTEM_ROLES } from '../../modelos/Role';
@@ -10,7 +9,7 @@ import {
   construirResumenLista,
   normalizarCorreo,
   obtenerAsignacionesActualizadas,
-  obtenerAsignacionesUsuario,
+  obtenerAsignacionesUsuarioGlobal,
 } from '../../utilidades/usuariosAsignaciones';
 
 type DatosFormularioUsuario = {
@@ -27,7 +26,6 @@ type DatosFormularioUsuario = {
 interface PropsFormularioUsuario {
   usuario?: UsuarioModelo;
   empresasDisponibles: Empresa[];
-  empresaActual?: Empresa | null;
   correosExistentes: string[];
   alEnviar: (data: DatosFormularioUsuario) => Promise<void>;
   alCancelar: () => void;
@@ -92,7 +90,6 @@ const calcularFortalezaContrasena = (contrasena: string): { score: number; label
 export function FormularioUsuario({
   usuario,
   empresasDisponibles,
-  empresaActual,
   correosExistentes,
   alEnviar,
   alCancelar,
@@ -115,18 +112,17 @@ export function FormularioUsuario({
   const [contrasenaCopiada, setContrasenaCopiada] = useState(false);
 
   const empresasOrdenadas = useMemo(() => {
-    const validas = filtrarEmpresasValidas(empresasDisponibles);
-    return [...validas].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial));
+    return [...empresasDisponibles].sort((a, b) =>
+      (a.razonSocial || a.nombreComercial || '').localeCompare(
+        b.razonSocial || b.nombreComercial || '',
+      ),
+    );
   }, [empresasDisponibles]);
 
   useEffect(() => {
     if (!usuario) return;
 
-    const asignaciones = obtenerAsignacionesUsuario(
-      usuario,
-      empresaActual?.id,
-      empresaActual?.razonSocial ?? empresaActual?.nombreComercial,
-    );
+    const asignaciones = obtenerAsignacionesUsuarioGlobal(usuario, empresasOrdenadas);
 
     setDatosFormulario({
       nombres: usuario.personalInfo.firstName,
@@ -138,7 +134,7 @@ export function FormularioUsuario({
       contrasena: '',
       asignacionesPorEmpresa: asignaciones,
     });
-  }, [empresaActual?.id, empresaActual?.nombreComercial, empresaActual?.razonSocial, usuario]);
+  }, [empresasOrdenadas, usuario]);
 
   useEffect(() => {
     if (usuario) return;
@@ -603,7 +599,7 @@ export function FormularioUsuario({
               error={errores.correo}
               placeholder="usuario@empresa.com"
               leftIcon={<Mail />}
-              disabled={cargando}
+              disabled={cargando || Boolean(usuario)}
               required
             />
 

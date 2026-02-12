@@ -226,6 +226,62 @@ export const obtenerAsignacionesUsuario = (
   return asignaciones.map((asignacion) => normalizarAsignacionEmpresa(asignacion));
 };
 
+export const obtenerAsignacionesUsuarioGlobal = (
+  usuario: User,
+  empresas: Empresa[],
+) => {
+  if (usuario.asignacionesPorEmpresa?.length) {
+    return usuario.asignacionesPorEmpresa.map((asignacion) => normalizarAsignacionEmpresa(asignacion));
+  }
+
+  const establecimientoIds = usuario.assignment?.EstablecimientoIds ?? [];
+  if (establecimientoIds.length === 0) {
+    return [];
+  }
+
+  const mapaEstablecimientos = obtenerMapaEstablecimientos(empresas);
+  const empresasPorId = new Map(empresas.map((empresa) => [empresa.id, empresa]));
+  const establecimientosLegacy = construirEstablecimientosDesdeLegacy(
+    establecimientoIds,
+    undefined,
+    usuario.systemAccess?.roleIds ?? [],
+  );
+  const estadoAsignacion: EstadoAsignacionUsuario =
+    usuario.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+  const agrupadas = new Map<string, AsignacionEmpresaUsuario>();
+  establecimientosLegacy.forEach((establecimiento) => {
+    const empresaId = mapaEstablecimientos.get(establecimiento.establecimientoId)?.empresaId;
+    if (!empresaId) return;
+    const empresa = empresasPorId.get(empresaId);
+    const existente = agrupadas.get(empresaId);
+    const base: AsignacionEmpresaUsuario = existente ?? {
+      empresaId,
+      empresaNombre: empresa?.razonSocial ?? empresa?.nombreComercial,
+      establecimientos: [],
+      estado: estadoAsignacion,
+    };
+    agrupadas.set(empresaId, {
+      ...base,
+      establecimientos: [...base.establecimientos, establecimiento],
+    });
+  });
+
+  if (agrupadas.size === 0 && empresas.length === 1) {
+    const empresa = empresas[0];
+    return [
+      normalizarAsignacionEmpresa({
+        empresaId: empresa.id,
+        empresaNombre: empresa.razonSocial ?? empresa.nombreComercial,
+        establecimientos: establecimientosLegacy,
+        estado: estadoAsignacion,
+      }),
+    ];
+  }
+
+  return Array.from(agrupadas.values()).map((asignacion) => normalizarAsignacionEmpresa(asignacion));
+};
+
 export const obtenerAsignacionEmpresa = (
   asignaciones: AsignacionEmpresaUsuario[],
   empresaId: string,

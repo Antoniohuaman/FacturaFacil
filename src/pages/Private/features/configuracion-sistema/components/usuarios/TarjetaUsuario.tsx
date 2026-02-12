@@ -19,15 +19,14 @@ import type { LucideIcon } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
 import { useUserSession } from '@/contexts/UserSessionContext';
-import { useTenantStore } from '../../../autenticacion/store/TenantStore';
+import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import { SYSTEM_ROLES } from '../../modelos/Role';
 import {
   construirNombreCompleto,
   construirResumenEmpresas,
   construirResumenEstablecimientos,
   construirResumenRoles,
-  obtenerAsignacionEmpresa,
-  obtenerAsignacionesUsuario,
+  obtenerAsignacionesUsuarioGlobal,
   obtenerEstadoUsuarioPorAsignaciones,
   obtenerEstablecimientosIdsAsignacion,
   obtenerMapaEstablecimientos,
@@ -58,26 +57,16 @@ export function TarjetaUsuario({
   compacto = false
 }: PropsTarjetaUsuario) {
   const { session } = useUserSession();
-  const empresas = useTenantStore((store) => store.empresas);
-  const contextoActual = useTenantStore((store) => store.contextoActual);
+  const empresas = useEmpresasConfiguradas();
   const isCurrentUser = session?.userId === usuario.id;
   const [mostrarMenu, setMostrarMenu] = useState(false);
   const [mostrarModalEstado, setMostrarModalEstado] = useState(false);
   const [motivoEstado, setMotivoEstado] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
 
-  const empresaActual = useMemo(() => {
-    if (!contextoActual?.empresaId) return null;
-    return empresas.find((empresa) => empresa.id === contextoActual.empresaId) ?? null;
-  }, [contextoActual?.empresaId, empresas]);
-
   const asignaciones = useMemo(
-    () => obtenerAsignacionesUsuario(
-      usuario,
-      empresaActual?.id,
-      empresaActual?.razonSocial ?? empresaActual?.nombreComercial,
-    ),
-    [empresaActual?.id, empresaActual?.nombreComercial, empresaActual?.razonSocial, usuario],
+    () => obtenerAsignacionesUsuarioGlobal(usuario, empresas),
+    [empresas, usuario],
   );
 
   const mapaEstablecimientos = useMemo(
@@ -85,12 +74,10 @@ export function TarjetaUsuario({
     [empresas],
   );
 
-  const asignacionEmpresaActual = empresaActual?.id
-    ? obtenerAsignacionEmpresa(asignaciones, empresaActual.id)
-    : undefined;
-  const establecimientosEmpresaActual = asignacionEmpresaActual
-    ? obtenerEstablecimientosIdsAsignacion(asignacionEmpresaActual)
-    : [];
+  const establecimientosAsignados = useMemo(() => {
+    const ids = asignaciones.flatMap((asignacion) => obtenerEstablecimientosIdsAsignacion(asignacion));
+    return Array.from(new Set(ids));
+  }, [asignaciones]);
 
   const resumenRoles = construirResumenRoles(asignaciones, SYSTEM_ROLES);
   const resumenEmpresas = construirResumenEmpresas(asignaciones);
@@ -364,9 +351,9 @@ export function TarjetaUsuario({
             <span className="font-medium">Establecimientos:</span> {resumenEstablecimientos.resumen}
           </div>
 
-          {establecimientosEmpresaActual.length > 0 && (
+          {establecimientosAsignados.length > 0 && (
             <div className="mt-3 space-y-2">
-              {establecimientosEmpresaActual.map((establecimientoId) => (
+              {establecimientosAsignados.map((establecimientoId) => (
                 <div key={establecimientoId} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md">
                   <div className="text-sm text-gray-700">
                     {mapaEstablecimientos.get(establecimientoId)?.nombre ?? establecimientoId}

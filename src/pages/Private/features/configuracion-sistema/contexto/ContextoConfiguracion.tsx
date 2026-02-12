@@ -1675,3 +1675,85 @@ export function useConfigurationContext() {
   return context;
 }
 
+const mapearEmpresaConfigurada = (
+  empresa: Company,
+  Establecimientos: Establecimiento[],
+): EmpresaTenant => ({
+  id: empresa.id,
+  ruc: empresa.ruc,
+  razonSocial: empresa.razonSocial,
+  nombreComercial: empresa.nombreComercial,
+  direccion: empresa.direccionFiscal,
+  telefono: empresa.telefonos?.[0],
+  email: empresa.correosElectronicos?.[0],
+  actividadEconomica: empresa.actividadEconomica,
+  regimen: (empresa.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
+  estado: empresa.estaActiva ? EmpresaStatus.ACTIVA : EmpresaStatus.BAJA,
+  establecimientos: Establecimientos.map((establecimiento) => ({
+    id: establecimiento.id,
+    codigo: establecimiento.codigoEstablecimiento,
+    nombre: establecimiento.nombreEstablecimiento,
+    direccion: establecimiento.direccionEstablecimiento,
+    esPrincipal: establecimiento.isMainEstablecimiento,
+    activo: establecimiento.estaActivoEstablecimiento,
+  })),
+  configuracion: {
+    emisionElectronica: true,
+  },
+});
+
+const obtenerKeysConfiguracion = (): string[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const keys: string[] = [];
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key) continue;
+      if (key.endsWith(`:${LLAVE_ALMACENAMIENTO_CONFIGURACION}`)) {
+        keys.push(key);
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  return keys;
+};
+
+export function useEmpresasConfiguradas(): EmpresaTenant[] {
+  const { state } = useConfigurationContext();
+
+  return useMemo(() => {
+    const empresas = new Map<string, EmpresaTenant>();
+    const storageKeys = obtenerKeysConfiguracion();
+
+    storageKeys.forEach((storageKey) => {
+      const snapshot = loadTenantConfigFromStorage(storageKey);
+      if (!snapshot?.company) {
+        return;
+      }
+
+      empresas.set(
+        snapshot.company.id,
+        mapearEmpresaConfigurada(snapshot.company, snapshot.Establecimientos),
+      );
+    });
+
+    if (state.company) {
+      empresas.set(
+        state.company.id,
+        mapearEmpresaConfigurada(state.company, state.Establecimientos),
+      );
+    }
+
+    return Array.from(empresas.values()).sort((a, b) =>
+      (a.razonSocial || a.nombreComercial || '').localeCompare(
+        b.razonSocial || b.nombreComercial || '',
+      ),
+    );
+  }, [state.company, state.Establecimientos]);
+}
+
