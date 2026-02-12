@@ -687,7 +687,7 @@ export function FormularioUsuario({
               </div>
             ) : (
               <div className="text-sm text-gray-700">
-                Empresa asignada por defecto: {empresasOrdenadas[0]?.razonSocial ?? empresasOrdenadas[0]?.nombreComercial ?? ''}
+                Empresa asignada: {empresasOrdenadas[0]?.razonSocial ?? empresasOrdenadas[0]?.nombreComercial ?? ''}
               </div>
             )}
 

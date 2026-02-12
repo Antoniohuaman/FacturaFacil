@@ -441,6 +441,9 @@ export function ListaUsuarios({
                     </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <span>Establecimientos</span>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <button
                       onClick={() => manejarOrden('roles')}
                       className="flex items-center space-x-1 hover:text-gray-700"
@@ -462,7 +465,7 @@ export function ListaUsuarios({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenRoles }) => {
+                {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenRoles, resumenEstablecimientos }) => {
                   const configEstado = obtenerConfigEstado(estado);
                   const esUsuarioActual = usuarioActualId && usuario.id === usuarioActualId;
                   return (
@@ -484,6 +487,11 @@ export function ListaUsuarios({
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-700" title={resumenEmpresas.detalle}>
                           {resumenEmpresas.resumen}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-700" title={resumenEstablecimientos.detalle}>
+                          {resumenEstablecimientos.resumen}
                         </div>
                       </td>
                       <td className="px-6 py-4">
