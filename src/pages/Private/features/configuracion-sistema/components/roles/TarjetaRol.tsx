@@ -184,11 +184,11 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
       data-focus={`configuracion:roles:${roleFocusId}`}
     >
       {/* Header */}
-      <div className="p-6">
+      <div className="p-4">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start space-x-3 flex-1">
             <div className={`
-              flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center
+              flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
               ${rol.level === 'ADMIN' ? 'bg-gradient-to-br from-red-500 to-red-600' :
                 rol.level === 'MANAGER' ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
                 rol.level === 'SUPERVISOR' ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
@@ -196,12 +196,12 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
                 'bg-gradient-to-br from-gray-500 to-gray-600'
               }
             `}>
-              <Shield className="w-6 h-6 text-white" />
+              <Shield className="w-5 h-5 text-white" />
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-1">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-base font-semibold text-gray-900">
                   {rol.name}
                 </h3>
                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getLevelColorClasses(rol.level)}`}>
@@ -214,18 +214,18 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
                 )}
               </div>
 
-              <p className="text-sm text-gray-600 mb-3">
+              <p className="text-xs text-gray-600 mb-3">
                 {rol.description}
               </p>
 
               {/* Stats */}
-              <div className="flex items-center space-x-4 text-sm">
+              <div className="flex items-center space-x-4 text-xs">
                 <div className="flex items-center space-x-1 text-gray-600">
-                  <Shield className="w-4 h-4" />
+                  <Shield className="w-3.5 h-3.5" />
                   <span>{getPermissionCount()} permisos activos</span>
                 </div>
                 <div className="flex items-center space-x-1 text-gray-600">
-                  <Users className="w-4 h-4" />
+                  <Users className="w-3.5 h-3.5" />
                   <span>{cantidadUsuarios} usuario{cantidadUsuarios !== 1 ? 's' : ''}</span>
                 </div>
               </div>
@@ -236,7 +236,7 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
         {/* Toggle Permissions Button */}
         <button
           onClick={() => setShowPermissions(!showPermissions)}
-          className="w-full flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium text-gray-700"
+        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-xs font-medium text-gray-700"
         >
           <span>{showPermissions ? 'Ocultar permisos detallados' : 'Ver permisos detallados'}</span>
           {showPermissions ? (
@@ -249,8 +249,8 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
 
       {/* Permissions Details */}
       {showPermissions && rol.permissions && (
-        <div className="px-6 pb-6 pt-0 border-t border-gray-200">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-4">
+        <div className="px-4 pb-4 pt-0 border-t border-gray-200">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-3">
             {Object.entries(rol.permissions).map(([moduleName, permissions]) =>
               renderPermissionModule(moduleName, permissions as PermissionModule)
             )}

@@ -1,7 +1,8 @@
 // src/features/configuration/components/usuarios/UserForm.tsx
 import { useState, useEffect, useMemo } from 'react';
-import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check } from 'lucide-react';
+import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Info } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
+import { Tooltip } from '@/shared/ui';
 import type { Empresa } from '../../../autenticacion/types/auth.types';
 import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionUsuario } from '../../modelos/User';
 import { SYSTEM_ROLES } from '../../modelos/Role';
@@ -95,6 +96,7 @@ export function FormularioUsuario({
   alCancelar,
   cargando = false
 }: PropsFormularioUsuario) {
+  const compactFieldClass = '[&>label]:mb-1';
   const [datosFormulario, setDatosFormulario] = useState<DatosFormularioUsuario>({
     nombres: '',
     apellidos: '',
@@ -451,23 +453,24 @@ export function FormularioUsuario({
 
     return (
       <details key={asignacion.empresaId} className="border border-gray-200 rounded-lg">
-        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer text-sm font-medium text-gray-900">
+        <summary className="flex items-center justify-between px-3 py-2 cursor-pointer text-sm font-medium text-gray-900">
           <span>{empresa?.razonSocial ?? asignacion.empresaNombre ?? asignacion.empresaId}</span>
-          <span className="text-xs text-gray-500">{resumenEstablecimientos.resumen}</span>
+          <span className="text-[11px] text-gray-500">{resumenEstablecimientos.resumen}</span>
         </summary>
-        <div className="px-4 pb-4 space-y-4">
+        <div className="px-3 pb-3 space-y-3">
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700">Establecimientos</div>
+            <div className="text-xs font-medium text-gray-700">Establecimientos</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {establecimientos.map((establecimiento) => (
                 <label
                   key={establecimiento.id}
-                  className="flex items-center gap-2 text-sm text-gray-700"
+                  className="flex items-center gap-2 text-xs text-gray-700"
                 >
                   <Checkbox
                     checked={establecimientosSeleccionados.includes(establecimiento.id)}
                     onChange={() => manejarToggleEstablecimiento(asignacion.empresaId, establecimiento.id)}
                     disabled={cargando}
+                    size="sm"
                   />
                   <span>{establecimiento.nombre}</span>
                 </label>
@@ -479,16 +482,16 @@ export function FormularioUsuario({
           </div>
 
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700">Roles</div>
-            <div className="space-y-3">
+            <div className="text-xs font-medium text-gray-700">Roles</div>
+            <div className="space-y-2">
               {establecimientosSeleccionados.map((establecimientoId) => {
                 const establecimiento = establecimientos.find((item) => item.id === establecimientoId);
                 const rolSeleccionado = asignacion.establecimientos.find(
                   (item) => item.establecimientoId === establecimientoId,
                 )?.roleId ?? '';
                 return (
-                  <div key={establecimientoId} className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-2 items-center">
-                    <div className="text-sm text-gray-700">
+                  <div key={establecimientoId} className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-2 items-center">
+                    <div className="text-xs text-gray-700">
                       {establecimiento?.nombre ?? establecimientoId}
                     </div>
                     <Select
@@ -506,6 +509,8 @@ export function FormularioUsuario({
                         })),
                       ]}
                       disabled={cargando}
+                      size="small"
+                      containerClassName={compactFieldClass}
                     />
                   </div>
                 );
@@ -522,6 +527,8 @@ export function FormularioUsuario({
             onChange={(e) => manejarCambioEstadoAsignacion(asignacion.empresaId, e.target.value as EstadoAsignacionUsuario)}
             options={opcionesEstadoAsignacion}
             disabled={cargando}
+            size="small"
+            containerClassName={compactFieldClass}
           />
         </div>
       </details>
@@ -529,22 +536,19 @@ export function FormularioUsuario({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+              <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
                 <User className="w-4 h-4 text-blue-600" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   {usuario ? 'Editar usuario' : 'Registrar nuevo usuario'}
                 </h3>
-                <p className="text-sm text-gray-500">
-                  {usuario ? 'Actualiza los datos del usuario' : 'Completa la informacion para registrar al usuario'}
-                </p>
               </div>
             </div>
             <Button
@@ -558,14 +562,14 @@ export function FormularioUsuario({
           </div>
         </div>
 
-        <form onSubmit={manejarEnvio} className="p-6 space-y-6">
-          <div className="space-y-4">
+        <form onSubmit={manejarEnvio} className="p-4 space-y-4">
+          <div className="space-y-3">
             <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
               <User className="w-4 h-4" />
               <span>Datos personales</span>
             </h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input
                 label="Nombres"
                 type="text"
@@ -576,6 +580,8 @@ export function FormularioUsuario({
                 placeholder="Juan"
                 disabled={cargando}
                 required
+                size="small"
+                containerClassName={compactFieldClass}
               />
               <Input
                 label="Apellidos"
@@ -587,6 +593,8 @@ export function FormularioUsuario({
                 placeholder="Perez Garcia"
                 disabled={cargando}
                 required
+                size="small"
+                containerClassName={compactFieldClass}
               />
             </div>
 
@@ -601,6 +609,8 @@ export function FormularioUsuario({
               leftIcon={<Mail />}
               disabled={cargando || Boolean(usuario)}
               required
+              size="small"
+              containerClassName={compactFieldClass}
             />
 
             <Input
@@ -613,138 +623,165 @@ export function FormularioUsuario({
               placeholder="+51 987 654 321"
               leftIcon={<Phone />}
               disabled={cargando}
+              size="small"
+              containerClassName={compactFieldClass}
             />
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
-              <FileText className="w-4 h-4" />
-              <span>Documento de identidad</span>
-              <span className="text-sm font-normal text-gray-500">(Opcional)</span>
-            </h4>
+          <details
+            className="border border-gray-200 rounded-lg"
+            open={Boolean(datosFormulario.tipoDocumento || datosFormulario.numeroDocumento)}
+          >
+            <summary className="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 cursor-pointer">
+              <span className="flex items-center space-x-2">
+                <FileText className="w-4 h-4" />
+                <span>Documento de identidad</span>
+                <span className="text-xs font-normal text-gray-500">(Opcional)</span>
+              </span>
+            </summary>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                label="Tipo de documento"
-                value={datosFormulario.tipoDocumento}
-                onChange={(e) => manejarCambioCampo('tipoDocumento', e.target.value as DatosFormularioUsuario['tipoDocumento'])}
-                options={[
-                  { value: '', label: 'Seleccionar tipo' },
-                  ...tiposDocumento.map(docType => ({
-                    value: docType.value,
-                    label: docType.label
-                  }))
-                ]}
-                disabled={cargando}
-              />
+            <div className="px-3 pb-3 pt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Select
+                  label="Tipo de documento"
+                  value={datosFormulario.tipoDocumento}
+                  onChange={(e) => manejarCambioCampo('tipoDocumento', e.target.value as DatosFormularioUsuario['tipoDocumento'])}
+                  options={[
+                    { value: '', label: 'Seleccionar tipo' },
+                    ...tiposDocumento.map(docType => ({
+                      value: docType.value,
+                      label: docType.label
+                    }))
+                  ]}
+                  disabled={cargando}
+                  size="small"
+                  containerClassName={compactFieldClass}
+                />
 
-              <Input
-                label="Numero de documento"
-                type="text"
-                value={datosFormulario.numeroDocumento}
-                onChange={(e) => {
-                  let value = e.target.value;
+                <Input
+                  label="Numero de documento"
+                  type="text"
+                  value={datosFormulario.numeroDocumento}
+                  onChange={(e) => {
+                    let value = e.target.value;
 
-                  if (datosFormulario.tipoDocumento === 'DNI') {
-                    value = value.replace(/\D/g, '').slice(0, 8);
-                  } else if (datosFormulario.tipoDocumento === 'CE') {
-                    value = value.replace(/\D/g, '').slice(0, 9);
-                  } else if (datosFormulario.tipoDocumento === 'PASSPORT') {
-                    value = value.toUpperCase().slice(0, 12);
-                  }
+                    if (datosFormulario.tipoDocumento === 'DNI') {
+                      value = value.replace(/\D/g, '').slice(0, 8);
+                    } else if (datosFormulario.tipoDocumento === 'CE') {
+                      value = value.replace(/\D/g, '').slice(0, 9);
+                    } else if (datosFormulario.tipoDocumento === 'PASSPORT') {
+                      value = value.toUpperCase().slice(0, 12);
+                    }
 
-                  manejarCambioCampo('numeroDocumento', value);
-                }}
-                placeholder={configuracionDocumento?.placeholder}
-                error={errores.numeroDocumento}
-              />
+                    manejarCambioCampo('numeroDocumento', value);
+                  }}
+                  placeholder={configuracionDocumento?.placeholder}
+                  error={errores.numeroDocumento}
+                  size="small"
+                  containerClassName={compactFieldClass}
+                />
+              </div>
             </div>
-          </div>
+          </details>
 
-          <div className="space-y-4">
-            <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
-              <Building2 className="w-4 h-4" />
-              <span>Empresas y accesos</span>
-              <span className="text-sm font-normal text-red-500">*</span>
-            </h4>
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
+                <Building2 className="w-4 h-4" />
+                <span>Empresas y accesos</span>
+                <span className="text-sm font-normal text-red-500">*</span>
+              </h4>
+              <Tooltip contenido="Selecciona empresas, establecimientos y rol por establecimiento." ubicacion="arriba" multilinea>
+                <span className="inline-flex items-center text-gray-400">
+                  <Info className="w-4 h-4" />
+                </span>
+              </Tooltip>
+            </div>
             {empresasOrdenadas.length > 1 ? (
               <div className="space-y-2">
-                <div className="text-sm text-gray-600">Selecciona las empresas donde este usuario tendra acceso</div>
                 {empresasOrdenadas.map((empresa) => (
-                  <label key={empresa.id} className="flex items-center gap-2 text-sm text-gray-700">
+                  <label key={empresa.id} className="flex items-center gap-2 text-xs text-gray-700">
                     <Checkbox
                       checked={datosFormulario.asignacionesPorEmpresa.some(asignacion => asignacion.empresaId === empresa.id)}
                       onChange={() => manejarSeleccionEmpresa(empresa)}
                       disabled={cargando}
+                      size="sm"
                     />
                     <span>{empresa.razonSocial}</span>
                   </label>
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-gray-700">
-                Empresa asignada: {empresasOrdenadas[0]?.razonSocial ?? empresasOrdenadas[0]?.nombreComercial ?? ''}
+              <div className="flex flex-wrap gap-2">
+                <span className="text-xs text-gray-600">Empresa</span>
+                <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                  {empresasOrdenadas[0]?.razonSocial ?? empresasOrdenadas[0]?.nombreComercial ?? ''}
+                </span>
               </div>
             )}
 
             {errores.empresas && (
-              <p className="text-sm text-red-600 mt-2 flex items-center space-x-1">
+              <p className="text-xs text-red-600 mt-2 flex items-center space-x-1">
                 <AlertCircle className="w-4 h-4" />
                 <span>{errores.empresas}</span>
               </p>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {datosFormulario.asignacionesPorEmpresa.map(renderizarAsignacionEmpresa)}
             </div>
           </div>
 
           {!usuario && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
-                  <Lock className="w-4 h-4" />
-                  <span>Acceso al sistema</span>
-                  <span className="text-sm font-normal text-red-500">*</span>
-                </h4>
+                <div className="flex items-center space-x-2">
+                  <h4 className="text-md font-medium text-gray-900 flex items-center space-x-2">
+                    <Lock className="w-4 h-4" />
+                    <span>Acceso al sistema</span>
+                    <span className="text-sm font-normal text-red-500">*</span>
+                  </h4>
+                  <Tooltip contenido="Se genera con el email y se recomienda cambiar al primer inicio." ubicacion="arriba" multilinea>
+                    <span className="inline-flex items-center text-gray-400">
+                      <Info className="w-4 h-4" />
+                    </span>
+                  </Tooltip>
+                </div>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+              <div className="border border-gray-200 rounded-lg p-3 space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
                     Nombre de usuario
                   </label>
-                  <div className="flex items-center space-x-2 px-4 py-3 bg-white border border-gray-300 rounded-lg">
-                    <User className="w-5 h-5 text-gray-400" />
-                    <span className="text-gray-900 font-medium">
+                  <div className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-300 rounded-lg">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-900 text-sm font-medium">
                       {datosFormulario.correo.split('@')[0] || 'usuario'}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-auto">
-                      (basado en el email)
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
                     Contraseña
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                    <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                     <input
                       type={mostrarContrasena ? 'text' : 'password'}
                       value={datosFormulario.contrasena}
                       onChange={(e) => manejarCambioCampo('contrasena', e.target.value)}
                       onBlur={() => manejarBlur('contrasena')}
-                      className={`w-full pl-10 pr-32 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${errores.contrasena
+                      className={`w-full pl-10 pr-28 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${errores.contrasena
                           ? 'border-red-300 bg-red-50'
                           : 'border-gray-300 bg-white'
                         }`}
-                      placeholder="Ingresa una contraseña segura"
+                      placeholder="Ingresa una contraseña"
                       disabled={cargando}
                     />
 
-                    <div className="absolute right-2 top-2 flex items-center space-x-1">
+                    <div className="absolute right-2 top-1.5 flex items-center space-x-1">
                       <Button
                         variant="tertiary"
                         size="sm"
@@ -772,9 +809,9 @@ export function FormularioUsuario({
                   </div>
 
                   {datosFormulario.contrasena && (
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Fortaleza de la contraseña:</span>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Fortaleza</span>
+                      <div className="flex items-center gap-2">
                         <span className={`font-semibold ${fortalezaContrasena.color === 'green' ? 'text-green-600' :
                             fortalezaContrasena.color === 'yellow' ? 'text-yellow-600' :
                               fortalezaContrasena.color === 'red' ? 'text-red-600' :
@@ -782,42 +819,21 @@ export function FormularioUsuario({
                           }`}>
                           {fortalezaContrasena.label}
                         </span>
-                      </div>
-
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-300 rounded-full ${fortalezaContrasena.color === 'green' ? 'bg-green-500' :
-                              fortalezaContrasena.color === 'yellow' ? 'bg-yellow-500' :
-                                fortalezaContrasena.color === 'red' ? 'bg-red-500' :
-                                  'bg-gray-400'
-                            }`}
-                          style={{ width: `${(fortalezaContrasena.score / 6) * 100}%` }}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                        <div className={`flex items-center space-x-1 ${datosFormulario.contrasena.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${datosFormulario.contrasena.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`} />
-                          <span>Mín. 8 caracteres</span>
-                        </div>
-                        <div className={`flex items-center space-x-1 ${/[A-Z]/.test(datosFormulario.contrasena) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[A-Z]/.test(datosFormulario.contrasena) ? 'bg-green-500' : 'bg-gray-300'}`} />
-                          <span>Mayúsculas</span>
-                        </div>
-                        <div className={`flex items-center space-x-1 ${/[a-z]/.test(datosFormulario.contrasena) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[a-z]/.test(datosFormulario.contrasena) ? 'bg-green-500' : 'bg-gray-300'}`} />
-                          <span>Minúsculas</span>
-                        </div>
-                        <div className={`flex items-center space-x-1 ${/[0-9]/.test(datosFormulario.contrasena) ? 'text-green-600' : 'text-gray-500'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${/[0-9]/.test(datosFormulario.contrasena) ? 'bg-green-500' : 'bg-gray-300'}`} />
-                          <span>Números</span>
-                        </div>
+                        <Tooltip
+                          contenido="Minimo 8 caracteres, incluye mayusculas, minusculas, numeros y simbolos."
+                          ubicacion="arriba"
+                          multilinea
+                        >
+                          <span className="inline-flex items-center text-gray-400">
+                            <Info className="w-3.5 h-3.5" />
+                          </span>
+                        </Tooltip>
                       </div>
                     </div>
                   )}
 
                   {errores.contrasena && (
-                    <p className="text-sm text-red-600 mt-2 flex items-center space-x-1">
+                    <p className="text-xs text-red-600 mt-2 flex items-center space-x-1">
                       <AlertCircle className="w-4 h-4" />
                       <span>{errores.contrasena}</span>
                     </p>
@@ -827,10 +843,10 @@ export function FormularioUsuario({
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+          <div className="flex justify-end space-x-2 pt-4 border-t border-gray-200">
             <Button
               variant="secondary"
-              size="md"
+              size="sm"
               onClick={alCancelar}
               disabled={cargando}
             >
@@ -838,7 +854,7 @@ export function FormularioUsuario({
             </Button>
             <Button
               variant="primary"
-              size="md"
+              size="sm"
               type="submit"
               disabled={cargando || !esValido()}
             >

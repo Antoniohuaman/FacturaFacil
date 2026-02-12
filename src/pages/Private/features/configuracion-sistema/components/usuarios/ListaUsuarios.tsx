@@ -9,6 +9,7 @@ import {
   List
 } from 'lucide-react';
 import { Select, Input, Button } from '@/contasis';
+import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import type { User } from '../../modelos/User';
@@ -160,6 +161,15 @@ export function ListaUsuarios({
     return { total, activos, inactivos };
   }, [usuariosProcesados]);
 
+  const obtenerIniciales = (nombre: string) => {
+    return nombre
+      .split(' ')
+      .map((name) => name[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
   const obtenerConfigEstado = (estado: EstadoUsuario) => {
     switch (estado) {
       case 'ACTIVE':
@@ -232,41 +242,41 @@ export function ListaUsuarios({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600">Total Usuarios</p>
-              <p className="text-2xl font-bold text-blue-900">{estadisticas.total}</p>
+              <p className="text-xs font-medium text-blue-600">Total Usuarios</p>
+              <p className="text-xl font-bold text-blue-900">{estadisticas.total}</p>
             </div>
-            <Users className="w-8 h-8 text-blue-600" />
+            <Users className="w-6 h-6 text-blue-600" />
           </div>
         </div>
 
-        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+        <div className="bg-green-50 rounded-lg p-3 border border-green-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600">Activos</p>
-              <p className="text-2xl font-bold text-green-900">{estadisticas.activos}</p>
+              <p className="text-xs font-medium text-green-600">Activos</p>
+              <p className="text-xl font-bold text-green-900">{estadisticas.activos}</p>
             </div>
-            <UserCheck className="w-8 h-8 text-green-600" />
+            <UserCheck className="w-6 h-6 text-green-600" />
           </div>
         </div>
 
-        <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+        <div className="bg-red-50 rounded-lg p-3 border border-red-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-red-600">Inactivos</p>
-              <p className="text-2xl font-bold text-red-900">{estadisticas.inactivos}</p>
+              <p className="text-xs font-medium text-red-600">Inactivos</p>
+              <p className="text-xl font-bold text-red-900">{estadisticas.inactivos}</p>
             </div>
-            <X className="w-8 h-8 text-red-600" />
+            <X className="w-6 h-6 text-red-600" />
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between">
-        <div className="flex flex-col lg:flex-row gap-4 flex-1">
+      <div className="flex flex-col xl:flex-row gap-3 items-start xl:items-center justify-between">
+        <div className="flex flex-col lg:flex-row gap-3 flex-1">
           <div className="flex-1 max-w-md relative">
             <Input
               type="text"
@@ -274,21 +284,23 @@ export function ListaUsuarios({
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre, correo, rol o empresa..."
               leftIcon={<Search />}
+              size="small"
             />
             {busqueda && (
               <button
                 onClick={() => setBusqueda('')}
-                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
             )}
           </div>
 
-          <div className="w-full sm:w-48">
+          <div className="w-full sm:w-44">
             <Select
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value as FiltroEstado)}
+              size="small"
               options={[
                 { value: 'TODOS', label: 'Todos los estados' },
                 { value: 'ACTIVE', label: 'Activos' },
@@ -297,10 +309,11 @@ export function ListaUsuarios({
             />
           </div>
 
-          <div className="w-full sm:w-56">
+          <div className="w-full sm:w-52">
             <Select
               value={filtroEmpresa}
               onChange={(e) => setFiltroEmpresa(e.target.value as FiltroEmpresa)}
+              size="small"
               options={[
                 { value: 'TODAS', label: 'Todas las empresas' },
                 ...empresas.map((empresa) => ({
@@ -311,10 +324,11 @@ export function ListaUsuarios({
             />
           </div>
 
-          <div className="w-full sm:w-56">
+          <div className="w-full sm:w-52">
             <Select
               value={filtroRol}
               onChange={(e) => setFiltroRol(e.target.value as FiltroRol)}
+              size="small"
               options={[
                 { value: 'TODOS', label: 'Todos los roles' },
                 ...SYSTEM_ROLES.map((rol) => ({
@@ -326,7 +340,7 @@ export function ListaUsuarios({
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           {(busqueda || filtroEstado !== 'TODOS' || filtroEmpresa !== 'TODAS' || filtroRol !== 'TODOS') && (
             <Button
               variant="secondary"
@@ -394,7 +408,7 @@ export function ListaUsuarios({
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-gray-900">
                 Lista de usuarios ({usuariosFiltrados.length})
@@ -406,23 +420,26 @@ export function ListaUsuarios({
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                    Avatar
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                     <button
                       onClick={() => manejarOrden('nombre')}
+                      className="flex items-center space-x-1 hover:text-gray-700"
+                    >
+                      <span>Nombre</span>
+                    </button>
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                    <button
+                      onClick={() => manejarOrden('correo')}
                       className="flex items-center space-x-1 hover:text-gray-700"
                     >
                       <span>Usuario</span>
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <button
-                      onClick={() => manejarOrden('correo')}
-                      className="flex items-center space-x-1 hover:text-gray-700"
-                    >
-                      <span>Correo</span>
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                     <button
                       onClick={() => manejarOrden('empresas')}
                       className="flex items-center space-x-1 hover:text-gray-700"
@@ -430,10 +447,10 @@ export function ListaUsuarios({
                       <span>Empresas</span>
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                     <span>Establecimientos</span>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                     <button
                       onClick={() => manejarOrden('roles')}
                       className="flex items-center space-x-1 hover:text-gray-700"
@@ -441,7 +458,7 @@ export function ListaUsuarios({
                       <span>Roles</span>
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                     <button
                       onClick={() => manejarOrden('estado')}
                       className="flex items-center space-x-1 hover:text-gray-700"
@@ -449,55 +466,84 @@ export function ListaUsuarios({
                       <span>Estado</span>
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenRoles, resumenEstablecimientos }) => {
+                {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenRoles, resumenEstablecimientos, asignaciones, nombre }) => {
                   const configEstado = obtenerConfigEstado(estado);
                   const esUsuarioActual = usuarioActualId && usuario.id === usuarioActualId;
+                  const rolesPorEstablecimiento = asignaciones
+                    .flatMap((asignacion) => asignacion.establecimientos)
+                    .map((item) => {
+                      const establecimiento = mapaEstablecimientos.get(item.establecimientoId)?.nombre ?? item.establecimientoId;
+                      const rol = SYSTEM_ROLES.find((value) => value.id === item.roleId)?.name ?? 'Sin rol';
+                      return `${establecimiento}: ${rol}`;
+                    });
+                  const resumenRolesEstablecimiento = rolesPorEstablecimiento.length > 0
+                    ? `${rolesPorEstablecimiento.length} rol(es)`
+                    : 'Sin roles';
+                  const detalleRolesEstablecimiento = rolesPorEstablecimiento.length > 0
+                    ? rolesPorEstablecimiento.join('\n')
+                    : 'Sin roles asignados';
                   return (
                     <tr key={usuario.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {usuario.personalInfo.fullName}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {usuario.personalInfo.documentType ? `${usuario.personalInfo.documentType} ` : ''}
-                            {usuario.personalInfo.documentNumber ?? ''}
-                          </div>
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-semibold flex items-center justify-center">
+                          {obtenerIniciales(nombre)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{usuario.personalInfo.email}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-700" title={resumenEmpresas.detalle}>
-                          {resumenEmpresas.resumen}
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
+                          {nombre}
+                        </div>
+                        <div className="text-[11px] text-gray-500 truncate max-w-[180px]">
+                          {usuario.personalInfo.documentType ? `${usuario.personalInfo.documentType} ` : ''}
+                          {usuario.personalInfo.documentNumber ?? ''}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-700" title={resumenEstablecimientos.detalle}>
-                          {resumenEstablecimientos.resumen}
-                        </div>
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <Tooltip contenido={usuario.personalInfo.email} ubicacion="arriba">
+                          <span className="text-sm text-gray-900 truncate max-w-[200px] inline-block">
+                            {usuario.personalInfo.email}
+                          </span>
+                        </Tooltip>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-700" title={resumenRoles.detalle}>
+                      <td className="px-4 py-2.5">
+                        <Tooltip contenido={resumenEmpresas.detalle} ubicacion="arriba" multilinea>
+                          <span className="text-sm text-gray-700 truncate max-w-[200px] inline-block">
+                            {resumenEmpresas.resumen}
+                          </span>
+                        </Tooltip>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Tooltip contenido={resumenEstablecimientos.detalle} ubicacion="arriba" multilinea>
+                          <span className="text-sm text-gray-700 truncate max-w-[200px] inline-block">
+                            {resumenEstablecimientos.resumen}
+                          </span>
+                        </Tooltip>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Tooltip contenido={detalleRolesEstablecimiento} ubicacion="arriba" multilinea>
+                          <span className="text-sm text-gray-700 truncate max-w-[180px] inline-block">
+                            {resumenRolesEstablecimiento}
+                          </span>
+                        </Tooltip>
+                        <div className="text-[11px] text-gray-500 truncate max-w-[180px]">
                           {resumenRoles.resumen}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-2.5 whitespace-nowrap">
                         <IndicadorEstado
                           status={configEstado.color}
                           label={configEstado.etiqueta}
                           size="sm"
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-3">
+                      <td className="px-4 py-2.5 whitespace-nowrap text-xs font-medium">
+                        <div className="flex items-center space-x-2">
                           <button
                             onClick={() => alEditar(usuario)}
                             className="text-blue-600 hover:text-blue-900"
