@@ -37,14 +37,23 @@ class AuthRepository {
   }> {
     try {
       // TODO: backend: separar registro usuario vs empresa
+      const { empresas, contextoActual } = useTenantStore.getState();
+      const empresaActiva = empresas.find((empresa) => empresa.id === contextoActual?.empresaId)
+        || empresas[0]
+        || null;
+      const ruc = empresaActiva?.ruc?.trim();
+      const razonSocial = empresaActiva?.razonSocial?.trim();
+      const nombreComercial = empresaActiva?.nombreComercial?.trim();
+      const direccion = empresaActiva?.direccion?.trim();
+
       const response = await authClient.register({
         ...data,
-        ruc: '20000000001',
-        razonSocial: 'Empresa Inicial',
-        nombreComercial: 'Empresa Inicial',
-        direccion: 'Pendiente',
         regimen: 'general',
         actividadEconomica: 'Pendiente',
+        ...(ruc ? { ruc } : {}),
+        ...(razonSocial ? { razonSocial } : {}),
+        ...(nombreComercial ? { nombreComercial } : {}),
+        ...(direccion ? { direccion } : {}),
       });
       return {
         success: true,

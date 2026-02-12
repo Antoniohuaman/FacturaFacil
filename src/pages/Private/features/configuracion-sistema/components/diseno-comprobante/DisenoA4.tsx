@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
 import { Palette, Image, Type, AlignLeft, AlignRight, Eye } from 'lucide-react';
+import { useTenantStore } from '../../../autenticacion/store/TenantStore';
 
 interface A4DesignProps {
   onDesignChange: (design: A4VoucherDesign) => void;
@@ -356,6 +357,19 @@ export default function A4Design({ onDesignChange, initialDesign }: A4DesignProp
   const [design, setDesign] = useState<A4VoucherDesign>(initialDesign || DISENO_A4_BASE);
   const [activeSection, setActiveSection] = useState<string>('page');
   const [showPreview, setShowPreview] = useState(false);
+
+  const { empresas, contextoActual } = useTenantStore((store) => ({
+    empresas: store.empresas,
+    contextoActual: store.contextoActual,
+  }));
+  const empresaActiva = empresas.find((empresa) => empresa.id === contextoActual?.empresaId)
+    || empresas[0]
+    || null;
+  const nombreEmpresa = empresaActiva?.razonSocial || empresaActiva?.nombreComercial || '';
+  const rucEmpresa = empresaActiva?.ruc || '';
+  const direccionEmpresa = empresaActiva?.direccion || '';
+  const telefonoEmpresa = empresaActiva?.telefono || '';
+  const correoEmpresa = empresaActiva?.email || '';
 
   useEffect(() => {
     onDesignChange(design);
@@ -783,11 +797,13 @@ export default function A4Design({ onDesignChange, initialDesign }: A4DesignProp
                           color: design.header.companyInfo.color 
                         }}
                       >
-                        {design.header.companyInfo.mostrarRazonSocial && <div className="font-bold">EMPRESA DEMO S.A.C.</div>}
-                        {design.header.companyInfo.showRuc && <div>RUC: 20123456789</div>}
-                        {design.header.companyInfo.showAddress && <div>Av. Demo 123, Lima, Perú</div>}
-                        {design.header.companyInfo.showPhone && <div>Tel: (01) 123-4567</div>}
-                        {design.header.companyInfo.showEmail && <div>info@empresademo.com</div>}
+                        {design.header.companyInfo.mostrarRazonSocial && (
+                          <div className="font-bold">{nombreEmpresa}</div>
+                        )}
+                        {design.header.companyInfo.showRuc && <div>RUC: {rucEmpresa}</div>}
+                        {design.header.companyInfo.showAddress && <div>{direccionEmpresa}</div>}
+                        {design.header.companyInfo.showPhone && <div>Tel: {telefonoEmpresa}</div>}
+                        {design.header.companyInfo.showEmail && <div>{correoEmpresa}</div>}
                       </div>
                     </div>
                   )}

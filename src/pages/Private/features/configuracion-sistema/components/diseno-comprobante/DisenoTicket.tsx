@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Eye, Settings } from 'lucide-react';
 import { resolveClientDocumentLabel } from '@/shared/impresion/ResolverDisenoImpresion';
+import { useTenantStore } from '../../../autenticacion/store/TenantStore';
 
 interface TicketDesignProps {
   onDesignChange: (design: TicketVoucherDesign) => void;
@@ -358,6 +359,20 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
   const [design] = useState<TicketVoucherDesign>(initialDesign || DISENO_TICKET_BASE);
   const [showPreview, setShowPreview] = useState(false);
 
+  const { empresas, contextoActual } = useTenantStore((store) => ({
+    empresas: store.empresas,
+    contextoActual: store.contextoActual,
+  }));
+  const empresaActiva = empresas.find((empresa) => empresa.id === contextoActual?.empresaId)
+    || empresas[0]
+    || null;
+  const nombreEmpresa = empresaActiva?.razonSocial || empresaActiva?.nombreComercial || '';
+  const nombreComercial = empresaActiva?.nombreComercial || nombreEmpresa;
+  const rucEmpresa = empresaActiva?.ruc || '';
+  const direccionEmpresa = empresaActiva?.direccion || '';
+  const telefonoEmpresa = empresaActiva?.telefono || '';
+  const correoEmpresa = empresaActiva?.email || '';
+
   useEffect(() => {
     onDesignChange(design);
   }, [design, onDesignChange]);
@@ -394,12 +409,12 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
               {/* Company Info */}
               {design.header.companyInfo.enabled && (
                 <div className={`text-${design.header.companyInfo.alignment} ${getFontSizeClass(design.header.companyInfo.fontSize)} ${design.header.companyInfo.fontWeight === 'bold' ? 'font-bold' : ''}`}>
-                  {design.header.companyInfo.mostrarRazonSocial && <div>EMPRESA DEMO S.A.C.</div>}
-                  {design.header.companyInfo.mostrarNombreComercial && <div>TIENDA DEMO</div>}
-                  {design.header.companyInfo.showRuc && <div>RUC: 20123456789</div>}
-                  {design.header.companyInfo.showAddress && <div>AV. DEMO 123, LIMA</div>}
-                  {design.header.companyInfo.showPhone && <div>TEL: (01) 123-4567</div>}
-                  {design.header.companyInfo.showEmail && <div>demo@empresa.com</div>}
+                  {design.header.companyInfo.mostrarRazonSocial && <div>{nombreEmpresa}</div>}
+                  {design.header.companyInfo.mostrarNombreComercial && <div>{nombreComercial}</div>}
+                  {design.header.companyInfo.showRuc && <div>RUC: {rucEmpresa}</div>}
+                  {design.header.companyInfo.showAddress && <div>{direccionEmpresa}</div>}
+                  {design.header.companyInfo.showPhone && <div>TEL: {telefonoEmpresa}</div>}
+                  {design.header.companyInfo.showEmail && <div>{correoEmpresa}</div>}
                 </div>
               )}
               
@@ -430,7 +445,7 @@ export default function TicketDesign({ onDesignChange, initialDesign }: TicketDe
               </div>
               <div className={`text-${design.customer.alignment} ${getFontSizeClass(design.customer.fontSize)}`}>
                 {design.customer.showDocumentType && design.customer.showDocumentNumber && <div>{clientDocumentLabel}: 12345678</div>}
-                {design.customer.showName && <div>CLIENTE DEMO</div>}
+                {design.customer.showName && <div>CLIENTE EJEMPLO</div>}
                 {design.customer.showAddress && <div>AV. CLIENTE 456</div>}
               </div>
               {design.customer.separatorAfter && (

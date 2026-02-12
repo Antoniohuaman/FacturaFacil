@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { A4VoucherDesign } from './DisenoA4';
 import type { TicketVoucherDesign } from './DisenoTicket';
 import { Download, Printer, Maximize2, Minimize2, RotateCcw, Settings } from 'lucide-react';
+import { useTenantStore } from '../../../autenticacion/store/TenantStore';
 
 interface DesignPreviewProps {
   designType: 'A4' | 'TICKET';
@@ -68,12 +69,12 @@ interface VoucherSampleData {
 
 const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
   company: {
-    razonSocial: 'EMPRESA DEMO S.A.C.',
-    nombreComercial: 'TIENDA DEMO',
-    ruc: '20123456789',
-    direccionFiscal: 'AV. DEMO 123, LIMA, PERÚ',
-    telefono: '(01) 123-4567',
-    correoElectronico: 'info@empresademo.com',
+    razonSocial: '',
+    nombreComercial: '',
+    ruc: '',
+    direccionFiscal: '',
+    telefono: '',
+    correoElectronico: '',
   },
   document: {
     type: 'BOLETA DE VENTA ELECTRÓNICA',
@@ -85,13 +86,13 @@ const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
   customer: {
     documentType: 'DNI',
     documentNumber: '12345678',
-    name: 'CLIENTE DEMO EJEMPLO',
+    name: 'CLIENTE',
     address: 'AV. CLIENTE 456, LIMA',
   },
   items: [
     {
       code: 'PROD001',
-      description: 'PRODUCTO DEMO EJEMPLO 1',
+      description: 'PRODUCTO 1',
       quantity: 1,
       unit: '-',
       unitPrice: 10.00,
@@ -99,7 +100,7 @@ const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
     },
     {
       code: 'PROD002',
-      description: 'PRODUCTO DEMO EJEMPLO 2 CON NOMBRE LARGO',
+      description: 'PRODUCTO 2 CON NOMBRE LARGO',
       quantity: 2,
       unit: '-',
       unitPrice: 15.50,
@@ -107,7 +108,7 @@ const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
     },
     {
       code: 'PROD003',
-      description: 'PRODUCTO DEMO EJEMPLO 3',
+      description: 'PRODUCTO 3',
       quantity: 1,
       unit: '-',
       unitPrice: 25.00,
@@ -129,17 +130,17 @@ const DATOS_MUESTRA_PREDETERMINADOS: VoucherSampleData = {
   },
   additional: {
     user: 'JUAN PÉREZ VENDEDOR',
-    Establecimiento: 'SUCURSAL PRINCIPAL',
+    Establecimiento: 'SUCURSAL',
     terminal: 'TERMINAL 001',
     notes: 'Gracias por su compra. Vuelva pronto.',
-    qrCode: 'https://efact.sunat.gob.pe/qr?ruc=20123456789&tipo=03&serie=B001&numero=123',
+    qrCode: 'https://efact.sunat.gob.pe/qr?ruc=&tipo=03&serie=B001&numero=123',
   },
 };
 
 export default function DesignPreview({
   designType,
   design,
-  sampleData = DATOS_MUESTRA_PREDETERMINADOS,
+  sampleData: sampleDataProp,
   onEdit,
   onPrint,
   onDownload,
@@ -148,6 +149,30 @@ export default function DesignPreview({
   const [zoom, setZoom] = useState(100);
   const [showGrid, setShowGrid] = useState(false);
   const [showMargins, setShowMargins] = useState(false);
+
+  const { empresas, contextoActual } = useTenantStore((store) => ({
+    empresas: store.empresas,
+    contextoActual: store.contextoActual,
+  }));
+  const empresaActiva = empresas.find((empresa) => empresa.id === contextoActual?.empresaId)
+    || empresas[0]
+    || null;
+  const nombreEmpresa = empresaActiva?.razonSocial || empresaActiva?.nombreComercial || '';
+  const rucEmpresa = empresaActiva?.ruc || '';
+
+  const baseSampleData = sampleDataProp ?? DATOS_MUESTRA_PREDETERMINADOS;
+  const sampleData = {
+    ...baseSampleData,
+    company: {
+      ...baseSampleData.company,
+      razonSocial: nombreEmpresa,
+      nombreComercial: empresaActiva?.nombreComercial ?? baseSampleData.company.nombreComercial,
+      ruc: rucEmpresa,
+      direccionFiscal: empresaActiva?.direccion || baseSampleData.company.direccionFiscal,
+      telefono: empresaActiva?.telefono ?? baseSampleData.company.telefono,
+      correoElectronico: empresaActiva?.email ?? baseSampleData.company.correoElectronico,
+    },
+  };
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 25, 50));

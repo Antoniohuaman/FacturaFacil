@@ -29,6 +29,20 @@ interface TenantState {
   getEstablecimientosByEmpresa: (empresaId: string) => Establecimiento[];
 }
 
+const NOMBRES_EMPRESA_INVALIDOS = new Set(['pendiente', 'empresa', 'empresa sin nombre']);
+
+const obtenerNombreEmpresa = (empresa: Empresa) =>
+  (empresa.razonSocial || empresa.nombreComercial || '').trim();
+
+const esEmpresaValida = (empresa: Empresa) => {
+  const nombre = obtenerNombreEmpresa(empresa);
+  if (!empresa.id || !nombre) return false;
+  return !NOMBRES_EMPRESA_INVALIDOS.has(nombre.toLowerCase());
+};
+
+export const filtrarEmpresasValidas = (empresas: Empresa[]) =>
+  empresas.filter(esEmpresaValida);
+
 const initialState = {
   empresas: [],
   contextoActual: null,
@@ -40,11 +54,23 @@ export const useTenantStore = create<TenantState>()(
     (set, get) => ({
       ...initialState,
       
-      setEmpresas: (empresas) => set({ empresas }),
+      setEmpresas: (empresas) => set((state) => {
+        const filtradas = filtrarEmpresasValidas(empresas);
+        const contextoValido = state.contextoActual
+          ? filtradas.some((empresa) => empresa.id === state.contextoActual?.empresaId)
+          : true;
+        return {
+          empresas: filtradas,
+          contextoActual: contextoValido ? state.contextoActual : null,
+        };
+      }),
       
-      addEmpresa: (empresa) => set((state) => ({
-        empresas: [...state.empresas, empresa],
-      })),
+      addEmpresa: (empresa) => set((state) => {
+        if (!esEmpresaValida(empresa)) {
+          return state;
+        }
+        return { empresas: [...state.empresas, empresa] };
+      }),
       
       removeEmpresa: (empresaId) => set((state) => ({
         empresas: state.empresas.filter(e => e.id !== empresaId),
@@ -53,7 +79,11 @@ export const useTenantStore = create<TenantState>()(
           : state.contextoActual,
       })),
       
-      setContextoActual: (contexto) => set({ contextoActual: contexto }),
+      setContextoActual: (contexto) => set((state) => {
+        if (!contexto) return { contextoActual: null };
+        const contextoValido = state.empresas.some((empresa) => empresa.id === contexto.empresaId);
+        return { contextoActual: contextoValido ? contexto : null };
+      }),
       
       setLoading: (value) => set({ isLoading: value }),
       
@@ -87,6 +117,11 @@ export const useTenantStore = create<TenantState>()(
         empresas: state.empresas,
         contextoActual: state.contextoActual,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        state.setEmpresas(state.empresas);
+        state.setContextoActual(state.contextoActual);
+      },
     }
   )
 );

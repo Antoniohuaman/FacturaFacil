@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
+import { filtrarEmpresasValidas } from '../../../autenticacion/store/TenantStore';
 import type { Empresa } from '../../../autenticacion/types/auth.types';
 import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionUsuario } from '../../modelos/User';
 import { SYSTEM_ROLES } from '../../modelos/Role';
@@ -113,10 +114,10 @@ export function FormularioUsuario({
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [contrasenaCopiada, setContrasenaCopiada] = useState(false);
 
-  const empresasOrdenadas = useMemo(
-    () => [...empresasDisponibles].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)),
-    [empresasDisponibles],
-  );
+  const empresasOrdenadas = useMemo(() => {
+    const validas = filtrarEmpresasValidas(empresasDisponibles);
+    return [...validas].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial));
+  }, [empresasDisponibles]);
 
   useEffect(() => {
     if (!usuario) return;
@@ -686,7 +687,7 @@ export function FormularioUsuario({
               </div>
             ) : (
               <div className="text-sm text-gray-700">
-                Empresa asignada por defecto: {empresasOrdenadas[0]?.razonSocial ?? 'Empresa sin nombre'}
+                Empresa asignada por defecto: {empresasOrdenadas[0]?.razonSocial ?? empresasOrdenadas[0]?.nombreComercial ?? ''}
               </div>
             )}
 

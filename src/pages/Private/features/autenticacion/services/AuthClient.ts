@@ -178,6 +178,13 @@ class AuthClient {
       console.log('[DEV MODE] Login exitoso:', { email: user.email, id: user.id });
 
       // Generar tokens simulados
+      const razonSocial = (user.razonSocial || '').trim();
+      const nombreComercial = (user.nombreComercial || '').trim();
+      const nombreEmpresa = razonSocial || nombreComercial;
+      const ruc = (user.ruc || '').trim();
+      const direccion = (user.direccion || '').trim();
+      const tieneEmpresa = Boolean(nombreEmpresa);
+
       return {
         user: {
           id: user.id,
@@ -193,38 +200,42 @@ class AuthClient {
           refreshToken: `dev_refresh_${Date.now()}`,
           expiresIn: 3600,
         },
-        empresas: [
-          {
-            id: `empresa_${user.id}`,
-            ruc: user.ruc,
-            razonSocial: user.razonSocial,
-            nombreComercial: user.nombreComercial || user.razonSocial,
-            establecimientos: [
+        empresas: tieneEmpresa
+          ? [
               {
+                id: `empresa_${user.id}`,
+                ruc,
+                razonSocial,
+                nombreComercial: nombreComercial || razonSocial,
+                establecimientos: [
+                  {
+                    id: `estab_${user.id}`,
+                    codigo: '0001',
+                    nombre: 'Principal',
+                    direccion,
+                  },
+                ],
+              },
+            ]
+          : [],
+        contextoActual: tieneEmpresa
+          ? {
+              empresaId: `empresa_${user.id}`,
+              establecimientoId: `estab_${user.id}`,
+              empresa: {
+                id: `empresa_${user.id}`,
+                ruc,
+                razonSocial,
+                nombreComercial: nombreComercial || razonSocial,
+              },
+              establecimiento: {
                 id: `estab_${user.id}`,
                 codigo: '0001',
                 nombre: 'Principal',
-                direccion: user.direccion,
+                direccion,
               },
-            ],
-          },
-        ],
-        contextoActual: {
-          empresaId: `empresa_${user.id}`,
-          establecimientoId: `estab_${user.id}`,
-          empresa: {
-            id: `empresa_${user.id}`,
-            ruc: user.ruc,
-            razonSocial: user.razonSocial,
-            nombreComercial: user.nombreComercial || user.razonSocial,
-          },
-          establecimiento: {
-            id: `estab_${user.id}`,
-            codigo: '0001',
-            nombre: 'Principal',
-            direccion: user.direccion,
-          },
-        },
+            }
+          : undefined,
         requiereSeleccionContexto: false,
       } as T;
     }
@@ -290,10 +301,10 @@ class AuthClient {
     celular: string;
     email: string;
     password: string;
-    ruc: string;
-    razonSocial: string;
+    ruc?: string;
+    razonSocial?: string;
     nombreComercial?: string;
-    direccion: string;
+    direccion?: string;
     telefono?: string;
     regimen: string;
     actividadEconomica?: string;
