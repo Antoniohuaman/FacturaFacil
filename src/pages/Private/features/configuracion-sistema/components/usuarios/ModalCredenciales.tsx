@@ -63,7 +63,7 @@ Establecimientos:
 ${EstablecimientosText || '  - Ninguno'}
 
 ═══════════════════════════════════════
-⚠️  IMPORTANTE: Cambia tu contraseña en el primer inicio de sesión
+⚠️  RECOMENDADO: Actualiza tu contraseña despues del primer inicio de sesion
 `;
 
     try {
@@ -96,7 +96,7 @@ ${rolesText || '  - Ninguno'}
 ${EstablecimientosText || '  - Ninguno'}
 
 ═══════════════════════════════════════
-⚠️ *IMPORTANTE:* Cambia tu contraseña en el primer inicio de sesión
+⚠️ *RECOMENDADO:* Actualiza tu contraseña despues del primer inicio de sesion
     `.trim();
 
     // Encode the message for URL
@@ -275,7 +275,7 @@ ${EstablecimientosText || '  - Ninguno'}
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1.5">•</span>
-                    <span>El usuario debe cambiar su contraseña en el primer inicio de sesión</span>
+                    <span>Se recomienda actualizar la contraseña en el primer inicio de sesion</span>
                   </li>
                   <li className="flex items-start">
                     <span className="mr-1.5">•</span>

@@ -14,9 +14,7 @@ import {
   Clock,
   X,
   CheckCircle,
-  AlertCircle,
-  Power,
-  PowerOff
+  AlertCircle
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { User } from '../../modelos/User';
@@ -126,7 +124,7 @@ export function UserCard({
 
   const handleStatusChange = async (newStatus: UserStatus) => {
     if (newStatus === 'INACTIVE' && !statusReason.trim()) {
-      alert('Debes proporcionar un motivo para inactivar al usuario');
+      setShowStatusModal(true);
       return;
     }
 
@@ -257,46 +255,6 @@ export function UserCard({
                         <span>Desactivar</span>
                       </button>
                     )}
-                    
-                    {user.status === 'INACTIVE' && (
-                      <button
-                        onClick={() => {
-                          onChangeStatus('ACTIVE');
-                          setShowMenu(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
-                      >
-                        <UserCheck className="w-4 h-4" />
-                        <span>Reactivar</span>
-                      </button>
-                    )}
-
-                    <div className="border-t border-gray-100 my-1"></div>
-
-                    {/* Enable/Disable Toggle */}
-                    {user.status === 'ACTIVE' ? (
-                      <button
-                        onClick={() => {
-                          onChangeStatus('INACTIVE');
-                          setShowMenu(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center space-x-2"
-                      >
-                        <PowerOff className="w-4 h-4" />
-                        <span>Inhabilitar</span>
-                      </button>
-                    ) : user.status === 'INACTIVE' ? (
-                      <button
-                        onClick={() => {
-                          onChangeStatus('ACTIVE');
-                          setShowMenu(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center space-x-2"
-                      >
-                        <Power className="w-4 h-4" />
-                        <span>Habilitar</span>
-                      </button>
-                    ) : null}
 
                     {/* Delete - Only show if user has no transactions */}
                     {!user.hasTransactions && (
@@ -368,27 +326,33 @@ export function UserCard({
           )}
         </div>
 
-        {/* Roles by Establecimiento */}
+        {/* Establecimientos asignados */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-medium text-gray-700 flex items-center space-x-2">
               <Building2 className="w-4 h-4" />
-              <span>Roles por Establecimiento</span>
+              <span>Establecimientos asignados</span>
             </h4>
             <span className="text-xs text-gray-500">
               {user.assignment.EstablecimientoIds.length} asignado{user.assignment.EstablecimientoIds.length !== 1 ? 's' : ''}
             </span>
           </div>
+
+          <div className="text-xs text-gray-500 mb-2">
+            {user.systemAccess.roles.length > 0
+              ? `Rol: ${user.systemAccess.roles.map(role => role.name).filter(Boolean).join(', ')}`
+              : 'Sin rol asignado'}
+          </div>
           
           {user.assignment.EstablecimientoIds.length === 0 ? (
             <div className="text-center py-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <Shield className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 mb-2">Sin roles asignados</p>
+              <p className="text-sm text-gray-500 mb-2">Sin establecimientos asignados</p>
               <button
-                onClick={onAssignRole}
+                onClick={onEdit}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                Asignar primer rol
+                Editar usuario
               </button>
             </div>
           ) : (
@@ -406,15 +370,13 @@ export function UserCard({
                     </div>
                     <div className="flex items-center space-x-2 mt-1">
                       <Shield className="w-3 h-3 text-blue-600" />
-                      <span className="text-sm text-blue-800 font-medium">
-                        {user.systemAccess.roles[0]?.name || 'Sin rol'}
-                      </span>
+                      <span className="text-sm text-blue-800 font-medium">Acceso activo</span>
                     </div>
                   </div>
                   <button
                     onClick={() => onRemoveRole && onRemoveRole(EstablecimientoId)}
                     className="p-1 text-red-500 hover:bg-red-100 rounded transition-colors"
-                    title="Quitar rol"
+                    title="Quitar acceso"
                   >
                     <X className="w-4 h-4" />
                   </button>

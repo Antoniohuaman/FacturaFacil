@@ -10,8 +10,8 @@ export interface User {
     firstName: string;
     lastName: string;
     fullName: string;
-    documentType: 'DNI' | 'CE' | 'PASSPORT';
-    documentNumber: string;
+    documentType?: 'DNI' | 'CE' | 'PASSPORT';
+    documentNumber?: string;
     email: string;
     phone?: string;
     address?: string;
@@ -26,16 +26,16 @@ export interface User {
 
   // Assignment Information
   assignment: {
-    position: string;
-    department: string;
-    EstablecimientoId: string; // Primary Establecimiento
+    position?: string;
+    department?: string;
+    EstablecimientoId?: string; // Primary Establecimiento
     EstablecimientoIds: string[]; // All Establecimientos the user can access
-    hireDate: Date;
-    assignmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+    hireDate?: Date;
+    assignmentType?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
     salary?: number;
     commissionRate?: number;
-    workSchedule: {
-      mondayToFriday: {
+    workSchedule?: {
+      mondayToFriday?: {
         startTime: string;
         endTime: string;
         breakStartTime?: string;
@@ -61,19 +61,18 @@ export interface User {
     username: string;
     email: string;
     password?: string; // Hashed password (only stored temporarily during creation)
-    requiresPasswordChange?: boolean; // Force password change on first login
     pin?: string; // 4-6 digit PIN for quick access
-    requiresPinForActions: boolean;
+    requiresPinForActions?: boolean;
     roleIds: string[];
     roles: Role[];
     permissions: Permission[];
     lastLogin?: Date;
     lastPasswordChange?: Date;
-    loginAttempts: number;
-    isLocked: boolean;
+    loginAttempts?: number;
+    isLocked?: boolean;
     lockoutUntil?: Date;
-    sessionTimeout: number; // in minutes
-    maxConcurrentSessions: number;
+    sessionTimeout?: number; // in minutes
+    maxConcurrentSessions?: number;
   };
 
   // Status and Metadata
@@ -83,8 +82,8 @@ export interface User {
   hasTransactions?: boolean; // Flag to track if user has any transactions (sales, purchases, etc.)
   createdAt: Date;
   updatedAt: Date;
-  createdBy: string;
-  updatedBy: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface Permission {
@@ -100,8 +99,8 @@ export interface CreateUserRequest {
   personalInfo: {
     firstName: string;
     lastName: string;
-    documentType: 'DNI' | 'CE' | 'PASSPORT';
-    documentNumber: string;
+    documentType?: 'DNI' | 'CE' | 'PASSPORT';
+    documentNumber?: string;
     email: string;
     phone?: string;
     address?: string;
@@ -114,19 +113,19 @@ export interface CreateUserRequest {
     };
   };
   assignment: {
-    position: string;
-    department: string;
-    EstablecimientoId: string;
+    position?: string;
+    department?: string;
+    EstablecimientoId?: string;
     EstablecimientoIds: string[];
-    hireDate: Date;
-    assignmentType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
+    hireDate?: Date;
+    assignmentType?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP';
     salary?: number;
     commissionRate?: number;
   };
   systemAccess: {
     username: string;
     pin?: string;
-    requiresPinForActions: boolean;
+    requiresPinForActions?: boolean;
     roleIds: string[];
     sessionTimeout?: number;
     maxConcurrentSessions?: number;
@@ -142,8 +141,8 @@ export interface UserSummary {
   id: string;
   code: string;
   fullName: string;
-  position: string;
-  Establecimiento: string;
+  position?: string;
+  Establecimiento?: string;
   status: User['status'];
   lastLogin?: Date;
   avatar?: string;

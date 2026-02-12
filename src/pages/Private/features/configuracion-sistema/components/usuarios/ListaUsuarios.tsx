@@ -5,6 +5,7 @@ import {
   Search,
   UserCheck,
   X,
+  AlertCircle,
   Shield,
   Power,
   PowerOff
@@ -51,6 +52,9 @@ export function UsersList({
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [statusModal, setStatusModal] = useState<{ show: boolean; user?: User }>({ show: false });
+  const [statusReason, setStatusReason] = useState('');
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
 
   // Filter users
@@ -148,6 +152,24 @@ export function UsersList({
     setSearchTerm('');
     setFilterStatus('ALL');
     setFilterEstablecimiento('ALL');
+  };
+
+  const openStatusModal = (user: User) => {
+    setStatusModal({ show: true, user });
+    setStatusReason('');
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!statusModal.user) return;
+
+    setIsChangingStatus(true);
+    try {
+      await onChangeStatus(statusModal.user, 'INACTIVE', statusReason.trim());
+      setStatusModal({ show: false });
+      setStatusReason('');
+    } finally {
+      setIsChangingStatus(false);
+    }
   };
 
   const stats = getUserStats();
@@ -341,8 +363,8 @@ export function UsersList({
             <option value="status-desc">Estado Z-A</option>
             <option value="created-desc">Más reciente</option>
             <option value="created-asc">Más antiguo</option>
-            <option value="roles-desc">Más roles</option>
-            <option value="roles-asc">Menos roles</option>
+            <option value="roles-desc">Más establecimientos</option>
+            <option value="roles-asc">Menos establecimientos</option>
           </select>
         </div>
       </div>
@@ -360,7 +382,7 @@ export function UsersList({
           <p className="text-gray-500 mb-6">
             {(searchTerm || filtroEstado !== 'ALL' || filterEstablecimiento !== 'ALL')
               ? 'Intenta ajustar los filtros de búsqueda'
-              : 'Invita a tu primer usuario para comenzar'
+              : 'Registra a tu primer usuario para comenzar'
             }
           </p>
           {(!searchTerm && filtroEstado === 'ALL' && filterEstablecimiento === 'ALL') && (
@@ -417,7 +439,7 @@ export function UsersList({
                     className="text-left py-3 px-4 font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     onClick={() => manejarOrden('roles')}
                   >
-                    Roles {sortField === 'roles' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    Establecimientos {sortField === 'roles' && (sortOrder === 'asc' ? '↑' : '↓')}
                   </th>
                   <th className="text-right py-3 px-4 font-medium text-gray-700">Acciones</th>
                 </tr>
@@ -425,6 +447,9 @@ export function UsersList({
               <tbody>
                 {filteredUsers.map((user) => {
                   const configEstado = getStatusConfig(user.status);
+                  const roleLabel = user.systemAccess.roles.length > 0
+                    ? `Rol: ${user.systemAccess.roles.map(role => role.name).filter(Boolean).join(', ')}`
+                    : 'Sin rol asignado';
 
                   return (
                     <tr
@@ -464,14 +489,13 @@ export function UsersList({
                       </td>
                       <td className="py-4 px-4">
                         <div className="space-y-1">
+                          <div className="text-xs text-gray-500">{roleLabel}</div>
                           {user.assignment.EstablecimientoIds.length === 0 ? (
-                            <span className="text-sm text-gray-500 italic">Sin roles</span>
+                            <span className="text-sm text-gray-500 italic">Sin establecimientos</span>
                           ) : (
                             user.assignment.EstablecimientoIds.map((EstablecimientoId: string, index: number) => (
                               <div key={index} className="text-xs">
                                 <span className="font-medium">{getEstablecimientoName(EstablecimientoId)}</span>
-                                <span className="text-gray-500"> → </span>
-                                <span className="text-blue-600">{user.systemAccess.roles[0]?.name || 'Sin rol'}</span>
                               </div>
                             ))
                           )}
@@ -497,7 +521,7 @@ export function UsersList({
                           {/* Enable/Disable Toggle */}
                           {user.status === 'ACTIVE' ? (
                             <button
-                              onClick={() => onChangeStatus(user, 'INACTIVE')}
+                              onClick={() => openStatusModal(user)}
                               className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
                               title="Inhabilitar"
                             >
@@ -530,6 +554,70 @@ export function UsersList({
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {statusModal.show && statusModal.user && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Desactivar Usuario</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {statusModal.user.personalInfo.fullName}
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Motivo de desactivacion *
+                </label>
+                <textarea
+                  value={statusReason}
+                  onChange={(e) => setStatusReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                  rows={3}
+                  placeholder="Especifica el motivo por el cual se desactiva al usuario..."
+                  required
+                />
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-red-900">Atencion</h4>
+                    <p className="text-sm text-red-800 mt-1">
+                      El usuario perdera inmediatamente el acceso al sistema y no podra realizar operaciones.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setStatusModal({ show: false });
+                    setStatusReason('');
+                  }}
+                  disabled={isChangingStatus}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmStatusChange}
+                  disabled={!statusReason.trim() || isChangingStatus}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {isChangingStatus && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  <span>Desactivar</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

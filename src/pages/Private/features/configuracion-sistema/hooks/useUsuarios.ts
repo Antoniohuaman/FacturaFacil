@@ -54,195 +54,7 @@ interface UseUsersReturn {
 }
 
 // Mock users data
-const MOCK_USERS: User[] = [
-  {
-    id: 'emp-1',
-    code: 'EMP001',
-    
-    personalInfo: {
-      firstName: 'Juan Carlos',
-      lastName: 'Pérez González',
-      fullName: 'Juan Carlos Pérez González',
-      documentType: 'DNI',
-      documentNumber: '12345678',
-      email: 'juan.perez@empresademo.com',
-      phone: '987654321',
-      address: 'Av. Los Olivos 123, Lima',
-      birthDate: new Date('1990-05-15'),
-      gender: 'M',
-      emergencyContact: {
-        name: 'María Pérez',
-        phone: '987654322',
-        relationship: 'Esposa',
-      },
-    },
-    
-    assignment: {
-      position: 'Gerente de Ventas',
-      department: 'Ventas',
-      EstablecimientoId: 'est-1',
-      EstablecimientoIds: ['est-1', 'est-2'],
-      hireDate: new Date('2025-01-01'),
-      assignmentType: 'FULL_TIME',
-      salary: 3500.00,
-      commissionRate: 5.0,
-      workSchedule: {
-        mondayToFriday: {
-          startTime: '09:00',
-          endTime: '18:00',
-          breakStartTime: '13:00',
-          breakEndTime: '14:00',
-        },
-        saturday: {
-          startTime: '09:00',
-          endTime: '13:00',
-          breakStartTime: '',
-          breakEndTime: '',
-        },
-      },
-    },
-    
-    systemAccess: {
-      username: 'juan.perez',
-      email: 'juan.perez@empresademo.com',
-      pin: '1234',
-      requiresPinForActions: true,
-      roleIds: ['role-2'], // Manager role
-      roles: [SYSTEM_ROLES[1] as Role], // Manager
-      permissions: [],
-      lastLogin: new Date(),
-      loginAttempts: 0,
-      isLocked: false,
-      sessionTimeout: 60,
-      maxConcurrentSessions: 2,
-    },
-    
-    status: 'ACTIVE',
-    avatar: undefined,
-    notes: 'Usuario destacado con excelente rendimiento',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date(),
-    createdBy: 'admin',
-    updatedBy: 'admin',
-  },
-  {
-    id: 'emp-2',
-    code: 'EMP002',
-    
-    personalInfo: {
-      firstName: 'Ana María',
-      lastName: 'Rodriguez Silva',
-      fullName: 'Ana María Rodriguez Silva',
-      documentType: 'DNI',
-      documentNumber: '87654321',
-      email: 'ana.rodriguez@empresademo.com',
-      phone: '987654323',
-      address: 'Jr. Las Flores 456, Lima',
-      birthDate: new Date('1985-08-22'),
-      gender: 'F',
-    },
-    
-    assignment: {
-      position: 'Vendedora Senior',
-      department: 'Ventas',
-      EstablecimientoId: 'est-1',
-      EstablecimientoIds: ['est-1'],
-      hireDate: new Date('2025-01-05'),
-      assignmentType: 'FULL_TIME',
-      salary: 1800.00,
-      commissionRate: 3.0,
-      workSchedule: {
-        mondayToFriday: {
-          startTime: '09:00',
-          endTime: '18:00',
-          breakStartTime: '13:00',
-          breakEndTime: '14:00',
-        },
-      },
-    },
-    
-    systemAccess: {
-      username: 'ana.rodriguez',
-      email: 'ana.rodriguez@empresademo.com',
-      pin: '5678',
-      requiresPinForActions: true,
-      roleIds: ['role-3'], // User role
-      roles: [SYSTEM_ROLES[2] as Role], // Vendedor
-      permissions: [],
-      lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      loginAttempts: 0,
-      isLocked: false,
-      sessionTimeout: 60,
-      maxConcurrentSessions: 1,
-    },
-    
-    status: 'ACTIVE',
-    avatar: undefined,
-    notes: '',
-    createdAt: new Date('2025-01-05'),
-    updatedAt: new Date(),
-    createdBy: 'juan.perez',
-    updatedBy: 'juan.perez',
-  },
-  {
-    id: 'emp-3',
-    code: 'EMP003',
-    
-    personalInfo: {
-      firstName: 'Luis Miguel',
-      lastName: 'Torres Mendoza',
-      fullName: 'Luis Miguel Torres Mendoza',
-      documentType: 'DNI',
-      documentNumber: '11223344',
-      email: 'luis.torres@empresademo.com',
-      phone: '987654324',
-      address: 'Av. Universitaria 789, Lima',
-      birthDate: new Date('1992-12-10'),
-      gender: 'M',
-    },
-    
-    assignment: {
-      position: 'Vendedor',
-      department: 'Ventas',
-      EstablecimientoId: 'est-2',
-      EstablecimientoIds: ['est-2'],
-      hireDate: new Date('2025-01-10'),
-      assignmentType: 'PART_TIME',
-      salary: 1200.00,
-      commissionRate: 2.5,
-      workSchedule: {
-        mondayToFriday: {
-          startTime: '14:00',
-          endTime: '20:00',
-          breakStartTime: '',
-          breakEndTime: '',
-        },
-      },
-    },
-    
-    systemAccess: {
-      username: 'luis.torres',
-      email: 'luis.torres@empresademo.com',
-      requiresPinForActions: false,
-      roleIds: ['role-3'], // User role
-      roles: [SYSTEM_ROLES[2] as Role], // Vendedor
-      permissions: [],
-      lastLogin: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      loginAttempts: 0,
-      isLocked: false,
-      sessionTimeout: 30,
-      maxConcurrentSessions: 1,
-    },
-    
-    status: 'ACTIVE',
-    avatar: undefined,
-    notes: 'Usuario en período de prueba',
-    createdAt: new Date('2025-01-10'),
-    updatedAt: new Date(),
-    createdBy: 'juan.perez',
-    updatedBy: 'juan.perez',
-  },
-];
+const MOCK_USERS: User[] = [];
 
 export function useUsers(): UseUsersReturn {
   const { state, dispatch } = useConfigurationContext();
@@ -508,12 +320,6 @@ export function useUsers(): UseUsersReturn {
           },
           assignment: {
             ...data.assignment,
-            workSchedule: {
-              mondayToFriday: {
-                startTime: '09:00',
-                endTime: '18:00',
-              },
-            },
           },
           systemAccess: {
             ...data.systemAccess,
@@ -522,15 +328,13 @@ export function useUsers(): UseUsersReturn {
             permissions: [], // Will be calculated from roles
             loginAttempts: 0,
             isLocked: false,
-            sessionTimeout: data.systemAccess.sessionTimeout || 30,
-            maxConcurrentSessions: data.systemAccess.maxConcurrentSessions || 1,
+            sessionTimeout: data.systemAccess.sessionTimeout,
+            maxConcurrentSessions: data.systemAccess.maxConcurrentSessions,
           },
           status: 'ACTIVE',
           notes: data.notes,
           createdAt: new Date(),
           updatedAt: new Date(),
-          createdBy: 'current-user',
-          updatedBy: 'current-user',
         };
 
         dispatch({ type: 'ADD_USER', payload: newUser });
@@ -807,7 +611,7 @@ export function useUsers(): UseUsersReturn {
                     ...candidate,
                     systemAccess: {
                       ...candidate.systemAccess,
-                      loginAttempts: candidate.systemAccess.loginAttempts + 1,
+                      loginAttempts: (candidate.systemAccess.loginAttempts ?? 0) + 1,
                     },
                     updatedAt: new Date(),
                   }
@@ -941,8 +745,10 @@ export function useUsers(): UseUsersReturn {
 
       // By Establecimiento
       const Establecimiento = user.assignment.EstablecimientoId;
-      stats.byEstablecimiento[Establecimiento] =
-        (stats.byEstablecimiento[Establecimiento] || 0) + 1;
+      if (Establecimiento) {
+        stats.byEstablecimiento[Establecimiento] =
+          (stats.byEstablecimiento[Establecimiento] || 0) + 1;
+      }
 
       // By role
       user.systemAccess.roleIds.forEach(roleId => {

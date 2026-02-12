@@ -1,6 +1,6 @@
 // src/features/configuration/components/usuarios/UserForm.tsx
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Shield } from 'lucide-react';
+import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
 import type { User as UserModel } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
@@ -13,7 +13,6 @@ interface UserFormData {
   documentNumber: string;
   EstablecimientoIds: string[];
   password: string;
-  requirePasswordChange: boolean;
 }
 
 interface UserFormProps {
@@ -94,8 +93,7 @@ export function UserForm({
     documentType: '',
     documentNumber: '',
     EstablecimientoIds: [],
-    password: generateSecurePassword(),
-    requirePasswordChange: true
+    password: generateSecurePassword()
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -113,8 +111,7 @@ export function UserForm({
         documentType: user.personalInfo.documentType || '',
         documentNumber: user.personalInfo.documentNumber || '',
         EstablecimientoIds: user.assignment.EstablecimientoIds,
-        password: '', // Don't show password when editing
-        requirePasswordChange: false
+        password: '' // Don't show password when editing
       });
     }
   }, [user]);
@@ -327,10 +324,10 @@ export function UserForm({
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {user ? 'Editar Usuario' : 'Invitar Nuevo Usuario'}
+                  {user ? 'Editar Usuario' : 'Registrar Nuevo Usuario'}
                 </h3>
                 <p className="text-sm text-gray-500">
-                  {user ? 'Modifica los datos del usuario' : 'Completa la información para enviar una invitación'}
+                  {user ? 'Modifica los datos del usuario' : 'Completa la información para registrar al usuario'}
                 </p>
               </div>
             </div>
@@ -435,7 +432,7 @@ export function UserForm({
                     value = value.toUpperCase().slice(0, 12);
                   }
 
-                  setFormData({ ...datosFormulario, documentNumber: value });
+                  handleFieldChange('documentNumber', value);
                 }}
                 placeholder={getDocumentTypeConfig()?.placeholder}
                 error={errors.documentNumber}
@@ -627,27 +624,6 @@ export function UserForm({
                   )}
                 </div>
 
-                {/* Require Password Change Option */}
-                <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-200">
-                  <Checkbox
-                    id="requirePasswordChange"
-                    checked={datosFormulario.requirePasswordChange}
-                    onChange={(e) => handleFieldChange('requirePasswordChange', e.target.checked)}
-                    disabled={isLoading}
-                  />
-                  <label htmlFor="requirePasswordChange" className="flex-1 cursor-pointer">
-                    <div className="flex items-center space-x-2">
-                      <Shield className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-gray-900">
-                        Solicitar cambio de contraseña en el primer inicio de sesión
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Por seguridad, el usuario deberá cambiar su contraseña la primera vez que inicie sesión
-                    </p>
-                  </label>
-                </div>
-
                 {/* Info Box */}
                 <div className="flex items-start space-x-2 p-3 bg-blue-100 border border-blue-300 rounded-lg">
                   <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -679,7 +655,7 @@ export function UserForm({
               type="submit"
               disabled={isLoading || !isFormValid()}
             >
-              {isLoading ? 'Guardando...' : (user ? 'Actualizar' : 'Invitar')}
+              {isLoading ? 'Guardando...' : (user ? 'Actualizar' : 'Registrar')}
             </Button>
           </div>
         </form>

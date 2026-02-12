@@ -29,8 +29,6 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
       isActive: true,
       createdAt: now,
       updatedAt: now,
-      createdBy: 'system',
-      updatedBy: 'system',
     }));
   }, []);
 
@@ -116,11 +114,11 @@ export default function RoleAssignment({ selectedRoleIds, onChange, error }: Rol
     if (selectedRoles.length === 0) return null;
 
     const highestLevel = selectedRoles.reduce((highest, role) => {
-      const levelOrder = ['GUEST', 'STAFF', 'SUPERVISOR', 'MANAGER', 'ADMIN'];
+      const levelOrder: Role['level'][] = ['STAFF', 'SUPERVISOR', 'MANAGER', 'ADMIN'];
       const currentIndex = levelOrder.indexOf(role.level);
       const highestIndex = levelOrder.indexOf(highest);
       return currentIndex > highestIndex ? role.level : highest;
-    }, 'GUEST' as Role['level']);
+    }, 'STAFF' as Role['level']);
 
     return {
       count: selectedRoles.length,

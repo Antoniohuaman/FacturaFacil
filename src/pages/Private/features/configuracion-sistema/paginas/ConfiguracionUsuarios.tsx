@@ -31,7 +31,6 @@ interface UserFormData {
   documentNumber: string;
   EstablecimientoIds: string[];
   password: string;
-  requirePasswordChange: boolean;
 }
 
 export function UsersConfiguration() {
@@ -69,6 +68,18 @@ export function UsersConfiguration() {
     .filter(user => user.id !== editingUser?.id)
     .map(user => user.personalInfo.email.toLowerCase());
 
+  const generateLocalUserId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+    return `user-${Date.now()}`;
+  };
+
+  const generateLocalUserCode = () => {
+    const nextIndex = users.length + 1;
+    return `USR-${String(nextIndex).padStart(3, '0')}`;
+  };
+
   // Reset form
   const resetUserForm = () => {
     setEditingUser(null);
@@ -77,6 +88,10 @@ export function UsersConfiguration() {
 
   // Handle create/edit user
   const handleSubmitUser = async (data: UserFormData) => {
+    if (data.EstablecimientoIds.length === 0) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -84,6 +99,8 @@ export function UsersConfiguration() {
       const nameParts = data.fullName.trim().split(' ');
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(' ') || nameParts[0];
+      const primaryEstablecimientoId =
+        data.EstablecimientoIds.length === 1 ? data.EstablecimientoIds[0] : undefined;
 
       if (editingUser) {
         // Update existing user
@@ -96,14 +113,13 @@ export function UsersConfiguration() {
             fullName: data.fullName,
             email: data.email,
             phone: data.phone,
-            documentType: data.documentType || editingUser.personalInfo.documentType,
-            documentNumber: data.documentNumber || editingUser.personalInfo.documentNumber,
+            documentType: data.documentType || undefined,
+            documentNumber: data.documentNumber || undefined,
           },
           assignment: {
             ...editingUser.assignment,
-            EstablecimientoIds: data.EstablecimientoIds.length > 0
-              ? data.EstablecimientoIds
-              : [editingUser.assignment.EstablecimientoId],
+            EstablecimientoId: primaryEstablecimientoId,
+            EstablecimientoIds: data.EstablecimientoIds,
           },
           updatedAt: new Date(),
         };
@@ -112,51 +128,33 @@ export function UsersConfiguration() {
       } else {
         // Create new user
         const newUser: User = {
-          id: `emp-${Date.now()}`,
-          code: `EMP${String(users.length + 1).padStart(3, '0')}`,
+          id: generateLocalUserId(),
+          code: generateLocalUserCode(),
           personalInfo: {
             firstName,
             lastName,
             fullName: data.fullName,
-            documentType: data.documentType || 'DNI',
-            documentNumber: data.documentNumber || '',
+            documentType: data.documentType || undefined,
+            documentNumber: data.documentNumber || undefined,
             email: data.email,
             phone: data.phone,
           },
           assignment: {
-            position: 'Usuario', // Default position
-            department: 'General', // Default department
-            EstablecimientoId: data.EstablecimientoIds[0] || Establecimientos[0]?.id || 'est-1',
-            EstablecimientoIds: data.EstablecimientoIds.length > 0
-              ? data.EstablecimientoIds
-              : [Establecimientos[0]?.id || 'est-1'],
-            hireDate: new Date(),
-            assignmentType: 'FULL_TIME',
-            workSchedule: {
-              mondayToFriday: {
-                startTime: '09:00',
-                endTime: '18:00',
-              },
-            },
+            EstablecimientoId: primaryEstablecimientoId,
+            EstablecimientoIds: data.EstablecimientoIds,
           },
           systemAccess: {
             username: data.email.split('@')[0],
             email: data.email,
-            requiresPasswordChange: data.requirePasswordChange,
-            requiresPinForActions: false,
             roleIds: [],
             roles: [],
             permissions: [],
             loginAttempts: 0,
             isLocked: false,
-            sessionTimeout: 30,
-            maxConcurrentSessions: 1,
           },
           status: 'ACTIVE',
           createdAt: new Date(),
           updatedAt: new Date(),
-          createdBy: 'system',
-          updatedBy: 'system',
         };
 
         dispatch({ type: 'ADD_USER', payload: newUser });
@@ -260,8 +258,6 @@ export function UsersConfiguration() {
           isActive: true,
           createdAt: now,
           updatedAt: now,
-          createdBy: 'system',
-          updatedBy: 'system',
         }));
 
       const updatedUser: User = {
@@ -442,6 +438,7 @@ export function UsersConfiguration() {
                   setRoleAssignmentModal({ show: false });
                   setSelectedRoleIds([]);
                   setRoleError('');
+                  setCredentialsModal({ show: false });
                 }}
                 disabled={isLoading}
               >

@@ -3,7 +3,7 @@ export interface Role {
   name: string;
   description: string;
   type: 'SYSTEM' | 'CUSTOM';
-  level: 'ADMIN' | 'MANAGER' | 'SUPERVISOR' | 'STAFF' | 'GUEST';
+  level: 'ADMIN' | 'MANAGER' | 'SUPERVISOR' | 'STAFF';
   
   // Permissions grouped by module
   permissions: {
@@ -125,8 +125,8 @@ export interface Role {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  createdBy: string;
-  updatedBy: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface CreateRoleRequest {
@@ -419,5 +419,4 @@ export const ROLE_LEVELS = [
   { value: 'MANAGER', label: 'Gerente', color: 'orange' },
   { value: 'SUPERVISOR', label: 'Supervisor', color: 'yellow' },
   { value: 'STAFF', label: 'Usuario', color: 'blue' },
-  { value: 'GUEST', label: 'Invitado', color: 'gray' },
 ] as const;
