@@ -11,6 +11,7 @@ import {
   PowerOff
 } from 'lucide-react';
 import { Select, Input, Button } from '@/contasis';
+import { useUserSession } from '@/contexts/UserSessionContext';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { UserCard } from './TarjetaUsuario';
@@ -46,6 +47,8 @@ export function UsersList({
   onCreate,
   isLoading = false
 }: UsersListProps) {
+  const { session } = useUserSession();
+  const currentUserId = session?.userId ?? '';
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFilterStatus] = useState<filtroEstado>('ALL');
   const [filterEstablecimiento, setFilterEstablecimiento] = useState('ALL');
@@ -155,12 +158,14 @@ export function UsersList({
   };
 
   const openStatusModal = (user: User) => {
+    if (currentUserId && user.id === currentUserId) return;
     setStatusModal({ show: true, user });
     setStatusReason('');
   };
 
   const handleConfirmStatusChange = async () => {
     if (!statusModal.user) return;
+    if (currentUserId && statusModal.user.id === currentUserId) return;
 
     setIsChangingStatus(true);
     try {
@@ -446,6 +451,7 @@ export function UsersList({
               </thead>
               <tbody>
                 {filteredUsers.map((user) => {
+                  const isCurrentUser = currentUserId && user.id === currentUserId;
                   const configEstado = getStatusConfig(user.status);
                   const roleLabel = user.systemAccess.roles.length > 0
                     ? `Rol: ${user.systemAccess.roles.map(role => role.name).filter(Boolean).join(', ')}`
@@ -519,7 +525,7 @@ export function UsersList({
                           </button>
 
                           {/* Enable/Disable Toggle */}
-                          {user.status === 'ACTIVE' ? (
+                          {!isCurrentUser && user.status === 'ACTIVE' ? (
                             <button
                               onClick={() => openStatusModal(user)}
                               className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
@@ -527,7 +533,7 @@ export function UsersList({
                             >
                               <PowerOff className="w-4 h-4" />
                             </button>
-                          ) : user.status === 'INACTIVE' ? (
+                          ) : !isCurrentUser && user.status === 'INACTIVE' ? (
                             <button
                               onClick={() => onChangeStatus(user, 'ACTIVE')}
                               className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
@@ -538,7 +544,7 @@ export function UsersList({
                           ) : null}
 
                           {/* Delete - Only show if user has no transactions */}
-                          {!user.hasTransactions && (
+                          {!isCurrentUser && !user.hasTransactions && (
                             <button
                               onClick={() => onDelete(user)}
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"

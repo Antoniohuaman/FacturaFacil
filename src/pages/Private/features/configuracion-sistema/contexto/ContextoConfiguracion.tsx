@@ -14,6 +14,8 @@ import { normalizeUnitsWithCatalog } from '../modelos';
 import type { Almacen } from '../modelos/Almacen';
 import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
+import type { Role, SystemRoleDefinition } from '../modelos/Role';
+import { SYSTEM_ROLE_IDS, SYSTEM_ROLES } from '../modelos/Role';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { parseUbigeoCode } from '../datos/ubigeo';
@@ -67,6 +69,99 @@ const LLAVE_ALMACENAMIENTO_CONFIGURACION = 'facturaFacilConfig';
 type StorageKey = string | null;
 
 const reviveDate = (value?: string | Date) => (value ? new Date(value) : undefined);
+
+type SessionValue = ReturnType<typeof useUserSession>['session'];
+type SessionUser = NonNullable<SessionValue>;
+
+const normalizeEmail = (email?: string) => (email ?? '').trim().toLowerCase();
+
+const getNameParts = (fullName: string) => {
+  const trimmed = fullName.trim();
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  const firstName = parts[0] || trimmed;
+  const lastName = parts.slice(1).join(' ') || parts[0] || trimmed;
+
+  return {
+    firstName: firstName || '',
+    lastName: lastName || '',
+    fullName: trimmed || firstName || lastName || '',
+  };
+};
+
+const buildDeterministicUserCode = (userId: string) => {
+  const normalized = userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+  const base = normalized || userId.slice(0, 8);
+  return `USR-${base.toUpperCase()}`;
+};
+
+const resolveSystemRole = (
+  roleId: string,
+  systemRoles: SystemRoleDefinition[],
+): Role | null => {
+  const role = systemRoles.find((item) => item.id === roleId);
+  if (!role || !role.permissions) {
+    return null;
+  }
+
+  const now = new Date();
+  return {
+    id: role.id,
+    name: role.name ?? '',
+    description: role.description ?? '',
+    type: role.type ?? 'SYSTEM',
+    level: role.level ?? 'ADMIN',
+    permissions: role.permissions,
+    restrictions: role.restrictions ?? {},
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+export const mapSessionToConfigUser = (
+  session: SessionUser,
+  contextoActual: WorkspaceContext | null,
+  systemRoles: SystemRoleDefinition[],
+  systemRoleIds: typeof SYSTEM_ROLE_IDS,
+): User => {
+  const fullName = session.userName ?? '';
+  const { firstName, lastName, fullName: normalizedFullName } = getNameParts(fullName);
+  const activeEstablecimientoId =
+    contextoActual?.establecimientoId ??
+    session.currentEstablecimientoId ??
+    session.currentEstablecimiento?.id ??
+    '';
+  const superAdminRole = resolveSystemRole(systemRoleIds.SUPER_ADMIN, systemRoles);
+  const roleIds = [systemRoleIds.SUPER_ADMIN];
+  const roles = superAdminRole ? [superAdminRole] : [];
+
+  return {
+    id: session.userId,
+    code: buildDeterministicUserCode(session.userId),
+    personalInfo: {
+      firstName,
+      lastName,
+      fullName: normalizedFullName,
+      email: session.userEmail ?? '',
+    },
+    assignment: {
+      EstablecimientoId: activeEstablecimientoId || undefined,
+      EstablecimientoIds: activeEstablecimientoId ? [activeEstablecimientoId] : [],
+    },
+    systemAccess: {
+      username: session.userEmail ? session.userEmail.split('@')[0] : session.userId,
+      email: session.userEmail ?? '',
+      roleIds,
+      roles,
+      permissions: [],
+      loginAttempts: 0,
+      isLocked: false,
+    },
+    status: 'ACTIVE',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+};
 
 type DatosConfiguracionInicialEmpresa = {
   direccionFiscal: string;
@@ -1016,6 +1111,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const { tenantId: activeTenantId, activeWorkspace, createOrUpdateWorkspace } = useTenant();
   const tenantId = tenantIdOverride ?? activeTenantId;
   const { session, setCurrentCompany } = useUserSession();
+  const contextoActual = useTenantStore((store) => store.contextoActual);
   const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
   const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
   const seriesStorageKey = useMemo<StorageKey>(() => {
@@ -1344,6 +1440,107 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   ]);
 
   useEffect(() => {
+    if (!tenantId) return;
+    if (!session?.userId || !session.userName || !session.userEmail) return;
+
+    const activeCompanyId = contextoActual?.empresaId ?? session.currentCompanyId ?? '';
+    if (state.company?.id && activeCompanyId && activeCompanyId !== state.company.id) {
+      return;
+    }
+
+    const activeEstablecimientoId =
+      contextoActual?.establecimientoId ??
+      session.currentEstablecimientoId ??
+      session.currentEstablecimiento?.id ??
+      '';
+    if (!activeEstablecimientoId) return;
+
+    const normalizedEmail = normalizeEmail(session.userEmail);
+    const existingUser = state.users.find((user) =>
+      user.id === session.userId ||
+      (normalizedEmail && normalizeEmail(user.personalInfo.email) === normalizedEmail)
+    );
+
+    const superAdminUser = mapSessionToConfigUser(
+      session,
+      contextoActual,
+      SYSTEM_ROLES,
+      SYSTEM_ROLE_IDS,
+    );
+
+    if (!existingUser) {
+      dispatch({ type: 'ADD_USER', payload: superAdminUser });
+      return;
+    }
+
+    const mergedEstablecimientos = existingUser.assignment.EstablecimientoIds.includes(activeEstablecimientoId)
+      ? existingUser.assignment.EstablecimientoIds
+      : [...existingUser.assignment.EstablecimientoIds, activeEstablecimientoId];
+
+    const mergedRoleIds = existingUser.systemAccess.roleIds.includes(SYSTEM_ROLE_IDS.SUPER_ADMIN)
+      ? existingUser.systemAccess.roleIds
+      : [...existingUser.systemAccess.roleIds, SYSTEM_ROLE_IDS.SUPER_ADMIN];
+
+    const existingRolesById = new Map(existingUser.systemAccess.roles.map((role) => [role.id, role]));
+    superAdminUser.systemAccess.roles.forEach((role) => {
+      if (!existingRolesById.has(role.id)) {
+        existingRolesById.set(role.id, role);
+      }
+    });
+
+    const nextFullName = superAdminUser.personalInfo.fullName || existingUser.personalInfo.fullName;
+    const nextEmail = superAdminUser.personalInfo.email || existingUser.personalInfo.email;
+
+    const needsUpdate =
+      existingUser.personalInfo.fullName !== nextFullName ||
+      existingUser.personalInfo.email !== nextEmail ||
+      existingUser.status !== 'ACTIVE' ||
+      mergedEstablecimientos.length !== existingUser.assignment.EstablecimientoIds.length ||
+      mergedRoleIds.length !== existingUser.systemAccess.roleIds.length ||
+      existingRolesById.size !== existingUser.systemAccess.roles.length;
+
+    if (!needsUpdate) return;
+
+    const updatedUser: User = {
+      ...existingUser,
+      personalInfo: {
+        ...existingUser.personalInfo,
+        fullName: nextFullName,
+        email: nextEmail,
+      },
+      assignment: {
+        ...existingUser.assignment,
+        EstablecimientoId: activeEstablecimientoId,
+        EstablecimientoIds: mergedEstablecimientos,
+      },
+      systemAccess: {
+        ...existingUser.systemAccess,
+        roleIds: mergedRoleIds,
+        roles: Array.from(existingRolesById.values()),
+      },
+      status: 'ACTIVE',
+      updatedAt: new Date(),
+    };
+
+    dispatch({ type: 'UPDATE_USER', payload: updatedUser });
+  }, [
+    contextoActual,
+    contextoActual?.empresaId,
+    contextoActual?.establecimientoId,
+    dispatch,
+    session,
+    session?.currentCompanyId,
+    session?.currentEstablecimientoId,
+    session?.currentEstablecimiento?.id,
+    session?.userEmail,
+    session?.userId,
+    session?.userName,
+    state.company?.id,
+    state.users,
+    tenantId,
+  ]);
+
+  useEffect(() => {
     if (!seriesHydratedRef.current) return;
     if (!tenantId) return;
     persistSeries(seriesStorageKey, state.series);
@@ -1465,12 +1662,6 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     dispatch({
       type: 'SET_TAXES',
       payload: defaultTaxes,
-    });
-
-    // Mock users with roles
-    dispatch({
-      type: 'SET_USERS',
-      payload: []  // Start empty - users can create their own users
     });
 
     // No se inicializan almacenes por defecto

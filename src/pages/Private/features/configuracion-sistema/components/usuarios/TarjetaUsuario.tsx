@@ -20,6 +20,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
+import { useUserSession } from '@/contexts/UserSessionContext';
 
 // Type helper for user status
 type UserStatus = User['status'];
@@ -47,6 +48,8 @@ export function UserCard({
   showActions = true,
   compact = false
 }: UserCardProps) {
+  const { session } = useUserSession();
+  const isCurrentUser = session?.userId === user.id;
   const [showMenu, setShowMenu] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusReason, setStatusReason] = useState('');
@@ -123,6 +126,9 @@ export function UserCard({
   };
 
   const handleStatusChange = async (newStatus: UserStatus) => {
+    if (isCurrentUser && newStatus === 'INACTIVE') {
+      return;
+    }
     if (newStatus === 'INACTIVE' && !statusReason.trim()) {
       setShowStatusModal(true);
       return;
@@ -244,20 +250,22 @@ export function UserCard({
                     )}
                     
                     {user.status === 'ACTIVE' && (
-                      <button
-                        onClick={() => {
-                          setShowStatusModal(true);
-                          setShowMenu(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
-                      >
-                        <UserX className="w-4 h-4" />
-                        <span>Desactivar</span>
-                      </button>
+                      !isCurrentUser && (
+                        <button
+                          onClick={() => {
+                            setShowStatusModal(true);
+                            setShowMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
+                        >
+                          <UserX className="w-4 h-4" />
+                          <span>Desactivar</span>
+                        </button>
+                      )
                     )}
 
                     {/* Delete - Only show if user has no transactions */}
-                    {!user.hasTransactions && (
+                    {!isCurrentUser && !user.hasTransactions && (
                       <>
                         <div className="border-t border-gray-100 my-1"></div>
                         <button
