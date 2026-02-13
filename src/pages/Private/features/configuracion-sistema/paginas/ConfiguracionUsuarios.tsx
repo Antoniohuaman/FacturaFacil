@@ -276,10 +276,6 @@ export function ConfiguracionUsuarios() {
       setCargando(false);
     }
   };
-  const manejarAsignarRol = (usuario: User) => {
-    manejarEditarUsuario(usuario);
-  };
-
   const manejarQuitarAcceso = (usuario: User, establecimientoId: string) => {
     const mapaEstablecimientos = obtenerMapaEstablecimientos(empresas);
     const empresaId = mapaEstablecimientos.get(establecimientoId)?.empresaId
@@ -399,7 +395,6 @@ export function ConfiguracionUsuarios() {
           alEditar={manejarEditarUsuario}
           alEliminar={(usuario) => setModalEliminar({ show: true, user: usuario })}
           alCambiarEstado={manejarCambioEstado}
-          alAsignarRol={manejarAsignarRol}
           alQuitarAcceso={manejarQuitarAcceso}
           alCrear={() => setMostrarFormularioUsuario(true)}
           cargando={cargando}

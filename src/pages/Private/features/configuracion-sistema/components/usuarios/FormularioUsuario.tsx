@@ -1,6 +1,6 @@
 // src/features/configuration/components/usuarios/UserForm.tsx
 import { useState, useEffect, useMemo } from 'react';
-import { X, User, Mail, Phone, FileText, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Info } from 'lucide-react';
+import { X, User, Mail, Phone, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Info } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import type { Empresa } from '../../../autenticacion/types/auth.types';
@@ -450,12 +450,16 @@ export function FormularioUsuario({
         .filter((item) => establecimientosSeleccionados.includes(item.id))
         .map((item) => item.nombre),
     );
+    const tieneEstablecimientos = establecimientosSeleccionados.length > 0;
+    const resumenTexto = tieneEstablecimientos ? resumenEstablecimientos.resumen : 'Dar accesos';
 
     return (
       <details key={asignacion.empresaId} className="border border-gray-200 rounded-lg">
         <summary className="flex items-center justify-between px-3 py-2 cursor-pointer text-sm font-medium text-gray-900">
           <span>{empresa?.razonSocial ?? asignacion.empresaNombre ?? asignacion.empresaId}</span>
-          <span className="text-[11px] text-gray-500">{resumenEstablecimientos.resumen}</span>
+          <span className={`${tieneEstablecimientos ? 'text-[11px] text-gray-500' : 'text-[11px] text-blue-600'}`}>
+            {resumenTexto}
+          </span>
         </summary>
         <div className="px-3 pb-3 space-y-3">
           <div className="space-y-2">
@@ -633,10 +637,8 @@ export function FormularioUsuario({
             open={Boolean(datosFormulario.tipoDocumento || datosFormulario.numeroDocumento)}
           >
             <summary className="flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-900 cursor-pointer">
-              <span className="flex items-center space-x-2">
-                <FileText className="w-4 h-4" />
-                <span>Documento de identidad</span>
-                <span className="text-xs font-normal text-gray-500">(Opcional)</span>
+              <span>
+                Documento de identidad <span className="text-xs font-normal text-gray-500">(Opcional)</span>
               </span>
             </summary>
 
@@ -750,17 +752,17 @@ export function FormularioUsuario({
               </div>
 
               <div className="border border-gray-200 rounded-lg p-3 space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Nombre de usuario
-                  </label>
-                  <div className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-300 rounded-lg">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-900 text-sm font-medium">
-                      {datosFormulario.correo.split('@')[0] || 'usuario'}
-                    </span>
-                  </div>
-                </div>
+                <Input
+                  label="Usuario (correo)"
+                  type="email"
+                  value={datosFormulario.correo}
+                  placeholder="correo@dominio.com"
+                  leftIcon={<User />}
+                  readOnly
+                  size="small"
+                  containerClassName={compactFieldClass}
+                  className="bg-gray-50 text-gray-700"
+                />
 
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">

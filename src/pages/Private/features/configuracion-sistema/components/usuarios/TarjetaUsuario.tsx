@@ -1,13 +1,10 @@
 // src/features/configuration/components/usuarios/UserCard.tsx
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FileText,
-  Shield,
   Calendar,
   MoreVertical,
   Edit3,
-  Trash2,
-  UserPlus,
   UserCheck,
   UserX,
   Clock,
@@ -18,6 +15,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
+import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import { SYSTEM_ROLES } from '../../modelos/Role';
@@ -25,7 +23,6 @@ import {
   construirNombreCompleto,
   construirResumenEmpresas,
   construirResumenEstablecimientos,
-  construirResumenRoles,
   obtenerAsignacionesUsuarioGlobal,
   obtenerEstadoUsuarioPorAsignaciones,
   obtenerEstablecimientosIdsAsignacion,
@@ -40,7 +37,6 @@ interface PropsTarjetaUsuario {
   alEditar: () => void;
   alEliminar: () => void;
   alCambiarEstado: (estado: UserStatus, motivo?: string) => void;
-  alAsignarRol: () => void;
   alQuitarAcceso: (establecimientoId: string) => void;
   mostrarAcciones?: boolean;
   compacto?: boolean;
@@ -51,7 +47,6 @@ export function TarjetaUsuario({
   alEditar,
   alEliminar,
   alCambiarEstado,
-  alAsignarRol,
   alQuitarAcceso,
   mostrarAcciones = true,
   compacto = false
@@ -63,6 +58,19 @@ export function TarjetaUsuario({
   const [mostrarModalEstado, setMostrarModalEstado] = useState(false);
   const [motivoEstado, setMotivoEstado] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+
+  useEffect(() => {
+    if (!mostrarMenu) return;
+    const manejarEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMostrarMenu(false);
+      }
+    };
+    document.addEventListener('keydown', manejarEscape);
+    return () => {
+      document.removeEventListener('keydown', manejarEscape);
+    };
+  }, [mostrarMenu]);
 
   const asignaciones = useMemo(
     () => obtenerAsignacionesUsuarioGlobal(usuario, empresas),
@@ -79,11 +87,28 @@ export function TarjetaUsuario({
     return Array.from(new Set(ids));
   }, [asignaciones]);
 
-  const resumenRoles = construirResumenRoles(asignaciones, SYSTEM_ROLES);
   const resumenEmpresas = construirResumenEmpresas(asignaciones);
   const resumenEstablecimientos = construirResumenEstablecimientos(asignaciones, mapaEstablecimientos);
   const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
   const nombreCompleto = construirNombreCompleto(usuario.personalInfo.firstName, usuario.personalInfo.lastName);
+  const rolesPorEstablecimiento = asignaciones
+    .flatMap((asignacion) => asignacion.establecimientos)
+    .map((item) => {
+      const establecimiento = mapaEstablecimientos.get(item.establecimientoId)?.nombre ?? item.establecimientoId;
+      const rol = SYSTEM_ROLES.find((value) => value.id === item.roleId)?.name ?? 'Sin rol';
+      return `${establecimiento}: ${rol}`;
+    });
+  const rolesUnicos = Array.from(new Set(
+    rolesPorEstablecimiento.map((item) => item.split(': ')[1]).filter(Boolean),
+  ));
+  const resumenRolesVisible = rolesUnicos.length === 1
+    ? rolesUnicos[0]
+    : rolesUnicos.length > 1
+      ? `${rolesUnicos[0]} +${rolesUnicos.length - 1}`
+      : 'Sin roles';
+  const detalleRolesEstablecimiento = rolesPorEstablecimiento.length > 0
+    ? rolesPorEstablecimiento.join('\n')
+    : 'Sin roles asignados';
 
   const obtenerConfigEstado = (status: UserStatus) => {
     const configs: Record<UserStatus, {
@@ -206,7 +231,8 @@ export function TarjetaUsuario({
             <div className="relative flex-shrink-0">
               <button
                 onClick={() => setMostrarMenu(!mostrarMenu)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Acciones"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
@@ -219,72 +245,74 @@ export function TarjetaUsuario({
                     onClick={() => setMostrarMenu(false)}
                   />
                   
-                  <div className="absolute right-0 top-10 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
+                  <div className="absolute right-0 top-10 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1" role="menu">
                     <button
+                      type="button"
+                      role="menuitem"
                       onClick={() => {
                         alEditar();
                         setMostrarMenu(false);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
                     >
-                      <Edit3 className="w-4 h-4" />
-                      <span>Editar Usuario</span>
+                      Editar
                     </button>
-                    
-                    <button
-                      onClick={() => {
-                        alAsignarRol();
-                        setMostrarMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                    >
-                      <Shield className="w-4 h-4" />
-                      <span>Asignar Rol</span>
-                    </button>
-                    
+
                     {estadoUsuario === 'INACTIVE' && (
                       <button
+                        type="button"
+                        role="menuitem"
                         onClick={() => {
                           manejarCambioEstado('ACTIVE');
                           setMostrarMenu(false);
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
+                        className="w-full text-left px-3 py-2 text-xs text-green-700 hover:bg-green-50 focus:outline-none focus:bg-green-50"
                       >
-                        <UserCheck className="w-4 h-4" />
-                        <span>Activar</span>
+                        Activar
                       </button>
                     )}
-                    
-                    {estadoUsuario === 'ACTIVE' && (
-                      !isCurrentUser && (
-                        <button
-                          onClick={() => {
-                            setMostrarModalEstado(true);
-                            setMostrarMenu(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
-                        >
-                          <UserX className="w-4 h-4" />
-                          <span>Desactivar</span>
-                        </button>
-                      )
+
+                    {estadoUsuario === 'ACTIVE' && !isCurrentUser && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMostrarModalEstado(true);
+                          setMostrarMenu(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-yellow-700 hover:bg-yellow-50 focus:outline-none focus:bg-yellow-50"
+                      >
+                        Inactivar
+                      </button>
                     )}
 
-                    {/* Delete - Only show if user has no transactions */}
+                    {!isCurrentUser && usuario.hasTransactions && (
+                      <Tooltip contenido="No se puede eliminar, solo inactivar." ubicacion="izquierda">
+                        <span className="block">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled
+                            className="w-full text-left px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
+                          >
+                            Eliminar
+                          </button>
+                        </span>
+                      </Tooltip>
+                    )}
+
                     {!isCurrentUser && !usuario.hasTransactions && (
-                      <>
-                        <div className="border-t border-gray-100 my-1"></div>
-                        <button
-                          onClick={() => {
-                            alEliminar();
-                            setMostrarMenu(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Eliminar</span>
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          alEliminar();
+                          setMostrarMenu(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-red-700 hover:bg-red-50 focus:outline-none focus:bg-red-50"
+                      >
+                        Eliminar
+                      </button>
                     )}
                   </div>
                 </>
@@ -345,7 +373,12 @@ export function TarjetaUsuario({
             <span className="font-medium">Empresas:</span> {resumenEmpresas.resumen}
           </div>
           <div className="text-sm text-gray-700">
-            <span className="font-medium">Roles:</span> {resumenRoles.resumen}
+            <span className="font-medium">Roles:</span>{' '}
+            <Tooltip contenido={detalleRolesEstablecimiento} ubicacion="arriba" multilinea>
+              <span className="text-gray-700 cursor-help">
+                {resumenRolesVisible}
+              </span>
+            </Tooltip>
           </div>
           <div className="text-sm text-gray-700">
             <span className="font-medium">Establecimientos:</span> {resumenEstablecimientos.resumen}
@@ -371,40 +404,6 @@ export function TarjetaUsuario({
           )}
         </div>
 
-        {/* Quick Actions */}
-        {mostrarAcciones && (
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={alAsignarRol}
-                className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Asignar Rol</span>
-              </button>
-              
-              {estadoUsuario === 'INACTIVE' && (
-                <button
-                  onClick={() => manejarCambioEstado('ACTIVE')}
-                  className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
-                >
-                  <UserCheck className="w-4 h-4" />
-                  <span>Activar</span>
-                </button>
-              )}
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={alEditar}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Editar usuario"
-              >
-                <Edit3 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100 mt-4">

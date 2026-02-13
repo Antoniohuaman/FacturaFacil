@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   Search,
@@ -6,7 +6,8 @@ import {
   X,
   AlertCircle,
   LayoutGrid,
-  List
+  List,
+  MoreVertical
 } from 'lucide-react';
 import { Select, Input, Button } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
@@ -41,7 +42,6 @@ interface PropsListaUsuarios {
   alEditar: (usuario: User) => void;
   alEliminar: (usuario: User) => void;
   alCambiarEstado: (usuario: User, estado: EstadoUsuario, motivo?: string) => void;
-  alAsignarRol: (usuario: User) => void;
   alQuitarAcceso: (usuario: User, establecimientoId: string) => void;
   alCrear: () => void;
   cargando?: boolean;
@@ -52,7 +52,6 @@ export function ListaUsuarios({
   alEditar,
   alEliminar,
   alCambiarEstado,
-  alAsignarRol,
   alQuitarAcceso,
   alCrear,
   cargando = false,
@@ -71,6 +70,7 @@ export function ListaUsuarios({
   const [modalEstado, setModalEstado] = useState<{ abierto: boolean; usuario?: User }>({ abierto: false });
   const [motivoEstado, setMotivoEstado] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [menuAbiertoId, setMenuAbiertoId] = useState<string | null>(null);
 
   const mapaEstablecimientos = useMemo(
     () => obtenerMapaEstablecimientos(empresas),
@@ -202,6 +202,19 @@ export function ListaUsuarios({
     setModalEstado({ abierto: true, usuario });
     setMotivoEstado('');
   };
+
+  useEffect(() => {
+    if (!menuAbiertoId) return;
+    const manejarEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuAbiertoId(null);
+      }
+    };
+    document.addEventListener('keydown', manejarEscape);
+    return () => {
+      document.removeEventListener('keydown', manejarEscape);
+    };
+  }, [menuAbiertoId]);
 
   const confirmarCambioEstado = async () => {
     if (!modalEstado.usuario) return;
@@ -401,7 +414,6 @@ export function ListaUsuarios({
               alEditar={() => alEditar(usuario)}
               alEliminar={() => alEliminar(usuario)}
               alCambiarEstado={(estado, motivo) => alCambiarEstado(usuario, estado, motivo)}
-              alAsignarRol={() => alAsignarRol(usuario)}
               alQuitarAcceso={(establecimientoId) => alQuitarAcceso(usuario, establecimientoId)}
             />
           ))}
@@ -472,7 +484,7 @@ export function ListaUsuarios({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenRoles, resumenEstablecimientos, asignaciones, nombre }) => {
+                {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenEstablecimientos, asignaciones, nombre }) => {
                   const configEstado = obtenerConfigEstado(estado);
                   const esUsuarioActual = usuarioActualId && usuario.id === usuarioActualId;
                   const rolesPorEstablecimiento = asignaciones
@@ -482,9 +494,14 @@ export function ListaUsuarios({
                       const rol = SYSTEM_ROLES.find((value) => value.id === item.roleId)?.name ?? 'Sin rol';
                       return `${establecimiento}: ${rol}`;
                     });
-                  const resumenRolesEstablecimiento = rolesPorEstablecimiento.length > 0
-                    ? `${rolesPorEstablecimiento.length} rol(es)`
-                    : 'Sin roles';
+                  const rolesUnicos = Array.from(new Set(
+                    rolesPorEstablecimiento.map((item) => item.split(': ')[1]).filter(Boolean),
+                  ));
+                  const resumenRolesEstablecimiento = rolesUnicos.length === 1
+                    ? rolesUnicos[0]
+                    : rolesUnicos.length > 1
+                      ? `${rolesUnicos[0]} +${rolesUnicos.length - 1}`
+                      : 'Sin roles';
                   const detalleRolesEstablecimiento = rolesPorEstablecimiento.length > 0
                     ? rolesPorEstablecimiento.join('\n')
                     : 'Sin roles asignados';
@@ -531,9 +548,6 @@ export function ListaUsuarios({
                             {resumenRolesEstablecimiento}
                           </span>
                         </Tooltip>
-                        <div className="text-[11px] text-gray-500 truncate max-w-[180px]">
-                          {resumenRoles.resumen}
-                        </div>
                       </td>
                       <td className="px-4 py-2.5 whitespace-nowrap">
                         <IndicadorEstado
@@ -543,36 +557,92 @@ export function ListaUsuarios({
                         />
                       </td>
                       <td className="px-4 py-2.5 whitespace-nowrap text-xs font-medium">
-                        <div className="flex items-center space-x-2">
+                        <div className="relative">
                           <button
-                            onClick={() => alEditar(usuario)}
-                            className="text-blue-600 hover:text-blue-900"
+                            type="button"
+                            aria-label="Acciones"
+                            onClick={() => setMenuAbiertoId(menuAbiertoId === usuario.id ? null : usuario.id)}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
-                            Editar
+                            <MoreVertical className="w-4 h-4" />
                           </button>
-                          {estado === 'ACTIVE' && !esUsuarioActual && (
-                            <button
-                              onClick={() => abrirModalEstado(usuario)}
-                              className="text-yellow-600 hover:text-yellow-900"
-                            >
-                              Desactivar
-                            </button>
-                          )}
-                          {estado === 'INACTIVE' && (
-                            <button
-                              onClick={() => alCambiarEstado(usuario, 'ACTIVE')}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              Activar
-                            </button>
-                          )}
-                          {!esUsuarioActual && !usuario.hasTransactions && (
-                            <button
-                              onClick={() => alEliminar(usuario)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Eliminar
-                            </button>
+
+                          {menuAbiertoId === usuario.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={() => setMenuAbiertoId(null)}
+                              />
+                              <div
+                                className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1"
+                                role="menu"
+                              >
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    alEditar(usuario);
+                                    setMenuAbiertoId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+                                >
+                                  Editar
+                                </button>
+                                {estado === 'ACTIVE' && !esUsuarioActual && (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      abrirModalEstado(usuario);
+                                      setMenuAbiertoId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-yellow-700 hover:bg-yellow-50 focus:outline-none focus:bg-yellow-50"
+                                  >
+                                    Inactivar
+                                  </button>
+                                )}
+                                {estado === 'INACTIVE' && (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      alCambiarEstado(usuario, 'ACTIVE');
+                                      setMenuAbiertoId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-green-700 hover:bg-green-50 focus:outline-none focus:bg-green-50"
+                                  >
+                                    Activar
+                                  </button>
+                                )}
+                                {!esUsuarioActual && usuario.hasTransactions && (
+                                  <Tooltip contenido="No se puede eliminar, solo inactivar." ubicacion="izquierda">
+                                    <span className="block">
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        disabled
+                                        className="w-full text-left px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
+                                      >
+                                        Eliminar
+                                      </button>
+                                    </span>
+                                  </Tooltip>
+                                )}
+                                {!esUsuarioActual && !usuario.hasTransactions && (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      alEliminar(usuario);
+                                      setMenuAbiertoId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-red-700 hover:bg-red-50 focus:outline-none focus:bg-red-50"
+                                  >
+                                    Eliminar
+                                  </button>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       </td>
