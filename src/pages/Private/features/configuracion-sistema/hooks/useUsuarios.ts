@@ -6,8 +6,7 @@ import type {
   UpdateUserRequest, 
   UserSummary 
 } from '../modelos/User';
-import type { Role } from '../modelos/Role';
-import { SYSTEM_ROLES } from '../modelos/Role';
+import { obtenerRolesDelSistema } from '../roles/rolesDelSistema';
 
 interface UseUsersReturn {
   users: User[];
@@ -303,9 +302,7 @@ export function useUsers(): UseUsersReturn {
         await new Promise(resolve => setTimeout(resolve, 1200));
 
         // Create roles array from roleIds (in real app, fetch from API)
-        const roles = SYSTEM_ROLES.filter((_, index) =>
-          data.systemAccess.roleIds.includes(`role-${index + 1}`),
-        ) as Role[];
+        const roles = obtenerRolesDelSistema(data.systemAccess.roleIds ?? []);
 
         const newUser: User = {
           id: `emp-${Date.now()}`,
@@ -389,9 +386,7 @@ export function useUsers(): UseUsersReturn {
         // Update roles if roleIds changed
         let updatedRoles = existingUser.systemAccess.roles;
         if (data.systemAccess?.roleIds) {
-          updatedRoles = SYSTEM_ROLES.filter((_, index) =>
-            data.systemAccess!.roleIds.includes(`role-${index + 1}`),
-          ) as Role[];
+          updatedRoles = obtenerRolesDelSistema(data.systemAccess.roleIds);
         }
 
         const updatedUser: User = {

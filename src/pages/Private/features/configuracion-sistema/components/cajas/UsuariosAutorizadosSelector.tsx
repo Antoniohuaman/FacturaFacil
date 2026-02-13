@@ -2,7 +2,7 @@ import React from 'react';
 import { Checkbox } from '@/contasis';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import type { User } from '../../modelos/User';
-import type { Role } from '../../modelos/Role';
+import { obtenerRolesDelSistema } from '../../roles/rolesDelSistema';
 
 interface UsuariosAutorizadosSelectorProps {
   value: string[]; // Arreglo de IDs de usuario
@@ -27,10 +27,8 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 
     if (filterByCashPermission) {
       users = users.filter((user: User) => {
-        // Verifica si algún rol del usuario tiene el permiso canOpenRegister
-        return user.systemAccess.roles.some((role: Role) =>
-          role.permissions?.cash?.canOpenRegister === true
-        );
+        const rolesUsuario = obtenerRolesDelSistema(user.systemAccess.roleIds ?? []);
+        return rolesUsuario.some((rol) => rol.permisos.includes('caja.abrir'));
       });
     }
 
@@ -127,9 +125,9 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {user.assignment.position} • {user.code}
-                  {user.systemAccess.roles.length > 0 && (
+                  {user.systemAccess.roleIds.length > 0 && (
                     <span className="ml-2">
-                      Roles: {user.systemAccess.roles.map((r: Role) => r.name).join(', ')}
+                      Roles: {obtenerRolesDelSistema(user.systemAccess.roleIds).map((rol) => rol.nombre).join(', ')}
                     </span>
                   )}
                 </p>

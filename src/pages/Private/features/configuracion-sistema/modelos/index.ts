@@ -2,7 +2,6 @@
 export type { Company } from './Company';
 export type { User, Permission } from './User';
 export type { Establecimiento } from './Establecimiento';
-export type { Role } from './Role';
 export type { Series } from './Series';
 export type { PaymentMethod } from './PaymentMethod';
 export type { Currency } from './Currency';

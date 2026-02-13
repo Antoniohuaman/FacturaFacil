@@ -13,7 +13,7 @@ import { ListaUsuarios } from '../components/usuarios/ListaUsuarios.tsx';
 import { FormularioUsuario } from '../components/usuarios/FormularioUsuario';
 import { ListaRoles } from '../components/roles/ListaRoles';
 import { ModalCredenciales } from '../components/usuarios/ModalCredenciales';
-import { SYSTEM_ROLES } from '../modelos/Role';
+import { ROLES_DEL_SISTEMA } from '../roles/rolesDelSistema';
 import type { User } from '../modelos/User';
 import { Button, PageHeader } from '@/contasis';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
@@ -110,7 +110,7 @@ export function ConfiguracionUsuarios() {
       );
       const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesNormalizadas);
       const idsRoles = obtenerIdsRolesUnicos(asignacionesNormalizadas);
-      const rolesSistema = construirRolesSistema(idsRoles, SYSTEM_ROLES);
+      const rolesSistema = construirRolesSistema(idsRoles, ROLES_DEL_SISTEMA);
       const estadoPorAsignaciones = obtenerEstadoUsuarioPorAsignaciones(
         asignacionesNormalizadas,
         usuarioEnEdicion?.status ?? 'ACTIVE',
@@ -248,7 +248,7 @@ export function ConfiguracionUsuarios() {
       });
       const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);
       const idsRoles = obtenerIdsRolesUnicos(asignacionesActualizadas);
-      const rolesSistema = construirRolesSistema(idsRoles, SYSTEM_ROLES);
+      const rolesSistema = construirRolesSistema(idsRoles, ROLES_DEL_SISTEMA);
       const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(asignacionesActualizadas, usuario.status);
 
       const usuarioActualizado: User = {
@@ -303,7 +303,7 @@ export function ConfiguracionUsuarios() {
     });
     const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);
     const idsRoles = obtenerIdsRolesUnicos(asignacionesActualizadas);
-    const rolesSistema = construirRolesSistema(idsRoles, SYSTEM_ROLES);
+    const rolesSistema = construirRolesSistema(idsRoles, ROLES_DEL_SISTEMA);
     const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(asignacionesActualizadas, usuario.status);
 
     const usuarioActualizado: User = {
@@ -382,7 +382,7 @@ export function ConfiguracionUsuarios() {
           >
             <div className="flex items-center space-x-2">
               <Shield className="w-4 h-4" />
-              <span>Roles ({SYSTEM_ROLES.length})</span>
+              <span>Roles ({ROLES_DEL_SISTEMA.length})</span>
             </div>
           </button>
         </nav>
@@ -404,7 +404,7 @@ export function ConfiguracionUsuarios() {
       {/* Roles Tab */}
       {pestanaActiva === 'roles' && (
         <ListaRoles
-          roles={SYSTEM_ROLES}
+          roles={ROLES_DEL_SISTEMA}
           users={usuarios}
           isLoading={cargando}
         />

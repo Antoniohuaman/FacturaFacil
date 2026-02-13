@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import type { ConfigurationStep } from '../modelos/Configuration';
+import { ID_ROL_ADMINISTRADOR } from '../roles/rolesDelSistema';
 
 interface ConfigurationStatus {
   overallProgress: number;
@@ -378,8 +379,8 @@ export function useConfigurationStatus(): UseConfigurationStatusReturn {
         break;
         
       case 'users':
-        const adminUsers = state.users.filter(user => 
-          user.systemAccess.roles.some(role => role.level === 'ADMIN')
+        const adminUsers = state.users.filter(user =>
+          user.systemAccess.roleIds.includes(ID_ROL_ADMINISTRADOR)
         );
         
         completedSteps = steps.filter(step => {

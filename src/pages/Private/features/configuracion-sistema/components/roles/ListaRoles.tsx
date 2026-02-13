@@ -1,10 +1,10 @@
-import { Shield, AlertCircle, Info } from 'lucide-react';
-import type { Role } from '../../modelos/Role';
+import { Shield, Info } from 'lucide-react';
 import type { User } from '../../modelos/User';
+import type { RolDelSistema } from '../../roles/tiposRolesPermisos';
 import { TarjetaRol } from './TarjetaRol';
 
 interface PropsListaRoles {
-  roles: Partial<Role>[];
+  roles: RolDelSistema[];
   users?: User[];
   isLoading?: boolean;
 }
@@ -66,7 +66,7 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -85,46 +85,14 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
               <Shield className="w-4 h-4 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-600">Roles del Sistema</p>
+              <p className="text-xs text-gray-600">Usuarios activos</p>
               <p className="text-xl font-bold text-gray-900">
-                {roles.filter(r => r.type === 'SYSTEM').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg p-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Shield className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Roles Personalizados</p>
-              <p className="text-xl font-bold text-gray-900">
-                {roles.filter(r => r.type === 'CUSTOM').length}
+                {users.filter(user => user.status === 'ACTIVE').length}
               </p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Warning for Custom Roles */}
-      {roles.filter(r => r.type === 'CUSTOM').length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-yellow-900 mb-1">
-                Roles Personalizados
-              </h4>
-              <p className="text-xs text-yellow-800">
-                Actualmente solo están disponibles los roles predefinidos del sistema.
-                La funcionalidad para crear roles personalizados estará disponible próximamente.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Roles Grid */}
       <div className="grid grid-cols-1 gap-4">
@@ -146,9 +114,9 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
               Información sobre permisos
             </h4>
             <ul className="space-y-1 text-xs text-gray-600">
-              <li>• <strong>Super Administrador:</strong> Acceso completo a todas las funcionalidades sin restricciones</li>
-              <li>• <strong>Gerente:</strong> Gestión de ventas, inventario y reportes, sin acceso a configuración del sistema</li>
-              <li>• <strong>Vendedor:</strong> Acceso básico a ventas y consulta de inventario, ideal para personal de mostrador</li>
+              <li>• <strong>Administrador:</strong> Acceso completo a modulos y configuracion</li>
+              <li>• <strong>Vendedor:</strong> Venta completa, cobranzas y caja</li>
+              <li>• <strong>Contador:</strong> Consulta de comprobantes e indicadores</li>
             </ul>
           </div>
         </div>

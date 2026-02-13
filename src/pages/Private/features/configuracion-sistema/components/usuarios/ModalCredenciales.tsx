@@ -5,8 +5,7 @@ import { Button } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import type { User as UserModel, AsignacionEmpresaUsuario } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import type { Role } from '../../modelos/Role';
-import { SYSTEM_ROLES } from '../../modelos/Role';
+import { ROLES_DEL_SISTEMA, obtenerRolesDelSistema } from '../../roles/rolesDelSistema';
 
 interface PropsModalCredenciales {
   isOpen: boolean;
@@ -32,17 +31,11 @@ export function ModalCredenciales({ isOpen, onClose, credentials, user, Establec
   );
 
   // Get user roles
-  const userRoles = (user.systemAccess.roles || []) as Role[];
+  const userRoles = obtenerRolesDelSistema(user.systemAccess.roleIds ?? []);
 
-  const mapaRoles = new Map<string, string>();
-  userRoles.forEach((rol) => {
-    mapaRoles.set(rol.id, rol.name);
-  });
-  SYSTEM_ROLES.forEach((rol) => {
-    if (rol.id && rol.name) {
-      mapaRoles.set(rol.id, rol.name);
-    }
-  });
+  const mapaRoles = new Map(
+    ROLES_DEL_SISTEMA.map((rol) => [rol.id, rol.nombre]),
+  );
 
   const mapaEstablecimientos = new Map(
     Establecimientos.map((establecimiento) => [establecimiento.id, establecimiento.nombreEstablecimiento]),
@@ -288,7 +281,7 @@ Contraseña: ${credentials.password}
             </div>
 
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Tooltip contenido={userRoles.map(r => r.name).join('\n') || 'Sin roles asignados'} ubicacion="arriba" multilinea>
+              <Tooltip contenido={userRoles.map(r => r.nombre).join('\n') || 'Sin roles asignados'} ubicacion="arriba" multilinea>
                 <div className="flex items-center gap-2 text-xs text-gray-600">
                   <Shield className="w-3.5 h-3.5 text-gray-400" />
                   <span>{userRoles.length} rol(es)</span>

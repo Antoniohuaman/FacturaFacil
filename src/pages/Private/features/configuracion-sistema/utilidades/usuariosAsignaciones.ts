@@ -1,5 +1,5 @@
 import type { Empresa } from '../../autenticacion/types/auth.types';
-import type { Role, SystemRoleDefinition } from '../modelos/Role';
+import type { RolDelSistema } from '../roles/tiposRolesPermisos';
 import type {
   User,
   AsignacionEmpresaUsuario,
@@ -55,7 +55,7 @@ const normalizarEstablecimientos = (establecimientos: AsignacionEstablecimientoU
   return Array.from(mapa.values());
 };
 
-const construirEstablecimientosDesdeLegacy = (
+const construirEstablecimientosDesdeIds = (
   establecimientoIds: string[],
   rolesPorEstablecimiento?: Record<string, string>,
   roleIds?: string[],
@@ -92,11 +92,11 @@ const obtenerRolesPorEstablecimientoDesdeEstablecimientos = (
 
 const obtenerRoleIdsDesdeEstablecimientos = (
   establecimientos: AsignacionEstablecimientoUsuario[],
-  roleIdsLegacy?: string[],
+  roleIdsExtra?: string[],
 ) => {
   const ids = establecimientos.map((item) => item.roleId).filter(Boolean);
-  const legacy = roleIdsLegacy ?? [];
-  return Array.from(new Set([...ids, ...legacy]));
+  const adicionales = roleIdsExtra ?? [];
+  return Array.from(new Set([...ids, ...adicionales]));
 };
 
 const obtenerEstablecimientoIdsDesdeEstablecimientos = (
@@ -106,7 +106,7 @@ const obtenerEstablecimientoIdsDesdeEstablecimientos = (
 const normalizarAsignacionEmpresa = (asignacion: AsignacionEmpresaUsuario) => {
   const establecimientosBase = asignacion.establecimientos?.length
     ? asignacion.establecimientos
-    : construirEstablecimientosDesdeLegacy(
+    : construirEstablecimientosDesdeIds(
         asignacion.establecimientoIds ?? [],
         asignacion.rolesPorEstablecimiento,
         asignacion.roleIds,
@@ -123,35 +123,16 @@ const normalizarAsignacionEmpresa = (asignacion: AsignacionEmpresaUsuario) => {
 
 const resolverRolSistema = (
   idRol: string,
-  rolesSistema: SystemRoleDefinition[],
-): Role | null => {
-  const rol = rolesSistema.find((item) => item.id === idRol);
-  if (!rol || !rol.permissions) {
-    return null;
-  }
-
-  const ahora = new Date();
-  return {
-    id: rol.id,
-    name: rol.name ?? '',
-    description: rol.description ?? '',
-    type: rol.type ?? 'SYSTEM',
-    level: rol.level ?? 'ADMIN',
-    permissions: rol.permissions,
-    restrictions: rol.restrictions ?? {},
-    isActive: true,
-    createdAt: ahora,
-    updatedAt: ahora,
-  };
-};
+  rolesSistema: RolDelSistema[],
+): RolDelSistema | null => rolesSistema.find((item) => item.id === idRol) ?? null;
 
 export const construirRolesSistema = (
   idsRoles: string[],
-  rolesSistema: SystemRoleDefinition[],
-): Role[] => {
+  rolesSistema: RolDelSistema[],
+): RolDelSistema[] => {
   const roles = idsRoles
     .map((idRol) => resolverRolSistema(idRol, rolesSistema))
-    .filter((rol): rol is Role => Boolean(rol));
+    .filter((rol): rol is RolDelSistema => Boolean(rol));
   const vistos = new Set<string>();
 
   return roles.filter((rol) => {
@@ -196,7 +177,7 @@ export const normalizarUsuario = (
   const estadoAsignacion: EstadoAsignacionUsuario =
     usuario.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
 
-  const establecimientosAsignados = construirEstablecimientosDesdeLegacy(establecimientos, undefined, roles);
+  const establecimientosAsignados = construirEstablecimientosDesdeIds(establecimientos, undefined, roles);
 
   const asignaciones: AsignacionEmpresaUsuario[] = [
     {
@@ -241,7 +222,7 @@ export const obtenerAsignacionesUsuarioGlobal = (
 
   const mapaEstablecimientos = obtenerMapaEstablecimientos(empresas);
   const empresasPorId = new Map(empresas.map((empresa) => [empresa.id, empresa]));
-  const establecimientosLegacy = construirEstablecimientosDesdeLegacy(
+  const establecimientosBase = construirEstablecimientosDesdeIds(
     establecimientoIds,
     undefined,
     usuario.systemAccess?.roleIds ?? [],
@@ -250,7 +231,7 @@ export const obtenerAsignacionesUsuarioGlobal = (
     usuario.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
 
   const agrupadas = new Map<string, AsignacionEmpresaUsuario>();
-  establecimientosLegacy.forEach((establecimiento) => {
+  establecimientosBase.forEach((establecimiento) => {
     const empresaId = mapaEstablecimientos.get(establecimiento.establecimientoId)?.empresaId;
     if (!empresaId) return;
     const empresa = empresasPorId.get(empresaId);
@@ -273,7 +254,7 @@ export const obtenerAsignacionesUsuarioGlobal = (
       normalizarAsignacionEmpresa({
         empresaId: empresa.id,
         empresaNombre: empresa.razonSocial ?? empresa.nombreComercial,
-        establecimientos: establecimientosLegacy,
+        establecimientos: establecimientosBase,
         estado: estadoAsignacion,
       }),
     ];
@@ -321,15 +302,15 @@ export const obtenerEstadoUsuarioPorAsignaciones = (
 export const mapearSesionAUsuarioConfiguracion = (
   sesion: SesionUsuario,
   contextoEmpresa: DatosContextoEmpresa,
-  rolesSistema: SystemRoleDefinition[],
-  idRolSuperAdmin: string,
+  rolesSistema: RolDelSistema[],
+  idRolAdministrador: string,
 ): User => {
   const { nombres, apellidos, nombreCompleto } = separarNombreCompleto(sesion.userName ?? '');
   const establecimientoActivo = contextoEmpresa.establecimientoId ??
     sesion.currentEstablecimientoId ??
     sesion.currentEstablecimiento?.id ??
     '';
-  const idsRoles = [idRolSuperAdmin];
+  const idsRoles = [idRolAdministrador];
   const roles = construirRolesSistema(idsRoles, rolesSistema);
 
   const asignaciones: AsignacionEmpresaUsuario[] = contextoEmpresa.empresaId
@@ -338,11 +319,11 @@ export const mapearSesionAUsuarioConfiguracion = (
           empresaId: contextoEmpresa.empresaId,
           empresaNombre: contextoEmpresa.empresaNombre,
           establecimientos: establecimientoActivo
-            ? [{ establecimientoId: establecimientoActivo, roleId: idRolSuperAdmin }]
+            ? [{ establecimientoId: establecimientoActivo, roleId: idRolAdministrador }]
             : [],
           establecimientoIds: establecimientoActivo ? [establecimientoActivo] : [],
           rolesPorEstablecimiento: establecimientoActivo
-            ? { [establecimientoActivo]: idRolSuperAdmin }
+            ? { [establecimientoActivo]: idRolAdministrador }
             : {},
           roleIds: idsRoles,
           estado: 'ACTIVE',
@@ -381,7 +362,7 @@ export const mapearSesionAUsuarioConfiguracion = (
 
 export const construirResumenRoles = (
   asignaciones: AsignacionEmpresaUsuario[],
-  rolesSistema: SystemRoleDefinition[],
+  rolesSistema: RolDelSistema[],
 ) => {
   const nombres = asignaciones.flatMap((asignacion) => {
     const asignacionNormalizada = normalizarAsignacionEmpresa(asignacion);
@@ -391,7 +372,7 @@ export const construirResumenRoles = (
       const etiquetaEmpresa = asignacionNormalizada.empresaNombre
         ? ` (${asignacionNormalizada.empresaNombre})`
         : '';
-      return `${rol.name}${etiquetaEmpresa}`.trim();
+      return `${rol.nombre}${etiquetaEmpresa}`.trim();
     });
   });
   return construirResumenLista(nombres);
@@ -399,13 +380,13 @@ export const construirResumenRoles = (
 
 export const construirResumenRolesSinEmpresa = (
   asignaciones: AsignacionEmpresaUsuario[],
-  rolesSistema: SystemRoleDefinition[],
+  rolesSistema: RolDelSistema[],
 ) => {
   const nombres = asignaciones.flatMap((asignacion) => {
     const asignacionNormalizada = normalizarAsignacionEmpresa(asignacion);
     const idsRoles = obtenerRoleIdsDesdeEstablecimientos(asignacionNormalizada.establecimientos);
     const roles = construirRolesSistema(idsRoles, rolesSistema);
-    return roles.map((rol) => rol.name).filter(Boolean);
+    return roles.map((rol) => rol.nombre).filter(Boolean);
   });
 
   const rolesUnicos = Array.from(new Set(nombres));
@@ -451,7 +432,7 @@ export const construirAsignacionesDesdeFormulario = (
   return asignaciones.map((asignacion) => {
     const establecimientosBase = asignacion.establecimientos?.length
       ? asignacion.establecimientos
-      : construirEstablecimientosDesdeLegacy(
+      : construirEstablecimientosDesdeIds(
           asignacion.establecimientoIds ?? [],
           asignacion.rolesPorEstablecimiento,
           asignacion.roleIds,
@@ -494,7 +475,7 @@ export const obtenerAsignacionesActualizadas = (
   if (!actual) {
     const establecimientosBase = actualizacion.establecimientos?.length
       ? actualizacion.establecimientos
-      : construirEstablecimientosDesdeLegacy(
+      : construirEstablecimientosDesdeIds(
           actualizacion.establecimientoIds ?? [],
           actualizacion.rolesPorEstablecimiento,
           actualizacion.roleIds,
@@ -516,14 +497,14 @@ export const obtenerAsignacionesActualizadas = (
 
   const establecimientosActualizados = actualizacion.establecimientos?.length
     ? normalizarEstablecimientos(actualizacion.establecimientos)
-    : construirEstablecimientosDesdeLegacy(
+    : construirEstablecimientosDesdeIds(
         actualizacion.establecimientoIds ?? actual.establecimientoIds ?? [],
         actualizacion.rolesPorEstablecimiento ?? actual.rolesPorEstablecimiento,
         actualizacion.roleIds ?? actual.roleIds,
       );
   const establecimientosBase = actual.establecimientos?.length
     ? actual.establecimientos
-    : construirEstablecimientosDesdeLegacy(
+    : construirEstablecimientosDesdeIds(
         actual.establecimientoIds ?? [],
         actual.rolesPorEstablecimiento,
         actual.roleIds,

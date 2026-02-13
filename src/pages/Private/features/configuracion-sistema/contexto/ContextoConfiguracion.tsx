@@ -14,7 +14,7 @@ import { normalizeUnitsWithCatalog } from '../modelos';
 import type { Almacen } from '../modelos/Almacen';
 import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
-import { SYSTEM_ROLE_IDS, SYSTEM_ROLES } from '../modelos/Role';
+import { ID_ROL_ADMINISTRADOR, ROLES_DEL_SISTEMA } from '../roles/rolesDelSistema';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
 import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { parseUbigeoCode } from '../datos/ubigeo';
@@ -1396,8 +1396,8 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
         empresaNombre: empresaNombreActiva,
         establecimientoId: establecimientoActivoId,
       },
-      SYSTEM_ROLES,
-      SYSTEM_ROLE_IDS.SUPER_ADMIN,
+      ROLES_DEL_SISTEMA,
+      ID_ROL_ADMINISTRADOR,
     );
 
     if (!usuarioExistente) {
@@ -1426,7 +1426,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       : {};
     const rolesActualizados = {
       ...rolesPorEstablecimiento,
-      ...(establecimientoActivoId ? { [establecimientoActivoId]: SYSTEM_ROLE_IDS.SUPER_ADMIN } : {}),
+      ...(establecimientoActivoId ? { [establecimientoActivoId]: ID_ROL_ADMINISTRADOR } : {}),
     };
     const establecimientosAsignados = establecimientosActualizados.map((id) => ({
       establecimientoId: id,
@@ -1442,7 +1442,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       },
     );
     const idsRolesGlobales = obtenerIdsRolesUnicos(asignacionesActualizadas);
-    const rolesGlobales = construirRolesSistema(idsRolesGlobales, SYSTEM_ROLES);
+    const rolesGlobales = construirRolesSistema(idsRolesGlobales, ROLES_DEL_SISTEMA);
     const establecimientosGlobales = obtenerEstablecimientosUnicos(asignacionesActualizadas);
     const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(
       asignacionesActualizadas,
@@ -1456,7 +1456,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     const nombreSincronizado = construirNombreCompleto(nombres, apellidos) || nombreCompleto;
 
     const faltaAsignacionEmpresa = !asignacionEmpresa;
-    const faltaRolSuperAdmin = !usuarioExistente.systemAccess.roleIds.includes(SYSTEM_ROLE_IDS.SUPER_ADMIN);
+    const faltaRolAdministrador = !usuarioExistente.systemAccess.roleIds.includes(ID_ROL_ADMINISTRADOR);
     const faltaEstablecimiento =
       establecimientoActivoId &&
       !usuarioExistente.assignment.EstablecimientoIds.includes(establecimientoActivoId);
@@ -1468,7 +1468,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       usuarioExistente.personalInfo.lastName !== apellidos ||
       usuarioExistente.status !== estadoGlobal ||
       faltaEstablecimiento ||
-      faltaRolSuperAdmin ||
+      faltaRolAdministrador ||
       faltaAsignacionEmpresa ||
       establecimientosGlobales.length !== usuarioExistente.assignment.EstablecimientoIds.length ||
       idsRolesGlobales.length !== usuarioExistente.systemAccess.roleIds.length ||

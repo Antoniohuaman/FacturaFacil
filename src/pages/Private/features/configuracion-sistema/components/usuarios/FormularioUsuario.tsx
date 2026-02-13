@@ -5,7 +5,7 @@ import { Button, Select, Input, Checkbox } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import type { Empresa } from '../../../autenticacion/types/auth.types';
 import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionUsuario } from '../../modelos/User';
-import { SYSTEM_ROLES } from '../../modelos/Role';
+import { ROLES_DEL_SISTEMA } from '../../roles/rolesDelSistema';
 import {
   construirResumenLista,
   normalizarCorreo,
@@ -507,9 +507,9 @@ export function FormularioUsuario({
                       )}
                       options={[
                         { value: '', label: 'Selecciona un rol' },
-                        ...SYSTEM_ROLES.map((rol) => ({
+                        ...ROLES_DEL_SISTEMA.map((rol) => ({
                           value: rol.id,
-                          label: rol.name ?? 'Rol sin nombre',
+                          label: rol.nombre,
                         })),
                       ]}
                       disabled={cargando}

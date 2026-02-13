@@ -17,7 +17,7 @@ import { IndicadorEstado } from '../comunes/IndicadorEstado';
 import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
-import { SYSTEM_ROLES } from '../../modelos/Role';
+import { ROLES_DEL_SISTEMA } from '../../roles/rolesDelSistema';
 import {
   construirNombreCompleto,
   construirResumenEmpresas,
@@ -92,7 +92,7 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
   const resumenEmpresas = construirResumenEmpresas(asignaciones);
   const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
   const nombreCompleto = construirNombreCompleto(usuario.personalInfo.firstName, usuario.personalInfo.lastName);
-  const resumenRoles = construirResumenRolesSinEmpresa(asignaciones, SYSTEM_ROLES);
+  const resumenRoles = construirResumenRolesSinEmpresa(asignaciones, ROLES_DEL_SISTEMA);
   const establecimientosNombres = useMemo(
     () => establecimientosAsignados.map(
       (id) => mapaEstablecimientos.get(id)?.nombre ?? id,

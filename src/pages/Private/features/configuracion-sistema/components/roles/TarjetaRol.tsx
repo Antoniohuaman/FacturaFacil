@@ -1,181 +1,80 @@
-import { Shield, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
-import { useState } from 'react';
-import type { Role } from '../../modelos/Role';
-import { ROLE_LEVELS } from '../../modelos/Role';
+import { Shield, Users, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { PermisoCatalogo, RolDelSistema } from '../../roles/tiposRolesPermisos';
+import { MAPA_PERMISOS_POR_ID } from '../../roles/catalogoPermisos';
 
 interface PropsTarjetaRol {
-  rol: Partial<Role>;
+  rol: RolDelSistema;
   cantidadUsuarios?: number;
 }
 
-type PermissionModule = Record<string, boolean | number | string[] | undefined>;
-
-// Permission translations
-const PERMISSION_TRANSLATIONS: Record<string, string> = {
-  // Common actions
-  canView: 'Ver',
-  canCreate: 'Crear',
-  canEdit: 'Editar',
-  canDelete: 'Eliminar',
-  canApprove: 'Aprobar',
-  canCancel: 'Cancelar',
-
-  // Sales
-  canApplyDiscounts: 'Aplicar descuentos',
-  canModifyPrices: 'Modificar precios',
-  canViewReports: 'Ver reportes',
-  canAccessAllEstablecimientos: 'Acceder a todos los establecimientos',
-
-  // Inventory
-  canAdjustStock: 'Ajustar stock',
-  canTransferStock: 'Transferir stock',
-  canViewCosts: 'Ver costos',
-  canEditCosts: 'Editar costos',
-  canManageSuppliers: 'Gestionar proveedores',
-  canApprovePurchases: 'Aprobar compras',
-
-  // Customers
-  canViewHistory: 'Ver historial',
-  canManageCredit: 'Gestionar crédito',
-  canViewSensitiveData: 'Ver datos sensibles',
-  canExportData: 'Exportar datos',
-
-  // Reports
-  canViewSalesReports: 'Ver reportes de ventas',
-  canViewInventoryReports: 'Ver reportes de inventario',
-  canViewFinancialReports: 'Ver reportes financieros',
-  canViewUserReports: 'Ver reportes de usuarios',
-  canExportReports: 'Exportar reportes',
-  canScheduleReports: 'Programar reportes',
-  canViewAllEstablecimientos: 'Ver todos los establecimientos',
-
-  // Configuration
-  canEditCompany: 'Editar empresa',
-  canEditEstablecimientos: 'Editar establecimientos',
-  canEditUsers: 'Editar usuarios',
-  canEditRoles: 'Editar roles',
-  canEditTaxes: 'Editar impuestos',
-  canEditPaymentMethods: 'Editar métodos de pago',
-  canEditSeries: 'Editar series',
-  canEditIntegrations: 'Editar integraciones',
-  canBackupData: 'Respaldar datos',
-  canRestoreData: 'Restaurar datos',
-
-  // Cash
-  canOpenRegister: 'Abrir caja',
-  canCloseRegister: 'Cerrar caja',
-  canViewCashFlow: 'Ver flujo de caja',
-  canMakeAdjustments: 'Hacer ajustes',
-  canViewOtherRegisters: 'Ver otras cajas',
-  canApproveCashOperations: 'Aprobar operaciones de caja',
-
-  // Admin
-  canManageUsers: 'Gestionar usuarios',
-  canManageRoles: 'Gestionar roles',
-  canViewSystemLogs: 'Ver logs del sistema',
-  canManageIntegrations: 'Gestionar integraciones',
-  canAccessAllData: 'Acceder a todos los datos',
-  canDeleteAnyRecord: 'Eliminar cualquier registro',
-  canModifySystemSettings: 'Modificar configuración del sistema',
-};
-
 export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
   const [showPermissions, setShowPermissions] = useState(false);
-  const roleFocusId = rol.id ?? rol.name ?? 'rol-sin-id';
+  const roleFocusId = rol.id || 'rol-sin-id';
 
-  const getLevelColor = (level?: Role['level']) => {
-    if (!level) return 'gray';
-    const levelConfig = ROLE_LEVELS.find(l => l.value === level);
-    return levelConfig?.color || 'gray';
+  const permisosCatalogados = useMemo(() => {
+    const permisos: PermisoCatalogo[] = [];
+    rol.permisos.forEach((permisoId) => {
+      const permiso = MAPA_PERMISOS_POR_ID[permisoId];
+      if (permiso) {
+        permisos.push(permiso);
+      }
+    });
+    return permisos;
+  }, [rol.permisos]);
+
+  const permisosPorModulo = useMemo(() => {
+    return permisosCatalogados.reduce<Record<string, PermisoCatalogo[]>>((acc, permiso) => {
+      const clave = permiso.modulo;
+      if (!acc[clave]) {
+        acc[clave] = [];
+      }
+      acc[clave].push(permiso);
+      return acc;
+    }, {});
+  }, [permisosCatalogados]);
+
+  const ordenarModulos = (modulo: string) => {
+    const orden = [
+      'ventas',
+      'clientes',
+      'cobranzas',
+      'caja',
+      'inventario',
+      'catalogo',
+      'precios',
+      'indicadores',
+      'configuracion',
+      'notificaciones',
+    ];
+    return orden.indexOf(modulo);
   };
 
-  const getLevelColorClasses = (level?: Role['level']) => {
-    const color = getLevelColor(level);
-    switch (color) {
-      case 'red':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'orange':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'yellow':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'blue':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+  const obtenerNombreModulo = (modulo: string) => {
+    switch (modulo) {
+      case 'ventas':
+        return 'Ventas';
+      case 'clientes':
+        return 'Clientes';
+      case 'cobranzas':
+        return 'Cobranzas';
+      case 'caja':
+        return 'Caja';
+      case 'inventario':
+        return 'Inventario';
+      case 'catalogo':
+        return 'Catalogo';
+      case 'precios':
+        return 'Precios';
+      case 'indicadores':
+        return 'Indicadores';
+      case 'configuracion':
+        return 'Configuracion';
+      case 'notificaciones':
+        return 'Notificaciones';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'Otros';
     }
-  };
-
-  const getPermissionCount = () => {
-    if (!rol.permissions) return 0;
-    let count = 0;
-    Object.values(rol.permissions).forEach(modulePermissions => {
-      Object.values(modulePermissions).forEach(permission => {
-        if (permission === true) count++;
-      });
-    });
-    return count;
-  };
-
-  const renderPermissionModule = (moduleName: string, permissions: PermissionModule) => {
-    const permissionEntries = Object.entries(permissions).filter(([key, value]) => {
-      // Exclude special properties that are not boolean permissions
-      if (key === 'maxDiscountPercentage' || key === 'EstablecimientoIds') return false;
-      return typeof value === 'boolean';
-    });
-
-    if (permissionEntries.length === 0) return null;
-
-    const enabledCount = permissionEntries.filter(([, value]) => value === true).length;
-    const totalCount = permissionEntries.length;
-    const hasAnyEnabled = enabledCount > 0;
-
-    return (
-      <div key={moduleName} className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <h5 className="text-sm font-medium text-gray-700 capitalize">
-            {moduleName === 'sales' && '🛒 Ventas'}
-            {moduleName === 'inventory' && '📦 Inventario'}
-            {moduleName === 'customers' && '👥 Clientes'}
-            {moduleName === 'reports' && '📊 Reportes'}
-            {moduleName === 'configuration' && '⚙️ Configuración'}
-            {moduleName === 'cash' && '💰 Caja'}
-            {moduleName === 'admin' && '🔐 Administración'}
-          </h5>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            hasAnyEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-          }`}>
-            {enabledCount}/{totalCount}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-1">
-          {permissionEntries.map(([key, value]) => (
-            <div
-              key={key}
-              className={`flex items-center space-x-2 text-xs px-2 py-1.5 rounded ${
-                value ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'
-              }`}
-            >
-              {value ? (
-                <CheckCircle className="w-3 h-3 text-green-600" />
-              ) : (
-                <XCircle className="w-3 h-3 text-gray-400" />
-              )}
-              <span className="flex-1">
-                {PERMISSION_TRANSLATIONS[key] || key.replace(/([A-Z])/g, ' $1').toLowerCase()}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Special properties */}
-        {permissions.maxDiscountPercentage !== undefined && (
-          <div className="mt-2 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-            💵 Descuento máximo: {permissions.maxDiscountPercentage}%
-          </div>
-        )}
-      </div>
-    );
   };
 
   return (
@@ -189,12 +88,7 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
           <div className="flex items-start space-x-3 flex-1">
             <div className={`
               flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
-              ${rol.level === 'ADMIN' ? 'bg-gradient-to-br from-red-500 to-red-600' :
-                rol.level === 'MANAGER' ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
-                rol.level === 'SUPERVISOR' ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' :
-                rol.level === 'STAFF' ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
-                'bg-gradient-to-br from-gray-500 to-gray-600'
-              }
+              bg-gradient-to-br from-blue-500 to-blue-600
             `}>
               <Shield className="w-5 h-5 text-white" />
             </div>
@@ -202,27 +96,22 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-1">
                 <h3 className="text-base font-semibold text-gray-900">
-                  {rol.name}
+                  {rol.nombre}
                 </h3>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getLevelColorClasses(rol.level)}`}>
-                  {ROLE_LEVELS.find(l => l.value === rol.level)?.label}
+                <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full border border-purple-200">
+                  Sistema
                 </span>
-                {rol.type === 'SYSTEM' && (
-                  <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full border border-purple-200">
-                    Sistema
-                  </span>
-                )}
               </div>
 
               <p className="text-xs text-gray-600 mb-3">
-                {rol.description}
+                {rol.descripcion}
               </p>
 
               {/* Stats */}
               <div className="flex items-center space-x-4 text-xs">
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>{getPermissionCount()} permisos activos</span>
+                  <span>{rol.permisos.length} permisos activos</span>
                 </div>
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Users className="w-3.5 h-3.5" />
@@ -248,12 +137,34 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
       </div>
 
       {/* Permissions Details */}
-      {showPermissions && rol.permissions && (
+      {showPermissions && (
         <div className="px-4 pb-4 pt-0 border-t border-gray-200">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-3">
-            {Object.entries(rol.permissions).map(([moduleName, permissions]) =>
-              renderPermissionModule(moduleName, permissions as PermissionModule)
-            )}
+            {Object.entries(permisosPorModulo)
+              .sort(([moduloA], [moduloB]) => ordenarModulos(moduloA) - ordenarModulos(moduloB))
+              .map(([modulo, permisos]) => (
+                <div key={modulo} className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-medium text-gray-700">
+                      {obtenerNombreModulo(modulo)}
+                    </h5>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                      {permisos.length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {permisos.map((permiso) => (
+                      <div
+                        key={permiso.id}
+                        className="flex items-center space-x-2 text-xs px-2 py-1.5 rounded bg-green-50 text-green-700"
+                      >
+                        <CheckCircle className="w-3 h-3 text-green-600" />
+                        <span className="flex-1">{permiso.nombre}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}
