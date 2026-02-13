@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { X, Copy, Check, User, Lock, Shield, Building2, MessageCircle, Info } from 'lucide-react';
 import { Button } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
-import type { User as UserModel } from '../../modelos/User';
+import type { User as UserModel, AsignacionEmpresaUsuario } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import type { Role } from '../../modelos/Role';
+import { SYSTEM_ROLES } from '../../modelos/Role';
 
 interface PropsModalCredenciales {
   isOpen: boolean;
@@ -33,6 +34,90 @@ export function ModalCredenciales({ isOpen, onClose, credentials, user, Establec
   // Get user roles
   const userRoles = (user.systemAccess.roles || []) as Role[];
 
+  const mapaRoles = new Map<string, string>();
+  userRoles.forEach((rol) => {
+    mapaRoles.set(rol.id, rol.name);
+  });
+  SYSTEM_ROLES.forEach((rol) => {
+    if (rol.id && rol.name) {
+      mapaRoles.set(rol.id, rol.name);
+    }
+  });
+
+  const mapaEstablecimientos = new Map(
+    Establecimientos.map((establecimiento) => [establecimiento.id, establecimiento.nombreEstablecimiento]),
+  );
+
+  const obtenerNombreRol = (roleId?: string) => {
+    if (!roleId) return 'Sin rol';
+    return mapaRoles.get(roleId) ?? 'Sin rol';
+  };
+
+  const normalizarEstablecimientosAsignacion = (asignacion: AsignacionEmpresaUsuario) => {
+    if (asignacion.establecimientos?.length) {
+      return asignacion.establecimientos;
+    }
+
+    const establecimientoIds = asignacion.establecimientoIds ?? [];
+    const rolesPorEstablecimiento = asignacion.rolesPorEstablecimiento ?? {};
+    const roleIds = asignacion.roleIds ?? [];
+
+    if (Object.keys(rolesPorEstablecimiento).length > 0) {
+      return establecimientoIds.map((establecimientoId) => ({
+        establecimientoId,
+        roleId: rolesPorEstablecimiento[establecimientoId] ?? '',
+      }));
+    }
+
+    if (roleIds.length === 1) {
+      return establecimientoIds.map((establecimientoId) => ({ establecimientoId, roleId: roleIds[0] }));
+    }
+
+    if (roleIds.length > 1 && establecimientoIds.length === 1) {
+      return [{ establecimientoId: establecimientoIds[0], roleId: roleIds[0] }];
+    }
+
+    return establecimientoIds.map((establecimientoId) => ({ establecimientoId, roleId: '' }));
+  };
+
+  const construirAccesosAsignados = () => {
+    const asignaciones = user.asignacionesPorEmpresa ?? [];
+
+    if (asignaciones.length === 0) {
+      return '- Sin asignaciones';
+    }
+
+    return asignaciones
+      .map((asignacion) => {
+        const nombreEmpresa = asignacion.empresaNombre ?? asignacion.empresaId ?? 'Empresa';
+        const establecimientosAsignacion = normalizarEstablecimientosAsignacion(asignacion);
+        const establecimientos = establecimientosAsignacion
+          .map((item) => mapaEstablecimientos.get(item.establecimientoId) ?? item.establecimientoId)
+          .filter(Boolean);
+        const roles = Array.from(
+          new Set(
+            establecimientosAsignacion
+              .map((item) => obtenerNombreRol(item.roleId))
+              .filter(Boolean),
+          ),
+        );
+        const rolesExtra = (asignacion.roleIds ?? [])
+          .map((roleId) => obtenerNombreRol(roleId))
+          .filter(Boolean);
+        const rolesUnicos = Array.from(new Set([...roles, ...rolesExtra]));
+
+        const establecimientosTexto = establecimientos.length > 0
+          ? establecimientos.join(', ')
+          : 'Sin establecimientos';
+        const rolesTexto = rolesUnicos.length > 0
+          ? rolesUnicos.join(', ')
+          : 'Sin roles';
+
+        return `- ${nombreEmpresa}\n  - Establecimientos: ${establecimientosTexto}\n  - Roles: ${rolesTexto}`;
+      })
+      .join('\n');
+  };
+
   const handleCopy = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -44,24 +129,19 @@ export function ModalCredenciales({ isOpen, onClose, credentials, user, Establec
   };
 
   const handleCopyAll = async () => {
-    const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
-    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.nombreEstablecimiento}`).join('\n');
+    const accesosAsignados = construirAccesosAsignados();
 
     const allCredentials = `
 ═══════════════════════════════════════
     CREDENCIALES DE ACCESO
 ═══════════════════════════════════════
 
-Usuario: ${credentials.fullName}
-Email: ${credentials.email}
-Usuario: ${credentials.email}
+  Nombre: ${credentials.fullName}
+  Usuario (correo): ${credentials.email}
 Contraseña: ${credentials.password}
 
-Roles Asignados:
-${rolesText || '  - Ninguno'}
-
-Establecimientos:
-${EstablecimientosText || '  - Ninguno'}
+  Accesos asignados:
+  ${accesosAsignados}
 
 ═══════════════════════════════════════
 ⚠️  RECOMENDADO: Actualiza tu contraseña despues del primer inicio de sesion
@@ -77,27 +157,22 @@ ${EstablecimientosText || '  - Ninguno'}
   };
 
   const handleSendWhatsApp = () => {
-    const rolesText = userRoles.map(r => `  - ${r.name}`).join('\n');
-    const EstablecimientosText = userEstablecimientos.map(e => `  - ${e.nombreEstablecimiento}`).join('\n');
+    const accesosAsignados = construirAccesosAsignados();
 
     const message = `
 ═══════════════════════════════════════
     CREDENCIALES DE ACCESO
 ═══════════════════════════════════════
 
-*Usuario:* ${credentials.fullName}
-*Email:* ${credentials.email}
-*Usuario:* ${credentials.email}
-*Contraseña:* ${credentials.password}
+  Nombre: ${credentials.fullName}
+  Usuario (correo): ${credentials.email}
+  Contraseña: ${credentials.password}
 
-*Roles Asignados:*
-${rolesText || '  - Ninguno'}
-
-*Establecimientos:*
-${EstablecimientosText || '  - Ninguno'}
+  Accesos asignados:
+  ${accesosAsignados}
 
 ═══════════════════════════════════════
-⚠️ *RECOMENDADO:* Actualiza tu contraseña despues del primer inicio de sesion
+  ⚠️  RECOMENDADO: Actualiza tu contraseña despues del primer inicio de sesion
     `.trim();
 
     // Encode the message for URL
@@ -155,7 +230,7 @@ ${EstablecimientosText || '  - Ninguno'}
               {/* Username */}
               <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-200">
                 <label className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-1 block">
-                  Usuario
+                  Usuario (correo)
                 </label>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2 flex-1">

@@ -22,6 +22,7 @@ import {
   construirResumenEmpresas,
   construirResumenEstablecimientos,
   construirResumenRoles,
+  construirResumenRolesSinEmpresa,
   obtenerAsignacionesUsuarioGlobal,
   obtenerEstadoUsuarioPorAsignaciones,
   obtenerIdsRolesUnicos,
@@ -487,24 +488,7 @@ export function ListaUsuarios({
                 {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenEstablecimientos, asignaciones, nombre }) => {
                   const configEstado = obtenerConfigEstado(estado);
                   const esUsuarioActual = usuarioActualId && usuario.id === usuarioActualId;
-                  const rolesPorEstablecimiento = asignaciones
-                    .flatMap((asignacion) => asignacion.establecimientos)
-                    .map((item) => {
-                      const establecimiento = mapaEstablecimientos.get(item.establecimientoId)?.nombre ?? item.establecimientoId;
-                      const rol = SYSTEM_ROLES.find((value) => value.id === item.roleId)?.name ?? 'Sin rol';
-                      return `${establecimiento}: ${rol}`;
-                    });
-                  const rolesUnicos = Array.from(new Set(
-                    rolesPorEstablecimiento.map((item) => item.split(': ')[1]).filter(Boolean),
-                  ));
-                  const resumenRolesEstablecimiento = rolesUnicos.length === 1
-                    ? rolesUnicos[0]
-                    : rolesUnicos.length > 1
-                      ? `${rolesUnicos[0]} +${rolesUnicos.length - 1}`
-                      : 'Sin roles';
-                  const detalleRolesEstablecimiento = rolesPorEstablecimiento.length > 0
-                    ? rolesPorEstablecimiento.join('\n')
-                    : 'Sin roles asignados';
+                  const resumenRolesEstablecimiento = construirResumenRolesSinEmpresa(asignaciones, SYSTEM_ROLES);
                   return (
                     <tr key={usuario.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5 whitespace-nowrap">
@@ -543,9 +527,9 @@ export function ListaUsuarios({
                         </Tooltip>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Tooltip contenido={detalleRolesEstablecimiento} ubicacion="arriba" multilinea>
+                        <Tooltip contenido={resumenRolesEstablecimiento.detalle} ubicacion="arriba" multilinea>
                           <span className="text-sm text-gray-700 truncate max-w-[180px] inline-block">
-                            {resumenRolesEstablecimiento}
+                            {resumenRolesEstablecimiento.resumen}
                           </span>
                         </Tooltip>
                       </td>
@@ -574,7 +558,7 @@ export function ListaUsuarios({
                                 onClick={() => setMenuAbiertoId(null)}
                               />
                               <div
-                                className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1"
+                                className="absolute right-0 mt-2 min-w-[160px] bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5 flex flex-col whitespace-normal"
                                 role="menu"
                               >
                                 <button
@@ -613,20 +597,6 @@ export function ListaUsuarios({
                                   >
                                     Activar
                                   </button>
-                                )}
-                                {!esUsuarioActual && usuario.hasTransactions && (
-                                  <Tooltip contenido="No se puede eliminar, solo inactivar." ubicacion="izquierda">
-                                    <span className="block">
-                                      <button
-                                        type="button"
-                                        role="menuitem"
-                                        disabled
-                                        className="w-full text-left px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
-                                      >
-                                        Eliminar
-                                      </button>
-                                    </span>
-                                  </Tooltip>
                                 )}
                                 {!esUsuarioActual && !usuario.hasTransactions && (
                                   <button

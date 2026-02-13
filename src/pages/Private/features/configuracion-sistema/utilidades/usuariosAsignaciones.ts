@@ -397,6 +397,34 @@ export const construirResumenRoles = (
   return construirResumenLista(nombres);
 };
 
+export const construirResumenRolesSinEmpresa = (
+  asignaciones: AsignacionEmpresaUsuario[],
+  rolesSistema: SystemRoleDefinition[],
+) => {
+  const nombres = asignaciones.flatMap((asignacion) => {
+    const asignacionNormalizada = normalizarAsignacionEmpresa(asignacion);
+    const idsRoles = obtenerRoleIdsDesdeEstablecimientos(asignacionNormalizada.establecimientos);
+    const roles = construirRolesSistema(idsRoles, rolesSistema);
+    return roles.map((rol) => rol.name).filter(Boolean);
+  });
+
+  const rolesUnicos = Array.from(new Set(nombres));
+
+  if (rolesUnicos.length === 0) {
+    return { resumen: 'Sin roles', detalle: 'Sin roles asignados', roles: [] as string[] };
+  }
+
+  if (rolesUnicos.length === 1) {
+    return { resumen: rolesUnicos[0], detalle: rolesUnicos[0], roles: rolesUnicos };
+  }
+
+  return {
+    resumen: `${rolesUnicos[0]} +${rolesUnicos.length - 1}`,
+    detalle: rolesUnicos.join('\n'),
+    roles: rolesUnicos,
+  };
+};
+
 export const construirResumenEmpresas = (asignaciones: AsignacionEmpresaUsuario[]) => {
   const nombres = asignaciones.map((asignacion) => asignacion.empresaNombre ?? asignacion.empresaId);
   return construirResumenLista(nombres);

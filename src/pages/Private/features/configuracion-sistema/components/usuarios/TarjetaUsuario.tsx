@@ -1,5 +1,5 @@
 // src/features/configuration/components/usuarios/UserCard.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FileText,
   Calendar,
@@ -8,7 +8,6 @@ import {
   UserCheck,
   UserX,
   Clock,
-  X,
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
@@ -22,7 +21,7 @@ import { SYSTEM_ROLES } from '../../modelos/Role';
 import {
   construirNombreCompleto,
   construirResumenEmpresas,
-  construirResumenEstablecimientos,
+  construirResumenRolesSinEmpresa,
   obtenerAsignacionesUsuarioGlobal,
   obtenerEstadoUsuarioPorAsignaciones,
   obtenerEstablecimientosIdsAsignacion,
@@ -42,15 +41,15 @@ interface PropsTarjetaUsuario {
   compacto?: boolean;
 }
 
-export function TarjetaUsuario({
-  usuario,
-  alEditar,
-  alEliminar,
-  alCambiarEstado,
-  alQuitarAcceso,
-  mostrarAcciones = true,
-  compacto = false
-}: PropsTarjetaUsuario) {
+export function TarjetaUsuario(props: PropsTarjetaUsuario) {
+  const {
+    usuario,
+    alEditar,
+    alEliminar,
+    alCambiarEstado,
+    mostrarAcciones = true,
+    compacto = false
+  } = props;
   const { session } = useUserSession();
   const empresas = useEmpresasConfiguradas();
   const isCurrentUser = session?.userId === usuario.id;
@@ -58,6 +57,9 @@ export function TarjetaUsuario({
   const [mostrarModalEstado, setMostrarModalEstado] = useState(false);
   const [motivoEstado, setMotivoEstado] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [establecimientosDesborda, setEstablecimientosDesborda] = useState(false);
+  const establecimientosContenedorRef = useRef<HTMLSpanElement | null>(null);
+  const establecimientosMedicionRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     if (!mostrarMenu) return;
@@ -88,27 +90,35 @@ export function TarjetaUsuario({
   }, [asignaciones]);
 
   const resumenEmpresas = construirResumenEmpresas(asignaciones);
-  const resumenEstablecimientos = construirResumenEstablecimientos(asignaciones, mapaEstablecimientos);
   const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
   const nombreCompleto = construirNombreCompleto(usuario.personalInfo.firstName, usuario.personalInfo.lastName);
-  const rolesPorEstablecimiento = asignaciones
-    .flatMap((asignacion) => asignacion.establecimientos)
-    .map((item) => {
-      const establecimiento = mapaEstablecimientos.get(item.establecimientoId)?.nombre ?? item.establecimientoId;
-      const rol = SYSTEM_ROLES.find((value) => value.id === item.roleId)?.name ?? 'Sin rol';
-      return `${establecimiento}: ${rol}`;
-    });
-  const rolesUnicos = Array.from(new Set(
-    rolesPorEstablecimiento.map((item) => item.split(': ')[1]).filter(Boolean),
-  ));
-  const resumenRolesVisible = rolesUnicos.length === 1
-    ? rolesUnicos[0]
-    : rolesUnicos.length > 1
-      ? `${rolesUnicos[0]} +${rolesUnicos.length - 1}`
-      : 'Sin roles';
-  const detalleRolesEstablecimiento = rolesPorEstablecimiento.length > 0
-    ? rolesPorEstablecimiento.join('\n')
-    : 'Sin roles asignados';
+  const resumenRoles = construirResumenRolesSinEmpresa(asignaciones, SYSTEM_ROLES);
+  const establecimientosNombres = useMemo(
+    () => establecimientosAsignados.map(
+      (id) => mapaEstablecimientos.get(id)?.nombre ?? id,
+    ),
+    [establecimientosAsignados, mapaEstablecimientos],
+  );
+  const establecimientosTextoCompleto = establecimientosNombres.join(', ');
+  const establecimientosResumen = establecimientosNombres.length > 0
+    ? establecimientosNombres.length === 1
+      ? establecimientosNombres[0]
+      : `${establecimientosNombres[0]} +${establecimientosNombres.length - 1}`
+    : 'Sin datos';
+
+  useEffect(() => {
+    const medir = () => {
+      const contenedor = establecimientosContenedorRef.current;
+      const medicion = establecimientosMedicionRef.current;
+      if (!contenedor || !medicion) return;
+      const anchoDisponible = contenedor.getBoundingClientRect().width;
+      setEstablecimientosDesborda(medicion.scrollWidth > anchoDisponible);
+    };
+
+    medir();
+    window.addEventListener('resize', medir);
+    return () => window.removeEventListener('resize', medir);
+  }, [establecimientosTextoCompleto]);
 
   const obtenerConfigEstado = (status: UserStatus) => {
     const configs: Record<UserStatus, {
@@ -245,7 +255,7 @@ export function TarjetaUsuario({
                     onClick={() => setMostrarMenu(false)}
                   />
                   
-                  <div className="absolute right-0 top-10 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1" role="menu">
+                  <div className="absolute right-0 top-10 min-w-[160px] bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5 flex flex-col whitespace-normal" role="menu">
                     <button
                       type="button"
                       role="menuitem"
@@ -284,21 +294,6 @@ export function TarjetaUsuario({
                       >
                         Inactivar
                       </button>
-                    )}
-
-                    {!isCurrentUser && usuario.hasTransactions && (
-                      <Tooltip contenido="No se puede eliminar, solo inactivar." ubicacion="izquierda">
-                        <span className="block">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled
-                            className="w-full text-left px-3 py-2 text-xs text-gray-400 cursor-not-allowed"
-                          >
-                            Eliminar
-                          </button>
-                        </span>
-                      </Tooltip>
                     )}
 
                     {!isCurrentUser && !usuario.hasTransactions && (
@@ -374,34 +369,34 @@ export function TarjetaUsuario({
           </div>
           <div className="text-sm text-gray-700">
             <span className="font-medium">Roles:</span>{' '}
-            <Tooltip contenido={detalleRolesEstablecimiento} ubicacion="arriba" multilinea>
+            <Tooltip contenido={resumenRoles.detalle} ubicacion="arriba" multilinea>
               <span className="text-gray-700 cursor-help">
-                {resumenRolesVisible}
+                {resumenRoles.resumen}
               </span>
             </Tooltip>
           </div>
-          <div className="text-sm text-gray-700">
-            <span className="font-medium">Establecimientos:</span> {resumenEstablecimientos.resumen}
+          <div className="text-sm text-gray-700 flex items-start gap-1">
+            <span className="font-medium shrink-0">Establecimientos:</span>
+            <span className="relative flex-1 min-w-0" ref={establecimientosContenedorRef}>
+              <span
+                ref={establecimientosMedicionRef}
+                className="absolute invisible whitespace-nowrap"
+              >
+                {establecimientosTextoCompleto || 'Sin datos'}
+              </span>
+              {establecimientosDesborda ? (
+                <Tooltip contenido={establecimientosNombres.join('\n') || 'Sin datos'} ubicacion="arriba" multilinea>
+                  <span className="block truncate text-gray-700 cursor-help">
+                    {establecimientosResumen}
+                  </span>
+                </Tooltip>
+              ) : (
+                <span className="block text-gray-700">
+                  {establecimientosTextoCompleto || 'Sin datos'}
+                </span>
+              )}
+            </span>
           </div>
-
-          {establecimientosAsignados.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {establecimientosAsignados.map((establecimientoId) => (
-                <div key={establecimientoId} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md">
-                  <div className="text-sm text-gray-700">
-                    {mapaEstablecimientos.get(establecimientoId)?.nombre ?? establecimientoId}
-                  </div>
-                  <button
-                    onClick={() => alQuitarAcceso(establecimientoId)}
-                    className="p-1 text-red-500 hover:bg-red-100 rounded transition-colors"
-                    title="Quitar acceso"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
 
