@@ -12,15 +12,17 @@ import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import { ListaUsuarios } from '../components/usuarios/ListaUsuarios.tsx';
 import { FormularioUsuario } from '../components/usuarios/FormularioUsuario';
 import { ListaRoles } from '../components/roles/ListaRoles';
+import { FormularioRolPersonalizado } from '../components/roles/FormularioRolPersonalizado';
 import { ModalCredenciales } from '../components/usuarios/ModalCredenciales';
-import { ROLES_DEL_SISTEMA } from '../roles/rolesDelSistema';
+import { CATALOGO_PERMISOS } from '../roles/catalogoPermisos';
 import type { User } from '../modelos/User';
 import { Button, PageHeader } from '@/contasis';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
+import { useUserSession } from '@/contexts/UserSessionContext';
 import {
   construirAsignacionesDesdeFormulario,
   construirNombreCompleto,
-  construirRolesSistema,
+  construirRolesConfigurados,
   normalizarCorreo,
   obtenerAsignacionesActualizadas,
   obtenerAsignacionEmpresa,
@@ -30,6 +32,8 @@ import {
   obtenerIdsRolesUnicos,
   obtenerMapaEstablecimientos,
 } from '../utilidades/usuariosAsignaciones';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
+import type { RolPersonalizado } from '../roles/tiposRolesPermisos';
 
 type EstadoUsuario = 'ACTIVE' | 'INACTIVE';
 
@@ -46,8 +50,16 @@ type DatosFormularioUsuario = {
 
 export function ConfiguracionUsuarios() {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
+  const {
+    state,
+    dispatch,
+    rolesConfigurados,
+    crearRolPersonalizado,
+    editarRolPersonalizado,
+    eliminarRolPersonalizado,
+  } = useConfigurationContext();
   const { users: usuarios, Establecimientos: establecimientos } = state;
+  const { session } = useUserSession();
   const empresas = useEmpresasConfiguradas();
   const contextoActual = useTenantStore((store) => store.contextoActual);
 
@@ -78,6 +90,29 @@ export function ConfiguracionUsuarios() {
     .filter(usuario => usuario.id !== usuarioEnEdicion?.id)
     .map(usuario => normalizarCorreo(usuario.personalInfo.email));
 
+  const usuarioActual = obtenerUsuarioDesdeSesion(usuarios, session);
+  const establecimientoActualId = session?.currentEstablecimientoId;
+  const puedeGestionarUsuarios = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'config.usuarios.gestionar',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: establecimientoActualId,
+  });
+  const puedeGestionarAccesos = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'config.usuarios.accesos.gestionar',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: establecimientoActualId,
+  });
+
+  const [mensajeSinPermiso, setMensajeSinPermiso] = useState<string | null>(null);
+  const [modalRolPersonalizado, setModalRolPersonalizado] = useState<{
+    abierto: boolean;
+    rol?: RolPersonalizado;
+  }>({ abierto: false });
+  const [rolParaEliminar, setRolParaEliminar] = useState<RolPersonalizado | null>(null);
+  const [errorRolPersonalizado, setErrorRolPersonalizado] = useState<string | null>(null);
+
   const generarIdUsuarioLocal = () => {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
       return crypto.randomUUID();
@@ -95,7 +130,16 @@ export function ConfiguracionUsuarios() {
     setMostrarFormularioUsuario(false);
   };
 
+  const registrarSinPermiso = (mensaje: string) => {
+    setMensajeSinPermiso(mensaje);
+  };
+
   const manejarEnvioUsuario = async (data: DatosFormularioUsuario) => {
+    if (!puedeGestionarUsuarios || !puedeGestionarAccesos) {
+      registrarSinPermiso('No tienes permisos para crear o actualizar usuarios y accesos.');
+      return;
+    }
+
     const asignacionesFormulario = data.asignacionesPorEmpresa ?? [];
     if (asignacionesFormulario.length === 0) {
       return;
@@ -110,7 +154,7 @@ export function ConfiguracionUsuarios() {
       );
       const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesNormalizadas);
       const idsRoles = obtenerIdsRolesUnicos(asignacionesNormalizadas);
-      const rolesSistema = construirRolesSistema(idsRoles, ROLES_DEL_SISTEMA);
+      const rolesSistema = construirRolesConfigurados(idsRoles, rolesConfigurados);
       const estadoPorAsignaciones = obtenerEstadoUsuarioPorAsignaciones(
         asignacionesNormalizadas,
         usuarioEnEdicion?.status ?? 'ACTIVE',
@@ -206,11 +250,19 @@ export function ConfiguracionUsuarios() {
   };
 
   const manejarEditarUsuario = (usuario: User) => {
+    if (!puedeGestionarUsuarios) {
+      registrarSinPermiso('No tienes permisos para editar usuarios.');
+      return;
+    }
     setUsuarioEnEdicion(usuario);
     setMostrarFormularioUsuario(true);
   };
 
   const manejarEliminarUsuario = async (usuario: User) => {
+    if (!puedeGestionarUsuarios) {
+      registrarSinPermiso('No tienes permisos para eliminar usuarios.');
+      return;
+    }
     setCargando(true);
 
     try {
@@ -224,6 +276,10 @@ export function ConfiguracionUsuarios() {
   };
 
   const manejarCambioEstado = async (usuario: User, nuevoEstado: EstadoUsuario, motivo?: string) => {
+    if (!puedeGestionarUsuarios) {
+      registrarSinPermiso('No tienes permisos para cambiar el estado de usuarios.');
+      return;
+    }
     setCargando(true);
 
     try {
@@ -248,7 +304,7 @@ export function ConfiguracionUsuarios() {
       });
       const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);
       const idsRoles = obtenerIdsRolesUnicos(asignacionesActualizadas);
-      const rolesSistema = construirRolesSistema(idsRoles, ROLES_DEL_SISTEMA);
+      const rolesSistema = construirRolesConfigurados(idsRoles, rolesConfigurados);
       const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(asignacionesActualizadas, usuario.status);
 
       const usuarioActualizado: User = {
@@ -277,6 +333,10 @@ export function ConfiguracionUsuarios() {
     }
   };
   const manejarQuitarAcceso = (usuario: User, establecimientoId: string) => {
+    if (!puedeGestionarAccesos) {
+      registrarSinPermiso('No tienes permisos para quitar accesos de usuarios.');
+      return;
+    }
     const mapaEstablecimientos = obtenerMapaEstablecimientos(empresas);
     const empresaId = mapaEstablecimientos.get(establecimientoId)?.empresaId
       ?? contextoActual?.empresaId
@@ -303,7 +363,7 @@ export function ConfiguracionUsuarios() {
     });
     const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);
     const idsRoles = obtenerIdsRolesUnicos(asignacionesActualizadas);
-    const rolesSistema = construirRolesSistema(idsRoles, ROLES_DEL_SISTEMA);
+    const rolesSistema = construirRolesConfigurados(idsRoles, rolesConfigurados);
     const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(asignacionesActualizadas, usuario.status);
 
     const usuarioActualizado: User = {
@@ -326,6 +386,60 @@ export function ConfiguracionUsuarios() {
     dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
   };
 
+  const abrirCrearRolPersonalizado = () => {
+    if (!puedeGestionarAccesos) {
+      registrarSinPermiso('No tienes permisos para gestionar roles personalizados.');
+      return;
+    }
+    setErrorRolPersonalizado(null);
+    setModalRolPersonalizado({ abierto: true });
+  };
+
+  const abrirEditarRolPersonalizado = (rol: RolPersonalizado) => {
+    if (!puedeGestionarAccesos) {
+      registrarSinPermiso('No tienes permisos para editar roles personalizados.');
+      return;
+    }
+    setErrorRolPersonalizado(null);
+    setModalRolPersonalizado({ abierto: true, rol });
+  };
+
+  const confirmarEliminarRolPersonalizado = (rol: RolPersonalizado) => {
+    if (!puedeGestionarAccesos) {
+      registrarSinPermiso('No tienes permisos para eliminar roles personalizados.');
+      return;
+    }
+    setRolParaEliminar(rol);
+  };
+
+  const manejarGuardarRolPersonalizado = (rol: Omit<RolPersonalizado, 'tipo'>) => {
+    try {
+      if (modalRolPersonalizado.rol) {
+        editarRolPersonalizado({ ...rol, tipo: 'PERSONALIZADO' });
+      } else {
+        crearRolPersonalizado(rol);
+      }
+      setModalRolPersonalizado({ abierto: false });
+      setErrorRolPersonalizado(null);
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo guardar el rol.';
+      setErrorRolPersonalizado(mensaje);
+    }
+  };
+
+  const manejarEliminarRolPersonalizado = () => {
+    if (!rolParaEliminar) return;
+
+    try {
+      eliminarRolPersonalizado(rolParaEliminar.id);
+      setRolParaEliminar(null);
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo eliminar el rol.';
+      setErrorRolPersonalizado(mensaje);
+      setRolParaEliminar(null);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -334,7 +448,13 @@ export function ConfiguracionUsuarios() {
           <div className="flex items-center gap-2">
             {pestanaActiva === 'usuarios' && (
               <Button
-                onClick={() => setMostrarFormularioUsuario(true)}
+                onClick={() => {
+                  if (!puedeGestionarUsuarios) {
+                    registrarSinPermiso('No tienes permisos para crear usuarios.');
+                    return;
+                  }
+                  setMostrarFormularioUsuario(true);
+                }}
                 variant="primary"
                 size="sm"
                 icon={<Plus className="w-5 h-5" />}
@@ -356,6 +476,11 @@ export function ConfiguracionUsuarios() {
       />
       <div className="flex-1 overflow-auto">
         <div className="max-w-7xl mx-auto p-4 space-y-4">
+          {mensajeSinPermiso && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+              {mensajeSinPermiso}
+            </div>
+          )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
@@ -382,7 +507,7 @@ export function ConfiguracionUsuarios() {
           >
             <div className="flex items-center space-x-2">
               <Shield className="w-4 h-4" />
-              <span>Roles ({ROLES_DEL_SISTEMA.length})</span>
+              <span>Roles ({rolesConfigurados.length})</span>
             </div>
           </button>
         </nav>
@@ -396,7 +521,13 @@ export function ConfiguracionUsuarios() {
           alEliminar={(usuario) => setModalEliminar({ show: true, user: usuario })}
           alCambiarEstado={manejarCambioEstado}
           alQuitarAcceso={manejarQuitarAcceso}
-          alCrear={() => setMostrarFormularioUsuario(true)}
+          alCrear={() => {
+            if (!puedeGestionarUsuarios) {
+              registrarSinPermiso('No tienes permisos para crear usuarios.');
+              return;
+            }
+            setMostrarFormularioUsuario(true);
+          }}
           cargando={cargando}
         />
       )}
@@ -404,9 +535,21 @@ export function ConfiguracionUsuarios() {
       {/* Roles Tab */}
       {pestanaActiva === 'roles' && (
         <ListaRoles
-          roles={ROLES_DEL_SISTEMA}
+          roles={rolesConfigurados}
           users={usuarios}
           isLoading={cargando}
+          puedeGestionar={puedeGestionarAccesos}
+          alCrearRol={abrirCrearRolPersonalizado}
+          alEditarRol={(rol) => {
+            if (rol.tipo === 'PERSONALIZADO') {
+              abrirEditarRolPersonalizado(rol as RolPersonalizado);
+            }
+          }}
+          alEliminarRol={(rol) => {
+            if (rol.tipo === 'PERSONALIZADO') {
+              confirmarEliminarRolPersonalizado(rol as RolPersonalizado);
+            }
+          }}
         />
       )}
 
@@ -449,6 +592,32 @@ export function ConfiguracionUsuarios() {
         cancelText="Cancelar"
         isLoading={cargando}
       />
+
+      {modalRolPersonalizado.abierto && (
+        <FormularioRolPersonalizado
+          rol={modalRolPersonalizado.rol}
+          permisosDisponibles={CATALOGO_PERMISOS}
+          onGuardar={manejarGuardarRolPersonalizado}
+          onCancelar={() => {
+            setModalRolPersonalizado({ abierto: false });
+            setErrorRolPersonalizado(null);
+          }}
+          errorExterno={errorRolPersonalizado}
+        />
+      )}
+
+      {rolParaEliminar && (
+        <ModalConfirmacion
+          isOpen={Boolean(rolParaEliminar)}
+          onClose={() => setRolParaEliminar(null)}
+          onConfirm={manejarEliminarRolPersonalizado}
+          title="Eliminar Rol"
+          message={`¿Estas seguro de eliminar el rol "${rolParaEliminar.nombre}"? Esta accion no se puede deshacer.`}
+          type="danger"
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+        />
+      )}
         </div>
       </div>
     </div>

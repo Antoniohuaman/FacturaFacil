@@ -1,5 +1,5 @@
 import type { Empresa } from '../../autenticacion/types/auth.types';
-import type { RolDelSistema } from '../roles/tiposRolesPermisos';
+import type { RolConfiguracion } from '../roles/tiposRolesPermisos';
 import type {
   User,
   AsignacionEmpresaUsuario,
@@ -121,18 +121,18 @@ const normalizarAsignacionEmpresa = (asignacion: AsignacionEmpresaUsuario) => {
   };
 };
 
-const resolverRolSistema = (
+const resolverRolConfigurado = (
   idRol: string,
-  rolesSistema: RolDelSistema[],
-): RolDelSistema | null => rolesSistema.find((item) => item.id === idRol) ?? null;
+  rolesDisponibles: RolConfiguracion[],
+): RolConfiguracion | null => rolesDisponibles.find((item) => item.id === idRol) ?? null;
 
-export const construirRolesSistema = (
+export const construirRolesConfigurados = (
   idsRoles: string[],
-  rolesSistema: RolDelSistema[],
-): RolDelSistema[] => {
+  rolesDisponibles: RolConfiguracion[],
+): RolConfiguracion[] => {
   const roles = idsRoles
-    .map((idRol) => resolverRolSistema(idRol, rolesSistema))
-    .filter((rol): rol is RolDelSistema => Boolean(rol));
+    .map((idRol) => resolverRolConfigurado(idRol, rolesDisponibles))
+    .filter((rol): rol is RolConfiguracion => Boolean(rol));
   const vistos = new Set<string>();
 
   return roles.filter((rol) => {
@@ -302,7 +302,7 @@ export const obtenerEstadoUsuarioPorAsignaciones = (
 export const mapearSesionAUsuarioConfiguracion = (
   sesion: SesionUsuario,
   contextoEmpresa: DatosContextoEmpresa,
-  rolesSistema: RolDelSistema[],
+  rolesSistema: RolConfiguracion[],
   idRolAdministrador: string,
 ): User => {
   const { nombres, apellidos, nombreCompleto } = separarNombreCompleto(sesion.userName ?? '');
@@ -311,7 +311,7 @@ export const mapearSesionAUsuarioConfiguracion = (
     sesion.currentEstablecimiento?.id ??
     '';
   const idsRoles = [idRolAdministrador];
-  const roles = construirRolesSistema(idsRoles, rolesSistema);
+  const roles = construirRolesConfigurados(idsRoles, rolesSistema);
 
   const asignaciones: AsignacionEmpresaUsuario[] = contextoEmpresa.empresaId
     ? [
@@ -362,12 +362,12 @@ export const mapearSesionAUsuarioConfiguracion = (
 
 export const construirResumenRoles = (
   asignaciones: AsignacionEmpresaUsuario[],
-  rolesSistema: RolDelSistema[],
+  rolesSistema: RolConfiguracion[],
 ) => {
   const nombres = asignaciones.flatMap((asignacion) => {
     const asignacionNormalizada = normalizarAsignacionEmpresa(asignacion);
     const idsRoles = obtenerRoleIdsDesdeEstablecimientos(asignacionNormalizada.establecimientos);
-    const roles = construirRolesSistema(idsRoles, rolesSistema);
+    const roles = construirRolesConfigurados(idsRoles, rolesSistema);
     return roles.map((rol) => {
       const etiquetaEmpresa = asignacionNormalizada.empresaNombre
         ? ` (${asignacionNormalizada.empresaNombre})`
@@ -380,12 +380,12 @@ export const construirResumenRoles = (
 
 export const construirResumenRolesSinEmpresa = (
   asignaciones: AsignacionEmpresaUsuario[],
-  rolesSistema: RolDelSistema[],
+  rolesSistema: RolConfiguracion[],
 ) => {
   const nombres = asignaciones.flatMap((asignacion) => {
     const asignacionNormalizada = normalizarAsignacionEmpresa(asignacion);
     const idsRoles = obtenerRoleIdsDesdeEstablecimientos(asignacionNormalizada.establecimientos);
-    const roles = construirRolesSistema(idsRoles, rolesSistema);
+    const roles = construirRolesConfigurados(idsRoles, rolesSistema);
     return roles.map((rol) => rol.nombre).filter(Boolean);
   });
 

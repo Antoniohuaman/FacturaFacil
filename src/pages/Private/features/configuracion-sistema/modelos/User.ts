@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-import type { RolDelSistema } from '../roles/tiposRolesPermisos';
+import type { RolConfiguracion } from '../roles/tiposRolesPermisos';
 
 export type EstadoAsignacionUsuario = 'ACTIVE' | 'INACTIVE';
 
@@ -82,7 +82,7 @@ export interface User {
     pin?: string; // 4-6 digit PIN for quick access
     requiresPinForActions?: boolean;
     roleIds: string[];
-    roles: RolDelSistema[];
+    roles: RolConfiguracion[];
     permissions: Permission[];
     lastLogin?: Date;
     lastPasswordChange?: Date;

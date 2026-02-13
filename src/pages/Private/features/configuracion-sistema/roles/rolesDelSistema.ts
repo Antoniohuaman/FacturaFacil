@@ -10,6 +10,7 @@ const permisosAdministrador: IdPermiso[] = CATALOGO_PERMISOS.map((permiso) => pe
 const permisosVendedor: IdPermiso[] = [
   'ventas.comprobantes.ver',
   'ventas.comprobantes.emitir',
+  'ventas.comprobantes.imprimir',
   'ventas.comprobantes.borradores.ver',
   'ventas.comprobantes.borradores.duplicar',
   'ventas.comprobantes.borradores.eliminar',
@@ -17,6 +18,7 @@ const permisosVendedor: IdPermiso[] = [
   'ventas.pos.vender',
   'ventas.pos.imprimir',
   'ventas.documentos.crear',
+  'ventas.documentos.ver',
   'ventas.documentos.editar',
   'clientes.ver',
   'clientes.crear',

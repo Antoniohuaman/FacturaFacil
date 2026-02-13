@@ -28,6 +28,7 @@ import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { useTenantStore } from '../../autenticacion/store/TenantStore';
 import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 
 interface CompanyFormData {
@@ -53,9 +54,16 @@ type WorkspaceNavigationState = {
 export function CompanyConfiguration() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
   const { company } = state;
   const { session } = useUserSession();
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(state.users, session), [state.users, session]);
+  const puedeEditarEmpresa = useMemo(() => tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'config.empresa.editar',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  }), [rolesConfigurados, session?.currentEstablecimientoId, usuarioActual]);
   const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
@@ -311,6 +319,12 @@ export function CompanyConfiguration() {
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!puedeEditarEmpresa) {
+      alert('No tienes permisos para editar la configuracion de empresa.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {

@@ -20,8 +20,10 @@ import {
 } from 'lucide-react';
 import { Button, Select, Input, Checkbox, PageHeader, Textarea, Breadcrumb } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 interface Toast {
   id: string;
@@ -58,8 +60,10 @@ const FORM_STATE_INICIAL: FormState = {
 
 export function ConfiguracionAlmacenes() {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
   const { Establecimientos, almacenes } = state;
+  const establecimientoId = session?.currentEstablecimientoId;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstablecimiento, setFilterEstablecimiento] = useState<string>('all');
@@ -75,6 +79,20 @@ export function ConfiguracionAlmacenes() {
     nombreAlmacen: '',
     tieneMovimientosInventario: false
   });
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(state.users, session), [state.users, session]);
+
+  const validarPermisoGestionAlmacenes = () => {
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'config.almacenes.gestionar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      showToast('error', 'No tienes permisos para gestionar almacenes.');
+      return false;
+    }
+    return true;
+  };
 
   const activeEstablecimientos = useMemo(
     () =>
@@ -172,6 +190,9 @@ export function ConfiguracionAlmacenes() {
   };
 
   const handleNew = () => {
+    if (!validarPermisoGestionAlmacenes()) {
+      return;
+    }
     const firstEstId = activeEstablecimientos[0]?.id || '';
 
     setFormData({
@@ -188,6 +209,9 @@ export function ConfiguracionAlmacenes() {
   };
 
   const handleEdit = (almacen: Almacen) => {
+    if (!validarPermisoGestionAlmacenes()) {
+      return;
+    }
     setFormData({
       codigoAlmacen: almacen.codigoAlmacen,
       nombreAlmacen: almacen.nombreAlmacen,
@@ -214,6 +238,10 @@ export function ConfiguracionAlmacenes() {
 
   const manejarEnvio = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validarPermisoGestionAlmacenes()) {
+      return;
+    }
 
     if (!validateForm()) {
       showToast('error', 'Por favor, corrige los errores en el formulario');
@@ -298,6 +326,10 @@ export function ConfiguracionAlmacenes() {
   const handleDelete = () => {
     if (!deleteConfirmation.almacenId) return;
 
+    if (!validarPermisoGestionAlmacenes()) {
+      return;
+    }
+
     if (deleteConfirmation.tieneMovimientosInventario) {
       showToast(
         'error',
@@ -322,6 +354,10 @@ export function ConfiguracionAlmacenes() {
 
   const handleToggleStatus = (id: string) => {
     const almacen = almacenes.find(item => item.id === id);
+
+    if (!validarPermisoGestionAlmacenes()) {
+      return;
+    }
 
     try {
       const updatedAlmacenes = almacenes.map(item =>

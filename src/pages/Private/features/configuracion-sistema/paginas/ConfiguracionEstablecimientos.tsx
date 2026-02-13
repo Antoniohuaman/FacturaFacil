@@ -21,9 +21,11 @@ import {
 } from 'lucide-react';
 import { PageHeader, Button, Select, Input, Breadcrumb } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { ubigeoData } from '../datos/ubigeo';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 interface EstablecimientoFormData {
   codigoEstablecimiento: string;
@@ -51,8 +53,10 @@ interface DeleteConfirmation {
 
 export function EstablecimientosConfiguration() {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
   const { Establecimientos } = state;
+  const establecimientoId = session?.currentEstablecimientoId;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
@@ -65,6 +69,20 @@ export function EstablecimientosConfiguration() {
     EstablecimientoName: ''
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(state.users, session), [state.users, session]);
+
+  const validarPermisoGestionEstablecimientos = () => {
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'config.establecimientos.gestionar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      showToast('error', 'No tienes permisos para gestionar establecimientos.');
+      return false;
+    }
+    return true;
+  };
 
   const [datosFormulario, setFormData] = useState<EstablecimientoFormData>({
     codigoEstablecimiento: '',
@@ -132,6 +150,9 @@ export function EstablecimientosConfiguration() {
   };
 
   const handleNew = () => {
+    if (!validarPermisoGestionEstablecimientos()) {
+      return;
+    }
     setFormData({ codigoEstablecimiento: generateNextCode(), nombreEstablecimiento: '', direccionEstablecimiento: '', distritoEstablecimiento: '', provinciaEstablecimiento: '', departamentoEstablecimiento: '', codigoPostalEstablecimiento: '', phone: '', email: '' });
     setEditingEstablecimientoId(null);
     setFormErrors({});
@@ -139,6 +160,9 @@ export function EstablecimientosConfiguration() {
   };
 
   const handleEdit = (establecimiento: Establecimiento) => {
+    if (!validarPermisoGestionEstablecimientos()) {
+      return;
+    }
     setFormData({
       codigoEstablecimiento: establecimiento.codigoEstablecimiento,
       nombreEstablecimiento: establecimiento.nombreEstablecimiento,
@@ -157,6 +181,9 @@ export function EstablecimientosConfiguration() {
 
   const manejarEnvio = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validarPermisoGestionEstablecimientos()) {
+      return;
+    }
     if (!validateForm()) { showToast('error', 'Por favor, corrige los errores en el formulario'); return; }
 
     try {
@@ -183,6 +210,9 @@ export function EstablecimientosConfiguration() {
 
   const handleDelete = () => {
     if (!deleteConfirmation.EstablecimientoId) return;
+    if (!validarPermisoGestionEstablecimientos()) {
+      return;
+    }
     try {
       const updated = Establecimientos.filter(e => e.id !== deleteConfirmation.EstablecimientoId);
       dispatch({ type: 'SET_EstablecimientoS', payload: updated });
@@ -195,6 +225,9 @@ export function EstablecimientosConfiguration() {
   };
 
   const handleToggleStatus = (id: string) => {
+    if (!validarPermisoGestionEstablecimientos()) {
+      return;
+    }
     try {
       const updated = Establecimientos.map(est => est.id === id ? { ...est, estaActivoEstablecimiento: !est.estaActivoEstablecimiento, actualizadoElEstablecimiento: new Date() } : est);
       dispatch({ type: 'SET_EstablecimientoS', payload: updated });

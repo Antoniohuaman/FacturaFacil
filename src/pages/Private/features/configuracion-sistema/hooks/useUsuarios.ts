@@ -6,7 +6,7 @@ import type {
   UpdateUserRequest, 
   UserSummary 
 } from '../modelos/User';
-import { obtenerRolesDelSistema } from '../roles/rolesDelSistema';
+import { obtenerRolesPorIds } from '../utilidades/permisos';
 
 interface UseUsersReturn {
   users: User[];
@@ -52,7 +52,7 @@ interface UseUsersReturn {
 const MOCK_USERS: User[] = [];
 
 export function useUsers(): UseUsersReturn {
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -302,7 +302,7 @@ export function useUsers(): UseUsersReturn {
         await new Promise(resolve => setTimeout(resolve, 1200));
 
         // Create roles array from roleIds (in real app, fetch from API)
-        const roles = obtenerRolesDelSistema(data.systemAccess.roleIds ?? []);
+        const roles = obtenerRolesPorIds(data.systemAccess.roleIds ?? [], rolesConfigurados);
 
         const newUser: User = {
           id: `emp-${Date.now()}`,
@@ -340,7 +340,7 @@ export function useUsers(): UseUsersReturn {
         setLoading(false);
       }
     },
-    [dispatch, generateUserCode, validateUserCode, validateUserData, validateUsername],
+    [dispatch, generateUserCode, rolesConfigurados, validateUserCode, validateUserData, validateUsername],
   );
 
   // Update user
@@ -386,7 +386,7 @@ export function useUsers(): UseUsersReturn {
         // Update roles if roleIds changed
         let updatedRoles = existingUser.systemAccess.roles;
         if (data.systemAccess?.roleIds) {
-          updatedRoles = obtenerRolesDelSistema(data.systemAccess.roleIds);
+          updatedRoles = obtenerRolesPorIds(data.systemAccess.roleIds, rolesConfigurados);
         }
 
         const updatedUser: User = {
@@ -424,7 +424,7 @@ export function useUsers(): UseUsersReturn {
         setLoading(false);
       }
     },
-    [dispatch, getUser, validateUserCode, validateUserData, validateUsername],
+    [dispatch, getUser, rolesConfigurados, validateUserCode, validateUserData, validateUsername],
   );
 
   // Delete user

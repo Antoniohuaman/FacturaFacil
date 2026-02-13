@@ -19,12 +19,14 @@ import {
   NotebookPen
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import type { Series, DocumentType } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
 import { Button, Select, Input, Checkbox, RadioButton, PageHeader, Switch } from '@/contasis';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
 
@@ -171,8 +173,11 @@ interface ExtendedSeries extends Series {
 
 export function SeriesConfiguration() {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
   const { series: rawSeries, Establecimientos } = state;
+  const establecimientoId = session?.currentEstablecimientoId;
+  const usuarioActual = obtenerUsuarioDesdeSesion(state.users, session);
 
   // Fix existing series with incorrect documentType before processing
   const fixedSeries = rawSeries.map(fixSeriesDocumentType);
@@ -321,7 +326,36 @@ export function SeriesConfiguration() {
     }));
   };
 
+  const validarPermisoGestionSeries = () => {
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'config.series.gestionar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      alert('No tienes permisos para gestionar series.');
+      return false;
+    }
+    return true;
+  };
+
+  const validarPermisoCorrelativo = () => {
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'config.series.correlativo.ajustar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      alert('No tienes permisos para ajustar el correlativo de series.');
+      return false;
+    }
+    return true;
+  };
+
   const handleEdit = (seriesItem: ExtendedSeries) => {
+    if (!validarPermisoGestionSeries()) {
+      return;
+    }
     setFormData({
       type: seriesItem.type,
       series: seriesItem.series,
@@ -336,6 +370,9 @@ export function SeriesConfiguration() {
   };
 
   const handleNew = () => {
+    if (!validarPermisoGestionSeries()) {
+      return;
+    }
     setFormData({
       type: 'INVOICE',
       series: generateSeriesCode('INVOICE'),
@@ -404,6 +441,10 @@ export function SeriesConfiguration() {
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validarPermisoGestionSeries()) {
+      return;
+    }
 
     const validationError = validateSeries();
     if (validationError) {
@@ -488,6 +529,9 @@ export function SeriesConfiguration() {
   };
 
   const handleDelete = async (seriesItem: ExtendedSeries) => {
+    if (!validarPermisoGestionSeries()) {
+      return;
+    }
     if (seriesItem.hasUsage) {
       alert('No se puede eliminar una serie que ya tiene documentos emitidos');
       return;
@@ -512,6 +556,9 @@ export function SeriesConfiguration() {
   };
 
   const handleAdjustCorrelative = async (seriesItem: ExtendedSeries) => {
+    if (!validarPermisoCorrelativo()) {
+      return;
+    }
     const newNumber = parseInt(newCorrelative);
 
     if (newNumber <= seriesItem.currentNumber) {
@@ -539,6 +586,9 @@ export function SeriesConfiguration() {
   };
 
   const toggleSeriesStatus = async (seriesItem: ExtendedSeries) => {
+    if (!validarPermisoGestionSeries()) {
+      return;
+    }
     const updatedSeries = rawSeries.map(s =>
       s.id === seriesItem.id
         ? { ...s, status: (s.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'EXHAUSTED' | 'EXPIRED' | 'CANCELLED', updatedAt: new Date() }

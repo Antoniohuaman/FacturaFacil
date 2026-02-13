@@ -1,15 +1,27 @@
-import { Shield, Info } from 'lucide-react';
+import { Shield, Info, Plus } from 'lucide-react';
 import type { User } from '../../modelos/User';
-import type { RolDelSistema } from '../../roles/tiposRolesPermisos';
+import type { RolConfiguracion } from '../../roles/tiposRolesPermisos';
 import { TarjetaRol } from './TarjetaRol';
 
 interface PropsListaRoles {
-  roles: RolDelSistema[];
+  roles: RolConfiguracion[];
   users?: User[];
   isLoading?: boolean;
+  puedeGestionar?: boolean;
+  alCrearRol?: () => void;
+  alEditarRol?: (rol: RolConfiguracion) => void;
+  alEliminarRol?: (rol: RolConfiguracion) => void;
 }
 
-export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaRoles) {
+export function ListaRoles({
+  roles,
+  users = [],
+  isLoading = false,
+  puedeGestionar = false,
+  alCrearRol,
+  alEditarRol,
+  alEliminarRol,
+}: PropsListaRoles) {
 
   // Count users per role
   const getUserCountForRole = (roleId?: string): number => {
@@ -47,8 +59,23 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
     );
   }
 
+  const cantidadPersonalizados = roles.filter((rol) => rol.tipo === 'PERSONALIZADO').length;
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Roles disponibles</h3>
+        {puedeGestionar && alCrearRol && (
+          <button
+            type="button"
+            onClick={alCrearRol}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Crear rol
+          </button>
+        )}
+      </div>
       {/* Info Banner */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <div className="flex items-start space-x-3">
@@ -66,7 +93,7 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -75,6 +102,18 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
             <div>
               <p className="text-xs text-gray-600">Total de Roles</p>
               <p className="text-xl font-bold text-gray-900">{roles.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <Shield className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-600">Roles personalizados</p>
+              <p className="text-xl font-bold text-gray-900">{cantidadPersonalizados}</p>
             </div>
           </div>
         </div>
@@ -101,6 +140,9 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
             key={role.id ?? index}
             rol={role}
             cantidadUsuarios={getUserCountForRole(role.id)}
+            puedeGestionar={puedeGestionar}
+            onEditar={alEditarRol}
+            onEliminar={alEliminarRol}
           />
         ))}
       </div>
@@ -117,6 +159,7 @@ export function ListaRoles({ roles, users = [], isLoading = false }: PropsListaR
               <li>• <strong>Administrador:</strong> Acceso completo a modulos y configuracion</li>
               <li>• <strong>Vendedor:</strong> Venta completa, cobranzas y caja</li>
               <li>• <strong>Contador:</strong> Consulta de comprobantes e indicadores</li>
+              <li>• <strong>Personalizados:</strong> Permisos definidos por empresa</li>
             </ul>
           </div>
         </div>

@@ -5,6 +5,9 @@ import type { Module } from "@/contasis";
 import { useComprobanteContext } from "../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { useDocumentoContext } from "../../pages/Private/features/Documentos-negociacion/contexts/DocumentosContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useConfigurationContext } from "../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
+import { useUserSession } from "../../contexts/UserSessionContext";
+import { obtenerUsuarioDesdeSesion, tieneAlgunoDePermisos } from "../../pages/Private/features/configuracion-sistema/utilidades/permisos";
 
 interface SideNavProps {
   collapsed?: boolean;
@@ -14,10 +17,12 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useTheme();
+  const { session } = useUserSession();
+  const { state: configuracionState, rolesConfigurados } = useConfigurationContext();
 
   // Obtener conteo de comprobantes del contexto
-  const { state } = useComprobanteContext();
-  const comprobantesCount = state.comprobantes.length;
+  const { state: comprobantesState } = useComprobanteContext();
+  const comprobantesCount = comprobantesState.comprobantes.length;
 
   // Obtener conteo de documentos (cotizaciones + notas de venta)
   const { state: documentoState } = useDocumentoContext();
@@ -96,6 +101,73 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     }
   ];
 
+  const usuarioActual = obtenerUsuarioDesdeSesion(configuracionState.users, session);
+  const permisosPorModulo: Record<string, string[]> = {
+    'comprobantes': [
+      'ventas.comprobantes.ver',
+      'ventas.comprobantes.emitir',
+      'ventas.comprobantes.borradores.ver',
+      'ventas.comprobantes.imprimir',
+    ],
+    'punto-venta': [
+      'ventas.pos.ver',
+      'ventas.pos.vender',
+      'ventas.pos.imprimir',
+    ],
+    'documentos': [
+      'ventas.documentos.ver',
+      'ventas.documentos.crear',
+      'ventas.documentos.editar',
+    ],
+    'productos': [
+      'catalogo.ver',
+      'catalogo.crear',
+      'catalogo.editar',
+    ],
+    'inventario': [
+      'inventario.ver',
+      'inventario.ajustar',
+      'inventario.transferir',
+      'inventario.actualizacion_masiva',
+    ],
+    'precios': [
+      'precios.ver',
+      'precios.editar',
+    ],
+    'caja': [
+      'caja.ver',
+      'caja.abrir',
+      'caja.cerrar',
+      'caja.movimientos.registrar',
+    ],
+    'cobranzas': [
+      'cobranzas.ver',
+      'cobranzas.registrar',
+    ],
+    'clientes': [
+      'clientes.ver',
+      'clientes.crear',
+      'clientes.editar',
+      'clientes.importar',
+    ],
+    'indicadores': [
+      'indicadores.ver',
+    ],
+  };
+
+  const modulesDisponibles = modules.filter((module) => {
+    const permisos = permisosPorModulo[module.id] ?? [];
+    if (permisos.length === 0) {
+      return true;
+    }
+    return tieneAlgunoDePermisos({
+      usuario: usuarioActual,
+      permisos,
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId: session?.currentEstablecimientoId,
+    });
+  });
+
   const handleModuleChange = (moduleId: string) => {
     const routeMap: Record<string, string> = {
       'comprobantes': '/comprobantes',
@@ -120,7 +192,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   return (
     <Sidebar
       isOpen={!collapsed}
-      modules={modules}
+      modules={modulesDisponibles}
       activeModule={activeModule}
       onModuleChange={handleModuleChange}
       theme={theme === "system" ? undefined : theme}

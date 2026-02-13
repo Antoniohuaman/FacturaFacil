@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import type { RouteObject } from "react-router-dom";
 import { redirect } from "react-router-dom";
 
@@ -39,8 +40,16 @@ import FormularioNotaVenta from "../pages/Private/features/Documentos-negociacio
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
+import { PermisoGuard } from "./PermisoGuard";
+import { SinPermiso } from "../pages/Private/SinPermiso";
 
 const showClientesTestPage = import.meta.env.DEV || import.meta.env.VITE_DEV_MODE === "true";
+
+const conPermisos = (element: ReactElement, permisos: string[]) => (
+  <PermisoGuard permisos={permisos}>
+    {element}
+  </PermisoGuard>
+);
 
 export const privateRoutes: RouteObject[] = [
   {
@@ -51,11 +60,11 @@ export const privateRoutes: RouteObject[] = [
     ),
     errorElement: <RouteErrorBoundary />,
     children: [
-      { path: "/", element: <ComprobantesTabs /> },
-      { path: "/comprobantes", element: <ComprobantesTabs /> },
-      { path: "/comprobantes/nuevo", element: <SelectorModoEmision /> },
-      { path: "/comprobantes/emision", element: <EmisionTradicional /> },
-      { path: "/comprobantes/pos", element: <PuntoVenta /> },
+      { path: "/", element: conPermisos(<ComprobantesTabs />, ['ventas.comprobantes.ver']) },
+      { path: "/comprobantes", element: conPermisos(<ComprobantesTabs />, ['ventas.comprobantes.ver']) },
+      { path: "/comprobantes/nuevo", element: conPermisos(<SelectorModoEmision />, ['ventas.comprobantes.emitir']) },
+      { path: "/comprobantes/emision", element: conPermisos(<EmisionTradicional />, ['ventas.comprobantes.emitir']) },
+      { path: "/comprobantes/pos", element: conPermisos(<PuntoVenta />, ['ventas.pos.ver', 'ventas.pos.vender']) },
 
       // Rutas del nuevo módulo Punto de Venta
       {
@@ -66,40 +75,41 @@ export const privateRoutes: RouteObject[] = [
           return redirect(`/punto-venta/nueva-venta${search}`);
         },
       },
-      { path: "/punto-venta/dashboard", element: <PuntoVentaHome /> },
-      { path: "/punto-venta/nueva-venta", element: <PuntoVenta /> },
-      { path: "/catalogo", element: <CatalogoArticulosMain /> },
-      { path: "/lista-precios", element: <ListaPrecios /> },
-      { path: "/inventario", element: <InventoryPage /> },
-      { path: "/control-caja", element: <ControlCajaHome /> },
-      { path: "/caja/sesiones", element: <SesionesCajaPage /> },
-      { path: "/cobranzas", element: <CobranzasDashboard /> },
+      { path: "/punto-venta/dashboard", element: conPermisos(<PuntoVentaHome />, ['ventas.pos.ver', 'ventas.pos.vender']) },
+      { path: "/punto-venta/nueva-venta", element: conPermisos(<PuntoVenta />, ['ventas.pos.ver', 'ventas.pos.vender']) },
+      { path: "/catalogo", element: conPermisos(<CatalogoArticulosMain />, ['catalogo.ver', 'catalogo.crear', 'catalogo.editar']) },
+      { path: "/lista-precios", element: conPermisos(<ListaPrecios />, ['precios.ver', 'precios.editar']) },
+      { path: "/inventario", element: conPermisos(<InventoryPage />, ['inventario.ver', 'inventario.ajustar', 'inventario.transferir']) },
+      { path: "/control-caja", element: conPermisos(<ControlCajaHome />, ['caja.ver', 'caja.abrir', 'caja.cerrar']) },
+      { path: "/caja/sesiones", element: conPermisos(<SesionesCajaPage />, ['caja.ver', 'caja.abrir', 'caja.cerrar']) },
+      { path: "/cobranzas", element: conPermisos(<CobranzasDashboard />, ['cobranzas.ver', 'cobranzas.registrar']) },
       
       // Documentos de Negociación
-      { path: "/documentos-negociacion", element: <DocumentosTabs /> },
-      { path: "/documentos/cotizacion/nueva", element: <FormularioCotizacion /> },
-      { path: "/documentos/nueva-cotizacion", element: <FormularioCotizacion /> },
-      { path: "/documentos/nota-venta/nueva", element: <FormularioNotaVenta /> },
-      { path: "/documentos/nueva-nota-venta", element: <FormularioNotaVenta /> },
+      { path: "/documentos-negociacion", element: conPermisos(<DocumentosTabs />, ['ventas.documentos.ver', 'ventas.documentos.crear']) },
+      { path: "/documentos/cotizacion/nueva", element: conPermisos(<FormularioCotizacion />, ['ventas.documentos.crear']) },
+      { path: "/documentos/nueva-cotizacion", element: conPermisos(<FormularioCotizacion />, ['ventas.documentos.crear']) },
+      { path: "/documentos/nota-venta/nueva", element: conPermisos(<FormularioNotaVenta />, ['ventas.documentos.crear']) },
+      { path: "/documentos/nueva-nota-venta", element: conPermisos(<FormularioNotaVenta />, ['ventas.documentos.crear']) },
       
-      { path: "/clientes", element: <ClientesPage /> },
+      { path: "/clientes", element: conPermisos(<ClientesPage />, ['clientes.ver', 'clientes.crear', 'clientes.editar']) },
       ...(showClientesTestPage ? [{ path: "/clientes/test-api", element: <ClientesTestPage /> }] : []),
-      { path: "/clientes/:clienteId/:clienteName/historial", element: <HistorialCompras /> },
-      { path: "/importar-clientes", element: <ImportarClientesPage /> },
-      { path: "/indicadores", element: <IndicadoresPage /> },
-      { path: "/configuracion", element: <ConfigurationDashboard /> },
-      { path: "/configuracion/empresa", element: <CompanyConfiguration /> },
-      { path: "/configuracion/establecimientos", element: <EstablecimientosConfiguration /> },
-      { path: "/configuracion/almacenes", element: <ConfiguracionAlmacenes /> },
-      { path: "/configuracion/usuarios", element: <ConfiguracionUsuarios /> },
+      { path: "/clientes/:clienteId/:clienteName/historial", element: conPermisos(<HistorialCompras />, ['clientes.ver', 'clientes.editar']) },
+      { path: "/importar-clientes", element: conPermisos(<ImportarClientesPage />, ['clientes.importar']) },
+      { path: "/indicadores", element: conPermisos(<IndicadoresPage />, ['indicadores.ver']) },
+      { path: "/configuracion", element: conPermisos(<ConfigurationDashboard />, ['config.panel.ver']) },
+      { path: "/configuracion/empresa", element: conPermisos(<CompanyConfiguration />, ['config.empresa.ver', 'config.empresa.editar']) },
+      { path: "/configuracion/establecimientos", element: conPermisos(<EstablecimientosConfiguration />, ['config.establecimientos.gestionar']) },
+      { path: "/configuracion/almacenes", element: conPermisos(<ConfiguracionAlmacenes />, ['config.almacenes.gestionar']) },
+      { path: "/configuracion/usuarios", element: conPermisos(<ConfiguracionUsuarios />, ['config.usuarios.gestionar', 'config.usuarios.accesos.gestionar']) },
       { path: "/configuracion/empleados", loader: () => redirect("/configuracion/usuarios") },
-      { path: "/configuracion/series", element: <SeriesConfiguration /> },
-      { path: "/configuracion/negocio", element: <BusinessConfiguration /> },
-      { path: "/configuracion/diseno", element: <VoucherDesignConfigurationNew /> },
-      { path: "/configuracion/cajas", element: <CajasConfiguration /> },
-      { path: "/configuracion/cajas/new", element: <CajaFormPage /> },
-      { path: "/configuracion/cajas/:id", element: <CajaFormPage /> },
-      { path: "/notificaciones", element: <NotificationsCenterPage /> },
+      { path: "/configuracion/series", element: conPermisos(<SeriesConfiguration />, ['config.series.gestionar']) },
+      { path: "/configuracion/negocio", element: conPermisos(<BusinessConfiguration />, ['config.negocio.gestionar']) },
+      { path: "/configuracion/diseno", element: conPermisos(<VoucherDesignConfigurationNew />, ['config.diseno_comprobante.gestionar']) },
+      { path: "/configuracion/cajas", element: conPermisos(<CajasConfiguration />, ['config.cajas.gestionar']) },
+      { path: "/configuracion/cajas/new", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
+      { path: "/configuracion/cajas/:id", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
+      { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },
+      { path: "/sin-permiso", element: <SinPermiso /> },
     ],
   },
 ];

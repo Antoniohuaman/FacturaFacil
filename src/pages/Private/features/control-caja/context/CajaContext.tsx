@@ -13,9 +13,10 @@ import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/erro
 import { lsKey } from "../../../../../shared/tenant";
 import { useTenant } from "../../../../../shared/tenant/TenantContext";
 import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
-import { useCurrentCompanyId, useCurrentEstablecimientoId } from "../../../../../contexts/UserSessionContext";
+import { useCurrentCompanyId, useCurrentEstablecimientoId, useUserSession } from "../../../../../contexts/UserSessionContext";
 import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utilidades/seleccionCaja";
 import type { MedioPago } from "../../../../../shared/payments/medioPago";
+import { obtenerUsuarioDesdeSesion, tienePermiso } from "../../configuracion-sistema/utilidades/permisos";
 
 type PersistedMovimiento = Omit<Movimiento, 'fecha'> & { fecha: string };
 
@@ -112,11 +113,16 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   const [historialMovimientos, setHistorialMovimientos] = useState<Movimiento[]>([]);
   const [historialHydrated, setHistorialHydrated] = useState(false);
   const { tenantId } = useTenant();
-  const { state: configurationState } = useConfigurationContext();
+  const { state: configurationState, rolesConfigurados } = useConfigurationContext();
   const empresaId = useCurrentCompanyId();
   const establecimientoId = useCurrentEstablecimientoId();
+  const { session } = useUserSession();
   const lastTenantIdRef = useRef<string | null>(null);
   const lastScopeRef = useRef<string | null>(null);
+  const usuarioActual = useMemo(
+    () => obtenerUsuarioDesdeSesion(configurationState.users, session),
+    [configurationState.users, session]
+  );
 
   const historialKeyBase = useMemo(() => {
     if (!empresaId || !establecimientoId || !activeCajaId) {
@@ -279,11 +285,18 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       throw error;
     }
 
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'caja.abrir',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      showToast("error", "Sin permiso", "No tienes permisos para abrir caja.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // TODO: Validación de autorización debe hacerse en la página que llama a abrirCaja
-      // (donde se tiene acceso a useUserSession)
-      
       // Simular llamada a API
       await new Promise((resolve) => setTimeout(resolve, 800));
 
@@ -315,12 +328,22 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeCajaId, showToast]);
+  }, [activeCajaId, establecimientoId, rolesConfigurados, showToast, usuarioActual]);
 
   const cerrarCaja = useCallback(async (cierreCaja: Omit<CierreCaja, 'id' | 'aperturaId'>) => {
     if (!aperturaActual) {
       const error = new CajaCerradaError();
       showToast("error", "Error", error.message);
+      return;
+    }
+
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'caja.cerrar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      showToast("error", "Sin permiso", "No tienes permisos para cerrar caja.");
       return;
     }
 
@@ -360,12 +383,22 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [aperturaActual, movimientos, margenDescuadre, showToast]);
+  }, [aperturaActual, establecimientoId, margenDescuadre, movimientos, rolesConfigurados, showToast, usuarioActual]);
 
   const agregarMovimiento = useCallback(async (movimiento: Omit<Movimiento, 'id' | 'fecha' | 'cajaId' | 'aperturaId'>) => {
     if (!aperturaActual) {
       const error = new CajaCerradaError();
       showToast("error", "Error", error.message);
+      return;
+    }
+
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'caja.movimientos.registrar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      showToast("error", "Sin permiso", "No tienes permisos para registrar movimientos de caja.");
       return;
     }
 
@@ -397,7 +430,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [aperturaActual, showToast]);
+  }, [aperturaActual, establecimientoId, rolesConfigurados, showToast, usuarioActual]);
 
   const getResumen = useCallback((): ResumenCaja => {
     return calcularResumenCaja(aperturaActual, movimientos);

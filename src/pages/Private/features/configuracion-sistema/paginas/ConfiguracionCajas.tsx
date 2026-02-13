@@ -11,12 +11,13 @@ import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToa
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import { Button, Select, Input, PageHeader, CajaCard, Breadcrumb } from '@/contasis';
 import type { Caja } from '../modelos/Caja';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 type filtroEstado = 'all' | 'enabled' | 'disabled';
 
 export function CajasConfiguration() {
   const navigate = useNavigate();
-  const { state } = useConfigurationContext();
+  const { state, rolesConfigurados } = useConfigurationContext();
   const { session } = useUserSession();
   const { toasts, success, error: showError, removeToast } = useToast();
 
@@ -36,6 +37,13 @@ export function CajasConfiguration() {
   const [filterEstablecimientoId, setFilterEstablecimientoId] = useState<string>(establecimientoId);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [cajaToDelete, setCajaToDelete] = useState<Caja | null>(null);
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(state.users, session), [state.users, session]);
+  const puedeGestionarCajas = useMemo(() => tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'config.cajas.gestionar',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId,
+  }), [establecimientoId, rolesConfigurados, usuarioActual]);
 
   // Filter cajas
   const filteredCajas = useMemo(() => {
@@ -65,6 +73,11 @@ export function CajasConfiguration() {
   }, [cajas, filterEstablecimientoId, searchText, filtroEstado]);
 
   const handleToggleEnabled = async (id: string) => {
+    if (!puedeGestionarCajas) {
+      showError('Sin permiso', 'No tienes permisos para gestionar cajas.');
+      return;
+    }
+
     try {
       await toggleCajaEnabled(id);
       const caja = cajas.find(c => c.id === id);
@@ -81,14 +94,26 @@ export function CajasConfiguration() {
   };
 
   const handleEdit = (id: string) => {
+    if (!puedeGestionarCajas) {
+      showError('Sin permiso', 'No tienes permisos para gestionar cajas.');
+      return;
+    }
     navigate(`/configuracion/cajas/${id}`);
   };
 
   const handleCreate = () => {
+    if (!puedeGestionarCajas) {
+      showError('Sin permiso', 'No tienes permisos para gestionar cajas.');
+      return;
+    }
     navigate('/configuracion/cajas/new');
   };
 
   const handleDelete = (id: string) => {
+    if (!puedeGestionarCajas) {
+      showError('Sin permiso', 'No tienes permisos para gestionar cajas.');
+      return;
+    }
     const caja = cajas.find(c => c.id === id);
     if (caja) {
       setCajaToDelete(caja);
@@ -106,6 +131,11 @@ export function CajasConfiguration() {
 
   const handleConfirmDelete = async () => {
     if (!cajaToDelete) return;
+
+    if (!puedeGestionarCajas) {
+      showError('Sin permiso', 'No tienes permisos para gestionar cajas.');
+      return;
+    }
 
     try {
       await deleteCaja(cajaToDelete.id);

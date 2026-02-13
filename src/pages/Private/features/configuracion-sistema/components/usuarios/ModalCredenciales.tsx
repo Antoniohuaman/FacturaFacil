@@ -5,7 +5,8 @@ import { Button } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import type { User as UserModel, AsignacionEmpresaUsuario } from '../../modelos/User';
 import type { Establecimiento } from '../../modelos/Establecimiento';
-import { ROLES_DEL_SISTEMA, obtenerRolesDelSistema } from '../../roles/rolesDelSistema';
+import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
+import { obtenerRolesPorIds } from '../../utilidades/permisos';
 
 interface PropsModalCredenciales {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface PropsModalCredenciales {
 
 export function ModalCredenciales({ isOpen, onClose, credentials, user, Establecimientos }: PropsModalCredenciales) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const { rolesConfigurados } = useConfigurationContext();
 
   if (!isOpen) return null;
 
@@ -31,10 +33,10 @@ export function ModalCredenciales({ isOpen, onClose, credentials, user, Establec
   );
 
   // Get user roles
-  const userRoles = obtenerRolesDelSistema(user.systemAccess.roleIds ?? []);
+  const userRoles = obtenerRolesPorIds(user.systemAccess.roleIds ?? [], rolesConfigurados);
 
   const mapaRoles = new Map(
-    ROLES_DEL_SISTEMA.map((rol) => [rol.id, rol.nombre]),
+    rolesConfigurados.map((rol) => [rol.id, rol.nombre]),
   );
 
   const mapaEstablecimientos = new Map(

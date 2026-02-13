@@ -12,9 +12,8 @@ import {
 import { Select, Input, Button } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
-import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
+import { useConfigurationContext, useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import type { User } from '../../modelos/User';
-import { ROLES_DEL_SISTEMA } from '../../roles/rolesDelSistema';
 import { TarjetaUsuario } from './TarjetaUsuario';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
 import {
@@ -58,6 +57,7 @@ export function ListaUsuarios({
   cargando = false,
 }: PropsListaUsuarios) {
   const { session } = useUserSession();
+  const { rolesConfigurados } = useConfigurationContext();
   const empresas = useEmpresasConfiguradas();
   const usuarioActualId = session?.userId ?? '';
 
@@ -83,7 +83,7 @@ export function ListaUsuarios({
       const asignaciones = obtenerAsignacionesUsuarioGlobal(usuario, empresas);
       const estado = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
       const resumenEmpresas = construirResumenEmpresas(asignaciones);
-      const resumenRoles = construirResumenRoles(asignaciones, ROLES_DEL_SISTEMA);
+      const resumenRoles = construirResumenRoles(asignaciones, rolesConfigurados);
       const resumenEstablecimientos = construirResumenEstablecimientos(asignaciones, mapaEstablecimientos);
       const nombre = usuario.personalInfo.fullName || construirNombreCompleto(
         usuario.personalInfo.firstName,
@@ -101,7 +101,7 @@ export function ListaUsuarios({
         nombre,
       };
     });
-  }, [empresas, mapaEstablecimientos, usuarios]);
+  }, [empresas, mapaEstablecimientos, rolesConfigurados, usuarios]);
 
   const usuariosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -345,7 +345,7 @@ export function ListaUsuarios({
               size="small"
               options={[
                 { value: 'TODOS', label: 'Todos los roles' },
-                ...ROLES_DEL_SISTEMA.map((rol) => ({
+                ...rolesConfigurados.map((rol) => ({
                   value: rol.id,
                   label: rol.nombre,
                 })),
@@ -488,7 +488,7 @@ export function ListaUsuarios({
                 {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenEstablecimientos, asignaciones, nombre }) => {
                   const configEstado = obtenerConfigEstado(estado);
                   const esUsuarioActual = usuarioActualId && usuario.id === usuarioActualId;
-                  const resumenRolesEstablecimiento = construirResumenRolesSinEmpresa(asignaciones, ROLES_DEL_SISTEMA);
+                  const resumenRolesEstablecimiento = construirResumenRolesSinEmpresa(asignaciones, rolesConfigurados);
                   return (
                     <tr key={usuario.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5 whitespace-nowrap">

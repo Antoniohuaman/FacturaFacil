@@ -16,6 +16,12 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     rutas: ['/comprobantes/emision', '/comprobantes/nuevo', '/comprobantes/pos'],
   },
   {
+    id: 'ventas.comprobantes.imprimir',
+    nombre: 'Imprimir comprobantes',
+    descripcion: 'Imprimir comprobantes generados desde emision tradicional.',
+    modulo: 'ventas',
+  },
+  {
     id: 'ventas.comprobantes.borradores.ver',
     nombre: 'Ver borradores de comprobantes',
     descripcion: 'Acceder a la lista de borradores.',
@@ -58,6 +64,13 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     descripcion: 'Crear cotizaciones o notas de venta.',
     modulo: 'ventas',
     rutas: ['/documentos-negociacion', '/documentos/cotizacion/nueva', '/documentos/nota-venta/nueva'],
+  },
+  {
+    id: 'ventas.documentos.ver',
+    nombre: 'Ver documentos de negociacion',
+    descripcion: 'Acceder al listado de documentos de negociacion.',
+    modulo: 'ventas',
+    rutas: ['/documentos-negociacion'],
   },
   {
     id: 'ventas.documentos.editar',

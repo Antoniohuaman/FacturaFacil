@@ -16,8 +16,7 @@ import type { User } from '../../modelos/User';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
 import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
-import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
-import { ROLES_DEL_SISTEMA } from '../../roles/rolesDelSistema';
+import { useConfigurationContext, useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import {
   construirNombreCompleto,
   construirResumenEmpresas,
@@ -51,6 +50,7 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
     compacto = false
   } = props;
   const { session } = useUserSession();
+  const { rolesConfigurados } = useConfigurationContext();
   const empresas = useEmpresasConfiguradas();
   const isCurrentUser = session?.userId === usuario.id;
   const [mostrarMenu, setMostrarMenu] = useState(false);
@@ -92,7 +92,7 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
   const resumenEmpresas = construirResumenEmpresas(asignaciones);
   const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
   const nombreCompleto = construirNombreCompleto(usuario.personalInfo.firstName, usuario.personalInfo.lastName);
-  const resumenRoles = construirResumenRolesSinEmpresa(asignaciones, ROLES_DEL_SISTEMA);
+  const resumenRoles = construirResumenRolesSinEmpresa(asignaciones, rolesConfigurados);
   const establecimientosNombres = useMemo(
     () => establecimientosAsignados.map(
       (id) => mapaEstablecimientos.get(id)?.nombre ?? id,

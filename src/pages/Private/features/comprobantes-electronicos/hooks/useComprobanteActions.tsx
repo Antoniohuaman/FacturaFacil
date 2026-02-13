@@ -27,6 +27,7 @@ import type { PaymentMethod as ConfigPaymentMethod } from '../../configuracion-s
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import {
   allocateSaleAcrossalmacenes,
   calculateRequiredUnidadMinima,
@@ -106,8 +107,9 @@ export const useComprobanteActions = () => {
   const { session } = useUserSession();
   const { upsertCuenta, registerCobranza } = useCobranzasContext();
   const { allProducts: catalogProducts } = useProductStore();
-  const { state: { almacenes, salesPreferences } } = useConfigurationContext();
+  const { state: { almacenes, salesPreferences, users }, rolesConfigurados } = useConfigurationContext();
   const allowNegativeStockConfig = Boolean(salesPreferences?.allowNegativeStock);
+  const usuarioActual = obtenerUsuarioDesdeSesion(users, session);
 
   const catalogLookup = useMemo(() => {
     const map = new Map<string, CatalogProduct>();
@@ -213,6 +215,31 @@ export const useComprobanteActions = () => {
     let timeoutId: NodeJS.Timeout | null = null;
 
     try {
+      const permisoEmision = data.source === 'pos'
+        ? 'ventas.pos.vender'
+        : 'ventas.comprobantes.emitir';
+      const establecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
+
+      if (!tienePermiso({
+        usuario: usuarioActual,
+        permisoId: permisoEmision,
+        rolesDisponibles: rolesConfigurados,
+        establecimientoId,
+      })) {
+        toast.error('Sin permiso', 'No tienes permisos para emitir comprobantes.');
+        return false;
+      }
+
+      if (data.registrarPago && !tienePermiso({
+        usuario: usuarioActual,
+        permisoId: 'cobranzas.registrar',
+        rolesDisponibles: rolesConfigurados,
+        establecimientoId,
+      })) {
+        toast.error('Sin permiso', 'No tienes permisos para registrar cobranzas.');
+        return false;
+      }
+
       // Validar datos
       if (!validateComprobanteData(data)) {
         return false;
@@ -240,7 +267,6 @@ export const useComprobanteActions = () => {
       })();
       const clienteNombre = data.client || 'Cliente General';
       const clienteDocumento = data.clientDoc || '00000000';
-      const establecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
       const sucursalNombre = session?.currentEstablecimiento?.nombreEstablecimiento;
       const cajeroNombre = session?.userName || 'Usuario';
       const fechaEmisionIso = data.fechaEmision || getBusinessTodayISODate();
@@ -724,7 +750,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig, rolesConfigurados, usuarioActual]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

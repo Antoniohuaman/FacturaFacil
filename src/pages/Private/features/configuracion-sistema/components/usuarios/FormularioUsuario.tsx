@@ -5,7 +5,7 @@ import { Button, Select, Input, Checkbox } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import type { Empresa } from '../../../autenticacion/types/auth.types';
 import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionUsuario } from '../../modelos/User';
-import { ROLES_DEL_SISTEMA } from '../../roles/rolesDelSistema';
+import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import {
   construirResumenLista,
   normalizarCorreo,
@@ -96,6 +96,7 @@ export function FormularioUsuario({
   alCancelar,
   cargando = false
 }: PropsFormularioUsuario) {
+  const { rolesConfigurados } = useConfigurationContext();
   const compactFieldClass = '[&>label]:mb-1';
   const [datosFormulario, setDatosFormulario] = useState<DatosFormularioUsuario>({
     nombres: '',
@@ -507,7 +508,7 @@ export function FormularioUsuario({
                       )}
                       options={[
                         { value: '', label: 'Selecciona un rol' },
-                        ...ROLES_DEL_SISTEMA.map((rol) => ({
+                        ...rolesConfigurados.map((rol) => ({
                           value: rol.id,
                           label: rol.nombre,
                         })),

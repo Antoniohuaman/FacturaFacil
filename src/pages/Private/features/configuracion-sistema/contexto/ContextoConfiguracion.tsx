@@ -20,7 +20,7 @@ import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { parseUbigeoCode } from '../datos/ubigeo';
 import {
   construirNombreCompleto,
-  construirRolesSistema,
+  construirRolesConfigurados,
   mapearSesionAUsuarioConfiguracion,
   normalizarCorreo,
   normalizarUsuario,
@@ -34,6 +34,8 @@ import {
   obtenerRolesPorEstablecimientoAsignacion,
   unirIdsUnicos,
 } from '../utilidades/usuariosAsignaciones';
+import type { RolConfiguracion, RolPersonalizado } from '../roles/tiposRolesPermisos';
+import { listarRolesConfigurados as construirListadoRoles } from '../utilidades/permisos';
 import { generateWorkspaceId, lsKey } from '../../../../../shared/tenant';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { currencyManager } from '@/shared/currency';
@@ -73,6 +75,7 @@ interface ConfigurationState {
   taxes: Tax[];
   categories: Category[];
   cajas: Caja[];
+  rolesPersonalizados: RolPersonalizado[];
   salesPreferences: SalesPreferences;
   isLoading: boolean;
   error: string | null;
@@ -382,6 +385,7 @@ type RawTenantConfig = {
   almacenes: Almacen[];
   cajas: PersistedCaja[];
   units?: Unit[];
+  rolesPersonalizados?: RolPersonalizado[];
   salesPreferences: SalesPreferences;
 };
 
@@ -392,6 +396,7 @@ type PersistedTenantConfig = {
   almacenes: Almacen[];
   cajas: Caja[];
   units: Unit[];
+  rolesPersonalizados: RolPersonalizado[];
   salesPreferences: SalesPreferences;
 };
 
@@ -581,6 +586,7 @@ const reviveTenantConfig = (config: RawTenantConfig): PersistedTenantConfig => (
   almacenes: config.almacenes.map(reviveAlmacen),
   cajas: config.cajas.map(reviveCaja),
   units: Array.isArray(config.units) ? config.units.map(reviveUnit) : [],
+  rolesPersonalizados: Array.isArray(config.rolesPersonalizados) ? config.rolesPersonalizados : [],
 });
 
 const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
@@ -595,6 +601,10 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
   const hasUnits =
     !('units' in value) || Array.isArray((value as RawTenantConfig).units);
 
+  const hasRolesPersonalizados =
+    !('rolesPersonalizados' in value)
+    || Array.isArray((value as RawTenantConfig).rolesPersonalizados);
+
   const prefs = value.salesPreferences;
   const hasPrefs =
     isRecord(prefs) &&
@@ -604,7 +614,7 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
   const company = value.company;
   const hasCompany = company === null || isRecord(company);
 
-  return hasArrays && hasPrefs && hasCompany && hasUnits;
+  return hasArrays && hasPrefs && hasCompany && hasUnits && hasRolesPersonalizados;
 };
 
 const reviveSeries = (series: Series): Series => ({
@@ -839,6 +849,7 @@ type ConfigurationAction =
   | { type: 'ADD_CAJA'; payload: Caja }
   | { type: 'UPDATE_CAJA'; payload: Caja }
   | { type: 'DELETE_CAJA'; payload: string }
+  | { type: 'SET_ROLES_PERSONALIZADOS'; payload: RolPersonalizado[] }
   | { type: 'SET_SALES_PREFERENCES'; payload: SalesPreferences };
 
 const initialState: ConfigurationState = {
@@ -853,6 +864,7 @@ const initialState: ConfigurationState = {
   taxes: [],
   categories: [],
   cajas: [],
+  rolesPersonalizados: [],
   salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
   isLoading: false,
   error: null,
@@ -1001,6 +1013,12 @@ function configurationReducer(
         ...state,
         cajas: state.cajas.filter(caja => caja.id !== action.payload)
       };
+      
+    case 'SET_ROLES_PERSONALIZADOS':
+      return {
+        ...state,
+        rolesPersonalizados: action.payload,
+      };
 
     case 'SET_SALES_PREFERENCES':
       return {
@@ -1018,6 +1036,11 @@ type ConfigurationContextState = ConfigurationState & { almacenes: Almacen[] };
 interface ConfigurationContextType {
   state: ConfigurationContextState;
   dispatch: React.Dispatch<ConfigurationAction>;
+  rolesConfigurados: RolConfiguracion[];
+  crearRolPersonalizado: (rol: Omit<RolPersonalizado, 'id' | 'tipo'> & { id?: string }) => void;
+  editarRolPersonalizado: (rol: RolPersonalizado) => void;
+  eliminarRolPersonalizado: (id: string) => void;
+  listarRolesConfigurados: () => ReturnType<typeof construirListadoRoles>;
 }
 
 const ConfigurationContext = createContext<ConfigurationContextType | undefined>(
@@ -1075,6 +1098,95 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     rawDispatch(action);
   }, [rawDispatch]);
 
+  const rolesConfigurados = useMemo(
+    () => construirListadoRoles(ROLES_DEL_SISTEMA, state.rolesPersonalizados),
+    [state.rolesPersonalizados],
+  );
+
+  const listarRolesConfigurados = useCallback(
+    () => rolesConfigurados,
+    [rolesConfigurados],
+  );
+
+  const crearRolPersonalizado = useCallback((rol: Omit<RolPersonalizado, 'id' | 'tipo'> & { id?: string }) => {
+    const nombre = rol.nombre.trim();
+    if (!nombre) {
+      throw new Error('El nombre del rol es obligatorio');
+    }
+
+    const existeNombre = rolesConfigurados.some((existente) =>
+      existente.nombre.trim().toLowerCase() === nombre.toLowerCase(),
+    );
+    if (existeNombre) {
+      throw new Error('Ya existe un rol con ese nombre');
+    }
+
+    const id = rol.id?.trim() || `rol-personalizado-${Date.now()}`;
+    const nuevoRol: RolPersonalizado = {
+      id,
+      nombre,
+      descripcion: rol.descripcion?.trim() || 'Rol personalizado',
+      permisos: rol.permisos ?? [],
+      tipo: 'PERSONALIZADO',
+    };
+
+    dispatch({
+      type: 'SET_ROLES_PERSONALIZADOS',
+      payload: [...state.rolesPersonalizados, nuevoRol],
+    });
+  }, [dispatch, rolesConfigurados, state.rolesPersonalizados]);
+
+  const editarRolPersonalizado = useCallback((rol: RolPersonalizado) => {
+    if (ROLES_DEL_SISTEMA.some((existente) => existente.id === rol.id)) {
+      throw new Error('No se pueden editar roles del sistema');
+    }
+
+    const nombre = rol.nombre.trim();
+    if (!nombre) {
+      throw new Error('El nombre del rol es obligatorio');
+    }
+
+    const existeNombre = rolesConfigurados.some((existente) =>
+      existente.id !== rol.id
+      && existente.nombre.trim().toLowerCase() === nombre.toLowerCase(),
+    );
+    if (existeNombre) {
+      throw new Error('Ya existe un rol con ese nombre');
+    }
+
+    const actualizado: RolPersonalizado = {
+      ...rol,
+      nombre,
+      descripcion: rol.descripcion?.trim() || 'Rol personalizado',
+      tipo: 'PERSONALIZADO',
+    };
+
+    dispatch({
+      type: 'SET_ROLES_PERSONALIZADOS',
+      payload: state.rolesPersonalizados.map((item) =>
+        item.id === rol.id ? actualizado : item,
+      ),
+    });
+  }, [dispatch, rolesConfigurados, state.rolesPersonalizados]);
+
+  const eliminarRolPersonalizado = useCallback((id: string) => {
+    if (ROLES_DEL_SISTEMA.some((existente) => existente.id === id)) {
+      throw new Error('No se pueden eliminar roles del sistema');
+    }
+
+    const estaAsignado = state.users.some((usuario) =>
+      usuario.systemAccess.roleIds.includes(id),
+    );
+    if (estaAsignado) {
+      throw new Error('No se puede eliminar un rol asignado a usuarios');
+    }
+
+    dispatch({
+      type: 'SET_ROLES_PERSONALIZADOS',
+      payload: state.rolesPersonalizados.filter((item) => item.id !== id),
+    });
+  }, [dispatch, state.rolesPersonalizados, state.users]);
+
   useEffect(() => {
     const unsubscribe = currencyManager.subscribe(() => {
       rawDispatch({ type: 'SET_CURRENCIES', payload: currencyManager.getSnapshot().currencies });
@@ -1096,6 +1208,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       dispatch({ type: 'SET_EstablecimientoS', payload: persisted.Establecimientos });
       dispatch({ type: 'SET_ALMACENES', payload: persisted.almacenes });
       dispatch({ type: 'SET_CAJAS', payload: persisted.cajas });
+      dispatch({ type: 'SET_ROLES_PERSONALIZADOS', payload: persisted.rolesPersonalizados });
       dispatch({ type: 'SET_SALES_PREFERENCES', payload: persisted.salesPreferences });
       if (persisted.units.length) {
         dispatch({ type: 'SET_UNITS', payload: persisted.units });
@@ -1396,7 +1509,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
         empresaNombre: empresaNombreActiva,
         establecimientoId: establecimientoActivoId,
       },
-      ROLES_DEL_SISTEMA,
+      rolesConfigurados,
       ID_ROL_ADMINISTRADOR,
     );
 
@@ -1442,7 +1555,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       },
     );
     const idsRolesGlobales = obtenerIdsRolesUnicos(asignacionesActualizadas);
-    const rolesGlobales = construirRolesSistema(idsRolesGlobales, ROLES_DEL_SISTEMA);
+    const rolesGlobales = construirRolesConfigurados(idsRolesGlobales, rolesConfigurados);
     const establecimientosGlobales = obtenerEstablecimientosUnicos(asignacionesActualizadas);
     const estadoGlobal = obtenerEstadoUsuarioPorAsignaciones(
       asignacionesActualizadas,
@@ -1515,6 +1628,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     session?.userEmail,
     session?.userId,
     session?.userName,
+    rolesConfigurados,
     state.company?.id,
     state.company?.nombreComercial,
     state.company?.razonSocial,
@@ -1537,6 +1651,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.Establecimientos.length > 0 ||
       state.almacenes.length > 0 ||
       state.cajas.length > 0 ||
+      state.rolesPersonalizados.length > 0 ||
       state.units.length > 0 ||
       state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
       state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax;
@@ -1552,6 +1667,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       almacenes: state.almacenes,
       cajas: state.cajas,
       units: state.units,
+      rolesPersonalizados: state.rolesPersonalizados,
       salesPreferences: state.salesPreferences,
     };
 
@@ -1560,6 +1676,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     state.cajas,
     state.company,
     state.Establecimientos,
+    state.rolesPersonalizados,
     state.salesPreferences,
     state.almacenes,
     state.units,
@@ -1659,7 +1776,17 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   );
 
   return (
-    <ConfigurationContext.Provider value={{ state: stateWithLegacy, dispatch }}>
+    <ConfigurationContext.Provider
+      value={{
+        state: stateWithLegacy,
+        dispatch,
+        rolesConfigurados,
+        crearRolPersonalizado,
+        editarRolPersonalizado,
+        eliminarRolPersonalizado,
+        listarRolesConfigurados,
+      }}
+    >
       {children}
     </ConfigurationContext.Provider>
   );

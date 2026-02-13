@@ -1,5 +1,5 @@
 // CajaFormPage - Create or Edit a caja
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { PageHeader, Button, Breadcrumb } from '@/contasis';
@@ -10,6 +10,7 @@ import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useToast } from '../../comprobantes-electronicos/shared/ui/Toast/useToast';
 import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/ToastContainer';
 import type { CreateCajaInput, UpdateCajaInput } from '../modelos/Caja';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 export function CajaFormPage() {
   const navigate = useNavigate();
@@ -17,11 +18,18 @@ export function CajaFormPage() {
   const isEditing = !!id;
   const { toasts, success, error: showError, removeToast } = useToast();
 
-  const { state } = useConfigurationContext();
+  const { state, rolesConfigurados } = useConfigurationContext();
   const { session } = useUserSession();
   
   const empresaId = session?.currentCompanyId || '';
   const establecimientoId = session?.currentEstablecimientoId || '';
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(state.users, session), [state.users, session]);
+  const puedeGestionarCajas = useMemo(() => tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'config.cajas.gestionar',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId,
+  }), [establecimientoId, rolesConfigurados, usuarioActual]);
   
   const {
     getCaja,
@@ -43,6 +51,13 @@ export function CajaFormPage() {
 
   const manejarEnvio = async (data: CreateCajaInput | UpdateCajaInput) => {
     setSubmitError(null);
+
+    if (!puedeGestionarCajas) {
+      const mensaje = 'No tienes permisos para gestionar cajas.';
+      setSubmitError(mensaje);
+      showError('Sin permiso', mensaje);
+      return;
+    }
 
     try {
       if (isEditing && id) {

@@ -1,14 +1,23 @@
-import { Shield, Users, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react';
+import { Shield, Users, ChevronDown, ChevronRight, CheckCircle, Pencil, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { PermisoCatalogo, RolDelSistema } from '../../roles/tiposRolesPermisos';
+import type { PermisoCatalogo, RolConfiguracion } from '../../roles/tiposRolesPermisos';
 import { MAPA_PERMISOS_POR_ID } from '../../roles/catalogoPermisos';
 
 interface PropsTarjetaRol {
-  rol: RolDelSistema;
+  rol: RolConfiguracion;
   cantidadUsuarios?: number;
+  puedeGestionar?: boolean;
+  onEditar?: (rol: RolConfiguracion) => void;
+  onEliminar?: (rol: RolConfiguracion) => void;
 }
 
-export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
+export function TarjetaRol({
+  rol,
+  cantidadUsuarios = 0,
+  puedeGestionar = false,
+  onEditar,
+  onEliminar,
+}: PropsTarjetaRol) {
   const [showPermissions, setShowPermissions] = useState(false);
   const roleFocusId = rol.id || 'rol-sin-id';
 
@@ -49,6 +58,11 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
     ];
     return orden.indexOf(modulo);
   };
+
+  const etiquetaRol = rol.tipo === 'SISTEMA' ? 'Sistema' : 'Personalizado';
+  const claseEtiqueta = rol.tipo === 'SISTEMA'
+    ? 'bg-purple-100 text-purple-700 border-purple-200'
+    : 'bg-emerald-100 text-emerald-700 border-emerald-200';
 
   const obtenerNombreModulo = (modulo: string) => {
     switch (modulo) {
@@ -98,8 +112,8 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
                 <h3 className="text-base font-semibold text-gray-900">
                   {rol.nombre}
                 </h3>
-                <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full border border-purple-200">
-                  Sistema
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${claseEtiqueta}`}>
+                  {etiquetaRol}
                 </span>
               </div>
 
@@ -120,6 +134,27 @@ export function TarjetaRol({ rol, cantidadUsuarios = 0 }: PropsTarjetaRol) {
               </div>
             </div>
           </div>
+
+          {rol.tipo === 'PERSONALIZADO' && puedeGestionar && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onEditar?.(rol)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 border border-blue-200 rounded-md hover:bg-blue-50"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => onEliminar?.(rol)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Eliminar
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Toggle Permissions Button */}

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PageHeader, Button } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
+import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { UnitsSection } from '../components/negocio/SeccionUnidades';
 import { TaxesSection } from '../components/negocio/SeccionImpuestos';
 import { PaymentMethodsSection } from '../components/negocio/SeccionMediosPago';
@@ -21,13 +22,30 @@ import { CategoriesSection } from '../components/negocio/SeccionCategorias';
 import { BankAccountsSection } from '../components/negocio/SeccionCuentasBancarias';
 import { AccountingDashboard } from '../components/negocio/TableroContable';
 import { AccountingAccountsSection } from '../components/negocio/SeccionCuentasContables';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'accounting' | 'preferences';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
   const { paymentMethods, units, taxes, categories, salesPreferences } = state;
+  const establecimientoId = session?.currentEstablecimientoId;
+  const usuarioActual = obtenerUsuarioDesdeSesion(state.users, session);
+
+  const validarPermisoNegocio = () => {
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'config.negocio.gestionar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    })) {
+      alert('No tienes permisos para gestionar la configuracion de negocio.');
+      return false;
+    }
+    return true;
+  };
 
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
   const [accountingView, setAccountingView] = useState<'dashboard' | 'accounts'>('dashboard');
@@ -100,6 +118,9 @@ export function BusinessConfiguration() {
                 <PaymentMethodsSection
                   paymentMethods={paymentMethods}
                   onUpdate={async (methods) => {
+                    if (!validarPermisoNegocio()) {
+                      return;
+                    }
                     dispatch({ type: 'SET_PAYMENT_METHODS', payload: methods });
                   }}
                 />
@@ -114,6 +135,9 @@ export function BusinessConfiguration() {
                 <UnitsSection
                   units={units}
                   onUpdate={async (units) => {
+                    if (!validarPermisoNegocio()) {
+                      return;
+                    }
                     dispatch({ type: 'SET_UNITS', payload: units });
                   }}
                 />
@@ -125,6 +149,9 @@ export function BusinessConfiguration() {
                   taxes={taxes}
                   pricesIncludeTax={salesPreferences.pricesIncludeTax}
                   onUpdate={async ({ taxes: nextTaxes, pricesIncludeTax }) => {
+                    if (!validarPermisoNegocio()) {
+                      return;
+                    }
                     // Sincronizar includeInPrice en todos los impuestos con la preferencia global
                     const syncedTaxes = nextTaxes.map((tax) => ({
                       ...tax,
@@ -150,6 +177,9 @@ export function BusinessConfiguration() {
                 <CategoriesSection
                   categories={categories}
                   onUpdate={async (categories) => {
+                    if (!validarPermisoNegocio()) {
+                      return;
+                    }
                     dispatch({ type: 'SET_CATEGORIES', payload: categories });
                   }}
                 />
@@ -168,6 +198,9 @@ export function BusinessConfiguration() {
                 <SalesPreferencesSection
                   preferences={salesPreferences}
                   onUpdate={async (preferences) => {
+                    if (!validarPermisoNegocio()) {
+                      return;
+                    }
                     dispatch({
                       type: 'SET_SALES_PREFERENCES',
                       payload: {

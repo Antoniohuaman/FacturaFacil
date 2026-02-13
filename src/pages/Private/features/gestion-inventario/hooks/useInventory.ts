@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useAuth } from '../../autenticacion/hooks';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import type {
   StockAlert,
   MovimientoStock,
@@ -34,7 +35,9 @@ export const useInventory = () => {
   // Estado de la aplicación
   const { allProducts, updateProduct } = useProductStore();
   const { session } = useUserSession();
-  const { state: configState } = useConfigurationContext();
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
+  const establecimientoId = session?.currentEstablecimientoId;
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(configState.users, session), [configState.users, session]);
 
   // Estados locales para movimientos de stock (cargados desde repositorio)
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([]);
@@ -153,6 +156,16 @@ export const useInventory = () => {
 
   const handleStockAdjustment = useCallback((data: StockAdjustmentData) => {
     try {
+      if (!tienePermiso({
+        usuario: usuarioActual,
+        permisoId: 'inventario.ajustar',
+        rolesDisponibles: rolesConfigurados,
+        establecimientoId,
+      })) {
+        warning('Sin permiso', 'No tienes permisos para ajustar inventario.');
+        return;
+      }
+
       const product = allProducts.find(p => p.id === data.productoId);
       const almacen = almacenesActivos.find(almacen => almacen.id === data.almacenId);
 
@@ -183,13 +196,23 @@ export const useInventory = () => {
       console.error('Error al registrar ajuste:', err);
       error(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, session?.userName, user?.nombre, success, error, warning, usuarioActual]);
 
   /**
    * Maneja la transferencia de stock
    */
   const handleStockTransfer = useCallback((data: StockTransferData) => {
     try {
+      if (!tienePermiso({
+        usuario: usuarioActual,
+        permisoId: 'inventario.transferir',
+        rolesDisponibles: rolesConfigurados,
+        establecimientoId,
+      })) {
+        warning('Sin permiso', 'No tienes permisos para transferir inventario.');
+        return;
+      }
+
       const product = allProducts.find(p => p.id === data.productoId);
       const almacenOrigen = almacenesActivos.find(almacen => almacen.id === data.almacenOrigenId);
       const almacenDestino = almacenesActivos.find(almacen => almacen.id === data.almacenDestinoId);
@@ -222,13 +245,23 @@ export const useInventory = () => {
       console.error('Error al registrar transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo realizar la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, session?.userName, user?.nombre, success, error, warning, usuarioActual]);
 
   /**
    * Maneja actualización masiva de stock
    */
   const handleMassStockUpdate = useCallback((data: MassStockUpdateData) => {
     try {
+      if (!tienePermiso({
+        usuario: usuarioActual,
+        permisoId: 'inventario.actualizacion_masiva',
+        rolesDisponibles: rolesConfigurados,
+        establecimientoId,
+      })) {
+        warning('Sin permiso', 'No tienes permisos para actualizacion masiva de inventario.');
+        return;
+      }
+
       const result = InventoryService.processMassUpdate(
         allProducts,
         almacenesActivos,
@@ -252,7 +285,7 @@ export const useInventory = () => {
       console.error('Error en actualización masiva:', err);
       error(err instanceof Error ? err.message : 'No se pudo completar la actualización masiva', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, session?.userName, user?.nombre, success, error]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, session?.userName, user?.nombre, success, error, warning, usuarioActual]);
 
   /**
    * Abre modal de ajuste para un producto específico

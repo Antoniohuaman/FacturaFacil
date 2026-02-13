@@ -20,8 +20,9 @@ import type {
   PaymentTotals,
 } from '../../models/comprobante.types';
 import type { CreditInstallmentDefinition } from '../../../../../../shared/payments/paymentTerms';
-import { useCurrentCompanyId, useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentCompanyId, useCurrentEstablecimientoId, useUserSession } from '../../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../../configuracion-sistema/utilidades/permisos';
 import { getBusinessTodayISODate } from '../../../../../../shared/time/businessTime';
 
 interface UsePosComprobanteFlowParams {
@@ -33,7 +34,12 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   const navigate = useNavigate();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
   const currentCompanyId = useCurrentCompanyId();
-  useConfigurationContext();
+  const { session } = useUserSession();
+  const { state: configurationState, rolesConfigurados } = useConfigurationContext();
+  const usuarioActual = useMemo(
+    () => obtenerUsuarioDesdeSesion(configurationState.users, session),
+    [configurationState.users, session]
+  );
 
   const { currentCurrency, currencyInfo, baseCurrency, changeCurrency } = useCurrency();
   const { tipoComprobante, setTipoComprobante, serieSeleccionada, setSerieSeleccionada } = useDocumentType();
@@ -427,6 +433,16 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
   };
 
   const handlePrint = () => {
+    if (!tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'ventas.pos.imprimir',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId: currentEstablecimientoId,
+    })) {
+      warning('Sin permiso', 'No tienes permisos para imprimir comprobantes POS.');
+      return;
+    }
+
     console.log('Imprimiendo comprobante...', lastComprobante);
     window.print();
   };

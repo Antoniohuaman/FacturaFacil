@@ -2,7 +2,7 @@ import React from 'react';
 import { Checkbox } from '@/contasis';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import type { User } from '../../modelos/User';
-import { obtenerRolesDelSistema } from '../../roles/rolesDelSistema';
+import { obtenerRolesPorIds } from '../../utilidades/permisos';
 
 interface UsuariosAutorizadosSelectorProps {
   value: string[]; // Arreglo de IDs de usuario
@@ -19,7 +19,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
   disabled = false,
   error,
 }) => {
-  const { state } = useConfigurationContext();
+  const { state, rolesConfigurados } = useConfigurationContext();
 
   // Filtra usuarios según permisos de caja
   const availableUsers = React.useMemo(() => {
@@ -27,7 +27,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
 
     if (filterByCashPermission) {
       users = users.filter((user: User) => {
-        const rolesUsuario = obtenerRolesDelSistema(user.systemAccess.roleIds ?? []);
+        const rolesUsuario = obtenerRolesPorIds(user.systemAccess.roleIds ?? [], rolesConfigurados);
         return rolesUsuario.some((rol) => rol.permisos.includes('caja.abrir'));
       });
     }
@@ -35,7 +35,7 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
     return users.sort((a: User, b: User) =>
       a.personalInfo.fullName.localeCompare(b.personalInfo.fullName)
     );
-  }, [state.users, filterByCashPermission]);
+  }, [state.users, filterByCashPermission, rolesConfigurados]);
 
   const handleToggleUser = (userId: string) => {
     if (disabled) return;
@@ -127,7 +127,9 @@ export const UsuariosAutorizadosSelector: React.FC<UsuariosAutorizadosSelectorPr
                   {user.assignment.position} • {user.code}
                   {user.systemAccess.roleIds.length > 0 && (
                     <span className="ml-2">
-                      Roles: {obtenerRolesDelSistema(user.systemAccess.roleIds).map((rol) => rol.nombre).join(', ')}
+                      Roles: {obtenerRolesPorIds(user.systemAccess.roleIds, rolesConfigurados)
+                        .map((rol) => rol.nombre)
+                        .join(', ')}
                     </span>
                   )}
                 </p>

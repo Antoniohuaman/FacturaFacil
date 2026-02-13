@@ -26,3 +26,15 @@ export interface RolDelSistema {
   descripcion: string;
   permisos: IdPermiso[];
 }
+
+export type TipoRolConfiguracion = 'SISTEMA' | 'PERSONALIZADO';
+
+export interface RolConfiguracion {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  permisos: IdPermiso[];
+  tipo: TipoRolConfiguracion;
+}
+
+export type RolPersonalizado = RolConfiguracion & { tipo: 'PERSONALIZADO' };
