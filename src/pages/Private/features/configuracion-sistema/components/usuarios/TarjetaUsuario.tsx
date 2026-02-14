@@ -25,6 +25,7 @@ import {
   obtenerEstadoUsuarioPorAsignaciones,
   obtenerEstablecimientosIdsAsignacion,
   obtenerMapaEstablecimientos,
+  normalizarCorreo,
 } from '../../utilidades/usuariosAsignaciones';
 
 // Type helper for user status
@@ -92,7 +93,16 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
   const resumenEmpresas = construirResumenEmpresas(asignaciones);
   const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
   const nombreCompleto = construirNombreCompleto(usuario.personalInfo.firstName, usuario.personalInfo.lastName);
-  const resumenRoles = construirResumenRolesSinEmpresa(asignaciones, rolesConfigurados);
+  const correoSesion = normalizarCorreo(session?.userEmail);
+  const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
+  const esUsuarioSesion = Boolean(
+    (session?.userId && session.userId === usuario.id) ||
+    (correoSesion && correoUsuario && correoSesion === correoUsuario),
+  );
+  const esSuperadminSesion = Boolean(session?.permissions?.includes('*'));
+  const resumenRoles = esUsuarioSesion && esSuperadminSesion
+    ? { resumen: 'Superadmin', detalle: 'Superadmin', roles: ['Superadmin'] }
+    : construirResumenRolesSinEmpresa(asignaciones, rolesConfigurados);
   const establecimientosNombres = useMemo(
     () => establecimientosAsignados.map(
       (id) => mapaEstablecimientos.get(id)?.nombre ?? id,
@@ -105,6 +115,12 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
       ? establecimientosNombres[0]
       : `${establecimientosNombres[0]} +${establecimientosNombres.length - 1}`
     : 'Sin datos';
+  const resumenEmpresasTexto = esUsuarioSesion && esSuperadminSesion
+    ? { resumen: 'Todas las empresas', detalle: 'Todas las empresas' }
+    : resumenEmpresas;
+  const establecimientosResumenTexto = esUsuarioSesion && esSuperadminSesion
+    ? { resumen: 'Todos los establecimientos', detalle: 'Todos los establecimientos' }
+    : { resumen: establecimientosResumen, detalle: establecimientosTextoCompleto || 'Sin datos' };
 
   useEffect(() => {
     const medir = () => {
@@ -365,7 +381,7 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
 
         <div className="mb-4 space-y-2">
           <div className="text-sm text-gray-700">
-            <span className="font-medium">Empresas:</span> {resumenEmpresas.resumen}
+            <span className="font-medium">Empresas:</span> {resumenEmpresasTexto.resumen}
           </div>
           <div className="text-sm text-gray-700">
             <span className="font-medium">Roles:</span>{' '}
@@ -382,9 +398,13 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
                 ref={establecimientosMedicionRef}
                 className="absolute invisible whitespace-nowrap"
               >
-                {establecimientosTextoCompleto || 'Sin datos'}
+                {establecimientosResumenTexto.detalle}
               </span>
-              {establecimientosDesborda ? (
+              {esUsuarioSesion && esSuperadminSesion ? (
+                <span className="block text-gray-700">
+                  {establecimientosResumenTexto.resumen}
+                </span>
+              ) : establecimientosDesborda ? (
                 <Tooltip contenido={establecimientosNombres.join('\n') || 'Sin datos'} ubicacion="arriba" multilinea>
                   <span className="block truncate text-gray-700 cursor-help">
                     {establecimientosResumen}

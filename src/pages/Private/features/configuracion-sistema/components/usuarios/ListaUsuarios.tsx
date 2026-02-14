@@ -26,6 +26,7 @@ import {
   obtenerEstadoUsuarioPorAsignaciones,
   obtenerIdsRolesUnicos,
   obtenerMapaEstablecimientos,
+  normalizarCorreo,
 } from '../../utilidades/usuariosAsignaciones';
 
 type EstadoUsuario = User['status'];
@@ -60,6 +61,8 @@ export function ListaUsuarios({
   const { rolesConfigurados } = useConfigurationContext();
   const empresas = useEmpresasConfiguradas();
   const usuarioActualId = session?.userId ?? '';
+  const correoSesion = normalizarCorreo(session?.userEmail);
+  const esSuperadminSesion = Boolean(session?.permissions?.includes('*'));
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('TODOS');
@@ -488,7 +491,20 @@ export function ListaUsuarios({
                 {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenEstablecimientos, asignaciones, nombre }) => {
                   const configEstado = obtenerConfigEstado(estado);
                   const esUsuarioActual = usuarioActualId && usuario.id === usuarioActualId;
-                  const resumenRolesEstablecimiento = construirResumenRolesSinEmpresa(asignaciones, rolesConfigurados);
+                  const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
+                  const esUsuarioSesion = Boolean(
+                    (usuarioActualId && usuario.id === usuarioActualId) ||
+                    (correoSesion && correoUsuario && correoSesion === correoUsuario),
+                  );
+                  const resumenRolesEstablecimiento = esSuperadminSesion && esUsuarioSesion
+                    ? { resumen: 'Superadmin', detalle: 'Superadmin', roles: ['Superadmin'] }
+                    : construirResumenRolesSinEmpresa(asignaciones, rolesConfigurados);
+                  const resumenEmpresasTexto = esSuperadminSesion && esUsuarioSesion
+                    ? { resumen: 'Todas las empresas', detalle: 'Todas las empresas' }
+                    : resumenEmpresas;
+                  const resumenEstablecimientosTexto = esSuperadminSesion && esUsuarioSesion
+                    ? { resumen: 'Todos los establecimientos', detalle: 'Todos los establecimientos' }
+                    : resumenEstablecimientos;
                   return (
                     <tr key={usuario.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5 whitespace-nowrap">
@@ -513,16 +529,16 @@ export function ListaUsuarios({
                         </Tooltip>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Tooltip contenido={resumenEmpresas.detalle} ubicacion="arriba" multilinea>
+                        <Tooltip contenido={resumenEmpresasTexto.detalle} ubicacion="arriba" multilinea>
                           <span className="text-sm text-gray-700 truncate max-w-[200px] inline-block">
-                            {resumenEmpresas.resumen}
+                            {resumenEmpresasTexto.resumen}
                           </span>
                         </Tooltip>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Tooltip contenido={resumenEstablecimientos.detalle} ubicacion="arriba" multilinea>
+                        <Tooltip contenido={resumenEstablecimientosTexto.detalle} ubicacion="arriba" multilinea>
                           <span className="text-sm text-gray-700 truncate max-w-[200px] inline-block">
-                            {resumenEstablecimientos.resumen}
+                            {resumenEstablecimientosTexto.resumen}
                           </span>
                         </Tooltip>
                       </td>

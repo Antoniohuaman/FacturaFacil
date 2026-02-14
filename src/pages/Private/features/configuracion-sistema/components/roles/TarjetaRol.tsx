@@ -7,6 +7,7 @@ interface PropsTarjetaRol {
   rol: RolConfiguracion;
   cantidadUsuarios?: number;
   puedeGestionar?: boolean;
+  isSuperadminInfo?: boolean;
   onEditar?: (rol: RolConfiguracion) => void;
   onEliminar?: (rol: RolConfiguracion) => void;
 }
@@ -15,6 +16,7 @@ export function TarjetaRol({
   rol,
   cantidadUsuarios = 0,
   puedeGestionar = false,
+  isSuperadminInfo = false,
   onEditar,
   onEliminar,
 }: PropsTarjetaRol) {
@@ -22,6 +24,9 @@ export function TarjetaRol({
   const roleFocusId = rol.id || 'rol-sin-id';
 
   const permisosCatalogados = useMemo(() => {
+    if (isSuperadminInfo) {
+      return Object.values(MAPA_PERMISOS_POR_ID);
+    }
     const permisos: PermisoCatalogo[] = [];
     rol.permisos.forEach((permisoId) => {
       const permiso = MAPA_PERMISOS_POR_ID[permisoId];
@@ -30,7 +35,7 @@ export function TarjetaRol({
       }
     });
     return permisos;
-  }, [rol.permisos]);
+  }, [isSuperadminInfo, rol.permisos]);
 
   const permisosPorModulo = useMemo(() => {
     return permisosCatalogados.reduce<Record<string, PermisoCatalogo[]>>((acc, permiso) => {
@@ -63,6 +68,9 @@ export function TarjetaRol({
   const claseEtiqueta = rol.tipo === 'SISTEMA'
     ? 'bg-purple-100 text-purple-700 border-purple-200'
     : 'bg-emerald-100 text-emerald-700 border-emerald-200';
+  const claseNoAsignable = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+  const permisoResumen = isSuperadminInfo ? 'Acceso total' : `${rol.permisos.length} permisos activos`;
+  const mostrarDetallePermisos = permisosCatalogados.length > 0;
 
   const obtenerNombreModulo = (modulo: string) => {
     switch (modulo) {
@@ -93,7 +101,9 @@ export function TarjetaRol({
 
   return (
     <div
-      className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+      className={`bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${
+        isSuperadminInfo ? 'border-indigo-200/70' : 'border-gray-200'
+      }`}
       data-focus={`configuracion:roles:${roleFocusId}`}
     >
       {/* Header */}
@@ -102,7 +112,7 @@ export function TarjetaRol({
           <div className="flex items-start space-x-3 flex-1">
             <div className={`
               flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center
-              bg-gradient-to-br from-blue-500 to-blue-600
+              ${isSuperadminInfo ? 'bg-gradient-to-br from-indigo-500 to-indigo-600' : 'bg-gradient-to-br from-blue-500 to-blue-600'}
             `}>
               <Shield className="w-5 h-5 text-white" />
             </div>
@@ -115,6 +125,11 @@ export function TarjetaRol({
                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${claseEtiqueta}`}>
                   {etiquetaRol}
                 </span>
+                {isSuperadminInfo && (
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${claseNoAsignable}`}>
+                    No asignable
+                  </span>
+                )}
               </div>
 
               <p className="text-xs text-gray-600 mb-3">
@@ -125,7 +140,7 @@ export function TarjetaRol({
               <div className="flex items-center space-x-4 text-xs">
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>{rol.permisos.length} permisos activos</span>
+                  <span>{permisoResumen}</span>
                 </div>
                 <div className="flex items-center space-x-1 text-gray-600">
                   <Users className="w-3.5 h-3.5" />
@@ -158,21 +173,23 @@ export function TarjetaRol({
         </div>
 
         {/* Toggle Permissions Button */}
-        <button
-          onClick={() => setShowPermissions(!showPermissions)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-xs font-medium text-gray-700"
-        >
-          <span>{showPermissions ? 'Ocultar permisos detallados' : 'Ver permisos detallados'}</span>
-          {showPermissions ? (
-            <ChevronDown className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
-        </button>
+        {mostrarDetallePermisos && (
+          <button
+            onClick={() => setShowPermissions(!showPermissions)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-xs font-medium text-gray-700"
+          >
+            <span>{showPermissions ? 'Ocultar permisos detallados' : 'Ver permisos detallados'}</span>
+            {showPermissions ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Permissions Details */}
-      {showPermissions && (
+      {mostrarDetallePermisos && showPermissions && (
         <div className="px-4 pb-4 pt-0 border-t border-gray-200">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-3">
             {Object.entries(permisosPorModulo)
