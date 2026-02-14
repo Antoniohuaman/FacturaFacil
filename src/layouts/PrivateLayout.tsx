@@ -16,10 +16,13 @@ import { CajaProvider, useCaja } from "../pages/Private/features/control-caja/co
 import { ToastContainer } from "../pages/Private/features/control-caja/components/common/Toast";
 import { FeedbackHost } from "../shared/feedback/FeedbackHost";
 import { TourFlotante, usarTour } from "../shared/tour";
+import { MicroSplashIngreso } from "../shared/ui/transiciones/MicroSplashIngreso";
+import { useTransicionIngresoStore } from "../shared/ui/transiciones/useTransicionIngresoStore";
 
 export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const location = useLocation();
+  const { activa, motivo } = useTransicionIngresoStore();
   const { tenantId } = useTenant();
   const workspaceNavigationState = location.state as
     | { workspaceId?: string; workspaceMode?: "create_workspace" | "edit_workspace" }
@@ -62,6 +65,7 @@ export default function AppShell() {
                       </div>
                       <CajaGlobalOverlays />
                       <TourGlobalOverlays />
+                      <MicroSplashIngreso activa={activa} motivo={motivo ?? undefined} />
                     </DocumentoProvider>
                   </CobranzasProvider>
                 </ComprobanteProvider>

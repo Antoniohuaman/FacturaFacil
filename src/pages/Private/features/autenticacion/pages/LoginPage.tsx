@@ -6,19 +6,24 @@ import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../hooks';
 import type { LoginFormData } from '../schemas/login.schema';
 import { AUTH_PATHS } from '../utils/path';
+import { useTransicionIngresoStore } from '../../../../../shared/ui/transiciones/useTransicionIngresoStore';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading, error, isAuthenticated, status, clearError } = useAuth();
+  const { iniciar, activa } = useTransicionIngresoStore();
 
   // Redirigir si ya está autenticado
   useEffect(() => {
     if (isAuthenticated && status === 'authenticated') {
+      if (!activa) {
+        iniciar('login');
+      }
       navigate(AUTH_PATHS.DASHBOARD, { replace: true });
     } else if (status === 'requires_2fa') {
       navigate(AUTH_PATHS.TWO_FACTOR, { replace: true });
     }
-  }, [isAuthenticated, status, navigate]);
+  }, [isAuthenticated, status, navigate, iniciar, activa]);
 
   // Limpiar errores al desmontar
   useEffect(() => {

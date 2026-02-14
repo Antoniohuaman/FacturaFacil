@@ -10,6 +10,7 @@ import { usePasswordStrength } from '../hooks/usePasswordStrength';
 import { authRepository } from '../services/AuthRepository';
 import { AUTH_PATHS } from '../utils/path';
 import { registerStep1Schema, type RegisterStep1Data } from '../schemas';
+import { useTransicionIngresoStore } from '../../../../../shared/ui/transiciones/useTransicionIngresoStore';
 
 /**
  * ============================================
@@ -21,6 +22,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { iniciar, activa } = useTransicionIngresoStore();
 
   const {
     register,
@@ -62,6 +64,9 @@ export function RegisterPage() {
 
       if (loginResult.success) {
         // Login exitoso, navegar al dashboard principal
+        if (!activa) {
+          iniciar('registro');
+        }
         navigate(AUTH_PATHS.DASHBOARD, { replace: true });
       } else {
         // Si el login automático falla, redirigir al login manual
