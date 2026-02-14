@@ -19,6 +19,10 @@ export function PermisoGuard({ children, permisos, fallbackPath = '/sin-permiso'
     return <>{children}</>;
   }
 
+  if (!session) {
+    return null;
+  }
+
   if (session?.permissions?.includes('*')) {
     return <>{children}</>;
   }
