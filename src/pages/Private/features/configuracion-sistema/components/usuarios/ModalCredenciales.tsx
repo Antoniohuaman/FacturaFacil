@@ -1,6 +1,6 @@
 // src/features/configuration/components/usuarios/ModalCredenciales.tsx
 import { useState } from 'react';
-import { X, Copy, Check, User, Lock, Shield, Building2, MessageCircle, Info } from 'lucide-react';
+import { X, Copy, Check, User, Lock, Shield, Building2, MessageCircle, Info, Mail } from 'lucide-react';
 import { Button } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import type { User as UserModel, AsignacionEmpresaUsuario } from '../../modelos/User';
@@ -43,11 +43,6 @@ export function ModalCredenciales({ isOpen, onClose, credentials, user, Establec
     Establecimientos.map((establecimiento) => [establecimiento.id, establecimiento.nombreEstablecimiento]),
   );
 
-  const obtenerNombreRol = (roleId?: string) => {
-    if (!roleId) return 'Sin rol';
-    return mapaRoles.get(roleId) ?? 'Sin rol';
-  };
-
   const normalizarEstablecimientosAsignacion = (asignacion: AsignacionEmpresaUsuario) => {
     if (asignacion.establecimientos?.length) {
       return asignacion.establecimientos;
@@ -79,36 +74,33 @@ export function ModalCredenciales({ isOpen, onClose, credentials, user, Establec
     const asignaciones = user.asignacionesPorEmpresa ?? [];
 
     if (asignaciones.length === 0) {
-      return '- Sin asignaciones';
+      return '(Sin accesos asignados)';
     }
 
     return asignaciones
       .map((asignacion) => {
-        const nombreEmpresa = asignacion.empresaNombre ?? asignacion.empresaId ?? 'Empresa';
+        const nombreEmpresa = asignacion.empresaNombre
+          ?? asignacion.empresaId
+          ?? 'Empresa sin nombre';
         const establecimientosAsignacion = normalizarEstablecimientosAsignacion(asignacion);
-        const establecimientos = establecimientosAsignacion
-          .map((item) => mapaEstablecimientos.get(item.establecimientoId) ?? item.establecimientoId)
-          .filter(Boolean);
-        const roles = Array.from(
-          new Set(
-            establecimientosAsignacion
-              .map((item) => obtenerNombreRol(item.roleId))
-              .filter(Boolean),
-          ),
-        );
-        const rolesExtra = (asignacion.roleIds ?? [])
-          .map((roleId) => obtenerNombreRol(roleId))
-          .filter(Boolean);
-        const rolesUnicos = Array.from(new Set([...roles, ...rolesExtra]));
 
-        const establecimientosTexto = establecimientos.length > 0
-          ? establecimientos.join(', ')
-          : 'Sin establecimientos';
-        const rolesTexto = rolesUnicos.length > 0
-          ? rolesUnicos.join(', ')
-          : 'Sin roles';
+        if (establecimientosAsignacion.length === 0) {
+          return `- ${nombreEmpresa}\n  • Establecimiento sin nombre → Rol sin nombre`;
+        }
 
-        return `- ${nombreEmpresa}\n  - Establecimientos: ${establecimientosTexto}\n  - Roles: ${rolesTexto}`;
+        const lineasEstablecimientos = establecimientosAsignacion
+          .map((item) => {
+            const nombreEstablecimiento = mapaEstablecimientos.get(item.establecimientoId)
+              ?? item.establecimientoId
+              ?? 'Establecimiento sin nombre';
+            const nombreRol = item.roleId
+              ? mapaRoles.get(item.roleId) ?? 'Rol sin nombre'
+              : 'Rol sin nombre';
+            return `  • ${nombreEstablecimiento} → ${nombreRol}`;
+          })
+          .join('\n');
+
+        return `- ${nombreEmpresa}\n${lineasEstablecimientos}`;
       })
       .join('\n');
   };
@@ -123,24 +115,27 @@ export function ModalCredenciales({ isOpen, onClose, credentials, user, Establec
     }
   };
 
-  const handleCopyAll = async () => {
+  const buildCredentialsMessage = () => {
     const accesosAsignados = construirAccesosAsignados();
 
-    const allCredentials = `
-═══════════════════════════════════════
-    CREDENCIALES DE ACCESO
-═══════════════════════════════════════
+    return `
+═══════════════════════════════
+        CREDENCIALES DE ACCESO
+═══════════════════════════════
 
-  Nombre: ${credentials.fullName}
-  Usuario (correo): ${credentials.email}
+Nombre: ${credentials.fullName}
+Usuario (correo): ${credentials.email}
 Contraseña: ${credentials.password}
 
-  Accesos asignados:
-  ${accesosAsignados}
+ACCESOS ASIGNADOS
+${accesosAsignados}
 
-═══════════════════════════════════════
-⚠️  RECOMENDADO: Actualiza tu contraseña despues del primer inicio de sesion
-`;
+Recomendado: Actualiza tu contraseña después del primer inicio de sesión.
+`.trim();
+  };
+
+  const handleCopyAll = async () => {
+    const allCredentials = buildCredentialsMessage();
 
     try {
       await navigator.clipboard.writeText(allCredentials);
@@ -152,35 +147,22 @@ Contraseña: ${credentials.password}
   };
 
   const handleSendWhatsApp = () => {
-    const accesosAsignados = construirAccesosAsignados();
+    const message = buildCredentialsMessage();
 
-    const message = `
-═══════════════════════════════════════
-    CREDENCIALES DE ACCESO
-═══════════════════════════════════════
-
-  Nombre: ${credentials.fullName}
-  Usuario (correo): ${credentials.email}
-  Contraseña: ${credentials.password}
-
-  Accesos asignados:
-  ${accesosAsignados}
-
-═══════════════════════════════════════
-  ⚠️  RECOMENDADO: Actualiza tu contraseña despues del primer inicio de sesion
-    `.trim();
-
-    // Encode the message for URL
     const encodedMessage = encodeURIComponent(message);
-
-    // Open WhatsApp with pre-filled message
     const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
   };
 
+  const handleSendEmail = () => {
+    const subject = encodeURIComponent('Credenciales de acceso');
+    const body = encodeURIComponent(buildCredentialsMessage());
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-[60] p-3 animate-in fade-in duration-200">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="bg-emerald-600 px-4 py-3 flex-shrink-0">
           <div className="flex items-start justify-between">
@@ -191,7 +173,7 @@ Contraseña: ${credentials.password}
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-white">
-                    Usuario creado
+                    Usuario creado exitosamente
                   </h2>
                 </div>
               </div>
@@ -302,34 +284,50 @@ Contraseña: ${credentials.password}
         {/* Footer - Fixed at bottom */}
         <div className="flex-shrink-0 border-t border-gray-200 p-3 bg-gray-50">
           <div className="flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                onClick={handleCopyAll}
-                variant="primary"
-                size="sm"
-                className="flex-1"
-              >
-                {copiedField === 'all' ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span className="text-xs">Credenciales copiadas</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    <span className="text-xs">Copiar credenciales</span>
-                  </>
-                )}
-              </Button>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <Tooltip contenido="Copiar credenciales" ubicacion="arriba">
+                <Button
+                  onClick={handleCopyAll}
+                  variant="primary"
+                  size="sm"
+                  className="w-full"
+                >
+                  {copiedField === 'all' ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span className="text-xs">Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      <span className="text-xs">Copiar</span>
+                    </>
+                  )}
+                </Button>
+              </Tooltip>
 
-              <Button
-                onClick={handleSendWhatsApp}
-                size="sm"
-                className="flex-1 bg-[#25D366] hover:bg-[#20BA5A] border-[#25D366] text-white rounded-lg transition-colors font-medium"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span className="text-xs">Enviar WhatsApp</span>
-              </Button>
+              <Tooltip contenido="Enviar por correo" ubicacion="arriba">
+                <Button
+                  onClick={handleSendEmail}
+                  variant="primary"
+                  size="sm"
+                  className="w-full"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span className="text-xs">Correo</span>
+                </Button>
+              </Tooltip>
+
+              <Tooltip contenido="Enviar por WhatsApp" ubicacion="arriba">
+                <Button
+                  onClick={handleSendWhatsApp}
+                  size="sm"
+                  className="w-full col-span-2 sm:col-span-1 bg-[#25D366] hover:bg-[#20BA5A] border-[#25D366] text-white rounded-lg transition-colors font-medium"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span className="text-xs">WhatsApp</span>
+                </Button>
+              </Tooltip>
             </div>
 
             <Button
