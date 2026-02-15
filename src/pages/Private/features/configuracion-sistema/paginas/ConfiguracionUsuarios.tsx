@@ -23,6 +23,7 @@ import {
   construirAsignacionesDesdeFormulario,
   construirNombreCompleto,
   construirNombreCompletoSeguro,
+  generarContrasenaTemporal,
   construirRolesConfigurados,
   normalizarCorreo,
   obtenerAsignacionesActualizadas,
@@ -299,10 +300,20 @@ export function ConfiguracionUsuarios() {
       return;
     }
 
-    const password = usuario.systemAccess.password?.trim();
-    if (!password) {
-      registrarSinPermiso('No hay una contraseña temporal disponible para reenviar credenciales.');
-      return;
+    const password = usuario.systemAccess.password?.trim()
+      || generarContrasenaTemporal();
+
+    if (!usuario.systemAccess.password?.trim()) {
+      const usuarioActualizado: User = {
+        ...usuario,
+        systemAccess: {
+          ...usuario.systemAccess,
+          password,
+        },
+        updatedAt: new Date(),
+      };
+      dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
+      usuario = usuarioActualizado;
     }
 
     const nombreCompleto = construirNombreCompletoSeguro(

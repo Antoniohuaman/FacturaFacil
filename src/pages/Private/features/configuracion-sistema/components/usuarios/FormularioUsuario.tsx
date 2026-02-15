@@ -8,6 +8,7 @@ import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionU
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import {
   construirResumenLista,
+  generarContrasenaTemporal,
   normalizarCorreo,
   obtenerAsignacionesActualizadas,
   obtenerAsignacionesUsuarioGlobal,
@@ -47,31 +48,6 @@ const opcionesEstadoAsignacion: Array<{ value: EstadoAsignacionUsuario; label: s
   { value: 'INACTIVE', label: 'Inactivo' },
 ];
 
-const generarContrasenaSegura = (): string => {
-  const length = 12;
-  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-  const numbers = '0123456789';
-  const symbols = '!@#$%&*';
-
-  const allChars = uppercase + lowercase + numbers + symbols;
-  let password = '';
-
-  // Ensure at least one of each type
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += numbers[Math.floor(Math.random() * numbers.length)];
-  password += symbols[Math.floor(Math.random() * symbols.length)];
-
-  // Fill the rest
-  for (let i = password.length; i < length; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
-  }
-
-  // Shuffle
-  return password.split('').sort(() => Math.random() - 0.5).join('');
-}
-
 const calcularFortalezaContrasena = (contrasena: string): { score: number; label: string; color: string } => {
   if (!contrasena) return { score: 0, label: 'Sin contraseña', color: 'gray' }
 
@@ -110,7 +86,7 @@ export function FormularioUsuario({
     telefono: '',
     tipoDocumento: '',
     numeroDocumento: '',
-    contrasena: generarContrasenaSegura(),
+    contrasena: generarContrasenaTemporal(),
     asignacionesPorEmpresa: [],
   });
 
@@ -368,7 +344,7 @@ export function FormularioUsuario({
   };
 
   const manejarGenerarContrasena = () => {
-    const nuevaContrasena = generarContrasenaSegura();
+    const nuevaContrasena = generarContrasenaTemporal();
     manejarCambioCampo('contrasena', nuevaContrasena);
     setContrasenaCopiada(false);
   };

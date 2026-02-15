@@ -436,7 +436,7 @@ export function ListaUsuarios({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-visible">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
