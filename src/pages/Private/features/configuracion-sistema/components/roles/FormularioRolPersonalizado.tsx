@@ -23,6 +23,7 @@ export function FormularioRolPersonalizado({
     new Set(rol?.permisos ?? []),
   );
   const [error, setError] = useState<string | null>(null);
+  const [errorPermisos, setErrorPermisos] = useState<string | null>(null);
 
   const permisosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -53,6 +54,9 @@ export function FormularioRolPersonalizado({
       } else {
         next.add(permisoId);
       }
+      if (next.size > 0) {
+        setErrorPermisos(null);
+      }
       return next;
     });
   };
@@ -64,7 +68,13 @@ export function FormularioRolPersonalizado({
       return;
     }
 
+    if (seleccionados.size === 0) {
+      setErrorPermisos('Selecciona al menos 1 permiso para crear el rol.');
+      return;
+    }
+
     setError(null);
+    setErrorPermisos(null);
     onGuardar({
       id: rol?.id ?? '',
       nombre: nombreLimpio,
@@ -72,6 +82,8 @@ export function FormularioRolPersonalizado({
       permisos: Array.from(seleccionados),
     });
   };
+
+  const puedeGuardar = nombre.trim().length > 0 && seleccionados.size > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -166,6 +178,11 @@ export function FormularioRolPersonalizado({
                 </div>
               </div>
             ))}
+            {errorPermisos && (
+              <p className="text-sm text-red-600">
+                {errorPermisos}
+              </p>
+            )}
           </div>
         </div>
 
@@ -180,7 +197,12 @@ export function FormularioRolPersonalizado({
           <button
             type="button"
             onClick={handleGuardar}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            className={`px-4 py-2 text-sm font-medium rounded-lg ${
+              puedeGuardar
+                ? 'text-white bg-blue-600 hover:bg-blue-700'
+                : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+            }`}
+            disabled={!puedeGuardar}
           >
             {rol ? 'Guardar cambios' : 'Crear rol'}
           </button>

@@ -112,6 +112,7 @@ export function ConfiguracionUsuarios() {
   }>({ abierto: false });
   const [rolParaEliminar, setRolParaEliminar] = useState<RolPersonalizado | null>(null);
   const [errorRolPersonalizado, setErrorRolPersonalizado] = useState<string | null>(null);
+  const [errorCorreoUsuario, setErrorCorreoUsuario] = useState<string | null>(null);
 
   const generarIdUsuarioLocal = () => {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -128,6 +129,7 @@ export function ConfiguracionUsuarios() {
   const reiniciarFormularioUsuario = () => {
     setUsuarioEnEdicion(null);
     setMostrarFormularioUsuario(false);
+    setErrorCorreoUsuario(null);
   };
 
   const registrarSinPermiso = (mensaje: string) => {
@@ -139,6 +141,18 @@ export function ConfiguracionUsuarios() {
       registrarSinPermiso('No tienes permisos para crear o actualizar usuarios y accesos.');
       return;
     }
+
+    const correoNormalizado = normalizarCorreo(data.correo);
+    const existeDuplicado = usuarios.some((usuario) =>
+      normalizarCorreo(usuario.personalInfo.email) === correoNormalizado && usuario.id !== usuarioEnEdicion?.id
+    );
+
+    if (existeDuplicado) {
+      setErrorCorreoUsuario('Ya existe un usuario con este correo.');
+      return;
+    }
+
+    setErrorCorreoUsuario(null);
 
     const asignacionesFormulario = data.asignacionesPorEmpresa ?? [];
     if (asignacionesFormulario.length === 0) {
@@ -256,6 +270,7 @@ export function ConfiguracionUsuarios() {
     }
     setUsuarioEnEdicion(usuario);
     setMostrarFormularioUsuario(true);
+    setErrorCorreoUsuario(null);
   };
 
   const manejarEliminarUsuario = async (usuario: User) => {
@@ -559,6 +574,8 @@ export function ConfiguracionUsuarios() {
           usuario={usuarioEnEdicion || undefined}
           empresasDisponibles={empresas}
           correosExistentes={correosExistentes}
+          errorCorreo={errorCorreoUsuario}
+          onClearErrorCorreo={() => setErrorCorreoUsuario(null)}
           alEnviar={manejarEnvioUsuario}
           alCancelar={reiniciarFormularioUsuario}
           cargando={cargando}

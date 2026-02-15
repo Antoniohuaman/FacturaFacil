@@ -28,6 +28,8 @@ interface PropsFormularioUsuario {
   usuario?: UsuarioModelo;
   empresasDisponibles: Empresa[];
   correosExistentes: string[];
+  errorCorreo?: string | null;
+  onClearErrorCorreo?: () => void;
   alEnviar: (data: DatosFormularioUsuario) => Promise<void>;
   alCancelar: () => void;
   cargando?: boolean;
@@ -92,6 +94,8 @@ export function FormularioUsuario({
   usuario,
   empresasDisponibles,
   correosExistentes,
+  errorCorreo = null,
+  onClearErrorCorreo,
   alEnviar,
   alCancelar,
   cargando = false
@@ -274,6 +278,10 @@ export function FormularioUsuario({
       ...prev,
       [campo]: error || ''
     }));
+
+    if (campo === 'correo' && onClearErrorCorreo) {
+      onClearErrorCorreo();
+    }
 
     if (campo === 'tipoDocumento') {
       setDatosFormulario(prev => ({ ...prev, numeroDocumento: '' }));
@@ -609,7 +617,7 @@ export function FormularioUsuario({
               value={datosFormulario.correo}
               onChange={(e) => manejarCambioCampo('correo', e.target.value.toLowerCase())}
               onBlur={() => manejarBlur('correo')}
-              error={errores.correo}
+              error={errores.correo || errorCorreo || ''}
               placeholder="usuario@empresa.com"
               leftIcon={<Mail />}
               disabled={cargando || Boolean(usuario)}
