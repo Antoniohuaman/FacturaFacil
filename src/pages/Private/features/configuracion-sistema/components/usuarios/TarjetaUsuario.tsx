@@ -18,7 +18,7 @@ import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useConfigurationContext, useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import {
-  construirNombreCompleto,
+  construirNombreCompletoSeguro,
   construirResumenEmpresas,
   construirResumenRolesSinEmpresa,
   obtenerAsignacionesUsuarioGlobal,
@@ -34,6 +34,7 @@ type UserStatus = User['status'];
 interface PropsTarjetaUsuario {
   usuario: User;
   alEditar: () => void;
+  alReenviar: () => void;
   alEliminar: () => void;
   alCambiarEstado: (estado: UserStatus, motivo?: string) => void;
   alQuitarAcceso: (establecimientoId: string) => void;
@@ -45,6 +46,7 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
   const {
     usuario,
     alEditar,
+    alReenviar,
     alEliminar,
     alCambiarEstado,
     mostrarAcciones = true,
@@ -92,7 +94,11 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
 
   const resumenEmpresas = construirResumenEmpresas(asignaciones);
   const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
-  const nombreCompleto = construirNombreCompleto(usuario.personalInfo.firstName, usuario.personalInfo.lastName);
+  const nombreCompleto = construirNombreCompletoSeguro(
+    usuario.personalInfo.firstName,
+    usuario.personalInfo.lastName,
+    usuario.personalInfo.fullName,
+  );
   const correoSesion = normalizarCorreo(session?.userEmail);
   const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
   const esUsuarioSesion = Boolean(
@@ -282,6 +288,18 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
                       className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
                     >
                       Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        alReenviar();
+                        setMostrarMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+                    >
+                      Reenviar credenciales
                     </button>
 
                     {estadoUsuario === 'INACTIVE' && (

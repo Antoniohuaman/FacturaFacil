@@ -28,7 +28,7 @@ export interface User {
     firstName: string;
     lastName: string;
     fullName: string;
-    documentType?: 'DNI' | 'CE' | 'PASSPORT';
+    documentType?: 'DNI' | 'CE' | 'PASSPORT' | 'OTHER';
     documentNumber?: string;
     email: string;
     phone?: string;
@@ -118,7 +118,7 @@ export interface CreateUserRequest {
   personalInfo: {
     firstName: string;
     lastName: string;
-    documentType?: 'DNI' | 'CE' | 'PASSPORT';
+    documentType?: 'DNI' | 'CE' | 'PASSPORT' | 'OTHER';
     documentNumber?: string;
     email: string;
     phone?: string;
@@ -184,6 +184,7 @@ export const DOCUMENT_TYPES = [
   { value: 'DNI', label: 'DNI' },
   { value: 'CE', label: 'Carné de Extranjería' },
   { value: 'PASSPORT', label: 'Pasaporte' },
+  { value: 'OTHER', label: 'Otros' },
 ] as const;
 
 export const GENDER_OPTIONS = [

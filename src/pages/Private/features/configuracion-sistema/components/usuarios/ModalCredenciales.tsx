@@ -11,6 +11,7 @@ import { obtenerRolesPorIds } from '../../utilidades/permisos';
 interface PropsModalCredenciales {
   isOpen: boolean;
   onClose: () => void;
+  variant?: 'success' | 'resend';
   credentials: {
     fullName: string;
     email: string;
@@ -21,9 +22,20 @@ interface PropsModalCredenciales {
   Establecimientos: Establecimiento[];
 }
 
-export function ModalCredenciales({ isOpen, onClose, credentials, user, Establecimientos }: PropsModalCredenciales) {
+export function ModalCredenciales({
+  isOpen,
+  onClose,
+  variant = 'success',
+  credentials,
+  user,
+  Establecimientos,
+}: PropsModalCredenciales) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { rolesConfigurados } = useConfigurationContext();
+  const tituloModal = variant === 'resend'
+    ? 'Reenviar credenciales'
+    : 'Usuario creado exitosamente';
+  const headerBgClass = variant === 'resend' ? 'bg-slate-600' : 'bg-emerald-600';
 
   if (!isOpen) return null;
 
@@ -164,7 +176,7 @@ Recomendado: Actualiza tu contraseña después del primer inicio de sesión.
     <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-[60] p-3 animate-in fade-in duration-200">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-emerald-600 px-4 py-3 flex-shrink-0">
+        <div className={`${headerBgClass} px-4 py-3 flex-shrink-0`}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-3">
@@ -173,7 +185,7 @@ Recomendado: Actualiza tu contraseña después del primer inicio de sesión.
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-white">
-                    Usuario creado exitosamente
+                    {tituloModal}
                   </h2>
                 </div>
               </div>

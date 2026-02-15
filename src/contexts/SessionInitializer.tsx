@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
 import { useConfigurationContext } from '../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
+import { construirNombreCompleto } from '../pages/Private/features/configuracion-sistema/utilidades/usuariosAsignaciones';
 import { useAuthStore } from '../pages/Private/features/autenticacion/store/AuthStore';
 import { clientesClient } from '../pages/Private/features/gestion-clientes/api';
 
@@ -48,7 +49,7 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
         // Crear sesión inicial basada en el usuario autenticado
         setSession({
           userId: authUser.id,
-          userName: authUser.nombre,
+          userName: construirNombreCompleto(authUser.nombre, authUser.apellido),
           userEmail: authUser.email,
           currentCompanyId: state.company.id,
           currentCompany: state.company,

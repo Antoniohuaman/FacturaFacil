@@ -18,7 +18,7 @@ type DatosFormularioUsuario = {
   apellidos: string;
   correo: string;
   telefono: string;
-  tipoDocumento: 'DNI' | 'CE' | 'PASSPORT' | '';
+  tipoDocumento: 'DNI' | 'CE' | 'PASSPORT' | 'OTHER' | '';
   numeroDocumento: string;
   contrasena: string;
   asignacionesPorEmpresa: AsignacionEmpresaUsuario[];
@@ -37,8 +37,9 @@ interface PropsFormularioUsuario {
 
 const tiposDocumento = [
   { value: 'DNI' as const, label: 'DNI', placeholder: '12345678', maxLength: 8 },
-  { value: 'CE' as const, label: 'Carnet de Extranjería', placeholder: '123456789', maxLength: 9 },
-  { value: 'PASSPORT' as const, label: 'Pasaporte', placeholder: 'A1234567', maxLength: 12 }
+  { value: 'CE' as const, label: 'Carnet de Extranjería', placeholder: 'CE123456', maxLength: 12 },
+  { value: 'PASSPORT' as const, label: 'Pasaporte', placeholder: 'A1234567', maxLength: 12 },
+  { value: 'OTHER' as const, label: 'Otros', placeholder: 'OTR12345', maxLength: 12 },
 ];
 
 const opcionesEstadoAsignacion: Array<{ value: EstadoAsignacionUsuario; label: string }> = [
@@ -206,8 +207,8 @@ export function FormularioUsuario({
       case 'telefono': {
         const telefono = typeof valor === 'string' ? valor : '';
         if (telefono && telefono.trim()) {
-          const telefonoRegex = /^[+]?[\d\s()-]{9,15}$/;
-          if (!telefonoRegex.test(telefono.replace(/\s/g, ''))) {
+          const telefonoLimpio = telefono.replace(/\D/g, '');
+          if (!/^\d{1,9}$/.test(telefonoLimpio)) {
             return 'Ingresa un teléfono válido';
           }
         }
@@ -219,17 +220,13 @@ export function FormularioUsuario({
           const docType = tiposDocumento.find(dt => dt.value === datosFormulario.tipoDocumento);
           if (docType) {
             if (datosFormulario.tipoDocumento === 'DNI') {
-              if (!/^\d{8}$/.test(numeroDocumento)) {
-                return 'El DNI debe tener 8 dígitos';
+              if (!/^\d+$/.test(numeroDocumento) || numeroDocumento.length > 8) {
+                return 'El DNI debe tener maximo 8 digitos numericos';
               }
-            } else if (datosFormulario.tipoDocumento === 'CE') {
-              if (!/^\d{9}$/.test(numeroDocumento)) {
-                return 'El CE debe tener 9 dígitos';
-              }
-            } else if (datosFormulario.tipoDocumento === 'PASSPORT') {
-              if (numeroDocumento.length < 6 || numeroDocumento.length > 12) {
-                return 'El pasaporte debe tener entre 6 y 12 caracteres';
-              }
+            } else if (!/^[a-zA-Z0-9]+$/.test(numeroDocumento)) {
+              return 'El documento solo debe contener letras y numeros';
+            } else if (docType.maxLength && numeroDocumento.length > docType.maxLength) {
+              return `El documento debe tener maximo ${docType.maxLength} caracteres`;
             }
           }
         }
@@ -630,7 +627,10 @@ export function FormularioUsuario({
               label="Telefono"
               type="tel"
               value={datosFormulario.telefono}
-              onChange={(e) => manejarCambioCampo('telefono', e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 9);
+                manejarCambioCampo('telefono', value);
+              }}
               onBlur={() => manejarBlur('telefono')}
               error={errores.telefono}
               placeholder="+51 987 654 321"
@@ -675,13 +675,13 @@ export function FormularioUsuario({
                   value={datosFormulario.numeroDocumento}
                   onChange={(e) => {
                     let value = e.target.value;
+                    const docType = tiposDocumento.find(dt => dt.value === datosFormulario.tipoDocumento);
 
                     if (datosFormulario.tipoDocumento === 'DNI') {
                       value = value.replace(/\D/g, '').slice(0, 8);
-                    } else if (datosFormulario.tipoDocumento === 'CE') {
-                      value = value.replace(/\D/g, '').slice(0, 9);
-                    } else if (datosFormulario.tipoDocumento === 'PASSPORT') {
-                      value = value.toUpperCase().slice(0, 12);
+                    } else {
+                      const maxLength = docType?.maxLength ?? 12;
+                      value = value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, maxLength);
                     }
 
                     manejarCambioCampo('numeroDocumento', value);

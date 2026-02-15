@@ -22,6 +22,7 @@ import { useUserSession } from '@/contexts/UserSessionContext';
 import {
   construirAsignacionesDesdeFormulario,
   construirNombreCompleto,
+  construirNombreCompletoSeguro,
   construirRolesConfigurados,
   normalizarCorreo,
   obtenerAsignacionesActualizadas,
@@ -42,7 +43,7 @@ type DatosFormularioUsuario = {
   apellidos: string;
   correo: string;
   telefono: string;
-  tipoDocumento: 'DNI' | 'CE' | 'PASSPORT' | '';
+  tipoDocumento: 'DNI' | 'CE' | 'PASSPORT' | 'OTHER' | '';
   numeroDocumento: string;
   contrasena: string;
   asignacionesPorEmpresa: User['asignacionesPorEmpresa'];
@@ -72,6 +73,7 @@ export function ConfiguracionUsuarios() {
   const [cargando, setCargando] = useState(false);
   const [modalCredenciales, setModalCredenciales] = useState<{
     show: boolean;
+    variant?: 'success' | 'resend';
     user?: User;
     credentials?: {
       fullName: string;
@@ -245,6 +247,7 @@ export function ConfiguracionUsuarios() {
 
         setModalCredenciales({
           show: true,
+          variant: 'success',
           user: nuevoUsuario,
           credentials: {
             fullName: nombreCompleto,
@@ -288,6 +291,37 @@ export function ConfiguracionUsuarios() {
     } finally {
       setCargando(false);
     }
+  };
+
+  const manejarReenviarCredenciales = (usuario: User) => {
+    if (!puedeGestionarUsuarios) {
+      registrarSinPermiso('No tienes permisos para reenviar credenciales de usuarios.');
+      return;
+    }
+
+    const password = usuario.systemAccess.password?.trim();
+    if (!password) {
+      registrarSinPermiso('No hay una contraseña temporal disponible para reenviar credenciales.');
+      return;
+    }
+
+    const nombreCompleto = construirNombreCompletoSeguro(
+      usuario.personalInfo.firstName,
+      usuario.personalInfo.lastName,
+      usuario.personalInfo.fullName,
+    );
+
+    setModalCredenciales({
+      show: true,
+      variant: 'resend',
+      user: usuario,
+      credentials: {
+        fullName: nombreCompleto,
+        email: usuario.personalInfo.email,
+        username: usuario.systemAccess.username,
+        password,
+      },
+    });
   };
 
   const manejarCambioEstado = async (usuario: User, nuevoEstado: EstadoUsuario, motivo?: string) => {
@@ -533,6 +567,7 @@ export function ConfiguracionUsuarios() {
         <ListaUsuarios
           usuarios={usuarios}
           alEditar={manejarEditarUsuario}
+          alReenviar={manejarReenviarCredenciales}
           alEliminar={(usuario) => setModalEliminar({ show: true, user: usuario })}
           alCambiarEstado={manejarCambioEstado}
           alQuitarAcceso={manejarQuitarAcceso}
@@ -587,6 +622,7 @@ export function ConfiguracionUsuarios() {
         <ModalCredenciales
           isOpen={modalCredenciales.show}
           onClose={() => setModalCredenciales({ show: false })}
+          variant={modalCredenciales.variant}
           credentials={modalCredenciales.credentials}
           user={modalCredenciales.user}
           Establecimientos={establecimientos}

@@ -17,7 +17,7 @@ import type { User } from '../../modelos/User';
 import { TarjetaUsuario } from './TarjetaUsuario';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
 import {
-  construirNombreCompleto,
+  construirNombreCompletoSeguro,
   construirResumenEmpresas,
   construirResumenEstablecimientos,
   construirResumenRoles,
@@ -41,6 +41,7 @@ type Orden = 'asc' | 'desc';
 interface PropsListaUsuarios {
   usuarios: User[];
   alEditar: (usuario: User) => void;
+  alReenviar: (usuario: User) => void;
   alEliminar: (usuario: User) => void;
   alCambiarEstado: (usuario: User, estado: EstadoUsuario, motivo?: string) => void;
   alQuitarAcceso: (usuario: User, establecimientoId: string) => void;
@@ -51,6 +52,7 @@ interface PropsListaUsuarios {
 export function ListaUsuarios({
   usuarios,
   alEditar,
+  alReenviar,
   alEliminar,
   alCambiarEstado,
   alQuitarAcceso,
@@ -88,9 +90,10 @@ export function ListaUsuarios({
       const resumenEmpresas = construirResumenEmpresas(asignaciones);
       const resumenRoles = construirResumenRoles(asignaciones, rolesConfigurados);
       const resumenEstablecimientos = construirResumenEstablecimientos(asignaciones, mapaEstablecimientos);
-      const nombre = usuario.personalInfo.fullName || construirNombreCompleto(
+      const nombre = construirNombreCompletoSeguro(
         usuario.personalInfo.firstName,
         usuario.personalInfo.lastName,
+        usuario.personalInfo.fullName,
       );
 
       return {
@@ -109,7 +112,7 @@ export function ListaUsuarios({
   const usuariosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
     return usuariosProcesados
-      .filter(({ usuario, asignaciones, estado, resumenRoles, resumenEmpresas, roleIds }) => {
+      .filter(({ usuario, asignaciones, estado, resumenRoles, resumenEmpresas, roleIds, nombre }) => {
         if (filtroEstado !== 'TODOS' && estado !== filtroEstado) {
           return false;
         }
@@ -124,13 +127,13 @@ export function ListaUsuarios({
 
         if (!texto) return true;
 
-        const nombre = usuario.personalInfo.fullName.toLowerCase();
+        const nombreBase = (nombre || '').toLowerCase();
         const correo = usuario.personalInfo.email.toLowerCase();
         const documento = usuario.personalInfo.documentNumber?.toLowerCase() ?? '';
         const roles = resumenRoles.detalle.toLowerCase();
         const empresasTexto = resumenEmpresas.detalle.toLowerCase();
 
-        return [nombre, correo, documento, roles, empresasTexto].some((valor) => valor.includes(texto));
+        return [nombreBase, correo, documento, roles, empresasTexto].some((valor) => valor.includes(texto));
       })
       .sort((a, b) => {
         let comparacion = 0;
@@ -416,6 +419,7 @@ export function ListaUsuarios({
               key={usuario.id}
               usuario={usuario}
               alEditar={() => alEditar(usuario)}
+              alReenviar={() => alReenviar(usuario)}
               alEliminar={() => alEliminar(usuario)}
               alCambiarEstado={(estado, motivo) => alCambiarEstado(usuario, estado, motivo)}
               alQuitarAcceso={(establecimientoId) => alQuitarAcceso(usuario, establecimientoId)}
@@ -423,7 +427,7 @@ export function ListaUsuarios({
           ))}
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-visible">
           <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-gray-900">
@@ -588,6 +592,17 @@ export function ListaUsuarios({
                                 >
                                   Editar
                                 </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    alReenviar(usuario);
+                                    setMenuAbiertoId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+                                >
+                                  Reenviar credenciales
+                                </button>
                                 {estado === 'ACTIVE' && !esUsuarioActual && (
                                   <button
                                     type="button"
@@ -649,7 +664,11 @@ export function ListaUsuarios({
                 Desactivar usuario
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {modalEstado.usuario.personalInfo.fullName}
+                {construirNombreCompletoSeguro(
+                  modalEstado.usuario.personalInfo.firstName,
+                  modalEstado.usuario.personalInfo.lastName,
+                  modalEstado.usuario.personalInfo.fullName,
+                )}
               </p>
             </div>
 

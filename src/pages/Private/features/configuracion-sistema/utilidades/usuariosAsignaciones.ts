@@ -40,6 +40,21 @@ export const separarNombreCompleto = (nombreCompleto: string) => {
 export const construirNombreCompleto = (nombres: string, apellidos: string) =>
   `${nombres} ${apellidos}`.trim();
 
+export const construirNombreCompletoSeguro = (
+  nombres?: string,
+  apellidos?: string,
+  nombreCompleto?: string,
+) => {
+  const nombresLimpios = (nombres ?? '').trim();
+  const apellidosLimpios = (apellidos ?? '').trim();
+
+  if (nombresLimpios || apellidosLimpios) {
+    return construirNombreCompleto(nombresLimpios, apellidosLimpios);
+  }
+
+  return (nombreCompleto ?? '').trim();
+};
+
 export const construirCodigoUsuarioDeterministico = (idUsuario: string) => {
   const normalizado = idUsuario.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
   const base = normalizado || idUsuario.slice(0, 8);

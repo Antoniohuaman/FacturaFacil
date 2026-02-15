@@ -5,10 +5,15 @@ import SearchBar from './SearchBar';
 import UserDropdown from './UserDropdown';
 import SelectorEmpresaEstablecimientoUnificado from './SelectorEmpresaEstablecimientoUnificado';
 import { useUserSession } from '../../contexts/UserSessionContext';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
 import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
 import { useFeedback } from '@/shared/feedback/useFeedback';
+import {
+  construirNombreCompletoSeguro,
+  normalizarCorreo,
+} from '../../pages/Private/features/configuracion-sistema/utilidades/usuariosAsignaciones';
 
 interface HeaderProps {
   sidebarCollapsed?: boolean;
@@ -32,10 +37,23 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
   // ✅ Contexts para datos reales
   const { session } = useUserSession();
+  const { state: configuracionState } = useConfigurationContext();
   const { status, aperturaActual, getResumen } = useCaja();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useHeaderNotifications();
   const { ayudaActivada, cambiarAyudaActivada, reiniciarAyudaGuiada } = usarAyudaGuiada();
   const feedback = useFeedback();
+
+  const correoSesion = normalizarCorreo(session?.userEmail);
+  const usuarioSesion = configuracionState.users.find((usuario) => {
+    if (session?.userId && usuario.id === session.userId) return true;
+    const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
+    return Boolean(correoSesion && correoUsuario && correoSesion === correoUsuario);
+  });
+  const nombreSesion = construirNombreCompletoSeguro(
+    usuarioSesion?.personalInfo.firstName,
+    usuarioSesion?.personalInfo.lastName,
+    usuarioSesion?.personalInfo.fullName,
+  ) || session?.userName || 'Usuario';
 
   // Calcular resumen de caja (saldo actual = apertura + ingresos - egresos)
   const resumenCaja = getResumen();
@@ -44,7 +62,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
   // Información de caja actualizada
   const cashInfo = {
-    cashier: aperturaActual?.usuarioNombre || session?.userName || "Usuario",
+    cashier: aperturaActual?.usuarioNombre || nombreSesion,
     openTime: aperturaActual?.fechaHoraApertura ? new Date(aperturaActual.fechaHoraApertura).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : "N/A",
     initialAmount: `S/ ${(aperturaActual?.montoInicialTotal || 0).toFixed(2)}`,
     currentAmount: `S/ ${montoActual.toFixed(2)}`,
@@ -53,10 +71,10 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
 
   // Información del usuario
   const userInfo = {
-    userName: session?.userName || "Usuario",
+    userName: nombreSesion,
     userRole: session?.role || "Usuario",
     userEmail: session?.userEmail || "",
-    userInitials: session?.userName?.split(' ').map(n => n[0]).join('').toUpperCase() || "U"
+    userInitials: nombreSesion.split(' ').map(n => n[0]).join('').toUpperCase() || "U"
   };
 
   // Cerrar menus al hacer click fuera
