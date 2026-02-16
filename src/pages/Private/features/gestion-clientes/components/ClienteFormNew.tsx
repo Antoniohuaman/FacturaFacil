@@ -4,11 +4,10 @@ import type { ClienteFormData } from '../models';
 import { onlyDigits, getDocLabelFromCode } from '../utils/documents';
 import TelefonosInput from './TelefonosInput';
 import EmailsInput from './EmailsInput';
-import ActividadesEconomicasInput from './ActividadesEconomicasInput';
-import CPEHabilitadoInput from './CPEHabilitadoInput';
 import ArchivosInput from './ArchivosInput';
 import ClienteAvatar from './ClienteAvatar';
 import ClienteFormFieldSelector from './ClienteFormFieldSelector';
+import DatosSunatCliente from './DatosSunatCliente';
 import { useClienteFormConfig } from '../hooks/useClienteFormConfig';
 import type { ClienteFieldId } from './clienteFormConfig';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
@@ -23,6 +22,8 @@ type ClienteFormProps = {
 };
 
 const PRIMARY_COLOR = '#1478D4';
+
+type IdentificadorPestanaCliente = 'datosPrincipales' | 'datosSunat';
 
 const tiposDocumento = [
   { value: '0', label: 'DOC.TRIB.NO.DOM.SIN.RUC' },
@@ -80,6 +81,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   const { consultingReniec, consultingSunat, consultarReniec, consultarSunat } = useConsultasExternas();
   const { profiles: priceProfiles } = usePriceProfilesCatalog();
   const [showOtrosDocTypes, setShowOtrosDocTypes] = useState(false);
+  const [pestanaActiva, setPestanaActiva] = useState<IdentificadorPestanaCliente>('datosPrincipales');
   
   const isConsulting = consultingReniec || consultingSunat;
   const {
@@ -269,6 +271,14 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   const esRUC = formData.tipoDocumento === '6';
   const esDNI = formData.tipoDocumento === '1';
   const documentoMaxLength = esDNI ? 8 : esRUC ? 11 : 20;
+
+  const mostrarPestanaDatosSunat = esRUC;
+
+  useEffect(() => {
+    if (!mostrarPestanaDatosSunat && pestanaActiva === 'datosSunat') {
+      setPestanaActiva('datosPrincipales');
+    }
+  }, [mostrarPestanaDatosSunat, pestanaActiva]);
 
   const getDocumentoValidationError = useCallback(() => {
     if (!esDNI && !esRUC) {
@@ -484,6 +494,41 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
       {/* Body con scroll */}
       <div className="px-6 py-3 overflow-y-auto flex-1">
+        <div className="mb-4">
+          <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden" role="tablist" aria-label="Pestañas del formulario de cliente">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pestanaActiva === 'datosPrincipales'}
+              onClick={() => setPestanaActiva('datosPrincipales')}
+              className={`px-4 py-1.5 text-xs font-medium transition-colors ${
+                pestanaActiva === 'datosPrincipales'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+              }`}
+            >
+              Datos principales
+            </button>
+            {mostrarPestanaDatosSunat && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={pestanaActiva === 'datosSunat'}
+                onClick={() => setPestanaActiva('datosSunat')}
+                className={`px-4 py-1.5 text-xs font-medium border-l border-gray-300 dark:border-gray-600 transition-colors ${
+                  pestanaActiva === 'datosSunat'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                Datos SUNAT
+              </button>
+            )}
+          </div>
+        </div>
+
+        {pestanaActiva === 'datosPrincipales' && (
+          <>
         {/* SECCIÓN: IDENTIFICACIÓN */}
         <div className="mb-4">
 
@@ -1124,171 +1169,12 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               </div>
             )}
 
-            {/* Datos SUNAT (solo RUC) */}
-            {esRUC && (
-              (() => {
-                const sunatFields: ClienteFieldId[] = [
-                  'tipoContribuyente',
-                  'estadoContribuyente',
-                  'condicionDomicilio',
-                  'fechaInscripcion',
-                  'actividadesEconomicas',
-                  'sistemaEmision',
-                  'esEmisorElectronico',
-                  'cpeHabilitado',
-                  'esAgenteRetencion',
-                  'esAgentePercepcion',
-                  'esBuenContribuyente',
-                ];
-                const shouldRenderSunatSection = sunatFields.some((fieldId) => isFieldRenderable(fieldId));
-                if (!shouldRenderSunatSection) {
-                  return null;
-                }
-
-                const showInfoCard = ['tipoContribuyente', 'estadoContribuyente', 'condicionDomicilio', 'fechaInscripcion'].some(
-                  (fieldId) => isFieldRenderable(fieldId as ClienteFieldId)
-                );
-
-                return (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                      🏛️ Información SUNAT
-                    </h3>
-
-                    {showInfoCard && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                          {isFieldRenderable('tipoContribuyente') && (
-                            <div>
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Tipo:</span>
-                              <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.tipoContribuyente || '-'}</div>
-                            </div>
-                          )}
-                          {isFieldRenderable('estadoContribuyente') && (
-                            <div>
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Estado:</span>
-                              <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.estadoContribuyente || '-'}</div>
-                            </div>
-                          )}
-                          {isFieldRenderable('condicionDomicilio') && (
-                            <div>
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Condición domicilio:</span>
-                              <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.condicionDomicilio || '-'}</div>
-                            </div>
-                          )}
-                          {isFieldRenderable('fechaInscripcion') && (
-                            <div>
-                              <span className="text-gray-600 dark:text-gray-400 font-medium">Fecha inscripción:</span>
-                              <div className="text-gray-800 dark:text-gray-200 font-semibold">{formData.fechaInscripcion || '-'}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {isFieldRenderable('actividadesEconomicas') && (
-                      <div className="mb-2">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Actividades económicas
-                        </label>
-                        <ActividadesEconomicasInput
-                          actividades={formData.actividadesEconomicas || []}
-                          onChange={(actividades) => onInputChange('actividadesEconomicas', actividades)}
-                          readonly={true}
-                        />
-                      </div>
-                    )}
-
-                    {(isFieldRenderable('sistemaEmision') || isFieldRenderable('esEmisorElectronico')) && (
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        {isFieldRenderable('sistemaEmision') && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Sistema de emisión
-                            </label>
-                            <div className="w-full border border-gray-200 dark:border-gray-700 rounded-md px-3 h-9 text-sm bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 flex items-center">
-                              {formData.sistemaEmision || '-'}
-                            </div>
-                          </div>
-                        )}
-                        {isFieldRenderable('esEmisorElectronico') && (
-                          <div className="flex items-end">
-                            <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 h-9 cursor-not-allowed">
-                              <input
-                                type="checkbox"
-                                checked={formData.esEmisorElectronico}
-                                disabled
-                                className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
-                              />
-                              Emisor electrónico
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {isFieldRenderable('cpeHabilitado') && formData.esEmisorElectronico && (
-                      <div className="mb-2">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          CPE Habilitados
-                        </label>
-                        <CPEHabilitadoInput
-                          cpeHabilitados={formData.cpeHabilitado || []}
-                          onChange={(cpeHabilitado) => handleFieldChange('cpeHabilitado', cpeHabilitado, 'cpeHabilitado')}
-                        />
-                        {renderFieldError('cpeHabilitado')}
-                      </div>
-                    )}
-
-                    {(isFieldRenderable('esAgenteRetencion') || isFieldRenderable('esAgentePercepcion') || isFieldRenderable('esBuenContribuyente')) && (
-                      <div className="space-y-1.5 mb-3">
-                        {isFieldRenderable('esAgenteRetencion') && (
-                          <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
-                            <input
-                              type="checkbox"
-                              checked={formData.esAgenteRetencion}
-                              disabled
-                              className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
-                            />
-                            Agente de retención
-                          </label>
-                        )}
-                        {isFieldRenderable('esAgentePercepcion') && (
-                          <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
-                            <input
-                              type="checkbox"
-                              checked={formData.esAgentePercepcion}
-                              disabled
-                              className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
-                            />
-                            Agente de percepción
-                          </label>
-                        )}
-                        {isFieldRenderable('esBuenContribuyente') && (
-                          <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
-                            <input
-                              type="checkbox"
-                              checked={formData.esBuenContribuyente}
-                              disabled
-                              className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
-                            />
-                            Buen contribuyente
-                          </label>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()
-            )}
-
             {/* Configuración Comercial */}
             {(isFieldRenderable('formaPago') ||
               isFieldRenderable('monedaPreferida') ||
               isFieldRenderable('listaPrecio') ||
               isFieldRenderable('usuarioAsignado') ||
-              isFieldRenderable('clientePorDefecto') ||
-              isFieldRenderable('exceptuadaPercepcion')) && (
+              isFieldRenderable('clientePorDefecto')) && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
                   💼 Configuración Comercial
@@ -1406,17 +1292,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       {renderFieldError('clientePorDefecto')}
                     </div>
                   )}
-                  {isFieldRenderable('exceptuadaPercepcion') && (
-                    <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-not-allowed">
-                      <input
-                        type="checkbox"
-                        checked={formData.exceptuadaPercepcion}
-                        disabled
-                        className="rounded border-gray-300 dark:border-gray-600 cursor-not-allowed opacity-60"
-                      />
-                      Exceptuada de percepción (SUNAT)
-                    </label>
-                  )}
                 </div>
               </div>
             )}
@@ -1483,6 +1358,27 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             )}
           </div>
         </div>
+          </>
+        )}
+
+        {pestanaActiva === 'datosSunat' && mostrarPestanaDatosSunat && (
+          <DatosSunatCliente
+            tipoContribuyente={formData.tipoContribuyente || ''}
+            estadoContribuyente={formData.estadoContribuyente || ''}
+            condicionDomicilio={formData.condicionDomicilio || ''}
+            fechaInscripcion={formData.fechaInscripcion || ''}
+            actividadesEconomicas={formData.actividadesEconomicas || []}
+            sistemaEmision={formData.sistemaEmision || ''}
+            esEmisorElectronico={formData.esEmisorElectronico}
+            cpeHabilitado={formData.cpeHabilitado || []}
+            esAgenteRetencion={formData.esAgenteRetencion}
+            esAgentePercepcion={formData.esAgentePercepcion}
+            esBuenContribuyente={formData.esBuenContribuyente}
+            exceptuadaPercepcion={formData.exceptuadaPercepcion}
+            onCambioCpeHabilitado={(cpeHabilitado) => handleFieldChange('cpeHabilitado', cpeHabilitado, 'cpeHabilitado')}
+            errorCpeHabilitado={getFieldError('cpeHabilitado')}
+          />
+        )}
       </div>
 
       {/* Footer */}
