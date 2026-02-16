@@ -19,6 +19,8 @@ type ClienteFormProps = {
   onCancel: () => void;
   onSave: () => void;
   isEditing?: boolean;
+  modoPresentacion?: 'modal' | 'drawer';
+  alCambiarAccionesEncabezado?: (acciones: React.ReactNode | null) => void;
 };
 
 const PRIMARY_COLOR = '#1478D4';
@@ -77,6 +79,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   onCancel,
   onSave,
   isEditing = false,
+  modoPresentacion = 'modal',
+  alCambiarAccionesEncabezado,
 }) => {
   const { consultingReniec, consultingSunat, consultarReniec, consultarSunat } = useConsultasExternas();
   const { profiles: priceProfiles } = usePriceProfilesCatalog();
@@ -97,6 +101,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   } = useClienteFormConfig();
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ClienteFieldId, string>>>({});
   const fieldLabelMap = useMemo(() => new Map(fieldConfigs.map((field) => [field.id, field.label])), [fieldConfigs]);
+  const esModoDrawer = modoPresentacion === 'drawer';
 
   const clearFieldError = useCallback((fieldId: ClienteFieldId) => {
     setFieldErrors((prev) => {
@@ -272,13 +277,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   const esDNI = formData.tipoDocumento === '1';
   const documentoMaxLength = esDNI ? 8 : esRUC ? 11 : 20;
 
-  const mostrarPestanaDatosSunat = esRUC;
-
-  useEffect(() => {
-    if (!mostrarPestanaDatosSunat && pestanaActiva === 'datosSunat') {
-      setPestanaActiva('datosPrincipales');
-    }
-  }, [mostrarPestanaDatosSunat, pestanaActiva]);
+  const mostrarPestanaDatosSunat = true;
 
   const getDocumentoValidationError = useCallback(() => {
     if (!esDNI && !esRUC) {
@@ -447,51 +446,88 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     onSave();
   }, [validateCustomFields, onSave]);
 
+  const accionesPersonalizacion = useMemo(
+    () => (
+      <ClienteFormFieldSelector
+        fieldConfigs={fieldConfigs}
+        visibleFieldIds={visibleFieldIds}
+        requiredFieldIds={requiredFieldIds}
+        onToggleVisible={toggleFieldVisible}
+        onToggleRequired={toggleFieldRequired}
+        onSelectAll={selectAllFields}
+        onReset={resetDefaults}
+      />
+    ),
+    [
+      fieldConfigs,
+      visibleFieldIds,
+      requiredFieldIds,
+      toggleFieldVisible,
+      toggleFieldRequired,
+      selectAllFields,
+      resetDefaults,
+    ]
+  );
+
+  useEffect(() => {
+    if (!alCambiarAccionesEncabezado) {
+      return;
+    }
+
+    if (esModoDrawer) {
+      alCambiarAccionesEncabezado(accionesPersonalizacion);
+    } else {
+      alCambiarAccionesEncabezado(null);
+    }
+
+    return () => {
+      alCambiarAccionesEncabezado(null);
+    };
+  }, [alCambiarAccionesEncabezado, esModoDrawer, accionesPersonalizacion]);
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div className="flex-1">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}
-          </h2>
-          {/* Fechas de auditoría (solo en modo edición) */}
-          {isEditing && (formData.fechaRegistro || formData.fechaUltimaModificacion) && (
-            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
-              {formData.fechaRegistro && (
-                <span>
-                  <strong className="font-medium">Creado:</strong> {formatBusinessDateTimeForTicket(formData.fechaRegistro)}
-                </span>
-              )}
-              {formData.fechaUltimaModificacion && (
-                <span>
-                  <strong className="font-medium">Modificado:</strong> {formatBusinessDateTimeForTicket(formData.fechaUltimaModificacion)}
-                </span>
-              )}
-            </div>
-          )}
+    <div
+      className={
+        esModoDrawer
+          ? 'h-full w-full bg-white dark:bg-gray-800 overflow-hidden flex flex-col'
+          : 'bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col'
+      }
+    >
+      {!esModoDrawer && (
+        <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}
+            </h2>
+            {isEditing && (formData.fechaRegistro || formData.fechaUltimaModificacion) && (
+              <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
+                {formData.fechaRegistro && (
+                  <span>
+                    <strong className="font-medium">Creado:</strong> {formatBusinessDateTimeForTicket(formData.fechaRegistro)}
+                  </span>
+                )}
+                {formData.fechaUltimaModificacion && (
+                  <span>
+                    <strong className="font-medium">Modificado:</strong> {formatBusinessDateTimeForTicket(formData.fechaUltimaModificacion)}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {accionesPersonalizacion}
+            <button
+              onClick={onCancel}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+            >
+              <span className="h-5 w-5 text-gray-400 dark:text-gray-300">✕</span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <ClienteFormFieldSelector
-            fieldConfigs={fieldConfigs}
-            visibleFieldIds={visibleFieldIds}
-            requiredFieldIds={requiredFieldIds}
-            onToggleVisible={toggleFieldVisible}
-            onToggleRequired={toggleFieldRequired}
-            onSelectAll={selectAllFields}
-            onReset={resetDefaults}
-          />
-          <button
-            onClick={onCancel}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-          >
-            <span className="h-5 w-5 text-gray-400 dark:text-gray-300">✕</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Body con scroll */}
-      <div className="px-6 py-3 overflow-y-auto flex-1">
+      <div className={`min-h-0 flex-1 overflow-y-auto ${esModoDrawer ? 'px-5 py-4' : 'px-6 py-3'}`}>
         <div className="mb-3 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-end gap-5" role="tablist" aria-label="Pestañas del formulario de cliente">
             <button
@@ -1207,7 +1243,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           </>
         )}
 
-        {pestanaActiva === 'datosSunat' && mostrarPestanaDatosSunat && (
+        {pestanaActiva === 'datosSunat' && (
           <DatosSunatCliente
             tipoContribuyente={formData.tipoContribuyente || ''}
             estadoContribuyente={formData.estadoContribuyente || ''}
@@ -1429,7 +1465,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+      <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
         <button
           onClick={onCancel}
           className="px-6 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors"

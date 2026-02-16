@@ -30,7 +30,7 @@ export interface DrawerProps {
 	alCerrar: () => void;
 	titulo?: React.ReactNode;
 	subtitulo?: React.ReactNode;
-	accionesHeader?: React.ReactNode;
+	accionesEncabezado?: React.ReactNode;
 	pie?: React.ReactNode;
 	children: React.ReactNode;
 	lado?: LadoDrawer;
@@ -49,7 +49,7 @@ export function Drawer({
 	alCerrar,
 	titulo,
 	subtitulo,
-	accionesHeader,
+	accionesEncabezado,
 	pie,
 	children,
 	lado = 'derecha',
@@ -198,7 +198,7 @@ export function Drawer({
 						)}
 					</div>
 					<div className="flex items-center gap-2">
-						{accionesHeader}
+						{accionesEncabezado}
 						<button
 							type="button"
 							onClick={alCerrar}

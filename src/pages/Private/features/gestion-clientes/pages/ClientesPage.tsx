@@ -441,6 +441,7 @@ function ClientesPage() {
 	const exportButtonRef = useRef<HTMLButtonElement>(null);
 	const exportMenuRef = useRef<HTMLDivElement>(null);
 	const botonNuevoClienteRef = useRef<HTMLButtonElement>(null);
+	const [accionesEncabezadoDrawer, setAccionesEncabezadoDrawer] = useState<React.ReactNode>(null);
 	const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
 	type BasicExportRow = ReturnType<typeof mapClientToBasicRow>;
@@ -1297,6 +1298,7 @@ function ClientesPage() {
 				abierto={showClientModal}
 				alCerrar={handleCancelClient}
 				titulo={editingClient ? 'Editar cliente' : 'Nuevo cliente'}
+				accionesEncabezado={accionesEncabezadoDrawer}
 				lado="derecha"
 				tamano="lg"
 				devolverFocoARef={botonNuevoClienteRef}
@@ -1307,6 +1309,8 @@ function ClientesPage() {
 					onCancel={handleCancelClient}
 					onSave={editingClient ? handleUpdateClient : handleCreateClient}
 					isEditing={!!editingClient}
+					modoPresentacion="drawer"
+					alCambiarAccionesEncabezado={setAccionesEncabezadoDrawer}
 				/>
 			</Drawer>
 
