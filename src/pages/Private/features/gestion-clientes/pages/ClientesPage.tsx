@@ -36,6 +36,7 @@ import { resolveCustomerNameFields } from '../utils/names';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
+import { Drawer } from '@/shared/ui';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 import { Button } from '@/contasis';
 
@@ -439,6 +440,7 @@ function ClientesPage() {
 
 	const exportButtonRef = useRef<HTMLButtonElement>(null);
 	const exportMenuRef = useRef<HTMLDivElement>(null);
+	const botonNuevoClienteRef = useRef<HTMLButtonElement>(null);
 	const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
 	type BasicExportRow = ReturnType<typeof mapClientToBasicRow>;
@@ -1126,6 +1128,7 @@ function ClientesPage() {
 						)}
 						<div className="flex-1 min-w-[1px]" />
 						<Button
+							ref={botonNuevoClienteRef}
 							onClick={() => setShowClientModal(true)}
 							variant="primary"
 							size="md"
@@ -1290,17 +1293,22 @@ function ClientesPage() {
 				</div>
 			</ClientesModuleLayout>
 
-			{showClientModal && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-					<ClienteFormNew
-						formData={formData}
-						onInputChange={handleInputChange}
-						onCancel={handleCancelClient}
-						onSave={editingClient ? handleUpdateClient : handleCreateClient}
-						isEditing={!!editingClient}
-					/>
-				</div>
-			)}
+			<Drawer
+				abierto={showClientModal}
+				alCerrar={handleCancelClient}
+				titulo={editingClient ? 'Editar cliente' : 'Nuevo cliente'}
+				lado="derecha"
+				tamano="lg"
+				devolverFocoARef={botonNuevoClienteRef}
+			>
+				<ClienteFormNew
+					formData={formData}
+					onInputChange={handleInputChange}
+					onCancel={handleCancelClient}
+					onSave={editingClient ? handleUpdateClient : handleCreateClient}
+					isEditing={!!editingClient}
+				/>
+			</Drawer>
 
 			<ConfirmationModal
 				isOpen={showDeleteModal}
