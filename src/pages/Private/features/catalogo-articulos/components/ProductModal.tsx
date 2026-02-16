@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Check, Sliders, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
+import { Tooltip } from '@/shared/ui';
 import CategoryModal from './CategoryModal';
 import { FieldsConfigPanel } from './FieldsConfigPanel';
 import { ProductTypeSelector } from './product-modal/ProductTypeSelector';
@@ -323,14 +324,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
             {product ? 'Editar producto' : 'Nuevo producto / servicio'}
           </h3>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsPanelOpen(true)}
-              className="p-1.5 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-md transition-colors"
-              aria-label="Personalizar campos del formulario"
-            >
-              <Sliders className="w-4 h-4" />
-            </button>
+            <Tooltip contenido="Personaliza qué campos ver y cuáles son obligatorios." ubicacion="izquierda">
+              <button
+                type="button"
+                onClick={() => setIsPanelOpen(true)}
+                className="h-7 px-2.5 text-xs font-medium text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+                aria-label="Más campos"
+              >
+                + Más campos
+              </button>
+            </Tooltip>
             <button
               type="button"
               onClick={onClose}

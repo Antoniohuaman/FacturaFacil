@@ -103,18 +103,20 @@ export const ProductCodeField: React.FC<SharedFieldProps & FieldUiProps> = ({
           />
           {showCheck && renderCheck?.('absolute right-2 top-1/2 -translate-y-1/2')}
         </div>
-        <button
-          type="button"
-          className="shrink-0 h-9 w-9 inline-flex items-center justify-center bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors"
-          aria-label="Generar código"
-          onClick={() => {
-            const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-            setFormData(prev => ({ ...prev, codigo: randomCode }));
-            onBlur?.();
-          }}
-        >
-          <Wand2 className="w-4 h-4 text-gray-700" />
-        </button>
+        <Tooltip contenido="Generar código aleatorio" ubicacion="derecha">
+          <button
+            type="button"
+            className="shrink-0 h-9 w-9 inline-flex items-center justify-center bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            aria-label="Generar código aleatorio"
+            onClick={() => {
+              const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+              setFormData(prev => ({ ...prev, codigo: randomCode }));
+              onBlur?.();
+            }}
+          >
+            <Wand2 className="w-4 h-4 text-gray-700" />
+          </button>
+        </Tooltip>
       </div>
       {errors.codigo && <p className="text-red-600 text-xs mt-1">{errors.codigo}</p>}
     </div>

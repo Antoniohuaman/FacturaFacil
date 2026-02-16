@@ -1,7 +1,8 @@
 // Panel lateral para configurar campos del formulario de productos
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import type { ProductFieldConfig } from '../hooks/useProductFieldsConfig';
+import { Tooltip } from '@/shared/ui';
 
 interface FieldsConfigPanelProps {
   isOpen: boolean;
@@ -20,8 +21,6 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
   onToggleRequired,
   onReset
 }) => {
-  if (!isOpen) return null;
-
   const handleReset = () => {
     if (confirm('¿Estás seguro de restablecer la configuración a los valores por defecto?')) {
       onReset();
@@ -30,6 +29,36 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
 
   const systemRequiredFields = fieldsConfig.filter(f => f.isSystemRequired);
   const customizableFields = fieldsConfig.filter(f => !f.isSystemRequired);
+  const activarTodosRef = useRef<HTMLInputElement | null>(null);
+
+  const { totalCustomizables, visiblesCustomizables } = useMemo(() => {
+    const total = customizableFields.length;
+    const visibles = customizableFields.filter(field => field.visible).length;
+    return {
+      totalCustomizables: total,
+      visiblesCustomizables: visibles,
+    };
+  }, [customizableFields]);
+
+  const todosActivos = totalCustomizables > 0 && visiblesCustomizables === totalCustomizables;
+  const ningunoActivo = visiblesCustomizables === 0;
+  const estadoMixto = !todosActivos && !ningunoActivo;
+
+  useEffect(() => {
+    if (activarTodosRef.current) {
+      activarTodosRef.current.indeterminate = estadoMixto;
+    }
+  }, [estadoMixto]);
+
+  const handleToggleActivarTodos = (checked: boolean) => {
+    customizableFields.forEach((field) => {
+      if (field.visible !== checked) {
+        onToggleVisibility(field.id);
+      }
+    });
+  };
+
+  if (!isOpen) return null;
 
   return (
     <>
@@ -56,8 +85,10 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors rounded-md hover:bg-gray-100 p-1"
+            aria-label="Cerrar panel"
           >
             <X className="w-5 h-5" />
           </button>
@@ -114,6 +145,20 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
               Activa los campos que necesites y marca como obligatorios según tu negocio
             </p>
 
+            <Tooltip contenido="Activa o desactiva todos los campos personalizables." ubicacion="abajo">
+              <label className="mb-3 inline-flex items-center gap-2 text-xs font-medium text-gray-700 select-none cursor-pointer">
+                <input
+                  ref={activarTodosRef}
+                  type="checkbox"
+                  checked={todosActivos}
+                  onChange={(event) => handleToggleActivarTodos(event.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+                  aria-label="Activar todos los campos personalizables"
+                />
+                <span>Activar todos</span>
+              </label>
+            </Tooltip>
+
             <div className="space-y-4">
               {customizableFields.map(field => (
                 <div 
@@ -136,6 +181,7 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
                     
                     {/* Toggle Mostrar */}
                     <button
+                      type="button"
                       onClick={() => onToggleVisibility(field.id)}
                       className={`
                         relative inline-flex h-6 w-11 items-center rounded-full transition-colors
@@ -186,6 +232,7 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between gap-3">
             <button
+              type="button"
               onClick={handleReset}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
@@ -193,6 +240,7 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
               Restablecer
             </button>
             <button
+              type="button"
               onClick={onClose}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md"
             >
