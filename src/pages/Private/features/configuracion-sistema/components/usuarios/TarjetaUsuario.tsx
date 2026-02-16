@@ -1,5 +1,5 @@
 // src/features/configuration/components/usuarios/UserCard.tsx
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FileText,
   Calendar,
@@ -14,18 +14,12 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { User } from '../../modelos/User';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
-import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
-import { useConfigurationContext, useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
+import { useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
 import {
   construirNombreCompletoSeguro,
-  construirResumenEmpresas,
-  construirResumenRolesSinEmpresa,
   obtenerAsignacionesUsuarioGlobal,
   obtenerEstadoUsuarioPorAsignaciones,
-  obtenerEstablecimientosIdsAsignacion,
-  obtenerMapaEstablecimientos,
-  normalizarCorreo,
 } from '../../utilidades/usuariosAsignaciones';
 
 // Type helper for user status
@@ -40,6 +34,14 @@ interface PropsTarjetaUsuario {
   alQuitarAcceso: (establecimientoId: string) => void;
   mostrarAcciones?: boolean;
   compacto?: boolean;
+  accesos: Array<{
+    empresaLabel: string;
+    establecimientoLabel: string;
+    rolLabel: string;
+    key: string;
+  }>;
+  accesosAgrupados: Array<{ empresaLabel: string; lineas: PropsTarjetaUsuario['accesos'] }>;
+  accesosFallback?: { establecimientos: string; roles: string };
 }
 
 export function TarjetaUsuario(props: PropsTarjetaUsuario) {
@@ -50,19 +52,19 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
     alEliminar,
     alCambiarEstado,
     mostrarAcciones = true,
-    compacto = false
+    compacto = false,
+    accesos,
+    accesosAgrupados,
+    accesosFallback,
   } = props;
   const { session } = useUserSession();
-  const { rolesConfigurados } = useConfigurationContext();
   const empresas = useEmpresasConfiguradas();
   const isCurrentUser = session?.userId === usuario.id;
   const [mostrarMenu, setMostrarMenu] = useState(false);
   const [mostrarModalEstado, setMostrarModalEstado] = useState(false);
   const [motivoEstado, setMotivoEstado] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
-  const [establecimientosDesborda, setEstablecimientosDesborda] = useState(false);
-  const establecimientosContenedorRef = useRef<HTMLSpanElement | null>(null);
-  const establecimientosMedicionRef = useRef<HTMLSpanElement | null>(null);
+  const [accesosExpandido, setAccesosExpandido] = useState(false);
 
   useEffect(() => {
     if (!mostrarMenu) return;
@@ -82,65 +84,20 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
     [empresas, usuario],
   );
 
-  const mapaEstablecimientos = useMemo(
-    () => obtenerMapaEstablecimientos(empresas),
-    [empresas],
-  );
-
-  const establecimientosAsignados = useMemo(() => {
-    const ids = asignaciones.flatMap((asignacion) => obtenerEstablecimientosIdsAsignacion(asignacion));
-    return Array.from(new Set(ids));
-  }, [asignaciones]);
-
-  const resumenEmpresas = construirResumenEmpresas(asignaciones);
   const estadoUsuario = obtenerEstadoUsuarioPorAsignaciones(asignaciones, usuario.status);
   const nombreCompleto = construirNombreCompletoSeguro(
     usuario.personalInfo.firstName,
     usuario.personalInfo.lastName,
     usuario.personalInfo.fullName,
   );
-  const correoSesion = normalizarCorreo(session?.userEmail);
-  const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
-  const esUsuarioSesion = Boolean(
-    (session?.userId && session.userId === usuario.id) ||
-    (correoSesion && correoUsuario && correoSesion === correoUsuario),
+  const totalLineasAccesos = accesos.length;
+  const limiteLineasAccesos = 4;
+  const idsAccesosVisibles = useMemo(
+    () => new Set(accesos.slice(0, limiteLineasAccesos).map((linea) => linea.key)),
+    [accesos],
   );
-  const esSuperadminSesion = Boolean(session?.permissions?.includes('*'));
-  const resumenRoles = esUsuarioSesion && esSuperadminSesion
-    ? { resumen: 'Superadmin', detalle: 'Superadmin', roles: ['Superadmin'] }
-    : construirResumenRolesSinEmpresa(asignaciones, rolesConfigurados);
-  const establecimientosNombres = useMemo(
-    () => establecimientosAsignados.map(
-      (id) => mapaEstablecimientos.get(id)?.nombre ?? id,
-    ),
-    [establecimientosAsignados, mapaEstablecimientos],
-  );
-  const establecimientosTextoCompleto = establecimientosNombres.join(', ');
-  const establecimientosResumen = establecimientosNombres.length > 0
-    ? establecimientosNombres.length === 1
-      ? establecimientosNombres[0]
-      : `${establecimientosNombres[0]} +${establecimientosNombres.length - 1}`
-    : 'Sin datos';
-  const resumenEmpresasTexto = esUsuarioSesion && esSuperadminSesion
-    ? { resumen: 'Todas las empresas', detalle: 'Todas las empresas' }
-    : resumenEmpresas;
-  const establecimientosResumenTexto = esUsuarioSesion && esSuperadminSesion
-    ? { resumen: 'Todos los establecimientos', detalle: 'Todos los establecimientos' }
-    : { resumen: establecimientosResumen, detalle: establecimientosTextoCompleto || 'Sin datos' };
-
-  useEffect(() => {
-    const medir = () => {
-      const contenedor = establecimientosContenedorRef.current;
-      const medicion = establecimientosMedicionRef.current;
-      if (!contenedor || !medicion) return;
-      const anchoDisponible = contenedor.getBoundingClientRect().width;
-      setEstablecimientosDesborda(medicion.scrollWidth > anchoDisponible);
-    };
-
-    medir();
-    window.addEventListener('resize', medir);
-    return () => window.removeEventListener('resize', medir);
-  }, [establecimientosTextoCompleto]);
+  const mostrarSubtitulosEmpresa = accesosAgrupados.length > 0;
+  const accesosId = `accesos-${usuario.id}`;
 
   const obtenerConfigEstado = (status: UserStatus) => {
     const configs: Record<UserStatus, {
@@ -397,44 +354,58 @@ export function TarjetaUsuario(props: PropsTarjetaUsuario) {
           )}
         </div>
 
-        <div className="mb-4 space-y-2">
-          <div className="text-sm text-gray-700">
-            <span className="font-medium">Empresas:</span> {resumenEmpresasTexto.resumen}
-          </div>
-          <div className="text-sm text-gray-700">
-            <span className="font-medium">Roles:</span>{' '}
-            <Tooltip contenido={resumenRoles.detalle} ubicacion="arriba" multilinea>
-              <span className="text-gray-700 cursor-help">
-                {resumenRoles.resumen}
-              </span>
-            </Tooltip>
-          </div>
-          <div className="text-sm text-gray-700 flex items-start gap-1">
-            <span className="font-medium shrink-0">Establecimientos:</span>
-            <span className="relative flex-1 min-w-0" ref={establecimientosContenedorRef}>
-              <span
-                ref={establecimientosMedicionRef}
-                className="absolute invisible whitespace-nowrap"
-              >
-                {establecimientosResumenTexto.detalle}
-              </span>
-              {esUsuarioSesion && esSuperadminSesion ? (
-                <span className="block text-gray-700">
-                  {establecimientosResumenTexto.resumen}
-                </span>
-              ) : establecimientosDesborda ? (
-                <Tooltip contenido={establecimientosNombres.join('\n') || 'Sin datos'} ubicacion="arriba" multilinea>
-                  <span className="block truncate text-gray-700 cursor-help">
-                    {establecimientosResumen}
-                  </span>
-                </Tooltip>
-              ) : (
-                <span className="block text-gray-700">
-                  {establecimientosTextoCompleto || 'Sin datos'}
-                </span>
-              )}
-            </span>
-          </div>
+        <div className="mb-4 space-y-1.5">
+          <div className="text-xs font-semibold text-gray-700">Accesos</div>
+          {accesosFallback ? (
+            <div className="space-y-1 text-xs text-gray-600">
+              <div>
+                <span className="text-gray-500">Establecimientos:</span> {accesosFallback.establecimientos}
+              </div>
+              <div>
+                <span className="text-gray-500">Roles:</span> {accesosFallback.roles}
+              </div>
+            </div>
+          ) : totalLineasAccesos === 0 ? (
+            <div className="text-xs text-gray-500">Sin accesos asignados</div>
+          ) : (
+            <div id={accesosId} className="space-y-1">
+              {accesosAgrupados.map((grupo) => {
+                const lineasGrupo = accesosExpandido
+                  ? grupo.lineas
+                  : grupo.lineas.filter((linea) => idsAccesosVisibles.has(linea.key));
+                if (lineasGrupo.length === 0) return null;
+                return (
+                  <div key={grupo.empresaLabel} className="space-y-0.5">
+                    {mostrarSubtitulosEmpresa && (
+                      <div className="text-xs font-semibold text-gray-600">
+                        {grupo.empresaLabel}
+                      </div>
+                    )}
+                    {lineasGrupo.map((linea) => (
+                      <div key={linea.key} className="text-xs text-gray-600">
+                        <span className="text-gray-700">{linea.establecimientoLabel}</span>
+                        <span className="text-gray-400">: </span>
+                        <span className="text-gray-900">{linea.rolLabel}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!accesosFallback && totalLineasAccesos > limiteLineasAccesos && (
+            <button
+              type="button"
+              className="text-xs text-blue-600 hover:underline"
+              onClick={() => setAccesosExpandido((prev) => !prev)}
+              aria-expanded={accesosExpandido}
+              aria-controls={accesosId}
+            >
+              {accesosExpandido
+                ? 'Ocultar'
+                : `Ver detalle (${totalLineasAccesos - limiteLineasAccesos})`}
+            </button>
+          )}
         </div>
 
 

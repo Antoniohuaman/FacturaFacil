@@ -14,7 +14,7 @@ import { Select, Input, Button } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useConfigurationContext, useEmpresasConfiguradas } from '../../contexto/ContextoConfiguracion';
-import type { User } from '../../modelos/User';
+import type { AsignacionEmpresaUsuario, User } from '../../modelos/User';
 import { TarjetaUsuario } from './TarjetaUsuario';
 import { IndicadorEstado } from '../comunes/IndicadorEstado';
 import {
@@ -38,6 +38,139 @@ type FiltroRol = string | 'TODOS';
 type ModoVista = 'tarjetas' | 'tabla';
 type CampoOrden = 'nombre' | 'correo' | 'estado' | 'empresas' | 'roles' | 'creado';
 type Orden = 'asc' | 'desc';
+
+type AccesoLinea = {
+  empresaId: string;
+  empresaLabel: string;
+  establecimientoId: string;
+  establecimientoLabel: string;
+  rolId: string;
+  rolLabel: string;
+  key: string;
+};
+
+type AccesoFallback = {
+  establecimientos: string;
+  roles: string;
+};
+
+type AccesoGrupo = {
+  empresaLabel: string;
+  lineas: AccesoLinea[];
+};
+
+const agruparAccesosPorEmpresa = (lineas: AccesoLinea[]): AccesoGrupo[] => {
+  const grupos = new Map<string, AccesoLinea[]>();
+  lineas.forEach((linea) => {
+    const actuales = grupos.get(linea.empresaLabel);
+    if (actuales) {
+      actuales.push(linea);
+    } else {
+      grupos.set(linea.empresaLabel, [linea]);
+    }
+  });
+  return Array.from(grupos.entries()).map(([empresaLabel, lineasGrupo]) => ({
+    empresaLabel,
+    lineas: lineasGrupo,
+  }));
+};
+
+const normalizarDetalleTooltip = (texto: string) => {
+  const limpio = texto.trim();
+  if (!limpio) return limpio;
+  if (limpio.includes('\n')) return limpio;
+  if (limpio.includes(',')) {
+    return limpio
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .join('\n');
+  }
+  return limpio;
+};
+
+const construirListaAccesos = (params: {
+  asignaciones: AsignacionEmpresaUsuario[];
+  mapaEstablecimientos: Map<string, { nombre: string; empresaId: string }>;
+  mapaRoles: Map<string, string>;
+  mapaEmpresas: Map<string, string>;
+  esSuperadminSesion: boolean;
+  esUsuarioSesion: boolean;
+  fallbackEstablecimientos: string;
+  fallbackRoles: string;
+}): { lineas: AccesoLinea[]; fallback?: AccesoFallback } => {
+  const {
+    asignaciones,
+    mapaEstablecimientos,
+    mapaRoles,
+    mapaEmpresas,
+    esSuperadminSesion,
+    esUsuarioSesion,
+    fallbackEstablecimientos,
+    fallbackRoles,
+  } = params;
+
+  if (esSuperadminSesion && esUsuarioSesion) {
+    return {
+      lineas: [
+        {
+          empresaId: '*',
+          empresaLabel: 'Todas las empresas',
+          establecimientoId: '*',
+          establecimientoLabel: 'Todos los establecimientos',
+          rolId: 'superadmin',
+          rolLabel: 'Superadmin',
+          key: 'superadmin:*:*',
+        },
+      ],
+    };
+  }
+
+  const lineas: AccesoLinea[] = [];
+  let requiereFallback = false;
+
+  asignaciones.forEach((asignacion) => {
+    const empresaLabel = mapaEmpresas.get(asignacion.empresaId)
+      ?? asignacion.empresaNombre
+      ?? asignacion.empresaId;
+
+    if (!asignacion.establecimientos?.length) {
+      requiereFallback = true;
+      return;
+    }
+
+    asignacion.establecimientos.forEach((establecimiento) => {
+      if (!establecimiento.roleId) {
+        requiereFallback = true;
+        return;
+      }
+      const establecimientoLabel = mapaEstablecimientos.get(establecimiento.establecimientoId)?.nombre
+        ?? establecimiento.establecimientoId;
+      const rolLabel = mapaRoles.get(establecimiento.roleId) ?? establecimiento.roleId;
+      lineas.push({
+        empresaId: asignacion.empresaId,
+        empresaLabel,
+        establecimientoId: establecimiento.establecimientoId,
+        establecimientoLabel,
+        rolId: establecimiento.roleId,
+        rolLabel,
+        key: `${asignacion.empresaId}:${establecimiento.establecimientoId}:${establecimiento.roleId}`,
+      });
+    });
+  });
+
+  if (requiereFallback) {
+    return {
+      lineas: [],
+      fallback: {
+        establecimientos: fallbackEstablecimientos,
+        roles: fallbackRoles,
+      },
+    };
+  }
+
+  return { lineas };
+};
 
 const construirStorageVistaKey = (userId?: string, companyId?: string) =>
   `configuracionUsuarios:viewMode:${userId ?? 'anon'}:${companyId ?? 'global'}`;
@@ -118,6 +251,14 @@ export function ListaUsuarios({
 
   const mapaEstablecimientos = useMemo(
     () => obtenerMapaEstablecimientos(empresas),
+    [empresas],
+  );
+  const mapaRoles = useMemo(
+    () => new Map(rolesConfigurados.map((rol) => [rol.id, rol.nombre])),
+    [rolesConfigurados],
+  );
+  const mapaEmpresas = useMemo(
+    () => new Map(empresas.map((empresa) => [empresa.id, empresa.razonSocial ?? empresa.nombreComercial ?? empresa.id])),
     [empresas],
   );
 
@@ -545,17 +686,38 @@ export function ListaUsuarios({
         </div>
       ) : modoVista === 'tarjetas' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {usuariosFiltrados.map(({ usuario }) => (
-            <TarjetaUsuario
-              key={usuario.id}
-              usuario={usuario}
-              alEditar={() => alEditar(usuario)}
-              alReenviar={() => alReenviar(usuario)}
-              alEliminar={() => alEliminar(usuario)}
-              alCambiarEstado={(estado, motivo) => alCambiarEstado(usuario, estado, motivo)}
-              alQuitarAcceso={(establecimientoId) => alQuitarAcceso(usuario, establecimientoId)}
-            />
-          ))}
+          {usuariosFiltrados.map(({ usuario, asignaciones, resumenEstablecimientos, resumenRoles }) => {
+            const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
+            const esUsuarioSesion = Boolean(
+              (usuarioActualId && usuario.id === usuarioActualId) ||
+              (correoSesion && correoUsuario && correoSesion === correoUsuario),
+            );
+            const accesosResultado = construirListaAccesos({
+              asignaciones,
+              mapaEstablecimientos,
+              mapaRoles,
+              mapaEmpresas,
+              esSuperadminSesion,
+              esUsuarioSesion,
+              fallbackEstablecimientos: resumenEstablecimientos.detalle,
+              fallbackRoles: resumenRoles.detalle,
+            });
+            const accesosAgrupados = agruparAccesosPorEmpresa(accesosResultado.lineas);
+            return (
+              <TarjetaUsuario
+                key={usuario.id}
+                usuario={usuario}
+                alEditar={() => alEditar(usuario)}
+                alReenviar={() => alReenviar(usuario)}
+                alEliminar={() => alEliminar(usuario)}
+                alCambiarEstado={(estado, motivo) => alCambiarEstado(usuario, estado, motivo)}
+                alQuitarAcceso={(establecimientoId) => alQuitarAcceso(usuario, establecimientoId)}
+                accesos={accesosResultado.lineas}
+                accesosAgrupados={accesosAgrupados}
+                accesosFallback={accesosResultado.fallback}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-visible">
@@ -639,6 +801,8 @@ export function ListaUsuarios({
                   const resumenEstablecimientosTexto = esSuperadminSesion && esUsuarioSesion
                     ? { resumen: 'Todos los establecimientos', detalle: 'Todos los establecimientos' }
                     : resumenEstablecimientos;
+                  const tooltipRoles = normalizarDetalleTooltip(resumenRolesEstablecimiento.detalle);
+                  const tooltipEstablecimientos = normalizarDetalleTooltip(resumenEstablecimientosTexto.detalle);
                   return (
                     <tr key={usuario.id} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5 whitespace-nowrap">
@@ -670,14 +834,14 @@ export function ListaUsuarios({
                         </Tooltip>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Tooltip contenido={resumenEstablecimientosTexto.detalle} ubicacion="arriba" multilinea>
+                        <Tooltip contenido={tooltipEstablecimientos} ubicacion="arriba" multilinea>
                           <span className="text-sm text-gray-700 truncate max-w-[200px] inline-block">
                             {resumenEstablecimientosTexto.resumen}
                           </span>
                         </Tooltip>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Tooltip contenido={resumenRolesEstablecimiento.detalle} ubicacion="arriba" multilinea>
+                        <Tooltip contenido={tooltipRoles} ubicacion="arriba" multilinea>
                           <span className="text-sm text-gray-700 truncate max-w-[180px] inline-block">
                             {resumenRolesEstablecimiento.resumen}
                           </span>
