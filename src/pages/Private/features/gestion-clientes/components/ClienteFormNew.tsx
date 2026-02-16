@@ -486,9 +486,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       <div className="px-6 py-3 overflow-y-auto flex-1">
         {/* SECCIÓN: IDENTIFICACIÓN */}
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-            📋 Identificación y Tipo de Cuenta
-          </h3>
 
           {/* Tipo de Documento - Pills: RUC | DNI | OTROS */}
           {isFieldRenderable('tipoDocumento') && (
