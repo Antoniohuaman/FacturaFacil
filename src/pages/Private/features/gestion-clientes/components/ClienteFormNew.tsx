@@ -23,7 +23,7 @@ type ClienteFormProps = {
 
 const PRIMARY_COLOR = '#1478D4';
 
-type IdentificadorPestanaCliente = 'datosPrincipales' | 'datosSunat';
+type IdentificadorPestanaCliente = 'datosPrincipales' | 'direcciones' | 'contactos' | 'datosSunat';
 
 const tiposDocumento = [
   { value: '0', label: 'DOC.TRIB.NO.DOM.SIN.RUC' },
@@ -509,6 +509,32 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             >
               Datos principales
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pestanaActiva === 'direcciones'}
+              onClick={() => setPestanaActiva('direcciones')}
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+                pestanaActiva === 'direcciones'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              Direcciones
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pestanaActiva === 'contactos'}
+              onClick={() => setPestanaActiva('contactos')}
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+                pestanaActiva === 'contactos'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              Contactos
+            </button>
             {mostrarPestanaDatosSunat && (
               <button
                 type="button"
@@ -924,194 +950,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               </div>
             )}
 
-            {/* Contacto */}
-            {(isFieldRenderable('emails') || isFieldRenderable('telefonos') || isFieldRenderable('paginaWeb')) && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  📞 Contacto
-                </h3>
-                {isFieldRenderable('emails') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Correos electrónicos (hasta 3){' '}
-                      {shouldShowRequiredIndicator('emails') && <span className="text-red-500">*</span>}
-                    </label>
-                    <EmailsInput
-                      emails={formData.emails || []}
-                      onChange={(emails) => handleFieldChange('emails', emails, 'emails')}
-                    />
-                    {renderFieldError('emails')}
-                  </div>
-                )}
-                {isFieldRenderable('telefonos') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Teléfonos (hasta 3){' '}
-                      {shouldShowRequiredIndicator('telefonos') && <span className="text-red-500">*</span>}
-                    </label>
-                    <TelefonosInput
-                      telefonos={formData.telefonos || []}
-                      onChange={(telefonos) => handleFieldChange('telefonos', telefonos, 'telefonos')}
-                    />
-                    {renderFieldError('telefonos')}
-                  </div>
-                )}
-                {isFieldRenderable('paginaWeb') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Página web {shouldShowRequiredIndicator('paginaWeb') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.paginaWeb}
-                      onChange={(e) => handleFieldChange('paginaWeb', e.target.value, 'paginaWeb')}
-                      className={getFieldInputClass(
-                        'paginaWeb',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
-                      placeholder="https://ejemplo.com"
-                    />
-                    {renderFieldError('paginaWeb')}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Ubicación */}
-            {(isFieldRenderable('pais') || isFieldRenderable('departamento') || isFieldRenderable('provincia') || isFieldRenderable('distrito') || isFieldRenderable('ubigeo') || isFieldRenderable('direccion') || isFieldRenderable('referenciaDireccion')) && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  📍 Ubicación
-                </h3>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {isFieldRenderable('pais') && (
-                    <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        País {shouldShowRequiredIndicator('pais') && <span className="text-red-500">*</span>}
-                      </label>
-                      <select
-                        value={formData.pais}
-                        onChange={(e) => handleFieldChange('pais', e.target.value, 'pais')}
-                        className={getFieldInputClass(
-                          'pais',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      >
-                        <option value="PE">Perú</option>
-                        <option value="US">Estados Unidos</option>
-                        <option value="ES">España</option>
-                      </select>
-                      {renderFieldError('pais')}
-                    </div>
-                  )}
-                  {isFieldRenderable('departamento') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Departamento {shouldShowRequiredIndicator('departamento') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.departamento}
-                        onChange={(e) => handleFieldChange('departamento', e.target.value, 'departamento')}
-                        className={getFieldInputClass(
-                          'departamento',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      />
-                      {renderFieldError('departamento')}
-                    </div>
-                  )}
-                  {isFieldRenderable('provincia') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Provincia {shouldShowRequiredIndicator('provincia') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.provincia}
-                        onChange={(e) => handleFieldChange('provincia', e.target.value, 'provincia')}
-                        className={getFieldInputClass(
-                          'provincia',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      />
-                      {renderFieldError('provincia')}
-                    </div>
-                  )}
-                  {isFieldRenderable('distrito') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Distrito {shouldShowRequiredIndicator('distrito') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.distrito}
-                        onChange={(e) => handleFieldChange('distrito', e.target.value, 'distrito')}
-                        className={getFieldInputClass(
-                          'distrito',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      />
-                      {renderFieldError('distrito')}
-                    </div>
-                  )}
-                  {isFieldRenderable('ubigeo') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Ubigeo {shouldShowRequiredIndicator('ubigeo') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.ubigeo}
-                        onChange={(e) => handleFieldChange('ubigeo', e.target.value, 'ubigeo')}
-                        maxLength={6}
-                        className={getFieldInputClass(
-                          'ubigeo',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                        placeholder="6 dígitos"
-                      />
-                      {renderFieldError('ubigeo')}
-                    </div>
-                  )}
-                </div>
-                {isFieldRenderable('direccion') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Dirección {shouldShowRequiredIndicator('direccion') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.direccion}
-                      onChange={(e) => handleFieldChange('direccion', e.target.value, 'direccion')}
-                      className={getFieldInputClass(
-                        'direccion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
-                    />
-                    {renderFieldError('direccion')}
-                  </div>
-                )}
-                {isFieldRenderable('referenciaDireccion') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Referencia {shouldShowRequiredIndicator('referenciaDireccion') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.referenciaDireccion}
-                      onChange={(e) => handleFieldChange('referenciaDireccion', e.target.value, 'referenciaDireccion')}
-                      className={getFieldInputClass(
-                        'referenciaDireccion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
-                      placeholder="Ej: Al costado del mercado"
-                    />
-                    {renderFieldError('referenciaDireccion')}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* COLUMNA DERECHA */}
@@ -1378,6 +1216,207 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             onCambioCpeHabilitado={(cpeHabilitado) => handleFieldChange('cpeHabilitado', cpeHabilitado, 'cpeHabilitado')}
             errorCpeHabilitado={getFieldError('cpeHabilitado')}
           />
+        )}
+
+        {pestanaActiva === 'contactos' && (
+          <>
+            {(isFieldRenderable('emails') || isFieldRenderable('telefonos') || isFieldRenderable('paginaWeb')) && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
+                  📞 Contactos
+                </h3>
+                {isFieldRenderable('emails') && (
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Correos electrónicos (hasta 3){' '}
+                      {shouldShowRequiredIndicator('emails') && <span className="text-red-500">*</span>}
+                    </label>
+                    <EmailsInput
+                      emails={formData.emails || []}
+                      onChange={(emails) => handleFieldChange('emails', emails, 'emails')}
+                    />
+                    {renderFieldError('emails')}
+                  </div>
+                )}
+                {isFieldRenderable('telefonos') && (
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Teléfonos (hasta 3){' '}
+                      {shouldShowRequiredIndicator('telefonos') && <span className="text-red-500">*</span>}
+                    </label>
+                    <TelefonosInput
+                      telefonos={formData.telefonos || []}
+                      onChange={(telefonos) => handleFieldChange('telefonos', telefonos, 'telefonos')}
+                    />
+                    {renderFieldError('telefonos')}
+                  </div>
+                )}
+                {isFieldRenderable('paginaWeb') && (
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Página web {shouldShowRequiredIndicator('paginaWeb') && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.paginaWeb}
+                      onChange={(e) => handleFieldChange('paginaWeb', e.target.value, 'paginaWeb')}
+                      className={getFieldInputClass(
+                        'paginaWeb',
+                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                      )}
+                      placeholder="https://ejemplo.com"
+                    />
+                    {renderFieldError('paginaWeb')}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {pestanaActiva === 'direcciones' && (
+          <>
+            {(isFieldRenderable('pais') ||
+              isFieldRenderable('departamento') ||
+              isFieldRenderable('provincia') ||
+              isFieldRenderable('distrito') ||
+              isFieldRenderable('ubigeo') ||
+              isFieldRenderable('direccion') ||
+              isFieldRenderable('referenciaDireccion')) && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
+                  📍 Direcciones
+                </h3>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {isFieldRenderable('pais') && (
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        País {shouldShowRequiredIndicator('pais') && <span className="text-red-500">*</span>}
+                      </label>
+                      <select
+                        value={formData.pais}
+                        onChange={(e) => handleFieldChange('pais', e.target.value, 'pais')}
+                        className={getFieldInputClass(
+                          'pais',
+                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        )}
+                      >
+                        <option value="PE">Perú</option>
+                        <option value="US">Estados Unidos</option>
+                        <option value="ES">España</option>
+                      </select>
+                      {renderFieldError('pais')}
+                    </div>
+                  )}
+                  {isFieldRenderable('departamento') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Departamento {shouldShowRequiredIndicator('departamento') && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.departamento}
+                        onChange={(e) => handleFieldChange('departamento', e.target.value, 'departamento')}
+                        className={getFieldInputClass(
+                          'departamento',
+                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        )}
+                      />
+                      {renderFieldError('departamento')}
+                    </div>
+                  )}
+                  {isFieldRenderable('provincia') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Provincia {shouldShowRequiredIndicator('provincia') && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.provincia}
+                        onChange={(e) => handleFieldChange('provincia', e.target.value, 'provincia')}
+                        className={getFieldInputClass(
+                          'provincia',
+                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        )}
+                      />
+                      {renderFieldError('provincia')}
+                    </div>
+                  )}
+                  {isFieldRenderable('distrito') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Distrito {shouldShowRequiredIndicator('distrito') && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.distrito}
+                        onChange={(e) => handleFieldChange('distrito', e.target.value, 'distrito')}
+                        className={getFieldInputClass(
+                          'distrito',
+                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        )}
+                      />
+                      {renderFieldError('distrito')}
+                    </div>
+                  )}
+                  {isFieldRenderable('ubigeo') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Ubigeo {shouldShowRequiredIndicator('ubigeo') && <span className="text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ubigeo}
+                        onChange={(e) => handleFieldChange('ubigeo', e.target.value, 'ubigeo')}
+                        maxLength={6}
+                        className={getFieldInputClass(
+                          'ubigeo',
+                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        )}
+                        placeholder="6 dígitos"
+                      />
+                      {renderFieldError('ubigeo')}
+                    </div>
+                  )}
+                </div>
+                {isFieldRenderable('direccion') && (
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Dirección {shouldShowRequiredIndicator('direccion') && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.direccion}
+                      onChange={(e) => handleFieldChange('direccion', e.target.value, 'direccion')}
+                      className={getFieldInputClass(
+                        'direccion',
+                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                      )}
+                    />
+                    {renderFieldError('direccion')}
+                  </div>
+                )}
+                {isFieldRenderable('referenciaDireccion') && (
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Referencia {shouldShowRequiredIndicator('referenciaDireccion') && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.referenciaDireccion}
+                      onChange={(e) => handleFieldChange('referenciaDireccion', e.target.value, 'referenciaDireccion')}
+                      className={getFieldInputClass(
+                        'referenciaDireccion',
+                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                      )}
+                      placeholder="Ej: Al costado del mercado"
+                    />
+                    {renderFieldError('referenciaDireccion')}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

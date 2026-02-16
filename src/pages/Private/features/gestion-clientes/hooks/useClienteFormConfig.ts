@@ -6,7 +6,8 @@ import {
   CLIENTE_FIELD_CONFIGS,
   DEFAULT_REQUIRED_FIELD_IDS,
   DEFAULT_VISIBLE_FIELD_IDS,
-  SET_IDS_CAMPOS_SUNAT,
+  SET_IDS_CAMPOS_GESTIONADOS_PESTANAS,
+  SET_IDS_CAMPOS_NO_PERSONALIZABLES,
   type ClienteFieldConfig,
   type ClienteFieldId,
 } from '../components/clienteFormConfig';
@@ -35,7 +36,7 @@ const areSameIds = (left: ClienteFieldId[] | undefined, right: ClienteFieldId[])
 const sanitizeVisible = (ids?: ClienteFieldId[]): ClienteFieldId[] => {
   const known = new Set(fieldMap.keys());
   const initial = Array.isArray(ids)
-    ? ids.filter((id): id is ClienteFieldId => known.has(id) && !SET_IDS_CAMPOS_SUNAT.has(id))
+    ? ids.filter((id): id is ClienteFieldId => known.has(id) && !SET_IDS_CAMPOS_NO_PERSONALIZABLES.has(id))
     : [];
   const merged = Array.from(new Set<ClienteFieldId>([...ALWAYS_VISIBLE_FIELD_IDS, ...initial]));
   return merged;
@@ -44,7 +45,7 @@ const sanitizeVisible = (ids?: ClienteFieldId[]): ClienteFieldId[] => {
 const sanitizeRequired = (ids: ClienteFieldId[] | undefined, visible: ClienteFieldId[]): ClienteFieldId[] => {
   const visibleSet = new Set(visible);
   const allowed = Array.isArray(ids)
-    ? ids.filter((id): id is ClienteFieldId => fieldMap.has(id) && !SET_IDS_CAMPOS_SUNAT.has(id))
+    ? ids.filter((id): id is ClienteFieldId => fieldMap.has(id) && !SET_IDS_CAMPOS_NO_PERSONALIZABLES.has(id))
     : [];
   const merged = Array.from(new Set<ClienteFieldId>([...ALWAYS_REQUIRED_FIELD_IDS, ...allowed]));
   return merged.filter((id) => visibleSet.has(id));
@@ -109,7 +110,7 @@ export const useClienteFormConfig = () => {
 
   const toggleVisible = useCallback((fieldId: ClienteFieldId) => {
     const config = fieldMap.get(fieldId);
-    if (!config || config.alwaysVisible) {
+    if (!config || config.alwaysVisible || SET_IDS_CAMPOS_NO_PERSONALIZABLES.has(fieldId)) {
       return;
     }
 
@@ -126,7 +127,7 @@ export const useClienteFormConfig = () => {
 
   const toggleRequired = useCallback((fieldId: ClienteFieldId) => {
     const config = fieldMap.get(fieldId);
-    if (!config || config.alwaysRequired || config.allowRequiredToggle === false) {
+    if (!config || config.alwaysRequired || config.allowRequiredToggle === false || SET_IDS_CAMPOS_NO_PERSONALIZABLES.has(fieldId)) {
       return;
     }
 
@@ -147,12 +148,15 @@ export const useClienteFormConfig = () => {
   }, []);
 
   const selectAllFields = useCallback(() => {
-    const allIds = CLIENTE_FIELD_CONFIGS.filter((field) => !SET_IDS_CAMPOS_SUNAT.has(field.id)).map((field) => field.id);
+    const allIds = CLIENTE_FIELD_CONFIGS.filter((field) => !SET_IDS_CAMPOS_NO_PERSONALIZABLES.has(field.id)).map((field) => field.id);
     setVisibleFieldIds(allIds);
     setRequiredFieldIds(ALWAYS_REQUIRED_FIELD_IDS);
   }, []);
 
-  const isFieldVisible = useCallback((fieldId: ClienteFieldId) => visibleSet.has(fieldId), [visibleSet]);
+  const isFieldVisible = useCallback(
+    (fieldId: ClienteFieldId) => SET_IDS_CAMPOS_GESTIONADOS_PESTANAS.has(fieldId) || visibleSet.has(fieldId),
+    [visibleSet]
+  );
   const isFieldRequired = useCallback((fieldId: ClienteFieldId) => requiredSet.has(fieldId), [requiredSet]);
 
   return {

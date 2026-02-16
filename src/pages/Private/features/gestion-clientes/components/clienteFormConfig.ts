@@ -439,7 +439,30 @@ export const IDS_CAMPOS_SUNAT: ClienteFieldId[] = [
   'exceptuadaPercepcion',
 ];
 
+export const IDS_CAMPOS_DIRECCIONES: ClienteFieldId[] = [
+  'pais',
+  'departamento',
+  'provincia',
+  'distrito',
+  'ubigeo',
+  'direccion',
+  'referenciaDireccion',
+];
+
+export const IDS_CAMPOS_CONTACTO: ClienteFieldId[] = ['emails', 'telefonos', 'paginaWeb'];
+
 export const SET_IDS_CAMPOS_SUNAT = new Set<ClienteFieldId>(IDS_CAMPOS_SUNAT);
+export const SET_IDS_CAMPOS_DIRECCIONES = new Set<ClienteFieldId>(IDS_CAMPOS_DIRECCIONES);
+export const SET_IDS_CAMPOS_CONTACTO = new Set<ClienteFieldId>(IDS_CAMPOS_CONTACTO);
+export const SET_IDS_CAMPOS_NO_PERSONALIZABLES = new Set<ClienteFieldId>([
+  ...IDS_CAMPOS_SUNAT,
+  ...IDS_CAMPOS_DIRECCIONES,
+  ...IDS_CAMPOS_CONTACTO,
+]);
+export const SET_IDS_CAMPOS_GESTIONADOS_PESTANAS = new Set<ClienteFieldId>([
+  ...IDS_CAMPOS_DIRECCIONES,
+  ...IDS_CAMPOS_CONTACTO,
+]);
 
 export const ALWAYS_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter((field) => field.alwaysVisible).map(
   (field) => field.id
@@ -449,10 +472,12 @@ export const ALWAYS_REQUIRED_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter((field) =>
   (field) => field.id
 );
 
-const FORCE_DEFAULT_VISIBLE_FIELD_IDS: ClienteFieldId[] = ['direccion', 'segundoNombre'];
+const FORCE_DEFAULT_VISIBLE_FIELD_IDS: ClienteFieldId[] = ['segundoNombre'];
 
 const BASE_DEFAULT_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter(
-  (field) => (field.defaultRequired || field.alwaysRequired || field.alwaysVisible) && !SET_IDS_CAMPOS_SUNAT.has(field.id)
+  (field) =>
+    (field.defaultRequired || field.alwaysRequired || field.alwaysVisible) &&
+    !SET_IDS_CAMPOS_NO_PERSONALIZABLES.has(field.id)
 ).map((field) => field.id);
 
 export const DEFAULT_VISIBLE_FIELD_IDS = Array.from(
@@ -460,5 +485,5 @@ export const DEFAULT_VISIBLE_FIELD_IDS = Array.from(
 );
 
 export const DEFAULT_REQUIRED_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter(
-  (field) => (field.defaultRequired || field.alwaysRequired) && !SET_IDS_CAMPOS_SUNAT.has(field.id)
+  (field) => (field.defaultRequired || field.alwaysRequired) && !SET_IDS_CAMPOS_NO_PERSONALIZABLES.has(field.id)
 ).map((field) => field.id);
