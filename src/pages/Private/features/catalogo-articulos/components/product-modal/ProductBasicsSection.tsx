@@ -1,9 +1,10 @@
 import React from 'react';
-import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2, Wand2, Plus } from 'lucide-react';
+import { Tag, Quote, Barcode, ScanLine, Folder, Badge as BadgeIcon, Package2, Wand2, Plus, HelpCircle } from 'lucide-react';
 import type { Category } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
 import { normalizeBarcodeValue, BARCODE_MAX_LENGTH } from '../../utils/formatters';
+import { Tooltip } from '@/shared/ui';
 
 interface SharedFieldProps {
   formData: ProductFormData;
@@ -70,8 +71,19 @@ export const ProductCodeField: React.FC<SharedFieldProps & FieldUiProps> = ({
 }) => {
   return (
     <div>
-      <label htmlFor="codigo" className="block text-xs font-medium text-gray-700 mb-1">
-        Código <span className="text-red-500">*</span>
+      <label htmlFor="codigo" className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-1">
+        <span>
+          Código <span className="text-red-500">*</span>
+        </span>
+        <Tooltip contenido="Identificador interno. Debe ser único en tu catálogo." ubicacion="derecha">
+          <button
+            type="button"
+            aria-label="Ayuda: Código"
+            className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </label>
       <div className="flex gap-2 w-full">
         <div className="relative flex-1 min-w-0">
@@ -95,7 +107,6 @@ export const ProductCodeField: React.FC<SharedFieldProps & FieldUiProps> = ({
           type="button"
           className="shrink-0 h-9 w-9 inline-flex items-center justify-center bg-gray-100 border border-gray-300 rounded-md text-xs font-medium hover:bg-gray-200 transition-colors"
           aria-label="Generar código"
-          title="Generar código"
           onClick={() => {
             const randomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
             setFormData(prev => ({ ...prev, codigo: randomCode }));
@@ -129,9 +140,20 @@ export const ProductBarcodeField: React.FC<SharedFieldProps & VisibilityProps & 
 
   return (
     <div>
-      <label htmlFor="codigoBarras" className="block text-xs font-medium text-gray-700 mb-1">
-        Código de barras
-        {isFieldRequired('codigoBarras') && <span className="text-red-500 ml-1">*</span>}
+      <label htmlFor="codigoBarras" className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-1">
+        <span>
+          Código de barras
+          {isFieldRequired('codigoBarras') && <span className="text-red-500 ml-1">*</span>}
+        </span>
+        <Tooltip contenido="Opcional. EAN/UPC (8–14 dígitos). Útil para lector." ubicacion="derecha">
+          <button
+            type="button"
+            aria-label="Ayuda: Código de barras"
+            className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </label>
       <div className="relative">
         <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -219,9 +241,20 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label htmlFor="categoria" className="text-xs font-medium text-gray-700">
-        Categoría
-        {isFieldRequired('categoria') && <span className="text-red-500 ml-1">*</span>}
+        <label htmlFor="categoria" className="flex items-center gap-2 text-xs font-medium text-gray-700">
+          <span>
+            Categoría
+            {isFieldRequired('categoria') && <span className="text-red-500 ml-1">*</span>}
+          </span>
+          <Tooltip contenido="Organiza tu catálogo para búsquedas y reportes." ubicacion="derecha">
+            <button
+              type="button"
+              aria-label="Ayuda: Categoría"
+              className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </label>
         {showCheck && renderCheck?.()}
       </div>
@@ -246,15 +279,16 @@ export const ProductCategoryField: React.FC<CategoryFieldProps> = ({
             ))}
           </select>
         </div>
-        <button
-          type="button"
-          className="shrink-0 h-9 w-9 inline-flex items-center justify-center text-violet-700 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors"
-          aria-label="Crear categoría"
-          title="Crear categoría"
-          onClick={onOpenCategoryModal}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <Tooltip contenido="Crear categoría nueva." ubicacion="derecha">
+          <button
+            type="button"
+            className="shrink-0 h-9 w-9 inline-flex items-center justify-center text-violet-700 border border-violet-300 rounded-md hover:bg-violet-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            aria-label="Ayuda: Crear categoría nueva"
+            onClick={onOpenCategoryModal}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </div>
       {errors.categoria && <p className="text-red-600 text-xs mt-1">{errors.categoria}</p>}
     </div>

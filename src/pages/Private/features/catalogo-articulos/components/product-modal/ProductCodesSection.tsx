@@ -1,7 +1,8 @@
 import React from 'react';
-import { Factory, FileBadge2, Boxes } from 'lucide-react';
+import { Factory, FileBadge2, Boxes, HelpCircle } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
 import type { FormError } from '../../hooks/useProductForm';
+import { Tooltip } from '@/shared/ui';
 
 
 interface ProductCodesFieldProps {
@@ -65,9 +66,20 @@ export const ProductSunatCodeField: React.FC<ProductCodesFieldProps> = ({
 
   return (
     <div>
-      <label htmlFor="codigoSunat" className="block text-xs font-medium text-gray-700 mb-1">
-        Código SUNAT
-        {isFieldRequired('codigoSunat') && <span className="text-red-500 ml-1">*</span>}
+      <label htmlFor="codigoSunat" className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-1">
+        <span>
+          Código SUNAT
+          {isFieldRequired('codigoSunat') && <span className="text-red-500 ml-1">*</span>}
+        </span>
+        <Tooltip contenido="Opcional. Úsalo si necesitas clasificación SUNAT para reportes/integraciones." ubicacion="derecha">
+          <button
+            type="button"
+            aria-label="Ayuda: Código SUNAT"
+            className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </label>
       <div className="relative">
         <FileBadge2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -102,9 +114,20 @@ export const ProductExistenceTypeField: React.FC<ProductCodesFieldProps> = ({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label htmlFor="tipoExistencia" className="text-xs font-medium text-gray-700">
-          Tipo de existencia
-          {isFieldRequired('tipoExistencia') && <span className="text-red-500 ml-1">*</span>}
+        <label htmlFor="tipoExistencia" className="flex items-center gap-2 text-xs font-medium text-gray-700">
+          <span>
+            Tipo de existencia
+            {isFieldRequired('tipoExistencia') && <span className="text-red-500 ml-1">*</span>}
+          </span>
+          <Tooltip contenido="Clasificación del bien para control y reportes." ubicacion="derecha">
+            <button
+              type="button"
+              aria-label="Ayuda: Tipo de existencia"
+              className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </label>
         {showCheck && renderCheck?.()}
       </div>

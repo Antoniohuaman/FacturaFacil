@@ -1,9 +1,10 @@
 import React from 'react';
-import { Layers, Plus, Info, X, MinusCircle } from 'lucide-react';
+import { Layers, Plus, Info, X, MinusCircle, HelpCircle } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos';
 import type { ProductFormData } from '../../models/types';
 import type { AdditionalUnitError } from '../../hooks/useProductForm';
 import { resolveUnitLabelText } from './ProductUnitsSection';
+import { Tooltip } from '@/shared/ui';
 
 interface ProductAdditionalUnitsTableProps {
   unidadesMedidaAdicionales: ProductFormData['unidadesMedidaAdicionales'];
@@ -44,16 +45,28 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
         <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
           <Layers className="w-3.5 h-3.5 text-violet-600" />
           <span>Presentaciones comerciales</span>
+          <Tooltip contenido="Crea equivalencias: caja = 12 unidades, pack = 6, etc." ubicacion="derecha">
+            <button
+              type="button"
+              aria-label="Ayuda: Presentaciones comerciales"
+              className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </Tooltip>
           {showCheck && renderCheck?.('ml-2')}
         </div>
-        <button
-          type="button"
-          onClick={addAdditionalUnit}
-          disabled={remainingUnitsForAdditional.length === 0}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-700 disabled:text-gray-400 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-3 h-3" /> Agregar presentación
-        </button>
+        <Tooltip contenido="Crea equivalencias: caja = 12 unidades, pack = 6, etc." ubicacion="izquierda">
+          <button
+            type="button"
+            onClick={addAdditionalUnit}
+            disabled={remainingUnitsForAdditional.length === 0}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-700 disabled:text-gray-400 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 rounded-sm"
+            aria-label="Ayuda: Agregar presentación"
+          >
+            <Plus className="w-3 h-3" /> Agregar presentación
+          </button>
+        </Tooltip>
       </div>
 
       {unitInfoMessage && (
@@ -64,7 +77,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
             type="button"
             onClick={() => setUnitInfoMessage(null)}
             className="text-amber-700 hover:text-amber-900"
-            title="Ocultar mensaje"
+            aria-label="Ocultar mensaje"
           >
             <X className="w-3 h-3" />
           </button>
@@ -107,7 +120,18 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
                   )}
                 </div>
                 <div>
-                  <label className="text-[11px] font-medium text-gray-600 mb-1 block">Contiene</label>
+                  <label className="text-[11px] font-medium text-gray-600 mb-1 flex items-center gap-2">
+                    <span>Contiene</span>
+                    <Tooltip contenido="Cantidad de unidades mínimas que incluye esta presentación." ubicacion="derecha">
+                      <button
+                        type="button"
+                        aria-label="Ayuda: Contiene"
+                        className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                      </button>
+                    </Tooltip>
+                  </label>
                   <div className="relative">
                     <input
                       type="number"
@@ -132,7 +156,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
                   type="button"
                   onClick={() => removeAdditionalUnit(index)}
                   className="mt-6 inline-flex items-center text-gray-400 hover:text-red-500"
-                  title="Eliminar presentación"
+                  aria-label="Eliminar presentación"
                 >
                   <MinusCircle className="w-4 h-4" />
                 </button>

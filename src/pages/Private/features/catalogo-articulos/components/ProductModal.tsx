@@ -327,7 +327,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
               type="button"
               onClick={() => setIsPanelOpen(true)}
               className="p-1.5 text-gray-500 hover:text-violet-600 hover:bg-violet-50 rounded-md transition-colors"
-              title="Personalizar"
               aria-label="Personalizar campos del formulario"
             >
               <Sliders className="w-4 h-4" />

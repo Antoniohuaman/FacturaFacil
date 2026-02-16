@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { Percent } from 'lucide-react';
+import { Percent, HelpCircle } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
+import { Tooltip } from '@/shared/ui';
 
 interface ProductPricingSectionProps {
   formData: ProductFormData;
@@ -50,9 +51,20 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label htmlFor="impuesto" className="text-xs font-medium text-gray-700">
-          Impuesto
-          {isFieldRequired('impuesto') && <span className="text-red-500 ml-1">*</span>}
+        <label htmlFor="impuesto" className="flex items-center gap-2 text-xs font-medium text-gray-700">
+          <span>
+            Impuesto
+            {isFieldRequired('impuesto') && <span className="text-red-500 ml-1">*</span>}
+          </span>
+          <Tooltip contenido="Elige el impuesto según el tipo de venta. IGV 18% es el más común." ubicacion="derecha">
+            <button
+              type="button"
+              aria-label="Ayuda: Impuesto"
+              className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </label>
         {showCheck && renderCheck?.()}
       </div>

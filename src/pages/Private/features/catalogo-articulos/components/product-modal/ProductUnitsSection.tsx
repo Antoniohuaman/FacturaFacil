@@ -1,9 +1,10 @@
 import React from 'react';
-import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Package, Zap } from 'lucide-react';
+import { Layers, Ruler, Droplet, Clock3, Boxes, Weight, Package, Zap, HelpCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos';
 import type { ProductFormData } from '../../models/types';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { Tooltip } from '@/shared/ui';
 
 type UnitFamily = Unit['category'];
 
@@ -57,7 +58,18 @@ export const ProductUnitFamilyField: React.FC<ProductUnitFamilyFieldProps> = ({
   return (
     <div>
       <div className="flex items-center justify-between gap-1 text-xs font-medium text-gray-700 mb-1">
-        <span>Familia de unidades</span>
+        <label className="flex items-center gap-2">
+          <span>Familia de unidades</span>
+          <Tooltip contenido="Selecciona la familia para habilitar conversiones (presentaciones)." ubicacion="derecha">
+            <button
+              type="button"
+              aria-label="Ayuda: Familia de unidades"
+              className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </Tooltip>
+        </label>
         {showCheck && renderCheck?.()}
       </div>
       <div className="flex flex-wrap gap-1" role="group" aria-label="Familia de unidades">
@@ -115,8 +127,19 @@ export const ProductMinimumUnitField: React.FC<ProductMinimumUnitFieldProps> = (
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label htmlFor="unidad" className="text-xs font-medium text-gray-700">
-          Unidad mínima <span className="text-red-500">*</span>
+        <label htmlFor="unidad" className="flex items-center gap-2 text-xs font-medium text-gray-700">
+          <span>
+            Unidad mínima <span className="text-red-500">*</span>
+          </span>
+          <Tooltip contenido="Unidad base para stock y ventas (ej.: Unidad, Kg)." ubicacion="derecha">
+            <button
+              type="button"
+              aria-label="Ayuda: Unidad mínima"
+              className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </label>
         {showCheck && renderCheck?.()}
       </div>

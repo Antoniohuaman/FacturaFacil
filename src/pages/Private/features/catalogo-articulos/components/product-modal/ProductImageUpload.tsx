@@ -227,7 +227,6 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
               onClick={() => handleRemoveAt(activeIndex)}
               className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/90 border border-gray-200 text-gray-700 shadow-sm hover:bg-white transition-colors"
               aria-label="Quitar imagen"
-              title="Quitar imagen"
             >
               <X className="w-4 h-4" />
             </button>
@@ -247,7 +246,6 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
                     isActive ? 'border-violet-300 ring-2 ring-violet-200' : 'border-gray-200 hover:border-gray-300'
                   }`}
                   aria-label={`Seleccionar imagen ${idx + 1}`}
-                  title={`Imagen ${idx + 1}`}
                 >
                   <img src={img.url} alt="" className="h-full w-full object-cover" />
                   <span className="sr-only">{`Imagen ${idx + 1}`}</span>
@@ -263,7 +261,6 @@ export const ProductImageUpload: React.FC<ProductImageUploadProps> = ({
                     }}
                     className="absolute -top-1 -right-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white border border-gray-200 text-gray-700 shadow-sm hover:bg-gray-50"
                     aria-label={`Quitar imagen ${idx + 1}`}
-                    title="Quitar"
                   >
                     <X className="w-3 h-3" />
                   </button>

@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
+import { HelpCircle } from 'lucide-react';
 import type { Establecimiento } from '../../../configuracion-sistema/modelos/Establecimiento';
 import type { ProductFormData } from '../../models/types';
+import { Tooltip } from '@/shared/ui';
 
 interface ProductAvailabilitySectionProps {
   formData: ProductFormData;
@@ -42,7 +44,18 @@ export const ProductAvailabilitySection: React.FC<ProductAvailabilitySectionProp
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-gray-700">Disponibilidad</label>
+        <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+          <span>Disponibilidad</span>
+          <Tooltip contenido="Define en qué establecimientos se podrá vender este producto." ubicacion="derecha">
+            <button
+              type="button"
+              aria-label="Ayuda: Disponibilidad"
+              className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </Tooltip>
+        </label>
         {showCheck && renderCheck?.()}
       </div>
 
