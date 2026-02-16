@@ -146,6 +146,17 @@ export const useProductFieldsConfig = () => {
     saveConfig(newConfig);
   };
 
+  const setAllCustomizableVisibility = (visible: boolean) => {
+    const newConfig = fieldsConfig.map((field) => {
+      if (field.isSystemRequired) {
+        return field;
+      }
+      return { ...field, visible };
+    });
+    saveConfig(newConfig);
+    return newConfig;
+  };
+
   // Toggle obligatoriedad de un campo
   const toggleFieldRequired = (fieldId: string) => {
     const newConfig = fieldsConfig.map(field => {
@@ -189,6 +200,7 @@ export const useProductFieldsConfig = () => {
     isPanelOpen,
     setIsPanelOpen,
     toggleFieldVisibility,
+    setAllCustomizableVisibility,
     toggleFieldRequired,
     resetToDefault,
     getVisibleFields,

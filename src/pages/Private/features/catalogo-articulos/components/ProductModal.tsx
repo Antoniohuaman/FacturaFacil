@@ -127,6 +127,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     isPanelOpen,
     setIsPanelOpen,
     toggleFieldVisibility,
+    setAllCustomizableVisibility,
     toggleFieldRequired,
     resetToDefault,
     isFieldVisible,
@@ -636,6 +637,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           onClose={() => setIsPanelOpen(false)}
           fieldsConfig={fieldsConfig}
           onToggleVisibility={toggleFieldVisibility}
+          onSetAllCustomizableVisibility={setAllCustomizableVisibility}
           onToggleRequired={toggleFieldRequired}
           onReset={resetToDefault}
         />

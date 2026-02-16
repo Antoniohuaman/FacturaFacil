@@ -1,5 +1,5 @@
 // Panel lateral para configurar campos del formulario de productos
-import React, { useEffect, useMemo, useRef } from 'react';
+import React from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import type { ProductFieldConfig } from '../hooks/useProductFieldsConfig';
 import { Tooltip } from '@/shared/ui';
@@ -9,6 +9,7 @@ interface FieldsConfigPanelProps {
   onClose: () => void;
   fieldsConfig: ProductFieldConfig[];
   onToggleVisibility: (fieldId: string) => void;
+  onSetAllCustomizableVisibility: (visible: boolean) => void;
   onToggleRequired: (fieldId: string) => void;
   onReset: () => void;
 }
@@ -18,6 +19,7 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
   onClose,
   fieldsConfig,
   onToggleVisibility,
+  onSetAllCustomizableVisibility,
   onToggleRequired,
   onReset
 }) => {
@@ -29,34 +31,7 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
 
   const systemRequiredFields = fieldsConfig.filter(f => f.isSystemRequired);
   const customizableFields = fieldsConfig.filter(f => !f.isSystemRequired);
-  const activarTodosRef = useRef<HTMLInputElement | null>(null);
-
-  const { totalCustomizables, visiblesCustomizables } = useMemo(() => {
-    const total = customizableFields.length;
-    const visibles = customizableFields.filter(field => field.visible).length;
-    return {
-      totalCustomizables: total,
-      visiblesCustomizables: visibles,
-    };
-  }, [customizableFields]);
-
-  const todosActivos = totalCustomizables > 0 && visiblesCustomizables === totalCustomizables;
-  const ningunoActivo = visiblesCustomizables === 0;
-  const estadoMixto = !todosActivos && !ningunoActivo;
-
-  useEffect(() => {
-    if (activarTodosRef.current) {
-      activarTodosRef.current.indeterminate = estadoMixto;
-    }
-  }, [estadoMixto]);
-
-  const handleToggleActivarTodos = (checked: boolean) => {
-    customizableFields.forEach((field) => {
-      if (field.visible !== checked) {
-        onToggleVisibility(field.id);
-      }
-    });
-  };
+  const todosActivos = customizableFields.every(field => field.visible);
 
   if (!isOpen) return null;
 
@@ -148,10 +123,9 @@ export const FieldsConfigPanel: React.FC<FieldsConfigPanelProps> = ({
             <Tooltip contenido="Activa o desactiva todos los campos personalizables." ubicacion="abajo">
               <label className="mb-3 inline-flex items-center gap-2 text-xs font-medium text-gray-700 select-none cursor-pointer">
                 <input
-                  ref={activarTodosRef}
                   type="checkbox"
                   checked={todosActivos}
-                  onChange={(event) => handleToggleActivarTodos(event.target.checked)}
+                  onChange={(event) => onSetAllCustomizableVisibility(event.target.checked)}
                   className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
                   aria-label="Activar todos los campos personalizables"
                 />
