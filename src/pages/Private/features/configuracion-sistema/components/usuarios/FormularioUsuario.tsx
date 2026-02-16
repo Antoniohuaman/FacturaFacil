@@ -6,6 +6,7 @@ import { Tooltip } from '@/shared/ui';
 import type { Empresa } from '../../../autenticacion/types/auth.types';
 import type { User as UsuarioModelo, AsignacionEmpresaUsuario, EstadoAsignacionUsuario } from '../../modelos/User';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
+import { useUserSession } from '@/contexts/UserSessionContext';
 import {
   construirResumenLista,
   generarContrasenaTemporal,
@@ -78,6 +79,7 @@ export function FormularioUsuario({
   cargando = false
 }: PropsFormularioUsuario) {
   const { rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
   const compactFieldClass = '[&>label]:mb-1';
   const nombresInputRef = useRef<HTMLInputElement | null>(null);
   const [crearOtro, setCrearOtro] = useState(false);
@@ -107,6 +109,16 @@ export function FormularioUsuario({
       ),
     );
   }, [empresasDisponibles]);
+
+  const esEdicionSuperadminSesion = useMemo(() => {
+    if (!usuario || !session?.permissions?.includes('*')) return false;
+    const correoSesion = normalizarCorreo(session.userEmail);
+    const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
+    return Boolean(
+      (session.userId && usuario.id === session.userId) ||
+      (correoSesion && correoUsuario && correoSesion === correoUsuario),
+    );
+  }, [session?.permissions, session?.userEmail, session?.userId, usuario]);
 
   useEffect(() => {
     if (!usuario) return;
@@ -385,6 +397,10 @@ export function FormularioUsuario({
       }
     }
 
+    if (esEdicionSuperadminSesion) {
+      return true;
+    }
+
     if (datosFormulario.asignacionesPorEmpresa.length === 0) {
       return false;
     }
@@ -406,7 +422,9 @@ export function FormularioUsuario({
       if (error) nuevosErrores[campo] = error;
     });
 
-    const erroresAsignaciones = validarAsignaciones(datosFormulario.asignacionesPorEmpresa);
+    const erroresAsignaciones = esEdicionSuperadminSesion
+      ? {}
+      : validarAsignaciones(datosFormulario.asignacionesPorEmpresa);
     setErrores(nuevosErrores);
     setErroresPorEmpresa(erroresAsignaciones);
 
@@ -414,12 +432,12 @@ export function FormularioUsuario({
       return;
     }
 
-    if (datosFormulario.asignacionesPorEmpresa.length === 0) {
+    if (!esEdicionSuperadminSesion && datosFormulario.asignacionesPorEmpresa.length === 0) {
       setErrores(prev => ({ ...prev, empresas: 'Selecciona al menos una empresa' }));
       return;
     }
 
-    if (Object.keys(erroresAsignaciones).length > 0) {
+    if (!esEdicionSuperadminSesion && Object.keys(erroresAsignaciones).length > 0) {
       return;
     }
 
@@ -709,7 +727,13 @@ export function FormularioUsuario({
                 </span>
               </Tooltip>
             </div>
-            {empresasOrdenadas.length > 1 ? (
+            {esEdicionSuperadminSesion ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 space-y-1">
+                <div className="font-semibold text-gray-800">Superadmin</div>
+                <div>Todas las empresas</div>
+                <div>Todos los establecimientos</div>
+              </div>
+            ) : empresasOrdenadas.length > 1 ? (
               <div className="space-y-2">
                 {empresasOrdenadas.map((empresa) => (
                   <label key={empresa.id} className="flex items-center gap-2 text-xs text-gray-700">
@@ -732,16 +756,18 @@ export function FormularioUsuario({
               </div>
             )}
 
-            {errores.empresas && (
+            {errores.empresas && !esEdicionSuperadminSesion && (
               <p className="text-xs text-red-600 mt-2 flex items-center space-x-1">
                 <AlertCircle className="w-4 h-4" />
                 <span>{errores.empresas}</span>
               </p>
             )}
 
-            <div className="space-y-2">
-              {datosFormulario.asignacionesPorEmpresa.map(renderizarAsignacionEmpresa)}
-            </div>
+            {!esEdicionSuperadminSesion && (
+              <div className="space-y-2">
+                {datosFormulario.asignacionesPorEmpresa.map(renderizarAsignacionEmpresa)}
+              </div>
+            )}
           </div>
 
           {!usuario && (

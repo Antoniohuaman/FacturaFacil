@@ -157,8 +157,18 @@ export function ConfiguracionUsuarios() {
 
     setErrorCorreoUsuario(null);
 
+    const esEdicionSuperadminSesion = Boolean(
+      usuarioEnEdicion
+      && session?.permissions?.includes('*')
+      && (
+        (session.userId && usuarioEnEdicion.id === session.userId)
+        || (normalizarCorreo(session.userEmail) && normalizarCorreo(usuarioEnEdicion.personalInfo.email)
+          && normalizarCorreo(session.userEmail) === normalizarCorreo(usuarioEnEdicion.personalInfo.email))
+      )
+    );
+
     const asignacionesFormulario = data.asignacionesPorEmpresa ?? [];
-    if (asignacionesFormulario.length === 0) {
+    if (!esEdicionSuperadminSesion && asignacionesFormulario.length === 0) {
       return false;
     }
 
@@ -178,6 +188,24 @@ export function ConfiguracionUsuarios() {
       );
       const nombreCompleto = construirNombreCompleto(data.nombres, data.apellidos);
       const establecimientoPrincipal = idsEstablecimientos.length === 1 ? idsEstablecimientos[0] : undefined;
+
+      if (usuarioEnEdicion && esEdicionSuperadminSesion) {
+        const usuarioActualizado: User = {
+          ...usuarioEnEdicion,
+          personalInfo: {
+            ...usuarioEnEdicion.personalInfo,
+            firstName: data.nombres,
+            lastName: data.apellidos,
+            fullName: nombreCompleto,
+            phone: data.telefono,
+            documentType: data.tipoDocumento || undefined,
+            documentNumber: data.numeroDocumento || undefined,
+          },
+          updatedAt: new Date(),
+        };
+        dispatch({ type: 'UPDATE_USER', payload: usuarioActualizado });
+        return true;
+      }
 
       if (usuarioEnEdicion) {
         const correoInmutable = usuarioEnEdicion.personalInfo.email;
