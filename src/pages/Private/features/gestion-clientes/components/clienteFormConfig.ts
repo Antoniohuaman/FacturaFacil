@@ -424,6 +424,23 @@ export const CLIENTE_FIELD_CONFIGS: ClienteFieldConfig[] = [
   },
 ];
 
+export const IDS_CAMPOS_SUNAT: ClienteFieldId[] = [
+  'tipoContribuyente',
+  'estadoContribuyente',
+  'condicionDomicilio',
+  'fechaInscripcion',
+  'actividadesEconomicas',
+  'sistemaEmision',
+  'esEmisorElectronico',
+  'cpeHabilitado',
+  'esAgenteRetencion',
+  'esAgentePercepcion',
+  'esBuenContribuyente',
+  'exceptuadaPercepcion',
+];
+
+export const SET_IDS_CAMPOS_SUNAT = new Set<ClienteFieldId>(IDS_CAMPOS_SUNAT);
+
 export const ALWAYS_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter((field) => field.alwaysVisible).map(
   (field) => field.id
 );
@@ -435,7 +452,7 @@ export const ALWAYS_REQUIRED_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter((field) =>
 const FORCE_DEFAULT_VISIBLE_FIELD_IDS: ClienteFieldId[] = ['direccion', 'segundoNombre'];
 
 const BASE_DEFAULT_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter(
-  (field) => field.defaultRequired || field.alwaysRequired || field.alwaysVisible
+  (field) => (field.defaultRequired || field.alwaysRequired || field.alwaysVisible) && !SET_IDS_CAMPOS_SUNAT.has(field.id)
 ).map((field) => field.id);
 
 export const DEFAULT_VISIBLE_FIELD_IDS = Array.from(
@@ -443,5 +460,5 @@ export const DEFAULT_VISIBLE_FIELD_IDS = Array.from(
 );
 
 export const DEFAULT_REQUIRED_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter(
-  (field) => field.defaultRequired || field.alwaysRequired
+  (field) => (field.defaultRequired || field.alwaysRequired) && !SET_IDS_CAMPOS_SUNAT.has(field.id)
 ).map((field) => field.id);

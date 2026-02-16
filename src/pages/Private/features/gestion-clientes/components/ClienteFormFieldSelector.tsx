@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { SlidersHorizontal, X } from 'lucide-react';
 import {
   CLIENTE_FIELD_SECTION_LABELS,
+  SET_IDS_CAMPOS_SUNAT,
   type ClienteFieldConfig,
   type ClienteFieldId,
   type ClienteFieldSection,
@@ -38,6 +39,9 @@ const ClienteFormFieldSelector: React.FC<ClienteFormFieldSelectorProps> = ({
 
   const groupedBySection = useMemo(() => {
     return fieldConfigs.reduce<Record<ClienteFieldSection, ClienteFieldConfig[]>>((acc, field) => {
+      if (field.section === 'sunat' || SET_IDS_CAMPOS_SUNAT.has(field.id)) {
+        return acc;
+      }
       if (!acc[field.section]) {
         acc[field.section] = [];
       }

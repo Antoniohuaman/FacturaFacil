@@ -6,6 +6,7 @@ import {
   CLIENTE_FIELD_CONFIGS,
   DEFAULT_REQUIRED_FIELD_IDS,
   DEFAULT_VISIBLE_FIELD_IDS,
+  SET_IDS_CAMPOS_SUNAT,
   type ClienteFieldConfig,
   type ClienteFieldId,
 } from '../components/clienteFormConfig';
@@ -21,9 +22,21 @@ const fieldMap = new Map<ClienteFieldId, ClienteFieldConfig>(CLIENTE_FIELD_CONFI
 
 const lsKey = (): string => `${ensureEmpresaId()}:${STORAGE_KEY}`;
 
+const areSameIds = (left: ClienteFieldId[] | undefined, right: ClienteFieldId[]): boolean => {
+  if (!Array.isArray(left)) {
+    return false;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((id, index) => id === right[index]);
+};
+
 const sanitizeVisible = (ids?: ClienteFieldId[]): ClienteFieldId[] => {
   const known = new Set(fieldMap.keys());
-  const initial = Array.isArray(ids) ? ids.filter((id): id is ClienteFieldId => known.has(id)) : [];
+  const initial = Array.isArray(ids)
+    ? ids.filter((id): id is ClienteFieldId => known.has(id) && !SET_IDS_CAMPOS_SUNAT.has(id))
+    : [];
   const merged = Array.from(new Set<ClienteFieldId>([...ALWAYS_VISIBLE_FIELD_IDS, ...initial]));
   return merged;
 };
@@ -31,7 +44,7 @@ const sanitizeVisible = (ids?: ClienteFieldId[]): ClienteFieldId[] => {
 const sanitizeRequired = (ids: ClienteFieldId[] | undefined, visible: ClienteFieldId[]): ClienteFieldId[] => {
   const visibleSet = new Set(visible);
   const allowed = Array.isArray(ids)
-    ? ids.filter((id): id is ClienteFieldId => fieldMap.has(id))
+    ? ids.filter((id): id is ClienteFieldId => fieldMap.has(id) && !SET_IDS_CAMPOS_SUNAT.has(id))
     : [];
   const merged = Array.from(new Set<ClienteFieldId>([...ALWAYS_REQUIRED_FIELD_IDS, ...allowed]));
   return merged.filter((id) => visibleSet.has(id));
@@ -75,6 +88,11 @@ export const useClienteFormConfig = () => {
       if (!persisted) return;
       const nextVisible = sanitizeVisible(persisted.visible);
       const nextRequired = sanitizeRequired(persisted.required, nextVisible);
+
+      if (!areSameIds(persisted.visible, nextVisible) || !areSameIds(persisted.required, nextRequired)) {
+        persistConfig({ visible: nextVisible, required: nextRequired });
+      }
+
       setVisibleFieldIds(nextVisible);
       setRequiredFieldIds(nextRequired);
     } catch (error) {
@@ -129,7 +147,7 @@ export const useClienteFormConfig = () => {
   }, []);
 
   const selectAllFields = useCallback(() => {
-    const allIds = CLIENTE_FIELD_CONFIGS.map((field) => field.id);
+    const allIds = CLIENTE_FIELD_CONFIGS.filter((field) => !SET_IDS_CAMPOS_SUNAT.has(field.id)).map((field) => field.id);
     setVisibleFieldIds(allIds);
     setRequiredFieldIds(ALWAYS_REQUIRED_FIELD_IDS);
   }, []);

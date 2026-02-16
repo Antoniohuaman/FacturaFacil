@@ -60,7 +60,23 @@ export interface ClienteColumnConfig {
 const STORAGE_BASE_KEY = 'clientes_columns_config';
 const LEGACY_STORAGE_BASE_KEY = 'clientes_visible_columns';
 
-export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
+const IDS_COLUMNAS_SUNAT: ClienteColumnId[] = [
+  'tipoContribuyente',
+  'estadoSunat',
+  'condicionDomicilio',
+  'fechaInscripcion',
+  'sistemaEmision',
+  'esEmisorElectronico',
+  'esAgenteRetencion',
+  'esAgentePercepcion',
+  'esBuenContribuyente',
+  'exceptuadaPercepcion',
+  'actividadesEconomicas',
+];
+
+const SET_IDS_COLUMNAS_SUNAT = new Set<ClienteColumnId>(IDS_COLUMNAS_SUNAT);
+
+const CLIENTE_COLUMN_DEFINITIONS_COMPLETAS: ClienteColumnDefinition[] = [
   { id: 'avatar', label: 'Avatar', defaultVisible: true },
   { id: 'tipoDocumento', label: 'Tipo doc.', defaultVisible: true },
   { id: 'numeroDocumento', label: 'N° documento', defaultVisible: true },
@@ -102,6 +118,10 @@ export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = [
   { id: 'fechaRegistro', label: 'Fecha registro', defaultVisible: false },
   { id: 'fechaUltimaModificacion', label: 'Últ. modif.', defaultVisible: false }
 ];
+
+export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = CLIENTE_COLUMN_DEFINITIONS_COMPLETAS.filter(
+  (column) => !SET_IDS_COLUMNAS_SUNAT.has(column.id)
+);
 
 const createDefaultConfig = (): ClienteColumnConfig[] =>
   CLIENTE_COLUMN_DEFINITIONS.map((column) => ({
@@ -155,6 +175,23 @@ const sanitizeConfig = (stored: ClienteColumnConfig[]): ClienteColumnConfig[] =>
   return sanitized;
 };
 
+const areSameConfig = (left: ClienteColumnConfig[], right: ClienteColumnConfig[]): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((column, index) => {
+    const candidate = right[index];
+    return Boolean(
+      candidate &&
+      candidate.id === column.id &&
+      candidate.label === column.label &&
+      candidate.visible === column.visible &&
+      candidate.fixed === column.fixed
+    );
+  });
+};
+
 const parseLegacyVisibility = (raw: string | null): ClienteColumnId[] | null => {
   if (!raw) {
     return null;
@@ -192,7 +229,15 @@ const loadInitialConfig = (): ClienteColumnConfig[] => {
   if (tenantKey) {
     const stored = parseConfig(window.localStorage.getItem(tenantKey));
     if (stored) {
-      return sanitizeConfig(stored);
+      const sanitized = sanitizeConfig(stored);
+      if (!areSameConfig(stored, sanitized)) {
+        try {
+          window.localStorage.setItem(tenantKey, JSON.stringify(sanitized));
+        } catch {
+          // noop
+        }
+      }
+      return sanitized;
     }
   }
 
