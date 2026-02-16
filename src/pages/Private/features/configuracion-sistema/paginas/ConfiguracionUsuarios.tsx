@@ -139,10 +139,10 @@ export function ConfiguracionUsuarios() {
     setMensajeSinPermiso(mensaje);
   };
 
-  const manejarEnvioUsuario = async (data: DatosFormularioUsuario) => {
+  const manejarEnvioUsuario = async (data: DatosFormularioUsuario): Promise<boolean> => {
     if (!puedeGestionarUsuarios || !puedeGestionarAccesos) {
       registrarSinPermiso('No tienes permisos para crear o actualizar usuarios y accesos.');
-      return;
+      return false;
     }
 
     const correoNormalizado = normalizarCorreo(data.correo);
@@ -152,14 +152,14 @@ export function ConfiguracionUsuarios() {
 
     if (existeDuplicado) {
       setErrorCorreoUsuario('Ya existe un usuario con este correo.');
-      return;
+      return false;
     }
 
     setErrorCorreoUsuario(null);
 
     const asignacionesFormulario = data.asignacionesPorEmpresa ?? [];
     if (asignacionesFormulario.length === 0) {
-      return;
+      return false;
     }
 
     setCargando(true);
@@ -259,9 +259,9 @@ export function ConfiguracionUsuarios() {
         });
       }
 
-      reiniciarFormularioUsuario();
+      return true;
     } catch {
-      return;
+      return false;
     } finally {
       setCargando(false);
     }
@@ -472,18 +472,19 @@ export function ConfiguracionUsuarios() {
     setRolParaEliminar(rol);
   };
 
-  const manejarGuardarRolPersonalizado = (rol: Omit<RolPersonalizado, 'tipo'>) => {
+  const manejarGuardarRolPersonalizado = (rol: Omit<RolPersonalizado, 'tipo'>): boolean => {
     try {
       if (modalRolPersonalizado.rol) {
         editarRolPersonalizado({ ...rol, tipo: 'PERSONALIZADO' });
       } else {
         crearRolPersonalizado(rol);
       }
-      setModalRolPersonalizado({ abierto: false });
       setErrorRolPersonalizado(null);
+      return true;
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo guardar el rol.';
       setErrorRolPersonalizado(mensaje);
+      return false;
     }
   };
 

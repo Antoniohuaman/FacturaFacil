@@ -39,6 +39,19 @@ type ModoVista = 'tarjetas' | 'tabla';
 type CampoOrden = 'nombre' | 'correo' | 'estado' | 'empresas' | 'roles' | 'creado';
 type Orden = 'asc' | 'desc';
 
+const construirStorageVistaKey = (userId?: string, companyId?: string) =>
+  `configuracionUsuarios:viewMode:${userId ?? 'anon'}:${companyId ?? 'global'}`;
+
+const leerModoVista = (storageKey: string): ModoVista => {
+  if (typeof window === 'undefined') return 'tabla';
+  try {
+    const guardado = window.localStorage.getItem(storageKey);
+    return guardado === 'tarjetas' || guardado === 'tabla' ? guardado : 'tabla';
+  } catch {
+    return 'tabla';
+  }
+};
+
 interface PropsListaUsuarios {
   usuarios: User[];
   alEditar: (usuario: User) => void;
@@ -71,7 +84,11 @@ export function ListaUsuarios({
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('TODOS');
   const [filtroEmpresa, setFiltroEmpresa] = useState<FiltroEmpresa>('TODAS');
   const [filtroRol, setFiltroRol] = useState<FiltroRol>('TODOS');
-  const [modoVista, setModoVista] = useState<ModoVista>('tarjetas');
+  const storageVistaKey = useMemo(
+    () => construirStorageVistaKey(session?.userId, session?.currentCompanyId),
+    [session?.currentCompanyId, session?.userId],
+  );
+  const [modoVista, setModoVista] = useState<ModoVista>(() => leerModoVista(storageVistaKey));
   const [campoOrden, setCampoOrden] = useState<CampoOrden>('nombre');
   const [orden, setOrden] = useState<Orden>('asc');
   const [modalEstado, setModalEstado] = useState<{ abierto: boolean; usuario?: User }>({ abierto: false });
@@ -85,6 +102,19 @@ export function ListaUsuarios({
   } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const MENU_WIDTH = 160;
+
+  useEffect(() => {
+    setModoVista(leerModoVista(storageVistaKey));
+  }, [storageVistaKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(storageVistaKey, modoVista);
+    } catch {
+      return;
+    }
+  }, [modoVista, storageVistaKey]);
 
   const mapaEstablecimientos = useMemo(
     () => obtenerMapaEstablecimientos(empresas),

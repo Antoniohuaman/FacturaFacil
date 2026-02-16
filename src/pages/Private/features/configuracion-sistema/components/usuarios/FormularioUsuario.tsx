@@ -1,5 +1,5 @@
 // src/features/configuration/components/usuarios/UserForm.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, User, Mail, Phone, AlertCircle, Building2, Lock, Eye, EyeOff, RefreshCw, Copy, Check, Info } from 'lucide-react';
 import { Button, Select, Input, Checkbox } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
@@ -31,7 +31,7 @@ interface PropsFormularioUsuario {
   correosExistentes: string[];
   errorCorreo?: string | null;
   onClearErrorCorreo?: () => void;
-  alEnviar: (data: DatosFormularioUsuario) => Promise<void>;
+  alEnviar: (data: DatosFormularioUsuario) => Promise<boolean>;
   alCancelar: () => void;
   cargando?: boolean;
 }
@@ -79,7 +79,9 @@ export function FormularioUsuario({
 }: PropsFormularioUsuario) {
   const { rolesConfigurados } = useConfigurationContext();
   const compactFieldClass = '[&>label]:mb-1';
-  const [datosFormulario, setDatosFormulario] = useState<DatosFormularioUsuario>({
+  const nombresInputRef = useRef<HTMLInputElement | null>(null);
+  const [crearOtro, setCrearOtro] = useState(false);
+  const construirDatosIniciales = (): DatosFormularioUsuario => ({
     nombres: '',
     apellidos: '',
     correo: '',
@@ -88,6 +90,9 @@ export function FormularioUsuario({
     numeroDocumento: '',
     contrasena: generarContrasenaTemporal(),
     asignacionesPorEmpresa: [],
+  });
+  const [datosFormulario, setDatosFormulario] = useState<DatosFormularioUsuario>({
+    ...construirDatosIniciales(),
   });
 
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -418,7 +423,26 @@ export function FormularioUsuario({
       return;
     }
 
-    await alEnviar(datosFormulario);
+    const guardado = await alEnviar(datosFormulario);
+    if (!guardado) return;
+
+    if (usuario) {
+      alCancelar();
+      return;
+    }
+
+    if (crearOtro) {
+      setDatosFormulario(construirDatosIniciales());
+      setErrores({});
+      setErroresPorEmpresa({});
+      setMostrarContrasena(false);
+      setContrasenaCopiada(false);
+      onClearErrorCorreo?.();
+      requestAnimationFrame(() => nombresInputRef.current?.focus());
+      return;
+    }
+
+    alCancelar();
   };
 
   const renderizarAsignacionEmpresa = (asignacion: AsignacionEmpresaUsuario) => {
@@ -568,6 +592,7 @@ export function FormularioUsuario({
                 required
                 size="small"
                 containerClassName={compactFieldClass}
+                ref={nombresInputRef}
               />
               <Input
                 label="Apellidos"
@@ -830,23 +855,36 @@ export function FormularioUsuario({
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4 border-t border-gray-200">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={alCancelar}
-              disabled={cargando}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              type="submit"
-              disabled={cargando || !esValido()}
-            >
-              {cargando ? 'Guardando...' : (usuario ? 'Actualizar' : 'Registrar')}
-            </Button>
+          <div className="pt-4 border-t border-gray-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {!usuario && (
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <Checkbox
+                  checked={crearOtro}
+                  onChange={() => setCrearOtro((prev) => !prev)}
+                  disabled={cargando}
+                  size="sm"
+                />
+                <span>Crear otro</span>
+              </label>
+            )}
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={alCancelar}
+                disabled={cargando}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                type="submit"
+                disabled={cargando || !esValido()}
+              >
+                {cargando ? 'Guardando...' : (usuario ? 'Actualizar' : 'Registrar')}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

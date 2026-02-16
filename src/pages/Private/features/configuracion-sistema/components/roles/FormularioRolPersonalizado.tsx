@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { Checkbox } from '@/contasis';
 import type { PermisoCatalogo, RolPersonalizado } from '../../roles/tiposRolesPermisos';
 
 interface FormularioRolPersonalizadoProps {
   rol?: RolPersonalizado;
   permisosDisponibles: PermisoCatalogo[];
-  onGuardar: (rol: Omit<RolPersonalizado, 'tipo'>) => void;
+  onGuardar: (rol: Omit<RolPersonalizado, 'tipo'>) => boolean | Promise<boolean>;
   onCancelar: () => void;
   errorExterno?: string | null;
 }
@@ -16,6 +17,7 @@ export function FormularioRolPersonalizado({
   onCancelar,
   errorExterno,
 }: FormularioRolPersonalizadoProps) {
+  const nombreInputRef = useRef<HTMLInputElement | null>(null);
   const [nombre, setNombre] = useState(rol?.nombre ?? '');
   const [descripcion, setDescripcion] = useState(rol?.descripcion ?? '');
   const [busqueda, setBusqueda] = useState('');
@@ -24,6 +26,7 @@ export function FormularioRolPersonalizado({
   );
   const [error, setError] = useState<string | null>(null);
   const [errorPermisos, setErrorPermisos] = useState<string | null>(null);
+  const [crearOtro, setCrearOtro] = useState(false);
 
   const permisosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -61,7 +64,7 @@ export function FormularioRolPersonalizado({
     });
   };
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
     const nombreLimpio = nombre.trim();
     if (!nombreLimpio) {
       setError('El nombre del rol es obligatorio');
@@ -75,12 +78,27 @@ export function FormularioRolPersonalizado({
 
     setError(null);
     setErrorPermisos(null);
-    onGuardar({
+    const guardado = await Promise.resolve(onGuardar({
       id: rol?.id ?? '',
       nombre: nombreLimpio,
       descripcion: descripcion.trim() || 'Rol personalizado',
       permisos: Array.from(seleccionados),
-    });
+    }));
+
+    if (!guardado) return;
+
+    if (rol || !crearOtro) {
+      onCancelar();
+      return;
+    }
+
+    setNombre('');
+    setDescripcion('');
+    setBusqueda('');
+    setSeleccionados(new Set());
+    setError(null);
+    setErrorPermisos(null);
+    requestAnimationFrame(() => nombreInputRef.current?.focus());
   };
 
   const puedeGuardar = nombre.trim().length > 0 && seleccionados.size > 0;
@@ -122,6 +140,7 @@ export function FormularioRolPersonalizado({
                 onChange={(event) => setNombre(event.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Ej: Supervisor de ventas"
+                ref={nombreInputRef}
               />
             </div>
             <div className="space-y-2">
@@ -186,26 +205,38 @@ export function FormularioRolPersonalizado({
           </div>
         </div>
 
-        <div className="px-5 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancelar}
-            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleGuardar}
-            className={`px-4 py-2 text-sm font-medium rounded-lg ${
-              puedeGuardar
-                ? 'text-white bg-blue-600 hover:bg-blue-700'
-                : 'text-gray-400 bg-gray-200 cursor-not-allowed'
-            }`}
-            disabled={!puedeGuardar}
-          >
-            {rol ? 'Guardar cambios' : 'Crear rol'}
-          </button>
+        <div className="px-5 py-4 border-t border-gray-200 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {!rol && (
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <Checkbox
+                checked={crearOtro}
+                onChange={() => setCrearOtro((prev) => !prev)}
+                size="sm"
+              />
+              <span>Crear otro</span>
+            </label>
+          )}
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onCancelar}
+              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleGuardar}
+              className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                puedeGuardar
+                  ? 'text-white bg-blue-600 hover:bg-blue-700'
+                  : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+              }`}
+              disabled={!puedeGuardar}
+            >
+              {rol ? 'Guardar cambios' : 'Crear rol'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
