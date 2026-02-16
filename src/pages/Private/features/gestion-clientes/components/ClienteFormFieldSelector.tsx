@@ -4,6 +4,7 @@ import { SlidersHorizontal, X } from 'lucide-react';
 import {
   CLIENTE_FIELD_SECTION_LABELS,
   SET_IDS_CAMPOS_CONTACTO,
+  SET_IDS_CAMPOS_CONFIGURACION_COMERCIAL,
   SET_IDS_CAMPOS_DIRECCIONES,
   SET_IDS_CAMPOS_SUNAT,
   type ClienteFieldConfig,
@@ -47,7 +48,8 @@ const ClienteFormFieldSelector: React.FC<ClienteFormFieldSelectorProps> = ({
         field.section === 'ubicacion' ||
         SET_IDS_CAMPOS_SUNAT.has(field.id) ||
         SET_IDS_CAMPOS_DIRECCIONES.has(field.id) ||
-        SET_IDS_CAMPOS_CONTACTO.has(field.id)
+        SET_IDS_CAMPOS_CONTACTO.has(field.id) ||
+        SET_IDS_CAMPOS_CONFIGURACION_COMERCIAL.has(field.id)
       ) {
         return acc;
       }

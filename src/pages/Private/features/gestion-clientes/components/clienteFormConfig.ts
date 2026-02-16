@@ -451,17 +451,30 @@ export const IDS_CAMPOS_DIRECCIONES: ClienteFieldId[] = [
 
 export const IDS_CAMPOS_CONTACTO: ClienteFieldId[] = ['emails', 'telefonos', 'paginaWeb'];
 
+export const IDS_CAMPOS_CONFIGURACION_COMERCIAL: ClienteFieldId[] = [
+  'formaPago',
+  'monedaPreferida',
+  'listaPrecio',
+  'usuarioAsignado',
+  'observaciones',
+  'archivos',
+  'clientePorDefecto',
+];
+
 export const SET_IDS_CAMPOS_SUNAT = new Set<ClienteFieldId>(IDS_CAMPOS_SUNAT);
 export const SET_IDS_CAMPOS_DIRECCIONES = new Set<ClienteFieldId>(IDS_CAMPOS_DIRECCIONES);
 export const SET_IDS_CAMPOS_CONTACTO = new Set<ClienteFieldId>(IDS_CAMPOS_CONTACTO);
+export const SET_IDS_CAMPOS_CONFIGURACION_COMERCIAL = new Set<ClienteFieldId>(IDS_CAMPOS_CONFIGURACION_COMERCIAL);
 export const SET_IDS_CAMPOS_NO_PERSONALIZABLES = new Set<ClienteFieldId>([
   ...IDS_CAMPOS_SUNAT,
   ...IDS_CAMPOS_DIRECCIONES,
   ...IDS_CAMPOS_CONTACTO,
+  ...IDS_CAMPOS_CONFIGURACION_COMERCIAL,
 ]);
 export const SET_IDS_CAMPOS_GESTIONADOS_PESTANAS = new Set<ClienteFieldId>([
   ...IDS_CAMPOS_DIRECCIONES,
   ...IDS_CAMPOS_CONTACTO,
+  ...IDS_CAMPOS_CONFIGURACION_COMERCIAL.filter((id) => id !== 'clientePorDefecto'),
 ]);
 
 export const ALWAYS_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter((field) => field.alwaysVisible).map(

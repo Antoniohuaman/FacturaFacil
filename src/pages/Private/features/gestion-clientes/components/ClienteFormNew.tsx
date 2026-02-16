@@ -23,7 +23,7 @@ type ClienteFormProps = {
 
 const PRIMARY_COLOR = '#1478D4';
 
-type IdentificadorPestanaCliente = 'datosPrincipales' | 'direcciones' | 'contactos' | 'datosSunat';
+type IdentificadorPestanaCliente = 'datosPrincipales' | 'direcciones' | 'contactos' | 'configuracionComercial' | 'datosSunat';
 
 const tiposDocumento = [
   { value: '0', label: 'DOC.TRIB.NO.DOM.SIN.RUC' },
@@ -408,8 +408,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           return Boolean(formData.observaciones?.trim());
         case 'cpeHabilitado':
           return (formData.cpeHabilitado?.length ?? 0) > 0;
-        case 'clientePorDefecto':
-          return Boolean(formData.clientePorDefecto);
         case 'archivos':
           return (formData.adjuntos?.length ?? 0) > 0 || (formData.imagenes?.length ?? 0) > 0;
         default:
@@ -534,6 +532,19 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               }`}
             >
               Contactos
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pestanaActiva === 'configuracionComercial'}
+              onClick={() => setPestanaActiva('configuracionComercial')}
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+                pestanaActiva === 'configuracionComercial'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              Configuración comercial
             </button>
             {mostrarPestanaDatosSunat && (
               <button
@@ -1007,96 +1018,113 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               </div>
             )}
 
-            {/* Configuración Comercial */}
+          </div>
+        </div>
+          </>
+        )}
+
+        {pestanaActiva === 'configuracionComercial' && (
+          <>
             {(isFieldRenderable('formaPago') ||
               isFieldRenderable('monedaPreferida') ||
               isFieldRenderable('listaPrecio') ||
               isFieldRenderable('usuarioAsignado') ||
-              isFieldRenderable('clientePorDefecto')) && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  💼 Configuración Comercial
-                </h3>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {isFieldRenderable('formaPago') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Forma de pago {shouldShowRequiredIndicator('formaPago') && <span className="text-red-500">*</span>}
-                      </label>
-                      <select
-                        value={formData.formaPago}
-                        onChange={(e) =>
-                          handleFieldChange('formaPago', e.target.value as ClienteFormData['formaPago'], 'formaPago')
-                        }
-                        className={getFieldInputClass(
-                          'formaPago',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      >
-                        <option value="Contado">Contado</option>
-                        <option value="Credito">Crédito</option>
-                      </select>
-                      {renderFieldError('formaPago')}
+              isFieldRenderable('observaciones') ||
+              isFieldRenderable('archivos')) && (
+              <div className="space-y-3">
+                {(isFieldRenderable('formaPago') || isFieldRenderable('monedaPreferida') || isFieldRenderable('listaPrecio')) && (
+                  <div className="mb-3">
+                    <div className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                      Preferencias de venta
                     </div>
-                  )}
-                  {isFieldRenderable('monedaPreferida') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Moneda preferida {shouldShowRequiredIndicator('monedaPreferida') && <span className="text-red-500">*</span>}
-                      </label>
-                      <select
-                        value={formData.monedaPreferida}
-                        onChange={(e) =>
-                          handleFieldChange(
-                            'monedaPreferida',
-                            e.target.value as ClienteFormData['monedaPreferida'],
-                            'monedaPreferida'
-                          )
-                        }
-                        className={getFieldInputClass(
-                          'monedaPreferida',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      >
-                        <option value="PEN">Soles (PEN)</option>
-                        <option value="USD">Dólares (USD)</option>
-                        <option value="EUR">Euros (EUR)</option>
-                      </select>
-                      {renderFieldError('monedaPreferida')}
-                    </div>
-                  )}
-                  {isFieldRenderable('listaPrecio') && (
-                    <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Perfil de precio
-                        <span className="ml-1 text-[11px] font-normal text-gray-400 dark:text-gray-500">(Opcional)</span>
-                      </label>
-                      <select
-                        value={formData.listaPrecio}
-                        onChange={(e) => handleFieldChange('listaPrecio', e.target.value, 'listaPrecio')}
-                        disabled={priceProfiles.length === 0}
-                        className={getFieldInputClass(
-                          'listaPrecio',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-800'
-                        )}
-                      >
-                        <option value="">Sin perfil (Precio Base)</option>
-                        {priceProfiles.map((profile) => (
-                          <option key={profile.id} value={profile.id}>
-                            {profile.label}
-                          </option>
-                        ))}
-                      </select>
-                      {priceProfiles.length === 0 && (
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          Configura columnas vendibles en Lista de Precios para habilitar perfiles.
-                        </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {isFieldRenderable('formaPago') && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Forma de pago {shouldShowRequiredIndicator('formaPago') && <span className="text-red-500">*</span>}
+                          </label>
+                          <select
+                            value={formData.formaPago}
+                            onChange={(e) =>
+                              handleFieldChange('formaPago', e.target.value as ClienteFormData['formaPago'], 'formaPago')
+                            }
+                            className={getFieldInputClass(
+                              'formaPago',
+                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                            )}
+                          >
+                            <option value="Contado">Contado</option>
+                            <option value="Credito">Crédito</option>
+                          </select>
+                          {renderFieldError('formaPago')}
+                        </div>
                       )}
-                      {renderFieldError('listaPrecio')}
+                      {isFieldRenderable('monedaPreferida') && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Moneda preferida {shouldShowRequiredIndicator('monedaPreferida') && <span className="text-red-500">*</span>}
+                          </label>
+                          <select
+                            value={formData.monedaPreferida}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                'monedaPreferida',
+                                e.target.value as ClienteFormData['monedaPreferida'],
+                                'monedaPreferida'
+                              )
+                            }
+                            className={getFieldInputClass(
+                              'monedaPreferida',
+                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                            )}
+                          >
+                            <option value="PEN">Soles (PEN)</option>
+                            <option value="USD">Dólares (USD)</option>
+                            <option value="EUR">Euros (EUR)</option>
+                          </select>
+                          {renderFieldError('monedaPreferida')}
+                        </div>
+                      )}
+                      {isFieldRenderable('listaPrecio') && (
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Perfil de precio
+                            <span className="ml-1 text-[11px] font-normal text-gray-400 dark:text-gray-500">(Opcional)</span>
+                          </label>
+                          <select
+                            value={formData.listaPrecio}
+                            onChange={(e) => handleFieldChange('listaPrecio', e.target.value, 'listaPrecio')}
+                            disabled={priceProfiles.length === 0}
+                            className={getFieldInputClass(
+                              'listaPrecio',
+                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-800'
+                            )}
+                          >
+                            <option value="">Sin perfil (Precio Base)</option>
+                            {priceProfiles.map((profile) => (
+                              <option key={profile.id} value={profile.id}>
+                                {profile.label}
+                              </option>
+                            ))}
+                          </select>
+                          {priceProfiles.length === 0 && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              Configura columnas vendibles en Lista de Precios para habilitar perfiles.
+                            </p>
+                          )}
+                          {renderFieldError('listaPrecio')}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {isFieldRenderable('usuarioAsignado') && (
-                    <div className="col-span-2">
+                  </div>
+                )}
+
+                {isFieldRenderable('usuarioAsignado') && (
+                  <div className="mb-3">
+                    <div className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                      Gestión interna
+                    </div>
+                    <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Usuario asignado {shouldShowRequiredIndicator('usuarioAsignado') && <span className="text-red-500">*</span>}
                       </label>
@@ -1112,90 +1140,70 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       />
                       {renderFieldError('usuarioAsignado')}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                <div className="space-y-2 mb-4">
-                  {isFieldRenderable('clientePorDefecto') && (
-                    <div>
-                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={formData.clientePorDefecto}
-                          onChange={(e) => handleFieldChange('clientePorDefecto', e.target.checked, 'clientePorDefecto')}
-                          className="rounded border-gray-300 dark:border-gray-600"
-                        />
-                        Cliente por defecto
-                      </label>
-                      {renderFieldError('clientePorDefecto')}
+                {(isFieldRenderable('observaciones') || isFieldRenderable('archivos')) && (
+                  <div className="mb-3">
+                    <div className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                      Notas y archivos
                     </div>
-                  )}
-                </div>
-              </div>
-            )}
+                    {isFieldRenderable('observaciones') && (
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Observaciones {shouldShowRequiredIndicator('observaciones') && <span className="text-red-500">*</span>}
+                        </label>
+                        <textarea
+                          value={formData.observaciones}
+                          onChange={(e) => handleFieldChange('observaciones', e.target.value, 'observaciones')}
+                          rows={3}
+                          className={getFieldInputClass(
+                            'observaciones',
+                            'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400'
+                          )}
+                          placeholder="Notas adicionales sobre el cliente"
+                        />
+                        {renderFieldError('observaciones')}
+                      </div>
+                    )}
 
-            {/* Observaciones */}
-            {(isFieldRenderable('observaciones') || isFieldRenderable('archivos')) && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  📝 Información Adicional
-                </h3>
-                {isFieldRenderable('observaciones') && (
-                  <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Observaciones {shouldShowRequiredIndicator('observaciones') && <span className="text-red-500">*</span>}
-                    </label>
-                    <textarea
-                      value={formData.observaciones}
-                      onChange={(e) => handleFieldChange('observaciones', e.target.value, 'observaciones')}
-                      rows={3}
-                      className={getFieldInputClass(
-                        'observaciones',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400'
-                      )}
-                      placeholder="Notas adicionales sobre el cliente"
-                    />
-                    {renderFieldError('observaciones')}
-                  </div>
-                )}
+                    {isFieldRenderable('archivos') && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Archivos del cliente
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                          Sube documentos, imágenes u otros archivos relacionados
+                        </p>
+                        <ArchivosInput
+                          archivos={[...(formData.adjuntos || []), ...(formData.imagenes?.slice(1) || [])]}
+                          onChange={(archivos) => {
+                            clearFieldError('archivos');
+                            const imagenes: File[] = [];
+                            const documentos: File[] = [];
 
-                {isFieldRenderable('archivos') && (
-                  <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Archivos del cliente
-                    </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      Sube documentos, imágenes u otros archivos relacionados
-                    </p>
-                    <ArchivosInput
-                      archivos={[...(formData.adjuntos || []), ...(formData.imagenes?.slice(1) || [])]}
-                      onChange={(archivos) => {
-                        clearFieldError('archivos');
-                        const imagenes: File[] = [];
-                        const documentos: File[] = [];
+                            archivos.forEach((file) => {
+                              const ext = file.name.split('.').pop()?.toLowerCase();
+                              if (ext && ['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                                imagenes.push(file);
+                              } else {
+                                documentos.push(file);
+                              }
+                            });
 
-                        archivos.forEach((file) => {
-                          const ext = file.name.split('.').pop()?.toLowerCase();
-                          if (ext && ['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-                            imagenes.push(file);
-                          } else {
-                            documentos.push(file);
-                          }
-                        });
-
-                        const primeraImagen = formData.imagenes?.[0];
-                        onInputChange('imagenes', primeraImagen ? [primeraImagen, ...imagenes] : imagenes);
-                        onInputChange('adjuntos', documentos);
-                      }}
-                      maxArchivos={15}
-                    />
-                    {renderFieldError('archivos')}
+                            const primeraImagen = formData.imagenes?.[0];
+                            onInputChange('imagenes', primeraImagen ? [primeraImagen, ...imagenes] : imagenes);
+                            onInputChange('adjuntos', documentos);
+                          }}
+                          maxArchivos={15}
+                        />
+                        {renderFieldError('archivos')}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
-          </div>
-        </div>
           </>
         )}
 
