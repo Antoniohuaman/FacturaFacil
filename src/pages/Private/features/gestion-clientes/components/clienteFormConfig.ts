@@ -62,7 +62,6 @@ export type ClienteFieldId =
   | 'monedaPreferida'
   | 'listaPrecio'
   | 'usuarioAsignado'
-  | 'clientePorDefecto'
   | 'observaciones'
   | 'archivos';
 
@@ -400,14 +399,6 @@ export const CLIENTE_FIELD_CONFIGS: ClienteFieldConfig[] = [
     defaultRequired: false,
   },
   {
-    id: 'clientePorDefecto',
-    label: 'Cliente por defecto',
-    section: 'comercial',
-    defaultVisible: true,
-    defaultRequired: false,
-    allowRequiredToggle: false,
-  },
-  {
     id: 'observaciones',
     label: 'Observaciones',
     section: 'adicional',
@@ -458,7 +449,6 @@ export const IDS_CAMPOS_CONFIGURACION_COMERCIAL: ClienteFieldId[] = [
   'usuarioAsignado',
   'observaciones',
   'archivos',
-  'clientePorDefecto',
 ];
 
 export const SET_IDS_CAMPOS_SUNAT = new Set<ClienteFieldId>(IDS_CAMPOS_SUNAT);
@@ -474,7 +464,7 @@ export const SET_IDS_CAMPOS_NO_PERSONALIZABLES = new Set<ClienteFieldId>([
 export const SET_IDS_CAMPOS_GESTIONADOS_PESTANAS = new Set<ClienteFieldId>([
   ...IDS_CAMPOS_DIRECCIONES,
   ...IDS_CAMPOS_CONTACTO,
-  ...IDS_CAMPOS_CONFIGURACION_COMERCIAL.filter((id) => id !== 'clientePorDefecto'),
+  ...IDS_CAMPOS_CONFIGURACION_COMERCIAL,
 ]);
 
 export const ALWAYS_VISIBLE_FIELD_IDS = CLIENTE_FIELD_CONFIGS.filter((field) => field.alwaysVisible).map(

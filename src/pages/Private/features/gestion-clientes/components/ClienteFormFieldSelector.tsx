@@ -15,9 +15,7 @@ import {
 interface ClienteFormFieldSelectorProps {
   fieldConfigs: ClienteFieldConfig[];
   visibleFieldIds: ClienteFieldId[];
-  requiredFieldIds: ClienteFieldId[];
   onToggleVisible: (fieldId: ClienteFieldId) => void;
-  onToggleRequired: (fieldId: ClienteFieldId) => void;
   onSelectAll: () => void;
   onReset: () => void;
 }
@@ -27,9 +25,7 @@ const POPOVER_Z_INDEX = 13000;
 const ClienteFormFieldSelector: React.FC<ClienteFormFieldSelectorProps> = ({
   fieldConfigs,
   visibleFieldIds,
-  requiredFieldIds,
   onToggleVisible,
-  onToggleRequired,
   onSelectAll,
   onReset,
 }) => {
@@ -38,8 +34,6 @@ const ClienteFormFieldSelector: React.FC<ClienteFormFieldSelectorProps> = ({
   const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const visibleSet = useMemo(() => new Set<ClienteFieldId>(visibleFieldIds), [visibleFieldIds]);
-  const requiredSet = useMemo(() => new Set<ClienteFieldId>(requiredFieldIds), [requiredFieldIds]);
-
   const groupedBySection = useMemo(() => {
     return fieldConfigs.reduce<Record<ClienteFieldSection, ClienteFieldConfig[]>>((acc, field) => {
       if (
@@ -55,6 +49,9 @@ const ClienteFormFieldSelector: React.FC<ClienteFormFieldSelectorProps> = ({
       }
       if (!acc[field.section]) {
         acc[field.section] = [];
+      }
+      if (field.defaultRequired || field.alwaysRequired) {
+        return acc;
       }
       acc[field.section].push(field);
       return acc;
@@ -145,11 +142,7 @@ const ClienteFormFieldSelector: React.FC<ClienteFormFieldSelectorProps> = ({
                       <div className="space-y-2">
                         {fields.map((field) => {
                           const isVisible = visibleSet.has(field.id);
-                          const isRequired = requiredSet.has(field.id);
                           const disableVisible = Boolean(field.alwaysVisible);
-                          const disableRequired = Boolean(
-                            field.alwaysRequired || field.allowRequiredToggle === false
-                          );
 
                           return (
                             <div
@@ -173,16 +166,6 @@ const ClienteFormFieldSelector: React.FC<ClienteFormFieldSelectorProps> = ({
                                       disabled={disableVisible}
                                     />
                                     Visible
-                                  </label>
-                                  <label className="flex items-center gap-1 text-[11px] font-medium text-gray-600 dark:text-gray-300">
-                                    <input
-                                      type="checkbox"
-                                      className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                      checked={isRequired}
-                                      onChange={() => onToggleRequired(field.id)}
-                                      disabled={disableRequired || !isVisible}
-                                    />
-                                    Obligatorio
                                   </label>
                                 </div>
                               </div>

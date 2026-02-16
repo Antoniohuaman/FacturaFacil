@@ -104,7 +104,6 @@ const COLUMN_WIDTHS: Partial<Record<ClienteColumnId, number>> = {
   monedaPreferida: 90,
   listaPrecio: 140,
   usuarioAsignado: 140,
-  clientePorDefecto: 110,
   tipoContribuyente: 180,
   estadoSunat: 120,
   condicionDomicilio: 110,
@@ -228,8 +227,6 @@ const buildCellContent = (columnId: ClienteColumnId, context: RowRenderContext):
       return { content: renderText(perfilPrecioLabel) };
     case 'usuarioAsignado':
       return { content: renderText(client.usuarioAsignado) };
-    case 'clientePorDefecto':
-      return { content: <BooleanBadge value={client.clientePorDefecto} /> };
     case 'tipoContribuyente':
       return {
         content: renderText(client.tipoContribuyente),

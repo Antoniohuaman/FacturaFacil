@@ -23,7 +23,6 @@ export type ClienteColumnId =
   | 'monedaPreferida'
   | 'listaPrecio'
   | 'usuarioAsignado'
-  | 'clientePorDefecto'
   | 'tipoContribuyente'
   | 'estadoSunat'
   | 'condicionDomicilio'
@@ -99,7 +98,6 @@ const CLIENTE_COLUMN_DEFINITIONS_COMPLETAS: ClienteColumnDefinition[] = [
   { id: 'monedaPreferida', label: 'Moneda', defaultVisible: false },
   { id: 'listaPrecio', label: 'Perfil de precio', defaultVisible: false },
   { id: 'usuarioAsignado', label: 'Usuario asignado', defaultVisible: false },
-  { id: 'clientePorDefecto', label: 'Cliente default', defaultVisible: false },
   { id: 'tipoContribuyente', label: 'Tipo contribuyente', defaultVisible: false },
   { id: 'estadoSunat', label: 'Estado SUNAT', defaultVisible: false },
   { id: 'condicionDomicilio', label: 'Condición dom.', defaultVisible: false },

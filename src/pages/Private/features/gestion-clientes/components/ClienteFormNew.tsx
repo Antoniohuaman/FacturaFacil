@@ -95,7 +95,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     isFieldVisible,
     isFieldRequired,
     toggleFieldVisible,
-    toggleFieldRequired,
     selectAllFields,
     resetDefaults,
   } = useClienteFormConfig();
@@ -451,9 +450,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       <ClienteFormFieldSelector
         fieldConfigs={fieldConfigs}
         visibleFieldIds={visibleFieldIds}
-        requiredFieldIds={requiredFieldIds}
         onToggleVisible={toggleFieldVisible}
-        onToggleRequired={toggleFieldRequired}
         onSelectAll={selectAllFields}
         onReset={resetDefaults}
       />
@@ -461,9 +458,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     [
       fieldConfigs,
       visibleFieldIds,
-      requiredFieldIds,
       toggleFieldVisible,
-      toggleFieldRequired,
       selectAllFields,
       resetDefaults,
     ]
