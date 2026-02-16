@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Users,
   Search,
@@ -77,6 +78,13 @@ export function ListaUsuarios({
   const [motivoEstado, setMotivoEstado] = useState('');
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [menuAbiertoId, setMenuAbiertoId] = useState<string | null>(null);
+  const [menuCoords, setMenuCoords] = useState<{
+    top: number;
+    left: number;
+    anchorRect: { top: number; bottom: number; left: number; right: number };
+  } | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const MENU_WIDTH = 160;
 
   const mapaEstablecimientos = useMemo(
     () => obtenerMapaEstablecimientos(empresas),
@@ -210,18 +218,111 @@ export function ListaUsuarios({
     setMotivoEstado('');
   };
 
+  const cerrarMenu = useCallback(() => {
+    setMenuAbiertoId(null);
+    setMenuCoords(null);
+  }, []);
+
   useEffect(() => {
     if (!menuAbiertoId) return;
     const manejarEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setMenuAbiertoId(null);
+        cerrarMenu();
       }
     };
     document.addEventListener('keydown', manejarEscape);
     return () => {
       document.removeEventListener('keydown', manejarEscape);
     };
-  }, [menuAbiertoId]);
+  }, [menuAbiertoId, cerrarMenu]);
+
+  useEffect(() => {
+    if (!menuAbiertoId) return;
+    const manejarScrollResize = () => cerrarMenu();
+    window.addEventListener('scroll', manejarScrollResize, true);
+    window.addEventListener('resize', manejarScrollResize);
+    return () => {
+      window.removeEventListener('scroll', manejarScrollResize, true);
+      window.removeEventListener('resize', manejarScrollResize);
+    };
+  }, [menuAbiertoId, cerrarMenu]);
+
+  const abrirMenu = useCallback(
+    (usuarioId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (menuAbiertoId === usuarioId) {
+        cerrarMenu();
+        return;
+      }
+
+      if (typeof window === 'undefined') {
+        setMenuAbiertoId(usuarioId);
+        return;
+      }
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      const gap = 8;
+      const scrollX = window.scrollX ?? window.pageXOffset;
+      const scrollY = window.scrollY ?? window.pageYOffset;
+      const minLeft = scrollX + gap;
+      const maxLeft = Math.max(minLeft, scrollX + window.innerWidth - MENU_WIDTH - gap);
+      const desiredLeft = scrollX + rect.right - MENU_WIDTH;
+      const left = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
+      const top = scrollY + rect.bottom + gap;
+
+      setMenuCoords({
+        top,
+        left,
+        anchorRect: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
+      });
+      setMenuAbiertoId(usuarioId);
+    },
+    [cerrarMenu, menuAbiertoId],
+  );
+
+  useLayoutEffect(() => {
+    if (!menuCoords || !menuRef.current || typeof window === 'undefined') return;
+    const menuRect = menuRef.current.getBoundingClientRect();
+    const gap = 8;
+    const scrollX = window.scrollX ?? window.pageXOffset;
+    const scrollY = window.scrollY ?? window.pageYOffset;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const { top: anchorTop, bottom: anchorBottom, right: anchorRight } = menuCoords.anchorRect;
+
+    const spaceBelow = viewportHeight - anchorBottom;
+    const spaceAbove = anchorTop;
+    let top = scrollY + anchorBottom + gap;
+
+    if (spaceBelow < menuRect.height + gap && spaceAbove >= menuRect.height + gap) {
+      top = scrollY + anchorTop - menuRect.height - gap;
+    } else {
+      const maxTop = scrollY + viewportHeight - menuRect.height - gap;
+      top = Math.min(top, maxTop);
+      top = Math.max(top, scrollY + gap);
+    }
+
+    const minLeft = scrollX + gap;
+    const maxLeft = Math.max(minLeft, scrollX + viewportWidth - menuRect.width - gap);
+    const desiredLeft = scrollX + anchorRight - menuRect.width;
+    const left = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
+
+    if (top !== menuCoords.top || left !== menuCoords.left) {
+      setMenuCoords((prev) => (prev ? { ...prev, top, left } : prev));
+    }
+  }, [menuCoords]);
+
+  const menuContext = useMemo(() => {
+    if (!menuAbiertoId) return null;
+    const match = usuariosFiltrados.find((item) => item.usuario.id === menuAbiertoId);
+    if (!match) return null;
+    const esUsuarioActual = Boolean(usuarioActualId && match.usuario.id === usuarioActualId);
+    return {
+      usuario: match.usuario,
+      estado: match.estado,
+      esUsuarioActual,
+    };
+  }, [menuAbiertoId, usuarioActualId, usuariosFiltrados]);
 
   const confirmarCambioEstado = async () => {
     if (!modalEstado.usuario) return;
@@ -494,7 +595,6 @@ export function ListaUsuarios({
               <tbody className="bg-white divide-y divide-gray-200">
                 {usuariosFiltrados.map(({ usuario, estado, resumenEmpresas, resumenEstablecimientos, asignaciones, nombre }) => {
                   const configEstado = obtenerConfigEstado(estado);
-                  const esUsuarioActual = usuarioActualId && usuario.id === usuarioActualId;
                   const correoUsuario = normalizarCorreo(usuario.personalInfo.email);
                   const esUsuarioSesion = Boolean(
                     (usuarioActualId && usuario.id === usuarioActualId) ||
@@ -565,86 +665,13 @@ export function ListaUsuarios({
                           <button
                             type="button"
                             aria-label="Acciones"
-                            onClick={() => setMenuAbiertoId(menuAbiertoId === usuario.id ? null : usuario.id)}
+                            aria-haspopup="menu"
+                            aria-expanded={menuAbiertoId === usuario.id}
+                            onClick={(event) => abrirMenu(usuario.id, event)}
                             className="inline-flex items-center justify-center w-8 h-8 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             <MoreVertical className="w-4 h-4" />
                           </button>
-
-                          {menuAbiertoId === usuario.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-10"
-                                onClick={() => setMenuAbiertoId(null)}
-                              />
-                              <div
-                                className="absolute right-0 mt-2 min-w-[160px] bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1.5 flex flex-col whitespace-normal"
-                                role="menu"
-                              >
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    alEditar(usuario);
-                                    setMenuAbiertoId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    alReenviar(usuario);
-                                    setMenuAbiertoId(null);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
-                                >
-                                  Reenviar credenciales
-                                </button>
-                                {estado === 'ACTIVE' && !esUsuarioActual && (
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      abrirModalEstado(usuario);
-                                      setMenuAbiertoId(null);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs text-yellow-700 hover:bg-yellow-50 focus:outline-none focus:bg-yellow-50"
-                                  >
-                                    Inactivar
-                                  </button>
-                                )}
-                                {estado === 'INACTIVE' && (
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      alCambiarEstado(usuario, 'ACTIVE');
-                                      setMenuAbiertoId(null);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs text-green-700 hover:bg-green-50 focus:outline-none focus:bg-green-50"
-                                  >
-                                    Activar
-                                  </button>
-                                )}
-                                {!esUsuarioActual && !usuario.hasTransactions && (
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      alEliminar(usuario);
-                                      setMenuAbiertoId(null);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs text-red-700 hover:bg-red-50 focus:outline-none focus:bg-red-50"
-                                  >
-                                    Eliminar
-                                  </button>
-                                )}
-                              </div>
-                            </>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -655,6 +682,90 @@ export function ListaUsuarios({
           </div>
         </div>
       )}
+
+      {(() => {
+        const portalTarget = typeof window === 'undefined' ? null : document.body;
+        if (!portalTarget || !menuContext || !menuCoords) return null;
+        return createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={cerrarMenu}
+              aria-hidden="true"
+            />
+            <div
+              ref={menuRef}
+              className="absolute min-w-[160px] bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1.5 flex flex-col whitespace-normal"
+              role="menu"
+              style={{ top: menuCoords.top, left: menuCoords.left, width: MENU_WIDTH }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  alEditar(menuContext.usuario);
+                  cerrarMenu();
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  alReenviar(menuContext.usuario);
+                  cerrarMenu();
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50"
+              >
+                Reenviar credenciales
+              </button>
+              {menuContext.estado === 'ACTIVE' && !menuContext.esUsuarioActual && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    abrirModalEstado(menuContext.usuario);
+                    cerrarMenu();
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-yellow-700 hover:bg-yellow-50 focus:outline-none focus:bg-yellow-50"
+                >
+                  Inactivar
+                </button>
+              )}
+              {menuContext.estado === 'INACTIVE' && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    alCambiarEstado(menuContext.usuario, 'ACTIVE');
+                    cerrarMenu();
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-green-700 hover:bg-green-50 focus:outline-none focus:bg-green-50"
+                >
+                  Activar
+                </button>
+              )}
+              {!menuContext.esUsuarioActual && !menuContext.usuario.hasTransactions && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    alEliminar(menuContext.usuario);
+                    cerrarMenu();
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-red-700 hover:bg-red-50 focus:outline-none focus:bg-red-50"
+                >
+                  Eliminar
+                </button>
+              )}
+            </div>
+          </>,
+          portalTarget,
+        );
+      })()}
 
       {modalEstado.abierto && modalEstado.usuario && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
