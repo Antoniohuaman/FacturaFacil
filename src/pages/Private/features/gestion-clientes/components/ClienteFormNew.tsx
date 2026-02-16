@@ -6,10 +6,12 @@ import TelefonosInput from './TelefonosInput';
 import EmailsInput from './EmailsInput';
 import ArchivosInput from './ArchivosInput';
 import ClienteAvatar from './ClienteAvatar';
-import ClienteFormFieldSelector from './ClienteFormFieldSelector';
 import DatosSunatCliente from './DatosSunatCliente';
-import { useClienteFormConfig } from '../hooks/useClienteFormConfig';
-import type { ClienteFieldId } from './clienteFormConfig';
+import {
+  CAMPOS_REQUERIDOS_FORMULARIO,
+  CLIENTE_FIELD_CONFIGS,
+  type ClienteFieldId,
+} from './clienteFormConfig';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 
@@ -20,7 +22,6 @@ type ClienteFormProps = {
   onSave: () => void;
   isEditing?: boolean;
   modoPresentacion?: 'modal' | 'drawer';
-  alCambiarAccionesEncabezado?: (acciones: React.ReactNode | null) => void;
 };
 
 const PRIMARY_COLOR = '#1478D4';
@@ -80,24 +81,19 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   onSave,
   isEditing = false,
   modoPresentacion = 'modal',
-  alCambiarAccionesEncabezado,
 }) => {
   const { consultingReniec, consultingSunat, consultarReniec, consultarSunat } = useConsultasExternas();
   const { profiles: priceProfiles } = usePriceProfilesCatalog();
   const [showOtrosDocTypes, setShowOtrosDocTypes] = useState(false);
   const [pestanaActiva, setPestanaActiva] = useState<IdentificadorPestanaCliente>('datosPrincipales');
+  const fieldConfigs = CLIENTE_FIELD_CONFIGS;
+  const requiredFieldIds = CAMPOS_REQUERIDOS_FORMULARIO;
+  const camposRequeridosSet = useMemo(
+    () => new Set<ClienteFieldId>(requiredFieldIds),
+    [requiredFieldIds]
+  );
   
   const isConsulting = consultingReniec || consultingSunat;
-  const {
-    fieldConfigs,
-    visibleFieldIds,
-    requiredFieldIds,
-    isFieldVisible,
-    isFieldRequired,
-    toggleFieldVisible,
-    selectAllFields,
-    resetDefaults,
-  } = useClienteFormConfig();
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ClienteFieldId, string>>>({});
   const fieldLabelMap = useMemo(() => new Map(fieldConfigs.map((field) => [field.id, field.label])), [fieldConfigs]);
   const esModoDrawer = modoPresentacion === 'drawer';
@@ -336,13 +332,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   );
 
   const isFieldRenderable = useCallback(
-    (fieldId: ClienteFieldId) => isFieldVisible(fieldId) && isFieldBusinessEnabled(fieldId),
-    [isFieldVisible, isFieldBusinessEnabled]
+    (fieldId: ClienteFieldId) => isFieldBusinessEnabled(fieldId),
+    [isFieldBusinessEnabled]
   );
 
   const shouldShowRequiredIndicator = useCallback(
-    (fieldId: ClienteFieldId, extra = true) => extra && isFieldRequired(fieldId),
-    [isFieldRequired]
+    (fieldId: ClienteFieldId, extra = true) => extra && camposRequeridosSet.has(fieldId),
+    [camposRequeridosSet]
   );
 
   const hasValue = useCallback(
@@ -445,41 +441,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     onSave();
   }, [validateCustomFields, onSave]);
 
-  const accionesPersonalizacion = useMemo(
-    () => (
-      <ClienteFormFieldSelector
-        fieldConfigs={fieldConfigs}
-        visibleFieldIds={visibleFieldIds}
-        onToggleVisible={toggleFieldVisible}
-        onSelectAll={selectAllFields}
-        onReset={resetDefaults}
-      />
-    ),
-    [
-      fieldConfigs,
-      visibleFieldIds,
-      toggleFieldVisible,
-      selectAllFields,
-      resetDefaults,
-    ]
-  );
-
-  useEffect(() => {
-    if (!alCambiarAccionesEncabezado) {
-      return;
-    }
-
-    if (esModoDrawer) {
-      alCambiarAccionesEncabezado(accionesPersonalizacion);
-    } else {
-      alCambiarAccionesEncabezado(null);
-    }
-
-    return () => {
-      alCambiarAccionesEncabezado(null);
-    };
-  }, [alCambiarAccionesEncabezado, esModoDrawer, accionesPersonalizacion]);
-
   return (
     <div
       className={
@@ -510,7 +471,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            {accionesPersonalizacion}
             <button
               onClick={onCancel}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"

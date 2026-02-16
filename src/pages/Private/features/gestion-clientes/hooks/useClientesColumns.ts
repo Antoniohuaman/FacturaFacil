@@ -12,12 +12,6 @@ export type ClienteColumnId =
   | 'correo'
   | 'tipoPersona'
   | 'nombreComercial'
-  | 'paginaWeb'
-  | 'pais'
-  | 'departamento'
-  | 'provincia'
-  | 'distrito'
-  | 'ubigeo'
   | 'referenciaDireccion'
   | 'formaPago'
   | 'monedaPreferida'
@@ -35,11 +29,8 @@ export type ClienteColumnId =
   | 'exceptuadaPercepcion'
   | 'actividadesEconomicas'
   | 'observaciones'
-  | 'adjuntos'
-  | 'imagenes'
   | 'estadoCliente'
   | 'fechaRegistro'
-  | 'fechaUltimaModificacion'
   | 'acciones';
 
 export interface ClienteColumnDefinition {
@@ -74,6 +65,8 @@ const IDS_COLUMNAS_SUNAT: ClienteColumnId[] = [
 ];
 
 const SET_IDS_COLUMNAS_SUNAT = new Set<ClienteColumnId>(IDS_COLUMNAS_SUNAT);
+const ID_COLUMNA_AVATAR: ClienteColumnId = 'avatar';
+const ID_COLUMNA_ACCIONES: ClienteColumnId = 'acciones';
 
 const CLIENTE_COLUMN_DEFINITIONS_COMPLETAS: ClienteColumnDefinition[] = [
   { id: 'avatar', label: 'Avatar', defaultVisible: true },
@@ -84,15 +77,8 @@ const CLIENTE_COLUMN_DEFINITIONS_COMPLETAS: ClienteColumnDefinition[] = [
   { id: 'tipoCuenta', label: 'Tipo cuenta', defaultVisible: true },
   { id: 'telefono', label: 'Teléfono', defaultVisible: true },
   { id: 'correo', label: 'Correo', defaultVisible: true },
-  { id: 'acciones', label: 'Acciones', defaultVisible: true },
   { id: 'tipoPersona', label: 'Tipo persona', defaultVisible: false },
   { id: 'nombreComercial', label: 'Nombre comercial', defaultVisible: false },
-  { id: 'paginaWeb', label: 'Página web', defaultVisible: false },
-  { id: 'pais', label: 'País', defaultVisible: false },
-  { id: 'departamento', label: 'Departamento', defaultVisible: false },
-  { id: 'provincia', label: 'Provincia', defaultVisible: false },
-  { id: 'distrito', label: 'Distrito', defaultVisible: false },
-  { id: 'ubigeo', label: 'Ubigeo', defaultVisible: false },
   { id: 'referenciaDireccion', label: 'Referencia', defaultVisible: false },
   { id: 'formaPago', label: 'Forma pago', defaultVisible: false },
   { id: 'monedaPreferida', label: 'Moneda', defaultVisible: false },
@@ -110,24 +96,38 @@ const CLIENTE_COLUMN_DEFINITIONS_COMPLETAS: ClienteColumnDefinition[] = [
   { id: 'exceptuadaPercepcion', label: 'Except. percep.', defaultVisible: false },
   { id: 'actividadesEconomicas', label: 'Actividades econ.', defaultVisible: false },
   { id: 'observaciones', label: 'Observaciones', defaultVisible: false },
-  { id: 'adjuntos', label: 'Adjuntos', defaultVisible: false },
-  { id: 'imagenes', label: 'Imágenes', defaultVisible: false },
   { id: 'estadoCliente', label: 'Estado cliente', defaultVisible: false },
   { id: 'fechaRegistro', label: 'Fecha registro', defaultVisible: false },
-  { id: 'fechaUltimaModificacion', label: 'Últ. modif.', defaultVisible: false }
+  { id: 'acciones', label: 'Acciones', defaultVisible: true },
 ];
 
 export const CLIENTE_COLUMN_DEFINITIONS: ClienteColumnDefinition[] = CLIENTE_COLUMN_DEFINITIONS_COMPLETAS.filter(
   (column) => !SET_IDS_COLUMNAS_SUNAT.has(column.id)
 );
 
+const normalizarOrdenColumnas = (columnas: ClienteColumnConfig[]): ClienteColumnConfig[] => {
+  const columnaAvatar = columnas.find((columna) => columna.id === ID_COLUMNA_AVATAR);
+  const columnaAcciones = columnas.find((columna) => columna.id === ID_COLUMNA_ACCIONES);
+  const columnasIntermedias = columnas.filter(
+    (columna) => columna.id !== ID_COLUMNA_AVATAR && columna.id !== ID_COLUMNA_ACCIONES
+  );
+
+  return [
+    ...(columnaAvatar ? [columnaAvatar] : []),
+    ...columnasIntermedias,
+    ...(columnaAcciones ? [columnaAcciones] : []),
+  ];
+};
+
 const createDefaultConfig = (): ClienteColumnConfig[] =>
-  CLIENTE_COLUMN_DEFINITIONS.map((column) => ({
-    id: column.id,
-    label: column.label,
-    visible: column.fixed ? true : Boolean(column.defaultVisible),
-    fixed: column.fixed,
-  }));
+  normalizarOrdenColumnas(
+    CLIENTE_COLUMN_DEFINITIONS.map((column) => ({
+      id: column.id,
+      label: column.label,
+      visible: column.fixed ? true : Boolean(column.defaultVisible),
+      fixed: column.fixed,
+    }))
+  );
 
 const resolveTenantStorageKey = (baseKey: string): string | null => {
   try {
@@ -170,7 +170,7 @@ const sanitizeConfig = (stored: ClienteColumnConfig[]): ClienteColumnConfig[] =>
     sanitized.push({ ...column });
   });
 
-  return sanitized;
+  return normalizarOrdenColumnas(sanitized);
 };
 
 const areSameConfig = (left: ClienteColumnConfig[], right: ClienteColumnConfig[]): boolean => {
@@ -210,10 +210,12 @@ const parseLegacyVisibility = (raw: string | null): ClienteColumnId[] | null => 
 const migrateLegacyVisibility = (legacyIds: ClienteColumnId[]): ClienteColumnConfig[] => {
   const defaults = createDefaultConfig();
   const legacySet = new Set(legacyIds);
-  return defaults.map((column) => ({
-    ...column,
-    visible: column.fixed ? true : legacySet.has(column.id),
-  }));
+  return normalizarOrdenColumnas(
+    defaults.map((column) => ({
+      ...column,
+      visible: column.fixed ? true : legacySet.has(column.id),
+    }))
+  );
 };
 
 const loadInitialConfig = (): ClienteColumnConfig[] => {
@@ -282,12 +284,14 @@ export const useClientesColumns = () => {
 
   const toggleColumn = useCallback((columnId: ClienteColumnId) => {
     setColumnsConfig((prev) =>
-      prev.map((column) => {
-        if (column.id !== columnId || column.fixed) {
-          return column;
-        }
-        return { ...column, visible: !column.visible };
-      })
+      normalizarOrdenColumnas(
+        prev.map((column) => {
+          if (column.id !== columnId || column.fixed) {
+            return column;
+          }
+          return { ...column, visible: !column.visible };
+        })
+      )
     );
   }, []);
 
@@ -311,7 +315,7 @@ export const useClientesColumns = () => {
       const updated = [...prev];
       const [moved] = updated.splice(sourceIndex, 1);
       updated.splice(targetIndex, 0, moved);
-      return updated;
+      return normalizarOrdenColumnas(updated);
     });
   }, []);
 
@@ -320,7 +324,9 @@ export const useClientesColumns = () => {
   }, []);
 
   const selectAllColumns = useCallback(() => {
-    setColumnsConfig((prev) => prev.map((column) => ({ ...column, visible: true })));
+    setColumnsConfig((prev) =>
+      normalizarOrdenColumnas(prev.map((column) => ({ ...column, visible: true })))
+    );
   }, []);
 
   const visibleColumns = useMemo(

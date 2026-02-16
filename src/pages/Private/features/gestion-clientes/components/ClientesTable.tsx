@@ -93,12 +93,6 @@ const COLUMN_WIDTHS: Partial<Record<ClienteColumnId, number>> = {
   correo: 180,
   tipoPersona: 90,
   nombreComercial: 150,
-  paginaWeb: 140,
-  pais: 80,
-  departamento: 120,
-  provincia: 120,
-  distrito: 120,
-  ubigeo: 80,
   referenciaDireccion: 150,
   formaPago: 100,
   monedaPreferida: 90,
@@ -116,11 +110,8 @@ const COLUMN_WIDTHS: Partial<Record<ClienteColumnId, number>> = {
   exceptuadaPercepcion: 130,
   actividadesEconomicas: 250,
   observaciones: 200,
-  adjuntos: 90,
-  imagenes: 90,
   estadoCliente: 120,
   fechaRegistro: 110,
-  fechaUltimaModificacion: 110,
   acciones: 100
 };
 
@@ -202,18 +193,6 @@ const buildCellContent = (columnId: ClienteColumnId, context: RowRenderContext):
       return { content: renderText(client.tipoPersona) };
     case 'nombreComercial':
       return { content: renderText(client.nombreComercial) };
-    case 'paginaWeb':
-      return { content: renderText(client.paginaWeb), title: client.paginaWeb ?? undefined };
-    case 'pais':
-      return { content: renderText(client.pais) };
-    case 'departamento':
-      return { content: renderText(client.departamento) };
-    case 'provincia':
-      return { content: renderText(client.provincia) };
-    case 'distrito':
-      return { content: renderText(client.distrito) };
-    case 'ubigeo':
-      return { content: renderText(client.ubigeo) };
     case 'referenciaDireccion':
       return {
         content: renderText(client.referenciaDireccion),
@@ -263,22 +242,12 @@ const buildCellContent = (columnId: ClienteColumnId, context: RowRenderContext):
       const notes = client.observaciones || client.additionalData;
       return { content: renderText(notes), title: notes ?? undefined };
     }
-    case 'adjuntos':
-      return {
-        content: client.adjuntos?.length ? `${client.adjuntos.length} archivo(s)` : '-'
-      };
-    case 'imagenes':
-      return {
-        content: client.imagenes?.length ? `${client.imagenes.length} imagen(es)` : '-'
-      };
     case 'estadoCliente':
       return {
         content: <EstadoClienteBadge estadoCliente={client.estadoCliente} enabled={client.enabled} />
       };
     case 'fechaRegistro':
       return { content: formatDate(client.createdAt) };
-    case 'fechaUltimaModificacion':
-      return { content: formatDate(client.updatedAt) };
     case 'acciones':
       return {
         content: (
