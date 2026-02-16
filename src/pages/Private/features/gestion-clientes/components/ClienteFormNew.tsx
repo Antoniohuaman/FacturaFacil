@@ -494,17 +494,17 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
       {/* Body con scroll */}
       <div className="px-6 py-3 overflow-y-auto flex-1">
-        <div className="mb-4">
-          <div className="inline-flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden" role="tablist" aria-label="Pestañas del formulario de cliente">
+        <div className="mb-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-end gap-5" role="tablist" aria-label="Pestañas del formulario de cliente">
             <button
               type="button"
               role="tab"
               aria-selected={pestanaActiva === 'datosPrincipales'}
               onClick={() => setPestanaActiva('datosPrincipales')}
-              className={`px-4 py-1.5 text-xs font-medium transition-colors ${
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
                 pestanaActiva === 'datosPrincipales'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               Datos principales
@@ -515,10 +515,10 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 role="tab"
                 aria-selected={pestanaActiva === 'datosSunat'}
                 onClick={() => setPestanaActiva('datosSunat')}
-                className={`px-4 py-1.5 text-xs font-medium border-l border-gray-300 dark:border-gray-600 transition-colors ${
+                className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
                   pestanaActiva === 'datosSunat'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
               >
                 Datos SUNAT
