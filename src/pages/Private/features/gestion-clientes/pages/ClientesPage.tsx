@@ -688,44 +688,44 @@ function ClientesPage() {
 		}
 	}, [hasClients]);
 
-	const handleCreateClient = async () => {
+	const handleCreateClient = async (options?: { crearOtro?: boolean }) => {
 		// Validación de nombre según tipo de documento
 		const esRUC = formData.tipoDocumento === '6';
 		const esDNI = formData.tipoDocumento === '1';
 		
 		if (esRUC && !formData.razonSocial.trim()) {
 			showToast('warning', 'Campo requerido', 'La razón social es obligatoria para RUC');
-			return;
+			return false;
 		}
 
 		if (!esRUC && !formData.primerNombre.trim()) {
 			showToast('warning', 'Campo requerido', 'El primer nombre es obligatorio');
-			return;
+			return false;
 		}
 
 		if (!esRUC && !formData.apellidoPaterno.trim()) {
 			showToast('warning', 'Campo requerido', 'El apellido paterno es obligatorio');
-			return;
+			return false;
 		}
 
 		if (!formData.numeroDocumento.trim()) {
 			showToast('warning', 'Campo requerido', 'El número de documento es obligatorio');
-			return;
+			return false;
 		}
 
 		if (esRUC && formData.numeroDocumento.length !== 11) {
 			showToast('warning', 'RUC inválido', 'El RUC debe tener exactamente 11 dígitos');
-			return;
+			return false;
 		}
 
 		if (esDNI && formData.numeroDocumento.length !== 8) {
 			showToast('warning', 'DNI inválido', 'El DNI debe tener exactamente 8 dígitos');
-			return;
+			return false;
 		}
 
 		if (formData.estadoCliente === 'Deshabilitado' && !formData.motivoDeshabilitacion.trim()) {
 			showToast('warning', 'Campo requerido', 'Debe especificar el motivo de deshabilitación');
-			return;
+			return false;
 		}
 
 		// Determinar el nombre para enviar al backend
@@ -806,8 +806,13 @@ function ClientesPage() {
 
 		if (result) {
 			resetForm();
-			setShowClientModal(false);
+			if (!options?.crearOtro) {
+				setShowClientModal(false);
+			}
+			return true;
 		}
+
+		return false;
 	};
 
 	const handleCancelClient = () => {
@@ -1304,7 +1309,7 @@ function ClientesPage() {
 					formData={formData}
 					onInputChange={handleInputChange}
 					onCancel={handleCancelClient}
-					onSave={editingClient ? handleUpdateClient : handleCreateClient}
+					onSave={(options) => (editingClient ? handleUpdateClient() : handleCreateClient(options))}
 					isEditing={!!editingClient}
 					modoPresentacion="drawer"
 				/>

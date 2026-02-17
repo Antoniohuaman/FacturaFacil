@@ -19,7 +19,7 @@ type ClienteFormProps = {
   formData: ClienteFormData;
   onInputChange: (field: keyof ClienteFormData, value: ClienteFormData[keyof ClienteFormData]) => void;
   onCancel: () => void;
-  onSave: () => void;
+  onSave: (options?: { crearOtro?: boolean }) => Promise<boolean | void> | boolean | void;
   isEditing?: boolean;
   modoPresentacion?: 'modal' | 'drawer';
 };
@@ -464,11 +464,22 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   }, [requiredFieldIds, isFieldRenderable, hasValue, getFieldLabel, getDocumentoValidationError]);
 
   const handleSaveClick = useCallback(() => {
-    if (!validateCustomFields()) {
-      return;
-    }
-    onSave();
-  }, [validateCustomFields, onSave]);
+    const executeSave = async () => {
+      if (!validateCustomFields()) {
+        return;
+      }
+
+      const saveResult = await onSave({ crearOtro: !isEditing && crearOtro });
+
+      if (!isEditing && crearOtro && saveResult === true) {
+        setFieldErrors({});
+        setPestanaActiva('datosPrincipales');
+        setShowOtrosDocTypes(false);
+      }
+    };
+
+    void executeSave();
+  }, [validateCustomFields, onSave, isEditing, crearOtro]);
 
   return (
     <div
@@ -692,7 +703,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       maxLength={documentoMaxLength}
                       className={getFieldInputClass(
                         'numeroDocumento',
-                        'flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-l-md border-r-0 px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        'flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-l-md border-r-0 px-2.5 h-7 text-[11px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                       )}
                       placeholder={esDNI ? '8 dígitos' : '11 dígitos'}
                     />
@@ -705,7 +716,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                         (esDNI && formData.numeroDocumento.length !== 8) ||
                         (esRUC && formData.numeroDocumento.length !== 11)
                       }
-                      className={`h-8 px-3 rounded-r-md border text-[11px] font-medium uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      className={`h-7 px-3 rounded-r-md border text-[11px] font-medium uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         isConsulting ||
                         !formData.numeroDocumento ||
                         (esDNI && formData.numeroDocumento.length !== 8) ||
@@ -734,7 +745,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                     maxLength={documentoMaxLength}
                     className={getFieldInputClass(
                       'numeroDocumento',
-                      'w-full max-w-[24rem] border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                      'w-full max-w-[24rem] border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-7 text-[11px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                     )}
                     placeholder="Documento"
                   />
@@ -762,7 +773,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       onClick={() => handleFieldChange('tipoCuenta', tipo as ClienteFormData['tipoCuenta'], 'tipoCuenta')}
                       className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         formData.tipoCuenta === tipo
-                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          ? 'border border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300'
                           : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                       }`}
                     >
@@ -791,7 +802,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       onClick={() => handleFieldChange('tipoPersona', tipo as ClienteFormData['tipoPersona'], 'tipoPersona')}
                       className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         formData.tipoPersona === tipo
-                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          ? 'border border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-300'
                           : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                       }`}
                     >
