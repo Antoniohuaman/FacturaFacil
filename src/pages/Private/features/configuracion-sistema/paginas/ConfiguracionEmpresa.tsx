@@ -64,7 +64,7 @@ export function CompanyConfiguration() {
     rolesDisponibles: rolesConfigurados,
     establecimientoId: session?.currentEstablecimientoId,
   }), [rolesConfigurados, session?.currentEstablecimientoId, usuarioActual]);
-  const { createOrUpdateWorkspace, activeWorkspace } = useTenant();
+  const { createOrUpdateWorkspace, activeWorkspace, tenantId } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
   const initialWorkspaceId = useMemo(() => {
@@ -81,7 +81,7 @@ export function CompanyConfiguration() {
   const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
   const workspaceIdForSubmit = isCreateWorkspaceMode
     ? ensuredWorkspaceIdRef.current
-    : workspaceState?.workspaceId || activeWorkspace?.id;
+    : workspaceState?.workspaceId || tenantId || activeWorkspace?.id;
 
   const [datosFormulario, setFormData] = useState<CompanyFormData>({
     ruc: '',
@@ -171,68 +171,6 @@ export function CompanyConfiguration() {
       setFormData(loadedData);
       setOriginalData(loadedData);
       setHasChanges(false);
-    } else {
-      // No hay empresa en el contexto, intentar cargar desde pending_company_data
-      const pendingData = localStorage.getItem('pending_company_data');
-      if (pendingData) {
-        try {
-          const parsedData = JSON.parse(pendingData);
-
-          // Crear objeto Company completo para el contexto
-          const newCompany: Company = {
-            id: 'company-1',
-            ruc: parsedData.ruc || '',
-            razonSocial: parsedData.razonSocial || '',
-            nombreComercial: parsedData.nombreComercial || parsedData.razonSocial || '',
-            direccionFiscal: parsedData.direccion || '',
-            distrito: '',
-            provincia: '',
-            departamento: '',
-            codigoPostal: '',
-            telefonos: parsedData.telefono ? [parsedData.telefono] : [],
-            correosElectronicos: [],
-            sitioWeb: undefined,
-            logoEmpresa: undefined,
-            textoPiePagina: undefined,
-            actividadEconomica: parsedData.actividadEconomica || '',
-            regimenTributario: 'GENERAL',
-            monedaBase: 'PEN',
-            representanteLegal: {
-              nombreRepresentanteLegal: '',
-              tipoDocumentoRepresentante: 'DNI',
-              numeroDocumentoRepresentante: ''
-            },
-            certificadoDigital: undefined,
-            configuracionSunatEmpresa: {
-              estaConfiguradoEnSunat: false,
-              usuarioSunat: undefined,
-              entornoSunat: 'TESTING',
-              fechaUltimaSincronizacionSunat: undefined
-            },
-            creadoEl: new Date(),
-            actualizadoEl: new Date(),
-            estaActiva: true
-          };
-
-          // Guardar la empresa en el contexto
-          dispatch({ type: 'SET_COMPANY', payload: newCompany });
-
-          // Cargar los datos en el formulario
-          setFormData(prev => ({
-            ...prev,
-            ruc: parsedData.ruc || '',
-            razonSocial: parsedData.razonSocial || '',
-            nombreComercial: parsedData.nombreComercial || '',
-            direccionFiscal: parsedData.direccion || '',
-            telefonos: parsedData.telefono ? [parsedData.telefono] : [''],
-          }));
-
-          // Limpiar los datos pendientes después de procesarlos
-          localStorage.removeItem('pending_company_data');
-        } catch (error) {
-          console.error('Error al cargar datos pendientes de empresa:', error);
-        }
-      }
     }
   }, [company, dispatch, isCreateWorkspaceMode]);
 
@@ -328,7 +266,11 @@ export function CompanyConfiguration() {
     setIsLoading(true);
 
     try {
-      const targetWorkspaceId = workspaceIdForSubmit ?? generateWorkspaceId();
+      if (!workspaceIdForSubmit) {
+        throw new Error('No hay workspace activo para guardar la empresa.');
+      }
+
+      const targetWorkspaceId = workspaceIdForSubmit;
       ensuredWorkspaceIdRef.current = targetWorkspaceId;
 
       // Filter out empty phones and emails
@@ -336,7 +278,7 @@ export function CompanyConfiguration() {
       const cleanEmails = datosFormulario.correosElectronicos.filter(email => email.trim() !== '');
 
       const updatedCompany: Company = {
-        id: company?.id || '1',
+        id: targetWorkspaceId,
         ruc: datosFormulario.ruc,
         razonSocial: datosFormulario.razonSocial,
         nombreComercial: datosFormulario.nombreComercial || undefined,
@@ -463,7 +405,7 @@ export function CompanyConfiguration() {
     (company?.id ? true : rucValidation?.isValid === true) &&
     hasChanges; // Only enable if there are changes
 
-  if (!company) {
+  if (!company && !isCreateWorkspaceMode) {
     return (
       <div className="flex flex-col h-full">
         <PageHeader

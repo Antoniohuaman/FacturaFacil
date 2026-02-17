@@ -22,15 +22,12 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
   );
 
   const establecimientosDisponibles = useMemo(
-    () => (establecimientosConfigurados.length > 0
-      ? establecimientosConfigurados
-      : session?.availableEstablecimientos ?? []),
-    [establecimientosConfigurados, session?.availableEstablecimientos]
+    () => establecimientosConfigurados,
+    [establecimientosConfigurados]
   );
 
   const establecimientoActual =
     establecimientosDisponibles.find((item) => item.id === session?.currentEstablecimientoId) ||
-    session?.currentEstablecimiento ||
     establecimientosDisponibles[0] ||
     null;
 

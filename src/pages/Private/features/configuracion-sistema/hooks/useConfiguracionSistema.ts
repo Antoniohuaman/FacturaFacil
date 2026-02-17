@@ -26,9 +26,9 @@ interface UseConfigurationReturn {
 }
 
 // Mock configuration data
-const MOCK_CONFIGURATION: Configuration = {
+const crearConfiguracionBase = (companyId: string): Configuration => ({
   id: 'config-1',
-  companyId: 'company-1',
+  companyId,
   
   general: {
     timezone: 'America/Lima',
@@ -147,7 +147,7 @@ const MOCK_CONFIGURATION: Configuration = {
   createdAt: new Date(),
   updatedAt: new Date(),
   isActive: true,
-};
+});
 
 export function useConfiguration(): UseConfigurationReturn {
   const { state } = useConfigurationContext();
@@ -167,8 +167,8 @@ export function useConfiguration(): UseConfigurationReturn {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const nextConfiguration = MOCK_CONFIGURATION;
+
+      const nextConfiguration = crearConfiguracionBase(state.company?.id ?? '');
       setConfiguration(nextConfiguration);
       
       // Update modules based on configuration
@@ -266,8 +266,8 @@ export function useConfiguration(): UseConfigurationReturn {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setConfiguration(MOCK_CONFIGURATION);
+
+      setConfiguration(crearConfiguracionBase(state.company?.id ?? ''));
       
       // Reset all modules
       const resetModules = MODULOS_CONFIGURACION.map(module => ({
@@ -286,7 +286,7 @@ export function useConfiguration(): UseConfigurationReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [state.company?.id]);
 
   // Export configuration as JSON
   const exportConfiguration = useCallback(async (): Promise<string> => {

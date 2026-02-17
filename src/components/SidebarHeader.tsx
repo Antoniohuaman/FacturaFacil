@@ -17,12 +17,13 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, collapsed, onTog
   const [showEmpresaDropdown, setShowEmpresaDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Lista de empresas disponibles
   const empresasDisponibles = [
-    { id: 1, razonSocial: "Mi Empresa SAC", ruc: "20123456789", activa: true },
-    { id: 2, razonSocial: "Distribuidora Lima S.A.", ruc: "20987654321", activa: false },
-    { id: 3, razonSocial: "Comercial Norte EIRL", ruc: "20555666777", activa: false },
-    { id: 4, razonSocial: "Servicios Generales SRL", ruc: "20111222333", activa: false }
+    {
+      id: empresa.ruc,
+      razonSocial: empresa.razonSocial,
+      ruc: empresa.ruc,
+      activa: true,
+    },
   ];
 
   // Cerrar dropdown al hacer click fuera
@@ -37,9 +38,8 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, collapsed, onTog
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleEmpresaSelect = (empresaSeleccionada: typeof empresasDisponibles[0]) => {
+  const handleEmpresaSelect = () => {
     setShowEmpresaDropdown(false);
-    alert(`Cambiando a: ${empresaSeleccionada.razonSocial}\n\n(Aquí se implementaría el cambio real de empresa)`);
   };
 
   return (
@@ -93,7 +93,7 @@ const SidebarHeader: React.FC<SidebarHeaderProps> = ({ empresa, collapsed, onTog
                 {empresasDisponibles.map((empresaItem) => (
                   <button
                     key={empresaItem.id}
-                    onClick={() => handleEmpresaSelect(empresaItem)}
+                    onClick={handleEmpresaSelect}
                     className={`w-full text-left px-3 py-2 transition-colors hover:bg-slate-50 ${
                       empresaItem.activa ? 'bg-blue-50' : ''
                     }`}

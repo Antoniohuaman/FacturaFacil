@@ -4,13 +4,15 @@ import { useConfigurationContext } from '../pages/Private/features/configuracion
 import { construirNombreCompleto } from '../pages/Private/features/configuracion-sistema/utilidades/usuariosAsignaciones';
 import { useAuthStore } from '../pages/Private/features/autenticacion/store/AuthStore';
 import { clientesClient } from '../pages/Private/features/gestion-clientes/api';
+import { useTenant } from '../shared/tenant/TenantContext';
 
 /**
  * Componente que sincroniza el UserSessionContext con ConfigurationContext
  * Inicializa la sesión del usuario con el establecimiento principal o el primero disponible
  */
 export function SessionInitializer({ children }: { children: React.ReactNode }) {
-  const { session, setSession, setCurrentEstablecimiento, updateAvailableEstablecimientos, clearSession } = useUserSession();
+  const { session, setSession, clearSession } = useUserSession();
+  const { tenantId } = useTenant();
   const { state } = useConfigurationContext();
   const initializedRef = useRef(false);
   const ensuredClienteGeneralRef = useRef<string | null>(null);
@@ -31,62 +33,82 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    // Solo proceder si hay establecimientos disponibles
-    if (state.Establecimientos.length === 0 || !state.company) return;
+    if (!tenantId || state.Establecimientos.length === 0 || !state.company) return;
 
     const activeEstablecimientos = state.Establecimientos.filter(est => est.estaActivoEstablecimiento);
     if (activeEstablecimientos.length === 0) return;
 
-    // Si no hay sesión activa y no hemos inicializado, crear una sesión inicial
-    if (!session && !initializedRef.current) {
-      // Buscar el establecimiento principal
-      const mainEstablecimiento = activeEstablecimientos.find(est => est.isMainEstablecimiento);
-      // O usar el primero disponible
-      const defaultEstablecimiento = mainEstablecimiento || activeEstablecimientos[0];
+    const mainEstablecimiento = activeEstablecimientos.find(est => est.isMainEstablecimiento);
+    const defaultEstablecimiento = mainEstablecimiento || activeEstablecimientos[0];
+    const companyFromTenant = {
+      ...state.company,
+      id: tenantId,
+    };
 
-      if (defaultEstablecimiento) {
-        initializedRef.current = true;
-        // Crear sesión inicial basada en el usuario autenticado
-        setSession({
-          userId: authUser.id,
-          userName: construirNombreCompleto(authUser.nombre, authUser.apellido),
-          userEmail: authUser.email,
-          currentCompanyId: state.company.id,
-          currentCompany: state.company,
-          currentEstablecimientoId: defaultEstablecimiento.id,
-          currentEstablecimiento: defaultEstablecimiento,
-          availableEstablecimientos: activeEstablecimientos,
-          permissions: ['*'], // Permisos completos por defecto
-          role: authUser.rol,
-        });
-      }
+    if (!defaultEstablecimiento) {
       return;
     }
 
-    // Si ya hay sesión, solo actualizar la lista de establecimientos disponibles si cambió
-    if (session) {
-      const currentEstablecimientoIds = session.availableEstablecimientos.map(e => e.id).sort().join(',');
-      const newEstablecimientoIds = activeEstablecimientos.map(e => e.id).sort().join(',');
-
-      if (currentEstablecimientoIds !== newEstablecimientoIds) {
-        updateAvailableEstablecimientos(activeEstablecimientos);
-      }
-
-      // Si no tiene establecimiento seleccionado, asignar uno
-      if (!session.currentEstablecimiento) {
-        const mainEstablecimiento = activeEstablecimientos.find(est => est.isMainEstablecimiento);
-        const defaultEstablecimiento = mainEstablecimiento || activeEstablecimientos[0];
-
-        if (defaultEstablecimiento) {
-          setCurrentEstablecimiento(defaultEstablecimiento.id, defaultEstablecimiento);
-        }
-      }
+    if (!session && !initializedRef.current) {
+      initializedRef.current = true;
+      setSession({
+        userId: authUser.id,
+        userName: construirNombreCompleto(authUser.nombre, authUser.apellido),
+        userEmail: authUser.email,
+        currentCompanyId: tenantId,
+        currentCompany: companyFromTenant,
+        currentEstablecimientoId: defaultEstablecimiento.id,
+        currentEstablecimiento: defaultEstablecimiento,
+        availableEstablecimientos: activeEstablecimientos,
+        permissions: ['*'],
+        role: authUser.rol,
+      });
+      return;
     }
+
+    if (!session) {
+      return;
+    }
+
+    const establecimientoValido = activeEstablecimientos.find(
+      (est) => est.id === session.currentEstablecimientoId,
+    );
+    const establecimientoResuelto = establecimientoValido ?? defaultEstablecimiento;
+    const companyDesactualizada =
+      session.currentCompanyId !== tenantId ||
+      session.currentCompany?.id !== tenantId ||
+      session.currentCompany?.ruc !== companyFromTenant.ruc ||
+      session.currentCompany?.razonSocial !== companyFromTenant.razonSocial ||
+      session.currentCompany?.nombreComercial !== companyFromTenant.nombreComercial ||
+      session.currentCompany?.direccionFiscal !== companyFromTenant.direccionFiscal;
+
+    const establecimientosDesactualizados =
+      session.availableEstablecimientos.length !== activeEstablecimientos.length ||
+      session.availableEstablecimientos.some((est) =>
+        !activeEstablecimientos.some((activeEst) => activeEst.id === est.id),
+      );
+
+    const establecimientoDesactualizado =
+      !establecimientoValido ||
+      !session.currentEstablecimiento ||
+      session.currentEstablecimiento.id !== establecimientoResuelto.id;
+
+    if (!companyDesactualizada && !establecimientosDesactualizados && !establecimientoDesactualizado) {
+      return;
+    }
+
+    setSession({
+      ...session,
+      currentCompanyId: tenantId,
+      currentCompany: companyFromTenant,
+      currentEstablecimientoId: establecimientoResuelto.id,
+      currentEstablecimiento: establecimientoResuelto,
+      availableEstablecimientos: activeEstablecimientos,
+    });
   }, [
+    tenantId,
     session,
     setSession,
-    setCurrentEstablecimiento,
-    updateAvailableEstablecimientos,
     state.company,
     state.Establecimientos,
     isAuthenticated,

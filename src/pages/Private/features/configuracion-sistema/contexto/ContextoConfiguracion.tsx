@@ -120,13 +120,19 @@ export const construirConfiguracionInicialEmpresa = ({
   monedasExistentes,
   impuestosExistentes,
 }: ParametrosConfiguracionInicialEmpresa): ResultadoConfiguracionInicialEmpresa => {
+  const baseId =
+    (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+      ? crypto.randomUUID()
+      : `${Date.now()}`;
+  const establecimientoId = `est-${baseId}`;
+  const almacenId = `alm-${baseId}`;
   const ubicacion = parseUbigeoCode(datos.ubigeo);
   const telefonosLimpios = datos.telefonos.filter((telefono) => telefono.trim() !== '');
   const correosLimpios = datos.correosElectronicos.filter((correo) => correo.trim() !== '');
   const ahora = new Date();
 
   const establecimiento: Establecimiento = {
-    id: 'est-main',
+    id: establecimientoId,
     codigoEstablecimiento: '0001',
     nombreEstablecimiento: 'Establecimiento',
     direccionEstablecimiento: datos.direccionFiscal,
@@ -191,7 +197,7 @@ export const construirConfiguracionInicialEmpresa = ({
   };
 
   const almacen: Almacen = {
-    id: 'alm-main',
+    id: almacenId,
     codigoAlmacen: '0001',
     nombreAlmacen: 'Almacén',
     establecimientoId: establecimiento.id,
@@ -787,7 +793,7 @@ const construirEmpresaBase = (datos: DatosEmpresaBase): Company => {
   const ahora = new Date();
 
   return {
-    id: '1',
+    id: generateWorkspaceId(),
     ruc: datos.ruc,
     razonSocial: datos.razonSocial,
     nombreComercial: datos.nombreComercial || undefined,
@@ -1256,6 +1262,20 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   }, [createOrUpdateWorkspace, tenantId]);
 
   useEffect(() => {
+    if (!tenantId || !state.company || state.company.id === tenantId) {
+      return;
+    }
+
+    dispatch({
+      type: 'SET_COMPANY',
+      payload: {
+        ...state.company,
+        id: tenantId,
+      },
+    });
+  }, [dispatch, state.company, tenantId]);
+
+  useEffect(() => {
     if (!tenantId) return;
     if (!tenantHydratedRef.current) return;
     if (!seriesHydratedRef.current) return;
@@ -1284,7 +1304,10 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       return;
     }
 
-    const empresaBase = construirEmpresaBase(DATOS_EMPRESA_BASE);
+    const empresaBase = {
+      ...construirEmpresaBase(DATOS_EMPRESA_BASE),
+      id: tenantId,
+    };
     dispatch({ type: 'SET_COMPANY', payload: empresaBase });
 
     const resultadoConfiguracion = construirConfiguracionInicialEmpresa({
@@ -1349,13 +1372,12 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   ]);
 
   useEffect(() => {
-    if (!state.company) {
+    if (!state.company || !tenantId) {
       return;
     }
 
-    const idWorkspace = tenantId ?? activeWorkspace?.id ?? generateWorkspaceId();
     const datosWorkspace = {
-      id: idWorkspace,
+      id: tenantId,
       ruc: state.company.ruc,
       razonSocial: state.company.razonSocial,
       nombreComercial: state.company.nombreComercial,
@@ -1381,8 +1403,15 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   ]);
 
   useEffect(() => {
+    if (!tenantId) return;
+
     const empresa = state.company;
     if (!empresa) return;
+
+    const empresaNormalizada: Company = {
+      ...empresa,
+      id: tenantId,
+    };
 
     const establecimientoPrincipal =
       state.Establecimientos.find((item) => item.isMainEstablecimiento) ??
@@ -1391,15 +1420,15 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     if (!establecimientoPrincipal) return;
 
     const empresaTenant: EmpresaTenant = {
-      id: empresa.id,
-      ruc: empresa.ruc,
-      razonSocial: empresa.razonSocial,
-      nombreComercial: empresa.nombreComercial,
-      direccion: empresa.direccionFiscal,
-      telefono: empresa.telefonos?.[0],
-      email: empresa.correosElectronicos?.[0],
-      actividadEconomica: empresa.actividadEconomica,
-      regimen: (empresa.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
+      id: tenantId,
+      ruc: empresaNormalizada.ruc,
+      razonSocial: empresaNormalizada.razonSocial,
+      nombreComercial: empresaNormalizada.nombreComercial,
+      direccion: empresaNormalizada.direccionFiscal,
+      telefono: empresaNormalizada.telefonos?.[0],
+      email: empresaNormalizada.correosElectronicos?.[0],
+      actividadEconomica: empresaNormalizada.actividadEconomica,
+      regimen: (empresaNormalizada.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
       estado: EmpresaStatus.ACTIVA,
       establecimientos: [
         {
@@ -1417,7 +1446,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     };
 
     const contextoTenant: WorkspaceContext = {
-      empresaId: empresa.id,
+      empresaId: tenantId,
       establecimientoId: establecimientoPrincipal.id,
       empresa: empresaTenant,
       establecimiento: empresaTenant.establecimientos[0],
@@ -1450,17 +1479,21 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     }
 
     const requiereActualizarSesion =
-      session?.currentCompanyId === empresa.id &&
-      (!session.currentCompany ||
-        session.currentCompany.ruc !== empresa.ruc ||
-        session.currentCompany.razonSocial !== empresa.razonSocial ||
-        session.currentCompany.nombreComercial !== empresa.nombreComercial ||
-        session.currentCompany.direccionFiscal !== empresa.direccionFiscal);
+      !!session &&
+      (session.currentCompanyId !== tenantId ||
+        !session.currentCompany ||
+        session.currentCompany.id !== tenantId ||
+        session.currentCompany.ruc !== empresaNormalizada.ruc ||
+        session.currentCompany.razonSocial !== empresaNormalizada.razonSocial ||
+        session.currentCompany.nombreComercial !== empresaNormalizada.nombreComercial ||
+        session.currentCompany.direccionFiscal !== empresaNormalizada.direccionFiscal);
 
     if (requiereActualizarSesion) {
-      setCurrentCompany(empresa.id, empresa);
+      setCurrentCompany(tenantId, empresaNormalizada);
     }
   }, [
+    tenantId,
+    session,
     session?.currentCompany,
     session?.currentCompany?.direccionFiscal,
     session?.currentCompany?.nombreComercial,
@@ -1478,17 +1511,21 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     if (!tenantId) return;
     if (!session?.userId || !session.userName || !session.userEmail) return;
 
-    const empresaActivaId = contextoActual?.empresaId ?? session.currentCompanyId ?? state.company?.id ?? '';
-    if (state.company?.id && empresaActivaId && empresaActivaId !== state.company.id) {
-      return;
-    }
+    const empresaActivaId = tenantId;
 
-    const establecimientoActivoId =
+    const establecimientoActivoIdCandidato =
       contextoActual?.establecimientoId ??
       session.currentEstablecimientoId ??
       session.currentEstablecimiento?.id ??
       '';
-    if (!establecimientoActivoId) return;
+
+    const establecimientoActivo =
+      state.Establecimientos.find((establecimiento) => establecimiento.id === establecimientoActivoIdCandidato) ??
+      state.Establecimientos.find((establecimiento) => establecimiento.isMainEstablecimiento) ??
+      state.Establecimientos[0];
+
+    if (!establecimientoActivo?.id) return;
+    const establecimientoActivoId = establecimientoActivo.id;
 
     const empresaNombreActiva =
       contextoActual?.empresa?.razonSocial ??
@@ -1629,6 +1666,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     session?.userId,
     session?.userName,
     rolesConfigurados,
+    state.Establecimientos,
     state.company?.id,
     state.company?.nombreComercial,
     state.company?.razonSocial,
@@ -1850,6 +1888,16 @@ const obtenerKeysConfiguracion = (): string[] => {
   return keys;
 };
 
+const obtenerTenantIdDesdeStorageKey = (storageKey: string): string | null => {
+  const sufijo = `:${LLAVE_ALMACENAMIENTO_CONFIGURACION}`;
+  if (!storageKey.endsWith(sufijo)) {
+    return null;
+  }
+
+  const tenantId = storageKey.slice(0, -sufijo.length).trim();
+  return tenantId || null;
+};
+
 export function useEmpresasConfiguradas(): EmpresaTenant[] {
   const { state } = useConfigurationContext();
 
@@ -1859,13 +1907,17 @@ export function useEmpresasConfiguradas(): EmpresaTenant[] {
 
     storageKeys.forEach((storageKey) => {
       const snapshot = loadTenantConfigFromStorage(storageKey);
-      if (!snapshot?.company) {
+      const tenantId = obtenerTenantIdDesdeStorageKey(storageKey);
+      if (!snapshot?.company || !tenantId) {
         return;
       }
 
       empresas.set(
-        snapshot.company.id,
-        mapearEmpresaConfigurada(snapshot.company, snapshot.Establecimientos),
+        tenantId,
+        mapearEmpresaConfigurada({
+          ...snapshot.company,
+          id: tenantId,
+        }, snapshot.Establecimientos),
       );
     });
 

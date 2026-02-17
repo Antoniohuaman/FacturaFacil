@@ -23,25 +23,19 @@ type GlobalSession = {
  * Lanza error si no hay empresa disponible.
  */
 export function getTenantEmpresaId(): string {
-  const contextoActual = useTenantStore.getState().contextoActual;
-
-  if (contextoActual?.empresaId) {
-    return contextoActual.empresaId;
-  }
-
   const globalAny = globalThis as typeof globalThis & GlobalSession;
   const activeWorkspaceId = getFrontendWorkspaceId(globalAny);
   if (activeWorkspaceId) {
     return activeWorkspaceId;
   }
 
-  // Fallback opcional: leer de una sesión inyectada globalmente si existe
-  const sessionCompanyId = globalAny.__USER_SESSION__?.currentCompanyId;
-  if (sessionCompanyId && sessionCompanyId.trim() !== '') {
-    return sessionCompanyId;
+  const contextoActual = useTenantStore.getState().contextoActual;
+
+  if (contextoActual?.empresaId) {
+    return contextoActual.empresaId;
   }
 
-  throw new Error('[tenant] No hay empresa actual disponible en TenantStore ni en UserSession');
+  throw new Error('[tenant] No hay empresa actual disponible en TenantProvider ni en TenantStore');
 }
 
 export function tryGetTenantEmpresaId(): string | null {
