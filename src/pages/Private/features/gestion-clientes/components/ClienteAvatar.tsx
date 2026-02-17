@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Upload, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 
 type ClienteAvatarProps = {
   imagenes: File[];
@@ -47,7 +47,7 @@ const ClienteAvatar: React.FC<ClienteAvatarProps> = ({ imagenes, onChange }) => 
   return (
     <div className="flex flex-col gap-2">
       {/* Imagen principal - cuadrada/rectangular */}
-      <div className="relative w-24 h-28 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+      <div className="relative w-24 h-28 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
         {preview ? (
           <img src={preview} alt="Cliente" className="w-full h-full object-cover" />
         ) : (
@@ -66,16 +66,27 @@ const ClienteAvatar: React.FC<ClienteAvatarProps> = ({ imagenes, onChange }) => 
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        className="flex items-center justify-center gap-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+        className="inline-flex items-center justify-center gap-1 h-7 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
       >
         <Upload className="w-3 h-3" />
         {preview ? 'Cambiar' : 'Subir'}
       </button>
 
       {preview && imagenes[0] && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[96px]" title={imagenes[0].name}>
-          {imagenes[0].name}
-        </p>
+        <div className="flex items-center gap-1.5 max-w-[96px]">
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={imagenes[0].name}>
+            {imagenes[0].name}
+          </p>
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            aria-label="Eliminar imagen"
+            title="Eliminar imagen"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
     </div>
   );
