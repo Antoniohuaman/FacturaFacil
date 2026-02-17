@@ -1295,6 +1295,7 @@ function ClientesPage() {
 				abierto={showClientModal}
 				alCerrar={handleCancelClient}
 				titulo={editingClient ? 'Editar cliente' : 'Nuevo cliente'}
+				subtitulo={editingClient ? (formData.razonSocial || formData.nombreCompleto || undefined) : undefined}
 				lado="derecha"
 				tamano="lg"
 				devolverFocoARef={botonNuevoClienteRef}

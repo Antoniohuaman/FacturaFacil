@@ -97,6 +97,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ClienteFieldId, string>>>({});
   const fieldLabelMap = useMemo(() => new Map(fieldConfigs.map((field) => [field.id, field.label])), [fieldConfigs]);
   const esModoDrawer = modoPresentacion === 'drawer';
+  const nombreClienteContexto =
+    formData.razonSocial?.trim() || formData.nombreCompleto?.trim() || undefined;
 
   const clearFieldError = useCallback((fieldId: ClienteFieldId) => {
     setFieldErrors((prev) => {
@@ -446,15 +448,18 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       className={
         esModoDrawer
           ? 'h-full w-full bg-white dark:bg-gray-800 overflow-hidden flex flex-col'
-          : 'bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col'
+          : 'bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-[1100px] max-h-[85vh] overflow-hidden flex flex-col'
       }
     >
       {!esModoDrawer && (
-        <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               {isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}
             </h2>
+            {isEditing && nombreClienteContexto && (
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{nombreClienteContexto}</p>
+            )}
             {isEditing && (formData.fechaRegistro || formData.fechaUltimaModificacion) && (
               <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
                 {formData.fechaRegistro && (
@@ -473,7 +478,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           <div className="flex items-center gap-1.5">
             <button
               onClick={onCancel}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               <span className="h-5 w-5 text-gray-400 dark:text-gray-300">✕</span>
             </button>
@@ -482,15 +487,15 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       )}
 
       {/* Body con scroll */}
-      <div className={`min-h-0 flex-1 overflow-y-auto ${esModoDrawer ? 'px-5 py-4' : 'px-6 py-3'}`}>
+      <div className={`min-h-0 flex-1 overflow-y-auto ${esModoDrawer ? 'px-4 py-3' : 'px-5 py-3'}`}>
         <div className="mb-3 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-end gap-5" role="tablist" aria-label="Pestañas del formulario de cliente">
+          <div className="flex items-end gap-4" role="tablist" aria-label="Pestañas del formulario de cliente">
             <button
               type="button"
               role="tab"
               aria-selected={pestanaActiva === 'datosPrincipales'}
               onClick={() => setPestanaActiva('datosPrincipales')}
-              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                 pestanaActiva === 'datosPrincipales'
                   ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -503,7 +508,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               role="tab"
               aria-selected={pestanaActiva === 'direcciones'}
               onClick={() => setPestanaActiva('direcciones')}
-              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                 pestanaActiva === 'direcciones'
                   ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -516,7 +521,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               role="tab"
               aria-selected={pestanaActiva === 'contactos'}
               onClick={() => setPestanaActiva('contactos')}
-              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                 pestanaActiva === 'contactos'
                   ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -529,7 +534,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               role="tab"
               aria-selected={pestanaActiva === 'configuracionComercial'}
               onClick={() => setPestanaActiva('configuracionComercial')}
-              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+              className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                 pestanaActiva === 'configuracionComercial'
                   ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -543,7 +548,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                 role="tab"
                 aria-selected={pestanaActiva === 'datosSunat'}
                 onClick={() => setPestanaActiva('datosSunat')}
-                className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors ${
+                className={`-mb-px border-b-2 px-0.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                   pestanaActiva === 'datosSunat'
                     ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -558,87 +563,87 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
         {pestanaActiva === 'datosPrincipales' && (
           <>
         {/* SECCIÓN: IDENTIFICACIÓN */}
-        <div className="mb-4">
+        <div className="mb-3 space-y-2.5">
 
-          {/* Tipo de Documento - Pills: RUC | DNI | OTROS */}
-          {isFieldRenderable('tipoDocumento') && (
-            <div className="mb-2">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Tipo de documento{' '}
-                {shouldShowRequiredIndicator('tipoDocumento') && <span className="text-red-500">*</span>}
-              </label>
-              <div className="flex gap-1.5 mb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleFieldChange('tipoDocumento', '6', 'tipoDocumento');
-                    setShowOtrosDocTypes(false);
-                  }}
-                  className={`px-4 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-                    formData.tipoDocumento === '6'
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  RUC
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleFieldChange('tipoDocumento', '1', 'tipoDocumento');
-                    setShowOtrosDocTypes(false);
-                  }}
-                  className={`px-4 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-                    formData.tipoDocumento === '1'
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  DNI
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowOtrosDocTypes(!showOtrosDocTypes)}
-                  className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors flex items-center gap-1 ${
-                    formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1'
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1' ? getDocLabelFromCode(formData.tipoDocumento) : 'Más'}
-                  <span className="text-xs">{showOtrosDocTypes ? '▴' : '▾'}</span>
-                </button>
-              </div>
-              
-              {/* Dropdown de otros documentos */}
-              {showOtrosDocTypes && (
-                <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {tiposDocumento.filter((t) => t.value !== '6' && t.value !== '1').map((type) => (
-                    <button
-                      key={type.value}
-                      type="button"
-                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
-                        formData.tipoDocumento === type.value
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium'
-                          : 'text-gray-700 dark:text-gray-300'
-                      }`}
-                      onClick={() => {
-                        handleFieldChange('tipoDocumento', type.value as ClienteFormData['tipoDocumento'], 'tipoDocumento');
-                        setShowOtrosDocTypes(false);
-                      }}
-                    >
-                      <span className="text-xs">{type.label}</span>
-                    </button>
-                  ))}
+          <div className="grid grid-cols-1 md:grid-cols-[auto,1fr,auto] items-end gap-3">
+            {isFieldRenderable('tipoDocumento') && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Tipo de documento{' '}
+                  {shouldShowRequiredIndicator('tipoDocumento') && <span className="text-red-500">*</span>}
+                </label>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFieldChange('tipoDocumento', '6', 'tipoDocumento');
+                      setShowOtrosDocTypes(false);
+                    }}
+                    className={`h-8 px-2.5 rounded-md border text-xs font-medium transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      formData.tipoDocumento === '6'
+                        ? 'border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30'
+                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <span className={`h-2.5 w-2.5 rounded-full border ${formData.tipoDocumento === '6' ? 'bg-blue-600 border-blue-600' : 'border-gray-400 dark:border-gray-500'}`} aria-hidden="true" />
+                    RUC
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFieldChange('tipoDocumento', '1', 'tipoDocumento');
+                      setShowOtrosDocTypes(false);
+                    }}
+                    className={`h-8 px-2.5 rounded-md border text-xs font-medium transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      formData.tipoDocumento === '1'
+                        ? 'border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30'
+                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <span className={`h-2.5 w-2.5 rounded-full border ${formData.tipoDocumento === '1' ? 'bg-blue-600 border-blue-600' : 'border-gray-400 dark:border-gray-500'}`} aria-hidden="true" />
+                    DNI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowOtrosDocTypes(!showOtrosDocTypes)}
+                    className={`h-8 px-2.5 rounded-md border text-xs font-medium transition-colors inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1'
+                        ? 'border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30'
+                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    <span className={`h-2.5 w-2.5 rounded-full border ${formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1' ? 'bg-blue-600 border-blue-600' : 'border-gray-400 dark:border-gray-500'}`} aria-hidden="true" />
+                    {formData.tipoDocumento !== '6' && formData.tipoDocumento !== '1' ? getDocLabelFromCode(formData.tipoDocumento) : 'Más'}
+                    <span className="text-[10px]">{showOtrosDocTypes ? '▴' : '▾'}</span>
+                  </button>
                 </div>
-              )}
-              {renderFieldError('tipoDocumento')}
-            </div>
-          )}
 
-          {/* Número de Documento + Botón RENIEC/SUNAT */}
-          {isFieldRenderable('numeroDocumento') && (
-            <div className="grid grid-cols-[1fr,auto] gap-2 mb-2">
+                {showOtrosDocTypes && (
+                  <div className="mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm max-h-48 overflow-y-auto">
+                    {tiposDocumento.filter((t) => t.value !== '6' && t.value !== '1').map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 dark:hover:bg-blue-900/30 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                          formData.tipoDocumento === type.value
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium'
+                            : 'text-gray-700 dark:text-gray-300'
+                        }`}
+                        onClick={() => {
+                          handleFieldChange('tipoDocumento', type.value as ClienteFormData['tipoDocumento'], 'tipoDocumento');
+                          setShowOtrosDocTypes(false);
+                        }}
+                      >
+                        <span className="text-xs">{type.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {renderFieldError('tipoDocumento')}
+              </div>
+            )}
+
+            {isFieldRenderable('numeroDocumento') && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Número de documento{' '}
@@ -653,118 +658,118 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                   maxLength={documentoMaxLength}
                   className={getFieldInputClass(
                     'numeroDocumento',
-                    'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                    'w-[22ch] max-w-full md:w-[24ch] border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                   )}
                   placeholder={esDNI ? '8 dígitos' : esRUC ? '11 dígitos' : 'Documento'}
                 />
                 {renderFieldError('numeroDocumento')}
               </div>
-              {(esRUC || esDNI) && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 opacity-0">
-                    .
-                  </label>
-                  <button
-                    type="button"
-                    onClick={esRUC ? handleConsultarSunat : handleConsultarReniec}
-                    disabled={
-                      isConsulting ||
-                      !formData.numeroDocumento ||
-                      (esDNI && formData.numeroDocumento.length !== 8) ||
-                      (esRUC && formData.numeroDocumento.length !== 11)
-                    }
-                    className={`px-3 h-9 rounded-md font-semibold text-xs uppercase transition-colors ${
-                      isConsulting ||
-                      !formData.numeroDocumento ||
-                      (esDNI && formData.numeroDocumento.length !== 8) ||
-                      (esRUC && formData.numeroDocumento.length !== 11)
-                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}
-                  >
-                    {isConsulting ? (
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-[10px]">...</span>
-                      </div>
-                    ) : (
-                      esRUC ? 'SUNAT' : 'RENIEC'
-                    )}
-                  </button>
+            )}
+
+            {(esRUC || esDNI) && isFieldRenderable('numeroDocumento') && (
+              <div>
+                <label className="sr-only">Consultar padrón</label>
+                <button
+                  type="button"
+                  onClick={esRUC ? handleConsultarSunat : handleConsultarReniec}
+                  disabled={
+                    isConsulting ||
+                    !formData.numeroDocumento ||
+                    (esDNI && formData.numeroDocumento.length !== 8) ||
+                    (esRUC && formData.numeroDocumento.length !== 11)
+                  }
+                  className={`h-8 px-2.5 rounded-md border text-[11px] font-medium uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                    isConsulting ||
+                    !formData.numeroDocumento ||
+                    (esDNI && formData.numeroDocumento.length !== 8) ||
+                    (esRUC && formData.numeroDocumento.length !== 11)
+                      ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                  }`}
+                >
+                  {isConsulting ? (
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-[10px]">...</span>
+                    </div>
+                  ) : (
+                    esRUC ? 'SUNAT' : 'RENIEC'
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {isFieldRenderable('tipoCuenta') && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Tipo de cuenta {shouldShowRequiredIndicator('tipoCuenta') && <span className="text-red-500">*</span>}
+                </label>
+                <div
+                  className={`inline-flex p-0.5 rounded-lg bg-gray-100 dark:bg-gray-700 ${
+                    getFieldError('tipoCuenta') ? 'ring-1 ring-red-500' : ''
+                  }`}
+                >
+                  {['Cliente', 'Proveedor', 'Cliente-Proveedor'].map((tipo) => (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => handleFieldChange('tipoCuenta', tipo as ClienteFormData['tipoCuenta'], 'tipoCuenta')}
+                      className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        formData.tipoCuenta === tipo
+                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {tipo}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Tipo de Cuenta - Segmented Control */}
-          {isFieldRenderable('tipoCuenta') && (
-            <div className="mb-2">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Tipo de cuenta {shouldShowRequiredIndicator('tipoCuenta') && <span className="text-red-500">*</span>}
-              </label>
-              <div className={`inline-flex rounded-md border ${getFieldError('tipoCuenta') ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} overflow-hidden`}>
-                {['Cliente', 'Proveedor', 'Cliente-Proveedor'].map((tipo, idx) => (
-                  <button
-                    key={tipo}
-                    type="button"
-                    onClick={() => handleFieldChange('tipoCuenta', tipo as ClienteFormData['tipoCuenta'], 'tipoCuenta')}
-                    className={`px-4 py-1.5 text-xs font-medium transition-colors ${
-                      idx > 0 ? 'border-l border-gray-300 dark:border-gray-600' : ''
-                    } ${
-                      formData.tipoCuenta === tipo
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {tipo}
-                  </button>
-                ))}
+                {renderFieldError('tipoCuenta')}
               </div>
-              {renderFieldError('tipoCuenta')}
-            </div>
-          )}
+            )}
 
-          {/* Tipo de Persona - Segmented Control */}
-          {isFieldRenderable('tipoPersona') && (
-            <div className="mb-2">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Tipo de persona {shouldShowRequiredIndicator('tipoPersona') && <span className="text-red-500">*</span>}
-              </label>
-              <div className={`inline-flex rounded-md border ${getFieldError('tipoPersona') ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} overflow-hidden`}>
-                {['Natural', 'Juridica'].map((tipo, idx) => (
-                  <button
-                    key={tipo}
-                    type="button"
-                    onClick={() => handleFieldChange('tipoPersona', tipo as ClienteFormData['tipoPersona'], 'tipoPersona')}
-                    className={`px-6 py-1.5 text-xs font-medium transition-colors ${
-                      idx > 0 ? 'border-l border-gray-300 dark:border-gray-600' : ''
-                    } ${
-                      formData.tipoPersona === tipo
-                        ? 'bg-gray-600 dark:bg-gray-500 text-white'
-                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {tipo === 'Juridica' ? 'Jurídica' : tipo}
-                  </button>
-                ))}
+            {isFieldRenderable('tipoPersona') && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Tipo de persona {shouldShowRequiredIndicator('tipoPersona') && <span className="text-red-500">*</span>}
+                </label>
+                <div
+                  className={`inline-flex p-0.5 rounded-lg bg-gray-100 dark:bg-gray-700 ${
+                    getFieldError('tipoPersona') ? 'ring-1 ring-red-500' : ''
+                  }`}
+                >
+                  {['Natural', 'Juridica'].map((tipo) => (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => handleFieldChange('tipoPersona', tipo as ClienteFormData['tipoPersona'], 'tipoPersona')}
+                      className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        formData.tipoPersona === tipo
+                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {tipo === 'Juridica' ? 'Jurídica' : tipo}
+                    </button>
+                  ))}
+                </div>
+                {renderFieldError('tipoPersona')}
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  Se ajusta automáticamente según el tipo de documento
+                </p>
               </div>
-              {renderFieldError('tipoPersona')}
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                Se ajusta automáticamente según el tipo de documento
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* LAYOUT DE DOS COLUMNAS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 gap-y-3">
-          {/* COLUMNA IZQUIERDA */}
-          <div className="space-y-2">
+        <div className="space-y-2">
             {/* Razón Social (solo RUC) */}
             {esRUC && (isFieldRenderable('avatar') || isFieldRenderable('razonSocial') || isFieldRenderable('nombreComercial')) && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  🏢 Datos de la Empresa
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 pb-1 border-b border-gray-200 dark:border-gray-700">
+                  Datos de la empresa
                 </h3>
                 
                 {/* Grid con avatar y campos */}
@@ -801,7 +806,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                           onChange={(e) => handleFieldChange('razonSocial', e.target.value, 'razonSocial')}
                           className={getFieldInputClass(
                             'razonSocial',
-                            'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                            'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                           )}
                         />
                         {renderFieldError('razonSocial')}
@@ -818,7 +823,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                           onChange={(e) => handleFieldChange('nombreComercial', e.target.value, 'nombreComercial')}
                           className={getFieldInputClass(
                             'nombreComercial',
-                            'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                            'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                           )}
                         />
                         {renderFieldError('nombreComercial')}
@@ -832,8 +837,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             {/* Nombres (solo Persona Natural) */}
             {!esRUC && (isFieldRenderable('avatar') || isFieldRenderable('primerNombre') || isFieldRenderable('segundoNombre') || isFieldRenderable('apellidoPaterno') || isFieldRenderable('apellidoMaterno') || isFieldRenderable('nombreCompleto')) && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  👤 Datos Personales
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 pb-1 border-b border-gray-200 dark:border-gray-700">
+                  Datos personales
                 </h3>
                 
                 {/* Grid con avatar y campos */}
@@ -871,7 +876,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                             onChange={(e) => handleFieldChange('primerNombre', e.target.value, 'primerNombre')}
                             className={getFieldInputClass(
                               'primerNombre',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                             )}
                           />
                           {renderFieldError('primerNombre')}
@@ -888,7 +893,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                             onChange={(e) => handleFieldChange('segundoNombre', e.target.value, 'segundoNombre')}
                             className={getFieldInputClass(
                               'segundoNombre',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                             )}
                           />
                           {renderFieldError('segundoNombre')}
@@ -908,7 +913,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                             onChange={(e) => handleFieldChange('apellidoPaterno', e.target.value, 'apellidoPaterno')}
                             className={getFieldInputClass(
                               'apellidoPaterno',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                             )}
                           />
                           {renderFieldError('apellidoPaterno')}
@@ -926,7 +931,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                             onChange={(e) => handleFieldChange('apellidoMaterno', e.target.value, 'apellidoMaterno')}
                             className={getFieldInputClass(
                               'apellidoMaterno',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                             )}
                           />
                           {renderFieldError('apellidoMaterno')}
@@ -945,22 +950,18 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       type="text"
                       value={formData.nombreCompleto}
                       readOnly
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 h-9 text-sm bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed"
                     />
                   </div>
                 )}
               </div>
             )}
 
-          </div>
-
-          {/* COLUMNA DERECHA */}
-          <div className="space-y-3">
             {/* Estado y Configuración */}
             {(isFieldRenderable('estadoCliente') || isFieldRenderable('motivoDeshabilitacion')) && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  ⚙️ Estado y Configuración
+              <div className="pt-1">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 pb-1 border-b border-gray-200 dark:border-gray-700">
+                  Estado y configuración
                 </h3>
                 {isFieldRenderable('estadoCliente') && (
                   <div className="mb-2">
@@ -979,7 +980,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       }
                       className={getFieldInputClass(
                         'estadoCliente',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                       )}
                     >
                       <option value="Habilitado">Habilitado</option>
@@ -1000,7 +1001,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       rows={2}
                       className={getFieldInputClass(
                         'motivoDeshabilitacion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none'
+                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none'
                       )}
                     />
                     {renderFieldError('motivoDeshabilitacion')}
@@ -1009,7 +1010,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               </div>
             )}
 
-          </div>
         </div>
           </>
         )}
@@ -1420,19 +1420,19 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+      <div className="shrink-0 flex items-center justify-end gap-2 px-5 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
         <button
           onClick={onCancel}
-          className="px-6 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-full hover:bg-gray-200 dark:hover:bg-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors"
+          className="h-8 px-3 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           Cancelar
         </button>
         <button
           onClick={handleSaveClick}
-          className="px-6 py-2 text-sm font-medium text-white border rounded-full hover:opacity-90 transition-opacity"
+          className="h-8 px-3 text-xs font-medium text-white border rounded-md hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}
         >
-          {isEditing ? 'Actualizar' : 'Guardar'}
+          {isEditing ? 'Actualizar' : 'Crear cliente'}
         </button>
       </div>
     </div>
