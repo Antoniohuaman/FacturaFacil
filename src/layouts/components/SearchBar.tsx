@@ -16,7 +16,7 @@ import { useCaja } from '../../pages/Private/features/control-caja/context/CajaC
 import type { Movimiento } from '../../pages/Private/features/control-caja/models';
 import { useIndicadores } from '../../pages/Private/features/indicadores-negocio/hooks/useIndicadores';
 import { useIndicadoresFiltersStore } from '../../pages/Private/features/indicadores-negocio/store/indicadoresFiltersStore';
-import { useTenantStore } from '../../pages/Private/features/autenticacion/store/TenantStore';
+import { useTenant } from '@/shared/tenant/TenantContext';
 import { useColumns } from '../../pages/Private/features/lista-precios/hooks/useColumns';
 import { useCatalogSync } from '../../pages/Private/features/lista-precios/hooks/useCatalogSync';
 import { usePriceProducts } from '../../pages/Private/features/lista-precios/hooks/usePriceProducts';
@@ -515,7 +515,8 @@ interface SearchBarContentProps {
 }
 
 const SearchBar = () => {
-  const empresaId = useTenantStore((state) => state.contextoActual?.empresaId ?? '');
+  const { tenantId } = useTenant();
+  const empresaId = tenantId ?? '';
 
   if (!empresaId) {
     return (

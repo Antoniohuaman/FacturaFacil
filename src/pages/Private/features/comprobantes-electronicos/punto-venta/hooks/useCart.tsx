@@ -126,21 +126,9 @@ export const useCart = (): UseCartReturn => {
   // ===================================================================
   const { state: { almacenes, salesPreferences, taxes, units } } = useConfigurationContext();
   const allowNegativeStock = useMemo(() => {
-    if (typeof salesPreferences?.allowNegativeStock === 'boolean') {
-      return salesPreferences.allowNegativeStock;
-    }
-
-    try {
-      const config = localStorage.getItem('facturaFacilConfig');
-      if (config) {
-        const parsed = JSON.parse(config);
-        return parsed.sales?.allowNegativeStock ?? false;
-      }
-    } catch (e) {
-      console.error('Error reading stock configuration:', e);
-    }
-
-    return false;
+    return typeof salesPreferences?.allowNegativeStock === 'boolean'
+      ? salesPreferences.allowNegativeStock
+      : false;
   }, [salesPreferences]);
   
   const defaultIgvFromConfiguration: IgvConfig | null = useMemo(() => {

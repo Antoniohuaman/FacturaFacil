@@ -13,7 +13,14 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
   const contenedorRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { session, setCurrentEstablecimiento } = useUserSession();
-  const { workspaces, tenantId, setTenantId, activeWorkspace } = useTenant();
+  const {
+    workspaces,
+    tenantId,
+    activeWorkspace,
+    activeEstablecimientoId,
+    setTenantId,
+    setActiveEstablecimientoId,
+  } = useTenant();
   const { state } = useConfigurationContext();
 
   const establecimientosConfigurados = useMemo(
@@ -27,7 +34,7 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
   );
 
   const establecimientoActual =
-    establecimientosDisponibles.find((item) => item.id === session?.currentEstablecimientoId) ||
+    establecimientosDisponibles.find((item) => item.id === activeEstablecimientoId) ||
     establecimientosDisponibles[0] ||
     null;
 
@@ -64,9 +71,30 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
     if (!establecimiento) {
       return;
     }
+    setActiveEstablecimientoId(establecimientoId);
     setCurrentEstablecimiento(establecimientoId, establecimiento);
     setMenuAbierto(false);
   };
+
+  useEffect(() => {
+    if (!tenantId) {
+      return;
+    }
+
+    if (!establecimientosDisponibles.length) {
+      if (activeEstablecimientoId) {
+        setActiveEstablecimientoId(null);
+      }
+      return;
+    }
+
+    const existeActivo = establecimientosDisponibles.some((item) => item.id === activeEstablecimientoId);
+    if (!existeActivo) {
+      const establecimientoInicial = establecimientosDisponibles.find((item) => item.isMainEstablecimiento)
+        ?? establecimientosDisponibles[0];
+      setActiveEstablecimientoId(establecimientoInicial.id);
+    }
+  }, [activeEstablecimientoId, establecimientosDisponibles, setActiveEstablecimientoId, tenantId]);
 
   const navegarGestionEmpresa = (modo: 'create_workspace' | 'edit_workspace', workspaceId?: string) => {
     navigate('/configuracion/empresa', { state: { workspaceMode: modo, workspaceId } });

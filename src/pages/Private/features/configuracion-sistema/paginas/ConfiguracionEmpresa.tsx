@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/CompanyConfiguration.tsx
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Phone,
@@ -26,8 +26,6 @@ import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
-import { useTenantStore } from '../../autenticacion/store/TenantStore';
-import { EmpresaStatus, RegimenTributario, type WorkspaceContext } from '../../autenticacion/types/auth.types';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
 
@@ -64,7 +62,7 @@ export function CompanyConfiguration() {
     rolesDisponibles: rolesConfigurados,
     establecimientoId: session?.currentEstablecimientoId,
   }), [rolesConfigurados, session?.currentEstablecimientoId, usuarioActual]);
-  const { createOrUpdateWorkspace, activeWorkspace, tenantId } = useTenant();
+  const { createOrUpdateWorkspace, activeWorkspace, tenantId, setActiveEstablecimientoId } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
   const initialWorkspaceId = useMemo(() => {
@@ -77,8 +75,6 @@ export function CompanyConfiguration() {
     return activeWorkspace?.id;
   }, [activeWorkspace?.id, isCreateWorkspaceMode, workspaceState?.workspaceId]);
   const ensuredWorkspaceIdRef = useRef<string | undefined>(initialWorkspaceId);
-  const setTenantContextoActual = useTenantStore((store) => store.setContextoActual);
-  const setTenantEmpresas = useTenantStore((store) => store.setEmpresas);
   const workspaceIdForSubmit = isCreateWorkspaceMode
     ? ensuredWorkspaceIdRef.current
     : workspaceState?.workspaceId || tenantId || activeWorkspace?.id;
@@ -105,48 +101,6 @@ export function CompanyConfiguration() {
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
-
-  const setTenantWorkspaceContext = useCallback((empresa: Company, Establecimiento: Establecimiento) => {
-    const empresaEntry = {
-      id: empresa.id,
-      ruc: empresa.ruc,
-      razonSocial: empresa.razonSocial,
-      nombreComercial: empresa.nombreComercial,
-      direccion: empresa.direccionFiscal,
-      telefono: empresa.telefonos?.[0],
-      email: empresa.correosElectronicos?.[0],
-      actividadEconomica: empresa.actividadEconomica,
-      regimen: (empresa.regimenTributario as RegimenTributario) ?? RegimenTributario.GENERAL,
-      estado: EmpresaStatus.ACTIVA,
-      establecimientos: [
-        {
-          id: Establecimiento.id,
-          codigo: Establecimiento.codigoEstablecimiento,
-          nombre: Establecimiento.nombreEstablecimiento,
-          direccion: Establecimiento.direccionEstablecimiento,
-          esPrincipal: Establecimiento.isMainEstablecimiento,
-          activo: Establecimiento.estaActivoEstablecimiento,
-        },
-      ],
-      configuracion: {
-        emisionElectronica: true,
-      },
-    };
-
-    const contexto: WorkspaceContext = {
-      empresaId: empresa.id,
-      establecimientoId: Establecimiento.id,
-      empresa: empresaEntry,
-      establecimiento: empresaEntry.establecimientos[0],
-      permisos: ['*'],
-      configuracion: {},
-    };
-
-    const { empresas } = useTenantStore.getState();
-    const withoutEmpresa = empresas.filter((item) => item.id !== empresaEntry.id);
-    setTenantEmpresas([...withoutEmpresa, empresaEntry]);
-    setTenantContextoActual(contexto);
-  }, [setTenantContextoActual, setTenantEmpresas]);
 
   // Load existing company data
   useEffect(() => {
@@ -382,7 +336,7 @@ export function CompanyConfiguration() {
         null;
 
       if (EstablecimientoForContext) {
-        setTenantWorkspaceContext(updatedCompany, EstablecimientoForContext);
+        setActiveEstablecimientoId(EstablecimientoForContext.id);
       }
 
       // Show success and redirect

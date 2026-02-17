@@ -27,7 +27,7 @@ interface UseConfigurationReturn {
 
 // Mock configuration data
 const crearConfiguracionBase = (companyId: string): Configuration => ({
-  id: 'config-1',
+  id: companyId ? `config-${companyId}` : `config-${Date.now()}`,
   companyId,
   
   general: {
@@ -43,7 +43,7 @@ const crearConfiguracionBase = (companyId: string): Configuration => ({
   sales: {
     allowNegativeStock: false,
     autoCalculateTax: true,
-    defaultTaxId: 'tax-igv',
+    defaultTaxId: '',
     requireCustomerSelection: true,
     allowPartialPayments: true,
     autoGenerateCorrelativeNumber: true,
@@ -57,8 +57,8 @@ const crearConfiguracionBase = (companyId: string): Configuration => ({
   },
   
   billing: {
-    defaultEstablecimientoId: 'est-1',
-    defaultSeriesId: 'series-1',
+    defaultEstablecimientoId: '',
+    defaultSeriesId: '',
     autoSendToSunat: true,
     autoGeneratePdf: true,
     emailCopyToCompany: false,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Eye, Settings } from 'lucide-react';
 import { resolveClientDocumentLabel } from '@/shared/impresion/ResolverDisenoImpresion';
-import { useTenantStore } from '../../../autenticacion/store/TenantStore';
+import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 
 interface TicketDesignProps {
   onDesignChange: (design: TicketVoucherDesign) => void;
@@ -358,20 +358,15 @@ const DISENO_TICKET_BASE: TicketVoucherDesign = {
 export default function TicketDesign({ onDesignChange, initialDesign }: TicketDesignProps) {
   const [design] = useState<TicketVoucherDesign>(initialDesign || DISENO_TICKET_BASE);
   const [showPreview, setShowPreview] = useState(false);
+  const { state } = useConfigurationContext();
 
-  const { empresas, contextoActual } = useTenantStore((store) => ({
-    empresas: store.empresas,
-    contextoActual: store.contextoActual,
-  }));
-  const empresaActiva = empresas.find((empresa) => empresa.id === contextoActual?.empresaId)
-    || empresas[0]
-    || null;
+  const empresaActiva = state.company;
   const nombreEmpresa = empresaActiva?.razonSocial || empresaActiva?.nombreComercial || '';
   const nombreComercial = empresaActiva?.nombreComercial || nombreEmpresa;
   const rucEmpresa = empresaActiva?.ruc || '';
-  const direccionEmpresa = empresaActiva?.direccion || '';
-  const telefonoEmpresa = empresaActiva?.telefono || '';
-  const correoEmpresa = empresaActiva?.email || '';
+  const direccionEmpresa = empresaActiva?.direccionFiscal || '';
+  const telefonoEmpresa = empresaActiva?.telefonos?.[0] || '';
+  const correoEmpresa = empresaActiva?.correosElectronicos?.[0] || '';
 
   useEffect(() => {
     onDesignChange(design);

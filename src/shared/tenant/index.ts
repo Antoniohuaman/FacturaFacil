@@ -1,10 +1,9 @@
 // src/shared/tenant/index.ts
 // Helpers comunes de tenant/multiempresa para todo el front
 
-import { useTenantStore } from '../../pages/Private/features/autenticacion/store/TenantStore';
-
 export const WORKSPACES_STORAGE_KEY = 'ff_workspaces';
 export const ACTIVE_WORKSPACE_STORAGE_KEY = 'ff_active_workspace_id';
+export const ACTIVE_ESTABLECIMIENTO_BY_TENANT_STORAGE_KEY = 'ff_active_establecimiento_by_tenant';
 
 export const generateWorkspaceId = (): string => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -13,29 +12,23 @@ export const generateWorkspaceId = (): string => {
   return `ws_${Date.now()}`;
 };
 
-type GlobalSession = {
-  __USER_SESSION__?: { currentCompanyId?: string; currentEstablecimientoId?: string };
+type GlobalSesionTenant = {
   __FF_ACTIVE_WORKSPACE_ID?: string;
+  __FF_ACTIVE_ESTABLECIMIENTO_ID?: string;
 };
 
 /**
- * Obtiene el ID de la empresa actual desde TenantStore o, como fallback, desde UserSession.
+ * Contrato tenant: el ID de empresa activa SIEMPRE proviene de TenantProvider.
  * Lanza error si no hay empresa disponible.
  */
 export function getTenantEmpresaId(): string {
-  const globalAny = globalThis as typeof globalThis & GlobalSession;
+  const globalAny = globalThis as typeof globalThis & GlobalSesionTenant;
   const activeWorkspaceId = getFrontendWorkspaceId(globalAny);
   if (activeWorkspaceId) {
     return activeWorkspaceId;
   }
 
-  const contextoActual = useTenantStore.getState().contextoActual;
-
-  if (contextoActual?.empresaId) {
-    return contextoActual.empresaId;
-  }
-
-  throw new Error('[tenant] No hay empresa actual disponible en TenantProvider ni en TenantStore');
+  throw new Error('[tenant] No hay empresa activa disponible en TenantProvider');
 }
 
 export function tryGetTenantEmpresaId(): string | null {
@@ -47,20 +40,34 @@ export function tryGetTenantEmpresaId(): string | null {
 }
 
 /**
- * Obtiene el ID del establecimiento actual desde TenantStore o, como fallback, desde UserSession.
- * Retorna string vacío si no hay establecimiento.
+ * Contrato tenant: el establecimiento activo se persiste por tenant.
+ * Retorna string vacío si no hay establecimiento activo válido.
  */
 export function getTenantEstablecimientoId(): string {
-  const contextoActual = useTenantStore.getState().contextoActual;
-
-  if (contextoActual?.establecimientoId) {
-    return contextoActual.establecimientoId;
+  const globalAny = globalThis as typeof globalThis & GlobalSesionTenant;
+  const activoMemoria = globalAny.__FF_ACTIVE_ESTABLECIMIENTO_ID;
+  if (activoMemoria && activoMemoria.trim() !== '') {
+    return activoMemoria;
   }
 
-  const globalAny = globalThis as typeof globalThis & GlobalSession;
-  const sessionEstId = globalAny.__USER_SESSION__?.currentEstablecimientoId;
-  if (sessionEstId && sessionEstId.trim() !== '') {
-    return sessionEstId;
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  try {
+    const empresaId = getTenantEmpresaId();
+    const raw = window.localStorage.getItem(ACTIVE_ESTABLECIMIENTO_BY_TENANT_STORAGE_KEY);
+    if (!raw) {
+      return '';
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, string | null>;
+    const establecimientoId = parsed[empresaId];
+    if (establecimientoId && establecimientoId.trim() !== '') {
+      return establecimientoId;
+    }
+  } catch {
+    // Ignorar errores de parseo/acceso
   }
 
   return '';
@@ -109,7 +116,7 @@ export function tryLsKey(base: string, empresaId?: string): string | null {
   return `${id}:${base}`;
 }
 
-function getFrontendWorkspaceId(globalAny: typeof globalThis & GlobalSession): string | null {
+function getFrontendWorkspaceId(globalAny: typeof globalThis & GlobalSesionTenant): string | null {
   const activeFromGlobal = globalAny.__FF_ACTIVE_WORKSPACE_ID;
   if (activeFromGlobal && activeFromGlobal.trim() !== '') {
     return activeFromGlobal;

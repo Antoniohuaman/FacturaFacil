@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { A4VoucherDesign } from './DisenoA4';
 import type { TicketVoucherDesign } from './DisenoTicket';
 import { Download, Printer, Maximize2, Minimize2, RotateCcw, Settings } from 'lucide-react';
-import { useTenantStore } from '../../../autenticacion/store/TenantStore';
+import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 
 interface DesignPreviewProps {
   designType: 'A4' | 'TICKET';
@@ -145,18 +145,13 @@ export default function DesignPreview({
   onPrint,
   onDownload,
 }: DesignPreviewProps) {
+  const { state } = useConfigurationContext();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [showGrid, setShowGrid] = useState(false);
   const [showMargins, setShowMargins] = useState(false);
 
-  const { empresas, contextoActual } = useTenantStore((store) => ({
-    empresas: store.empresas,
-    contextoActual: store.contextoActual,
-  }));
-  const empresaActiva = empresas.find((empresa) => empresa.id === contextoActual?.empresaId)
-    || empresas[0]
-    || null;
+  const empresaActiva = state.company;
   const nombreEmpresa = empresaActiva?.razonSocial || empresaActiva?.nombreComercial || '';
   const rucEmpresa = empresaActiva?.ruc || '';
 
@@ -168,9 +163,9 @@ export default function DesignPreview({
       razonSocial: nombreEmpresa,
       nombreComercial: empresaActiva?.nombreComercial ?? baseSampleData.company.nombreComercial,
       ruc: rucEmpresa,
-      direccionFiscal: empresaActiva?.direccion || baseSampleData.company.direccionFiscal,
-      telefono: empresaActiva?.telefono ?? baseSampleData.company.telefono,
-      correoElectronico: empresaActiva?.email ?? baseSampleData.company.correoElectronico,
+      direccionFiscal: empresaActiva?.direccionFiscal || baseSampleData.company.direccionFiscal,
+      telefono: empresaActiva?.telefonos?.[0] ?? baseSampleData.company.telefono,
+      correoElectronico: empresaActiva?.correosElectronicos?.[0] ?? baseSampleData.company.correoElectronico,
     },
   };
 

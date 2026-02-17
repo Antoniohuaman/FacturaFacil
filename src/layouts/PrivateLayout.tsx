@@ -23,11 +23,15 @@ export default function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const location = useLocation();
   const { activa, motivo } = useTransicionIngresoStore();
-  const { tenantId } = useTenant();
+  const { tenantId, isTenantReady } = useTenant();
   const workspaceNavigationState = location.state as
     | { workspaceId?: string; workspaceMode?: "create_workspace" | "edit_workspace" }
     | null;
   const configurationTenantId = workspaceNavigationState?.workspaceId ?? tenantId;
+
+  if (!isTenantReady) {
+    return <MicroSplashIngreso activa={true} motivo={motivo ?? undefined} />;
+  }
 
   return (
     <ThemeProvider>

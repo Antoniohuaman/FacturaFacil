@@ -17,7 +17,7 @@ import { ModalCredenciales } from '../components/usuarios/ModalCredenciales';
 import { CATALOGO_PERMISOS } from '../roles/catalogoPermisos';
 import type { User } from '../modelos/User';
 import { Button, PageHeader } from '@/contasis';
-import { useTenantStore } from '../../autenticacion/store/TenantStore';
+import { useTenant } from '@/shared/tenant/TenantContext';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import {
   construirAsignacionesDesdeFormulario,
@@ -62,8 +62,8 @@ export function ConfiguracionUsuarios() {
   } = useConfigurationContext();
   const { users: usuarios, Establecimientos: establecimientos } = state;
   const { session } = useUserSession();
+  const { tenantId } = useTenant();
   const empresas = useEmpresasConfiguradas();
-  const contextoActual = useTenantStore((store) => store.contextoActual);
 
   const [pestanaActiva, setPestanaActiva] = useState<'usuarios' | 'roles'>('usuarios');
   const [mostrarFormularioUsuario, setMostrarFormularioUsuario] = useState(false);
@@ -85,9 +85,9 @@ export function ConfiguracionUsuarios() {
   }>({ show: false });
 
   const empresaActual = useMemo(() => {
-    if (!contextoActual?.empresaId) return null;
-    return empresas.find((empresa) => empresa.id === contextoActual.empresaId) ?? null;
-  }, [contextoActual?.empresaId, empresas]);
+    if (!tenantId) return null;
+    return empresas.find((empresa) => empresa.id === tenantId) ?? null;
+  }, [empresas, tenantId]);
 
   const correosExistentes = usuarios
     .filter(usuario => usuario.id !== usuarioEnEdicion?.id)
@@ -371,7 +371,7 @@ export function ConfiguracionUsuarios() {
     setCargando(true);
 
     try {
-      const empresaId = contextoActual?.empresaId ?? empresaActual?.id;
+      const empresaId = tenantId ?? empresaActual?.id;
       const nombreEmpresa = empresaActual?.razonSocial ?? empresaActual?.nombreComercial;
       const asignaciones = obtenerAsignacionesUsuario(usuario, empresaId, nombreEmpresa);
 
@@ -427,7 +427,7 @@ export function ConfiguracionUsuarios() {
     }
     const mapaEstablecimientos = obtenerMapaEstablecimientos(empresas);
     const empresaId = mapaEstablecimientos.get(establecimientoId)?.empresaId
-      ?? contextoActual?.empresaId
+      ?? tenantId
       ?? empresaActual?.id;
 
     if (!empresaId) {

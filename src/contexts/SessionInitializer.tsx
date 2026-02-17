@@ -12,7 +12,7 @@ import { useTenant } from '../shared/tenant/TenantContext';
  */
 export function SessionInitializer({ children }: { children: React.ReactNode }) {
   const { session, setSession, clearSession } = useUserSession();
-  const { tenantId } = useTenant();
+  const { tenantId, activeEstablecimientoId, setActiveEstablecimientoId } = useTenant();
   const { state } = useConfigurationContext();
   const initializedRef = useRef(false);
   const ensuredClienteGeneralRef = useRef<string | null>(null);
@@ -40,13 +40,21 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
 
     const mainEstablecimiento = activeEstablecimientos.find(est => est.isMainEstablecimiento);
     const defaultEstablecimiento = mainEstablecimiento || activeEstablecimientos[0];
+    const establecimientoActivoTenant = activeEstablecimientos.find(
+      est => est.id === activeEstablecimientoId,
+    );
+    const establecimientoResuelto = establecimientoActivoTenant || defaultEstablecimiento;
     const companyFromTenant = {
       ...state.company,
       id: tenantId,
     };
 
-    if (!defaultEstablecimiento) {
+    if (!establecimientoResuelto) {
       return;
+    }
+
+    if (activeEstablecimientoId !== establecimientoResuelto.id) {
+      setActiveEstablecimientoId(establecimientoResuelto.id);
     }
 
     if (!session && !initializedRef.current) {
@@ -57,8 +65,8 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
         userEmail: authUser.email,
         currentCompanyId: tenantId,
         currentCompany: companyFromTenant,
-        currentEstablecimientoId: defaultEstablecimiento.id,
-        currentEstablecimiento: defaultEstablecimiento,
+        currentEstablecimientoId: establecimientoResuelto.id,
+        currentEstablecimiento: establecimientoResuelto,
         availableEstablecimientos: activeEstablecimientos,
         permissions: ['*'],
         role: authUser.rol,
@@ -70,10 +78,10 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
       return;
     }
 
-    const establecimientoValido = activeEstablecimientos.find(
+    const establecimientoValidoSesion = activeEstablecimientos.find(
       (est) => est.id === session.currentEstablecimientoId,
     );
-    const establecimientoResuelto = establecimientoValido ?? defaultEstablecimiento;
+    const establecimientoValido = establecimientoValidoSesion && establecimientoValidoSesion.id === establecimientoResuelto.id;
     const companyDesactualizada =
       session.currentCompanyId !== tenantId ||
       session.currentCompany?.id !== tenantId ||
@@ -106,8 +114,10 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
       availableEstablecimientos: activeEstablecimientos,
     });
   }, [
+    activeEstablecimientoId,
     tenantId,
     session,
+    setActiveEstablecimientoId,
     setSession,
     state.company,
     state.Establecimientos,

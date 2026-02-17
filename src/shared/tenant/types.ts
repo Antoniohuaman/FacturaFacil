@@ -17,9 +17,12 @@ export interface WorkspacePayload {
 
 export interface TenantContextValue {
   tenantId: string | null;
+  isTenantReady: boolean;
+  activeEstablecimientoId: string | null;
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   setTenantId: (id: string | null) => void;
+  setActiveEstablecimientoId: (establecimientoId: string | null) => void;
   createOrUpdateWorkspace: (workspace: WorkspacePayload) => Workspace;
   getActiveWorkspace: () => Workspace | null;
 }

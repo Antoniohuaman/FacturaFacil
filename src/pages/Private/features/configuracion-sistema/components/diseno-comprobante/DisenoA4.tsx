@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useState, useEffect } from 'react';
 import { Palette, Image, Type, AlignLeft, AlignRight, Eye } from 'lucide-react';
-import { useTenantStore } from '../../../autenticacion/store/TenantStore';
+import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 
 interface A4DesignProps {
   onDesignChange: (design: A4VoucherDesign) => void;
@@ -357,19 +357,14 @@ export default function A4Design({ onDesignChange, initialDesign }: A4DesignProp
   const [design, setDesign] = useState<A4VoucherDesign>(initialDesign || DISENO_A4_BASE);
   const [activeSection, setActiveSection] = useState<string>('page');
   const [showPreview, setShowPreview] = useState(false);
+  const { state } = useConfigurationContext();
 
-  const { empresas, contextoActual } = useTenantStore((store) => ({
-    empresas: store.empresas,
-    contextoActual: store.contextoActual,
-  }));
-  const empresaActiva = empresas.find((empresa) => empresa.id === contextoActual?.empresaId)
-    || empresas[0]
-    || null;
+  const empresaActiva = state.company;
   const nombreEmpresa = empresaActiva?.razonSocial || empresaActiva?.nombreComercial || '';
   const rucEmpresa = empresaActiva?.ruc || '';
-  const direccionEmpresa = empresaActiva?.direccion || '';
-  const telefonoEmpresa = empresaActiva?.telefono || '';
-  const correoEmpresa = empresaActiva?.email || '';
+  const direccionEmpresa = empresaActiva?.direccionFiscal || '';
+  const telefonoEmpresa = empresaActiva?.telefonos?.[0] || '';
+  const correoEmpresa = empresaActiva?.correosElectronicos?.[0] || '';
 
   useEffect(() => {
     onDesignChange(design);

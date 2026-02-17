@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { lsKey } from '@/shared/tenant';
-import { useTenantStore } from '../../../features/autenticacion/store/TenantStore';
+import { useTenant } from '@/shared/tenant/TenantContext';
 import type { TableColumnDefinition, TableColumnState } from '../columns/types';
 import {
   COBRANZAS_COLUMNS,
@@ -145,7 +145,7 @@ const usePersistedColumnsManager = <K extends string>(
   storageKey: string,
   versionKey: string
 ): ColumnsManagerResult<K> => {
-  const empresaId = useTenantStore((state) => state.contextoActual?.empresaId ?? null);
+  const { tenantId: empresaId } = useTenant();
   const [columns, setColumns] = useState<TableColumnState<K>[]>(() => createDefaultState(definitions));
 
   useEffect(() => {
