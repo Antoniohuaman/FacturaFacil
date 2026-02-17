@@ -9,8 +9,10 @@ import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfi
 type ClientesTableProps = {
   clients: Cliente[];
   visibleColumnIds: ClienteColumnId[];
+  onRowClick?: (client: Cliente) => void;
   onEditClient?: (client: Cliente) => void;
   onDeleteClient?: (client: Cliente) => void;
+  selectedClientId?: number | string | null;
 };
 
 interface ClientesTableRef {
@@ -402,7 +404,7 @@ const ClienteAvatar: React.FC<{ name: string; imageUrl?: string }> = ({ name, im
 // ============================================================================
 
 const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
-  ({ clients, visibleColumnIds, onEditClient, onDeleteClient }, ref) => {
+  ({ clients, visibleColumnIds, onRowClick, onEditClient, onDeleteClient, selectedClientId }, ref) => {
     const navigate = useNavigate();
     const { resolveProfileLabel } = usePriceProfilesCatalog();
     const [menuOpenId, setMenuOpenId] = useState<number | string | null>(null);
@@ -575,10 +577,16 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
             cursor: pointer;
           }
           .compact-table tbody tr:hover {
-            background: #f3f4f6 !important;
+            background: rgba(239, 246, 255, 0.4) !important;
           }
           .dark .compact-table tbody tr:hover {
-            background: #4b5563 !important;
+            background: rgba(30, 58, 138, 0.1) !important;
+          }
+          .compact-table tbody tr.row-selected {
+            background: rgba(239, 246, 255, 0.6) !important;
+          }
+          .dark .compact-table tbody tr.row-selected {
+            background: rgba(30, 58, 138, 0.2) !important;
           }
         `}</style>
 
@@ -614,8 +622,8 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                     <tr
                       key={focusKey}
                       data-focus={`clientes:${String(focusKey)}`}
-                      className={!client.enabled ? 'row-disabled' : ''}
-                      onClick={() => handleEdit(client)}
+                      className={`${!client.enabled ? 'row-disabled' : ''} ${selectedClientId === client.id ? 'row-selected' : ''}`.trim()}
+                      onClick={() => (onRowClick ? onRowClick(client) : handleEdit(client))}
                     >
                       {visibleColumnIds.map((columnId) => renderCell(columnId, rowContext))}
                     </tr>

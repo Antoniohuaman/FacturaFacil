@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import * as ExcelJS from 'exceljs';
-import { Download, ChevronDown, FileSpreadsheet, Layers } from 'lucide-react';
+import { Download, ChevronDown, FileSpreadsheet, Layers, Pencil } from 'lucide-react';
 import ClienteFormNew from '../components/ClienteFormNew';
 import ClientesTable from '../components/ClientesTable';
 import ClientesFilters from '../components/ClientesFilters';
@@ -39,6 +39,17 @@ import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { Drawer } from '@/shared/ui';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 import { Button } from '@/contasis';
+
+type DrawerMode = 'create' | 'view' | 'edit';
+type ClienteViewTab = 'datosPrincipales' | 'direcciones' | 'contactos' | 'configuracionComercial' | 'datosSunat';
+
+const CLIENTE_VIEW_TABS: Array<{ id: ClienteViewTab; label: string }> = [
+	{ id: 'datosPrincipales', label: 'Datos principales' },
+	{ id: 'direcciones', label: 'Direcciones' },
+	{ id: 'contactos', label: 'Contactos' },
+	{ id: 'configuracionComercial', label: 'Configuración comercial' },
+	{ id: 'datosSunat', label: 'Datos SUNAT' },
+];
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
 
@@ -349,7 +360,10 @@ function ClientesPage() {
 	}, []);
 
 	const [showClientModal, setShowClientModal] = useState(false);
+	const [drawerMode, setDrawerMode] = useState<DrawerMode>('create');
+	const [activeViewTab, setActiveViewTab] = useState<ClienteViewTab>('datosPrincipales');
 	const [editingClient, setEditingClient] = useState<Cliente | null>(null);
+	const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
 
@@ -818,6 +832,9 @@ function ClientesPage() {
 	const handleCancelClient = () => {
 		resetForm();
 		setShowClientModal(false);
+		setDrawerMode('create');
+		setActiveViewTab('datosPrincipales');
+		setSelectedClient(null);
 	};
 
 	const handleInputChange = (field: keyof ClienteFormData, value: ClienteFormValue) => {
@@ -829,6 +846,24 @@ function ClientesPage() {
 		setEditingClient(null);
 	};
 
+	const resolveClientDisplayName = (client: Cliente): string => {
+		return client.razonSocial?.trim() || client.nombreCompleto?.trim() || client.name || '-';
+	};
+
+	const resolveClientDocumentLabel = (client: Cliente): string => {
+		const code = resolveDocumentCode(client);
+		const number = resolveDocumentNumber(client, code);
+		const label = documentTypeFromCode(code as DocumentCode) || 'Documento';
+		return number ? `${label} ${number}` : label;
+	};
+
+	const handleViewClient = (client: Cliente) => {
+		setSelectedClient(client);
+		setDrawerMode('view');
+		setActiveViewTab('datosPrincipales');
+		setShowClientModal(true);
+	};
+
 	const handleEditClient = async (client: Cliente) => {
 		if (client.transient) {
 			showToast('info', 'Operación no disponible: backend pendiente', 'No es posible editar un cliente transitorio');
@@ -836,6 +871,8 @@ function ClientesPage() {
 		}
 
 		try {
+			setDrawerMode('edit');
+			setSelectedClient(client);
 			setEditingClient(client);
 
 			const parsed = parseLegacyDocumentString(client.document);
@@ -1099,7 +1136,232 @@ function ClientesPage() {
 		if (result) {
 			resetForm();
 			setShowClientModal(false);
+			setDrawerMode('create');
+			setSelectedClient(null);
 		}
+	};
+
+	const activeDrawerClient = selectedClient ?? editingClient;
+	const activeClientId = showClientModal ? (activeDrawerClient?.id ?? null) : null;
+	const isViewMode = drawerMode === 'view' && Boolean(activeDrawerClient);
+	const drawerTitle =
+		drawerMode === 'create' ? 'Nuevo cliente' : drawerMode === 'edit' ? 'Editar cliente' : 'Detalle del cliente';
+	const drawerSubtitle = !isViewMode && activeDrawerClient
+		? resolveClientDisplayName(activeDrawerClient)
+		: undefined;
+
+	const normalizeText = (value?: string | null): string => (value && value.trim() ? value.trim() : '');
+	const displayText = (value?: string | null): string => normalizeText(value) || '-';
+	const hasText = (value?: string | null): boolean => Boolean(normalizeText(value));
+
+	const readOnlyField = (label: string, value: string, isFullWidth = false) => (
+		<div className={`rounded-md border border-gray-200 p-2.5 dark:border-gray-700 ${isFullWidth ? 'sm:col-span-2' : ''}`}>
+			<p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{label}</p>
+			<p className="mt-0.5 truncate text-[13px] leading-snug text-gray-900 dark:text-gray-100" title={value}>
+				{value}
+			</p>
+		</div>
+	);
+
+	const renderEmptyViewState = (message: string) => (
+		<div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">{message}</div>
+	);
+
+	const estadoClienteLabel = activeDrawerClient
+		? activeDrawerClient.estadoCliente || (activeDrawerClient.enabled ? 'Habilitado' : 'Deshabilitado')
+		: '-';
+
+	const drawerHeaderTitle = isViewMode && activeDrawerClient ? (
+		<div className="min-w-0">
+			<p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Detalle del cliente</p>
+			<p
+				className="mt-0.5 truncate text-lg font-semibold leading-tight text-gray-900 dark:text-gray-100"
+				title={resolveClientDisplayName(activeDrawerClient)}
+			>
+				{resolveClientDisplayName(activeDrawerClient)}
+			</p>
+			<p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{resolveClientDocumentLabel(activeDrawerClient)}</p>
+		</div>
+	) : (
+		drawerTitle
+	);
+
+	const drawerHeaderActions = isViewMode && activeDrawerClient ? (
+		<div className="flex items-center gap-2">
+			<span
+				className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+					estadoClienteLabel === 'Habilitado'
+						? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+						: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+				}`}
+			>
+				{estadoClienteLabel}
+			</span>
+			<button
+				type="button"
+				onClick={() => void handleEditClient(activeDrawerClient)}
+				className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+				aria-label="Editar"
+				title="Editar"
+			>
+				<Pencil className="h-4 w-4" />
+			</button>
+		</div>
+	) : undefined;
+
+	const renderReadOnlyTabContent = () => {
+		if (!activeDrawerClient) return null;
+
+		const primaryFields = [
+			{ label: 'Tipo de cuenta', value: displayText(activeDrawerClient.tipoCuenta || activeDrawerClient.type) },
+			{ label: 'Tipo de persona', value: displayText(activeDrawerClient.tipoPersona) },
+			{ label: 'Nombre comercial', value: displayText(activeDrawerClient.nombreComercial) },
+			{ label: 'Tipo de cliente', value: displayText(activeDrawerClient.tipoCliente) },
+			{ label: 'Observaciones', value: displayText(activeDrawerClient.observaciones || activeDrawerClient.additionalData), fullWidth: true },
+		];
+
+		const direccionPrincipal = normalizeText(activeDrawerClient.direccion) || normalizeText(activeDrawerClient.address);
+		const hasAddressData = [
+			direccionPrincipal,
+			normalizeText(activeDrawerClient.referenciaDireccion),
+			normalizeText(activeDrawerClient.pais),
+			normalizeText(activeDrawerClient.departamento),
+			normalizeText(activeDrawerClient.provincia),
+			normalizeText(activeDrawerClient.distrito),
+			normalizeText(activeDrawerClient.ubigeo),
+		].some(Boolean);
+
+		const contactEmails = activeDrawerClient.emails?.filter((email) => hasText(email)) ?? [];
+		const contactPhones = activeDrawerClient.telefonos?.filter((phone) => hasText(phone.numero)) ?? [];
+		const emailsLabel = contactEmails.length > 0 ? contactEmails.join(', ') : displayText(activeDrawerClient.email);
+		const phonesLabel =
+			contactPhones.length > 0
+				? contactPhones.map((phone) => (hasText(phone.tipo) ? `${phone.tipo}: ${phone.numero}` : phone.numero)).join(', ')
+				: displayText(activeDrawerClient.phone);
+		const hasContactData = contactEmails.length > 0 || contactPhones.length > 0 || hasText(activeDrawerClient.email) || hasText(activeDrawerClient.phone) || hasText(activeDrawerClient.paginaWeb);
+
+		const priceProfileLabel = displayText(resolveProfileLabel(activeDrawerClient.listaPrecio));
+		const hasCommercialData = [
+			hasText(activeDrawerClient.formaPago),
+			hasText(activeDrawerClient.monedaPreferida),
+			hasText(priceProfileLabel === '-' ? '' : priceProfileLabel),
+			hasText(activeDrawerClient.usuarioAsignado),
+			activeDrawerClient.clientePorDefecto !== undefined,
+			activeDrawerClient.exceptuadaPercepcion !== undefined,
+			hasText(activeDrawerClient.motivoDeshabilitacion),
+		].some(Boolean);
+
+		const actividadesEconomicasLabel = activeDrawerClient.actividadesEconomicas?.length
+			? activeDrawerClient.actividadesEconomicas
+					.map((actividad) => `${actividad.codigo} - ${actividad.descripcion}${actividad.esPrincipal ? ' (Principal)' : ''}`)
+					.join(' | ')
+			: '-';
+		const cpeHabilitadoLabel = activeDrawerClient.cpeHabilitado?.length
+			? activeDrawerClient.cpeHabilitado
+					.map((cpe) => (hasText(cpe.fechaInicio) ? `${cpe.tipoCPE} (${cpe.fechaInicio})` : cpe.tipoCPE))
+					.join(' | ')
+			: '-';
+		const hasSunatData = [
+			hasText(activeDrawerClient.tipoContribuyente),
+			hasText(activeDrawerClient.estadoContribuyente),
+			hasText(activeDrawerClient.condicionDomicilio),
+			hasText(activeDrawerClient.fechaInscripcion),
+			actividadesEconomicasLabel !== '-',
+			hasText(activeDrawerClient.sistemaEmision),
+			cpeHabilitadoLabel !== '-',
+			activeDrawerClient.esEmisorElectronico !== undefined,
+			activeDrawerClient.esAgenteRetencion !== undefined,
+			activeDrawerClient.esAgentePercepcion !== undefined,
+			activeDrawerClient.esBuenContribuyente !== undefined,
+		].some(Boolean);
+
+		switch (activeViewTab) {
+			case 'datosPrincipales':
+				if (!primaryFields.some((field) => field.value !== '-')) {
+					return renderEmptyViewState('Sin datos principales');
+				}
+				return (
+					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+						{primaryFields.map((field) => (
+							<React.Fragment key={field.label}>{readOnlyField(field.label, field.value, field.fullWidth)}</React.Fragment>
+						))}
+					</div>
+				);
+
+			case 'direcciones':
+				if (!hasAddressData) {
+					return renderEmptyViewState('Sin direcciones');
+				}
+				return (
+					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+						{readOnlyField('Dirección', displayText(direccionPrincipal), true)}
+						{readOnlyField('Referencia', displayText(activeDrawerClient.referenciaDireccion), true)}
+						{readOnlyField('País', displayText(activeDrawerClient.pais))}
+						{readOnlyField('Departamento', displayText(activeDrawerClient.departamento))}
+						{readOnlyField('Provincia', displayText(activeDrawerClient.provincia))}
+						{readOnlyField('Distrito', displayText(activeDrawerClient.distrito))}
+						{readOnlyField('Ubigeo', displayText(activeDrawerClient.ubigeo), true)}
+					</div>
+				);
+
+			case 'contactos':
+				if (!hasContactData) {
+					return renderEmptyViewState('Sin contactos');
+				}
+				return (
+					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+						{readOnlyField('Correos', emailsLabel, true)}
+						{readOnlyField('Teléfonos', phonesLabel, true)}
+						{readOnlyField('Página web', displayText(activeDrawerClient.paginaWeb), true)}
+					</div>
+				);
+
+			case 'configuracionComercial':
+				if (!hasCommercialData) {
+					return renderEmptyViewState('Sin configuración comercial');
+				}
+				return (
+					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+						{readOnlyField('Forma de pago', displayText(activeDrawerClient.formaPago))}
+						{readOnlyField('Moneda preferida', displayText(activeDrawerClient.monedaPreferida))}
+						{readOnlyField('Lista de precios', priceProfileLabel)}
+						{readOnlyField('Usuario asignado', displayText(activeDrawerClient.usuarioAsignado))}
+						{readOnlyField('Cliente por defecto', booleanToLabel(activeDrawerClient.clientePorDefecto) || '-')}
+						{readOnlyField('Exceptuada de percepción', booleanToLabel(activeDrawerClient.exceptuadaPercepcion) || '-')}
+						{readOnlyField('Motivo de deshabilitación', displayText(activeDrawerClient.motivoDeshabilitacion), true)}
+					</div>
+				);
+
+			case 'datosSunat':
+				if (!hasSunatData) {
+					return renderEmptyViewState('Sin datos SUNAT');
+				}
+				return (
+					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+						{readOnlyField('Tipo de contribuyente', displayText(activeDrawerClient.tipoContribuyente))}
+						{readOnlyField('Estado contribuyente', displayText(activeDrawerClient.estadoContribuyente))}
+						{readOnlyField('Condición de domicilio', displayText(activeDrawerClient.condicionDomicilio))}
+						{readOnlyField('Fecha de inscripción', displayText(activeDrawerClient.fechaInscripcion))}
+						{readOnlyField('Sistema de emisión', displayText(activeDrawerClient.sistemaEmision))}
+						{readOnlyField('Emisor electrónico', booleanToLabel(activeDrawerClient.esEmisorElectronico) || '-')}
+						{readOnlyField('Agente de retención', booleanToLabel(activeDrawerClient.esAgenteRetencion) || '-')}
+						{readOnlyField('Agente de percepción', booleanToLabel(activeDrawerClient.esAgentePercepcion) || '-')}
+						{readOnlyField('Buen contribuyente', booleanToLabel(activeDrawerClient.esBuenContribuyente) || '-')}
+						{readOnlyField('Actividades económicas', actividadesEconomicasLabel, true)}
+						{readOnlyField('CPE habilitado', cpeHabilitadoLabel, true)}
+					</div>
+				);
+			default:
+				return null;
+		}
+	};
+
+	const openCreateDrawer = () => {
+		resetForm();
+		setSelectedClient(null);
+		setDrawerMode('create');
+		setActiveViewTab('datosPrincipales');
+		setShowClientModal(true);
 	};
 
 	return (
@@ -1132,7 +1394,7 @@ function ClientesPage() {
 						<div className="flex-1 min-w-[1px]" />
 						<Button
 							ref={botonNuevoClienteRef}
-							onClick={() => setShowClientModal(true)}
+							onClick={openCreateDrawer}
 							variant="primary"
 							size="md"
 						>
@@ -1206,7 +1468,7 @@ function ClientesPage() {
 								<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No hay clientes registrados</h3>
 								<p className="text-gray-500 dark:text-gray-400 mb-4">Comienza agregando tu primer cliente</p>
 								<button
-									onClick={() => setShowClientModal(true)}
+									onClick={openCreateDrawer}
 									style={{ backgroundColor: PRIMARY_COLOR }}
 									className="px-6 py-2 text-white text-sm font-medium rounded-lg hover:opacity-95 transition-opacity"
 								>
@@ -1228,8 +1490,10 @@ function ClientesPage() {
 										<ClientesTable
 											clients={filteredClients}
 											visibleColumnIds={visibleColumnIds}
+											onRowClick={handleViewClient}
 											onEditClient={handleEditClient}
 											onDeleteClient={handleDeleteClient}
+											selectedClientId={activeClientId}
 										/>
 						)}
 					</div>
@@ -1299,20 +1563,48 @@ function ClientesPage() {
 			<Drawer
 				abierto={showClientModal}
 				alCerrar={handleCancelClient}
-				titulo={editingClient ? 'Editar cliente' : 'Nuevo cliente'}
-				subtitulo={editingClient ? (formData.razonSocial || formData.nombreCompleto || undefined) : undefined}
+				titulo={drawerHeaderTitle}
+				subtitulo={drawerSubtitle}
+				accionesEncabezado={drawerHeaderActions}
 				lado="derecha"
 				tamano="lg"
 				devolverFocoARef={botonNuevoClienteRef}
 			>
-				<ClienteFormNew
-					formData={formData}
-					onInputChange={handleInputChange}
-					onCancel={handleCancelClient}
-					onSave={(options) => (editingClient ? handleUpdateClient() : handleCreateClient(options))}
-					isEditing={!!editingClient}
-					modoPresentacion="drawer"
-				/>
+				{drawerMode === 'view' && activeDrawerClient ? (
+					<div className="space-y-2.5 px-4 py-3">
+						<div className="border-b border-gray-200 dark:border-gray-700">
+							<div className="flex items-end gap-4 overflow-x-auto" role="tablist" aria-label="Detalle del cliente">
+								{CLIENTE_VIEW_TABS.map((tab) => (
+									<button
+										key={tab.id}
+										type="button"
+										role="tab"
+										aria-selected={activeViewTab === tab.id}
+										onClick={() => setActiveViewTab(tab.id)}
+										className={`-mb-px whitespace-nowrap border-b-2 px-0.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+											activeViewTab === tab.id
+												? 'border-blue-600 text-blue-600 dark:text-blue-400'
+												: 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+										}`}
+									>
+										{tab.label}
+									</button>
+								))}
+							</div>
+						</div>
+
+						{renderReadOnlyTabContent()}
+					</div>
+				) : (
+					<ClienteFormNew
+						formData={formData}
+						onInputChange={handleInputChange}
+						onCancel={handleCancelClient}
+						onSave={(options) => (editingClient ? handleUpdateClient() : handleCreateClient(options))}
+						isEditing={drawerMode === 'edit'}
+						modoPresentacion="drawer"
+					/>
+				)}
 			</Drawer>
 
 			<ConfirmationModal
