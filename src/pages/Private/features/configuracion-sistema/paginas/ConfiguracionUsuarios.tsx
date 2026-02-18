@@ -1,5 +1,5 @@
 // src/features/configuration/pages/UsersConfiguration.tsx
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -17,7 +17,6 @@ import { ModalCredenciales } from '../components/usuarios/ModalCredenciales';
 import { CATALOGO_PERMISOS } from '../roles/catalogoPermisos';
 import type { User } from '../modelos/User';
 import { Button, PageHeader } from '@/contasis';
-import { useTenant } from '@/shared/tenant/TenantContext';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import {
   construirAsignacionesDesdeFormulario,
@@ -62,7 +61,6 @@ export function ConfiguracionUsuarios() {
   } = useConfigurationContext();
   const { users: usuarios, Establecimientos: establecimientos } = state;
   const { session } = useUserSession();
-  const { tenantId } = useTenant();
   const empresas = useEmpresasConfiguradas();
 
   const [pestanaActiva, setPestanaActiva] = useState<'usuarios' | 'roles'>('usuarios');
@@ -83,11 +81,6 @@ export function ConfiguracionUsuarios() {
       password: string;
     };
   }>({ show: false });
-
-  const empresaActual = useMemo(() => {
-    if (!tenantId) return null;
-    return empresas.find((empresa) => empresa.id === tenantId) ?? null;
-  }, [empresas, tenantId]);
 
   const correosExistentes = usuarios
     .filter(usuario => usuario.id !== usuarioEnEdicion?.id)
@@ -371,11 +364,9 @@ export function ConfiguracionUsuarios() {
     setCargando(true);
 
     try {
-      const empresaId = tenantId ?? empresaActual?.id;
-      const nombreEmpresa = empresaActual?.razonSocial ?? empresaActual?.nombreComercial;
-      const asignaciones = obtenerAsignacionesUsuario(usuario, empresaId, nombreEmpresa);
+      const asignaciones = obtenerAsignacionesUsuario(usuario);
 
-      if (!empresaId) {
+      if (asignaciones.length === 0) {
         const usuarioActualizado: User = {
           ...usuario,
           status: nuevoEstado,
@@ -386,10 +377,11 @@ export function ConfiguracionUsuarios() {
         return;
       }
 
-      const asignacionesActualizadas = obtenerAsignacionesActualizadas(asignaciones, empresaId, {
-        estado: nuevoEstado === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
-        empresaNombre: nombreEmpresa,
-      });
+      const estadoAsignacion: 'ACTIVE' | 'INACTIVE' = nuevoEstado === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      const asignacionesActualizadas = asignaciones.map((asignacion) => ({
+        ...asignacion,
+        estado: estadoAsignacion,
+      }));
       const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);
       const idsRoles = obtenerIdsRolesUnicos(asignacionesActualizadas);
       const rolesSistema = construirRolesConfigurados(idsRoles, rolesConfigurados);
@@ -426,17 +418,18 @@ export function ConfiguracionUsuarios() {
       return;
     }
     const mapaEstablecimientos = obtenerMapaEstablecimientos(empresas);
-    const empresaId = mapaEstablecimientos.get(establecimientoId)?.empresaId
-      ?? tenantId
-      ?? empresaActual?.id;
+    const empresaIdDelEstablecimiento = mapaEstablecimientos.get(establecimientoId)?.empresaId;
+    const asignaciones = obtenerAsignacionesUsuario(usuario);
+    const asignacionEmpresa = empresaIdDelEstablecimiento
+      ? obtenerAsignacionEmpresa(asignaciones, empresaIdDelEstablecimiento)
+      : asignaciones.find((asignacion) =>
+          asignacion.establecimientos.some((item) => item.establecimientoId === establecimientoId),
+        );
+    const empresaId = asignacionEmpresa?.empresaId;
 
     if (!empresaId) {
       return;
     }
-
-    const nombreEmpresa = empresaActual?.razonSocial ?? empresaActual?.nombreComercial;
-    const asignaciones = obtenerAsignacionesUsuario(usuario, empresaId, nombreEmpresa);
-    const asignacionEmpresa = obtenerAsignacionEmpresa(asignaciones, empresaId);
 
     if (!asignacionEmpresa) {
       return;
@@ -446,7 +439,7 @@ export function ConfiguracionUsuarios() {
       (item) => item.establecimientoId !== establecimientoId,
     );
     const asignacionesActualizadas = obtenerAsignacionesActualizadas(asignaciones, empresaId, {
-      empresaNombre: nombreEmpresa,
+      empresaNombre: asignacionEmpresa.empresaNombre,
       establecimientos: nuevosEstablecimientos,
     });
     const idsEstablecimientos = obtenerEstablecimientosUnicos(asignacionesActualizadas);

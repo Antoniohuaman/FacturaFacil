@@ -82,6 +82,7 @@ interface ConfigurationState {
 
 const LLAVE_ALMACENAMIENTO_SERIES = 'config_series_v1';
 const LLAVE_ALMACENAMIENTO_CONFIGURACION = 'facturaFacilConfig';
+const LLAVE_ALMACENAMIENTO_USUARIOS_GLOBAL = 'facturaFacilUsersGlobal';
 
 type StorageKey = string | null;
 
@@ -759,6 +760,63 @@ const persistTenantSnapshot = (storageKey: StorageKey, snapshot: PersistedTenant
   }
 };
 
+const reviveUser = (user: User): User => ({
+  ...user,
+  personalInfo: {
+    ...user.personalInfo,
+    birthDate: reviveDate(user.personalInfo.birthDate),
+  },
+  assignment: {
+    ...user.assignment,
+    hireDate: reviveDate(user.assignment.hireDate),
+  },
+  systemAccess: {
+    ...user.systemAccess,
+    lastLogin: reviveDate(user.systemAccess.lastLogin),
+    lastPasswordChange: reviveDate(user.systemAccess.lastPasswordChange),
+    lockoutUntil: reviveDate(user.systemAccess.lockoutUntil),
+  },
+  createdAt: reviveDate(user.createdAt) ?? new Date(),
+  updatedAt: reviveDate(user.updatedAt) ?? new Date(),
+});
+
+const loadUsersFromGlobalStorage = (): User[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LLAVE_ALMACENAMIENTO_USUARIOS_GLOBAL);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((item): item is User => isRecord(item))
+      .map((item) => reviveUser(item));
+  } catch (error) {
+    console.warn('[Configuration] No se pudieron cargar usuarios globales:', error);
+    return [];
+  }
+};
+
+const persistUsersToGlobalStorage = (users: User[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(LLAVE_ALMACENAMIENTO_USUARIOS_GLOBAL, JSON.stringify(users));
+  } catch (error) {
+    console.warn('[Configuration] No se pudieron guardar usuarios globales:', error);
+  }
+};
+
 type DatosEmpresaBase = {
   ruc: string;
   razonSocial: string;
@@ -1093,6 +1151,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   );
 
   const tenantHydratedRef = useRef(false);
+  const usersHydratedRef = useRef(false);
   const unitsHydratedRef = useRef(false);
   const instalacionBaseRef = useRef(false);
   const sincronizacionWorkspaceRef = useRef(false);
@@ -1201,6 +1260,14 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     });
     return unsubscribe;
   }, [rawDispatch]);
+
+  useEffect(() => {
+    const persistedUsers = loadUsersFromGlobalStorage();
+    if (persistedUsers.length > 0) {
+      dispatch({ type: 'SET_USERS', payload: persistedUsers });
+    }
+    usersHydratedRef.current = true;
+  }, [dispatch]);
 
   useEffect(() => {
     if (!tenantId) {
@@ -1643,6 +1710,11 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     if (!tenantId) return;
     persistSeries(seriesStorageKey, state.series);
   }, [seriesStorageKey, state.series, tenantId]);
+
+  useEffect(() => {
+    if (!usersHydratedRef.current) return;
+    persistUsersToGlobalStorage(state.users);
+  }, [state.users]);
 
   useEffect(() => {
     if (!tenantId) return;

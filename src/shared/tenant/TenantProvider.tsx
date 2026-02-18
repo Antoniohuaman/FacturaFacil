@@ -254,12 +254,6 @@ export function TenantProvider({ children }: TenantProviderProps) {
       return;
     }
 
-    const favoritoActivo = workspaces.find((workspace) => workspace.isFavorite && workspace.isActive);
-    if (favoritoActivo && tenantId !== favoritoActivo.id) {
-      setTenantIdState(favoritoActivo.id);
-      return;
-    }
-
     if (!tenantId) {
       const siguienteId = resolverWorkspaceSeleccionado(workspaces, null);
       if (siguienteId) {
