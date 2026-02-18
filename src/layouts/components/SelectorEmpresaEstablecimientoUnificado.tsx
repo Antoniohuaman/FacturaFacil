@@ -11,11 +11,21 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
   const navigate = useNavigate();
   const { session, setCurrentEstablecimiento } = useUserSession();
   const {
+    workspaces,
+    tenantId,
     activeWorkspace,
     activeEstablecimientoId,
+    setTenantId,
     setActiveEstablecimientoId,
   } = useTenant();
   const { state } = useConfigurationContext();
+
+  const empresasActivas = useMemo(
+    () => workspaces.filter((empresa) => empresa.isActive),
+    [workspaces],
+  );
+
+  const empresaActualInactiva = Boolean(activeWorkspace && !activeWorkspace.isActive);
 
   const establecimientosConfigurados = useMemo(
     () => state.Establecimientos.filter((establecimiento) => establecimiento.estaActivoEstablecimiento),
@@ -95,6 +105,16 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
     navigate('/administrar-empresas');
   };
 
+  const manejarSeleccionEmpresaActiva = (empresaId: string) => {
+    if (tenantId === empresaId) {
+      setMenuAbierto(false);
+      return;
+    }
+
+    setTenantId(empresaId);
+    setMenuAbierto(false);
+  };
+
   if (!session || !session.currentCompany) {
     return null;
   }
@@ -121,6 +141,11 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
           >
             {nombreEmpresa}
           </div>
+          {empresaActualInactiva && (
+            <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 leading-tight">
+              Empresa inactiva
+            </div>
+          )}
           <div
             className="text-[10px] text-secondary leading-tight w-full text-left truncate flex items-center gap-1"
             title={direccionEstablecimiento || nombreEstablecimiento}
@@ -179,6 +204,45 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
             </div>
           )}
 
+          {empresasActivas.length > 0 && (
+            <div className="border-t border-secondary py-2">
+              <div className="px-4 pt-1 pb-2">
+                <div className="text-[10px] font-semibold text-tertiary uppercase tracking-wide">
+                  Empresas activas
+                </div>
+              </div>
+              <div className="px-3 pb-1">
+                {empresasActivas.map((empresa) => {
+                  const esActual = empresa.id === tenantId;
+                  const nombreEmpresaActiva = empresa.razonSocial || empresa.nombreComercial || 'Empresa sin nombre';
+                  return (
+                    <button
+                      key={empresa.id}
+                      type="button"
+                      onClick={() => manejarSeleccionEmpresaActiva(empresa.id)}
+                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors duration-150 border-l-2 ${
+                        esActual
+                          ? 'bg-primary-light dark:bg-surface-2 border-primary text-primary'
+                          : 'hover:bg-surface-hover border-transparent text-primary'
+                      }`}
+                    >
+                      <div className="text-xs font-semibold truncate">{nombreEmpresaActiva}</div>
+                      <div className="text-[11px] text-secondary truncate">RUC: {empresa.ruc || 'Sin RUC'}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {empresasActivas.length === 0 && (
+            <div className="border-t border-secondary px-4 py-2">
+              <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                No hay empresas activas disponibles
+              </div>
+            </div>
+          )}
+
           <div className="border-t border-secondary px-3 py-2">
             <button
               type="button"
@@ -186,7 +250,7 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-hover transition-colors text-sm font-semibold text-primary"
             >
               <Building2 size={16} />
-              Cambiar empresa
+              Administrar empresas
             </button>
           </div>
         </div>

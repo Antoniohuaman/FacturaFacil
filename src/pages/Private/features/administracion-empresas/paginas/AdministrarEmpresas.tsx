@@ -1,18 +1,28 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, CheckCircle2, List, LayoutGrid, MoreHorizontal, Plus, Pencil } from 'lucide-react';
+import { Building2, CheckCircle2, List, LayoutGrid, Plus, Pencil, Star } from 'lucide-react';
 import { Button, PageHeader } from '@/contasis';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useFeedback } from '../../../../../shared/feedback/useFeedback';
 
 type ModoVistaEmpresas = 'tarjetas' | 'lista';
+type FiltroEstado = 'activas' | 'inactivas' | 'todas';
 
 export function AdministrarEmpresas() {
   const [modoVista, setModoVista] = useState<ModoVistaEmpresas>('tarjetas');
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('activas');
+  const [textoBusqueda, setTextoBusqueda] = useState('');
   const navigate = useNavigate();
   const feedback = useFeedback();
-  const { workspaces, tenantId, activeWorkspace, setTenantId } = useTenant();
+  const {
+    workspaces,
+    tenantId,
+    activeWorkspace,
+    setTenantId,
+    setWorkspaceActive,
+    setWorkspaceFavorite,
+  } = useTenant();
 
   const manejarCrearEmpresa = () => {
     const nuevoWorkspaceId = generateWorkspaceId();
@@ -40,7 +50,28 @@ export function AdministrarEmpresas() {
       return;
     }
     setTenantId(empresaId);
-    feedback.success('Empresa activa actualizada.', 'Administrar empresas');
+    feedback.success('Empresa seleccionada.', 'Administrar empresas');
+  };
+
+  const manejarFavorita = (evento: MouseEvent, empresaId: string) => {
+    evento.stopPropagation();
+    setWorkspaceFavorite(empresaId);
+    feedback.success('Empresa favorita actualizada.', 'Administrar empresas');
+  };
+
+  const manejarCambioEstadoActivo = (evento: MouseEvent, empresaId: string, estadoActual: boolean) => {
+    evento.stopPropagation();
+    const nuevoEstado = !estadoActual;
+    setWorkspaceActive(empresaId, nuevoEstado);
+    feedback.success(
+      nuevoEstado ? 'Empresa activada.' : 'Empresa inactivada.',
+      'Administrar empresas',
+    );
+  };
+
+  const manejarEditarDesdeAccion = (evento: MouseEvent, empresaId: string) => {
+    evento.stopPropagation();
+    manejarEditarEmpresa(empresaId);
   };
 
   const obtenerNombreEmpresa = (empresa: (typeof workspaces)[number]) =>
@@ -59,6 +90,35 @@ export function AdministrarEmpresas() {
     }
     return 'Sin dirección registrada';
   };
+
+  const criterioBusqueda = textoBusqueda.trim().toLowerCase();
+
+  const empresasFiltradas = workspaces
+    .filter((empresa) => {
+      if (filtroEstado === 'activas') {
+        return empresa.isActive;
+      }
+      if (filtroEstado === 'inactivas') {
+        return !empresa.isActive;
+      }
+      return true;
+    })
+    .filter((empresa) => {
+      if (!criterioBusqueda) {
+        return true;
+      }
+      const nombre = obtenerNombreEmpresa(empresa).toLowerCase();
+      const ruc = (empresa.ruc || '').toLowerCase();
+      return nombre.includes(criterioBusqueda) || ruc.includes(criterioBusqueda);
+    })
+    .sort((empresaA, empresaB) => {
+      if (empresaA.isFavorite !== empresaB.isFavorite) {
+        return empresaA.isFavorite ? -1 : 1;
+      }
+      return obtenerNombreEmpresa(empresaA).localeCompare(obtenerNombreEmpresa(empresaB), 'es', {
+        sensitivity: 'base',
+      });
+    });
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-gray-900">
@@ -99,9 +159,9 @@ export function AdministrarEmpresas() {
         }
       />
 
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <div className="rounded-xl border border-[color:var(--border-default)] bg-surface-0 p-4">
-          <p className="text-sm text-secondary mb-1">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+        <div className="rounded-xl border border-[color:var(--border-default)] bg-surface-0 p-3">
+          <p className="text-sm text-secondary">
             Crea, edita y selecciona la empresa con la que vas a trabajar.
           </p>
           <p className="text-xs text-tertiary">
@@ -109,8 +169,56 @@ export function AdministrarEmpresas() {
           </p>
         </div>
 
+        <div className="rounded-xl border border-[color:var(--border-default)] bg-surface-0 p-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="inline-flex items-center rounded-lg border border-[color:var(--border-default)] bg-surface-0 p-1">
+              <button
+                type="button"
+                onClick={() => setFiltroEstado('activas')}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  filtroEstado === 'activas'
+                    ? 'bg-brand text-inverse dark:text-secondary'
+                    : 'text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                Activas
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroEstado('inactivas')}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  filtroEstado === 'inactivas'
+                    ? 'bg-brand text-inverse dark:text-secondary'
+                    : 'text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                Inactivas
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroEstado('todas')}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  filtroEstado === 'todas'
+                    ? 'bg-brand text-inverse dark:text-secondary'
+                    : 'text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                Todas
+              </button>
+            </div>
+
+            <input
+              type="text"
+              value={textoBusqueda}
+              onChange={(evento) => setTextoBusqueda(evento.target.value)}
+              placeholder="Buscar por razón social o RUC"
+              className="h-9 w-full md:w-72 rounded-lg border border-[color:var(--border-default)] bg-surface-0 px-3 text-sm text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-brand/30"
+            />
+          </div>
+        </div>
+
         {workspaces.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[color:var(--border-default)] bg-surface-0 p-10 text-center">
+          <div className="rounded-xl border border-dashed border-[color:var(--border-default)] bg-surface-0 p-8 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-1">
               <Building2 className="text-secondary" size={22} />
             </div>
@@ -122,61 +230,97 @@ export function AdministrarEmpresas() {
               </Button>
             </div>
           </div>
+        ) : empresasFiltradas.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[color:var(--border-default)] bg-surface-0 p-8 text-center">
+            <p className="text-sm font-semibold text-primary">No se encontraron empresas para este filtro.</p>
+            <p className="mt-1 text-sm text-secondary">Ajusta el estado o el texto de búsqueda.</p>
+          </div>
         ) : modoVista === 'tarjetas' ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {workspaces.map((empresa) => {
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {empresasFiltradas.map((empresa) => {
               const esSeleccionada = tenantId === empresa.id;
               return (
                 <article
                   key={empresa.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => manejarSeleccionEmpresa(empresa.id)}
+                  onKeyDown={(evento) => {
+                    if (evento.key === 'Enter' || evento.key === ' ') {
+                      evento.preventDefault();
+                      manejarSeleccionEmpresa(empresa.id);
+                    }
+                  }}
                   className={`rounded-xl border bg-surface-0 p-5 shadow-sm transition-colors ${
                     esSeleccionada
                       ? 'border-brand/40 ring-1 ring-brand/20'
                       : 'border-[color:var(--border-default)] hover:border-brand/30'
                   }`}
                 >
-                  <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="mb-2 flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="truncate text-base font-semibold text-primary">
                         {obtenerNombreEmpresa(empresa)}
                       </h2>
-                      <p className="mt-1 text-sm text-secondary">RUC: {obtenerRucEmpresa(empresa)}</p>
+                      <p className="mt-0.5 text-sm text-secondary">RUC: {obtenerRucEmpresa(empresa)}</p>
                     </div>
-                    {esSeleccionada ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                        <CheckCircle2 size={13} />
-                        Seleccionada
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-gray-800 dark:text-gray-300">
-                        Sin seleccionar
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {empresa.isFavorite && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          <Star size={11} className="fill-current" />
+                          Favorita
+                        </span>
+                      )}
+                      {esSeleccionada && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                          <CheckCircle2 size={11} />
+                          Seleccionada
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <p className="line-clamp-2 text-sm text-secondary">
                     {obtenerDireccionEmpresa(empresa)}
                   </p>
 
-                  <div className="mt-5 flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-tertiary">
-                      <MoreHorizontal size={14} />
-                      Próximamente
+                  <div className="mt-3 flex items-center justify-between">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        empresa.isActive
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : 'bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-300'
+                      }`}
+                    >
+                      {empresa.isActive ? 'Activa' : 'Inactiva'}
                     </span>
-                    <div className="flex items-center gap-2">
-                      {!esSeleccionada && (
-                        <Button size="sm" variant="secondary" onClick={() => manejarSeleccionEmpresa(empresa.id)}>
-                          Seleccionar
-                        </Button>
-                      )}
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="tertiary"
+                        iconOnly
+                        icon={<Star size={15} className={empresa.isFavorite ? 'fill-current' : ''} />}
+                        title={empresa.isFavorite ? 'Empresa favorita' : 'Marcar como favorita'}
+                        aria-label={empresa.isFavorite ? 'Empresa favorita' : 'Marcar como favorita'}
+                        onClick={(evento) => manejarFavorita(evento, empresa.id)}
+                      />
                       <Button
                         size="sm"
                         variant="secondary"
-                        icon={<Pencil size={14} />}
-                        onClick={() => manejarEditarEmpresa(empresa.id)}
+                        onClick={(evento) => manejarCambioEstadoActivo(evento, empresa.id, empresa.isActive)}
                       >
-                        Editar
+                        {empresa.isActive ? 'Inactivar' : 'Activar'}
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="tertiary"
+                        iconOnly
+                        icon={<Pencil size={15} />}
+                        title="Editar empresa"
+                        aria-label="Editar empresa"
+                        onClick={(evento) => manejarEditarDesdeAccion(evento, empresa.id)}
+                      />
                     </div>
                   </div>
                 </article>
@@ -196,40 +340,71 @@ export function AdministrarEmpresas() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[color:var(--border-default)]">
-                {workspaces.map((empresa) => {
+                {empresasFiltradas.map((empresa) => {
                   const esSeleccionada = tenantId === empresa.id;
                   return (
-                    <tr key={empresa.id} className="hover:bg-surface-hover/40">
-                      <td className="px-4 py-3 text-sm font-medium text-primary">{obtenerNombreEmpresa(empresa)}</td>
+                    <tr
+                      key={empresa.id}
+                      className="hover:bg-surface-hover/40 cursor-pointer"
+                      onClick={() => manejarSeleccionEmpresa(empresa.id)}
+                    >
+                      <td className="px-4 py-3 text-sm font-medium text-primary">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{obtenerNombreEmpresa(empresa)}</span>
+                          {esSeleccionada && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                              <CheckCircle2 size={11} />
+                              Seleccionada
+                            </span>
+                          )}
+                          {empresa.isFavorite && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                              <Star size={11} className="fill-current" />
+                              Favorita
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-sm text-secondary">{obtenerRucEmpresa(empresa)}</td>
                       <td className="px-4 py-3 text-sm text-secondary">{obtenerDireccionEmpresa(empresa)}</td>
                       <td className="px-4 py-3 text-sm">
-                        {esSeleccionada ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                            <CheckCircle2 size={12} />
-                            Seleccionada
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-gray-800 dark:text-gray-300">
-                            Sin seleccionar
-                          </span>
-                        )}
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            empresa.isActive
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                              : 'bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-300'
+                          }`}
+                        >
+                          {empresa.isActive ? 'Activa' : 'Inactiva'}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          {!esSeleccionada && (
-                            <Button size="sm" variant="secondary" onClick={() => manejarSeleccionEmpresa(empresa.id)}>
-                              Seleccionar
-                            </Button>
-                          )}
+                        <div className="flex items-center justify-end gap-1" onClick={(evento) => evento.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            variant="tertiary"
+                            iconOnly
+                            icon={<Star size={15} className={empresa.isFavorite ? 'fill-current' : ''} />}
+                            title={empresa.isFavorite ? 'Empresa favorita' : 'Marcar como favorita'}
+                            aria-label={empresa.isFavorite ? 'Empresa favorita' : 'Marcar como favorita'}
+                            onClick={(evento) => manejarFavorita(evento, empresa.id)}
+                          />
                           <Button
                             size="sm"
                             variant="secondary"
-                            icon={<Pencil size={14} />}
-                            onClick={() => manejarEditarEmpresa(empresa.id)}
+                            onClick={(evento) => manejarCambioEstadoActivo(evento, empresa.id, empresa.isActive)}
                           >
-                            Editar
+                            {empresa.isActive ? 'Inactivar' : 'Activar'}
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="tertiary"
+                            iconOnly
+                            icon={<Pencil size={15} />}
+                            title="Editar empresa"
+                            aria-label="Editar empresa"
+                            onClick={(evento) => manejarEditarDesdeAccion(evento, empresa.id)}
+                          />
                         </div>
                       </td>
                     </tr>

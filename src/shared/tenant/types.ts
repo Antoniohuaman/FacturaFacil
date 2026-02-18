@@ -4,6 +4,8 @@ export interface Workspace {
   razonSocial: string;
   nombreComercial?: string;
   domicilioFiscal?: string;
+  isActive: boolean;
+  isFavorite: boolean;
   createdAt: string;
 }
 
@@ -13,6 +15,8 @@ export interface WorkspacePayload {
   razonSocial: string;
   nombreComercial?: string;
   domicilioFiscal?: string;
+  isActive?: boolean;
+  isFavorite?: boolean;
 }
 
 export interface TenantContextValue {
@@ -23,6 +27,8 @@ export interface TenantContextValue {
   activeWorkspace: Workspace | null;
   setTenantId: (id: string | null) => void;
   setActiveEstablecimientoId: (establecimientoId: string | null) => void;
+  setWorkspaceActive: (workspaceId: string, isActive: boolean) => void;
+  setWorkspaceFavorite: (workspaceId: string) => void;
   createOrUpdateWorkspace: (workspace: WorkspacePayload) => Workspace;
   getActiveWorkspace: () => Workspace | null;
 }

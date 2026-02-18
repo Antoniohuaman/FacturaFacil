@@ -9,6 +9,60 @@ import {
 import { TenantContext } from './TenantContext';
 import type { TenantContextValue, Workspace, WorkspacePayload } from './types';
 
+type WorkspaceAlmacenado = Omit<Workspace, 'isActive' | 'isFavorite'> & {
+  isActive?: boolean;
+  isFavorite?: boolean;
+};
+
+const normalizarWorkspaces = (workspaces: WorkspaceAlmacenado[]): Workspace[] => {
+  let favoritaAsignada = false;
+
+  const normalizados = workspaces.map((workspace) => {
+    const isActive = workspace.isActive ?? true;
+    const favoritaSolicitada = workspace.isFavorite ?? false;
+    const isFavorite = isActive && favoritaSolicitada && !favoritaAsignada;
+    if (isFavorite) {
+      favoritaAsignada = true;
+    }
+
+    return {
+      ...workspace,
+      isActive,
+      isFavorite,
+    } as Workspace;
+  });
+
+  return normalizados;
+};
+
+const resolverWorkspaceSeleccionado = (
+  workspaces: Workspace[],
+  workspacePersistidoId: string | null,
+): string | null => {
+  if (workspaces.length === 0) {
+    return null;
+  }
+
+  const favoritaActiva = workspaces.find((workspace) => workspace.isFavorite && workspace.isActive);
+  if (favoritaActiva) {
+    return favoritaActiva.id;
+  }
+
+  const persistidoActivo = workspacePersistidoId
+    ? workspaces.find((workspace) => workspace.id === workspacePersistidoId && workspace.isActive)
+    : null;
+  if (persistidoActivo) {
+    return persistidoActivo.id;
+  }
+
+  const primerActivo = workspaces.find((workspace) => workspace.isActive);
+  if (primerActivo) {
+    return primerActivo.id;
+  }
+
+  return null;
+};
+
 const readWorkspacesFromStorage = (): Workspace[] => {
   if (typeof window === 'undefined') {
     return [];
@@ -18,9 +72,9 @@ const readWorkspacesFromStorage = (): Workspace[] => {
     if (!serialized) {
       return [];
     }
-    const parsed = JSON.parse(serialized) as Workspace[];
+    const parsed = JSON.parse(serialized) as WorkspaceAlmacenado[];
     if (Array.isArray(parsed)) {
-      return parsed;
+      return normalizarWorkspaces(parsed);
     }
     return [];
   } catch (error) {
@@ -116,6 +170,8 @@ const createBootstrapWorkspace = (): Workspace => {
     razonSocial: '',
     nombreComercial: undefined,
     domicilioFiscal: undefined,
+    isActive: true,
+    isFavorite: false,
     createdAt: now,
   };
 };
@@ -137,9 +193,7 @@ const resolveBootstrapState = (): TenantBootstrapState => {
   }
 
   const storedActiveId = readActiveWorkspaceId();
-  const workspaceActivoValido = storedActiveId && storedWorkspaces.some((item) => item.id === storedActiveId)
-    ? storedActiveId
-    : storedWorkspaces[0].id;
+  const workspaceActivoValido = resolverWorkspaceSeleccionado(storedWorkspaces, storedActiveId);
 
   if (workspaceActivoValido !== storedActiveId) {
     persistActiveWorkspaceId(workspaceActivoValido);
@@ -199,13 +253,35 @@ export function TenantProvider({ children }: TenantProviderProps) {
       setTenantIdState(bootstrapWorkspace.id);
       return;
     }
-    if (!tenantId) {
-      setTenantIdState(workspaces[0].id);
+
+    const favoritoActivo = workspaces.find((workspace) => workspace.isFavorite && workspace.isActive);
+    if (favoritoActivo && tenantId !== favoritoActivo.id) {
+      setTenantIdState(favoritoActivo.id);
       return;
     }
-    const exists = workspaces.some(workspace => workspace.id === tenantId);
-    if (!exists) {
-      setTenantIdState(workspaces[0].id);
+
+    if (!tenantId) {
+      const siguienteId = resolverWorkspaceSeleccionado(workspaces, null);
+      if (siguienteId) {
+        setTenantIdState(siguienteId);
+      }
+      return;
+    }
+
+    const seleccionado = workspaces.find((workspace) => workspace.id === tenantId);
+    if (!seleccionado) {
+      const siguienteId = resolverWorkspaceSeleccionado(workspaces, null);
+      if (siguienteId !== tenantId) {
+        setTenantIdState(siguienteId);
+      }
+      return;
+    }
+
+    if (!seleccionado.isActive) {
+      const siguienteId = resolverWorkspaceSeleccionado(workspaces, tenantId);
+      if (siguienteId !== tenantId) {
+        setTenantIdState(siguienteId);
+      }
     }
   }, [tenantId, workspaces]);
 
@@ -225,9 +301,16 @@ export function TenantProvider({ children }: TenantProviderProps) {
   }, [workspaces]);
 
   useEffect(() => {
-    if (workspaces.length === 0 || !tenantId) {
+    if (workspaces.length === 0) {
       if (isTenantReady) {
         setIsTenantReady(false);
+      }
+      return;
+    }
+
+    if (!tenantId) {
+      if (!isTenantReady) {
+        setIsTenantReady(true);
       }
       return;
     }
@@ -246,8 +329,18 @@ export function TenantProvider({ children }: TenantProviderProps) {
   }, [isTenantReady, tenantId, workspaces]);
 
   const setTenantId = useCallback((id: string | null) => {
+    if (!id) {
+      setTenantIdState(null);
+      return;
+    }
+
+    const workspace = workspaces.find((item) => item.id === id);
+    if (!workspace || !workspace.isActive) {
+      return;
+    }
+
     setTenantIdState(id);
-  }, []);
+  }, [workspaces]);
 
   const setActiveEstablecimientoId = useCallback((establecimientoId: string | null) => {
     setEstablecimientosActivosPorTenant((prev) => {
@@ -270,28 +363,134 @@ export function TenantProvider({ children }: TenantProviderProps) {
     });
   }, [tenantId]);
 
+  const setWorkspaceFavorite = useCallback((workspaceId: string) => {
+    setWorkspaces((prev) => {
+      let huboCambio = false;
+
+      const siguiente = prev.map((workspace) => {
+        const marcarFavorita = workspace.id === workspaceId;
+        const nuevaFavorita = marcarFavorita ? workspace.isActive : false;
+
+        if (workspace.isFavorite !== nuevaFavorita) {
+          huboCambio = true;
+        }
+
+        return {
+          ...workspace,
+          isFavorite: nuevaFavorita,
+        };
+      });
+
+      if (!huboCambio) {
+        return prev;
+      }
+
+      return siguiente;
+    });
+  }, []);
+
+  const setWorkspaceActive = useCallback((workspaceId: string, isActive: boolean) => {
+    setWorkspaces((prev) => {
+      let huboCambio = false;
+
+      const siguiente = prev.map((workspace) => {
+        if (workspace.id !== workspaceId) {
+          return workspace;
+        }
+
+        if (workspace.isActive === isActive && (!workspace.isFavorite || isActive)) {
+          return workspace;
+        }
+
+        huboCambio = true;
+
+        return {
+          ...workspace,
+          isActive,
+          isFavorite: isActive ? workspace.isFavorite : false,
+        };
+      });
+
+      if (!huboCambio) {
+        return prev;
+      }
+
+      const favoritaActiva = siguiente.find((workspace) => workspace.isFavorite && workspace.isActive);
+      if (favoritaActiva) {
+        return siguiente;
+      }
+
+      const favoritasMarcadas = siguiente.filter((workspace) => workspace.isFavorite);
+      if (favoritasMarcadas.length > 0) {
+        return siguiente.map((workspace) => ({ ...workspace, isFavorite: false }));
+      }
+
+      return siguiente;
+    });
+  }, []);
+
   const createOrUpdateWorkspace = useCallback((payload: WorkspacePayload): Workspace => {
     const workspaceId = payload.id ?? generateWorkspaceId();
     const now = new Date().toISOString();
+    const favoritoSolicitado = payload.isFavorite ?? false;
+    const activoSolicitado = payload.isActive ?? true;
     let nextWorkspace: Workspace = {
       id: workspaceId,
       ruc: payload.ruc,
       razonSocial: payload.razonSocial,
       nombreComercial: payload.nombreComercial?.trim() || undefined,
       domicilioFiscal: payload.domicilioFiscal?.trim() || undefined,
+      isActive: activoSolicitado,
+      isFavorite: activoSolicitado ? favoritoSolicitado : false,
       createdAt: now,
     };
 
     setWorkspaces(prev => {
+      const hayFavoritaActiva = prev.some((item) => item.isFavorite && item.isActive);
       const existing = prev.find(item => item.id === workspaceId);
       if (existing) {
-        nextWorkspace = { ...nextWorkspace, createdAt: existing.createdAt };
-        return prev.map(item => (item.id === workspaceId ? nextWorkspace : item));
+        nextWorkspace = {
+          ...nextWorkspace,
+          createdAt: existing.createdAt,
+          isActive: payload.isActive ?? existing.isActive,
+          isFavorite: payload.isFavorite ?? existing.isFavorite,
+        };
+
+        if (!nextWorkspace.isActive) {
+          nextWorkspace.isFavorite = false;
+        }
+
+        let updated = prev.map(item => (item.id === workspaceId ? nextWorkspace : item));
+        if (nextWorkspace.isFavorite && nextWorkspace.isActive) {
+          updated = updated.map((item) => ({
+            ...item,
+            isFavorite: item.id === workspaceId,
+          }));
+        }
+        return updated;
       }
-      return [...prev, nextWorkspace];
+
+      if (!hayFavoritaActiva && nextWorkspace.isActive) {
+        nextWorkspace = {
+          ...nextWorkspace,
+          isFavorite: true,
+        };
+      }
+
+      const siguiente = [...prev, nextWorkspace];
+      if (nextWorkspace.isFavorite && nextWorkspace.isActive) {
+        return siguiente.map((item) => ({
+          ...item,
+          isFavorite: item.id === workspaceId,
+        }));
+      }
+
+      return siguiente;
     });
 
-    setTenantIdState(workspaceId);
+    if (activoSolicitado) {
+      setTenantIdState(workspaceId);
+    }
     return nextWorkspace;
   }, []);
 
@@ -315,6 +514,8 @@ export function TenantProvider({ children }: TenantProviderProps) {
     activeWorkspace,
     setTenantId,
     setActiveEstablecimientoId,
+    setWorkspaceActive,
+    setWorkspaceFavorite,
     createOrUpdateWorkspace,
     getActiveWorkspace,
   };
