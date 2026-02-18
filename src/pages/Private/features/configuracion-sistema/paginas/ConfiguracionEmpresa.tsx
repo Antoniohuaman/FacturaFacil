@@ -45,6 +45,7 @@ interface CompanyFormData {
 type WorkspaceNavigationState = {
   workspaceMode?: 'create_workspace' | 'edit_workspace';
   workspaceId?: string;
+  returnTo?: string;
 } | null;
 
 
@@ -64,6 +65,8 @@ export function CompanyConfiguration() {
   }), [rolesConfigurados, session?.currentEstablecimientoId, usuarioActual]);
   const { createOrUpdateWorkspace, activeWorkspace, tenantId, setActiveEstablecimientoId } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
+  const rutaRetorno = workspaceState?.returnTo || '/configuracion';
+  const navegarRetorno = () => navigate(rutaRetorno);
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
   const initialWorkspaceId = useMemo(() => {
     if (workspaceState?.workspaceId) {
@@ -341,7 +344,7 @@ export function CompanyConfiguration() {
 
       // Show success and redirect
       setTimeout(() => {
-        navigate('/configuracion');
+        navigate(rutaRetorno);
       }, 1500);
     } catch (error) {
       console.error('Error saving company:', error);
@@ -368,7 +371,7 @@ export function CompanyConfiguration() {
             <Button
               variant="secondary"
               icon={<ArrowLeft />}
-              onClick={() => navigate('/configuracion')}
+              onClick={navegarRetorno}
             >
               Volver
             </Button>
@@ -393,7 +396,7 @@ export function CompanyConfiguration() {
           <Button
             variant="secondary"
             icon={<ArrowLeft />}
-            onClick={() => navigate('/configuracion')}
+            onClick={navegarRetorno}
           >
             Volver
           </Button>
@@ -684,7 +687,7 @@ export function CompanyConfiguration() {
               <div className="flex items-center gap-3">
                 <Button
                   variant="secondary"
-                  onClick={() => navigate('/configuracion')}
+                  onClick={navegarRetorno}
                 >
                   Cancelar
                 </Button>

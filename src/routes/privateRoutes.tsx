@@ -32,6 +32,7 @@ import { ListaPrecios } from "../pages/Private/features/lista-precios/components
 import { InventoryPage } from "../pages/Private/features/gestion-inventario/pages/InventoryPage";
 import CobranzasDashboard from "../pages/Private/features/gestion-cobranzas/pages/CobranzasDashboard";
 import NotificationsCenterPage from "../pages/Private/features/notifications/pages/NotificationsCenterPage";
+import { AdministrarEmpresas } from "../pages/Private/features/administracion-empresas/paginas/AdministrarEmpresas";
 
 // Documentos de Negociación
 import DocumentosTabs from "../pages/Private/features/Documentos-negociacion/pages/DocumentosTabs";
@@ -96,6 +97,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "/clientes/:clienteId/:clienteName/historial", element: conPermisos(<HistorialCompras />, ['clientes.ver', 'clientes.editar']) },
       { path: "/importar-clientes", element: conPermisos(<ImportarClientesPage />, ['clientes.importar']) },
       { path: "/indicadores", element: conPermisos(<IndicadoresPage />, ['indicadores.ver']) },
+      { path: "/administrar-empresas", element: conPermisos(<AdministrarEmpresas />, ['config.panel.ver']) },
       { path: "/configuracion", element: conPermisos(<ConfigurationDashboard />, ['config.panel.ver']) },
       { path: "/configuracion/empresa", element: conPermisos(<CompanyConfiguration />, ['config.empresa.ver', 'config.empresa.editar']) },
       { path: "/configuracion/establecimientos", element: conPermisos(<EstablecimientosConfiguration />, ['config.establecimientos.gestionar']) },

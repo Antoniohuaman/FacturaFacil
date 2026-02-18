@@ -3,22 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronDown, MapPin } from 'lucide-react';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import { useTenant } from '../../shared/tenant/TenantContext';
-import { WorkspaceSwitcherModal } from '../../components/WorkspaceSwitcherModal';
-import { generateWorkspaceId } from '../../shared/tenant';
 import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 
 export default function SelectorEmpresaEstablecimientoUnificado() {
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [modalEmpresasAbierto, setModalEmpresasAbierto] = useState(false);
   const contenedorRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { session, setCurrentEstablecimiento } = useUserSession();
   const {
-    workspaces,
-    tenantId,
     activeWorkspace,
     activeEstablecimientoId,
-    setTenantId,
     setActiveEstablecimientoId,
   } = useTenant();
   const { state } = useConfigurationContext();
@@ -77,7 +71,7 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
   };
 
   useEffect(() => {
-    if (!tenantId) {
+    if (!activeWorkspace) {
       return;
     }
 
@@ -94,38 +88,11 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
         ?? establecimientosDisponibles[0];
       setActiveEstablecimientoId(establecimientoInicial.id);
     }
-  }, [activeEstablecimientoId, establecimientosDisponibles, setActiveEstablecimientoId, tenantId]);
-
-  const navegarGestionEmpresa = (modo: 'create_workspace' | 'edit_workspace', workspaceId?: string) => {
-    navigate('/configuracion/empresa', { state: { workspaceMode: modo, workspaceId } });
-  };
+  }, [activeEstablecimientoId, establecimientosDisponibles, setActiveEstablecimientoId, activeWorkspace]);
 
   const manejarAbrirSelectorEmpresas = () => {
     setMenuAbierto(false);
-
-    if (workspaces.length === 0) {
-      navegarGestionEmpresa('create_workspace', generateWorkspaceId());
-      return;
-    }
-
-    setModalEmpresasAbierto(true);
-  };
-
-  const manejarSeleccionWorkspace = (workspaceId: string) => {
-    if (tenantId !== workspaceId) {
-      setTenantId(workspaceId);
-    }
-    setModalEmpresasAbierto(false);
-  };
-
-  const manejarCrearWorkspace = () => {
-    setModalEmpresasAbierto(false);
-    navegarGestionEmpresa('create_workspace', generateWorkspaceId());
-  };
-
-  const manejarEditarWorkspace = (workspaceId: string) => {
-    setModalEmpresasAbierto(false);
-    navegarGestionEmpresa('edit_workspace', workspaceId);
+    navigate('/administrar-empresas');
   };
 
   if (!session || !session.currentCompany) {
@@ -224,16 +191,6 @@ export default function SelectorEmpresaEstablecimientoUnificado() {
           </div>
         </div>
       )}
-
-      <WorkspaceSwitcherModal
-        isOpen={modalEmpresasAbierto}
-        workspaces={workspaces}
-        activeWorkspaceId={tenantId}
-        onClose={() => setModalEmpresasAbierto(false)}
-        onSelect={manejarSeleccionWorkspace}
-        onCreate={manejarCrearWorkspace}
-        onEdit={manejarEditarWorkspace}
-      />
     </div>
   );
 }
