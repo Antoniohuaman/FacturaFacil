@@ -105,7 +105,7 @@ export function AdministrarEmpresas() {
             Crea, edita y selecciona la empresa con la que vas a trabajar.
           </p>
           <p className="text-xs text-tertiary">
-            Empresa activa: {activeWorkspace?.razonSocial || activeWorkspace?.nombreComercial || 'Empresa sin nombre'}
+            Empresa seleccionada: {activeWorkspace?.razonSocial || activeWorkspace?.nombreComercial || 'Empresa sin nombre'}
           </p>
         </div>
 
@@ -125,12 +125,12 @@ export function AdministrarEmpresas() {
         ) : modoVista === 'tarjetas' ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {workspaces.map((empresa) => {
-              const esActiva = tenantId === empresa.id;
+              const esSeleccionada = tenantId === empresa.id;
               return (
                 <article
                   key={empresa.id}
                   className={`rounded-xl border bg-surface-0 p-5 shadow-sm transition-colors ${
-                    esActiva
+                    esSeleccionada
                       ? 'border-brand/40 ring-1 ring-brand/20'
                       : 'border-[color:var(--border-default)] hover:border-brand/30'
                   }`}
@@ -142,10 +142,10 @@ export function AdministrarEmpresas() {
                       </h2>
                       <p className="mt-1 text-sm text-secondary">RUC: {obtenerRucEmpresa(empresa)}</p>
                     </div>
-                    {esActiva ? (
+                    {esSeleccionada ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
                         <CheckCircle2 size={13} />
-                        Activa
+                        Seleccionada
                       </span>
                     ) : (
                       <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-gray-800 dark:text-gray-300">
@@ -164,7 +164,7 @@ export function AdministrarEmpresas() {
                       Próximamente
                     </span>
                     <div className="flex items-center gap-2">
-                      {!esActiva && (
+                      {!esSeleccionada && (
                         <Button size="sm" variant="secondary" onClick={() => manejarSeleccionEmpresa(empresa.id)}>
                           Seleccionar
                         </Button>
@@ -197,17 +197,17 @@ export function AdministrarEmpresas() {
               </thead>
               <tbody className="divide-y divide-[color:var(--border-default)]">
                 {workspaces.map((empresa) => {
-                  const esActiva = tenantId === empresa.id;
+                  const esSeleccionada = tenantId === empresa.id;
                   return (
                     <tr key={empresa.id} className="hover:bg-surface-hover/40">
                       <td className="px-4 py-3 text-sm font-medium text-primary">{obtenerNombreEmpresa(empresa)}</td>
                       <td className="px-4 py-3 text-sm text-secondary">{obtenerRucEmpresa(empresa)}</td>
                       <td className="px-4 py-3 text-sm text-secondary">{obtenerDireccionEmpresa(empresa)}</td>
                       <td className="px-4 py-3 text-sm">
-                        {esActiva ? (
+                        {esSeleccionada ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300">
                             <CheckCircle2 size={12} />
-                            Activa
+                            Seleccionada
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:bg-gray-800 dark:text-gray-300">
@@ -217,7 +217,7 @@ export function AdministrarEmpresas() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          {!esActiva && (
+                          {!esSeleccionada && (
                             <Button size="sm" variant="secondary" onClick={() => manejarSeleccionEmpresa(empresa.id)}>
                               Seleccionar
                             </Button>
