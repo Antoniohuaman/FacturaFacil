@@ -11,12 +11,10 @@ import { ProveedorAyudaGuiada } from "./shared/tour";
 const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as string | undefined;
 const posthogHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST as string | undefined;
 
-const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-
-if (posthogKey && import.meta.env.PROD && !isLocalhost) {
+if (posthogKey) {
   posthog.init(posthogKey, {
     ...(posthogHost ? { api_host: posthogHost } : {}),
-    autocapture: false,
+    autocapture: true,
     capture_pageview: true,
     capture_pageleave: true,
   });
