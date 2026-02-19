@@ -1219,7 +1219,7 @@ const EmisionTradicional = () => {
                 razonSocial: rawTipo === 'RUC' ? data.nombre : undefined,
                 nombreCompleto: rawTipo === 'DNI' ? data.nombre : undefined,
                 tipoCuenta: 'Cliente'
-              }, { origen: 'emision_inline' });
+              });
 
               if (created) {
                 const snap = clienteToSaleSnapshot(created);

@@ -8,11 +8,9 @@ import {
   type Product as CatalogProduct,
 } from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
-import { useCurrentEstablecimientoId, useUserSession } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getAvailableStockForUnit } from '../../../../../../shared/inventory/stockGateway';
-import { useFeedback } from '../../../../../../shared/feedback';
-import { registrarProductoCreadoExitoso } from '../../../../../../shared/analitica/analitica';
 
 interface Product {
   id: string;
@@ -69,9 +67,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   } = useProductStore();
   const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
   const EstablecimientoId = useCurrentEstablecimientoId();
-  const { session } = useUserSession();
   const { state: { almacenes } } = useConfigurationContext();
-  const feedback = useFeedback();
 
   const mapCatalogProductToSelectorProduct = useCallback((p: CatalogProduct): Product => {
     const stockInfo = getAvailableStockForUnit({
@@ -171,12 +167,6 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   const handleProductCreated = useCallback((productData: ProductInput) => {
     const created = addProduct(productData);
-    const entornoAnalitica =
-      session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-        ? 'produccion'
-        : 'demo';
-    registrarProductoCreadoExitoso({ entorno: entornoAnalitica, origen: 'emision_inline' });
-    feedback.success('Producto creado exitosamente', 'Emisión');
     const selectorProduct = mapCatalogProductToSelectorProduct(created);
     onAddProducts([{ product: selectorProduct, quantity: 1 }]);
     setShowProductModal(false);
@@ -188,7 +178,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
-  }, [addProduct, feedback, mapCatalogProductToSelectorProduct, onAddProducts, session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat]);
+  }, [addProduct, mapCatalogProductToSelectorProduct, onAddProducts]);
 
 
   // Intelligent search with prioritization

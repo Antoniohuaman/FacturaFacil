@@ -360,7 +360,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
                 razonSocial: documentType === 'RUC' ? lookupClient.data.nombre : undefined,
                 direccion: lookupClient.data.direccion,
                 tipoCuenta: 'Cliente',
-              }, { origen: 'emision_inline' });
+              });
 
               if (created) {
                 const snap = clienteToSaleSnapshot(created);

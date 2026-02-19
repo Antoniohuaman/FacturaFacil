@@ -13,12 +13,6 @@ import type {
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { emitClientesChanged, onClientesChanged } from '../utils/clientesEvents';
-import { useUserSession } from '../../../../../contexts/UserSessionContext';
-import {
-  registrarClienteCreadoExitoso,
-  registrarImportacionCompletada,
-} from '../../../../../shared/analitica/analitica';
-import type { EntornoAnalitica, OrigenCliente } from '../../../../../shared/analitica/eventosAnalitica';
 
 const INITIAL_PAGINATION = {
   total: 0,
@@ -30,7 +24,6 @@ const INITIAL_PAGINATION = {
 export const useClientes = (initialFilters?: ClienteFilters) => {
   const { showToast } = useCaja();
   const { tenantId } = useTenant();
-  const { session } = useUserSession();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [transientClientes, setTransientClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,18 +34,6 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
       ? crypto.randomUUID()
       : Math.random().toString(36).slice(2)
   );
-
-  const entornoAnalitica: EntornoAnalitica =
-    session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-      ? 'produccion'
-      : 'demo';
-
-  const resolverErroresRango = (errores: number): '0' | '1-5' | '6-20' | '21+' => {
-    if (errores <= 0) return '0';
-    if (errores <= 5) return '1-5';
-    if (errores <= 20) return '6-20';
-    return '21+';
-  };
 
   /**
    * Cargar clientes desde la API
@@ -90,10 +71,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
   /**
    * Crear nuevo cliente
    */
-  const createCliente = useCallback(async (
-    data: CreateClienteDTO,
-    opciones?: { origen?: OrigenCliente }
-  ): Promise<Cliente | null> => {
+  const createCliente = useCallback(async (data: CreateClienteDTO): Promise<Cliente | null> => {
     setLoading(true);
     setError(null);
 
@@ -105,11 +83,6 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
         '¡Cliente creado!',
         `${newCliente.name} fue creado exitosamente`
       );
-
-      registrarClienteCreadoExitoso({
-        entorno: entornoAnalitica,
-        origen: opciones?.origen ?? 'clientes',
-      });
 
       // Recargar lista y notificar a otros módulos
       await fetchClientes(initialFilters);
@@ -124,7 +97,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     } finally {
       setLoading(false);
     }
-  }, [entornoAnalitica, fetchClientes, initialFilters, showToast]);
+  }, [showToast, fetchClientes, initialFilters]);
 
   /**
    * Actualizar cliente existente
@@ -314,13 +287,6 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
         `${createdLabel} · ${updatedLabel}`
       );
 
-      registrarImportacionCompletada({
-        entorno: entornoAnalitica,
-        entidad: 'clientes',
-        resultado: summary.errors.length > 0 ? 'con_errores' : 'exito',
-        erroresRango: resolverErroresRango(summary.errors.length),
-      });
-
       return result;
     } catch (err: any) {
       const errorMessage = err.message || 'Error al importar clientes';
@@ -330,7 +296,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     } finally {
       setLoading(false);
     }
-  }, [entornoAnalitica, fetchClientes, initialFilters, showToast]);
+  }, [fetchClientes, initialFilters, showToast]);
 
   const transientCount = transientClientes.length;
 
