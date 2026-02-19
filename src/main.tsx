@@ -14,9 +14,9 @@ const posthogHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST as string | undefin
 if (posthogKey) {
   posthog.init(posthogKey, {
     ...(posthogHost ? { api_host: posthogHost } : {}),
-    autocapture: true,
-    capture_pageview: true,
-    capture_pageleave: true,
+    autocapture: false, // Desactivar autocapture para evitar capturar eventos no deseados
+    capture_pageview: false, // Desactivar captura automática de pageviews
+    capture_pageleave: false, // Desactivar captura automática de pageleave
   });
 }
 
