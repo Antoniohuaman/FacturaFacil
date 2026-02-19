@@ -20,10 +20,13 @@ import {
 } from 'lucide-react';
 import { useCaja } from '../../../control-caja/context/CajaContext';
 import { PageHeader } from '../../../../../../components/PageHeader';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { registrarVentaIniciada } from '@/shared/analitica/analitica';
 
 export function PuntoVentaHome() {
   const navigate = useNavigate();
   const { status: cajaStatus } = useCaja();
+  const { session } = useUserSession();
   const [stats, setStats] = useState({
     today: {
       sales: 0,
@@ -55,6 +58,16 @@ export function PuntoVentaHome() {
   }, []);
 
   const isCajaOpen = cajaStatus === 'abierta';
+
+  const entornoAnalitica =
+    session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+      ? 'produccion'
+      : 'demo';
+
+  const manejarNuevaVenta = () => {
+    registrarVentaIniciada({ entorno: entornoAnalitica, origen: 'pos' });
+    navigate('/punto-venta/nueva-venta');
+  };
 
   return (
     <div className="flex-1 bg-gradient-to-br from-gray-50 via-emerald-50/30 to-gray-50">
@@ -120,7 +133,7 @@ export function PuntoVentaHome() {
                   Interfaz rápida y optimizada para ventas en mostrador
                 </p>
                 <button
-                  onClick={() => navigate('/punto-venta/nueva-venta')}
+                  onClick={manejarNuevaVenta}
                   className="inline-flex items-center px-8 py-4 bg-white text-emerald-600 text-lg font-bold rounded-xl hover:bg-emerald-50 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105"
                 >
                   <ShoppingCart className="w-6 h-6 mr-3" />

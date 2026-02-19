@@ -29,10 +29,16 @@ import { LayoutDashboard, ShoppingCart } from 'lucide-react';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
 import type { PreviewData } from '../../models/comprobante.types';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
+import {
+  registrarPrimeraVentaCompletada,
+  registrarVentaCompletada,
+} from '@/shared/analitica/analitica';
 
 const BLANK_QR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION = 'analitica_primera_venta_completada';
 
 const PuntoVenta = () => {
+  const { state: configState } = useConfigurationContext();
   const {
     cartItems,
     totals,
@@ -195,7 +201,29 @@ const PuntoVenta = () => {
     limpiarBorradorEnProgreso();
   }, [limpiarBorradorEnProgreso, showSuccessModal]);
 
-  const { state: configState } = useConfigurationContext();
+  const entornoAnalitica =
+    configState.company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+      ? 'produccion'
+      : 'demo';
+
+  useEffect(() => {
+    if (!showSuccessModal) {
+      return;
+    }
+
+    registrarVentaCompletada({ entorno: entornoAnalitica, origen: 'pos' });
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (window.sessionStorage.getItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION) === '1') {
+      return;
+    }
+
+    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origen: 'pos' });
+    window.sessionStorage.setItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION, '1');
+  }, [entornoAnalitica, showSuccessModal]);
 
   const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
 

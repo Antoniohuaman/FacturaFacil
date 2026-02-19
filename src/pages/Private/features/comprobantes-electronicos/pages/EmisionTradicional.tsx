@@ -78,12 +78,17 @@ import {
   sumarImportes,
   validarFechasManual,
 } from '../shared/payments/creditoManualTransaccion';
+import {
+  registrarPrimeraVentaCompletada,
+  registrarVentaCompletada,
+} from '@/shared/analitica/analitica';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
 
 const CREDIT_SCHEDULE_TOLERANCE = 0.01;
 const TOLERANCIA_CREDITO_MANUAL = 0.01;
+const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION = 'analitica_primera_venta_completada';
 
 type ClienteSeleccionadoEmision = {
   clienteId?: number | string;
@@ -180,6 +185,10 @@ const EmisionTradicional = () => {
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { session } = useUserSession();
+  const entornoAnalitica =
+    session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+      ? 'produccion'
+      : 'demo';
   const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart, setCartItemsFromDraft } = useCart();
   const {
     currentCurrency,
@@ -334,6 +343,26 @@ const EmisionTradicional = () => {
   const [pendingReceivableHighlightId, setPendingReceivableHighlightId] = useState<string | undefined>(undefined);
   const [showObservacionesPanel, setShowObservacionesPanel] = useState(false);
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
+
+  useEffect(() => {
+    if (!showSuccessModal) {
+      return;
+    }
+
+    registrarVentaCompletada({ entorno: entornoAnalitica, origen: 'emision' });
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (window.sessionStorage.getItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION) === '1') {
+      return;
+    }
+
+    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origen: 'emision' });
+    window.sessionStorage.setItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION, '1');
+  }, [entornoAnalitica, showSuccessModal]);
+
   const { createCliente } = useClientes();
   const { allProducts: catalogProducts } = useProductStore();
   const catalogLookup = useMemo(() => {

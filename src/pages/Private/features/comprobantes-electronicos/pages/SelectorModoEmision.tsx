@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useState, useEffect } from 'react';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { registrarVentaIniciada } from '@/shared/analitica/analitica';
 
 interface ModoEmision {
   id: string;
@@ -40,6 +42,7 @@ interface ModoEmision {
 export function SelectorModoEmision() {
   const navigate = useNavigate();
   const { status: cajaStatus } = useCaja();
+  const { session } = useUserSession();
   const [stats, setStats] = useState({
     today: 0,
     thisMonth: 0,
@@ -105,6 +108,18 @@ export function SelectorModoEmision() {
   ];
 
   const isCajaOpen = cajaStatus === 'abierta';
+
+  const entornoAnalitica =
+    session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+      ? 'produccion'
+      : 'demo';
+
+  const registrarInicioVenta = (modoId: string) => {
+    registrarVentaIniciada({
+      entorno: entornoAnalitica,
+      origen: modoId === 'pos' ? 'pos' : 'emision',
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
@@ -262,7 +277,10 @@ export function SelectorModoEmision() {
             return (
               <div
                 key={modo.id}
-                onClick={() => navigate(modo.path)}
+                onClick={() => {
+                  registrarInicioVenta(modo.id);
+                  navigate(modo.path);
+                }}
                 className="group relative bg-white rounded-2xl border-2 border-gray-200 hover:border-blue-400 transition-all duration-300 cursor-pointer overflow-hidden hover:shadow-2xl hover:scale-[1.02]"
               >
                 {/* Gradient Background on Hover */}
@@ -356,6 +374,7 @@ export function SelectorModoEmision() {
                     className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 group-hover:shadow-2xl transition-all duration-300 text-base"
                     onClick={(e) => {
                       e.stopPropagation();
+                      registrarInicioVenta(modo.id);
                       navigate(modo.path);
                     }}
                   >
