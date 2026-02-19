@@ -19,6 +19,7 @@ type PosthogConEstado = typeof posthog & {
 };
 
 const CODIGO_ERROR_LONGITUD_MAXIMA = 50;
+const LLAVE_INICIO_VENTA_PREFIJO = 'analitica_venta_iniciada_';
 
 const esNavegador = (): boolean => typeof window !== 'undefined';
 
@@ -77,6 +78,38 @@ const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): Propiedad
   };
 };
 
+const construirClaveInicioVenta = (origen: OrigenVenta): string => `${LLAVE_INICIO_VENTA_PREFIJO}${origen}`;
+
+const guardarInicioVenta = (origen: OrigenVenta): void => {
+  if (!esNavegador()) {
+    return;
+  }
+
+  window.sessionStorage.setItem(construirClaveInicioVenta(origen), String(Date.now()));
+};
+
+const obtenerDuracionVentaMs = (origen: OrigenVenta): number | null => {
+  if (!esNavegador()) {
+    return null;
+  }
+
+  const clave = construirClaveInicioVenta(origen);
+  const rawInicio = window.sessionStorage.getItem(clave);
+  window.sessionStorage.removeItem(clave);
+
+  if (!rawInicio) {
+    return null;
+  }
+
+  const inicio = Number(rawInicio);
+  if (!Number.isFinite(inicio)) {
+    return null;
+  }
+
+  const duracionMs = Date.now() - inicio;
+  return duracionMs >= 0 ? duracionMs : null;
+};
+
 function capturarEvento(nombreEvento: string, propiedades?: PropiedadesAnalitica): void {
   if (!puedeCapturarEventos()) {
     return;
@@ -90,11 +123,16 @@ export function registrarInicioSesionExitoso(entrada?: { entorno: EntornoAnaliti
 }
 
 export function registrarVentaIniciada(entrada: { entorno: EntornoAnalitica; origen: OrigenVenta }): void {
+  guardarInicioVenta(entrada.origen);
   capturarEvento(EVENTOS_ANALITICA.VENTA_INICIADA, entrada);
 }
 
 export function registrarVentaCompletada(entrada: { entorno: EntornoAnalitica; origen: OrigenVenta }): void {
-  capturarEvento(EVENTOS_ANALITICA.VENTA_COMPLETADA, entrada);
+  const duracionMs = obtenerDuracionVentaMs(entrada.origen);
+  capturarEvento(EVENTOS_ANALITICA.VENTA_COMPLETADA, {
+    ...entrada,
+    ...(duracionMs !== null ? { duracion_ms: duracionMs } : {}),
+  });
 }
 
 export function registrarPrimeraVentaCompletada(entrada: {

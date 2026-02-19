@@ -18,6 +18,8 @@ import { ImportActionControls } from './import-prices/ImportActionControls';
 import { ImportStatusMessages } from './import-prices/ImportStatusMessages';
 import { ImportPreviewTable } from './import-prices/ImportPreviewTable';
 import { readTenantJson, writeTenantJson } from '../utils/storage';
+import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { registrarImportacionCompletada } from '../../../../../shared/analitica/analitica';
 
 export interface ExportPricesResult {
   success: boolean;
@@ -43,6 +45,13 @@ interface StoredImportState {
 
 const IMPORT_STORAGE_KEY = 'price_list_import_state';
 
+const resolverErroresRango = (errores: number): '0' | '1-5' | '6-20' | '21+' => {
+  if (errores <= 0) return '0';
+  if (errores <= 5) return '1-5';
+  if (errores <= 20) return '6-20';
+  return '21+';
+};
+
 const getStoredImportState = (): StoredImportState => {
   if (typeof window === 'undefined') {
     return { rows: [], selectedFileName: null };
@@ -61,6 +70,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   onApplyImport,
   onExportPrices
 }) => {
+  const { session } = useUserSession();
   const persistedState = useMemo(() => getStoredImportState(), []);
   const [rows, setRows] = useState<PriceImportPreviewRow[]>(persistedState.rows ?? []);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -191,6 +201,16 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       }));
 
       const summary = await onApplyImport(payload);
+      const entornoAnalitica =
+        session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+          ? 'produccion'
+          : 'demo';
+      registrarImportacionCompletada({
+        entorno: entornoAnalitica,
+        entidad: 'precios',
+        resultado: summary.skippedRows > 0 ? 'con_errores' : 'exito',
+        erroresRango: resolverErroresRango(summary.skippedRows),
+      });
       setRows(prev => prev.map(row => (row.status === 'ready' ? { ...row, status: 'applied' } : row)));
       setLastResult({ summary, completedAt: formatBusinessDateTimeIso() });
     } catch (error) {

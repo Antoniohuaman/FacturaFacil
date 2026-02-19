@@ -24,9 +24,11 @@ import { RucValidator } from '../components/empresa/ValidadorRuc';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { useFeedback } from '../../../../../shared/feedback';
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
+import { registrarRucActualizadoExitoso } from '../../../../../shared/analitica/analitica';
 
 
 interface CompanyFormData {
@@ -64,6 +66,7 @@ export function CompanyConfiguration() {
     establecimientoId: session?.currentEstablecimientoId,
   }), [rolesConfigurados, session?.currentEstablecimientoId, usuarioActual]);
   const { createOrUpdateWorkspace, activeWorkspace, tenantId, setActiveEstablecimientoId } = useTenant();
+  const feedback = useFeedback();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const rutaRetorno = workspaceState?.returnTo || '/configuracion';
   const navegarRetorno = () => navigate(rutaRetorno);
@@ -222,6 +225,17 @@ export function CompanyConfiguration() {
 
     setIsLoading(true);
 
+    const rucAnterior = company?.ruc?.trim() || '';
+    const rucActual = datosFormulario.ruc.trim();
+    const rucCambioExitoso = Boolean(rucAnterior && rucAnterior !== rucActual);
+    const veniaDeRucDemo = Boolean(
+      rucCambioExitoso && company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION'
+    );
+    const paseAProduccionCompletado = Boolean(
+      company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION' &&
+      datosFormulario.entornoSunat === 'PRODUCTION'
+    );
+
     try {
       if (!workspaceIdForSubmit) {
         throw new Error('No hay workspace activo para guardar la empresa.');
@@ -340,6 +354,24 @@ export function CompanyConfiguration() {
 
       if (EstablecimientoForContext) {
         setActiveEstablecimientoId(EstablecimientoForContext.id);
+      }
+
+      const entornoAnalitica =
+        datosFormulario.entornoSunat === 'PRODUCTION' ? 'produccion' : 'demo';
+
+      if (veniaDeRucDemo) {
+        registrarRucActualizadoExitoso({
+          entorno: entornoAnalitica,
+          veniaDeRucDemo: true,
+        });
+      }
+
+      if (rucCambioExitoso) {
+        feedback.success('RUC actualizado exitosamente', 'Empresa');
+      }
+
+      if (paseAProduccionCompletado) {
+        feedback.success('Pase a producción completado', 'Empresa');
       }
 
       // Show success and redirect

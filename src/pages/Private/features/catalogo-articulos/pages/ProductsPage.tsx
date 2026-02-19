@@ -19,6 +19,8 @@ import { ToastContainer } from '../../comprobantes-electronicos/shared/ui/Toast/
 import { MasterDetailLayout } from '@/components/layouts/MasterDetail';
 import ProductDetailPanel from '../components/ProductDetailPanel';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { useFeedback } from '@/shared/feedback';
+import { registrarProductoCreadoExitoso } from '@/shared/analitica/analitica';
 
 const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'text' | 'currency' | 'number' }> = [
   { key: 'codigo', label: 'Código', type: 'text' },
@@ -34,6 +36,7 @@ const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'tex
 
 const ProductsPage: React.FC = () => {
   const { toasts, warning, removeToast } = useToast();
+  const feedback = useFeedback();
   const {
     products,
     allProducts,
@@ -172,6 +175,12 @@ const ProductsPage: React.FC = () => {
       updateProduct(editingProduct.id, productData);
     } else {
       addProduct(productData);
+      const entornoAnalitica =
+        configState.company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+          ? 'produccion'
+          : 'demo';
+      registrarProductoCreadoExitoso({ entorno: entornoAnalitica, origen: 'catalogo' });
+      feedback.success('Producto creado exitosamente', 'Catálogo');
     }
     setShowProductModal(false);
     setEditingProduct(undefined);

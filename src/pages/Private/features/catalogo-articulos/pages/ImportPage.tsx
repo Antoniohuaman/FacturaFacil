@@ -5,8 +5,16 @@ import ImportModal from '../components/ImportModal';
 import { useProductStore } from '../hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { parseExcelFile, exportImportErrors, type ImportResult } from '../utils/excelHelpers';
+import { registrarImportacionCompletada } from '../../../../../shared/analitica/analitica';
 
 type ImportStep = 'select' | 'preview' | 'result';
+
+const resolverErroresRango = (errores: number): '0' | '1-5' | '6-20' | '21+' => {
+  if (errores <= 0) return '0';
+  if (errores <= 5) return '1-5';
+  if (errores <= 20) return '6-20';
+  return '21+';
+};
 
 const ImportPage: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
@@ -70,6 +78,17 @@ const ImportPage: React.FC = () => {
     try {
       const result = importProducts(importResult.filasValidas as Parameters<typeof importProducts>[0]);
       setFinalResult(result);
+      const errores = importResult.filasInvalidas.length;
+      const entornoAnalitica =
+        configState.company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+          ? 'produccion'
+          : 'demo';
+      registrarImportacionCompletada({
+        entorno: entornoAnalitica,
+        entidad: 'productos',
+        resultado: errores > 0 ? 'con_errores' : 'exito',
+        erroresRango: resolverErroresRango(errores),
+      });
       setCurrentStep('result');
     } catch (error) {
       alert(`Error al importar productos: ${error instanceof Error ? error.message : 'Error desconocido'}`);
