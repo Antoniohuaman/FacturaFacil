@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useConsultasExternas } from '../hooks';
 import type { ClienteFormData } from '../models';
 import { onlyDigits, getDocLabelFromCode } from '../utils/documents';
@@ -12,6 +13,12 @@ import {
   CLIENTE_FIELD_CONFIGS,
   type ClienteFieldId,
 } from './clienteFormConfig';
+import {
+  listarDepartamentos,
+  listarDistritos,
+  listarProvincias,
+  obtenerUbigeo,
+} from '@/shared/catalogos/ubigeo.pe';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 
@@ -27,6 +34,17 @@ type ClienteFormProps = {
 const PRIMARY_COLOR = '#1478D4';
 
 type IdentificadorPestanaCliente = 'datosPrincipales' | 'direcciones' | 'contactos' | 'configuracionComercial' | 'datosSunat';
+
+type DireccionUI = {
+  id: string;
+  pais: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  ubigeo: string;
+  direccion: string;
+  referenciaDireccion: string;
+};
 
 const tiposDocumento = [
   { value: '0', label: 'DOC.TRIB.NO.DOM.SIN.RUC' },
@@ -87,6 +105,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   const [showOtrosDocTypes, setShowOtrosDocTypes] = useState(false);
   const [crearOtro, setCrearOtro] = useState(false);
   const selectorDocumentosRef = useRef<HTMLDivElement>(null);
+  const modalDireccionRef = useRef<HTMLDivElement>(null);
+  const firstDireccionInputRef = useRef<HTMLSelectElement | null>(null);
   const [pestanaActiva, setPestanaActiva] = useState<IdentificadorPestanaCliente>('datosPrincipales');
   const fieldConfigs = CLIENTE_FIELD_CONFIGS;
   const requiredFieldIds = CAMPOS_REQUERIDOS_FORMULARIO;
@@ -97,6 +117,22 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   
   const isConsulting = consultingReniec || consultingSunat;
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ClienteFieldId, string>>>({});
+  const direccionesInicializadasRef = useRef(false);
+  const [direccionesUI, setDireccionesUI] = useState<DireccionUI[]>([]);
+  const [direccionPrincipalId, setDireccionPrincipalId] = useState<string | null>(null);
+  const [direccionEditorAbierto, setDireccionEditorAbierto] = useState(false);
+  const [direccionEditandoId, setDireccionEditandoId] = useState<string | null>(null);
+  const [marcarDireccionComoPrincipal, setMarcarDireccionComoPrincipal] = useState(false);
+  const [direccionDraft, setDireccionDraft] = useState<DireccionUI>({
+    id: '',
+    pais: 'PE',
+    departamento: '',
+    provincia: '',
+    distrito: '',
+    ubigeo: '',
+    direccion: '',
+    referenciaDireccion: '',
+  });
   const fieldLabelMap = useMemo(() => new Map(fieldConfigs.map((field) => [field.id, field.label])), [fieldConfigs]);
   const esModoDrawer = modoPresentacion === 'drawer';
   const nombreClienteContexto =
@@ -136,6 +172,51 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     },
     [getFieldError]
   );
+
+  const buildDireccionPrincipalDesdeForm = useCallback(
+    (): DireccionUI => ({
+      id: 'direccion-main',
+      pais: formData.pais || 'PE',
+      departamento: formData.departamento || '',
+      provincia: formData.provincia || '',
+      distrito: formData.distrito || '',
+      ubigeo: formData.ubigeo || '',
+      direccion: formData.direccion || '',
+      referenciaDireccion: formData.referenciaDireccion || '',
+    }),
+    [
+      formData.pais,
+      formData.departamento,
+      formData.provincia,
+      formData.distrito,
+      formData.ubigeo,
+      formData.direccion,
+      formData.referenciaDireccion,
+    ]
+  );
+
+  const syncLegacyFromDireccion = useCallback(
+    (direccion: DireccionUI) => {
+      handleFieldChange('pais', direccion.pais || 'PE', 'pais');
+      handleFieldChange('departamento', direccion.departamento, 'departamento');
+      handleFieldChange('provincia', direccion.provincia, 'provincia');
+      handleFieldChange('distrito', direccion.distrito, 'distrito');
+      handleFieldChange('ubigeo', direccion.ubigeo, 'ubigeo');
+      handleFieldChange('direccion', direccion.direccion, 'direccion');
+      handleFieldChange('referenciaDireccion', direccion.referenciaDireccion, 'referenciaDireccion');
+    },
+    [handleFieldChange]
+  );
+
+  const clearLegacyDireccion = useCallback(() => {
+    handleFieldChange('pais', 'PE', 'pais');
+    handleFieldChange('departamento', '', 'departamento');
+    handleFieldChange('provincia', '', 'provincia');
+    handleFieldChange('distrito', '', 'distrito');
+    handleFieldChange('ubigeo', '', 'ubigeo');
+    handleFieldChange('direccion', '', 'direccion');
+    handleFieldChange('referenciaDireccion', '', 'referenciaDireccion');
+  }, [handleFieldChange]);
 
   const handleNumeroDocumentoChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,6 +306,213 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [showOtrosDocTypes]);
+
+  useEffect(() => {
+    if (direccionesInicializadasRef.current) {
+      return;
+    }
+    const principal = buildDireccionPrincipalDesdeForm();
+    direccionesInicializadasRef.current = true;
+    setDireccionesUI([principal]);
+    setDireccionPrincipalId(principal.id);
+  }, [buildDireccionPrincipalDesdeForm]);
+
+  useEffect(() => {
+    if (!direccionPrincipalId) {
+      return;
+    }
+    const principalDesdeForm = buildDireccionPrincipalDesdeForm();
+    setDireccionesUI((prev) => {
+      const index = prev.findIndex((direccion) => direccion.id === direccionPrincipalId);
+      if (index === -1) {
+        return prev;
+      }
+      const actual = prev[index];
+      const nextPrincipal: DireccionUI = {
+        ...actual,
+        pais: principalDesdeForm.pais,
+        departamento: principalDesdeForm.departamento,
+        provincia: principalDesdeForm.provincia,
+        distrito: principalDesdeForm.distrito,
+        ubigeo: principalDesdeForm.ubigeo,
+        direccion: principalDesdeForm.direccion,
+        referenciaDireccion: principalDesdeForm.referenciaDireccion,
+      };
+      const sinCambios =
+        actual.pais === nextPrincipal.pais &&
+        actual.departamento === nextPrincipal.departamento &&
+        actual.provincia === nextPrincipal.provincia &&
+        actual.distrito === nextPrincipal.distrito &&
+        actual.ubigeo === nextPrincipal.ubigeo &&
+        actual.direccion === nextPrincipal.direccion &&
+        actual.referenciaDireccion === nextPrincipal.referenciaDireccion;
+
+      if (sinCambios) {
+        return prev;
+      }
+
+      const next = [...prev];
+      next[index] = nextPrincipal;
+      return next;
+    });
+  }, [
+    direccionPrincipalId,
+    buildDireccionPrincipalDesdeForm,
+    formData.pais,
+    formData.departamento,
+    formData.provincia,
+    formData.distrito,
+    formData.ubigeo,
+    formData.direccion,
+    formData.referenciaDireccion,
+  ]);
+
+  useEffect(() => {
+    if (!direccionEditorAbierto) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDireccionEditorAbierto(false);
+        setDireccionEditandoId(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [direccionEditorAbierto]);
+
+  useEffect(() => {
+    if (!direccionEditorAbierto) {
+      return;
+    }
+    firstDireccionInputRef.current?.focus();
+  }, [direccionEditorAbierto]);
+
+  const resetDireccionDraft = useCallback((direccion?: DireccionUI) => {
+    setDireccionDraft(
+      direccion ?? {
+        id: `direccion-ui-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        pais: formData.pais || 'PE',
+        departamento: '',
+        provincia: '',
+        distrito: '',
+        ubigeo: '',
+        direccion: '',
+        referenciaDireccion: '',
+      }
+    );
+  }, [formData.pais]);
+
+  const abrirEditorDireccion = useCallback((direccion?: DireccionUI) => {
+    if (direccion) {
+      setDireccionEditandoId(direccion.id);
+      resetDireccionDraft(direccion);
+      setMarcarDireccionComoPrincipal(direccion.id === direccionPrincipalId);
+    } else {
+      setDireccionEditandoId(null);
+      resetDireccionDraft();
+      setMarcarDireccionComoPrincipal(!direccionPrincipalId);
+    }
+    setDireccionEditorAbierto(true);
+  }, [resetDireccionDraft, direccionPrincipalId]);
+
+  const ordenarConPrincipalPrimero = useCallback((items: DireccionUI[], principalId: string | null) => {
+    if (!principalId) {
+      return items;
+    }
+    const principal = items.find((item) => item.id === principalId);
+    if (!principal) {
+      return items;
+    }
+    return [principal, ...items.filter((item) => item.id !== principalId)];
+  }, []);
+
+  const seleccionarDireccionPrincipal = useCallback(
+    (direccionId: string) => {
+      setDireccionesUI((prev) => {
+        const seleccionada = prev.find((direccion) => direccion.id === direccionId);
+        if (!seleccionada) {
+          return prev;
+        }
+        syncLegacyFromDireccion(seleccionada);
+        return ordenarConPrincipalPrimero(prev, direccionId);
+      });
+      setDireccionPrincipalId(direccionId);
+    },
+    [ordenarConPrincipalPrimero, syncLegacyFromDireccion]
+  );
+
+  const guardarDireccionEditor = useCallback(() => {
+    const draftFinal: DireccionUI = {
+      ...direccionDraft,
+      id: direccionDraft.id || `direccion-ui-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      pais: direccionDraft.pais || 'PE',
+    };
+
+    let principalIdFinal = direccionPrincipalId;
+    if (marcarDireccionComoPrincipal) {
+      principalIdFinal = direccionEditandoId ?? draftFinal.id;
+      setDireccionPrincipalId(principalIdFinal);
+      syncLegacyFromDireccion(draftFinal);
+    }
+
+    setDireccionesUI((prev) => {
+      const actualizadas = direccionEditandoId
+        ? prev.map((direccion) => (direccion.id === direccionEditandoId ? draftFinal : direccion))
+        : [...prev, draftFinal];
+
+      return ordenarConPrincipalPrimero(actualizadas, principalIdFinal);
+    });
+
+    setDireccionEditorAbierto(false);
+    setDireccionEditandoId(null);
+    setMarcarDireccionComoPrincipal(false);
+  }, [
+    direccionDraft,
+    direccionEditandoId,
+    direccionPrincipalId,
+    marcarDireccionComoPrincipal,
+    ordenarConPrincipalPrimero,
+    syncLegacyFromDireccion,
+  ]);
+
+  const eliminarDireccion = useCallback(
+    (direccionId: string) => {
+      const eraPrincipal = direccionId === direccionPrincipalId;
+      setDireccionesUI((prev) => prev.filter((direccion) => direccion.id !== direccionId));
+
+      if (eraPrincipal) {
+        setDireccionPrincipalId(null);
+        clearLegacyDireccion();
+      }
+    },
+    [clearLegacyDireccion, direccionPrincipalId]
+  );
+
+  const opcionesDepartamento = useMemo(() => listarDepartamentos(), []);
+
+  const opcionesProvincia = useMemo(
+    () => listarProvincias(direccionDraft.departamento),
+    [direccionDraft.departamento]
+  );
+
+  const opcionesDistrito = useMemo(
+    () => listarDistritos(direccionDraft.departamento, direccionDraft.provincia),
+    [direccionDraft.departamento, direccionDraft.provincia]
+  );
+
+  const direccionSubtitulo = useCallback((direccion: DireccionUI) => {
+    const base = [direccion.distrito, direccion.provincia, direccion.departamento, direccion.pais]
+      .map((item) => item?.trim())
+      .filter(Boolean)
+      .join(' · ');
+
+    return base || 'Sin ubicación';
+  }, []);
 
   const handleConsultarReniec = async () => {
     if (!formData.numeroDocumento || formData.numeroDocumento.length !== 8) {
@@ -1335,134 +1623,277 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               isFieldRenderable('direccion') ||
               isFieldRenderable('referenciaDireccion')) && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
+                <h3 className="mb-2 border-b pb-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200">
                   📍 Direcciones
                 </h3>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {isFieldRenderable('pais') && (
-                    <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        País {shouldShowRequiredIndicator('pais') && <span className="text-red-500">*</span>}
-                      </label>
-                      <select
-                        value={formData.pais}
-                        onChange={(e) => handleFieldChange('pais', e.target.value, 'pais')}
-                        className={getFieldInputClass(
-                          'pais',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
+
+                <div className="mb-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => abrirEditorDireccion()}
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                    aria-label="Agregar dirección"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {direccionesUI.map((direccion) => {
+                    const esPrincipal = direccion.id === direccionPrincipalId;
+                    const titulo = direccion.direccion?.trim() || 'Sin dirección';
+                    const subtitulo = direccionSubtitulo(direccion);
+
+                    return (
+                      <div
+                        key={direccion.id}
+                        className="rounded-md border border-gray-200/80 bg-white px-2.5 py-2 dark:border-gray-700 dark:bg-gray-800"
                       >
-                        <option value="PE">Perú</option>
-                        <option value="US">Estados Unidos</option>
-                        <option value="ES">España</option>
-                      </select>
-                      {renderFieldError('pais')}
-                    </div>
-                  )}
-                  {isFieldRenderable('departamento') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Departamento {shouldShowRequiredIndicator('departamento') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.departamento}
-                        onChange={(e) => handleFieldChange('departamento', e.target.value, 'departamento')}
-                        className={getFieldInputClass(
-                          'departamento',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      />
-                      {renderFieldError('departamento')}
-                    </div>
-                  )}
-                  {isFieldRenderable('provincia') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Provincia {shouldShowRequiredIndicator('provincia') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.provincia}
-                        onChange={(e) => handleFieldChange('provincia', e.target.value, 'provincia')}
-                        className={getFieldInputClass(
-                          'provincia',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      />
-                      {renderFieldError('provincia')}
-                    </div>
-                  )}
-                  {isFieldRenderable('distrito') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Distrito {shouldShowRequiredIndicator('distrito') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.distrito}
-                        onChange={(e) => handleFieldChange('distrito', e.target.value, 'distrito')}
-                        className={getFieldInputClass(
-                          'distrito',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                      />
-                      {renderFieldError('distrito')}
-                    </div>
-                  )}
-                  {isFieldRenderable('ubigeo') && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Ubigeo {shouldShowRequiredIndicator('ubigeo') && <span className="text-red-500">*</span>}
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.ubigeo}
-                        onChange={(e) => handleFieldChange('ubigeo', e.target.value, 'ubigeo')}
-                        maxLength={6}
-                        className={getFieldInputClass(
-                          'ubigeo',
-                          'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                        )}
-                        placeholder="6 dígitos"
-                      />
-                      {renderFieldError('ubigeo')}
-                    </div>
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="radio"
+                            name="direccion-principal"
+                            checked={esPrincipal}
+                            onChange={() => seleccionarDireccionPrincipal(direccion.id)}
+                            className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                            aria-label={`Marcar dirección ${titulo} como principal`}
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100" title={titulo}>
+                                  {titulo}
+                                </p>
+                                <p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400" title={subtitulo}>
+                                  {subtitulo}
+                                  {direccion.ubigeo?.trim() && (
+                                    <span className="ml-1 text-[10px] text-gray-400 dark:text-gray-500">UBI {direccion.ubigeo.trim()}</span>
+                                  )}
+                                </p>
+                              </div>
+
+                              {esPrincipal && (
+                                <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                                  Principal
+                                </span>
+                              )}
+                            </div>
+
+                            {direccion.referenciaDireccion?.trim() && (
+                              <p className="mt-1 truncate text-[11px] text-gray-500 dark:text-gray-400" title={direccion.referenciaDireccion}>
+                                {direccion.referenciaDireccion}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => abrirEditorDireccion(direccion)}
+                              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                              aria-label="Editar dirección"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => eliminarDireccion(direccion.id)}
+                              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                              aria-label="Eliminar dirección"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {direccionesUI.length === 0 && (
+                    <p className="py-2 text-xs text-gray-500 dark:text-gray-400">Sin direcciones</p>
                   )}
                 </div>
-                {isFieldRenderable('direccion') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Dirección {shouldShowRequiredIndicator('direccion') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.direccion}
-                      onChange={(e) => handleFieldChange('direccion', e.target.value, 'direccion')}
-                      className={getFieldInputClass(
-                        'direccion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
-                    />
-                    {renderFieldError('direccion')}
-                  </div>
-                )}
-                {isFieldRenderable('referenciaDireccion') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Referencia {shouldShowRequiredIndicator('referenciaDireccion') && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.referenciaDireccion}
-                      onChange={(e) => handleFieldChange('referenciaDireccion', e.target.value, 'referenciaDireccion')}
-                      className={getFieldInputClass(
-                        'referenciaDireccion',
-                        'w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 h-9 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                      )}
-                      placeholder="Ej: Al costado del mercado"
-                    />
-                    {renderFieldError('referenciaDireccion')}
+
+                {direccionEditorAbierto && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+                    onMouseDown={(event) => {
+                      if (modalDireccionRef.current && !modalDireccionRef.current.contains(event.target as Node)) {
+                        setDireccionEditorAbierto(false);
+                        setDireccionEditandoId(null);
+                      }
+                    }}
+                  >
+                    <div
+                      ref={modalDireccionRef}
+                      className="w-full max-w-xl rounded-lg border border-gray-200 bg-white p-3.5 shadow-xl dark:border-gray-700 dark:bg-gray-800"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {direccionEditandoId ? 'Editar dirección' : 'Agregar dirección'}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDireccionEditorAbierto(false);
+                            setDireccionEditandoId(null);
+                          }}
+                          className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+                          aria-label="Cerrar editor de dirección"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Dirección</label>
+                          <input
+                            type="text"
+                            value={direccionDraft.direccion}
+                            onChange={(event) => setDireccionDraft((prev) => ({ ...prev, direccion: event.target.value }))}
+                            placeholder="Calle / jirón / número"
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">País</label>
+                          <select
+                            ref={firstDireccionInputRef}
+                            value={direccionDraft.pais}
+                            onChange={(event) => setDireccionDraft((prev) => ({ ...prev, pais: event.target.value }))}
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="PE">Perú</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Departamento</label>
+                          <select
+                            value={direccionDraft.departamento}
+                            onChange={(event) =>
+                              setDireccionDraft((prev) => ({
+                                ...prev,
+                                departamento: event.target.value,
+                                provincia: '',
+                                distrito: '',
+                                ubigeo: '',
+                              }))
+                            }
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Seleccionar</option>
+                            {opcionesDepartamento.map((opcion) => (
+                              <option key={opcion} value={opcion}>{opcion}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Provincia</label>
+                          <select
+                            value={direccionDraft.provincia}
+                            onChange={(event) =>
+                              setDireccionDraft((prev) => ({
+                                ...prev,
+                                provincia: event.target.value,
+                                distrito: '',
+                                ubigeo: '',
+                              }))
+                            }
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Seleccionar</option>
+                            {opcionesProvincia.map((opcion) => (
+                              <option key={opcion} value={opcion}>{opcion}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Distrito</label>
+                          <select
+                            value={direccionDraft.distrito}
+                            onChange={(event) => {
+                              const distrito = event.target.value;
+                              const ubigeoDetectado = obtenerUbigeo(
+                                direccionDraft.departamento,
+                                direccionDraft.provincia,
+                                distrito
+                              );
+                              setDireccionDraft((prev) => ({
+                                ...prev,
+                                distrito,
+                                ubigeo: ubigeoDetectado || prev.ubigeo,
+                              }));
+                            }}
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Seleccionar</option>
+                            {opcionesDistrito.map((opcion) => (
+                              <option key={opcion} value={opcion}>{opcion}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Ubigeo</label>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            value={direccionDraft.ubigeo}
+                            onChange={(event) => setDireccionDraft((prev) => ({ ...prev, ubigeo: event.target.value }))}
+                            placeholder="Opcional"
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Referencia</label>
+                          <input
+                            type="text"
+                            value={direccionDraft.referenciaDireccion}
+                            onChange={(event) => setDireccionDraft((prev) => ({ ...prev, referenciaDireccion: event.target.value }))}
+                            placeholder="Opcional"
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+
+                        <label className="sm:col-span-2 inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            checked={marcarDireccionComoPrincipal}
+                            onChange={(event) => setMarcarDireccionComoPrincipal(event.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Marcar como principal
+                        </label>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDireccionEditorAbierto(false);
+                            setDireccionEditandoId(null);
+                          }}
+                          className="h-7 rounded-md px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={guardarDireccionEditor}
+                          className="h-7 rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
