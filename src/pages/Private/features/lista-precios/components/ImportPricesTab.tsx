@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { formatBusinessDateTimeIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
+import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { registrarImportacionCompletada } from '../../../../../shared/analitica/analitica';
 import type { Column, Product, CatalogProduct } from '../models/PriceTypes';
 import type {
   BulkPriceImportEntry,
@@ -61,6 +63,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   onApplyImport,
   onExportPrices
 }) => {
+  const { session } = useUserSession();
   const persistedState = useMemo(() => getStoredImportState(), []);
   const [rows, setRows] = useState<PriceImportPreviewRow[]>(persistedState.rows ?? []);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -172,6 +175,13 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
   const errorRows = rows.filter(row => row.status === 'error');
   const appliedRows = rows.filter(row => row.status === 'applied');
 
+  const resolverErroresRango = (errores: number): '0' | '1-5' | '6-20' | '21+' => {
+    if (errores <= 0) return '0';
+    if (errores <= 5) return '1-5';
+    if (errores <= 20) return '6-20';
+    return '21+';
+  };
+
   const handleApplyImport = async () => {
     if (readyRows.length === 0) {
       setParseError('No hay filas válidas para importar.');
@@ -193,6 +203,18 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       const summary = await onApplyImport(payload);
       setRows(prev => prev.map(row => (row.status === 'ready' ? { ...row, status: 'applied' } : row)));
       setLastResult({ summary, completedAt: formatBusinessDateTimeIso() });
+
+      const entornoAnalitica =
+        session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+          ? 'produccion'
+          : 'demo';
+      const errores = errorRows.length + summary.skippedRows;
+      registrarImportacionCompletada({
+        entorno: entornoAnalitica,
+        entidad: 'precios',
+        resultado: errores > 0 ? 'con_errores' : 'exito',
+        erroresRango: resolverErroresRango(errores),
+      });
     } catch (error) {
       console.error('[ImportPricesTab] Error applying import:', error);
       setParseError(error instanceof Error ? error.message : 'Ocurrió un error al aplicar los precios.');

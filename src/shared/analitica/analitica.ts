@@ -2,8 +2,13 @@ import posthog from 'posthog-js';
 
 import {
   EVENTOS_ANALITICA,
+  type EntidadImportacion,
   type EntornoAnalitica,
+  type ErroresRangoImportacion,
+  type OrigenCliente,
+  type OrigenProducto,
   type OrigenVenta,
+  type ResultadoImportacion,
 } from './eventosAnalitica';
 
 type PropiedadesAnalitica = Record<string, unknown>;
@@ -66,21 +71,47 @@ function capturarEvento(nombreEvento: string, propiedades?: PropiedadesAnalitica
   posthog.capture(nombreEvento, construirPropiedadesBase(propiedades));
 }
 
-export function registrarInicioSesionExitoso(entrada?: { entorno: EntornoAnalitica }): void {
-  capturarEvento(EVENTOS_ANALITICA.INICIO_SESION_EXITOSO, entrada);
+export function registrarRegistroUsuarioCompletado(entrada: { entorno: EntornoAnalitica }): void {
+  capturarEvento(EVENTOS_ANALITICA.REGISTRO_USUARIO_COMPLETADO, entrada);
 }
 
-export function registrarVentaIniciada(entrada: { entorno: EntornoAnalitica; origen: OrigenVenta }): void {
-  capturarEvento(EVENTOS_ANALITICA.VENTA_INICIADA, entrada);
-}
-
-export function registrarVentaCompletada(entrada: { entorno: EntornoAnalitica; origen: OrigenVenta }): void {
+export function registrarVentaCompletada(entrada: { entorno: EntornoAnalitica; origenVenta: OrigenVenta }): void {
   capturarEvento(EVENTOS_ANALITICA.VENTA_COMPLETADA, entrada);
 }
 
 export function registrarPrimeraVentaCompletada(entrada: {
   entorno: EntornoAnalitica;
-  origen: OrigenVenta;
+  origenVenta: OrigenVenta;
 }): void {
   capturarEvento(EVENTOS_ANALITICA.PRIMERA_VENTA_COMPLETADA, entrada);
+}
+
+export function registrarProductoCreadoExitoso(entrada: {
+  entorno: EntornoAnalitica;
+  origen: OrigenProducto;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.PRODUCTO_CREADO_EXITOSO, entrada);
+}
+
+export function registrarClienteCreadoExitoso(entrada: {
+  entorno: EntornoAnalitica;
+  origen: OrigenCliente;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.CLIENTE_CREADO_EXITOSO, entrada);
+}
+
+export function registrarImportacionCompletada(entrada: {
+  entorno: EntornoAnalitica;
+  entidad: EntidadImportacion;
+  resultado: ResultadoImportacion;
+  erroresRango: ErroresRangoImportacion;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.IMPORTACION_COMPLETADA, entrada);
+}
+
+export function registrarRucActualizadoExitoso(entrada: {
+  entorno: EntornoAnalitica;
+  veniaDeRucDemo: true;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.RUC_ACTUALIZADO_EXITOSO, entrada);
 }

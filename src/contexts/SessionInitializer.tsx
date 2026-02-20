@@ -5,7 +5,6 @@ import { construirNombreCompleto } from '../pages/Private/features/configuracion
 import { useAuthStore } from '../pages/Private/features/autenticacion/store/AuthStore';
 import { clientesClient } from '../pages/Private/features/gestion-clientes/api';
 import { useTenant } from '../shared/tenant/TenantContext';
-import { registrarInicioSesionExitoso } from '@/shared/analitica/analitica';
 
 /**
  * Componente que sincroniza el UserSessionContext con ConfigurationContext
@@ -71,12 +70,6 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
         availableEstablecimientos: activeEstablecimientos,
         permissions: ['*'],
         role: authUser.rol,
-      });
-      registrarInicioSesionExitoso({
-        entorno:
-          companyFromTenant.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-            ? 'produccion'
-            : 'demo',
       });
       return;
     }

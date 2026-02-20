@@ -20,13 +20,10 @@ import {
 } from 'lucide-react';
 import { useCaja } from '../../../control-caja/context/CajaContext';
 import { PageHeader } from '../../../../../../components/PageHeader';
-import { useUserSession } from '@/contexts/UserSessionContext';
-import { registrarVentaIniciada } from '@/shared/analitica/analitica';
 
 export function PuntoVentaHome() {
   const navigate = useNavigate();
   const { status: cajaStatus } = useCaja();
-  const { session } = useUserSession();
   const [stats, setStats] = useState({
     today: {
       sales: 0,
@@ -59,13 +56,7 @@ export function PuntoVentaHome() {
 
   const isCajaOpen = cajaStatus === 'abierta';
 
-  const entornoAnalitica =
-    session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-      ? 'produccion'
-      : 'demo';
-
   const manejarNuevaVenta = () => {
-    registrarVentaIniciada({ entorno: entornoAnalitica, origen: 'pos' });
     navigate('/punto-venta/nueva-venta');
   };
 

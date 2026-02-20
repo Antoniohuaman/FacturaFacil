@@ -24,6 +24,7 @@ import { RucValidator } from '../components/empresa/ValidadorRuc';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { registrarRucActualizadoExitoso } from '../../../../../shared/analitica/analitica';
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
@@ -47,6 +48,8 @@ type WorkspaceNavigationState = {
   workspaceId?: string;
   returnTo?: string;
 } | null;
+
+const ANALYTICS_RUC_ACTUALIZADO_KEY = 'analytics_ruc_actualizado_exitoso_v1';
 
 
 
@@ -340,6 +343,23 @@ export function CompanyConfiguration() {
 
       if (EstablecimientoForContext) {
         setActiveEstablecimientoId(EstablecimientoForContext.id);
+      }
+
+      const veniaDeRucDemo =
+        company?.configuracionSunatEmpresa?.entornoSunat === 'TESTING' &&
+        updatedCompany.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION';
+
+      if (veniaDeRucDemo && typeof window !== 'undefined') {
+        const storageKey = `${ANALYTICS_RUC_ACTUALIZADO_KEY}:${updatedCompany.id}`;
+        const yaRegistrado = window.localStorage.getItem(storageKey) === '1';
+
+        if (!yaRegistrado) {
+          registrarRucActualizadoExitoso({
+            entorno: 'produccion',
+            veniaDeRucDemo: true,
+          });
+          window.localStorage.setItem(storageKey, '1');
+        }
       }
 
       // Show success and redirect

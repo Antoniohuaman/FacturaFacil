@@ -5,6 +5,8 @@ import ImportModal from '../components/ImportModal';
 import { useProductStore } from '../hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { parseExcelFile, exportImportErrors, type ImportResult } from '../utils/excelHelpers';
+import { useUserSession } from '../../../../../contexts/UserSessionContext';
+import { registrarImportacionCompletada } from '../../../../../shared/analitica/analitica';
 
 type ImportStep = 'select' | 'preview' | 'result';
 
@@ -19,6 +21,14 @@ const ImportPage: React.FC = () => {
 
   const { importProducts, allProducts, categories } = useProductStore();
   const { state: configState } = useConfigurationContext();
+  const { session } = useUserSession();
+
+  const resolverErroresRango = (errores: number): '0' | '1-5' | '6-20' | '21+' => {
+    if (errores <= 0) return '0';
+    if (errores <= 5) return '1-5';
+    if (errores <= 20) return '6-20';
+    return '21+';
+  };
 
   const availableUnits = useMemo(() => {
     const unique = new Map<string, { symbol?: string; name?: string }>();
@@ -69,6 +79,17 @@ const ImportPage: React.FC = () => {
 
     try {
       const result = importProducts(importResult.filasValidas as Parameters<typeof importProducts>[0]);
+      const entornoAnalitica =
+        session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+          ? 'produccion'
+          : 'demo';
+      const errores = importResult.filasInvalidas.length;
+      registrarImportacionCompletada({
+        entorno: entornoAnalitica,
+        entidad: 'productos',
+        resultado: errores > 0 ? 'con_errores' : 'exito',
+        erroresRango: resolverErroresRango(errores),
+      });
       setFinalResult(result);
       setCurrentStep('result');
     } catch (error) {

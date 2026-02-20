@@ -11,6 +11,7 @@ import { authRepository } from '../services/AuthRepository';
 import { AUTH_PATHS } from '../utils/path';
 import { registerStep1Schema, type RegisterStep1Data } from '../schemas';
 import { useTransicionIngresoStore } from '../../../../../shared/ui/transiciones/useTransicionIngresoStore';
+import { registrarRegistroUsuarioCompletado } from '@/shared/analitica/analitica';
 
 /**
  * ============================================
@@ -19,6 +20,7 @@ import { useTransicionIngresoStore } from '../../../../../shared/ui/transiciones
  */
 
 export function RegisterPage() {
+  const REGISTRO_ANALITICA_LLAVE = 'analytics_registro_ok';
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +65,10 @@ export function RegisterPage() {
       });
 
       if (loginResult.success) {
+        if (typeof window !== 'undefined' && window.localStorage.getItem(REGISTRO_ANALITICA_LLAVE) !== '1') {
+          registrarRegistroUsuarioCompletado({ entorno: 'demo' });
+          window.localStorage.setItem(REGISTRO_ANALITICA_LLAVE, '1');
+        }
         // Login exitoso, navegar al dashboard principal
         if (!activa) {
           iniciar('registro');

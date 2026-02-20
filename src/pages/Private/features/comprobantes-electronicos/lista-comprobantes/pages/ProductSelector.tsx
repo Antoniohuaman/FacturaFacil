@@ -8,9 +8,10 @@ import {
   type Product as CatalogProduct,
 } from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
-import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId, useUserSession } from '../../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getAvailableStockForUnit } from '../../../../../../shared/inventory/stockGateway';
+import { registrarProductoCreadoExitoso } from '../../../../../../shared/analitica/analitica';
 
 interface Product {
   id: string;
@@ -67,6 +68,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
   } = useProductStore();
   const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
   const EstablecimientoId = useCurrentEstablecimientoId();
+  const { session } = useUserSession();
   const { state: { almacenes } } = useConfigurationContext();
 
   const mapCatalogProductToSelectorProduct = useCallback((p: CatalogProduct): Product => {
@@ -167,6 +169,11 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   const handleProductCreated = useCallback((productData: ProductInput) => {
     const created = addProduct(productData);
+    const entornoAnalitica =
+      session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+        ? 'produccion'
+        : 'demo';
+    registrarProductoCreadoExitoso({ entorno: entornoAnalitica, origen: 'emision_inline' });
     const selectorProduct = mapCatalogProductToSelectorProduct(created);
     onAddProducts([{ product: selectorProduct, quantity: 1 }]);
     setShowProductModal(false);
@@ -178,7 +185,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
-  }, [addProduct, mapCatalogProductToSelectorProduct, onAddProducts]);
+  }, [addProduct, mapCatalogProductToSelectorProduct, onAddProducts, session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat]);
 
 
   // Intelligent search with prioritization

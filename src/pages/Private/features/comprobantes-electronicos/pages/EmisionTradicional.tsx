@@ -349,7 +349,7 @@ const EmisionTradicional = () => {
       return;
     }
 
-    registrarVentaCompletada({ entorno: entornoAnalitica, origen: 'emision' });
+    registrarVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'emision' });
 
     if (typeof window === 'undefined') {
       return;
@@ -359,7 +359,7 @@ const EmisionTradicional = () => {
       return;
     }
 
-    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origen: 'emision' });
+    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'emision' });
     window.sessionStorage.setItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION, '1');
   }, [entornoAnalitica, showSuccessModal]);
 
@@ -1219,7 +1219,7 @@ const EmisionTradicional = () => {
                 razonSocial: rawTipo === 'RUC' ? data.nombre : undefined,
                 nombreCompleto: rawTipo === 'DNI' ? data.nombre : undefined,
                 tipoCuenta: 'Cliente'
-              });
+              }, { origen: 'emision_inline' });
 
               if (created) {
                 const snap = clienteToSaleSnapshot(created);

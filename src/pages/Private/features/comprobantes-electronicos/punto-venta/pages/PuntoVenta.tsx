@@ -211,7 +211,7 @@ const PuntoVenta = () => {
       return;
     }
 
-    registrarVentaCompletada({ entorno: entornoAnalitica, origen: 'pos' });
+    registrarVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'pos' });
 
     if (typeof window === 'undefined') {
       return;
@@ -221,7 +221,7 @@ const PuntoVenta = () => {
       return;
     }
 
-    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origen: 'pos' });
+    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'pos' });
     window.sessionStorage.setItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION, '1');
   }, [entornoAnalitica, showSuccessModal]);
 

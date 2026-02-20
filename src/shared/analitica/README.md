@@ -11,10 +11,13 @@ Esta carpeta centraliza la analítica del frontend con enfoque en hitos de negoc
 
 ## Eventos disponibles
 
-- inicio_sesion_exitoso
-- venta_iniciada
+- registro_usuario_completado
 - venta_completada
 - primera_venta_completada
+- producto_creado_exitoso
+- cliente_creado_exitoso
+- importacion_completada
+- ruc_actualizado_exitoso
 
 ## Exclusiones de privacidad
 

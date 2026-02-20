@@ -19,6 +19,7 @@ import { useConfigurationContext } from '../../../configuracion-sistema/contexto
 import type { StockAdjustmentData } from '../../../gestion-inventario/models';
 import AdjustmentModal from '../../../gestion-inventario/components/modals/AdjustmentModal';
 import { registrarAjusteDeStock } from '../../../../../../shared/inventory/accionesStock';
+import { registrarProductoCreadoExitoso } from '../../../../../../shared/analitica/analitica';
 
 export interface ProductGridProps {
   // Lista de productos disponibles
@@ -603,6 +604,12 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   const handleProductCreated = (productData: ProductInput) => {
     // Guardar en el catálogo usando el store
     addProduct(productData);
+
+    const entornoAnalitica =
+      session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
+        ? 'produccion'
+        : 'demo';
+    registrarProductoCreadoExitoso({ entorno: entornoAnalitica, origen: 'emision_inline' });
     
     // Cerrar modal
     setShowProductModal(false);
