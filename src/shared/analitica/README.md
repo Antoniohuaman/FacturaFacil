@@ -15,18 +15,6 @@ Esta carpeta centraliza la analítica del frontend con enfoque en hitos de negoc
 - venta_iniciada
 - venta_completada
 - primera_venta_completada
-- ruc_actualizado_exitoso
-- pase_a_produccion_iniciado
-- pase_a_produccion_completado
-- certificado_digital_activado
-- producto_creado_exitoso
-- cliente_creado_exitoso
-- importacion_completada
-- caja_abierta_exitoso
-- caja_cerrada_exitoso
-- modulo_visitado
-- bloqueo_mostrado
-- error_critico
 
 ## Exclusiones de privacidad
 
