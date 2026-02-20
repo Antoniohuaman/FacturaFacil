@@ -29,6 +29,7 @@ type ClienteFormProps = {
   onSave: (options?: { crearOtro?: boolean }) => Promise<boolean | void> | boolean | void;
   isEditing?: boolean;
   modoPresentacion?: 'modal' | 'drawer';
+  clienteIdPersistencia?: string | number | null;
 };
 
 const PRIMARY_COLOR = '#1478D4';
@@ -44,6 +45,97 @@ type DireccionUI = {
   ubigeo: string;
   direccion: string;
   referenciaDireccion: string;
+};
+
+type DireccionesPersistidasPayload = {
+  direcciones: DireccionUI[];
+  principalId: string | null;
+};
+
+const DIRECCIONES_STORAGE_PREFIX = 'facturafacil:clientes:direcciones';
+
+const normalizarTextoStorage = (value?: string | null): string => (value && value.trim() ? value.trim() : '');
+
+const buildDireccionesStorageKeys = (params: {
+  clienteId?: string | number | null;
+  tipoDocumento?: string;
+  numeroDocumento?: string;
+}): string[] => {
+  const keys: string[] = [];
+  const clienteId = params.clienteId;
+  if (clienteId !== undefined && clienteId !== null && `${clienteId}`.trim()) {
+    keys.push(`${DIRECCIONES_STORAGE_PREFIX}:id:${`${clienteId}`.trim()}`);
+  }
+
+  const numeroDocumento = normalizarTextoStorage(params.numeroDocumento);
+  if (numeroDocumento) {
+    const tipoDocumento = normalizarTextoStorage(params.tipoDocumento) || 'sin-tipo';
+    keys.push(`${DIRECCIONES_STORAGE_PREFIX}:doc:${tipoDocumento}:${numeroDocumento}`);
+  }
+
+  return keys;
+};
+
+const esDireccionPersistidaValida = (item: unknown): item is DireccionUI => {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+
+  const candidate = item as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.pais === 'string' &&
+    typeof candidate.departamento === 'string' &&
+    typeof candidate.provincia === 'string' &&
+    typeof candidate.distrito === 'string' &&
+    typeof candidate.ubigeo === 'string' &&
+    typeof candidate.direccion === 'string' &&
+    typeof candidate.referenciaDireccion === 'string'
+  );
+};
+
+const leerDireccionesPersistidas = (keys: string[]): DireccionesPersistidasPayload | null => {
+  if (typeof window === 'undefined' || keys.length === 0) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      continue;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as Partial<DireccionesPersistidasPayload>;
+      const direcciones = Array.isArray(parsed?.direcciones)
+        ? parsed.direcciones.filter(esDireccionPersistidaValida)
+        : [];
+      if (direcciones.length === 0) {
+        continue;
+      }
+
+      const principalId = typeof parsed?.principalId === 'string' ? parsed.principalId : null;
+      return { direcciones, principalId };
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+};
+
+const guardarDireccionesPersistidas = (
+  keys: string[],
+  payload: DireccionesPersistidasPayload
+): void => {
+  if (typeof window === 'undefined' || keys.length === 0) {
+    return;
+  }
+
+  const serialized = JSON.stringify(payload);
+  keys.forEach((key) => {
+    window.localStorage.setItem(key, serialized);
+  });
 };
 
 const tiposDocumento = [
@@ -99,6 +191,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   onSave,
   isEditing = false,
   modoPresentacion = 'modal',
+  clienteIdPersistencia = null,
 }) => {
   const { consultingReniec, consultingSunat, consultarReniec, consultarSunat } = useConsultasExternas();
   const { profiles: priceProfiles } = usePriceProfilesCatalog();
@@ -117,7 +210,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   
   const isConsulting = consultingReniec || consultingSunat;
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ClienteFieldId, string>>>({});
-  const direccionesInicializadasRef = useRef(false);
+  const direccionesScopeRef = useRef<string>('');
   const [direccionesUI, setDireccionesUI] = useState<DireccionUI[]>([]);
   const [direccionPrincipalId, setDireccionPrincipalId] = useState<string | null>(null);
   const [direccionEditorAbierto, setDireccionEditorAbierto] = useState(false);
@@ -137,6 +230,16 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   const esModoDrawer = modoPresentacion === 'drawer';
   const nombreClienteContexto =
     formData.razonSocial?.trim() || formData.nombreCompleto?.trim() || undefined;
+  const direccionesStorageKeys = useMemo(
+    () =>
+      buildDireccionesStorageKeys({
+        clienteId: clienteIdPersistencia,
+        tipoDocumento: formData.tipoDocumento,
+        numeroDocumento: formData.numeroDocumento,
+      }),
+    [clienteIdPersistencia, formData.tipoDocumento, formData.numeroDocumento]
+  );
+  const direccionesStorageScope = useMemo(() => direccionesStorageKeys.join('|'), [direccionesStorageKeys]);
 
   const clearFieldError = useCallback((fieldId: ClienteFieldId) => {
     setFieldErrors((prev) => {
@@ -308,14 +411,64 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   }, [showOtrosDocTypes]);
 
   useEffect(() => {
-    if (direccionesInicializadasRef.current) {
+    if (direccionesScopeRef.current === direccionesStorageScope) {
       return;
     }
+
+    direccionesScopeRef.current = direccionesStorageScope;
+
+    const persistidas = leerDireccionesPersistidas(direccionesStorageKeys);
+    if (persistidas && persistidas.direcciones.length > 0) {
+      setDireccionesUI(persistidas.direcciones);
+
+      const principalPersistidaValida =
+        persistidas.principalId &&
+        persistidas.direcciones.some((direccion) => direccion.id === persistidas.principalId)
+          ? persistidas.principalId
+          : persistidas.direcciones[0].id;
+
+      setDireccionPrincipalId(principalPersistidaValida);
+      const direccionPrincipal = persistidas.direcciones.find((direccion) => direccion.id === principalPersistidaValida);
+      if (direccionPrincipal) {
+        syncLegacyFromDireccion(direccionPrincipal);
+      }
+      return;
+    }
+
     const principal = buildDireccionPrincipalDesdeForm();
-    direccionesInicializadasRef.current = true;
     setDireccionesUI([principal]);
     setDireccionPrincipalId(principal.id);
-  }, [buildDireccionPrincipalDesdeForm]);
+  }, [
+    buildDireccionPrincipalDesdeForm,
+    direccionesStorageKeys,
+    direccionesStorageScope,
+    syncLegacyFromDireccion,
+  ]);
+
+  useEffect(() => {
+    guardarDireccionesPersistidas(direccionesStorageKeys, {
+      direcciones: direccionesUI,
+      principalId: direccionPrincipalId,
+    });
+  }, [direccionesStorageKeys, direccionesUI, direccionPrincipalId]);
+
+  useEffect(() => {
+    if (direccionesUI.length === 0) {
+      return;
+    }
+
+    const principalExiste = Boolean(
+      direccionPrincipalId && direccionesUI.some((direccion) => direccion.id === direccionPrincipalId)
+    );
+
+    if (principalExiste) {
+      return;
+    }
+
+    const fallbackPrincipal = direccionesUI[0];
+    setDireccionPrincipalId(fallbackPrincipal.id);
+    syncLegacyFromDireccion(fallbackPrincipal);
+  }, [direccionesUI, direccionPrincipalId, syncLegacyFromDireccion]);
 
   useEffect(() => {
     if (!direccionPrincipalId) {
@@ -420,17 +573,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     setDireccionEditorAbierto(true);
   }, [resetDireccionDraft, direccionPrincipalId]);
 
-  const ordenarConPrincipalPrimero = useCallback((items: DireccionUI[], principalId: string | null) => {
-    if (!principalId) {
-      return items;
-    }
-    const principal = items.find((item) => item.id === principalId);
-    if (!principal) {
-      return items;
-    }
-    return [principal, ...items.filter((item) => item.id !== principalId)];
-  }, []);
-
   const seleccionarDireccionPrincipal = useCallback(
     (direccionId: string) => {
       setDireccionesUI((prev) => {
@@ -439,11 +581,11 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           return prev;
         }
         syncLegacyFromDireccion(seleccionada);
-        return ordenarConPrincipalPrimero(prev, direccionId);
+        return prev;
       });
       setDireccionPrincipalId(direccionId);
     },
-    [ordenarConPrincipalPrimero, syncLegacyFromDireccion]
+    [syncLegacyFromDireccion]
   );
 
   const guardarDireccionEditor = useCallback(() => {
@@ -465,7 +607,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
         ? prev.map((direccion) => (direccion.id === direccionEditandoId ? draftFinal : direccion))
         : [...prev, draftFinal];
 
-      return ordenarConPrincipalPrimero(actualizadas, principalIdFinal);
+      return actualizadas;
     });
 
     setDireccionEditorAbierto(false);
@@ -476,21 +618,30 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     direccionEditandoId,
     direccionPrincipalId,
     marcarDireccionComoPrincipal,
-    ordenarConPrincipalPrimero,
     syncLegacyFromDireccion,
   ]);
 
   const eliminarDireccion = useCallback(
     (direccionId: string) => {
       const eraPrincipal = direccionId === direccionPrincipalId;
-      setDireccionesUI((prev) => prev.filter((direccion) => direccion.id !== direccionId));
+      setDireccionesUI((prev) => {
+        const filtradas = prev.filter((direccion) => direccion.id !== direccionId);
 
-      if (eraPrincipal) {
-        setDireccionPrincipalId(null);
-        clearLegacyDireccion();
-      }
+        if (eraPrincipal) {
+          const fallbackPrincipal = filtradas[0];
+          if (fallbackPrincipal) {
+            setDireccionPrincipalId(fallbackPrincipal.id);
+            syncLegacyFromDireccion(fallbackPrincipal);
+          } else {
+            setDireccionPrincipalId(null);
+            clearLegacyDireccion();
+          }
+        }
+
+        return filtradas;
+      });
     },
-    [clearLegacyDireccion, direccionPrincipalId]
+    [clearLegacyDireccion, direccionPrincipalId, syncLegacyFromDireccion]
   );
 
   const opcionesDepartamento = useMemo(() => listarDepartamentos(), []);
@@ -1623,10 +1774,6 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
               isFieldRenderable('direccion') ||
               isFieldRenderable('referenciaDireccion')) && (
               <div>
-                <h3 className="mb-2 border-b pb-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  📍 Direcciones
-                </h3>
-
                 <div className="mb-2 flex justify-end">
                   <button
                     type="button"

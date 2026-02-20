@@ -52,8 +52,24 @@ const CLIENTE_VIEW_TABS: Array<{ id: ClienteViewTab; label: string }> = [
 ];
 
 type ClienteFormValue = ClienteFormData[keyof ClienteFormData];
+type DireccionPersistidaCliente = {
+	id: string;
+	pais: string;
+	departamento: string;
+	provincia: string;
+	distrito: string;
+	ubigeo: string;
+	direccion: string;
+	referenciaDireccion: string;
+};
+
+type DireccionesPersistidasPayload = {
+	direcciones: DireccionPersistidaCliente[];
+	principalId: string | null;
+};
 
 const PRIMARY_COLOR = '#6F36FF';
+const CLIENTE_DIRECCIONES_STORAGE_PREFIX = 'facturafacil:clientes:direcciones';
 
 const formatDateTimeForExport = (value?: string | null): string => {
 	if (!value) return '';
@@ -84,6 +100,72 @@ const resolveDocumentNumber = (client: Cliente, documentCode?: DocumentCode | ''
 		legacyDocument: client.document,
 		documentCode,
 	});
+
+const buildDireccionesStorageKeysForClient = (client: Cliente): string[] => {
+	const keys: string[] = [];
+	const clientId = client.id !== undefined && client.id !== null ? `${client.id}`.trim() : '';
+	if (clientId) {
+		keys.push(`${CLIENTE_DIRECCIONES_STORAGE_PREFIX}:id:${clientId}`);
+	}
+
+	const documentCode = resolveDocumentCode(client);
+	const documentNumber = resolveDocumentNumber(client, documentCode).trim();
+	if (documentNumber) {
+		const typeCode = documentCode || 'sin-tipo';
+		keys.push(`${CLIENTE_DIRECCIONES_STORAGE_PREFIX}:doc:${typeCode}:${documentNumber}`);
+	}
+
+	return keys;
+};
+
+const isDireccionPersistidaValida = (value: unknown): value is DireccionPersistidaCliente => {
+	if (!value || typeof value !== 'object') {
+		return false;
+	}
+
+	const candidate = value as Record<string, unknown>;
+	return (
+		typeof candidate.id === 'string' &&
+		typeof candidate.pais === 'string' &&
+		typeof candidate.departamento === 'string' &&
+		typeof candidate.provincia === 'string' &&
+		typeof candidate.distrito === 'string' &&
+		typeof candidate.ubigeo === 'string' &&
+		typeof candidate.direccion === 'string' &&
+		typeof candidate.referenciaDireccion === 'string'
+	);
+};
+
+const readPersistedDirecciones = (client: Cliente): DireccionesPersistidasPayload | null => {
+	if (typeof window === 'undefined') {
+		return null;
+	}
+
+	const keys = buildDireccionesStorageKeysForClient(client);
+	for (const key of keys) {
+		const raw = window.localStorage.getItem(key);
+		if (!raw) {
+			continue;
+		}
+
+		try {
+			const parsed = JSON.parse(raw) as Partial<DireccionesPersistidasPayload>;
+			const direcciones = Array.isArray(parsed?.direcciones)
+				? parsed.direcciones.filter(isDireccionPersistidaValida)
+				: [];
+			if (direcciones.length === 0) {
+				continue;
+			}
+
+			const principalId = typeof parsed?.principalId === 'string' ? parsed.principalId : null;
+			return { direcciones, principalId };
+		} catch {
+			continue;
+		}
+	}
+
+	return null;
+};
 
 const resolveTipoCuenta = (client: Cliente): string => client.tipoCuenta ?? client.type ?? '';
 
@@ -1220,16 +1302,38 @@ function ClientesPage() {
 			{ label: 'Observaciones', value: displayText(activeDrawerClient.observaciones || activeDrawerClient.additionalData), fullWidth: true },
 		];
 
-		const direccionPrincipal = normalizeText(activeDrawerClient.direccion) || normalizeText(activeDrawerClient.address);
-		const hasAddressData = [
-			direccionPrincipal,
-			normalizeText(activeDrawerClient.referenciaDireccion),
-			normalizeText(activeDrawerClient.pais),
-			normalizeText(activeDrawerClient.departamento),
-			normalizeText(activeDrawerClient.provincia),
-			normalizeText(activeDrawerClient.distrito),
-			normalizeText(activeDrawerClient.ubigeo),
+		const direccionesPersistidas = readPersistedDirecciones(activeDrawerClient);
+		const direccionLegacyPrincipal: DireccionPersistidaCliente = {
+			id: 'direccion-main',
+			pais: normalizeText(activeDrawerClient.pais),
+			departamento: normalizeText(activeDrawerClient.departamento),
+			provincia: normalizeText(activeDrawerClient.provincia),
+			distrito: normalizeText(activeDrawerClient.distrito),
+			ubigeo: normalizeText(activeDrawerClient.ubigeo),
+			direccion: normalizeText(activeDrawerClient.direccion) || normalizeText(activeDrawerClient.address),
+			referenciaDireccion: normalizeText(activeDrawerClient.referenciaDireccion),
+		};
+		const hasLegacyAddress = [
+			direccionLegacyPrincipal.direccion,
+			direccionLegacyPrincipal.referenciaDireccion,
+			direccionLegacyPrincipal.pais,
+			direccionLegacyPrincipal.departamento,
+			direccionLegacyPrincipal.provincia,
+			direccionLegacyPrincipal.distrito,
+			direccionLegacyPrincipal.ubigeo,
 		].some(Boolean);
+		const direccionesDetalle = direccionesPersistidas?.direcciones.length
+			? direccionesPersistidas.direcciones
+			: hasLegacyAddress
+				? [direccionLegacyPrincipal]
+				: [];
+		const principalDetalleId =
+			direccionesPersistidas?.principalId && direccionesDetalle.some((direccion) => direccion.id === direccionesPersistidas.principalId)
+				? direccionesPersistidas.principalId
+				: direccionesDetalle[0]?.id ?? null;
+		const hasAddressData = direccionesDetalle.some((direccion) =>
+			[direccion.direccion, direccion.referenciaDireccion, direccion.pais, direccion.departamento, direccion.provincia, direccion.distrito, direccion.ubigeo].some(Boolean)
+		);
 
 		const contactEmails = activeDrawerClient.emails?.filter((email) => hasText(email)) ?? [];
 		const contactPhones = activeDrawerClient.telefonos?.filter((phone) => hasText(phone.numero)) ?? [];
@@ -1293,14 +1397,43 @@ function ClientesPage() {
 					return renderEmptyViewState('Sin direcciones');
 				}
 				return (
-					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-						{readOnlyField('Dirección', displayText(direccionPrincipal), true)}
-						{readOnlyField('Referencia', displayText(activeDrawerClient.referenciaDireccion), true)}
-						{readOnlyField('País', displayText(activeDrawerClient.pais))}
-						{readOnlyField('Departamento', displayText(activeDrawerClient.departamento))}
-						{readOnlyField('Provincia', displayText(activeDrawerClient.provincia))}
-						{readOnlyField('Distrito', displayText(activeDrawerClient.distrito))}
-						{readOnlyField('Ubigeo', displayText(activeDrawerClient.ubigeo), true)}
+					<div className="space-y-2">
+						{direccionesDetalle.map((direccion) => {
+							const esPrincipal = direccion.id === principalDetalleId;
+							const titulo = displayText(direccion.direccion);
+							const ubicacion = [direccion.distrito, direccion.provincia, direccion.departamento, direccion.pais]
+								.filter(Boolean)
+								.join(' · ');
+
+							return (
+								<div
+									key={direccion.id}
+									className="rounded-md border border-gray-200 p-2.5 dark:border-gray-700"
+								>
+									<div className="flex items-start justify-between gap-2">
+										<div className="min-w-0">
+											<p className="truncate text-[13px] font-medium text-gray-900 dark:text-gray-100" title={titulo}>
+												{titulo}
+											</p>
+											<p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400" title={ubicacion || '-'}>
+												{ubicacion || '-'}
+												{direccion.ubigeo ? ` · UBI ${direccion.ubigeo}` : ''}
+											</p>
+											{direccion.referenciaDireccion ? (
+												<p className="mt-1 truncate text-[11px] text-gray-500 dark:text-gray-400" title={direccion.referenciaDireccion}>
+													{direccion.referenciaDireccion}
+												</p>
+											) : null}
+										</div>
+										{esPrincipal ? (
+											<span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+												Principal
+											</span>
+										) : null}
+									</div>
+								</div>
+							);
+						})}
 					</div>
 				);
 
@@ -1603,6 +1736,7 @@ function ClientesPage() {
 						onSave={(options) => (editingClient ? handleUpdateClient() : handleCreateClient(options))}
 						isEditing={drawerMode === 'edit'}
 						modoPresentacion="drawer"
+						clienteIdPersistencia={editingClient?.id ?? null}
 					/>
 				)}
 			</Drawer>
