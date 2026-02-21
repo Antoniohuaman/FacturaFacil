@@ -3,8 +3,6 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useConsultasExternas } from '../hooks';
 import type { ClienteFormData } from '../models';
 import { onlyDigits, getDocLabelFromCode } from '../utils/documents';
-import TelefonosInput from './TelefonosInput';
-import EmailsInput from './EmailsInput';
 import ArchivosInput from './ArchivosInput';
 import ClienteAvatar from './ClienteAvatar';
 import DatosSunatCliente from './DatosSunatCliente';
@@ -52,7 +50,36 @@ type DireccionesPersistidasPayload = {
   principalId: string | null;
 };
 
+type ContactoCorreoUI = {
+  id: string;
+  tipo: string;
+  valor: string;
+};
+
+type ContactoTelefonoUI = {
+  id: string;
+  tipo: string;
+  numero: string;
+};
+
+type ContactoUI = {
+  id: string;
+  nombre: string;
+  cargo: string;
+  correos: ContactoCorreoUI[];
+  telefonos: ContactoTelefonoUI[];
+};
+
+type ContactosPersistidosPayload = {
+  contactos: ContactoUI[];
+  principalId: string | null;
+};
+
 const DIRECCIONES_STORAGE_PREFIX = 'facturafacil:clientes:direcciones';
+const CONTACTOS_STORAGE_PREFIX = 'facturafacil:clientes:contactos';
+const CONTACTOS_CARGOS_STORAGE_SUFFIX = ':cargos';
+const CONTACTO_EMAIL_TIPOS = ['Trabajo', 'Personal', 'Otro'] as const;
+const CONTACTO_TELEFONO_TIPOS = ['Móvil', 'Fijo', 'WhatsApp', 'Trabajo', 'Otro'] as const;
 
 const normalizarTextoStorage = (value?: string | null): string => (value && value.trim() ? value.trim() : '');
 
@@ -74,6 +101,33 @@ const buildDireccionesStorageKeys = (params: {
   }
 
   return keys;
+};
+
+const buildContactosStorageKeys = (params: {
+  clienteId?: string | number | null;
+  tipoDocumento?: string;
+  numeroDocumento?: string;
+}): string[] => {
+  const keys: string[] = [];
+  const clienteId = params.clienteId;
+  if (clienteId !== undefined && clienteId !== null && `${clienteId}`.trim()) {
+    keys.push(`${CONTACTOS_STORAGE_PREFIX}:id:${`${clienteId}`.trim()}`);
+  }
+
+  const numeroDocumento = normalizarTextoStorage(params.numeroDocumento);
+  if (numeroDocumento) {
+    const tipoDocumento = normalizarTextoStorage(params.tipoDocumento) || 'sin-tipo';
+    keys.push(`${CONTACTOS_STORAGE_PREFIX}:doc:${tipoDocumento}:${numeroDocumento}`);
+  }
+
+  return keys;
+};
+
+const buildContactosCargosStorageKeys = (keys: string[]): string[] => {
+  if (keys.length === 0) {
+    return [`${CONTACTOS_STORAGE_PREFIX}:global${CONTACTOS_CARGOS_STORAGE_SUFFIX}`];
+  }
+  return keys.map((key) => `${key}${CONTACTOS_CARGOS_STORAGE_SUFFIX}`);
 };
 
 const esDireccionPersistidaValida = (item: unknown): item is DireccionUI => {
@@ -124,6 +178,79 @@ const leerDireccionesPersistidas = (keys: string[]): DireccionesPersistidasPaylo
   return null;
 };
 
+const esContactoCorreoPersistidoValido = (value: unknown): value is ContactoCorreoUI => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.tipo === 'string' &&
+    typeof candidate.valor === 'string'
+  );
+};
+
+const esContactoTelefonoPersistidoValido = (value: unknown): value is ContactoTelefonoUI => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.tipo === 'string' &&
+    typeof candidate.numero === 'string'
+  );
+};
+
+const esContactoPersistidoValido = (value: unknown): value is ContactoUI => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.nombre === 'string' &&
+    typeof candidate.cargo === 'string' &&
+    Array.isArray(candidate.correos) &&
+    candidate.correos.every(esContactoCorreoPersistidoValido) &&
+    Array.isArray(candidate.telefonos) &&
+    candidate.telefonos.every(esContactoTelefonoPersistidoValido)
+  );
+};
+
+const leerContactosPersistidos = (keys: string[]): ContactosPersistidosPayload | null => {
+  if (typeof window === 'undefined' || keys.length === 0) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      continue;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as Partial<ContactosPersistidosPayload>;
+      const contactos = Array.isArray(parsed?.contactos)
+        ? parsed.contactos.filter(esContactoPersistidoValido)
+        : [];
+      if (contactos.length === 0) {
+        continue;
+      }
+
+      const principalId = typeof parsed?.principalId === 'string' ? parsed.principalId : null;
+      return { contactos, principalId };
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+};
+
 const guardarDireccionesPersistidas = (
   keys: string[],
   payload: DireccionesPersistidasPayload
@@ -137,6 +264,103 @@ const guardarDireccionesPersistidas = (
     window.localStorage.setItem(key, serialized);
   });
 };
+
+const guardarContactosPersistidos = (
+  keys: string[],
+  payload: ContactosPersistidosPayload
+): void => {
+  if (typeof window === 'undefined' || keys.length === 0) {
+    return;
+  }
+
+  const serialized = JSON.stringify(payload);
+  keys.forEach((key) => {
+    window.localStorage.setItem(key, serialized);
+  });
+};
+
+const leerCargosContactoPersistidos = (keys: string[]): string[] => {
+  if (typeof window === 'undefined' || keys.length === 0) {
+    return [];
+  }
+
+  for (const key of keys) {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      continue;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) {
+        continue;
+      }
+
+      const values = parsed
+        .filter((value): value is string => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+      if (values.length > 0) {
+        return Array.from(new Set(values));
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return [];
+};
+
+const guardarCargosContactoPersistidos = (keys: string[], cargos: string[]): void => {
+  if (typeof window === 'undefined' || keys.length === 0) {
+    return;
+  }
+
+  const values = Array.from(new Set(cargos.map((value) => value.trim()).filter((value) => value.length > 0)));
+  const serialized = JSON.stringify(values);
+  keys.forEach((key) => {
+    window.localStorage.setItem(key, serialized);
+  });
+};
+
+const arraysIguales = (left: string[], right: string[]): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((value, index) => value === right[index]);
+};
+
+const telefonosIguales = (
+  left: Array<{ numero: string; tipo: string }>,
+  right: Array<{ numero: string; tipo: string }>
+): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((telefono, index) => {
+    const candidate = right[index];
+    return telefono.numero === candidate.numero && telefono.tipo === candidate.tipo;
+  });
+};
+
+const splitNombreContacto = (nombreCompleto: string): { nombres: string; apellidos: string } => {
+  const tokens = nombreCompleto.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length <= 1) {
+    return { nombres: tokens[0] || '', apellidos: '' };
+  }
+
+  if (tokens.length === 2) {
+    return { nombres: tokens[0], apellidos: tokens[1] };
+  }
+
+  const apellidos = tokens.slice(-2).join(' ');
+  const nombres = tokens.slice(0, -2).join(' ');
+  return { nombres, apellidos };
+};
+
+const composeNombreContacto = (nombres: string, apellidos: string): string =>
+  `${nombres.trim()} ${apellidos.trim()}`.trim();
 
 const tiposDocumento = [
   { value: '0', label: 'DOC.TRIB.NO.DOM.SIN.RUC' },
@@ -200,6 +424,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   const selectorDocumentosRef = useRef<HTMLDivElement>(null);
   const modalDireccionRef = useRef<HTMLDivElement>(null);
   const firstDireccionInputRef = useRef<HTMLSelectElement | null>(null);
+  const modalContactoRef = useRef<HTMLDivElement>(null);
+  const firstContactoInputRef = useRef<HTMLInputElement | null>(null);
   const [pestanaActiva, setPestanaActiva] = useState<IdentificadorPestanaCliente>('datosPrincipales');
   const fieldConfigs = CLIENTE_FIELD_CONFIGS;
   const requiredFieldIds = CAMPOS_REQUERIDOS_FORMULARIO;
@@ -226,6 +452,23 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     direccion: '',
     referenciaDireccion: '',
   });
+  const contactosScopeRef = useRef<string>('');
+  const [contactosUI, setContactosUI] = useState<ContactoUI[]>([]);
+  const [contactoPrincipalId, setContactoPrincipalId] = useState<string | null>(null);
+  const [contactoEditorAbierto, setContactoEditorAbierto] = useState(false);
+  const [contactoEditandoId, setContactoEditandoId] = useState<string | null>(null);
+  const [marcarContactoComoPrincipal, setMarcarContactoComoPrincipal] = useState(false);
+  const [contactoEditorError, setContactoEditorError] = useState<string>('');
+  const [contactoNombresDraft, setContactoNombresDraft] = useState('');
+  const [contactoApellidosDraft, setContactoApellidosDraft] = useState('');
+  const [contactoCargoSugerencias, setContactoCargoSugerencias] = useState<string[]>([]);
+  const [contactoDraft, setContactoDraft] = useState<ContactoUI>({
+    id: '',
+    nombre: '',
+    cargo: '',
+    correos: [],
+    telefonos: [],
+  });
   const fieldLabelMap = useMemo(() => new Map(fieldConfigs.map((field) => [field.id, field.label])), [fieldConfigs]);
   const esModoDrawer = modoPresentacion === 'drawer';
   const nombreClienteContexto =
@@ -240,6 +483,29 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     [clienteIdPersistencia, formData.tipoDocumento, formData.numeroDocumento]
   );
   const direccionesStorageScope = useMemo(() => direccionesStorageKeys.join('|'), [direccionesStorageKeys]);
+  const contactosStorageKeys = useMemo(
+    () =>
+      buildContactosStorageKeys({
+        clienteId: clienteIdPersistencia,
+        tipoDocumento: formData.tipoDocumento,
+        numeroDocumento: formData.numeroDocumento,
+      }),
+    [clienteIdPersistencia, formData.tipoDocumento, formData.numeroDocumento]
+  );
+  const contactosStorageScope = useMemo(() => contactosStorageKeys.join('|'), [contactosStorageKeys]);
+  const contactosCargosStorageKeys = useMemo(
+    () => buildContactosCargosStorageKeys(contactosStorageKeys),
+    [contactosStorageKeys]
+  );
+  const contactoNombresValido = contactoNombresDraft.trim().length > 0;
+  const contactoApellidosValido = contactoApellidosDraft.trim().length > 0;
+  const contactoEditorPuedeGuardar = contactoNombresValido && contactoApellidosValido;
+  const direccionEditorPuedeGuardar =
+    direccionDraft.direccion.trim().length > 0 &&
+    (direccionDraft.pais || 'PE').trim().length > 0 &&
+    direccionDraft.departamento.trim().length > 0 &&
+    direccionDraft.provincia.trim().length > 0 &&
+    direccionDraft.distrito.trim().length > 0;
 
   const clearFieldError = useCallback((fieldId: ClienteFieldId) => {
     setFieldErrors((prev) => {
@@ -320,6 +586,71 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     handleFieldChange('direccion', '', 'direccion');
     handleFieldChange('referenciaDireccion', '', 'referenciaDireccion');
   }, [handleFieldChange]);
+
+  const clearLegacyContacto = useCallback(() => {
+    handleFieldChange('emails', [], 'emails');
+    handleFieldChange('telefonos', [], 'telefonos');
+  }, [handleFieldChange]);
+
+  const syncLegacyFromContacto = useCallback(
+    (contacto: ContactoUI | null) => {
+      const emailsDesdeContacto = contacto
+        ? contacto.correos
+            .map((correo) => correo.valor.trim())
+            .filter((correo) => correo.length > 0)
+        : [];
+
+      const telefonosDesdeContacto = contacto
+        ? contacto.telefonos
+            .map((telefono) => ({
+              numero: telefono.numero.trim(),
+              tipo: telefono.tipo.trim() || 'Móvil',
+            }))
+            .filter((telefono) => telefono.numero.length > 0)
+        : [];
+
+      if (!arraysIguales(formData.emails || [], emailsDesdeContacto)) {
+        handleFieldChange('emails', emailsDesdeContacto, 'emails');
+      }
+
+      if (!telefonosIguales(formData.telefonos || [], telefonosDesdeContacto)) {
+        handleFieldChange('telefonos', telefonosDesdeContacto, 'telefonos');
+      }
+    },
+    [formData.emails, formData.telefonos, handleFieldChange]
+  );
+
+  const buildContactoPrincipalDesdeLegacy = useCallback((): ContactoUI | null => {
+    const correos = (formData.emails || [])
+      .map((correo, index) => ({
+        id: `correo-legacy-${index}`,
+        tipo: 'Trabajo',
+        valor: correo.trim(),
+      }))
+      .filter((correo) => correo.valor.length > 0);
+
+    const telefonos = (formData.telefonos || [])
+      .map((telefono, index) => ({
+        id: `telefono-legacy-${index}`,
+        tipo: telefono.tipo || 'Móvil',
+        numero: telefono.numero.trim(),
+      }))
+      .filter((telefono) => telefono.numero.length > 0);
+
+    const nombre = (formData.nombreCompleto || formData.razonSocial || '').trim();
+    const hasData = nombre.length > 0 || correos.length > 0 || telefonos.length > 0;
+    if (!hasData) {
+      return null;
+    }
+
+    return {
+      id: 'contacto-main',
+      nombre,
+      cargo: '',
+      correos,
+      telefonos,
+    };
+  }, [formData.emails, formData.nombreCompleto, formData.razonSocial, formData.telefonos]);
 
   const handleNumeroDocumentoChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -453,6 +784,52 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   }, [direccionesStorageKeys, direccionesUI, direccionPrincipalId]);
 
   useEffect(() => {
+    if (contactosScopeRef.current === contactosStorageScope) {
+      return;
+    }
+
+    contactosScopeRef.current = contactosStorageScope;
+
+    const persistidos = leerContactosPersistidos(contactosStorageKeys);
+    if (persistidos && persistidos.contactos.length > 0) {
+      setContactosUI(persistidos.contactos);
+      const principalPersistidoValido =
+        persistidos.principalId && persistidos.contactos.some((contacto) => contacto.id === persistidos.principalId)
+          ? persistidos.principalId
+          : persistidos.contactos[0].id;
+      setContactoPrincipalId(principalPersistidoValido);
+      const contactoPrincipal = persistidos.contactos.find((contacto) => contacto.id === principalPersistidoValido) ?? null;
+      syncLegacyFromContacto(contactoPrincipal);
+      return;
+    }
+
+    const contactoLegacy = buildContactoPrincipalDesdeLegacy();
+    if (contactoLegacy) {
+      setContactosUI([contactoLegacy]);
+      setContactoPrincipalId(contactoLegacy.id);
+      syncLegacyFromContacto(contactoLegacy);
+      return;
+    }
+
+    setContactosUI([]);
+    setContactoPrincipalId(null);
+    clearLegacyContacto();
+  }, [
+    buildContactoPrincipalDesdeLegacy,
+    clearLegacyContacto,
+    contactosStorageKeys,
+    contactosStorageScope,
+    syncLegacyFromContacto,
+  ]);
+
+  useEffect(() => {
+    guardarContactosPersistidos(contactosStorageKeys, {
+      contactos: contactosUI,
+      principalId: contactoPrincipalId,
+    });
+  }, [contactosStorageKeys, contactosUI, contactoPrincipalId]);
+
+  useEffect(() => {
     if (direccionesUI.length === 0) {
       return;
     }
@@ -521,6 +898,36 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   ]);
 
   useEffect(() => {
+    if (contactosUI.length === 0) {
+      if (contactoPrincipalId !== null) {
+        setContactoPrincipalId(null);
+      }
+      if ((formData.emails?.length ?? 0) > 0 || (formData.telefonos?.length ?? 0) > 0) {
+        clearLegacyContacto();
+      }
+      return;
+    }
+
+    const principalValido =
+      contactoPrincipalId !== null && contactosUI.some((contacto) => contacto.id === contactoPrincipalId);
+
+    if (!principalValido) {
+      setContactoPrincipalId(contactosUI[0].id);
+      return;
+    }
+
+    const principal = contactosUI.find((contacto) => contacto.id === contactoPrincipalId) ?? null;
+    syncLegacyFromContacto(principal);
+  }, [
+    clearLegacyContacto,
+    contactoPrincipalId,
+    contactosUI,
+    formData.emails,
+    formData.telefonos,
+    syncLegacyFromContacto,
+  ]);
+
+  useEffect(() => {
     if (!direccionEditorAbierto) {
       return;
     }
@@ -544,6 +951,32 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     }
     firstDireccionInputRef.current?.focus();
   }, [direccionEditorAbierto]);
+
+  useEffect(() => {
+    if (!contactoEditorAbierto) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setContactoEditorAbierto(false);
+        setContactoEditandoId(null);
+        setContactoEditorError('');
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [contactoEditorAbierto]);
+
+  useEffect(() => {
+    if (!contactoEditorAbierto) {
+      return;
+    }
+    firstContactoInputRef.current?.focus();
+  }, [contactoEditorAbierto]);
 
   const resetDireccionDraft = useCallback((direccion?: DireccionUI) => {
     setDireccionDraft(
@@ -573,6 +1006,38 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     setDireccionEditorAbierto(true);
   }, [resetDireccionDraft, direccionPrincipalId]);
 
+  const resetContactoDraft = useCallback((contacto?: ContactoUI) => {
+    const nombreDividido = splitNombreContacto(contacto?.nombre || '');
+    setContactoDraft(
+      contacto ?? {
+        id: `contacto-ui-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        nombre: '',
+        cargo: '',
+        correos: [],
+        telefonos: [],
+      }
+    );
+    setContactoNombresDraft(nombreDividido.nombres);
+    setContactoApellidosDraft(nombreDividido.apellidos);
+    setContactoEditorError('');
+  }, []);
+
+  const abrirEditorContacto = useCallback(
+    (contacto?: ContactoUI) => {
+      if (contacto) {
+        setContactoEditandoId(contacto.id);
+        resetContactoDraft(contacto);
+        setMarcarContactoComoPrincipal(contacto.id === contactoPrincipalId);
+      } else {
+        setContactoEditandoId(null);
+        resetContactoDraft();
+        setMarcarContactoComoPrincipal(!contactoPrincipalId);
+      }
+      setContactoEditorAbierto(true);
+    },
+    [contactoPrincipalId, resetContactoDraft]
+  );
+
   const seleccionarDireccionPrincipal = useCallback(
     (direccionId: string) => {
       setDireccionesUI((prev) => {
@@ -588,7 +1053,15 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     [syncLegacyFromDireccion]
   );
 
+  const seleccionarContactoPrincipal = useCallback((contactoId: string) => {
+    setContactoPrincipalId(contactoId);
+  }, []);
+
   const guardarDireccionEditor = useCallback(() => {
+    if (!direccionEditorPuedeGuardar) {
+      return;
+    }
+
     const draftFinal: DireccionUI = {
       ...direccionDraft,
       id: direccionDraft.id || `direccion-ui-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -617,6 +1090,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     direccionDraft,
     direccionEditandoId,
     direccionPrincipalId,
+    direccionEditorPuedeGuardar,
     marcarDireccionComoPrincipal,
     syncLegacyFromDireccion,
   ]);
@@ -643,6 +1117,246 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     },
     [clearLegacyDireccion, direccionPrincipalId, syncLegacyFromDireccion]
   );
+
+  const agregarCorreoDraft = useCallback(() => {
+    setContactoDraft((prev) => ({
+      ...prev,
+      correos: [
+        ...prev.correos,
+        {
+          id: `contacto-correo-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          tipo: 'Trabajo',
+          valor: '',
+        },
+      ],
+    }));
+  }, []);
+
+  const actualizarCorreoDraft = useCallback((correoId: string, field: 'tipo' | 'valor', value: string) => {
+    setContactoDraft((prev) => ({
+      ...prev,
+      correos: prev.correos.map((correo) =>
+        correo.id === correoId
+          ? {
+              ...correo,
+              [field]: value,
+            }
+          : correo
+      ),
+    }));
+  }, []);
+
+  const eliminarCorreoDraft = useCallback((correoId: string) => {
+    setContactoDraft((prev) => ({
+      ...prev,
+      correos: prev.correos.filter((correo) => correo.id !== correoId),
+    }));
+  }, []);
+
+  const agregarTelefonoDraft = useCallback(() => {
+    setContactoDraft((prev) => ({
+      ...prev,
+      telefonos: [
+        ...prev.telefonos,
+        {
+          id: `contacto-telefono-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          tipo: 'Móvil',
+          numero: '',
+        },
+      ],
+    }));
+  }, []);
+
+  const actualizarTelefonoDraft = useCallback((telefonoId: string, field: 'tipo' | 'numero', value: string) => {
+    setContactoDraft((prev) => ({
+      ...prev,
+      telefonos: prev.telefonos.map((telefono) =>
+        telefono.id === telefonoId
+          ? {
+              ...telefono,
+              [field]: value,
+            }
+          : telefono
+      ),
+    }));
+  }, []);
+
+  const eliminarTelefonoDraft = useCallback((telefonoId: string) => {
+    setContactoDraft((prev) => ({
+      ...prev,
+      telefonos: prev.telefonos.filter((telefono) => telefono.id !== telefonoId),
+    }));
+  }, []);
+
+  const guardarContactoEditor = useCallback(() => {
+    if (!contactoEditorPuedeGuardar) {
+      setContactoEditorError('Completa nombres y apellidos');
+      return;
+    }
+
+    const nombre = composeNombreContacto(contactoNombresDraft, contactoApellidosDraft);
+
+    const draftFinal: ContactoUI = {
+      ...contactoDraft,
+      id: contactoDraft.id || `contacto-ui-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      nombre,
+      cargo: contactoDraft.cargo.trim(),
+      correos: contactoDraft.correos
+        .map((correo) => ({
+          ...correo,
+          tipo: correo.tipo.trim() || 'Trabajo',
+          valor: correo.valor.trim(),
+        }))
+        .filter((correo) => correo.valor.length > 0),
+      telefonos: contactoDraft.telefonos
+        .map((telefono) => ({
+          ...telefono,
+          tipo: telefono.tipo.trim() || 'Móvil',
+          numero: telefono.numero.trim(),
+        }))
+        .filter((telefono) => telefono.numero.length > 0),
+    };
+
+    const principalFinal = marcarContactoComoPrincipal
+      ? contactoEditandoId ?? draftFinal.id
+      : contactoPrincipalId;
+
+    setContactosUI((prev) =>
+      contactoEditandoId
+        ? prev.map((contacto) => (contacto.id === contactoEditandoId ? draftFinal : contacto))
+        : [...prev, draftFinal]
+    );
+
+    if (marcarContactoComoPrincipal || !contactoPrincipalId) {
+      setContactoPrincipalId(principalFinal ?? draftFinal.id);
+    }
+
+    if (draftFinal.cargo) {
+      setContactoCargoSugerencias((prev) => {
+        const exists = prev.some((item) => item.toLowerCase() === draftFinal.cargo.toLowerCase());
+        return exists ? prev : [draftFinal.cargo, ...prev];
+      });
+    }
+
+    setContactoEditorAbierto(false);
+    setContactoEditandoId(null);
+    setMarcarContactoComoPrincipal(false);
+    setContactoEditorError('');
+  }, [
+    contactoApellidosDraft,
+    contactoDraft,
+    contactoEditandoId,
+    contactoEditorPuedeGuardar,
+    contactoNombresDraft,
+    contactoPrincipalId,
+    marcarContactoComoPrincipal,
+  ]);
+
+  const quitarCargoSugerido = useCallback((cargo: string) => {
+    setContactoCargoSugerencias((prev) => prev.filter((item) => item !== cargo));
+  }, []);
+
+  const eliminarContacto = useCallback(
+    (contactoId: string) => {
+      const eraPrincipal = contactoId === contactoPrincipalId;
+      setContactosUI((prev) => {
+        const filtrados = prev.filter((contacto) => contacto.id !== contactoId);
+        if (eraPrincipal) {
+          setContactoPrincipalId(filtrados[0]?.id ?? null);
+        }
+        return filtrados;
+      });
+    },
+    [contactoPrincipalId]
+  );
+
+  const resumenCorreosContacto = useCallback((contacto: ContactoUI): string => {
+    if (contacto.correos.length === 0) {
+      return 'Sin correos';
+    }
+    return contacto.correos.map((correo) => `${correo.tipo}: ${correo.valor}`).join(' · ');
+  }, []);
+
+  const resumenTelefonosContacto = useCallback((contacto: ContactoUI): string => {
+    if (contacto.telefonos.length === 0) {
+      return 'Sin teléfonos';
+    }
+    return contacto.telefonos.map((telefono) => `${telefono.tipo}: ${telefono.numero}`).join(' · ');
+  }, []);
+
+  const validatePrimaryBusinessRequirements = useCallback(() => {
+    const nextErrors: Partial<Record<ClienteFieldId, string>> = {};
+    const esDocumentoValido = Boolean(formData.tipoDocumento?.trim());
+    const numeroDocumento = formData.numeroDocumento?.trim() || '';
+    const esRuc = formData.tipoDocumento === RUC_CODE;
+    const esDni = formData.tipoDocumento === DNI_CODE;
+
+    if (!esDocumentoValido) {
+      nextErrors.tipoDocumento = `${getFieldLabel('tipoDocumento')} es obligatorio`;
+    }
+
+    if (!numeroDocumento) {
+      nextErrors.numeroDocumento = `${getFieldLabel('numeroDocumento')} es obligatorio`;
+    } else {
+      const errorDocumento = getDocumentoValidationErrorMessage(formData.tipoDocumento, numeroDocumento);
+      if (errorDocumento) {
+        nextErrors.numeroDocumento = errorDocumento;
+      }
+    }
+
+    if (esRuc) {
+      if (!formData.razonSocial.trim()) {
+        nextErrors.razonSocial = `${getFieldLabel('razonSocial')} es obligatorio`;
+      }
+    } else {
+      if (!formData.primerNombre.trim()) {
+        nextErrors.primerNombre = `${getFieldLabel('primerNombre')} es obligatorio`;
+      }
+      if (!formData.apellidoPaterno.trim()) {
+        nextErrors.apellidoPaterno = `${getFieldLabel('apellidoPaterno')} es obligatorio`;
+      }
+      if (esDni && numeroDocumento.length !== 8) {
+        nextErrors.numeroDocumento = DNI_ERROR_MESSAGE;
+      }
+    }
+
+    if (esRuc && numeroDocumento && numeroDocumento.length !== 11) {
+      nextErrors.numeroDocumento = RUC_ERROR_MESSAGE;
+    }
+
+    if (formData.estadoCliente === 'Deshabilitado' && !formData.motivoDeshabilitacion.trim()) {
+      nextErrors.motivoDeshabilitacion = `${getFieldLabel('motivoDeshabilitacion')} es obligatorio`;
+    }
+
+    return {
+      valid: Object.keys(nextErrors).length === 0,
+      errors: nextErrors,
+    };
+  }, [
+    formData.apellidoPaterno,
+    formData.estadoCliente,
+    formData.motivoDeshabilitacion,
+    formData.numeroDocumento,
+    formData.primerNombre,
+    formData.razonSocial,
+    formData.tipoDocumento,
+    getFieldLabel,
+  ]);
+
+  const primaryBusinessValidation = useMemo(
+    () => validatePrimaryBusinessRequirements(),
+    [validatePrimaryBusinessRequirements]
+  );
+  const saveButtonDisabled = !primaryBusinessValidation.valid;
+
+  useEffect(() => {
+    const persisted = leerCargosContactoPersistidos(contactosCargosStorageKeys);
+    setContactoCargoSugerencias(persisted);
+  }, [contactosCargosStorageKeys]);
+
+  useEffect(() => {
+    guardarCargosContactoPersistidos(contactosCargosStorageKeys, contactoCargoSugerencias);
+  }, [contactosCargosStorageKeys, contactoCargoSugerencias]);
 
   const opcionesDepartamento = useMemo(() => listarDepartamentos(), []);
 
@@ -904,7 +1618,18 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
   const handleSaveClick = useCallback(() => {
     const executeSave = async () => {
+      const businessValidation = validatePrimaryBusinessRequirements();
+      if (!businessValidation.valid) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          ...businessValidation.errors,
+        }));
+        setPestanaActiva('datosPrincipales');
+        return;
+      }
+
       if (!validateCustomFields()) {
+        setPestanaActiva('datosPrincipales');
         return;
       }
 
@@ -918,7 +1643,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     };
 
     void executeSave();
-  }, [validateCustomFields, onSave, isEditing, crearOtro]);
+  }, [
+    validatePrimaryBusinessRequirements,
+    validateCustomFields,
+    onSave,
+    isEditing,
+    crearOtro,
+  ]);
 
   return (
     <div
@@ -1712,37 +2443,99 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           <>
             {(isFieldRenderable('emails') || isFieldRenderable('telefonos') || isFieldRenderable('paginaWeb')) && (
               <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2 pb-1.5 border-b">
-                  📞 Contactos
-                </h3>
-                {isFieldRenderable('emails') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Correos electrónicos (hasta 3){' '}
-                      {shouldShowRequiredIndicator('emails') && <span className="text-red-500">*</span>}
-                    </label>
-                    <EmailsInput
-                      emails={formData.emails || []}
-                      onChange={(emails) => handleFieldChange('emails', emails, 'emails')}
-                    />
-                    {renderFieldError('emails')}
-                  </div>
-                )}
-                {isFieldRenderable('telefonos') && (
-                  <div className="mb-2">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Teléfonos (hasta 3){' '}
-                      {shouldShowRequiredIndicator('telefonos') && <span className="text-red-500">*</span>}
-                    </label>
-                    <TelefonosInput
-                      telefonos={formData.telefonos || []}
-                      onChange={(telefonos) => handleFieldChange('telefonos', telefonos, 'telefonos')}
-                    />
-                    {renderFieldError('telefonos')}
-                  </div>
-                )}
+                <div className="mb-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => abrirEditorContacto()}
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                    aria-label="Agregar contacto"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {contactosUI.map((contacto) => {
+                    const esPrincipal = contacto.id === contactoPrincipalId;
+                    const nombreContacto = contacto.nombre.trim() || 'Sin nombre';
+                    const cargoContacto = contacto.cargo.trim();
+                    const resumenCorreos = resumenCorreosContacto(contacto);
+                    const resumenTelefonos = resumenTelefonosContacto(contacto);
+
+                    return (
+                      <div
+                        key={contacto.id}
+                        className="rounded-md border border-gray-200/80 bg-white px-2.5 py-2 dark:border-gray-700 dark:bg-gray-800"
+                      >
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="radio"
+                            name="contacto-principal"
+                            checked={esPrincipal}
+                            onChange={() => seleccionarContactoPrincipal(contacto.id)}
+                            className="mt-0.5 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                            aria-label={`Marcar contacto ${nombreContacto} como principal`}
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-semibold text-gray-900 dark:text-gray-100" title={nombreContacto}>
+                                  {nombreContacto}
+                                </p>
+                                {cargoContacto && (
+                                  <p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400" title={cargoContacto}>
+                                    {cargoContacto}
+                                  </p>
+                                )}
+                              </div>
+
+                              {esPrincipal && (
+                                <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                                  Principal
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-1 truncate text-[11px] text-gray-500 dark:text-gray-400" title={resumenCorreos}>
+                              {resumenCorreos}
+                            </p>
+                            <p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400" title={resumenTelefonos}>
+                              {resumenTelefonos}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => abrirEditorContacto(contacto)}
+                              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                              aria-label="Editar contacto"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => eliminarContacto(contacto.id)}
+                              className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                              aria-label="Eliminar contacto"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {contactosUI.length === 0 && (
+                    <p className="py-2 text-xs text-gray-500 dark:text-gray-400">Sin contactos</p>
+                  )}
+                </div>
+
                 {isFieldRenderable('paginaWeb') && (
-                  <div className="mb-2">
+                  <div className="mb-2 mt-3">
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Página web {shouldShowRequiredIndicator('paginaWeb') && <span className="text-red-500">*</span>}
                     </label>
@@ -1757,6 +2550,245 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       placeholder="https://ejemplo.com"
                     />
                     {renderFieldError('paginaWeb')}
+                  </div>
+                )}
+
+                {contactoEditorAbierto && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+                    onMouseDown={(event) => {
+                      if (modalContactoRef.current && !modalContactoRef.current.contains(event.target as Node)) {
+                        setContactoEditorAbierto(false);
+                        setContactoEditandoId(null);
+                        setContactoEditorError('');
+                      }
+                    }}
+                  >
+                    <div
+                      ref={modalContactoRef}
+                      className="w-full max-w-xl rounded-lg border border-gray-200 bg-white p-3 shadow-xl dark:border-gray-700 dark:bg-gray-800"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          {contactoEditandoId ? 'Editar contacto' : 'Agregar contacto'}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setContactoEditorAbierto(false);
+                            setContactoEditandoId(null);
+                            setContactoEditorError('');
+                          }}
+                          className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+                          aria-label="Cerrar editor de contacto"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Nombres</label>
+                          <input
+                            ref={firstContactoInputRef}
+                            type="text"
+                            value={contactoNombresDraft}
+                            onChange={(event) => {
+                              setContactoNombresDraft(event.target.value);
+                              if (contactoEditorError) {
+                                setContactoEditorError('');
+                              }
+                            }}
+                            placeholder="Obligatorio"
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Apellidos</label>
+                          <input
+                            type="text"
+                            value={contactoApellidosDraft}
+                            onChange={(event) => {
+                              setContactoApellidosDraft(event.target.value);
+                              if (contactoEditorError) {
+                                setContactoEditorError('');
+                              }
+                            }}
+                            placeholder="Obligatorio"
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Cargo / área</label>
+                          <input
+                            type="text"
+                            value={contactoDraft.cargo}
+                            onChange={(event) => setContactoDraft((prev) => ({ ...prev, cargo: event.target.value }))}
+                            placeholder="Opcional"
+                            className="h-8 w-full rounded-md border border-gray-300 bg-white px-2.5 text-xs text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          />
+                          {contactoCargoSugerencias.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {contactoCargoSugerencias.map((cargo) => (
+                                <span
+                                  key={cargo}
+                                  className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => setContactoDraft((prev) => ({ ...prev, cargo }))}
+                                    className="max-w-[10rem] truncate text-left hover:text-gray-900 dark:hover:text-white"
+                                    title={cargo}
+                                  >
+                                    {cargo}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => quitarCargoSugerido(cargo)}
+                                    className="rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-gray-100"
+                                    aria-label={`Eliminar sugerencia ${cargo}`}
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="sm:col-span-2 rounded-md border border-gray-200 p-2 dark:border-gray-700">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Correos</p>
+                            <button
+                              type="button"
+                              onClick={agregarCorreoDraft}
+                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Agregar
+                            </button>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            {contactoDraft.correos.map((correo) => (
+                              <div key={correo.id} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem,minmax(0,18rem),auto] sm:items-center">
+                                <select
+                                  value={correo.tipo}
+                                  onChange={(event) => actualizarCorreoDraft(correo.id, 'tipo', event.target.value)}
+                                  className="h-7 rounded-md border border-gray-300 bg-white px-2 text-[11px] text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                >
+                                  {CONTACTO_EMAIL_TIPOS.map((tipo) => (
+                                    <option key={tipo} value={tipo}>{tipo}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="email"
+                                  value={correo.valor}
+                                  onChange={(event) => actualizarCorreoDraft(correo.id, 'valor', event.target.value)}
+                                  placeholder="correo@dominio.com"
+                                  className="h-7 w-full rounded-md border border-gray-300 bg-white px-2 text-[11px] text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-[18rem] dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarCorreoDraft(correo.id)}
+                                  className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                                  aria-label="Eliminar correo"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                            {contactoDraft.correos.length === 0 && (
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">Sin correos</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2 rounded-md border border-gray-200 p-2 dark:border-gray-700">
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Teléfonos</p>
+                            <button
+                              type="button"
+                              onClick={agregarTelefonoDraft}
+                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Agregar
+                            </button>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            {contactoDraft.telefonos.map((telefono) => (
+                              <div key={telefono.id} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem,minmax(0,12rem),auto] sm:items-center">
+                                <select
+                                  value={telefono.tipo}
+                                  onChange={(event) => actualizarTelefonoDraft(telefono.id, 'tipo', event.target.value)}
+                                  className="h-7 rounded-md border border-gray-300 bg-white px-2 text-[11px] text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                >
+                                  {CONTACTO_TELEFONO_TIPOS.map((tipo) => (
+                                    <option key={tipo} value={tipo}>{tipo}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="text"
+                                  value={telefono.numero}
+                                  onChange={(event) => actualizarTelefonoDraft(telefono.id, 'numero', event.target.value)}
+                                  placeholder="Número"
+                                  className="h-7 w-full rounded-md border border-gray-300 bg-white px-2 text-[11px] text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 sm:max-w-[12rem] dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarTelefonoDraft(telefono.id)}
+                                  className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                                  aria-label="Eliminar teléfono"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                            {contactoDraft.telefonos.length === 0 && (
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">Sin teléfonos</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <label className="sm:col-span-2 inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            checked={marcarContactoComoPrincipal}
+                            onChange={(event) => setMarcarContactoComoPrincipal(event.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Marcar como principal
+                        </label>
+                      </div>
+
+                      {contactoEditorError && (
+                        <p className="mt-2 text-xs text-red-500">{contactoEditorError}</p>
+                      )}
+
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setContactoEditorAbierto(false);
+                            setContactoEditandoId(null);
+                            setContactoEditorError('');
+                          }}
+                          className="h-7 rounded-md px-2.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={guardarContactoEditor}
+                          disabled={!contactoEditorPuedeGuardar}
+                          className="h-7 rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2035,7 +3067,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                         <button
                           type="button"
                           onClick={guardarDireccionEditor}
-                          className="h-7 rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                          disabled={!direccionEditorPuedeGuardar}
+                          className="h-7 rounded-md border border-blue-600 bg-blue-600 px-2.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Guardar
                         </button>
@@ -2073,7 +3106,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           </button>
           <button
             onClick={handleSaveClick}
-            className="h-8 px-3 text-xs font-medium text-white border rounded-md hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            disabled={saveButtonDisabled}
+            className="h-8 px-3 text-xs font-medium text-white border rounded-md hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}
           >
             {isEditing ? 'Actualizar' : 'Crear cliente'}

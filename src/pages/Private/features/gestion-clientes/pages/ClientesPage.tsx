@@ -68,8 +68,34 @@ type DireccionesPersistidasPayload = {
 	principalId: string | null;
 };
 
+type ContactoCorreoPersistido = {
+	id: string;
+	tipo: string;
+	valor: string;
+};
+
+type ContactoTelefonoPersistido = {
+	id: string;
+	tipo: string;
+	numero: string;
+};
+
+type ContactoPersistidoCliente = {
+	id: string;
+	nombre: string;
+	cargo: string;
+	correos: ContactoCorreoPersistido[];
+	telefonos: ContactoTelefonoPersistido[];
+};
+
+type ContactosPersistidosPayload = {
+	contactos: ContactoPersistidoCliente[];
+	principalId: string | null;
+};
+
 const PRIMARY_COLOR = '#6F36FF';
 const CLIENTE_DIRECCIONES_STORAGE_PREFIX = 'facturafacil:clientes:direcciones';
+const CLIENTE_CONTACTOS_STORAGE_PREFIX = 'facturafacil:clientes:contactos';
 
 const formatDateTimeForExport = (value?: string | null): string => {
 	if (!value) return '';
@@ -118,6 +144,23 @@ const buildDireccionesStorageKeysForClient = (client: Cliente): string[] => {
 	return keys;
 };
 
+const buildContactosStorageKeysForClient = (client: Cliente): string[] => {
+	const keys: string[] = [];
+	const clientId = client.id !== undefined && client.id !== null ? `${client.id}`.trim() : '';
+	if (clientId) {
+		keys.push(`${CLIENTE_CONTACTOS_STORAGE_PREFIX}:id:${clientId}`);
+	}
+
+	const documentCode = resolveDocumentCode(client);
+	const documentNumber = resolveDocumentNumber(client, documentCode).trim();
+	if (documentNumber) {
+		const typeCode = documentCode || 'sin-tipo';
+		keys.push(`${CLIENTE_CONTACTOS_STORAGE_PREFIX}:doc:${typeCode}:${documentNumber}`);
+	}
+
+	return keys;
+};
+
 const isDireccionPersistidaValida = (value: unknown): value is DireccionPersistidaCliente => {
 	if (!value || typeof value !== 'object') {
 		return false;
@@ -133,6 +176,49 @@ const isDireccionPersistidaValida = (value: unknown): value is DireccionPersisti
 		typeof candidate.ubigeo === 'string' &&
 		typeof candidate.direccion === 'string' &&
 		typeof candidate.referenciaDireccion === 'string'
+	);
+};
+
+const isContactoCorreoPersistidoValido = (value: unknown): value is ContactoCorreoPersistido => {
+	if (!value || typeof value !== 'object') {
+		return false;
+	}
+
+	const candidate = value as Record<string, unknown>;
+	return (
+		typeof candidate.id === 'string' &&
+		typeof candidate.tipo === 'string' &&
+		typeof candidate.valor === 'string'
+	);
+};
+
+const isContactoTelefonoPersistidoValido = (value: unknown): value is ContactoTelefonoPersistido => {
+	if (!value || typeof value !== 'object') {
+		return false;
+	}
+
+	const candidate = value as Record<string, unknown>;
+	return (
+		typeof candidate.id === 'string' &&
+		typeof candidate.tipo === 'string' &&
+		typeof candidate.numero === 'string'
+	);
+};
+
+const isContactoPersistidoValido = (value: unknown): value is ContactoPersistidoCliente => {
+	if (!value || typeof value !== 'object') {
+		return false;
+	}
+
+	const candidate = value as Record<string, unknown>;
+	return (
+		typeof candidate.id === 'string' &&
+		typeof candidate.nombre === 'string' &&
+		typeof candidate.cargo === 'string' &&
+		Array.isArray(candidate.correos) &&
+		candidate.correos.every(isContactoCorreoPersistidoValido) &&
+		Array.isArray(candidate.telefonos) &&
+		candidate.telefonos.every(isContactoTelefonoPersistidoValido)
 	);
 };
 
@@ -159,6 +245,37 @@ const readPersistedDirecciones = (client: Cliente): DireccionesPersistidasPayloa
 
 			const principalId = typeof parsed?.principalId === 'string' ? parsed.principalId : null;
 			return { direcciones, principalId };
+		} catch {
+			continue;
+		}
+	}
+
+	return null;
+};
+
+const readPersistedContactos = (client: Cliente): ContactosPersistidosPayload | null => {
+	if (typeof window === 'undefined') {
+		return null;
+	}
+
+	const keys = buildContactosStorageKeysForClient(client);
+	for (const key of keys) {
+		const raw = window.localStorage.getItem(key);
+		if (!raw) {
+			continue;
+		}
+
+		try {
+			const parsed = JSON.parse(raw) as Partial<ContactosPersistidosPayload>;
+			const contactos = Array.isArray(parsed?.contactos)
+				? parsed.contactos.filter(isContactoPersistidoValido)
+				: [];
+			if (contactos.length === 0) {
+				continue;
+			}
+
+			const principalId = typeof parsed?.principalId === 'string' ? parsed.principalId : null;
+			return { contactos, principalId };
 		} catch {
 			continue;
 		}
@@ -1029,8 +1146,8 @@ function ClientesPage() {
 				apellidoPaterno,
 				apellidoMaterno,
 				nombreCompleto: esRUC ? (client.razonSocial || nombreBase) : (client.nombreCompleto || nombreBase),
-				emails: emails.slice(0, 3),
-				telefonos: telefonos.slice(0, 3),
+				emails,
+				telefonos,
 				paginaWeb: client.paginaWeb || '',
 				pais: client.pais || 'PE',
 				departamento: client.departamento || '',
@@ -1335,14 +1452,46 @@ function ClientesPage() {
 			[direccion.direccion, direccion.referenciaDireccion, direccion.pais, direccion.departamento, direccion.provincia, direccion.distrito, direccion.ubigeo].some(Boolean)
 		);
 
-		const contactEmails = activeDrawerClient.emails?.filter((email) => hasText(email)) ?? [];
-		const contactPhones = activeDrawerClient.telefonos?.filter((phone) => hasText(phone.numero)) ?? [];
-		const emailsLabel = contactEmails.length > 0 ? contactEmails.join(', ') : displayText(activeDrawerClient.email);
-		const phonesLabel =
-			contactPhones.length > 0
-				? contactPhones.map((phone) => (hasText(phone.tipo) ? `${phone.tipo}: ${phone.numero}` : phone.numero)).join(', ')
-				: displayText(activeDrawerClient.phone);
-		const hasContactData = contactEmails.length > 0 || contactPhones.length > 0 || hasText(activeDrawerClient.email) || hasText(activeDrawerClient.phone) || hasText(activeDrawerClient.paginaWeb);
+		const contactosPersistidos = readPersistedContactos(activeDrawerClient);
+		const contactoLegacyFallback: ContactoPersistidoCliente = {
+			id: 'contacto-main',
+			nombre: normalizeText(activeDrawerClient.nombreCompleto) || normalizeText(activeDrawerClient.razonSocial) || normalizeText(activeDrawerClient.name),
+			cargo: '',
+			correos: [
+				...(activeDrawerClient.emails ?? []).map((email, index) => ({
+					id: `correo-legacy-${index}`,
+					tipo: 'Trabajo',
+					valor: normalizeText(email),
+				})),
+				...(activeDrawerClient.email && (!activeDrawerClient.emails || activeDrawerClient.emails.length === 0)
+					? [{ id: 'correo-legacy-main', tipo: 'Trabajo', valor: normalizeText(activeDrawerClient.email) }]
+					: []),
+			].filter((correo) => Boolean(correo.valor)),
+			telefonos: [
+				...(activeDrawerClient.telefonos ?? []).map((telefono, index) => ({
+					id: `telefono-legacy-${index}`,
+					tipo: telefono.tipo || 'Móvil',
+					numero: normalizeText(telefono.numero),
+				})),
+				...(activeDrawerClient.phone && (!activeDrawerClient.telefonos || activeDrawerClient.telefonos.length === 0)
+					? [{ id: 'telefono-legacy-main', tipo: 'Móvil', numero: normalizeText(activeDrawerClient.phone) }]
+					: []),
+			].filter((telefono) => Boolean(telefono.numero)),
+		};
+		const hasLegacyContactData =
+			Boolean(contactoLegacyFallback.nombre) ||
+			contactoLegacyFallback.correos.length > 0 ||
+			contactoLegacyFallback.telefonos.length > 0;
+		const contactosDetalle = contactosPersistidos?.contactos?.length
+			? contactosPersistidos.contactos
+			: hasLegacyContactData
+				? [contactoLegacyFallback]
+				: [];
+		const contactoPrincipalDetalleId =
+			contactosPersistidos?.principalId && contactosDetalle.some((contacto) => contacto.id === contactosPersistidos.principalId)
+				? contactosPersistidos.principalId
+				: contactosDetalle[0]?.id ?? null;
+		const hasContactData = contactosDetalle.length > 0 || hasText(activeDrawerClient.paginaWeb);
 
 		const priceProfileLabel = displayText(resolveProfileLabel(activeDrawerClient.listaPrecio));
 		const hasCommercialData = [
@@ -1442,9 +1591,50 @@ function ClientesPage() {
 					return renderEmptyViewState('Sin contactos');
 				}
 				return (
-					<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-						{readOnlyField('Correos', emailsLabel, true)}
-						{readOnlyField('Teléfonos', phonesLabel, true)}
+					<div className="space-y-2">
+						{contactosDetalle.length === 0 ? (
+							renderEmptyViewState('Sin contactos')
+						) : (
+							contactosDetalle.map((contacto) => {
+								const esPrincipal = contacto.id === contactoPrincipalDetalleId;
+								const nombre = displayText(contacto.nombre);
+								const cargo = displayText(contacto.cargo);
+								const correos = contacto.correos.length
+									? contacto.correos.map((correo) => `${correo.tipo}: ${correo.valor}`).join(' · ')
+									: '-';
+								const telefonos = contacto.telefonos.length
+									? contacto.telefonos.map((telefono) => `${telefono.tipo}: ${telefono.numero}`).join(' · ')
+									: '-';
+
+								return (
+									<div key={contacto.id} className="rounded-md border border-gray-200 p-2.5 dark:border-gray-700">
+										<div className="flex items-start justify-between gap-2">
+											<div className="min-w-0">
+												<p className="truncate text-[13px] font-medium text-gray-900 dark:text-gray-100" title={nombre}>
+													{nombre}
+												</p>
+												{cargo !== '-' && (
+													<p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400" title={cargo}>
+														{cargo}
+													</p>
+												)}
+											</div>
+											{esPrincipal ? (
+												<span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+													Principal
+												</span>
+											) : null}
+										</div>
+										<p className="mt-1 truncate text-[11px] text-gray-500 dark:text-gray-400" title={correos}>
+											{correos}
+										</p>
+										<p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400" title={telefonos}>
+											{telefonos}
+										</p>
+									</div>
+								);
+							})
+						)}
 						{readOnlyField('Página web', displayText(activeDrawerClient.paginaWeb), true)}
 					</div>
 				);
