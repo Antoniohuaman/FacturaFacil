@@ -14,6 +14,7 @@ import type {
 } from '../models';
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
 import { documentCodeFromType, normalizeDocumentNumber, parseLegacyDocumentString } from '../utils/documents';
+import { emitClientesChanged } from '../utils/clientesEvents';
 import { lsKey } from '../../../../../shared/tenant';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
@@ -619,7 +620,11 @@ class ClientesClient {
     };
 
     try {
-      return await this.createCliente(payload, options);
+      const created = await this.createCliente(payload, options);
+      if (created && this.isClienteGeneral(created)) {
+        emitClientesChanged({ reason: 'create' });
+      }
+      return created;
     } catch (error) {
       console.warn('[clientes] No se pudo crear Cliente General', error);
       return null;

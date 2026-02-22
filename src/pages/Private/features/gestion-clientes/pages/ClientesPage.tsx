@@ -1063,6 +1063,8 @@ function ClientesPage() {
 		setShowClientModal(true);
 	};
 
+	const LISTADO_DISABLE_REASON = 'Deshabilitado desde listado';
+
 	const handleEditClient = async (client: Cliente) => {
 		if (client.transient) {
 			showToast('info', 'Operación no disponible: backend pendiente', 'No es posible editar un cliente transitorio');
@@ -1200,6 +1202,21 @@ function ClientesPage() {
 		setClientToDelete(client);
 		setShowDeleteModal(true);
 	};
+
+		const handleToggleClientEnabled = async (client: Cliente) => {
+			const nextEnabled = !client.enabled;
+			const nextEstadoCliente: ClienteFormData['estadoCliente'] = nextEnabled ? 'Habilitado' : 'Deshabilitado';
+
+			try {
+				await updateCliente(client.id, {
+					enabled: nextEnabled,
+					estadoCliente: nextEstadoCliente,
+					motivoDeshabilitacion: nextEnabled ? undefined : LISTADO_DISABLE_REASON,
+				});
+			} catch (error) {
+				console.warn('[clientes] No se pudo actualizar el estado del cliente desde listado', error);
+			}
+		};
 
 	const handleConfirmDelete = async () => {
 		if (clientToDelete) {
@@ -1816,6 +1833,7 @@ function ClientesPage() {
 											onRowClick={handleViewClient}
 											onEditClient={handleEditClient}
 											onDeleteClient={handleDeleteClient}
+											onToggleClientEnabled={handleToggleClientEnabled}
 											selectedClientId={activeClientId}
 										/>
 						)}

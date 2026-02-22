@@ -12,6 +12,7 @@ type ClientesTableProps = {
   onRowClick?: (client: Cliente) => void;
   onEditClient?: (client: Cliente) => void;
   onDeleteClient?: (client: Cliente) => void;
+  onToggleClientEnabled?: (client: Cliente) => void | Promise<void>;
   selectedClientId?: number | string | null;
 };
 
@@ -404,23 +405,17 @@ const ClienteAvatar: React.FC<{ name: string; imageUrl?: string }> = ({ name, im
 // ============================================================================
 
 const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
-  ({ clients, visibleColumnIds, onRowClick, onEditClient, onDeleteClient, selectedClientId }, ref) => {
+  ({ clients, visibleColumnIds, onRowClick, onEditClient, onDeleteClient, onToggleClientEnabled, selectedClientId }, ref) => {
     const navigate = useNavigate();
     const { resolveProfileLabel } = usePriceProfilesCatalog();
     const [menuOpenId, setMenuOpenId] = useState<number | string | null>(null);
     const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
-    const [clientes, setClientes] = useState<Cliente[]>(clients);
-    const activeClient = useMemo(() => clientes.find((client) => client.id === menuOpenId) ?? null, [clientes, menuOpenId]);
+    const activeClient = useMemo(() => clients.find((client) => client.id === menuOpenId) ?? null, [clients, menuOpenId]);
     const closeMenu = useCallback(() => {
       setMenuOpenId(null);
       setMenuCoords(null);
     }, []);
-
-    // Sincronizar con props
-    useEffect(() => {
-      setClientes(clients);
-    }, [clients]);
 
     // Implementar ref API
     useImperativeHandle(ref, () => ({
@@ -432,12 +427,8 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
 
     // Handlers
     const handleToggleEnabled = (client: Cliente) => {
-      // La lógica de toggle debe estar en el padre (ClientesPage)
-      // Aquí solo actualizamos el estado local para feedback inmediato
-      setClientes(prev => 
-        prev.map(c => c.id === client.id ? { ...c, enabled: !c.enabled } : c)
-      );
       closeMenu();
+      void onToggleClientEnabled?.(client);
     };
 
     const handleEdit = (client: Cliente) => {
@@ -597,7 +588,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                 <tr>{visibleColumnIds.map((columnId) => renderHeaderCell(columnId))}</tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                {clientes.map((client) => {
+                {clients.map((client) => {
                   const tipoDoc = extractDocumentType(client);
                   const numeroDoc = extractDocumentNumber(client);
                   const direccion = client.address === 'Sin dirección' ? '-' : client.address;
@@ -633,7 +624,7 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
             </table>
           </div>
           
-          {clientes.length === 0 && (
+          {clients.length === 0 && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               No hay clientes para mostrar
             </div>
