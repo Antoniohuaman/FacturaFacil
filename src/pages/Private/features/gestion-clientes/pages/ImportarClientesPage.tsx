@@ -3,12 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
   Download,
   Upload,
-  Info,
   HelpCircle,
-  ChevronDown,
+  ChevronRight,
   AlertCircle,
   FileSpreadsheet,
-  RefreshCcw,
   XCircle,
   CheckCircle2,
 } from 'lucide-react';
@@ -35,6 +33,7 @@ import { isValidEmail, normalizeEmailList, sanitizePhones } from '../utils/conta
 import { buildFullName, normalizeHumanName, normalizarNombres } from '../utils/names';
 import { formatBusinessDateTimeForTicket, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 import { Tooltip } from '@/shared/ui';
+import { TOOLTIPS_IMPORTACION_CLIENTES } from '@/shared/ui/constants';
 
 type ValidationError = {
   rowNumber: number;
@@ -889,6 +888,44 @@ type ModeMeta = {
   templateExample: string[];
 };
 
+type FieldSection = {
+  title: string;
+  required: string[];
+  optional: string[];
+};
+
+const classifyFieldSection = (field: string): FieldSection['title'] => {
+  const normalized = field.toUpperCase();
+  if (normalized.includes('TELEFONO') || normalized.includes('CORREO')) {
+    return 'Contacto';
+  }
+  if (
+    normalized.includes('DIRECCION') ||
+    normalized.includes('DEPARTAMENTO') ||
+    normalized.includes('PROVINCIA') ||
+    normalized.includes('DISTRITO') ||
+    normalized.includes('UBIGEO') ||
+    normalized.includes('REFERENCIA')
+  ) {
+    return 'Dirección';
+  }
+  if (normalized.includes('ESTADO CLIENTE') || normalized.includes('NOMBRE COMERCIAL')) {
+    return 'SUNAT/Comercial';
+  }
+  return 'Identificación';
+};
+
+const buildFieldSections = (meta: ModeMeta): FieldSection[] => {
+  const sectionTitles: FieldSection['title'][] = ['Identificación', 'Contacto', 'Dirección', 'SUNAT/Comercial'];
+  return sectionTitles
+    .map((title) => ({
+      title,
+      required: meta.requiredColumns.filter((field) => classifyFieldSection(field) === title),
+      optional: meta.optionalColumns.filter((field) => classifyFieldSection(field) === title),
+    }))
+    .filter((section) => section.required.length > 0 || section.optional.length > 0);
+};
+
 const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
   BASICO: {
     label: 'Importación básica',
@@ -1034,17 +1071,22 @@ const ImportarClientesPage: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
-  const [quickGuideOpen, setQuickGuideOpen] = useState(false);
+  const [fieldsDetailOpen, setFieldsDetailOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const modeMeta = useMemo(() => IMPORT_MODE_CONFIG[mode], [mode]);
+  const fieldSections = useMemo(() => buildFieldSections(modeMeta), [modeMeta]);
+  const modeMicrocopy = mode === 'BASICO'
+    ? 'Lo esencial: identificación, contacto y ubicación.'
+    : 'Incluye todos los campos + datos SUNAT.';
   const isBusy = processing || loading;
 
   const handleModeChange = (nextMode: ImportMode) => {
     setMode(nextMode);
     setReport(null);
     setSelectedFile(null);
+    setFieldsDetailOpen(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -1219,6 +1261,23 @@ const ImportarClientesPage: React.FC = () => {
           })}
           </div>
 
+          <div className="mb-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <span className="font-medium text-gray-700 dark:text-gray-200">{modeMeta.label}</span>
+            <Tooltip
+              contenido={mode === 'BASICO' ? TOOLTIPS_IMPORTACION_CLIENTES.modoBasico : TOOLTIPS_IMPORTACION_CLIENTES.modoCompleto}
+              ubicacion="derecha"
+            >
+              <button
+                type="button"
+                aria-label={`Ayuda de ${modeMeta.label}`}
+                className="inline-flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+            <span>· {modeMicrocopy}</span>
+          </div>
+
           <div className="grid gap-5 lg:grid-cols-[1.7fr,1fr]">
           <div className="space-y-5">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
@@ -1226,7 +1285,7 @@ const ImportarClientesPage: React.FC = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Archivo de importación</h2>
-                    <Tooltip contenido="Se actualiza por N° documento. No agregues ni reordenes columnas." ubicacion="derecha">
+                    <Tooltip contenido={TOOLTIPS_IMPORTACION_CLIENTES.archivo} ubicacion="derecha" multilinea>
                       <button
                         type="button"
                         aria-label="Ayuda sobre archivo de importación"
@@ -1238,41 +1297,29 @@ const ImportarClientesPage: React.FC = () => {
                   </div>
                   <div className="flex gap-2">
                     {mode === 'BASICO' ? (
-                      <a
-                        href={BASIC_TEMPLATE_PATH}
-                        download
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
-                      >
-                        <Download className="w-4 h-4" />
-                        Descargar plantilla
-                      </a>
+                      <Tooltip contenido="Descargar plantilla básica" ubicacion="arriba">
+                        <a
+                          href={BASIC_TEMPLATE_PATH}
+                          download
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
+                        >
+                          <Download className="w-4 h-4" />
+                          Descargar plantilla
+                        </a>
+                      </Tooltip>
                     ) : (
-                      <button
-                        onClick={handleDownloadTemplate}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
-                      >
-                        <Download className="w-4 h-4" />
-                        Descargar plantilla
-                      </button>
+                      <Tooltip contenido="Descargar plantilla completa" ubicacion="arriba">
+                        <button
+                          onClick={handleDownloadTemplate}
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:border-blue-500 dark:hover:bg-blue-900/30"
+                        >
+                          <Download className="w-4 h-4" />
+                          Descargar plantilla
+                        </button>
+                      </Tooltip>
                     )}
-                    <button
-                      onClick={() => {
-                        if (selectedFile) {
-                          handleReset();
-                        }
-                        fileInputRef.current?.click();
-                      }}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
-                    >
-                      <RefreshCcw className="w-4 h-4" />
-                      {selectedFile ? 'Cambiar archivo' : 'Buscar archivo'}
-                    </button>
                   </div>
                 </div>
-
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Usa la plantilla oficial y no cambies los encabezados.
-                </p>
 
                 <div
                   onDragEnter={handleDrag}
@@ -1335,27 +1382,31 @@ const ImportarClientesPage: React.FC = () => {
                   >
                     Limpiar
                   </button>
-                  <button
-                    onClick={handleImport}
-                    disabled={!selectedFile || isBusy}
-                    className={`inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg text-white transition ${
-                      !selectedFile || isBusy
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    }`}
-                  >
-                    {isBusy ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Procesando...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        Importar ahora
-                      </>
-                    )}
-                  </button>
+                  <Tooltip contenido={TOOLTIPS_IMPORTACION_CLIENTES.importar} ubicacion="arriba">
+                    <span className="inline-flex">
+                      <button
+                        onClick={handleImport}
+                        disabled={!selectedFile || isBusy}
+                        className={`inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg text-white transition ${
+                          !selectedFile || isBusy
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
+                      >
+                        {isBusy ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Procesando...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4" />
+                            Importar ahora
+                          </>
+                        )}
+                      </button>
+                    </span>
+                  </Tooltip>
                 </div>
               </div>
             </div>
@@ -1366,7 +1417,6 @@ const ImportarClientesPage: React.FC = () => {
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   <div>
                     <h3 className="text-lg font-semibold">Resultados de la importación</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Se actualiza automáticamente después de cada carga.</p>
                   </div>
                 </div>
 
@@ -1402,7 +1452,7 @@ const ImportarClientesPage: React.FC = () => {
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Aún no se ha realizado ninguna importación en esta sesión. Carga un archivo para ver el resumen aquí.
+                    Carga un archivo para ver el resumen aquí.
                   </p>
                 )}
               </div>
@@ -1412,74 +1462,61 @@ const ImportarClientesPage: React.FC = () => {
           <aside className="space-y-6">
             <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
               <div className="p-5">
-                <button
-                  type="button"
-                  onClick={() => setQuickGuideOpen((prev) => !prev)}
-                  aria-expanded={quickGuideOpen}
-                  aria-controls="quick-guide-content"
-                  className="flex w-full items-center justify-between gap-3 text-left text-gray-800 dark:text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800 rounded-xl"
-                >
-                  <div className="flex items-center gap-2">
-                    <Info className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <h3 className="text-lg font-semibold">Guía rápida</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">3 pasos para importar sin errores.</p>
-                    </div>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">Ayuda</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Usa la plantilla oficial, carga el archivo y ejecuta la importación.
+                    </p>
                   </div>
-                  <ChevronDown
-                    className={`w-4 h-4 text-gray-500 transition-transform ${
-                      quickGuideOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
 
-                {quickGuideOpen && (
-                  <div id="quick-guide-content" className="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                    <div className="space-y-3">
-                      <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">1</div>
-                        <span>Descarga la plantilla oficial.</span>
-                      </div>
-                      <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">2</div>
-                        <span>Completa los campos obligatorios con codigos SUNAT.</span>
-                      </div>
-                      <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full flex items-center justify-center bg-blue-600 text-white text-xs font-semibold">3</div>
-                        <span>Importa: si existe el documento, se actualiza; si no, se crea.</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 text-xs">
-                      <div>
-                        <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos obligatorios</p>
-                        <ul className="space-y-1 text-gray-700 dark:text-gray-300 list-disc list-inside">
-                          {modeMeta.requiredColumns.map((column) => (
-                            <li key={column}>{column}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="uppercase text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Campos opcionales</p>
-                        <ul className="space-y-1 text-gray-600 dark:text-gray-400 list-disc list-inside">
-                          {modeMeta.optionalColumns.map((column) => (
-                            <li key={column}>{column}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-xs text-blue-800 dark:text-blue-200">
-                      <p className="font-semibold mb-1">Recomendaciones</p>
-                      <ul className="space-y-1 list-disc list-inside">
-                        <li>No insertes ni reordenes columnas.</li>
-                        <li>Evita formulas y celdas combinadas.</li>
-                        <li>Valida correo y telefono (6 a 15 digitos).</li>
-                        <li>Razon social para RUC; nombres para otros codigos.</li>
-                      </ul>
-                    </div>
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+                    Obligatorios: <span className="font-semibold text-gray-900 dark:text-gray-100">{modeMeta.requiredColumns.length}</span>
+                    {' · '}
+                    Opcionales: <span className="font-semibold text-gray-900 dark:text-gray-100">{modeMeta.optionalColumns.length}</span>
                   </div>
-                )}
+
+                  <button
+                    type="button"
+                    onClick={() => setFieldsDetailOpen((prev) => !prev)}
+                    aria-expanded={fieldsDetailOpen}
+                    aria-controls="fields-detail-content"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 transition hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
+                  >
+                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${fieldsDetailOpen ? 'rotate-90' : ''}`} />
+                    Ver campos
+                  </button>
+
+                  {fieldsDetailOpen && (
+                    <div id="fields-detail-content" className="space-y-3">
+                      {fieldSections.map((section) => (
+                        <div key={section.title} className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{section.title}</p>
+                          {section.required.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">Obligatorios</p>
+                              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-gray-600 dark:text-gray-300">
+                                {section.required.map((field) => (
+                                  <li key={`${section.title}-required-${field}`}>{field}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {section.optional.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">Opcionales</p>
+                              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-gray-500 dark:text-gray-400">
+                                {section.optional.map((field) => (
+                                  <li key={`${section.title}-optional-${field}`}>{field}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
