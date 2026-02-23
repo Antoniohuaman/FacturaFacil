@@ -14,6 +14,12 @@ type ClientesTableProps = {
   onDeleteClient?: (client: Cliente) => void;
   onToggleClientEnabled?: (client: Cliente) => void | Promise<void>;
   selectedClientId?: number | string | null;
+  selectedIds?: Set<string>;
+  areAllVisibleSelected?: boolean;
+  isVisibleSelectionIndeterminate?: boolean;
+  isClientSelectable?: (client: Cliente) => boolean;
+  onToggleSelectVisible?: (checked: boolean) => void;
+  onToggleSelectClient?: (client: Cliente, checked: boolean) => void;
 };
 
 interface ClientesTableRef {
@@ -155,6 +161,28 @@ const renderHeaderCell = (columnId: ClienteColumnId) => {
     </th>
   );
 };
+
+const renderSelectionHeaderCell = (
+  checked: boolean,
+  indeterminate: boolean,
+  onChange?: (checked: boolean) => void,
+  inputRef?: React.RefObject<HTMLInputElement | null>,
+  disabled = false,
+) => (
+  <th key="selection" style={{ width: '34px' }} className="text-center !px-1">
+    <input
+      ref={inputRef}
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      aria-label="Seleccionar visibles"
+      className="h-3.5 w-3.5 rounded border-gray-300 text-[#6F36FF] focus:ring-[#6F36FF] disabled:opacity-50"
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => onChange?.(event.target.checked)}
+    />
+    {indeterminate ? <span className="sr-only">Selección parcial</span> : null}
+  </th>
+);
 
 const buildCellContent = (columnId: ClienteColumnId, context: RowRenderContext): RenderedCell => {
   const { client, tipoDoc, numeroDoc, direccion, avatarUrl, actividadPrincipal, perfilPrecioLabel, navigate, handleOptionsClick } = context;
@@ -405,13 +433,32 @@ const ClienteAvatar: React.FC<{ name: string; imageUrl?: string }> = ({ name, im
 // ============================================================================
 
 const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
-  ({ clients, visibleColumnIds, onRowClick, onEditClient, onDeleteClient, onToggleClientEnabled, selectedClientId }, ref) => {
+  ({
+    clients,
+    visibleColumnIds,
+    onRowClick,
+    onEditClient,
+    onDeleteClient,
+    onToggleClientEnabled,
+    selectedClientId,
+    selectedIds,
+    areAllVisibleSelected = false,
+    isVisibleSelectionIndeterminate = false,
+    isClientSelectable,
+    onToggleSelectVisible,
+    onToggleSelectClient,
+  }, ref) => {
     const navigate = useNavigate();
     const { resolveProfileLabel } = usePriceProfilesCatalog();
     const [menuOpenId, setMenuOpenId] = useState<number | string | null>(null);
     const [menuCoords, setMenuCoords] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
+    const selectionHeaderRef = useRef<HTMLInputElement | null>(null);
     const activeClient = useMemo(() => clients.find((client) => client.id === menuOpenId) ?? null, [clients, menuOpenId]);
+    const hasSelectableVisibleClients = useMemo(
+      () => clients.some((client) => (isClientSelectable ? isClientSelectable(client) : true)),
+      [clients, isClientSelectable]
+    );
     const closeMenu = useCallback(() => {
       setMenuOpenId(null);
       setMenuCoords(null);
@@ -494,6 +541,13 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
       window.addEventListener('scroll', handleScroll, true);
       return () => window.removeEventListener('scroll', handleScroll, true);
     }, [menuOpenId, closeMenu]);
+
+    useEffect(() => {
+      if (!selectionHeaderRef.current) {
+        return;
+      }
+      selectionHeaderRef.current.indeterminate = isVisibleSelectionIndeterminate && !areAllVisibleSelected;
+    }, [areAllVisibleSelected, isVisibleSelectionIndeterminate]);
 
     const portalTarget = typeof window === 'undefined' ? null : document.body;
     const menuPortal =
@@ -585,7 +639,16 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
           <div className="overflow-x-auto">
             <table className="w-full compact-table" style={{ minWidth: '1200px' }}>
               <thead>
-                <tr>{visibleColumnIds.map((columnId) => renderHeaderCell(columnId))}</tr>
+                <tr>
+                  {renderSelectionHeaderCell(
+                    areAllVisibleSelected,
+                    isVisibleSelectionIndeterminate,
+                    onToggleSelectVisible,
+                    selectionHeaderRef,
+                    !hasSelectableVisibleClients,
+                  )}
+                  {visibleColumnIds.map((columnId) => renderHeaderCell(columnId))}
+                </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                 {clients.map((client) => {
@@ -608,6 +671,8 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                     handleOptionsClick,
                     rowKey: focusKey
                   };
+                  const isSelectable = isClientSelectable ? isClientSelectable(client) : true;
+                  const isSelected = selectedIds?.has(String(client.id)) ?? false;
 
                   return (
                     <tr
@@ -616,6 +681,17 @@ const ClientesTable = forwardRef<ClientesTableRef, ClientesTableProps>(
                       className={`${!client.enabled ? 'row-disabled' : ''} ${selectedClientId === client.id ? 'row-selected' : ''}`.trim()}
                       onClick={() => (onRowClick ? onRowClick(client) : handleEdit(client))}
                     >
+                      <td className="text-center !px-1" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={!isSelectable}
+                          aria-label={`Seleccionar ${client.name}`}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-[#6F36FF] focus:ring-[#6F36FF] disabled:opacity-50"
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => onToggleSelectClient?.(client, event.target.checked)}
+                        />
+                      </td>
                       {visibleColumnIds.map((columnId) => renderCell(columnId, rowContext))}
                     </tr>
                   );

@@ -522,6 +522,26 @@ const filterClientesList = (clients: Cliente[], filters: ClientesFilterValues): 
 	});
 };
 
+const toClientIdKey = (id: number | string): string => `${id}`;
+
+const canDeleteClient = (client: Cliente): boolean => !client.transient;
+
+type BulkDeleteDialogState = {
+	isOpen: boolean;
+	targetIds: string[];
+	isAllMode: boolean;
+	step: 1 | 2;
+	confirmText: string;
+};
+
+const BULK_DELETE_DIALOG_INITIAL_STATE: BulkDeleteDialogState = {
+	isOpen: false,
+	targetIds: [],
+	isAllMode: false,
+	step: 1,
+	confirmText: '',
+};
+
 function ClientesPage() {
 	useFocusFromQuery();
 	const { showToast } = useCaja();
@@ -563,6 +583,9 @@ function ClientesPage() {
 	const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
 	const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null);
+	const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+	const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
+	const [bulkDeleteDialog, setBulkDeleteDialog] = useState<BulkDeleteDialogState>(BULK_DELETE_DIALOG_INITIAL_STATE);
 
 	const getBusinessTimestamp = (value?: string | null): string => {
 		if (value) {
@@ -867,6 +890,88 @@ function ClientesPage() {
 
 	const hasClients = combinedClients.length > 0;
 	const hasVisibleClients = filteredClients.length > 0;
+	const visibleClientIds = useMemo(
+		() => filteredClients.map((client) => toClientIdKey(client.id)),
+		[filteredClients]
+	);
+	const deletableVisibleClientIds = useMemo(
+		() => filteredClients.filter(canDeleteClient).map((client) => toClientIdKey(client.id)),
+		[filteredClients]
+	);
+	const hasCompleteFilteredDataset = pagination.totalPages <= 1;
+	const canActivateAllFilteredMode = hasCompleteFilteredDataset && deletableVisibleClientIds.length > 0;
+	const allFilteredCount = canActivateAllFilteredMode ? deletableVisibleClientIds.length : undefined;
+	const hasSelectionContext = selectedIds.size > 0 || isAllFilteredSelected;
+	const selectedCount = isAllFilteredSelected
+		? (allFilteredCount ?? selectedIds.size)
+		: selectedIds.size;
+	const areAllVisibleSelected =
+		deletableVisibleClientIds.length > 0 &&
+		deletableVisibleClientIds.every((idKey) => selectedIds.has(idKey));
+	const isVisibleSelectionIndeterminate =
+		!areAllVisibleSelected &&
+		deletableVisibleClientIds.some((idKey) => selectedIds.has(idKey));
+	const canShowSelectAllResultsLink =
+		!isAllFilteredSelected &&
+		canActivateAllFilteredMode &&
+		selectedIds.size > 0 &&
+		deletableVisibleClientIds.length > selectedIds.size;
+	const selectedClientsById = useMemo(
+		() =>
+			new Map<string, Cliente>(
+				combinedClients
+					.filter((client) => client.id !== undefined && client.id !== null)
+					.map((client) => [toClientIdKey(client.id), client])
+			),
+		[combinedClients]
+	);
+
+	const selectionScopeKey = useMemo(
+		() => JSON.stringify({
+			search: filters.search,
+			tipoCuenta: filters.tipoCuenta,
+			estadoCliente: filters.estadoCliente,
+		}),
+		[filters.estadoCliente, filters.search, filters.tipoCuenta]
+	);
+
+	useEffect(() => {
+		setSelectedIds(new Set());
+		setIsAllFilteredSelected(false);
+		setBulkDeleteDialog(BULK_DELETE_DIALOG_INITIAL_STATE);
+	}, [selectionScopeKey]);
+
+	useEffect(() => {
+		if (!isAllFilteredSelected) {
+			return;
+		}
+		if (!canActivateAllFilteredMode) {
+			setIsAllFilteredSelected(false);
+			setSelectedIds(new Set());
+			return;
+		}
+		setSelectedIds(new Set(deletableVisibleClientIds));
+	}, [canActivateAllFilteredMode, deletableVisibleClientIds, isAllFilteredSelected]);
+
+	useEffect(() => {
+		if (isAllFilteredSelected) {
+			return;
+		}
+
+		const availableVisibleIds = new Set(visibleClientIds);
+		setSelectedIds((prev) => {
+			let changed = false;
+			const next = new Set<string>();
+			prev.forEach((idKey) => {
+				if (availableVisibleIds.has(idKey)) {
+					next.add(idKey);
+				} else {
+					changed = true;
+				}
+			});
+			return changed ? next : prev;
+		});
+	}, [isAllFilteredSelected, visibleClientIds]);
 
 	useEffect(() => {
 		if (!exportMenuOpen) return;
@@ -1204,6 +1309,68 @@ function ClientesPage() {
 		setShowDeleteModal(true);
 	};
 
+	const clearBulkSelection = useCallback(() => {
+		setSelectedIds(new Set());
+		setIsAllFilteredSelected(false);
+	}, []);
+
+	const handleToggleSelectVisible = useCallback((checked: boolean) => {
+		setIsAllFilteredSelected(false);
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (checked) {
+				deletableVisibleClientIds.forEach((idKey) => next.add(idKey));
+			} else {
+				deletableVisibleClientIds.forEach((idKey) => next.delete(idKey));
+			}
+			return next;
+		});
+	}, [deletableVisibleClientIds]);
+
+	const handleToggleSelectClient = useCallback((client: Cliente, checked: boolean) => {
+		if (!canDeleteClient(client)) {
+			return;
+		}
+		setIsAllFilteredSelected(false);
+		const idKey = toClientIdKey(client.id);
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (checked) {
+				next.add(idKey);
+			} else {
+				next.delete(idKey);
+			}
+			return next;
+		});
+	}, []);
+
+	const handleSelectAllFiltered = useCallback(() => {
+		if (!canActivateAllFilteredMode) {
+			return;
+		}
+		setSelectedIds(new Set(deletableVisibleClientIds));
+		setIsAllFilteredSelected(true);
+	}, [canActivateAllFilteredMode, deletableVisibleClientIds]);
+
+	const openBulkDeleteDialog = useCallback(() => {
+		const targetIds = isAllFilteredSelected
+			? deletableVisibleClientIds
+			: Array.from(selectedIds);
+
+		if (targetIds.length === 0) {
+			showToast('info', 'Sin selección', 'Selecciona al menos un cliente para eliminar.');
+			return;
+		}
+
+		setBulkDeleteDialog({
+			isOpen: true,
+			targetIds,
+			isAllMode: isAllFilteredSelected,
+			step: 1,
+			confirmText: '',
+		});
+	}, [deletableVisibleClientIds, isAllFilteredSelected, selectedIds, showToast]);
+
 		const handleToggleClientEnabled = async (client: Cliente) => {
 			const nextEnabled = !client.enabled;
 			const nextEstadoCliente: ClienteFormData['estadoCliente'] = nextEnabled ? 'Habilitado' : 'Deshabilitado';
@@ -1233,6 +1400,80 @@ function ClientesPage() {
 		setShowDeleteModal(false);
 		setClientToDelete(null);
 	};
+
+	const closeBulkDeleteDialog = useCallback(() => {
+		setBulkDeleteDialog(BULK_DELETE_DIALOG_INITIAL_STATE);
+	}, []);
+
+	const deleteClientesBatch = useCallback(async (
+		ids: string[],
+		options?: { isAllMode?: boolean }
+	): Promise<void> => {
+		const planIds = ids
+			.map((idKey) => selectedClientsById.get(idKey))
+			.filter((client): client is Cliente => Boolean(client))
+			.filter(canDeleteClient)
+			.map((client) => client.id);
+
+		if (planIds.length === 0) {
+			showToast('warning', 'Sin elementos eliminables', 'No hay clientes válidos para eliminar.');
+			return;
+		}
+
+		let deletedCount = 0;
+		for (const id of planIds) {
+			const success = await deleteCliente(id, { silent: true });
+			if (success) {
+				deletedCount += 1;
+			}
+		}
+
+		if (deletedCount > 0) {
+			showToast(
+				'success',
+				deletedCount === 1 ? 'Cliente eliminado' : 'Clientes eliminados',
+				deletedCount === 1
+					? 'El cliente fue eliminado exitosamente'
+					: `Se eliminaron ${deletedCount} clientes exitosamente`
+			);
+		}
+
+		if (deletedCount < planIds.length) {
+			const failedCount = planIds.length - deletedCount;
+			showToast(
+				'warning',
+				'Eliminación parcial',
+				`${failedCount} cliente(s) no se pudo/pudieron eliminar.`
+			);
+		}
+
+		if (options?.isAllMode) {
+			setIsAllFilteredSelected(false);
+		}
+		clearBulkSelection();
+		closeBulkDeleteDialog();
+	}, [clearBulkSelection, closeBulkDeleteDialog, deleteCliente, selectedClientsById, showToast]);
+
+	const handleConfirmBulkDelete = useCallback(async () => {
+		if (!bulkDeleteDialog.isOpen) {
+			return;
+		}
+
+		if (bulkDeleteDialog.isAllMode && bulkDeleteDialog.step === 1) {
+			setBulkDeleteDialog((prev) => ({ ...prev, step: 2 }));
+			return;
+		}
+
+		if (bulkDeleteDialog.isAllMode && bulkDeleteDialog.step === 2) {
+			const normalized = bulkDeleteDialog.confirmText.trim().toUpperCase();
+			if (normalized !== 'ELIMINAR' && normalized !== 'ELIMINAR TODO') {
+				showToast('warning', 'Confirmación requerida', 'Escribe ELIMINAR o ELIMINAR TODO para continuar.');
+				return;
+			}
+		}
+
+		await deleteClientesBatch(bulkDeleteDialog.targetIds, { isAllMode: bulkDeleteDialog.isAllMode });
+	}, [bulkDeleteDialog, deleteClientesBatch, showToast]);
 
 	const handleUpdateClient = async () => {
 		// Validaciones similares a handleCreateClient
@@ -1795,6 +2036,43 @@ function ClientesPage() {
 					</div>
 				</div>
 
+				{hasSelectionContext && (
+					<div className="px-6 pt-3">
+						<div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-800">
+							<span className="font-medium text-gray-700 dark:text-gray-200">
+								{isAllFilteredSelected ? `Todos seleccionados (${selectedCount})` : `${selectedCount} seleccionados`}
+							</span>
+							{canShowSelectAllResultsLink && (
+								<button
+									type="button"
+									onClick={handleSelectAllFiltered}
+									className="text-xs text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline dark:text-gray-400 dark:hover:text-gray-200"
+								>
+									{allFilteredCount !== undefined
+										? `Seleccionar todos los resultados (${allFilteredCount})`
+										: 'Seleccionar todos los resultados'}
+								</button>
+							)}
+							<div className="ml-auto flex items-center gap-2">
+								<button
+									type="button"
+									onClick={clearBulkSelection}
+									className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+								>
+									Limpiar
+								</button>
+								<button
+									type="button"
+									onClick={openBulkDeleteDialog}
+									className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+								>
+									Eliminar
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
 				<div className="flex-1 flex flex-col">
 					<div className="flex-1 px-6 pt-6 pb-6">
 						{loading ? (
@@ -1837,6 +2115,12 @@ function ClientesPage() {
 											onDeleteClient={handleDeleteClient}
 											onToggleClientEnabled={handleToggleClientEnabled}
 											selectedClientId={activeClientId}
+											selectedIds={selectedIds}
+											areAllVisibleSelected={areAllVisibleSelected}
+											isVisibleSelectionIndeterminate={isVisibleSelectionIndeterminate}
+											isClientSelectable={canDeleteClient}
+											onToggleSelectVisible={handleToggleSelectVisible}
+											onToggleSelectClient={handleToggleSelectClient}
 										/>
 						)}
 					</div>
@@ -1962,6 +2246,92 @@ function ClientesPage() {
 				cancelText="Cancelar"
 				confirmButtonStyle="primary"
 			/>
+
+			{bulkDeleteDialog.isOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+					<div className="w-full max-w-lg rounded-xl bg-white shadow-xl dark:bg-gray-800">
+						<div className="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+							<h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+								Eliminar clientes
+							</h3>
+						</div>
+						<div className="space-y-3 px-5 py-4 text-sm text-gray-700 dark:text-gray-200">
+							{bulkDeleteDialog.isAllMode && bulkDeleteDialog.step === 1 ? (
+								<p>
+									Eliminarás {bulkDeleteDialog.targetIds.length} clientes de los resultados filtrados. Esta acción no se puede deshacer.
+								</p>
+							) : (
+								<p>Se eliminarán {bulkDeleteDialog.targetIds.length} clientes.</p>
+							)}
+
+							{(() => {
+								const previewClients = bulkDeleteDialog.targetIds
+									.slice(0, 5)
+									.map((idKey) => selectedClientsById.get(idKey))
+									.filter((client): client is Cliente => Boolean(client));
+
+								if (previewClients.length === 0) {
+									return null;
+								}
+
+								const remaining = bulkDeleteDialog.targetIds.length - previewClients.length;
+								return (
+									<div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+										<ul className="space-y-1">
+											{previewClients.map((client) => (
+												<li key={client.id} className="truncate text-xs text-gray-600 dark:text-gray-300">
+													• {resolveClientDisplayName(client)}
+												</li>
+											))}
+										</ul>
+										{remaining > 0 && (
+											<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">y {remaining} más</p>
+										)}
+									</div>
+								);
+							})()}
+
+							{bulkDeleteDialog.isAllMode && bulkDeleteDialog.step === 2 && (
+								<div className="space-y-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 dark:border-red-700/50 dark:bg-red-900/20">
+									<p className="text-xs text-red-700 dark:text-red-300">Escribe ELIMINAR o ELIMINAR TODO para habilitar la acción final.</p>
+									<input
+										type="text"
+										value={bulkDeleteDialog.confirmText}
+										onChange={(event) => setBulkDeleteDialog((prev) => ({ ...prev, confirmText: event.target.value }))}
+										className="h-9 w-full rounded-md border border-red-300 bg-white px-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-red-700 dark:bg-gray-800 dark:text-gray-100"
+										placeholder="ELIMINAR"
+									/>
+								</div>
+							)}
+						</div>
+						<div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-700">
+							<button
+								type="button"
+								onClick={closeBulkDeleteDialog}
+								className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+							>
+								Cancelar
+							</button>
+							<button
+								type="button"
+								onClick={() => void handleConfirmBulkDelete()}
+								disabled={
+									bulkDeleteDialog.isAllMode &&
+									bulkDeleteDialog.step === 2 &&
+									!['ELIMINAR', 'ELIMINAR TODO'].includes(bulkDeleteDialog.confirmText.trim().toUpperCase())
+								}
+								className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+							>
+								{bulkDeleteDialog.isAllMode && bulkDeleteDialog.step === 1
+									? 'Continuar'
+									: bulkDeleteDialog.isAllMode
+										? 'Eliminar definitivamente'
+										: 'Eliminar'}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</>
 	);
 }

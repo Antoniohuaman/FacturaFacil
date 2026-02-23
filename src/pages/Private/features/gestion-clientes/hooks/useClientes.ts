@@ -167,18 +167,23 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
   /**
    * Eliminar cliente
    */
-  const deleteCliente = useCallback(async (id: number | string): Promise<boolean> => {
+  const deleteCliente = useCallback(async (
+    id: number | string,
+    options?: { silent?: boolean }
+  ): Promise<boolean> => {
     setLoading(true);
     setError(null);
 
     try {
       await clientesClient.deleteCliente(id);
 
-      showToast(
-        'success',
-        'Cliente eliminado',
-        'El cliente fue eliminado exitosamente'
-      );
+      if (!options?.silent) {
+        showToast(
+          'success',
+          'Cliente eliminado',
+          'El cliente fue eliminado exitosamente'
+        );
+      }
 
       // Remover de la lista local
       setClientes((prev) => prev.filter((c) => c.id !== id));
@@ -190,7 +195,9 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
     } catch (err: any) {
       const errorMessage = err.message || 'Error al eliminar cliente';
       setError(errorMessage);
-      showToast('error', 'Error al eliminar cliente', errorMessage);
+      if (!options?.silent) {
+        showToast('error', 'Error al eliminar cliente', errorMessage);
+      }
       return false;
     } finally {
       setLoading(false);
