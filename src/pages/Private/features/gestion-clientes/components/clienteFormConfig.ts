@@ -6,8 +6,7 @@ export type ClienteFieldId =
   | 'avatar'
   | 'razonSocial'
   | 'nombreComercial'
-  | 'primerNombre'
-  | 'segundoNombre'
+  | 'nombres'
   | 'apellidoPaterno'
   | 'apellidoMaterno'
   | 'nombreCompleto'
@@ -56,8 +55,7 @@ export const CLIENTE_FIELD_CONFIGS: ClienteFieldConfig[] = [
   { id: 'avatar', label: 'Avatar del cliente' },
   { id: 'razonSocial', label: 'Razón social', defaultRequired: true },
   { id: 'nombreComercial', label: 'Nombre comercial' },
-  { id: 'primerNombre', label: 'Primer nombre', defaultRequired: true },
-  { id: 'segundoNombre', label: 'Segundo nombre' },
+  { id: 'nombres', label: 'Nombres', defaultRequired: true },
   { id: 'apellidoPaterno', label: 'Apellido paterno', defaultRequired: true },
   { id: 'apellidoMaterno', label: 'Apellido materno', defaultRequired: true },
   { id: 'nombreCompleto', label: 'Nombre completo (auto)' },

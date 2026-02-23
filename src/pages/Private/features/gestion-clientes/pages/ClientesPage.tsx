@@ -306,6 +306,7 @@ const resolveNameParts = (client: Cliente) => {
 		tipoPersona: client.tipoPersona,
 		razonSocial: client.razonSocial,
 		nombreCompleto: client.nombreCompleto,
+		nombres: client.nombres,
 		primerNombre: client.primerNombre,
 		segundoNombre: client.segundoNombre,
 		apellidoPaterno: client.apellidoPaterno,
@@ -316,8 +317,7 @@ const resolveNameParts = (client: Cliente) => {
 	});
 
 	return {
-		primerNombre: resolved.primerNombre,
-		segundoNombre: resolved.segundoNombre,
+		nombres: resolved.nombres,
 		apellidoPaterno: resolved.apellidoPaterno,
 		apellidoMaterno: resolved.apellidoMaterno,
 	};
@@ -399,8 +399,7 @@ const mapClientToBasicRow = (client: Cliente): Record<string, string> => {
 		razonSocial: isRUC ? (client.razonSocial?.trim() || client.name || '') : '',
 		apellidoPaterno: isRUC ? '' : names.apellidoPaterno,
 		apellidoMaterno: isRUC ? '' : names.apellidoMaterno,
-		nombre1: isRUC ? '' : names.primerNombre,
-		nombre2: isRUC ? '' : names.segundoNombre,
+		nombres: isRUC ? '' : names.nombres,
 		telefono: phones[0]?.numero ?? '',
 		correo: emails[0] ?? '',
 		direccion: resolveDireccion(client),
@@ -433,8 +432,7 @@ const mapClientToCompleteRow = (
 		nombreComercial: client.nombreComercial?.trim() ?? '',
 		apellidoPaterno: names.apellidoPaterno,
 		apellidoMaterno: names.apellidoMaterno,
-		nombre1: names.primerNombre,
-		nombre2: names.segundoNombre,
+		nombres: names.nombres,
 		nombreCompleto: client.nombreCompleto?.trim() ?? client.name ?? '',
 		correo1: emails[0] ?? '',
 		correo2: emails[1] ?? '',
@@ -588,6 +586,7 @@ function ClientesPage() {
 		nombreComercial: '',
 		
 		// Nombres (Natural)
+		nombres: '',
 		primerNombre: '',
 		segundoNombre: '',
 		apellidoPaterno: '',
@@ -666,8 +665,7 @@ function ClientesPage() {
 			{ header: 'RAZON SOCIAL', key: 'razonSocial', width: 32 },
 			{ header: 'APELLIDO PATERNO', key: 'apellidoPaterno', width: 24 },
 			{ header: 'APELLIDO MATERNO', key: 'apellidoMaterno', width: 24 },
-			{ header: 'NOMBRE 1', key: 'nombre1', width: 22 },
-			{ header: 'NOMBRE 2', key: 'nombre2', width: 22 },
+			{ header: 'NOMBRES', key: 'nombres', width: 28 },
 			{ header: 'TELEFONO', key: 'telefono', width: 20 },
 			{ header: 'CORREO', key: 'correo', width: 32 },
 			{ header: 'DIRECCION', key: 'direccion', width: 36 },
@@ -691,8 +689,7 @@ function ClientesPage() {
 			{ header: 'NOMBRE COMERCIAL', key: 'nombreComercial', width: 28 },
 			{ header: 'APELLIDO PATERNO', key: 'apellidoPaterno', width: 24 },
 			{ header: 'APELLIDO MATERNO', key: 'apellidoMaterno', width: 24 },
-			{ header: 'NOMBRE 1', key: 'nombre1', width: 22 },
-			{ header: 'NOMBRE 2', key: 'nombre2', width: 22 },
+			{ header: 'NOMBRES', key: 'nombres', width: 28 },
 			{ header: 'NOMBRE COMPLETO', key: 'nombreCompleto', width: 36 },
 			{ header: 'CORREO 1', key: 'correo1', width: 28 },
 			{ header: 'CORREO 2', key: 'correo2', width: 28 },
@@ -911,8 +908,8 @@ function ClientesPage() {
 			return false;
 		}
 
-		if (!esRUC && !formData.primerNombre.trim()) {
-			showToast('warning', 'Campo requerido', 'El primer nombre es obligatorio');
+		if (!esRUC && !formData.nombres.trim()) {
+			showToast('warning', 'Campo requerido', 'El campo Nombres es obligatorio');
 			return false;
 		}
 
@@ -977,6 +974,7 @@ function ClientesPage() {
 			tipoCuenta: formData.tipoCuenta,
 			razonSocial: formData.razonSocial.trim() || undefined,
 			nombreComercial: formData.nombreComercial.trim() || undefined,
+			nombres: formData.nombres.trim() || undefined,
 			primerNombre: formData.primerNombre.trim() || undefined,
 			segundoNombre: formData.segundoNombre.trim() || undefined,
 			apellidoPaterno: formData.apellidoPaterno.trim() || undefined,
@@ -1095,6 +1093,7 @@ function ClientesPage() {
 				tipoPersona: client.tipoPersona,
 				razonSocial: client.razonSocial,
 				nombreCompleto: client.nombreCompleto,
+				nombres: client.nombres,
 				primerNombre: client.primerNombre,
 				segundoNombre: client.segundoNombre,
 				apellidoPaterno: client.apellidoPaterno,
@@ -1104,6 +1103,7 @@ function ClientesPage() {
 				splitMode: 'import',
 			});
 
+			const nombres = resolvedNames.nombres;
 			const primerNombre = resolvedNames.primerNombre;
 			const segundoNombre = resolvedNames.segundoNombre;
 			const apellidoPaterno = resolvedNames.apellidoPaterno;
@@ -1143,6 +1143,7 @@ function ClientesPage() {
 				tipoCuenta: client.tipoCuenta || client.type,
 				razonSocial: client.razonSocial || (esRUC ? nombreBase : ''),
 				nombreComercial: client.nombreComercial || '',
+				nombres,
 				primerNombre,
 				segundoNombre,
 				apellidoPaterno,
@@ -1243,8 +1244,8 @@ function ClientesPage() {
 			return;
 		}
 
-		if (!esRUC && !formData.primerNombre.trim()) {
-			showToast('warning', 'Campo requerido', 'El primer nombre es obligatorio');
+		if (!esRUC && !formData.nombres.trim()) {
+			showToast('warning', 'Campo requerido', 'El campo Nombres es obligatorio');
 			return;
 		}
 
@@ -1309,6 +1310,7 @@ function ClientesPage() {
 			tipoCuenta: formData.tipoCuenta,
 			razonSocial: formData.razonSocial.trim() || undefined,
 			nombreComercial: formData.nombreComercial.trim() || undefined,
+			nombres: formData.nombres.trim() || undefined,
 			primerNombre: formData.primerNombre.trim() || undefined,
 			segundoNombre: formData.segundoNombre.trim() || undefined,
 			apellidoPaterno: formData.apellidoPaterno.trim() || undefined,

@@ -19,6 +19,7 @@ import {
 } from '@/shared/catalogos/ubigeo.pe';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
+import { normalizarNombres } from '../utils/names';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
@@ -660,26 +661,80 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     [formData.tipoDocumento, handleFieldChange]
   );
 
+  const normalizeNaturalNames = useCallback((): boolean => {
+    if (formData.tipoDocumento === '6') {
+      return false;
+    }
+
+    const normalizedNames = normalizarNombres({
+      nombres: formData.nombres,
+      apellidoPaterno: formData.apellidoPaterno,
+      apellidoMaterno: formData.apellidoMaterno,
+      nombreCompleto: formData.nombreCompleto,
+    });
+
+    let hasChanges = false;
+
+    if (normalizedNames.nombres !== formData.nombres) {
+      handleFieldChange('nombres', normalizedNames.nombres, 'nombres');
+      hasChanges = true;
+    }
+
+    if (normalizedNames.primerNombre !== formData.primerNombre) {
+      handleFieldChange('primerNombre', normalizedNames.primerNombre, 'nombres');
+      hasChanges = true;
+    }
+
+    if (normalizedNames.segundoNombre !== formData.segundoNombre) {
+      handleFieldChange('segundoNombre', normalizedNames.segundoNombre, 'nombres');
+      hasChanges = true;
+    }
+
+    if (normalizedNames.apellidoPaterno !== formData.apellidoPaterno) {
+      handleFieldChange('apellidoPaterno', normalizedNames.apellidoPaterno, 'apellidoPaterno');
+      hasChanges = true;
+    }
+
+    if (normalizedNames.apellidoMaterno !== formData.apellidoMaterno) {
+      handleFieldChange('apellidoMaterno', normalizedNames.apellidoMaterno, 'apellidoMaterno');
+      hasChanges = true;
+    }
+
+    if (normalizedNames.nombreCompleto !== formData.nombreCompleto) {
+      handleFieldChange('nombreCompleto', normalizedNames.nombreCompleto, 'nombreCompleto');
+      hasChanges = true;
+    }
+
+    return hasChanges;
+  }, [
+    formData.apellidoMaterno,
+    formData.apellidoPaterno,
+    formData.nombres,
+    formData.nombreCompleto,
+    formData.primerNombre,
+    formData.segundoNombre,
+    formData.tipoDocumento,
+    handleFieldChange,
+  ]);
+
   // Actualizar nombreCompleto automáticamente
   useEffect(() => {
     if (formData.tipoDocumento !== '6') {
-      const nombreCompleto = [
-        formData.primerNombre,
-        formData.segundoNombre,
-        formData.apellidoPaterno,
-        formData.apellidoMaterno
-      ].filter(Boolean).join(' ').trim();
-      
-      if (nombreCompleto !== formData.nombreCompleto) {
-        handleFieldChange('nombreCompleto', nombreCompleto, 'nombreCompleto');
+      const normalizedNames = normalizarNombres({
+        nombres: formData.nombres,
+        apellidoPaterno: formData.apellidoPaterno,
+        apellidoMaterno: formData.apellidoMaterno,
+      });
+
+      if (normalizedNames.nombreCompleto !== formData.nombreCompleto) {
+        handleFieldChange('nombreCompleto', normalizedNames.nombreCompleto, 'nombreCompleto');
       }
     } else if (formData.razonSocial && formData.razonSocial !== formData.nombreCompleto) {
       // Para RUC, nombreCompleto = razonSocial
       handleFieldChange('nombreCompleto', formData.razonSocial, 'nombreCompleto');
     }
   }, [
-    formData.primerNombre,
-    formData.segundoNombre,
+    formData.nombres,
     formData.apellidoPaterno,
     formData.apellidoMaterno,
     formData.razonSocial,
@@ -1309,8 +1364,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
         nextErrors.razonSocial = `${getFieldLabel('razonSocial')} es obligatorio`;
       }
     } else {
-      if (!formData.primerNombre.trim()) {
-        nextErrors.primerNombre = `${getFieldLabel('primerNombre')} es obligatorio`;
+      if (!formData.nombres.trim()) {
+        nextErrors.nombres = `${getFieldLabel('nombres')} es obligatorio`;
       }
       if (!formData.apellidoPaterno.trim()) {
         nextErrors.apellidoPaterno = `${getFieldLabel('apellidoPaterno')} es obligatorio`;
@@ -1336,8 +1391,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     formData.apellidoPaterno,
     formData.estadoCliente,
     formData.motivoDeshabilitacion,
+    formData.nombres,
     formData.numeroDocumento,
-    formData.primerNombre,
     formData.razonSocial,
     formData.tipoDocumento,
     getFieldLabel,
@@ -1387,8 +1442,10 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
     const response = await consultarReniec(formData.numeroDocumento);
 
     if (response?.success && response.data) {
-      handleFieldChange('primerNombre', response.data.nombres?.split(' ')[0] || '', 'primerNombre');
-      handleFieldChange('segundoNombre', response.data.nombres?.split(' ').slice(1).join(' ') || '', 'segundoNombre');
+      const normalizedNames = normalizarNombres({ nombres: response.data.nombres || '' });
+      handleFieldChange('nombres', normalizedNames.nombres, 'nombres');
+      handleFieldChange('primerNombre', normalizedNames.primerNombre, 'nombres');
+      handleFieldChange('segundoNombre', normalizedNames.segundoNombre, 'nombres');
       handleFieldChange('apellidoPaterno', response.data.apellidoPaterno || '', 'apellidoPaterno');
       handleFieldChange('apellidoMaterno', response.data.apellidoMaterno || '', 'apellidoMaterno');
     }
@@ -1501,7 +1558,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
         return esRUC && formData.esEmisorElectronico;
       }
       if (
-        ['primerNombre', 'segundoNombre', 'apellidoPaterno', 'apellidoMaterno', 'nombreCompleto'].includes(fieldId)
+        ['nombres', 'apellidoPaterno', 'apellidoMaterno', 'nombreCompleto'].includes(fieldId)
       ) {
         return !esRUC;
       }
@@ -1538,10 +1595,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
           return Boolean(formData.razonSocial?.trim());
         case 'nombreComercial':
           return Boolean(formData.nombreComercial?.trim());
-        case 'primerNombre':
-          return Boolean(formData.primerNombre?.trim());
-        case 'segundoNombre':
-          return Boolean(formData.segundoNombre?.trim());
+        case 'nombres':
+          return Boolean(formData.nombres?.trim());
         case 'apellidoPaterno':
           return Boolean(formData.apellidoPaterno?.trim());
         case 'apellidoMaterno':
@@ -1618,6 +1673,13 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
   const handleSaveClick = useCallback(() => {
     const executeSave = async () => {
+      if (formData.tipoDocumento !== '6') {
+        const hadNormalizationChanges = normalizeNaturalNames();
+        if (hadNormalizationChanges) {
+          await Promise.resolve();
+        }
+      }
+
       const businessValidation = validatePrimaryBusinessRequirements();
       if (!businessValidation.valid) {
         setFieldErrors((prev) => ({
@@ -1644,6 +1706,8 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
     void executeSave();
   }, [
+    formData.tipoDocumento,
+    normalizeNaturalNames,
     validatePrimaryBusinessRequirements,
     validateCustomFields,
     onSave,
@@ -2057,7 +2121,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
             )}
 
             {/* Nombres (solo Persona Natural) */}
-            {!esRUC && (isFieldRenderable('avatar') || isFieldRenderable('primerNombre') || isFieldRenderable('segundoNombre') || isFieldRenderable('apellidoPaterno') || isFieldRenderable('apellidoMaterno') || isFieldRenderable('nombreCompleto')) && (
+            {!esRUC && (isFieldRenderable('avatar') || isFieldRenderable('nombres') || isFieldRenderable('apellidoPaterno') || isFieldRenderable('apellidoMaterno') || isFieldRenderable('nombreCompleto')) && (
               <div>
                 <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 pb-1 border-b border-gray-200 dark:border-gray-700">
                   Datos personales
@@ -2085,40 +2149,26 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
                   {/* Campos de persona */}
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {isFieldRenderable('primerNombre') && (
+                    <div className="grid grid-cols-1 gap-2">
+                      {isFieldRenderable('nombres') && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Primer nombre{' '}
-                            {shouldShowRequiredIndicator('primerNombre') && <span className="text-red-500">*</span>}
+                            Nombres{' '}
+                            {shouldShowRequiredIndicator('nombres') && <span className="text-red-500">*</span>}
                           </label>
                           <input
                             type="text"
-                            value={formData.primerNombre}
-                            onChange={(e) => handleFieldChange('primerNombre', e.target.value, 'primerNombre')}
+                            value={formData.nombres}
+                            onChange={(e) => handleFieldChange('nombres', e.target.value, 'nombres')}
+                            onBlur={() => {
+                              normalizeNaturalNames();
+                            }}
                             className={getFieldInputClass(
-                              'primerNombre',
+                              'nombres',
                               'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
                             )}
                           />
-                          {renderFieldError('primerNombre')}
-                        </div>
-                      )}
-                      {isFieldRenderable('segundoNombre') && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Segundo nombre {shouldShowRequiredIndicator('segundoNombre') && <span className="text-red-500">*</span>}
-                          </label>
-                          <input
-                            type="text"
-                            value={formData.segundoNombre}
-                            onChange={(e) => handleFieldChange('segundoNombre', e.target.value, 'segundoNombre')}
-                            className={getFieldInputClass(
-                              'segundoNombre',
-                              'w-full border border-gray-300 dark:border-gray-600 rounded-md px-2.5 h-8 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
-                            )}
-                          />
-                          {renderFieldError('segundoNombre')}
+                          {renderFieldError('nombres')}
                         </div>
                       )}
                     </div>

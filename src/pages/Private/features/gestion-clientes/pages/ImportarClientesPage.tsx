@@ -32,7 +32,7 @@ import {
   resolveDocumentDefinition,
 } from '../utils/documents';
 import { isValidEmail, normalizeEmailList, sanitizePhones } from '../utils/contact';
-import { buildFullName, normalizeHumanName, splitFullName } from '../utils/names';
+import { buildFullName, normalizeHumanName, normalizarNombres } from '../utils/names';
 import { formatBusinessDateTimeForTicket, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 import { Tooltip } from '@/shared/ui';
 
@@ -70,8 +70,7 @@ const BASIC_TEMPLATE_HEADERS = [
   'RAZON SOCIAL',
   'APELLIDO PATERNO',
   'APELLIDO MATERNO',
-  'NOMBRE 1',
-  'NOMBRE 2',
+  'NOMBRES',
   'TELEFONO',
   'CORREO',
   'DIRECCION',
@@ -91,8 +90,8 @@ const BASIC_HEADER_NORMALIZED_TO_CANONICAL: Record<string, BasicTemplateHeader> 
   'RAZON SOCIAL': 'RAZON SOCIAL',
   'APELLIDO PATERNO': 'APELLIDO PATERNO',
   'APELLIDO MATERNO': 'APELLIDO MATERNO',
-  'NOMBRE 1': 'NOMBRE 1',
-  'NOMBRE 2': 'NOMBRE 2',
+  'NOMBRES': 'NOMBRES',
+  'NOMBRE 1': 'NOMBRES',
   'TELEFONO': 'TELEFONO',
   'TELÉFONO': 'TELEFONO',
   'CORREO': 'CORREO',
@@ -110,8 +109,8 @@ type BasicRowNormalized = {
   razonSocial: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
-  nombre1: string;
-  nombre2: string;
+  nombres: string;
+  nombresLegacySecundario: string;
   telefono: string;
   correo: string;
   direccion: string;
@@ -120,35 +119,59 @@ type BasicRowNormalized = {
   distrito: string;
 };
 
-const createHeaderIndexMap = <T extends string>(
+type HeaderResolution<T extends string> = {
+  indexMap: Record<T, number>;
+  legacyNombre2Index?: number;
+};
+
+const resolveTemplateHeaderIndexes = <T extends string>(
   headerRow: string[],
   expectedHeaders: readonly T[],
   dictionary: Record<string, T>,
-  modeLabel: string
-): Record<T, number> => {
+  modeLabel: string,
+  options?: { legacyNombre2Aliases?: string[] }
+): HeaderResolution<T> => {
   if (headerRow.length < expectedHeaders.length) {
     throw new Error(`La plantilla de ${modeLabel} no coincide con la versión oficial. Descarga el archivo nuevamente.`);
   }
 
   const indexMap = {} as Record<T, number>;
+  const extraHeaders: string[] = [];
+  const legacyAliases = new Set((options?.legacyNombre2Aliases ?? []).map(normalizeTemplateHeader));
+  let legacyNombre2Index: number | undefined;
 
-  expectedHeaders.forEach((expectedHeader, index) => {
-    const rawHeader = headerRow[index] ?? '';
-    const canonical = dictionary[normalizeTemplateHeader(rawHeader)];
-    if (!canonical || canonical !== expectedHeader) {
-      throw new Error(`Los encabezados del archivo no coinciden con la plantilla oficial de ${modeLabel}. Descárgala nuevamente antes de importar.`);
+  headerRow.forEach((rawHeader, index) => {
+    const normalized = normalizeTemplateHeader(rawHeader ?? '');
+    if (!normalized) {
+      return;
     }
-    indexMap[expectedHeader] = index;
+
+    if (legacyAliases.has(normalized)) {
+      legacyNombre2Index = index;
+      return;
+    }
+
+    const canonical = dictionary[normalized];
+    if (!canonical) {
+      extraHeaders.push(rawHeader.toString().trim());
+      return;
+    }
+
+    if (indexMap[canonical] === undefined) {
+      indexMap[canonical] = index;
+    }
   });
 
-  for (let idx = expectedHeaders.length; idx < headerRow.length; idx += 1) {
-    const extra = headerRow[idx];
-    if (extra && extra.toString().trim() !== '') {
-      throw new Error(`Se detectaron columnas adicionales en el archivo. Utiliza la plantilla oficial de ${modeLabel} sin agregar ni reordenar columnas.`);
-    }
+  const missingHeaders = expectedHeaders.filter((header) => indexMap[header] === undefined);
+  if (missingHeaders.length > 0) {
+    throw new Error(`Los encabezados del archivo no coinciden con la plantilla oficial de ${modeLabel}. Descárgala nuevamente antes de importar.`);
   }
 
-  return indexMap;
+  if (extraHeaders.length > 0) {
+    throw new Error(`Se detectaron columnas adicionales en el archivo. Utiliza la plantilla oficial de ${modeLabel} sin agregar ni reordenar columnas.`);
+  }
+
+  return { indexMap, legacyNombre2Index };
 };
 
 const COMPLETE_TEMPLATE_HEADERS = [
@@ -159,8 +182,7 @@ const COMPLETE_TEMPLATE_HEADERS = [
   'NOMBRE COMERCIAL',
   'APELLIDO PATERNO',
   'APELLIDO MATERNO',
-  'NOMBRE 1',
-  'NOMBRE 2',
+  'NOMBRES',
   'TELEFONO 1',
   'TELEFONO 2',
   'TELEFONO 3',
@@ -186,8 +208,8 @@ const COMPLETE_HEADER_NORMALIZED_TO_CANONICAL: Record<string, CompleteTemplateHe
   'NOMBRE COMERCIAL': 'NOMBRE COMERCIAL',
   'APELLIDO PATERNO': 'APELLIDO PATERNO',
   'APELLIDO MATERNO': 'APELLIDO MATERNO',
-  'NOMBRE 1': 'NOMBRE 1',
-  'NOMBRE 2': 'NOMBRE 2',
+  'NOMBRES': 'NOMBRES',
+  'NOMBRE 1': 'NOMBRES',
   'TELEFONO 1': 'TELEFONO 1',
   'TELEFONO 2': 'TELEFONO 2',
   'TELEFONO 3': 'TELEFONO 3',
@@ -215,8 +237,8 @@ type CompleteRowNormalized = {
   nombreComercial: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
-  nombre1: string;
-  nombre2: string;
+  nombres: string;
+  nombresLegacySecundario: string;
   telefono1: string;
   telefono2: string;
   telefono3: string;
@@ -319,8 +341,9 @@ const collectPhones = (
 
 const buildBasicRow = (
   values: string[],
-  indexMap: Record<BasicTemplateHeader, number>
+  resolution: HeaderResolution<BasicTemplateHeader>
 ): BasicRowNormalized => {
+  const { indexMap, legacyNombre2Index } = resolution;
   const read = (header: BasicTemplateHeader): string => {
     const idx = indexMap[header];
     if (idx === undefined) {
@@ -336,8 +359,8 @@ const buildBasicRow = (
     razonSocial: read('RAZON SOCIAL').trim(),
     apellidoPaterno: read('APELLIDO PATERNO').trim(),
     apellidoMaterno: read('APELLIDO MATERNO').trim(),
-    nombre1: read('NOMBRE 1').trim(),
-    nombre2: read('NOMBRE 2').trim(),
+    nombres: read('NOMBRES').trim(),
+    nombresLegacySecundario: legacyNombre2Index !== undefined ? (values[legacyNombre2Index] ?? '').trim() : '',
     telefono: read('TELEFONO').trim(),
     correo: read('CORREO').trim(),
     direccion: read('DIRECCION').trim(),
@@ -349,8 +372,9 @@ const buildBasicRow = (
 
 const buildCompleteRow = (
   values: string[],
-  indexMap: Record<CompleteTemplateHeader, number>
+  resolution: HeaderResolution<CompleteTemplateHeader>
 ): CompleteRowNormalized => {
+  const { indexMap, legacyNombre2Index } = resolution;
   const read = (header: CompleteTemplateHeader): string => {
     const idx = indexMap[header];
     if (idx === undefined) {
@@ -367,8 +391,8 @@ const buildCompleteRow = (
     nombreComercial: read('NOMBRE COMERCIAL').trim(),
     apellidoPaterno: read('APELLIDO PATERNO').trim(),
     apellidoMaterno: read('APELLIDO MATERNO').trim(),
-    nombre1: read('NOMBRE 1').trim(),
-    nombre2: read('NOMBRE 2').trim(),
+    nombres: read('NOMBRES').trim(),
+    nombresLegacySecundario: legacyNombre2Index !== undefined ? (values[legacyNombre2Index] ?? '').trim() : '',
     telefono1: read('TELEFONO 1').trim(),
     telefono2: read('TELEFONO 2').trim(),
     telefono3: read('TELEFONO 3').trim(),
@@ -384,6 +408,9 @@ const buildCompleteRow = (
     ubigeo: read('UBIGEO').trim(),
   };
 };
+
+const resolveNombresFromImport = (nombres: string, legacyNombre2?: string): string =>
+  normalizeHumanName([nombres, legacyNombre2].filter((value) => Boolean(value && value.trim())).join(' '));
 
 const buildDtoFromBasicRecord = (
   row: BasicRowNormalized,
@@ -423,14 +450,18 @@ const buildDtoFromBasicRecord = (
       missingColumns.push('RAZON SOCIAL');
     }
   } else {
+    const nombresFromRow = resolveNombresFromImport(row.nombres, row.nombresLegacySecundario);
+    const normalizedNames = normalizarNombres({
+      nombres: nombresFromRow,
+    });
     if (!row.apellidoPaterno) {
       missingColumns.push('APELLIDO PATERNO');
     }
     if (!row.apellidoMaterno) {
       missingColumns.push('APELLIDO MATERNO');
     }
-    if (!row.nombre1) {
-      missingColumns.push('NOMBRE 1');
+    if (!normalizedNames.nombres) {
+      missingColumns.push('NOMBRES');
     }
   }
 
@@ -465,14 +496,15 @@ const buildDtoFromBasicRecord = (
   }
 
   const tipoPersona = documentType === 'RUC' ? 'Juridica' : 'Natural';
+  const nombresFromRow = resolveNombresFromImport(row.nombres, row.nombresLegacySecundario);
+  const normalizedNaturalNames = normalizarNombres({
+    nombres: nombresFromRow,
+    apellidoPaterno: row.apellidoPaterno,
+    apellidoMaterno: row.apellidoMaterno,
+  });
   const nombreCompleto = documentType === 'RUC'
     ? normalizeHumanName(row.razonSocial)
-    : buildFullName({
-        primerNombre: row.nombre1,
-        segundoNombre: row.nombre2,
-        apellidoPaterno: row.apellidoPaterno,
-        apellidoMaterno: row.apellidoMaterno,
-      });
+    : buildFullName(normalizedNaturalNames);
 
   const payload: CreateClienteDTO = {
     documentType,
@@ -489,12 +521,11 @@ const buildDtoFromBasicRecord = (
   if (documentType === 'RUC') {
     payload.razonSocial = normalizeHumanName(row.razonSocial);
   } else {
-    payload.primerNombre = row.nombre1.trim();
-    if (row.nombre2.trim()) {
-      payload.segundoNombre = row.nombre2.trim();
-    }
-    payload.apellidoPaterno = row.apellidoPaterno.trim();
-    payload.apellidoMaterno = row.apellidoMaterno.trim();
+    payload.nombres = normalizedNaturalNames.nombres;
+    payload.primerNombre = normalizedNaturalNames.primerNombre || undefined;
+    payload.segundoNombre = normalizedNaturalNames.segundoNombre || undefined;
+    payload.apellidoPaterno = normalizedNaturalNames.apellidoPaterno;
+    payload.apellidoMaterno = normalizedNaturalNames.apellidoMaterno;
   }
 
   if (emails.length > 0) {
@@ -587,14 +618,18 @@ const buildDtoFromCompleteRecord = (
       missingColumns.push('RAZON SOCIAL');
     }
   } else {
+    const nombresFromRow = resolveNombresFromImport(row.nombres, row.nombresLegacySecundario);
+    const normalizedNames = normalizarNombres({
+      nombres: nombresFromRow,
+    });
     if (!row.apellidoPaterno) {
       missingColumns.push('APELLIDO PATERNO');
     }
     if (!row.apellidoMaterno) {
       missingColumns.push('APELLIDO MATERNO');
     }
-    if (!row.nombre1) {
-      missingColumns.push('NOMBRE 1');
+    if (!normalizedNames.nombres) {
+      missingColumns.push('NOMBRES');
     }
   }
 
@@ -633,16 +668,17 @@ const buildDtoFromCompleteRecord = (
     return null;
   }
 
-  const nombreNaturalPartes = buildFullName({
-    primerNombre: row.nombre1,
-    segundoNombre: row.nombre2,
+  const nombresFromRow = resolveNombresFromImport(row.nombres, row.nombresLegacySecundario);
+  const normalizedNaturalNames = normalizarNombres({
+    nombres: nombresFromRow,
     apellidoPaterno: row.apellidoPaterno,
     apellidoMaterno: row.apellidoMaterno,
   });
+  const nombreNaturalPartes = buildFullName(normalizedNaturalNames);
 
   const nombreNatural = docDefinition.legacy === 'RUC'
     ? undefined
-    : splitFullName(nombreNaturalPartes, 'import');
+    : normalizedNaturalNames;
   const nombrePrincipal = docDefinition.legacy === 'RUC'
     ? normalizeHumanName(row.razonSocial)
     : nombreNaturalPartes || normalizeHumanName(row.razonSocial);
@@ -668,6 +704,7 @@ const buildDtoFromCompleteRecord = (
     tipoCuenta: clientType,
     razonSocial: docDefinition.legacy === 'RUC' ? normalizeHumanName(row.razonSocial) : undefined,
     nombreComercial: row.nombreComercial || undefined,
+    nombres: docDefinition.legacy === 'RUC' ? undefined : nombreNatural?.nombres,
     primerNombre: docDefinition.legacy === 'RUC' ? undefined : nombreNatural?.primerNombre,
     segundoNombre: docDefinition.legacy === 'RUC' ? undefined : nombreNatural?.segundoNombre,
     apellidoPaterno: docDefinition.legacy === 'RUC' ? undefined : nombreNatural?.apellidoPaterno,
@@ -703,19 +740,13 @@ const parseBasicSheet = (rows: Array<Array<string | number>>): ParseResult => {
   }
 
   const headerRow = (rows[0] || []).map((cell) => (cell ?? '').toString());
-  const headerIndexMap: Partial<Record<BasicTemplateHeader, number>> = {};
-
-  headerRow.forEach((cell, index) => {
-    const canonical = BASIC_HEADER_NORMALIZED_TO_CANONICAL[normalizeTemplateHeader(cell ?? '')];
-    if (canonical) {
-      headerIndexMap[canonical] = index;
-    }
-  });
-
-  const missingHeaders = BASIC_TEMPLATE_HEADERS.filter((header) => headerIndexMap[header] === undefined);
-  if (missingHeaders.length > 0) {
-    throw new Error('La plantilla no coincide con los encabezados oficiales. Descarga nuevamente el archivo desde el botón "Descargar plantilla".');
-  }
+  const headerResolution = resolveTemplateHeaderIndexes(
+    headerRow,
+    BASIC_TEMPLATE_HEADERS,
+    BASIC_HEADER_NORMALIZED_TO_CANONICAL,
+    'importación básica',
+    { legacyNombre2Aliases: ['NOMBRE 2'] }
+  );
 
   const dtos: CreateClienteDTO[] = [];
   const errors: ValidationError[] = [];
@@ -730,7 +761,7 @@ const parseBasicSheet = (rows: Array<Array<string | number>>): ParseResult => {
 
     totalRows += 1;
     const trimmedValues = values.map((value) => value.trim());
-    const basicRow = buildBasicRow(trimmedValues, headerIndexMap as Record<BasicTemplateHeader, number>);
+    const basicRow = buildBasicRow(trimmedValues, headerResolution);
     const rowErrors: string[] = [];
 
     const docCode = basicRow.codigoDocumento.toUpperCase();
@@ -767,11 +798,12 @@ const parseCompleteSheet = (rows: Array<Array<string | number>>): ParseResult =>
   }
 
   const headerRow = (rows[0] || []).map((cell) => (cell ?? '').toString());
-  const headerIndexMap = createHeaderIndexMap(
+  const headerResolution = resolveTemplateHeaderIndexes(
     headerRow,
     COMPLETE_TEMPLATE_HEADERS,
     COMPLETE_HEADER_NORMALIZED_TO_CANONICAL,
-    'importación completa'
+    'importación completa',
+    { legacyNombre2Aliases: ['NOMBRE 2'] }
   );
 
   const dtos: CreateClienteDTO[] = [];
@@ -787,7 +819,7 @@ const parseCompleteSheet = (rows: Array<Array<string | number>>): ParseResult =>
 
     totalRows += 1;
     const trimmedValues = values.map((value) => value.trim());
-    const completeRow = buildCompleteRow(trimmedValues, headerIndexMap);
+    const completeRow = buildCompleteRow(trimmedValues, headerResolution);
     const rowErrors: string[] = [];
 
     const codigo = completeRow.codigoDocumento.toUpperCase();
@@ -867,10 +899,11 @@ const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
       'CODIGO TIPO DE DOCUMENTO',
       'NUM. DOCUMENTO',
       'RAZON SOCIAL (si el código es 6)',
-      'APELLIDOS Y NOMBRES (si el código es distinto de 6)',
+      'NOMBRES (si el código es distinto de 6)',
+      'APELLIDO PATERNO (si el código es distinto de 6)',
+      'APELLIDO MATERNO (si el código es distinto de 6)',
     ],
     optionalColumns: [
-      'NOMBRE 2',
       'TELEFONO',
       'CORREO',
       'DIRECCION',
@@ -885,8 +918,7 @@ const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
       'RAZON SOCIAL ',
       'APELLIDO PATERNO',
       'APELLIDO MATERNO',
-      'NOMBRE 1',
-      'NOMBRE 2',
+      'NOMBRES',
       'TELEFONO',
       'CORREO',
       'DIRECCION',
@@ -901,8 +933,7 @@ const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
       'EJEMPLO EMPRESA SAC',
       '',
       '',
-      '',
-      '',
+      'JUAN CARLOS',
       '',
       '',
       'CALLE. EJEMPLO 4589 - LIMA - LIMA -SURCO',
@@ -920,12 +951,13 @@ const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
       'CODIGO TIPO DE DOCUMENTO',
       'NUM. DOCUMENTO',
       'RAZON SOCIAL (si el código es 6)',
-      'APELLIDOS Y NOMBRES (si el código es distinto de 6)',
+      'NOMBRES (si el código es distinto de 6)',
+      'APELLIDO PATERNO (si el código es distinto de 6)',
+      'APELLIDO MATERNO (si el código es distinto de 6)',
       'ESTADO CLIENTE',
     ],
     optionalColumns: [
       'NOMBRE COMERCIAL',
-      'NOMBRE 2',
       'TELEFONO 1',
       'TELEFONO 2',
       'TELEFONO 3',
@@ -947,8 +979,7 @@ const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
       'NOMBRE COMERCIAL',
       'APELLIDO PATERNO',
       'APELLIDO MATERNO',
-      'NOMBRE 1',
-      'NOMBRE 2',
+      'NOMBRES',
       'TELEFONO 1',
       'TELEFONO 2',
       'TELEFONO 3',
@@ -971,8 +1002,7 @@ const IMPORT_MODE_CONFIG: Record<ImportMode, ModeMeta> = {
       'EJEMPLONOMCOMERCIAL',
       '',
       '',
-      '',
-      '',
+      'JUAN CARLOS',
       '985698569',
       '12545685',
       '965896589',

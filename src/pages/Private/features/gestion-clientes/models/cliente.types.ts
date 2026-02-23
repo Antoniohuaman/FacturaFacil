@@ -81,6 +81,7 @@ export interface Cliente {
   tipoCuenta?: ClientType;
   razonSocial?: string;
   nombreComercial?: string;
+  nombres?: string;
   primerNombre?: string;
   segundoNombre?: string;
   apellidoPaterno?: string;
@@ -137,6 +138,7 @@ export interface ClienteFormData {
   nombreComercial: string;
   
   // Nombres (Natural)
+  nombres: string;
   primerNombre: string;
   segundoNombre: string;
   apellidoPaterno: string;
@@ -218,6 +220,7 @@ export interface CreateClienteDTO {
   tipoCuenta?: ClientType;
   razonSocial?: string;
   nombreComercial?: string;
+  nombres?: string;
   primerNombre?: string;
   segundoNombre?: string;
   apellidoPaterno?: string;

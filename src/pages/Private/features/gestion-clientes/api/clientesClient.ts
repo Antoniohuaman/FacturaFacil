@@ -15,6 +15,7 @@ import type {
 import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/contact';
 import { documentCodeFromType, normalizeDocumentNumber, parseLegacyDocumentString } from '../utils/documents';
 import { emitClientesChanged } from '../utils/clientesEvents';
+import { normalizarNombres } from '../utils/names';
 import { lsKey } from '../../../../../shared/tenant';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
@@ -110,7 +111,16 @@ class ClientesClient {
         ? estadoCliente === 'Habilitado'
         : base?.enabled ?? true;
 
-    const nombreDesdePayload = input.name || input.razonSocial || input.nombreCompleto;
+    const normalizedNames = normalizarNombres({
+      nombres: input.nombres ?? base?.nombres,
+      primerNombre: input.primerNombre ?? base?.primerNombre,
+      segundoNombre: input.segundoNombre ?? base?.segundoNombre,
+      apellidoPaterno: input.apellidoPaterno ?? base?.apellidoPaterno,
+      apellidoMaterno: input.apellidoMaterno ?? base?.apellidoMaterno,
+      nombreCompleto: input.nombreCompleto ?? base?.nombreCompleto,
+    });
+
+    const nombreDesdePayload = input.name || input.razonSocial || input.nombreCompleto || normalizedNames.nombreCompleto;
     const nombreNormalizado = nombreDesdePayload && nombreDesdePayload.trim() !== ''
       ? nombreDesdePayload.trim()
       : base?.name || 'Cliente sin nombre';
@@ -140,11 +150,12 @@ class ClientesClient {
       tipoCuenta: input.tipoCuenta ?? base?.tipoCuenta ?? (base?.type as any),
       razonSocial: input.razonSocial ?? base?.razonSocial,
       nombreComercial: input.nombreComercial ?? base?.nombreComercial,
-      primerNombre: input.primerNombre ?? base?.primerNombre,
-      segundoNombre: input.segundoNombre ?? base?.segundoNombre,
-      apellidoPaterno: input.apellidoPaterno ?? base?.apellidoPaterno,
-      apellidoMaterno: input.apellidoMaterno ?? base?.apellidoMaterno,
-      nombreCompleto: input.nombreCompleto ?? base?.nombreCompleto ?? nombreNormalizado,
+      nombres: normalizedNames.nombres,
+      primerNombre: normalizedNames.primerNombre,
+      segundoNombre: normalizedNames.segundoNombre,
+      apellidoPaterno: normalizedNames.apellidoPaterno,
+      apellidoMaterno: normalizedNames.apellidoMaterno,
+      nombreCompleto: normalizedNames.nombreCompleto || nombreNormalizado,
       emails,
       telefonos,
       paginaWeb: input.paginaWeb ?? base?.paginaWeb,
@@ -612,6 +623,7 @@ class ClientesClient {
       numeroDocumento: CLIENTE_GENERAL_DOC_NUMBER,
       tipoPersona: 'Natural',
       tipoCuenta: 'Cliente',
+      nombres: 'Cliente',
       primerNombre: 'Cliente',
       apellidoPaterno: 'General',
       apellidoMaterno: '-',

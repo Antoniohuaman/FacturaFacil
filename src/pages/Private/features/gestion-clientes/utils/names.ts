@@ -1,9 +1,13 @@
 export type NameParts = {
-  primerNombre: string;
-  segundoNombre: string;
+  nombres: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
   nombreCompleto: string;
+};
+
+export type LegacyNameParts = {
+  primerNombre: string;
+  segundoNombre: string;
 };
 
 export type ResolveCustomerNameParams = {
@@ -11,6 +15,7 @@ export type ResolveCustomerNameParams = {
   tipoPersona?: string | null;
   razonSocial?: string | null;
   nombreCompleto?: string | null;
+  nombres?: string | null;
   primerNombre?: string | null;
   segundoNombre?: string | null;
   apellidoPaterno?: string | null;
@@ -20,7 +25,7 @@ export type ResolveCustomerNameParams = {
   splitMode?: 'cliente' | 'import';
 };
 
-export type ResolvedCustomerNameFields = NameParts & {
+export type ResolvedCustomerNameFields = NameParts & LegacyNameParts & {
   razonSocial: string;
 };
 
@@ -39,10 +44,38 @@ Casos comparativos (salidas esperadas = comportamiento actual)
 export const normalizeHumanName = (input: string): string =>
   input.replace(/\s+/g, ' ').trim();
 
-export const buildFullName = (parts: Partial<NameParts>): string => {
+const splitGivenNames = (nombres: string): LegacyNameParts => {
+  const tokens = normalizeHumanName(nombres).split(' ').filter(Boolean);
+  if (tokens.length === 0) {
+    return { primerNombre: '', segundoNombre: '' };
+  }
+
+  return {
+    primerNombre: tokens[0] ?? '',
+    segundoNombre: tokens.slice(1).join(' '),
+  };
+};
+
+const resolveGivenNames = (parts: {
+  nombres?: string | null;
+  primerNombre?: string | null;
+  segundoNombre?: string | null;
+}): string => {
+  const nombres = normalizeHumanName(parts.nombres ?? '');
+  if (nombres) {
+    return nombres;
+  }
+
+  const legacyTokens = [parts.primerNombre, parts.segundoNombre]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => normalizeHumanName(value));
+
+  return normalizeHumanName(legacyTokens.join(' '));
+};
+
+export const buildFullName = (parts: Partial<NameParts & LegacyNameParts>): string => {
   const tokens = [
-    parts.primerNombre,
-    parts.segundoNombre,
+    resolveGivenNames(parts),
     parts.apellidoPaterno,
     parts.apellidoMaterno,
   ]
@@ -56,8 +89,7 @@ export const splitFullName = (fullName: string, mode: 'cliente' | 'import' = 'cl
   const normalized = normalizeHumanName(fullName || '');
   if (!normalized) {
     return {
-      primerNombre: '',
-      segundoNombre: '',
+      nombres: '',
       apellidoPaterno: '',
       apellidoMaterno: '',
       nombreCompleto: '',
@@ -67,8 +99,7 @@ export const splitFullName = (fullName: string, mode: 'cliente' | 'import' = 'cl
   const parts = normalized.split(' ').filter(Boolean);
   if (parts.length === 1) {
     return {
-      primerNombre: parts[0],
-      segundoNombre: '',
+      nombres: parts[0],
       apellidoPaterno: '',
       apellidoMaterno: '',
       nombreCompleto: normalized,
@@ -77,8 +108,7 @@ export const splitFullName = (fullName: string, mode: 'cliente' | 'import' = 'cl
 
   if (parts.length === 2) {
     return {
-      primerNombre: parts[0],
-      segundoNombre: '',
+      nombres: parts[0],
       apellidoPaterno: parts[1],
       apellidoMaterno: '',
       nombreCompleto: normalized,
@@ -88,8 +118,7 @@ export const splitFullName = (fullName: string, mode: 'cliente' | 'import' = 'cl
   if (parts.length === 3) {
     if (mode === 'import') {
       return {
-        primerNombre: parts[0],
-        segundoNombre: '',
+        nombres: parts[0],
         apellidoPaterno: parts[1],
         apellidoMaterno: parts[2],
         nombreCompleto: normalized,
@@ -97,8 +126,7 @@ export const splitFullName = (fullName: string, mode: 'cliente' | 'import' = 'cl
     }
 
     return {
-      primerNombre: parts[0],
-      segundoNombre: parts[1],
+      nombres: [parts[0], parts[1]].filter(Boolean).join(' '),
       apellidoPaterno: parts[2],
       apellidoMaterno: '',
       nombreCompleto: normalized,
@@ -106,11 +134,31 @@ export const splitFullName = (fullName: string, mode: 'cliente' | 'import' = 'cl
   }
 
   return {
-    primerNombre: parts[0],
-    segundoNombre: parts.slice(1, parts.length - 2).join(' '),
+    nombres: parts.slice(0, parts.length - 2).join(' '),
     apellidoPaterno: parts[parts.length - 2] ?? '',
     apellidoMaterno: parts[parts.length - 1] ?? '',
     nombreCompleto: normalized,
+  };
+};
+
+export const normalizarNombres = (
+  parts: Partial<NameParts & LegacyNameParts>
+): NameParts & LegacyNameParts => {
+  const nombres = resolveGivenNames(parts);
+  const apellidoPaterno = normalizeHumanName(parts.apellidoPaterno ?? '');
+  const apellidoMaterno = normalizeHumanName(parts.apellidoMaterno ?? '');
+  const nombreCompleto = normalizeHumanName(
+    parts.nombreCompleto ?? buildFullName({ nombres, apellidoPaterno, apellidoMaterno })
+  );
+  const legacy = splitGivenNames(nombres);
+
+  return {
+    nombres,
+    apellidoPaterno,
+    apellidoMaterno,
+    nombreCompleto,
+    primerNombre: legacy.primerNombre,
+    segundoNombre: legacy.segundoNombre,
   };
 };
 
@@ -126,6 +174,7 @@ export const resolveCustomerNameFields = (params: ResolveCustomerNameParams): Re
     const razon = razonSocial || nombreCompleto || fallbackFullName;
     return {
       razonSocial: razon,
+      nombres: '',
       primerNombre: '',
       segundoNombre: '',
       apellidoPaterno: '',
@@ -134,17 +183,19 @@ export const resolveCustomerNameFields = (params: ResolveCustomerNameParams): Re
     };
   }
 
-  const primerNombre = normalizeHumanName(params.primerNombre ?? '');
-  const segundoNombre = normalizeHumanName(params.segundoNombre ?? '');
+  const nombres = resolveGivenNames({
+    nombres: params.nombres,
+    primerNombre: params.primerNombre,
+    segundoNombre: params.segundoNombre,
+  });
   const apellidoPaterno = normalizeHumanName(params.apellidoPaterno ?? '');
   const apellidoMaterno = normalizeHumanName(params.apellidoMaterno ?? '');
-  const hasExistingParts = Boolean(primerNombre || segundoNombre || apellidoPaterno || apellidoMaterno);
+  const hasExistingParts = Boolean(nombres || apellidoPaterno || apellidoMaterno);
 
   let resolvedParts: NameParts;
   if (params.preferExistingParts !== false && hasExistingParts) {
     resolvedParts = {
-      primerNombre,
-      segundoNombre,
+      nombres,
       apellidoPaterno,
       apellidoMaterno,
       nombreCompleto: '',
@@ -155,8 +206,7 @@ export const resolveCustomerNameFields = (params: ResolveCustomerNameParams): Re
     resolvedParts = splitFullName(fallbackFullName, params.splitMode ?? 'cliente');
   } else {
     resolvedParts = {
-      primerNombre: '',
-      segundoNombre: '',
+      nombres: '',
       apellidoPaterno: '',
       apellidoMaterno: '',
       nombreCompleto: '',
@@ -164,13 +214,18 @@ export const resolveCustomerNameFields = (params: ResolveCustomerNameParams): Re
   }
 
   const mergedFullName = nombreCompleto || buildFullName(resolvedParts);
+  const normalized = normalizarNombres({
+    ...resolvedParts,
+    nombreCompleto: mergedFullName,
+  });
 
   return {
     razonSocial: '',
-    primerNombre: resolvedParts.primerNombre,
-    segundoNombre: resolvedParts.segundoNombre,
-    apellidoPaterno: resolvedParts.apellidoPaterno,
-    apellidoMaterno: resolvedParts.apellidoMaterno,
-    nombreCompleto: mergedFullName,
+    nombres: normalized.nombres,
+    primerNombre: normalized.primerNombre,
+    segundoNombre: normalized.segundoNombre,
+    apellidoPaterno: normalized.apellidoPaterno,
+    apellidoMaterno: normalized.apellidoMaterno,
+    nombreCompleto: normalized.nombreCompleto,
   };
 };
