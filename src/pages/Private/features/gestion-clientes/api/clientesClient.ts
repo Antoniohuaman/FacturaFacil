@@ -16,6 +16,7 @@ import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/
 import { documentCodeFromType, normalizeDocumentNumber, parseLegacyDocumentString } from '../utils/documents';
 import { emitClientesChanged } from '../utils/clientesEvents';
 import { normalizarNombres } from '../utils/names';
+import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../comprobantes-electronicos/shared/clienteLookup/clienteLookupService';
 import { lsKey } from '../../../../../shared/tenant';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 
@@ -458,14 +459,22 @@ class ClientesClient {
         };
       }
 
+      const lookup = await lookupPersonaPorDni(dni);
+      if (!lookup?.reniec) {
+        throw {
+          code: 'NOT_FOUND',
+          message: 'No se encontraron datos para el DNI consultado',
+        };
+      }
+
       return {
         success: true,
         data: {
-          dni,
-          nombres: 'JUAN CARLOS',
-          apellidoPaterno: 'GARCIA',
-          apellidoMaterno: 'RODRIGUEZ',
-          nombreCompleto: 'GARCIA RODRIGUEZ JUAN CARLOS',
+          dni: lookup.reniec.dni,
+          nombres: lookup.reniec.nombres,
+          apellidoPaterno: lookup.reniec.apellidoPaterno,
+          apellidoMaterno: lookup.reniec.apellidoMaterno,
+          nombreCompleto: lookup.reniec.nombreCompleto,
         }
       } as T;
     }
@@ -476,22 +485,46 @@ class ClientesClient {
 
       const ruc = endpoint.split('/').pop();
 
-      if (!ruc || ruc.length !== 11) {
+      if (!ruc || ruc.length !== 11 || !(ruc.startsWith('1') || ruc.startsWith('2'))) {
         throw {
           code: 'INVALID_RUC',
-          message: 'RUC inválido. Debe tener 11 dígitos',
+          message: 'RUC inválido. Debe tener 11 dígitos y comenzar con 1 o 2',
+        };
+      }
+
+      const lookup = await lookupEmpresaPorRuc(ruc);
+      if (!lookup?.sunat) {
+        throw {
+          code: 'NOT_FOUND',
+          message: 'No se encontraron datos para el RUC consultado',
         };
       }
 
       return {
         success: true,
         data: {
-          ruc,
-          razonSocial: 'COMERCIAL ANDINA S.A.C.',
-          nombreComercial: 'COMERCIAL ANDINA',
-          direccion: 'AV. PRINCIPAL 123 - LIMA LIMA MIRAFLORES',
-          estado: 'ACTIVO',
-          condicion: 'HABIDO',
+          ruc: lookup.sunat.ruc,
+          razonSocial: lookup.sunat.razonSocial,
+          nombreComercial: lookup.sunat.nombreComercial,
+          tipo: lookup.sunat.tipo,
+          direccion: lookup.sunat.direccion,
+          estado: lookup.sunat.estado,
+          condicion: lookup.sunat.condicion,
+          departamento: lookup.sunat.departamento,
+          provincia: lookup.sunat.provincia,
+          distrito: lookup.sunat.distrito,
+          fechaInscripcion: lookup.sunat.fechaInscripcion,
+          sistemaEmision: lookup.sunat.sistemaEmision,
+          sistEmsion: lookup.sunat.sistemaEmision,
+          actEconomicas: lookup.sunat.actEconomicas,
+          esAgenteRetencion: lookup.sunat.esAgenteRetencion,
+          esAgentePercepcion: lookup.sunat.esAgentePercepcion,
+          esBuenContribuyente: lookup.sunat.esBuenContribuyente,
+          esEmisorElectronico: lookup.sunat.esEmisorElectronico,
+          exceptuadaPercepcion: lookup.sunat.exceptuadaPercepcion,
+          pais: lookup.sunat.pais,
+          ubigeo: lookup.sunat.ubigeo,
+          referenciaDireccion: lookup.sunat.referenciaDireccion,
         }
       } as T;
     }

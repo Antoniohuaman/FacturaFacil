@@ -313,9 +313,12 @@ export interface SunatResponse {
     direccion: string;
     estado: string; // Estado del contribuyente
     condicion: string; // Habido / No Habido
+    pais?: string;
     departamento?: string;
     provincia?: string;
     distrito?: string;
+    ubigeo?: string;
+    referenciaDireccion?: string;
     fechaInscripcion?: string;
     sistEmsion?: string; // Sistema de emisión (puede venir como sistEmsion o sistemaEmision)
     sistemaEmision?: string;

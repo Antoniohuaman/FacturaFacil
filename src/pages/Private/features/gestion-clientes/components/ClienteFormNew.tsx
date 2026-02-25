@@ -16,6 +16,7 @@ import {
   listarDistritos,
   listarProvincias,
   obtenerUbigeo,
+  obtenerUbicacionPorUbigeo,
 } from '@/shared/catalogos/ubigeo.pe';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
@@ -385,6 +386,24 @@ const DNI_REGEX = /^\d{8}$/;
 const RUC_REGEX = /^[12]\d{10}$/;
 const DNI_ERROR_MESSAGE = 'El DNI debe tener 8 dígitos numéricos';
 const RUC_ERROR_MESSAGE = 'El RUC debe tener 11 dígitos numéricos y comenzar con 1 o 2';
+
+const normalizarUbigeoTexto = (value?: string | null): string =>
+  (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
+const resolverNombreUbigeo = (value: string, opciones: string[]): string => {
+  const normalized = normalizarUbigeoTexto(value);
+  if (!normalized) {
+    return '';
+  }
+
+  const exactMatch = opciones.find((opcion) => normalizarUbigeoTexto(opcion) === normalized);
+  return exactMatch || '';
+};
 
 const sanitizeNumeroDocumentoValue = (value: string, tipoDocumento: string): string => {
   if (tipoDocumento === RUC_CODE) {
@@ -1435,11 +1454,12 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
   }, []);
 
   const handleConsultarReniec = async () => {
-    if (!formData.numeroDocumento || formData.numeroDocumento.length !== 8) {
+    const dni = onlyDigits(formData.numeroDocumento || '');
+    if (!DNI_REGEX.test(dni)) {
       return;
     }
 
-    const response = await consultarReniec(formData.numeroDocumento);
+    const response = await consultarReniec(dni);
 
     if (response?.success && response.data) {
       const normalizedNames = normalizarNombres({ nombres: response.data.nombres || '' });
@@ -1448,21 +1468,54 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       handleFieldChange('segundoNombre', normalizedNames.segundoNombre, 'nombres');
       handleFieldChange('apellidoPaterno', response.data.apellidoPaterno || '', 'apellidoPaterno');
       handleFieldChange('apellidoMaterno', response.data.apellidoMaterno || '', 'apellidoMaterno');
+      handleFieldChange('nombreCompleto', response.data.nombreCompleto || '', 'nombreCompleto');
     }
   };
 
   const handleConsultarSunat = async () => {
-    if (!formData.numeroDocumento || formData.numeroDocumento.length !== 11) {
+    const ruc = onlyDigits(formData.numeroDocumento || '');
+    if (!RUC_REGEX.test(ruc)) {
       return;
     }
 
-    const response = await consultarSunat(formData.numeroDocumento);
+    const response = await consultarSunat(ruc);
 
     if (response?.success && response.data) {
+      const direccionLookup = response.data.direccion || '';
+      const referenciaLookup = response.data.referenciaDireccion || '';
+
+      const ubicacionPorCodigo = response.data.ubigeo
+        ? obtenerUbicacionPorUbigeo(response.data.ubigeo)
+        : null;
+
+      const departamentos = listarDepartamentos();
+      const departamentoLookup = resolverNombreUbigeo(
+        ubicacionPorCodigo?.departamento || response.data.departamento || '',
+        departamentos,
+      );
+      const provincias = listarProvincias(departamentoLookup);
+      const provinciaLookup = resolverNombreUbigeo(
+        ubicacionPorCodigo?.provincia || response.data.provincia || '',
+        provincias,
+      );
+      const distritos = listarDistritos(departamentoLookup, provinciaLookup);
+      const distritoLookup = resolverNombreUbigeo(
+        ubicacionPorCodigo?.distrito || response.data.distrito || '',
+        distritos,
+      );
+
+      const ubigeoLookup =
+        (response.data.ubigeo || '').trim() ||
+        (departamentoLookup && provinciaLookup && distritoLookup
+          ? obtenerUbigeo(departamentoLookup, provinciaLookup, distritoLookup)
+          : '');
+
+      const paisLookup = (response.data.pais || 'PE').trim() || 'PE';
+
       // Datos básicos
       handleFieldChange('razonSocial', response.data.razonSocial || '', 'razonSocial');
       handleFieldChange('nombreComercial', response.data.nombreComercial || '', 'nombreComercial');
-      handleFieldChange('direccion', response.data.direccion || '', 'direccion');
+      handleFieldChange('direccion', direccionLookup, 'direccion');
       
       // Datos SUNAT (readonly)
       handleFieldChange('tipoContribuyente', response.data.tipo || '', 'tipoContribuyente');
@@ -1501,14 +1554,68 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
       }
       
       // Ubicación geográfica
-      if (response.data.departamento) handleFieldChange('departamento', response.data.departamento, 'departamento');
-      if (response.data.provincia) handleFieldChange('provincia', response.data.provincia, 'provincia');
-      if (response.data.distrito) handleFieldChange('distrito', response.data.distrito, 'distrito');
+      handleFieldChange('pais', paisLookup, 'pais');
+      handleFieldChange('departamento', departamentoLookup, 'departamento');
+      handleFieldChange('provincia', provinciaLookup, 'provincia');
+      handleFieldChange('distrito', distritoLookup, 'distrito');
+      handleFieldChange('ubigeo', ubigeoLookup, 'ubigeo');
+      handleFieldChange('referenciaDireccion', referenciaLookup, 'referenciaDireccion');
+
+      const principalId = direccionPrincipalId || direccionesUI[0]?.id || 'direccion-main';
+      const direccionPrincipalLookup: DireccionUI = {
+        id: principalId,
+        pais: paisLookup,
+        departamento: departamentoLookup,
+        provincia: provinciaLookup,
+        distrito: distritoLookup,
+        ubigeo: ubigeoLookup,
+        direccion: direccionLookup,
+        referenciaDireccion: referenciaLookup,
+      };
+
+      setDireccionesUI((prev) => {
+        if (prev.length === 0) {
+          return [direccionPrincipalLookup];
+        }
+
+        const principalIndex = direccionPrincipalId
+          ? prev.findIndex((item) => item.id === direccionPrincipalId)
+          : 0;
+
+        if (principalIndex === -1) {
+          return [direccionPrincipalLookup, ...prev];
+        }
+
+        const next = [...prev];
+        next[principalIndex] = {
+          ...next[principalIndex],
+          ...direccionPrincipalLookup,
+          id: next[principalIndex].id,
+        };
+        return next;
+      });
+      setDireccionPrincipalId(principalId);
+
+      setDireccionDraft((prev) => ({
+        ...prev,
+        pais: paisLookup,
+        departamento: departamentoLookup,
+        provincia: provinciaLookup,
+        distrito: distritoLookup,
+        ubigeo: ubigeoLookup,
+        direccion: direccionLookup,
+        referenciaDireccion: referenciaLookup,
+      }));
     }
   };
 
   const esRUC = formData.tipoDocumento === '6';
   const esDNI = formData.tipoDocumento === '1';
+  const documentoLookupValido = esDNI
+    ? DNI_REGEX.test(onlyDigits(formData.numeroDocumento || ''))
+    : esRUC
+      ? RUC_REGEX.test(onlyDigits(formData.numeroDocumento || ''))
+      : false;
   const documentoMaxLength = esDNI ? 8 : esRUC ? 11 : 20;
 
   const mostrarPestanaDatosSunat = true;
@@ -1946,15 +2053,11 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
                       onClick={esRUC ? handleConsultarSunat : handleConsultarReniec}
                       disabled={
                         isConsulting ||
-                        !formData.numeroDocumento ||
-                        (esDNI && formData.numeroDocumento.length !== 8) ||
-                        (esRUC && formData.numeroDocumento.length !== 11)
+                        !documentoLookupValido
                       }
                       className={`h-7 px-3 rounded-r-md border text-[11px] font-medium uppercase transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         isConsulting ||
-                        !formData.numeroDocumento ||
-                        (esDNI && formData.numeroDocumento.length !== 8) ||
-                        (esRUC && formData.numeroDocumento.length !== 11)
+                        !documentoLookupValido
                           ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                           : 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                       }`}

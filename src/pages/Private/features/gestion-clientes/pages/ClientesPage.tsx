@@ -1170,7 +1170,7 @@ function ClientesPage() {
 
 	const handleEditClient = async (client: Cliente) => {
 		if (client.transient) {
-			showToast('info', 'Operación no disponible: backend pendiente', 'No es posible editar un cliente transitorio');
+			showToast('info', 'Operación no disponible', 'No es posible editar un cliente transitorio');
 			return;
 		}
 
@@ -1302,7 +1302,7 @@ function ClientesPage() {
 
 		const handleDeleteClient = (client: Cliente) => {
 			if (client.transient) {
-				showToast('info', 'Operación no disponible: backend pendiente', 'No es posible eliminar un cliente transitorio');
+				showToast('info', 'Operación no disponible', 'No es posible eliminar un cliente transitorio');
 				return;
 			}
 		setClientToDelete(client);

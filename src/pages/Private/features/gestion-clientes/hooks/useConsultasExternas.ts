@@ -4,6 +4,9 @@ import { clientesClient } from '../api';
 import type { ReniecResponse, SunatResponse } from '../models';
 import { useCaja } from '../../control-caja/context/CajaContext';
 
+const DNI_REGEX = /^\d{8}$/;
+const RUC_REGEX = /^[12]\d{10}$/;
+
 export const useConsultasExternas = () => {
   const { showToast } = useCaja();
   const [consultingReniec, setConsultingReniec] = useState(false);
@@ -13,11 +16,7 @@ export const useConsultasExternas = () => {
    * Consultar DNI en RENIEC
    */
   const consultarReniec = useCallback(async (dni: string): Promise<ReniecResponse | null> => {
-    if (!import.meta.env.VITE_API_URL) {
-      showToast('info', 'Consulta no disponible: backend pendiente', 'RENIEC no está disponible aún');
-      return null;
-    }
-    if (!dni || dni.length !== 8) {
+    if (!DNI_REGEX.test((dni || '').trim())) {
       showToast('warning', 'DNI inválido', 'Ingrese un DNI válido de 8 dígitos');
       return null;
     }
@@ -33,9 +32,16 @@ export const useConsultasExternas = () => {
           '¡Datos obtenidos!',
           `Consulta RENIEC exitosa para ${response.data.nombreCompleto}`
         );
+        return response;
       }
 
-      return response;
+      showToast(
+        'warning',
+        'Consulta RENIEC sin resultados',
+        response.message || 'No se pudo obtener información válida desde RENIEC.'
+      );
+
+      return null;
     } catch (err: any) {
       const errorMessage = err.message || 'Error al consultar RENIEC';
       showToast('error', 'Error en consulta RENIEC', errorMessage);
@@ -49,12 +55,8 @@ export const useConsultasExternas = () => {
    * Consultar RUC en SUNAT
    */
   const consultarSunat = useCallback(async (ruc: string): Promise<SunatResponse | null> => {
-    if (!import.meta.env.VITE_API_URL) {
-      showToast('info', 'Consulta no disponible: backend pendiente', 'SUNAT no está disponible aún');
-      return null;
-    }
-    if (!ruc || ruc.length !== 11) {
-      showToast('warning', 'RUC inválido', 'Ingrese un RUC válido de 11 dígitos');
+    if (!RUC_REGEX.test((ruc || '').trim())) {
+      showToast('warning', 'RUC inválido', 'Ingrese un RUC válido de 11 dígitos y que comience con 1 o 2');
       return null;
     }
 
@@ -69,9 +71,16 @@ export const useConsultasExternas = () => {
           '¡Datos obtenidos!',
           `Consulta SUNAT exitosa para ${response.data.razonSocial}`
         );
+        return response;
       }
 
-      return response;
+      showToast(
+        'warning',
+        'Consulta SUNAT sin resultados',
+        response.message || 'No se pudo obtener información válida desde SUNAT.'
+      );
+
+      return null;
     } catch (err: any) {
       const errorMessage = err.message || 'Error al consultar SUNAT';
       showToast('error', 'Error en consulta SUNAT', errorMessage);

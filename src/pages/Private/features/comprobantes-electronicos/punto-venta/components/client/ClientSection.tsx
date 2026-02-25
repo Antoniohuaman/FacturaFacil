@@ -158,7 +158,7 @@ export const ClientSection: React.FC<ClientSectionProps> = ({
     if (tipoComprobante === 'factura') {
       const isRucDoc = digits.length === 11 && (digits[0] === '1' || digits[0] === '2');
       if (!isRucDoc) {
-        setClientDocError('Ingresa un RUC válido (11 dígitos)');
+        setClientDocError('Ingresa un RUC válido (11 dígitos y que inicie con 1 o 2)');
         return;
       }
     } else {

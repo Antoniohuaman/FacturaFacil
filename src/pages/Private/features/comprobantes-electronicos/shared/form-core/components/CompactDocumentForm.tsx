@@ -448,8 +448,11 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const hasLettersInSearch = useMemo(() => /\p{L}/u.test(searchQuery), [searchQuery]);
   const isValidLookupDocument = useMemo(() => {
     if (hasLettersInSearch) return false;
+    if (tipoComprobante === 'factura') {
+      return searchDigits.length === 11 && (searchDigits.startsWith('1') || searchDigits.startsWith('2'));
+    }
     return searchDigits.length === expectedLookupDigitsLength;
-  }, [expectedLookupDigitsLength, hasLettersInSearch, searchDigits.length]);
+  }, [expectedLookupDigitsLength, hasLettersInSearch, searchDigits, tipoComprobante]);
 
   const lookupButtonClassName = useMemo(() => {
     const isEnabled = !isLookupLoading && isValidLookupDocument;
@@ -577,7 +580,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       if (!hasLettersInSearch && searchDigits) {
         setClientDocError(
           tipoComprobante === 'factura'
-            ? 'El RUC debe tener 11 dígitos'
+            ? 'El RUC debe tener 11 dígitos y comenzar con 1 o 2'
             : 'El DNI debe tener 8 dígitos',
         );
       }
@@ -777,7 +780,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                         if (!hasLettersInSearch && searchDigits) {
                           setClientDocError(
                             tipoComprobante === 'factura'
-                              ? 'El RUC debe tener 11 dígitos'
+                              ? 'El RUC debe tener 11 dígitos y comenzar con 1 o 2'
                               : 'El DNI debe tener 8 dígitos',
                           );
                         }

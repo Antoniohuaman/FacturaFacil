@@ -48,7 +48,12 @@ import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode, CartItem, TipoComprobante } from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { clientesClient } from '../../gestion-clientes/api';
-import { clienteToSaleSnapshot, type SaleDocumentType } from '../../gestion-clientes/utils/saleClienteMapping';
+import {
+  buildCreateClientePayloadFromLookup,
+  clienteToSaleSnapshot,
+  isExactDocumentoMatch,
+  type SaleDocumentType,
+} from '../../gestion-clientes/utils/saleClienteMapping';
 import { onlyDigits } from '../../gestion-clientes/utils/documents';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
@@ -1181,15 +1186,13 @@ const EmisionTradicional = () => {
         setShowCobranzaModal(false);
         if (lookupClient && !(clienteSeleccionadoGlobal?.clienteId !== undefined && clienteSeleccionadoGlobal?.clienteId !== null)) {
           const { data } = lookupClient;
-          const rawTipo = (data.tipoDocumento || '').toString().trim().toUpperCase();
-          const documentType = rawTipo === 'RUC' ? 'RUC' : 'DNI';
-          const documentNumber = onlyDigits(data.documento || '');
+          const lookupResolved = buildCreateClientePayloadFromLookup(data);
 
-          if (documentNumber) {
+          if (lookupResolved) {
+            const { documentType, documentNumber, payload } = lookupResolved;
             const searchResponse = await clientesClient.getClientes({ search: documentNumber, limit: 25, page: 1 });
             const existing = searchResponse.data.find((candidate) => {
-              const snap = clienteToSaleSnapshot(candidate);
-              return (snap.tipoDocumento === 'RUC' || snap.tipoDocumento === 'DNI') && snap.dni === documentNumber;
+              return isExactDocumentoMatch(candidate, documentType, documentNumber);
             });
 
             if (existing) {
@@ -1207,19 +1210,7 @@ const EmisionTradicional = () => {
                 };
               });
             } else {
-              const created = await createCliente({
-                documentType,
-                documentNumber,
-                name: data.nombre,
-                type: 'Cliente',
-                direccion: data.direccion,
-                email: data.email,
-                tipoDocumento: documentType,
-                numeroDocumento: documentNumber,
-                razonSocial: rawTipo === 'RUC' ? data.nombre : undefined,
-                nombreCompleto: rawTipo === 'DNI' ? data.nombre : undefined,
-                tipoCuenta: 'Cliente'
-              }, { origen: 'emision_inline' });
+              const created = await createCliente(payload, { origen: 'emision_inline' });
 
               if (created) {
                 const snap = clienteToSaleSnapshot(created);

@@ -9,7 +9,12 @@ import { useDocumentType } from '../../shared/form-core/hooks/useDocumentType';
 import { onlyDigits } from '../../../../features/gestion-clientes/utils/documents';
 import { clientesClient } from '../../../../features/gestion-clientes/api';
 import { useClientes } from '../../../../features/gestion-clientes/hooks/useClientes';
-import { clienteToSaleSnapshot, type SaleDocumentType } from '../../../../features/gestion-clientes/utils/saleClienteMapping';
+import {
+  buildCreateClientePayloadFromLookup,
+  clienteToSaleSnapshot,
+  isExactDocumentoMatch,
+  type SaleDocumentType,
+} from '../../../../features/gestion-clientes/utils/saleClienteMapping';
 import { resolveBoletaClienteRequirement, validateComprobanteReadyForCobranza } from '../../shared/core/comprobanteValidation';
 import type {
   CartItem,
@@ -324,15 +329,13 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
 
       if (success) {
         if (lookupClient && !(clienteSeleccionadoState?.id !== undefined && clienteSeleccionadoState?.id !== null)) {
-          const rawTipo = (lookupClient.data.tipoDocumento || '').toString().trim().toUpperCase();
-          const documentType = rawTipo === 'RUC' ? 'RUC' : 'DNI';
-          const documentNumber = onlyDigits(lookupClient.data.documento || '');
+          const lookupResolved = buildCreateClientePayloadFromLookup(lookupClient.data);
 
-          if (documentNumber) {
+          if (lookupResolved) {
+            const { documentType, documentNumber, payload } = lookupResolved;
             const searchResponse = await clientesClient.getClientes({ search: documentNumber, limit: 25, page: 1 });
             const existing = searchResponse.data.find((candidate) => {
-              const snap = clienteToSaleSnapshot(candidate);
-              return (snap.tipoDocumento === 'RUC' || snap.tipoDocumento === 'DNI') && snap.dni === documentNumber;
+              return isExactDocumentoMatch(candidate, documentType, documentNumber);
             });
 
             if (existing) {
@@ -347,20 +350,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
                 priceProfileId: snap.priceProfileId,
               });
             } else {
-              const created = await createCliente({
-                documentType,
-                documentNumber,
-                name: lookupClient.data.nombre,
-                type: 'Cliente',
-                address: lookupClient.data.direccion,
-                email: lookupClient.data.email,
-                tipoDocumento: documentType,
-                numeroDocumento: documentNumber,
-                // Si es RUC, asegurar razonSocial consistente con name
-                razonSocial: documentType === 'RUC' ? lookupClient.data.nombre : undefined,
-                direccion: lookupClient.data.direccion,
-                tipoCuenta: 'Cliente',
-              }, { origen: 'emision_inline' });
+              const created = await createCliente(payload, { origen: 'emision_inline' });
 
               if (created) {
                 const snap = clienteToSaleSnapshot(created);
