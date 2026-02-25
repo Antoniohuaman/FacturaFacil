@@ -53,24 +53,14 @@ export const ProductColumnsManagerButton: React.FC<ProductColumnsManagerButtonPr
     [columns]
   );
 
-  const visibleCount = useMemo(
-    () => columns.filter(column => column.visible || column.fixed).length,
-    [columns]
-  );
-
   return (
-    <div className="flex items-center gap-2">
-      <ColumnsManager
-        columns={manageableColumns}
-        onToggleColumn={handleToggleColumn}
-        onResetColumns={onResetColumns}
-        onSelectAllColumns={onSelectAllColumns}
-        onReorderColumns={handleReorderColumns}
-        title={`${visibleCount} columna${visibleCount === 1 ? '' : 's'}`}
-      />
-      <span className="text-[11px] text-gray-500 whitespace-nowrap">
-        {visibleCount} columna{visibleCount === 1 ? '' : 's'} visibles
-      </span>
-    </div>
+    <ColumnsManager
+      columns={manageableColumns}
+      onToggleColumn={handleToggleColumn}
+      onResetColumns={onResetColumns}
+      onSelectAllColumns={onSelectAllColumns}
+      onReorderColumns={handleReorderColumns}
+      buttonLabel="+ Columnas"
+    />
   );
 };
