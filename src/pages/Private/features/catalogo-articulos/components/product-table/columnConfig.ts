@@ -31,16 +31,19 @@ export interface ColumnConfig {
 }
 
 export const AVAILABLE_COLUMNS: ColumnConfig[] = [
-  { key: 'favorito', label: 'Fav', defaultVisible: true, filterable: false, group: 'basicas' },
+  // Default order and visibility for product table (single source of truth).
   { key: 'codigo', label: 'Código', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'nombre', label: 'Nombre', defaultVisible: true, filterable: false, group: 'basicas' },
-  { key: 'establecimiento', label: 'Disponibilidad', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'categoria', label: 'Categoría', defaultVisible: true, filterable: true, group: 'basicas' },
+  { key: 'imagen', label: 'Imagen', defaultVisible: true, filterable: false, group: 'visuales' },
   { key: 'unidad', label: 'Unidad', defaultVisible: true, filterable: true, group: 'basicas' },
+  { key: 'impuesto', label: 'Impuesto', defaultVisible: true, filterable: true, group: 'basicas' },
+  { key: 'favorito', label: 'Favoritos', defaultVisible: true, filterable: false, group: 'basicas' },
+
+  // Remaining columns (kept after defaults)
+  { key: 'establecimiento', label: 'Disponibilidad', defaultVisible: true, filterable: false, group: 'basicas' },
   { key: 'descripcion', label: 'Descripción', defaultVisible: false, filterable: false, group: 'basicas' },
   { key: 'alias', label: 'Alias', defaultVisible: false, filterable: true, group: 'basicas' },
-  { key: 'impuesto', label: 'Impuesto', defaultVisible: false, filterable: true, group: 'basicas' },
-  { key: 'imagen', label: 'Imagen', defaultVisible: false, filterable: false, group: 'visuales' },
   { key: 'codigoBarras', label: 'Código Barras', defaultVisible: false, filterable: true, group: 'codigos' },
   { key: 'codigoFabrica', label: 'Código Fábrica', defaultVisible: false, filterable: true, group: 'codigos' },
   { key: 'codigoSunat', label: 'Código SUNAT', defaultVisible: false, filterable: true, group: 'codigos' },

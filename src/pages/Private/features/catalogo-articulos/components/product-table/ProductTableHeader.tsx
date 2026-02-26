@@ -42,12 +42,12 @@ const renderHeaderCell = (
       return (
         <th
           scope="col"
-          className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+          className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           title="Favoritos"
         >
-          <span role="img" aria-label="Favorito">
-            ⭐
-          </span>
+          <div className="flex items-center space-x-1">
+            <span>Favoritos</span>
+          </div>
         </th>
       );
     case 'codigo':
