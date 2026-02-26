@@ -462,6 +462,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         : 'bg-slate-200/40 text-slate-600 hover:text-slate-900'
     }`;
   }, [isLookupLoading, isValidLookupDocument]);
+  const shouldShowDireccionField = tipoComprobante === 'factura' || config.optionalFields.direccion.visible;
 
   const formatClienteDisplayValue = (cliente: SelectedCliente) => {
     const docLabel = formatSaleDocumentLabel(cliente.tipoDocumento, cliente.dni);
@@ -488,7 +489,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   }, [clientes, searchDigits, searchLower]);
 
   useEffect(() => {
-    if (!config.optionalFields.direccion.visible) {
+    if (!shouldShowDireccionField) {
       return;
     }
 
@@ -500,7 +501,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     localDireccionRef.current = nextDireccion;
     setLocalDireccion(nextDireccion);
     onOptionalFieldsChangeRef.current?.({ direccion: nextDireccion });
-  }, [clienteSeleccionadoLocal, config.optionalFields.direccion.visible]);
+  }, [clienteSeleccionadoLocal, shouldShowDireccionField]);
 
   // Handlers para cliente
   const handleSeleccionarCliente = (cliente: Cliente) => {
@@ -544,7 +545,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     onClienteChangeRef.current?.(null);
     onLookupClientSelectedRef.current?.(null);
 
-    if (config.optionalFields.direccion.visible) {
+    if (shouldShowDireccionField) {
       localDireccionRef.current = '';
       setLocalDireccion('');
       onOptionalFieldsChangeRef.current?.({ direccion: '' });
@@ -853,7 +854,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             </div>
 
             {/* Dirección */}
-            {config.optionalFields.direccion.visible && (
+            {shouldShowDireccionField && (
               <div>
                 <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="direccion">
                   <MapPin className="w-3.5 h-3.5 mr-1 text-violet-600" />

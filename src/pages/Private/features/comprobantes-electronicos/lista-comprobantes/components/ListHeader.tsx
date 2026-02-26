@@ -9,7 +9,6 @@ import {
   RefreshCw,
   Download,
   Plus,
-  MoreHorizontal,
   XCircle,
   Calendar,
   ChevronDown,
@@ -353,8 +352,7 @@ export const ListHeader: React.FC<ListHeaderProps> = ({
               className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
               onClick={onToggleColumnManager}
             >
-              <MoreHorizontal className="w-4 h-4" />
-              Columnas
+              + Columnas
             </button>
 
             {showColumnManager && (
