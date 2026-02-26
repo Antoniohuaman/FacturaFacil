@@ -87,7 +87,7 @@ const DATE_PRESETS: DatePreset[] = [
   { label: 'Últimos 30 días', value: 'last30days' }
 ];
 
-const DEFAULT_LOCKED_COLUMN_IDS = ['documentNumber', 'actions'];
+const DEFAULT_LOCKED_COLUMN_IDS = ['actions'];
 
 interface SortableColumnRowProps {
   column: ColumnConfig;

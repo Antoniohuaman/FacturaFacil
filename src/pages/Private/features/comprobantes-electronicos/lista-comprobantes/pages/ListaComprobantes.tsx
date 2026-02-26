@@ -265,6 +265,7 @@ const InvoiceListDashboard = () => {
   // --------------------
   // Lista maestra en orden (no cambia la keys del modelo de datos)
   const MASTER_COLUMNS = useMemo<ColumnConfig[]>(() => ([
+    { id: 'type', key: 'type', label: 'Tipo', visible: true, fixed: null, align: 'left', minWidth: '100px' },
     { id: 'documentNumber', key: 'id', label: 'N° Comprobante', visible: true, fixed: 'left', align: 'left', minWidth: '168px', width: 'w-[168px]', shrink: 0 },
     { id: 'client', key: 'client', label: 'Cliente', visible: true, fixed: null, align: 'left', truncate: true, minWidth: '220px', width: 'w-[220px]', flex: '1 1 0' },
     { id: 'clientDoc', key: 'clientDoc', label: 'N° Doc Cliente', visible: true, fixed: null, align: 'left', minWidth: '130px', width: 'w-[130px]' },
@@ -274,7 +275,6 @@ const InvoiceListDashboard = () => {
     { id: 'status', key: 'status', label: 'Estado', visible: true, fixed: null, align: 'center', minWidth: '170px', width: 'w-[170px]', whiteSpace: 'nowrap', shrink: 0 },
     { id: 'actions', key: 'actions', label: 'ACCIONES', visible: true, fixed: 'right', align: 'center', minWidth: '110px', width: 'w-[110px]', shrink: 0 },
     // Columnas activables (ocultas por defecto)
-    { id: 'type', key: 'type', label: 'Tipo', visible: false, fixed: null, align: 'left', minWidth: '100px' },
     { id: 'date', key: 'date', label: 'F. Emisión', visible: false, fixed: null, align: 'center', minWidth: '120px' },
     { id: 'dueDate', key: 'dueDate', label: 'F. Vencimiento', visible: false, fixed: null, align: 'center', minWidth: '130px' },
     { id: 'currency', key: 'currency', label: 'Moneda', visible: false, fixed: null, align: 'left', minWidth: '100px' },
