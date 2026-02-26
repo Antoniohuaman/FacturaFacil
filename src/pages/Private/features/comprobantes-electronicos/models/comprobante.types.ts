@@ -85,12 +85,16 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  tipoDetalle?: 'catalogo' | 'libre';
+  tipoBienServicio?: 'bien' | 'servicio';
   category?: string;
   subtotal?: number;
   total?: number;
   igv?: number;
   igvType?: IgvType;
   unidadMedida?: string;
+  unidadMedidaCodigo?: string;
+  descuentoItem?: number;
   currency?: Currency;
   priceColumnId?: string;
   priceColumnLabel?: string;

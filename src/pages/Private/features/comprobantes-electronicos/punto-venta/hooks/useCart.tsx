@@ -18,6 +18,11 @@ export interface UseCartReturn {
   // Estado del carrito
   cartItems: CartItem[];
 
+  // Acciones nuevas para detalle libre
+  agregarItemLibre: () => string;
+  actualizarItemCarrito: (id: string, cambios: ActualizacionItemCarrito) => void;
+  eliminarItemCarrito: (id: string) => void;
+
   // Funciones básicas del carrito
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (id: string) => void;
@@ -36,6 +41,8 @@ export interface UseCartReturn {
   isEmpty: boolean;
   existingProductIds: string[];
 }
+
+export type ActualizacionItemCarrito = Partial<Omit<CartItem, 'id'>>;
 
 type IgvConfig = {
   igvType: IgvType;
@@ -169,6 +176,16 @@ export const useCart = (): UseCartReturn => {
 
   const effectiveDefaultIgvConfig = defaultIgvFromConfiguration ?? DEFAULT_IGV_CONFIG;
 
+  const unidadMedidaPredeterminada = useMemo(() => {
+    const unidadNiu = units.find((unidad) => unidad.code === 'NIU' && unidad.isActive !== false);
+    if (unidadNiu) {
+      return unidadNiu.code;
+    }
+
+    const primeraActiva = units.find((unidad) => unidad.isActive !== false);
+    return primeraActiva?.code || 'NIU';
+  }, [units]);
+
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { session } = useUserSession();
   const { allProducts: catalogProducts } = useProductStore();
@@ -243,6 +260,7 @@ export const useCart = (): UseCartReturn => {
     return {
       ...product,
       unidadMedida: resolvedUnit,
+      unidadMedidaCodigo: resolvedUnit,
       unit: resolvedUnit ?? product.unit,
       unitSymbol: product.unitSymbol || undefined,
       quantity,
@@ -251,9 +269,51 @@ export const useCart = (): UseCartReturn => {
       basePrice: Number.isFinite(product.basePrice) ? Number(product.basePrice) : price,
       igv: igvConfig.igvPercent,
       igvType: igvConfig.igvType,
-      impuesto: igvConfig.impuestoLabel
+      impuesto: igvConfig.impuestoLabel,
+      tipoDetalle: 'catalogo',
+      tipoBienServicio: product.tipoProducto === 'SERVICIO' ? 'servicio' : 'bien',
+      descuentoItem: product.descuentoProducto,
     };
   }, [effectiveDefaultIgvConfig]);
+
+  const crearIdItemLibre = useCallback(() => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `libre-${crypto.randomUUID()}`;
+    }
+    return `libre-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }, []);
+
+  const agregarItemLibre = useCallback(() => {
+    const idItemLibre = crearIdItemLibre();
+    const igvTypePredeterminado: IgvType = 'igv18';
+
+    setCartItems((prev) => [
+      ...prev,
+      {
+        id: idItemLibre,
+        code: '',
+        name: '',
+        price: 0,
+        quantity: 1,
+        subtotal: 0,
+        total: 0,
+        igv: 18,
+        igvType: igvTypePredeterminado,
+        unidadMedida: unidadMedidaPredeterminada,
+        unidadMedidaCodigo: unidadMedidaPredeterminada,
+        unidad: unidadMedidaPredeterminada,
+        unit: unidadMedidaPredeterminada,
+        stock: 0,
+        requiresStockControl: false,
+        tipoDetalle: 'libre',
+        tipoBienServicio: 'bien',
+        tipoProducto: 'BIEN',
+        impuesto: effectiveDefaultIgvConfig.impuestoLabel,
+      },
+    ]);
+
+    return idItemLibre;
+  }, [crearIdItemLibre, effectiveDefaultIgvConfig.impuestoLabel, unidadMedidaPredeterminada]);
 
   // ===================================================================
   // FUNCIONES BÁSICAS DEL CARRITO
@@ -288,9 +348,13 @@ export const useCart = (): UseCartReturn => {
    * Remover producto del carrito
    * Mantiene exactamente la misma lógica del archivo original
    */
-  const removeFromCart = useCallback((id: string) => {
+  const eliminarItemCarrito = useCallback((id: string) => {
     setCartItems(prev => prev.filter(item => item.id !== id));
   }, []);
+
+  const removeFromCart = useCallback((id: string) => {
+    eliminarItemCarrito(id);
+  }, [eliminarItemCarrito]);
 
   /**
    * Actualizar cantidad de producto en carrito con validación de stock
@@ -325,15 +389,19 @@ export const useCart = (): UseCartReturn => {
    * Actualizar cualquier propiedad de un item del carrito
    * Para actualizaciones desde la tabla de productos del formulario
    */
-  const updateCartItem = useCallback((id: string, updates: Partial<CartItem>) => {
+  const actualizarItemCarrito = useCallback((id: string, cambios: ActualizacionItemCarrito) => {
     setCartItems(prev =>
       prev.map(item =>
         item.id === id
-          ? { ...item, ...updates }
+          ? { ...item, ...cambios }
           : item
       )
     );
   }, []);
+
+  const updateCartItem = useCallback((id: string, updates: Partial<CartItem>) => {
+    actualizarItemCarrito(id, updates);
+  }, [actualizarItemCarrito]);
 
   /**
    * Actualizar el precio de un item del carrito
@@ -388,6 +456,7 @@ export const useCart = (): UseCartReturn => {
     }
 
     const normalized = items.map((item) => {
+      const tipoDetalleNormalizado = item.tipoDetalle === 'libre' ? 'libre' : 'catalogo';
       const rawQuantity = Number.isFinite(item.quantity) ? item.quantity : SYSTEM_CONFIG.MIN_CART_QUANTITY;
       const quantity = Math.min(
         SYSTEM_CONFIG.MAX_CART_QUANTITY,
@@ -399,12 +468,18 @@ export const useCart = (): UseCartReturn => {
         ? item.subtotal
         : stripTaxFromPrice(price, igvPercent);
       const total = Number.isFinite(item.total) ? item.total : price;
-      const resolvedUnit = item.unidadMedida || item.unit;
+      const resolvedUnit = item.unidadMedidaCodigo || item.unidadMedida || item.unit || unidadMedidaPredeterminada;
       const igvConfig = resolveIgvConfigFromLabel(item.impuesto, effectiveDefaultIgvConfig);
+      const tipoIgvNormalizado = item.igvType ?? igvConfig.igvType;
 
       return {
         ...item,
+        code: item.code ?? '',
+        name: item.name || 'Ítem',
+        tipoDetalle: tipoDetalleNormalizado,
+        tipoBienServicio: item.tipoBienServicio ?? (item.tipoProducto === 'SERVICIO' ? 'servicio' : 'bien'),
         unidadMedida: resolvedUnit,
+        unidadMedidaCodigo: resolvedUnit,
         unit: resolvedUnit ?? item.unit,
         unitSymbol: item.unitSymbol || undefined,
         quantity,
@@ -412,13 +487,15 @@ export const useCart = (): UseCartReturn => {
         subtotal,
         total,
         igv: Number.isFinite(item.igv) ? item.igv : igvPercent,
-        igvType: item.igvType ?? igvConfig.igvType,
+        igvType: tipoIgvNormalizado,
         impuesto: item.impuesto ?? igvConfig.impuestoLabel,
+        requiresStockControl: tipoDetalleNormalizado === 'libre' ? false : item.requiresStockControl,
+        stock: Number.isFinite(item.stock) ? item.stock : 0,
       };
     });
 
     setCartItems(normalized);
-  }, [effectiveDefaultIgvConfig]);
+  }, [effectiveDefaultIgvConfig, unidadMedidaPredeterminada]);
 
   const setCartItemQuantity = useCallback((id: string, nextQuantity: number) => {
     setCartItems(prev => {
@@ -511,6 +588,11 @@ export const useCart = (): UseCartReturn => {
   return {
     // Estado
     cartItems,
+
+    // Acciones nuevas
+    agregarItemLibre,
+    actualizarItemCarrito,
+    eliminarItemCarrito,
 
     // Funciones básicas
     addToCart,

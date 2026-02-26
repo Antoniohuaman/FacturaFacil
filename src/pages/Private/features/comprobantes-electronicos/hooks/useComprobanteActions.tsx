@@ -464,6 +464,10 @@ export const useComprobanteActions = () => {
         const pendingMovements: PendingMovement[] = [];
 
         for (const item of data.cartItems) {
+          if (item.tipoDetalle === 'libre') {
+            continue;
+          }
+
           if (!item.requiresStockControl) {
             continue;
           }
