@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { CartItem, Currency, PaymentTotals, DiscountInput, DiscountMode } from '../../../models/comprobante.types';
+import type { CartItem, Currency, PaymentTotals, DiscountInput, DiscountMode, IgvType } from '../../../models/comprobante.types';
 import ProductSelector from '../../../lista-comprobantes/pages/ProductSelector';
 import { CheckSquare, Square, Percent, Wrench } from 'lucide-react';
 import { RadioButton } from '@/contasis';
@@ -21,6 +21,9 @@ import AdjustmentModal from '../../../../gestion-inventario/components/modals/Ad
 import { registrarAjusteDeStock } from '../../../../../../../shared/inventory/accionesStock';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import TablaVentaLibre from './TablaVentaLibre';
+import type { IdColumnaLibre, OpcionImpuestoLibre, OpcionUnidadLibre } from './TablaVentaLibre';
+import type { Tax } from '../../../../configuracion-sistema/modelos/Tax';
 
 type UnitOption = {
   code: string;
@@ -82,6 +85,11 @@ interface ProductsSectionProps {
   addProductsFromSelector: (products: { product: any; quantity: number }[]) => void;
   updateCartItem: (id: string, updates: Partial<CartItem>) => void;
   removeFromCart: (id: string) => void;
+  agregarItemLibre: () => string;
+  actualizarItemCarrito: (id: string, updates: Partial<CartItem>) => void;
+  eliminarItemCarrito: (id: string) => void;
+  modoProductosActual: 'catalogo' | 'libre';
+  onModoProductosChange: (modo: 'catalogo' | 'libre') => void;
   totals: PaymentTotals;
   totalsBeforeDiscount?: PaymentTotals;
   globalDiscount?: DiscountInput | null;
@@ -92,6 +100,48 @@ interface ProductsSectionProps {
   selectedEstablecimientoId?: string;
   preferredPriceColumnId?: string;
 }
+
+type ModoProductos = 'catalogo' | 'libre';
+
+const STORAGE_KEY_VENTA_LIBRE = 'emision_venta_libre_columnas';
+
+const COLUMNAS_VENTA_LIBRE: Array<{ id: IdColumnaLibre; etiqueta: string; fija?: boolean }> = [
+  { id: 'bienServicio', etiqueta: 'Bien/Servicio' },
+  { id: 'impuesto', etiqueta: 'Impuesto/Afectación' },
+  { id: 'unidad', etiqueta: 'Unidad' },
+  { id: 'cantidad', etiqueta: 'Cantidad' },
+  { id: 'codigo', etiqueta: 'Código' },
+  { id: 'descripcion', etiqueta: 'Descripción' },
+  { id: 'precio', etiqueta: 'Precio U.' },
+  { id: 'descuento', etiqueta: 'Descuento' },
+  { id: 'importe', etiqueta: 'Importe' },
+  { id: 'accion', etiqueta: 'Acción', fija: true },
+];
+
+interface OpcionImpuestoInterna extends OpcionImpuestoLibre {
+  fuente: Tax | null;
+}
+
+const mapearIgvTypeDesdeImpuesto = (impuesto: Tax): IgvType => {
+  const codigoAfectacion = impuesto.affectationCode || '';
+  const codigo = (impuesto.code || '').toUpperCase();
+  const nombre = `${impuesto.name || ''} ${impuesto.shortName || ''}`.toLowerCase();
+  const porcentaje = Number.isFinite(impuesto.rate) ? impuesto.rate : 0;
+
+  if (codigoAfectacion === '20' || codigo.includes('EXO') || nombre.includes('exoner')) {
+    return 'exonerado';
+  }
+
+  if (codigoAfectacion === '30' || codigo.includes('INA') || nombre.includes('inafect')) {
+    return 'inafecto';
+  }
+
+  if (porcentaje >= 9 && porcentaje <= 11) {
+    return 'igv10';
+  }
+
+  return 'igv18';
+};
 
 // ===================================================================
 // DEFINICIÓN DE COLUMNAS DISPONIBLES
@@ -153,6 +203,11 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   addProductsFromSelector,
   updateCartItem,
   removeFromCart,
+  agregarItemLibre,
+  actualizarItemCarrito,
+  eliminarItemCarrito,
+  modoProductosActual,
+  onModoProductosChange,
   totals,
    totalsBeforeDiscount,
    globalDiscount,
@@ -184,6 +239,18 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [lastAddedProductId, setLastAddedProductId] = useState<CartItem['id'] | null>(null);
+
+  const itemsCatalogo = useMemo(
+    () => cartItems.filter((item) => item.tipoDetalle !== 'libre'),
+    [cartItems],
+  );
+
+  const itemsLibres = useMemo(
+    () => cartItems.filter((item) => item.tipoDetalle === 'libre'),
+    [cartItems],
+  );
+
+  const itemsDelModoActual = modoProductosActual === 'libre' ? itemsLibres : itemsCatalogo;
 
   const convertBaseToDocument = useCallback(
     (amount: number) => convertPrice(amount ?? 0, baseCurrency.code as Currency, documentCurrency.code as Currency),
@@ -239,13 +306,115 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           return savedCol ? { ...defaultCol, isVisible: savedCol.isVisible } : defaultCol;
         });
       }
-    } catch (e) {
-      console.error('Error loading column configuration:', e);
+    } catch {
+      // Sin acción: si falla localStorage, usar columnas por defecto.
     }
     return DEFAULT_COLUMNS;
   });
 
   const [showColumnConfig, setShowColumnConfig] = useState(false);
+
+  const [showColumnConfigLibre, setShowColumnConfigLibre] = useState(false);
+  const [mensajeCambioModo, setMensajeCambioModo] = useState<string | null>(null);
+  const [columnasVentaLibreVisibles, setColumnasVentaLibreVisibles] = useState<IdColumnaLibre[]>(() => {
+    try {
+      const guardado = localStorage.getItem(STORAGE_KEY_VENTA_LIBRE);
+      if (!guardado) {
+        return COLUMNAS_VENTA_LIBRE.map((col) => col.id);
+      }
+      const parseado = JSON.parse(guardado) as IdColumnaLibre[];
+      const idsPermitidos = new Set(COLUMNAS_VENTA_LIBRE.map((col) => col.id));
+      const validas = parseado.filter((id) => idsPermitidos.has(id));
+      if (!validas.includes('accion')) {
+        validas.push('accion');
+      }
+      return validas.length > 0 ? validas : COLUMNAS_VENTA_LIBRE.map((col) => col.id);
+    } catch {
+      return COLUMNAS_VENTA_LIBRE.map((col) => col.id);
+    }
+  });
+
+  const columnasVentaLibreOrdenadas = useMemo(() => {
+    const orden = COLUMNAS_VENTA_LIBRE.map((col) => col.id);
+    return columnasVentaLibreVisibles
+      .filter((id) => orden.includes(id))
+      .sort((a, b) => orden.indexOf(a) - orden.indexOf(b));
+  }, [columnasVentaLibreVisibles]);
+
+  const cambiarModoProductos = useCallback((modo: ModoProductos) => {
+    if (modo === modoProductosActual) {
+      return;
+    }
+    setMensajeCambioModo(
+      modo === 'catalogo'
+        ? 'Modo cambiado a Desde catálogo. Se calcularán solo los ítems de este modo.'
+        : 'Modo cambiado a Venta libre. Se calcularán solo los ítems de este modo.',
+    );
+    onModoProductosChange(modo);
+  }, [modoProductosActual, onModoProductosChange]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_VENTA_LIBRE, JSON.stringify(columnasVentaLibreVisibles));
+    } catch {
+      // Sin acción: preservar UX sin ruido en consola.
+    }
+  }, [columnasVentaLibreVisibles]);
+
+  useEffect(() => {
+    setShowColumnConfig(false);
+    setShowColumnConfigLibre(false);
+  }, [modoProductosActual]);
+
+  const opcionesUnidadVentaLibre = useMemo<OpcionUnidadLibre[]>(() => {
+    const activas = configState.units.filter((unidad) => unidad.isActive !== false);
+    const origen = activas.length > 0 ? activas : configState.units;
+
+    return origen
+      .slice()
+      .sort((a, b) => {
+        const ordenA = typeof a.displayOrder === 'number' ? a.displayOrder : Number.MAX_SAFE_INTEGER;
+        const ordenB = typeof b.displayOrder === 'number' ? b.displayOrder : Number.MAX_SAFE_INTEGER;
+        if (ordenA !== ordenB) return ordenA - ordenB;
+        return a.code.localeCompare(b.code);
+      })
+      .map((unidad) => ({
+        codigo: unidad.code,
+        etiqueta: getUnitDisplayForUI({
+          units: configState.units,
+          code: unidad.code,
+          fallbackName: unidad.name,
+          fallbackSymbol: unidad.symbol,
+        }) || `${unidad.code} - ${unidad.name}`,
+      }));
+  }, [configState.units]);
+
+  const opcionesImpuestoVentaLibre = useMemo<OpcionImpuestoInterna[]>(() => {
+    const activos = configState.taxes.filter((impuesto) => impuesto.isActive);
+    const origen = activos.length > 0 ? activos : configState.taxes;
+
+    if (origen.length === 0) {
+      return [
+        {
+          id: 'fallback_igv18',
+          etiqueta: 'IGV 18%',
+          igvType: 'igv18',
+          porcentaje: 18,
+          afectacionCode: '10',
+          fuente: null,
+        },
+      ];
+    }
+
+    return origen.map((impuesto) => ({
+      id: impuesto.id,
+      etiqueta: impuesto.name || impuesto.shortName || impuesto.code,
+      igvType: mapearIgvTypeDesdeImpuesto(impuesto),
+      porcentaje: Number.isFinite(impuesto.rate) ? impuesto.rate : 0,
+      afectacionCode: impuesto.affectationCode,
+      fuente: impuesto,
+    }));
+  }, [configState.taxes]);
 
   const {
     hasSelectableColumns,
@@ -267,7 +436,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       return;
     }
 
-    cartItems.forEach((item) => {
+    itemsCatalogo.forEach((item) => {
       const catalogProduct = catalogProducts.find(
         (product) => product.id === item.id || (product.codigo && product.codigo === item.code)
       );
@@ -286,7 +455,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         updateCartItem(item.id, { stock: summary.totalAvailable });
       }
     });
-  }, [cartItems, catalogProducts, configState.almacenes, selectedEstablecimientoId, updateCartItem]);
+  }, [catalogProducts, configState.almacenes, itemsCatalogo, selectedEstablecimientoId, updateCartItem]);
 
   const handleConfirmarAjusteDeStock = useCallback((data: StockAdjustmentData) => {
     const producto = catalogProducts.find((p) => p.id === data.productoId);
@@ -393,8 +562,8 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(columnConfig));
-    } catch (e) {
-      console.error('Error saving column configuration:', e);
+    } catch {
+      // Sin acción: si falla localStorage, mantener estado en memoria.
     }
   }, [columnConfig]);
 
@@ -472,7 +641,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   }, [getPreferredUnitForSku, getUnitOptionsForProduct, resolveSku]);
 
   useEffect(() => {
-    const validIds = new Set(cartItems.map(item => String(item.id)));
+    const validIds = new Set(itemsDelModoActual.map(item => String(item.id)));
 
     setPriceDrafts(prev => {
       const next = { ...prev };
@@ -503,14 +672,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       });
       return next;
     });
-  }, [cartItems]);
+  }, [itemsDelModoActual]);
 
   useEffect(() => {
-    if (cartItems.length === 0) {
+    if (itemsCatalogo.length === 0) {
       return;
     }
 
-    cartItems.forEach(item => {
+    itemsCatalogo.forEach(item => {
       const sku = resolveSku(item);
       if (!sku) return;
 
@@ -583,7 +752,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         updateCartItem(item.id, updates);
       }
     });
-  }, [applyGlobalRuleValue, baseColumnId, cartItems, getPriceOptionsFor, hasSelectableColumns, preferredPriceColumnId, resolveMinPrice, resolveSku, resolveUnitCode, stripGlobalRuleValue, updateCartItem]);
+  }, [applyGlobalRuleValue, baseColumnId, getPriceOptionsFor, hasSelectableColumns, itemsCatalogo, preferredPriceColumnId, resolveMinPrice, resolveSku, resolveUnitCode, stripGlobalRuleValue, updateCartItem]);
 
   const lastPreferredAppliedRef = useRef<string | undefined>(undefined);
 
@@ -597,7 +766,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     }
     lastPreferredAppliedRef.current = preferredPriceColumnId;
 
-    cartItems.forEach((item) => {
+    itemsCatalogo.forEach((item) => {
       if (item.isManualPrice) {
         return;
       }
@@ -633,7 +802,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         updateCartItem(item.id, updates);
       }
     });
-  }, [applyGlobalRuleValue, baseColumnId, cartItems, getPriceOptionsFor, hasSelectableColumns, preferredPriceColumnId, resolveSku, resolveUnitCode, updateCartItem]);
+  }, [applyGlobalRuleValue, baseColumnId, getPriceOptionsFor, hasSelectableColumns, itemsCatalogo, preferredPriceColumnId, resolveSku, resolveUnitCode, updateCartItem]);
 
   const clearDraftForItem = useCallback((itemId: string) => {
     setPriceDrafts(prev => {
@@ -805,6 +974,23 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       col.id === columnId ? { ...col, isVisible: !col.isVisible } : col
     ));
   };
+
+  const toggleColumnVentaLibre = useCallback((columnId: IdColumnaLibre) => {
+    setColumnasVentaLibreVisibles((prev) => {
+      const esFija = columnId === 'accion';
+      if (esFija) {
+        return prev;
+      }
+
+      const existe = prev.includes(columnId);
+      if (existe) {
+        const siguiente = prev.filter((id) => id !== columnId);
+        return siguiente.length > 0 ? siguiente : prev;
+      }
+
+      return [...prev, columnId];
+    });
+  }, []);
 
   // ✅ Seleccionar todas las columnas opcionales
   const selectAllOptional = () => {
@@ -1210,13 +1396,35 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       <div className="mb-2 pb-2 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h3 className="text-[15px] font-semibold text-slate-700 leading-tight">Productos del Comprobante</h3>
+            <h3 className="text-[15px] font-semibold text-slate-700 leading-tight">Productos - Servicios </h3>
+            <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+              <button
+                type="button"
+                onClick={() => cambiarModoProductos('catalogo')}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded ${modoProductosActual === 'catalogo' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-700'}`}
+              >
+                Desde catálogo
+              </button>
+              <button
+                type="button"
+                onClick={() => cambiarModoProductos('libre')}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded ${modoProductosActual === 'libre' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-700'}`}
+              >
+                Venta libre
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {/* Icono de sliders para configuración */}
             <Tooltip contenido="Elige qué columnas ver en la lista.">
               <button
-                onClick={() => setShowColumnConfig(!showColumnConfig)}
+                onClick={() => {
+                  if (modoProductosActual === 'libre') {
+                    setShowColumnConfigLibre((prev) => !prev);
+                    return;
+                  }
+                  setShowColumnConfig((prev) => !prev);
+                }}
                 className="inline-flex h-8 items-center justify-center rounded-md hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors text-[12px] font-medium text-slate-600 px-2"
                 aria-label="Elegir columnas visibles"
               >
@@ -1224,14 +1432,16 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               </button>
             </Tooltip>
 
-            <button
-              onClick={() => setShowAdjustmentModal(true)}
-              className="p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md"
-              title="Ajustar stock"
-              aria-label="Ajustar stock"
-            >
-              <Wrench size={16} />
-            </button>
+            {modoProductosActual === 'catalogo' && (
+              <button
+                onClick={() => setShowAdjustmentModal(true)}
+                className="p-1 text-gray-600 hover:opacity-80 transition-opacity rounded-md"
+                title="Ajustar stock"
+                aria-label="Ajustar stock"
+              >
+                <Wrench size={16} />
+              </button>
+            )}
 
             <div className="relative">
               <Tooltip contenido="Descuento global del comprobante.">
@@ -1302,16 +1512,29 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               </span>
             )}
 
-            {cartItems.length > 0 && (
+            {itemsDelModoActual.length > 0 && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-50 border border-violet-200 rounded-lg">
                 <div className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-pulse"></div>
                 <span className="text-xs font-medium text-violet-700">
-                  {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
+                  {itemsDelModoActual.length} {itemsDelModoActual.length === 1 ? 'producto' : 'productos'}
                 </span>
               </div>
             )}
           </div>
         </div>
+        {mensajeCambioModo && (
+          <div className="mt-2 flex items-center justify-between gap-2 rounded border border-violet-200 bg-violet-50/60 px-2 py-1 text-[11px] text-violet-700">
+            <span>{mensajeCambioModo}</span>
+            <button
+              type="button"
+              aria-label="Cerrar aviso"
+              onClick={() => setMensajeCambioModo(null)}
+              className="h-4 w-4 rounded text-violet-600 hover:bg-violet-100"
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
 
       <AdjustmentModal
@@ -1394,65 +1617,134 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         </div>
       )}
 
+      {showColumnConfigLibre && (
+        <div className="mb-3 p-4 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-200 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="text-xs font-semibold text-gray-900">Columnas de venta libre</h4>
+              <p className="text-[11px] text-gray-600 mt-0.5">
+                Configuración independiente para este modo.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowColumnConfigLibre(false)}
+              className="text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-white/50 transition-colors"
+              aria-label="Cerrar panel de columnas de venta libre"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1.5">
+            {COLUMNAS_VENTA_LIBRE.map((columna) => (
+              <label
+                key={columna.id}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-all text-[11px] ${
+                  columna.fija
+                    ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-70'
+                    : columnasVentaLibreVisibles.includes(columna.id)
+                    ? 'bg-violet-100 border-violet-300 cursor-pointer hover:bg-violet-200'
+                    : 'bg-white border-gray-200 cursor-pointer hover:bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={columnasVentaLibreVisibles.includes(columna.id)}
+                  disabled={Boolean(columna.fija)}
+                  onChange={() => !columna.fija && toggleColumnVentaLibre(columna.id)}
+                  className="w-3.5 h-3.5 text-violet-600 rounded focus:ring-2 focus:ring-violet-500 disabled:opacity-50 cursor-pointer"
+                />
+                <span className={`${columna.fija ? 'text-gray-500 font-medium' : 'text-gray-700'}`}>
+                  {columna.etiqueta}
+                  {columna.fija && <span className="ml-0.5 text-[10px] text-gray-400">(fija)</span>}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Add Product Form compacto */}
-      <div
-        data-tour="primera-venta-productos-buscar"
-        className="mb-3 p-2.5 md:p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100"
-      >
-        <ProductSelector
-          key={`selector-${refreshKey}`}
-          onAddProducts={handleAddProductsFromSelector}
-          existingProducts={cartItems.map(item => String(item.id))}
-        />
-      </div>
+      {modoProductosActual === 'catalogo' && (
+        <div
+          data-tour="primera-venta-productos-buscar"
+          className="mb-3 p-2.5 md:p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100"
+        >
+          <ProductSelector
+            key={`selector-${refreshKey}`}
+            onAddProducts={handleAddProductsFromSelector}
+            existingProducts={itemsCatalogo.map(item => String(item.id))}
+          />
+        </div>
+      )}
 
       {/* ✅ Products Table compacta con inputs h-8 */}
       <div
         data-tour="primera-venta-productos-lista"
         className="rounded-lg border border-gray-200"
       >
-        <div className="overflow-x-auto">
-          <div className="overflow-y-auto" style={{ maxHeight: PRODUCTS_TABLE_MAX_HEIGHT }}>
-            <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-violet-50 to-purple-50 border-b-2 border-violet-200">
-                <tr>
-                  {visibleColumns.map(col => (
-                    <th
-                      key={col.id}
-                      className={`px-3 py-2.5 text-[11px] font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap ${
-                        col.align === 'center' ? 'text-center' :
-                        col.align === 'right' ? 'text-right' :
-                        'text-left'
-                      }`}
-                      style={{
-                        width: col.width,
-                        minWidth: col.minWidth
-                      }}
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {cartItems.map(item => (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150 ${
-                      item.id === lastAddedProductId ? 'bg-blue-50' : ''
-                    }`}
-                  >
+        {modoProductosActual === 'catalogo' ? (
+          <div className="overflow-x-auto">
+            <div className="overflow-y-auto" style={{ maxHeight: PRODUCTS_TABLE_MAX_HEIGHT }}>
+              <table className="w-full text-sm">
+                <thead className="bg-gradient-to-r from-violet-50 to-purple-50 border-b-2 border-violet-200">
+                  <tr>
                     {visibleColumns.map(col => (
-                      <React.Fragment key={`${item.id}-${col.id}`}>
-                        {renderCell(col.id, item)}
-                      </React.Fragment>
+                      <th
+                        key={col.id}
+                        className={`px-3 py-2.5 text-[11px] font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap ${
+                          col.align === 'center' ? 'text-center' :
+                          col.align === 'right' ? 'text-right' :
+                          'text-left'
+                        }`}
+                        style={{
+                          width: col.width,
+                          minWidth: col.minWidth
+                        }}
+                      >
+                        {col.label}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {itemsCatalogo.map(item => (
+                    <tr
+                      key={item.id}
+                      className={`border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150 ${
+                        item.id === lastAddedProductId ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      {visibleColumns.map(col => (
+                        <React.Fragment key={`${item.id}-${col.id}`}>
+                          {renderCell(col.id, item)}
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-2">
+            <TablaVentaLibre
+              filas={itemsLibres}
+              columnasVisibles={columnasVentaLibreOrdenadas}
+              opcionesImpuesto={opcionesImpuestoVentaLibre}
+              opcionesUnidad={opcionesUnidadVentaLibre}
+              alAgregarFila={agregarItemLibre}
+              alActualizarFila={actualizarItemCarrito}
+              alEliminarFila={eliminarItemCarrito}
+              convertirBaseADocumento={convertBaseToDocument}
+              convertirDocumentoABase={convertDocumentToBase}
+              formatearMontoBase={formatBaseAsDocument}
+              decimalesDocumento={documentDecimals}
+            />
+          </div>
+        )}
       </div>
 
       {/* Totales Section - Tarjeta compacta sticky */}

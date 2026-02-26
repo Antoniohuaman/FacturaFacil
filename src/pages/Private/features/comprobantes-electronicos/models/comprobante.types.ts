@@ -92,6 +92,7 @@ export interface CartItem {
   total?: number;
   igv?: number;
   igvType?: IgvType;
+  impuestoId?: string;
   unidadMedida?: string;
   unidadMedidaCodigo?: string;
   descuentoItem?: number;

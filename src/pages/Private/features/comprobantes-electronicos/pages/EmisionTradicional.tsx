@@ -108,6 +108,7 @@ type ClienteSeleccionadoEmision = {
 type EstadoBorradorEmisionTradicional = {
   tipoComprobante: TipoComprobante;
   serieSeleccionada: string;
+  modoProductos: 'catalogo' | 'libre';
   fechaEmision: string;
   clienteSeleccionadoGlobal: ClienteSeleccionadoEmision;
   formaPago: string;
@@ -194,7 +195,30 @@ const EmisionTradicional = () => {
     session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
       ? 'produccion'
       : 'demo';
-  const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart, setCartItemsFromDraft } = useCart();
+  const {
+    cartItems,
+    removeFromCart,
+    updateCartItem,
+    addProductsFromSelector,
+    clearCart,
+    setCartItemsFromDraft,
+    agregarItemLibre,
+    actualizarItemCarrito,
+    eliminarItemCarrito,
+  } = useCart();
+  const [modoProductos, setModoProductos] = useState<'catalogo' | 'libre'>('catalogo');
+  const itemsCatalogo = useMemo(
+    () => cartItems.filter((item) => item.tipoDetalle !== 'libre'),
+    [cartItems],
+  );
+  const itemsLibres = useMemo(
+    () => cartItems.filter((item) => item.tipoDetalle === 'libre'),
+    [cartItems],
+  );
+  const itemsActivos = useMemo(
+    () => (modoProductos === 'libre' ? itemsLibres : itemsCatalogo),
+    [itemsCatalogo, itemsLibres, modoProductos],
+  );
   const {
     currentCurrency,
     currencyInfo,
@@ -385,13 +409,13 @@ const EmisionTradicional = () => {
   const baseTotals = useMemo(
     () =>
       calculateCurrencyAwareTotals({
-        items: cartItems,
+        items: itemsActivos,
         catalogLookup,
         baseCurrencyCode: baseCurrency.code,
         documentCurrencyCode: documentCurrency.code,
         convert: convertPrice,
       }),
-    [baseCurrency.code, cartItems, catalogLookup, convertPrice, documentCurrency.code],
+    [baseCurrency.code, itemsActivos, catalogLookup, convertPrice, documentCurrency.code],
   );
 
   // Descuento global manual aplicado sobre los totales
@@ -631,6 +655,7 @@ const EmisionTradicional = () => {
     extraerEstado: () => ({
       tipoComprobante,
       serieSeleccionada,
+      modoProductos,
       fechaEmision,
       clienteSeleccionadoGlobal,
       formaPago,
@@ -672,6 +697,7 @@ const EmisionTradicional = () => {
       queueMicrotask(() => setCreditTemplates(templatesToRestore));
       setCuotasManual(borrador.cuotasManual ?? []);
       setCreditoManualConfirmado(Boolean(borrador.creditoManualConfirmado));
+      setModoProductos(borrador.modoProductos === 'libre' ? 'libre' : 'catalogo');
       if (Array.isArray(borrador.cartItems)) {
         setCartItemsFromDraft(borrador.cartItems);
       }
@@ -722,7 +748,7 @@ const EmisionTradicional = () => {
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
     tipoComprobante,
     serieSeleccionada,
-    cartItems,
+    cartItems: itemsActivos,
     totals,
     observaciones,
     notaInterna,
@@ -739,7 +765,7 @@ const EmisionTradicional = () => {
   const hasMinimumDataForPreview = ENABLE_SIDE_PREVIEW_EMISION &&
     clienteSeleccionadoGlobal !== null &&
     serieSeleccionada !== '' &&
-    cartItems.length > 0;
+    itemsActivos.length > 0;
 
   const draftClientData: ClientData | undefined = useMemo(() => {
     if (!clienteSeleccionadoGlobal) return undefined;
@@ -781,9 +807,9 @@ const EmisionTradicional = () => {
     formaPago,
     fechaEmision,
     moneda: currentCurrency,
-    cartItems,
+    cartItems: itemsActivos,
     totals,
-  }), [cartItems, currentCurrency, draftClientData, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals]);
+  }), [currentCurrency, draftClientData, fechaEmision, formaPago, itemsActivos, serieSeleccionada, tipoComprobante, totals]);
 
   const ensureClienteGeneralParaBoleta = useCallback(async (): Promise<boolean> => {
     const requirement = resolveBoletaClienteRequirement(buildCobranzaValidationInput());
@@ -960,14 +986,13 @@ const EmisionTradicional = () => {
       dueDate: creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento,
       currency: currentCurrency,
       paymentMethod: paymentMethodLabel || 'CONTADO',
-      cartItems,
+      cartItems: itemsActivos,
       totals: totalsWithCurrency,
       observations: observaciones,
       internalNotes: notaInterna,
       creditTerms: creditTermsForSubmit,
     };
   }, [
-    cartItems,
     creditTermsForSubmit,
     currentCurrency,
     draftClientData,
@@ -979,6 +1004,7 @@ const EmisionTradicional = () => {
     paymentMethodLabel,
     serieSeleccionada,
     tipoComprobante,
+    itemsActivos,
     totals,
     configState.company,
   ]);
@@ -1158,7 +1184,7 @@ const EmisionTradicional = () => {
       const success = await createComprobante({
         tipoComprobante,
         serieSeleccionada,
-        cartItems,
+        cartItems: itemsActivos,
         totals,
         observaciones,
         notaInterna,
@@ -1291,6 +1317,7 @@ const EmisionTradicional = () => {
   const handleNewSale = () => {
     limpiarBorradorEnProgreso();
     clearCart();
+    setModoProductos('catalogo');
     resetForm();
     if (currentCurrency !== baseCurrency.code) {
       changeCurrency(baseCurrency.code as Currency);
@@ -1392,6 +1419,11 @@ const EmisionTradicional = () => {
                   addProductsFromSelector={addProductsFromSelector}
                   updateCartItem={updateCartItem}
                   removeFromCart={removeFromCart}
+                  agregarItemLibre={agregarItemLibre}
+                  actualizarItemCarrito={actualizarItemCarrito}
+                  eliminarItemCarrito={eliminarItemCarrito}
+                  modoProductosActual={modoProductos}
+                  onModoProductosChange={setModoProductos}
                   totals={totals}
                   totalsBeforeDiscount={totalsBeforeDiscount}
                   globalDiscount={appliedGlobalDiscount}
@@ -1453,11 +1485,11 @@ const EmisionTradicional = () => {
                           }
                         : undefined
                     }
-                    isCartEmpty={cartItems.length === 0}
+                    isCartEmpty={itemsActivos.length === 0}
                     primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
                       label: issueButtonLabel,
                       onClick: handleIssue,
-                      disabled: isProcessing || cartItems.length === 0,
+                      disabled: isProcessing || itemsActivos.length === 0,
                       title: isCreditPaymentSelection
                         ? 'Emitir y generar la cuenta por cobrar'
                         : 'Abrir el modal de cobranza para registrar este pago',

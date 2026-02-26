@@ -20,5 +20,14 @@ interface DocumentoProductsSectionProps {
 }
 
 export const DocumentoProductsSection: React.FC<DocumentoProductsSectionProps> = (props) => {
-  return <ProductsSection {...props} />;
+  return (
+    <ProductsSection
+      {...props}
+      agregarItemLibre={() => ''}
+      actualizarItemCarrito={() => undefined}
+      eliminarItemCarrito={() => undefined}
+      modoProductosActual="catalogo"
+      onModoProductosChange={() => undefined}
+    />
+  );
 };

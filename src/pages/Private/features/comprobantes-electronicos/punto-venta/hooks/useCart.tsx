@@ -257,6 +257,8 @@ export const useCart = (): UseCartReturn => {
     const price = Number.isFinite(product.price) ? product.price : 0;
     const resolvedUnit = product.unidadMedida || product.unit;
     const igvConfig = resolveIgvConfigFromLabel(product.impuesto, effectiveDefaultIgvConfig);
+    const tipoProductoInferido: 'BIEN' | 'SERVICIO' =
+      String(product.category || '').toUpperCase().includes('SERV') ? 'SERVICIO' : 'BIEN';
     return {
       ...product,
       unidadMedida: resolvedUnit,
@@ -271,8 +273,9 @@ export const useCart = (): UseCartReturn => {
       igvType: igvConfig.igvType,
       impuesto: igvConfig.impuestoLabel,
       tipoDetalle: 'catalogo',
-      tipoBienServicio: product.tipoProducto === 'SERVICIO' ? 'servicio' : 'bien',
-      descuentoItem: product.descuentoProducto,
+      tipoProducto: tipoProductoInferido,
+      tipoBienServicio: tipoProductoInferido === 'SERVICIO' ? 'servicio' : 'bien',
+      descuentoItem: 0,
     };
   }, [effectiveDefaultIgvConfig]);
 
@@ -455,8 +458,8 @@ export const useCart = (): UseCartReturn => {
       return;
     }
 
-    const normalized = items.map((item) => {
-      const tipoDetalleNormalizado = item.tipoDetalle === 'libre' ? 'libre' : 'catalogo';
+    const normalized: CartItem[] = items.map((item): CartItem => {
+      const tipoDetalleNormalizado: CartItem['tipoDetalle'] = item.tipoDetalle === 'libre' ? 'libre' : 'catalogo';
       const rawQuantity = Number.isFinite(item.quantity) ? item.quantity : SYSTEM_CONFIG.MIN_CART_QUANTITY;
       const quantity = Math.min(
         SYSTEM_CONFIG.MAX_CART_QUANTITY,

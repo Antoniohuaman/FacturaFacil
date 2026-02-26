@@ -241,12 +241,12 @@ export const buildLinePricingInputFromCartItem = (
   const unitCode = item.unidadMedida || item.unit || '';
   const descriptor = describeUnitConversion(catalogProduct, unitCode);
   const factor = descriptor.factorToUnidadMinima > 0 ? descriptor.factorToUnidadMinima : 1;
-  const selectedUnitPrice = Number.isFinite(item.price)
+  const precioUnitarioSeleccionado = Number.isFinite(item.price)
     ? (item.price as number)
     : Number.isFinite(item.basePrice)
       ? (item.basePrice as number)
       : 0;
-  const precioBaseUnidadMinima = factor > 0 ? selectedUnitPrice / factor : selectedUnitPrice;
+  const precioBaseUnidadMinima = factor > 0 ? precioUnitarioSeleccionado / factor : precioUnitarioSeleccionado;
 
   return {
     unidadMinimaCode: descriptor.unidadMinima,
@@ -254,7 +254,7 @@ export const buildLinePricingInputFromCartItem = (
     factorToUnidadMinima: factor,
     cantidad: Number.isFinite(item.quantity) ? (item.quantity as number) : 0,
     precioBaseUnidadMinima,
-    precioPresentacionOpcional: selectedUnitPrice,
+    precioPresentacionOpcional: precioUnitarioSeleccionado,
     igvRate: deriveIgvRate(item),
     precioIncluyeIgv: options?.priceIncludesTax ?? true,
     currencyPrecision: 2,
