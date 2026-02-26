@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Columns as ColumnsIcon, GripVertical } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import {
   DndContext,
   PointerSensor,
@@ -207,7 +207,6 @@ export const ColumnsManager: React.FC<ColumnsManagerProps> = ({
         className="h-[44px] px-4 flex items-center gap-2 text-sm rounded-[12px] text-gray-700 dark:text-gray-300 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
         title="Personalizar columnas"
       >
-        <ColumnsIcon className="w-4 h-4" />
         {buttonLabel}
       </button>
 
