@@ -80,6 +80,8 @@ No se usa ningún secreto ni variable `VITE_` para estas APIs.
 ## Prueba local (sin commitear secretos)
 Para desarrollo local con Pages Functions, usar archivo local de secretos (por ejemplo `.dev.vars`) y **no subirlo al repositorio**.
 
+Importante: `vite` por sí solo no ejecuta `functions/`; para probar `/api/metricas-posthog` localmente se debe usar runtime de Pages.
+
 Ejemplo:
 
 ```env
@@ -92,3 +94,17 @@ GITHUB_REPO=FacturaFacil
 ```
 
 Si no están configurados, el Tablero muestra métricas como **No disponible** sin romper la página.
+
+Comandos sugeridos para prueba local de Functions:
+
+```bash
+npm --prefix apps/pm-portal run build
+cd apps/pm-portal
+npx wrangler pages dev dist --port 8788
+```
+
+Luego probar:
+
+```bash
+curl http://localhost:8788/api/metricas-posthog
+```

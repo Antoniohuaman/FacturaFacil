@@ -179,12 +179,28 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
     GROUP BY event
   `
 
-  const [resultadoUsuarios, resultadoEventos] = await Promise.all([
-    consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivos),
-    consultarPosthog(urlConsulta, apiKey, consultaEventos)
-  ])
+  let resultadoUsuarios: Array<Record<string, unknown>> = []
+  let resultadoEventos: Array<Record<string, unknown>> = []
+  const erroresConsultas: string[] = []
 
-  const usuariosActivos = toNumero(resultadoUsuarios[0]?.usuarios_activos) ?? 0
+  try {
+    resultadoUsuarios = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivos)
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `usuarios_activos: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
+  }
+
+  try {
+    resultadoEventos = await consultarPosthog(urlConsulta, apiKey, consultaEventos)
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `eventos_agregados: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
+  }
+
+  const consultaUsuariosExitosa = !erroresConsultas.some((errorConsulta) => errorConsulta.startsWith('usuarios_activos:'))
+  const usuariosActivos = consultaUsuariosExitosa ? (toNumero(resultadoUsuarios[0]?.usuarios_activos) ?? 0) : null
   const mapaEventos = new Map<string, number>()
 
   for (const fila of resultadoEventos) {
@@ -217,12 +233,19 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
     return construirMetrica(definicion, mapaEventos.get(definicion.evento) ?? null)
   })
 
+  const hayMetricasDisponibles = metricas.some((metrica) => metrica.valor !== null)
+  const motivoNoDisponible =
+    erroresConsultas.length > 0
+      ? `Fallo parcial consultando PostHog (${erroresConsultas.join(' | ')}).`
+      : null
+  const huboErroresConsultas = erroresConsultas.length > 0
+
   return {
     fuente: 'posthog',
     periodo_dias: PERIODO_DIAS,
     actualizado_en: new Date().toISOString(),
-    disponible: true,
-    motivo_no_disponible: null,
+    disponible: !huboErroresConsultas && hayMetricasDisponibles,
+    motivo_no_disponible: motivoNoDisponible,
     metricas
   }
 }
