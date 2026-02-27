@@ -5,6 +5,8 @@ import {
   leerEstadoDespliegue,
   type EstadoDesplieguePortal
 } from '@/infraestructura/estado/lectorEstado'
+import { obtenerMetricasPosthog } from '@/infraestructura/apis/clienteApiPortalPM'
+import type { RespuestaMetricasPosthog } from '@/infraestructura/apis/esquemasApiPortalPM'
 import {
   clienteSupabase,
   mensajeErrorConfiguracionSupabase
@@ -15,6 +17,9 @@ export function PaginaTablero() {
   const [estadoDespliegue, setEstadoDespliegue] = useState<EstadoDesplieguePortal | null>(null)
   const [cargandoEstado, setCargandoEstado] = useState(true)
   const [errorEstado, setErrorEstado] = useState<string | null>(null)
+  const [metricasPosthog, setMetricasPosthog] = useState<RespuestaMetricasPosthog | null>(null)
+  const [cargandoMetricas, setCargandoMetricas] = useState(true)
+  const [errorMetricas, setErrorMetricas] = useState<string | null>(null)
 
   const [saludSupabase, setSaludSupabase] = useState<'pendiente' | 'ok' | 'error'>('pendiente')
   const [detalleSupabase, setDetalleSupabase] = useState<string>('Validando conexión...')
@@ -72,8 +77,38 @@ export function PaginaTablero() {
       }
     }
 
+    const cargarMetricas = async () => {
+      setCargandoMetricas(true)
+      setErrorMetricas(null)
+
+      try {
+        const respuesta = await obtenerMetricasPosthog()
+        if (!activo) {
+          return
+        }
+
+        setMetricasPosthog(respuesta)
+      } catch (errorInterno) {
+        if (!activo) {
+          return
+        }
+
+        setMetricasPosthog(null)
+        setErrorMetricas(
+          errorInterno instanceof Error
+            ? errorInterno.message
+            : 'No se pudieron cargar métricas de analítica.'
+        )
+      } finally {
+        if (activo) {
+          setCargandoMetricas(false)
+        }
+      }
+    }
+
     void cargarEstado()
     void validarSaludSupabase()
+    void cargarMetricas()
 
     return () => {
       activo = false
@@ -104,6 +139,32 @@ export function PaginaTablero() {
     })
   }, [estadoDespliegue?.fechaConstruccion])
 
+  const fechaActualizacionMetricas = useMemo(() => {
+    if (!metricasPosthog?.actualizado_en) {
+      return 'No disponible'
+    }
+
+    const fecha = new Date(metricasPosthog.actualizado_en)
+    if (Number.isNaN(fecha.getTime())) {
+      return metricasPosthog.actualizado_en
+    }
+
+    return fecha.toLocaleString('es-PE', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    })
+  }, [metricasPosthog?.actualizado_en])
+
+  const metricasDisponibles = useMemo(() => metricasPosthog?.metricas ?? [], [metricasPosthog?.metricas])
+
+  const formatearValorMetrica = (valor: number | null) => {
+    if (valor === null) {
+      return 'No disponible'
+    }
+
+    return valor.toLocaleString('es-PE')
+  }
+
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-1">
@@ -113,7 +174,7 @@ export function PaginaTablero() {
         </p>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-base font-semibold">Estado del despliegue</h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
@@ -223,6 +284,57 @@ export function PaginaTablero() {
           </dl>
 
           <p className="mt-3 text-xs text-slate-600 dark:text-slate-400">{detalleSupabase}</p>
+        </article>
+
+        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-base font-semibold">Métricas PostHog</h2>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+            Resumen agregado de onboarding y ventas (últimos 30 días).
+          </p>
+
+          <div className="mt-4">
+            <EstadoVista
+              cargando={cargandoMetricas}
+              error={errorMetricas}
+              vacio={!cargandoMetricas && !errorMetricas && metricasDisponibles.length === 0}
+              mensajeVacio="No hay métricas disponibles."
+            >
+              <div className="space-y-3">
+                {!metricasPosthog?.disponible && metricasPosthog?.motivo_no_disponible ? (
+                  <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+                    {metricasPosthog.motivo_no_disponible}
+                  </p>
+                ) : null}
+
+                <ul className="grid gap-2 text-sm">
+                  {metricasDisponibles.map((metrica) => (
+                    <li
+                      key={metrica.clave}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700"
+                    >
+                      <div>
+                        <p className="font-medium text-slate-800 dark:text-slate-200">{metrica.nombre}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{metrica.periodo}</p>
+                      </div>
+                      <p
+                        className={`text-sm font-semibold ${
+                          metrica.valor === null
+                            ? 'text-slate-500 dark:text-slate-400'
+                            : 'text-slate-900 dark:text-slate-100'
+                        }`}
+                      >
+                        {formatearValorMetrica(metrica.valor)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Última actualización: {fechaActualizacionMetricas}
+                </p>
+              </div>
+            </EstadoVista>
+          </div>
         </article>
       </div>
     </section>
