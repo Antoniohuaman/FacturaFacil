@@ -80,8 +80,28 @@ function construirRespuestaNoDisponible(motivo: string): RespuestaMetricasPostho
 }
 
 function construirUrlPosthog(host: string, projectId: string): string {
-  const hostNormalizado = host.endsWith('/') ? host.slice(0, -1) : host
+  const hostNormalizado = normalizarHostPosthog(host)
   return `${hostNormalizado}/api/projects/${projectId}/query/`
+}
+
+function normalizarHostPosthog(host: string): string {
+  const hostSinSlash = host.endsWith('/') ? host.slice(0, -1) : host
+
+  try {
+    const url = new URL(hostSinSlash)
+
+    if (url.hostname === 'us.posthog.com' || url.hostname === 'app.posthog.com') {
+      url.hostname = 'us.i.posthog.com'
+    }
+
+    if (url.hostname === 'eu.posthog.com') {
+      url.hostname = 'eu.i.posthog.com'
+    }
+
+    return url.toString().endsWith('/') ? url.toString().slice(0, -1) : url.toString()
+  } catch {
+    return hostSinSlash
+  }
 }
 
 async function consultarPosthog(
@@ -145,11 +165,10 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
     .filter((evento): evento is EventoPosthog => typeof evento === 'string')
 
   const consultaUsuariosActivos = `
-    SELECT uniq(person_id) AS usuarios_activos
+    SELECT uniq(distinct_id) AS usuarios_activos
     FROM events
     WHERE timestamp >= now() - INTERVAL ${String(PERIODO_DIAS)} DAY
-      AND person_id IS NOT NULL
-      AND person_id != ''
+      AND distinct_id IS NOT NULL
   `
 
   const consultaEventos = `
