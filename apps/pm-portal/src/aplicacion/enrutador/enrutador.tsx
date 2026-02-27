@@ -1,5 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { PlantillaPortal } from '@/presentacion/layout/PlantillaPortal'
+import { GuardSesionPortalPM } from '@/aplicacion/autenticacion/GuardSesionPortalPM'
+import { PaginaIngresar } from '@/presentacion/paginas/ingresar/PaginaIngresar'
 import { PaginaTablero } from '@/presentacion/paginas/tablero/PaginaTablero'
 import { PaginaRoadmap } from '@/presentacion/paginas/roadmap/PaginaRoadmap'
 import { PaginaObjetivosRoadmap } from '@/presentacion/paginas/roadmap/objetivos/PaginaObjetivosRoadmap'
@@ -15,8 +17,16 @@ import { PaginaAjustes } from '@/presentacion/paginas/ajustes/PaginaAjustes'
 
 export const enrutadorPortal = createBrowserRouter([
   {
+    path: '/ingresar',
+    element: <PaginaIngresar />
+  },
+  {
     path: '/',
-    element: <PlantillaPortal />,
+    element: (
+      <GuardSesionPortalPM>
+        <PlantillaPortal />
+      </GuardSesionPortalPM>
+    ),
     children: [
       { index: true, element: <PaginaTablero /> },
       { path: 'roadmap', element: <PaginaRoadmap /> },
