@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5177 --strictPort",
+    "dev": "vite --port 5181 --strictPort --open",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview --port 5178 --strictPort"
+    "preview": "vite preview --port 5182 --strictPort --open"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
