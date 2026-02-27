@@ -6,7 +6,6 @@ import {
 } from '@/infraestructura/supabase/clienteSupabase'
 import { ContextoSesionPortalPM, type SesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import type { RolUsuario } from '@/dominio/modelos'
-import { registrarEventoAnalitica } from '@/infraestructura/analitica/seguimientoPortalPM'
 
 async function obtenerRolUsuario(idUsuario: string): Promise<RolUsuario | null> {
   const { data, error } = await clienteSupabase
@@ -105,7 +104,6 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
 
         setUsuario(data.user)
         setRol(await obtenerRolUsuario(data.user.id))
-        registrarEventoAnalitica('pm_inicio_sesion_exitoso', { usuario_id: data.user.id })
         return true
       },
       cerrarSesion: async () => {
@@ -117,7 +115,6 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
           return
         }
 
-        const idActual = usuario?.id ?? null
         const { error: errorSalida } = await clienteSupabase.auth.signOut()
         if (errorSalida) {
           setError(errorSalida.message)
@@ -126,7 +123,6 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
 
         setUsuario(null)
         setRol(null)
-        registrarEventoAnalitica('pm_cierre_sesion', { usuario_id: idActual })
       }
     }),
     [usuario, rol, cargando, error]
