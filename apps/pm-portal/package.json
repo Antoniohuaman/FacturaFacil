@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "kill-port 5181 && vite --port 5181 --strictPort --open",
-    "build": "tsc -b && vite build",
+    "generar:estado": "node scripts/generarEstadoDespliegue.mjs",
+    "build": "npm run generar:estado && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "kill-port 5182 && vite preview --port 5182 --strictPort --open",
     "validar": "npm run lint && npm run build",
