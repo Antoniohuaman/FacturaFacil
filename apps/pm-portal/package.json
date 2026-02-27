@@ -4,10 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5181 --strictPort --open",
+    "dev": "kill-port 5181 && vite --port 5181 --strictPort --open",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview --port 5182 --strictPort --open"
+    "preview": "kill-port 5182 && vite preview --port 5182 --strictPort --open",
+    "validar": "npm run lint && npm run build",
+    "dev:sin-abrir": "kill-port 5181 && vite --port 5181 --strictPort",
+    "previsualizar": "npm run preview"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -30,6 +33,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "kill-port": "^2.0.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.3",
