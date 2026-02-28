@@ -28,8 +28,17 @@ async function solicitarJson<T>(url: string, esquema: z.ZodSchema<T>): Promise<T
   return validacion.data
 }
 
-export function obtenerMetricasPosthog(): Promise<RespuestaMetricasPosthog> {
-  return solicitarJson('/api/metricas-posthog', esquemaRespuestaMetricasPosthog)
+function construirRutaMetricas(periodoDias?: 7 | 30 | 90): string {
+  if (!periodoDias) {
+    return '/api/metricas-posthog'
+  }
+
+  const parametros = new URLSearchParams({ periodo_dias: String(periodoDias) })
+  return `/api/metricas-posthog?${parametros.toString()}`
+}
+
+export function obtenerMetricasPosthog(periodoDias?: 7 | 30 | 90): Promise<RespuestaMetricasPosthog> {
+  return solicitarJson(construirRutaMetricas(periodoDias), esquemaRespuestaMetricasPosthog)
 }
 
 export function obtenerResumenRepo(): Promise<RespuestaResumenRepo> {

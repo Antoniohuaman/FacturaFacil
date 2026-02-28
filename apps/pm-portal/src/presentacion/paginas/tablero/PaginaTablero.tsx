@@ -12,6 +12,8 @@ import {
   mensajeErrorConfiguracionSupabase
 } from '@/infraestructura/supabase/clienteSupabase'
 
+type PeriodoMetricas = 7 | 30 | 90
+
 export function PaginaTablero() {
   const { usuario } = useSesionPortalPM()
   const [estadoDespliegue, setEstadoDespliegue] = useState<EstadoDesplieguePortal | null>(null)
@@ -20,6 +22,7 @@ export function PaginaTablero() {
   const [metricasPosthog, setMetricasPosthog] = useState<RespuestaMetricasPosthog | null>(null)
   const [cargandoMetricas, setCargandoMetricas] = useState(true)
   const [errorMetricas, setErrorMetricas] = useState<string | null>(null)
+  const [periodoMetricas, setPeriodoMetricas] = useState<PeriodoMetricas>(30)
 
   const [saludSupabase, setSaludSupabase] = useState<'pendiente' | 'ok' | 'error'>('pendiente')
   const [detalleSupabase, setDetalleSupabase] = useState<string>('Validando conexión...')
@@ -77,12 +80,23 @@ export function PaginaTablero() {
       }
     }
 
+    void cargarEstado()
+    void validarSaludSupabase()
+
+    return () => {
+      activo = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let activo = true
+
     const cargarMetricas = async () => {
       setCargandoMetricas(true)
       setErrorMetricas(null)
 
       try {
-        const respuesta = await obtenerMetricasPosthog()
+        const respuesta = await obtenerMetricasPosthog(periodoMetricas)
         if (!activo) {
           return
         }
@@ -106,14 +120,12 @@ export function PaginaTablero() {
       }
     }
 
-    void cargarEstado()
-    void validarSaludSupabase()
     void cargarMetricas()
 
     return () => {
       activo = false
     }
-  }, [])
+  }, [periodoMetricas])
 
   const commitCorto = useMemo(() => {
     if (!estadoDespliegue?.commit) {
@@ -289,8 +301,25 @@ export function PaginaTablero() {
         <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-base font-semibold">Métricas PostHog</h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-            Resumen agregado de onboarding y ventas (últimos 30 días).
+            Resumen agregado de onboarding y ventas.
           </p>
+
+          <div className="mt-3 inline-flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
+            {([7, 30, 90] as const).map((periodo) => (
+              <button
+                key={periodo}
+                type="button"
+                onClick={() => setPeriodoMetricas(periodo)}
+                className={`rounded-md px-2 py-1 text-xs font-medium transition ${
+                  periodoMetricas === periodo
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                }`}
+              >
+                {periodo} días
+              </button>
+            ))}
+          </div>
 
           <div className="mt-4">
             <EstadoVista

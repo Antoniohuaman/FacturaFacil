@@ -23,6 +23,7 @@ interface RespuestaMetricasPosthog {
 
 type ContextoFunction = {
   env: EntornoMetricasPosthog
+  request: Request
 }
 
 type RespuestaCacheada = {
@@ -31,10 +32,9 @@ type RespuestaCacheada = {
 }
 
 const DURACION_CACHE_MS = 60_000
-const PERIODO_DIAS = 30
-const PERIODO_TEXTO = 'Últimos 30 días'
+const PERIODO_DIAS_POR_DEFECTO = 30
 
-let cacheMemoria: RespuestaCacheada | null = null
+const cacheMemoriaPorPeriodo = new Map<number, RespuestaCacheada>()
 
 const definicionesMetricas = [
   { clave: 'usuarios_activos', nombre: 'Usuarios activos', evento: null },
@@ -48,12 +48,16 @@ const definicionesMetricas = [
 type DefinicionMetrica = (typeof definicionesMetricas)[number]
 type EventoPosthog = Exclude<DefinicionMetrica['evento'], null>
 
-function construirMetrica(definicion: DefinicionMetrica, valor: number | null): MetricaPosthog {
+function construirTextoPeriodo(periodoDias: number): string {
+  return `Últimos ${String(periodoDias)} días`
+}
+
+function construirMetrica(definicion: DefinicionMetrica, valor: number | null, periodoDias: number): MetricaPosthog {
   return {
     clave: definicion.clave,
     nombre: definicion.nombre,
     valor,
-    periodo: PERIODO_TEXTO,
+    periodo: construirTextoPeriodo(periodoDias),
     disponible: valor !== null
   }
 }
@@ -68,15 +72,39 @@ function construirRespuestaJson(status: number, cuerpo: RespuestaMetricasPosthog
   })
 }
 
-function construirRespuestaNoDisponible(motivo: string): RespuestaMetricasPosthog {
+function construirRespuestaNoDisponible(motivo: string, periodoDias: number): RespuestaMetricasPosthog {
   return {
     fuente: 'posthog',
-    periodo_dias: PERIODO_DIAS,
+    periodo_dias: periodoDias,
     actualizado_en: new Date().toISOString(),
     disponible: false,
     motivo_no_disponible: motivo,
-    metricas: definicionesMetricas.map((metrica) => construirMetrica(metrica, null))
+    metricas: definicionesMetricas.map((metrica) => construirMetrica(metrica, null, periodoDias))
   }
+}
+
+function obtenerPeriodoDiasDesdeRequest(request: Request): number {
+  const url = new URL(request.url)
+  const periodoRecibido = Number(url.searchParams.get('periodo_dias'))
+  const periodosPermitidos = new Set([7, 30, 90])
+
+  return periodosPermitidos.has(periodoRecibido) ? periodoRecibido : PERIODO_DIAS_POR_DEFECTO
+}
+
+function traducirErrorPosthog(status: number): string {
+  if (status === 401 || status === 403) {
+    return 'Permisos insuficientes o credenciales inválidas en PostHog.'
+  }
+
+  if (status === 429) {
+    return 'Límite de solicitudes alcanzado en PostHog.'
+  }
+
+  if (status >= 500) {
+    return 'PostHog presentó un error interno al ejecutar la consulta.'
+  }
+
+  return 'La consulta a PostHog no fue aceptada.'
 }
 
 function construirUrlPosthog(host: string, projectId: string): string {
@@ -124,8 +152,7 @@ async function consultarPosthog(
   })
 
   if (!respuesta.ok) {
-    const texto = await respuesta.text()
-    throw new Error(`PostHog respondió ${respuesta.status}: ${texto || 'sin detalle'}`)
+    throw new Error(`PostHog ${respuesta.status}: ${traducirErrorPosthog(respuesta.status)}`)
   }
 
   const json = (await respuesta.json()) as { results?: unknown }
@@ -149,13 +176,16 @@ function toNumero(valor: unknown): number | null {
   return null
 }
 
-async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise<RespuestaMetricasPosthog> {
+async function obtenerMetricasDesdePosthog(
+  env: EntornoMetricasPosthog,
+  periodoDias: number
+): Promise<RespuestaMetricasPosthog> {
   const host = env.POSTHOG_HOST
   const projectId = env.POSTHOG_PROJECT_ID
   const apiKey = env.POSTHOG_PERSONAL_API_KEY
 
   if (!host || !projectId || !apiKey) {
-    return construirRespuestaNoDisponible('Faltan secretos de PostHog en Cloudflare Pages.')
+    return construirRespuestaNoDisponible('Faltan secretos de PostHog en Cloudflare Pages.', periodoDias)
   }
 
   const urlConsulta = construirUrlPosthog(host, projectId)
@@ -167,14 +197,14 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
   const consultaUsuariosActivos = `
     SELECT uniq(distinct_id) AS usuarios_activos
     FROM events
-    WHERE timestamp >= now() - INTERVAL ${String(PERIODO_DIAS)} DAY
+    WHERE timestamp >= now() - INTERVAL ${String(periodoDias)} DAY
       AND distinct_id IS NOT NULL
   `
 
   const consultaEventos = `
     SELECT event, count() AS total
     FROM events
-    WHERE timestamp >= now() - INTERVAL ${String(PERIODO_DIAS)} DAY
+    WHERE timestamp >= now() - INTERVAL ${String(periodoDias)} DAY
       AND event IN (${eventosObjetivo.map((evento) => `'${evento}'`).join(', ')})
     GROUP BY event
   `
@@ -220,18 +250,18 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
 
   const metricas = definicionesMetricas.map((definicion) => {
     if (definicion.clave === 'usuarios_activos') {
-      return construirMetrica(definicion, usuariosActivos)
+      return construirMetrica(definicion, usuariosActivos, periodoDias)
     }
 
     if (!definicion.evento) {
-      return construirMetrica(definicion, null)
+      return construirMetrica(definicion, null, periodoDias)
     }
 
     if (!consultaEventosExitosa) {
-      return construirMetrica(definicion, null)
+      return construirMetrica(definicion, null, periodoDias)
     }
 
-    return construirMetrica(definicion, mapaEventos.get(definicion.evento) ?? 0)
+    return construirMetrica(definicion, mapaEventos.get(definicion.evento) ?? 0, periodoDias)
   })
 
   const hayMetricasDisponibles = metricas.some((metrica) => metrica.valor !== null)
@@ -242,7 +272,7 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
 
   return {
     fuente: 'posthog',
-    periodo_dias: PERIODO_DIAS,
+    periodo_dias: periodoDias,
     actualizado_en: new Date().toISOString(),
     disponible: hayMetricasDisponibles,
     motivo_no_disponible: motivoNoDisponible,
@@ -251,23 +281,26 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
 }
 
 export const onRequestGet = async (context: ContextoFunction): Promise<Response> => {
+  const periodoDias = obtenerPeriodoDiasDesdeRequest(context.request)
   const ahora = Date.now()
+  const cachePeriodo = cacheMemoriaPorPeriodo.get(periodoDias)
 
-  if (cacheMemoria && cacheMemoria.expiraEn > ahora) {
-    return construirRespuestaJson(200, cacheMemoria.valor, 'public, max-age=60')
+  if (cachePeriodo && cachePeriodo.expiraEn > ahora) {
+    return construirRespuestaJson(200, cachePeriodo.valor, 'public, max-age=60')
   }
 
   try {
-    const valor = await obtenerMetricasDesdePosthog(context.env)
-    cacheMemoria = {
+    const valor = await obtenerMetricasDesdePosthog(context.env, periodoDias)
+    cacheMemoriaPorPeriodo.set(periodoDias, {
       expiraEn: ahora + DURACION_CACHE_MS,
       valor
-    }
+    })
 
     return construirRespuestaJson(200, valor, 'public, max-age=60')
   } catch (errorInterno) {
     const respuestaError = construirRespuestaNoDisponible(
-      errorInterno instanceof Error ? errorInterno.message : 'No se pudieron consultar métricas en PostHog.'
+      errorInterno instanceof Error ? errorInterno.message : 'No se pudieron consultar métricas en PostHog.',
+      periodoDias
     )
     return construirRespuestaJson(200, respuestaError, 'no-store')
   }
