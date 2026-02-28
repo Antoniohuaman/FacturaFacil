@@ -200,6 +200,7 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
   }
 
   const consultaUsuariosExitosa = !erroresConsultas.some((errorConsulta) => errorConsulta.startsWith('usuarios_activos:'))
+  const consultaEventosExitosa = !erroresConsultas.some((errorConsulta) => errorConsulta.startsWith('eventos_agregados:'))
   const usuariosActivos = consultaUsuariosExitosa ? (toNumero(resultadoUsuarios[0]?.usuarios_activos) ?? 0) : null
   const mapaEventos = new Map<string, number>()
 
@@ -226,11 +227,11 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
       return construirMetrica(definicion, null)
     }
 
-    if (!mapaEventos.has(definicion.evento)) {
+    if (!consultaEventosExitosa) {
       return construirMetrica(definicion, null)
     }
 
-    return construirMetrica(definicion, mapaEventos.get(definicion.evento) ?? null)
+    return construirMetrica(definicion, mapaEventos.get(definicion.evento) ?? 0)
   })
 
   const hayMetricasDisponibles = metricas.some((metrica) => metrica.valor !== null)
@@ -238,13 +239,12 @@ async function obtenerMetricasDesdePosthog(env: EntornoMetricasPosthog): Promise
     erroresConsultas.length > 0
       ? `Fallo parcial consultando PostHog (${erroresConsultas.join(' | ')}).`
       : null
-  const huboErroresConsultas = erroresConsultas.length > 0
 
   return {
     fuente: 'posthog',
     periodo_dias: PERIODO_DIAS,
     actualizado_en: new Date().toISOString(),
-    disponible: !huboErroresConsultas && hayMetricasDisponibles,
+    disponible: hayMetricasDisponibles,
     motivo_no_disponible: motivoNoDisponible,
     metricas
   }
