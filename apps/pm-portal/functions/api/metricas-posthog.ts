@@ -9,6 +9,13 @@ interface EntornoMetricasPosthog {
   POSTHOG_HOST?: string
   POSTHOG_PROJECT_ID?: string
   POSTHOG_PERSONAL_API_KEY?: string
+  DIAGNOSTICO_METRICAS?: string
+}
+
+interface DiagnosticoMetricasPosthog {
+  host_dominio: string | null
+  project_id_enmascarado: string | null
+  eventos_consultados: ReadonlyArray<EventoPosthogKpi>
 }
 
 interface MetricaPosthog {
@@ -33,6 +40,7 @@ interface RespuestaMetricasPosthog {
   actualizado_en: string
   disponible: boolean
   motivo_no_disponible: string | null
+  diagnostico?: DiagnosticoMetricasPosthog
   metricas: MetricaPosthog[]
 }
 
@@ -200,13 +208,65 @@ function construirRespuestaJson(status: number, cuerpo: RespuestaMetricasPosthog
   })
 }
 
-function construirRespuestaNoDisponible(motivo: string, periodoDias: number): RespuestaMetricasPosthog {
+function diagnosticoHabilitado(valor: string | undefined): boolean {
+  if (!valor) {
+    return false
+  }
+
+  return ['1', 'true', 'yes', 'si'].includes(valor.toLowerCase())
+}
+
+function extraerDominio(host: string | undefined): string | null {
+  if (!host) {
+    return null
+  }
+
+  try {
+    return new URL(host).hostname
+  } catch {
+    return null
+  }
+}
+
+function enmascararProjectId(projectId: string | undefined): string | null {
+  if (!projectId) {
+    return null
+  }
+
+  if (projectId.length <= 3) {
+    return `***${projectId}`
+  }
+
+  return `***${projectId.slice(-3)}`
+}
+
+function construirDiagnosticoSeguro(
+  env: EntornoMetricasPosthog,
+  eventosConsultados: ReadonlyArray<EventoPosthogKpi>
+): DiagnosticoMetricasPosthog | undefined {
+  if (!diagnosticoHabilitado(env.DIAGNOSTICO_METRICAS)) {
+    return undefined
+  }
+
+  return {
+    host_dominio: extraerDominio(env.POSTHOG_HOST),
+    project_id_enmascarado: enmascararProjectId(env.POSTHOG_PROJECT_ID),
+    eventos_consultados: eventosConsultados
+  }
+}
+
+function construirRespuestaNoDisponible(
+  motivo: string,
+  periodoDias: number,
+  diagnostico?: DiagnosticoMetricasPosthog
+): RespuestaMetricasPosthog {
   return {
     fuente: 'posthog',
     periodo_dias: periodoDias,
     actualizado_en: new Date().toISOString(),
     disponible: false,
     motivo_no_disponible: motivo,
+    diagnostico,
     metricas: definicionesMetricas.map((metrica) => construirMetrica(metrica, null, null, periodoDias))
   }
 }
@@ -311,9 +371,14 @@ async function obtenerMetricasDesdePosthog(
   const host = env.POSTHOG_HOST
   const projectId = env.POSTHOG_PROJECT_ID
   const apiKey = env.POSTHOG_PERSONAL_API_KEY
+  const diagnostico = construirDiagnosticoSeguro(env, EVENTOS_POSTHOG_KPI_LISTA)
 
   if (!host || !projectId || !apiKey) {
-    return construirRespuestaNoDisponible('Faltan secretos de PostHog en Cloudflare Pages.', periodoDias)
+    return construirRespuestaNoDisponible(
+      'Faltan secretos de PostHog en Cloudflare Pages.',
+      periodoDias,
+      diagnostico
+    )
   }
 
   console.info('[metricas-posthog] consulta', {
@@ -541,6 +606,7 @@ async function obtenerMetricasDesdePosthog(
     actualizado_en: new Date().toISOString(),
     disponible: hayMetricasDisponibles,
     motivo_no_disponible: motivoNoDisponible,
+    diagnostico,
     metricas
   }
 }
@@ -565,7 +631,8 @@ export const onRequestGet = async (context: ContextoFunction): Promise<Response>
   } catch (errorInterno) {
     const respuestaError = construirRespuestaNoDisponible(
       errorInterno instanceof Error ? errorInterno.message : 'No se pudieron consultar métricas en PostHog.',
-      periodoDias
+      periodoDias,
+      construirDiagnosticoSeguro(context.env, EVENTOS_POSTHOG_KPI_LISTA)
     )
     return construirRespuestaJson(200, respuestaError, 'no-store')
   }

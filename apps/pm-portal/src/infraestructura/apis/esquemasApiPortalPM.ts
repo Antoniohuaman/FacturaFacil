@@ -22,6 +22,13 @@ export const esquemaRespuestaMetricasPosthog = z.object({
   actualizado_en: z.string().min(1),
   disponible: z.boolean(),
   motivo_no_disponible: z.string().nullable(),
+  diagnostico: z
+    .object({
+      host_dominio: z.string().nullable(),
+      project_id_enmascarado: z.string().nullable(),
+      eventos_consultados: z.array(z.string().min(1))
+    })
+    .optional(),
   metricas: z.array(esquemaMetricaPosthog)
 })
 
