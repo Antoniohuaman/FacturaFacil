@@ -8,39 +8,35 @@ export type ClaveMetricaKpi =
 
 export interface ConfiguracionMetaKpi {
   metaPorPeriodo: {
-    7: number
-    30: number
-    90: number
+    7: number | null
+    30: number | null
+    90: number | null
   }
   umbralesCumplimiento: {
-    ok: number
-    atencion: number
+    ok: number | null
+    atencion: number | null
+  }
+}
+
+function construirConfiguracionSinMeta(): ConfiguracionMetaKpi {
+  return {
+    metaPorPeriodo: {
+      7: null,
+      30: null,
+      90: null
+    },
+    umbralesCumplimiento: {
+      ok: null,
+      atencion: null
+    }
   }
 }
 
 export const configuracionMetasKpi: Record<ClaveMetricaKpi, ConfiguracionMetaKpi> = {
-  activacion_porcentaje: {
-    metaPorPeriodo: { 7: 25, 30: 30, 90: 35 },
-    umbralesCumplimiento: { ok: 1, atencion: 0.7 }
-  },
-  ventas_completadas: {
-    metaPorPeriodo: { 7: 120, 30: 450, 90: 1200 },
-    umbralesCumplimiento: { ok: 1, atencion: 0.7 }
-  },
-  productos_creados: {
-    metaPorPeriodo: { 7: 60, 30: 180, 90: 450 },
-    umbralesCumplimiento: { ok: 1, atencion: 0.7 }
-  },
-  clientes_creados: {
-    metaPorPeriodo: { 7: 40, 30: 140, 90: 360 },
-    umbralesCumplimiento: { ok: 1, atencion: 0.7 }
-  },
-  importacion_realizada: {
-    metaPorPeriodo: { 7: 10, 30: 40, 90: 120 },
-    umbralesCumplimiento: { ok: 1, atencion: 0.7 }
-  },
-  usuarios_activos: {
-    metaPorPeriodo: { 7: 80, 30: 250, 90: 600 },
-    umbralesCumplimiento: { ok: 1, atencion: 0.7 }
-  }
+  activacion_porcentaje: construirConfiguracionSinMeta(),
+  ventas_completadas: construirConfiguracionSinMeta(),
+  productos_creados: construirConfiguracionSinMeta(),
+  clientes_creados: construirConfiguracionSinMeta(),
+  importacion_realizada: construirConfiguracionSinMeta(),
+  usuarios_activos: construirConfiguracionSinMeta()
 }

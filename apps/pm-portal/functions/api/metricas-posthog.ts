@@ -1,4 +1,9 @@
 import { configuracionMetasKpi, type ClaveMetricaKpi } from './config-metricas-kpi'
+import {
+  EVENTOS_POSTHOG_KPI,
+  EVENTOS_POSTHOG_KPI_LISTA,
+  type EventoPosthogKpi
+} from './eventos-posthog-kpi'
 
 interface EntornoMetricasPosthog {
   POSTHOG_HOST?: string
@@ -57,28 +62,28 @@ const definicionesMetricas = [
     clave: 'ventas_completadas',
     nombre: 'Ventas completadas',
     tipo: 'evento' as const,
-    evento: 'venta_completada',
+    evento: EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA,
     unidad: 'conteo' as const
   },
   {
     clave: 'productos_creados',
     nombre: 'Productos creados',
     tipo: 'evento' as const,
-    evento: 'producto_creado_exitoso',
+    evento: EVENTOS_POSTHOG_KPI.PRODUCTO_CREADO_EXITOSO,
     unidad: 'conteo' as const
   },
   {
     clave: 'clientes_creados',
     nombre: 'Clientes creados',
     tipo: 'evento' as const,
-    evento: 'cliente_creado_exitoso',
+    evento: EVENTOS_POSTHOG_KPI.CLIENTE_CREADO_EXITOSO,
     unidad: 'conteo' as const
   },
   {
     clave: 'importacion_realizada',
     nombre: 'Importación realizada',
     tipo: 'evento' as const,
-    evento: 'importacion_completada',
+    evento: EVENTOS_POSTHOG_KPI.IMPORTACION_COMPLETADA,
     unidad: 'conteo' as const
   },
   {
@@ -90,8 +95,6 @@ const definicionesMetricas = [
 ] as const
 
 type DefinicionMetrica = (typeof definicionesMetricas)[number]
-type DefinicionMetricaEvento = Extract<DefinicionMetrica, { tipo: 'evento' }>
-type EventoPosthog = DefinicionMetricaEvento['evento']
 
 function construirTextoPeriodo(periodoDias: number): string {
   return `Últimos ${String(periodoDias)} días`
@@ -133,6 +136,13 @@ function calcularEstadoMeta(
 
   const configuracion = configuracionMetasKpi[definicion.clave]
   if (!configuracion) {
+    return null
+  }
+
+  if (
+    configuracion.umbralesCumplimiento.ok === null ||
+    configuracion.umbralesCumplimiento.atencion === null
+  ) {
     return null
   }
 
@@ -306,11 +316,15 @@ async function obtenerMetricasDesdePosthog(
     return construirRespuestaNoDisponible('Faltan secretos de PostHog en Cloudflare Pages.', periodoDias)
   }
 
+  console.info('[metricas-posthog] consulta', {
+    project_id: projectId,
+    periodo_dias: periodoDias,
+    eventos: EVENTOS_POSTHOG_KPI_LISTA
+  })
+
   const urlConsulta = construirUrlPosthog(host, projectId)
 
-  const eventosObjetivo = definicionesMetricas
-    .filter((metrica): metrica is DefinicionMetricaEvento => metrica.tipo === 'evento')
-    .map((metrica) => metrica.evento)
+  const eventosObjetivo: ReadonlyArray<EventoPosthogKpi> = EVENTOS_POSTHOG_KPI_LISTA
 
   const construirFiltroRango = (dias: number, desplazamientoDias: number) => {
     const inicio = dias + desplazamientoDias
@@ -353,7 +367,7 @@ async function obtenerMetricasDesdePosthog(
     GROUP BY event
   `
 
-  const construirConsultaUsuariosEvento = (evento: EventoPosthog, desplazamientoDias: number) => `
+  const construirConsultaUsuariosEvento = (evento: EventoPosthogKpi, desplazamientoDias: number) => `
     SELECT uniq(distinct_id) AS total
     FROM events
     WHERE ${construirFiltroRango(periodoDias, desplazamientoDias)}
@@ -443,7 +457,7 @@ async function obtenerMetricasDesdePosthog(
     const resultado = await consultarPosthog(
       urlConsulta,
       apiKey,
-      construirConsultaUsuariosEvento('venta_completada', 0)
+      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA, 0)
     )
     usuariosConVentaActual = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
@@ -456,7 +470,7 @@ async function obtenerMetricasDesdePosthog(
     const resultado = await consultarPosthog(
       urlConsulta,
       apiKey,
-      construirConsultaUsuariosEvento('registro_usuario_completado', 0)
+      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.REGISTRO_USUARIO_COMPLETADO, 0)
     )
     usuariosRegistradosActual = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
@@ -469,7 +483,7 @@ async function obtenerMetricasDesdePosthog(
     const resultado = await consultarPosthog(
       urlConsulta,
       apiKey,
-      construirConsultaUsuariosEvento('venta_completada', periodoDias)
+      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA, periodoDias)
     )
     usuariosConVentaAnterior = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
@@ -482,7 +496,7 @@ async function obtenerMetricasDesdePosthog(
     const resultado = await consultarPosthog(
       urlConsulta,
       apiKey,
-      construirConsultaUsuariosEvento('registro_usuario_completado', periodoDias)
+      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.REGISTRO_USUARIO_COMPLETADO, periodoDias)
     )
     usuariosRegistradosAnterior = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
