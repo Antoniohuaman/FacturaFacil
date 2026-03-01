@@ -22,6 +22,14 @@ export const esquemaRespuestaMetricasPosthog = z.object({
   actualizado_en: z.string().min(1),
   disponible: z.boolean(),
   motivo_no_disponible: z.string().nullable(),
+  codigo_error: z.string().nullable().optional(),
+  rango: z
+    .object({
+      tipo: z.enum(['periodo', 'personalizado']),
+      desde: z.string().nullable(),
+      hasta: z.string().nullable()
+    })
+    .optional(),
   diagnostico: z
     .object({
       host_dominio: z.string().nullable(),

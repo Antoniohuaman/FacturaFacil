@@ -23,6 +23,7 @@ async function obtenerRolUsuario(idUsuario: string): Promise<RolUsuario | null> 
 
 export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
   const [usuario, setUsuario] = useState<User | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [rol, setRol] = useState<RolUsuario | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -44,11 +45,13 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
         }
 
         const usuarioActual = data.session?.user ?? null
+        const tokenSesion = data.session?.access_token ?? null
         if (!activo) {
           return
         }
 
         setUsuario(usuarioActual)
+        setAccessToken(tokenSesion)
         setRol(usuarioActual ? await obtenerRolUsuario(usuarioActual.id) : null)
       } catch (errorInterno) {
         if (activo) {
@@ -65,6 +68,7 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
 
     const { data: subscripcion } = clienteSupabase.auth.onAuthStateChange((_evento, sesion) => {
       setUsuario(sesion?.user ?? null)
+      setAccessToken(sesion?.access_token ?? null)
       if (sesion?.user) {
         void obtenerRolUsuario(sesion.user.id).then((rolUsuario) => setRol(rolUsuario))
       } else {
@@ -81,6 +85,7 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
   const valor = useMemo<SesionPortalPM>(
     () => ({
       usuario,
+      accessToken,
       rol,
       cargando,
       error,
@@ -103,6 +108,7 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
         }
 
         setUsuario(data.user)
+        setAccessToken(data.session?.access_token ?? null)
         setRol(await obtenerRolUsuario(data.user.id))
         return true
       },
@@ -111,6 +117,7 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
 
         if (mensajeErrorConfiguracionSupabase) {
           setUsuario(null)
+          setAccessToken(null)
           setRol(null)
           return
         }
@@ -122,10 +129,11 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
         }
 
         setUsuario(null)
+        setAccessToken(null)
         setRol(null)
       }
     }),
-    [usuario, rol, cargando, error]
+    [usuario, accessToken, rol, cargando, error]
   )
 
   return <ContextoSesionPortalPM.Provider value={valor}>{children}</ContextoSesionPortalPM.Provider>

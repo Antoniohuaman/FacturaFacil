@@ -11,6 +11,10 @@ Configurar en **Pages > proyecto `pm-portal` > Settings > Variables and secrets*
 - `POSTHOG_PROJECT_ID`
 - `POSTHOG_PERSONAL_API_KEY`
 
+### Requeridas para validación de sesión (Supabase)
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
 ### Opcionales para GitHub (endpoint opcional)
 - `GITHUB_TOKEN`
 - `GITHUB_OWNER`
@@ -22,6 +26,7 @@ Las Functions viven en `apps/pm-portal/functions/api`.
 ### `GET /api/metricas-posthog`
 Archivo: `functions/api/metricas-posthog.ts`
 
+- Requiere `Authorization: Bearer <access_token>`
 - Consulta PostHog Query API (`POST /api/projects/:project_id/query/`)
 - Calcula métricas agregadas para períodos de `7`, `30` o `90` días
 - Incluye comparación contra período anterior equivalente

@@ -6,15 +6,42 @@ import {
   type RespuestaResumenRepo
 } from '@/infraestructura/apis/esquemasApiPortalPM'
 
-async function solicitarJson<T>(url: string, esquema: z.ZodSchema<T>): Promise<T> {
+interface OpcionesSolicitud {
+  accessToken?: string | null
+}
+
+export type PeriodoMetricas = 7 | 30 | 90
+
+export type ParametrosMetricasPosthog =
+  | {
+      tipo: 'periodo'
+      periodoDias: PeriodoMetricas
+    }
+  | {
+      tipo: 'personalizado'
+      desde: string
+      hasta: string
+    }
+
+async function solicitarJson<T>(url: string, esquema: z.ZodSchema<T>, opciones?: OpcionesSolicitud): Promise<T> {
+  const headers: HeadersInit = {
+    accept: 'application/json'
+  }
+
+  if (opciones?.accessToken) {
+    headers.authorization = `Bearer ${opciones.accessToken}`
+  }
+
   const respuesta = await fetch(url, {
     method: 'GET',
-    headers: {
-      accept: 'application/json'
-    }
+    headers
   })
 
   if (!respuesta.ok) {
+    if (respuesta.status === 401 || respuesta.status === 403) {
+      throw new Error('No autorizado. Inicia sesión nuevamente.')
+    }
+
     throw new Error(`La API respondió con ${String(respuesta.status)}.`)
   }
 
@@ -28,17 +55,40 @@ async function solicitarJson<T>(url: string, esquema: z.ZodSchema<T>): Promise<T
   return validacion.data
 }
 
-function construirRutaMetricas(periodoDias?: 7 | 30 | 90): string {
-  if (!periodoDias) {
+function construirRutaMetricas(parametros?: ParametrosMetricasPosthog): string {
+  if (!parametros) {
     return '/api/metricas-posthog'
   }
 
-  const parametros = new URLSearchParams({ periodo_dias: String(periodoDias) })
-  return `/api/metricas-posthog?${parametros.toString()}`
+  const search = new URLSearchParams()
+
+  if (parametros.tipo === 'periodo') {
+    search.set('periodo_dias', String(parametros.periodoDias))
+  }
+
+  if (parametros.tipo === 'personalizado') {
+    search.set('desde', parametros.desde)
+    search.set('hasta', parametros.hasta)
+  }
+
+  return `/api/metricas-posthog?${search.toString()}`
 }
 
-export function obtenerMetricasPosthog(periodoDias?: 7 | 30 | 90): Promise<RespuestaMetricasPosthog> {
-  return solicitarJson(construirRutaMetricas(periodoDias), esquemaRespuestaMetricasPosthog)
+export function obtenerMetricasPosthog(parametros?: ParametrosMetricasPosthog): Promise<RespuestaMetricasPosthog> {
+  return solicitarJson(construirRutaMetricas(parametros), esquemaRespuestaMetricasPosthog)
+}
+
+export function obtenerMetricasPosthogAutenticado(
+  parametros: ParametrosMetricasPosthog,
+  accessToken: string | null
+): Promise<RespuestaMetricasPosthog> {
+  if (!accessToken) {
+    return Promise.reject(new Error('No autorizado. Inicia sesión nuevamente.'))
+  }
+
+  return solicitarJson(construirRutaMetricas(parametros), esquemaRespuestaMetricasPosthog, {
+    accessToken
+  })
 }
 
 export function obtenerResumenRepo(): Promise<RespuestaResumenRepo> {

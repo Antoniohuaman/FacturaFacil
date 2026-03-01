@@ -4,6 +4,7 @@ import type { RolUsuario } from '@/dominio/modelos'
 
 export interface SesionPortalPM {
   usuario: User | null
+  accessToken: string | null
   rol: RolUsuario | null
   cargando: boolean
   error: string | null

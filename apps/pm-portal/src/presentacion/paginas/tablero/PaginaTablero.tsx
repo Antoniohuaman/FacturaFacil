@@ -5,24 +5,51 @@ import {
   leerEstadoDespliegue,
   type EstadoDesplieguePortal
 } from '@/infraestructura/estado/lectorEstado'
-import { obtenerMetricasPosthog } from '@/infraestructura/apis/clienteApiPortalPM'
+import {
+  obtenerMetricasPosthogAutenticado,
+  type ParametrosMetricasPosthog,
+  type PeriodoMetricas
+} from '@/infraestructura/apis/clienteApiPortalPM'
 import type { RespuestaMetricasPosthog } from '@/infraestructura/apis/esquemasApiPortalPM'
 import {
   clienteSupabase,
   mensajeErrorConfiguracionSupabase
 } from '@/infraestructura/supabase/clienteSupabase'
 
-type PeriodoMetricas = 7 | 30 | 90
+type ModoFiltroMetricas = 'periodo' | 'personalizado'
+
+function formatearFechaYmdLocal(fecha: Date): string {
+  const anio = fecha.getFullYear()
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const dia = String(fecha.getDate()).padStart(2, '0')
+  return `${String(anio)}-${mes}-${dia}`
+}
+
+function esFechaYmdValida(valor: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(valor)
+}
 
 export function PaginaTablero() {
-  const { usuario } = useSesionPortalPM()
+  const { usuario, accessToken } = useSesionPortalPM()
   const [estadoDespliegue, setEstadoDespliegue] = useState<EstadoDesplieguePortal | null>(null)
   const [cargandoEstado, setCargandoEstado] = useState(true)
   const [errorEstado, setErrorEstado] = useState<string | null>(null)
   const [metricasPosthog, setMetricasPosthog] = useState<RespuestaMetricasPosthog | null>(null)
   const [cargandoMetricas, setCargandoMetricas] = useState(true)
   const [errorMetricas, setErrorMetricas] = useState<string | null>(null)
-  const [periodoMetricas, setPeriodoMetricas] = useState<PeriodoMetricas>(30)
+  const [modoFiltroMetricas, setModoFiltroMetricas] = useState<ModoFiltroMetricas>('periodo')
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState<PeriodoMetricas>(30)
+  const [desdePersonalizado, setDesdePersonalizado] = useState<string>(() => {
+    const hoy = new Date()
+    const inicio = new Date(hoy)
+    inicio.setDate(inicio.getDate() - 29)
+    return formatearFechaYmdLocal(inicio)
+  })
+  const [hastaPersonalizado, setHastaPersonalizado] = useState<string>(() => formatearFechaYmdLocal(new Date()))
+  const [filtroAplicadoMetricas, setFiltroAplicadoMetricas] = useState<ParametrosMetricasPosthog>({
+    tipo: 'periodo',
+    periodoDias: 30
+  })
 
   const [saludSupabase, setSaludSupabase] = useState<'pendiente' | 'ok' | 'error'>('pendiente')
   const [detalleSupabase, setDetalleSupabase] = useState<string>('Validando conexión...')
@@ -92,11 +119,20 @@ export function PaginaTablero() {
     let activo = true
 
     const cargarMetricas = async () => {
+      if (!usuario || !accessToken) {
+        if (activo) {
+          setCargandoMetricas(false)
+          setMetricasPosthog(null)
+          setErrorMetricas('Inicia sesión para ver métricas.')
+        }
+        return
+      }
+
       setCargandoMetricas(true)
       setErrorMetricas(null)
 
       try {
-        const respuesta = await obtenerMetricasPosthog(periodoMetricas)
+        const respuesta = await obtenerMetricasPosthogAutenticado(filtroAplicadoMetricas, accessToken)
         if (!activo) {
           return
         }
@@ -125,7 +161,51 @@ export function PaginaTablero() {
     return () => {
       activo = false
     }
-  }, [periodoMetricas])
+  }, [filtroAplicadoMetricas, accessToken, usuario])
+
+  const etiquetaFiltroMetricas = useMemo(() => {
+    if (filtroAplicadoMetricas.tipo === 'periodo') {
+      return `Últimos ${String(filtroAplicadoMetricas.periodoDias)} días`
+    }
+
+    return `${filtroAplicadoMetricas.desde} a ${filtroAplicadoMetricas.hasta}`
+  }, [filtroAplicadoMetricas])
+
+  const aplicarFiltroMetricas = () => {
+    if (modoFiltroMetricas === 'periodo') {
+      setFiltroAplicadoMetricas({
+        tipo: 'periodo',
+        periodoDias: periodoSeleccionado
+      })
+      return
+    }
+
+    if (!esFechaYmdValida(desdePersonalizado) || !esFechaYmdValida(hastaPersonalizado)) {
+      setErrorMetricas('Ingresa fechas válidas en formato YYYY-MM-DD.')
+      return
+    }
+
+    if (hastaPersonalizado < desdePersonalizado) {
+      setErrorMetricas('La fecha Hasta debe ser mayor o igual a Desde.')
+      return
+    }
+
+    const fechaInicio = new Date(`${desdePersonalizado}T00:00:00.000Z`)
+    const fechaHasta = new Date(`${hastaPersonalizado}T00:00:00.000Z`)
+    const diferenciaDias =
+      Math.floor((fechaHasta.getTime() - fechaInicio.getTime()) / (24 * 60 * 60 * 1000)) + 1
+
+    if (diferenciaDias < 1 || diferenciaDias > 365) {
+      setErrorMetricas('El rango personalizado debe ser entre 1 y 365 días.')
+      return
+    }
+
+    setFiltroAplicadoMetricas({
+      tipo: 'personalizado',
+      desde: desdePersonalizado,
+      hasta: hastaPersonalizado
+    })
+  }
 
   const commitCorto = useMemo(() => {
     if (!estadoDespliegue?.commit) {
@@ -386,21 +466,67 @@ export function PaginaTablero() {
             Resumen agregado de onboarding y ventas.
           </p>
 
-          <div className="mt-3 inline-flex rounded-lg border border-slate-200 p-1 dark:border-slate-700">
-            {([7, 30, 90] as const).map((periodo) => (
+          <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-300">
+                Filtro
+                <select
+                  value={modoFiltroMetricas === 'periodo' ? String(periodoSeleccionado) : 'personalizado'}
+                  onChange={(evento) => {
+                    const valor = evento.target.value
+                    if (valor === 'personalizado') {
+                      setModoFiltroMetricas('personalizado')
+                      return
+                    }
+
+                    const periodo = Number(valor)
+                    if (periodo === 7 || periodo === 30 || periodo === 90) {
+                      setModoFiltroMetricas('periodo')
+                      setPeriodoSeleccionado(periodo)
+                    }
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none dark:border-slate-700 dark:bg-slate-800"
+                >
+                  <option value="7">7 días</option>
+                  <option value="30">30 días</option>
+                  <option value="90">90 días</option>
+                  <option value="personalizado">Personalizado</option>
+                </select>
+              </label>
+
+              {modoFiltroMetricas === 'personalizado' ? (
+                <>
+                  <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-300">
+                    Desde
+                    <input
+                      type="date"
+                      value={desdePersonalizado}
+                      onChange={(evento) => setDesdePersonalizado(evento.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none dark:border-slate-700 dark:bg-slate-800"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-300">
+                    Hasta
+                    <input
+                      type="date"
+                      value={hastaPersonalizado}
+                      onChange={(evento) => setHastaPersonalizado(evento.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none dark:border-slate-700 dark:bg-slate-800"
+                    />
+                  </label>
+                </>
+              ) : null}
+
               <button
-                key={periodo}
                 type="button"
-                onClick={() => setPeriodoMetricas(periodo)}
-                className={`rounded-md px-2 py-1 text-xs font-medium transition ${
-                  periodoMetricas === periodo
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-                }`}
+                onClick={aplicarFiltroMetricas}
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 dark:bg-slate-100 dark:text-slate-900"
               >
-                {periodo} días
+                Aplicar
               </button>
-            ))}
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400">Mostrando: {etiquetaFiltroMetricas}</p>
           </div>
 
           <div className="mt-4">

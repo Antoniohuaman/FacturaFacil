@@ -1,4 +1,5 @@
-import { configuracionMetasKpi, type ClaveMetricaKpi } from './config-metricas-kpi'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { ClaveMetricaKpi } from './config-metricas-kpi'
 import {
   EVENTOS_POSTHOG_KPI,
   EVENTOS_POSTHOG_KPI_LISTA,
@@ -9,6 +10,8 @@ interface EntornoMetricasPosthog {
   POSTHOG_HOST?: string
   POSTHOG_PROJECT_ID?: string
   POSTHOG_PERSONAL_API_KEY?: string
+  SUPABASE_URL?: string
+  SUPABASE_SERVICE_ROLE_KEY?: string
   DIAGNOSTICO_METRICAS?: string
 }
 
@@ -40,6 +43,12 @@ interface RespuestaMetricasPosthog {
   actualizado_en: string
   disponible: boolean
   motivo_no_disponible: string | null
+  codigo_error?: string | null
+  rango?: {
+    tipo: 'periodo' | 'personalizado'
+    desde: string | null
+    hasta: string | null
+  }
   diagnostico?: DiagnosticoMetricasPosthog
   metricas: MetricaPosthog[]
 }
@@ -56,8 +65,18 @@ type RespuestaCacheada = {
 
 const DURACION_CACHE_MS = 60_000
 const PERIODO_DIAS_POR_DEFECTO = 30
+type PeriodoMetricas = 7 | 30 | 90
+const MAX_DIAS_RANGO_PERSONALIZADO = 365
+const TIMEOUT_POSTHOG_MS = 8_000
 
-const cacheMemoriaPorPeriodo = new Map<number, RespuestaCacheada>()
+const cacheMemoriaPorClave = new Map<string, RespuestaCacheada>()
+let clienteSupabaseAdminCache:
+  | {
+      supabaseUrl: string
+      serviceRoleKey: string
+      cliente: SupabaseClient
+    }
+  | null = null
 
 const definicionesMetricas = [
   {
@@ -104,8 +123,198 @@ const definicionesMetricas = [
 
 type DefinicionMetrica = (typeof definicionesMetricas)[number]
 
+interface ConfiguracionKpiDinamica {
+  clave: ClaveMetricaKpi
+  nombre: string | null
+  unidad: 'conteo' | 'porcentaje' | null
+  activo: boolean
+  metaPorPeriodo: Record<PeriodoMetricas, number | null>
+  umbralesCumplimiento: {
+    ok: number | null
+    atencion: number | null
+  }
+}
+
+type ParametrosConsultaMetricas =
+  | {
+      tipo: 'periodo'
+      periodo_dias: PeriodoMetricas
+      cache_key: string
+      filtro_actual_hogql: string
+      filtro_anterior_hogql: string
+      rango_respuesta: {
+        tipo: 'periodo'
+        desde: null
+        hasta: null
+      }
+    }
+  | {
+      tipo: 'personalizado'
+      periodo_dias: number
+      cache_key: string
+      filtro_actual_hogql: string
+      filtro_anterior_hogql: string
+      rango_respuesta: {
+        tipo: 'personalizado'
+        desde: string
+        hasta: string
+      }
+    }
+
+interface FilaConfiguracionKpi {
+  clave_kpi: string
+  nombre: string | null
+  unidad: string | null
+  meta_7: number | string | null
+  meta_30: number | string | null
+  meta_90: number | string | null
+  umbral_ok: number | string | null
+  umbral_atencion: number | string | null
+  activo: boolean | null
+}
+
+type ResultadoAutorizacion =
+  | {
+      autorizado: true
+      usuarioId: string
+    }
+  | {
+      autorizado: false
+      status: 401 | 403 | 500
+      motivo: string
+      codigoError: string
+    }
+
+interface ResultadoBloquePeriodo {
+  usuariosActivos: number | null
+  conteosPorEvento: Map<string, number> | null
+  usuariosUnicosPorEvento: Map<string, number> | null
+  huboFormatoInesperado: boolean
+  huboError: boolean
+}
+
 function construirTextoPeriodo(periodoDias: number): string {
   return `Últimos ${String(periodoDias)} días`
+}
+
+function esFechaYmd(valor: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(valor)
+}
+
+function escaparLiteralSql(valor: string): string {
+  return valor.replace(/'/g, "''")
+}
+
+function construirFiltroPorRangoIso(inicioIso: string, finIsoExclusivo: string): string {
+  const inicio = escaparLiteralSql(inicioIso)
+  const fin = escaparLiteralSql(finIsoExclusivo)
+  return `timestamp >= toDateTime('${inicio}') AND timestamp < toDateTime('${fin}')`
+}
+
+function obtenerInicioUtcDia(fechaYmd: string): Date | null {
+  if (!esFechaYmd(fechaYmd)) {
+    return null
+  }
+
+  const fecha = new Date(`${fechaYmd}T00:00:00.000Z`)
+  return Number.isNaN(fecha.getTime()) ? null : fecha
+}
+
+function construirFiltroRangoPeriodo(periodoDias: PeriodoMetricas, desplazamientoDias: number): string {
+  const inicio = periodoDias + desplazamientoDias
+  const fin = desplazamientoDias
+
+  if (fin === 0) {
+    return `timestamp >= now() - INTERVAL ${String(inicio)} DAY AND timestamp < now()`
+  }
+
+  return `timestamp >= now() - INTERVAL ${String(inicio)} DAY AND timestamp < now() - INTERVAL ${String(fin)} DAY`
+}
+
+function periodoDesdeNumero(valor: number): PeriodoMetricas {
+  if (valor === 7 || valor === 30 || valor === 90) {
+    return valor
+  }
+
+  return PERIODO_DIAS_POR_DEFECTO
+}
+
+function obtenerParametrosConsultaMetricas(request: Request): ParametrosConsultaMetricas {
+  const url = new URL(request.url)
+  const periodoRecibido = Number(url.searchParams.get('periodo_dias'))
+  const periodoDias = periodoDesdeNumero(periodoRecibido)
+
+  const desde = url.searchParams.get('desde')
+  const hasta = url.searchParams.get('hasta')
+
+  if (!desde || !hasta) {
+    return {
+      tipo: 'periodo',
+      periodo_dias: periodoDias,
+      cache_key: `periodo:${String(periodoDias)}`,
+      filtro_actual_hogql: construirFiltroRangoPeriodo(periodoDias, 0),
+      filtro_anterior_hogql: construirFiltroRangoPeriodo(periodoDias, periodoDias),
+      rango_respuesta: {
+        tipo: 'periodo',
+        desde: null,
+        hasta: null
+      }
+    }
+  }
+
+  const fechaInicio = obtenerInicioUtcDia(desde)
+  const fechaHasta = obtenerInicioUtcDia(hasta)
+
+  if (!fechaInicio || !fechaHasta || fechaHasta.getTime() < fechaInicio.getTime()) {
+    return {
+      tipo: 'periodo',
+      periodo_dias: periodoDias,
+      cache_key: `periodo:${String(periodoDias)}`,
+      filtro_actual_hogql: construirFiltroRangoPeriodo(periodoDias, 0),
+      filtro_anterior_hogql: construirFiltroRangoPeriodo(periodoDias, periodoDias),
+      rango_respuesta: {
+        tipo: 'periodo',
+        desde: null,
+        hasta: null
+      }
+    }
+  }
+
+  const finExclusivo = new Date(fechaHasta.getTime() + 24 * 60 * 60 * 1000)
+  const dias = Math.floor((finExclusivo.getTime() - fechaInicio.getTime()) / (24 * 60 * 60 * 1000))
+
+  if (dias < 1 || dias > MAX_DIAS_RANGO_PERSONALIZADO) {
+    return {
+      tipo: 'periodo',
+      periodo_dias: periodoDias,
+      cache_key: `periodo:${String(periodoDias)}`,
+      filtro_actual_hogql: construirFiltroRangoPeriodo(periodoDias, 0),
+      filtro_anterior_hogql: construirFiltroRangoPeriodo(periodoDias, periodoDias),
+      rango_respuesta: {
+        tipo: 'periodo',
+        desde: null,
+        hasta: null
+      }
+    }
+  }
+
+  const inicioActualIso = fechaInicio.toISOString()
+  const finActualIso = finExclusivo.toISOString()
+  const inicioAnteriorIso = new Date(fechaInicio.getTime() - dias * 24 * 60 * 60 * 1000).toISOString()
+  const finAnteriorIso = fechaInicio.toISOString()
+
+  return {
+    tipo: 'personalizado',
+    periodo_dias: dias,
+    cache_key: `rango:${desde}:${hasta}`,
+    filtro_actual_hogql: construirFiltroPorRangoIso(inicioActualIso, finActualIso),
+    filtro_anterior_hogql: construirFiltroPorRangoIso(inicioAnteriorIso, finAnteriorIso),
+    rango_respuesta: {
+      tipo: 'personalizado',
+      desde,
+      hasta
+    }
+  }
 }
 
 function redondear(valor: number): number {
@@ -120,9 +329,8 @@ function calcularPorcentaje(numerador: number, denominador: number): number {
   return redondear((numerador / denominador) * 100)
 }
 
-function obtenerMeta(definicion: DefinicionMetrica, periodoDias: number): number | null {
-  const configuracion = configuracionMetasKpi[definicion.clave]
-  if (!configuracion) {
+function obtenerMeta(configuracionKpi: ConfiguracionKpiDinamica | null, periodoDias: number): number | null {
+  if (!configuracionKpi) {
     return null
   }
 
@@ -130,11 +338,11 @@ function obtenerMeta(definicion: DefinicionMetrica, periodoDias: number): number
     return null
   }
 
-  return configuracion.metaPorPeriodo[periodoDias]
+  return configuracionKpi.metaPorPeriodo[periodoDias]
 }
 
 function calcularEstadoMeta(
-  definicion: DefinicionMetrica,
+  configuracionKpi: ConfiguracionKpiDinamica | null,
   valorActual: number | null,
   meta: number | null
 ): 'ok' | 'atencion' | 'riesgo' | null {
@@ -142,25 +350,24 @@ function calcularEstadoMeta(
     return null
   }
 
-  const configuracion = configuracionMetasKpi[definicion.clave]
-  if (!configuracion) {
+  if (!configuracionKpi) {
     return null
   }
 
   if (
-    configuracion.umbralesCumplimiento.ok === null ||
-    configuracion.umbralesCumplimiento.atencion === null
+    configuracionKpi.umbralesCumplimiento.ok === null ||
+    configuracionKpi.umbralesCumplimiento.atencion === null
   ) {
     return null
   }
 
   const cumplimiento = valorActual / meta
 
-  if (cumplimiento >= configuracion.umbralesCumplimiento.ok) {
+  if (cumplimiento >= configuracionKpi.umbralesCumplimiento.ok) {
     return 'ok'
   }
 
-  if (cumplimiento >= configuracion.umbralesCumplimiento.atencion) {
+  if (cumplimiento >= configuracionKpi.umbralesCumplimiento.atencion) {
     return 'atencion'
   }
 
@@ -171,26 +378,33 @@ function construirMetrica(
   definicion: DefinicionMetrica,
   valorActual: number | null,
   valorAnterior: number | null,
-  periodoDias: number
+  periodoDias: number,
+  configuracionKpi?: ConfiguracionKpiDinamica
 ): MetricaPosthog {
   const deltaAbsoluto =
     valorActual === null || valorAnterior === null ? null : redondear(valorActual - valorAnterior)
   const deltaAplicable = valorActual !== null && valorAnterior !== null && valorAnterior !== 0
   const deltaPorcentual =
     deltaAbsoluto === null || !deltaAplicable ? null : redondear((deltaAbsoluto / valorAnterior) * 100)
-  const meta = obtenerMeta(definicion, periodoDias)
-  const estadoMeta = calcularEstadoMeta(definicion, valorActual, meta)
+  const configuracionAplicada = configuracionKpi?.activo ? configuracionKpi : null
+  const meta = obtenerMeta(configuracionAplicada, periodoDias)
+  const estadoMeta = calcularEstadoMeta(configuracionAplicada, valorActual, meta)
+  const nombre =
+    configuracionAplicada?.nombre && configuracionAplicada.nombre.trim().length > 0
+      ? configuracionAplicada.nombre.trim()
+      : definicion.nombre
+  const unidad = configuracionAplicada?.unidad ?? definicion.unidad
 
   return {
     clave: definicion.clave,
-    nombre: definicion.nombre,
+    nombre,
     valor: valorActual,
     valor_periodo_actual: valorActual,
     valor_periodo_anterior: valorAnterior,
     delta_absoluto: deltaAbsoluto,
     delta_porcentual: deltaPorcentual,
     delta_aplicable: deltaAplicable,
-    unidad: definicion.unidad,
+    unidad,
     meta,
     estado_meta: estadoMeta,
     periodo: construirTextoPeriodo(periodoDias),
@@ -258,7 +472,8 @@ function construirDiagnosticoSeguro(
 function construirRespuestaNoDisponible(
   motivo: string,
   periodoDias: number,
-  diagnostico?: DiagnosticoMetricasPosthog
+  diagnostico?: DiagnosticoMetricasPosthog,
+  codigoError?: string
 ): RespuestaMetricasPosthog {
   return {
     fuente: 'posthog',
@@ -266,17 +481,100 @@ function construirRespuestaNoDisponible(
     actualizado_en: new Date().toISOString(),
     disponible: false,
     motivo_no_disponible: motivo,
+    codigo_error: codigoError ?? null,
     diagnostico,
     metricas: definicionesMetricas.map((metrica) => construirMetrica(metrica, null, null, periodoDias))
   }
 }
 
-function obtenerPeriodoDiasDesdeRequest(request: Request): number {
-  const url = new URL(request.url)
-  const periodoRecibido = Number(url.searchParams.get('periodo_dias'))
-  const periodosPermitidos = new Set([7, 30, 90])
+function extraerTokenBearer(request: Request): string | null {
+  const headerAuthorization = request.headers.get('authorization')
+  if (!headerAuthorization) {
+    return null
+  }
 
-  return periodosPermitidos.has(periodoRecibido) ? periodoRecibido : PERIODO_DIAS_POR_DEFECTO
+  const coincide = headerAuthorization.match(/^Bearer\s+(.+)$/i)
+  return coincide?.[1]?.trim() ?? null
+}
+
+function obtenerClienteSupabaseAdmin(env: EntornoMetricasPosthog): SupabaseClient | null {
+  const supabaseUrl = env.SUPABASE_URL?.trim()
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null
+  }
+
+  if (
+    clienteSupabaseAdminCache &&
+    clienteSupabaseAdminCache.supabaseUrl === supabaseUrl &&
+    clienteSupabaseAdminCache.serviceRoleKey === serviceRoleKey
+  ) {
+    return clienteSupabaseAdminCache.cliente
+  }
+
+  const cliente = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  })
+
+  clienteSupabaseAdminCache = {
+    supabaseUrl,
+    serviceRoleKey,
+    cliente
+  }
+
+  return cliente
+}
+
+async function validarAutorizacion(request: Request, env: EntornoMetricasPosthog): Promise<ResultadoAutorizacion> {
+  const clienteSupabaseAdmin = obtenerClienteSupabaseAdmin(env)
+  if (!clienteSupabaseAdmin) {
+    return {
+      autorizado: false,
+      status: 500,
+      motivo: 'Falta configuración de seguridad en el servidor.',
+      codigoError: 'configuracion_auth'
+    }
+  }
+
+  const token = extraerTokenBearer(request)
+  if (!token) {
+    return {
+      autorizado: false,
+      status: 401,
+      motivo: 'No autorizado. Inicia sesión nuevamente.',
+      codigoError: 'no_autorizado'
+    }
+  }
+
+  try {
+    const { data, error } = await clienteSupabaseAdmin.auth.getUser(token)
+
+    if (error || !data.user) {
+      return {
+        autorizado: false,
+        status: 403,
+        motivo: 'No autorizado. Inicia sesión nuevamente.',
+        codigoError: 'token_invalido'
+      }
+    }
+
+    return {
+      autorizado: true,
+      usuarioId: data.user.id
+    }
+  } catch {
+    return {
+      autorizado: false,
+      status: 500,
+      motivo: 'No se pudo validar la sesión.',
+      codigoError: 'auth_error'
+    }
+  }
 }
 
 function traducirErrorPosthog(status: number): string {
@@ -320,24 +618,216 @@ function normalizarHostPosthog(host: string): string {
   }
 }
 
+function normalizarUnidad(valor: unknown): 'conteo' | 'porcentaje' | null {
+  if (valor !== 'conteo' && valor !== 'porcentaje') {
+    return null
+  }
+
+  return valor
+}
+
+function normalizarClaveMetrica(valor: unknown): ClaveMetricaKpi | null {
+  if (typeof valor !== 'string') {
+    return null
+  }
+
+  const claves = new Set<ClaveMetricaKpi>(definicionesMetricas.map((definicion) => definicion.clave))
+  return claves.has(valor as ClaveMetricaKpi) ? (valor as ClaveMetricaKpi) : null
+}
+
+async function cargarConfiguracionesKpi(env: EntornoMetricasPosthog): Promise<Map<ClaveMetricaKpi, ConfiguracionKpiDinamica>> {
+  const clienteSupabaseAdmin = obtenerClienteSupabaseAdmin(env)
+  if (!clienteSupabaseAdmin) {
+    return new Map()
+  }
+
+  const { data, error } = await clienteSupabaseAdmin
+    .from('kpis_config')
+    .select(
+      'clave_kpi,nombre,unidad,meta_7,meta_30,meta_90,umbral_ok,umbral_atencion,activo'
+    )
+
+  if (error || !Array.isArray(data)) {
+    return new Map()
+  }
+
+  const mapa = new Map<ClaveMetricaKpi, ConfiguracionKpiDinamica>()
+
+  for (const fila of data as FilaConfiguracionKpi[]) {
+    const clave = normalizarClaveMetrica(fila.clave_kpi)
+    if (!clave) {
+      continue
+    }
+
+    mapa.set(clave, {
+      clave,
+      nombre: typeof fila.nombre === 'string' ? fila.nombre : null,
+      unidad: normalizarUnidad(fila.unidad),
+      activo: fila.activo ?? true,
+      metaPorPeriodo: {
+        7: toNumero(fila.meta_7),
+        30: toNumero(fila.meta_30),
+        90: toNumero(fila.meta_90)
+      },
+      umbralesCumplimiento: {
+        ok: toNumero(fila.umbral_ok),
+        atencion: toNumero(fila.umbral_atencion)
+      }
+    })
+  }
+
+  return mapa
+}
+
+function construirConsultaUsuariosActivos(filtroHogql: string): string {
+  return `
+    SELECT uniq(distinct_id) AS usuarios_activos
+    FROM events
+    WHERE ${filtroHogql}
+      AND distinct_id IS NOT NULL
+  `
+}
+
+function construirConsultaConteosEventos(
+  filtroHogql: string,
+  eventosObjetivo: ReadonlyArray<EventoPosthogKpi>
+): string {
+  return `
+    SELECT event, count() AS total
+    FROM events
+    WHERE ${filtroHogql}
+      AND event IN (${eventosObjetivo.map((evento) => `'${evento}'`).join(', ')})
+    GROUP BY event
+  `
+}
+
+function construirConsultaUsuariosUnicosPorEvento(
+  filtroHogql: string,
+  eventosObjetivo: ReadonlyArray<EventoPosthogKpi>
+): string {
+  return `
+    SELECT event, uniq(distinct_id) AS total_usuarios
+    FROM events
+    WHERE ${filtroHogql}
+      AND event IN (${eventosObjetivo.map((evento) => `'${evento}'`).join(', ')})
+      AND distinct_id IS NOT NULL
+    GROUP BY event
+  `
+}
+
+function mapearTotalesPorEvento(
+  filas: Array<Record<string, unknown>>,
+  nombreMetrica: 'total' | 'total_usuarios'
+): Map<string, number> {
+  const mapa = new Map<string, number>()
+
+  for (const fila of filas) {
+    const evento = fila.event
+    if (typeof evento !== 'string') {
+      continue
+    }
+
+    const total = toNumero(fila[nombreMetrica])
+    if (total === null) {
+      continue
+    }
+
+    mapa.set(evento, total)
+  }
+
+  return mapa
+}
+
+async function consultarBloquePeriodo(
+  urlConsulta: string,
+  apiKey: string,
+  filtroHogql: string,
+  eventosObjetivo: ReadonlyArray<EventoPosthogKpi>
+): Promise<ResultadoBloquePeriodo> {
+  const [resultadoUsuariosActivos, resultadoConteos, resultadoUsuariosUnicos] = await Promise.allSettled([
+    consultarPosthog(urlConsulta, apiKey, construirConsultaUsuariosActivos(filtroHogql)),
+    consultarPosthog(
+      urlConsulta,
+      apiKey,
+      construirConsultaConteosEventos(filtroHogql, eventosObjetivo)
+    ),
+    consultarPosthog(
+      urlConsulta,
+      apiKey,
+      construirConsultaUsuariosUnicosPorEvento(filtroHogql, eventosObjetivo)
+    )
+  ])
+
+  const huboFormatoInesperado =
+    (resultadoUsuariosActivos.status === 'rejected' &&
+      resultadoUsuariosActivos.reason instanceof ErrorFormatoRespuestaPosthog) ||
+    (resultadoConteos.status === 'rejected' && resultadoConteos.reason instanceof ErrorFormatoRespuestaPosthog) ||
+    (resultadoUsuariosUnicos.status === 'rejected' &&
+      resultadoUsuariosUnicos.reason instanceof ErrorFormatoRespuestaPosthog)
+
+  const huboError =
+    resultadoUsuariosActivos.status === 'rejected' ||
+    resultadoConteos.status === 'rejected' ||
+    resultadoUsuariosUnicos.status === 'rejected'
+
+  const usuariosActivos =
+    resultadoUsuariosActivos.status === 'fulfilled'
+      ? (toNumero(resultadoUsuariosActivos.value[0]?.usuarios_activos) ?? 0)
+      : null
+
+  const conteosPorEvento =
+    resultadoConteos.status === 'fulfilled'
+      ? mapearTotalesPorEvento(resultadoConteos.value, 'total')
+      : null
+
+  const usuariosUnicosPorEvento =
+    resultadoUsuariosUnicos.status === 'fulfilled'
+      ? mapearTotalesPorEvento(resultadoUsuariosUnicos.value, 'total_usuarios')
+      : null
+
+  return {
+    usuariosActivos,
+    conteosPorEvento,
+    usuariosUnicosPorEvento,
+    huboFormatoInesperado,
+    huboError
+  }
+}
+
 async function consultarPosthog(
   url: string,
   apiKey: string,
   consultaHogql: string
 ): Promise<Array<Record<string, unknown>>> {
-  const respuesta = await fetch(url, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      query: {
-        kind: 'HogQLQuery',
-        query: consultaHogql
-      }
+  const controlador = new AbortController()
+  const timeout = setTimeout(() => controlador.abort(), TIMEOUT_POSTHOG_MS)
+
+  let respuesta: Response
+
+  try {
+    respuesta = await fetch(url, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json'
+      },
+      signal: controlador.signal,
+      body: JSON.stringify({
+        query: {
+          kind: 'HogQLQuery',
+          query: consultaHogql
+        }
+      })
     })
-  })
+  } catch (errorInterno) {
+    if (errorInterno instanceof DOMException && errorInterno.name === 'AbortError') {
+      throw new Error('PostHog timeout: la consulta tardó demasiado.')
+    }
+
+    throw errorInterno
+  } finally {
+    clearTimeout(timeout)
+  }
 
   if (!respuesta.ok) {
     throw new Error(`PostHog ${respuesta.status}: ${traducirErrorPosthog(respuesta.status)}`)
@@ -446,8 +936,9 @@ function toNumero(valor: unknown): number | null {
 
 async function obtenerMetricasDesdePosthog(
   env: EntornoMetricasPosthog,
-  periodoDias: number
+  parametrosConsulta: ParametrosConsultaMetricas
 ): Promise<RespuestaMetricasPosthog> {
+  const periodoDias = parametrosConsulta.periodo_dias
   const host = env.POSTHOG_HOST
   const projectId = env.POSTHOG_PROJECT_ID
   const apiKey = env.POSTHOG_PERSONAL_API_KEY
@@ -457,12 +948,13 @@ async function obtenerMetricasDesdePosthog(
     return construirRespuestaNoDisponible(
       'Faltan secretos de PostHog en Cloudflare Pages.',
       periodoDias,
-      diagnostico
+      diagnostico,
+      'configuracion_posthog'
     )
   }
 
   console.info('[metricas-posthog] consulta', {
-    project_id: projectId,
+    project_id_enmascarado: enmascararProjectId(projectId),
     periodo_dias: periodoDias,
     eventos: EVENTOS_POSTHOG_KPI_LISTA
   })
@@ -471,213 +963,33 @@ async function obtenerMetricasDesdePosthog(
 
   const eventosObjetivo: ReadonlyArray<EventoPosthogKpi> = EVENTOS_POSTHOG_KPI_LISTA
 
-  const construirFiltroRango = (dias: number, desplazamientoDias: number) => {
-    const inicio = dias + desplazamientoDias
-    const fin = desplazamientoDias
+  const [configuracionesKpi, bloqueActual, bloqueAnterior] = await Promise.all([
+    cargarConfiguracionesKpi(env),
+    consultarBloquePeriodo(urlConsulta, apiKey, parametrosConsulta.filtro_actual_hogql, eventosObjetivo),
+    consultarBloquePeriodo(urlConsulta, apiKey, parametrosConsulta.filtro_anterior_hogql, eventosObjetivo)
+  ])
 
-    if (fin === 0) {
-      return `timestamp >= now() - INTERVAL ${String(inicio)} DAY AND timestamp < now()`
-    }
-
-    return `timestamp >= now() - INTERVAL ${String(inicio)} DAY AND timestamp < now() - INTERVAL ${String(fin)} DAY`
-  }
-
-  const consultaUsuariosActivosActual = `
-    SELECT uniq(distinct_id) AS usuarios_activos
-    FROM events
-    WHERE ${construirFiltroRango(periodoDias, 0)}
-      AND distinct_id IS NOT NULL
-  `
-
-  const consultaUsuariosActivosAnterior = `
-    SELECT uniq(distinct_id) AS usuarios_activos
-    FROM events
-    WHERE ${construirFiltroRango(periodoDias, periodoDias)}
-      AND distinct_id IS NOT NULL
-  `
-
-  const consultaEventosActual = `
-    SELECT event, count() AS total
-    FROM events
-    WHERE ${construirFiltroRango(periodoDias, 0)}
-      AND event IN (${eventosObjetivo.map((evento) => `'${evento}'`).join(', ')})
-    GROUP BY event
-  `
-
-  const consultaEventosAnterior = `
-    SELECT event, count() AS total
-    FROM events
-    WHERE ${construirFiltroRango(periodoDias, periodoDias)}
-      AND event IN (${eventosObjetivo.map((evento) => `'${evento}'`).join(', ')})
-    GROUP BY event
-  `
-
-  const construirConsultaUsuariosEvento = (evento: EventoPosthogKpi, desplazamientoDias: number) => `
-    SELECT uniq(distinct_id) AS total
-    FROM events
-    WHERE ${construirFiltroRango(periodoDias, desplazamientoDias)}
-      AND event = '${evento}'
-      AND distinct_id IS NOT NULL
-  `
-
-  let usuariosActivosActual: number | null = null
-  let usuariosActivosAnterior: number | null = null
-  let mapaEventosActual: Map<string, number> | null = null
-  let mapaEventosAnterior: Map<string, number> | null = null
-  let usuariosConVentaActual: number | null = null
-  let usuariosRegistradosActual: number | null = null
-  let usuariosConVentaAnterior: number | null = null
-  let usuariosRegistradosAnterior: number | null = null
-  const erroresConsultas: string[] = []
-  let formatoRespuestaInesperado = false
-
-  try {
-    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivosActual)
-    usuariosActivosActual = toNumero(resultado[0]?.usuarios_activos) ?? 0
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `usuarios_activos_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+  if (bloqueActual.huboFormatoInesperado || bloqueAnterior.huboFormatoInesperado) {
+    return construirRespuestaNoDisponible(
+      'Formato de respuesta inesperado de PostHog.',
+      periodoDias,
+      diagnostico,
+      'posthog_formato'
     )
   }
 
-  try {
-    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivosAnterior)
-    usuariosActivosAnterior = toNumero(resultado[0]?.usuarios_activos) ?? 0
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `usuarios_activos_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
-    )
-  }
-
-  try {
-    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaEventosActual)
-    const mapa = new Map<string, number>()
-
-    for (const fila of resultado) {
-      const nombreEvento = fila.event
-      if (typeof nombreEvento !== 'string') {
-        continue
-      }
-
-      const total = toNumero(fila.total)
-      if (total === null) {
-        continue
-      }
-
-      mapa.set(nombreEvento, total)
-    }
-
-    mapaEventosActual = mapa
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `eventos_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
-    )
-  }
-
-  try {
-    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaEventosAnterior)
-    const mapa = new Map<string, number>()
-
-    for (const fila of resultado) {
-      const nombreEvento = fila.event
-      if (typeof nombreEvento !== 'string') {
-        continue
-      }
-
-      const total = toNumero(fila.total)
-      if (total === null) {
-        continue
-      }
-
-      mapa.set(nombreEvento, total)
-    }
-
-    mapaEventosAnterior = mapa
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `eventos_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
-    )
-  }
-
-  try {
-    const resultado = await consultarPosthog(
-      urlConsulta,
-      apiKey,
-      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA, 0)
-    )
-    usuariosConVentaActual = toNumero(resultado[0]?.total) ?? 0
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `usuarios_venta_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
-    )
-  }
-
-  try {
-    const resultado = await consultarPosthog(
-      urlConsulta,
-      apiKey,
-      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.REGISTRO_USUARIO_COMPLETADO, 0)
-    )
-    usuariosRegistradosActual = toNumero(resultado[0]?.total) ?? 0
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `usuarios_registro_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
-    )
-  }
-
-  try {
-    const resultado = await consultarPosthog(
-      urlConsulta,
-      apiKey,
-      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA, periodoDias)
-    )
-    usuariosConVentaAnterior = toNumero(resultado[0]?.total) ?? 0
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `usuarios_venta_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
-    )
-  }
-
-  try {
-    const resultado = await consultarPosthog(
-      urlConsulta,
-      apiKey,
-      construirConsultaUsuariosEvento(EVENTOS_POSTHOG_KPI.REGISTRO_USUARIO_COMPLETADO, periodoDias)
-    )
-    usuariosRegistradosAnterior = toNumero(resultado[0]?.total) ?? 0
-  } catch (errorInterno) {
-    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
-      formatoRespuestaInesperado = true
-    }
-    erroresConsultas.push(
-      `usuarios_registro_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
-    )
-  }
-
-  if (formatoRespuestaInesperado) {
-    return construirRespuestaNoDisponible('Formato de respuesta inesperado de PostHog.', periodoDias, diagnostico)
-  }
+  const usuariosConVentaActual = bloqueActual.usuariosUnicosPorEvento
+    ? (bloqueActual.usuariosUnicosPorEvento.get(EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA) ?? 0)
+    : null
+  const usuariosRegistradosActual = bloqueActual.usuariosUnicosPorEvento
+    ? (bloqueActual.usuariosUnicosPorEvento.get(EVENTOS_POSTHOG_KPI.REGISTRO_USUARIO_COMPLETADO) ?? 0)
+    : null
+  const usuariosConVentaAnterior = bloqueAnterior.usuariosUnicosPorEvento
+    ? (bloqueAnterior.usuariosUnicosPorEvento.get(EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA) ?? 0)
+    : null
+  const usuariosRegistradosAnterior = bloqueAnterior.usuariosUnicosPorEvento
+    ? (bloqueAnterior.usuariosUnicosPorEvento.get(EVENTOS_POSTHOG_KPI.REGISTRO_USUARIO_COMPLETADO) ?? 0)
+    : null
 
   const activacionActual =
     usuariosConVentaActual === null || usuariosRegistradosActual === null
@@ -689,25 +1001,35 @@ async function obtenerMetricasDesdePosthog(
       : calcularPorcentaje(usuariosConVentaAnterior, usuariosRegistradosAnterior)
 
   const metricas = definicionesMetricas.map((definicion) => {
+    const configuracionKpi = configuracionesKpi.get(definicion.clave)
+
     if (definicion.tipo === 'usuarios_activos') {
-      return construirMetrica(definicion, usuariosActivosActual, usuariosActivosAnterior, periodoDias)
+      return construirMetrica(
+        definicion,
+        bloqueActual.usuariosActivos,
+        bloqueAnterior.usuariosActivos,
+        periodoDias,
+        configuracionKpi
+      )
     }
 
     if (definicion.tipo === 'activacion') {
-      return construirMetrica(definicion, activacionActual, activacionAnterior, periodoDias)
+      return construirMetrica(definicion, activacionActual, activacionAnterior, periodoDias, configuracionKpi)
     }
 
-    const valorActual = mapaEventosActual ? (mapaEventosActual.get(definicion.evento) ?? 0) : null
-    const valorAnterior = mapaEventosAnterior ? (mapaEventosAnterior.get(definicion.evento) ?? 0) : null
+    const valorActual = bloqueActual.conteosPorEvento
+      ? (bloqueActual.conteosPorEvento.get(definicion.evento) ?? 0)
+      : null
+    const valorAnterior = bloqueAnterior.conteosPorEvento
+      ? (bloqueAnterior.conteosPorEvento.get(definicion.evento) ?? 0)
+      : null
 
-    return construirMetrica(definicion, valorActual, valorAnterior, periodoDias)
+    return construirMetrica(definicion, valorActual, valorAnterior, periodoDias, configuracionKpi)
   })
 
   const hayMetricasDisponibles = metricas.some((metrica) => metrica.valor !== null)
-  const motivoNoDisponible =
-    erroresConsultas.length > 0
-      ? `Fallo parcial consultando PostHog (${erroresConsultas.join(' | ')}).`
-      : null
+  const huboErrorParcial = bloqueActual.huboError || bloqueAnterior.huboError
+  const motivoNoDisponible = huboErrorParcial ? 'Fallo parcial consultando PostHog.' : null
 
   return {
     fuente: 'posthog',
@@ -715,33 +1037,49 @@ async function obtenerMetricasDesdePosthog(
     actualizado_en: new Date().toISOString(),
     disponible: hayMetricasDisponibles,
     motivo_no_disponible: motivoNoDisponible,
+    codigo_error: huboErrorParcial ? 'posthog_parcial' : null,
+    rango: parametrosConsulta.rango_respuesta,
     diagnostico,
     metricas
   }
 }
 
 export const onRequestGet = async (context: ContextoFunction): Promise<Response> => {
-  const periodoDias = obtenerPeriodoDiasDesdeRequest(context.request)
+  const parametrosConsulta = obtenerParametrosConsultaMetricas(context.request)
+  const periodoDias = parametrosConsulta.periodo_dias
+  const autorizacion = await validarAutorizacion(context.request, context.env)
+
+  if (!autorizacion.autorizado) {
+    const respuestaNoAutorizado = construirRespuestaNoDisponible(
+      autorizacion.motivo,
+      periodoDias,
+      construirDiagnosticoSeguro(context.env, EVENTOS_POSTHOG_KPI_LISTA),
+      autorizacion.codigoError
+    )
+    return construirRespuestaJson(autorizacion.status, respuestaNoAutorizado, 'no-store')
+  }
+
   const ahora = Date.now()
-  const cachePeriodo = cacheMemoriaPorPeriodo.get(periodoDias)
+  const cachePeriodo = cacheMemoriaPorClave.get(parametrosConsulta.cache_key)
 
   if (cachePeriodo && cachePeriodo.expiraEn > ahora) {
     return construirRespuestaJson(200, cachePeriodo.valor, 'public, max-age=60')
   }
 
   try {
-    const valor = await obtenerMetricasDesdePosthog(context.env, periodoDias)
-    cacheMemoriaPorPeriodo.set(periodoDias, {
+    const valor = await obtenerMetricasDesdePosthog(context.env, parametrosConsulta)
+    cacheMemoriaPorClave.set(parametrosConsulta.cache_key, {
       expiraEn: ahora + DURACION_CACHE_MS,
       valor
     })
 
     return construirRespuestaJson(200, valor, 'public, max-age=60')
-  } catch (errorInterno) {
+  } catch {
     const respuestaError = construirRespuestaNoDisponible(
-      errorInterno instanceof Error ? errorInterno.message : 'No se pudieron consultar métricas en PostHog.',
+      'No se pudieron consultar métricas en PostHog.',
       periodoDias,
-      construirDiagnosticoSeguro(context.env, EVENTOS_POSTHOG_KPI_LISTA)
+      construirDiagnosticoSeguro(context.env, EVENTOS_POSTHOG_KPI_LISTA),
+      'posthog_error'
     )
     return construirRespuestaJson(200, respuestaError, 'no-store')
   }
