@@ -343,12 +343,92 @@ async function consultarPosthog(
     throw new Error(`PostHog ${respuesta.status}: ${traducirErrorPosthog(respuesta.status)}`)
   }
 
-  const json = (await respuesta.json()) as { results?: unknown }
+  const json = (await respuesta.json()) as { results?: unknown; columns?: unknown }
+  return parsearResultadosPosthog(json)
+}
+
+class ErrorFormatoRespuestaPosthog extends Error {
+  constructor() {
+    super('Formato de respuesta inesperado de PostHog.')
+    this.name = 'ErrorFormatoRespuestaPosthog'
+  }
+}
+
+function esRegistroPlano(valor: unknown): valor is Record<string, unknown> {
+  return !!valor && typeof valor === 'object' && !Array.isArray(valor)
+}
+
+function extraerNombreColumna(columna: unknown): string | null {
+  if (typeof columna === 'string' && columna.trim().length > 0) {
+    return columna.trim()
+  }
+
+  if (esRegistroPlano(columna)) {
+    const nombre = columna.name
+    if (typeof nombre === 'string' && nombre.trim().length > 0) {
+      return nombre.trim()
+    }
+
+    const clave = columna.key
+    if (typeof clave === 'string' && clave.trim().length > 0) {
+      return clave.trim()
+    }
+  }
+
+  return null
+}
+
+function parsearResultadosTabulares(
+  results: ReadonlyArray<unknown>,
+  columns: unknown
+): Array<Record<string, unknown>> {
+  if (!Array.isArray(columns)) {
+    throw new ErrorFormatoRespuestaPosthog()
+  }
+
+  const nombresColumnas = columns
+    .map((columna) => extraerNombreColumna(columna))
+    .filter((columna): columna is string => columna !== null)
+
+  if (nombresColumnas.length === 0) {
+    throw new ErrorFormatoRespuestaPosthog()
+  }
+
+  return results.map((fila) => {
+    if (!Array.isArray(fila)) {
+      throw new ErrorFormatoRespuestaPosthog()
+    }
+
+    const registro: Record<string, unknown> = {}
+
+    nombresColumnas.forEach((nombreColumna, indice) => {
+      registro[nombreColumna] = fila[indice]
+    })
+
+    return registro
+  })
+}
+
+function parsearResultadosPosthog(json: { results?: unknown; columns?: unknown }): Array<Record<string, unknown>> {
   if (!Array.isArray(json.results)) {
+    throw new ErrorFormatoRespuestaPosthog()
+  }
+
+  if (json.results.length === 0) {
     return []
   }
 
-  return json.results.filter((registro): registro is Record<string, unknown> => !!registro && typeof registro === 'object')
+  const sonRegistros = json.results.every((fila) => esRegistroPlano(fila))
+  if (sonRegistros) {
+    return json.results
+  }
+
+  const sonFilasTabulares = json.results.every((fila) => Array.isArray(fila))
+  if (sonFilasTabulares) {
+    return parsearResultadosTabulares(json.results, json.columns)
+  }
+
+  throw new ErrorFormatoRespuestaPosthog()
 }
 
 function toNumero(valor: unknown): number | null {
@@ -449,11 +529,15 @@ async function obtenerMetricasDesdePosthog(
   let usuariosConVentaAnterior: number | null = null
   let usuariosRegistradosAnterior: number | null = null
   const erroresConsultas: string[] = []
+  let formatoRespuestaInesperado = false
 
   try {
     const resultado = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivosActual)
     usuariosActivosActual = toNumero(resultado[0]?.usuarios_activos) ?? 0
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `usuarios_activos_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
@@ -463,6 +547,9 @@ async function obtenerMetricasDesdePosthog(
     const resultado = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivosAnterior)
     usuariosActivosAnterior = toNumero(resultado[0]?.usuarios_activos) ?? 0
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `usuarios_activos_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
@@ -488,6 +575,9 @@ async function obtenerMetricasDesdePosthog(
 
     mapaEventosActual = mapa
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `eventos_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
@@ -513,6 +603,9 @@ async function obtenerMetricasDesdePosthog(
 
     mapaEventosAnterior = mapa
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `eventos_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
@@ -526,6 +619,9 @@ async function obtenerMetricasDesdePosthog(
     )
     usuariosConVentaActual = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `usuarios_venta_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
@@ -539,6 +635,9 @@ async function obtenerMetricasDesdePosthog(
     )
     usuariosRegistradosActual = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `usuarios_registro_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
@@ -552,6 +651,9 @@ async function obtenerMetricasDesdePosthog(
     )
     usuariosConVentaAnterior = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `usuarios_venta_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
@@ -565,9 +667,16 @@ async function obtenerMetricasDesdePosthog(
     )
     usuariosRegistradosAnterior = toNumero(resultado[0]?.total) ?? 0
   } catch (errorInterno) {
+    if (errorInterno instanceof ErrorFormatoRespuestaPosthog) {
+      formatoRespuestaInesperado = true
+    }
     erroresConsultas.push(
       `usuarios_registro_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
+  }
+
+  if (formatoRespuestaInesperado) {
+    return construirRespuestaNoDisponible('Formato de respuesta inesperado de PostHog.', periodoDias, diagnostico)
   }
 
   const activacionActual =
