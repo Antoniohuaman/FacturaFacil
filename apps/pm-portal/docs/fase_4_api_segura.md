@@ -23,7 +23,9 @@ Las Functions viven en `apps/pm-portal/functions/api`.
 Archivo: `functions/api/metricas-posthog.ts`
 
 - Consulta PostHog Query API (`POST /api/projects/:project_id/query/`)
-- Calcula métricas agregadas de últimos 30 días
+- Calcula métricas agregadas para períodos de `7`, `30` o `90` días
+- Incluye comparación contra período anterior equivalente
+- Incluye metas y estado de cumplimiento por KPI
 - Aplica caché en memoria de 60 segundos
 - Responde `200` incluso si falta configuración, con `disponible=false` y métricas en `null`
 
@@ -41,6 +43,14 @@ Respuesta (resumen):
       "clave": "ventas_completadas",
       "nombre": "Ventas completadas",
       "valor": 42,
+      "valor_periodo_actual": 42,
+      "valor_periodo_anterior": 36,
+      "delta_absoluto": 6,
+      "delta_porcentual": 16.67,
+      "delta_aplicable": true,
+      "unidad": "conteo",
+      "meta": 450,
+      "estado_meta": "atencion",
       "periodo": "Últimos 30 días",
       "disponible": true
     }
@@ -49,14 +59,15 @@ Respuesta (resumen):
 ```
 
 Métricas incluidas:
-- `usuarios_activos`
+- `activacion_porcentaje` (`usuarios con venta_completada / usuarios con registro_usuario_completado`)
 - `ventas_completadas` (`venta_completada`)
-- `primera_venta` (`primera_venta_completada`)
-- `ruc_actualizado` (`ruc_actualizado`)
 - `productos_creados` (`producto_creado_exitoso`)
 - `clientes_creados` (`cliente_creado_exitoso`)
+- `importacion_realizada` (`importacion_completada`)
+- `usuarios_activos`
 
-Si un evento no existe en el rango, se devuelve con `valor: null` para no romper UI.
+Si no hay eventos en el rango para un KPI, se devuelve `0`.
+Si hay error real de consulta, se devuelve `null` y motivo sanitizado en `motivo_no_disponible`.
 
 ### `GET /api/resumen-repo` (opcional)
 Archivo: `functions/api/resumen-repo.ts`

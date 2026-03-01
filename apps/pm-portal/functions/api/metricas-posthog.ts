@@ -1,3 +1,5 @@
+import { configuracionMetasKpi, type ClaveMetricaKpi } from './config-metricas-kpi'
+
 interface EntornoMetricasPosthog {
   POSTHOG_HOST?: string
   POSTHOG_PROJECT_ID?: string
@@ -5,9 +7,17 @@ interface EntornoMetricasPosthog {
 }
 
 interface MetricaPosthog {
-  clave: string
+  clave: ClaveMetricaKpi
   nombre: string
   valor: number | null
+  valor_periodo_actual: number | null
+  valor_periodo_anterior: number | null
+  delta_absoluto: number | null
+  delta_porcentual: number | null
+  delta_aplicable: boolean
+  unidad: 'conteo' | 'porcentaje'
+  meta: number | null
+  estado_meta: 'ok' | 'atencion' | 'riesgo' | null
   periodo: string
   disponible: boolean
 }
@@ -37,28 +47,136 @@ const PERIODO_DIAS_POR_DEFECTO = 30
 const cacheMemoriaPorPeriodo = new Map<number, RespuestaCacheada>()
 
 const definicionesMetricas = [
-  { clave: 'usuarios_activos', nombre: 'Usuarios activos', evento: null },
-  { clave: 'ventas_completadas', nombre: 'Ventas completadas', evento: 'venta_completada' },
-  { clave: 'primera_venta', nombre: 'Primera venta', evento: 'primera_venta_completada' },
-  { clave: 'ruc_actualizado', nombre: 'RUC actualizado', evento: 'ruc_actualizado' },
-  { clave: 'productos_creados', nombre: 'Productos creados', evento: 'producto_creado_exitoso' },
-  { clave: 'clientes_creados', nombre: 'Clientes creados', evento: 'cliente_creado_exitoso' }
+  {
+    clave: 'activacion_porcentaje',
+    nombre: 'Activación',
+    tipo: 'activacion' as const,
+    unidad: 'porcentaje' as const
+  },
+  {
+    clave: 'ventas_completadas',
+    nombre: 'Ventas completadas',
+    tipo: 'evento' as const,
+    evento: 'venta_completada',
+    unidad: 'conteo' as const
+  },
+  {
+    clave: 'productos_creados',
+    nombre: 'Productos creados',
+    tipo: 'evento' as const,
+    evento: 'producto_creado_exitoso',
+    unidad: 'conteo' as const
+  },
+  {
+    clave: 'clientes_creados',
+    nombre: 'Clientes creados',
+    tipo: 'evento' as const,
+    evento: 'cliente_creado_exitoso',
+    unidad: 'conteo' as const
+  },
+  {
+    clave: 'importacion_realizada',
+    nombre: 'Importación realizada',
+    tipo: 'evento' as const,
+    evento: 'importacion_completada',
+    unidad: 'conteo' as const
+  },
+  {
+    clave: 'usuarios_activos',
+    nombre: 'Usuarios activos',
+    tipo: 'usuarios_activos' as const,
+    unidad: 'conteo' as const
+  }
 ] as const
 
 type DefinicionMetrica = (typeof definicionesMetricas)[number]
-type EventoPosthog = Exclude<DefinicionMetrica['evento'], null>
+type DefinicionMetricaEvento = Extract<DefinicionMetrica, { tipo: 'evento' }>
+type EventoPosthog = DefinicionMetricaEvento['evento']
 
 function construirTextoPeriodo(periodoDias: number): string {
   return `Últimos ${String(periodoDias)} días`
 }
 
-function construirMetrica(definicion: DefinicionMetrica, valor: number | null, periodoDias: number): MetricaPosthog {
+function redondear(valor: number): number {
+  return Math.round(valor * 100) / 100
+}
+
+function calcularPorcentaje(numerador: number, denominador: number): number {
+  if (denominador <= 0) {
+    return 0
+  }
+
+  return redondear((numerador / denominador) * 100)
+}
+
+function obtenerMeta(definicion: DefinicionMetrica, periodoDias: number): number | null {
+  const configuracion = configuracionMetasKpi[definicion.clave]
+  if (!configuracion) {
+    return null
+  }
+
+  if (periodoDias !== 7 && periodoDias !== 30 && periodoDias !== 90) {
+    return null
+  }
+
+  return configuracion.metaPorPeriodo[periodoDias]
+}
+
+function calcularEstadoMeta(
+  definicion: DefinicionMetrica,
+  valorActual: number | null,
+  meta: number | null
+): 'ok' | 'atencion' | 'riesgo' | null {
+  if (valorActual === null || meta === null || meta <= 0) {
+    return null
+  }
+
+  const configuracion = configuracionMetasKpi[definicion.clave]
+  if (!configuracion) {
+    return null
+  }
+
+  const cumplimiento = valorActual / meta
+
+  if (cumplimiento >= configuracion.umbralesCumplimiento.ok) {
+    return 'ok'
+  }
+
+  if (cumplimiento >= configuracion.umbralesCumplimiento.atencion) {
+    return 'atencion'
+  }
+
+  return 'riesgo'
+}
+
+function construirMetrica(
+  definicion: DefinicionMetrica,
+  valorActual: number | null,
+  valorAnterior: number | null,
+  periodoDias: number
+): MetricaPosthog {
+  const deltaAbsoluto =
+    valorActual === null || valorAnterior === null ? null : redondear(valorActual - valorAnterior)
+  const deltaAplicable = valorActual !== null && valorAnterior !== null && valorAnterior !== 0
+  const deltaPorcentual =
+    deltaAbsoluto === null || !deltaAplicable ? null : redondear((deltaAbsoluto / valorAnterior) * 100)
+  const meta = obtenerMeta(definicion, periodoDias)
+  const estadoMeta = calcularEstadoMeta(definicion, valorActual, meta)
+
   return {
     clave: definicion.clave,
     nombre: definicion.nombre,
-    valor,
+    valor: valorActual,
+    valor_periodo_actual: valorActual,
+    valor_periodo_anterior: valorAnterior,
+    delta_absoluto: deltaAbsoluto,
+    delta_porcentual: deltaPorcentual,
+    delta_aplicable: deltaAplicable,
+    unidad: definicion.unidad,
+    meta,
+    estado_meta: estadoMeta,
     periodo: construirTextoPeriodo(periodoDias),
-    disponible: valor !== null
+    disponible: valorActual !== null
   }
 }
 
@@ -79,7 +197,7 @@ function construirRespuestaNoDisponible(motivo: string, periodoDias: number): Re
     actualizado_en: new Date().toISOString(),
     disponible: false,
     motivo_no_disponible: motivo,
-    metricas: definicionesMetricas.map((metrica) => construirMetrica(metrica, null, periodoDias))
+    metricas: definicionesMetricas.map((metrica) => construirMetrica(metrica, null, null, periodoDias))
   }
 }
 
@@ -191,77 +309,210 @@ async function obtenerMetricasDesdePosthog(
   const urlConsulta = construirUrlPosthog(host, projectId)
 
   const eventosObjetivo = definicionesMetricas
+    .filter((metrica): metrica is DefinicionMetricaEvento => metrica.tipo === 'evento')
     .map((metrica) => metrica.evento)
-    .filter((evento): evento is EventoPosthog => typeof evento === 'string')
 
-  const consultaUsuariosActivos = `
+  const construirFiltroRango = (dias: number, desplazamientoDias: number) => {
+    const inicio = dias + desplazamientoDias
+    const fin = desplazamientoDias
+
+    if (fin === 0) {
+      return `timestamp >= now() - INTERVAL ${String(inicio)} DAY AND timestamp < now()`
+    }
+
+    return `timestamp >= now() - INTERVAL ${String(inicio)} DAY AND timestamp < now() - INTERVAL ${String(fin)} DAY`
+  }
+
+  const consultaUsuariosActivosActual = `
     SELECT uniq(distinct_id) AS usuarios_activos
     FROM events
-    WHERE timestamp >= now() - INTERVAL ${String(periodoDias)} DAY
+    WHERE ${construirFiltroRango(periodoDias, 0)}
       AND distinct_id IS NOT NULL
   `
 
-  const consultaEventos = `
+  const consultaUsuariosActivosAnterior = `
+    SELECT uniq(distinct_id) AS usuarios_activos
+    FROM events
+    WHERE ${construirFiltroRango(periodoDias, periodoDias)}
+      AND distinct_id IS NOT NULL
+  `
+
+  const consultaEventosActual = `
     SELECT event, count() AS total
     FROM events
-    WHERE timestamp >= now() - INTERVAL ${String(periodoDias)} DAY
+    WHERE ${construirFiltroRango(periodoDias, 0)}
       AND event IN (${eventosObjetivo.map((evento) => `'${evento}'`).join(', ')})
     GROUP BY event
   `
 
-  let resultadoUsuarios: Array<Record<string, unknown>> = []
-  let resultadoEventos: Array<Record<string, unknown>> = []
+  const consultaEventosAnterior = `
+    SELECT event, count() AS total
+    FROM events
+    WHERE ${construirFiltroRango(periodoDias, periodoDias)}
+      AND event IN (${eventosObjetivo.map((evento) => `'${evento}'`).join(', ')})
+    GROUP BY event
+  `
+
+  const construirConsultaUsuariosEvento = (evento: EventoPosthog, desplazamientoDias: number) => `
+    SELECT uniq(distinct_id) AS total
+    FROM events
+    WHERE ${construirFiltroRango(periodoDias, desplazamientoDias)}
+      AND event = '${evento}'
+      AND distinct_id IS NOT NULL
+  `
+
+  let usuariosActivosActual: number | null = null
+  let usuariosActivosAnterior: number | null = null
+  let mapaEventosActual: Map<string, number> | null = null
+  let mapaEventosAnterior: Map<string, number> | null = null
+  let usuariosConVentaActual: number | null = null
+  let usuariosRegistradosActual: number | null = null
+  let usuariosConVentaAnterior: number | null = null
+  let usuariosRegistradosAnterior: number | null = null
   const erroresConsultas: string[] = []
 
   try {
-    resultadoUsuarios = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivos)
+    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivosActual)
+    usuariosActivosActual = toNumero(resultado[0]?.usuarios_activos) ?? 0
   } catch (errorInterno) {
     erroresConsultas.push(
-      `usuarios_activos: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+      `usuarios_activos_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
   }
 
   try {
-    resultadoEventos = await consultarPosthog(urlConsulta, apiKey, consultaEventos)
+    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaUsuariosActivosAnterior)
+    usuariosActivosAnterior = toNumero(resultado[0]?.usuarios_activos) ?? 0
   } catch (errorInterno) {
     erroresConsultas.push(
-      `eventos_agregados: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+      `usuarios_activos_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
     )
   }
 
-  const consultaUsuariosExitosa = !erroresConsultas.some((errorConsulta) => errorConsulta.startsWith('usuarios_activos:'))
-  const consultaEventosExitosa = !erroresConsultas.some((errorConsulta) => errorConsulta.startsWith('eventos_agregados:'))
-  const usuariosActivos = consultaUsuariosExitosa ? (toNumero(resultadoUsuarios[0]?.usuarios_activos) ?? 0) : null
-  const mapaEventos = new Map<string, number>()
+  try {
+    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaEventosActual)
+    const mapa = new Map<string, number>()
 
-  for (const fila of resultadoEventos) {
-    const nombreEvento = fila.event
-    if (typeof nombreEvento !== 'string') {
-      continue
+    for (const fila of resultado) {
+      const nombreEvento = fila.event
+      if (typeof nombreEvento !== 'string') {
+        continue
+      }
+
+      const total = toNumero(fila.total)
+      if (total === null) {
+        continue
+      }
+
+      mapa.set(nombreEvento, total)
     }
 
-    const total = toNumero(fila.total)
-    if (total === null) {
-      continue
-    }
-
-    mapaEventos.set(nombreEvento, total)
+    mapaEventosActual = mapa
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `eventos_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
   }
 
+  try {
+    const resultado = await consultarPosthog(urlConsulta, apiKey, consultaEventosAnterior)
+    const mapa = new Map<string, number>()
+
+    for (const fila of resultado) {
+      const nombreEvento = fila.event
+      if (typeof nombreEvento !== 'string') {
+        continue
+      }
+
+      const total = toNumero(fila.total)
+      if (total === null) {
+        continue
+      }
+
+      mapa.set(nombreEvento, total)
+    }
+
+    mapaEventosAnterior = mapa
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `eventos_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
+  }
+
+  try {
+    const resultado = await consultarPosthog(
+      urlConsulta,
+      apiKey,
+      construirConsultaUsuariosEvento('venta_completada', 0)
+    )
+    usuariosConVentaActual = toNumero(resultado[0]?.total) ?? 0
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `usuarios_venta_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
+  }
+
+  try {
+    const resultado = await consultarPosthog(
+      urlConsulta,
+      apiKey,
+      construirConsultaUsuariosEvento('registro_usuario_completado', 0)
+    )
+    usuariosRegistradosActual = toNumero(resultado[0]?.total) ?? 0
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `usuarios_registro_actual: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
+  }
+
+  try {
+    const resultado = await consultarPosthog(
+      urlConsulta,
+      apiKey,
+      construirConsultaUsuariosEvento('venta_completada', periodoDias)
+    )
+    usuariosConVentaAnterior = toNumero(resultado[0]?.total) ?? 0
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `usuarios_venta_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
+  }
+
+  try {
+    const resultado = await consultarPosthog(
+      urlConsulta,
+      apiKey,
+      construirConsultaUsuariosEvento('registro_usuario_completado', periodoDias)
+    )
+    usuariosRegistradosAnterior = toNumero(resultado[0]?.total) ?? 0
+  } catch (errorInterno) {
+    erroresConsultas.push(
+      `usuarios_registro_anterior: ${errorInterno instanceof Error ? errorInterno.message : 'consulta falló'}`
+    )
+  }
+
+  const activacionActual =
+    usuariosConVentaActual === null || usuariosRegistradosActual === null
+      ? null
+      : calcularPorcentaje(usuariosConVentaActual, usuariosRegistradosActual)
+  const activacionAnterior =
+    usuariosConVentaAnterior === null || usuariosRegistradosAnterior === null
+      ? null
+      : calcularPorcentaje(usuariosConVentaAnterior, usuariosRegistradosAnterior)
+
   const metricas = definicionesMetricas.map((definicion) => {
-    if (definicion.clave === 'usuarios_activos') {
-      return construirMetrica(definicion, usuariosActivos, periodoDias)
+    if (definicion.tipo === 'usuarios_activos') {
+      return construirMetrica(definicion, usuariosActivosActual, usuariosActivosAnterior, periodoDias)
     }
 
-    if (!definicion.evento) {
-      return construirMetrica(definicion, null, periodoDias)
+    if (definicion.tipo === 'activacion') {
+      return construirMetrica(definicion, activacionActual, activacionAnterior, periodoDias)
     }
 
-    if (!consultaEventosExitosa) {
-      return construirMetrica(definicion, null, periodoDias)
-    }
+    const valorActual = mapaEventosActual ? (mapaEventosActual.get(definicion.evento) ?? 0) : null
+    const valorAnterior = mapaEventosAnterior ? (mapaEventosAnterior.get(definicion.evento) ?? 0) : null
 
-    return construirMetrica(definicion, mapaEventos.get(definicion.evento) ?? 0, periodoDias)
+    return construirMetrica(definicion, valorActual, valorAnterior, periodoDias)
   })
 
   const hayMetricasDisponibles = metricas.some((metrica) => metrica.valor !== null)

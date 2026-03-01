@@ -169,12 +169,94 @@ export function PaginaTablero() {
 
   const metricasDisponibles = useMemo(() => metricasPosthog?.metricas ?? [], [metricasPosthog?.metricas])
 
-  const formatearValorMetrica = (valor: number | null) => {
+  const formatearValorMetrica = (valor: number | null, unidad: 'conteo' | 'porcentaje') => {
     if (valor === null) {
       return 'No disponible'
     }
 
+    if (unidad === 'porcentaje') {
+      return `${valor.toLocaleString('es-PE', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      })}%`
+    }
+
     return valor.toLocaleString('es-PE')
+  }
+
+  const formatearDeltaMetrica = (metrica: {
+    delta_aplicable: boolean
+    delta_absoluto: number | null
+    delta_porcentual: number | null
+    unidad: 'conteo' | 'porcentaje'
+  }): string => {
+    if (!metrica.delta_aplicable || metrica.delta_absoluto === null || metrica.delta_porcentual === null) {
+      return '—'
+    }
+
+    const signo = metrica.delta_absoluto > 0 ? '+' : ''
+    const flecha = metrica.delta_absoluto > 0 ? '▲' : metrica.delta_absoluto < 0 ? '▼' : '→'
+    const valorAbsoluto =
+      metrica.unidad === 'porcentaje'
+        ? `${signo}${metrica.delta_absoluto.toLocaleString('es-PE', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+          })} pp`
+        : `${signo}${metrica.delta_absoluto.toLocaleString('es-PE', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+          })}`
+
+    const valorPorcentual = `${signo}${metrica.delta_porcentual.toLocaleString('es-PE', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    })}%`
+
+    return `${flecha} ${valorAbsoluto} (${valorPorcentual})`
+  }
+
+  const formatearMetaMetrica = (meta: number | null, unidad: 'conteo' | 'porcentaje') => {
+    if (meta === null) {
+      return 'Sin meta'
+    }
+
+    if (unidad === 'porcentaje') {
+      return `${meta.toLocaleString('es-PE', { maximumFractionDigits: 2 })}%`
+    }
+
+    return meta.toLocaleString('es-PE')
+  }
+
+  const etiquetaEstadoMeta = (estado: 'ok' | 'atencion' | 'riesgo' | null) => {
+    if (estado === 'ok') {
+      return 'OK'
+    }
+
+    if (estado === 'atencion') {
+      return 'Atención'
+    }
+
+    if (estado === 'riesgo') {
+      return 'Riesgo'
+    }
+
+    return 'Sin meta'
+  }
+
+  const claseEstadoMeta = (estado: 'ok' | 'atencion' | 'riesgo' | null) => {
+    if (estado === 'ok') {
+      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+    }
+
+    if (estado === 'atencion') {
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
+    }
+
+    if (estado === 'riesgo') {
+      return 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+    }
+
+    return 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
   }
 
   return (
@@ -329,7 +411,7 @@ export function PaginaTablero() {
               mensajeVacio="No hay métricas disponibles."
             >
               <div className="space-y-3">
-                {!metricasPosthog?.disponible && metricasPosthog?.motivo_no_disponible ? (
+                {metricasPosthog?.motivo_no_disponible ? (
                   <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
                     {metricasPosthog.motivo_no_disponible}
                   </p>
@@ -344,16 +426,31 @@ export function PaginaTablero() {
                       <div>
                         <p className="font-medium text-slate-800 dark:text-slate-200">{metrica.nombre}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{metrica.periodo}</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Δ vs periodo anterior: {formatearDeltaMetrica(metrica)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Meta: {formatearMetaMetrica(metrica.meta, metrica.unidad)}
+                        </p>
                       </div>
-                      <p
-                        className={`text-sm font-semibold ${
-                          metrica.valor === null
-                            ? 'text-slate-500 dark:text-slate-400'
-                            : 'text-slate-900 dark:text-slate-100'
-                        }`}
-                      >
-                        {formatearValorMetrica(metrica.valor)}
-                      </p>
+                      <div className="flex flex-col items-end gap-1">
+                        <p
+                          className={`text-sm font-semibold ${
+                            metrica.valor === null
+                              ? 'text-slate-500 dark:text-slate-400'
+                              : 'text-slate-900 dark:text-slate-100'
+                          }`}
+                        >
+                          {formatearValorMetrica(metrica.valor, metrica.unidad)}
+                        </p>
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-medium ${claseEstadoMeta(
+                            metrica.estado_meta
+                          )}`}
+                        >
+                          {etiquetaEstadoMeta(metrica.estado_meta)}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>

@@ -4,6 +4,14 @@ const esquemaMetricaPosthog = z.object({
   clave: z.string().min(1),
   nombre: z.string().min(1),
   valor: z.number().finite().nullable(),
+  valor_periodo_actual: z.number().finite().nullable(),
+  valor_periodo_anterior: z.number().finite().nullable(),
+  delta_absoluto: z.number().finite().nullable(),
+  delta_porcentual: z.number().finite().nullable(),
+  delta_aplicable: z.boolean(),
+  unidad: z.enum(['conteo', 'porcentaje']),
+  meta: z.number().finite().nullable(),
+  estado_meta: z.enum(['ok', 'atencion', 'riesgo']).nullable(),
   periodo: z.string().min(1),
   disponible: z.boolean()
 })
