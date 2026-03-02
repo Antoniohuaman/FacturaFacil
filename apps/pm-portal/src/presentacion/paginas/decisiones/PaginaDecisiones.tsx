@@ -358,7 +358,7 @@ export function PaginaDecisiones() {
             <div>
               <label className="text-sm font-medium">Iniciativa</label>
               <select
-                {...formulario.register('iniciativa_id')}
+                {...formulario.register('iniciativa_id', { setValueAs: (valor) => valor || null })}
                 disabled={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
@@ -373,7 +373,7 @@ export function PaginaDecisiones() {
             <div>
               <label className="text-sm font-medium">Entrega</label>
               <select
-                {...formulario.register('entrega_id')}
+                {...formulario.register('entrega_id', { setValueAs: (valor) => valor || null })}
                 disabled={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
@@ -388,7 +388,7 @@ export function PaginaDecisiones() {
             <div>
               <label className="text-sm font-medium">Ejecución validación</label>
               <select
-                {...formulario.register('ejecucion_validacion_id')}
+                {...formulario.register('ejecucion_validacion_id', { setValueAs: (valor) => valor || null })}
                 disabled={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
