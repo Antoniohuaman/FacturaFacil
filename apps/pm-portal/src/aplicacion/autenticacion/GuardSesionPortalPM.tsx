@@ -3,10 +3,10 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import type { PropsWithChildren } from 'react'
 
 export function GuardSesionPortalPM({ children }: PropsWithChildren) {
-  const { usuario, cargando } = useSesionPortalPM()
+  const { usuario, rol, cargando } = useSesionPortalPM()
   const ubicacion = useLocation()
 
-  if (cargando) {
+  if (cargando || (usuario !== null && rol === null)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-600 dark:bg-slate-950 dark:text-slate-300">
         Cargando sesión...

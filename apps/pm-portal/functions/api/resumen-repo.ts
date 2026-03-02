@@ -1,4 +1,6 @@
-interface EntornoResumenRepo {
+import { validarAutorizacion, type EntornoAuth } from './_autorizacion'
+
+interface EntornoResumenRepo extends EntornoAuth {
   GITHUB_TOKEN?: string
   GITHUB_OWNER?: string
   GITHUB_REPO?: string
@@ -70,6 +72,12 @@ function toShaCorto(sha: string): string {
 }
 
 export const onRequestGet = async (context: ContextoFunction): Promise<Response> => {
+  const autorizacion = await validarAutorizacion(context.request, context.env)
+
+  if (!autorizacion.autorizado) {
+    return construirRespuestaJson(autorizacion.status, noDisponible(autorizacion.motivo), 'no-store')
+  }
+
   const ahora = Date.now()
 
   if (cacheMemoria && cacheMemoria.expiraEn > ahora) {
