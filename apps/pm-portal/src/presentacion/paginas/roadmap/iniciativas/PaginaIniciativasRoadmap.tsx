@@ -17,11 +17,30 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '../../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { calcularRice } from '@/compartido/utilidades/calcularRice'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
-function calcularRice(entrada: Pick<IniciativaEntrada, 'alcance' | 'impacto' | 'confianza' | 'esfuerzo'>) {
-  return Number(((entrada.alcance * entrada.impacto * entrada.confianza) / entrada.esfuerzo).toFixed(2))
+const opcionesImpacto: IniciativaEntrada['impacto'][] = [0.25, 0.5, 1, 2, 3]
+
+function convertirNumeroControlado(valor: unknown, respaldo: number) {
+  const numero = typeof valor === 'number' ? valor : Number(valor)
+  return Number.isFinite(numero) ? numero : respaldo
+}
+
+function normalizarImpacto(valor: number | null | undefined): IniciativaEntrada['impacto'] {
+  const impacto = convertirNumeroControlado(valor, 1)
+
+  if (opcionesImpacto.includes(impacto as IniciativaEntrada['impacto'])) {
+    return impacto as IniciativaEntrada['impacto']
+  }
+
+  return opcionesImpacto.reduce((masCercano, opcionActual) => {
+    const distanciaActual = Math.abs(opcionActual - impacto)
+    const distanciaMasCercana = Math.abs(masCercano - impacto)
+
+    return distanciaActual < distanciaMasCercana ? opcionActual : masCercano
+  }, 1)
 }
 
 export function PaginaIniciativasRoadmap() {
@@ -50,17 +69,19 @@ export function PaginaIniciativasRoadmap() {
     handleSubmit,
     watch,
     reset,
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting, isValid }
   } = useForm<IniciativaEntrada>({
     resolver: zodResolver(iniciativaSchema),
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: {
       objetivo_id: null,
       nombre: '',
       descripcion: '',
       alcance: 10,
-      impacto: 10,
-      confianza: 10,
-      esfuerzo: 10,
+      impacto: 1,
+      confianza: 70,
+      esfuerzo: 1,
       estado: 'pendiente',
       prioridad: 'media'
     }
@@ -72,10 +93,32 @@ export function PaginaIniciativasRoadmap() {
   const impacto = watch('impacto')
   const confianza = watch('confianza')
   const esfuerzo = watch('esfuerzo')
-  const riceCalculado = useMemo(
-    () => calcularRice({ alcance, impacto, confianza, esfuerzo }),
-    [alcance, impacto, confianza, esfuerzo]
-  )
+
+  const camposRiceValidos = useMemo(() => {
+    return (
+      Number.isInteger(alcance) &&
+      alcance >= 0 &&
+      opcionesImpacto.includes(impacto) &&
+      Number.isFinite(confianza) &&
+      confianza >= 0 &&
+      confianza <= 100 &&
+      Number.isFinite(esfuerzo) &&
+      esfuerzo >= 0.5
+    )
+  }, [alcance, impacto, confianza, esfuerzo])
+
+  const riceCalculado = useMemo(() => {
+    if (!camposRiceValidos) {
+      return null
+    }
+
+    return calcularRice({ alcance, impacto, confianza, esfuerzo })
+  }, [alcance, impacto, confianza, esfuerzo, camposRiceValidos])
+
+  const claseCampoNumero = (campo: 'alcance' | 'impacto' | 'confianza' | 'esfuerzo') =>
+    `mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm dark:bg-slate-800 ${
+      errors[campo] ? 'border-red-300 dark:border-red-800' : 'border-slate-300 dark:border-slate-700'
+    }`
 
   const cargarInformacion = async () => {
     setCargando(true)
@@ -161,9 +204,9 @@ export function PaginaIniciativasRoadmap() {
       nombre: iniciativa?.nombre ?? '',
       descripcion: iniciativa?.descripcion ?? '',
       alcance: iniciativa?.alcance ?? 10,
-      impacto: iniciativa?.impacto ?? 10,
-      confianza: iniciativa?.confianza ?? 10,
-      esfuerzo: iniciativa?.esfuerzo ?? 10,
+      impacto: normalizarImpacto(iniciativa?.impacto),
+      confianza: iniciativa?.confianza ?? 70,
+      esfuerzo: iniciativa?.esfuerzo ?? 1,
       estado: iniciativa?.estado ?? 'pendiente',
       prioridad: iniciativa?.prioridad ?? 'media'
     })
@@ -383,6 +426,7 @@ export function PaginaIniciativasRoadmap() {
         alCerrar={() => setModalAbierto(false)}
       >
         <form
+          noValidate
           className="space-y-4"
           onSubmit={handleSubmit(async (valores) => {
             if (modoModal === 'ver') {
@@ -451,42 +495,108 @@ export function PaginaIniciativasRoadmap() {
               <label className="text-sm font-medium">Alcance</label>
               <input
                 type="number"
-                {...register('alcance', { valueAsNumber: true })}
+                min={0}
+                step={1}
+                {...register('alcance', {
+                  setValueAs: (valor) => {
+                    if (valor === '' || valor === null || valor === undefined) {
+                      return Number.NaN
+                    }
+
+                    return Number(valor)
+                  }
+                })}
                 readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+                className={claseCampoNumero('alcance')}
               />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Impactados por mes</p>
+              {errors.alcance ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.alcance.message}</p> : null}
             </div>
             <div>
               <label className="text-sm font-medium">Impacto</label>
-              <input
-                type="number"
-                {...register('impacto', { valueAsNumber: true })}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+              <select
+                {...register('impacto', {
+                  setValueAs: (valor) => Number(valor)
+                })}
+                disabled={modoModal === 'ver'}
+                className={claseCampoNumero('impacto')}
+              >
+                {opcionesImpacto.map((impactoOpcion) => (
+                  <option key={impactoOpcion} value={impactoOpcion}>
+                    {impactoOpcion === 0.25
+                      ? '0.25 (muy bajo)'
+                      : impactoOpcion === 0.5
+                        ? '0.5 (bajo)'
+                        : impactoOpcion === 1
+                          ? '1 (medio)'
+                          : impactoOpcion === 2
+                            ? '2 (alto)'
+                            : '3 (muy alto)'}
+                  </option>
+                ))}
+              </select>
+              {errors.impacto ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.impacto.message}</p> : null}
             </div>
             <div>
               <label className="text-sm font-medium">Confianza</label>
-              <input
-                type="number"
-                {...register('confianza', { valueAsNumber: true })}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+              <div className="relative mt-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  {...register('confianza', {
+                    setValueAs: (valor) => {
+                      if (valor === '' || valor === null || valor === undefined) {
+                        return Number.NaN
+                      }
+
+                      return Number(valor)
+                    }
+                  })}
+                  readOnly={modoModal === 'ver'}
+                  className={`${claseCampoNumero('confianza')} pr-8`}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500 dark:text-slate-400">
+                  %
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">0–100%</p>
+              {errors.confianza ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.confianza.message}</p> : null}
             </div>
             <div>
               <label className="text-sm font-medium">Esfuerzo</label>
               <input
                 type="number"
-                {...register('esfuerzo', { valueAsNumber: true })}
+                min={0.5}
+                step={0.5}
+                {...register('esfuerzo', {
+                  setValueAs: (valor) => {
+                    if (valor === '' || valor === null || valor === undefined) {
+                      return Number.NaN
+                    }
+
+                    return Number(valor)
+                  }
+                })}
                 readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+                className={claseCampoNumero('esfuerzo')}
               />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Persona-semanas</p>
+              {errors.esfuerzo ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.esfuerzo.message}</p> : null}
             </div>
           </div>
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-            RICE calculado automáticamente: <span className="font-semibold">{riceCalculado}</span>
+            {riceCalculado === null ? (
+              <>
+                RICE: <span className="font-semibold">inválido</span>. Corrige los campos para ver el RICE.
+              </>
+            ) : (
+              <>
+                RICE calculado automáticamente: <span className="font-semibold">{riceCalculado}</span>
+              </>
+            )}
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -523,7 +633,7 @@ export function PaginaIniciativasRoadmap() {
           {modoModal !== 'ver' ? (
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isValid}
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-70 dark:bg-slate-200 dark:text-slate-900"
             >
               {isSubmitting ? 'Guardando...' : 'Guardar'}

@@ -1,9 +1,6 @@
 import type { IniciativaEntrada } from '@/compartido/validacion/esquemas'
 import { repositorioIniciativas } from '@/infraestructura/repositorios/repositorioIniciativas'
-
-function calcularRice(entrada: IniciativaEntrada) {
-  return Number(((entrada.alcance * entrada.impacto * entrada.confianza) / entrada.esfuerzo).toFixed(2))
-}
+import { calcularRice } from '@/compartido/utilidades/calcularRice'
 
 export function listarIniciativas() {
   return repositorioIniciativas.listar()

@@ -15,10 +15,10 @@ export const iniciativaSchema = z.object({
   objetivo_id: z.string().uuid().nullable().optional(),
   nombre: z.string().trim().min(3).max(120),
   descripcion: z.string().trim().min(5).max(500),
-  alcance: z.number().min(1).max(100),
-  impacto: z.number().min(1).max(100),
-  confianza: z.number().min(1).max(100),
-  esfuerzo: z.number().min(1).max(100),
+  alcance: z.number().int().min(0),
+  impacto: z.union([z.literal(0.25), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
+  confianza: z.number().min(0).max(100),
+  esfuerzo: z.number().min(0.5),
   estado: estadoSchema,
   prioridad: prioridadSchema
 })
