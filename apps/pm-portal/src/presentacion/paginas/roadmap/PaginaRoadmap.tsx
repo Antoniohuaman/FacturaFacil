@@ -56,9 +56,41 @@ export function PaginaRoadmap() {
 
   const topIniciativasRice = useMemo(() => {
     return [...iniciativas]
-      .sort((iniciativaA, iniciativaB) => iniciativaB.rice - iniciativaA.rice)
+      .sort((iniciativaA, iniciativaB) => {
+        if (iniciativaA.estado === 'completado' && iniciativaB.estado !== 'completado') {
+          return 1
+        }
+        if (iniciativaA.estado !== 'completado' && iniciativaB.estado === 'completado') {
+          return -1
+        }
+
+        return iniciativaB.rice - iniciativaA.rice
+      })
       .slice(0, 5)
   }, [iniciativas])
+
+  const formateadorFecha = useMemo(
+    () =>
+      new Intl.DateTimeFormat('es-PE', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }),
+    []
+  )
+
+  const formatearFechaHumana = (fecha?: string | null) => {
+    if (!fecha) {
+      return 'Sin fecha'
+    }
+
+    const fechaDate = new Date(`${fecha}T00:00:00`)
+    if (Number.isNaN(fechaDate.getTime())) {
+      return fecha
+    }
+
+    return formateadorFecha.format(fechaDate)
+  }
 
   const proximasEntregas = useMemo(() => {
     return entregas
@@ -78,7 +110,107 @@ export function PaginaRoadmap() {
     }))
   }, [objetivos, iniciativas, entregas])
 
+  const totalesPorEstado = useMemo(() => {
+    return {
+      pendiente: totalPorEstado.find((registro) => registro.estado === 'pendiente')?.total ?? 0,
+      en_progreso: totalPorEstado.find((registro) => registro.estado === 'en_progreso')?.total ?? 0,
+      completado: totalPorEstado.find((registro) => registro.estado === 'completado')?.total ?? 0
+    }
+  }, [totalPorEstado])
+
+  const totalesGlobales = useMemo(() => {
+    const total = objetivos.length + iniciativas.length + entregas.length
+    const completado = totalesPorEstado.completado
+
+    return {
+      total,
+      completado,
+      porcentajeCompletado: total === 0 ? 0 : Math.round((completado / total) * 100)
+    }
+  }, [objetivos.length, iniciativas.length, entregas.length, totalesPorEstado.completado])
+
+  const progresoPorObjetivo = useMemo(() => {
+    const ahora = new Date().getTime()
+    const estadoOrden: Record<'pendiente' | 'en_progreso' | 'completado', number> = {
+      en_progreso: 0,
+      pendiente: 1,
+      completado: 2
+    }
+
+    const lista = objetivos.map((objetivo) => {
+      const iniciativasObjetivo = iniciativas.filter((iniciativa) => iniciativa.objetivo_id === objetivo.id)
+      const idsIniciativas = new Set(iniciativasObjetivo.map((iniciativa) => iniciativa.id))
+      const entregasObjetivo = entregas.filter((entrega) => idsIniciativas.has(entrega.iniciativa_id ?? ''))
+
+      const totalRelacionadas = iniciativasObjetivo.length + entregasObjetivo.length
+      const completadas =
+        iniciativasObjetivo.filter((iniciativa) => iniciativa.estado === 'completado').length +
+        entregasObjetivo.filter((entrega) => entrega.estado === 'completado').length
+      const pendientes =
+        iniciativasObjetivo.filter((iniciativa) => iniciativa.estado === 'pendiente').length +
+        entregasObjetivo.filter((entrega) => entrega.estado === 'pendiente').length
+      const enProgreso =
+        iniciativasObjetivo.filter((iniciativa) => iniciativa.estado === 'en_progreso').length +
+        entregasObjetivo.filter((entrega) => entrega.estado === 'en_progreso').length
+      const proximas = entregasObjetivo.filter((entrega) => {
+        if (!entrega.fecha_objetivo) {
+          return false
+        }
+
+        const fecha = new Date(`${entrega.fecha_objetivo}T00:00:00`).getTime()
+        if (Number.isNaN(fecha)) {
+          return false
+        }
+
+        return fecha >= ahora
+      }).length
+
+      const puntajeActividad = enProgreso * 3 + pendientes * 2 + proximas
+
+      return {
+        id: objetivo.id,
+        nombre: objetivo.nombre,
+        estado: objetivo.estado,
+        totalRelacionadas,
+        completadas,
+        porcentaje: totalRelacionadas === 0 ? null : Math.round((completadas / totalRelacionadas) * 100),
+        pendientes,
+        enProgreso,
+        proximas,
+        puntajeActividad
+      }
+    })
+
+    return lista.sort((objetivoA, objetivoB) => {
+      const ordenEstado = estadoOrden[objetivoA.estado] - estadoOrden[objetivoB.estado]
+      if (ordenEstado !== 0) {
+        return ordenEstado
+      }
+
+      return objetivoB.puntajeActividad - objetivoA.puntajeActividad
+    })
+  }, [objetivos, iniciativas, entregas])
+
+  const objetivoMasActivoId = useMemo(() => {
+    if (progresoPorObjetivo.length === 0) {
+      return null
+    }
+
+    return [...progresoPorObjetivo]
+      .sort((objetivoA, objetivoB) => objetivoB.puntajeActividad - objetivoA.puntajeActividad)[0]?.id ?? null
+  }, [progresoPorObjetivo])
+
   const hayDatosRoadmap = objetivos.length > 0 || iniciativas.length > 0 || entregas.length > 0
+
+  const clasesBadgeEstado = (estado: string) => {
+    if (estado === 'completado') {
+      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+    }
+    if (estado === 'en_progreso') {
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+    }
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+  }
 
   const navegarACrear = (ruta: string) => {
     setMenuCrearAbierto(false)
@@ -146,74 +278,153 @@ export function PaginaRoadmap() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-3">
-            <article className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="text-sm font-semibold">Resumen</h2>
+          <div className="space-y-4">
+            <section className="grid gap-3 lg:grid-cols-4">
+              <article className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-900/60">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Objetivos</p>
+                <p className="mt-2 text-3xl font-semibold leading-none">{objetivos.length}</p>
+              </article>
+              <article className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-900/60">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Iniciativas</p>
+                <p className="mt-2 text-3xl font-semibold leading-none">{iniciativas.length}</p>
+              </article>
+              <article className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-900/60">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Entregas</p>
+                <p className="mt-2 text-3xl font-semibold leading-none">{entregas.length}</p>
+              </article>
+              <article className="rounded-xl border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-4 shadow-sm dark:border-emerald-900/50 dark:from-emerald-950/40 dark:to-slate-900/60">
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">% completado</p>
+                <p className="mt-2 text-3xl font-semibold leading-none">{totalesGlobales.porcentajeCompletado}%</p>
+              </article>
 
-              {hayDatosRoadmap ? (
-                <div className="mt-3 space-y-2 text-sm">
-                  <p>Objetivos: {objetivos.length}</p>
-                  <p>Iniciativas: {iniciativas.length}</p>
-                  <p>Entregas: {entregas.length}</p>
-                  <div className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-400">
-                    {totalPorEstado.map((registro) => (
-                      <p key={registro.estado}>
-                        {registro.estado}: {registro.total}
-                      </p>
-                    ))}
+              <article className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                <p className="text-xs text-amber-700 dark:text-amber-300">Pendientes</p>
+                <p className="mt-1 text-xl font-semibold text-amber-800 dark:text-amber-200">{totalesPorEstado.pendiente}</p>
+              </article>
+              <article className="rounded-lg border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-900/40 dark:bg-blue-950/20">
+                <p className="text-xs text-blue-700 dark:text-blue-300">En progreso</p>
+                <p className="mt-1 text-xl font-semibold text-blue-800 dark:text-blue-200">{totalesPorEstado.en_progreso}</p>
+              </article>
+              <article className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">Completados</p>
+                <p className="mt-1 text-xl font-semibold text-emerald-800 dark:text-emerald-200">{totalesPorEstado.completado}</p>
+              </article>
+              <article className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
+                <p className="text-xs text-slate-600 dark:text-slate-400">Registros totales</p>
+                <p className="mt-1 text-xl font-semibold">{totalesGlobales.total}</p>
+              </article>
+            </section>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
+                <h2 className="text-sm font-semibold">Progreso por objetivo</h2>
+
+                {!hayDatosRoadmap || objetivos.length === 0 ? (
+                  <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <p>No hay objetivos registrados para mostrar progreso.</p>
+                    {esEdicionPermitida ? (
+                      <button
+                        type="button"
+                        onClick={() => navegarACrear('/roadmap/objetivos')}
+                        className="rounded-md border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-700"
+                      >
+                        Crear objetivo
+                      </button>
+                    ) : null}
                   </div>
-                </div>
-              ) : (
-                <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                  <p>Aún no hay objetivos/iniciativas/entregas.</p>
-                  {esEdicionPermitida ? (
-                    <button
-                      type="button"
-                      onClick={() => navegarACrear('/roadmap/objetivos')}
-                      className="rounded-md border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-700"
-                    >
-                      Crear objetivo
-                    </button>
-                  ) : null}
-                </div>
-              )}
-            </article>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {progresoPorObjetivo.map((objetivo) => (
+                      <li
+                        key={objetivo.id}
+                        className={`rounded-lg border p-3 dark:border-slate-700 ${
+                          objetivo.id === objetivoMasActivoId
+                            ? 'border-blue-300 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-950/20'
+                            : 'border-slate-200'
+                        }`}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium">{objetivo.nombre}</p>
+                            {objetivo.id === objetivoMasActivoId ? (
+                              <p className="text-[11px] text-blue-700 dark:text-blue-300">Objetivo más activo</p>
+                            ) : null}
+                          </div>
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${clasesBadgeEstado(objetivo.estado)}`}>
+                            {objetivo.estado}
+                          </span>
+                        </div>
 
-            <article className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="text-sm font-semibold">Prioridad</h2>
+                        {objetivo.totalRelacionadas === 0 ? (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Sin iniciativas o entregas asociadas.</p>
+                        ) : (
+                          <>
+                            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={objetivo.porcentaje ?? 0} aria-label={`Progreso de ${objetivo.nombre}`}>
+                              <div
+                                className="h-2 rounded-full bg-slate-900 transition-all dark:bg-slate-200"
+                                style={{ width: `${objetivo.porcentaje ?? 0}%` }}
+                              />
+                            </div>
+                            <div className="mt-1 flex items-center justify-between">
+                              <p className="text-xs text-slate-500 dark:text-slate-400">{objetivo.porcentaje}% completado</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {objetivo.completadas}/{objetivo.totalRelacionadas}
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
 
-              {topIniciativasRice.length === 0 ? (
-                <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
-                  <p>No hay iniciativas disponibles.</p>
-                  {esEdicionPermitida ? (
-                    <button
-                      type="button"
-                      onClick={() => navegarACrear('/roadmap/iniciativas')}
-                      className="rounded-md border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-700"
-                    >
-                      Crear iniciativa
-                    </button>
-                  ) : null}
-                </div>
-              ) : (
-                <ul className="mt-3 space-y-2 text-sm">
-                  {topIniciativasRice.map((iniciativa) => (
-                    <li key={iniciativa.id} className="rounded-lg border border-slate-200 p-2 dark:border-slate-700">
-                      <p className="font-medium">{iniciativa.nombre}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Objetivo: {objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        RICE: {iniciativa.rice} · Estado: {iniciativa.estado}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
+              <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="text-sm font-semibold">Top prioridades</h2>
 
-            <article className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="text-sm font-semibold">Seguimiento</h2>
+                {topIniciativasRice.length === 0 ? (
+                  <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    <p>No hay iniciativas disponibles.</p>
+                    {esEdicionPermitida ? (
+                      <button
+                        type="button"
+                        onClick={() => navegarACrear('/roadmap/iniciativas')}
+                        className="rounded-md border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-700"
+                      >
+                        Crear iniciativa
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {topIniciativasRice.map((iniciativa) => (
+                      <li
+                        key={iniciativa.id}
+                        className={`rounded-lg border border-slate-200 p-2 dark:border-slate-700 ${
+                          iniciativa.estado === 'completado' ? 'opacity-70' : ''
+                        }`}
+                      >
+                        <p className="font-medium">{iniciativa.nombre}</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Objetivo: {objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}
+                        </p>
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            RICE: {iniciativa.rice}
+                          </span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${clasesBadgeEstado(iniciativa.estado)}`}>
+                            {iniciativa.estado}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+            </div>
+
+            <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="text-sm font-semibold">Próximas entregas</h2>
 
               {proximasEntregas.length === 0 ? (
                 <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
@@ -229,16 +440,27 @@ export function PaginaRoadmap() {
                   ) : null}
                 </div>
               ) : (
-                <ul className="mt-3 space-y-2 text-sm">
+                <ul className="mt-3 space-y-3">
                   {proximasEntregas.map((entrega) => (
-                    <li key={entrega.id} className="rounded-lg border border-slate-200 p-2 dark:border-slate-700">
-                      <p className="font-medium">{entrega.nombre}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Iniciativa: {iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa'}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Fecha objetivo: {entrega.fecha_objetivo} · Estado: {entrega.estado}
-                      </p>
+                    <li key={entrega.id} className="grid grid-cols-[auto_1fr] gap-3">
+                      <div className="mt-1 flex flex-col items-center">
+                        <span className="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500" />
+                        <span className="mt-1 h-full w-px bg-slate-200 dark:bg-slate-700" />
+                      </div>
+                      <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium">{entrega.nombre}</p>
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${clasesBadgeEstado(entrega.estado)}`}>
+                            {entrega.estado}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Iniciativa: {iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa'}
+                        </p>
+                        <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          {formatearFechaHumana(entrega.fecha_objetivo)}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>

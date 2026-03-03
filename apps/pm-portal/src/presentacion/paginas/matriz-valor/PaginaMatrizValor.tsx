@@ -16,7 +16,7 @@ import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
-import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
+import { usePaginacion } from '../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
@@ -172,6 +172,31 @@ export function PaginaMatrizValor() {
     return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre]))
   }, [iniciativas])
 
+  const resumenMatriz = useMemo(() => {
+    const top3 = [...matrices].sort((a, b) => b.puntaje_valor - a.puntaje_valor).slice(0, 3)
+
+    const distribucion = estadosRegistro.map((estado) => ({
+      estado,
+      total: matrices.filter((matriz) => matriz.estado === estado).length
+    }))
+
+    return {
+      total: matrices.length,
+      top3,
+      distribucion
+    }
+  }, [matrices])
+
+  const clasesBadgeEstado = (estado: string) => {
+    if (estado === 'completado') {
+      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+    }
+    if (estado === 'en_progreso') {
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+    }
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+  }
+
   const abrirModal = (modo: ModoModal, matriz?: MatrizValor) => {
     setModoModal(modo)
     setMatrizActiva(matriz ?? null)
@@ -202,6 +227,7 @@ export function PaginaMatrizValor() {
           value={busqueda}
           onChange={(evento) => setBusqueda(evento.target.value)}
           placeholder="Buscar en matriz"
+          aria-label="Buscar en matriz de valor"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 dark:border-slate-700 dark:bg-slate-800"
         />
         <select
@@ -209,6 +235,7 @@ export function PaginaMatrizValor() {
           onChange={(evento) =>
             setFiltroEstado(evento.target.value as 'todos' | (typeof estadosRegistro)[number])
           }
+          aria-label="Filtrar matriz por estado"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
         >
           <option value="todos">Estado: todos</option>
@@ -225,6 +252,7 @@ export function PaginaMatrizValor() {
             setFiltroIniciativa('todas')
             paginacion.setPaginaActual(1)
           }}
+          aria-label="Filtrar matriz por objetivo"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
         >
           <option value="todos">Objetivo: todos</option>
@@ -240,6 +268,7 @@ export function PaginaMatrizValor() {
             setFiltroIniciativa(evento.target.value)
             paginacion.setPaginaActual(1)
           }}
+          aria-label="Filtrar matriz por iniciativa"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
         >
           <option value="todas">Iniciativa: todas</option>
@@ -254,6 +283,7 @@ export function PaginaMatrizValor() {
           onChange={(evento) =>
             setFiltroPrioridad(evento.target.value as 'todas' | (typeof prioridadesRegistro)[number])
           }
+          aria-label="Filtrar matriz por prioridad"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
         >
           <option value="todas">Prioridad: todas</option>
@@ -273,6 +303,7 @@ export function PaginaMatrizValor() {
             setFiltroIniciativa('todas')
             paginacion.setPaginaActual(1)
           }}
+          aria-label="Limpiar filtros de matriz"
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
         >
           Limpiar
@@ -281,11 +312,54 @@ export function PaginaMatrizValor() {
           type="button"
           disabled={!esEdicionPermitida}
           onClick={() => abrirModal('crear')}
+          aria-label="Crear registro de matriz"
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
         >
           Crear
         </button>
       </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <article className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Total de items</p>
+          <p className="mt-1 text-xl font-semibold">{resumenMatriz.total}</p>
+        </article>
+
+        <article className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70 lg:col-span-2">
+          <h2 className="text-sm font-semibold">Top 3 por puntaje</h2>
+          {resumenMatriz.top3.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Sin datos</p>
+          ) : (
+            <ul className="mt-2 grid gap-2 md:grid-cols-3">
+              {resumenMatriz.top3.map((matriz) => (
+                <li key={matriz.id} className="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+                  <p className="truncate text-sm font-medium">{matriz.titulo}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {iniciativaPorId.get(matriz.iniciativa_id) ?? 'Sin iniciativa'}
+                  </p>
+                  <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    Puntaje: {matriz.puntaje_valor}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </article>
+      </div>
+
+      <article className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
+        <h2 className="text-sm font-semibold">Distribución por estado</h2>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {resumenMatriz.distribucion.map((registro) => (
+            <span
+              key={registro.estado}
+              className={`inline-flex rounded-full px-2.5 py-1 text-xs ${clasesBadgeEstado(registro.estado)}`}
+            >
+              {registro.estado}: {registro.total}
+            </span>
+          ))}
+        </div>
+      </article>
 
       <EstadoVista
         cargando={cargando}
@@ -299,7 +373,7 @@ export function PaginaMatrizValor() {
               <tr>
                 <th className="px-3 py-2">Título</th>
                 <th className="px-3 py-2">Iniciativa</th>
-                <th className="px-3 py-2">Puntaje</th>
+                <th className="px-3 py-2 text-right">Puntaje</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Acciones</th>
               </tr>
@@ -307,18 +381,29 @@ export function PaginaMatrizValor() {
             <tbody>
               {paginacion.itemsPaginados.map((matriz) => (
                 <tr key={matriz.id} className="border-t border-slate-200 dark:border-slate-800">
-                  <td className="px-3 py-2 font-medium">{matriz.titulo}</td>
-                  <td className="px-3 py-2">{iniciativaPorId.get(matriz.iniciativa_id) ?? 'Sin iniciativa'}</td>
-                  <td className="px-3 py-2 font-semibold">{matriz.puntaje_valor}</td>
-                  <td className="px-3 py-2">{matriz.estado}</td>
                   <td className="px-3 py-2">
-                    <div className="flex gap-2">
+                    <p className="font-medium">{matriz.titulo}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Prioridad: {matriz.prioridad}</p>
+                  </td>
+                  <td className="px-3 py-2">{iniciativaPorId.get(matriz.iniciativa_id) ?? 'Sin iniciativa'}</td>
+                  <td className="px-3 py-2 text-right">
+                    <span className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                      {matriz.puntaje_valor}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs ${clasesBadgeEstado(matriz.estado)}`}>
+                      {matriz.estado}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => abrirModal('ver', matriz)}
                         className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-700"
                       >
-                        Ver
+                        Ver detalle
                       </button>
                       <button
                         type="button"

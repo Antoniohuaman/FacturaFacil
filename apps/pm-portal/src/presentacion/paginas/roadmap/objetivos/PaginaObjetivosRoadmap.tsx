@@ -96,50 +96,92 @@ export function PaginaObjetivosRoadmap() {
         </p>
       </header>
 
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4 dark:border-slate-800 dark:bg-slate-900">
-        <input
-          type="search"
-          value={busqueda}
-          onChange={(evento) => setBusqueda(evento.target.value)}
-          placeholder="Buscar por nombre o descripción"
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 dark:border-slate-700 dark:bg-slate-800"
-        />
-        <select
-          value={filtroEstado}
-          onChange={(evento) =>
-            setFiltroEstado(evento.target.value as 'todos' | (typeof estadosRegistro)[number])
-          }
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
-        >
-          <option value="todos">Estado: todos</option>
-          {estadosRegistro.map((estado) => (
-            <option key={estado} value={estado}>
-              Estado: {estado}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filtroPrioridad}
-          onChange={(evento) =>
-            setFiltroPrioridad(evento.target.value as 'todas' | (typeof prioridadesRegistro)[number])
-          }
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
-        >
-          <option value="todas">Prioridad: todas</option>
-          {prioridadesRegistro.map((prioridad) => (
-            <option key={prioridad} value={prioridad}>
-              Prioridad: {prioridad}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          disabled={!esEdicionPermitida}
-          onClick={() => abrirModal('crear')}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-        >
-          Crear
-        </button>
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(evento) => setBusqueda(evento.target.value)}
+            placeholder="Buscar por nombre o descripción"
+            aria-label="Buscar objetivos"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 dark:border-slate-700 dark:bg-slate-800"
+          />
+          <button
+            type="button"
+            disabled={!esEdicionPermitida}
+            onClick={() => abrirModal('crear')}
+            aria-label="Crear objetivo"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
+          >
+            Crear
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Estado</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFiltroEstado('todos')}
+              aria-label="Filtrar objetivos por todos los estados"
+              className={`rounded-full px-3 py-1 text-xs ${
+                filtroEstado === 'todos'
+                  ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
+                  : 'border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+              }`}
+            >
+              Todos
+            </button>
+            {estadosRegistro.map((estado) => (
+              <button
+                key={estado}
+                type="button"
+                onClick={() => setFiltroEstado(estado)}
+                aria-label={`Filtrar objetivos por estado ${estado}`}
+                className={`rounded-full px-3 py-1 text-xs ${
+                  filtroEstado === estado
+                    ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
+                    : 'border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {estado}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Prioridad</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFiltroPrioridad('todas')}
+              aria-label="Filtrar objetivos por todas las prioridades"
+              className={`rounded-full px-3 py-1 text-xs ${
+                filtroPrioridad === 'todas'
+                  ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
+                  : 'border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+              }`}
+            >
+              Todas
+            </button>
+            {prioridadesRegistro.map((prioridad) => (
+              <button
+                key={prioridad}
+                type="button"
+                onClick={() => setFiltroPrioridad(prioridad)}
+                aria-label={`Filtrar objetivos por prioridad ${prioridad}`}
+                className={`rounded-full px-3 py-1 text-xs ${
+                  filtroPrioridad === prioridad
+                    ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
+                    : 'border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+                }`}
+              >
+                {prioridad}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <EstadoVista
