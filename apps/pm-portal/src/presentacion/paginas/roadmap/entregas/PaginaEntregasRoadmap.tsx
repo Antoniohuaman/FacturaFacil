@@ -1,26 +1,43 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import { entregaSchema, type EntregaEntrada } from '@/compartido/validacion/esquemas'
-import { estadosRegistro, prioridadesRegistro, type Entrega, type Iniciativa } from '@/dominio/modelos'
+import { estadosRegistro, prioridadesRegistro, type Entrega, type Iniciativa, type Objetivo } from '@/dominio/modelos'
 import { crearEntrega, editarEntrega, eliminarEntrega, listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
+import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
 export function PaginaEntregasRoadmap() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaInicial = Number(searchParams.get('pagina') ?? '1')
+  const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
+  const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosRegistro)[number]>('todos')
-  const [filtroPrioridad, setFiltroPrioridad] = useState<'todas' | (typeof prioridadesRegistro)[number]>('todas')
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosRegistro)[number]>(
+    (searchParams.get('estado') as 'todos' | (typeof estadosRegistro)[number]) ?? 'todos'
+  )
+  const [filtroPrioridad, setFiltroPrioridad] = useState<'todas' | (typeof prioridadesRegistro)[number]>(
+    (searchParams.get('prioridad') as 'todas' | (typeof prioridadesRegistro)[number]) ?? 'todas'
+  )
+  const [filtroObjetivo, setFiltroObjetivo] = useState(searchParams.get('objetivo') ?? 'todos')
+  const [filtroIniciativa, setFiltroIniciativa] = useState(searchParams.get('iniciativa') ?? 'todas')
+  const [filtroFecha, setFiltroFecha] = useState<'todas' | 'con' | 'sin'>(
+    (searchParams.get('fecha') as 'todas' | 'con' | 'sin') ?? 'todas'
+  )
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModal>('crear')
   const [entregaActiva, setEntregaActiva] = useState<Entrega | null>(null)
@@ -48,9 +65,14 @@ export function PaginaEntregasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaEntregas, listaIniciativas] = await Promise.all([listarEntregas(), listarIniciativas()])
+      const [listaEntregas, listaIniciativas, listaObjetivos] = await Promise.all([
+        listarEntregas(),
+        listarIniciativas(),
+        listarObjetivos()
+      ])
       setEntregas(listaEntregas)
       setIniciativas(listaIniciativas)
+      setObjetivos(listaObjetivos)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar entregas')
     } finally {
@@ -63,6 +85,8 @@ export function PaginaEntregasRoadmap() {
   }, [])
 
   const entregasFiltradas = useMemo(() => {
+    const objetivoPorIniciativa = new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.objetivo_id]))
+
     return entregas.filter((entrega) => {
       const coincideBusqueda =
         entrega.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -70,10 +94,84 @@ export function PaginaEntregasRoadmap() {
 
       const coincideEstado = filtroEstado === 'todos' ? true : entrega.estado === filtroEstado
       const coincidePrioridad = filtroPrioridad === 'todas' ? true : entrega.prioridad === filtroPrioridad
+      const coincideObjetivo =
+        filtroObjetivo === 'todos'
+          ? true
+          : objetivoPorIniciativa.get(entrega.iniciativa_id ?? '') === filtroObjetivo
+      const coincideIniciativa =
+        filtroIniciativa === 'todas' ? true : entrega.iniciativa_id === filtroIniciativa
+      const coincideFecha =
+        filtroFecha === 'todas'
+          ? true
+          : filtroFecha === 'con'
+            ? Boolean(entrega.fecha_objetivo)
+            : !entrega.fecha_objetivo
 
-      return coincideBusqueda && coincideEstado && coincidePrioridad
+      return (
+        coincideBusqueda &&
+        coincideEstado &&
+        coincidePrioridad &&
+        coincideObjetivo &&
+        coincideIniciativa &&
+        coincideFecha
+      )
     })
-  }, [entregas, busqueda, filtroEstado, filtroPrioridad])
+  }, [entregas, iniciativas, busqueda, filtroEstado, filtroPrioridad, filtroObjetivo, filtroIniciativa, filtroFecha])
+
+  const iniciativasDisponibles = useMemo(() => {
+    if (filtroObjetivo === 'todos') {
+      return iniciativas
+    }
+
+    return iniciativas.filter((iniciativa) => iniciativa.objetivo_id === filtroObjetivo)
+  }, [iniciativas, filtroObjetivo])
+
+  const paginacion = usePaginacion({
+    items: entregasFiltradas,
+    paginaInicial: Number.isFinite(paginaInicial) && paginaInicial > 0 ? paginaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoInicial) ? tamanoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+
+    if (busqueda) {
+      parametros.set('q', busqueda)
+    }
+    if (filtroEstado !== 'todos') {
+      parametros.set('estado', filtroEstado)
+    }
+    if (filtroPrioridad !== 'todas') {
+      parametros.set('prioridad', filtroPrioridad)
+    }
+    if (filtroObjetivo !== 'todos') {
+      parametros.set('objetivo', filtroObjetivo)
+    }
+    if (filtroIniciativa !== 'todas') {
+      parametros.set('iniciativa', filtroIniciativa)
+    }
+    if (filtroFecha !== 'todas') {
+      parametros.set('fecha', filtroFecha)
+    }
+    if (paginacion.paginaActual > 1) {
+      parametros.set('pagina', String(paginacion.paginaActual))
+    }
+    if (paginacion.tamanoPagina !== 10) {
+      parametros.set('tamano', String(paginacion.tamanoPagina))
+    }
+
+    setSearchParams(parametros, { replace: true })
+  }, [
+    busqueda,
+    filtroEstado,
+    filtroPrioridad,
+    filtroObjetivo,
+    filtroIniciativa,
+    filtroFecha,
+    paginacion.paginaActual,
+    paginacion.tamanoPagina,
+    setSearchParams
+  ])
 
   const iniciativaPorId = useMemo(() => {
     return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre]))
@@ -125,6 +223,49 @@ export function PaginaEntregasRoadmap() {
           ))}
         </select>
         <select
+          value={filtroObjetivo}
+          onChange={(evento) => {
+            setFiltroObjetivo(evento.target.value)
+            setFiltroIniciativa('todas')
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Objetivo: todos</option>
+          {objetivos.map((objetivo) => (
+            <option key={objetivo.id} value={objetivo.id}>
+              {objetivo.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroIniciativa}
+          onChange={(evento) => {
+            setFiltroIniciativa(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todas">Iniciativa: todas</option>
+          {iniciativasDisponibles.map((iniciativa) => (
+            <option key={iniciativa.id} value={iniciativa.id}>
+              {iniciativa.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroFecha}
+          onChange={(evento) => {
+            setFiltroFecha(evento.target.value as 'todas' | 'con' | 'sin')
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todas">Fecha objetivo: todas</option>
+          <option value="con">Con fecha</option>
+          <option value="sin">Sin fecha</option>
+        </select>
+        <select
           value={filtroPrioridad}
           onChange={(evento) =>
             setFiltroPrioridad(evento.target.value as 'todas' | (typeof prioridadesRegistro)[number])
@@ -138,6 +279,21 @@ export function PaginaEntregasRoadmap() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => {
+            setBusqueda('')
+            setFiltroEstado('todos')
+            setFiltroPrioridad('todas')
+            setFiltroObjetivo('todos')
+            setFiltroIniciativa('todas')
+            setFiltroFecha('todas')
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Limpiar
+        </button>
         <button
           type="button"
           disabled={!esEdicionPermitida}
@@ -166,7 +322,7 @@ export function PaginaEntregasRoadmap() {
               </tr>
             </thead>
             <tbody>
-              {entregasFiltradas.map((entrega) => (
+              {paginacion.itemsPaginados.map((entrega) => (
                 <tr key={entrega.id} className="border-t border-slate-200 dark:border-slate-800">
                   <td className="px-3 py-2">
                     <p className="font-medium">{entrega.nombre}</p>
@@ -215,6 +371,16 @@ export function PaginaEntregasRoadmap() {
             </tbody>
           </table>
         </div>
+        <PaginacionTabla
+          paginaActual={paginacion.paginaActual}
+          totalPaginas={paginacion.totalPaginas}
+          totalItems={paginacion.totalItems}
+          desde={paginacion.desde}
+          hasta={paginacion.hasta}
+          tamanoPagina={paginacion.tamanoPagina}
+          alCambiarPagina={paginacion.setPaginaActual}
+          alCambiarTamanoPagina={paginacion.setTamanoPagina}
+        />
       </EstadoVista>
 
       <ModalPortal

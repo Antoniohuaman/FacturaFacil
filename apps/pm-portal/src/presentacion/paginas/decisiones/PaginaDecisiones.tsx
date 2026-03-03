@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useSearchParams } from 'react-router-dom'
 import { decisionPmSchema, type DecisionPmEntrada } from '@/compartido/validacion/esquemas'
 import type { CatalogoEstadoPm, DecisionPm, EjecucionValidacion, Entrega, Iniciativa } from '@/dominio/modelos'
 import {
@@ -18,6 +19,8 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -38,13 +41,19 @@ function dividirTextoLista(valor: string) {
 }
 
 export function PaginaDecisiones() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaInicial = Number(searchParams.get('pagina') ?? '1')
+  const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
   const [decisiones, setDecisiones] = useState<DecisionPm[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [ejecuciones, setEjecuciones] = useState<EjecucionValidacion[]>([])
   const [estados, setEstados] = useState<CatalogoEstadoPm[]>([])
-  const [busqueda, setBusqueda] = useState('')
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') ?? 'todos')
+  const [fechaDesde, setFechaDesde] = useState(searchParams.get('desde') ?? '')
+  const [fechaHasta, setFechaHasta] = useState(searchParams.get('hasta') ?? '')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -104,13 +113,58 @@ export function PaginaDecisiones() {
   const decisionesFiltradas = useMemo(() => {
     const termino = busqueda.toLowerCase()
     return decisiones.filter((decision) => {
+      const coincideEstado = filtroEstado === 'todos' ? true : decision.estado_codigo === filtroEstado
+      const coincideDesde = fechaDesde ? decision.fecha_decision >= fechaDesde : true
+      const coincideHasta = fechaHasta ? decision.fecha_decision <= fechaHasta : true
+
       return (
-        decision.titulo.toLowerCase().includes(termino) ||
-        decision.estado_codigo.toLowerCase().includes(termino) ||
-        decision.tags.some((tag) => tag.toLowerCase().includes(termino))
+        (decision.titulo.toLowerCase().includes(termino) ||
+          decision.estado_codigo.toLowerCase().includes(termino) ||
+          decision.tags.some((tag) => tag.toLowerCase().includes(termino))) &&
+        coincideEstado &&
+        coincideDesde &&
+        coincideHasta
       )
     })
-  }, [decisiones, busqueda])
+  }, [decisiones, busqueda, filtroEstado, fechaDesde, fechaHasta])
+
+  const paginacion = usePaginacion({
+    items: decisionesFiltradas,
+    paginaInicial: Number.isFinite(paginaInicial) && paginaInicial > 0 ? paginaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoInicial) ? tamanoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+    if (busqueda) {
+      parametros.set('q', busqueda)
+    }
+    if (filtroEstado !== 'todos') {
+      parametros.set('estado', filtroEstado)
+    }
+    if (fechaDesde) {
+      parametros.set('desde', fechaDesde)
+    }
+    if (fechaHasta) {
+      parametros.set('hasta', fechaHasta)
+    }
+    if (paginacion.paginaActual > 1) {
+      parametros.set('pagina', String(paginacion.paginaActual))
+    }
+    if (paginacion.tamanoPagina !== 10) {
+      parametros.set('tamano', String(paginacion.tamanoPagina))
+    }
+
+    setSearchParams(parametros, { replace: true })
+  }, [
+    busqueda,
+    filtroEstado,
+    fechaDesde,
+    fechaHasta,
+    paginacion.paginaActual,
+    paginacion.tamanoPagina,
+    setSearchParams
+  ])
 
   const abrirModal = (modo: ModoModal, decision?: DecisionPm) => {
     setModoModal(modo)
@@ -160,7 +214,7 @@ export function PaginaDecisiones() {
         </p>
       </header>
 
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-2 dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3 dark:border-slate-800 dark:bg-slate-900">
         <input
           type="search"
           value={busqueda}
@@ -168,6 +222,52 @@ export function PaginaDecisiones() {
           placeholder="Buscar por título, estado o tag"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
         />
+        <select
+          value={filtroEstado}
+          onChange={(evento) => {
+            setFiltroEstado(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Estado: todos</option>
+          {estados.map((estado) => (
+            <option key={estado.id} value={estado.codigo}>
+              {estado.nombre}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={fechaDesde}
+          onChange={(evento) => {
+            setFechaDesde(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        />
+        <input
+          type="date"
+          value={fechaHasta}
+          onChange={(evento) => {
+            setFechaHasta(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setBusqueda('')
+            setFiltroEstado('todos')
+            setFechaDesde('')
+            setFechaHasta('')
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Limpiar
+        </button>
         <button
           type="button"
           disabled={!esEdicionPermitida}
@@ -196,7 +296,7 @@ export function PaginaDecisiones() {
               </tr>
             </thead>
             <tbody>
-              {decisionesFiltradas.map((decision) => (
+              {paginacion.itemsPaginados.map((decision) => (
                 <tr key={decision.id} className="border-t border-slate-200 dark:border-slate-800">
                   <td className="px-3 py-2">
                     <p className="font-medium">{decision.titulo}</p>
@@ -245,6 +345,16 @@ export function PaginaDecisiones() {
             </tbody>
           </table>
         </div>
+        <PaginacionTabla
+          paginaActual={paginacion.paginaActual}
+          totalPaginas={paginacion.totalPaginas}
+          totalItems={paginacion.totalItems}
+          desde={paginacion.desde}
+          hasta={paginacion.hasta}
+          tamanoPagina={paginacion.tamanoPagina}
+          alCambiarPagina={paginacion.setPaginaActual}
+          alCambiarTamanoPagina={paginacion.setTamanoPagina}
+        />
       </EstadoVista>
 
       <ModalPortal

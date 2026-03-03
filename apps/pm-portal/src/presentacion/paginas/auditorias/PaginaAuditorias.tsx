@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import {
   auditoriaPmSchema,
   hallazgoAuditoriaSchema,
@@ -35,10 +36,17 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
 export function PaginaAuditorias() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaAuditoriaInicial = Number(searchParams.get('paginaAuditoria') ?? '1')
+  const tamanoAuditoriaInicial = Number(searchParams.get('tamanoAuditoria') ?? '10')
+  const paginaHallazgoInicial = Number(searchParams.get('paginaHallazgo') ?? '1')
+  const tamanoHallazgoInicial = Number(searchParams.get('tamanoHallazgo') ?? '10')
   const { rol } = useSesionPortalPM()
   const [tiposAuditoria, setTiposAuditoria] = useState<CatalogoTipoAuditoriaPm[]>([])
   const [estadosAuditoria, setEstadosAuditoria] = useState<CatalogoEstadoPm[]>([])
@@ -49,6 +57,12 @@ export function PaginaAuditorias() {
   const [ejecuciones, setEjecuciones] = useState<EjecucionValidacion[]>([])
   const [auditorias, setAuditorias] = useState<AuditoriaPm[]>([])
   const [hallazgos, setHallazgos] = useState<HallazgoAuditoriaPm[]>([])
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroTipoAuditoria, setFiltroTipoAuditoria] = useState(searchParams.get('tipo') ?? 'todos')
+  const [filtroEstadoAuditoria, setFiltroEstadoAuditoria] = useState(searchParams.get('estadoAuditoria') ?? 'todos')
+  const [filtroEstadoHallazgo, setFiltroEstadoHallazgo] = useState(searchParams.get('estadoHallazgo') ?? 'todos')
+  const [filtroSeveridad, setFiltroSeveridad] = useState(searchParams.get('severidad') ?? 'todos')
+  const [filtroModulo, setFiltroModulo] = useState(searchParams.get('modulo') ?? 'todos')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -143,6 +157,99 @@ export function PaginaAuditorias() {
 
   const moduloPorId = useMemo(() => new Map(modulos.map((modulo) => [modulo.id, modulo.nombre])), [modulos])
 
+  const auditoriasFiltradas = useMemo(() => {
+    const termino = busqueda.toLowerCase()
+    return auditorias.filter((auditoria) => {
+      const coincideBusqueda =
+        auditoria.alcance.toLowerCase().includes(termino) ||
+        auditoria.tipo_auditoria_codigo.toLowerCase().includes(termino) ||
+        auditoria.estado_codigo.toLowerCase().includes(termino)
+
+      const coincideTipo = filtroTipoAuditoria === 'todos' ? true : auditoria.tipo_auditoria_codigo === filtroTipoAuditoria
+      const coincideEstado =
+        filtroEstadoAuditoria === 'todos' ? true : auditoria.estado_codigo === filtroEstadoAuditoria
+
+      return coincideBusqueda && coincideTipo && coincideEstado
+    })
+  }, [auditorias, busqueda, filtroTipoAuditoria, filtroEstadoAuditoria])
+
+  const hallazgosFiltrados = useMemo(() => {
+    const termino = busqueda.toLowerCase()
+    return hallazgos.filter((hallazgo) => {
+      const coincideBusqueda =
+        hallazgo.titulo.toLowerCase().includes(termino) ||
+        hallazgo.descripcion.toLowerCase().includes(termino) ||
+        hallazgo.estado_codigo.toLowerCase().includes(termino)
+
+      const coincideEstado = filtroEstadoHallazgo === 'todos' ? true : hallazgo.estado_codigo === filtroEstadoHallazgo
+      const coincideSeveridad = filtroSeveridad === 'todos' ? true : hallazgo.severidad_codigo === filtroSeveridad
+      const coincideModulo = filtroModulo === 'todos' ? true : hallazgo.modulo_id === filtroModulo
+
+      return coincideBusqueda && coincideEstado && coincideSeveridad && coincideModulo
+    })
+  }, [hallazgos, busqueda, filtroEstadoHallazgo, filtroSeveridad, filtroModulo])
+
+  const paginacionAuditorias = usePaginacion({
+    items: auditoriasFiltradas,
+    paginaInicial: Number.isFinite(paginaAuditoriaInicial) && paginaAuditoriaInicial > 0 ? paginaAuditoriaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoAuditoriaInicial) ? tamanoAuditoriaInicial : 10
+  })
+
+  const paginacionHallazgos = usePaginacion({
+    items: hallazgosFiltrados,
+    paginaInicial: Number.isFinite(paginaHallazgoInicial) && paginaHallazgoInicial > 0 ? paginaHallazgoInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoHallazgoInicial) ? tamanoHallazgoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+
+    if (busqueda) {
+      parametros.set('q', busqueda)
+    }
+    if (filtroTipoAuditoria !== 'todos') {
+      parametros.set('tipo', filtroTipoAuditoria)
+    }
+    if (filtroEstadoAuditoria !== 'todos') {
+      parametros.set('estadoAuditoria', filtroEstadoAuditoria)
+    }
+    if (filtroEstadoHallazgo !== 'todos') {
+      parametros.set('estadoHallazgo', filtroEstadoHallazgo)
+    }
+    if (filtroSeveridad !== 'todos') {
+      parametros.set('severidad', filtroSeveridad)
+    }
+    if (filtroModulo !== 'todos') {
+      parametros.set('modulo', filtroModulo)
+    }
+    if (paginacionAuditorias.paginaActual > 1) {
+      parametros.set('paginaAuditoria', String(paginacionAuditorias.paginaActual))
+    }
+    if (paginacionAuditorias.tamanoPagina !== 10) {
+      parametros.set('tamanoAuditoria', String(paginacionAuditorias.tamanoPagina))
+    }
+    if (paginacionHallazgos.paginaActual > 1) {
+      parametros.set('paginaHallazgo', String(paginacionHallazgos.paginaActual))
+    }
+    if (paginacionHallazgos.tamanoPagina !== 10) {
+      parametros.set('tamanoHallazgo', String(paginacionHallazgos.tamanoPagina))
+    }
+
+    setSearchParams(parametros, { replace: true })
+  }, [
+    busqueda,
+    filtroTipoAuditoria,
+    filtroEstadoAuditoria,
+    filtroEstadoHallazgo,
+    filtroSeveridad,
+    filtroModulo,
+    paginacionAuditorias.paginaActual,
+    paginacionAuditorias.tamanoPagina,
+    paginacionHallazgos.paginaActual,
+    paginacionHallazgos.tamanoPagina,
+    setSearchParams
+  ])
+
   const abrirModalAuditoria = (modo: ModoModal, auditoria?: AuditoriaPm) => {
     setModoAuditoria(modo)
     setAuditoriaActiva(auditoria ?? null)
@@ -184,6 +291,111 @@ export function PaginaAuditorias() {
         </p>
       </header>
 
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3 dark:border-slate-800 dark:bg-slate-900">
+        <input
+          type="search"
+          value={busqueda}
+          onChange={(evento) => {
+            setBusqueda(evento.target.value)
+            paginacionAuditorias.setPaginaActual(1)
+            paginacionHallazgos.setPaginaActual(1)
+          }}
+          placeholder="Buscar en auditorías y hallazgos"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        />
+        <select
+          value={filtroTipoAuditoria}
+          onChange={(evento) => {
+            setFiltroTipoAuditoria(evento.target.value)
+            paginacionAuditorias.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Tipo auditoría: todos</option>
+          {tiposAuditoria.map((tipo) => (
+            <option key={tipo.id} value={tipo.codigo}>
+              {tipo.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroEstadoAuditoria}
+          onChange={(evento) => {
+            setFiltroEstadoAuditoria(evento.target.value)
+            paginacionAuditorias.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Estado auditoría: todos</option>
+          {estadosAuditoria.map((estado) => (
+            <option key={estado.id} value={estado.codigo}>
+              {estado.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroEstadoHallazgo}
+          onChange={(evento) => {
+            setFiltroEstadoHallazgo(evento.target.value)
+            paginacionHallazgos.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Estado hallazgo: todos</option>
+          {estadosHallazgo.map((estado) => (
+            <option key={estado.id} value={estado.codigo}>
+              {estado.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroSeveridad}
+          onChange={(evento) => {
+            setFiltroSeveridad(evento.target.value)
+            paginacionHallazgos.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Severidad: todas</option>
+          {severidades.map((severidad) => (
+            <option key={severidad.id} value={severidad.codigo}>
+              {severidad.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroModulo}
+          onChange={(evento) => {
+            setFiltroModulo(evento.target.value)
+            paginacionHallazgos.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Módulo: todos</option>
+          {modulos.map((modulo) => (
+            <option key={modulo.id} value={modulo.id}>
+              {modulo.nombre}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => {
+            setBusqueda('')
+            setFiltroTipoAuditoria('todos')
+            setFiltroEstadoAuditoria('todos')
+            setFiltroEstadoHallazgo('todos')
+            setFiltroSeveridad('todos')
+            setFiltroModulo('todos')
+            paginacionAuditorias.setPaginaActual(1)
+            paginacionHallazgos.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Limpiar filtros
+        </button>
+      </div>
+
       <div className="grid gap-3 md:grid-cols-2">
         <button
           type="button"
@@ -206,7 +418,7 @@ export function PaginaAuditorias() {
       <EstadoVista
         cargando={cargando}
         error={error}
-        vacio={auditorias.length === 0 && hallazgos.length === 0}
+        vacio={auditoriasFiltradas.length === 0 && hallazgosFiltrados.length === 0}
         mensajeVacio="No hay auditorías ni hallazgos registrados."
       >
         <div className="grid gap-4 lg:grid-cols-2">
@@ -215,7 +427,7 @@ export function PaginaAuditorias() {
               <h2 className="text-sm font-semibold">Auditorías</h2>
             </header>
             <ul className="divide-y divide-slate-200 dark:divide-slate-800">
-              {auditorias.map((auditoria) => (
+              {paginacionAuditorias.itemsPaginados.map((auditoria) => (
                 <li key={auditoria.id} className="space-y-2 px-4 py-3 text-sm">
                   <p className="font-medium">{auditoria.fecha_auditoria} · {auditoria.tipo_auditoria_codigo}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Estado: {auditoria.estado_codigo}</p>
@@ -255,6 +467,16 @@ export function PaginaAuditorias() {
                 </li>
               ))}
             </ul>
+            <PaginacionTabla
+              paginaActual={paginacionAuditorias.paginaActual}
+              totalPaginas={paginacionAuditorias.totalPaginas}
+              totalItems={paginacionAuditorias.totalItems}
+              desde={paginacionAuditorias.desde}
+              hasta={paginacionAuditorias.hasta}
+              tamanoPagina={paginacionAuditorias.tamanoPagina}
+              alCambiarPagina={paginacionAuditorias.setPaginaActual}
+              alCambiarTamanoPagina={paginacionAuditorias.setTamanoPagina}
+            />
           </article>
 
           <article className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -262,7 +484,7 @@ export function PaginaAuditorias() {
               <h2 className="text-sm font-semibold">Hallazgos</h2>
             </header>
             <ul className="divide-y divide-slate-200 dark:divide-slate-800">
-              {hallazgos.map((hallazgo) => (
+              {paginacionHallazgos.itemsPaginados.map((hallazgo) => (
                 <li key={hallazgo.id} className="space-y-2 px-4 py-3 text-sm">
                   <p className="font-medium">{hallazgo.titulo}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -307,6 +529,16 @@ export function PaginaAuditorias() {
                 </li>
               ))}
             </ul>
+            <PaginacionTabla
+              paginaActual={paginacionHallazgos.paginaActual}
+              totalPaginas={paginacionHallazgos.totalPaginas}
+              totalItems={paginacionHallazgos.totalItems}
+              desde={paginacionHallazgos.desde}
+              hasta={paginacionHallazgos.hasta}
+              tamanoPagina={paginacionHallazgos.tamanoPagina}
+              alCambiarPagina={paginacionHallazgos.setPaginaActual}
+              alCambiarTamanoPagina={paginacionHallazgos.setTamanoPagina}
+            />
           </article>
         </div>
       </EstadoVista>

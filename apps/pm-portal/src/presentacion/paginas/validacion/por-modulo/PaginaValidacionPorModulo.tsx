@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import {
   planValidacionSchema,
   plantillaValidacionSchema,
@@ -23,10 +24,15 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
 export function PaginaValidacionPorModulo() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaInicial = Number(searchParams.get('pagina') ?? '1')
+  const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
   const [modulos, setModulos] = useState<CatalogoModuloPm[]>([])
   const [estados, setEstados] = useState<CatalogoEstadoPm[]>([])
@@ -34,7 +40,9 @@ export function PaginaValidacionPorModulo() {
   const [plantillas, setPlantillas] = useState<PlantillaValidacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroModulo, setFiltroModulo] = useState(searchParams.get('modulo') ?? 'todos')
+  const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') ?? 'todos')
 
   const [modalPlanAbierto, setModalPlanAbierto] = useState(false)
   const [modoPlan, setModoPlan] = useState<ModoModal>('crear')
@@ -111,13 +119,44 @@ export function PaginaValidacionPorModulo() {
     const termino = busqueda.toLowerCase()
     return planes.filter((plan) => {
       const nombreModulo = moduloPorId.get(plan.modulo_id) ?? ''
+      const coincideModulo = filtroModulo === 'todos' ? true : plan.modulo_id === filtroModulo
+      const coincideEstado = filtroEstado === 'todos' ? true : plan.estado_codigo === filtroEstado
+
       return (
         plan.nombre.toLowerCase().includes(termino) ||
         plan.estado_codigo.toLowerCase().includes(termino) ||
         nombreModulo.toLowerCase().includes(termino)
-      )
+      ) && coincideModulo && coincideEstado
     })
-  }, [planes, busqueda, moduloPorId])
+  }, [planes, busqueda, moduloPorId, filtroModulo, filtroEstado])
+
+  const paginacion = usePaginacion({
+    items: planesFiltrados,
+    paginaInicial: Number.isFinite(paginaInicial) && paginaInicial > 0 ? paginaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoInicial) ? tamanoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+
+    if (busqueda) {
+      parametros.set('q', busqueda)
+    }
+    if (filtroModulo !== 'todos') {
+      parametros.set('modulo', filtroModulo)
+    }
+    if (filtroEstado !== 'todos') {
+      parametros.set('estado', filtroEstado)
+    }
+    if (paginacion.paginaActual > 1) {
+      parametros.set('pagina', String(paginacion.paginaActual))
+    }
+    if (paginacion.tamanoPagina !== 10) {
+      parametros.set('tamano', String(paginacion.tamanoPagina))
+    }
+
+    setSearchParams(parametros, { replace: true })
+  }, [busqueda, filtroModulo, filtroEstado, paginacion.paginaActual, paginacion.tamanoPagina, setSearchParams])
 
   const abrirModalPlan = (modo: ModoModal, plan?: PlanValidacion) => {
     setModoPlan(modo)
@@ -180,10 +219,55 @@ export function PaginaValidacionPorModulo() {
         <input
           type="search"
           value={busqueda}
-          onChange={(evento) => setBusqueda(evento.target.value)}
+          onChange={(evento) => {
+            setBusqueda(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
           placeholder="Buscar por módulo, nombre o estado"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
         />
+        <select
+          value={filtroModulo}
+          onChange={(evento) => {
+            setFiltroModulo(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Módulo: todos</option>
+          {modulos.map((modulo) => (
+            <option key={modulo.id} value={modulo.id}>
+              {modulo.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroEstado}
+          onChange={(evento) => {
+            setFiltroEstado(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Estado: todos</option>
+          {estados.map((estado) => (
+            <option key={estado.id} value={estado.codigo}>
+              {estado.nombre}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => {
+            setBusqueda('')
+            setFiltroModulo('todos')
+            setFiltroEstado('todos')
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Limpiar filtros
+        </button>
         <button
           type="button"
           disabled={!esEdicionPermitida}
@@ -220,7 +304,7 @@ export function PaginaValidacionPorModulo() {
               </tr>
             </thead>
             <tbody>
-              {planesFiltrados.map((plan) => (
+              {paginacion.itemsPaginados.map((plan) => (
                 <tr key={plan.id} className="border-t border-slate-200 dark:border-slate-800">
                   <td className="px-3 py-2">
                     <p className="font-medium">{plan.nombre}</p>
@@ -267,6 +351,16 @@ export function PaginaValidacionPorModulo() {
             </tbody>
           </table>
         </div>
+        <PaginacionTabla
+          paginaActual={paginacion.paginaActual}
+          totalPaginas={paginacion.totalPaginas}
+          totalItems={paginacion.totalItems}
+          desde={paginacion.desde}
+          hasta={paginacion.hasta}
+          tamanoPagina={paginacion.tamanoPagina}
+          alCambiarPagina={paginacion.setPaginaActual}
+          alCambiarTamanoPagina={paginacion.setTamanoPagina}
+        />
       </EstadoVista>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import { matrizValorSchema, type MatrizValorEntrada } from '@/compartido/validacion/esquemas'
-import { estadosRegistro, prioridadesRegistro, type Iniciativa, type MatrizValor } from '@/dominio/modelos'
+import { estadosRegistro, prioridadesRegistro, type Iniciativa, type MatrizValor, type Objetivo } from '@/dominio/modelos'
 import {
   crearMatrizValor,
   editarMatrizValor,
@@ -10,10 +11,13 @@ import {
   listarMatrizValor
 } from '@/aplicacion/casos-uso/matrizValor'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
+import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -22,14 +26,24 @@ function calcularPuntaje(valor_negocio: number, esfuerzo: number, riesgo: number
 }
 
 export function PaginaMatrizValor() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaInicial = Number(searchParams.get('pagina') ?? '1')
+  const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
   const [matrices, setMatrices] = useState<MatrizValor[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
+  const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosRegistro)[number]>('todos')
-  const [filtroPrioridad, setFiltroPrioridad] = useState<'todas' | (typeof prioridadesRegistro)[number]>('todas')
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosRegistro)[number]>(
+    (searchParams.get('estado') as 'todos' | (typeof estadosRegistro)[number]) ?? 'todos'
+  )
+  const [filtroPrioridad, setFiltroPrioridad] = useState<'todas' | (typeof prioridadesRegistro)[number]>(
+    (searchParams.get('prioridad') as 'todas' | (typeof prioridadesRegistro)[number]) ?? 'todas'
+  )
+  const [filtroObjetivo, setFiltroObjetivo] = useState(searchParams.get('objetivo') ?? 'todos')
+  const [filtroIniciativa, setFiltroIniciativa] = useState(searchParams.get('iniciativa') ?? 'todas')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModal>('crear')
   const [matrizActiva, setMatrizActiva] = useState<MatrizValor | null>(null)
@@ -67,9 +81,14 @@ export function PaginaMatrizValor() {
     setCargando(true)
     setError(null)
     try {
-      const [listaMatriz, listaIniciativas] = await Promise.all([listarMatrizValor(), listarIniciativas()])
+      const [listaMatriz, listaIniciativas, listaObjetivos] = await Promise.all([
+        listarMatrizValor(),
+        listarIniciativas(),
+        listarObjetivos()
+      ])
       setMatrices(listaMatriz)
       setIniciativas(listaIniciativas)
+      setObjetivos(listaObjetivos)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar matriz de valor')
     } finally {
@@ -82,13 +101,72 @@ export function PaginaMatrizValor() {
   }, [])
 
   const matricesFiltradas = useMemo(() => {
+    const objetivoPorIniciativa = new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.objetivo_id]))
+
     return matrices.filter((matriz) => {
       const coincideBusqueda = matriz.titulo.toLowerCase().includes(busqueda.toLowerCase())
       const coincideEstado = filtroEstado === 'todos' ? true : matriz.estado === filtroEstado
       const coincidePrioridad = filtroPrioridad === 'todas' ? true : matriz.prioridad === filtroPrioridad
-      return coincideBusqueda && coincideEstado && coincidePrioridad
+      const coincideObjetivo =
+        filtroObjetivo === 'todos'
+          ? true
+          : objetivoPorIniciativa.get(matriz.iniciativa_id) === filtroObjetivo
+      const coincideIniciativa = filtroIniciativa === 'todas' ? true : matriz.iniciativa_id === filtroIniciativa
+
+      return coincideBusqueda && coincideEstado && coincidePrioridad && coincideObjetivo && coincideIniciativa
     })
-  }, [matrices, busqueda, filtroEstado, filtroPrioridad])
+  }, [matrices, iniciativas, busqueda, filtroEstado, filtroPrioridad, filtroObjetivo, filtroIniciativa])
+
+  const iniciativasDisponibles = useMemo(() => {
+    if (filtroObjetivo === 'todos') {
+      return iniciativas
+    }
+
+    return iniciativas.filter((iniciativa) => iniciativa.objetivo_id === filtroObjetivo)
+  }, [iniciativas, filtroObjetivo])
+
+  const paginacion = usePaginacion({
+    items: matricesFiltradas,
+    paginaInicial: Number.isFinite(paginaInicial) && paginaInicial > 0 ? paginaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoInicial) ? tamanoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+
+    if (busqueda) {
+      parametros.set('q', busqueda)
+    }
+    if (filtroEstado !== 'todos') {
+      parametros.set('estado', filtroEstado)
+    }
+    if (filtroPrioridad !== 'todas') {
+      parametros.set('prioridad', filtroPrioridad)
+    }
+    if (filtroObjetivo !== 'todos') {
+      parametros.set('objetivo', filtroObjetivo)
+    }
+    if (filtroIniciativa !== 'todas') {
+      parametros.set('iniciativa', filtroIniciativa)
+    }
+    if (paginacion.paginaActual > 1) {
+      parametros.set('pagina', String(paginacion.paginaActual))
+    }
+    if (paginacion.tamanoPagina !== 10) {
+      parametros.set('tamano', String(paginacion.tamanoPagina))
+    }
+
+    setSearchParams(parametros, { replace: true })
+  }, [
+    busqueda,
+    filtroEstado,
+    filtroPrioridad,
+    filtroObjetivo,
+    filtroIniciativa,
+    paginacion.paginaActual,
+    paginacion.tamanoPagina,
+    setSearchParams
+  ])
 
   const iniciativaPorId = useMemo(() => {
     return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre]))
@@ -141,6 +219,37 @@ export function PaginaMatrizValor() {
           ))}
         </select>
         <select
+          value={filtroObjetivo}
+          onChange={(evento) => {
+            setFiltroObjetivo(evento.target.value)
+            setFiltroIniciativa('todas')
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todos">Objetivo: todos</option>
+          {objetivos.map((objetivo) => (
+            <option key={objetivo.id} value={objetivo.id}>
+              {objetivo.nombre}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroIniciativa}
+          onChange={(evento) => {
+            setFiltroIniciativa(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todas">Iniciativa: todas</option>
+          {iniciativasDisponibles.map((iniciativa) => (
+            <option key={iniciativa.id} value={iniciativa.id}>
+              {iniciativa.nombre}
+            </option>
+          ))}
+        </select>
+        <select
           value={filtroPrioridad}
           onChange={(evento) =>
             setFiltroPrioridad(evento.target.value as 'todas' | (typeof prioridadesRegistro)[number])
@@ -154,6 +263,20 @@ export function PaginaMatrizValor() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => {
+            setBusqueda('')
+            setFiltroEstado('todos')
+            setFiltroPrioridad('todas')
+            setFiltroObjetivo('todos')
+            setFiltroIniciativa('todas')
+            paginacion.setPaginaActual(1)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Limpiar
+        </button>
         <button
           type="button"
           disabled={!esEdicionPermitida}
@@ -182,7 +305,7 @@ export function PaginaMatrizValor() {
               </tr>
             </thead>
             <tbody>
-              {matricesFiltradas.map((matriz) => (
+              {paginacion.itemsPaginados.map((matriz) => (
                 <tr key={matriz.id} className="border-t border-slate-200 dark:border-slate-800">
                   <td className="px-3 py-2 font-medium">{matriz.titulo}</td>
                   <td className="px-3 py-2">{iniciativaPorId.get(matriz.iniciativa_id) ?? 'Sin iniciativa'}</td>
@@ -230,6 +353,16 @@ export function PaginaMatrizValor() {
             </tbody>
           </table>
         </div>
+        <PaginacionTabla
+          paginaActual={paginacion.paginaActual}
+          totalPaginas={paginacion.totalPaginas}
+          totalItems={paginacion.totalItems}
+          desde={paginacion.desde}
+          hasta={paginacion.hasta}
+          tamanoPagina={paginacion.tamanoPagina}
+          alCambiarPagina={paginacion.setPaginaActual}
+          alCambiarTamanoPagina={paginacion.setTamanoPagina}
+        />
       </EstadoVista>
 
       <ModalPortal
