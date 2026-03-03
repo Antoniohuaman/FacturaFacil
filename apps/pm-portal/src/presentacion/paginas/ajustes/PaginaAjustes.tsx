@@ -1,19 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   catalogoModuloPmSchema,
   catalogoSeveridadPmSchema,
+  configuracionRiceSchema,
   integracionPmSchema,
   kpiConfigPmSchema,
   type CatalogoModuloPmEntrada,
   type CatalogoSeveridadPmEntrada,
+  type ConfiguracionRiceEntrada,
   type IntegracionPmEntrada,
   type KpiConfigPmEntrada
 } from '@/compartido/validacion/esquemas'
-import type { CatalogoModuloPm, CatalogoSeveridadPm, IntegracionPm, KpiConfigPm } from '@/dominio/modelos'
 import {
+  alcancesPeriodoRice,
+  formatearEsfuerzoUnidadRice,
+  unidadesEsfuerzoRice,
+  type CatalogoModuloPm,
+  type CatalogoSeveridadPm,
+  type ConfiguracionRice,
+  type IntegracionPm,
+  type KpiConfigPm
+} from '@/dominio/modelos'
+import {
+  actualizarConfiguracionRice,
+  cargarConfiguracionRice,
   crearIntegracionPm,
   crearKpiPm,
   crearModuloPm,
@@ -76,8 +89,10 @@ export function PaginaAjustes() {
   const [severidades, setSeveridades] = useState<CatalogoSeveridadPm[]>([])
   const [kpis, setKpis] = useState<KpiConfigPm[]>([])
   const [integraciones, setIntegraciones] = useState<IntegracionPm[]>([])
+  const [configuracionRice, setConfiguracionRice] = useState<ConfiguracionRice | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [mensajeRice, setMensajeRice] = useState<string | null>(null)
 
   const [modalModuloAbierto, setModalModuloAbierto] = useState(false)
   const [modoModulo, setModoModulo] = useState<ModoModal>('crear')
@@ -145,7 +160,15 @@ export function PaginaAjustes() {
     }
   })
 
-  const cargar = async () => {
+  const formularioRice = useForm<ConfiguracionRiceEntrada>({
+    resolver: zodResolver(configuracionRiceSchema),
+    defaultValues: {
+      alcance_periodo: 'mes',
+      esfuerzo_unidad: 'persona_semana'
+    }
+  })
+
+  const cargar = useCallback(async () => {
     setCargando(true)
     setError(null)
     try {
@@ -156,20 +179,27 @@ export function PaginaAjustes() {
         listarIntegracionesPm()
       ])
 
+      const configuracionRiceData = await cargarConfiguracionRice()
+
       setModulos(modulosData)
       setSeveridades(severidadesData)
       setKpis(kpisData)
       setIntegraciones(integracionesData)
+      setConfiguracionRice(configuracionRiceData)
+      formularioRice.reset({
+        alcance_periodo: configuracionRiceData.alcance_periodo,
+        esfuerzo_unidad: configuracionRiceData.esfuerzo_unidad
+      })
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar ajustes')
     } finally {
       setCargando(false)
     }
-  }
+  }, [formularioRice])
 
   useEffect(() => {
     void cargar()
-  }, [])
+  }, [cargar])
 
   const abrirModalModulo = (modo: ModoModal, modulo?: CatalogoModuloPm) => {
     setModoModulo(modo)
@@ -237,6 +267,84 @@ export function PaginaAjustes() {
       </header>
 
       <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="Sin datos de ajustes.">
+        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-semibold">Estándar RICE</h2>
+            {mensajeRice ? <p className="text-xs text-emerald-600 dark:text-emerald-400">{mensajeRice}</p> : null}
+          </div>
+
+          <form
+            className="grid gap-3 md:grid-cols-2"
+            onSubmit={formularioRice.handleSubmit(async (valores) => {
+              try {
+                const actualizada = await actualizarConfiguracionRice(valores)
+                setConfiguracionRice(actualizada)
+                formularioRice.reset({
+                  alcance_periodo: actualizada.alcance_periodo,
+                  esfuerzo_unidad: actualizada.esfuerzo_unidad
+                })
+                setMensajeRice('Configuración guardada.')
+              } catch (errorInterno) {
+                setError(
+                  errorInterno instanceof Error
+                    ? errorInterno.message
+                    : 'No se pudo guardar la configuración RICE'
+                )
+              }
+            })}
+          >
+            <div>
+              <label className="text-sm font-medium">Alcance (periodo)</label>
+              <select
+                {...formularioRice.register('alcance_periodo')}
+                disabled={!esAdmin || formularioRice.formState.isSubmitting}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                {alcancesPeriodoRice.map((periodo) => (
+                  <option key={periodo} value={periodo}>
+                    {periodo === 'semana' ? 'Semana' : periodo === 'trimestre' ? 'Trimestre' : 'Mes'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Esfuerzo (unidad)</label>
+              <select
+                {...formularioRice.register('esfuerzo_unidad')}
+                disabled={!esAdmin || formularioRice.formState.isSubmitting}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                {unidadesEsfuerzoRice.map((unidad) => (
+                  <option key={unidad} value={unidad}>
+                    {formatearEsfuerzoUnidadRice(unidad)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2 flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Esta configuración ajusta etiquetas y estándar visual RICE en iniciativas.
+              </p>
+              <button
+                type="submit"
+                disabled={!esAdmin || formularioRice.formState.isSubmitting || !formularioRice.formState.isDirty}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
+              >
+                {formularioRice.formState.isSubmitting ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+
+            {configuracionRice ? (
+              <p className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400">
+                Actual: alcance por {configuracionRice.alcance_periodo} · esfuerzo en{' '}
+                {formatearEsfuerzoUnidadRice(configuracionRice.esfuerzo_unidad)}.
+              </p>
+            ) : null}
+          </form>
+        </article>
+
         <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-semibold">Catálogo de módulos</h2>

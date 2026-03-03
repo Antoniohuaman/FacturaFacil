@@ -157,6 +157,11 @@ export const kpiConfigPmSchema = z.object({
   activo: z.boolean()
 })
 
+export const configuracionRiceSchema = z.object({
+  alcance_periodo: z.union([z.literal('semana'), z.literal('mes'), z.literal('trimestre')]),
+  esfuerzo_unidad: z.union([z.literal('persona_dia'), z.literal('persona_semana')])
+})
+
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
@@ -172,3 +177,4 @@ export type CatalogoModuloPmEntrada = z.infer<typeof catalogoModuloPmSchema>
 export type CatalogoSeveridadPmEntrada = z.infer<typeof catalogoSeveridadPmSchema>
 export type IntegracionPmEntrada = z.infer<typeof integracionPmSchema>
 export type KpiConfigPmEntrada = z.infer<typeof kpiConfigPmSchema>
+export type ConfiguracionRiceEntrada = z.infer<typeof configuracionRiceSchema>

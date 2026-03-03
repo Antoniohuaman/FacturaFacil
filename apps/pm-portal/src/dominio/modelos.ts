@@ -220,5 +220,38 @@ export interface KpiConfigPm {
   updated_at: string
 }
 
+export type AlcancePeriodoRice = 'semana' | 'mes' | 'trimestre'
+export type EsfuerzoUnidadRice = 'persona_dia' | 'persona_semana'
+
+export interface ConfiguracionRice {
+  id: string
+  alcance_periodo: AlcancePeriodoRice
+  esfuerzo_unidad: EsfuerzoUnidadRice
+  updated_at: string
+}
+
+export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
+export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
+
+export function formatearAlcancePeriodoRice(periodo: AlcancePeriodoRice) {
+  if (periodo === 'semana') {
+    return 'semana'
+  }
+
+  if (periodo === 'trimestre') {
+    return 'trimestre'
+  }
+
+  return 'mes'
+}
+
+export function formatearEsfuerzoUnidadRice(unidad: EsfuerzoUnidadRice) {
+  if (unidad === 'persona_dia') {
+    return 'Persona-días'
+  }
+
+  return 'Persona-semanas'
+}
+
 export const estadosRegistro: EstadoRegistro[] = ['pendiente', 'en_progreso', 'completado']
 export const prioridadesRegistro: PrioridadRegistro[] = ['baja', 'media', 'alta']

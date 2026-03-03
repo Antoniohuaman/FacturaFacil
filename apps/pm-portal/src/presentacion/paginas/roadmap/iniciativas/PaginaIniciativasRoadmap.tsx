@@ -3,7 +3,15 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
 import { iniciativaSchema, type IniciativaEntrada } from '@/compartido/validacion/esquemas'
-import { estadosRegistro, prioridadesRegistro, type Iniciativa, type Objetivo } from '@/dominio/modelos'
+import {
+  formatearAlcancePeriodoRice,
+  formatearEsfuerzoUnidadRice,
+  type ConfiguracionRice,
+  estadosRegistro,
+  prioridadesRegistro,
+  type Iniciativa,
+  type Objetivo
+} from '@/dominio/modelos'
 import {
   crearIniciativa,
   editarIniciativa,
@@ -11,6 +19,7 @@ import {
   listarIniciativas
 } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
+import { cargarConfiguracionRice } from '@/aplicacion/casos-uso/ajustes'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -63,6 +72,7 @@ export function PaginaIniciativasRoadmap() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModal>('crear')
   const [iniciativaActiva, setIniciativaActiva] = useState<Iniciativa | null>(null)
+  const [configuracionRice, setConfiguracionRice] = useState<ConfiguracionRice | null>(null)
 
   const {
     register,
@@ -127,6 +137,9 @@ export function PaginaIniciativasRoadmap() {
       const [listaIniciativas, listaObjetivos] = await Promise.all([listarIniciativas(), listarObjetivos()])
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
+
+      const configuracion = await cargarConfiguracionRice()
+      setConfiguracionRice(configuracion)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar iniciativas')
     } finally {
@@ -194,6 +207,14 @@ export function PaginaIniciativasRoadmap() {
   const objetivoPorId = useMemo(() => {
     return new Map(objetivos.map((objetivo) => [objetivo.id, objetivo.nombre]))
   }, [objetivos])
+
+  const helperAlcance = configuracionRice
+    ? `Impactados por ${formatearAlcancePeriodoRice(configuracionRice.alcance_periodo)}`
+    : 'Impactados (periodo)'
+
+  const helperEsfuerzo = configuracionRice
+    ? formatearEsfuerzoUnidadRice(configuracionRice.esfuerzo_unidad)
+    : 'Esfuerzo (unidad)'
 
   const abrirModal = (modo: ModoModal, iniciativa?: Iniciativa) => {
     setModoModal(modo)
@@ -509,7 +530,7 @@ export function PaginaIniciativasRoadmap() {
                 readOnly={modoModal === 'ver'}
                 className={claseCampoNumero('alcance')}
               />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Impactados por mes</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{helperAlcance}</p>
               {errors.alcance ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.alcance.message}</p> : null}
             </div>
             <div>
@@ -582,7 +603,7 @@ export function PaginaIniciativasRoadmap() {
                 readOnly={modoModal === 'ver'}
                 className={claseCampoNumero('esfuerzo')}
               />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Persona-semanas</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{helperEsfuerzo}</p>
               {errors.esfuerzo ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.esfuerzo.message}</p> : null}
             </div>
           </div>

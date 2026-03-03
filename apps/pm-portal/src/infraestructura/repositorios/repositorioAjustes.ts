@@ -2,16 +2,23 @@ import type {
   CatalogoEstadoPm,
   CatalogoModuloPm,
   CatalogoSeveridadPm,
+  ConfiguracionRice,
   IntegracionPm,
   KpiConfigPm
 } from '@/dominio/modelos'
 import type {
   CatalogoModuloPmEntrada,
   CatalogoSeveridadPmEntrada,
+  ConfiguracionRiceEntrada,
   IntegracionPmEntrada,
   KpiConfigPmEntrada
 } from '@/compartido/validacion/esquemas'
 import { clienteSupabase } from '@/infraestructura/supabase/clienteSupabase'
+
+const CONFIGURACION_RICE_DEFECTO: ConfiguracionRiceEntrada = {
+  alcance_periodo: 'mes',
+  esfuerzo_unidad: 'persona_semana'
+}
 
 export const repositorioAjustes = {
   async listarModulos() {
@@ -220,5 +227,74 @@ export const repositorioAjustes = {
     if (error) {
       throw new Error(error.message)
     }
+  },
+
+  async obtenerConfiguracionRice() {
+    const { data, error } = await clienteSupabase
+      .from('configuracion_rice')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    if (data) {
+      return data as ConfiguracionRice
+    }
+
+    const { data: creada, error: errorCreacion } = await clienteSupabase
+      .from('configuracion_rice')
+      .insert(CONFIGURACION_RICE_DEFECTO)
+      .select('*')
+      .single()
+
+    if (errorCreacion) {
+      throw new Error(errorCreacion.message)
+    }
+
+    return creada as ConfiguracionRice
+  },
+
+  async guardarConfiguracionRice(entrada: ConfiguracionRiceEntrada) {
+    const { data: actual, error: errorLectura } = await clienteSupabase
+      .from('configuracion_rice')
+      .select('id')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (errorLectura) {
+      throw new Error(errorLectura.message)
+    }
+
+    if (!actual) {
+      const { data: creada, error: errorCreacion } = await clienteSupabase
+        .from('configuracion_rice')
+        .insert(entrada)
+        .select('*')
+        .single()
+
+      if (errorCreacion) {
+        throw new Error(errorCreacion.message)
+      }
+
+      return creada as ConfiguracionRice
+    }
+
+    const { data: actualizada, error: errorActualizacion } = await clienteSupabase
+      .from('configuracion_rice')
+      .update(entrada)
+      .eq('id', actual.id)
+      .select('*')
+      .single()
+
+    if (errorActualizacion) {
+      throw new Error(errorActualizacion.message)
+    }
+
+    return actualizada as ConfiguracionRice
   }
 }

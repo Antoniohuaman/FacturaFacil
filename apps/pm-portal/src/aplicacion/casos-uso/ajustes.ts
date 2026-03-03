@@ -1,6 +1,7 @@
 import type {
   CatalogoModuloPmEntrada,
   CatalogoSeveridadPmEntrada,
+  ConfiguracionRiceEntrada,
   IntegracionPmEntrada,
   KpiConfigPmEntrada
 } from '@/compartido/validacion/esquemas'
@@ -72,4 +73,12 @@ export function editarIntegracionPm(id: string, entrada: IntegracionPmEntrada) {
 
 export function eliminarIntegracionPm(id: string) {
   return repositorioAjustes.eliminarIntegracion(id)
+}
+
+export function cargarConfiguracionRice() {
+  return repositorioAjustes.obtenerConfiguracionRice()
+}
+
+export function actualizarConfiguracionRice(entrada: ConfiguracionRiceEntrada) {
+  return repositorioAjustes.guardarConfiguracionRice(entrada)
 }

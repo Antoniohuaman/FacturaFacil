@@ -101,3 +101,38 @@ do update set
 ## Nota sobre `kpis_config`
 
 La gestión de KPIs ya está en [sql_kpis_config_supabase.md](sql_kpis_config_supabase.md). Este documento solo agrega catálogos de Ajustes adicionales.
+
+## Configuración persistente de estándar RICE
+
+```sql
+create table if not exists public.configuracion_rice (
+  id uuid primary key default gen_random_uuid(),
+  scope text not null default 'global' unique,
+  alcance_periodo text not null check (alcance_periodo in ('semana', 'mes', 'trimestre')),
+  esfuerzo_unidad text not null check (esfuerzo_unidad in ('persona_dia', 'persona_semana')),
+  updated_at timestamptz not null default now()
+);
+
+create trigger trg_configuracion_rice_updated_at
+before update on public.configuracion_rice
+for each row execute procedure establecer_updated_at();
+
+alter table public.configuracion_rice enable row level security;
+
+create policy configuracion_rice_select
+on public.configuracion_rice for select
+using (public.rol_actual_usuario() in ('lector', 'editor', 'admin'));
+
+create policy configuracion_rice_write_admin
+on public.configuracion_rice for all
+using (public.rol_actual_usuario() = 'admin')
+with check (public.rol_actual_usuario() = 'admin');
+
+insert into public.configuracion_rice (scope, alcance_periodo, esfuerzo_unidad)
+values ('global', 'mes', 'persona_semana')
+on conflict (scope)
+do update set
+  alcance_periodo = excluded.alcance_periodo,
+  esfuerzo_unidad = excluded.esfuerzo_unidad,
+  updated_at = now();
+```
