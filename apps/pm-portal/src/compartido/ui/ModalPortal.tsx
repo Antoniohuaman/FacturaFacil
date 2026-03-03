@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react'
+import { useRef, type PropsWithChildren } from 'react'
 
 interface PropiedadesModalPortal {
   abierto: boolean
@@ -7,14 +7,35 @@ interface PropiedadesModalPortal {
 }
 
 export function ModalPortal({ abierto, titulo, alCerrar, children }: PropsWithChildren<PropiedadesModalPortal>) {
+  const cierreDesdeBackdropRef = useRef(false)
+
   if (!abierto) {
     return null
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={alCerrar}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onPointerDown={(evento) => {
+        cierreDesdeBackdropRef.current = evento.target === evento.currentTarget
+      }}
+      onClick={(evento) => {
+        if (!cierreDesdeBackdropRef.current) {
+          return
+        }
+
+        if (evento.target !== evento.currentTarget) {
+          return
+        }
+
+        alCerrar()
+      }}
+    >
       <div
         className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900"
+        onPointerDown={() => {
+          cierreDesdeBackdropRef.current = false
+        }}
         onClick={(evento) => evento.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
