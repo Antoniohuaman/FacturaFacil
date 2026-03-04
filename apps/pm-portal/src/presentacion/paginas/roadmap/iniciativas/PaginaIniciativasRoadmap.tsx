@@ -6,6 +6,8 @@ import { iniciativaSchema, type IniciativaEntrada } from '@/compartido/validacio
 import {
   formatearAlcancePeriodoRice,
   formatearEsfuerzoUnidadRice,
+  type CatalogoEtapaPm,
+  type CatalogoVentanaPm,
   type ConfiguracionRice,
   estadosRegistro,
   prioridadesRegistro,
@@ -19,7 +21,7 @@ import {
   listarIniciativas
 } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
-import { cargarConfiguracionRice } from '@/aplicacion/casos-uso/ajustes'
+import { cargarConfiguracionRice, listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -59,6 +61,8 @@ export function PaginaIniciativasRoadmap() {
   const { rol } = useSesionPortalPM()
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
+  const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
+  const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -69,6 +73,8 @@ export function PaginaIniciativasRoadmap() {
     (searchParams.get('prioridad') as 'todas' | (typeof prioridadesRegistro)[number]) ?? 'todas'
   )
   const [filtroObjetivo, setFiltroObjetivo] = useState(searchParams.get('objetivo') ?? 'todos')
+  const [filtroVentana, setFiltroVentana] = useState(searchParams.get('ventana') ?? 'todas')
+  const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa') ?? 'todas')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModal>('crear')
   const [iniciativaActiva, setIniciativaActiva] = useState<Iniciativa | null>(null)
@@ -86,6 +92,8 @@ export function PaginaIniciativasRoadmap() {
     reValidateMode: 'onChange',
     defaultValues: {
       objetivo_id: null,
+      ventana_planificada_id: null,
+      etapa_id: null,
       nombre: '',
       descripcion: '',
       alcance: 10,
@@ -134,9 +142,16 @@ export function PaginaIniciativasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaIniciativas, listaObjetivos] = await Promise.all([listarIniciativas(), listarObjetivos()])
+      const [listaIniciativas, listaObjetivos, listaVentanas, listaEtapas] = await Promise.all([
+        listarIniciativas(),
+        listarObjetivos(),
+        listarVentanasPm(),
+        listarEtapasPm()
+      ])
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
+      setVentanas(listaVentanas)
+      setEtapas(listaEtapas)
 
       const configuracion = await cargarConfiguracionRice()
       setConfiguracionRice(configuracion)
@@ -160,10 +175,22 @@ export function PaginaIniciativasRoadmap() {
       const coincideEstado = filtroEstado === 'todos' ? true : iniciativa.estado === filtroEstado
       const coincidePrioridad = filtroPrioridad === 'todas' ? true : iniciativa.prioridad === filtroPrioridad
       const coincideObjetivo = filtroObjetivo === 'todos' ? true : iniciativa.objetivo_id === filtroObjetivo
+      const coincideVentana =
+        filtroVentana === 'todas'
+          ? true
+          : filtroVentana === 'sin_asignar'
+            ? !iniciativa.ventana_planificada_id
+            : iniciativa.ventana_planificada_id === filtroVentana
+      const coincideEtapa =
+        filtroEtapa === 'todas'
+          ? true
+          : filtroEtapa === 'sin_asignar'
+            ? !iniciativa.etapa_id
+            : iniciativa.etapa_id === filtroEtapa
 
-      return coincideBusqueda && coincideEstado && coincidePrioridad && coincideObjetivo
+      return coincideBusqueda && coincideEstado && coincidePrioridad && coincideObjetivo && coincideVentana && coincideEtapa
     })
-  }, [iniciativas, busqueda, filtroEstado, filtroPrioridad, filtroObjetivo])
+  }, [iniciativas, busqueda, filtroEstado, filtroPrioridad, filtroObjetivo, filtroVentana, filtroEtapa])
 
   const paginacion = usePaginacion({
     items: iniciativasFiltradas,
@@ -186,6 +213,12 @@ export function PaginaIniciativasRoadmap() {
     if (filtroObjetivo !== 'todos') {
       parametros.set('objetivo', filtroObjetivo)
     }
+    if (filtroVentana !== 'todas') {
+      parametros.set('ventana', filtroVentana)
+    }
+    if (filtroEtapa !== 'todas') {
+      parametros.set('etapa', filtroEtapa)
+    }
     if (paginacion.paginaActual > 1) {
       parametros.set('pagina', String(paginacion.paginaActual))
     }
@@ -199,6 +232,8 @@ export function PaginaIniciativasRoadmap() {
     filtroEstado,
     filtroPrioridad,
     filtroObjetivo,
+    filtroVentana,
+    filtroEtapa,
     paginacion.paginaActual,
     paginacion.tamanoPagina,
     setSearchParams
@@ -207,6 +242,14 @@ export function PaginaIniciativasRoadmap() {
   const objetivoPorId = useMemo(() => {
     return new Map(objetivos.map((objetivo) => [objetivo.id, objetivo.nombre]))
   }, [objetivos])
+
+  const ventanaPorId = useMemo(() => {
+    return new Map(ventanas.map((ventana) => [ventana.id, ventana.etiqueta_visible]))
+  }, [ventanas])
+
+  const etapaPorId = useMemo(() => {
+    return new Map(etapas.map((etapa) => [etapa.id, etapa.etiqueta_visible]))
+  }, [etapas])
 
   const helperAlcance = configuracionRice
     ? `Impactados por ${formatearAlcancePeriodoRice(configuracionRice.alcance_periodo)}`
@@ -222,6 +265,8 @@ export function PaginaIniciativasRoadmap() {
     setModalAbierto(true)
     reset({
       objetivo_id: iniciativa?.objetivo_id ?? null,
+      ventana_planificada_id: iniciativa?.ventana_planificada_id ?? null,
+      etapa_id: iniciativa?.etapa_id ?? null,
       nombre: iniciativa?.nombre ?? '',
       descripcion: iniciativa?.descripcion ?? '',
       alcance: iniciativa?.alcance ?? 10,
@@ -275,6 +320,8 @@ export function PaginaIniciativasRoadmap() {
               setFiltroEstado('todos')
               setFiltroPrioridad('todas')
               setFiltroObjetivo('todos')
+              setFiltroVentana('todas')
+              setFiltroEtapa('todas')
               paginacion.setPaginaActual(1)
             }}
             aria-label="Limpiar filtros de iniciativas"
@@ -291,6 +338,43 @@ export function PaginaIniciativasRoadmap() {
           >
             Crear
           </button>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <select
+            value={filtroVentana}
+            onChange={(evento) => {
+              setFiltroVentana(evento.target.value)
+              paginacion.setPaginaActual(1)
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+            aria-label="Filtrar por ventana"
+          >
+            <option value="todas">Ventana: todas</option>
+            <option value="sin_asignar">Ventana: sin asignar</option>
+            {ventanas.map((ventana) => (
+              <option key={ventana.id} value={ventana.id}>
+                {ventana.etiqueta_visible}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filtroEtapa}
+            onChange={(evento) => {
+              setFiltroEtapa(evento.target.value)
+              paginacion.setPaginaActual(1)
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+            aria-label="Filtrar por etapa"
+          >
+            <option value="todas">Etapa: todas</option>
+            <option value="sin_asignar">Etapa: sin asignar</option>
+            {etapas.map((etapa) => (
+              <option key={etapa.id} value={etapa.id}>
+                {etapa.etiqueta_visible}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="space-y-2">
@@ -372,6 +456,7 @@ export function PaginaIniciativasRoadmap() {
               <tr>
                 <th className="px-3 py-2">Iniciativa</th>
                 <th className="px-3 py-2">Objetivo</th>
+                <th className="px-3 py-2">Planificación</th>
                 <th className="px-3 py-2">RICE</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Acciones</th>
@@ -385,6 +470,12 @@ export function PaginaIniciativasRoadmap() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">{iniciativa.descripcion}</p>
                   </td>
                   <td className="px-3 py-2">{objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}</td>
+                  <td className="px-3 py-2">
+                    <p className="text-xs">{ventanaPorId.get(iniciativa.ventana_planificada_id ?? '') ?? 'Sin asignar'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {etapaPorId.get(iniciativa.etapa_id ?? '') ?? 'Sin asignar'}
+                    </p>
+                  </td>
                   <td className="px-3 py-2 font-semibold">{iniciativa.rice}</td>
                   <td className="px-3 py-2">{iniciativa.estado}</td>
                   <td className="px-3 py-2">
@@ -457,7 +548,9 @@ export function PaginaIniciativasRoadmap() {
             try {
               const carga = {
                 ...valores,
-                objetivo_id: valores.objetivo_id || null
+                objetivo_id: valores.objetivo_id || null,
+                ventana_planificada_id: valores.ventana_planificada_id || null,
+                etapa_id: valores.etapa_id || null
               }
 
               if (modoModal === 'crear') {
@@ -489,6 +582,39 @@ export function PaginaIniciativasRoadmap() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium">Ventana planificada</label>
+              <select
+                {...register('ventana_planificada_id')}
+                disabled={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                <option value="">Sin asignar</option>
+                {ventanas.map((ventana) => (
+                  <option key={ventana.id} value={ventana.id}>
+                    {ventana.etiqueta_visible}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Etapa</label>
+              <select
+                {...register('etapa_id')}
+                disabled={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                <option value="">Sin asignar</option>
+                {etapas.map((etapa) => (
+                  <option key={etapa.id} value={etapa.id}>
+                    {etapa.etiqueta_visible}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>

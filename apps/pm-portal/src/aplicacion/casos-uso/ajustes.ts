@@ -1,6 +1,8 @@
 import type {
+  CatalogoEtapaPmEntrada,
   CatalogoModuloPmEntrada,
   CatalogoSeveridadPmEntrada,
+  CatalogoVentanaPmEntrada,
   ConfiguracionRiceEntrada,
   IntegracionPmEntrada,
   KpiConfigPmEntrada
@@ -25,6 +27,38 @@ export function eliminarModuloPm(id: string) {
 
 export function listarSeveridadesPm() {
   return repositorioAjustes.listarSeveridades()
+}
+
+export function listarVentanasPm() {
+  return repositorioAjustes.listarVentanas()
+}
+
+export function crearVentanaPm(entrada: CatalogoVentanaPmEntrada) {
+  return repositorioAjustes.crearVentana(entrada)
+}
+
+export function editarVentanaPm(id: string, entrada: CatalogoVentanaPmEntrada) {
+  return repositorioAjustes.editarVentana(id, entrada)
+}
+
+export function eliminarVentanaPm(id: string) {
+  return repositorioAjustes.eliminarVentana(id)
+}
+
+export function listarEtapasPm() {
+  return repositorioAjustes.listarEtapas()
+}
+
+export function crearEtapaPm(entrada: CatalogoEtapaPmEntrada) {
+  return repositorioAjustes.crearEtapa(entrada)
+}
+
+export function editarEtapaPm(id: string, entrada: CatalogoEtapaPmEntrada) {
+  return repositorioAjustes.editarEtapa(id, entrada)
+}
+
+export function eliminarEtapaPm(id: string) {
+  return repositorioAjustes.eliminarEtapa(id)
 }
 
 export function crearSeveridadPm(entrada: CatalogoSeveridadPmEntrada) {

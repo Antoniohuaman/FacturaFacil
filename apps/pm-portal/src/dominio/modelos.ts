@@ -16,6 +16,8 @@ export interface Objetivo {
 export interface Iniciativa {
   id: string
   objetivo_id: string | null
+  ventana_planificada_id: string | null
+  etapa_id: string | null
   nombre: string
   descripcion: string
   alcance: number
@@ -32,11 +34,36 @@ export interface Iniciativa {
 export interface Entrega {
   id: string
   iniciativa_id: string | null
+  ventana_planificada_id: string | null
+  ventana_real_id: string | null
   nombre: string
   descripcion: string
   fecha_objetivo: string | null
+  fecha_completado: string | null
   estado: EstadoRegistro
   prioridad: PrioridadRegistro
+  created_at: string
+  updated_at: string
+}
+
+export interface CatalogoVentanaPm {
+  id: string
+  etiqueta_visible: string
+  tipo: string
+  anio: number | null
+  orden: number
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CatalogoEtapaPm {
+  id: string
+  etiqueta_visible: string
+  orden: number
+  activo: boolean
   created_at: string
   updated_at: string
 }

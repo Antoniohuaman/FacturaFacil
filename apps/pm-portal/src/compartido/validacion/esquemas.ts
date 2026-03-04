@@ -3,6 +3,7 @@ import { estadosRegistro, prioridadesRegistro } from '@/dominio/modelos'
 
 const estadoSchema = z.enum(estadosRegistro)
 const prioridadSchema = z.enum(prioridadesRegistro)
+const fechaCatalogoSchema = z.string().trim().nullable().optional()
 
 export const objetivoSchema = z.object({
   nombre: z.string().trim().min(3, 'El nombre debe tener al menos 3 caracteres').max(120),
@@ -13,6 +14,8 @@ export const objetivoSchema = z.object({
 
 export const iniciativaSchema = z.object({
   objetivo_id: z.string().uuid().nullable().optional(),
+  ventana_planificada_id: z.string().uuid().nullable().optional(),
+  etapa_id: z.string().uuid().nullable().optional(),
   nombre: z.string().trim().min(3).max(120),
   descripcion: z.string().trim().min(5).max(500),
   alcance: z.number().int().min(0),
@@ -25,9 +28,12 @@ export const iniciativaSchema = z.object({
 
 export const entregaSchema = z.object({
   iniciativa_id: z.string().uuid().nullable().optional(),
+  ventana_planificada_id: z.string().uuid().nullable().optional(),
+  ventana_real_id: z.string().uuid().nullable().optional(),
   nombre: z.string().trim().min(3).max(120),
   descripcion: z.string().trim().min(5).max(500),
   fecha_objetivo: z.string().nullable().optional(),
+  fecha_completado: z.string().trim().nullable().optional(),
   estado: estadoSchema,
   prioridad: prioridadSchema
 })
@@ -137,6 +143,32 @@ export const catalogoSeveridadPmSchema = z.object({
   activo: z.boolean()
 })
 
+export const catalogoVentanaPmSchema = z
+  .object({
+    etiqueta_visible: z.string().trim().min(2).max(120),
+    tipo: z.string().trim().min(2).max(80),
+    anio: z.number().int().min(1900).max(2500).nullable().optional(),
+    orden: z.number().int().min(1).max(9999),
+    fecha_inicio: fechaCatalogoSchema,
+    fecha_fin: fechaCatalogoSchema,
+    activo: z.boolean()
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_inicio && valores.fecha_fin && valores.fecha_inicio > valores.fecha_fin) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_fin'],
+        message: 'La fecha fin no puede ser menor que la fecha inicio'
+      })
+    }
+  })
+
+export const catalogoEtapaPmSchema = z.object({
+  etiqueta_visible: z.string().trim().min(2).max(120),
+  orden: z.number().int().min(1).max(9999),
+  activo: z.boolean()
+})
+
 export const integracionPmSchema = z.object({
   clave: z.string().trim().min(2).max(80),
   nombre: z.string().trim().min(2).max(120),
@@ -175,6 +207,8 @@ export type AuditoriaPmEntrada = z.infer<typeof auditoriaPmSchema>
 export type HallazgoAuditoriaEntrada = z.infer<typeof hallazgoAuditoriaSchema>
 export type CatalogoModuloPmEntrada = z.infer<typeof catalogoModuloPmSchema>
 export type CatalogoSeveridadPmEntrada = z.infer<typeof catalogoSeveridadPmSchema>
+export type CatalogoVentanaPmEntrada = z.infer<typeof catalogoVentanaPmSchema>
+export type CatalogoEtapaPmEntrada = z.infer<typeof catalogoEtapaPmSchema>
 export type IntegracionPmEntrada = z.infer<typeof integracionPmSchema>
 export type KpiConfigPmEntrada = z.infer<typeof kpiConfigPmSchema>
 export type ConfiguracionRiceEntrada = z.infer<typeof configuracionRiceSchema>

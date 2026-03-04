@@ -3,10 +3,18 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
 import { entregaSchema, type EntregaEntrada } from '@/compartido/validacion/esquemas'
-import { estadosRegistro, prioridadesRegistro, type Entrega, type Iniciativa, type Objetivo } from '@/dominio/modelos'
+import {
+  estadosRegistro,
+  prioridadesRegistro,
+  type CatalogoVentanaPm,
+  type Entrega,
+  type Iniciativa,
+  type Objetivo
+} from '@/dominio/modelos'
 import { crearEntrega, editarEntrega, eliminarEntrega, listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
+import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -24,6 +32,7 @@ export function PaginaEntregasRoadmap() {
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
+  const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -35,6 +44,8 @@ export function PaginaEntregasRoadmap() {
   )
   const [filtroObjetivo, setFiltroObjetivo] = useState(searchParams.get('objetivo') ?? 'todos')
   const [filtroIniciativa, setFiltroIniciativa] = useState(searchParams.get('iniciativa') ?? 'todas')
+  const [filtroVentanaPlan, setFiltroVentanaPlan] = useState(searchParams.get('ventana_plan') ?? 'todas')
+  const [filtroVentanaReal, setFiltroVentanaReal] = useState(searchParams.get('ventana_real') ?? 'todas')
   const [filtroFecha, setFiltroFecha] = useState<'todas' | 'con' | 'sin'>(
     (searchParams.get('fecha') as 'todas' | 'con' | 'sin') ?? 'todas'
   )
@@ -53,9 +64,12 @@ export function PaginaEntregasRoadmap() {
     resolver: zodResolver(entregaSchema),
     defaultValues: {
       iniciativa_id: null,
+      ventana_planificada_id: null,
+      ventana_real_id: null,
       nombre: '',
       descripcion: '',
       fecha_objetivo: null,
+      fecha_completado: null,
       estado: 'pendiente',
       prioridad: 'media'
     }
@@ -67,14 +81,16 @@ export function PaginaEntregasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaEntregas, listaIniciativas, listaObjetivos] = await Promise.all([
+      const [listaEntregas, listaIniciativas, listaObjetivos, listaVentanas] = await Promise.all([
         listarEntregas(),
         listarIniciativas(),
-        listarObjetivos()
+        listarObjetivos(),
+        listarVentanasPm()
       ])
       setEntregas(listaEntregas)
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
+      setVentanas(listaVentanas)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar entregas')
     } finally {
@@ -103,6 +119,18 @@ export function PaginaEntregasRoadmap() {
           : objetivoPorIniciativa.get(entrega.iniciativa_id ?? '') === filtroObjetivo
       const coincideIniciativa =
         filtroIniciativa === 'todas' ? true : entrega.iniciativa_id === filtroIniciativa
+      const coincideVentanaPlan =
+        filtroVentanaPlan === 'todas'
+          ? true
+          : filtroVentanaPlan === 'sin_asignar'
+            ? !entrega.ventana_planificada_id
+            : entrega.ventana_planificada_id === filtroVentanaPlan
+      const coincideVentanaReal =
+        filtroVentanaReal === 'todas'
+          ? true
+          : filtroVentanaReal === 'sin_asignar'
+            ? !entrega.ventana_real_id
+            : entrega.ventana_real_id === filtroVentanaReal
       const coincideFecha =
         filtroFecha === 'todas'
           ? true
@@ -122,6 +150,8 @@ export function PaginaEntregasRoadmap() {
         coincidePrioridad &&
         coincideObjetivo &&
         coincideIniciativa &&
+        coincideVentanaPlan &&
+        coincideVentanaReal &&
         coincideFecha &&
         coincideDesde &&
         coincideHasta
@@ -135,6 +165,8 @@ export function PaginaEntregasRoadmap() {
     filtroPrioridad,
     filtroObjetivo,
     filtroIniciativa,
+    filtroVentanaPlan,
+    filtroVentanaReal,
     filtroFecha,
     fechaDesde,
     fechaHasta
@@ -172,6 +204,12 @@ export function PaginaEntregasRoadmap() {
     if (filtroIniciativa !== 'todas') {
       parametros.set('iniciativa', filtroIniciativa)
     }
+    if (filtroVentanaPlan !== 'todas') {
+      parametros.set('ventana_plan', filtroVentanaPlan)
+    }
+    if (filtroVentanaReal !== 'todas') {
+      parametros.set('ventana_real', filtroVentanaReal)
+    }
     if (filtroFecha !== 'todas') {
       parametros.set('fecha', filtroFecha)
     }
@@ -195,6 +233,8 @@ export function PaginaEntregasRoadmap() {
     filtroPrioridad,
     filtroObjetivo,
     filtroIniciativa,
+    filtroVentanaPlan,
+    filtroVentanaReal,
     filtroFecha,
     fechaDesde,
     fechaHasta,
@@ -207,15 +247,22 @@ export function PaginaEntregasRoadmap() {
     return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre]))
   }, [iniciativas])
 
+  const ventanaPorId = useMemo(() => {
+    return new Map(ventanas.map((ventana) => [ventana.id, ventana.etiqueta_visible]))
+  }, [ventanas])
+
   const abrirModal = (modo: ModoModal, entrega?: Entrega) => {
     setModoModal(modo)
     setEntregaActiva(entrega ?? null)
     setModalAbierto(true)
     reset({
       iniciativa_id: entrega?.iniciativa_id ?? null,
+      ventana_planificada_id: entrega?.ventana_planificada_id ?? null,
+      ventana_real_id: entrega?.ventana_real_id ?? null,
       nombre: entrega?.nombre ?? '',
       descripcion: entrega?.descripcion ?? '',
       fecha_objetivo: entrega?.fecha_objetivo ?? null,
+      fecha_completado: entrega?.fecha_completado ?? null,
       estado: entrega?.estado ?? 'pendiente',
       prioridad: entrega?.prioridad ?? 'media'
     })
@@ -281,6 +328,8 @@ export function PaginaEntregasRoadmap() {
               setFiltroPrioridad('todas')
               setFiltroObjetivo('todos')
               setFiltroIniciativa('todas')
+              setFiltroVentanaPlan('todas')
+              setFiltroVentanaReal('todas')
               setFiltroFecha('todas')
               setFechaDesde('')
               setFechaHasta('')
@@ -370,6 +419,49 @@ export function PaginaEntregasRoadmap() {
 
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Ventana planificada</label>
+            <select
+              value={filtroVentanaPlan}
+              onChange={(evento) => {
+                setFiltroVentanaPlan(evento.target.value)
+                paginacion.setPaginaActual(1)
+              }}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+              aria-label="Filtrar por ventana planificada"
+            >
+              <option value="todas">Todas</option>
+              <option value="sin_asignar">Sin asignar</option>
+              {ventanas.map((ventana) => (
+                <option key={ventana.id} value={ventana.id}>
+                  {ventana.etiqueta_visible}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Ventana real</label>
+            <select
+              value={filtroVentanaReal}
+              onChange={(evento) => {
+                setFiltroVentanaReal(evento.target.value)
+                paginacion.setPaginaActual(1)
+              }}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+              aria-label="Filtrar por ventana real"
+            >
+              <option value="todas">Todas</option>
+              <option value="sin_asignar">Sin asignar</option>
+              {ventanas.map((ventana) => (
+                <option key={ventana.id} value={ventana.id}>
+                  {ventana.etiqueta_visible}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="space-y-1">
             <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Disponibilidad de fecha</label>
             <select
               value={filtroFecha}
@@ -426,7 +518,9 @@ export function PaginaEntregasRoadmap() {
               <tr>
                 <th className="px-3 py-2">Entrega</th>
                 <th className="px-3 py-2">Iniciativa</th>
+                <th className="px-3 py-2">Ventanas</th>
                 <th className="px-3 py-2">Fecha objetivo</th>
+                <th className="px-3 py-2">Fecha completado</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Acciones</th>
               </tr>
@@ -439,7 +533,14 @@ export function PaginaEntregasRoadmap() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">{entrega.descripcion}</p>
                   </td>
                   <td className="px-3 py-2">{iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa'}</td>
+                  <td className="px-3 py-2">
+                    <p className="text-xs">Plan: {ventanaPorId.get(entrega.ventana_planificada_id ?? '') ?? 'Sin asignar'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Real: {ventanaPorId.get(entrega.ventana_real_id ?? '') ?? 'Sin asignar'}
+                    </p>
+                  </td>
                   <td className="px-3 py-2">{entrega.fecha_objetivo ?? 'Sin fecha'}</td>
+                  <td className="px-3 py-2">{entrega.fecha_completado ?? 'Sin fecha'}</td>
                   <td className="px-3 py-2">{entrega.estado}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
@@ -509,6 +610,8 @@ export function PaginaEntregasRoadmap() {
               const carga = {
                 ...valores,
                 iniciativa_id: valores.iniciativa_id || null,
+                ventana_planificada_id: valores.ventana_planificada_id || null,
+                ventana_real_id: valores.ventana_real_id || null,
                 fecha_objetivo: valores.fecha_objetivo || null
               }
 
@@ -543,6 +646,39 @@ export function PaginaEntregasRoadmap() {
             </select>
           </div>
 
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium">Ventana planificada</label>
+              <select
+                {...register('ventana_planificada_id')}
+                disabled={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                <option value="">Sin asignar</option>
+                {ventanas.map((ventana) => (
+                  <option key={ventana.id} value={ventana.id}>
+                    {ventana.etiqueta_visible}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Ventana real</label>
+              <select
+                {...register('ventana_real_id')}
+                disabled={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                <option value="">Sin asignar</option>
+                {ventanas.map((ventana) => (
+                  <option key={ventana.id} value={ventana.id}>
+                    {ventana.etiqueta_visible}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div>
             <label className="text-sm font-medium">Nombre</label>
             <input
@@ -572,6 +708,17 @@ export function PaginaEntregasRoadmap() {
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
           </div>
+
+          {entregaActiva?.fecha_completado ? (
+            <div>
+              <label className="text-sm font-medium">Fecha completado</label>
+              <input
+                value={entregaActiva.fecha_completado}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+            </div>
+          ) : null}
 
           <div className="grid gap-3 md:grid-cols-2">
             <div>

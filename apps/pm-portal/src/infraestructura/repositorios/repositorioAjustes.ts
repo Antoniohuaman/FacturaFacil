@@ -1,4 +1,6 @@
 import type {
+  CatalogoEtapaPm,
+  CatalogoVentanaPm,
   CatalogoEstadoPm,
   CatalogoModuloPm,
   CatalogoSeveridadPm,
@@ -7,8 +9,10 @@ import type {
   KpiConfigPm
 } from '@/dominio/modelos'
 import type {
+  CatalogoEtapaPmEntrada,
   CatalogoModuloPmEntrada,
   CatalogoSeveridadPmEntrada,
+  CatalogoVentanaPmEntrada,
   ConfiguracionRiceEntrada,
   IntegracionPmEntrada,
   KpiConfigPmEntrada
@@ -96,6 +100,106 @@ export const repositorioAjustes = {
     }
 
     return data as CatalogoSeveridadPm
+  },
+
+  async listarVentanas() {
+    const { data, error } = await clienteSupabase
+      .from('pm_catalogo_ventanas')
+      .select('*')
+      .order('orden', { ascending: true })
+      .order('etiqueta_visible', { ascending: true })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? []) as CatalogoVentanaPm[]
+  },
+
+  async crearVentana(entrada: CatalogoVentanaPmEntrada) {
+    const { data, error } = await clienteSupabase
+      .from('pm_catalogo_ventanas')
+      .insert(entrada)
+      .select('*')
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data as CatalogoVentanaPm
+  },
+
+  async editarVentana(id: string, entrada: CatalogoVentanaPmEntrada) {
+    const { data, error } = await clienteSupabase
+      .from('pm_catalogo_ventanas')
+      .update(entrada)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data as CatalogoVentanaPm
+  },
+
+  async eliminarVentana(id: string) {
+    const { error } = await clienteSupabase.from('pm_catalogo_ventanas').delete().eq('id', id)
+    if (error) {
+      throw new Error(error.message)
+    }
+  },
+
+  async listarEtapas() {
+    const { data, error } = await clienteSupabase
+      .from('pm_catalogo_etapas')
+      .select('*')
+      .order('orden', { ascending: true })
+      .order('etiqueta_visible', { ascending: true })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? []) as CatalogoEtapaPm[]
+  },
+
+  async crearEtapa(entrada: CatalogoEtapaPmEntrada) {
+    const { data, error } = await clienteSupabase
+      .from('pm_catalogo_etapas')
+      .insert(entrada)
+      .select('*')
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data as CatalogoEtapaPm
+  },
+
+  async editarEtapa(id: string, entrada: CatalogoEtapaPmEntrada) {
+    const { data, error } = await clienteSupabase
+      .from('pm_catalogo_etapas')
+      .update(entrada)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return data as CatalogoEtapaPm
+  },
+
+  async eliminarEtapa(id: string) {
+    const { error } = await clienteSupabase.from('pm_catalogo_etapas').delete().eq('id', id)
+    if (error) {
+      throw new Error(error.message)
+    }
   },
 
   async editarSeveridad(id: string, entrada: CatalogoSeveridadPmEntrada) {

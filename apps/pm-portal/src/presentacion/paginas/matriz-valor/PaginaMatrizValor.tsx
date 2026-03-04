@@ -3,7 +3,15 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
 import { matrizValorSchema, type MatrizValorEntrada } from '@/compartido/validacion/esquemas'
-import { estadosRegistro, prioridadesRegistro, type Iniciativa, type MatrizValor, type Objetivo } from '@/dominio/modelos'
+import {
+  estadosRegistro,
+  prioridadesRegistro,
+  type CatalogoEtapaPm,
+  type CatalogoVentanaPm,
+  type Iniciativa,
+  type MatrizValor,
+  type Objetivo
+} from '@/dominio/modelos'
 import {
   crearMatrizValor,
   editarMatrizValor,
@@ -12,6 +20,7 @@ import {
 } from '@/aplicacion/casos-uso/matrizValor'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
+import { listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -33,6 +42,8 @@ export function PaginaMatrizValor() {
   const [matrices, setMatrices] = useState<MatrizValor[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
+  const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
+  const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -44,6 +55,8 @@ export function PaginaMatrizValor() {
   )
   const [filtroObjetivo, setFiltroObjetivo] = useState(searchParams.get('objetivo') ?? 'todos')
   const [filtroIniciativa, setFiltroIniciativa] = useState(searchParams.get('iniciativa') ?? 'todas')
+  const [filtroVentana, setFiltroVentana] = useState(searchParams.get('ventana') ?? 'todas')
+  const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa') ?? 'todas')
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModal>('crear')
   const [matrizActiva, setMatrizActiva] = useState<MatrizValor | null>(null)
@@ -81,14 +94,18 @@ export function PaginaMatrizValor() {
     setCargando(true)
     setError(null)
     try {
-      const [listaMatriz, listaIniciativas, listaObjetivos] = await Promise.all([
+      const [listaMatriz, listaIniciativas, listaObjetivos, listaVentanas, listaEtapas] = await Promise.all([
         listarMatrizValor(),
         listarIniciativas(),
-        listarObjetivos()
+        listarObjetivos(),
+        listarVentanasPm(),
+        listarEtapasPm()
       ])
       setMatrices(listaMatriz)
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
+      setVentanas(listaVentanas)
+      setEtapas(listaEtapas)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar matriz de valor')
     } finally {
@@ -102,6 +119,10 @@ export function PaginaMatrizValor() {
 
   const matricesFiltradas = useMemo(() => {
     const objetivoPorIniciativa = new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.objetivo_id]))
+    const ventanaPorIniciativa = new Map(
+      iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.ventana_planificada_id])
+    )
+    const etapaPorIniciativa = new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.etapa_id]))
 
     return matrices.filter((matriz) => {
       const coincideBusqueda = matriz.titulo.toLowerCase().includes(busqueda.toLowerCase())
@@ -112,10 +133,40 @@ export function PaginaMatrizValor() {
           ? true
           : objetivoPorIniciativa.get(matriz.iniciativa_id) === filtroObjetivo
       const coincideIniciativa = filtroIniciativa === 'todas' ? true : matriz.iniciativa_id === filtroIniciativa
+      const coincideVentana =
+        filtroVentana === 'todas'
+          ? true
+          : filtroVentana === 'sin_asignar'
+            ? !ventanaPorIniciativa.get(matriz.iniciativa_id)
+            : ventanaPorIniciativa.get(matriz.iniciativa_id) === filtroVentana
+      const coincideEtapa =
+        filtroEtapa === 'todas'
+          ? true
+          : filtroEtapa === 'sin_asignar'
+            ? !etapaPorIniciativa.get(matriz.iniciativa_id)
+            : etapaPorIniciativa.get(matriz.iniciativa_id) === filtroEtapa
 
-      return coincideBusqueda && coincideEstado && coincidePrioridad && coincideObjetivo && coincideIniciativa
+      return (
+        coincideBusqueda &&
+        coincideEstado &&
+        coincidePrioridad &&
+        coincideObjetivo &&
+        coincideIniciativa &&
+        coincideVentana &&
+        coincideEtapa
+      )
     })
-  }, [matrices, iniciativas, busqueda, filtroEstado, filtroPrioridad, filtroObjetivo, filtroIniciativa])
+  }, [
+    matrices,
+    iniciativas,
+    busqueda,
+    filtroEstado,
+    filtroPrioridad,
+    filtroObjetivo,
+    filtroIniciativa,
+    filtroVentana,
+    filtroEtapa
+  ])
 
   const iniciativasDisponibles = useMemo(() => {
     if (filtroObjetivo === 'todos') {
@@ -149,6 +200,12 @@ export function PaginaMatrizValor() {
     if (filtroIniciativa !== 'todas') {
       parametros.set('iniciativa', filtroIniciativa)
     }
+    if (filtroVentana !== 'todas') {
+      parametros.set('ventana', filtroVentana)
+    }
+    if (filtroEtapa !== 'todas') {
+      parametros.set('etapa', filtroEtapa)
+    }
     if (paginacion.paginaActual > 1) {
       parametros.set('pagina', String(paginacion.paginaActual))
     }
@@ -163,6 +220,8 @@ export function PaginaMatrizValor() {
     filtroPrioridad,
     filtroObjetivo,
     filtroIniciativa,
+    filtroVentana,
+    filtroEtapa,
     paginacion.paginaActual,
     paginacion.tamanoPagina,
     setSearchParams
@@ -171,6 +230,26 @@ export function PaginaMatrizValor() {
   const iniciativaPorId = useMemo(() => {
     return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre]))
   }, [iniciativas])
+
+  const ventanaPorId = useMemo(() => {
+    return new Map(ventanas.map((ventana) => [ventana.id, ventana.etiqueta_visible]))
+  }, [ventanas])
+
+  const etapaPorId = useMemo(() => {
+    return new Map(etapas.map((etapa) => [etapa.id, etapa.etiqueta_visible]))
+  }, [etapas])
+
+  const iniciativaPlanificacion = useMemo(() => {
+    return new Map<string, { ventana: string; etapa: string }>(
+      iniciativas.map((iniciativa) => [
+        iniciativa.id,
+        {
+          ventana: ventanaPorId.get(iniciativa.ventana_planificada_id ?? '') ?? 'Sin asignar',
+          etapa: etapaPorId.get(iniciativa.etapa_id ?? '') ?? 'Sin asignar'
+        }
+      ])
+    )
+  }, [iniciativas, ventanaPorId, etapaPorId])
 
   const resumenMatriz = useMemo(() => {
     const top3 = [...matrices].sort((a, b) => b.puntaje_valor - a.puntaje_valor).slice(0, 3)
@@ -293,6 +372,40 @@ export function PaginaMatrizValor() {
             </option>
           ))}
         </select>
+        <select
+          value={filtroVentana}
+          onChange={(evento) => {
+            setFiltroVentana(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          aria-label="Filtrar matriz por ventana"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todas">Ventana: todas</option>
+          <option value="sin_asignar">Ventana: sin asignar</option>
+          {ventanas.map((ventana) => (
+            <option key={ventana.id} value={ventana.id}>
+              {ventana.etiqueta_visible}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroEtapa}
+          onChange={(evento) => {
+            setFiltroEtapa(evento.target.value)
+            paginacion.setPaginaActual(1)
+          }}
+          aria-label="Filtrar matriz por etapa"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800"
+        >
+          <option value="todas">Etapa: todas</option>
+          <option value="sin_asignar">Etapa: sin asignar</option>
+          {etapas.map((etapa) => (
+            <option key={etapa.id} value={etapa.id}>
+              {etapa.etiqueta_visible}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           onClick={() => {
@@ -301,6 +414,8 @@ export function PaginaMatrizValor() {
             setFiltroPrioridad('todas')
             setFiltroObjetivo('todos')
             setFiltroIniciativa('todas')
+            setFiltroVentana('todas')
+            setFiltroEtapa('todas')
             paginacion.setPaginaActual(1)
           }}
           aria-label="Limpiar filtros de matriz"
@@ -373,6 +488,7 @@ export function PaginaMatrizValor() {
               <tr>
                 <th className="px-3 py-2">Título</th>
                 <th className="px-3 py-2">Iniciativa</th>
+                <th className="px-3 py-2">Planificación</th>
                 <th className="px-3 py-2 text-right">Puntaje</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Acciones</th>
@@ -386,6 +502,12 @@ export function PaginaMatrizValor() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">Prioridad: {matriz.prioridad}</p>
                   </td>
                   <td className="px-3 py-2">{iniciativaPorId.get(matriz.iniciativa_id) ?? 'Sin iniciativa'}</td>
+                  <td className="px-3 py-2">
+                    <p className="text-xs">{iniciativaPlanificacion.get(matriz.iniciativa_id)?.ventana ?? 'Sin asignar'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {iniciativaPlanificacion.get(matriz.iniciativa_id)?.etapa ?? 'Sin asignar'}
+                    </p>
+                  </td>
                   <td className="px-3 py-2 text-right">
                     <span className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
                       {matriz.puntaje_valor}
