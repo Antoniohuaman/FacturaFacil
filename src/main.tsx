@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import posthog from "posthog-js";
 import { PostHogProvider } from "@posthog/react";
+import * as amplitude from "@amplitude/analytics-browser";
 import "./index.css";
 import App from "./App.tsx";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -11,6 +12,9 @@ import { ProveedorAyudaGuiada } from "./shared/tour";
 
 const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as string | undefined;
 const posthogHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST as string | undefined;
+
+// ✅ NUEVO (Amplitude)
+const amplitudeApiKey = import.meta.env.VITE_PUBLIC_AMPLITUDE_API_KEY as string | undefined;
 const eventosAnaliticaPermitidos = new Set<string>(Object.values(EVENTOS_ANALITICA));
 
 if (posthogKey) {
@@ -38,6 +42,12 @@ if (posthogKey) {
   });
 }
 
+// ✅ NUEVO (Amplitude): init seguro, sin tracking automático
+if (amplitudeApiKey && import.meta.env.MODE !== "development") {
+  amplitude.init(amplitudeApiKey, undefined, {
+    defaultTracking: false, // evita pageviews/sessions automáticos
+  });
+}
 const AppTree = (
   <ThemeProvider>
     <FeedbackProvider>
