@@ -1,4 +1,5 @@
 import posthog from 'posthog-js';
+import * as amplitude from '@amplitude/analytics-browser';
 
 import {
   EVENTOS_ANALITICA,
@@ -12,6 +13,7 @@ import {
 } from './eventosAnalitica';
 
 type PropiedadesAnalitica = Record<string, unknown>;
+const amplitudeApiKey = import.meta.env.VITE_PUBLIC_AMPLITUDE_API_KEY?.trim();
 
 type PosthogConEstado = typeof posthog & {
   __loaded?: boolean;
@@ -47,6 +49,22 @@ const puedeCapturarEventos = (): boolean => {
   return posthogDisponible();
 };
 
+const amplitudeDisponible = (): boolean => {
+  if (!esNavegador()) {
+    return false;
+  }
+
+  if (!import.meta.env.PROD) {
+    return false;
+  }
+
+  if (esHostLocal()) {
+    return false;
+  }
+
+  return Boolean(amplitudeApiKey);
+};
+
 const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): PropiedadesAnalitica => {
   const propiedadesBase: PropiedadesAnalitica = {
     ruta_actual: esNavegador() ? window.location.pathname : '',
@@ -64,11 +82,22 @@ const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): Propiedad
 };
 
 function capturarEvento(nombreEvento: string, propiedades?: PropiedadesAnalitica): void {
-  if (!puedeCapturarEventos()) {
+  const posthogHabilitado = puedeCapturarEventos();
+  const amplitudeHabilitado = amplitudeDisponible();
+
+  if (!posthogHabilitado && !amplitudeHabilitado) {
     return;
   }
 
-  posthog.capture(nombreEvento, construirPropiedadesBase(propiedades));
+  const propiedadesEvento = construirPropiedadesBase(propiedades);
+
+  if (posthogHabilitado) {
+    posthog.capture(nombreEvento, propiedadesEvento);
+  }
+
+  if (amplitudeHabilitado) {
+    amplitude.track(nombreEvento, propiedadesEvento);
+  }
 }
 
 export function registrarRegistroUsuarioCompletado(entrada: { entorno: EntornoAnalitica }): void {
