@@ -43,7 +43,7 @@ if (posthogKey) {
 }
 
 // ✅ NUEVO (Amplitude): init seguro, sin tracking automático
-if (amplitudeApiKey && import.meta.env.MODE !== "development") {
+if (amplitudeApiKey && import.meta.env.PROD) {
   amplitude.init(amplitudeApiKey, undefined, {
     defaultTracking: false, // evita pageviews/sessions automáticos
   });
