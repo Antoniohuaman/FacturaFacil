@@ -26,6 +26,10 @@ dist-ssr
 
 /apps/pm-portal/public/estado.json
 
-# Secrets — nunca comitear
-/apps/pm-portal/.env
+# Variables de entorno — NUNCA commitear archivos con valores reales
+# Solo se commitean archivos .env.example (con placeholders)
+.env
+.env.*
+!.env.example
+!**/.env.example
 /apps/pm-portal/.dev.vars
