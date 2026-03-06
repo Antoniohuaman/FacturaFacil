@@ -1,5 +1,6 @@
 import posthog from 'posthog-js';
 import * as amplitude from '@amplitude/analytics-browser';
+import mixpanel from 'mixpanel-browser';
 
 import {
   EVENTOS_ANALITICA,
@@ -14,6 +15,7 @@ import {
 
 type PropiedadesAnalitica = Record<string, unknown>;
 const amplitudeApiKey = import.meta.env.VITE_PUBLIC_AMPLITUDE_API_KEY?.trim();
+const mixpanelToken = import.meta.env.VITE_PUBLIC_MIXPANEL_TOKEN?.trim();
 
 type PosthogConEstado = typeof posthog & {
   __loaded?: boolean;
@@ -65,6 +67,37 @@ const amplitudeDisponible = (): boolean => {
   return Boolean(amplitudeApiKey);
 };
 
+const mixpanelDisponible = (): boolean => {
+  if (!esNavegador()) {
+    return false;
+  }
+
+  if (!import.meta.env.PROD) {
+    return false;
+  }
+
+  if (esHostLocal()) {
+    return false;
+  }
+
+  return Boolean(mixpanelToken);
+};
+
+let mixpanelInicializado = false;
+const asegurarMixpanelInicializado = (): void => {
+  if (!mixpanelDisponible() || mixpanelInicializado) {
+    return;
+  }
+
+  mixpanel.init(mixpanelToken as string, {
+    track_pageview: false,
+    persistence: 'localStorage',
+    ignore_dnt: true,
+  });
+
+  mixpanelInicializado = true;
+};
+
 const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): PropiedadesAnalitica => {
   const propiedadesBase: PropiedadesAnalitica = {
     ruta_actual: esNavegador() ? window.location.pathname : '',
@@ -84,8 +117,9 @@ const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): Propiedad
 function capturarEvento(nombreEvento: string, propiedades?: PropiedadesAnalitica): void {
   const posthogHabilitado = puedeCapturarEventos();
   const amplitudeHabilitado = amplitudeDisponible();
+  const mixpanelHabilitado = mixpanelDisponible();
 
-  if (!posthogHabilitado && !amplitudeHabilitado) {
+  if (!posthogHabilitado && !amplitudeHabilitado && !mixpanelHabilitado) {
     return;
   }
 
@@ -97,6 +131,11 @@ function capturarEvento(nombreEvento: string, propiedades?: PropiedadesAnalitica
 
   if (amplitudeHabilitado) {
     amplitude.track(nombreEvento, propiedadesEvento);
+  }
+
+  if (mixpanelHabilitado) {
+    asegurarMixpanelInicializado();
+    mixpanel.track(nombreEvento, propiedadesEvento);
   }
 }
 
