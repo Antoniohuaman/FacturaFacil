@@ -22,6 +22,7 @@
     "@posthog/react": "^1.8.0",
     "exceljs": "^4.4.0",
     "lucide-react": "^0.544.0",
+    "mixpanel-browser": "^2.75.0",
     "posthog-js": "^1.351.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
