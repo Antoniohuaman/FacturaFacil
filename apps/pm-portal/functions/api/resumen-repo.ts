@@ -25,6 +25,7 @@ interface RespuestaResumenRepo {
 
 type ContextoFunction = {
   env: EntornoResumenRepo
+  request: Request
 }
 
 type CacheResumen = {

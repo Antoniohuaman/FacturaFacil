@@ -1,375 +1,404 @@
-# AUDITORÍA DE REPOSITORIO — FacturaFacil (Monorepo)
+# Auditoría Exhaustiva de Repositorio — FacturaFacil Monorepo
 **Fecha:** 2026-03-06
-**Auditor:** Arquitecto de Software Senior (análisis automatizado + revisión estructural)
-**Alcance:** Repositorio completo — SenciYo (app principal) + PM-Portal (app interna)
-**Rama auditada:** `develop`
+**Auditor:** Arquitecto de Software Senior (análisis automatizado + revisión completa)
+**Alcance:** Repositorio completo — rama `develop`
+**Apps auditadas:** SenciYo (raíz `/`) · PM Portal (`apps/pm-portal/`)
 
 ---
 
-## 1. RESUMEN EJECUTIVO
+## 1. Resumen Ejecutivo
 
-El repositorio **no es un monorepo real**: es un repositorio git único donde SenciYo vive en la raíz y PM-Portal vive en `apps/pm-portal/`, sin ninguna herramienta de workspace (Turborepo, NX, pnpm workspaces). Esta asimetría estructural es el problema de raíz de casi todos los hallazgos.
+El repositorio contiene **dos aplicaciones React + TypeScript** (SenciYo y PM Portal) coexistiendo en el mismo repositorio sin herramientas de monorepo reales. No hay workspaces, no hay Turborepo, no hay Nx, no hay CI/CD configurado en el repo. El mayor problema estructural es que **SenciYo vive en la raíz del repositorio** en lugar de en su propia subcarpeta, haciendo que el `package.json` raíz sea simultáneamente el manifest del monorepo y el de SenciYo.
 
-Se identifican **2 issues P0** (críticos e inmediatos): secretos reales de Supabase comprometidos en el repositorio (`.env` commiteado), y un drift de versión mayor en Zod (v3 vs v4) que representa riesgo de ruptura silenciosa. Se identifican además **4 issues P1** relevantes: ausencia total de CI/CD, nombres de eventos de analítica duplicados como strings en dos apps sin contrato compartido, `chunkSizeWarningLimit: 5000` que oculta una señal de alerta de bundle, y ausencia de CODEOWNERS.
+No existe acoplamiento de código fuente entre apps (cero imports cruzados). Sin embargo, existe un **acoplamiento semántico crítico**: PM Portal consulta los eventos de PostHog de SenciYo por nombre literal, y esos nombres están duplicados en ambas apps sin contrato compartido. Un renombramiento en SenciYo rompe las métricas del PM Portal sin ningún error en compilación.
 
 **Recomendación: Opción C — Mantener monorepo con ajustes estructurales.**
-
-Las apps comparten dominio semántico (PM-Portal consume eventos PostHog emitidos por SenciYo), son mantenidas por el mismo equipo, y el costo operativo de separar repositorios supera el beneficio en esta etapa. Sin embargo, el monorepo actual no tiene ninguna de las salvaguardas que un monorepo real requiere. Se deben aplicar ajustes estructurales antes de que el repo crezca más.
+El equipo es pequeño, no hay CI/CD que gestionar por separado aún, y el acoplamiento existente (semántico, no de código) es más fácil de controlar con un paquete compartido que con repos separados. La separación en este momento añadiría overhead sin resolver el problema real.
 
 ---
 
-## 2. DIAGNÓSTICO GENERAL POR CATEGORÍAS
+## 2. Diagnóstico General por Categorías
 
 ### A. Arquitectura del Repositorio
 
-El repositorio presenta una estructura asimétrica: SenciYo ocupa la raíz del repo (`/src`, `/public`, `vite.config.ts`, `package.json` raíz), mientras que PM-Portal está anidado en `apps/pm-portal/`. No existe una raíz de workspace que orqueste ambas apps como unidades iguales.
+| Aspecto | Estado | Severidad |
+|---|---|---|
+| SenciYo vive en la raíz (no en `apps/senciyo/`) | Problema estructural | P1 |
+| No hay herramienta de monorepo (workspaces, turbo, nx) | Ausencia crítica | P1 |
+| `app/shared/src/` vestigial (3 archivos, no usados) | Deuda técnica | P2 |
+| `apps/pm-portal/` correctamente aislada | ✅ Bien | — |
+| Sin CODEOWNERS ni boundaries de lint | Ausencia | P1 |
+| Artefactos en raíz (`unmerged.txt`, `unmerged_list.txt`, `unmerged_remaining.txt`) | Deuda técnica | P2 |
+
+La estructura real del repositorio es:
 
 ```
-C:/FacturaFacil/          ← raíz = SenciYo (problema)
-├── src/                  ← código de SenciYo
+/ (raíz = SenciYo)
+├── src/                   ← código fuente de SenciYo
+├── package.json           ← manifest de SenciYo (nombre: "web")
+├── vite.config.ts         ← config de build de SenciYo
 ├── apps/
-│   └── pm-portal/        ← PM-Portal (ciudadano de segunda clase)
-├── app/shared/src/       ← código muerto / legacy (3 archivos)
-├── scripts/              ← 1 script suelto
-├── docs/ docs_web/       ← documentación
-└── dist/                 ← build commiteado (posible issue)
+│   └── pm-portal/         ← PM Portal (app separada)
+│       ├── src/
+│       ├── functions/     ← Cloudflare Pages Functions (serverless)
+│       ├── package.json
+│       └── vite.config.ts
+├── app/shared/src/        ← vestigial (3 archivos, no usado por nadie)
+└── docs_web/              ← sitio de documentación (propio node_modules)
 ```
 
-**Problema estructural central:** No hay una carpeta `apps/senciyo/` equivalente. SenciYo no tiene su propio scope. Todo lo que está en la raíz se asume como parte de SenciYo (Tailwind, TSConfig, Vite, ESLint), lo que hace imposible configurar CI diferenciado, lint por app, o herramientas de workspace correctamente.
+El `package.json` raíz se llama `"web"` (no `"senciyo-monorepo"` ni similar), lo que confirma que la raíz del repo es al mismo tiempo la app SenciYo, no un manifest de monorepo.
 
-**`app/shared/src/`** (nótese: sin `s` al final, diferente de `apps/`) contiene solo 3 archivos: `types.ts` con tipos `Order` genéricos (toy code), `ConfirmationModal.tsx` y `UnderlinedFiltersTable.tsx`. No es importado por ninguna de las dos apps activas. Es código muerto/legacy.
-
-No existen: `pnpm-workspace.yaml`, `turbo.json`, `nx.json`, CODEOWNERS, `.github/workflows/`.
+---
 
 ### B. Dependencias y Compatibilidad
 
-Las apps gestionan sus dependencias de forma independiente con sus propios `node_modules`. No hay deduplicación. El root `package.json` declara `"name": "web"` (sin scope, sin nombre significativo), lo que evidencia que no fue diseñado como raíz de workspace.
-
-**Drift de versiones crítico detectado:**
-
-| Paquete | SenciYo (raíz) | PM-Portal | Tipo de cambio |
+| Dependencia | SenciYo | PM Portal | Estado |
 |---|---|---|---|
-| `zod` | `^3.24.1` | `^4.3.6` | **MAJOR** (breaking API) |
-| `@hookform/resolvers` | `^3.9.1` | `^5.2.2` | **MAJOR** (breaking API) |
-| `react-hook-form` | `^7.54.2` | `^7.71.2` | Minor |
-| `react` | `^19.1.1` | `^19.1.1` | OK |
-| `react-router-dom` | `^7.9.1` | `^7.9.1` | OK |
-| `typescript` | `~5.8.3` | `~5.8.3` | OK |
-| `vite` | `^7.1.2` | `^7.1.2` | OK |
+| React | ^19.1.1 | ^19.1.1 | ✅ Alineado |
+| react-router-dom | ^7.9.1 | ^7.9.1 | ✅ Alineado |
+| TypeScript | ~5.8.3 | ~5.8.3 | ✅ Alineado |
+| Vite | ^7.1.2 | ^7.1.2 | ✅ Alineado |
+| **zod** | **^3.24.1** | **^4.3.6** | ⚠️ **Drift MAYOR** |
+| @hookform/resolvers | ^3.9.1 | ^5.2.2 | ⚠️ Drift MAYOR |
+| react-hook-form | ^7.54.2 | ^7.71.2 | Drift menor |
+| tailwindcss | ^3.4.17 | ^3.4.17 | ✅ Alineado |
+| Supabase | ausente | ^2.98.0 | — diferente dominio |
+| Amplitude / Mixpanel | presentes | **ausentes** | — diferente dominio |
 
-El drift en **Zod (v3→v4)** es el más peligroso: las APIs de validación cambiaron. Si se llegase a crear un paquete compartido de esquemas, habría incompatibilidad inmediata. Las inferencias de tipos serían distintas entre apps.
+**Hallazgo crítico — Zod v3 vs v4**: La migración de Zod v3 a v4 incluye breaking changes en la API (`.parse()`, `.safeParse()`, tipos de unión). Si en algún momento se intenta compartir código de validación, esto causaría errores silenciosos o de compilación. Por ahora no hay esquemas compartidos, pero el drift es un riesgo latente.
 
-**Dependencias exclusivas de SenciYo:** `@amplitude/analytics-browser`, `mixpanel-browser`, `posthog-js`, `@posthog/react`, `@dnd-kit/core`, `@dnd-kit/sortable`, `exceljs`, `xlsx`, `recharts`, `zustand`.
+**Hallazgo: `node` en devDependencies** (solo SenciYo, `package.json` raíz):
+```json
+"devDependencies": {
+  "node": "^25.5.0"  // incorrecto — debería estar en "engines", no aquí
+}
+```
+Esto no instala Node.js real; es un stub que contamina el lockfile y puede confundir herramientas de CI.
 
-**Dependencias exclusivas de PM-Portal:** `@supabase/supabase-js`.
+**Tamaño de bundle — SenciYo**: `vite.config.ts` tiene `chunkSizeWarningLimit: 5000` (5 MB). El valor por defecto de Vite es 500 KB. Esta configuración silencia advertencias de bundle grande. SenciYo incluye Amplitude + Mixpanel + PostHog + ExcelJS + XLSX + Recharts + DnD-Kit: todas librerías pesadas. El bundle actual casi con certeza supera 1 MB.
 
-No hay imports cruzados entre apps a nivel de código TypeScript (verificado). El acoplamiento es **semántico** (eventos PostHog), no de código.
+---
 
 ### C. Build, CI/CD y Despliegue
 
-**No existe CI/CD.** No hay directorio `.github/workflows/`. Las builds y deploys son manuales.
+| Aspecto | Estado | Severidad |
+|---|---|---|
+| Sin GitHub Actions ni CI/CD en el repo | Ausencia crítica | P0 |
+| Sin `wrangler.toml` commiteado | Ausencia | P1 |
+| Deployments Cloudflare configurados solo en el panel (sin IaC) | Riesgo | P1 |
+| Build de SenciYo: `tsc -b && vite build` | ✅ Estándar | — |
+| Build de PM Portal: genera `estado.json` + `tsc -b` + `vite build` | ✅ Bien | — |
+| Un cambio en una app no dispara automáticamente el pipeline de la otra | Sin automatizar | P1 |
 
-Los scripts en el root `package.json` para PM-Portal son:
-- `dev:portal-pm` → `npm --prefix apps/pm-portal run dev`
-- `build:portal-pm` → `npm --prefix apps/pm-portal run build`
-- `lint:portal-pm` → `npm --prefix apps/pm-portal run lint`
+**Scripts raíz que actúan como proxy** (en `package.json` raíz):
+```json
+"dev:portal-pm":    "npm --prefix apps/pm-portal run dev",
+"build:portal-pm":  "npm --prefix apps/pm-portal run build",
+"lint:portal-pm":   "npm --prefix apps/pm-portal run lint"
+```
+Esto es un parche manual, no una solución de monorepo real. No hay pipeline unificado, no hay caché de builds, no hay `--filter` por app afectada.
 
-Esto es un proxy manual, no un workspace real. Un `npm install` en la raíz **no instala** las dependencias de PM-Portal. Un developer nuevo debe recordar entrar a `apps/pm-portal/` y correr `npm install` por separado.
+**Inconsistencia de puerto en PM Portal**: El script `dev` en `package.json` pasa `--port 5181`, pero `vite.config.ts` declara `port: 5177`. El script sobreescribe la config. Esto genera confusión al depurar (distintos valores en distintos lugares).
 
-**No hay estrategia de "build por rutas"**: cualquier cambio en cualquier archivo podría, en principio, requerir rebuild de ambas apps. Sin CI, no hay forma de automatizar esto.
+| App | Dev | Preview |
+|---|---|---|
+| SenciYo | 5173 | 5175 |
+| PM Portal | 5181 (script) / 5177 (vite config) | 5182 (script) / 5178 (vite config) |
 
-PM-Portal tiene un script `generar:estado` que corre un archivo `.mjs` antes del build, lo que sugiere generación de metadatos de despliegue. Cloudflare Pages Functions están en `apps/pm-portal/functions/api/` (5 endpoints serverless).
-
-**`chunkSizeWarningLimit: 5000`** (5 MB) en `vite.config.ts` de SenciYo es una señal de alerta suprimida. Vite por defecto avisa a los 500 KB. Aumentar este límite 10x oculta el problema en lugar de resolverlo. Con 3 SDKs de analítica (PostHog + Amplitude + Mixpanel) + exceljs + xlsx + recharts + DnD Kit, el bundle probablemente supera los límites razonables para una app web.
-
-**`dist/` en el repo:** La carpeta `dist/` existe en la raíz del repositorio. Si está commiteada (no ignorada por `.gitignore`), esto representa deuda técnica y contaminación del historial de git.
+---
 
 ### D. Seguridad y Secretos
 
-**CRÍTICO P0:** El archivo `apps/pm-portal/.env` contiene credenciales reales:
-```
-VITE_SUPABASE_URL=https://iggrwzenbytvokywqali.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_rJgrKKBsdjEGXtr8Lvm3BQ_RrPjwWfO
-```
+| Aspecto | Estado | Severidad |
+|---|---|---|
+| `.env` raíz: solo placeholders vacíos | ✅ Seguro | — |
+| `apps/pm-portal/.env`: contiene URL y anon_key Supabase **reales** | ⚠️ Riesgo local | P1 |
+| `.gitignore` excluye `.env` y `.env.*` correctamente | ✅ Correcto | — |
+| `SUPABASE_SERVICE_ROLE_KEY` solo en Cloudflare o `.dev.vars` | ✅ Correcto | — |
+| `POSTHOG_PERSONAL_API_KEY` solo en Cloudflare o `.dev.vars` | ✅ Correcto | — |
+| Claves publishable (`VITE_PUBLIC_*`) en `.env.example` sin valores | ✅ Correcto | — |
+| Sin CODEOWNERS: cualquier dev puede modificar archivos sensibles | Riesgo | P1 |
+| Archivo `.env` (no `.env.local`) con credenciales reales en PM Portal | Riesgo menor | P1 |
 
-Este archivo está en el repositorio. Aunque la clave `anon` de Supabase es pública por diseño (está sujeta a RLS), su presencia en el repo:
-1. Establece el patrón incorrecto de committear `.env`
-2. Expone la URL del proyecto Supabase y el nombre del proyecto
-3. Si en algún momento la `SERVICE_ROLE_KEY` termina en ese archivo por error de un developer, el daño sería total (acceso irrestricto a la base de datos)
+**Sobre `apps/pm-portal/.env`**: El archivo usa la convención `.env` (sin sufijo `.local`). Está excluido por `.gitignore`, pero la convención recomendada por Vite para desarrollo local es `.env.local` (semánticamente más claro y con doble protección). Usar `.env` sin sufijo puede generar confusión en el equipo sobre qué archivos son seguros de commitear.
 
-El archivo `.env.example` de PM-Portal existe y tiene los placeholders correctos, pero el `.env` real fue commiteado igualmente.
+**Separación de secretos entre apps**: Las claves de SenciYo (PostHog client-side, Amplitude, Mixpanel) son completamente independientes de las de PM Portal (Supabase anon key, Supabase service role key, PostHog server-side API key). No hay contaminación cruzada de secretos. ✅
 
-**Secretos del lado servidor** (Cloudflare Pages Functions): `POSTHOG_PERSONAL_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GITHUB_TOKEN` — estos no están en el repo pero deben configurarse manualmente en cada entorno de Cloudflare. Sin documentación centralizada ni CI, el riesgo de olvido es alto.
+**Riesgo potencial**: Un `git add .` en la raíz podría incluir `apps/pm-portal/.env` si el patrón `.gitignore` fallara por alguna razón (ej: archivo en untracked state al inicio del repo). Se recomienda agregar explícitamente `/apps/pm-portal/.env` al `.gitignore` raíz, tal como ya se hace con `.dev.vars`.
 
-**Claves en el frontend:** Las claves de PostHog, Amplitude y Mixpanel en SenciYo son del tipo "publishable" (diseñadas para estar en el cliente). El riesgo es aceptable pero el patrón de tener 3 herramientas distintas de telemetría aumenta la superficie de exposición.
-
-**No hay separación de secretos entre apps**: ambas apps comparten el mismo `.gitignore` raíz. Un `.env` en la raíz con las claves de SenciYo podría ser accidentalmente expandido a un contexto donde no corresponde.
+---
 
 ### E. Observabilidad y Analítica
 
-**Triplicación de telemetría en SenciYo:** Los eventos se envían simultáneamente a PostHog, Amplitude y Mixpanel desde `src/shared/analitica/analitica.ts`. El patrón está correctamente gateado por `import.meta.env.PROD` y verificaciones de host local, pero:
+| Aspecto | Estado | Severidad |
+|---|---|---|
+| Triple tracking en SenciYo (PostHog + Amplitude + Mixpanel, mismo evento) | Riesgo costo/consistencia | P1 |
+| Nombres de eventos **duplicados** sin contrato compartido | Acoplamiento semántico | **P0** |
+| PM Portal accede a eventos de SenciYo vía PostHog API server-side | ✅ Bien aislado técnicamente | — |
+| Analytics desactivadas en development y localhost en SenciYo | ✅ Correcto | — |
+| Sin PII en propiedades de eventos | ✅ Correcto | — |
+| `ignore_dnt: true` en Mixpanel | ⚠️ Puede violar preferencias DNT del usuario | P2 |
 
-1. **Costo triple**: el mismo evento genera carga en 3 plataformas de pago
-2. **Riesgo de inconsistencia**: si una de las 3 falla silenciosamente, los números no cuadran entre herramientas
-3. **Evento duplicado en PM-Portal**: `EVENTOS_POSTHOG_KPI` en `apps/pm-portal/functions/api/eventos-posthog-kpi.ts` duplica como strings literales los mismos nombres de eventos de `EVENTOS_ANALITICA` en SenciYo
+**Hallazgo crítico P0 — Duplicación de nombres de eventos**:
 
+SenciYo emite (en `src/shared/analitica/eventosAnalitica.ts`):
 ```
-SenciYo:    EVENTOS_ANALITICA.VENTA_COMPLETADA = 'venta_completada'
-PM-Portal:  EVENTOS_POSTHOG_KPI.VENTA_COMPLETADA = 'venta_completada'
+registro_usuario_completado, venta_completada, primera_venta_completada,
+producto_creado_exitoso, cliente_creado_exitoso, importacion_completada,
+ruc_actualizado_exitoso
 ```
 
-No hay contrato compartido (paquete compartido, tipo unión, nada). Si un developer renombra el evento en SenciYo, PM-Portal consume datos vacíos silenciosamente. No hay TypeScript ni tests que detecten esto.
+PM Portal consulta PostHog usando (en `apps/pm-portal/functions/api/eventos-posthog-kpi.ts`):
+```
+venta_completada, producto_creado_exitoso, cliente_creado_exitoso,
+importacion_completada, registro_usuario_completado
+```
 
-**Identificación de usuarios:** El módulo de analítica usa `entorno: EntornoAnalitica` ('demo' | 'produccion') como propiedad base. No se observa envío de PII directamente, lo cual es correcto.
+Los strings son **iguales por convención, no por contrato compilado**. Si SenciYo renombra `venta_completada` → `comprobante_emitido`, el PM Portal seguirá buscando `venta_completada` en PostHog y devolverá 0 métricas — sin error de compilación, sin test que lo detecte, y sin alerta.
 
-**Mixpanel inicializado lazy:** `asegurarMixpanelInicializado()` se llama en cada evento. Si Mixpanel falla en inicializar, esto podría generar logs de error en cada evento.
+**Hallazgo — Código de autorización duplicado dentro del PM Portal**:
+`metricas-posthog.ts` contiene su propia copia inline de `validarAutorizacion` (aprox. líneas 533–578 del archivo), a pesar de que el módulo `_autorizacion.ts` existe específicamente para ese propósito. El comentario en `_autorizacion.ts` lo reconoce: "Usado por: metricas-posthog (**tiene su propio inline**)". Esto es deuda técnica: si se parchea un bug de seguridad en `_autorizacion.ts`, `metricas-posthog.ts` queda vulnerable.
+
+---
 
 ### F. Productividad y Operación del Equipo
 
-**Flujo de trabajo actual:**
-- Un commit a la rama `develop` afecta a ambas apps (mismo historial de git)
-- No hay PRs automáticas, no hay checks de CI
-- Los mensajes de commit son informales (`MIXPANEL INTEGRACION`, `Ajuste Amplitude`), sin convención establecida
+| Aspecto | Estado |
+|---|---|
+| Onboarding requiere instalar deps en raíz Y en `apps/pm-portal/` por separado | ⚠️ No es obvio |
+| README describe estructura de carpetas antigua (`.jsx`, no corresponde a la real) | ⚠️ Desactualizado |
+| Un PR puede mezclar cambios de SenciYo y PM Portal sin granularidad | Riesgo de revisión |
+| Sin labels de PR, templates de issue o templates de PR en el repo | Ausencia |
+| Sin tests automatizados en ninguna app | Deuda técnica |
 
-**Onboarding problemático:** Un developer nuevo debe:
-1. Clonar el repo
-2. Correr `npm install` en la raíz (instala SenciYo)
-3. Recordar entrar a `apps/pm-portal/` y correr `npm install` por separado
-4. Configurar manualmente las variables de entorno para ambas apps
-5. No hay README de onboarding en la raíz que explique esta estructura
-
-**Riesgo de conflicto:** Al estar ambas apps en el mismo historial, un merge conflict en `package.json` de la raíz podría bloquear el trabajo de ambos equipos simultáneamente.
-
-**Scripts de conveniencia:** Los scripts `dev:portal-pm`, `build:portal-pm`, `lint:portal-pm` en el root son un parche razonable, pero no escalan. Con workspace tooling, esto sería nativo.
-
-### G. Escalabilidad a 6-12 Meses
-
-**Escenario SenciYo crece (más módulos):**
-- `src/shared/` ya tiene 20+ carpetas. Sin boundaries de lint o paths enforced, cualquier módulo puede importar de cualquier otro
-- El bundle ya supera los límites de Vite (evidencia: `chunkSizeWarningLimit: 5000`)
-- La triple analítica y las dependencias pesadas (exceljs, xlsx) necesitarán code-splitting explícito
-
-**Escenario PM-Portal crece (más módulos):**
-- La arquitectura de PM-Portal (dominio/aplicacion/infraestructura/presentacion) es limpia y escalable
-- El riesgo es que empiece a necesitar componentes compartidos con SenciYo sin mecanismo para compartirlos
-
-**Escenario más devs:**
-- Sin CODEOWNERS, cualquier developer puede modificar cualquier parte de cualquier app sin revisión especializada
-- Sin CI, los errores de compilación no se detectan automáticamente
+**README desactualizado**: El `README.md` raíz documenta una estructura antigua (archivos `.jsx`, `PublicLayout.jsx`, `Dashboard.jsx`, etc.) que no corresponde a la estructura real actual del proyecto (todo es `.tsx`, la arquitectura cambió).
 
 ---
 
-## 3. TABLA DE ACOPLAMIENTO
+### G. Escalabilidad a 6–12 meses
+
+Con el crecimiento proyectado, los problemas actuales se amplifican:
+
+- **Más módulos en SenciYo** → bundle aún más grande (ya supera el límite de Vite sin alarma)
+- **Más eventos analíticos en SenciYo** → más strings duplicados en PM Portal sin contrato formal
+- **Más devs** → sin CODEOWNERS ni boundaries, cualquiera puede modificar cualquier archivo sensible
+- **Más releases independientes** → sin CI/CD, el despliegue sigue siendo manual sin trazabilidad
+- **Más features en PM Portal** → sin workspace real, la gestión de deps compartidas es ad-hoc
+
+---
+
+## 3. Tabla de Acoplamiento (con evidencia)
 
 | # | Item | Evidencia | Impacto | Severidad | Recomendación |
 |---|---|---|---|---|---|
-| 1 | Nombres de eventos de analítica duplicados | `src/shared/analitica/eventosAnalitica.ts` vs `apps/pm-portal/functions/api/eventos-posthog-kpi.ts` — mismos strings sin contrato compartido | Si SenciYo renombra un evento, PM-Portal pierde métricas silenciosamente | P0 | Crear paquete `@facturafacil/eventos-kpi` compartido vía workspace |
-| 2 | SenciYo vive en la raíz del monorepo | `/src`, `/package.json`, `/vite.config.ts` son de SenciYo pero están en la raíz del repo | Imposibilita workspace tooling, CI por app, y boundaries claros | P0 | Mover SenciYo a `apps/senciyo/` como parte de restructuración |
-| 3 | Scripts proxy manuales para PM-Portal | `package.json` raíz: `"dev:portal-pm": "npm --prefix apps/pm-portal run dev"` | `npm install` en raíz no instala PM-Portal; onboarding roto | P1 | Adoptar npm/pnpm workspaces con workspace linking real |
-| 4 | Zod v3 (SenciYo) vs Zod v4 (PM-Portal) | `package.json` raíz: `"zod": "^3.24.1"` vs `apps/pm-portal/package.json`: `"zod": "^4.3.6"` | Si se crea código compartido con Zod, los tipos serán incompatibles | P0 | Alinear a Zod v4 en ambas apps |
-| 5 | @hookform/resolvers v3 vs v5 | `package.json` raíz: `"@hookform/resolvers": "^3.9.1"` vs PM-Portal: `"^5.2.2"` | Riesgo de incompatibilidad en código compartido | P1 | Alinear versiones |
-| 6 | `app/shared/src/` (legacy, sin uso) | `/app/shared/src/types.ts`, `ConfirmationModal.tsx`, `UnderlinedFiltersTable.tsx` — no importados por ninguna app activa | Confusión sobre dónde va el código compartido; dead code acumula deuda | P2 | Eliminar o documentar como obsoleto |
-| 7 | `chunkSizeWarningLimit: 5000` en SenciYo | `vite.config.ts` raíz: `build: { chunkSizeWarningLimit: 5000 }` | Oculta señal de bundle excesivo; 3 analytics SDKs + exceljs + xlsx + recharts | P1 | Bajar límite a 800 y resolver chunking real con code splitting |
-| 8 | `dist/` potencialmente commiteado | Carpeta `/dist/` presente en el root (requiere verificar `.gitignore`) | Historial git contaminado; diferencias entre builds y código fuente | P2 | Verificar y agregar a `.gitignore` si aplica |
+| AC-01 | Nombres de eventos PostHog duplicados sin contrato | `src/shared/analitica/eventosAnalitica.ts` vs `apps/pm-portal/functions/api/eventos-posthog-kpi.ts` — mismos strings, código independiente | Renombrar un evento en SenciYo rompe métricas del PM Portal en silencio | **P0** | Crear `packages/analytics-events` como fuente de verdad compartida |
+| AC-02 | Scripts raíz gestionan PM Portal con `npm --prefix` | `package.json` raíz, líneas 13–15: `"dev:portal-pm": "npm --prefix apps/pm-portal run dev"` | Acoplamiento operativo; el dev debe conocer la ubicación de cada app para usar el script correcto | P1 | Migrar a npm workspaces con scripts unificados |
+| AC-03 | SenciYo vive en la raíz del repo | `package.json` → `"name": "web"`, `src/`, `index.html`, `vite.config.ts` en raíz | Confunde la raíz del monorepo con la app SenciYo; bloquea añadir más apps con estructura limpia | P1 | Mover SenciYo a `apps/senciyo/` |
+| AC-04 | Un único `.gitignore` raíz gestiona secretos de ambas apps | `.gitignore` raíz excluye `.env`, `.env.*`, y `/apps/pm-portal/.dev.vars` | Si el patrón falla, la exposición afecta a ambas apps | P1 | Agregar `.gitignore` local en `apps/pm-portal/` para sus secretos propios |
+| AC-05 | Código de autorización duplicado en PM Portal | `apps/pm-portal/functions/api/metricas-posthog.ts` líneas ~500–578 (inline) + `apps/pm-portal/functions/api/_autorizacion.ts` (módulo) | Bug de seguridad parchado en uno no se replica al otro | P1 | Eliminar la copia inline en `metricas-posthog.ts` y usar `_autorizacion.ts` |
+| AC-06 | Zod v3 (SenciYo) vs Zod v4 (PM Portal) | `package.json` raíz: `"zod": "^3.24.1"` vs `apps/pm-portal/package.json`: `"zod": "^4.3.6"` | Imposibilita compartir esquemas de validación entre apps sin refactoring mayor | P1 | Alinear a Zod v4 en SenciYo |
+| AC-07 | `app/shared/src/` vestigial no conectado a ninguna app | `app/shared/src/components/ConfirmationModal.tsx`, `UnderlinedFiltersTable.tsx`, `types.ts` — sin imports en `src/` ni en `apps/pm-portal/src/` | Confusión en onboarding: parece un paquete compartido funcional cuando no lo es | P2 | Eliminar el directorio o formalizarlo como `packages/ui` |
+| AC-08 | `docs_web/` con su propio `node_modules` sin integración | `docs_web/node_modules/` presente, sin scripts en `package.json` raíz ni en CI | Tercera instancia de `node_modules`; dependencias no gestionadas en el monorepo | P2 | Integrar en workspace o mover a repo separado |
 
 ---
 
-## 4. TABLA DE RIESGOS — MANTENER MONOREPO (estado actual sin cambios)
+## 4. Riesgos si se Mantiene el Monorepo (sin cambios)
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |---|---|---|---|
-| Developer renombra evento en SenciYo, PM-Portal deja de recibir métricas sin error visible | Alta | Alto | Paquete compartido de eventos con TypeScript |
-| Secret `SERVICE_ROLE_KEY` de Supabase acaba en `.env` commiteado por error de contexto | Media | Alto | Hacer `.env` global en `.gitignore`, rotar credenciales |
-| Build de SenciYo supera límites de Cloudflare Pages (25 MB bundle) | Media | Alto | Code splitting, lazy loading de SDKs de analítica |
-| Nuevo developer instala solo dependencias raíz y PM-Portal no funciona | Alta | Medio | README de onboarding + workspace real |
-| PR que toca SenciYo y PM-Portal a la vez genera conflict en `package.json` raíz | Media | Medio | Separar package.json de SenciYo (moverlo a `apps/senciyo/`) |
-| Zod v4 introducido en SenciYo (por upgrade accidental) rompe esquemas de validación | Media | Alto | Pinning de versiones + CI que valide compatibilidad |
-| Triple analítica genera costos desproporcionados al escalar | Alta | Medio | Definir una herramienta principal; las otras como fallback o eliminar |
-| Sin CI, errores de compilación llegan a producción | Alta | Alto | Implementar GitHub Actions con checks por app |
-| Acumulación de dependencias en raíz que técnicamente solo usa SenciYo confunde ownership | Alta | Bajo | Estructura de workspace que separe `node_modules` por app |
+| Métricas PM Portal en 0 de forma silenciosa al renombrar evento en SenciYo | **Alta** | **Alto** | Paquete compartido `packages/analytics-events` |
+| Bundle de SenciYo continúa creciendo sin alerta (límite suprimido a 5 MB) | **Alta** | Medio | Reducir `chunkSizeWarningLimit`, analizar bundle, lazy loading |
+| `.env` de PM Portal commiteado accidentalmente (credenciales reales) | Baja | **Muy Alto** | Renombrar a `.env.local` + hook pre-commit + entrada explícita en `.gitignore` |
+| Dev modifica PM Portal y rompe build de SenciYo sin darse cuenta (raíz compartida, sin CI) | Media | Alto | CI independiente por app con paths filter |
+| Drift de dependencias acumulado bloquea refactoring futuro (ej: compartir código con Zod distinto) | **Alta** | Medio | Renovate/Dependabot + política de versiones |
+| Nuevo dev confunde `app/shared/` con código real y lo importa erróneamente | Media | Bajo | Eliminar el directorio |
+| Bug de seguridad en lógica de autorización parchado solo en `_autorizacion.ts` pero no en la copia inline de `metricas-posthog.ts` | Baja | **Alto** | Unificar en un solo módulo |
 
 ---
 
-## 5. TABLA DE RIESGOS — SEPARAR EN DOS REPOSITORIOS
+## 5. Riesgos si se Separa en Dos Repositorios
 
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |---|---|---|---|
-| El contrato de eventos PostHog entre SenciYo y PM-Portal se rompe sin mecanismo de validación | Alta | Alto | Publicar paquete NPM privado con los tipos de eventos; CI que valide versiones |
-| Duplicación de código de UI/utilidades en ambos repos sin forma de compartir | Alta | Medio | Crear repositorio `@facturafacil/shared` + npm privado o monorepo con apps bien separadas |
-| Overhead operativo: 2 repos, 2 CI pipelines, 2 procesos de release | Media | Medio | Aceptable si el equipo tiene >3 devs especializados por app |
-| Desincronización de versiones de dependencias comunes (React, Vite, TS) | Alta | Medio | Dependabot en ambos repos + versiones pinneadas |
-| Historial de git dividido: perder contexto de cambios relacionados | Baja | Bajo | Documentar decisiones en ADR; usar links de PR cross-repo |
-| Onboarding más complejo para devs full-stack que trabajan en ambas apps | Media | Bajo | README con instrucciones de setup de ambos repos |
-| Proceso de release desacoplado puede desincronizar features | Media | Medio | Versionado semántico + tags de release sincronizados |
+| Contrato de eventos PostHog sigue sin ser explícito entre repos separados | **Alta** | **Alto** | Publicar paquete npm privado `@facturafacil/analytics-events` antes de separar |
+| Duplicación de configuración (ESLint, TypeScript, Vite, Tailwind) en 2 repos | **Alta** | Medio | Paquete de config compartida `@facturafacil/config` o plantilla de repo |
+| Sincronización de dependencias comunes se vuelve completamente manual | **Alta** | Medio | Dependabot en cada repo |
+| Historial git interrumpido para archivos que migran entre repos | Media | Bajo | Migrar con `git filter-repo` preservando historial |
+| Mayor overhead operativo (2 pipelines CI, 2 configuraciones Cloudflare, 2 procesos de release) | **Alta** | Medio | Automatización desde el inicio; no separar sin CI ya funcionando |
+| Cambios coordinados (ej: nuevo evento analítico) requieren PRs en 2 repos | Media | Medio | Convención explícita de PRs relacionados; el paquete compartido reduce la frecuencia |
+| PM Portal pierde visibilidad del repo de SenciYo si el endpoint `resumen-repo` apunta al repo unificado | Media | Bajo | El endpoint usa GitHub API; actualizar la config del endpoint |
 
 ---
 
-## 6. COMPARATIVA FINAL — MONOREPO VS MULTIREPO
+## 6. Comparativa Final Monorepo vs Multirepo
 
-| Criterio | Peso | Monorepo actual (sin cambios) | Monorepo con ajustes (Opción C) | Multirepo |
+| Criterio | Peso | Monorepo actual (sin cambios) | **Monorepo ajustado (Opción C)** | Multirepo (Opción B) |
 |---|---|---|---|---|
-| Seguridad de secretos | 20% | 1 — `.env` real commiteado, sin CI | 4 — `.gitignore` global, CI, rotación | 3 — separación natural pero mismos riesgos base |
-| Independencia de despliegue | 15% | 2 — scripts manuales, sin CI por app | 4 — CI por app, builds independientes | 5 — total independencia |
-| Integridad del contrato de analítica | 20% | 1 — strings duplicados sin contrato | 5 — paquete compartido con TypeScript | 2 — requiere paquete NPM privado y CI cross-repo |
-| Reutilización de código | 10% | 1 — `app/shared/` está muerto, sin workspace | 4 — workspace real, paquetes compartidos nativos | 2 — requiere publicación de paquetes |
-| Costo operativo y velocidad | 15% | 3 — simple pero frágil | 4 — más setup inicial, más robusto | 2 — doble pipeline, doble onboarding |
-| Complejidad para el equipo | 10% | 2 — confuso (raíz = SenciYo) | 4 — claro una vez restructurado | 3 — simple por app, complejo entre apps |
-| Escalabilidad a 12 meses | 10% | 1 — no escala sin cambios | 5 — escala con boundaries y packages | 4 — escala bien si el equipo crece |
-| **TOTAL PONDERADO** | 100% | **1.65 / 5** | **4.25 / 5** | **2.95 / 5** |
+| **Seguridad** — separación de secretos y accesos | 20% | 3 — secretos en un solo `.gitignore` | **4** — CODEOWNERS + `.gitignore` por app | 5 — repos independientes |
+| **Independencia de despliegue** — cada app despliega sola | 15% | 2 — manual, sin pipeline | **4** — CI por app con paths filter | 5 — pipelines totalmente independientes |
+| **Reuse** — compartir código y contratos | 20% | 1 — no hay paquetes reales | **5** — `packages/` con contrato de eventos | 3 — requiere paquete npm privado |
+| **Costo operativo** — mantenimiento de infra | 15% | 2 — bajo ahora, alto a futuro | **3** — algo más setup, escalable | 2 — doble infraestructura desde el inicio |
+| **Velocidad** — rapidez para hacer cambios | 15% | 3 — un solo repo pero sin herramientas | **4** — builds selectivos, herramientas | 3 — cambios coordinados = 2 PRs |
+| **Onboarding** — claridad para nuevos devs | 15% | 2 — estructura confusa (raíz = app) | **4** — `apps/`, `packages/` claros | 3 — 2 repos, 2 setups |
+| **Puntuación ponderada** | 100% | **2.25 / 5** | **4.05 / 5** | **3.60 / 5** |
 
-**Conclusión:** El monorepo actual sin cambios es la peor opción. El monorepo con ajustes estructurales (Opción C) supera al multirepo en el contexto actual: mismo equipo, dominio compartido, y la dependencia semántica de PM-Portal sobre los eventos de SenciYo hace que un paquete compartido sea más fácil de mantener dentro de un workspace que como paquete NPM publicado.
+**Conclusión**: El monorepo ajustado (Opción C) es la mejor estrategia. La separación total solo tiene sentido si los equipos son completamente independientes o si los requisitos de seguridad/compliance exigen acceso diferenciado a nivel de repositorio. Ninguna de esas condiciones se verifica actualmente.
 
 ---
 
-## 7. RECOMENDACIÓN FINAL — OPCIÓN C: MONOREPO CON AJUSTES ESTRUCTURALES
+## 7. Recomendación Final — Opción C con Plan Concreto
 
-### Justificación
+### Estructura objetivo del monorepo
 
-1. **Acoplamiento semántico innegable:** PM-Portal consume eventos emitidos por SenciYo vía PostHog. Los nombres de esos eventos están duplicados como strings literales en dos lugares sin contrato compartido. Separar los repos haría este problema más difícil de resolver, no más fácil.
-
-2. **Equipo unificado:** El mismo equipo mantiene ambas apps. Los beneficios del monorepo (contexto compartido, refactors atómicos, single PR para cambios cross-app) superan los costos.
-
-3. **Etapa del producto:** SenciYo y PM-Portal son productos tempranos que evolucionan rápido. La separación en repos agrega overhead antes de que las apps tengan límites estables.
-
-### Reglas estrictas para el monorepo ajustado
-
-**Estructura objetivo:**
 ```
-C:/FacturaFacil/            ← raíz de workspace (solo config global)
+/
 ├── apps/
-│   ├── senciyo/            ← SenciYo movido aquí
-│   └── pm-portal/          ← PM-Portal (ya existe aquí)
+│   ├── senciyo/              ← mover contenido de la raíz aquí (P2)
+│   └── pm-portal/            ← ya está correctamente ubicado
 ├── packages/
-│   └── eventos-kpi/        ← paquete compartido: tipos de eventos PostHog
-├── package.json            ← workspace root con "workspaces": ["apps/*", "packages/*"]
-├── tsconfig.base.json      ← config TypeScript base compartida
-├── .gitignore              ← ignorar todos los .env, dist/
-└── CODEOWNERS              ← ownership por carpeta
+│   └── analytics-events/     ← nuevo: contrato de eventos PostHog (P1)
+├── package.json              ← raíz: solo workspaces + scripts orquestadores
+├── .gitignore                ← raíz: patrones globales
+└── .github/
+    ├── CODEOWNERS
+    └── workflows/
+        ├── senciyo.yml       ← pipeline SenciYo con paths filter
+        └── pm-portal.yml     ← pipeline PM Portal con paths filter
 ```
 
-**Boundaries obligatorios:**
-- `apps/senciyo/` nunca importa de `apps/pm-portal/`
-- `apps/pm-portal/` nunca importa de `apps/senciyo/`
-- Ambas apps pueden importar de `packages/*`
-- ESLint `import/no-restricted-paths` o `eslint-plugin-boundaries` para enforcement
+### Reglas no negociables si se sigue con monorepo
 
-**CI por app (GitHub Actions):**
-- Job `ci-senciyo`: se activa solo si hay cambios en `apps/senciyo/**` o `packages/**`
-- Job `ci-pm-portal`: se activa solo si hay cambios en `apps/pm-portal/**` o `packages/**`
-- Cada job: lint → typecheck → build
-
-**CODEOWNERS mínimo:**
-```
-apps/senciyo/        @equipo-producto
-apps/pm-portal/      @equipo-pm
-packages/            @tech-lead
-```
+1. **npm Workspaces activos** en el `package.json` raíz: `"workspaces": ["apps/*", "packages/*"]`
+2. **CI por app** con `paths` filter: cambios en `apps/senciyo/**` disparan solo el pipeline de SenciYo
+3. **CODEOWNERS** con granularidad por app: devs de PM Portal no pueden aprobar merges en `apps/senciyo/` sin revisión del equipo producto
+4. **Paquete `packages/analytics-events`** como única fuente de verdad para nombres de eventos PostHog
+5. **Zod alineado**: SenciYo debe migrar a v4 (o documentar explícitamente la razón para mantener v3 con fecha de expiración)
+6. **Wrangler TOML** de PM Portal commiteado al repo (sin secretos)
 
 ---
 
-## 8. PLAN DE ACCIÓN MÍNIMO
+## 8. Plan de Acción Mínimo
 
-### P0 — HACER YA (esta semana)
+### P0 — Hacer ya (bloquean seguridad o calidad real)
 
-| # | Acción | Justificación | Archivos afectados |
-|---|---|---|---|
-| P0-1 | Revocar la `SUPABASE_ANON_KEY` actual de PM-Portal y generar una nueva. Agregar `apps/pm-portal/.env` al `.gitignore` global y eliminar el archivo del historial de git (git filter o BFG) | Secreto comprometido en repo | `apps/pm-portal/.env`, `.gitignore` raíz |
-| P0-2 | Crear un archivo `packages/eventos-kpi/index.ts` que exporte los nombres de eventos como constantes TypeScript únicas, y referenciar ese archivo desde ambas apps (aunque sea con path relativo mientras no haya workspace real) | Elimina la duplicación de strings sin contrato | `src/shared/analitica/eventosAnalitica.ts`, `apps/pm-portal/functions/api/eventos-posthog-kpi.ts` |
-| P0-3 | Alinear Zod a v4 en SenciYo (o degradar PM-Portal a v3 mientras se planifica la migración). Documentar decisión | Drift de versión major con riesgo de ruptura silenciosa | `package.json` raíz |
-
-### P1 — PRÓXIMAS SEMANAS
-
-| # | Acción | Justificación | Archivos afectados |
-|---|---|---|---|
-| P1-1 | Crear pipeline básico de GitHub Actions: 2 jobs independientes (senciyo y pm-portal), con path filters | Sin CI los problemas llegan a producción sin detección | `.github/workflows/ci.yml` (crear) |
-| P1-2 | Configurar npm workspaces en `package.json` raíz: `"workspaces": ["apps/*", "packages/*"]` y correr `npm install` una sola vez desde la raíz | Elimina el problema de doble `npm install` y habilita workspace linking | `package.json` raíz |
-| P1-3 | Reducir `chunkSizeWarningLimit` de 5000 a 800 en `vite.config.ts` de SenciYo y resolver los warnings reales con `import()` dinámico en los SDKs de analítica | Ocultar el problema no lo resuelve | `vite.config.ts` raíz |
-| P1-4 | Crear `CODEOWNERS` mínimo en la raíz del repo | Nadie tiene ownership definido actualmente | `/CODEOWNERS` (crear) |
-| P1-5 | Alinear `@hookform/resolvers` a la misma versión en ambas apps | Drift de versión major | `package.json` raíz y `apps/pm-portal/package.json` |
-| P1-6 | Agregar `dist/` y `*.env` al `.gitignore` global si no están ya, y verificar el historial | Contaminación del repo | `.gitignore` raíz |
-| P1-7 | Agregar `README.md` en la raíz con instrucciones de setup para ambas apps | Onboarding de nuevos devs actualmente roto | `/README.md` (crear o actualizar) |
-
-### P2 — MEJORAS (próximas iteraciones)
-
-| # | Acción | Justificación |
+| Tarea | Archivo(s) afectado(s) | Por qué es P0 |
 |---|---|---|
-| P2-1 | Evaluar si es necesario mantener las 3 herramientas de analítica (PostHog + Amplitude + Mixpanel) simultáneamente o definir una como primaria | Costo triple y riesgo de inconsistencia entre plataformas |
-| P2-2 | Mover SenciYo de la raíz a `apps/senciyo/` para igualar la estructura | Prerequisito para workspace tooling real y CI por app limpio |
-| P2-3 | Instalar `eslint-plugin-boundaries` o `eslint-import-resolver-typescript` con `no-restricted-paths` para enforcer que las apps no se importen entre sí | Sin enforcement automático, los boundaries no se respetan |
-| P2-4 | Eliminar `app/shared/src/` (sin `s` en `app`) que contiene código muerto | Reduce confusión sobre dónde va el código compartido |
-| P2-5 | Definir convención de commits (Conventional Commits) y configurar `commitlint` | Los mensajes actuales no tienen convención (ej: "MIXPANEL INTEGRACION") |
-| P2-6 | Implementar code splitting en SenciYo: lazy load de SDKs de analítica, exceljs, xlsx | Reducir el bundle inicial y mejorar el Largest Contentful Paint |
-| P2-7 | Documentar en ADR (Architecture Decision Records) la decisión de mantener monorepo y los boundaries | Preservar contexto para futuros developers |
+| Agregar CI/CD mínimo (GitHub Actions) con lint + build por app | Crear `.github/workflows/senciyo.yml` y `.github/workflows/pm-portal.yml` | Sin CI, cualquier push puede romper producción sin detección |
+| Eliminar duplicación de lógica de autorización en `metricas-posthog.ts` | `apps/pm-portal/functions/api/metricas-posthog.ts` líneas ~500–578 | Bug de seguridad no se propaga si hay 2 copias del código |
+| Renombrar `apps/pm-portal/.env` a `.env.local` | `apps/pm-portal/.env` | Reducir riesgo de commit accidental de credenciales reales |
+
+### P1 — Próximas semanas
+
+| Tarea | Archivo(s) afectado(s) | Beneficio |
+|---|---|---|
+| Crear `packages/analytics-events` con los strings de eventos | Nuevo `packages/analytics-events/index.ts`; actualizar `src/shared/analitica/eventosAnalitica.ts` y `apps/pm-portal/functions/api/eventos-posthog-kpi.ts` | Rompe el acoplamiento semántico; cambio de evento = error de compilación |
+| Configurar npm workspaces en `package.json` raíz | `package.json` raíz | Base para gestión unificada de dependencias |
+| Crear CODEOWNERS | `.github/CODEOWNERS` | Ownership explícito por app |
+| Alinear Zod a v4 en SenciYo | `package.json` raíz + todos los archivos que usan Zod en `src/` | Habilita compartir esquemas en el futuro |
+| Agregar `wrangler.toml` en `apps/pm-portal/` al repo | `apps/pm-portal/wrangler.toml` | Infraestructura como código; reproducibilidad |
+| Agregar entrada explícita `/apps/pm-portal/.env` en `.gitignore` raíz | `.gitignore` | Doble protección para credenciales reales |
+| Actualizar README con estructura real y comandos vigentes | `README.md` | Onboarding correcto para nuevos devs |
+
+### P2 — Mejoras de calidad y experiencia
+
+| Tarea | Detalle |
+|---|---|
+| Investigar y reducir bundle de SenciYo | Eliminar `chunkSizeWarningLimit: 5000`; analizar bundle con `vite-bundle-visualizer`; aplicar lazy loading a Amplitude/Mixpanel/ExcelJS |
+| Mover SenciYo a `apps/senciyo/` | Requiere actualizar paths, aliases TypeScript, configuración Cloudflare Pages y CI |
+| Eliminar `app/shared/src/` | Los 3 archivos no se usan; si se quiere compartir UI, crear `packages/ui` |
+| Eliminar artefactos de raíz | `unmerged.txt`, `unmerged_list.txt`, `unmerged_remaining.txt` |
+| Mover `"node": "^25.5.0"` de `devDependencies` a `"engines"` | `package.json` raíz |
+| Resolver inconsistencia de puerto en PM Portal | Unificar `vite.config.ts` (5177) y script `dev` (5181) a un solo valor |
+| Revisar `ignore_dnt: true` en Mixpanel | `src/shared/analitica/analitica.ts` línea ~95; puede violar preferencias de privacidad del usuario |
+| Integrar o separar `docs_web/` | Si es parte del producto, agregar a workspace y CI; si no, moverlo a repo separado |
+| Agregar hook `pre-commit` con git-secrets o similar | Prevenir commits accidentales de archivos con credenciales reales |
 
 ---
 
-## 9. APÉNDICE
+## 9. Apéndice
 
-### Checklist de Verificación
+### 9.1 Checklist de Verificación
 
 #### Arquitectura
-- [ ] SenciYo vive en la raíz del repo (no en `apps/senciyo/`) — necesita restructuración
-- [ ] `app/shared/src/` contiene código muerto (3 archivos) — eliminar
-- [ ] No existe `pnpm-workspace.yaml`, `turbo.json`, ni `nx.json`
-- [ ] No existe CODEOWNERS
-- [ ] No existen GitHub Actions workflows
+- [x] Estructura de carpetas documentada y verificada
+- [ ] SenciYo en su propia subcarpeta (`apps/senciyo/`)
+- [ ] npm workspaces configurados en `package.json` raíz
+- [ ] `app/shared/src/` eliminado o formalizado como `packages/ui`
+- [ ] CODEOWNERS en `.github/CODEOWNERS`
+- [ ] ESLint con reglas de boundaries para prevenir imports cruzados accidentales
 
 #### Dependencias
-- [ ] Zod: v3 en SenciYo vs v4 en PM-Portal — DRIFT MAJOR — resolver
-- [ ] @hookform/resolvers: v3 en SenciYo vs v5 en PM-Portal — DRIFT MAJOR — resolver
-- [ ] `app/shared/src/types.ts` no es importado por ninguna app activa
-- [ ] `npm install` en raíz NO instala dependencias de PM-Portal
+- [x] React, Vite, TypeScript alineados entre apps
+- [ ] Zod alineado (v3 en SenciYo → migrar a v4)
+- [ ] `@hookform/resolvers` alineado (v3.9 vs v5.2)
+- [ ] `"node"` eliminado de `devDependencies`; agregar `"engines"` en `package.json` raíz
+- [ ] Renovate o Dependabot configurado para detectar drift automáticamente
+
+#### Build y CI/CD
+- [ ] GitHub Actions pipeline para SenciYo (con `paths` filter)
+- [ ] GitHub Actions pipeline para PM Portal (con `paths` filter)
+- [ ] `wrangler.toml` commiteado en `apps/pm-portal/`
+- [ ] Bundle de SenciYo analizado; `chunkSizeWarningLimit` reducido a ≤ 1000
+- [x] Build de PM Portal genera `estado.json` antes del build (correcto)
 
 #### Seguridad
-- [x] Claves de Amplitude, PostHog, Mixpanel son publishable (aceptable en frontend)
-- [ ] `apps/pm-portal/.env` con Supabase URL y anon key está commiteado — CRÍTICO
-- [ ] `SERVICE_ROLE_KEY` de Supabase no está en el repo — OK pero riesgo latente
-- [ ] No hay `.env.local` con secretos reales en raíz — pendiente verificar
+- [x] `.gitignore` excluye todos los archivos `.env` con credenciales reales
+- [x] Claves de servidor solo en Cloudflare / `.dev.vars`
+- [ ] `apps/pm-portal/.env` renombrado a `.env.local`
+- [ ] Entrada explícita `/apps/pm-portal/.env` en `.gitignore` raíz
+- [ ] Hook `pre-commit` para prevenir commits accidentales de secretos
+- [ ] CODEOWNERS para controlar acceso a `apps/pm-portal/functions/` (lógica de servidor)
 
-#### Build y CI
-- [ ] `chunkSizeWarningLimit: 5000` en SenciYo oculta alerta de bundle
-- [ ] No hay CI/CD configurado — ningún workflow automático
-- [ ] `dist/` existe en la raíz — verificar si está en `.gitignore`
-- [ ] PM-Portal tiene script `generar:estado` previo al build — documentar
-
-#### Analítica
-- [ ] Eventos duplicados como strings: `eventosAnalitica.ts` vs `eventos-posthog-kpi.ts`
-- [ ] Triple tracking activo en SenciYo: PostHog + Amplitude + Mixpanel
-- [ ] Inicialización lazy de Mixpanel en cada evento (posible overhead)
-- [ ] PM-Portal consume eventos de SenciYo vía PostHog API (acoplamiento semántico, no de código)
+#### Observabilidad
+- [ ] Paquete `packages/analytics-events` creado como fuente de verdad
+- [ ] `EVENTOS_ANALITICA` y `EVENTOS_POSTHOG_KPI` unificados en dicho paquete
+- [ ] Copia inline de autorización en `metricas-posthog.ts` reemplazada por import de `_autorizacion.ts`
+- [ ] `ignore_dnt: true` en Mixpanel revisado con equipo de privacidad
+- [x] Analytics desactivadas en development y localhost (correcto)
+- [x] Sin PII en propiedades de eventos (correcto)
 
 #### Productividad
-- [ ] No hay README de onboarding que explique la estructura del monorepo
-- [ ] No hay convención de commits establecida
-- [ ] Ramas adicionales: `dev`, `develop1` sin propósito documentado
+- [ ] README actualizado con estructura real y comandos vigentes
+- [ ] Artefactos raíz eliminados: `unmerged.txt`, `unmerged_list.txt`, `unmerged_remaining.txt`
+- [ ] Puerto de PM Portal unificado entre `vite.config.ts` y scripts `package.json`
 
 ---
 
-### Archivos y Carpetas Clave Revisados
+### 9.2 Archivos y Carpetas Clave Revisados
 
-| Archivo / Carpeta | Relevancia |
-|---|---|
-| `/package.json` | Root workspace (sin workspace config real), dependencias de SenciYo |
-| `/vite.config.ts` | Build config SenciYo; `chunkSizeWarningLimit: 5000` |
-| `/tsconfig.app.json` | TS config SenciYo; alias `@/*` → `src/*` |
-| `/eslint.config.js` | ESLint sin reglas de boundaries cross-app |
-| `/tailwind.config.js` | Solo cubre rutas de SenciYo |
-| `/src/main.tsx` | Inicialización de PostHog y Amplitude para SenciYo |
-| `/src/shared/analitica/analitica.ts` | Triple tracking (PostHog + Amplitude + Mixpanel) |
-| `/src/shared/analitica/eventosAnalitica.ts` | Definición de eventos — duplicada en PM-Portal |
-| `/apps/pm-portal/package.json` | Dependencias de PM-Portal; Zod v4, hookform/resolvers v5 |
-| `/apps/pm-portal/vite.config.ts` | Build config PM-Portal; `chunkSizeWarningLimit: 1200` (razonable) |
-| `/apps/pm-portal/.env` | **SECRETO COMMITEADO** — Supabase URL y anon key reales |
-| `/apps/pm-portal/.env.example` | Placeholders correctos |
-| `/apps/pm-portal/src/dominio/modelos.ts` | Modelos de dominio completos de PM-Portal |
-| `/apps/pm-portal/functions/api/eventos-posthog-kpi.ts` | Duplicación de nombres de eventos de SenciYo |
-| `/apps/pm-portal/functions/api/metricas-posthog.ts` | Aggregación de métricas vía PostHog API (serverless) |
-| `/apps/pm-portal/functions/api/_autorizacion.ts` | Middleware de auth con Supabase SERVICE_ROLE_KEY |
-| `/apps/pm-portal/src/infraestructura/supabase/clienteSupabase.ts` | Cliente Supabase con anon key |
-| `/app/shared/src/types.ts` | Tipos `Order` — código dead/legacy |
-| `/app/shared/src/components/ConfirmationModal.tsx` | Componente no usado por ninguna app activa |
-| `/scripts/verifyCurrencyPersistence.ts` | Script suelto en raíz, sin integración en CI |
+| Archivo / Carpeta | App | Hallazgo principal |
+|---|---|---|
+| `package.json` (raíz) | SenciYo | Nombre `"web"`, no workspace real; `"node"` en devDeps |
+| `apps/pm-portal/package.json` | PM Portal | Zod v4, `@hookform/resolvers` v5 — drift con SenciYo |
+| `vite.config.ts` (raíz) | SenciYo | `chunkSizeWarningLimit: 5000` — bundle grande silenciado |
+| `apps/pm-portal/vite.config.ts` | PM Portal | Puerto 5177 inconsistente con script `dev` (5181) |
+| `.gitignore` (raíz) | Ambas | Correcto; falta entrada explícita `/apps/pm-portal/.env` |
+| `.env.example` (raíz) | SenciYo | Solo claves analytics, vacías — correcto |
+| `apps/pm-portal/.env.example` | PM Portal | Bien documentado con separación browser/server |
+| `apps/pm-portal/.env` | PM Portal | Contiene URL y anon_key reales; debe renombrarse a `.env.local` |
+| `src/main.tsx` | SenciYo | Triple init analytics (PostHog + Amplitude + Mixpanel) |
+| `src/shared/analitica/analitica.ts` | SenciYo | Bien estructurado; `ignore_dnt: true` en Mixpanel para revisar |
+| `src/shared/analitica/eventosAnalitica.ts` | SenciYo | Fuente de verdad de eventos — sin contrato con PM Portal |
+| `apps/pm-portal/functions/api/eventos-posthog-kpi.ts` | PM Portal | Duplicación de strings de eventos — acoplamiento semántico P0 |
+| `apps/pm-portal/functions/api/metricas-posthog.ts` | PM Portal | Lógica de autorización duplicada inline (~50 líneas) |
+| `apps/pm-portal/functions/api/_autorizacion.ts` | PM Portal | Módulo correcto, pero NO usado por `metricas-posthog.ts` |
+| `apps/pm-portal/src/infraestructura/supabase/clienteSupabase.ts` | PM Portal | Bien gestionado con fallbacks y detección de config faltante |
+| `apps/pm-portal/src/dominio/modelos.ts` | PM Portal | Dominio bien definido y aislado (DDD ligero) |
+| `apps/pm-portal/scripts/generarEstadoDespliegue.mjs` | PM Portal | Correcto; usa `CF_PAGES_COMMIT_SHA` y `CF_PAGES_BRANCH` |
+| `apps/pm-portal/src/infraestructura/estado/lectorEstado.ts` | PM Portal | Correcto; valida con Zod v4 y manejo de errores |
+| `apps/pm-portal/src/aplicacion/autenticacion/ProveedorSesionPortalPM.tsx` | PM Portal | Gestión de sesión Supabase bien implementada |
+| `app/shared/src/` | Ninguna | Vestigial — 3 archivos no importados por ninguna app |
+| `eslint.config.js` (raíz) | SenciYo | Estándar; sin reglas de boundaries ni restricciones de imports |
+| `apps/pm-portal/eslint.config.js` | PM Portal | Idéntico al de SenciYo — sin reglas adicionales |
+| `tsconfig.app.json` (raíz) | SenciYo | Strict mode completo — bien configurado |
+| `apps/pm-portal/tsconfig.app.json` | PM Portal | Idéntico en opciones de strict — alineado |
+| `docs/` (raíz) | SenciYo | SQLs de Supabase, roadmaps, auditoría anterior |
+| `docs_web/` (raíz) | — | Sitio docs separado con su propio `node_modules` sin integración |
+| `checklist.md` (raíz) | — | Checklist de funcionalidades de SenciYo, no conectado a CI |
+| `unmerged*.txt` (raíz) | — | Artefactos de desarrollo pendientes de eliminar |
+| `README.md` (raíz) | Ambas | Estructura documentada es la antigua; debe actualizarse |
 
 ---
 
-*Informe generado mediante análisis estático del repositorio. Ningún código fue modificado durante la auditoría.*
+*Auditoría completa. Versión 2.0 — Reemplaza el borrador anterior (2026-03-06).*

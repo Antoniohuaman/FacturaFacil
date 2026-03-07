@@ -14,6 +14,7 @@
     "previsualizar": "npm run preview"
   },
   "dependencies": {
+    "@facturafacil/analytics-events": "*",
     "@hookform/resolvers": "^5.2.2",
     "@supabase/supabase-js": "^2.98.0",
     "react": "^19.1.1",

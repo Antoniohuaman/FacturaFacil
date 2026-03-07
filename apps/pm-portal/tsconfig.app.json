@@ -8,7 +8,8 @@
     "skipLibCheck": true,
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@facturafacil/analytics-events": ["../../packages/analytics-events/index.ts"]
     },
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -23,5 +24,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "functions"]
 }

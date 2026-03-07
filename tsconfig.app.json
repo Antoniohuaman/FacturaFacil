@@ -8,7 +8,8 @@
     "skipLibCheck": true,
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@facturafacil/analytics-events": ["packages/analytics-events/index.ts"]
     },
 
     /* Bundler mode */

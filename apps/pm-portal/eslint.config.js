@@ -19,5 +19,21 @@ export default tseslint.config([
       ecmaVersion: 2020,
       globals: globals.browser
     }
-  }
+  },
+  {
+    files: ['src/**/*.{ts,tsx}', 'functions/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: [
+            '../../../src/**',
+            '../../../../src/**',
+            '../../../../../src/**',
+            '../../../../../../src/**',
+          ],
+          message: 'PM Portal no puede importar desde SenciYo. Usa packages/* para código compartido.',
+        }],
+      }],
+    },
+  },
 ])
