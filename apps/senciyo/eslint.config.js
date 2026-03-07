@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { globalIgnores } from 'eslint/config'
 
 export default tseslint.config([
-  globalIgnores(['dist', 'apps/**']),
+  globalIgnores(['dist']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -21,11 +21,16 @@ export default tseslint.config([
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{
-          group: ['**/apps/pm-portal/**'],
+          group: [
+            '../../pm-portal/**',
+            '../../../pm-portal/**',
+            '../../../../pm-portal/**',
+            '../../../../../pm-portal/**',
+          ],
           message: 'SenciYo no puede importar desde PM Portal. Usa packages/* para código compartido.',
         }],
       }],

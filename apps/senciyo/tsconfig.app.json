@@ -9,7 +9,7 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
-      "@facturafacil/analytics-events": ["packages/analytics-events/index.ts"]
+      "@facturafacil/analytics-events": ["../../packages/analytics-events/index.ts"]
     },
 
     /* Bundler mode */
