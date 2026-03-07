@@ -21,7 +21,7 @@ Configurar en **Pages > proyecto `pm-portal` > Settings > Variables and secrets*
 - `GITHUB_REPO`
 
 ## Endpoints disponibles
-Las Functions viven en `apps/pm-portal/functions/api`.
+Las Functions viven en `functions/api` en la raíz del repositorio.
 
 ### `GET /api/metricas-posthog`
 Archivo: `functions/api/metricas-posthog.ts`
@@ -96,7 +96,7 @@ No se usa ningún secreto ni variable `VITE_` para estas APIs.
 ## Prueba local (sin commitear secretos)
 Para desarrollo local con Pages Functions, usar archivo local de secretos (por ejemplo `.dev.vars`) y **no subirlo al repositorio**.
 
-Importante: `vite` por sí solo no ejecuta `functions/`; para probar `/api/metricas-posthog` localmente se debe usar runtime de Pages.
+Importante: `vite` por sí solo no ejecuta `functions/`; para probar `/api/metricas-posthog` localmente se debe usar runtime de Pages con `functions/` en la raíz del repositorio.
 
 Ejemplo:
 
@@ -114,9 +114,8 @@ Si no están configurados, el Tablero muestra métricas como **No disponible** s
 Comandos sugeridos para prueba local de Functions:
 
 ```bash
-npm --prefix apps/pm-portal run build
-cd apps/pm-portal
-npx wrangler pages dev dist --port 8788
+npm run build:pm
+npx wrangler pages dev apps/pm-portal/dist --port 8788
 ```
 
 Luego probar:
