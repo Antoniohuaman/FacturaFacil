@@ -19,5 +19,23 @@ export default defineConfig({
   preview: {
     port: 5175,
     strictPort: true
+  },
+  build: {
+    // Excel y analytics son features reales del producto y generan chunks grandes por diseño.
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          state: ['zustand'],
+          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
+          charts: ['recharts'],
+          excel: ['xlsx', 'exceljs'],
+          analytics: ['posthog-js', '@amplitude/analytics-browser', 'mixpanel-browser'],
+          dnd: ['@dnd-kit/core', '@dnd-kit/sortable'],
+          ui: ['lucide-react'],
+        },
+      },
+    },
   }
 })
