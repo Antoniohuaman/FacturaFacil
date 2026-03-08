@@ -1,7 +1,10 @@
 {
   "name": "facturafacil-monorepo",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -12,11 +15,7 @@
     "build:senciyo": "npm run build -w senciyo",
     "lint:senciyo": "npm run lint -w senciyo",
     "dev:pm": "npm run dev -w portal-pm",
-    "dev:pm:cf": "npm run build:pm && wrangler pages dev",
     "build:pm": "npm run build -w portal-pm",
     "lint:pm": "npm run lint -w portal-pm"
-  },
-  "devDependencies": {
-    "wrangler": "4.71.0"
   }
 }

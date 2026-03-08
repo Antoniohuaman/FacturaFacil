@@ -93,33 +93,7 @@ El frontend consume solo rutas relativas:
 
 No se usa ningún secreto ni variable `VITE_` para estas APIs.
 
-## Prueba local (sin commitear secretos)
-Para desarrollo local con Pages Functions, usar archivo local de secretos (por ejemplo `.dev.vars`) y **no subirlo al repositorio**.
+## Prueba local
+`vite` por sí solo no ejecuta `functions/`; en entorno local se puede validar el frontend y hacer pruebas de integración en un despliegue preview de Cloudflare Pages.
 
-Importante: `vite` por sí solo no ejecuta `functions/`; para probar `/api/metricas-posthog` localmente se debe usar runtime de Pages con `functions/` en la raíz del repositorio.
-
-Ejemplo:
-
-```env
-POSTHOG_HOST=https://us.i.posthog.com
-POSTHOG_PROJECT_ID=...
-POSTHOG_PERSONAL_API_KEY=...
-GITHUB_TOKEN=...
-GITHUB_OWNER=Antoniohuaman
-GITHUB_REPO=FacturaFacil
-```
-
-Si no están configurados, el Tablero muestra métricas como **No disponible** sin romper la página.
-
-Comandos sugeridos para prueba local de Functions:
-
-```bash
-npm run build:pm
-npx wrangler pages dev apps/pm-portal/dist --port 8788
-```
-
-Luego probar:
-
-```bash
-curl http://localhost:8788/api/metricas-posthog
-```
+Si faltan secretos de servidor en el proyecto de Pages, el Tablero muestra métricas como **No disponible** sin romper la página.

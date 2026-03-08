@@ -26,7 +26,7 @@ exclusivamente en el panel → Settings → Environment variables. No se usan ar
 > son visibles en el bundle del cliente por diseño. Aun así, no se commitean en archivos `.env`.
 >
 > La `SUPABASE_SERVICE_ROLE_KEY` y la `POSTHOG_PERSONAL_API_KEY` son claves de servidor:
-> van SOLO en Cloudflare (producción) o en `.dev.vars` (desarrollo local con Wrangler).
+> van SOLO en Cloudflare Pages como secrets de servidor.
 
 ---
 

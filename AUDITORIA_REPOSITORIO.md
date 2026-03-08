@@ -85,7 +85,7 @@ Esto no instala Node.js real; es un stub que contamina el lockfile y puede confu
 | Aspecto | Estado | Severidad |
 |---|---|---|
 | Sin GitHub Actions ni CI/CD en el repo | Ausencia crítica | P0 |
-| Sin `wrangler.toml` commiteado | Ausencia | P1 |
+| Configuración operativa centralizada en Cloudflare Pages dashboard | ✅ Activo | — |
 | Deployments Cloudflare configurados solo en el panel (sin IaC) | Riesgo | P1 |
 | Build de SenciYo: `tsc -b && vite build` | ✅ Estándar | — |
 | Build de PM Portal: genera `estado.json` + `tsc -b` + `vite build` | ✅ Bien | — |
@@ -115,8 +115,8 @@ Esto es un parche manual, no una solución de monorepo real. No hay pipeline uni
 | `.env` raíz: solo placeholders vacíos | ✅ Seguro | — |
 | `apps/pm-portal/.env`: contiene URL y anon_key Supabase **reales** | ⚠️ Riesgo local | P1 |
 | `.gitignore` excluye `.env` y `.env.*` correctamente | ✅ Correcto | — |
-| `SUPABASE_SERVICE_ROLE_KEY` solo en Cloudflare o `.dev.vars` | ✅ Correcto | — |
-| `POSTHOG_PERSONAL_API_KEY` solo en Cloudflare o `.dev.vars` | ✅ Correcto | — |
+| `SUPABASE_SERVICE_ROLE_KEY` solo en Cloudflare Pages (secret de servidor) | ✅ Correcto | — |
+| `POSTHOG_PERSONAL_API_KEY` solo en Cloudflare Pages (secret de servidor) | ✅ Correcto | — |
 | Claves publishable (`VITE_PUBLIC_*`) en `.env.example` sin valores | ✅ Correcto | — |
 | Sin CODEOWNERS: cualquier dev puede modificar archivos sensibles | Riesgo | P1 |
 | Archivo `.env` (no `.env.local`) con credenciales reales en PM Portal | Riesgo menor | P1 |
@@ -125,7 +125,7 @@ Esto es un parche manual, no una solución de monorepo real. No hay pipeline uni
 
 **Separación de secretos entre apps**: Las claves de SenciYo (PostHog client-side, Amplitude, Mixpanel) son completamente independientes de las de PM Portal (Supabase anon key, Supabase service role key, PostHog server-side API key). No hay contaminación cruzada de secretos. ✅
 
-**Riesgo potencial**: Un `git add .` en la raíz podría incluir `apps/pm-portal/.env` si el patrón `.gitignore` fallara por alguna razón (ej: archivo en untracked state al inicio del repo). Se recomienda agregar explícitamente `/apps/pm-portal/.env` al `.gitignore` raíz, tal como ya se hace con `.dev.vars`.
+**Riesgo potencial**: Un `git add .` en la raíz podría incluir `apps/pm-portal/.env` si el patrón `.gitignore` fallara por alguna razón (ej: archivo en untracked state al inicio del repo). Se recomienda agregar explícitamente `/apps/pm-portal/.env` al `.gitignore` raíz.
 
 ---
 
@@ -195,7 +195,7 @@ Con el crecimiento proyectado, los problemas actuales se amplifican:
 | AC-01 | Nombres de eventos PostHog duplicados sin contrato | `src/shared/analitica/eventosAnalitica.ts` vs `apps/pm-portal/functions/api/eventos-posthog-kpi.ts` — mismos strings, código independiente | Renombrar un evento en SenciYo rompe métricas del PM Portal en silencio | **P0** | Crear `packages/analytics-events` como fuente de verdad compartida |
 | AC-02 | Scripts raíz gestionan PM Portal con `npm --prefix` | `package.json` raíz, líneas 13–15: `"dev:portal-pm": "npm --prefix apps/pm-portal run dev"` | Acoplamiento operativo; el dev debe conocer la ubicación de cada app para usar el script correcto | P1 | Migrar a npm workspaces con scripts unificados |
 | AC-03 | SenciYo vive en la raíz del repo | `package.json` → `"name": "web"`, `src/`, `index.html`, `vite.config.ts` en raíz | Confunde la raíz del monorepo con la app SenciYo; bloquea añadir más apps con estructura limpia | P1 | Mover SenciYo a `apps/senciyo/` |
-| AC-04 | Un único `.gitignore` raíz gestiona secretos de ambas apps | `.gitignore` raíz excluye `.env`, `.env.*`, y `/apps/pm-portal/.dev.vars` | Si el patrón falla, la exposición afecta a ambas apps | P1 | Agregar `.gitignore` local en `apps/pm-portal/` para sus secretos propios |
+| AC-04 | Un único `.gitignore` raíz gestiona secretos de ambas apps | `.gitignore` raíz excluye `.env` y `.env.*` | Si el patrón falla, la exposición afecta a ambas apps | P1 | Agregar `.gitignore` local en `apps/pm-portal/` para sus secretos propios |
 | AC-05 | Código de autorización duplicado en PM Portal | `apps/pm-portal/functions/api/metricas-posthog.ts` líneas ~500–578 (inline) + `apps/pm-portal/functions/api/_autorizacion.ts` (módulo) | Bug de seguridad parchado en uno no se replica al otro | P1 | Eliminar la copia inline en `metricas-posthog.ts` y usar `_autorizacion.ts` |
 | AC-06 | Zod v3 (SenciYo) vs Zod v4 (PM Portal) | `package.json` raíz: `"zod": "^3.24.1"` vs `apps/pm-portal/package.json`: `"zod": "^4.3.6"` | Imposibilita compartir esquemas de validación entre apps sin refactoring mayor | P1 | Alinear a Zod v4 en SenciYo |
 | AC-07 | `app/shared/src/` vestigial no conectado a ninguna app | `app/shared/src/components/ConfirmationModal.tsx`, `UnderlinedFiltersTable.tsx`, `types.ts` — sin imports en `src/` ni en `apps/pm-portal/src/` | Confusión en onboarding: parece un paquete compartido funcional cuando no lo es | P2 | Eliminar el directorio o formalizarlo como `packages/ui` |
@@ -274,7 +274,7 @@ Con el crecimiento proyectado, los problemas actuales se amplifican:
 3. **CODEOWNERS** con granularidad por app: devs de PM Portal no pueden aprobar merges en `apps/senciyo/` sin revisión del equipo producto
 4. **Paquete `packages/analytics-events`** como única fuente de verdad para nombres de eventos PostHog
 5. **Zod alineado**: SenciYo debe migrar a v4 (o documentar explícitamente la razón para mantener v3 con fecha de expiración)
-6. **Wrangler TOML** de PM Portal commiteado al repo (sin secretos)
+6. **Configuración de entorno operativa en Cloudflare Pages dashboard** (sin secretos en repo)
 
 ---
 
@@ -296,7 +296,7 @@ Con el crecimiento proyectado, los problemas actuales se amplifican:
 | Configurar npm workspaces en `package.json` raíz | `package.json` raíz | Base para gestión unificada de dependencias |
 | Crear CODEOWNERS | `.github/CODEOWNERS` | Ownership explícito por app |
 | Alinear Zod a v4 en SenciYo | `package.json` raíz + todos los archivos que usan Zod en `src/` | Habilita compartir esquemas en el futuro |
-| Agregar `wrangler.toml` en `apps/pm-portal/` al repo | `apps/pm-portal/wrangler.toml` | Infraestructura como código; reproducibilidad |
+| Consolidar documentación de despliegue dashboard-driven para PM Portal | `README.md` y `apps/pm-portal/docs/*` | Evita ambigüedad y configuración híbrida |
 | Agregar entrada explícita `/apps/pm-portal/.env` en `.gitignore` raíz | `.gitignore` | Doble protección para credenciales reales |
 | Actualizar README con estructura real y comandos vigentes | `README.md` | Onboarding correcto para nuevos devs |
 
@@ -338,13 +338,13 @@ Con el crecimiento proyectado, los problemas actuales se amplifican:
 #### Build y CI/CD
 - [ ] GitHub Actions pipeline para SenciYo (con `paths` filter)
 - [ ] GitHub Actions pipeline para PM Portal (con `paths` filter)
-- [ ] `wrangler.toml` commiteado en `apps/pm-portal/`
+- [x] Estrategia dashboard-driven para variables y despliegue de PM Portal
 - [ ] Bundle de SenciYo analizado; `chunkSizeWarningLimit` reducido a ≤ 1000
 - [x] Build de PM Portal genera `estado.json` antes del build (correcto)
 
 #### Seguridad
 - [x] `.gitignore` excluye todos los archivos `.env` con credenciales reales
-- [x] Claves de servidor solo en Cloudflare / `.dev.vars`
+- [x] Claves de servidor solo en Cloudflare Pages (secretos)
 - [ ] `apps/pm-portal/.env` renombrado a `.env.local`
 - [ ] Entrada explícita `/apps/pm-portal/.env` en `.gitignore` raíz
 - [ ] Hook `pre-commit` para prevenir commits accidentales de secretos
