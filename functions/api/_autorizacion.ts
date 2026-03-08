@@ -1,6 +1,6 @@
 /**
  * Módulo compartido de autorización para Cloudflare Pages Functions.
- * Usado por: metricas-posthog (tiene su propio inline), resumen-repo.
+ * Usado por: metricas-posthog, resumen-repo.
  * El prefijo _ evita que Cloudflare lo exponga como endpoint.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'

@@ -39,5 +39,8 @@ apps/
 │   └── src/
 └── pm-portal/
 
+functions/
+└── api/                  ← Pages Functions usadas por PM Portal
+
 packages/
 └── analytics-events/
