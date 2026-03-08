@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { obtenerClienteSupabaseAdmin, type EntornoAuth, validarAutorizacion } from './_autorizacion'
 import type { ClaveMetricaKpi } from './config-metricas-kpi'
 import {
   EVENTOS_POSTHOG_KPI,
@@ -6,12 +6,10 @@ import {
   type EventoPosthogKpi
 } from './eventos-posthog-kpi'
 
-interface EntornoMetricasPosthog {
+interface EntornoMetricasPosthog extends EntornoAuth {
   POSTHOG_HOST?: string
   POSTHOG_PROJECT_ID?: string
   POSTHOG_PERSONAL_API_KEY?: string
-  SUPABASE_URL?: string
-  SUPABASE_SERVICE_ROLE_KEY?: string
   DIAGNOSTICO_METRICAS?: string
 }
 
@@ -70,13 +68,6 @@ const MAX_DIAS_RANGO_PERSONALIZADO = 365
 const TIMEOUT_POSTHOG_MS = 8_000
 
 const cacheMemoriaPorClave = new Map<string, RespuestaCacheada>()
-let clienteSupabaseAdminCache:
-  | {
-      supabaseUrl: string
-      serviceRoleKey: string
-      cliente: SupabaseClient
-    }
-  | null = null
 
 const definicionesMetricas = [
   {
@@ -172,18 +163,6 @@ interface FilaConfiguracionKpi {
   umbral_atencion: number | string | null
   activo: boolean | null
 }
-
-type ResultadoAutorizacion =
-  | {
-      autorizado: true
-      usuarioId: string
-    }
-  | {
-      autorizado: false
-      status: 401 | 403 | 500
-      motivo: string
-      codigoError: string
-    }
 
 interface ResultadoBloquePeriodo {
   usuariosActivos: number | null
@@ -484,96 +463,6 @@ function construirRespuestaNoDisponible(
     codigo_error: codigoError ?? null,
     diagnostico,
     metricas: definicionesMetricas.map((metrica) => construirMetrica(metrica, null, null, periodoDias))
-  }
-}
-
-function extraerTokenBearer(request: Request): string | null {
-  const headerAuthorization = request.headers.get('authorization')
-  if (!headerAuthorization) {
-    return null
-  }
-
-  const coincide = headerAuthorization.match(/^Bearer\s+(.+)$/i)
-  return coincide?.[1]?.trim() ?? null
-}
-
-function obtenerClienteSupabaseAdmin(env: EntornoMetricasPosthog): SupabaseClient | null {
-  const supabaseUrl = env.SUPABASE_URL?.trim()
-  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null
-  }
-
-  if (
-    clienteSupabaseAdminCache &&
-    clienteSupabaseAdminCache.supabaseUrl === supabaseUrl &&
-    clienteSupabaseAdminCache.serviceRoleKey === serviceRoleKey
-  ) {
-    return clienteSupabaseAdminCache.cliente
-  }
-
-  const cliente = createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false
-    }
-  })
-
-  clienteSupabaseAdminCache = {
-    supabaseUrl,
-    serviceRoleKey,
-    cliente
-  }
-
-  return cliente
-}
-
-async function validarAutorizacion(request: Request, env: EntornoMetricasPosthog): Promise<ResultadoAutorizacion> {
-  const clienteSupabaseAdmin = obtenerClienteSupabaseAdmin(env)
-  if (!clienteSupabaseAdmin) {
-    return {
-      autorizado: false,
-      status: 500,
-      motivo: 'Falta configuración de seguridad en el servidor.',
-      codigoError: 'configuracion_auth'
-    }
-  }
-
-  const token = extraerTokenBearer(request)
-  if (!token) {
-    return {
-      autorizado: false,
-      status: 401,
-      motivo: 'No autorizado. Inicia sesión nuevamente.',
-      codigoError: 'no_autorizado'
-    }
-  }
-
-  try {
-    const { data, error } = await clienteSupabaseAdmin.auth.getUser(token)
-
-    if (error || !data.user) {
-      return {
-        autorizado: false,
-        status: 403,
-        motivo: 'No autorizado. Inicia sesión nuevamente.',
-        codigoError: 'token_invalido'
-      }
-    }
-
-    return {
-      autorizado: true,
-      usuarioId: data.user.id
-    }
-  } catch {
-    return {
-      autorizado: false,
-      status: 500,
-      motivo: 'No se pudo validar la sesión.',
-      codigoError: 'auth_error'
-    }
   }
 }
 

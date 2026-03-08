@@ -20,7 +20,7 @@ let clienteSupabaseAdminCache: {
   cliente: SupabaseClient
 } | null = null
 
-function obtenerClienteSupabaseAdmin(env: EntornoAuth): SupabaseClient | null {
+export function obtenerClienteSupabaseAdmin(env: EntornoAuth): SupabaseClient | null {
   const supabaseUrl = env.SUPABASE_URL?.trim()
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim()
 
