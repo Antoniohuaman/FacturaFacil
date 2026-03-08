@@ -1,0 +1,28 @@
+name: CI — SenciYo
+
+on:
+  push:
+    paths:
+      - 'apps/senciyo/**'
+      - 'packages/**'
+  pull_request:
+    paths:
+      - 'apps/senciyo/**'
+      - 'packages/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run lint:senciyo
+
+      - run: npm run build:senciyo

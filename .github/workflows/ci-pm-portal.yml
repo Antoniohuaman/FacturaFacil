@@ -1,0 +1,32 @@
+name: CI — PM Portal
+
+on:
+  push:
+    paths:
+      - 'apps/pm-portal/**'
+      - 'functions/**'
+      - 'packages/**'
+  pull_request:
+    paths:
+      - 'apps/pm-portal/**'
+      - 'functions/**'
+      - 'packages/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run lint:pm
+
+      - run: npm run typecheck:functions
+
+      - run: npm run build:pm
