@@ -21,15 +21,19 @@ export default tseslint.config([
     }
   },
   {
-    files: ['src/**/*.{ts,tsx}', 'functions/**/*.ts'],
+    files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{
           group: [
-            '../../../src/**',
-            '../../../../src/**',
-            '../../../../../src/**',
-            '../../../../../../src/**',
+            'senciyo',
+            'senciyo/**',
+            'apps/senciyo',
+            'apps/senciyo/**',
+            '**/senciyo',
+            '**/senciyo/**',
+            '**/apps/senciyo',
+            '**/apps/senciyo/**',
           ],
           message: 'PM Portal no puede importar desde SenciYo. Usa packages/* para código compartido.',
         }],
