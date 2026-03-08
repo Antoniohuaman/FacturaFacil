@@ -8,6 +8,10 @@ import { ContextoSesionPortalPM, type SesionPortalPM } from '@/compartido/autent
 import type { RolUsuario } from '@/dominio/modelos'
 
 async function obtenerRolUsuario(idUsuario: string): Promise<RolUsuario | null> {
+  if (!clienteSupabase) {
+    return null
+  }
+
   const { data, error } = await clienteSupabase
     .from('perfiles')
     .select('rol')
@@ -29,7 +33,7 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (mensajeErrorConfiguracionSupabase) {
+    if (mensajeErrorConfiguracionSupabase || !clienteSupabase) {
       setError(mensajeErrorConfiguracionSupabase)
       setCargando(false)
       return
@@ -92,7 +96,7 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
       iniciarSesionConCorreo: async (correo: string, contrasena: string) => {
         setError(null)
 
-        if (mensajeErrorConfiguracionSupabase) {
+        if (mensajeErrorConfiguracionSupabase || !clienteSupabase) {
           setError(mensajeErrorConfiguracionSupabase)
           return false
         }
@@ -115,7 +119,7 @@ export function ProveedorSesionPortalPM({ children }: PropsWithChildren) {
       cerrarSesion: async () => {
         setError(null)
 
-        if (mensajeErrorConfiguracionSupabase) {
+        if (mensajeErrorConfiguracionSupabase || !clienteSupabase) {
           setUsuario(null)
           setAccessToken(null)
           setRol(null)

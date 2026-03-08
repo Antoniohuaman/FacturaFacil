@@ -83,9 +83,12 @@ export function PaginaTablero() {
     }
 
     const validarSaludSupabase = async () => {
-      if (mensajeErrorConfiguracionSupabase) {
+      if (mensajeErrorConfiguracionSupabase || !clienteSupabase) {
         setSaludSupabase('error')
-        setDetalleSupabase(mensajeErrorConfiguracionSupabase)
+        setDetalleSupabase(
+          mensajeErrorConfiguracionSupabase ??
+            'Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en Cloudflare Pages (Variables and Secrets).'
+        )
         return
       }
 
