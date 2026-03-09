@@ -21,6 +21,8 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -267,6 +269,24 @@ export function PaginaDecisiones() {
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
         >
           Limpiar
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            exportarCsv('decisiones.csv', [
+              { encabezado: 'Título', valor: (decision) => decision.titulo },
+              { encabezado: 'Estado', valor: (decision) => formatearEstadoLegible(decision.estado_codigo) },
+              { encabezado: 'Fecha', valor: (decision) => normalizarFechaPortal(decision.fecha_decision) },
+              { encabezado: 'Owner', valor: (decision) => decision.owner ?? 'Sin owner' },
+              { encabezado: 'Tags', valor: (decision) => decision.tags.join(', ') },
+              { encabezado: 'Iniciativa', valor: (decision) => iniciativas.find((iniciativa) => iniciativa.id === decision.iniciativa_id)?.nombre ?? '' },
+              { encabezado: 'Entrega', valor: (decision) => entregas.find((entrega) => entrega.id === decision.entrega_id)?.nombre ?? '' },
+              { encabezado: 'Ejecución', valor: (decision) => ejecuciones.find((ejecucion) => ejecucion.id === decision.ejecucion_validacion_id)?.fecha_ejecucion ?? '' }
+            ], decisionesFiltradas)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Exportar CSV
         </button>
         <button
           type="button"

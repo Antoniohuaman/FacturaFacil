@@ -29,7 +29,18 @@ export const menuPortal: ItemMenuPortal[] = [
       { etiqueta: 'Ejecuciones', ruta: '/validacion/ejecuciones' }
     ]
   },
+  {
+    etiqueta: 'Estrategia',
+    ruta: '/estrategia',
+    submenus: [
+      { etiqueta: 'Resumen estratégico', ruta: '/estrategia' },
+      { etiqueta: 'OKRs', ruta: '/estrategia/okrs' },
+      { etiqueta: 'KPIs', ruta: '/estrategia/kpis' },
+      { etiqueta: 'Hipótesis', ruta: '/estrategia/hipotesis' }
+    ]
+  },
   { etiqueta: 'Decisiones', ruta: '/decisiones' },
   { etiqueta: 'Auditorías', ruta: '/auditorias' },
-  { etiqueta: 'Ajustes', ruta: '/ajustes' }
+  { etiqueta: 'Ajustes', ruta: '/ajustes' },
+  { etiqueta: 'Trazabilidad', ruta: '/trazabilidad' }
 ]

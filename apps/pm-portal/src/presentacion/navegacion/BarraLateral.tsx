@@ -12,7 +12,8 @@ export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLat
 
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({
     Roadmap: true,
-    Validación: true
+    Validación: true,
+    Estrategia: true
   })
 
   const rutaActiva = ubicacion.pathname

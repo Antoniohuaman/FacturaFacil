@@ -38,6 +38,8 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -412,6 +414,22 @@ export function PaginaAuditorias() {
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
         >
           Crear hallazgo
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            exportarCsv('auditorias.csv', [
+              { encabezado: 'Fecha', valor: (auditoria) => normalizarFechaPortal(auditoria.fecha_auditoria) },
+              { encabezado: 'Tipo', valor: (auditoria) => auditoria.tipo_auditoria_codigo },
+              { encabezado: 'Estado', valor: (auditoria) => formatearEstadoLegible(auditoria.estado_codigo) },
+              { encabezado: 'Responsable', valor: (auditoria) => auditoria.responsable ?? 'Sin responsable' },
+              { encabezado: 'Alcance', valor: (auditoria) => auditoria.alcance },
+              { encabezado: 'Checklist', valor: (auditoria) => auditoria.checklist }
+            ], auditoriasFiltradas)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Exportar CSV auditorías
         </button>
       </div>
 

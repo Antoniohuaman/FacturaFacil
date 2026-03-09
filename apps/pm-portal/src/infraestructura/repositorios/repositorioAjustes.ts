@@ -334,19 +334,10 @@ export const repositorioAjustes = {
   },
 
   async obtenerConfiguracionRice() {
-    const { data, error } = await clienteSupabase
-      .from('configuracion_rice')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (error) {
-      throw new Error(error.message)
-    }
+    const data = await this.obtenerConfiguracionRiceActual()
 
     if (data) {
-      return data as ConfiguracionRice
+      return data
     }
 
     const { data: creada, error: errorCreacion } = await clienteSupabase
@@ -360,6 +351,21 @@ export const repositorioAjustes = {
     }
 
     return creada as ConfiguracionRice
+  },
+
+  async obtenerConfiguracionRiceActual() {
+    const { data, error } = await clienteSupabase
+      .from('configuracion_rice')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? null) as ConfiguracionRice | null
   },
 
   async guardarConfiguracionRice(entrada: ConfiguracionRiceEntrada) {

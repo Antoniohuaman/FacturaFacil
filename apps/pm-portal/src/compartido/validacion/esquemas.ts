@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import { estadosRegistro, prioridadesRegistro } from '@/dominio/modelos'
+import {
+  estadosRegistro,
+  frecuenciasEstrategicas,
+  prioridadesRegistro,
+  tendenciasKpiEstrategico
+} from '@/dominio/modelos'
 
 const estadoSchema = z.enum(estadosRegistro)
 const prioridadSchema = z.enum(prioridadesRegistro)
@@ -194,6 +199,78 @@ export const configuracionRiceSchema = z.object({
   esfuerzo_unidad: z.union([z.literal('persona_dia'), z.literal('persona_semana')])
 })
 
+export const periodoEstrategicoSchema = z
+  .object({
+    nombre: z.string().trim().min(3).max(120),
+    descripcion: z.string().trim().max(1000).nullable().optional(),
+    fecha_inicio: z.string().trim().min(10).max(20),
+    fecha_fin: z.string().trim().min(10).max(20),
+    activo: z.boolean()
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_inicio > valores.fecha_fin) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_fin'],
+        message: 'La fecha fin no puede ser menor que la fecha inicio'
+      })
+    }
+  })
+
+export const objetivoEstrategicoSchema = z.object({
+  periodo_id: z.string().uuid('Selecciona un periodo válido'),
+  codigo: z.string().trim().min(2).max(40),
+  titulo: z.string().trim().min(3).max(160),
+  descripcion: z.string().trim().min(5).max(4000),
+  prioridad: prioridadSchema,
+  estado: estadoSchema,
+  owner: z.string().trim().max(120).nullable().optional(),
+  notas: z.string().trim().max(4000).nullable().optional()
+})
+
+export const keyResultSchema = z.object({
+  objetivo_estrategico_id: z.string().uuid('Selecciona un objetivo estratégico válido'),
+  nombre: z.string().trim().min(3).max(160),
+  metrica: z.string().trim().min(2).max(160),
+  unidad: z.string().trim().min(1).max(60),
+  baseline: z.number().finite().nullable().optional(),
+  meta: z.number().finite().nullable().optional(),
+  valor_actual: z.number().finite().nullable().optional(),
+  frecuencia: z.enum(frecuenciasEstrategicas),
+  estado: estadoSchema,
+  owner: z.string().trim().max(120).nullable().optional()
+})
+
+export const kpiEstrategicoSchema = z.object({
+  periodo_id: z.string().uuid('Selecciona un periodo válido'),
+  nombre: z.string().trim().min(3).max(160),
+  definicion: z.string().trim().min(5).max(4000),
+  formula: z.string().trim().min(2).max(4000),
+  fuente: z.string().trim().min(2).max(200),
+  unidad: z.string().trim().min(1).max(60),
+  meta: z.number().finite().nullable().optional(),
+  umbral_bajo: z.number().finite().nullable().optional(),
+  umbral_alto: z.number().finite().nullable().optional(),
+  valor_actual: z.number().finite().nullable().optional(),
+  tendencia: z.enum(tendenciasKpiEstrategico),
+  estado: estadoSchema,
+  owner: z.string().trim().max(120).nullable().optional()
+})
+
+export const hipotesisSchema = z.object({
+  periodo_id: z.string().uuid('Selecciona un periodo válido'),
+  titulo: z.string().trim().min(3).max(160),
+  problema: z.string().trim().min(5).max(4000),
+  hipotesis: z.string().trim().min(5).max(4000),
+  impacto_esperado: z.string().trim().min(3).max(4000),
+  criterio_exito: z.string().trim().min(3).max(4000),
+  estado: estadoSchema,
+  prioridad: prioridadSchema,
+  owner: z.string().trim().max(120).nullable().optional(),
+  evidencia_url: z.string().url('Ingresa un enlace válido').nullable().optional().or(z.literal('')),
+  notas: z.string().trim().max(4000).nullable().optional()
+})
+
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
@@ -212,3 +289,8 @@ export type CatalogoEtapaPmEntrada = z.infer<typeof catalogoEtapaPmSchema>
 export type IntegracionPmEntrada = z.infer<typeof integracionPmSchema>
 export type KpiConfigPmEntrada = z.infer<typeof kpiConfigPmSchema>
 export type ConfiguracionRiceEntrada = z.infer<typeof configuracionRiceSchema>
+export type PeriodoEstrategicoEntrada = z.infer<typeof periodoEstrategicoSchema>
+export type ObjetivoEstrategicoEntrada = z.infer<typeof objetivoEstrategicoSchema>
+export type KeyResultEntrada = z.infer<typeof keyResultSchema>
+export type KpiEstrategicoEntrada = z.infer<typeof kpiEstrategicoSchema>
+export type HipotesisEntrada = z.infer<typeof hipotesisSchema>

@@ -21,6 +21,8 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '../../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -278,7 +280,7 @@ export function PaginaEntregasRoadmap() {
       </header>
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid gap-3 md:grid-cols-[1fr_220px_220px_auto_auto]">
+        <div className="grid gap-3 md:grid-cols-[1fr_220px_220px_auto_auto_auto]">
           <input
             type="search"
             value={busqueda}
@@ -339,6 +341,26 @@ export function PaginaEntregasRoadmap() {
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
           >
             Limpiar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              exportarCsv('roadmap-entregas.csv', [
+                { encabezado: 'Entrega', valor: (entrega) => entrega.nombre },
+                { encabezado: 'Descripción', valor: (entrega) => entrega.descripcion },
+                { encabezado: 'Iniciativa', valor: (entrega) => iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa' },
+                { encabezado: 'Ventana planificada', valor: (entrega) => ventanaPorId.get(entrega.ventana_planificada_id ?? '') ?? 'Sin asignar' },
+                { encabezado: 'Ventana real', valor: (entrega) => ventanaPorId.get(entrega.ventana_real_id ?? '') ?? 'Sin asignar' },
+                { encabezado: 'Fecha objetivo', valor: (entrega) => normalizarFechaPortal(entrega.fecha_objetivo) },
+                { encabezado: 'Fecha completado', valor: (entrega) => normalizarFechaPortal(entrega.fecha_completado) },
+                { encabezado: 'Estado', valor: (entrega) => formatearEstadoLegible(entrega.estado) },
+                { encabezado: 'Prioridad', valor: (entrega) => entrega.prioridad }
+              ], entregasFiltradas)
+            }}
+            aria-label="Exportar entregas a CSV"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+          >
+            Exportar CSV
           </button>
           <button
             type="button"

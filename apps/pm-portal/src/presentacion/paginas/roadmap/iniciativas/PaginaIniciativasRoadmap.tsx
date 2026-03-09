@@ -12,7 +12,9 @@ import {
   estadosRegistro,
   prioridadesRegistro,
   type Iniciativa,
-  type Objetivo
+  type Objetivo,
+  type RelIniciativaHipotesisPm,
+  type RelIniciativaKrPm
 } from '@/dominio/modelos'
 import {
   crearIniciativa,
@@ -22,6 +24,7 @@ import {
 } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { cargarConfiguracionRice, listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
+import { listarRelIniciativaHipotesis, listarRelIniciativaKr } from '@/aplicacion/casos-uso/estrategia'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -29,6 +32,8 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '../../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { calcularRice } from '@/compartido/utilidades/calcularRice'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -63,6 +68,8 @@ export function PaginaIniciativasRoadmap() {
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
   const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
+  const [relacionesKr, setRelacionesKr] = useState<RelIniciativaKrPm[]>([])
+  const [relacionesHipotesis, setRelacionesHipotesis] = useState<RelIniciativaHipotesisPm[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -142,16 +149,20 @@ export function PaginaIniciativasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaIniciativas, listaObjetivos, listaVentanas, listaEtapas] = await Promise.all([
+      const [listaIniciativas, listaObjetivos, listaVentanas, listaEtapas, relKrData, relHipotesisData] = await Promise.all([
         listarIniciativas(),
         listarObjetivos(),
         listarVentanasPm(),
-        listarEtapasPm()
+        listarEtapasPm(),
+        listarRelIniciativaKr(),
+        listarRelIniciativaHipotesis()
       ])
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
       setVentanas(listaVentanas)
       setEtapas(listaEtapas)
+      setRelacionesKr(relKrData)
+      setRelacionesHipotesis(relHipotesisData)
 
       const configuracion = await cargarConfiguracionRice()
       setConfiguracionRice(configuracion)
@@ -251,6 +262,20 @@ export function PaginaIniciativasRoadmap() {
     return new Map(etapas.map((etapa) => [etapa.id, etapa.etiqueta_visible]))
   }, [etapas])
 
+  const krPorIniciativa = useMemo(() => {
+    return relacionesKr.reduce(
+      (mapa, relacion) => mapa.set(relacion.iniciativa_id, (mapa.get(relacion.iniciativa_id) ?? 0) + 1),
+      new Map<string, number>()
+    )
+  }, [relacionesKr])
+
+  const hipotesisPorIniciativa = useMemo(() => {
+    return relacionesHipotesis.reduce(
+      (mapa, relacion) => mapa.set(relacion.iniciativa_id, (mapa.get(relacion.iniciativa_id) ?? 0) + 1),
+      new Map<string, number>()
+    )
+  }, [relacionesHipotesis])
+
   const helperAlcance = configuracionRice
     ? `Impactados por ${formatearAlcancePeriodoRice(configuracionRice.alcance_periodo)}`
     : 'Impactados (periodo)'
@@ -288,7 +313,7 @@ export function PaginaIniciativasRoadmap() {
       </header>
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid gap-3 md:grid-cols-[1fr_220px_auto_auto]">
+        <div className="grid gap-3 md:grid-cols-[1fr_220px_auto_auto_auto]">
           <input
             type="search"
             value={busqueda}
@@ -328,6 +353,27 @@ export function PaginaIniciativasRoadmap() {
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
           >
             Limpiar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              exportarCsv('roadmap-iniciativas.csv', [
+                { encabezado: 'Iniciativa', valor: (iniciativa) => iniciativa.nombre },
+                { encabezado: 'Descripción', valor: (iniciativa) => iniciativa.descripcion },
+                { encabezado: 'Objetivo', valor: (iniciativa) => objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo' },
+                { encabezado: 'Ventana', valor: (iniciativa) => ventanaPorId.get(iniciativa.ventana_planificada_id ?? '') ?? 'Sin asignar' },
+                { encabezado: 'Etapa', valor: (iniciativa) => etapaPorId.get(iniciativa.etapa_id ?? '') ?? 'Sin asignar' },
+                { encabezado: 'RICE', valor: (iniciativa) => iniciativa.rice },
+                { encabezado: 'Estado', valor: (iniciativa) => formatearEstadoLegible(iniciativa.estado) },
+                { encabezado: 'Prioridad', valor: (iniciativa) => iniciativa.prioridad },
+                { encabezado: 'KR vinculados', valor: (iniciativa) => krPorIniciativa.get(iniciativa.id) ?? 0 },
+                { encabezado: 'Hipótesis vinculadas', valor: (iniciativa) => hipotesisPorIniciativa.get(iniciativa.id) ?? 0 }
+              ], iniciativasFiltradas)
+            }}
+            aria-label="Exportar iniciativas a CSV"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+          >
+            Exportar CSV
           </button>
           <button
             type="button"
@@ -468,6 +514,9 @@ export function PaginaIniciativasRoadmap() {
                   <td className="px-3 py-2">
                     <p className="font-medium">{iniciativa.nombre}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{iniciativa.descripcion}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis
+                    </p>
                   </td>
                   <td className="px-3 py-2">{objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}</td>
                   <td className="px-3 py-2">

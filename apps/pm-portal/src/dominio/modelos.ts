@@ -257,8 +257,130 @@ export interface ConfiguracionRice {
   updated_at: string
 }
 
+export type AccionHistorialCambio = 'crear' | 'editar' | 'eliminar'
+
+export interface HistorialCambioPm {
+  id: string
+  modulo_codigo: string
+  entidad: string
+  entidad_id: string
+  accion: AccionHistorialCambio
+  resumen: string
+  actor_user_id: string | null
+  actor_email: string | null
+  antes_json: unknown | null
+  despues_json: unknown | null
+  metadata_json: unknown | null
+  created_at: string
+}
+
+export interface PeriodoEstrategicoPm {
+  id: string
+  nombre: string
+  descripcion: string | null
+  fecha_inicio: string
+  fecha_fin: string
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ObjetivoEstrategicoPm {
+  id: string
+  periodo_id: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  prioridad: PrioridadRegistro
+  estado: EstadoRegistro
+  owner: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type FrecuenciaEstrategica = 'semanal' | 'mensual' | 'trimestral'
+
+export interface KeyResultPm {
+  id: string
+  objetivo_estrategico_id: string
+  nombre: string
+  metrica: string
+  unidad: string
+  baseline: number | null
+  meta: number | null
+  valor_actual: number | null
+  frecuencia: FrecuenciaEstrategica
+  estado: EstadoRegistro
+  owner: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type TendenciaKpiEstrategico = 'sube' | 'estable' | 'baja'
+
+export interface KpiEstrategicoPm {
+  id: string
+  periodo_id: string
+  nombre: string
+  definicion: string
+  formula: string
+  fuente: string
+  unidad: string
+  meta: number | null
+  umbral_bajo: number | null
+  umbral_alto: number | null
+  valor_actual: number | null
+  tendencia: TendenciaKpiEstrategico
+  estado: EstadoRegistro
+  owner: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface HipotesisPm {
+  id: string
+  periodo_id: string
+  titulo: string
+  problema: string
+  hipotesis: string
+  impacto_esperado: string
+  criterio_exito: string
+  estado: EstadoRegistro
+  prioridad: PrioridadRegistro
+  owner: string | null
+  evidencia_url: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RelObjetivoRoadmapKrPm {
+  id: string
+  objetivo_roadmap_id: string
+  objetivo_estrategico_id: string
+  key_result_id: string
+  created_at: string
+}
+
+export interface RelIniciativaKrPm {
+  id: string
+  iniciativa_id: string
+  key_result_id: string
+  created_at: string
+}
+
+export interface RelIniciativaHipotesisPm {
+  id: string
+  iniciativa_id: string
+  hipotesis_id: string
+  created_at: string
+}
+
 export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
 export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
+export const frecuenciasEstrategicas: FrecuenciaEstrategica[] = ['semanal', 'mensual', 'trimestral']
+export const tendenciasKpiEstrategico: TendenciaKpiEstrategico[] = ['sube', 'estable', 'baja']
 
 export function formatearAlcancePeriodoRice(periodo: AlcancePeriodoRice) {
   if (periodo === 'semana') {
@@ -282,3 +404,13 @@ export function formatearEsfuerzoUnidadRice(unidad: EsfuerzoUnidadRice) {
 
 export const estadosRegistro: EstadoRegistro[] = ['pendiente', 'en_progreso', 'completado']
 export const prioridadesRegistro: PrioridadRegistro[] = ['baja', 'media', 'alta']
+
+export function formatearEstadoRegistro(estado: string) {
+  return estado
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letra) => letra.toUpperCase())
+}
+
+export function formatearPrioridadRegistro(prioridad: string) {
+  return prioridad.charAt(0).toUpperCase() + prioridad.slice(1)
+}

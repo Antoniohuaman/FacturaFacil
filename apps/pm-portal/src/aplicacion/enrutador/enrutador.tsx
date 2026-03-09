@@ -14,6 +14,11 @@ import { PaginaEjecucionesValidacion } from '@/presentacion/paginas/validacion/e
 import { PaginaDecisiones } from '@/presentacion/paginas/decisiones/PaginaDecisiones'
 import { PaginaAuditorias } from '@/presentacion/paginas/auditorias/PaginaAuditorias'
 import { PaginaAjustes } from '@/presentacion/paginas/ajustes/PaginaAjustes'
+import { PaginaResumenEstrategico } from '@/presentacion/paginas/estrategia/PaginaResumenEstrategico'
+import { PaginaOkrs } from '@/presentacion/paginas/estrategia/okrs/PaginaOkrs'
+import { PaginaKpisEstrategicos } from '@/presentacion/paginas/estrategia/kpis/PaginaKpisEstrategicos'
+import { PaginaHipotesis } from '@/presentacion/paginas/estrategia/hipotesis/PaginaHipotesis'
+import { PaginaTrazabilidad } from '@/presentacion/paginas/trazabilidad/PaginaTrazabilidad'
 
 export const enrutadorPortal = createBrowserRouter([
   {
@@ -37,9 +42,14 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'validacion', element: <PaginaValidacion /> },
       { path: 'validacion/por-modulo', element: <PaginaValidacionPorModulo /> },
       { path: 'validacion/ejecuciones', element: <PaginaEjecucionesValidacion /> },
+      { path: 'estrategia', element: <PaginaResumenEstrategico /> },
+      { path: 'estrategia/okrs', element: <PaginaOkrs /> },
+      { path: 'estrategia/kpis', element: <PaginaKpisEstrategicos /> },
+      { path: 'estrategia/hipotesis', element: <PaginaHipotesis /> },
       { path: 'decisiones', element: <PaginaDecisiones /> },
       { path: 'auditorias', element: <PaginaAuditorias /> },
-      { path: 'ajustes', element: <PaginaAjustes /> }
+      { path: 'ajustes', element: <PaginaAjustes /> },
+      { path: 'trazabilidad', element: <PaginaTrazabilidad /> }
     ]
   }
 ])

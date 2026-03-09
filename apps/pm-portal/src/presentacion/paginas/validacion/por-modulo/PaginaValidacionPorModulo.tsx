@@ -26,6 +26,8 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -267,6 +269,23 @@ export function PaginaValidacionPorModulo() {
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
         >
           Limpiar filtros
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            exportarCsv('validacion-por-modulo.csv', [
+              { encabezado: 'Plan', valor: (plan) => plan.nombre },
+              { encabezado: 'Módulo', valor: (plan) => moduloPorId.get(plan.modulo_id) ?? 'No disponible' },
+              { encabezado: 'Estado', valor: (plan) => formatearEstadoLegible(plan.estado_codigo) },
+              { encabezado: 'Owner', valor: (plan) => plan.owner ?? 'Sin owner' },
+              { encabezado: 'Fecha inicio', valor: (plan) => normalizarFechaPortal(plan.fecha_inicio) },
+              { encabezado: 'Fecha fin', valor: (plan) => normalizarFechaPortal(plan.fecha_fin) },
+              { encabezado: 'Notas', valor: (plan) => plan.notas ?? '' }
+            ], planesFiltrados)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Exportar CSV
         </button>
         <button
           type="button"

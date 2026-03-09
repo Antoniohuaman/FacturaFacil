@@ -21,6 +21,8 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -246,6 +248,23 @@ export function PaginaEjecucionesValidacion() {
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
         >
           Limpiar
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            exportarCsv('ejecuciones-validacion.csv', [
+              { encabezado: 'Fecha', valor: (ejecucion) => normalizarFechaPortal(ejecucion.fecha_ejecucion) },
+              { encabezado: 'Plan', valor: (ejecucion) => planPorId.get(ejecucion.plan_validacion_id) ?? 'No disponible' },
+              { encabezado: 'Módulo', valor: (ejecucion) => moduloPorId.get(ejecucion.modulo_id) ?? 'No disponible' },
+              { encabezado: 'Estado', valor: (ejecucion) => formatearEstadoLegible(ejecucion.estado_codigo) },
+              { encabezado: 'Rango desde', valor: (ejecucion) => normalizarFechaPortal(ejecucion.rango_desde) },
+              { encabezado: 'Rango hasta', valor: (ejecucion) => normalizarFechaPortal(ejecucion.rango_hasta) },
+              { encabezado: 'Aprobador', valor: (ejecucion) => ejecucion.aprobador ?? 'Sin aprobador' }
+            ], ejecucionesFiltradas)
+          }}
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Exportar CSV
         </button>
         <button
           type="button"

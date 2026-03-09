@@ -27,6 +27,8 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -422,6 +424,27 @@ export function PaginaMatrizValor() {
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
         >
           Limpiar
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            exportarCsv('matriz-valor.csv', [
+              { encabezado: 'Título', valor: (matriz) => matriz.titulo },
+              { encabezado: 'Iniciativa', valor: (matriz) => iniciativaPorId.get(matriz.iniciativa_id) ?? 'Sin iniciativa' },
+              { encabezado: 'Ventana', valor: (matriz) => iniciativaPlanificacion.get(matriz.iniciativa_id)?.ventana ?? 'Sin asignar' },
+              { encabezado: 'Etapa', valor: (matriz) => iniciativaPlanificacion.get(matriz.iniciativa_id)?.etapa ?? 'Sin asignar' },
+              { encabezado: 'Valor negocio', valor: (matriz) => matriz.valor_negocio },
+              { encabezado: 'Esfuerzo', valor: (matriz) => matriz.esfuerzo },
+              { encabezado: 'Riesgo', valor: (matriz) => matriz.riesgo },
+              { encabezado: 'Puntaje', valor: (matriz) => matriz.puntaje_valor },
+              { encabezado: 'Estado', valor: (matriz) => formatearEstadoLegible(matriz.estado) },
+              { encabezado: 'Prioridad', valor: (matriz) => matriz.prioridad }
+            ], matricesFiltradas)
+          }}
+          aria-label="Exportar matriz de valor a CSV"
+          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+        >
+          Exportar CSV
         </button>
         <button
           type="button"

@@ -2,23 +2,27 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { objetivoSchema, type ObjetivoEntrada } from '@/compartido/validacion/esquemas'
-import { estadosRegistro, prioridadesRegistro, type Objetivo } from '@/dominio/modelos'
+import { estadosRegistro, prioridadesRegistro, type Objetivo, type RelObjetivoRoadmapKrPm } from '@/dominio/modelos'
 import {
   crearObjetivo,
   editarObjetivo,
   eliminarObjetivo,
   listarObjetivos
 } from '@/aplicacion/casos-uso/objetivos'
+import { listarRelObjetivoRoadmapKr } from '@/aplicacion/casos-uso/estrategia'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
+import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
 export function PaginaObjetivosRoadmap() {
   const { rol } = useSesionPortalPM()
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
+  const [relacionesKr, setRelacionesKr] = useState<RelObjetivoRoadmapKrPm[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
@@ -49,8 +53,9 @@ export function PaginaObjetivosRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const data = await listarObjetivos()
+      const [data, relaciones] = await Promise.all([listarObjetivos(), listarRelObjetivoRoadmapKr()])
       setObjetivos(data)
+      setRelacionesKr(relaciones)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar objetivos')
     } finally {
@@ -75,6 +80,13 @@ export function PaginaObjetivosRoadmap() {
     })
   }, [objetivos, busqueda, filtroEstado, filtroPrioridad])
 
+  const krPorObjetivo = useMemo(() => {
+    return relacionesKr.reduce(
+      (mapa, relacion) => mapa.set(relacion.objetivo_roadmap_id, (mapa.get(relacion.objetivo_roadmap_id) ?? 0) + 1),
+      new Map<string, number>()
+    )
+  }, [relacionesKr])
+
   const abrirModal = (modo: ModoModal, objetivo?: Objetivo) => {
     setModoModal(modo)
     setObjetivoActivo(objetivo ?? null)
@@ -97,7 +109,7 @@ export function PaginaObjetivosRoadmap() {
       </header>
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
           <input
             type="search"
             value={busqueda}
@@ -106,6 +118,22 @@ export function PaginaObjetivosRoadmap() {
             aria-label="Buscar objetivos"
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 dark:border-slate-700 dark:bg-slate-800"
           />
+          <button
+            type="button"
+            onClick={() => {
+              exportarCsv('roadmap-objetivos.csv', [
+                { encabezado: 'Nombre', valor: (objetivo) => objetivo.nombre },
+                { encabezado: 'Descripción', valor: (objetivo) => objetivo.descripcion },
+                { encabezado: 'Estado', valor: (objetivo) => formatearEstadoLegible(objetivo.estado) },
+                { encabezado: 'Prioridad', valor: (objetivo) => objetivo.prioridad },
+                { encabezado: 'Vínculos KR', valor: (objetivo) => krPorObjetivo.get(objetivo.id) ?? 0 }
+              ], objetivosFiltrados)
+            }}
+            aria-label="Exportar objetivos a CSV"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
+          >
+            Exportar CSV
+          </button>
           <button
             type="button"
             disabled={!esEdicionPermitida}
@@ -197,6 +225,7 @@ export function PaginaObjetivosRoadmap() {
                 <th className="px-3 py-2">Nombre</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Prioridad</th>
+                <th className="px-3 py-2">Vínculo estratégico</th>
                 <th className="px-3 py-2">Acciones</th>
               </tr>
             </thead>
@@ -209,6 +238,7 @@ export function PaginaObjetivosRoadmap() {
                   </td>
                   <td className="px-3 py-2">{objetivo.estado}</td>
                   <td className="px-3 py-2">{objetivo.prioridad}</td>
+                  <td className="px-3 py-2">{krPorObjetivo.get(objetivo.id) ? `${krPorObjetivo.get(objetivo.id)} KR vinculados` : 'Sin vínculo'}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
                       <button
