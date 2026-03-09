@@ -34,6 +34,7 @@ export const menuPortal: ItemMenuPortal[] = [
     ruta: '/estrategia',
     submenus: [
       { etiqueta: 'Resumen estratégico', ruta: '/estrategia' },
+      { etiqueta: 'Períodos', ruta: '/estrategia/periodos' },
       { etiqueta: 'OKRs', ruta: '/estrategia/okrs' },
       { etiqueta: 'KPIs', ruta: '/estrategia/kpis' },
       { etiqueta: 'Hipótesis', ruta: '/estrategia/hipotesis' }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiEstrategicoSchema, type KpiEstrategicoEntrada } from '@/compartido/validacion/esquemas'
@@ -34,6 +35,7 @@ export function PaginaKpisEstrategicos() {
   const [kpiActivo, setKpiActivo] = useState<KpiEstrategicoPm | null>(null)
 
   const esEdicionPermitida = puedeEditar(rol)
+  const hayPeriodos = periodos.length > 0
 
   const formulario = useForm<KpiEstrategicoEntrada>({
     resolver: zodResolver(kpiEstrategicoSchema),
@@ -127,8 +129,17 @@ export function PaginaKpisEstrategicos() {
           {estadosRegistro.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
         </select>
         <input value={filtroOwner} onChange={(evento) => setFiltroOwner(evento.target.value)} placeholder="Filtrar por owner" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
-        <button type="button" disabled={!esEdicionPermitida} onClick={() => abrirModal('crear')} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900">Crear KPI</button>
+        <button type="button" disabled={!esEdicionPermitida || !hayPeriodos} onClick={() => abrirModal('crear')} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900">Crear KPI</button>
       </div>
+
+      {!hayPeriodos ? (
+        <article className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="font-medium">No hay períodos estratégicos disponibles para asignar el KPI.</p>
+          <p className="mt-1">
+            Crea el dato maestro en <Link to="/estrategia/periodos" className="font-medium underline underline-offset-2">Períodos</Link> y luego vuelve a esta pantalla.
+          </p>
+        </article>
+      ) : null}
 
       <EstadoVista cargando={cargando} error={error} vacio={kpisFiltrados.length === 0} mensajeVacio="No hay KPIs para los filtros seleccionados.">
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">

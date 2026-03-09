@@ -15,6 +15,7 @@ import { PaginaDecisiones } from '@/presentacion/paginas/decisiones/PaginaDecisi
 import { PaginaAuditorias } from '@/presentacion/paginas/auditorias/PaginaAuditorias'
 import { PaginaAjustes } from '@/presentacion/paginas/ajustes/PaginaAjustes'
 import { PaginaResumenEstrategico } from '@/presentacion/paginas/estrategia/PaginaResumenEstrategico'
+import { PaginaPeriodosEstrategicos } from '@/presentacion/paginas/estrategia/periodos/PaginaPeriodosEstrategicos'
 import { PaginaOkrs } from '@/presentacion/paginas/estrategia/okrs/PaginaOkrs'
 import { PaginaKpisEstrategicos } from '@/presentacion/paginas/estrategia/kpis/PaginaKpisEstrategicos'
 import { PaginaHipotesis } from '@/presentacion/paginas/estrategia/hipotesis/PaginaHipotesis'
@@ -43,6 +44,7 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'validacion/por-modulo', element: <PaginaValidacionPorModulo /> },
       { path: 'validacion/ejecuciones', element: <PaginaEjecucionesValidacion /> },
       { path: 'estrategia', element: <PaginaResumenEstrategico /> },
+      { path: 'estrategia/periodos', element: <PaginaPeriodosEstrategicos /> },
       { path: 'estrategia/okrs', element: <PaginaOkrs /> },
       { path: 'estrategia/kpis', element: <PaginaKpisEstrategicos /> },
       { path: 'estrategia/hipotesis', element: <PaginaHipotesis /> },

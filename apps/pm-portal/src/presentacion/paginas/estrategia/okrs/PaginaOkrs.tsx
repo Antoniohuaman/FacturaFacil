@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -65,6 +66,8 @@ export function PaginaOkrs() {
   const [iniciativasSeleccionadas, setIniciativasSeleccionadas] = useState<string[]>([])
 
   const esEdicionPermitida = puedeEditar(rol)
+  const hayPeriodos = periodos.length > 0
+  const hayObjetivosEstrategicos = objetivosEstrategicos.length > 0
 
   const formularioObjetivo = useForm<ObjetivoEstrategicoEntrada>({
     resolver: zodResolver(objetivoEstrategicoSchema),
@@ -254,7 +257,7 @@ export function PaginaOkrs() {
         </select>
         <button
           type="button"
-          disabled={!esEdicionPermitida}
+          disabled={!esEdicionPermitida || !hayPeriodos}
           onClick={() => abrirModalObjetivo('crear')}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
         >
@@ -262,13 +265,29 @@ export function PaginaOkrs() {
         </button>
         <button
           type="button"
-          disabled={!esEdicionPermitida}
+          disabled={!esEdicionPermitida || !hayObjetivosEstrategicos}
           onClick={() => abrirModalKr('crear')}
           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
         >
           Crear KR
         </button>
       </div>
+
+      {!hayPeriodos ? (
+        <article className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="font-medium">Antes de crear OKRs debes definir al menos un período estratégico.</p>
+          <p className="mt-1">
+            Crea el dato maestro en <Link to="/estrategia/periodos" className="font-medium underline underline-offset-2">Períodos</Link> y luego vuelve aquí para crear objetivos estratégicos.
+          </p>
+        </article>
+      ) : null}
+
+      {hayPeriodos && !hayObjetivosEstrategicos ? (
+        <article className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          <p className="font-medium text-slate-900 dark:text-slate-100">Siguiente paso del flujo</p>
+          <p className="mt-1">Ya existen períodos. Crea un objetivo estratégico para habilitar el selector de KR.</p>
+        </article>
+      ) : null}
 
       <EstadoVista cargando={cargando} error={error} vacio={objetivosFiltrados.length === 0} mensajeVacio="No hay OKRs para los filtros seleccionados.">
         <div className="grid gap-4 lg:grid-cols-2">

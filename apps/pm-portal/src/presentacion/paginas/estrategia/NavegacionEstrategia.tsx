@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 const enlaces = [
   { etiqueta: 'Resumen estratégico', ruta: '/estrategia' },
+  { etiqueta: 'Períodos', ruta: '/estrategia/periodos' },
   { etiqueta: 'OKRs', ruta: '/estrategia/okrs' },
   { etiqueta: 'KPIs', ruta: '/estrategia/kpis' },
   { etiqueta: 'Hipótesis', ruta: '/estrategia/hipotesis' }
