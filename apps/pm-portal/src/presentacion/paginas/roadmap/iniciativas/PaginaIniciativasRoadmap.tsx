@@ -13,6 +13,7 @@ import {
   prioridadesRegistro,
   type Iniciativa,
   type Objetivo,
+  type RelHipotesisDiscoveryIniciativaPm,
   type RelIniciativaHipotesisPm,
   type RelIniciativaKrPm
 } from '@/dominio/modelos'
@@ -25,6 +26,7 @@ import {
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { cargarConfiguracionRice, listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarRelIniciativaHipotesis, listarRelIniciativaKr } from '@/aplicacion/casos-uso/estrategia'
+import { listarRelHipotesisDiscoveryIniciativa } from '@/aplicacion/casos-uso/discovery'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -70,6 +72,7 @@ export function PaginaIniciativasRoadmap() {
   const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
   const [relacionesKr, setRelacionesKr] = useState<RelIniciativaKrPm[]>([])
   const [relacionesHipotesis, setRelacionesHipotesis] = useState<RelIniciativaHipotesisPm[]>([])
+  const [relacionesHipotesisDiscovery, setRelacionesHipotesisDiscovery] = useState<RelHipotesisDiscoveryIniciativaPm[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -149,13 +152,14 @@ export function PaginaIniciativasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaIniciativas, listaObjetivos, listaVentanas, listaEtapas, relKrData, relHipotesisData] = await Promise.all([
+      const [listaIniciativas, listaObjetivos, listaVentanas, listaEtapas, relKrData, relHipotesisData, relHipotesisDiscoveryData] = await Promise.all([
         listarIniciativas(),
         listarObjetivos(),
         listarVentanasPm(),
         listarEtapasPm(),
         listarRelIniciativaKr(),
-        listarRelIniciativaHipotesis()
+        listarRelIniciativaHipotesis(),
+        listarRelHipotesisDiscoveryIniciativa()
       ])
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
@@ -163,6 +167,7 @@ export function PaginaIniciativasRoadmap() {
       setEtapas(listaEtapas)
       setRelacionesKr(relKrData)
       setRelacionesHipotesis(relHipotesisData)
+      setRelacionesHipotesisDiscovery(relHipotesisDiscoveryData)
 
       const configuracion = await cargarConfiguracionRice()
       setConfiguracionRice(configuracion)
@@ -276,6 +281,13 @@ export function PaginaIniciativasRoadmap() {
     )
   }, [relacionesHipotesis])
 
+  const hipotesisDiscoveryPorIniciativa = useMemo(() => {
+    return relacionesHipotesisDiscovery.reduce(
+      (mapa, relacion) => mapa.set(relacion.iniciativa_id, (mapa.get(relacion.iniciativa_id) ?? 0) + 1),
+      new Map<string, number>()
+    )
+  }, [relacionesHipotesisDiscovery])
+
   const helperAlcance = configuracionRice
     ? `Impactados por ${formatearAlcancePeriodoRice(configuracionRice.alcance_periodo)}`
     : 'Impactados (periodo)'
@@ -367,7 +379,8 @@ export function PaginaIniciativasRoadmap() {
                 { encabezado: 'Estado', valor: (iniciativa) => formatearEstadoLegible(iniciativa.estado) },
                 { encabezado: 'Prioridad', valor: (iniciativa) => iniciativa.prioridad },
                 { encabezado: 'KR vinculados', valor: (iniciativa) => krPorIniciativa.get(iniciativa.id) ?? 0 },
-                { encabezado: 'Hipótesis vinculadas', valor: (iniciativa) => hipotesisPorIniciativa.get(iniciativa.id) ?? 0 }
+                { encabezado: 'Hipótesis estrategia vinculadas', valor: (iniciativa) => hipotesisPorIniciativa.get(iniciativa.id) ?? 0 },
+                { encabezado: 'Hipótesis discovery vinculadas', valor: (iniciativa) => hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0 }
               ], iniciativasFiltradas)
             }}
             aria-label="Exportar iniciativas a CSV"
@@ -515,7 +528,7 @@ export function PaginaIniciativasRoadmap() {
                     <p className="font-medium">{iniciativa.nombre}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{iniciativa.descripcion}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis
+                      {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis estrategia · {hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0} hipótesis discovery
                     </p>
                   </td>
                   <td className="px-3 py-2">{objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}</td>

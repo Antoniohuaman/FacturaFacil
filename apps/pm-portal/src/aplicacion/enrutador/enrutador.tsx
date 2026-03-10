@@ -20,6 +20,12 @@ import { PaginaOkrs } from '@/presentacion/paginas/estrategia/okrs/PaginaOkrs'
 import { PaginaKpisEstrategicos } from '@/presentacion/paginas/estrategia/kpis/PaginaKpisEstrategicos'
 import { PaginaHipotesis } from '@/presentacion/paginas/estrategia/hipotesis/PaginaHipotesis'
 import { PaginaTrazabilidad } from '@/presentacion/paginas/trazabilidad/PaginaTrazabilidad'
+import { PaginaResumenDiscovery } from '@/presentacion/paginas/discovery/PaginaResumenDiscovery'
+import { PaginaInsights } from '@/presentacion/paginas/discovery/insights/PaginaInsights'
+import { PaginaProblemasOportunidades } from '@/presentacion/paginas/discovery/problemas/PaginaProblemasOportunidades'
+import { PaginaInvestigaciones } from '@/presentacion/paginas/discovery/investigaciones/PaginaInvestigaciones'
+import { PaginaSegmentos } from '@/presentacion/paginas/discovery/segmentos/PaginaSegmentos'
+import { PaginaHipotesisDiscovery } from '@/presentacion/paginas/discovery/hipotesis/PaginaHipotesisDiscovery'
 
 export const enrutadorPortal = createBrowserRouter([
   {
@@ -48,6 +54,12 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'estrategia/okrs', element: <PaginaOkrs /> },
       { path: 'estrategia/kpis', element: <PaginaKpisEstrategicos /> },
       { path: 'estrategia/hipotesis', element: <PaginaHipotesis /> },
+      { path: 'discovery', element: <PaginaResumenDiscovery /> },
+      { path: 'discovery/insights', element: <PaginaInsights /> },
+      { path: 'discovery/problemas', element: <PaginaProblemasOportunidades /> },
+      { path: 'discovery/investigaciones', element: <PaginaInvestigaciones /> },
+      { path: 'discovery/segmentos', element: <PaginaSegmentos /> },
+      { path: 'discovery/hipotesis', element: <PaginaHipotesisDiscovery /> },
       { path: 'decisiones', element: <PaginaDecisiones /> },
       { path: 'auditorias', element: <PaginaAuditorias /> },
       { path: 'ajustes', element: <PaginaAjustes /> },

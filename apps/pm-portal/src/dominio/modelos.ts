@@ -377,10 +377,127 @@ export interface RelIniciativaHipotesisPm {
   created_at: string
 }
 
+export type TipoProblemaOportunidadDiscovery = 'problema' | 'oportunidad'
+
+export interface SegmentoDiscoveryPm {
+  id: string
+  nombre: string
+  descripcion: string | null
+  necesidades: string | null
+  dolores: string | null
+  contexto: string | null
+  activo: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface InsightDiscoveryPm {
+  id: string
+  titulo: string
+  descripcion: string
+  fuente: string
+  tipo: string
+  relevancia: PrioridadRegistro
+  modulo_codigo: string | null
+  segmento_id: string | null
+  evidencia_url: string | null
+  estado: EstadoRegistro
+  owner: string | null
+  fecha_hallazgo: string
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProblemaOportunidadDiscoveryPm {
+  id: string
+  tipo: TipoProblemaOportunidadDiscovery
+  titulo: string
+  descripcion: string
+  impacto: string
+  prioridad: PrioridadRegistro
+  segmento_id: string | null
+  modulo_codigo: string | null
+  estado: EstadoRegistro
+  owner: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface InvestigacionDiscoveryPm {
+  id: string
+  titulo: string
+  tipo_investigacion: string
+  fecha_investigacion: string
+  segmento_id: string | null
+  participantes_resumen: string
+  resumen: string
+  hallazgos: string
+  conclusion: string
+  evidencia_url: string | null
+  estado: EstadoRegistro
+  owner: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface HipotesisDiscoveryPm {
+  id: string
+  titulo: string
+  problema_id: string | null
+  hipotesis: string
+  cambio_propuesto: string
+  resultado_esperado: string
+  criterio_exito: string
+  prioridad: PrioridadRegistro
+  estado: EstadoRegistro
+  owner: string | null
+  evidencia_url: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RelInsightProblemaPm {
+  id: string
+  insight_id: string
+  problema_oportunidad_id: string
+  created_at: string
+}
+
+export interface RelInvestigacionInsightPm {
+  id: string
+  investigacion_id: string
+  insight_id: string
+  created_at: string
+}
+
+export interface RelHipotesisDiscoveryIniciativaPm {
+  id: string
+  hipotesis_discovery_id: string
+  iniciativa_id: string
+  created_at: string
+}
+
+export interface RelProblemaObjetivoEstrategicoPm {
+  id: string
+  problema_oportunidad_id: string
+  objetivo_estrategico_id: string
+  created_at: string
+}
+
+export interface RelInsightDecisionPm {
+  id: string
+  insight_id: string
+  decision_id: string
+  created_at: string
+}
+
 export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
 export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
 export const frecuenciasEstrategicas: FrecuenciaEstrategica[] = ['semanal', 'mensual', 'trimestral']
 export const tendenciasKpiEstrategico: TendenciaKpiEstrategico[] = ['sube', 'estable', 'baja']
+export const tiposProblemaOportunidadDiscovery: TipoProblemaOportunidadDiscovery[] = ['problema', 'oportunidad']
 
 export function formatearAlcancePeriodoRice(periodo: AlcancePeriodoRice) {
   if (periodo === 'semana') {

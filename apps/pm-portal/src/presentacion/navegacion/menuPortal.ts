@@ -40,6 +40,18 @@ export const menuPortal: ItemMenuPortal[] = [
       { etiqueta: 'Hipótesis', ruta: '/estrategia/hipotesis' }
     ]
   },
+  {
+    etiqueta: 'Discovery',
+    ruta: '/discovery',
+    submenus: [
+      { etiqueta: 'Resumen discovery', ruta: '/discovery' },
+      { etiqueta: 'Insights', ruta: '/discovery/insights' },
+      { etiqueta: 'Problemas y oportunidades', ruta: '/discovery/problemas' },
+      { etiqueta: 'Investigaciones', ruta: '/discovery/investigaciones' },
+      { etiqueta: 'Segmentos', ruta: '/discovery/segmentos' },
+      { etiqueta: 'Hipótesis discovery', ruta: '/discovery/hipotesis' }
+    ]
+  },
   { etiqueta: 'Decisiones', ruta: '/decisiones' },
   { etiqueta: 'Auditorías', ruta: '/auditorias' },
   { etiqueta: 'Ajustes', ruta: '/ajustes' },

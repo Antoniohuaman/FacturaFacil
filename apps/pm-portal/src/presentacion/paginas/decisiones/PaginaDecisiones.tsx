@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSearchParams } from 'react-router-dom'
 import { decisionPmSchema, type DecisionPmEntrada } from '@/compartido/validacion/esquemas'
-import type { CatalogoEstadoPm, DecisionPm, EjecucionValidacion, Entrega, Iniciativa } from '@/dominio/modelos'
+import type { CatalogoEstadoPm, DecisionPm, EjecucionValidacion, Entrega, Iniciativa, RelInsightDecisionPm } from '@/dominio/modelos'
 import {
   crearDecisionPm,
   editarDecisionPm,
@@ -15,6 +15,7 @@ import { listarEstadosPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
+import { listarRelInsightDecision } from '@/aplicacion/casos-uso/discovery'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -52,6 +53,7 @@ export function PaginaDecisiones() {
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [ejecuciones, setEjecuciones] = useState<EjecucionValidacion[]>([])
   const [estados, setEstados] = useState<CatalogoEstadoPm[]>([])
+  const [relacionesInsight, setRelacionesInsight] = useState<RelInsightDecisionPm[]>([])
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
   const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') ?? 'todos')
   const [fechaDesde, setFechaDesde] = useState(searchParams.get('desde') ?? '')
@@ -88,12 +90,13 @@ export function PaginaDecisiones() {
     setError(null)
 
     try {
-      const [decisionesData, iniciativasData, entregasData, ejecucionesData, estadosData] = await Promise.all([
+      const [decisionesData, iniciativasData, entregasData, ejecucionesData, estadosData, relInsightsData] = await Promise.all([
         listarDecisionesPm(),
         listarIniciativas(),
         listarEntregas(),
         listarEjecucionesValidacion(),
-        listarEstadosPm('decision')
+        listarEstadosPm('decision'),
+        listarRelInsightDecision()
       ])
 
       setDecisiones(decisionesData)
@@ -101,6 +104,7 @@ export function PaginaDecisiones() {
       setEntregas(entregasData)
       setEjecuciones(ejecucionesData)
       setEstados(estadosData.filter((estado) => estado.activo))
+      setRelacionesInsight(relInsightsData)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar decisiones')
     } finally {
@@ -207,6 +211,13 @@ export function PaginaDecisiones() {
     }
   }
 
+  const insightsPorDecision = useMemo(() => {
+    return relacionesInsight.reduce(
+      (mapa, relacion) => mapa.set(relacion.decision_id, (mapa.get(relacion.decision_id) ?? 0) + 1),
+      new Map<string, number>()
+    )
+  }, [relacionesInsight])
+
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-1">
@@ -281,7 +292,8 @@ export function PaginaDecisiones() {
               { encabezado: 'Tags', valor: (decision) => decision.tags.join(', ') },
               { encabezado: 'Iniciativa', valor: (decision) => iniciativas.find((iniciativa) => iniciativa.id === decision.iniciativa_id)?.nombre ?? '' },
               { encabezado: 'Entrega', valor: (decision) => entregas.find((entrega) => entrega.id === decision.entrega_id)?.nombre ?? '' },
-              { encabezado: 'Ejecución', valor: (decision) => ejecuciones.find((ejecucion) => ejecucion.id === decision.ejecucion_validacion_id)?.fecha_ejecucion ?? '' }
+              { encabezado: 'Ejecución', valor: (decision) => ejecuciones.find((ejecucion) => ejecucion.id === decision.ejecucion_validacion_id)?.fecha_ejecucion ?? '' },
+              { encabezado: 'Insights discovery vinculados', valor: (decision) => insightsPorDecision.get(decision.id) ?? 0 }
             ], decisionesFiltradas)
           }}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
@@ -322,6 +334,9 @@ export function PaginaDecisiones() {
                     <p className="font-medium">{decision.titulo}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {decision.tags.length > 0 ? decision.tags.join(', ') : 'Sin tags'}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {insightsPorDecision.get(decision.id) ?? 0} insights discovery vinculados
                     </p>
                   </td>
                   <td className="px-3 py-2">{decision.estado_codigo}</td>

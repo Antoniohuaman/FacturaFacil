@@ -3,12 +3,18 @@ import {
   estadosRegistro,
   frecuenciasEstrategicas,
   prioridadesRegistro,
+  tiposProblemaOportunidadDiscovery,
   tendenciasKpiEstrategico
 } from '@/dominio/modelos'
 
 const estadoSchema = z.enum(estadosRegistro)
 const prioridadSchema = z.enum(prioridadesRegistro)
 const fechaCatalogoSchema = z.string().trim().nullable().optional()
+const uuidOpcionalSchema = z.string().uuid().nullable().optional().or(z.literal(''))
+const urlOpcionalSchema = z.string().url('Ingresa un enlace válido').nullable().optional().or(z.literal(''))
+const moduloOpcionalSchema = z.string().trim().min(2).max(60).nullable().optional().or(z.literal(''))
+const textoCortoOpcionalSchema = z.string().trim().max(120).nullable().optional().or(z.literal(''))
+const textoLargoOpcionalSchema = z.string().trim().max(4000).nullable().optional().or(z.literal(''))
 
 export const objetivoSchema = z.object({
   nombre: z.string().trim().min(3, 'El nombre debe tener al menos 3 caracteres').max(120),
@@ -271,6 +277,70 @@ export const hipotesisSchema = z.object({
   notas: z.string().trim().max(4000).nullable().optional()
 })
 
+export const segmentoDiscoverySchema = z.object({
+  nombre: z.string().trim().min(3).max(160),
+  descripcion: textoLargoOpcionalSchema,
+  necesidades: textoLargoOpcionalSchema,
+  dolores: textoLargoOpcionalSchema,
+  contexto: textoLargoOpcionalSchema,
+  activo: z.boolean()
+})
+
+export const insightDiscoverySchema = z.object({
+  titulo: z.string().trim().min(3).max(160),
+  descripcion: z.string().trim().min(5).max(4000),
+  fuente: z.string().trim().min(2).max(160),
+  tipo: z.string().trim().min(2).max(80),
+  relevancia: prioridadSchema,
+  modulo_codigo: moduloOpcionalSchema,
+  segmento_id: uuidOpcionalSchema,
+  evidencia_url: urlOpcionalSchema,
+  estado: estadoSchema,
+  owner: textoCortoOpcionalSchema,
+  fecha_hallazgo: z.string().trim().min(10).max(20),
+  notas: textoLargoOpcionalSchema
+})
+
+export const problemaOportunidadDiscoverySchema = z.object({
+  tipo: z.enum(tiposProblemaOportunidadDiscovery),
+  titulo: z.string().trim().min(3).max(160),
+  descripcion: z.string().trim().min(5).max(4000),
+  impacto: z.string().trim().min(3).max(2000),
+  prioridad: prioridadSchema,
+  segmento_id: uuidOpcionalSchema,
+  modulo_codigo: moduloOpcionalSchema,
+  estado: estadoSchema,
+  owner: textoCortoOpcionalSchema
+})
+
+export const investigacionDiscoverySchema = z.object({
+  titulo: z.string().trim().min(3).max(160),
+  tipo_investigacion: z.string().trim().min(2).max(80),
+  fecha_investigacion: z.string().trim().min(10).max(20),
+  segmento_id: uuidOpcionalSchema,
+  participantes_resumen: z.string().trim().min(3).max(1000),
+  resumen: z.string().trim().min(5).max(4000),
+  hallazgos: z.string().trim().min(5).max(4000),
+  conclusion: z.string().trim().min(3).max(4000),
+  evidencia_url: urlOpcionalSchema,
+  estado: estadoSchema,
+  owner: textoCortoOpcionalSchema
+})
+
+export const hipotesisDiscoverySchema = z.object({
+  titulo: z.string().trim().min(3).max(160),
+  problema_id: uuidOpcionalSchema,
+  hipotesis: z.string().trim().min(5).max(4000),
+  cambio_propuesto: z.string().trim().min(5).max(4000),
+  resultado_esperado: z.string().trim().min(3).max(4000),
+  criterio_exito: z.string().trim().min(3).max(4000),
+  prioridad: prioridadSchema,
+  estado: estadoSchema,
+  owner: textoCortoOpcionalSchema,
+  evidencia_url: urlOpcionalSchema,
+  notas: textoLargoOpcionalSchema
+})
+
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
@@ -294,3 +364,8 @@ export type ObjetivoEstrategicoEntrada = z.infer<typeof objetivoEstrategicoSchem
 export type KeyResultEntrada = z.infer<typeof keyResultSchema>
 export type KpiEstrategicoEntrada = z.infer<typeof kpiEstrategicoSchema>
 export type HipotesisEntrada = z.infer<typeof hipotesisSchema>
+export type SegmentoDiscoveryEntrada = z.infer<typeof segmentoDiscoverySchema>
+export type InsightDiscoveryEntrada = z.infer<typeof insightDiscoverySchema>
+export type ProblemaOportunidadDiscoveryEntrada = z.infer<typeof problemaOportunidadDiscoverySchema>
+export type InvestigacionDiscoveryEntrada = z.infer<typeof investigacionDiscoverySchema>
+export type HipotesisDiscoveryEntrada = z.infer<typeof hipotesisDiscoverySchema>

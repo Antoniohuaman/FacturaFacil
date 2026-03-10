@@ -13,6 +13,7 @@ import {
 } from '@/aplicacion/casos-uso/estrategia'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
+import { listarProblemasOportunidadesDiscovery, listarRelProblemaObjetivoEstrategico } from '@/aplicacion/casos-uso/discovery'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { NavegacionEstrategia } from '@/presentacion/paginas/estrategia/NavegacionEstrategia'
 import { GestionPeriodosEstrategicos } from '@/presentacion/paginas/estrategia/GestionPeriodosEstrategicos'
@@ -48,6 +49,8 @@ export function PaginaResumenEstrategico() {
   const [relObjetivos, setRelObjetivos] = useState(0)
   const [relKrIniciativas, setRelKrIniciativas] = useState(0)
   const [relHipotesisIniciativas, setRelHipotesisIniciativas] = useState(0)
+  const [relProblemasObjetivos, setRelProblemasObjetivos] = useState(0)
+  const [problemasDiscoveryVinculados, setProblemasDiscoveryVinculados] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,7 +71,9 @@ export function PaginaResumenEstrategico() {
         iniciativasData,
         relObjetivosData,
         relKrData,
-        relHipotesisData
+        relHipotesisData,
+        problemasDiscoveryData,
+        relProblemasObjetivosData
       ] = await Promise.all([
         listarPeriodosEstrategicos(),
         listarObjetivosEstrategicos(),
@@ -79,7 +84,9 @@ export function PaginaResumenEstrategico() {
         listarIniciativas(),
         listarRelObjetivoRoadmapKr(),
         listarRelIniciativaKr(),
-        listarRelIniciativaHipotesis()
+        listarRelIniciativaHipotesis(),
+        listarProblemasOportunidadesDiscovery(),
+        listarRelProblemaObjetivoEstrategico()
       ])
 
       setPeriodos(periodosData)
@@ -92,6 +99,12 @@ export function PaginaResumenEstrategico() {
       setRelObjetivos(relObjetivosData.length)
       setRelKrIniciativas(relKrData.length)
       setRelHipotesisIniciativas(relHipotesisData.length)
+      setRelProblemasObjetivos(relProblemasObjetivosData.length)
+      setProblemasDiscoveryVinculados(
+        problemasDiscoveryData.filter((problema) =>
+          relProblemasObjetivosData.some((relacion) => relacion.problema_oportunidad_id === problema.id)
+        ).length
+      )
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar estrategia')
     } finally {
@@ -173,8 +186,13 @@ export function PaginaResumenEstrategico() {
             <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
               <GestionPeriodosEstrategicos periodos={periodos} esEdicionPermitida={esEdicionPermitida} onRecargar={cargar} />
               <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <h2 className="text-base font-semibold">Relación con roadmap</h2>
+                <h2 className="text-base font-semibold">Relaciones cruzadas</h2>
                 <div className="mt-4 space-y-3 text-sm">
+                  <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
+                    <p className="font-medium">Problemas discovery conectados a objetivos</p>
+                    <p className="mt-1 text-2xl font-semibold">{relProblemasObjetivos}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{problemasDiscoveryVinculados} problemas discovery con vínculo estratégico</p>
+                  </div>
                   <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
                     <p className="font-medium">Objetivos roadmap vinculados</p>
                     <p className="mt-1 text-2xl font-semibold">{relObjetivos}</p>
