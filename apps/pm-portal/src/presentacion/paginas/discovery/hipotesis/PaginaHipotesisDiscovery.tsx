@@ -14,6 +14,7 @@ import {
   listarRelHipotesisDiscoveryIniciativa
 } from '@/aplicacion/casos-uso/discovery'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
+import { listarHistoriasUsuario } from '@/aplicacion/casos-uso/requerimientos'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
@@ -56,6 +57,7 @@ export function PaginaHipotesisDiscovery() {
   const [iniciativasSeleccionadas, setIniciativasSeleccionadas] = useState<string[]>([])
   const [relacionesIniciativas, setRelacionesIniciativas] = useState<Map<string, number>>(new Map())
   const [detalleRelacionesIniciativas, setDetalleRelacionesIniciativas] = useState<Map<string, string[]>>(new Map())
+  const [historiasDerivadasPorHipotesis, setHistoriasDerivadasPorHipotesis] = useState<Map<string, number>>(new Map())
 
   const esEdicionPermitida = puedeEditar(rol)
 
@@ -81,11 +83,12 @@ export function PaginaHipotesisDiscovery() {
     setError(null)
 
     try {
-      const [hipotesisData, problemasData, iniciativasData, relIniciativasData] = await Promise.all([
+      const [hipotesisData, problemasData, iniciativasData, relIniciativasData, historiasData] = await Promise.all([
         listarHipotesisDiscovery(),
         listarProblemasOportunidadesDiscovery(),
         listarIniciativas(),
-        listarRelHipotesisDiscoveryIniciativa()
+        listarRelHipotesisDiscoveryIniciativa(),
+        listarHistoriasUsuario()
       ])
 
       setHipotesis(hipotesisData)
@@ -103,6 +106,15 @@ export function PaginaHipotesisDiscovery() {
           const actual = mapa.get(relacion.hipotesis_discovery_id) ?? []
           return mapa.set(relacion.hipotesis_discovery_id, [...actual, relacion.iniciativa_id])
         }, new Map<string, string[]>())
+      )
+      setHistoriasDerivadasPorHipotesis(
+        historiasData.reduce((mapa, historia) => {
+          if (!historia.hipotesis_discovery_id) {
+            return mapa
+          }
+
+          return mapa.set(historia.hipotesis_discovery_id, (mapa.get(historia.hipotesis_discovery_id) ?? 0) + 1)
+        }, new Map<string, number>())
       )
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudieron cargar las hipótesis discovery')
@@ -238,7 +250,8 @@ export function PaginaHipotesisDiscovery() {
           { encabezado: 'Prioridad', valor: (hipotesisItem) => hipotesisItem.prioridad },
           { encabezado: 'Estado', valor: (hipotesisItem) => formatearEstadoLegible(hipotesisItem.estado) },
           { encabezado: 'Owner', valor: (hipotesisItem) => hipotesisItem.owner ?? '' },
-          { encabezado: 'Iniciativas vinculadas', valor: (hipotesisItem) => relacionesIniciativas.get(hipotesisItem.id) ?? 0 }
+          { encabezado: 'Iniciativas vinculadas', valor: (hipotesisItem) => relacionesIniciativas.get(hipotesisItem.id) ?? 0 },
+          { encabezado: 'Historias derivadas', valor: (hipotesisItem) => historiasDerivadasPorHipotesis.get(hipotesisItem.id) ?? 0 }
         ], hipotesisFiltradas) }} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700">Exportar CSV</button>
         <button type="button" disabled={!esEdicionPermitida} onClick={() => abrirModal('crear')} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900">Crear hipótesis discovery</button>
       </div>
@@ -260,7 +273,7 @@ export function PaginaHipotesisDiscovery() {
                   <td className="px-3 py-2">
                     <p className="font-medium">{hipotesisItem.titulo}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{hipotesisItem.prioridad} · {hipotesisItem.owner ?? 'Sin owner'}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{relacionesIniciativas.get(hipotesisItem.id) ?? 0} iniciativas vinculadas</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{relacionesIniciativas.get(hipotesisItem.id) ?? 0} iniciativas vinculadas · {historiasDerivadasPorHipotesis.get(hipotesisItem.id) ?? 0} historias derivadas</p>
                   </td>
                   <td className="px-3 py-2">{problemaPorId.get(hipotesisItem.problema_id ?? '') ?? 'Sin problema asociado'}</td>
                   <td className="px-3 py-2">{hipotesisItem.estado}</td>

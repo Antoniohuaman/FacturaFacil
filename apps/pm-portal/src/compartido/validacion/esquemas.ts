@@ -3,6 +3,7 @@ import {
   estadosRegistro,
   frecuenciasEstrategicas,
   prioridadesRegistro,
+  tiposRequerimientoNoFuncionalPm,
   tiposProblemaOportunidadDiscovery,
   tendenciasKpiEstrategico
 } from '@/dominio/modelos'
@@ -341,6 +342,79 @@ export const hipotesisDiscoverySchema = z.object({
   notas: textoLargoOpcionalSchema
 })
 
+export const criterioAceptacionSchema = z.object({
+  id: uuidOpcionalSchema,
+  historia_usuario_id: uuidOpcionalSchema,
+  descripcion: z.string().trim().min(3).max(2000),
+  orden: z.number().int().min(1).max(9999),
+  obligatorio: z.boolean(),
+  estado_validacion: z.enum(estadosRegistro).nullable().optional().or(z.literal('')),
+  notas: textoLargoOpcionalSchema
+})
+
+export const historiaUsuarioSchema = z.object({
+  codigo: z.string().trim().min(2).max(40),
+  titulo: z.string().trim().min(3).max(160),
+  como_usuario: z.string().trim().min(3).max(400),
+  quiero: z.string().trim().min(3).max(1000),
+  para: z.string().trim().min(3).max(1000),
+  descripcion: textoLargoOpcionalSchema,
+  prioridad: prioridadSchema,
+  estado: estadoSchema,
+  owner: textoCortoOpcionalSchema,
+  iniciativa_id: uuidOpcionalSchema,
+  entrega_id: uuidOpcionalSchema,
+  hipotesis_discovery_id: uuidOpcionalSchema,
+  notas: textoLargoOpcionalSchema
+})
+
+export const casoUsoSchema = z.object({
+  codigo: z.string().trim().min(2).max(40),
+  titulo: z.string().trim().min(3).max(160),
+  actor_principal: z.string().trim().min(2).max(160),
+  actores_secundarios: textoLargoOpcionalSchema,
+  precondiciones: z.string().trim().min(3).max(4000),
+  flujo_principal: z.string().trim().min(5).max(5000),
+  flujos_alternos: textoLargoOpcionalSchema,
+  postcondiciones: z.string().trim().min(3).max(4000),
+  prioridad: prioridadSchema,
+  estado: estadoSchema,
+  iniciativa_id: uuidOpcionalSchema,
+  entrega_id: uuidOpcionalSchema,
+  historia_usuario_id: uuidOpcionalSchema,
+  owner: textoCortoOpcionalSchema,
+  notas: textoLargoOpcionalSchema
+})
+
+export const reglaNegocioSchema = z.object({
+  codigo: z.string().trim().min(2).max(40),
+  nombre: z.string().trim().min(3).max(160),
+  descripcion: z.string().trim().min(5).max(4000),
+  categoria: z.string().trim().min(2).max(120),
+  criticidad: prioridadSchema,
+  modulo_codigo: moduloOpcionalSchema,
+  estado: estadoSchema,
+  iniciativa_id: uuidOpcionalSchema,
+  historia_usuario_id: uuidOpcionalSchema,
+  decision_id: uuidOpcionalSchema,
+  owner: textoCortoOpcionalSchema,
+  notas: textoLargoOpcionalSchema
+})
+
+export const requerimientoNoFuncionalSchema = z.object({
+  codigo: z.string().trim().min(2).max(40),
+  nombre: z.string().trim().min(3).max(160),
+  tipo: z.enum(tiposRequerimientoNoFuncionalPm),
+  descripcion: z.string().trim().min(5).max(4000),
+  criterio_medicion: z.string().trim().min(3).max(4000),
+  prioridad: prioridadSchema,
+  estado: estadoSchema,
+  iniciativa_id: uuidOpcionalSchema,
+  entrega_id: uuidOpcionalSchema,
+  owner: textoCortoOpcionalSchema,
+  notas: textoLargoOpcionalSchema
+})
+
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
@@ -369,3 +443,8 @@ export type InsightDiscoveryEntrada = z.infer<typeof insightDiscoverySchema>
 export type ProblemaOportunidadDiscoveryEntrada = z.infer<typeof problemaOportunidadDiscoverySchema>
 export type InvestigacionDiscoveryEntrada = z.infer<typeof investigacionDiscoverySchema>
 export type HipotesisDiscoveryEntrada = z.infer<typeof hipotesisDiscoverySchema>
+export type CriterioAceptacionEntrada = z.infer<typeof criterioAceptacionSchema>
+export type HistoriaUsuarioEntrada = z.infer<typeof historiaUsuarioSchema>
+export type CasoUsoEntrada = z.infer<typeof casoUsoSchema>
+export type ReglaNegocioEntrada = z.infer<typeof reglaNegocioSchema>
+export type RequerimientoNoFuncionalEntrada = z.infer<typeof requerimientoNoFuncionalSchema>

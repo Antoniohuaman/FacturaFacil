@@ -27,6 +27,11 @@ import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { cargarConfiguracionRice, listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarRelIniciativaHipotesis, listarRelIniciativaKr } from '@/aplicacion/casos-uso/estrategia'
 import { listarRelHipotesisDiscoveryIniciativa } from '@/aplicacion/casos-uso/discovery'
+import {
+  listarCasosUso,
+  listarHistoriasUsuario,
+  listarRequerimientosNoFuncionales
+} from '@/aplicacion/casos-uso/requerimientos'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -73,6 +78,9 @@ export function PaginaIniciativasRoadmap() {
   const [relacionesKr, setRelacionesKr] = useState<RelIniciativaKrPm[]>([])
   const [relacionesHipotesis, setRelacionesHipotesis] = useState<RelIniciativaHipotesisPm[]>([])
   const [relacionesHipotesisDiscovery, setRelacionesHipotesisDiscovery] = useState<RelHipotesisDiscoveryIniciativaPm[]>([])
+  const [historiasPorIniciativaMapa, setHistoriasPorIniciativaMapa] = useState<Map<string, number>>(new Map())
+  const [casosUsoPorIniciativaMapa, setCasosUsoPorIniciativaMapa] = useState<Map<string, number>>(new Map())
+  const [requerimientosNoFuncionalesPorIniciativaMapa, setRequerimientosNoFuncionalesPorIniciativaMapa] = useState<Map<string, number>>(new Map())
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -152,14 +160,28 @@ export function PaginaIniciativasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaIniciativas, listaObjetivos, listaVentanas, listaEtapas, relKrData, relHipotesisData, relHipotesisDiscoveryData] = await Promise.all([
+      const [
+        listaIniciativas,
+        listaObjetivos,
+        listaVentanas,
+        listaEtapas,
+        relKrData,
+        relHipotesisData,
+        relHipotesisDiscoveryData,
+        historiasData,
+        casosUsoData,
+        requerimientosNoFuncionalesData
+      ] = await Promise.all([
         listarIniciativas(),
         listarObjetivos(),
         listarVentanasPm(),
         listarEtapasPm(),
         listarRelIniciativaKr(),
         listarRelIniciativaHipotesis(),
-        listarRelHipotesisDiscoveryIniciativa()
+        listarRelHipotesisDiscoveryIniciativa(),
+        listarHistoriasUsuario(),
+        listarCasosUso(),
+        listarRequerimientosNoFuncionales()
       ])
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
@@ -168,6 +190,33 @@ export function PaginaIniciativasRoadmap() {
       setRelacionesKr(relKrData)
       setRelacionesHipotesis(relHipotesisData)
       setRelacionesHipotesisDiscovery(relHipotesisDiscoveryData)
+      setHistoriasPorIniciativaMapa(
+        historiasData.reduce((mapa, historia) => {
+          if (!historia.iniciativa_id) {
+            return mapa
+          }
+
+          return mapa.set(historia.iniciativa_id, (mapa.get(historia.iniciativa_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setCasosUsoPorIniciativaMapa(
+        casosUsoData.reduce((mapa, casoUso) => {
+          if (!casoUso.iniciativa_id) {
+            return mapa
+          }
+
+          return mapa.set(casoUso.iniciativa_id, (mapa.get(casoUso.iniciativa_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setRequerimientosNoFuncionalesPorIniciativaMapa(
+        requerimientosNoFuncionalesData.reduce((mapa, requerimiento) => {
+          if (!requerimiento.iniciativa_id) {
+            return mapa
+          }
+
+          return mapa.set(requerimiento.iniciativa_id, (mapa.get(requerimiento.iniciativa_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
 
       const configuracion = await cargarConfiguracionRice()
       setConfiguracionRice(configuracion)
@@ -380,7 +429,10 @@ export function PaginaIniciativasRoadmap() {
                 { encabezado: 'Prioridad', valor: (iniciativa) => iniciativa.prioridad },
                 { encabezado: 'KR vinculados', valor: (iniciativa) => krPorIniciativa.get(iniciativa.id) ?? 0 },
                 { encabezado: 'Hipótesis estrategia vinculadas', valor: (iniciativa) => hipotesisPorIniciativa.get(iniciativa.id) ?? 0 },
-                { encabezado: 'Hipótesis discovery vinculadas', valor: (iniciativa) => hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0 }
+                { encabezado: 'Hipótesis discovery vinculadas', valor: (iniciativa) => hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0 },
+                { encabezado: 'Historias vinculadas', valor: (iniciativa) => historiasPorIniciativaMapa.get(iniciativa.id) ?? 0 },
+                { encabezado: 'Casos de uso vinculados', valor: (iniciativa) => casosUsoPorIniciativaMapa.get(iniciativa.id) ?? 0 },
+                { encabezado: 'RNF vinculados', valor: (iniciativa) => requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0 }
               ], iniciativasFiltradas)
             }}
             aria-label="Exportar iniciativas a CSV"
@@ -529,6 +581,9 @@ export function PaginaIniciativasRoadmap() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">{iniciativa.descripcion}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis estrategia · {hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0} hipótesis discovery
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {historiasPorIniciativaMapa.get(iniciativa.id) ?? 0} historias · {casosUsoPorIniciativaMapa.get(iniciativa.id) ?? 0} casos de uso · {requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0} RNF
                     </p>
                   </td>
                   <td className="px-3 py-2">{objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}</td>

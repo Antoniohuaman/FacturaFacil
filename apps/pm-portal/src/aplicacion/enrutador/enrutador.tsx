@@ -26,6 +26,11 @@ import { PaginaProblemasOportunidades } from '@/presentacion/paginas/discovery/p
 import { PaginaInvestigaciones } from '@/presentacion/paginas/discovery/investigaciones/PaginaInvestigaciones'
 import { PaginaSegmentos } from '@/presentacion/paginas/discovery/segmentos/PaginaSegmentos'
 import { PaginaHipotesisDiscovery } from '@/presentacion/paginas/discovery/hipotesis/PaginaHipotesisDiscovery'
+import { PaginaResumenRequerimientos } from '@/presentacion/paginas/requerimientos/PaginaResumenRequerimientos'
+import { PaginaHistoriasUsuario } from '@/presentacion/paginas/requerimientos/historias/PaginaHistoriasUsuario'
+import { PaginaCasosUso } from '@/presentacion/paginas/requerimientos/casos-uso/PaginaCasosUso'
+import { PaginaReglasNegocio } from '@/presentacion/paginas/requerimientos/reglas/PaginaReglasNegocio'
+import { PaginaRequerimientosNoFuncionales } from '@/presentacion/paginas/requerimientos/no-funcionales/PaginaRequerimientosNoFuncionales'
 
 export const enrutadorPortal = createBrowserRouter([
   {
@@ -60,6 +65,11 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'discovery/investigaciones', element: <PaginaInvestigaciones /> },
       { path: 'discovery/segmentos', element: <PaginaSegmentos /> },
       { path: 'discovery/hipotesis', element: <PaginaHipotesisDiscovery /> },
+      { path: 'requerimientos', element: <PaginaResumenRequerimientos /> },
+      { path: 'requerimientos/historias', element: <PaginaHistoriasUsuario /> },
+      { path: 'requerimientos/casos-uso', element: <PaginaCasosUso /> },
+      { path: 'requerimientos/reglas-negocio', element: <PaginaReglasNegocio /> },
+      { path: 'requerimientos/no-funcionales', element: <PaginaRequerimientosNoFuncionales /> },
       { path: 'decisiones', element: <PaginaDecisiones /> },
       { path: 'auditorias', element: <PaginaAuditorias /> },
       { path: 'ajustes', element: <PaginaAjustes /> },

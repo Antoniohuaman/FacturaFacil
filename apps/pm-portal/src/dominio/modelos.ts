@@ -493,11 +493,114 @@ export interface RelInsightDecisionPm {
   created_at: string
 }
 
+export type TipoRequerimientoNoFuncionalPm =
+  | 'seguridad'
+  | 'rendimiento'
+  | 'disponibilidad'
+  | 'auditoria'
+  | 'accesibilidad'
+  | 'mantenibilidad'
+
+export interface HistoriaUsuarioPm {
+  id: string
+  codigo: string
+  titulo: string
+  como_usuario: string
+  quiero: string
+  para: string
+  descripcion: string | null
+  prioridad: PrioridadRegistro
+  estado: EstadoRegistro
+  owner: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  hipotesis_discovery_id: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CriterioAceptacionPm {
+  id: string
+  historia_usuario_id: string
+  descripcion: string
+  orden: number
+  obligatorio: boolean
+  estado_validacion: EstadoRegistro | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CasoUsoPm {
+  id: string
+  codigo: string
+  titulo: string
+  actor_principal: string
+  actores_secundarios: string | null
+  precondiciones: string
+  flujo_principal: string
+  flujos_alternos: string | null
+  postcondiciones: string
+  prioridad: PrioridadRegistro
+  estado: EstadoRegistro
+  iniciativa_id: string | null
+  entrega_id: string | null
+  historia_usuario_id: string | null
+  owner: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ReglaNegocioPm {
+  id: string
+  codigo: string
+  nombre: string
+  descripcion: string
+  categoria: string
+  criticidad: PrioridadRegistro
+  modulo_codigo: string | null
+  estado: EstadoRegistro
+  iniciativa_id: string | null
+  historia_usuario_id: string | null
+  decision_id: string | null
+  owner: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RequerimientoNoFuncionalPm {
+  id: string
+  codigo: string
+  nombre: string
+  tipo: TipoRequerimientoNoFuncionalPm
+  descripcion: string
+  criterio_medicion: string
+  prioridad: PrioridadRegistro
+  estado: EstadoRegistro
+  iniciativa_id: string | null
+  entrega_id: string | null
+  owner: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
 export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
 export const frecuenciasEstrategicas: FrecuenciaEstrategica[] = ['semanal', 'mensual', 'trimestral']
 export const tendenciasKpiEstrategico: TendenciaKpiEstrategico[] = ['sube', 'estable', 'baja']
 export const tiposProblemaOportunidadDiscovery: TipoProblemaOportunidadDiscovery[] = ['problema', 'oportunidad']
+export const tiposRequerimientoNoFuncionalPm: TipoRequerimientoNoFuncionalPm[] = [
+  'seguridad',
+  'rendimiento',
+  'disponibilidad',
+  'auditoria',
+  'accesibilidad',
+  'mantenibilidad'
+]
 
 export function formatearAlcancePeriodoRice(periodo: AlcancePeriodoRice) {
   if (periodo === 'semana') {

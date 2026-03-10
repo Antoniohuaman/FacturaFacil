@@ -52,6 +52,17 @@ export const menuPortal: ItemMenuPortal[] = [
       { etiqueta: 'Hipótesis discovery', ruta: '/discovery/hipotesis' }
     ]
   },
+  {
+    etiqueta: 'Requerimientos',
+    ruta: '/requerimientos',
+    submenus: [
+      { etiqueta: 'Resumen de requerimientos', ruta: '/requerimientos' },
+      { etiqueta: 'Historias de usuario', ruta: '/requerimientos/historias' },
+      { etiqueta: 'Casos de uso', ruta: '/requerimientos/casos-uso' },
+      { etiqueta: 'Reglas de negocio', ruta: '/requerimientos/reglas-negocio' },
+      { etiqueta: 'Requerimientos no funcionales', ruta: '/requerimientos/no-funcionales' }
+    ]
+  },
   { etiqueta: 'Decisiones', ruta: '/decisiones' },
   { etiqueta: 'Auditorías', ruta: '/auditorias' },
   { etiqueta: 'Ajustes', ruta: '/ajustes' },

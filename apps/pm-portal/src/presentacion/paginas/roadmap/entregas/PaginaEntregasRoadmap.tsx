@@ -15,6 +15,7 @@ import { crearEntrega, editarEntrega, eliminarEntrega, listarEntregas } from '@/
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
+import { listarHistoriasUsuario, listarRequerimientosNoFuncionales } from '@/aplicacion/casos-uso/requerimientos'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -35,6 +36,8 @@ export function PaginaEntregasRoadmap() {
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
+  const [historiasPorEntrega, setHistoriasPorEntrega] = useState<Map<string, number>>(new Map())
+  const [requerimientosNoFuncionalesPorEntrega, setRequerimientosNoFuncionalesPorEntrega] = useState<Map<string, number>>(new Map())
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -83,16 +86,36 @@ export function PaginaEntregasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaEntregas, listaIniciativas, listaObjetivos, listaVentanas] = await Promise.all([
+      const [listaEntregas, listaIniciativas, listaObjetivos, listaVentanas, historiasData, requerimientosNoFuncionalesData] = await Promise.all([
         listarEntregas(),
         listarIniciativas(),
         listarObjetivos(),
-        listarVentanasPm()
+        listarVentanasPm(),
+        listarHistoriasUsuario(),
+        listarRequerimientosNoFuncionales()
       ])
       setEntregas(listaEntregas)
       setIniciativas(listaIniciativas)
       setObjetivos(listaObjetivos)
       setVentanas(listaVentanas)
+      setHistoriasPorEntrega(
+        historiasData.reduce((mapa, historia) => {
+          if (!historia.entrega_id) {
+            return mapa
+          }
+
+          return mapa.set(historia.entrega_id, (mapa.get(historia.entrega_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setRequerimientosNoFuncionalesPorEntrega(
+        requerimientosNoFuncionalesData.reduce((mapa, requerimiento) => {
+          if (!requerimiento.entrega_id) {
+            return mapa
+          }
+
+          return mapa.set(requerimiento.entrega_id, (mapa.get(requerimiento.entrega_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar entregas')
     } finally {
@@ -354,7 +377,9 @@ export function PaginaEntregasRoadmap() {
                 { encabezado: 'Fecha objetivo', valor: (entrega) => normalizarFechaPortal(entrega.fecha_objetivo) },
                 { encabezado: 'Fecha completado', valor: (entrega) => normalizarFechaPortal(entrega.fecha_completado) },
                 { encabezado: 'Estado', valor: (entrega) => formatearEstadoLegible(entrega.estado) },
-                { encabezado: 'Prioridad', valor: (entrega) => entrega.prioridad }
+                { encabezado: 'Prioridad', valor: (entrega) => entrega.prioridad },
+                { encabezado: 'Historias vinculadas', valor: (entrega) => historiasPorEntrega.get(entrega.id) ?? 0 },
+                { encabezado: 'RNF vinculados', valor: (entrega) => requerimientosNoFuncionalesPorEntrega.get(entrega.id) ?? 0 }
               ], entregasFiltradas)
             }}
             aria-label="Exportar entregas a CSV"
@@ -554,7 +579,12 @@ export function PaginaEntregasRoadmap() {
                     <p className="font-medium">{entrega.nombre}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{entrega.descripcion}</p>
                   </td>
-                  <td className="px-3 py-2">{iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa'}</td>
+                  <td className="px-3 py-2">
+                    <p>{iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {historiasPorEntrega.get(entrega.id) ?? 0} historias · {requerimientosNoFuncionalesPorEntrega.get(entrega.id) ?? 0} RNF
+                    </p>
+                  </td>
                   <td className="px-3 py-2">
                     <p className="text-xs">Plan: {ventanaPorId.get(entrega.ventana_planificada_id ?? '') ?? 'Sin asignar'}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
