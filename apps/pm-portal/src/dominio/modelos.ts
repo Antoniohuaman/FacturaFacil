@@ -592,6 +592,11 @@ export type TipoReleasePm = 'mvp' | 'mejora' | 'correccion' | 'interno'
 export type EstadoReleasePm = 'borrador' | 'planificado' | 'listo_para_salida' | 'lanzado' | 'revertido' | 'cerrado'
 export type TipoChecklistSalidaPm = 'funcional' | 'datos' | 'validacion' | 'comunicacion' | 'soporte' | 'rollback'
 export type EstadoEstabilizacionReleasePm = 'estable' | 'observacion' | 'alerta'
+export type EstadoBugPm = 'nuevo' | 'triage' | 'en_progreso' | 'resuelto' | 'cerrado'
+export type EstadoMejoraPm = 'backlog' | 'priorizada' | 'en_progreso' | 'implementada' | 'cerrada'
+export type EstadoDeudaTecnicaPm = 'identificada' | 'priorizada' | 'en_progreso' | 'resuelta' | 'descartada'
+export type EstadoBloqueoPm = 'abierto' | 'en_seguimiento' | 'escalado' | 'resuelto'
+export type EstadoLeccionAprendidaPm = 'capturada' | 'validada' | 'aplicada' | 'archivada'
 
 export interface ReleasePm {
   id: string
@@ -645,6 +650,115 @@ export interface ReleaseSeguimientoPm {
   updated_at: string
 }
 
+export interface BugPm {
+  id: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  estado: EstadoBugPm
+  prioridad: PrioridadRegistro
+  owner: string | null
+  fecha_reporte: string
+  fecha_resolucion: string | null
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  release_id: string | null
+  auditoria_id: string | null
+  hallazgo_id: string | null
+  impacto_operativo: string | null
+  causa_raiz: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MejoraPm {
+  id: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  estado: EstadoMejoraPm
+  prioridad: PrioridadRegistro
+  owner: string | null
+  fecha_solicitud: string
+  fecha_cierre: string | null
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  insight_id: string | null
+  hipotesis_discovery_id: string | null
+  beneficio_esperado: string
+  criterio_exito: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DeudaTecnicaPm {
+  id: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  estado: EstadoDeudaTecnicaPm
+  prioridad: PrioridadRegistro
+  owner: string | null
+  fecha_identificacion: string
+  fecha_objetivo: string | null
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  release_id: string | null
+  impacto_tecnico: string
+  plan_remediacion: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface BloqueoPm {
+  id: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  estado: EstadoBloqueoPm
+  prioridad: PrioridadRegistro
+  owner: string | null
+  responsable_desbloqueo: string | null
+  fecha_reporte: string
+  fecha_resolucion: string | null
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  release_id: string | null
+  decision_id: string | null
+  impacto_operativo: string
+  proximo_paso: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LeccionAprendidaPm {
+  id: string
+  codigo: string
+  titulo: string
+  contexto: string
+  aprendizaje: string
+  accion_recomendada: string
+  estado: EstadoLeccionAprendidaPm
+  owner: string | null
+  fecha_leccion: string
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  release_id: string | null
+  auditoria_id: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
 export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
 export const frecuenciasEstrategicas: FrecuenciaEstrategica[] = ['semanal', 'mensual', 'trimestral']
@@ -680,6 +794,17 @@ export const estadosEstabilizacionReleasePm: EstadoEstabilizacionReleasePm[] = [
   'observacion',
   'alerta'
 ]
+export const estadosBugPm: EstadoBugPm[] = ['nuevo', 'triage', 'en_progreso', 'resuelto', 'cerrado']
+export const estadosMejoraPm: EstadoMejoraPm[] = ['backlog', 'priorizada', 'en_progreso', 'implementada', 'cerrada']
+export const estadosDeudaTecnicaPm: EstadoDeudaTecnicaPm[] = [
+  'identificada',
+  'priorizada',
+  'en_progreso',
+  'resuelta',
+  'descartada'
+]
+export const estadosBloqueoPm: EstadoBloqueoPm[] = ['abierto', 'en_seguimiento', 'escalado', 'resuelto']
+export const estadosLeccionAprendidaPm: EstadoLeccionAprendidaPm[] = ['capturada', 'validada', 'aplicada', 'archivada']
 
 export function formatearAlcancePeriodoRice(periodo: AlcancePeriodoRice) {
   if (periodo === 'semana') {
@@ -727,5 +852,25 @@ export function formatearTipoChecklistSalida(tipo: TipoChecklistSalidaPm) {
 }
 
 export function formatearEstadoEstabilizacionRelease(estado: EstadoEstabilizacionReleasePm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearEstadoBug(estado: EstadoBugPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearEstadoMejora(estado: EstadoMejoraPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearEstadoDeudaTecnica(estado: EstadoDeudaTecnicaPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearEstadoBloqueo(estado: EstadoBloqueoPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearEstadoLeccionAprendida(estado: EstadoLeccionAprendidaPm) {
   return formatearEstadoRegistro(estado)
 }

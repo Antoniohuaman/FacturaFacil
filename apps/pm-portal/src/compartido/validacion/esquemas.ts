@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import {
+  estadosBloqueoPm,
+  estadosBugPm,
+  estadosDeudaTecnicaPm,
   estadosEstabilizacionReleasePm,
+  estadosLeccionAprendidaPm,
+  estadosMejoraPm,
   estadosReleasePm,
   estadosRegistro,
   frecuenciasEstrategicas,
@@ -473,6 +478,140 @@ export const seguimientoReleaseSchema = z.object({
   owner: textoCortoOpcionalSchema
 })
 
+export const bugSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    titulo: z.string().trim().min(3).max(160),
+    descripcion: z.string().trim().min(5).max(4000),
+    estado: z.enum(estadosBugPm),
+    prioridad: prioridadSchema,
+    owner: textoCortoOpcionalSchema,
+    fecha_reporte: z.string().trim().min(10).max(20),
+    fecha_resolucion: fechaOpcionalSchema,
+    modulo_codigo: moduloOpcionalSchema,
+    iniciativa_id: uuidOpcionalSchema,
+    entrega_id: uuidOpcionalSchema,
+    release_id: uuidOpcionalSchema,
+    auditoria_id: uuidOpcionalSchema,
+    hallazgo_id: uuidOpcionalSchema,
+    impacto_operativo: textoLargoOpcionalSchema,
+    causa_raiz: textoLargoOpcionalSchema,
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_resolucion && valores.fecha_resolucion < valores.fecha_reporte) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_resolucion'],
+        message: 'La fecha de resolución no puede ser menor que la fecha de reporte'
+      })
+    }
+  })
+
+export const mejoraSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    titulo: z.string().trim().min(3).max(160),
+    descripcion: z.string().trim().min(5).max(4000),
+    estado: z.enum(estadosMejoraPm),
+    prioridad: prioridadSchema,
+    owner: textoCortoOpcionalSchema,
+    fecha_solicitud: z.string().trim().min(10).max(20),
+    fecha_cierre: fechaOpcionalSchema,
+    modulo_codigo: moduloOpcionalSchema,
+    iniciativa_id: uuidOpcionalSchema,
+    entrega_id: uuidOpcionalSchema,
+    insight_id: uuidOpcionalSchema,
+    hipotesis_discovery_id: uuidOpcionalSchema,
+    beneficio_esperado: z.string().trim().min(5).max(4000),
+    criterio_exito: textoLargoOpcionalSchema,
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_cierre && valores.fecha_cierre < valores.fecha_solicitud) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_cierre'],
+        message: 'La fecha de cierre no puede ser menor que la fecha de solicitud'
+      })
+    }
+  })
+
+export const deudaTecnicaSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    titulo: z.string().trim().min(3).max(160),
+    descripcion: z.string().trim().min(5).max(4000),
+    estado: z.enum(estadosDeudaTecnicaPm),
+    prioridad: prioridadSchema,
+    owner: textoCortoOpcionalSchema,
+    fecha_identificacion: z.string().trim().min(10).max(20),
+    fecha_objetivo: fechaOpcionalSchema,
+    modulo_codigo: moduloOpcionalSchema,
+    iniciativa_id: uuidOpcionalSchema,
+    entrega_id: uuidOpcionalSchema,
+    release_id: uuidOpcionalSchema,
+    impacto_tecnico: z.string().trim().min(5).max(4000),
+    plan_remediacion: textoLargoOpcionalSchema,
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_objetivo && valores.fecha_objetivo < valores.fecha_identificacion) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_objetivo'],
+        message: 'La fecha objetivo no puede ser menor que la fecha de identificación'
+      })
+    }
+  })
+
+export const bloqueoSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    titulo: z.string().trim().min(3).max(160),
+    descripcion: z.string().trim().min(5).max(4000),
+    estado: z.enum(estadosBloqueoPm),
+    prioridad: prioridadSchema,
+    owner: textoCortoOpcionalSchema,
+    responsable_desbloqueo: textoCortoOpcionalSchema,
+    fecha_reporte: z.string().trim().min(10).max(20),
+    fecha_resolucion: fechaOpcionalSchema,
+    modulo_codigo: moduloOpcionalSchema,
+    iniciativa_id: uuidOpcionalSchema,
+    entrega_id: uuidOpcionalSchema,
+    release_id: uuidOpcionalSchema,
+    decision_id: uuidOpcionalSchema,
+    impacto_operativo: z.string().trim().min(5).max(4000),
+    proximo_paso: textoLargoOpcionalSchema,
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_resolucion && valores.fecha_resolucion < valores.fecha_reporte) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_resolucion'],
+        message: 'La fecha de resolución no puede ser menor que la fecha de reporte'
+      })
+    }
+  })
+
+export const leccionAprendidaSchema = z.object({
+  codigo: z.string().trim().min(2).max(40),
+  titulo: z.string().trim().min(3).max(160),
+  contexto: z.string().trim().min(5).max(4000),
+  aprendizaje: z.string().trim().min(5).max(4000),
+  accion_recomendada: z.string().trim().min(5).max(4000),
+  estado: z.enum(estadosLeccionAprendidaPm),
+  owner: textoCortoOpcionalSchema,
+  fecha_leccion: z.string().trim().min(10).max(20),
+  modulo_codigo: moduloOpcionalSchema,
+  iniciativa_id: uuidOpcionalSchema,
+  entrega_id: uuidOpcionalSchema,
+  release_id: uuidOpcionalSchema,
+  auditoria_id: uuidOpcionalSchema,
+  notas: textoLargoOpcionalSchema
+})
+
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
@@ -509,3 +648,8 @@ export type RequerimientoNoFuncionalEntrada = z.infer<typeof requerimientoNoFunc
 export type ReleaseEntrada = z.infer<typeof releaseSchema>
 export type ChecklistSalidaEntrada = z.infer<typeof checklistSalidaSchema>
 export type SeguimientoReleaseEntrada = z.infer<typeof seguimientoReleaseSchema>
+export type BugEntrada = z.infer<typeof bugSchema>
+export type MejoraEntrada = z.infer<typeof mejoraSchema>
+export type DeudaTecnicaEntrada = z.infer<typeof deudaTecnicaSchema>
+export type BloqueoEntrada = z.infer<typeof bloqueoSchema>
+export type LeccionAprendidaEntrada = z.infer<typeof leccionAprendidaSchema>

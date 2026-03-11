@@ -17,6 +17,12 @@ import {
   listarChecklistSalida,
   listarReleases
 } from '@/aplicacion/casos-uso/lanzamientos'
+import {
+  listarBloqueosPm,
+  listarBugsPm,
+  listarDeudaTecnicaPm,
+  listarLeccionesAprendidasPm
+} from '@/aplicacion/casos-uso/operacion'
 import { listarDecisionesPm } from '@/aplicacion/casos-uso/decisiones'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
@@ -50,6 +56,10 @@ export function PaginaReleases() {
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [decisiones, setDecisiones] = useState<DecisionPm[]>([])
+  const [bugsPorRelease, setBugsPorRelease] = useState<Map<string, number>>(new Map())
+  const [deudasPorRelease, setDeudasPorRelease] = useState<Map<string, number>>(new Map())
+  const [bloqueosPorRelease, setBloqueosPorRelease] = useState<Map<string, number>>(new Map())
+  const [leccionesPorRelease, setLeccionesPorRelease] = useState<Map<string, number>>(new Map())
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
   const [filtroTipo, setFiltroTipo] = useState<'todos' | (typeof tiposReleasePm)[number]>(
     (searchParams.get('tipo_release') as 'todos' | (typeof tiposReleasePm)[number]) ?? 'todos'
@@ -102,12 +112,16 @@ export function PaginaReleases() {
     setError(null)
 
     try {
-      const [releasesData, checklistData, iniciativasData, entregasData, decisionesData] = await Promise.all([
+      const [releasesData, checklistData, iniciativasData, entregasData, decisionesData, bugsData, deudasData, bloqueosData, leccionesData] = await Promise.all([
         listarReleases(),
         listarChecklistSalida(),
         listarIniciativas(),
         listarEntregas(),
-        listarDecisionesPm()
+        listarDecisionesPm(),
+        listarBugsPm(),
+        listarDeudaTecnicaPm(),
+        listarBloqueosPm(),
+        listarLeccionesAprendidasPm()
       ])
 
       setReleases(releasesData)
@@ -115,6 +129,42 @@ export function PaginaReleases() {
       setIniciativas(iniciativasData)
       setEntregas(entregasData)
       setDecisiones(decisionesData)
+      setBugsPorRelease(
+        bugsData.reduce((mapa, bug) => {
+          if (!bug.release_id) {
+            return mapa
+          }
+
+          return mapa.set(bug.release_id, (mapa.get(bug.release_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setDeudasPorRelease(
+        deudasData.reduce((mapa, deuda) => {
+          if (!deuda.release_id) {
+            return mapa
+          }
+
+          return mapa.set(deuda.release_id, (mapa.get(deuda.release_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setBloqueosPorRelease(
+        bloqueosData.reduce((mapa, bloqueo) => {
+          if (!bloqueo.release_id) {
+            return mapa
+          }
+
+          return mapa.set(bloqueo.release_id, (mapa.get(bloqueo.release_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setLeccionesPorRelease(
+        leccionesData.reduce((mapa, leccion) => {
+          if (!leccion.release_id) {
+            return mapa
+          }
+
+          return mapa.set(leccion.release_id, (mapa.get(leccion.release_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudieron cargar los releases')
     } finally {
@@ -438,6 +488,10 @@ export function PaginaReleases() {
                 { encabezado: 'Decision', valor: (release) => decisionPorId.get(release.decision_id ?? '') ?? '' },
                 { encabezado: 'Owner', valor: (release) => release.owner ?? '' },
                 { encabezado: 'Responsable aprobación', valor: (release) => release.responsable_aprobacion ?? '' },
+                { encabezado: 'Bugs operativos', valor: (release) => bugsPorRelease.get(release.id) ?? 0 },
+                { encabezado: 'Deuda técnica vinculada', valor: (release) => deudasPorRelease.get(release.id) ?? 0 },
+                { encabezado: 'Bloqueos vinculados', valor: (release) => bloqueosPorRelease.get(release.id) ?? 0 },
+                { encabezado: 'Lecciones vinculadas', valor: (release) => leccionesPorRelease.get(release.id) ?? 0 },
                 { encabezado: 'Rollback preparado', valor: (release) => release.rollback_preparado },
                 { encabezado: 'Comunicación requerida', valor: (release) => release.comunicacion_requerida },
                 {
@@ -505,6 +559,9 @@ export function PaginaReleases() {
                       <p>{iniciativaPorId.get(release.iniciativa_id ?? '') ?? 'Sin iniciativa'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{entregaPorId.get(release.entrega_id ?? '') ?? 'Sin entrega'}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{decisionPorId.get(release.decision_id ?? '') ?? 'Sin decisión'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {bugsPorRelease.get(release.id) ?? 0} bugs · {deudasPorRelease.get(release.id) ?? 0} deudas · {bloqueosPorRelease.get(release.id) ?? 0} bloqueos · {leccionesPorRelease.get(release.id) ?? 0} lecciones
+                      </p>
                     </td>
                     <td className="px-3 py-2">
                       <p>{completados}/{checklistRelease.length} completados</p>

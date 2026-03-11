@@ -34,6 +34,12 @@ import { PaginaRequerimientosNoFuncionales } from '@/presentacion/paginas/requer
 import { PaginaResumenLanzamientos } from '@/presentacion/paginas/lanzamientos/PaginaResumenLanzamientos'
 import { PaginaReleases } from '@/presentacion/paginas/lanzamientos/releases/PaginaReleases'
 import { PaginaSeguimientoLanzamientos } from '@/presentacion/paginas/lanzamientos/seguimiento/PaginaSeguimientoLanzamientos'
+import { PaginaResumenOperacion } from '@/presentacion/paginas/operacion/PaginaResumenOperacion'
+import { PaginaBugs } from '@/presentacion/paginas/operacion/bugs/PaginaBugs'
+import { PaginaMejoras } from '@/presentacion/paginas/operacion/mejoras/PaginaMejoras'
+import { PaginaDeudaTecnica } from '@/presentacion/paginas/operacion/deuda-tecnica/PaginaDeudaTecnica'
+import { PaginaBloqueos } from '@/presentacion/paginas/operacion/bloqueos/PaginaBloqueos'
+import { PaginaLeccionesAprendidas } from '@/presentacion/paginas/operacion/lecciones/PaginaLeccionesAprendidas'
 
 export const enrutadorPortal = createBrowserRouter([
   {
@@ -76,6 +82,12 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'lanzamientos', element: <PaginaResumenLanzamientos /> },
       { path: 'lanzamientos/releases', element: <PaginaReleases /> },
       { path: 'lanzamientos/seguimiento', element: <PaginaSeguimientoLanzamientos /> },
+      { path: 'operacion', element: <PaginaResumenOperacion /> },
+      { path: 'operacion/bugs', element: <PaginaBugs /> },
+      { path: 'operacion/mejoras', element: <PaginaMejoras /> },
+      { path: 'operacion/deuda-tecnica', element: <PaginaDeudaTecnica /> },
+      { path: 'operacion/bloqueos', element: <PaginaBloqueos /> },
+      { path: 'operacion/lecciones-aprendidas', element: <PaginaLeccionesAprendidas /> },
       { path: 'decisiones', element: <PaginaDecisiones /> },
       { path: 'auditorias', element: <PaginaAuditorias /> },
       { path: 'ajustes', element: <PaginaAjustes /> },

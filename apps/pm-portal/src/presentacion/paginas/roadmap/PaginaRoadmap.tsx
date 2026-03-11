@@ -4,16 +4,28 @@ import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
+import {
+  listarBloqueosPm,
+  listarBugsPm,
+  listarDeudaTecnicaPm,
+  listarLeccionesAprendidasPm,
+  listarMejorasPm
+} from '@/aplicacion/casos-uso/operacion'
 import { listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import {
   estadosRegistro,
   formatearEstadoRelease,
+  type BloqueoPm,
+  type BugPm,
   type CatalogoEtapaPm,
   type CatalogoVentanaPm,
+  type DeudaTecnicaPm,
   type Entrega,
   type Iniciativa,
+  type LeccionAprendidaPm,
+  type MejoraPm,
   type Objetivo,
   type ReleasePm
 } from '@/dominio/modelos'
@@ -45,6 +57,11 @@ export function PaginaRoadmap() {
   const [releasesRoadmap, setReleasesRoadmap] = useState<
     Array<Pick<ReleasePm, 'id' | 'iniciativa_id' | 'entrega_id' | 'estado'>>
   >([])
+  const [bugsRoadmap, setBugsRoadmap] = useState<BugPm[]>([])
+  const [mejorasRoadmap, setMejorasRoadmap] = useState<MejoraPm[]>([])
+  const [deudasRoadmap, setDeudasRoadmap] = useState<DeudaTecnicaPm[]>([])
+  const [bloqueosRoadmap, setBloqueosRoadmap] = useState<BloqueoPm[]>([])
+  const [leccionesRoadmap, setLeccionesRoadmap] = useState<LeccionAprendidaPm[]>([])
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
   const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
   const [filtroVentanaGlobal, setFiltroVentanaGlobal] = useState(() =>
@@ -64,17 +81,27 @@ export function PaginaRoadmap() {
     setError(null)
 
     try {
-      const [objetivosData, iniciativasData, entregasData, releasesData] = await Promise.all([
+      const [objetivosData, iniciativasData, entregasData, releasesData, bugsData, mejorasData, deudasData, bloqueosData, leccionesData] = await Promise.all([
         listarObjetivos(),
         listarIniciativas(),
         listarEntregas(),
-        listarReleases()
+        listarReleases(),
+        listarBugsPm(),
+        listarMejorasPm(),
+        listarDeudaTecnicaPm(),
+        listarBloqueosPm(),
+        listarLeccionesAprendidasPm()
       ])
 
       setObjetivos(objetivosData)
       setIniciativas(iniciativasData)
       setEntregas(entregasData)
       setReleasesRoadmap(releasesData)
+      setBugsRoadmap(bugsData)
+      setMejorasRoadmap(mejorasData)
+      setDeudasRoadmap(deudasData)
+      setBloqueosRoadmap(bloqueosData)
+      setLeccionesRoadmap(leccionesData)
 
       const [ventanasResultado, etapasResultado] = await Promise.allSettled([
         listarVentanasPm(),
@@ -268,6 +295,38 @@ export function PaginaRoadmap() {
       reciente
     }
   }, [iniciativasFiltradas, entregasFiltradas, releasesRoadmap])
+
+  const resumenOperacionRoadmap = useMemo(() => {
+    const iniciativasIds = new Set(iniciativasFiltradas.map((iniciativa) => iniciativa.id))
+    const entregasIds = new Set(entregasFiltradas.map((entrega) => entrega.id))
+    const releasesRelacionados = new Set(
+      releasesRoadmap
+        .filter((release) => iniciativasIds.has(release.iniciativa_id ?? '') || entregasIds.has(release.entrega_id ?? ''))
+        .map((release) => release.id)
+    )
+
+    const relacionadoConRoadmap = (registro: { iniciativa_id: string | null; entrega_id: string | null; release_id?: string | null }) =>
+      iniciativasIds.has(registro.iniciativa_id ?? '') ||
+      entregasIds.has(registro.entrega_id ?? '') ||
+      releasesRelacionados.has(registro.release_id ?? '')
+
+    const bugsRelacionados = bugsRoadmap.filter((bug) => relacionadoConRoadmap(bug))
+    const mejorasRelacionadas = mejorasRoadmap.filter((mejora) => relacionadoConRoadmap(mejora))
+    const deudasRelacionadas = deudasRoadmap.filter((deuda) => relacionadoConRoadmap(deuda))
+    const bloqueosRelacionados = bloqueosRoadmap.filter((bloqueo) => relacionadoConRoadmap(bloqueo))
+    const leccionesRelacionadas = leccionesRoadmap.filter((leccion) => relacionadoConRoadmap(leccion))
+
+    return {
+      total:
+        bugsRelacionados.length +
+        mejorasRelacionadas.length +
+        deudasRelacionadas.length +
+        bloqueosRelacionados.length +
+        leccionesRelacionadas.length,
+      bugsAbiertos: bugsRelacionados.filter((bug) => !['resuelto', 'cerrado'].includes(bug.estado)).length,
+      bloqueosActivos: bloqueosRelacionados.filter((bloqueo) => bloqueo.estado !== 'resuelto').length
+    }
+  }, [iniciativasFiltradas, entregasFiltradas, releasesRoadmap, bugsRoadmap, mejorasRoadmap, deudasRoadmap, bloqueosRoadmap, leccionesRoadmap])
 
   const progresoPorObjetivo = useMemo(() => {
     const ahora = new Date().getTime()
@@ -500,7 +559,7 @@ export function PaginaRoadmap() {
         </select>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Releases vinculados</p>
           <p className="mt-2 text-2xl font-semibold">{resumenReleasesRoadmap.total}</p>
@@ -514,6 +573,18 @@ export function PaginaRoadmap() {
           <p className="mt-2 text-2xl font-semibold">
             {resumenReleasesRoadmap.reciente ? formatearEstadoRelease(resumenReleasesRoadmap.reciente) : 'Sin releases'}
           </p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Operación vinculada</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenOperacionRoadmap.total}</p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bugs abiertos</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenOperacionRoadmap.bugsAbiertos}</p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bloqueos activos</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenOperacionRoadmap.bloqueosActivos}</p>
         </article>
       </div>
 

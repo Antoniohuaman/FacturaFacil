@@ -18,6 +18,13 @@ import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarHistoriasUsuario, listarRequerimientosNoFuncionales } from '@/aplicacion/casos-uso/requerimientos'
 import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
+import {
+  listarBloqueosPm,
+  listarBugsPm,
+  listarDeudaTecnicaPm,
+  listarLeccionesAprendidasPm,
+  listarMejorasPm
+} from '@/aplicacion/casos-uso/operacion'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -42,6 +49,9 @@ export function PaginaEntregasRoadmap() {
   const [historiasPorEntrega, setHistoriasPorEntrega] = useState<Map<string, number>>(new Map())
   const [requerimientosNoFuncionalesPorEntrega, setRequerimientosNoFuncionalesPorEntrega] = useState<Map<string, number>>(new Map())
   const [releasesPorEntrega, setReleasesPorEntrega] = useState<Map<string, number>>(new Map())
+  const [operacionPorEntrega, setOperacionPorEntrega] = useState<Map<string, number>>(new Map())
+  const [bugsAbiertosPorEntrega, setBugsAbiertosPorEntrega] = useState<Map<string, number>>(new Map())
+  const [bloqueosActivosPorEntrega, setBloqueosActivosPorEntrega] = useState<Map<string, number>>(new Map())
   const [estadoReleaseRecientePorEntrega, setEstadoReleaseRecientePorEntrega] = useState<
     Map<string, { referencia: string; estado: ReleasePm['estado'] }>
   >(new Map())
@@ -93,14 +103,32 @@ export function PaginaEntregasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaEntregas, listaIniciativas, listaObjetivos, listaVentanas, historiasData, requerimientosNoFuncionalesData, releasesData] = await Promise.all([
+      const [
+        listaEntregas,
+        listaIniciativas,
+        listaObjetivos,
+        listaVentanas,
+        historiasData,
+        requerimientosNoFuncionalesData,
+        releasesData,
+        bugsData,
+        mejorasData,
+        deudasData,
+        bloqueosData,
+        leccionesData
+      ] = await Promise.all([
         listarEntregas(),
         listarIniciativas(),
         listarObjetivos(),
         listarVentanasPm(),
         listarHistoriasUsuario(),
         listarRequerimientosNoFuncionales(),
-        listarReleases()
+        listarReleases(),
+        listarBugsPm(),
+        listarMejorasPm(),
+        listarDeudaTecnicaPm(),
+        listarBloqueosPm(),
+        listarLeccionesAprendidasPm()
       ])
       setEntregas(listaEntregas)
       setIniciativas(listaIniciativas)
@@ -151,6 +179,59 @@ export function PaginaEntregasRoadmap() {
           return mapa
         }, new Map<string, { referencia: string; estado: ReleasePm['estado'] }>())
       )
+      const operacion = new Map<string, number>()
+      const bugsAbiertos = new Map<string, number>()
+      const bloqueosActivos = new Map<string, number>()
+
+      for (const bug of bugsData) {
+        if (!bug.entrega_id) {
+          continue
+        }
+
+        operacion.set(bug.entrega_id, (operacion.get(bug.entrega_id) ?? 0) + 1)
+        if (!['resuelto', 'cerrado'].includes(bug.estado)) {
+          bugsAbiertos.set(bug.entrega_id, (bugsAbiertos.get(bug.entrega_id) ?? 0) + 1)
+        }
+      }
+
+      for (const mejora of mejorasData) {
+        if (!mejora.entrega_id) {
+          continue
+        }
+
+        operacion.set(mejora.entrega_id, (operacion.get(mejora.entrega_id) ?? 0) + 1)
+      }
+
+      for (const deuda of deudasData) {
+        if (!deuda.entrega_id) {
+          continue
+        }
+
+        operacion.set(deuda.entrega_id, (operacion.get(deuda.entrega_id) ?? 0) + 1)
+      }
+
+      for (const bloqueo of bloqueosData) {
+        if (!bloqueo.entrega_id) {
+          continue
+        }
+
+        operacion.set(bloqueo.entrega_id, (operacion.get(bloqueo.entrega_id) ?? 0) + 1)
+        if (bloqueo.estado !== 'resuelto') {
+          bloqueosActivos.set(bloqueo.entrega_id, (bloqueosActivos.get(bloqueo.entrega_id) ?? 0) + 1)
+        }
+      }
+
+      for (const leccion of leccionesData) {
+        if (!leccion.entrega_id) {
+          continue
+        }
+
+        operacion.set(leccion.entrega_id, (operacion.get(leccion.entrega_id) ?? 0) + 1)
+      }
+
+      setOperacionPorEntrega(operacion)
+      setBugsAbiertosPorEntrega(bugsAbiertos)
+      setBloqueosActivosPorEntrega(bloqueosActivos)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar entregas')
     } finally {
@@ -416,6 +497,9 @@ export function PaginaEntregasRoadmap() {
                 { encabezado: 'Historias vinculadas', valor: (entrega) => historiasPorEntrega.get(entrega.id) ?? 0 },
                 { encabezado: 'RNF vinculados', valor: (entrega) => requerimientosNoFuncionalesPorEntrega.get(entrega.id) ?? 0 },
                 { encabezado: 'Releases vinculados', valor: (entrega) => releasesPorEntrega.get(entrega.id) ?? 0 },
+                { encabezado: 'Operación vinculada', valor: (entrega) => operacionPorEntrega.get(entrega.id) ?? 0 },
+                { encabezado: 'Bugs abiertos', valor: (entrega) => bugsAbiertosPorEntrega.get(entrega.id) ?? 0 },
+                { encabezado: 'Bloqueos activos', valor: (entrega) => bloqueosActivosPorEntrega.get(entrega.id) ?? 0 },
                 {
                   encabezado: 'Estado release más reciente',
                   valor: (entrega) => {
@@ -632,6 +716,9 @@ export function PaginaEntregasRoadmap() {
                       {estadoReleaseRecientePorEntrega.get(entrega.id)
                         ? ` · ${formatearEstadoRelease(estadoReleaseRecientePorEntrega.get(entrega.id)?.estado ?? 'borrador')}`
                         : ''}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {operacionPorEntrega.get(entrega.id) ?? 0} registros operación · {bugsAbiertosPorEntrega.get(entrega.id) ?? 0} bugs abiertos · {bloqueosActivosPorEntrega.get(entrega.id) ?? 0} bloqueos activos
                     </p>
                   </td>
                   <td className="px-3 py-2">

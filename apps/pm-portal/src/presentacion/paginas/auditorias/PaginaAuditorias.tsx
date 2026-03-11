@@ -29,6 +29,7 @@ import {
   listarHallazgosAuditoriaPm,
   listarTiposAuditoriaPm
 } from '@/aplicacion/casos-uso/auditorias'
+import { listarBugsPm, listarLeccionesAprendidasPm } from '@/aplicacion/casos-uso/operacion'
 import { listarDecisionesPm } from '@/aplicacion/casos-uso/decisiones'
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
 import { listarModulosPm, listarSeveridadesPm, listarEstadosPm } from '@/aplicacion/casos-uso/ajustes'
@@ -59,6 +60,9 @@ export function PaginaAuditorias() {
   const [ejecuciones, setEjecuciones] = useState<EjecucionValidacion[]>([])
   const [auditorias, setAuditorias] = useState<AuditoriaPm[]>([])
   const [hallazgos, setHallazgos] = useState<HallazgoAuditoriaPm[]>([])
+  const [bugsPorAuditoria, setBugsPorAuditoria] = useState<Map<string, number>>(new Map())
+  const [leccionesPorAuditoria, setLeccionesPorAuditoria] = useState<Map<string, number>>(new Map())
+  const [bugsPorHallazgo, setBugsPorHallazgo] = useState<Map<string, number>>(new Map())
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
   const [filtroTipoAuditoria, setFiltroTipoAuditoria] = useState(searchParams.get('tipo') ?? 'todos')
   const [filtroEstadoAuditoria, setFiltroEstadoAuditoria] = useState(searchParams.get('estadoAuditoria') ?? 'todos')
@@ -119,7 +123,9 @@ export function PaginaAuditorias() {
         decisionesData,
         ejecucionesData,
         auditoriasData,
-        hallazgosData
+        hallazgosData,
+        bugsData,
+        leccionesData
       ] = await Promise.all([
         listarTiposAuditoriaPm(),
         listarEstadosPm('auditoria'),
@@ -129,7 +135,9 @@ export function PaginaAuditorias() {
         listarDecisionesPm(),
         listarEjecucionesValidacion(),
         listarAuditoriasPm(),
-        listarHallazgosAuditoriaPm()
+        listarHallazgosAuditoriaPm(),
+        listarBugsPm(),
+        listarLeccionesAprendidasPm()
       ])
 
       setTiposAuditoria(tiposAuditoriaData)
@@ -141,6 +149,33 @@ export function PaginaAuditorias() {
       setEjecuciones(ejecucionesData)
       setAuditorias(auditoriasData)
       setHallazgos(hallazgosData)
+      setBugsPorAuditoria(
+        bugsData.reduce((mapa, bug) => {
+          if (!bug.auditoria_id) {
+            return mapa
+          }
+
+          return mapa.set(bug.auditoria_id, (mapa.get(bug.auditoria_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setLeccionesPorAuditoria(
+        leccionesData.reduce((mapa, leccion) => {
+          if (!leccion.auditoria_id) {
+            return mapa
+          }
+
+          return mapa.set(leccion.auditoria_id, (mapa.get(leccion.auditoria_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setBugsPorHallazgo(
+        bugsData.reduce((mapa, bug) => {
+          if (!bug.hallazgo_id) {
+            return mapa
+          }
+
+          return mapa.set(bug.hallazgo_id, (mapa.get(bug.hallazgo_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar auditorías')
     } finally {
@@ -424,7 +459,9 @@ export function PaginaAuditorias() {
               { encabezado: 'Estado', valor: (auditoria) => formatearEstadoLegible(auditoria.estado_codigo) },
               { encabezado: 'Responsable', valor: (auditoria) => auditoria.responsable ?? 'Sin responsable' },
               { encabezado: 'Alcance', valor: (auditoria) => auditoria.alcance },
-              { encabezado: 'Checklist', valor: (auditoria) => auditoria.checklist }
+              { encabezado: 'Checklist', valor: (auditoria) => auditoria.checklist },
+              { encabezado: 'Bugs vinculados', valor: (auditoria) => bugsPorAuditoria.get(auditoria.id) ?? 0 },
+              { encabezado: 'Lecciones vinculadas', valor: (auditoria) => leccionesPorAuditoria.get(auditoria.id) ?? 0 }
             ], auditoriasFiltradas)
           }}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
@@ -449,6 +486,9 @@ export function PaginaAuditorias() {
                 <li key={auditoria.id} className="space-y-2 px-4 py-3 text-sm">
                   <p className="font-medium">{auditoria.fecha_auditoria} · {auditoria.tipo_auditoria_codigo}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Estado: {auditoria.estado_codigo}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {bugsPorAuditoria.get(auditoria.id) ?? 0} bugs vinculados · {leccionesPorAuditoria.get(auditoria.id) ?? 0} lecciones aprendidas
+                  </p>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -510,6 +550,9 @@ export function PaginaAuditorias() {
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Auditoría: {auditoriaPorId.get(hallazgo.auditoria_id) ?? 'No disponible'}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {bugsPorHallazgo.get(hallazgo.id) ?? 0} bugs operativos vinculados
                   </p>
                   <div className="flex gap-2">
                     <button

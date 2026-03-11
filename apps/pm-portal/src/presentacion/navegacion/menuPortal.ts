@@ -72,6 +72,18 @@ export const menuPortal: ItemMenuPortal[] = [
       { etiqueta: 'Seguimiento post-lanzamiento', ruta: '/lanzamientos/seguimiento' }
     ]
   },
+  {
+    etiqueta: 'Operación',
+    ruta: '/operacion',
+    submenus: [
+      { etiqueta: 'Resumen operativo', ruta: '/operacion' },
+      { etiqueta: 'Bugs', ruta: '/operacion/bugs' },
+      { etiqueta: 'Mejoras', ruta: '/operacion/mejoras' },
+      { etiqueta: 'Deuda técnica', ruta: '/operacion/deuda-tecnica' },
+      { etiqueta: 'Bloqueos', ruta: '/operacion/bloqueos' },
+      { etiqueta: 'Lecciones aprendidas', ruta: '/operacion/lecciones-aprendidas' }
+    ]
+  },
   { etiqueta: 'Decisiones', ruta: '/decisiones' },
   { etiqueta: 'Auditorías', ruta: '/auditorias' },
   { etiqueta: 'Ajustes', ruta: '/ajustes' },
