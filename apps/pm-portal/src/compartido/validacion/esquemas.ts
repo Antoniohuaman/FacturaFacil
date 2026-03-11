@@ -1,8 +1,12 @@
 import { z } from 'zod'
 import {
+  estadosEstabilizacionReleasePm,
+  estadosReleasePm,
   estadosRegistro,
   frecuenciasEstrategicas,
   prioridadesRegistro,
+  tiposChecklistSalidaPm,
+  tiposReleasePm,
   tiposRequerimientoNoFuncionalPm,
   tiposProblemaOportunidadDiscovery,
   tendenciasKpiEstrategico
@@ -415,6 +419,60 @@ export const requerimientoNoFuncionalSchema = z.object({
   notas: textoLargoOpcionalSchema
 })
 
+export const releaseSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    nombre: z.string().trim().min(3).max(160),
+    descripcion: z.string().trim().min(5).max(4000),
+    tipo_release: z.enum(tiposReleasePm),
+    estado: z.enum(estadosReleasePm),
+    fecha_programada: z.string().trim().min(10).max(20),
+    fecha_lanzamiento_real: fechaOpcionalSchema,
+    iniciativa_id: uuidOpcionalSchema,
+    entrega_id: uuidOpcionalSchema,
+    owner: textoCortoOpcionalSchema,
+    responsable_aprobacion: textoCortoOpcionalSchema,
+    decision_id: uuidOpcionalSchema,
+    rollback_preparado: z.boolean(),
+    rollback_descripcion: textoLargoOpcionalSchema,
+    rollback_responsable: textoCortoOpcionalSchema,
+    comunicacion_requerida: z.boolean(),
+    comunicacion_descripcion: textoLargoOpcionalSchema,
+    audiencia_objetivo: textoLargoOpcionalSchema,
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_lanzamiento_real && valores.fecha_lanzamiento_real < valores.fecha_programada) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_lanzamiento_real'],
+        message: 'La fecha de lanzamiento real no puede ser menor que la fecha programada'
+      })
+    }
+  })
+
+export const checklistSalidaSchema = z.object({
+  id: uuidOpcionalSchema,
+  release_id: uuidOpcionalSchema,
+  tipo_item: z.enum(tiposChecklistSalidaPm),
+  descripcion: z.string().trim().min(3).max(2000),
+  obligatorio: z.boolean(),
+  completado: z.boolean(),
+  evidencia: textoLargoOpcionalSchema,
+  orden: z.coerce.number().int().min(1).max(9999)
+})
+
+export const seguimientoReleaseSchema = z.object({
+  release_id: z.string().uuid('Selecciona un release válido'),
+  fecha_registro: z.string().trim().min(10).max(20),
+  estado_estabilizacion: z.enum(estadosEstabilizacionReleasePm),
+  observaciones: z.string().trim().min(5).max(4000),
+  incidencias_detectadas: z.string().trim().min(3).max(4000),
+  metrica_clave: textoCortoOpcionalSchema,
+  decision_requerida: z.boolean(),
+  owner: textoCortoOpcionalSchema
+})
+
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
@@ -448,3 +506,6 @@ export type HistoriaUsuarioEntrada = z.infer<typeof historiaUsuarioSchema>
 export type CasoUsoEntrada = z.infer<typeof casoUsoSchema>
 export type ReglaNegocioEntrada = z.infer<typeof reglaNegocioSchema>
 export type RequerimientoNoFuncionalEntrada = z.infer<typeof requerimientoNoFuncionalSchema>
+export type ReleaseEntrada = z.infer<typeof releaseSchema>
+export type ChecklistSalidaEntrada = z.infer<typeof checklistSalidaSchema>
+export type SeguimientoReleaseEntrada = z.infer<typeof seguimientoReleaseSchema>

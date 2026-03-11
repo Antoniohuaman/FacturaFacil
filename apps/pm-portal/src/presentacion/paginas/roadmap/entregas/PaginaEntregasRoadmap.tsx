@@ -9,13 +9,15 @@ import {
   type CatalogoVentanaPm,
   type Entrega,
   type Iniciativa,
-  type Objetivo
+  type Objetivo,
+  type ReleasePm
 } from '@/dominio/modelos'
 import { crearEntrega, editarEntrega, eliminarEntrega, listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarHistoriasUsuario, listarRequerimientosNoFuncionales } from '@/aplicacion/casos-uso/requerimientos'
+import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -24,6 +26,7 @@ import { usePaginacion } from '../../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoRelease } from '@/dominio/modelos'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -38,6 +41,10 @@ export function PaginaEntregasRoadmap() {
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
   const [historiasPorEntrega, setHistoriasPorEntrega] = useState<Map<string, number>>(new Map())
   const [requerimientosNoFuncionalesPorEntrega, setRequerimientosNoFuncionalesPorEntrega] = useState<Map<string, number>>(new Map())
+  const [releasesPorEntrega, setReleasesPorEntrega] = useState<Map<string, number>>(new Map())
+  const [estadoReleaseRecientePorEntrega, setEstadoReleaseRecientePorEntrega] = useState<
+    Map<string, { referencia: string; estado: ReleasePm['estado'] }>
+  >(new Map())
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
@@ -86,13 +93,14 @@ export function PaginaEntregasRoadmap() {
     setCargando(true)
     setError(null)
     try {
-      const [listaEntregas, listaIniciativas, listaObjetivos, listaVentanas, historiasData, requerimientosNoFuncionalesData] = await Promise.all([
+      const [listaEntregas, listaIniciativas, listaObjetivos, listaVentanas, historiasData, requerimientosNoFuncionalesData, releasesData] = await Promise.all([
         listarEntregas(),
         listarIniciativas(),
         listarObjetivos(),
         listarVentanasPm(),
         listarHistoriasUsuario(),
-        listarRequerimientosNoFuncionales()
+        listarRequerimientosNoFuncionales(),
+        listarReleases()
       ])
       setEntregas(listaEntregas)
       setIniciativas(listaIniciativas)
@@ -115,6 +123,33 @@ export function PaginaEntregasRoadmap() {
 
           return mapa.set(requerimiento.entrega_id, (mapa.get(requerimiento.entrega_id) ?? 0) + 1)
         }, new Map<string, number>())
+      )
+      setReleasesPorEntrega(
+        releasesData.reduce((mapa, release) => {
+          if (!release.entrega_id) {
+            return mapa
+          }
+
+          return mapa.set(release.entrega_id, (mapa.get(release.entrega_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setEstadoReleaseRecientePorEntrega(
+        releasesData.reduce((mapa, release) => {
+          if (!release.entrega_id) {
+            return mapa
+          }
+
+          const actual = mapa.get(release.entrega_id)
+
+          if (!actual || `${release.fecha_programada}|${release.updated_at}` > actual.referencia) {
+            mapa.set(release.entrega_id, {
+              referencia: `${release.fecha_programada}|${release.updated_at}`,
+              estado: release.estado
+            })
+          }
+
+          return mapa
+        }, new Map<string, { referencia: string; estado: ReleasePm['estado'] }>())
       )
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar entregas')
@@ -379,7 +414,15 @@ export function PaginaEntregasRoadmap() {
                 { encabezado: 'Estado', valor: (entrega) => formatearEstadoLegible(entrega.estado) },
                 { encabezado: 'Prioridad', valor: (entrega) => entrega.prioridad },
                 { encabezado: 'Historias vinculadas', valor: (entrega) => historiasPorEntrega.get(entrega.id) ?? 0 },
-                { encabezado: 'RNF vinculados', valor: (entrega) => requerimientosNoFuncionalesPorEntrega.get(entrega.id) ?? 0 }
+                { encabezado: 'RNF vinculados', valor: (entrega) => requerimientosNoFuncionalesPorEntrega.get(entrega.id) ?? 0 },
+                { encabezado: 'Releases vinculados', valor: (entrega) => releasesPorEntrega.get(entrega.id) ?? 0 },
+                {
+                  encabezado: 'Estado release más reciente',
+                  valor: (entrega) => {
+                    const registro = estadoReleaseRecientePorEntrega.get(entrega.id)
+                    return registro ? formatearEstadoRelease(registro.estado) : ''
+                  }
+                }
               ], entregasFiltradas)
             }}
             aria-label="Exportar entregas a CSV"
@@ -583,6 +626,12 @@ export function PaginaEntregasRoadmap() {
                     <p>{iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa'}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {historiasPorEntrega.get(entrega.id) ?? 0} historias · {requerimientosNoFuncionalesPorEntrega.get(entrega.id) ?? 0} RNF
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {releasesPorEntrega.get(entrega.id) ?? 0} releases
+                      {estadoReleaseRecientePorEntrega.get(entrega.id)
+                        ? ` · ${formatearEstadoRelease(estadoReleaseRecientePorEntrega.get(entrega.id)?.estado ?? 'borrador')}`
+                        : ''}
                     </p>
                   </td>
                   <td className="px-3 py-2">

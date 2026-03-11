@@ -63,6 +63,15 @@ export const menuPortal: ItemMenuPortal[] = [
       { etiqueta: 'Requerimientos no funcionales', ruta: '/requerimientos/no-funcionales' }
     ]
   },
+  {
+    etiqueta: 'Lanzamientos',
+    ruta: '/lanzamientos',
+    submenus: [
+      { etiqueta: 'Resumen de lanzamientos', ruta: '/lanzamientos' },
+      { etiqueta: 'Releases', ruta: '/lanzamientos/releases' },
+      { etiqueta: 'Seguimiento post-lanzamiento', ruta: '/lanzamientos/seguimiento' }
+    ]
+  },
   { etiqueta: 'Decisiones', ruta: '/decisiones' },
   { etiqueta: 'Auditorías', ruta: '/auditorias' },
   { etiqueta: 'Ajustes', ruta: '/ajustes' },

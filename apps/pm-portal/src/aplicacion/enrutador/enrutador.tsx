@@ -31,6 +31,9 @@ import { PaginaHistoriasUsuario } from '@/presentacion/paginas/requerimientos/hi
 import { PaginaCasosUso } from '@/presentacion/paginas/requerimientos/casos-uso/PaginaCasosUso'
 import { PaginaReglasNegocio } from '@/presentacion/paginas/requerimientos/reglas/PaginaReglasNegocio'
 import { PaginaRequerimientosNoFuncionales } from '@/presentacion/paginas/requerimientos/no-funcionales/PaginaRequerimientosNoFuncionales'
+import { PaginaResumenLanzamientos } from '@/presentacion/paginas/lanzamientos/PaginaResumenLanzamientos'
+import { PaginaReleases } from '@/presentacion/paginas/lanzamientos/releases/PaginaReleases'
+import { PaginaSeguimientoLanzamientos } from '@/presentacion/paginas/lanzamientos/seguimiento/PaginaSeguimientoLanzamientos'
 
 export const enrutadorPortal = createBrowserRouter([
   {
@@ -70,6 +73,9 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'requerimientos/casos-uso', element: <PaginaCasosUso /> },
       { path: 'requerimientos/reglas-negocio', element: <PaginaReglasNegocio /> },
       { path: 'requerimientos/no-funcionales', element: <PaginaRequerimientosNoFuncionales /> },
+      { path: 'lanzamientos', element: <PaginaResumenLanzamientos /> },
+      { path: 'lanzamientos/releases', element: <PaginaReleases /> },
+      { path: 'lanzamientos/seguimiento', element: <PaginaSeguimientoLanzamientos /> },
       { path: 'decisiones', element: <PaginaDecisiones /> },
       { path: 'auditorias', element: <PaginaAuditorias /> },
       { path: 'ajustes', element: <PaginaAjustes /> },

@@ -3,16 +3,19 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
+import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
 import { listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import {
   estadosRegistro,
+  formatearEstadoRelease,
   type CatalogoEtapaPm,
   type CatalogoVentanaPm,
   type Entrega,
   type Iniciativa,
-  type Objetivo
+  type Objetivo,
+  type ReleasePm
 } from '@/dominio/modelos'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 
@@ -39,6 +42,9 @@ export function PaginaRoadmap() {
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [entregas, setEntregas] = useState<Entrega[]>([])
+  const [releasesRoadmap, setReleasesRoadmap] = useState<
+    Array<Pick<ReleasePm, 'id' | 'iniciativa_id' | 'entrega_id' | 'estado'>>
+  >([])
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
   const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
   const [filtroVentanaGlobal, setFiltroVentanaGlobal] = useState(() =>
@@ -58,15 +64,17 @@ export function PaginaRoadmap() {
     setError(null)
 
     try {
-      const [objetivosData, iniciativasData, entregasData] = await Promise.all([
+      const [objetivosData, iniciativasData, entregasData, releasesData] = await Promise.all([
         listarObjetivos(),
         listarIniciativas(),
-        listarEntregas()
+        listarEntregas(),
+        listarReleases()
       ])
 
       setObjetivos(objetivosData)
       setIniciativas(iniciativasData)
       setEntregas(entregasData)
+      setReleasesRoadmap(releasesData)
 
       const [ventanasResultado, etapasResultado] = await Promise.allSettled([
         listarVentanasPm(),
@@ -240,6 +248,26 @@ export function PaginaRoadmap() {
       porcentajeCompletado: total === 0 ? 0 : Math.round((completado / total) * 100)
     }
   }, [objetivosFiltrados.length, iniciativasFiltradas.length, entregasFiltradas.length, totalesPorEstado.completado])
+
+  const resumenReleasesRoadmap = useMemo(() => {
+    const iniciativasIds = new Set(iniciativasFiltradas.map((iniciativa) => iniciativa.id))
+    const entregasIds = new Set(entregasFiltradas.map((entrega) => entrega.id))
+    const relacionados = releasesRoadmap.filter(
+      (release) => iniciativasIds.has(release.iniciativa_id ?? '') || entregasIds.has(release.entrega_id ?? '')
+    )
+
+    const pendientesSalida = relacionados.filter((release) =>
+      ['borrador', 'planificado', 'listo_para_salida'].includes(release.estado)
+    ).length
+
+    const reciente = relacionados[0]?.estado ?? null
+
+    return {
+      total: relacionados.length,
+      pendientesSalida,
+      reciente
+    }
+  }, [iniciativasFiltradas, entregasFiltradas, releasesRoadmap])
 
   const progresoPorObjetivo = useMemo(() => {
     const ahora = new Date().getTime()
@@ -470,6 +498,23 @@ export function PaginaRoadmap() {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Releases vinculados</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenReleasesRoadmap.total}</p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Pendientes de salida</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenReleasesRoadmap.pendientesSalida}</p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Estado release más reciente</p>
+          <p className="mt-2 text-2xl font-semibold">
+            {resumenReleasesRoadmap.reciente ? formatearEstadoRelease(resumenReleasesRoadmap.reciente) : 'Sin releases'}
+          </p>
+        </article>
       </div>
 
       <EstadoVista cargando={cargando} error={null} vacio={false} mensajeVacio="">

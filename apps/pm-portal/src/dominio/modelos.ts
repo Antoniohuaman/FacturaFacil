@@ -588,6 +588,63 @@ export interface RequerimientoNoFuncionalPm {
   updated_at: string
 }
 
+export type TipoReleasePm = 'mvp' | 'mejora' | 'correccion' | 'interno'
+export type EstadoReleasePm = 'borrador' | 'planificado' | 'listo_para_salida' | 'lanzado' | 'revertido' | 'cerrado'
+export type TipoChecklistSalidaPm = 'funcional' | 'datos' | 'validacion' | 'comunicacion' | 'soporte' | 'rollback'
+export type EstadoEstabilizacionReleasePm = 'estable' | 'observacion' | 'alerta'
+
+export interface ReleasePm {
+  id: string
+  codigo: string
+  nombre: string
+  descripcion: string
+  tipo_release: TipoReleasePm
+  estado: EstadoReleasePm
+  fecha_programada: string
+  fecha_lanzamiento_real: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  owner: string | null
+  responsable_aprobacion: string | null
+  decision_id: string | null
+  rollback_preparado: boolean
+  rollback_descripcion: string | null
+  rollback_responsable: string | null
+  comunicacion_requerida: boolean
+  comunicacion_descripcion: string | null
+  audiencia_objetivo: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ReleaseChecklistItemPm {
+  id: string
+  release_id: string
+  tipo_item: TipoChecklistSalidaPm
+  descripcion: string
+  obligatorio: boolean
+  completado: boolean
+  evidencia: string | null
+  orden: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ReleaseSeguimientoPm {
+  id: string
+  release_id: string
+  fecha_registro: string
+  estado_estabilizacion: EstadoEstabilizacionReleasePm
+  observaciones: string
+  incidencias_detectadas: string
+  metrica_clave: string | null
+  decision_requerida: boolean
+  owner: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
 export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
 export const frecuenciasEstrategicas: FrecuenciaEstrategica[] = ['semanal', 'mensual', 'trimestral']
@@ -600,6 +657,28 @@ export const tiposRequerimientoNoFuncionalPm: TipoRequerimientoNoFuncionalPm[] =
   'auditoria',
   'accesibilidad',
   'mantenibilidad'
+]
+export const tiposReleasePm: TipoReleasePm[] = ['mvp', 'mejora', 'correccion', 'interno']
+export const estadosReleasePm: EstadoReleasePm[] = [
+  'borrador',
+  'planificado',
+  'listo_para_salida',
+  'lanzado',
+  'revertido',
+  'cerrado'
+]
+export const tiposChecklistSalidaPm: TipoChecklistSalidaPm[] = [
+  'funcional',
+  'datos',
+  'validacion',
+  'comunicacion',
+  'soporte',
+  'rollback'
+]
+export const estadosEstabilizacionReleasePm: EstadoEstabilizacionReleasePm[] = [
+  'estable',
+  'observacion',
+  'alerta'
 ]
 
 export function formatearAlcancePeriodoRice(periodo: AlcancePeriodoRice) {
@@ -633,4 +712,20 @@ export function formatearEstadoRegistro(estado: string) {
 
 export function formatearPrioridadRegistro(prioridad: string) {
   return prioridad.charAt(0).toUpperCase() + prioridad.slice(1)
+}
+
+export function formatearTipoRelease(tipo: TipoReleasePm) {
+  return formatearEstadoRegistro(tipo)
+}
+
+export function formatearEstadoRelease(estado: EstadoReleasePm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearTipoChecklistSalida(tipo: TipoChecklistSalidaPm) {
+  return formatearEstadoRegistro(tipo)
+}
+
+export function formatearEstadoEstabilizacionRelease(estado: EstadoEstabilizacionReleasePm) {
+  return formatearEstadoRegistro(estado)
 }

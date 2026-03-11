@@ -16,6 +16,7 @@ import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
 import { listarRelInsightDecision } from '@/aplicacion/casos-uso/discovery'
+import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
 import { listarReglasNegocio } from '@/aplicacion/casos-uso/requerimientos'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
@@ -56,6 +57,7 @@ export function PaginaDecisiones() {
   const [estados, setEstados] = useState<CatalogoEstadoPm[]>([])
   const [relacionesInsight, setRelacionesInsight] = useState<RelInsightDecisionPm[]>([])
   const [reglasPorDecision, setReglasPorDecision] = useState<Map<string, number>>(new Map())
+  const [releasesPorDecision, setReleasesPorDecision] = useState<Map<string, number>>(new Map())
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
   const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') ?? 'todos')
   const [fechaDesde, setFechaDesde] = useState(searchParams.get('desde') ?? '')
@@ -92,14 +94,15 @@ export function PaginaDecisiones() {
     setError(null)
 
     try {
-      const [decisionesData, iniciativasData, entregasData, ejecucionesData, estadosData, relInsightsData, reglasData] = await Promise.all([
+      const [decisionesData, iniciativasData, entregasData, ejecucionesData, estadosData, relInsightsData, reglasData, releasesData] = await Promise.all([
         listarDecisionesPm(),
         listarIniciativas(),
         listarEntregas(),
         listarEjecucionesValidacion(),
         listarEstadosPm('decision'),
         listarRelInsightDecision(),
-        listarReglasNegocio()
+        listarReglasNegocio(),
+        listarReleases()
       ])
 
       setDecisiones(decisionesData)
@@ -115,6 +118,15 @@ export function PaginaDecisiones() {
           }
 
           return mapa.set(regla.decision_id, (mapa.get(regla.decision_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setReleasesPorDecision(
+        releasesData.reduce((mapa, release) => {
+          if (!release.decision_id) {
+            return mapa
+          }
+
+          return mapa.set(release.decision_id, (mapa.get(release.decision_id) ?? 0) + 1)
         }, new Map<string, number>())
       )
     } catch (errorInterno) {
@@ -306,7 +318,8 @@ export function PaginaDecisiones() {
               { encabezado: 'Entrega', valor: (decision) => entregas.find((entrega) => entrega.id === decision.entrega_id)?.nombre ?? '' },
               { encabezado: 'Ejecución', valor: (decision) => ejecuciones.find((ejecucion) => ejecucion.id === decision.ejecucion_validacion_id)?.fecha_ejecucion ?? '' },
               { encabezado: 'Insights discovery vinculados', valor: (decision) => insightsPorDecision.get(decision.id) ?? 0 },
-              { encabezado: 'Reglas de negocio vinculadas', valor: (decision) => reglasPorDecision.get(decision.id) ?? 0 }
+              { encabezado: 'Reglas de negocio vinculadas', valor: (decision) => reglasPorDecision.get(decision.id) ?? 0 },
+              { encabezado: 'Releases vinculados', valor: (decision) => releasesPorDecision.get(decision.id) ?? 0 }
             ], decisionesFiltradas)
           }}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
@@ -350,6 +363,9 @@ export function PaginaDecisiones() {
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {insightsPorDecision.get(decision.id) ?? 0} insights discovery vinculados · {reglasPorDecision.get(decision.id) ?? 0} reglas de negocio vinculadas
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {releasesPorDecision.get(decision.id) ?? 0} releases vinculados
                     </p>
                   </td>
                   <td className="px-3 py-2">{decision.estado_codigo}</td>
