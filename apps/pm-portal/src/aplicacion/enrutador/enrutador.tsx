@@ -40,6 +40,11 @@ import { PaginaMejoras } from '@/presentacion/paginas/operacion/mejoras/PaginaMe
 import { PaginaDeudaTecnica } from '@/presentacion/paginas/operacion/deuda-tecnica/PaginaDeudaTecnica'
 import { PaginaBloqueos } from '@/presentacion/paginas/operacion/bloqueos/PaginaBloqueos'
 import { PaginaLeccionesAprendidas } from '@/presentacion/paginas/operacion/lecciones/PaginaLeccionesAprendidas'
+import { PaginaResumenAnalitico } from '@/presentacion/paginas/analitica/PaginaResumenAnalitico'
+import { PaginaKpis } from '@/presentacion/paginas/analitica/kpis/PaginaKpis'
+import { PaginaPortafolio } from '@/presentacion/paginas/analitica/portafolio/PaginaPortafolio'
+import { PaginaTendencias } from '@/presentacion/paginas/analitica/tendencias/PaginaTendencias'
+import { PaginaHealthScores } from '@/presentacion/paginas/analitica/health-scores/PaginaHealthScores'
 
 export const enrutadorPortal = createBrowserRouter([
   {
@@ -88,6 +93,11 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'operacion/deuda-tecnica', element: <PaginaDeudaTecnica /> },
       { path: 'operacion/bloqueos', element: <PaginaBloqueos /> },
       { path: 'operacion/lecciones-aprendidas', element: <PaginaLeccionesAprendidas /> },
+      { path: 'analitica', element: <PaginaResumenAnalitico /> },
+      { path: 'analitica/kpis', element: <PaginaKpis /> },
+      { path: 'analitica/portafolio', element: <PaginaPortafolio /> },
+      { path: 'analitica/tendencias', element: <PaginaTendencias /> },
+      { path: 'analitica/health-scores', element: <PaginaHealthScores /> },
       { path: 'decisiones', element: <PaginaDecisiones /> },
       { path: 'auditorias', element: <PaginaAuditorias /> },
       { path: 'ajustes', element: <PaginaAjustes /> },

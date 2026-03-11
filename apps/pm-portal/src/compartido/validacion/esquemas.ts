@@ -1,15 +1,19 @@
 import { z } from 'zod'
 import {
+  ambitosHealthScorePm,
+  categoriasKpiEjecutivoPm,
   estadosBloqueoPm,
   estadosBugPm,
   estadosDeudaTecnicaPm,
   estadosEstabilizacionReleasePm,
+  estadosSaludAnaliticaPm,
   estadosLeccionAprendidaPm,
   estadosMejoraPm,
   estadosReleasePm,
   estadosRegistro,
   frecuenciasEstrategicas,
   prioridadesRegistro,
+  tendenciasAnaliticaPm,
   tiposChecklistSalidaPm,
   tiposReleasePm,
   tiposRequerimientoNoFuncionalPm,
@@ -612,6 +616,56 @@ export const leccionAprendidaSchema = z.object({
   notas: textoLargoOpcionalSchema
 })
 
+export const kpiEjecutivoSchema = z.object({
+  codigo: z.string().trim().min(2).max(40),
+  nombre: z.string().trim().min(3).max(160),
+  descripcion: z.string().trim().min(5).max(4000),
+  categoria: z.enum(categoriasKpiEjecutivoPm),
+  modulo_codigo: moduloOpcionalSchema,
+  formula_texto: z.string().trim().min(2).max(4000),
+  unidad: z.string().trim().min(1).max(60),
+  meta_valor: z.number().finite().nullable().optional(),
+  valor_actual: z.number().finite().nullable().optional(),
+  valor_anterior: z.number().finite().nullable().optional(),
+  tendencia: z.enum(tendenciasAnaliticaPm),
+  estado: z.enum(estadosSaludAnaliticaPm),
+  owner: textoCortoOpcionalSchema,
+  fecha_corte: z.string().trim().min(10).max(20),
+  notas: textoLargoOpcionalSchema
+})
+
+export const healthScoreSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    nombre: z.string().trim().min(3).max(160),
+    ambito: z.enum(ambitosHealthScorePm),
+    modulo_codigo: moduloOpcionalSchema,
+    descripcion: z.string().trim().min(5).max(4000),
+    peso: z.number().finite().min(0).max(1000),
+    valor_actual: z.number().finite().nullable().optional(),
+    umbral_saludable: z.number().finite().nullable().optional(),
+    umbral_atencion: z.number().finite().nullable().optional(),
+    estado: z.enum(estadosSaludAnaliticaPm),
+    owner: textoCortoOpcionalSchema,
+    fecha_corte: z.string().trim().min(10).max(20),
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (
+      valores.umbral_saludable !== null &&
+      valores.umbral_saludable !== undefined &&
+      valores.umbral_atencion !== null &&
+      valores.umbral_atencion !== undefined &&
+      valores.umbral_saludable <= valores.umbral_atencion
+    ) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['umbral_saludable'],
+        message: 'El umbral saludable debe ser mayor que el umbral de atención'
+      })
+    }
+  })
+
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
@@ -653,3 +707,5 @@ export type MejoraEntrada = z.infer<typeof mejoraSchema>
 export type DeudaTecnicaEntrada = z.infer<typeof deudaTecnicaSchema>
 export type BloqueoEntrada = z.infer<typeof bloqueoSchema>
 export type LeccionAprendidaEntrada = z.infer<typeof leccionAprendidaSchema>
+export type KpiEjecutivoEntrada = z.infer<typeof kpiEjecutivoSchema>
+export type HealthScoreEntrada = z.infer<typeof healthScoreSchema>

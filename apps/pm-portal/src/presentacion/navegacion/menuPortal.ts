@@ -84,6 +84,17 @@ export const menuPortal: ItemMenuPortal[] = [
       { etiqueta: 'Lecciones aprendidas', ruta: '/operacion/lecciones-aprendidas' }
     ]
   },
+  {
+    etiqueta: 'Analítica',
+    ruta: '/analitica',
+    submenus: [
+      { etiqueta: 'Resumen analítico', ruta: '/analitica' },
+      { etiqueta: 'KPIs', ruta: '/analitica/kpis' },
+      { etiqueta: 'Portafolio', ruta: '/analitica/portafolio' },
+      { etiqueta: 'Tendencias', ruta: '/analitica/tendencias' },
+      { etiqueta: 'Health scores', ruta: '/analitica/health-scores' }
+    ]
+  },
   { etiqueta: 'Decisiones', ruta: '/decisiones' },
   { etiqueta: 'Auditorías', ruta: '/auditorias' },
   { etiqueta: 'Ajustes', ruta: '/ajustes' },

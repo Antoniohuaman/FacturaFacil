@@ -759,10 +759,79 @@ export interface LeccionAprendidaPm {
   updated_at: string
 }
 
+export type CategoriaKpiEjecutivoPm =
+  | 'estrategia'
+  | 'delivery'
+  | 'validacion'
+  | 'lanzamiento'
+  | 'operacion'
+  | 'calidad'
+
+export type TendenciaAnaliticaPm = 'sube' | 'estable' | 'baja'
+export type EstadoSaludAnaliticaPm = 'saludable' | 'atencion' | 'riesgo'
+export type AmbitoHealthScorePm = 'portafolio' | 'roadmap' | 'validacion' | 'lanzamiento' | 'operacion'
+
+export interface KpiEjecutivoPm {
+  id: string
+  codigo: string
+  nombre: string
+  descripcion: string
+  categoria: CategoriaKpiEjecutivoPm
+  modulo_codigo: string | null
+  formula_texto: string
+  unidad: string
+  meta_valor: number | null
+  valor_actual: number | null
+  valor_anterior: number | null
+  tendencia: TendenciaAnaliticaPm
+  estado: EstadoSaludAnaliticaPm
+  owner: string | null
+  fecha_corte: string
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface HealthScorePm {
+  id: string
+  codigo: string
+  nombre: string
+  ambito: AmbitoHealthScorePm
+  modulo_codigo: string | null
+  descripcion: string
+  peso: number
+  valor_actual: number | null
+  umbral_saludable: number | null
+  umbral_atencion: number | null
+  estado: EstadoSaludAnaliticaPm
+  owner: string | null
+  fecha_corte: string
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
 export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
 export const frecuenciasEstrategicas: FrecuenciaEstrategica[] = ['semanal', 'mensual', 'trimestral']
 export const tendenciasKpiEstrategico: TendenciaKpiEstrategico[] = ['sube', 'estable', 'baja']
+export const categoriasKpiEjecutivoPm: CategoriaKpiEjecutivoPm[] = [
+  'estrategia',
+  'delivery',
+  'validacion',
+  'lanzamiento',
+  'operacion',
+  'calidad'
+]
+export const tendenciasAnaliticaPm: TendenciaAnaliticaPm[] = ['sube', 'estable', 'baja']
+export const estadosSaludAnaliticaPm: EstadoSaludAnaliticaPm[] = ['saludable', 'atencion', 'riesgo']
+export const ambitosHealthScorePm: AmbitoHealthScorePm[] = [
+  'portafolio',
+  'roadmap',
+  'validacion',
+  'lanzamiento',
+  'operacion'
+]
 export const tiposProblemaOportunidadDiscovery: TipoProblemaOportunidadDiscovery[] = ['problema', 'oportunidad']
 export const tiposRequerimientoNoFuncionalPm: TipoRequerimientoNoFuncionalPm[] = [
   'seguridad',
@@ -873,4 +942,20 @@ export function formatearEstadoBloqueo(estado: EstadoBloqueoPm) {
 
 export function formatearEstadoLeccionAprendida(estado: EstadoLeccionAprendidaPm) {
   return formatearEstadoRegistro(estado)
+}
+
+export function formatearCategoriaKpiEjecutivo(categoria: CategoriaKpiEjecutivoPm) {
+  return formatearEstadoRegistro(categoria)
+}
+
+export function formatearTendenciaAnalitica(tendencia: TendenciaAnaliticaPm) {
+  return formatearEstadoRegistro(tendencia)
+}
+
+export function formatearEstadoSaludAnalitica(estado: EstadoSaludAnaliticaPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearAmbitoHealthScore(ambito: AmbitoHealthScorePm) {
+  return formatearEstadoRegistro(ambito)
 }

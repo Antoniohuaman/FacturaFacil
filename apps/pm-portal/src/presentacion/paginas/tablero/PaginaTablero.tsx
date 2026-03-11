@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import {
@@ -344,6 +345,26 @@ export function PaginaTablero() {
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+      <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">Nuevo módulo</p>
+            <h1 className="mt-1 text-2xl font-semibold">Analítica</h1>
+            <p className="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+              Accede al resumen ejecutivo transversal, KPIs, portafolio consolidado, tendencias y health scores sin reemplazar el Tablero operativo.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link to="/analitica" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900">
+              Ir a Analítica
+            </Link>
+            <Link to="/analitica/kpis" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700">
+              Ver KPIs
+            </Link>
+          </div>
+        </div>
+      </article>
+
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold">Tablero</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">
