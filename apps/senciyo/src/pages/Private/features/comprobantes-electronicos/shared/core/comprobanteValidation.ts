@@ -1,4 +1,11 @@
-import type { CartItem, TipoComprobante, ClientData, PaymentTotals, PaymentCollectionMode } from '../../models/comprobante.types';
+import type {
+  CartItem,
+  TipoComprobante,
+  ClientData,
+  PaymentTotals,
+  PaymentCollectionMode,
+  DatosNotaCredito,
+} from '../../models/comprobante.types';
 
 export type ComprobanteField =
   | 'tipoComprobante'
@@ -7,7 +14,10 @@ export type ComprobanteField =
   | 'formaPago'
   | 'fechaEmision'
   | 'moneda'
-  | 'productos';
+  | 'productos'
+  | 'codigoNotaCredito'
+  | 'motivoNotaCredito'
+  | 'documentoRelacionado';
 
 export interface ComprobanteValidationError {
   field: ComprobanteField;
@@ -21,6 +31,7 @@ export interface ComprobanteValidationInput {
   formaPago?: string | null;
   fechaEmision?: string | null;
   moneda?: { code?: string } | string | null;
+  notaCredito?: DatosNotaCredito | null;
   cartItems: CartItem[];
   totals?: PaymentTotals | null;
   paymentMode?: PaymentCollectionMode;
@@ -60,10 +71,10 @@ export const validateComprobanteNormativa = (
 
   const tipo = (input.tipoComprobante || '').toString().trim().toLowerCase();
 
-  if (!tipo || (tipo !== 'factura' && tipo !== 'boleta')) {
+  if (!tipo || (tipo !== 'factura' && tipo !== 'boleta' && tipo !== 'nota_credito')) {
     errors.push({
       field: 'tipoComprobante',
-      message: 'Debe seleccionar un tipo de comprobante (Factura o Boleta).',
+      message: 'Debe seleccionar un tipo de comprobante válido.',
     });
   }
 
@@ -91,10 +102,12 @@ export const validateComprobanteNormativa = (
   }
 
   if (!input.formaPago || input.formaPago.trim() === '') {
-    errors.push({
-      field: 'formaPago',
-      message: 'Debe seleccionar una forma de pago.',
-    });
+    if (tipo !== 'nota_credito') {
+      errors.push({
+        field: 'formaPago',
+        message: 'Debe seleccionar una forma de pago.',
+      });
+    }
   }
 
   if (!input.fechaEmision || input.fechaEmision.trim() === '') {
@@ -132,6 +145,39 @@ export const validateComprobanteNormativa = (
     }
   }
 
+  if (tipo === 'nota_credito') {
+    const codigo = input.notaCredito?.codigo?.trim() ?? '';
+    const motivo = input.notaCredito?.motivo?.trim() ?? '';
+    const documentoRelacionado = input.notaCredito?.documentoRelacionado;
+
+    if (!codigo) {
+      errors.push({
+        field: 'codigoNotaCredito',
+        message: 'Debe seleccionar el código de Nota de Crédito.',
+      });
+    }
+
+    if (!motivo) {
+      errors.push({
+        field: 'motivoNotaCredito',
+        message: 'Debe ingresar el motivo de emisión de la Nota de Crédito.',
+      });
+    }
+
+    if (
+      !documentoRelacionado
+      || !documentoRelacionado.tipoComprobanteOrigen
+      || !documentoRelacionado.tipoDocumentoCodigoOrigen
+      || !documentoRelacionado.serie
+      || !documentoRelacionado.numero
+    ) {
+      errors.push({
+        field: 'documentoRelacionado',
+        message: 'La Nota de Crédito debe estar vinculada a una factura o boleta origen.',
+      });
+    }
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -155,6 +201,13 @@ export const validateComprobanteReadyForCobranza = (
     errors.push({
       field: 'formaPago',
       message: 'Las boletas solo se pueden emitir al contado.',
+    });
+  }
+
+  if (tipo === 'nota_credito' && options?.paymentMode) {
+    errors.push({
+      field: 'formaPago',
+      message: 'La Nota de Crédito no se procesa mediante cobranza.',
     });
   }
 

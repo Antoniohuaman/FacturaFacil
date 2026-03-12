@@ -9,7 +9,8 @@ import type { SidePreviewPaneProps } from './types';
 import { PreviewDocument } from '../ui/PreviewDocument';
 import { PreviewTicket } from '../ui/PreviewTicket';
 import { usePreview } from '../../hooks/usePreview';
-import type { ClientData, PreviewData, PreviewFormat } from '../../models/comprobante.types';
+import type { ClientData, PreviewData, PreviewFormat, TipoComprobante } from '../../models/comprobante.types';
+import { obtenerEtiquetaCortaTipoComprobante } from '../../models/constants';
 
 export const SidePreviewPane: React.FC<SidePreviewPaneProps> = ({
   isOpen,
@@ -133,7 +134,7 @@ export const SidePreviewPane: React.FC<SidePreviewPaneProps> = ({
 
     return generatePreviewData(
       debouncedViewModel.cartItems || [], // Array vacío si no hay items
-      debouncedViewModel.tipoComprobante as 'boleta' | 'factura',
+      debouncedViewModel.tipoComprobante as TipoComprobante,
       debouncedViewModel.serieSeleccionada || '', // Vacío si no hay serie
       debouncedViewModel.totals || { subtotal: 0, igv: 0, total: 0, descuentos: 0, recargos: 0 },
       debouncedViewModel.formaPago || 'CONTADO',
@@ -146,9 +147,7 @@ export const SidePreviewPane: React.FC<SidePreviewPaneProps> = ({
     );
   }, [debouncedViewModel, generatePreviewData]);
 
-  const documentTitle = debouncedViewModel.tipoComprobante === 'factura' 
-    ? 'Factura' 
-    : 'Boleta';
+  const documentTitle = obtenerEtiquetaCortaTipoComprobante(debouncedViewModel.tipoComprobante as TipoComprobante);
 
   if (!isOpen) return null;
 

@@ -406,7 +406,7 @@ const PuntoVenta = () => {
                   onViewFullForm={() => navigate('/comprobantes/emision')}
                   onAddProduct={addToCart}
                   currency={currentCurrency}
-                  tipoComprobante={tipoComprobante}
+                  tipoComprobante={tipoComprobante === 'factura' ? 'factura' : 'boleta'}
                   setTipoComprobante={setTipoComprobante}
                   onCurrencyChange={undefined}
                   clienteSeleccionado={clienteSeleccionado}

@@ -23,6 +23,7 @@ import type {
   CartItem,
   ClientData,
   CompanyData,
+  DatosNotaCredito,
   PaymentCollectionPayload,
   PaymentTotals,
   PreviewData,
@@ -47,6 +48,10 @@ import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprob
 import { PreviewDocument } from '../../shared/ui/PreviewDocument';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
 import { useCurrentCompany } from '@/contexts/UserSessionContext';
+import {
+  obtenerCodigoSunatPorTipoComprobante,
+  obtenerEtiquetaDocumentoRelacionado,
+} from '../../models/constants';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -57,7 +62,28 @@ const resolveTipoComprobante = (label?: string): TipoComprobante => {
   if (!label) {
     return 'factura';
   }
-  return label.toLowerCase().includes('boleta') ? 'boleta' : 'factura';
+  const normalized = label.toLowerCase();
+  if (normalized.includes('nota de crédito') || normalized.includes('nota de credito')) {
+    return 'nota_credito';
+  }
+  if (normalized.includes('boleta')) {
+    return 'boleta';
+  }
+  return 'factura';
+};
+
+const canGenerateCreditNote = (invoice: Comprobante): boolean => {
+  const tipo = resolveTipoComprobante(invoice.type);
+  const status = String(invoice.status || '').toLowerCase();
+  return (tipo === 'factura' || tipo === 'boleta') && !status.includes('anulado');
+};
+
+const buildNumeroCompletoFromInvoice = (invoice: Comprobante): string => {
+  const { serie, correlativo } = extractSerieCorrelativo(invoice);
+  if (serie && correlativo) {
+    return `${serie}-${correlativo}`;
+  }
+  return invoice.id;
 };
 
 type ComprobanteExportRow = Record<string, string | number | Date | null>;
@@ -528,6 +554,8 @@ const InvoiceListDashboard = () => {
       currency: moneda,
     };
 
+    const noteCreditData = invoice?.noteCreditData as DatosNotaCredito | undefined;
+
     const data: PreviewData = {
       companyData,
       clientData: cliente,
@@ -546,6 +574,7 @@ const InvoiceListDashboard = () => {
       observations: invoice?.observations || undefined,
       internalNotes: invoice?.internalNote || undefined,
       creditTerms: invoice?.creditTerms || undefined,
+      notaCredito: noteCreditData,
     };
 
     const qrUrl = String(invoice?.qrUrl ?? '');
@@ -591,6 +620,47 @@ const InvoiceListDashboard = () => {
       } 
     });
   };
+
+  const handleGenerateCreditNote = useCallback((invoice: Comprobante) => {
+    const tipoOrigen = resolveTipoComprobante(invoice.type);
+    if (tipoOrigen !== 'factura' && tipoOrigen !== 'boleta') {
+      return;
+    }
+
+    const numeroCompleto = buildNumeroCompletoFromInvoice(invoice);
+    const [serieOrigen, numeroOrigen = ''] = numeroCompleto.split('-');
+    const sourceItems = Array.isArray(invoice.items) && invoice.items.length > 0
+      ? invoice.items
+      : Array.isArray(invoice.cartItems) && invoice.cartItems.length > 0
+        ? invoice.cartItems
+        : Array.isArray(invoice.productos) && invoice.productos.length > 0
+          ? invoice.productos
+          : [];
+
+    navigate('/comprobantes/emision', {
+      state: {
+        noteCredit: {
+          ...invoice,
+          items: sourceItems,
+          sourceDocumentId: invoice.id,
+          sourceDocumentType: invoice.type,
+          noteCreditData: {
+            codigo: '',
+            motivo: '',
+            documentoRelacionado: {
+              id: invoice.id,
+              tipoComprobanteOrigen: tipoOrigen,
+              tipoDocumentoCodigoOrigen: obtenerCodigoSunatPorTipoComprobante(tipoOrigen) as '01' | '03',
+              tipoDocumentoLabelOrigen: obtenerEtiquetaDocumentoRelacionado(tipoOrigen),
+              serie: serieOrigen || invoice.id,
+              numero: numeroOrigen || invoice.id,
+              numeroCompleto,
+            },
+          },
+        },
+      },
+    });
+  }, [navigate]);
 
   // Handler para Anular
   const handleVoid = (invoice: any) => {
@@ -1114,6 +1184,8 @@ const InvoiceListDashboard = () => {
           onPrint={handlePrint}
           onShare={handleShare}
           onDuplicate={handleDuplicate}
+          onGenerateCreditNote={handleGenerateCreditNote}
+          canGenerateCreditNote={canGenerateCreditNote}
           onEdit={(invoice) => navigate('/comprobantes/emision', { state: { edit: invoice } })}
           onVoid={handleVoid}
           onNavigateToDocuments={() => navigate('/documentos')}

@@ -2,8 +2,14 @@
 // CONSTANTES DEL SISTEMA DE COMPROBANTES ELECTRÓNICOS
 // ===================================================================
 
-import type { CurrencyInfo, CajaIntegrationConfig } from './comprobante.types';
+import type { CurrencyInfo, CajaIntegrationConfig, TipoComprobante, TipoComprobanteBase } from './comprobante.types';
 import { DEFAULT_BASE_CURRENCY_CODE } from '@/shared/currency';
+
+export interface CodigoNotaCreditoSunat {
+  codigo: string;
+  descripcion: string;
+  descripcionCorta: string;
+}
 
 // ===================================================================
 // CONFIGURACIÓN DE MONEDAS
@@ -31,6 +37,56 @@ export const DEFAULT_CURRENCY = DEFAULT_BASE_CURRENCY_CODE;
 export const SERIES_COMPROBANTES = ["B001", "B002", "F001"];
 export const SERIES_BOLETA = ["B001", "B002"];
 export const SERIES_FACTURA = ["F001"];
+
+export const TIPO_COMPROBANTE_CODIGOS_SUNAT: Record<TipoComprobante, string> = {
+  boleta: '03',
+  factura: '01',
+  nota_credito: '07',
+};
+
+export const TIPO_COMPROBANTE_LABELS: Record<TipoComprobante, string> = {
+  boleta: 'Boleta de venta',
+  factura: 'Factura',
+  nota_credito: 'Nota de Crédito Electrónica',
+};
+
+export const TIPO_COMPROBANTE_LABELS_CORTOS: Record<TipoComprobante, string> = {
+  boleta: 'Boleta',
+  factura: 'Factura',
+  nota_credito: 'Nota de Crédito',
+};
+
+export const CODIGOS_NOTA_CREDITO_SUNAT: CodigoNotaCreditoSunat[] = [
+  { codigo: '01', descripcion: 'Anulación de la operación', descripcionCorta: 'Anulación de la operación' },
+  { codigo: '02', descripcion: 'Anulación por error en el RUC', descripcionCorta: 'Error en el RUC' },
+  { codigo: '03', descripcion: 'Corrección por error en la descripción', descripcionCorta: 'Error en la descripción' },
+  { codigo: '04', descripcion: 'Descuento global', descripcionCorta: 'Descuento global' },
+  { codigo: '05', descripcion: 'Descuento por ítem', descripcionCorta: 'Descuento por ítem' },
+  { codigo: '06', descripcion: 'Devolución total', descripcionCorta: 'Devolución total' },
+  { codigo: '07', descripcion: 'Devolución por ítem', descripcionCorta: 'Devolución por ítem' },
+  { codigo: '08', descripcion: 'Bonificación', descripcionCorta: 'Bonificación' },
+  { codigo: '09', descripcion: 'Disminución en el valor', descripcionCorta: 'Disminución en el valor' },
+  { codigo: '10', descripcion: 'Otros Conceptos', descripcionCorta: 'Otros conceptos' },
+  { codigo: '11', descripcion: 'Ajustes de operaciones de exportación', descripcionCorta: 'Ajuste de exportación' },
+  { codigo: '12', descripcion: 'Ajustes afectos al IVAP', descripcionCorta: 'Ajuste afecto al IVAP' },
+  { codigo: '13', descripcion: 'Corrección o modificación del monto neto pendiente de pago y/o la(s) fechas(s) de vencimiento del pago único o de las cuotas y/o los montos correspondientes a cada cuota, de ser el caso', descripcionCorta: 'Corrección de monto o vencimiento' },
+];
+
+export const obtenerCodigoSunatPorTipoComprobante = (tipo: TipoComprobante): string => {
+  return TIPO_COMPROBANTE_CODIGOS_SUNAT[tipo];
+};
+
+export const obtenerEtiquetaTipoComprobante = (tipo: TipoComprobante): string => {
+  return TIPO_COMPROBANTE_LABELS[tipo];
+};
+
+export const obtenerEtiquetaCortaTipoComprobante = (tipo: TipoComprobante): string => {
+  return TIPO_COMPROBANTE_LABELS_CORTOS[tipo];
+};
+
+export const obtenerEtiquetaDocumentoRelacionado = (tipo: TipoComprobanteBase): string => {
+  return tipo === 'factura' ? 'Factura' : 'Boleta';
+};
 
 // ===================================================================
 // CATEGORÍAS DE PRODUCTOS

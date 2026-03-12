@@ -7,6 +7,7 @@ import { formatMoney } from '@/shared/currency';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
 import { resolveClientDocumentLabel, type DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
 import { getUnitDisplayForPrint } from '@/shared/units/unitDisplay';
+import { obtenerEtiquetaTipoComprobante } from '../../models/constants';
 
 interface PreviewDocumentProps {
   data: PreviewData;
@@ -33,9 +34,14 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
     totals,
     observations,
     creditTerms,
+    notaCredito,
   } = data;
 
-  const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
+  const documentTitle = (() => {
+    if (documentType === 'nota_credito') return 'NOTA DE CRÉDITO ELECTRÓNICA';
+    if (documentType === 'boleta') return 'BOLETA DE VENTA ELECTRÓNICA';
+    return 'FACTURA ELECTRÓNICA';
+  })();
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
   const taxBreakdown = totals.taxBreakdown ?? [];
   const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
@@ -73,7 +79,6 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
               style={{
                 opacity: config.watermark.opacity,
                 transform: `rotate(${config.watermark.rotation}deg)`,
-                maxWidth: config.watermark.size === 'small' ? '150px' : config.watermark.size === 'large' ? '350px' : '250px'
               }}
             />
           )}
@@ -318,9 +323,22 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
           <div>
             <h3 className="font-semibold mb-3 text-gray-900">DATOS DEL COMPROBANTE:</h3>
             <div className="space-y-1 text-xs">
+              <p><span className="font-medium">Tipo:</span> {obtenerEtiquetaTipoComprobante(documentType)}</p>
               <p><span className="font-medium">F. Emisión:</span> {issueDate}</p>
               <p><span className="font-medium">Moneda:</span> {currency === 'USD' ? 'Dólares Americanos' : 'Soles'}</p>
               <p><span className="font-medium">Forma de Pago:</span> {paymentMethod}</p>
+              {notaCredito?.documentoRelacionado && (
+                <p>
+                  <span className="font-medium">Doc Relacionado:</span>{' '}
+                  {notaCredito.documentoRelacionado.tipoDocumentoLabelOrigen} {notaCredito.documentoRelacionado.numeroCompleto}
+                </p>
+              )}
+              {notaCredito?.codigo && (
+                <p><span className="font-medium">Cod. Nota de Crédito:</span> {notaCredito.codigo}</p>
+              )}
+              {notaCredito?.motivo && (
+                <p><span className="font-medium">Motivo emisión NC:</span> {notaCredito.motivo}</p>
+              )}
               {config.documentFields.fechaVencimiento.visible && (
                 <p><span className="font-medium">{config.documentFields.fechaVencimiento.label}:</span> {resolvedDueDate}</p>
               )}

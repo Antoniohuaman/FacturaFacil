@@ -45,7 +45,20 @@ import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
-import type { ClientData, PaymentCollectionMode, PaymentCollectionPayload, Currency, PreviewData, PaymentTotals, DiscountInput, DiscountMode, CartItem, TipoComprobante } from '../models/comprobante.types';
+import type {
+  ClientData,
+  PaymentCollectionMode,
+  PaymentCollectionPayload,
+  Currency,
+  PreviewData,
+  PaymentTotals,
+  DiscountInput,
+  DiscountMode,
+  CartItem,
+  TipoComprobante,
+  DatosNotaCredito,
+  TipoComprobanteBase,
+} from '../models/comprobante.types';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { clientesClient } from '../../gestion-clientes/api';
 import {
@@ -72,7 +85,7 @@ import { BloqueoCajaCerrada } from '../shared/ui/BloqueoCajaCerrada';
 import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
 import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
 import { tourPrimeraVenta } from '../tour/tourPrimeraVenta';
-import { FORMA_PAGO_CREDITO_MANUAL } from '../models/constants';
+import { FORMA_PAGO_CREDITO_MANUAL, obtenerEtiquetaTipoComprobante } from '../models/constants';
 import {
   crearClaveBorradorEnProgreso,
 } from '@/shared/borradores/almacenamientoBorradorEnProgreso';
@@ -139,6 +152,27 @@ const EmisionTradicional = () => {
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
   const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
   const autoTourLanzadoRef = useRef(false);
+
+  const noteCreditState = useMemo(() => {
+    const state = location.state as any;
+    return state?.noteCredit as { noteCreditData?: DatosNotaCredito; type?: string } | undefined;
+  }, [location.state]);
+  const isNoteCreditFlow = Boolean(noteCreditState);
+  const noteCreditTipoOrigen = useMemo<TipoComprobanteBase | null>(() => {
+    const tipoRelacionado = noteCreditState?.noteCreditData?.documentoRelacionado?.tipoComprobanteOrigen;
+    if (tipoRelacionado === 'factura' || tipoRelacionado === 'boleta') {
+      return tipoRelacionado;
+    }
+
+    const tipoOrigen = String(noteCreditState?.type ?? '').toLowerCase();
+    if (tipoOrigen.includes('boleta')) {
+      return 'boleta';
+    }
+    if (tipoOrigen.includes('factura')) {
+      return 'factura';
+    }
+    return null;
+  }, [noteCreditState]);
 
   const isDuplicateFlow = useMemo(() => {
     const state = location.state as any;
@@ -219,6 +253,11 @@ const EmisionTradicional = () => {
     () => (modoProductos === 'libre' ? itemsLibres : itemsCatalogo),
     [itemsCatalogo, itemsLibres, modoProductos],
   );
+  const cartItemsForDocument = useMemo(
+    () => (isNoteCreditFlow ? cartItems : itemsActivos),
+    [cartItems, isNoteCreditFlow, itemsActivos],
+  );
+  const hasDocumentItems = cartItemsForDocument.length > 0;
   const {
     currentCurrency,
     currencyInfo,
@@ -229,7 +268,10 @@ const EmisionTradicional = () => {
     convertPrice,
   } = useCurrency();
   const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
-  const { tipoComprobante, setTipoComprobante: setTipoComprobanteCore, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType();
+  const { tipoComprobante, setTipoComprobante: setTipoComprobanteCore, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType({
+    forcedTipoComprobante: isNoteCreditFlow ? 'nota_credito' : null,
+    notaCreditoTipoOrigen: noteCreditTipoOrigen,
+  });
 
   const tipoFromQueryAppliedRef = useRef(false);
   const [tipoFromQueryResolved, setTipoFromQueryResolved] = useState(false);
@@ -296,6 +338,15 @@ const EmisionTradicional = () => {
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
   const [cuotasManual, setCuotasManual] = useState<CreditInstallment[]>([]);
   const [creditoManualConfirmado, setCreditoManualConfirmado] = useState(false);
+  const [datosNotaCredito, setDatosNotaCredito] = useState<DatosNotaCredito | null>(noteCreditState?.noteCreditData ?? null);
+
+  useEffect(() => {
+    if (!noteCreditState?.noteCreditData) {
+      return;
+    }
+
+    setDatosNotaCredito(noteCreditState.noteCreditData);
+  }, [noteCreditState]);
 
   const clienteSeleccionadoGlobalRef = useRef<ClienteSeleccionadoEmision>(null);
   useEffect(() => {
@@ -347,6 +398,8 @@ const EmisionTradicional = () => {
   useDuplicateDataLoader({
     setClienteSeleccionadoGlobal,
     addProductsFromSelector,
+    setCartItemsFromDraft,
+    setModoProductos,
     setObservaciones,
     setNotaInterna,
     setFormaPago,
@@ -748,7 +801,7 @@ const EmisionTradicional = () => {
   const sidePreviewViewModel = ENABLE_SIDE_PREVIEW_EMISION ? {
     tipoComprobante,
     serieSeleccionada,
-    cartItems: itemsActivos,
+    cartItems: isNoteCreditFlow ? cartItems : itemsActivos,
     totals,
     observaciones,
     notaInterna,
@@ -760,12 +813,13 @@ const EmisionTradicional = () => {
     fechaEmision,
     optionalFields,
     creditTerms: creditTermsForSubmit,
+    noteCreditData: datosNotaCredito,
   } : null;
 
   const hasMinimumDataForPreview = ENABLE_SIDE_PREVIEW_EMISION &&
     clienteSeleccionadoGlobal !== null &&
     serieSeleccionada !== '' &&
-    itemsActivos.length > 0;
+    hasDocumentItems;
 
   const draftClientData: ClientData | undefined = useMemo(() => {
     if (!clienteSeleccionadoGlobal) return undefined;
@@ -807,9 +861,20 @@ const EmisionTradicional = () => {
     formaPago,
     fechaEmision,
     moneda: currentCurrency,
-    cartItems: itemsActivos,
+    notaCredito: datosNotaCredito,
+    cartItems: cartItemsForDocument,
     totals,
-  }), [currentCurrency, draftClientData, fechaEmision, formaPago, itemsActivos, serieSeleccionada, tipoComprobante, totals]);
+  }), [cartItemsForDocument, currentCurrency, datosNotaCredito, draftClientData, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals]);
+
+  const noteCreditRequiredFieldsPending = useMemo(() => {
+    if (!isNoteCreditFlow) {
+      return false;
+    }
+
+    return validateComprobanteNormativa(buildCobranzaValidationInput()).errors.some(
+      (validationError) => validationError.field === 'codigoNotaCredito' || validationError.field === 'motivoNotaCredito',
+    );
+  }, [buildCobranzaValidationInput, isNoteCreditFlow]);
 
   const ensureClienteGeneralParaBoleta = useCallback(async (): Promise<boolean> => {
     const requirement = resolveBoletaClienteRequirement(buildCobranzaValidationInput());
@@ -943,11 +1008,15 @@ const EmisionTradicional = () => {
   };
 
   const paymentMethodCode = selectedPaymentMethod?.code?.toUpperCase() ?? '';
-  const isCreditPaymentSelection = esCreditoManual || paymentMethodCode === 'CREDITO';
+  const isCreditPaymentSelection = !isNoteCreditFlow && (esCreditoManual || paymentMethodCode === 'CREDITO');
   const creditDueDateForForm = isCreditPaymentSelection
     ? (creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento ?? '')
     : '';
   const issueButtonLabel = useMemo(() => {
+    if (tipoComprobante === 'nota_credito') {
+      return 'EMITIR NOTA DE CRÉDITO';
+    }
+
     if (!isCreditPaymentSelection) {
       return 'IR A COBRANZA';
     }
@@ -986,15 +1055,17 @@ const EmisionTradicional = () => {
       dueDate: creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento,
       currency: currentCurrency,
       paymentMethod: paymentMethodLabel || 'CONTADO',
-      cartItems: itemsActivos,
+      cartItems: cartItemsForDocument,
       totals: totalsWithCurrency,
       observations: observaciones,
       internalNotes: notaInterna,
       creditTerms: creditTermsForSubmit,
+      notaCredito: datosNotaCredito ?? undefined,
     };
   }, [
     creditTermsForSubmit,
     currentCurrency,
+    datosNotaCredito,
     draftClientData,
     fechaEmision,
     lastComprobante,
@@ -1004,7 +1075,7 @@ const EmisionTradicional = () => {
     paymentMethodLabel,
     serieSeleccionada,
     tipoComprobante,
-    itemsActivos,
+    cartItemsForDocument,
     totals,
     configState.company,
   ]);
@@ -1122,6 +1193,11 @@ const EmisionTradicional = () => {
   };
 
   const handleIssue = async () => {
+    if (tipoComprobante === 'nota_credito') {
+      await handleCrearComprobante(undefined, { suppressSuccessModal: false });
+      return;
+    }
+
     if (isCreditPaymentSelection) {
       void handleEmitirCredito();
       return;
@@ -1169,12 +1245,17 @@ const EmisionTradicional = () => {
       }
     }
 
-    const validation = validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
-      onError: (validationError) => error('No se puede procesar', validationError.message),
-      paymentMode: isCreditSale ? 'credito' : paymentPayload?.mode,
-    });
+    const validation = tipoComprobante === 'nota_credito'
+      ? validateComprobanteNormativa(buildCobranzaValidationInput())
+      : validateComprobanteReadyForCobranza(buildCobranzaValidationInput(), {
+          onError: (validationError) => error('No se puede procesar', validationError.message),
+          paymentMode: isCreditSale ? 'credito' : paymentPayload?.mode,
+        });
 
     if (!validation.isValid) {
+      if (tipoComprobante === 'nota_credito') {
+        validation.errors.forEach((validationError) => error('No se puede procesar', validationError.message));
+      }
       return false;
     }
 
@@ -1184,7 +1265,7 @@ const EmisionTradicional = () => {
       const success = await createComprobante({
         tipoComprobante,
         serieSeleccionada,
-        cartItems: itemsActivos,
+        cartItems: cartItemsForDocument,
         totals,
         observaciones,
         notaInterna,
@@ -1204,7 +1285,8 @@ const EmisionTradicional = () => {
         waybill: optionalFields.guiaRemision,
         paymentDetails: isRegisteringCobro ? paymentPayload : undefined,
         creditTerms: isCreditSale ? creditTermsForSubmit : undefined,
-        registrarPago: Boolean(isRegisteringCobro && paymentPayload?.lines.length)
+        registrarPago: Boolean(isRegisteringCobro && paymentPayload?.lines.length),
+        noteCreditData: tipoComprobante === 'nota_credito' ? (datosNotaCredito ?? undefined) : undefined,
       });
 
       if (success) {
@@ -1263,7 +1345,7 @@ const EmisionTradicional = () => {
           ? paymentPayload.lines.reduce((sum, line) => sum + line.amount, 0)
           : 0;
         setLastComprobante({
-          tipo: tipoComprobante === 'factura' ? 'Factura' : tipoComprobante === 'boleta' ? 'Boleta' : 'Nota de Venta',
+          tipo: obtenerEtiquetaTipoComprobante(tipoComprobante),
           serie: serieSeleccionada,
           numero: '001-00001', // TODO: Obtener el número real del backend
           total: totals.total,
@@ -1382,6 +1464,7 @@ const EmisionTradicional = () => {
                 <CompactDocumentForm
                   tipoComprobante={tipoComprobante}
                   setTipoComprobante={setTipoComprobanteFromUI}
+                  tiposHabilitados={isNoteCreditFlow ? ['nota_credito'] : ['factura', 'boleta']}
                   serieSeleccionada={serieSeleccionada}
                   setSerieSeleccionada={setSerieSeleccionada}
                   seriesFiltradas={seriesFiltradas}
@@ -1398,6 +1481,9 @@ const EmisionTradicional = () => {
                   clienteSeleccionado={clienteSeleccionadoGlobal ?? undefined}
                   onClienteChange={setClienteSeleccionadoGlobal}
                   onLookupClientSelected={setLookupClient}
+                  datosNotaCredito={datosNotaCredito}
+                  onDatosNotaCreditoChange={setDatosNotaCredito}
+                  tipoComprobanteBaseNotaCredito={noteCreditTipoOrigen}
                   fechaEmision={fechaEmision}
                   onFechaEmisionChange={setFechaEmision}
                   onOptionalFieldsChange={(fields: Record<string, any>) => setOptionalFields(prev => ({ ...prev, ...fields }))}
@@ -1485,14 +1571,16 @@ const EmisionTradicional = () => {
                           }
                         : undefined
                     }
-                    isCartEmpty={itemsActivos.length === 0}
+                    isCartEmpty={!hasDocumentItems}
                     primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
                       label: issueButtonLabel,
                       onClick: handleIssue,
-                      disabled: isProcessing || itemsActivos.length === 0,
+                      disabled: isProcessing || !hasDocumentItems || noteCreditRequiredFieldsPending,
                       title: isCreditPaymentSelection
                         ? 'Emitir y generar la cuenta por cobrar'
-                        : 'Abrir el modal de cobranza para registrar este pago',
+                        : isNoteCreditFlow && noteCreditRequiredFieldsPending
+                          ? 'Completa el código y motivo de la Nota de Crédito para emitir'
+                          : 'Abrir el modal de cobranza para registrar este pago',
                     } : undefined}
                   />
                 </div>
@@ -1587,7 +1675,8 @@ const EmisionTradicional = () => {
           observations={observaciones}
           internalNotes={notaInterna}
           creditTerms={creditTermsForSubmit}
-            dueDate={creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento}
+          dueDate={creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento}
+          notaCredito={datosNotaCredito ?? undefined}
         />
 
         {/* Modal de éxito con acciones de compartir */}

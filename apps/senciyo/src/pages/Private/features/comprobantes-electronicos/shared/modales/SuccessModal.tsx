@@ -30,8 +30,12 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale,
   const saleCurrency = (comprobante as { currency?: string }).currency ?? documentCurrency.code;
   const formatSaleAmount = (value?: number) => formatPrice(value ?? 0, saleCurrency);
   const isCreditSale = comprobante.mode === 'credito';
-  const summaryLabel = isCreditSale ? 'Total financiado' : 'Total pagado';
-  const headerTitle = isCreditSale ? 'Cuenta por cobrar creada' : '¡Venta exitosa!';
+  const normalizedTipo = (comprobante.tipo ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const isNoteCreditDocument = normalizedTipo.includes('nota de credito');
+  const summaryLabel = isCreditSale ? 'Total financiado' : isNoteCreditDocument ? 'Total del comprobante' : 'Total pagado';
+  const headerTitle = isCreditSale ? 'Cuenta por cobrar creada' : isNoteCreditDocument ? 'Nota de Crédito generada' : '¡Venta exitosa!';
+  const printAndCloseLabel = isNoteCreditDocument ? 'Imprimir y continuar' : 'Imprimir y nueva venta';
+  const resetActionLabel = isNoteCreditDocument ? 'Nuevo comprobante' : 'Nueva venta';
   const creditDueDate = isCreditSale ? comprobante.creditDueDate : null;
 
   // Manejar teclas ESC y Enter
@@ -71,7 +75,7 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale,
       `¡Hola! Te comparto el comprobante:\n\n` +
       `${comprobante.tipo} ${comprobante.serie}-${comprobante.numero}\n` +
       `Total: ${formatSaleAmount(comprobante.total)}\n\n` +
-      `Gracias por tu compra.`
+      `${isNoteCreditDocument ? 'Gracias.' : 'Gracias por tu compra.'}`
     );
     
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
@@ -185,7 +189,7 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale,
               className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
             >
               <Printer className="w-5 h-5" />
-              Imprimir y nueva venta
+              {printAndCloseLabel}
             </button>
 
             {/* Compartir por WhatsApp */}
@@ -285,7 +289,7 @@ export const SuccessModal = ({ isOpen, onClose, comprobante, onPrint, onNewSale,
             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-gray-700 to-gray-800 text-white rounded-xl font-semibold hover:from-gray-800 hover:to-gray-900 transition-all"
           >
             <FileText className="w-5 h-5" />
-            Nueva venta
+            {resetActionLabel}
           </button>
 
           {isCreditSale && onViewReceivable && (

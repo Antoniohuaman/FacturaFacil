@@ -12,7 +12,8 @@ export type { CreditInstallmentStatus };
 // ===================================================================
 
 // Tipos básicos del sistema
-export type TipoComprobante = 'boleta' | 'factura';
+export type TipoComprobanteBase = 'boleta' | 'factura';
+export type TipoComprobante = TipoComprobanteBase | 'nota_credito';
 export type ViewMode = 'form' | 'pos';
 export type DraftAction = 'borradores' | 'continuar' | 'terminar';
 export type IgvType = 'igv18' | 'igv10' | 'exonerado' | 'inafecto';
@@ -296,6 +297,22 @@ export interface ClientData {
   telefono?: string;
 }
 
+export interface DocumentoRelacionadoNotaCredito {
+  id?: string;
+  tipoComprobanteOrigen: TipoComprobanteBase;
+  tipoDocumentoCodigoOrigen: '01' | '03';
+  tipoDocumentoLabelOrigen: string;
+  serie: string;
+  numero: string;
+  numeroCompleto: string;
+}
+
+export interface DatosNotaCredito {
+  codigo: string;
+  motivo: string;
+  documentoRelacionado: DocumentoRelacionadoNotaCredito;
+}
+
 // ===================================================================
 // INTERFACES DE DOCUMENTOS
 // ===================================================================
@@ -441,6 +458,7 @@ export interface PreviewData {
   observations?: string;
   internalNotes?: string;
   creditTerms?: ComprobanteCreditTerms;
+  notaCredito?: DatosNotaCredito;
 }
 
 export interface DetailedTotals extends PaymentTotals {

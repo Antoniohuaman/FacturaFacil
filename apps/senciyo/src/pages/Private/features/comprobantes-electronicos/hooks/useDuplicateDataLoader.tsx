@@ -4,7 +4,7 @@
  * Extrae la lógica de duplicación del componente principal
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 export interface DuplicateData {
@@ -15,6 +15,8 @@ export interface DuplicateData {
   address?: string;
   email?: string;
   items?: any[];
+  cartItems?: any[];
+  productos?: any[];
   observaciones?: string;
   notaInterna?: string;
   formaPago?: string;
@@ -33,11 +35,13 @@ export interface DuplicateData {
 export interface DuplicateDataHandlers {
   setClienteSeleccionadoGlobal: (cliente: any) => void;
   addProductsFromSelector: (products: any[]) => void;
+  setCartItemsFromDraft?: (items: any[]) => void;
+  setModoProductos?: (mode: 'catalogo' | 'libre') => void;
   setObservaciones: (value: string) => void;
   setNotaInterna: (value: string) => void;
   setFormaPago: (value: string) => void;
   changeCurrency: (value: any) => void; // Acepta cualquier tipo para ser compatible
-  setTipoComprobante: (tipo: 'boleta' | 'factura') => void;
+  setTipoComprobante: (tipo: 'boleta' | 'factura' | 'nota_credito') => void;
   setOptionalFields: (fields: Record<string, any>) => void;
 }
 
@@ -46,6 +50,20 @@ export interface DuplicateDataHandlers {
  */
 export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
   const location = useLocation();
+  const processedLocationKeyRef = useRef<string | null>(null);
+
+  const {
+    setClienteSeleccionadoGlobal,
+    addProductsFromSelector,
+    setCartItemsFromDraft,
+    setModoProductos,
+    setObservaciones,
+    setNotaInterna,
+    setFormaPago,
+    changeCurrency,
+    setTipoComprobante,
+    setOptionalFields,
+  } = handlers;
 
   useEffect(() => {
     const state = location.state as any;
@@ -53,11 +71,16 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
     // Detectar si viene de duplicación o de conversión de cotización/nota de venta
     const duplicateData = state?.duplicate as DuplicateData | undefined;
     const conversionData = state?.conversionData as DuplicateData | undefined;
+    const noteCreditData = state?.noteCredit as DuplicateData | undefined;
     const isFromConversion = state?.fromConversion === true;
+    const isNoteCreditFlow = Boolean(noteCreditData);
     
-    const dataToLoad = isFromConversion ? conversionData : duplicateData;
+    const dataToLoad = isNoteCreditFlow ? noteCreditData : isFromConversion ? conversionData : duplicateData;
 
     if (!dataToLoad) return;
+    if (processedLocationKeyRef.current === location.key) return;
+
+    processedLocationKeyRef.current = location.key;
 
     // 1. Cargar cliente si existe
     if (dataToLoad.client || (dataToLoad as any).cliente) {
@@ -68,7 +91,7 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
         email: dataToLoad.email
       };
       
-      handlers.setClienteSeleccionadoGlobal({
+      setClienteSeleccionadoGlobal({
         nombre: clienteData.nombre || dataToLoad.client || '',
         dni: clienteData.dni || dataToLoad.clientDoc || '',
         direccion: clienteData.direccion || dataToLoad.address || '',
@@ -77,38 +100,67 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
     }
 
     // 2. Cargar productos al carrito si existen
-    if (dataToLoad.items && Array.isArray(dataToLoad.items) && dataToLoad.items.length > 0) {
-      const productsToAdd = dataToLoad.items.map((item: any) => ({
-        product: item,
-        quantity: item.quantity || 1
-      }));
-      handlers.addProductsFromSelector(productsToAdd);
+    const sourceItems = [
+      dataToLoad.items,
+      dataToLoad.cartItems,
+      dataToLoad.productos,
+      (dataToLoad as any).cartItems,
+      (dataToLoad as any).productos,
+    ].find((value) => Array.isArray(value) && value.length > 0);
+
+    if (Array.isArray(sourceItems) && sourceItems.length > 0) {
+      const normalizedItems = sourceItems.map((item: any) => {
+        const baseItem = item?.product ? { ...item.product, ...item } : item;
+        return {
+          ...baseItem,
+          quantity: item?.quantity ?? baseItem?.quantity ?? 1,
+        };
+      });
+
+      if (setCartItemsFromDraft) {
+        setCartItemsFromDraft(normalizedItems);
+
+        const hasLibreItems = normalizedItems.some((item: any) => item?.tipoDetalle === 'libre');
+        const hasCatalogItems = normalizedItems.some((item: any) => item?.tipoDetalle !== 'libre');
+
+        if (setModoProductos) {
+          setModoProductos(hasLibreItems && !hasCatalogItems ? 'libre' : 'catalogo');
+        }
+      } else {
+        const productsToAdd = normalizedItems.map((item: any) => ({
+          product: item,
+          quantity: item?.quantity || 1
+        }));
+        addProductsFromSelector(productsToAdd);
+      }
     }
 
     // 3. Cargar observaciones y nota interna
     if (dataToLoad.observaciones) {
-      handlers.setObservaciones(dataToLoad.observaciones);
+      setObservaciones(dataToLoad.observaciones);
     }
     if (dataToLoad.notaInterna) {
-      handlers.setNotaInterna(dataToLoad.notaInterna);
+      setNotaInterna(dataToLoad.notaInterna);
     }
 
     // 4. Cargar forma de pago
     if (dataToLoad.formaPago) {
-      handlers.setFormaPago(dataToLoad.formaPago);
+      setFormaPago(dataToLoad.formaPago);
     }
 
     // 5. Cargar moneda
     if (dataToLoad.currency || (dataToLoad as any).moneda) {
       const currency = dataToLoad.currency || (dataToLoad as any).moneda;
-      handlers.changeCurrency(currency);
+      changeCurrency(currency);
     }
 
     // 6. Cargar tipo de comprobante
     if (dataToLoad.tipo || (dataToLoad as any).tipoComprobante) {
       const tipo = (dataToLoad.tipo || (dataToLoad as any).tipoComprobante || '').toLowerCase();
       const tipoFinal = tipo === 'factura' ? 'factura' : 'boleta';
-      handlers.setTipoComprobante(tipoFinal);
+      if (!isNoteCreditFlow) {
+        setTipoComprobante(tipoFinal);
+      }
     }
 
     // 7. Cargar campos opcionales
@@ -137,7 +189,7 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
     }
 
     if (Object.keys(optionalFields).length > 0) {
-      handlers.setOptionalFields(optionalFields);
+      setOptionalFields(optionalFields);
     }
 
     // 8. Si es conversión, guardar el ID del documento origen para crear la relación
@@ -150,7 +202,20 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
     // 9. Limpiar el state de navegación para que no se vuelva a cargar
     window.history.replaceState({}, document.title);
 
-  }, [location.state, handlers]); // Dependencias: cambiar cuando cambie el state o los handlers
+  }, [
+    location.key,
+    location.state,
+    addProductsFromSelector,
+    changeCurrency,
+    setClienteSeleccionadoGlobal,
+    setCartItemsFromDraft,
+    setModoProductos,
+    setFormaPago,
+    setNotaInterna,
+    setObservaciones,
+    setOptionalFields,
+    setTipoComprobante,
+  ]);
 
   return null; // Este hook no retorna nada, solo ejecuta efectos
 };

@@ -11,7 +11,9 @@ import type {
   PreviewData,
   Currency,
   ComprobanteCreditTerms,
+  DatosNotaCredito,
 } from '../models/comprobante.types';
+import { obtenerCodigoSunatPorTipoComprobante } from '../models/constants';
 
 export const usePreview = () => {
   const [showPreview, setShowPreview] = useState(false);
@@ -46,6 +48,7 @@ export const usePreview = () => {
     clientData?: ClientData,
     dueDate?: string,
     creditTerms?: ComprobanteCreditTerms,
+    notaCredito?: DatosNotaCredito,
   ): PreviewData => {
     // En vista previa no asignamos correlativo, solo mostramos la serie
     const mockNumber = null; // No correlativo en preview
@@ -73,6 +76,7 @@ export const usePreview = () => {
       observations,
       internalNotes,
       creditTerms,
+      notaCredito,
     };
   };
 
@@ -103,7 +107,7 @@ export const usePreview = () => {
   const generateQRUrl = (previewData: PreviewData): string => {
     // En producción, esto sería la URL real de SUNAT
     const baseUrl = 'https://comprobantes.facturafacil.com/';
-    const qrData = `${previewData.companyData.ruc}|${previewData.documentType === 'boleta' ? '03' : '01'}|${previewData.series}|${previewData.number}|${previewData.totals.igv.toFixed(2)}|${previewData.totals.total.toFixed(2)}|${previewData.issueDate}|${previewData.clientData.tipoDocumento.toUpperCase()}|${previewData.clientData.documento}`;
+    const qrData = `${previewData.companyData.ruc}|${obtenerCodigoSunatPorTipoComprobante(previewData.documentType)}|${previewData.series}|${previewData.number}|${previewData.totals.igv.toFixed(2)}|${previewData.totals.total.toFixed(2)}|${previewData.issueDate}|${previewData.clientData.tipoDocumento.toUpperCase()}|${previewData.clientData.documento}`;
     
     return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(baseUrl + qrData)}`;
   };

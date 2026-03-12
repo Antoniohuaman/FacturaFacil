@@ -6,7 +6,12 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCurrentEstablecimientoId } from '../../../../../../../contexts/UserSessionContext';
-import type { TipoComprobante } from '../../../models/comprobante.types';
+import type { TipoComprobante, TipoComprobanteBase } from '../../../models/comprobante.types';
+
+interface UseDocumentTypeOptions {
+  forcedTipoComprobante?: TipoComprobante | null;
+  notaCreditoTipoOrigen?: TipoComprobanteBase | null;
+}
 
 export interface UseDocumentTypeReturn {
   // Estados principales
@@ -26,10 +31,11 @@ export interface UseDocumentTypeReturn {
   getAllSeries: () => string[];
 }
 
-export const useDocumentType = (): UseDocumentTypeReturn => {
+export const useDocumentType = (options: UseDocumentTypeOptions = {}): UseDocumentTypeReturn => {
   const location = useLocation();
   const { state } = useConfigurationContext();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const { forcedTipoComprobante = null, notaCreditoTipoOrigen = null } = options;
 
   // ===================================================================
   // SERIES DINÁMICAS DESDE CONFIGURACIÓN
@@ -88,7 +94,29 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
           .map(s => s.series);
       }
       return availableSeries.filter(s => s.startsWith('B'));
-    } else {
+    }
+
+    if (tipo === 'nota_credito') {
+      const requiredPrefix = notaCreditoTipoOrigen === 'factura' ? 'F' : notaCreditoTipoOrigen === 'boleta' ? 'B' : '';
+
+      if (state.series.length > 0) {
+        return state.series
+          .filter(s => {
+            const isActive = s.isActive && s.status === 'ACTIVE';
+            const isCorrectType = s.documentType.code === '07';
+            const belongsToEstablecimiento = !currentEstablecimientoId || s.EstablecimientoId === currentEstablecimientoId;
+            const matchesPrefix = !requiredPrefix || s.series.toUpperCase().startsWith(requiredPrefix);
+            return isActive && isCorrectType && belongsToEstablecimiento && matchesPrefix;
+          })
+          .map(s => s.series);
+      }
+
+      return requiredPrefix
+        ? availableSeries.filter(s => s.toUpperCase().startsWith(requiredPrefix))
+        : [];
+    }
+
+    {
       if (state.series.length > 0) {
         return state.series
           .filter(s => {
@@ -102,7 +130,7 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
       }
       return availableSeries.filter(s => s.startsWith('F'));
     }
-  }, [state.series, availableSeries, currentEstablecimientoId]);
+  }, [state.series, availableSeries, currentEstablecimientoId, notaCreditoTipoOrigen]);
 
   /**
    * Obtener serie por defecto para un tipo específico
@@ -124,12 +152,16 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
    * Detectar tipo desde URL parameters
    */
   const detectTipoFromURL = useCallback((): TipoComprobante => {
+    if (forcedTipoComprobante) {
+      return forcedTipoComprobante;
+    }
     const params = new URLSearchParams(window.location.search);
     const tipo = params.get('tipo');
     if (tipo === 'factura') return 'factura';
     if (tipo === 'boleta') return 'boleta';
+    if (tipo === 'nota_credito' || tipo === 'nota-credito') return 'nota_credito';
     return 'boleta'; // Valor por defecto
-  }, []);
+  }, [forcedTipoComprobante]);
 
   /**
    * Detectar serie desde URL parameters según el tipo
@@ -175,17 +207,32 @@ export const useDocumentType = (): UseDocumentTypeReturn => {
    * No interfiere con cambios manuales del usuario
    */
   useEffect(() => {
+    if (forcedTipoComprobante) {
+      if (tipoComprobanteRef.current !== forcedTipoComprobante) {
+        setTipoComprobanteState(forcedTipoComprobante);
+      }
+
+      const seriesDisponibles = getSeriesParaTipo(forcedTipoComprobante);
+      const defaultSerie = seriesDisponibles[0] || '';
+      const currentSerieIsValid = serieSeleccionada !== '' && seriesDisponibles.includes(serieSeleccionada);
+
+      if (!currentSerieIsValid && defaultSerie) {
+        setSerieSeleccionadaState(defaultSerie);
+      }
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const tipoFromURL = params.get('tipo') as TipoComprobante;
 
     // Solo aplicar si hay un tipo específico en la URL y es diferente al actual
     if (tipoFromURL && tipoFromURL !== tipoComprobanteRef.current) {
-      if (tipoFromURL === 'factura' || tipoFromURL === 'boleta') {
+      if (tipoFromURL === 'factura' || tipoFromURL === 'boleta' || tipoFromURL === 'nota_credito') {
         setTipoComprobanteState(tipoFromURL);
         setSerieSeleccionadaState(getDefaultSerieParaTipo(tipoFromURL));
       }
     }
-  }, [location.search, getDefaultSerieParaTipo]);
+  }, [forcedTipoComprobante, getDefaultSerieParaTipo, getSeriesParaTipo, location.search, serieSeleccionada]);
 
   /**
    * Efecto para actualizar la serie cuando cambia el establecimiento

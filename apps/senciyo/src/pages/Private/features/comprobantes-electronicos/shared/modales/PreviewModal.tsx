@@ -5,7 +5,8 @@ import { formatMoney } from '@/shared/currency';
 import { PreviewDocument } from '../ui/PreviewDocument';
 import { PreviewTicket } from '../ui/PreviewTicket';
 import { usePreview } from '../../hooks/usePreview';
-import type { CartItem, TipoComprobante, PaymentTotals, Currency, ComprobanteCreditTerms } from '../../models/comprobante.types';
+import type { CartItem, TipoComprobante, PaymentTotals, Currency, ComprobanteCreditTerms, DatosNotaCredito } from '../../models/comprobante.types';
+import { obtenerEtiquetaCortaTipoComprobante } from '../../models/constants';
 
 interface PreviewModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface PreviewModalProps {
   internalNotes?: string;
   creditTerms?: ComprobanteCreditTerms;
   dueDate?: string;
+  notaCredito?: DatosNotaCredito;
   onCreateDocument?: () => void;
 }
 
@@ -36,6 +38,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   internalNotes,
   creditTerms,
   dueDate,
+  notaCredito,
   onCreateDocument
 }) => {
   const {
@@ -58,7 +61,8 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
     internalNotes,
     undefined,
     dueDate,
-    creditTerms
+    creditTerms,
+    notaCredito
   );
 
   const handlePrint = () => {
@@ -103,7 +107,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Vista Previa del Comprobante</h2>
                 <p className="text-sm text-gray-600">
-                  {documentType === 'boleta' ? 'Boleta' : 'Factura'} {series}-
+                  {obtenerEtiquetaCortaTipoComprobante(documentType)} {series}-
                 </p>
               </div>
             </div>

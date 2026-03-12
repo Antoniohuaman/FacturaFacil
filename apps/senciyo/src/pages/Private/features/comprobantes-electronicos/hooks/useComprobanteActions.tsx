@@ -5,8 +5,10 @@ import type {
   CartItem,
   ComprobanteCreditTerms,
   ComprobantePaymentTerms,
+  DatosNotaCredito,
   PaymentCollectionPayload,
   Currency,
+  TipoComprobante,
 } from '../models/comprobante.types';
 import { lsKey } from '../../../../../shared/tenant';
 import { mapPaymentMethodToMedioPago } from '../../../../../shared/payments/paymentMapping';
@@ -41,9 +43,10 @@ import {
   getBusinessNow,
   getBusinessTodayISODate,
 } from '@/shared/time/businessTime';
+import { obtenerEtiquetaTipoComprobante } from '../models/constants';
 
 interface ComprobanteData {
-  tipoComprobante: string;
+  tipoComprobante: TipoComprobante;
   serieSeleccionada: string;
   cartItems: CartItem[];
   totals: {
@@ -74,6 +77,7 @@ interface ComprobanteData {
   paymentTerms?: ComprobantePaymentTerms;
   creditTerms?: ComprobanteCreditTerms;
   registrarPago?: boolean;
+  noteCreditData?: DatosNotaCredito;
 }
 
 const buildPaymentModeLabel = (isCreditSale: boolean, creditTerms?: ComprobanteCreditTerms): string => {
@@ -161,6 +165,32 @@ export const useComprobanteActions = () => {
         'Por favor, seleccione si desea emitir una Boleta o Factura.'
       );
       return false;
+    }
+
+    if (data.tipoComprobante === 'nota_credito') {
+      if (!data.noteCreditData?.codigo) {
+        toast.error(
+          'Código requerido',
+          'Debe seleccionar el código de Nota de Crédito.'
+        );
+        return false;
+      }
+
+      if (!data.noteCreditData?.motivo?.trim()) {
+        toast.error(
+          'Motivo requerido',
+          'Debe ingresar el motivo de emisión de la Nota de Crédito.'
+        );
+        return false;
+      }
+
+      if (!data.noteCreditData?.documentoRelacionado?.numeroCompleto) {
+        toast.error(
+          'Documento origen requerido',
+          'La Nota de Crédito debe estar relacionada a una factura o boleta origen.'
+        );
+        return false;
+      }
     }
 
     // Validar serie
@@ -259,12 +289,8 @@ export const useComprobanteActions = () => {
       const paymentSummaryLabel = buildPaymentLabel(data.paymentDetails);
       const [serieCode, correlativoParte] = numeroComprobante.split('-');
       const resolvedCurrency: Currency = (data.currency as Currency) || 'PEN';
-      const tipoComprobanteDisplay = (() => {
-        const normalized = data.tipoComprobante?.toLowerCase?.() ?? '';
-        if (normalized.includes('factura')) return 'Factura';
-        if (normalized.includes('boleta')) return 'Boleta de venta';
-        return 'Nota de Venta';
-      })();
+      const tipoComprobanteDisplay = obtenerEtiquetaTipoComprobante(data.tipoComprobante);
+      const isNoteCredit = data.tipoComprobante === 'nota_credito';
       const clienteNombre = data.client || 'Cliente General';
       const clienteDocumento = data.clientDoc || '00000000';
       const sucursalNombre = session?.currentEstablecimiento?.nombreEstablecimiento;
@@ -276,7 +302,7 @@ export const useComprobanteActions = () => {
       const paymentModeLabel = buildPaymentModeLabel(isCreditSale, data.creditTerms);
       let createdCuenta: CuentaPorCobrarSummary | null = null;
 
-      if (isCreditSale) {
+      if (!isNoteCredit && isCreditSale) {
         const hoy = getBusinessNow();
         const vence = fechaVencimientoIso ? assertBusinessDate(fechaVencimientoIso, 'end') : null;
         const installmentsSnapshot = normalizeCreditTermsToInstallments(data.creditTerms);
@@ -348,7 +374,7 @@ export const useComprobanteActions = () => {
         if (typeof window !== 'undefined') {
           window.sessionStorage.setItem('lastCreatedReceivableId', createdCuenta.id);
         }
-      } else {
+      } else if (!isNoteCredit) {
         const registroCobranzaInmediata = Boolean(
           data.paymentDetails &&
             data.paymentDetails.mode === 'contado' &&
@@ -402,7 +428,7 @@ export const useComprobanteActions = () => {
           data.paymentDetails.lines.length > 0
       );
 
-      if (debeRegistrarCobranzaInmediata && data.paymentDetails) {
+      if (!isNoteCredit && debeRegistrarCobranzaInmediata && data.paymentDetails) {
         const cuentaParaCobranza = createdCuenta ?? {
           id: numeroComprobante,
           comprobanteId: numeroComprobante,
@@ -438,6 +464,7 @@ export const useComprobanteActions = () => {
       }
 
       // ✅ DESCONTAR STOCK DE LOS PRODUCTOS VENDIDOS
+      if (!isNoteCredit) {
       try {
         // Obtener datos del establecimiento desde la sesión o datos recibidos
         const EstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
@@ -569,6 +596,7 @@ export const useComprobanteActions = () => {
           }
         );
       }
+      }
 
       // ✅ AGREGAR COMPROBANTE A LA LISTA GLOBAL
       try {
@@ -622,8 +650,22 @@ export const useComprobanteActions = () => {
           // Payment and currency
           paymentMethod: paymentMethodLabel,
           currency: data.currency || undefined,
+          cartItems: data.cartItems,
+          productos: data.cartItems,
+          totals: {
+            ...data.totals,
+            currency: resolvedCurrency,
+          },
+          creditTerms: data.creditTerms,
+          noteCreditData: data.noteCreditData,
           // Correlación bidireccional (si viene de conversión)
-          ...(conversionSourceId && conversionSourceType ? {
+          ...(isNoteCredit && data.noteCreditData?.documentoRelacionado ? {
+            relatedDocumentId: data.noteCreditData.documentoRelacionado.numeroCompleto,
+            relatedDocumentType: data.noteCreditData.documentoRelacionado.tipoDocumentoLabelOrigen,
+            sourceDocumentId: data.noteCreditData.documentoRelacionado.id,
+            sourceDocumentType: data.noteCreditData.documentoRelacionado.tipoDocumentoLabelOrigen,
+          } : {}),
+          ...(!isNoteCredit && conversionSourceId && conversionSourceType ? {
             relatedDocumentId: conversionSourceId,
             relatedDocumentType: conversionSourceType,
             convertedFromDocument: true
@@ -638,7 +680,7 @@ export const useComprobanteActions = () => {
           const conversionSourceId = sessionStorage.getItem('conversionSourceId');
           const conversionSourceType = sessionStorage.getItem('conversionSourceType');
           
-          if (conversionSourceId && conversionSourceType) {
+          if (!isNoteCredit && conversionSourceId && conversionSourceType) {
             // Obtener documentos del localStorage
             const documentosLS = localStorage.getItem(lsKey('documentos_negociacion'));
             if (documentosLS) {
@@ -681,45 +723,47 @@ export const useComprobanteActions = () => {
 
       // ✅ Registrar snapshot para indicadores locales
       try {
-        const now = getBusinessNow();
-        const fechaEmisionDate = data.fechaEmision
-          ? assertBusinessDate(data.fechaEmision, 'start')
-          : now;
-        const targetEstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
-        const Establecimiento = targetEstablecimientoId
-          ? (session?.availableEstablecimientos || []).find((est) => est.id === targetEstablecimientoId) || session?.currentEstablecimiento
-          : session?.currentEstablecimiento;
+        if (!isNoteCredit) {
+          const now = getBusinessNow();
+          const fechaEmisionDate = data.fechaEmision
+            ? assertBusinessDate(data.fechaEmision, 'start')
+            : now;
+          const targetEstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
+          const Establecimiento = targetEstablecimientoId
+            ? (session?.availableEstablecimientos || []).find((est) => est.id === targetEstablecimientoId) || session?.currentEstablecimiento
+            : session?.currentEstablecimiento;
 
-        devLocalIndicadoresStore.registerVenta({
-          numeroComprobante,
-          tipoComprobante: data.tipoComprobante,
-          clienteNombre: data.client || 'Cliente mostrador',
-          clienteDocumento: data.clientDoc,
-          clienteId: data.clientDoc,
-          vendedorNombre: session?.userName || 'Usuario',
-          vendedorId: session?.userId,
-          establecimientoId: targetEstablecimientoId,
-          establecimientoNombre: Establecimiento?.nombreEstablecimiento,
-          establecimientoCodigo: Establecimiento?.codigoEstablecimiento,
-          empresaId: data.companyId || session?.currentCompanyId,
-          moneda: data.currency || 'PEN',
-          tipoCambio: data.currency && data.currency !== 'PEN' ? data.exchangeRate ?? 1 : 1,
-          total: data.totals.total,
-          subtotal: data.totals.subtotal,
-          igv: data.totals.igv,
-          fechaEmision: formatBusinessDateTimeIso(fechaEmisionDate),
-          productos: mapCartItemsToVentaProductos(data.cartItems),
-          formaPago: paymentModeLabel,
-          medioPago: paymentSummaryLabel,
-          source: data.source ?? 'otros'
-        });
+          devLocalIndicadoresStore.registerVenta({
+            numeroComprobante,
+            tipoComprobante: data.tipoComprobante,
+            clienteNombre: data.client || 'Cliente mostrador',
+            clienteDocumento: data.clientDoc,
+            clienteId: data.clientDoc,
+            vendedorNombre: session?.userName || 'Usuario',
+            vendedorId: session?.userId,
+            establecimientoId: targetEstablecimientoId,
+            establecimientoNombre: Establecimiento?.nombreEstablecimiento,
+            establecimientoCodigo: Establecimiento?.codigoEstablecimiento,
+            empresaId: data.companyId || session?.currentCompanyId,
+            moneda: data.currency || 'PEN',
+            tipoCambio: data.currency && data.currency !== 'PEN' ? data.exchangeRate ?? 1 : 1,
+            total: data.totals.total,
+            subtotal: data.totals.subtotal,
+            igv: data.totals.igv,
+            fechaEmision: formatBusinessDateTimeIso(fechaEmisionDate),
+            productos: mapCartItemsToVentaProductos(data.cartItems),
+            formaPago: paymentModeLabel,
+            medioPago: paymentSummaryLabel,
+            source: data.source ?? 'otros'
+          });
+        }
       } catch (indicadoresError) {
         console.warn('[indicadores-dev-local] No se pudo registrar la venta local', indicadoresError);
       }
 
       toast.success(
         '¡Comprobante creado!',
-        `${data.tipoComprobante} ${numeroComprobante} generado exitosamente`,
+        `${tipoComprobanteDisplay} ${numeroComprobante} generado exitosamente`,
         {
           action: {
             label: 'Ver comprobante',

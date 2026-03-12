@@ -43,6 +43,8 @@ interface InvoiceListTableProps {
 	onDuplicate: (invoice: Comprobante) => void;
 	onEdit: (invoice: Comprobante) => void;
 	onVoid: (invoice: Comprobante) => void;
+	onGenerateCreditNote?: (invoice: Comprobante) => void;
+	canGenerateCreditNote?: (invoice: Comprobante) => boolean;
 	onNavigateToDocuments: () => void;
 	onGenerateCobranza?: (invoice: Comprobante) => void;
 	canGenerateCobranza?: (invoice: Comprobante) => boolean;
@@ -99,6 +101,8 @@ export const InvoiceListTable = ({
 	onDuplicate,
 	onEdit,
 	onVoid,
+	onGenerateCreditNote,
+	canGenerateCreditNote,
 	onNavigateToDocuments,
 	onGenerateCobranza,
 	canGenerateCobranza,
@@ -331,6 +335,8 @@ export const InvoiceListTable = ({
 											onDuplicate={() => onDuplicate(invoice)}
 											onEdit={() => onEdit(invoice)}
 											onVoid={() => onVoid(invoice)}
+											onGenerateCreditNote={() => onGenerateCreditNote?.(invoice)}
+											canGenerateCreditNote={canGenerateCreditNote?.(invoice) ?? false}
 											onGenerateCobranza={() => onGenerateCobranza?.(invoice)}
 											canGenerateCobranza={canGenerateCobranza?.(invoice) ?? false}
 											onNavigateToDocuments={onNavigateToDocuments}
@@ -362,6 +368,8 @@ interface InvoiceCellProps {
 	onDuplicate: () => void;
 	onEdit: () => void;
 	onVoid: () => void;
+	onGenerateCreditNote?: () => void;
+	canGenerateCreditNote?: boolean;
 	onNavigateToDocuments: () => void;
 	onGenerateCobranza?: () => void;
 	canGenerateCobranza?: boolean;
@@ -383,6 +391,8 @@ const InvoiceCell = ({
 	onDuplicate,
 	onEdit,
 	onVoid,
+	onGenerateCreditNote,
+	canGenerateCreditNote,
 	onNavigateToDocuments,
 	onGenerateCobranza,
 	canGenerateCobranza,
@@ -399,6 +409,7 @@ const InvoiceCell = ({
 
 	if (column.key === 'actions') {
 		const showGenerateCobranza = Boolean(onGenerateCobranza && canGenerateCobranza);
+		const showGenerateCreditNote = Boolean(onGenerateCreditNote && canGenerateCreditNote);
 		return (
 			<td
 				className={`px-4 ${rowPadding} whitespace-nowrap ${widthClass} ${
@@ -449,6 +460,16 @@ const InvoiceCell = ({
 												onClick={() => {
 													toggleMenu(null);
 													onGenerateCobranza?.();
+												}}
+											/>
+										)}
+										{showGenerateCreditNote && (
+											<MenuButton
+												label="Generar Nota de Crédito"
+												icon={<FileText className="w-4 h-4 flex-shrink-0" />}
+												onClick={() => {
+													toggleMenu(null);
+													onGenerateCreditNote?.();
 												}}
 											/>
 										)}

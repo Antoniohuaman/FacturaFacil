@@ -29,7 +29,11 @@ import { useConfigurationContext } from '../../../../configuracion-sistema/conte
 import type { PaymentMethod as ConfigurationPaymentMethod } from '../../../../configuracion-sistema/modelos/PaymentMethod';
 import { useFieldsConfiguration } from '../contexts/FieldsConfigurationContext';
 import { FORMA_PAGO_CREDITO_MANUAL } from '../../../models/constants';
-import type { TipoComprobante, Currency } from '../../../models/comprobante.types';
+import {
+  CODIGOS_NOTA_CREDITO_SUNAT,
+  obtenerEtiquetaCortaTipoComprobante,
+} from '../../../models/constants';
+import type { TipoComprobante, Currency, DatosNotaCredito, TipoComprobanteBase } from '../../../models/comprobante.types';
 import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../clienteLookup/clienteLookupService';
 import { Tooltip } from '@/shared/ui';
 import { getBusinessTodayISODate, shiftBusinessDate } from '@/shared/time/businessTime';
@@ -133,7 +137,8 @@ const mapSelectedClienteFromProps = (
 interface CompactDocumentFormProps {
   // Tipo de Comprobante
   tipoComprobante: TipoComprobante;
-  setTipoComprobante: (value: TipoComprobante) => void;
+  setTipoComprobante: (value: TipoComprobanteBase) => void;
+  tiposHabilitados?: TipoComprobante[];
   
   // Serie y Fecha
   serieSeleccionada: string;
@@ -178,6 +183,9 @@ interface CompactDocumentFormProps {
 
   // Señalizar al contenedor si el cliente actual proviene de lookup externo
   onLookupClientSelected?: (client: { data: { nombre: string; documento: string; tipoDocumento: string; direccion?: string; email?: string }; origen: 'RENIEC' | 'SUNAT' } | null) => void;
+  datosNotaCredito?: DatosNotaCredito | null;
+  onDatosNotaCreditoChange?: (value: DatosNotaCredito) => void;
+  tipoComprobanteBaseNotaCredito?: TipoComprobanteBase | null;
 
   // Valores iniciales para rehidratar campos opcionales
   valoresIniciales?: ValoresInicialesCompactDocumentForm;
@@ -205,6 +213,10 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   onFechaEmisionChange,
   onOptionalFieldsChange,
   onLookupClientSelected,
+  datosNotaCredito,
+  onDatosNotaCreditoChange,
+  tipoComprobanteBaseNotaCredito,
+  tiposHabilitados = ['factura', 'boleta'],
   valoresIniciales,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
@@ -422,6 +434,10 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   };
 
   const resolvedFormaPago = formaPago || lastValidFormaPago || (paymentMethods.find(pm => pm.isActive)?.id ?? '');
+  const tipoComprobanteBase: TipoComprobanteBase = tipoComprobante === 'nota_credito'
+    ? (tipoComprobanteBaseNotaCredito ?? 'factura')
+    : tipoComprobante;
+  const isNoteCreditFlow = tipoComprobante === 'nota_credito';
 
   // Tipos de documento y cliente
   const fallbackCurrencyOptions = useMemo(
@@ -443,16 +459,16 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   const searchLower = searchQuery.trim().toLowerCase();
   const searchDigits = searchQuery.replace(/\D+/g, '');
 
-  const lookupLabel = tipoComprobante === 'factura' ? 'SUNAT' : 'RENIEC';
-  const expectedLookupDigitsLength = tipoComprobante === 'factura' ? 11 : 8;
+  const lookupLabel = tipoComprobanteBase === 'factura' ? 'SUNAT' : 'RENIEC';
+  const expectedLookupDigitsLength = tipoComprobanteBase === 'factura' ? 11 : 8;
   const hasLettersInSearch = useMemo(() => /\p{L}/u.test(searchQuery), [searchQuery]);
   const isValidLookupDocument = useMemo(() => {
     if (hasLettersInSearch) return false;
-    if (tipoComprobante === 'factura') {
+    if (tipoComprobanteBase === 'factura') {
       return searchDigits.length === 11 && (searchDigits.startsWith('1') || searchDigits.startsWith('2'));
     }
     return searchDigits.length === expectedLookupDigitsLength;
-  }, [expectedLookupDigitsLength, hasLettersInSearch, searchDigits, tipoComprobante]);
+  }, [expectedLookupDigitsLength, hasLettersInSearch, searchDigits, tipoComprobanteBase]);
 
   const lookupButtonClassName = useMemo(() => {
     const isEnabled = !isLookupLoading && isValidLookupDocument;
@@ -462,7 +478,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         : 'bg-slate-200/40 text-slate-600 hover:text-slate-900'
     }`;
   }, [isLookupLoading, isValidLookupDocument]);
-  const shouldShowDireccionField = tipoComprobante === 'factura' || config.optionalFields.direccion.visible;
+  const shouldShowDireccionField = tipoComprobanteBase === 'factura' || config.optionalFields.direccion.visible;
 
   const formatClienteDisplayValue = (cliente: SelectedCliente) => {
     const docLabel = formatSaleDocumentLabel(cliente.tipoDocumento, cliente.dni);
@@ -580,7 +596,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     if (!isValidLookupDocument) {
       if (!hasLettersInSearch && searchDigits) {
         setClientDocError(
-          tipoComprobante === 'factura'
+          tipoComprobanteBase === 'factura'
             ? 'El RUC debe tener 11 dígitos y comenzar con 1 o 2'
             : 'El DNI debe tener 8 dígitos',
         );
@@ -589,7 +605,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
     }
 
     const digitsOnly = searchDigits;
-    const expectedType: SaleDocumentType = tipoComprobante === 'factura' ? 'RUC' : 'DNI';
+    const expectedType: SaleDocumentType = tipoComprobanteBase === 'factura' ? 'RUC' : 'DNI';
     setIsLookupLoading(true);
     try {
       // 1) Buscar en clientes actuales (ya filtrados por /clientes si el usuario venía tipeando)
@@ -689,37 +705,55 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
           <div className="flex items-center gap-2">
             {/* Pill buttons para tipo de comprobante (estado) */}
             <div className="flex items-center gap-1.5">
-              <button
-                className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
-                  tipoComprobante === 'factura'
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                }`}
-                onClick={() => setTipoComprobante('factura')}
-                data-active={tipoComprobante === 'factura'}
-              >
-                Factura
-              </button>
-              <button
-                className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
-                  tipoComprobante === 'boleta'
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                }`}
-                onClick={() => setTipoComprobante('boleta')}
-                data-active={tipoComprobante === 'boleta'}
-              >
-                Boleta
-              </button>
-              {/* Botón + otros tipos (icon-only sin pill) */}
-              <Tooltip contenido="Más tipos de comprobante.">
+              {tiposHabilitados.includes('factura') && (
                 <button
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
-                  aria-label="Más tipos de comprobante"
+                  className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
+                    tipoComprobante === 'factura'
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  onClick={() => setTipoComprobante('factura')}
+                  data-active={tipoComprobante === 'factura'}
                 >
-                  <Plus className="h-4 w-4 text-slate-500" />
+                  Factura
                 </button>
-              </Tooltip>
+              )}
+              {tiposHabilitados.includes('boleta') && (
+                <button
+                  className={`px-3 py-1 rounded-full text-[13px] font-medium transition-all ${
+                    tipoComprobante === 'boleta'
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  onClick={() => setTipoComprobante('boleta')}
+                  data-active={tipoComprobante === 'boleta'}
+                >
+                  Boleta
+                </button>
+              )}
+              {tiposHabilitados.includes('nota_credito') && (
+                <span className="px-3 py-1 rounded-full text-[13px] font-medium bg-indigo-50 text-indigo-700">
+                  {obtenerEtiquetaCortaTipoComprobante('nota_credito')}
+                </span>
+              )}
+              {!tiposHabilitados.includes('nota_credito') && (
+                <Tooltip contenido="Más tipos de comprobante.">
+                  <button
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 transition-colors"
+                    aria-label="Más tipos de comprobante"
+                  >
+                    <Plus className="h-4 w-4 text-slate-500" />
+                  </button>
+                </Tooltip>
+              )}
+              {isNoteCreditFlow && datosNotaCredito?.documentoRelacionado && (
+                <>
+                  <div className="h-6 w-px bg-slate-200"></div>
+                  <span className="text-[13px] font-semibold text-slate-800 underline underline-offset-2">
+                    {datosNotaCredito.documentoRelacionado.numeroCompleto}
+                  </span>
+                </>
+              )}
             </div>
             
             {/* Separador visual */}
@@ -780,7 +814,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                         }
                         if (!hasLettersInSearch && searchDigits) {
                           setClientDocError(
-                            tipoComprobante === 'factura'
+                            tipoComprobanteBase === 'factura'
                               ? 'El RUC debe tener 11 dígitos y comenzar con 1 o 2'
                               : 'El DNI debe tener 8 dígitos',
                           );
@@ -827,7 +861,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   {clientesFiltrados.length > 0 ? (
                     clientesFiltrados
                       .map((cliente) => ({ cliente, snap: clienteToSaleSnapshot(cliente) }))
-                      .filter(({ snap }) => (tipoComprobante === 'factura' ? snap.tipoDocumento === 'RUC' : true))
+                      .filter(({ snap }) => (tipoComprobanteBase === 'factura' ? snap.tipoDocumento === 'RUC' : true))
                       .map(({ cliente, snap }) => (
                         <button
                           key={String(cliente.id)}
@@ -875,7 +909,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
                   placeholder="Dirección del cliente"
                 />
-                {tipoComprobante === 'factura' && (
+                {tipoComprobanteBase === 'factura' && (
                   <p className="mt-1 text-xs text-blue-600">
                     Confirma la dirección. Si cambió, actualiza en Clientes.
                   </p>
@@ -1046,8 +1080,8 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 )}
               </div>
 
-              {/* Fila 3: Fecha Vencimiento + Placeholder */}
-              {isCreditMethod === true && (
+              {/* Fila 3: Fecha Vencimiento / Datos Nota de Crédito */}
+              {isCreditMethod === true ? (
                 <div className="col-span-6">
                   <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-vencimiento">
                     <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
@@ -1063,9 +1097,78 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                   />
                 </div>
+              ) : isNoteCreditFlow ? (
+                <div className="col-span-6">
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="codigo-nota-credito">
+                    <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    Cod. Nota de Crédito<span className="ml-0.5 text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="codigo-nota-credito"
+                      value={datosNotaCredito?.codigo ?? ''}
+                      onChange={(event) => {
+                        const documentoRelacionado = datosNotaCredito?.documentoRelacionado;
+                        if (!documentoRelacionado) {
+                          return;
+                        }
+
+                        onDatosNotaCreditoChange?.({
+                          codigo: event.target.value,
+                          motivo: datosNotaCredito?.motivo ?? '',
+                          documentoRelacionado,
+                        });
+                      }}
+                      className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                    >
+                      <option value="">Selecciona un código</option>
+                      {CODIGOS_NOTA_CREDITO_SUNAT.map((item) => (
+                        <option key={item.codigo} value={item.codigo}>
+                          {item.codigo} - {item.descripcionCorta}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              ) : (
+                <div className="col-span-6" aria-hidden="true">
+                  <div className="h-9"></div>
+                </div>
               )}
-              <div className="col-span-6" aria-hidden="true">
-                <div className="h-9"></div>
+
+              <div className="col-span-6">
+                {isNoteCreditFlow ? (
+                  <>
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="motivo-nota-credito">
+                      <FileText className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                      Motivo emisión NC<span className="ml-0.5 text-red-500">*</span>
+                    </label>
+                    <input
+                      id="motivo-nota-credito"
+                      type="text"
+                      value={datosNotaCredito?.motivo ?? ''}
+                      onChange={(event) => {
+                        const documentoRelacionado = datosNotaCredito?.documentoRelacionado;
+                        if (!documentoRelacionado) {
+                          return;
+                        }
+
+                        onDatosNotaCreditoChange?.({
+                          codigo: datosNotaCredito?.codigo ?? '',
+                          motivo: event.target.value,
+                          documentoRelacionado,
+                        });
+                      }}
+                      className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
+                      placeholder="Describe el sustento"
+                    />
+                  </>
+                ) : (
+                  <div aria-hidden="true">
+                    <div className="h-9"></div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

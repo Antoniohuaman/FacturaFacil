@@ -6,6 +6,7 @@ import { formatMoney } from '@/shared/currency';
 import { useCurrentEstablecimiento } from '@/contexts/UserSessionContext';
 import { TaxBreakdownSummary } from './TaxBreakdownSummary';
 import { resolveClientDocumentLabel, type DisenoEfectivoImpresion } from '@/shared/impresion/ResolverDisenoImpresion';
+import { obtenerEtiquetaTipoComprobante } from '../../models/constants';
 
 interface PreviewTicketProps {
   data: PreviewData;
@@ -32,9 +33,14 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
     totals,
     observations,
     creditTerms,
+    notaCredito,
   } = data;
 
-  const documentTitle = documentType === 'boleta' ? 'BOLETA DE VENTA ELECTRÓNICA' : 'FACTURA ELECTRÓNICA';
+  const documentTitle = (() => {
+    if (documentType === 'nota_credito') return 'NOTA DE CRÉDITO ELECTRÓNICA';
+    if (documentType === 'boleta') return 'BOLETA DE VENTA ELECTRÓNICA';
+    return 'FACTURA ELECTRÓNICA';
+  })();
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
   const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
   const currentDateTime = new Date().toLocaleString('es-PE', {
@@ -190,6 +196,18 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
             {config.documentFields.fechaVencimiento.visible && (
               <p><span className="font-semibold">{config.documentFields.fechaVencimiento.label}:</span> {resolvedDueDate}</p>
             )}
+            {notaCredito?.documentoRelacionado && (
+              <p>
+                <span className="font-semibold">Doc Relacionado:</span>{' '}
+                {truncateText(`${notaCredito.documentoRelacionado.tipoDocumentoLabelOrigen} ${notaCredito.documentoRelacionado.numeroCompleto}`, 35)}
+              </p>
+            )}
+            {notaCredito?.codigo && (
+              <p><span className="font-semibold">Cod. NC:</span> {notaCredito.codigo}</p>
+            )}
+            {notaCredito?.motivo && (
+              <p><span className="font-semibold">Motivo NC:</span> {truncateText(notaCredito.motivo, 35)}</p>
+            )}
             {config.documentFields.vendedor.visible && (
               <p><span className="font-semibold">{config.documentFields.vendedor.label}:</span> -</p>
             )}
@@ -267,6 +285,10 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
 
         {/* Totals */}
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4">
+          <div className="flex justify-between text-xs mb-1">
+            <span className="font-semibold">Tipo:</span>
+            <span>{obtenerEtiquetaTipoComprobante(documentType)}</span>
+          </div>
           <div className="space-y-1 text-xs">
             <TaxBreakdownSummary
               taxBreakdown={taxBreakdown}
