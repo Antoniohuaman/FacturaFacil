@@ -1,3 +1,8 @@
+import {
+  generateSeriesSuggestion,
+  validateSeriesCodeForDocumentType,
+} from './catalogoSeries';
+
 // Validador de Series Documentarias - SUNAT
 // ========================================
 
@@ -12,28 +17,7 @@ export function validateSeries(series: string, documentType: string): boolean {
     return false;
   }
 
-  const cleanSeries = series.trim().toUpperCase();
-
-  // Verificar longitud (4 caracteres)
-  if (cleanSeries.length !== 4) {
-    return false;
-  }
-
-  // Verificar formato según tipo de documento
-  switch (documentType) {
-    case '01': // Factura
-      return /^F\d{3}$/.test(cleanSeries);
-    
-    case '03': // Boleta
-      return /^B\d{3}$/.test(cleanSeries);
-    
-    case '07': // Nota de Crédito
-    case '08': // Nota de Débito
-      return /^[FB]\d{3}$/.test(cleanSeries);
-    
-    default:
-      return false;
-  }
+  return validateSeriesCodeForDocumentType(documentType, series);
 }
 
 /**
@@ -43,29 +27,18 @@ export function validateSeries(series: string, documentType: string): boolean {
  * @returns string - Nueva serie sugerida
  */
 export function generateNextSeries(documentType: string, existingSeries: string[] = []): string {
-  let prefix = '';
-  
   switch (documentType) {
     case '01': // Factura
-      prefix = 'F';
-      break;
+      return generateSeriesSuggestion('INVOICE', existingSeries);
     case '03': // Boleta
-      prefix = 'B';
-      break;
+      return generateSeriesSuggestion('RECEIPT', existingSeries);
+    case '07': // Nota de Crédito
+      return generateSeriesSuggestion('CREDIT_NOTE', existingSeries);
+    case 'RC': // Recibo de Cobranza
+      return generateSeriesSuggestion('COLLECTION', existingSeries);
     default:
-      prefix = 'F'; // Por defecto factura
+      return generateSeriesSuggestion('INVOICE', existingSeries);
   }
-
-  // Buscar el siguiente número disponible
-  let nextNumber = 1;
-  let newSeries = '';
-
-  do {
-    newSeries = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-    nextNumber++;
-  } while (existingSeries.includes(newSeries) && nextNumber <= 999);
-
-  return newSeries;
 }
 
 /**

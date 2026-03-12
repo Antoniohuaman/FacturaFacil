@@ -1,41 +1,77 @@
-import { SUNAT_DOCUMENT_TYPES, type DocumentType, type Series } from "../modelos/Series";
-
-export type SeriesVoucherType =
-  | "INVOICE"
-  | "RECEIPT"
-  | "SALE_NOTE"
-  | "QUOTE"
-  | "COLLECTION";
+import type { DocumentType, Series } from '../modelos/Series';
+import {
+  CREDIT_NOTE_DEFAULT_SERIES_CODES,
+  getDocumentTypeForVoucherType,
+  normalizeSeriesCode,
+  type SeriesVoucherType,
+} from './catalogoSeries';
 
 const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
-  "INVOICE",
-  "RECEIPT",
-  "SALE_NOTE",
-  "QUOTE",
-  "COLLECTION",
+  'INVOICE',
+  'RECEIPT',
+  'SALE_NOTE',
+  'QUOTE',
+  'COLLECTION',
 ];
 
-const VOUCHER_TYPE_TO_CODE: Record<SeriesVoucherType, string> = {
-  INVOICE: "01",
-  RECEIPT: "03",
-  SALE_NOTE: "NV",
-  QUOTE: "COT",
-  COLLECTION: "RC",
-};
+const buildSeriesSeed = ({
+  EstablecimientoId,
+  environmentType,
+  documentType,
+  seriesCode,
+  isDefault,
+}: {
+  EstablecimientoId: string;
+  environmentType: 'TESTING' | 'PRODUCTION';
+  documentType: DocumentType;
+  seriesCode: string;
+  isDefault: boolean;
+}): Series => {
+  const now = new Date();
+  const minimumDigits = documentType.seriesConfiguration.correlativeLength || 8;
+  const isElectronic = documentType.properties.isElectronic;
+  const maxDaysToReport = isElectronic
+    ? documentType.code === '01'
+      ? 1
+      : 7
+    : 0;
 
-export const getDocumentTypeForVoucherType = (
-  voucherType: SeriesVoucherType,
-): DocumentType => {
-  const code = VOUCHER_TYPE_TO_CODE[voucherType];
-  const documentType = SUNAT_DOCUMENT_TYPES.find((dt) => dt.code === code);
-
-  if (!documentType) {
-    throw new Error(
-      `[seriesDefaults] DocumentType not found for voucherType=${voucherType} (code=${code})`,
-    );
-  }
-
-  return documentType;
+  return {
+    id: `series-${documentType.code.toLowerCase()}-${seriesCode.toLowerCase()}-${EstablecimientoId}`,
+    EstablecimientoId,
+    documentType,
+    series: seriesCode,
+    correlativeNumber: 1,
+    configuration: {
+      minimumDigits,
+      startNumber: 1,
+      autoIncrement: true,
+      allowManualNumber: false,
+      requireAuthorization: false,
+    },
+    sunatConfiguration: {
+      isElectronic,
+      environmentType,
+      certificateRequired: isElectronic,
+      mustReportToSunat: isElectronic,
+      maxDaysToReport,
+    },
+    status: 'ACTIVE',
+    isDefault,
+    statistics: {
+      documentsIssued: 0,
+      averageDocumentsPerDay: 0,
+    },
+    validation: {
+      allowZeroAmount: !documentType.properties.affectsTaxes,
+      requireCustomer: documentType.properties.requiresCustomerName,
+    },
+    notes: undefined,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'system',
+    isActive: true,
+  };
 };
 
 const generateInitialSeriesCode = (documentType: DocumentType): string => {
@@ -59,16 +95,58 @@ const generateInitialSeriesCode = (documentType: DocumentType): string => {
 
 export interface BuildMissingDefaultSeriesParams {
   EstablecimientoId: string;
-  environmentType: "TESTING" | "PRODUCTION";
+  environmentType: 'TESTING' | 'PRODUCTION';
   existingSeries: Series[];
+  isMainEstablecimiento?: boolean;
 }
+
+export const buildMissingCreditNoteDefaultSeries = ({
+  EstablecimientoId,
+  environmentType,
+  existingSeries,
+  isMainEstablecimiento = false,
+}: BuildMissingDefaultSeriesParams): Series[] => {
+  if (!isMainEstablecimiento) {
+    return [];
+  }
+
+  const documentType = getDocumentTypeForVoucherType('CREDIT_NOTE');
+  const currentCreditNoteSeries = existingSeries.filter(
+    (series) =>
+      series.EstablecimientoId === EstablecimientoId &&
+      series.documentType.code === documentType.code,
+  );
+
+  const hasCustomCreditNoteSeries = currentCreditNoteSeries.some(
+    (series) => !CREDIT_NOTE_DEFAULT_SERIES_CODES.includes(normalizeSeriesCode(series.series) as (typeof CREDIT_NOTE_DEFAULT_SERIES_CODES)[number]),
+  );
+
+  if (hasCustomCreditNoteSeries) {
+    return [];
+  }
+
+  return CREDIT_NOTE_DEFAULT_SERIES_CODES
+    .filter(
+      (seriesCode) =>
+        !currentCreditNoteSeries.some((series) => normalizeSeriesCode(series.series) === seriesCode),
+    )
+    .map((seriesCode) =>
+      buildSeriesSeed({
+        EstablecimientoId,
+        environmentType,
+        documentType,
+        seriesCode,
+        isDefault: false,
+      }),
+    );
+};
 
 export const buildMissingDefaultSeries = ({
   EstablecimientoId,
   environmentType,
   existingSeries,
+  isMainEstablecimiento = false,
 }: BuildMissingDefaultSeriesParams): Series[] => {
-  const now = new Date();
 
   const seeds: Series[] = [];
 
@@ -85,62 +163,24 @@ export const buildMissingDefaultSeries = ({
 
     const seriesCode = generateInitialSeriesCode(documentType);
 
-    const minimumDigits = documentType.seriesConfiguration.correlativeLength || 8;
-
-    const isElectronic = documentType.properties.isElectronic;
-
-    // En tu modelo es obligatorio siempre -> mantenemos el mismo environment del workspace
-    const maxDaysToReport = isElectronic
-      ? documentType.code === "01"
-        ? 1
-        : 7
-      : 0;
-
-    const allowZeroAmount = !documentType.properties.affectsTaxes;
-    const requireCustomer = documentType.properties.requiresCustomerName;
-
-    // Más robusto para futuro (si mañana agregas FE02/BE02, etc.)
-    const id = `series-${documentType.code.toLowerCase()}-${seriesCode.toLowerCase()}-${EstablecimientoId}`;
-
-    const seed: Series = {
-      id,
-      EstablecimientoId,
-      documentType,
-      series: seriesCode,
-      correlativeNumber: 1,
-      configuration: {
-        minimumDigits,
-        startNumber: 1,
-        autoIncrement: true,
-        allowManualNumber: false,
-        requireAuthorization: false,
-      },
-      sunatConfiguration: {
-        isElectronic,
+    seeds.push(
+      buildSeriesSeed({
+        EstablecimientoId,
         environmentType,
-        certificateRequired: isElectronic,
-        mustReportToSunat: isElectronic,
-        maxDaysToReport,
-      },
-      status: "ACTIVE",
-      isDefault: true,
-      statistics: {
-        documentsIssued: 0,
-        averageDocumentsPerDay: 0,
-      },
-      validation: {
-        allowZeroAmount,
-        requireCustomer,
-      },
-      notes: undefined,
-      createdAt: now,
-      updatedAt: now,
-      createdBy: "system",
-      isActive: true,
-    };
-
-    seeds.push(seed);
+        documentType,
+        seriesCode,
+        isDefault: true,
+      }),
+    );
   });
 
-  return seeds;
+  return [
+    ...seeds,
+    ...buildMissingCreditNoteDefaultSeries({
+      EstablecimientoId,
+      environmentType,
+      existingSeries,
+      isMainEstablecimiento,
+    }),
+  ];
 };

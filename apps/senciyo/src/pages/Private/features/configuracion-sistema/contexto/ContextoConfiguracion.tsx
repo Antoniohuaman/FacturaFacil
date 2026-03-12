@@ -16,7 +16,7 @@ import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
 import { ID_ROL_ADMINISTRADOR, ROLES_DEL_SISTEMA } from '../roles/rolesDelSistema';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
-import { buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
+import { buildMissingCreditNoteDefaultSeries, buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { parseUbigeoCode } from '../datos/ubigeo';
 import {
   construirNombreCompleto,
@@ -222,6 +222,7 @@ export const construirConfiguracionInicialEmpresa = ({
     EstablecimientoId: establecimiento.id,
     environmentType: tipoEntornoSunat,
     existingSeries: seriesExistentes,
+    isMainEstablecimiento: establecimiento.isMainEstablecimiento,
   });
 
   const monedas: Currency[] = monedasExistentes.length
@@ -1157,6 +1158,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const sincronizacionWorkspaceRef = useRef(false);
 
   const seriesHydratedRef = useRef(false);
+  const seriesDefaultsMigratedRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
     if (action.type === 'SET_CURRENCIES') {
       currencyManager.setCurrencies(action.payload);
@@ -1343,6 +1345,36 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       },
     });
   }, [dispatch, state.company, tenantId]);
+
+  useEffect(() => {
+    if (seriesDefaultsMigratedRef.current) {
+      return;
+    }
+
+    if (!seriesHydratedRef.current) {
+      return;
+    }
+
+    const mainEstablecimiento = state.Establecimientos.find((item) => item.isMainEstablecimiento);
+    if (!mainEstablecimiento) {
+      return;
+    }
+
+    const missingCreditNoteDefaults = buildMissingCreditNoteDefaultSeries({
+      EstablecimientoId: mainEstablecimiento.id,
+      environmentType: state.company?.configuracionSunatEmpresa.entornoSunat ?? 'TESTING',
+      existingSeries: state.series,
+      isMainEstablecimiento: true,
+    });
+
+    if (!missingCreditNoteDefaults.length) {
+      seriesDefaultsMigratedRef.current = true;
+      return;
+    }
+
+    dispatch({ type: 'SET_SERIES', payload: [...state.series, ...missingCreditNoteDefaults] });
+    seriesDefaultsMigratedRef.current = true;
+  }, [dispatch, state.Establecimientos, state.company?.configuracionSunatEmpresa.entornoSunat, state.series]);
 
   useEffect(() => {
     if (!tenantId) return;

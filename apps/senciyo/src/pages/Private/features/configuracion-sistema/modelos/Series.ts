@@ -177,7 +177,7 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
   {
     id: '07',
     code: '07',
-    name: 'Nota de Crédito',
+    name: 'Nota de Crédito Electrónica',
     shortName: 'NCR',
     category: 'CREDIT_NOTE',
     properties: {
@@ -193,10 +193,10 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
       requiresSignature: false,
     },
     seriesConfiguration: {
-      defaultPrefix: 'FC',
-      seriesLength: 3,
+      defaultPrefix: 'F',
+      seriesLength: 1,
       correlativeLength: 8,
-      allowedPrefixes: ['FC', 'BC'],
+      allowedPrefixes: ['F', 'B'],
     },
     isActive: true,
   },

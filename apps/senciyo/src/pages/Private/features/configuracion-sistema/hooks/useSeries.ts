@@ -9,6 +9,7 @@ import type {
   DocumentType
 } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
+import { validateSeriesCodeForDocumentType } from '../utilidades/catalogoSeries';
 
 interface UseSeriesReturn {
   series: Series[];
@@ -495,21 +496,14 @@ export function useSeries(): UseSeriesReturn {
       // Validate series format based on document type
       const documentType = documentTypes.find(dt => dt.id === data.documentTypeId);
       if (documentType) {
-        const expectedLength = documentType.seriesConfiguration.seriesLength;
-        const allowedPrefixes = documentType.seriesConfiguration.allowedPrefixes;
-        
-        if (data.series.length !== expectedLength + 3) { // 3 digits for number
-          errors.push(`La serie debe tener ${expectedLength + 3} caracteres`);
+        const normalizedSeries = data.series.trim().toUpperCase();
+
+        if (normalizedSeries.length !== 4) {
+          errors.push('La serie debe tener exactamente 4 caracteres');
         }
-        
-        const prefix = data.series.substring(0, expectedLength);
-        if (!allowedPrefixes.includes(prefix)) {
-          errors.push(`El prefijo debe ser uno de: ${allowedPrefixes.join(', ')}`);
-        }
-        
-        const numberPart = data.series.substring(expectedLength);
-        if (!/^\d+$/.test(numberPart)) {
-          errors.push('La parte numérica de la serie debe contener solo dígitos');
+
+        if (!validateSeriesCodeForDocumentType(documentType.code, normalizedSeries)) {
+          errors.push(`La serie no cumple el formato permitido para ${documentType.name}`);
         }
       }
     }
