@@ -41,12 +41,17 @@ export const isCreditNoteSeriesCode = (seriesCode: string): boolean => {
   return /^[FB][A-Z0-9]{3}$/.test(normalized);
 };
 
+export const isSuggestedCreditNoteSeriesCode = (seriesCode: string): boolean => {
+  const normalized = normalizeSeriesCode(seriesCode);
+  return /^[FB]NC[A-Z0-9]$/.test(normalized);
+};
+
 export const getVoucherTypeFromSeries = (
   series: Pick<Series, 'series' | 'documentType'>,
 ): SeriesVoucherType => {
   const normalizedSeries = normalizeSeriesCode(series.series);
 
-  if (series.documentType.code === '07' || series.documentType.category === 'CREDIT_NOTE' || isCreditNoteSeriesCode(normalizedSeries)) {
+  if (series.documentType.code === '07' || series.documentType.category === 'CREDIT_NOTE') {
     return 'CREDIT_NOTE';
   }
 
@@ -71,6 +76,86 @@ export const getVoucherTypeFromSeries = (
   }
 
   return normalizedSeries.startsWith('B') ? 'RECEIPT' : 'INVOICE';
+};
+
+const pickPreferredRecoveryCandidate = (candidates: Series[], preferredCode: string): Series | undefined => {
+  return candidates.find((series) => normalizeSeriesCode(series.series) === preferredCode) ?? candidates[0];
+};
+
+export const repairMisclassifiedDefaultInvoiceAndReceiptSeries = (seriesList: Series[]): Series[] => {
+  const invoiceDocumentType = getDocumentTypeForVoucherType('INVOICE');
+  const receiptDocumentType = getDocumentTypeForVoucherType('RECEIPT');
+  const replacements = new Map<string, DocumentType>();
+
+  const groupedByEstablecimiento = new Map<string, Series[]>();
+  seriesList.forEach((series) => {
+    const current = groupedByEstablecimiento.get(series.EstablecimientoId) ?? [];
+    current.push(series);
+    groupedByEstablecimiento.set(series.EstablecimientoId, current);
+  });
+
+  groupedByEstablecimiento.forEach((seriesGroup) => {
+    const hasInvoiceSeries = seriesGroup.some((series) => series.documentType.code === '01');
+    const hasReceiptSeries = seriesGroup.some((series) => series.documentType.code === '03');
+    const hasSuggestedCreditNoteSeries = seriesGroup.some(
+      (series) => series.documentType.code === '07' && isSuggestedCreditNoteSeriesCode(series.series),
+    );
+
+    if (!hasSuggestedCreditNoteSeries) {
+      return;
+    }
+
+    if (!hasInvoiceSeries) {
+      const invoiceCandidate = pickPreferredRecoveryCandidate(
+        seriesGroup.filter(
+          (series) =>
+            series.documentType.code === '07' &&
+            series.isDefault &&
+            normalizeSeriesCode(series.series).startsWith('F') &&
+            !isSuggestedCreditNoteSeriesCode(series.series),
+        ),
+        'FE01',
+      );
+
+      if (invoiceCandidate) {
+        replacements.set(invoiceCandidate.id, invoiceDocumentType);
+      }
+    }
+
+    if (!hasReceiptSeries) {
+      const receiptCandidate = pickPreferredRecoveryCandidate(
+        seriesGroup.filter(
+          (series) =>
+            series.documentType.code === '07' &&
+            series.isDefault &&
+            normalizeSeriesCode(series.series).startsWith('B') &&
+            !isSuggestedCreditNoteSeriesCode(series.series),
+        ),
+        'BE01',
+      );
+
+      if (receiptCandidate) {
+        replacements.set(receiptCandidate.id, receiptDocumentType);
+      }
+    }
+  });
+
+  if (!replacements.size) {
+    return seriesList;
+  }
+
+  return seriesList.map((series) => {
+    const replacementDocumentType = replacements.get(series.id);
+    if (!replacementDocumentType) {
+      return series;
+    }
+
+    return {
+      ...series,
+      documentType: replacementDocumentType,
+      updatedAt: new Date(),
+    };
+  });
 };
 
 export const validateSeriesCodeForVoucherType = (

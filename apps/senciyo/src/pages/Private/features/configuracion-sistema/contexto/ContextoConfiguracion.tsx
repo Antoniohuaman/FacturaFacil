@@ -16,6 +16,7 @@ import type { Caja, CreateCajaInput } from '../modelos/Caja';
 import { CAJA_CONSTRAINTS, MEDIOS_PAGO_DISPONIBLES } from '../modelos/Caja';
 import { ID_ROL_ADMINISTRADOR, ROLES_DEL_SISTEMA } from '../roles/rolesDelSistema';
 import { cajasDataSource } from '../api/fuenteDatosCajas';
+import { repairMisclassifiedDefaultInvoiceAndReceiptSeries } from '../utilidades/catalogoSeries';
 import { buildMissingCreditNoteDefaultSeries, buildMissingDefaultSeries } from '../utilidades/seriesPredeterminadas';
 import { parseUbigeoCode } from '../datos/ubigeo';
 import {
@@ -1158,6 +1159,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const sincronizacionWorkspaceRef = useRef(false);
 
   const seriesHydratedRef = useRef(false);
+  const seriesRepairMigratedRef = useRef(false);
   const seriesDefaultsMigratedRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
     if (action.type === 'SET_CURRENCIES') {
@@ -1345,6 +1347,25 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       },
     });
   }, [dispatch, state.company, tenantId]);
+
+  useEffect(() => {
+    if (seriesRepairMigratedRef.current) {
+      return;
+    }
+
+    if (!seriesHydratedRef.current) {
+      return;
+    }
+
+    const repairedSeries = repairMisclassifiedDefaultInvoiceAndReceiptSeries(state.series);
+    if (repairedSeries === state.series) {
+      seriesRepairMigratedRef.current = true;
+      return;
+    }
+
+    dispatch({ type: 'SET_SERIES', payload: repairedSeries });
+    seriesRepairMigratedRef.current = true;
+  }, [dispatch, state.series]);
 
   useEffect(() => {
     if (seriesDefaultsMigratedRef.current) {
