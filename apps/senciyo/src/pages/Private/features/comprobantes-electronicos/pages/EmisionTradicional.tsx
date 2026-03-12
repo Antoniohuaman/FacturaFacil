@@ -680,11 +680,13 @@ const EmisionTradicional = () => {
     // Evita restaurar/guardar mientras se resuelve el tipo inicial desde query param.
     tipoFromQueryResolved &&
     // Duplicación/conversión no debe restaurar ni sobreescribir el borrador en progreso.
-    !isDuplicateFlow,
+    !isDuplicateFlow &&
+    // Nota de Crédito carga sus datos desde location.state; el borrador contaminaría la carga.
+    !isNoteCreditFlow,
   );
 
   const borradorDefaultsRef = useRef<EstadoBorradorEmisionDefaults | null>(null);
-  if (!borradorDefaultsRef.current && tipoFromQueryResolved && !isDuplicateFlow) {
+  if (!borradorDefaultsRef.current && tipoFromQueryResolved && !isDuplicateFlow && !isNoteCreditFlow) {
     borradorDefaultsRef.current = {
       tipoComprobante,
       serieSeleccionada,
