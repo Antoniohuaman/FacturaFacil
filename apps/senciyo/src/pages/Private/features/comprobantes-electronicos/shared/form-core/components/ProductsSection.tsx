@@ -99,6 +99,7 @@ interface ProductsSectionProps {
   refreshKey?: number;
   selectedEstablecimientoId?: string;
   preferredPriceColumnId?: string;
+  mostrarDetalleCompleto?: boolean;
 }
 
 type ModoProductos = 'catalogo' | 'libre';
@@ -217,6 +218,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   refreshKey = 0,
   preferredPriceColumnId,
   selectedEstablecimientoId,
+  mostrarDetalleCompleto = false,
 }) => {
   const { baseCurrency, documentCurrency, formatPrice, convertPrice } = useCurrency();
   const documentDecimals = documentCurrency.decimalPlaces ?? 2;
@@ -251,6 +253,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   );
 
   const itemsDelModoActual = modoProductosActual === 'libre' ? itemsLibres : itemsCatalogo;
+  const mostrarDetalleMixto = mostrarDetalleCompleto && itemsCatalogo.length > 0 && itemsLibres.length > 0;
 
   const convertBaseToDocument = useCallback(
     (amount: number) => convertPrice(amount ?? 0, baseCurrency.code as Currency, documentCurrency.code as Currency),
@@ -1685,7 +1688,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         data-tour="primera-venta-productos-lista"
         className="rounded-lg border border-gray-200"
       >
-        {modoProductosActual === 'catalogo' ? (
+        {modoProductosActual === 'catalogo' || mostrarDetalleMixto ? (
           <div className="overflow-x-auto">
             <div className="overflow-y-auto" style={{ maxHeight: PRODUCTS_TABLE_MAX_HEIGHT }}>
               <table className="w-full text-sm">
@@ -1727,9 +1730,31 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                 </tbody>
               </table>
             </div>
+            {mostrarDetalleMixto && (
+              <div className="border-t border-gray-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
+                Este documento reutilizado contiene items de catalogo y venta libre. Se muestran ambos bloques para preservar el detalle completo.
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-2">
+            <TablaVentaLibre
+              filas={itemsLibres}
+              columnasVisibles={columnasVentaLibreOrdenadas}
+              opcionesImpuesto={opcionesImpuestoVentaLibre}
+              opcionesUnidad={opcionesUnidadVentaLibre}
+              alAgregarFila={agregarItemLibre}
+              alActualizarFila={actualizarItemCarrito}
+              alEliminarFila={eliminarItemCarrito}
+              convertirBaseADocumento={convertBaseToDocument}
+              convertirDocumentoABase={convertDocumentToBase}
+              formatearMontoBase={formatBaseAsDocument}
+              decimalesDocumento={documentDecimals}
+            />
+          </div>
+        )}
+        {mostrarDetalleMixto && (
+          <div className="border-t border-gray-200 p-2">
             <TablaVentaLibre
               filas={itemsLibres}
               columnasVisibles={columnasVentaLibreOrdenadas}

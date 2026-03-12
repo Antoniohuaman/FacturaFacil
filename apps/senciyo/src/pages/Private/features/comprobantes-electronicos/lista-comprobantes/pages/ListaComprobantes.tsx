@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useComprobanteContext } from '../contexts/ComprobantesListContext';
@@ -49,9 +48,10 @@ import { PreviewDocument } from '../../shared/ui/PreviewDocument';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
 import { useCurrentCompany } from '@/contexts/UserSessionContext';
 import {
-  obtenerCodigoSunatPorTipoComprobante,
-  obtenerEtiquetaDocumentoRelacionado,
-} from '../../models/constants';
+  construirCargaReutilizacionDocumentoComercial,
+  convertirComprobanteListadoAInstantaneaDocumentoComercial,
+  crearDatosNotaCreditoDesdeInstantanea,
+} from '../../models/instantaneaDocumentoComercial';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -76,14 +76,6 @@ const canGenerateCreditNote = (invoice: Comprobante): boolean => {
   const tipo = resolveTipoComprobante(invoice.type);
   const status = String(invoice.status || '').toLowerCase();
   return (tipo === 'factura' || tipo === 'boleta') && !status.includes('anulado');
-};
-
-const buildNumeroCompletoFromInvoice = (invoice: Comprobante): string => {
-  const { serie, correlativo } = extractSerieCorrelativo(invoice);
-  if (serie && correlativo) {
-    return `${serie}-${correlativo}`;
-  }
-  return invoice.id;
 };
 
 type ComprobanteExportRow = Record<string, string | number | Date | null>;
@@ -604,60 +596,31 @@ const InvoiceListDashboard = () => {
 
   // Handler para Duplicar
   const handleDuplicate = (invoice: any) => {
-    // Navegar al formulario de emisión con TODA la información del comprobante
-    // Solo se excluye el id (para que genere uno nuevo al crear)
-    // El correlativo se asignará automáticamente al crear el nuevo comprobante
-    const { id, numeroComprobante, ...invoiceData } = invoice;
-    
-    navigate('/comprobantes/emision', { 
-      state: { 
-        duplicate: {
-          ...invoiceData,
-          // Mantener TODA la información: cliente, productos, totales, etc.
-          // El formulario usará esta data para pre-llenar los campos
-          status: 'Borrador' // Estado inicial del duplicado
-        } 
-      } 
+    const instantaneaDocumentoComercial = convertirComprobanteListadoAInstantaneaDocumentoComercial(invoice);
+
+    navigate('/comprobantes/emision', {
+      state: {
+        duplicate: construirCargaReutilizacionDocumentoComercial({
+          instantaneaDocumentoComercial,
+        }),
+      },
     });
   };
 
   const handleGenerateCreditNote = useCallback((invoice: Comprobante) => {
-    const tipoOrigen = resolveTipoComprobante(invoice.type);
-    if (tipoOrigen !== 'factura' && tipoOrigen !== 'boleta') {
+    const instantaneaDocumentoComercial = convertirComprobanteListadoAInstantaneaDocumentoComercial(invoice);
+    const datosNotaCredito = crearDatosNotaCreditoDesdeInstantanea(instantaneaDocumentoComercial);
+
+    if (!datosNotaCredito) {
       return;
     }
 
-    const numeroCompleto = buildNumeroCompletoFromInvoice(invoice);
-    const [serieOrigen, numeroOrigen = ''] = numeroCompleto.split('-');
-    const sourceItems = Array.isArray(invoice.items) && invoice.items.length > 0
-      ? invoice.items
-      : Array.isArray(invoice.cartItems) && invoice.cartItems.length > 0
-        ? invoice.cartItems
-        : Array.isArray(invoice.productos) && invoice.productos.length > 0
-          ? invoice.productos
-          : [];
-
     navigate('/comprobantes/emision', {
       state: {
-        noteCredit: {
-          ...invoice,
-          items: sourceItems,
-          sourceDocumentId: invoice.id,
-          sourceDocumentType: invoice.type,
-          noteCreditData: {
-            codigo: '',
-            motivo: '',
-            documentoRelacionado: {
-              id: invoice.id,
-              tipoComprobanteOrigen: tipoOrigen,
-              tipoDocumentoCodigoOrigen: obtenerCodigoSunatPorTipoComprobante(tipoOrigen) as '01' | '03',
-              tipoDocumentoLabelOrigen: obtenerEtiquetaDocumentoRelacionado(tipoOrigen),
-              serie: serieOrigen || invoice.id,
-              numero: numeroOrigen || invoice.id,
-              numeroCompleto,
-            },
-          },
-        },
+        noteCredit: construirCargaReutilizacionDocumentoComercial({
+          instantaneaDocumentoComercial,
+          datosNotaCredito,
+        }),
       },
     });
   }, [navigate]);

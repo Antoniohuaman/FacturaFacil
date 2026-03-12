@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import { useTenant } from '../../../../../../shared/tenant/TenantContext';
 import type { CartItem, PaymentTotals, ComprobanteCreditTerms, DatosNotaCredito } from '../../models/comprobante.types';
+import type { InstantaneaDocumentoComercial } from '../../models/instantaneaDocumentoComercial';
 
 // ============================================
 // TIPOS Y INTERFACES
@@ -13,6 +14,9 @@ export interface Comprobante {
   type: string;
   clientDoc: string;
   client: string;
+  clientDocType?: string;
+  clientId?: string;
+  clientPriceProfileId?: string;
   date: string;
   vendor: string;
   total: number;
@@ -22,6 +26,7 @@ export interface Comprobante {
   currency?: string;
   exchangeRate?: number;
   paymentMethod?: string;
+  paymentMethodId?: string;
   email?: string;
   dueDate?: string;
   address?: string;
@@ -41,6 +46,7 @@ export interface Comprobante {
   totals?: PaymentTotals;
   creditTerms?: ComprobanteCreditTerms;
   noteCreditData?: DatosNotaCredito;
+  instantaneaDocumentoComercial?: InstantaneaDocumentoComercial;
 }
 
 interface ComprobanteState {

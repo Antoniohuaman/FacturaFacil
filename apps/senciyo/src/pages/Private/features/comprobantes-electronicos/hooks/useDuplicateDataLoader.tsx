@@ -6,6 +6,10 @@
 
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import {
+  esCargaReutilizacionDocumentoComercial,
+  extraerDatosRehidratacionDesdeInstantanea,
+} from '../models/instantaneaDocumentoComercial';
 
 export interface DuplicateData {
   tipo?: string;
@@ -67,20 +71,92 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
 
   useEffect(() => {
     const state = location.state as any;
-    
+
     // Detectar si viene de duplicación o de conversión de cotización/nota de venta
     const duplicateData = state?.duplicate as DuplicateData | undefined;
     const conversionData = state?.conversionData as DuplicateData | undefined;
     const noteCreditData = state?.noteCredit as DuplicateData | undefined;
     const isFromConversion = state?.fromConversion === true;
     const isNoteCreditFlow = Boolean(noteCreditData);
-    
+
     const dataToLoad = isNoteCreditFlow ? noteCreditData : isFromConversion ? conversionData : duplicateData;
 
     if (!dataToLoad) return;
     if (processedLocationKeyRef.current === location.key) return;
 
     processedLocationKeyRef.current = location.key;
+
+    if (esCargaReutilizacionDocumentoComercial(dataToLoad)) {
+      const datosRehidratacion = extraerDatosRehidratacionDesdeInstantanea(
+        dataToLoad.instantaneaDocumentoComercial,
+      );
+
+      if (datosRehidratacion.cliente) {
+        setClienteSeleccionadoGlobal({
+          clienteId: datosRehidratacion.cliente.clienteId,
+          nombre: datosRehidratacion.cliente.nombre,
+          dni: datosRehidratacion.cliente.dni,
+          direccion: datosRehidratacion.cliente.direccion,
+          email: datosRehidratacion.cliente.email,
+          tipoDocumento: datosRehidratacion.cliente.tipoDocumento,
+          priceProfileId: datosRehidratacion.cliente.priceProfileId,
+        });
+      }
+
+      if (datosRehidratacion.items.length > 0) {
+        if (setCartItemsFromDraft) {
+          setCartItemsFromDraft(datosRehidratacion.items);
+
+          if (setModoProductos) {
+            setModoProductos(datosRehidratacion.modoDetalle === 'libre' ? 'libre' : 'catalogo');
+          }
+        } else {
+          addProductsFromSelector(
+            datosRehidratacion.items.map((item) => ({
+              product: item,
+              quantity: item.quantity || 1,
+            })),
+          );
+        }
+      }
+
+      setObservaciones(datosRehidratacion.observaciones);
+      setNotaInterna(datosRehidratacion.notaInterna);
+
+      if (datosRehidratacion.formaPago) {
+        setFormaPago(datosRehidratacion.formaPago);
+      }
+
+      if (datosRehidratacion.moneda) {
+        changeCurrency(datosRehidratacion.moneda);
+      }
+
+      if (
+        !isNoteCreditFlow
+        && (datosRehidratacion.tipoComprobante === 'factura' || datosRehidratacion.tipoComprobante === 'boleta')
+      ) {
+        setTipoComprobante(datosRehidratacion.tipoComprobante);
+      }
+
+      setOptionalFields(datosRehidratacion.camposOpcionales);
+
+      if (isFromConversion) {
+        const sourceDocumentId =
+          dataToLoad.instantaneaDocumentoComercial.relaciones.idDocumentoFuente
+          || dataToLoad.instantaneaDocumentoComercial.relaciones.documentoOrigenId;
+        const sourceDocumentType =
+          dataToLoad.instantaneaDocumentoComercial.relaciones.tipoDocumentoFuente
+          || dataToLoad.instantaneaDocumentoComercial.relaciones.documentoOrigenTipo;
+
+        if (sourceDocumentId) {
+          sessionStorage.setItem('conversionSourceId', sourceDocumentId);
+          sessionStorage.setItem('conversionSourceType', sourceDocumentType || '');
+        }
+      }
+
+      window.history.replaceState({}, document.title);
+      return;
+    }
 
     // 1. Cargar cliente si existe
     if (dataToLoad.client || (dataToLoad as any).cliente) {

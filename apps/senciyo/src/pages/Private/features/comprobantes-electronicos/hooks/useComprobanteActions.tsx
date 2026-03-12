@@ -44,6 +44,7 @@ import {
   getBusinessTodayISODate,
 } from '@/shared/time/businessTime';
 import { obtenerEtiquetaTipoComprobante } from '../models/constants';
+import { crearInstantaneaDocumentoComercial } from '../models/instantaneaDocumentoComercial';
 
 interface ComprobanteData {
   tipoComprobante: TipoComprobante;
@@ -64,6 +65,9 @@ interface ComprobanteData {
   // Campos opcionales provenientes del formulario de emisión
   client?: string;
   clientDoc?: string;
+  clientDocType?: string;
+  clientId?: string;
+  clientPriceProfileId?: string;
   fechaEmision?: string; // ISO date 'YYYY-MM-DD'
   fechaVencimiento?: string;
   email?: string;
@@ -626,12 +630,102 @@ export const useComprobanteActions = () => {
         // ✅ VERIFICAR SI VIENE DE CONVERSIÓN PARA AGREGAR CORRELACIÓN
         const conversionSourceId = sessionStorage.getItem('conversionSourceId');
         const conversionSourceType = sessionStorage.getItem('conversionSourceType');
+        const targetEstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
+        const Establecimiento = targetEstablecimientoId
+          ? (session?.availableEstablecimientos || []).find((est) => est.id === targetEstablecimientoId) || session?.currentEstablecimiento
+          : session?.currentEstablecimiento;
+        const instantaneaDocumentoComercial = crearInstantaneaDocumentoComercial({
+          tipoDocumento: data.tipoComprobante,
+          tipoComprobante: data.tipoComprobante,
+          numeroCompleto: numeroComprobante,
+          fechaEmision: data.fechaEmision ?? formatBusinessDateTimeIso(businessNow),
+          horaEmision: formatBusinessDateTimeIso(businessNow),
+          moneda: resolvedCurrency as Currency,
+          tipoCambio: data.exchangeRate ?? null,
+          origen:
+            data.source === 'emision'
+              ? 'emision_tradicional'
+              : data.source === 'pos'
+                ? 'pos'
+                : 'documento_comercial',
+          idDocumento: numeroComprobante,
+          empresa: {
+            idEmpresa: data.companyId || session?.currentCompanyId || null,
+            nombreComercial: session?.currentCompany?.nombreComercial || null,
+            razonSocial: session?.currentCompany?.razonSocial || null,
+            ruc: session?.currentCompany?.ruc || null,
+          },
+          establecimiento: {
+            idEstablecimiento: targetEstablecimientoId || null,
+            codigoEstablecimiento: Establecimiento?.codigoEstablecimiento || null,
+            nombreEstablecimiento: Establecimiento?.nombreEstablecimiento || null,
+          },
+          vendedor: {
+            idUsuario: session?.userId || null,
+            nombreUsuario: vendorName,
+          },
+          cliente: {
+            idCliente: data.clientId ?? null,
+            nombre: data.client || 'Cliente General',
+            tipoDocumento: data.clientDocType ?? null,
+            numeroDocumento: data.clientDoc || null,
+            email: data.email ?? null,
+            direccion: data.address ?? null,
+            priceProfileId: data.clientPriceProfileId ?? null,
+          },
+          camposComerciales: {
+            direccionEnvio: data.shippingAddress ?? null,
+            ordenCompra: data.purchaseOrder ?? null,
+            guiaRemision: data.waybill ?? null,
+            centroCosto: data.costCenter ?? null,
+            observaciones: data.observaciones ?? null,
+            notaInterna: data.notaInterna ?? null,
+            fechaVencimiento: fechaVencimientoIso ?? null,
+            formaPagoId: data.formaPago ?? null,
+            formaPagoDescripcion: paymentMethodLabel,
+            detallesPago: data.paymentDetails ?? null,
+            terminosCredito: data.creditTerms ?? null,
+          },
+          items: data.cartItems,
+          totales: {
+            ...data.totals,
+            currency: resolvedCurrency,
+          },
+          relaciones: {
+            documentoOrigenId:
+              isNoteCredit && data.noteCreditData?.documentoRelacionado
+                ? data.noteCreditData.documentoRelacionado.id ?? null
+                : null,
+            documentoOrigenTipo:
+              isNoteCredit && data.noteCreditData?.documentoRelacionado
+                ? data.noteCreditData.documentoRelacionado.tipoDocumentoLabelOrigen
+                : null,
+            documentoRelacionadoId:
+              isNoteCredit && data.noteCreditData?.documentoRelacionado
+                ? data.noteCreditData.documentoRelacionado.numeroCompleto
+                : !isNoteCredit && conversionSourceId
+                  ? conversionSourceId
+                  : null,
+            documentoRelacionadoTipo:
+              isNoteCredit && data.noteCreditData?.documentoRelacionado
+                ? data.noteCreditData.documentoRelacionado.tipoDocumentoLabelOrigen
+                : !isNoteCredit && conversionSourceType
+                  ? conversionSourceType
+                  : null,
+            datosNotaCredito: data.noteCreditData ?? null,
+            idDocumentoFuente: conversionSourceId,
+            tipoDocumentoFuente: conversionSourceType,
+          },
+        });
 
         const nuevoComprobante = {
           id: numeroComprobante,
           type: tipoComprobanteDisplay,
           clientDoc: data.clientDoc || '00000000',
           client: data.client || 'Cliente General',
+          clientDocType: data.clientDocType,
+          clientId: data.clientId,
+          clientPriceProfileId: data.clientPriceProfileId,
           date: dateToUse,
           vendor: vendorName,
           total: data.totals.total,
@@ -649,7 +743,10 @@ export const useComprobanteActions = () => {
           internalNote: data.notaInterna,
           // Payment and currency
           paymentMethod: paymentMethodLabel,
+          paymentMethodId: data.formaPago,
           currency: data.currency || undefined,
+          exchangeRate: data.exchangeRate,
+          items: data.cartItems,
           cartItems: data.cartItems,
           productos: data.cartItems,
           totals: {
@@ -658,6 +755,7 @@ export const useComprobanteActions = () => {
           },
           creditTerms: data.creditTerms,
           noteCreditData: data.noteCreditData,
+          instantaneaDocumentoComercial,
           // Correlación bidireccional (si viene de conversión)
           ...(isNoteCredit && data.noteCreditData?.documentoRelacionado ? {
             relatedDocumentId: data.noteCreditData.documentoRelacionado.numeroCompleto,

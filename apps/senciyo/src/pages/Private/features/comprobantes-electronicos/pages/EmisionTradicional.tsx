@@ -19,6 +19,10 @@ import { useComprobanteState } from '../hooks/useComprobanteState';
 import { useComprobanteActions } from '../hooks/useComprobanteActions';
 import { useFieldsConfiguration } from '../shared/form-core/contexts/FieldsConfigurationContext';
 import { useDuplicateDataLoader } from '../hooks/useDuplicateDataLoader';
+import {
+  type CargaReutilizacionDocumentoComercial,
+  esCargaReutilizacionDocumentoComercial,
+} from '../models/instantaneaDocumentoComercial';
 
 // ✅ Importar side-preview (condicional por flag)
 import { SidePreviewPane, useSidePreviewPane } from '../shared/side-preview';
@@ -155,16 +159,19 @@ const EmisionTradicional = () => {
 
   const noteCreditState = useMemo(() => {
     const state = location.state as any;
-    return state?.noteCredit as { noteCreditData?: DatosNotaCredito; type?: string } | undefined;
+    const candidate = state?.noteCredit;
+    return esCargaReutilizacionDocumentoComercial(candidate)
+      ? (candidate as CargaReutilizacionDocumentoComercial)
+      : undefined;
   }, [location.state]);
   const isNoteCreditFlow = Boolean(noteCreditState);
   const noteCreditTipoOrigen = useMemo<TipoComprobanteBase | null>(() => {
-    const tipoRelacionado = noteCreditState?.noteCreditData?.documentoRelacionado?.tipoComprobanteOrigen;
+    const tipoRelacionado = noteCreditState?.datosNotaCredito?.documentoRelacionado?.tipoComprobanteOrigen;
     if (tipoRelacionado === 'factura' || tipoRelacionado === 'boleta') {
       return tipoRelacionado;
     }
 
-    const tipoOrigen = String(noteCreditState?.type ?? '').toLowerCase();
+    const tipoOrigen = String(noteCreditState?.instantaneaDocumentoComercial.identidad.tipoComprobante ?? '').toLowerCase();
     if (tipoOrigen.includes('boleta')) {
       return 'boleta';
     }
@@ -338,14 +345,14 @@ const EmisionTradicional = () => {
   const [optionalFields, setOptionalFields] = useState<Record<string, any>>({});
   const [cuotasManual, setCuotasManual] = useState<CreditInstallment[]>([]);
   const [creditoManualConfirmado, setCreditoManualConfirmado] = useState(false);
-  const [datosNotaCredito, setDatosNotaCredito] = useState<DatosNotaCredito | null>(noteCreditState?.noteCreditData ?? null);
+  const [datosNotaCredito, setDatosNotaCredito] = useState<DatosNotaCredito | null>(noteCreditState?.datosNotaCredito ?? null);
 
   useEffect(() => {
-    if (!noteCreditState?.noteCreditData) {
+    if (!noteCreditState?.datosNotaCredito) {
       return;
     }
 
-    setDatosNotaCredito(noteCreditState.noteCreditData);
+    setDatosNotaCredito(noteCreditState.datosNotaCredito);
   }, [noteCreditState]);
 
   const clienteSeleccionadoGlobalRef = useRef<ClienteSeleccionadoEmision>(null);
@@ -1283,6 +1290,9 @@ const EmisionTradicional = () => {
         purchaseOrder: optionalFields.ordenCompra,
         costCenter: optionalFields.centroCosto,
         waybill: optionalFields.guiaRemision,
+        clientDocType: clienteSeleccionadoGlobal?.tipoDocumento,
+        clientId: clienteSeleccionadoGlobal?.clienteId != null ? String(clienteSeleccionadoGlobal.clienteId) : undefined,
+        clientPriceProfileId: clienteSeleccionadoGlobal?.priceProfileId,
         paymentDetails: isRegisteringCobro ? paymentPayload : undefined,
         creditTerms: isCreditSale ? creditTermsForSubmit : undefined,
         registrarPago: Boolean(isRegisteringCobro && paymentPayload?.lines.length),
@@ -1519,6 +1529,7 @@ const EmisionTradicional = () => {
                   refreshKey={productSelectorKey}
                   selectedEstablecimientoId={currentEstablecimientoId}
                   preferredPriceColumnId={preferredPriceColumnId}
+                  mostrarDetalleCompleto={isNoteCreditFlow}
                 />
 
                 {shouldShowCreditSchedule && (
