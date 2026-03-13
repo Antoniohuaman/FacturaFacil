@@ -352,8 +352,11 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
       centroCosto: centroCostoInicial,
     } = valoresIniciales;
 
+    // fechaEmision se excluye aquí porque tiene su propio useEffect de sincronización.
+    // Incluirla causaba que tieneDatos=true en el primer render (siempre viene definida),
+    // disparando el guard valoresInicialesAplicadosRef antes de que el borrador
+    // haya tenido oportunidad de restaurar los campos opcionales.
     const tieneDatos =
-      fechaEmisionInicial !== undefined ||
       fechaVencimientoInicial !== undefined ||
       direccionInicial !== undefined ||
       direccionEnvioInicial !== undefined ||

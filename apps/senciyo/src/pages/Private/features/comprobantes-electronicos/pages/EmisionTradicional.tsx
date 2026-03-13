@@ -1413,6 +1413,14 @@ const EmisionTradicional = () => {
     clearCart();
     setModoProductos('catalogo');
     resetForm();
+    // Limpiar estado que resetForm() no cubre, para que el nuevo documento
+    // no herede cliente, opcionales, descuentos ni cuotas del documento anterior.
+    setClienteSeleccionadoGlobal(null);
+    setLookupClient(null);
+    setOptionalFields({});
+    setAppliedGlobalDiscount(null);
+    setCuotasManual([]);
+    setCreditoManualConfirmado(false);
     if (currentCurrency !== baseCurrency.code) {
       changeCurrency(baseCurrency.code as Currency);
     }
@@ -1568,6 +1576,14 @@ const EmisionTradicional = () => {
                       limpiarBorradorEnProgreso();
                       clearCart();
                       resetForm();
+                      // Limpiar estado que resetForm() no cubre, para evitar que el
+                      // cleanup de unmount de useBorradorEnProgreso guarde basura.
+                      setClienteSeleccionadoGlobal(null);
+                      setLookupClient(null);
+                      setOptionalFields({});
+                      setAppliedGlobalDiscount(null);
+                      setCuotasManual([]);
+                      setCreditoManualConfirmado(false);
                       setShowDraftModal(false);
                       setShowObservacionesPanel(false);
                       setProductSelectorKey(prev => prev + 1);
