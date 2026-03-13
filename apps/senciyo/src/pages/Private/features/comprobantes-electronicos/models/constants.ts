@@ -9,6 +9,14 @@ export interface CodigoNotaCreditoSunat {
   codigo: string;
   descripcion: string;
   descripcionCorta: string;
+  /** Solo aplicable a Facturas (no Boletas) */
+  soloFactura?: boolean;
+  /** Solo aplicable cuando el documento origen fue emitido al crédito */
+  requiereCredito?: boolean;
+  /** Solo aplicable a operaciones de exportación */
+  soloExportacion?: boolean;
+  /** Solo aplicable a operaciones afectas al IVAP */
+  soloIVAP?: boolean;
 }
 
 // ===================================================================
@@ -67,10 +75,65 @@ export const CODIGOS_NOTA_CREDITO_SUNAT: CodigoNotaCreditoSunat[] = [
   { codigo: '08', descripcion: 'Bonificación', descripcionCorta: 'Bonificación' },
   { codigo: '09', descripcion: 'Disminución en el valor', descripcionCorta: 'Disminución en el valor' },
   { codigo: '10', descripcion: 'Otros Conceptos', descripcionCorta: 'Otros conceptos' },
-  { codigo: '11', descripcion: 'Ajustes de operaciones de exportación', descripcionCorta: 'Ajuste de exportación' },
-  { codigo: '12', descripcion: 'Ajustes afectos al IVAP', descripcionCorta: 'Ajuste afecto al IVAP' },
-  { codigo: '13', descripcion: 'Corrección o modificación del monto neto pendiente de pago y/o la(s) fechas(s) de vencimiento del pago único o de las cuotas y/o los montos correspondientes a cada cuota, de ser el caso', descripcionCorta: 'Corrección de monto o vencimiento' },
+  { codigo: '11', descripcion: 'Ajustes de operaciones de exportación', descripcionCorta: 'Ajuste de exportación', soloExportacion: true },
+  { codigo: '12', descripcion: 'Ajustes afectos al IVAP', descripcionCorta: 'Ajuste afecto al IVAP', soloIVAP: true },
+  { codigo: '13', descripcion: 'Corrección o modificación del monto neto pendiente de pago y/o la(s) fechas(s) de vencimiento del pago único o de las cuotas y/o los montos correspondientes a cada cuota, de ser el caso', descripcionCorta: 'Corrección de monto o vencimiento', soloFactura: true, requiereCredito: true },
 ];
+
+// Conjunto indexado para validación O(1)
+const _CODIGOS_NC_SET = new Set(CODIGOS_NOTA_CREDITO_SUNAT.map((c) => c.codigo));
+
+/**
+ * Verifica que un código de NC pertenezca al catálogo SUNAT permitido (01–13).
+ */
+export const esCodigoNotaCreditoValido = (codigo: string): boolean =>
+  _CODIGOS_NC_SET.has(codigo.trim());
+
+/**
+ * Devuelve el descriptor completo de un código de NC, o undefined si no existe.
+ */
+export const obtenerDescriptorCodigoNC = (
+  codigo: string,
+): CodigoNotaCreditoSunat | undefined =>
+  CODIGOS_NOTA_CREDITO_SUNAT.find((c) => c.codigo === codigo.trim());
+
+// ===================================================================
+// REGLA DE ESTADO PARA NOTA DE CRÉDITO
+// ===================================================================
+
+/**
+ * Delay en ms que simula la respuesta OSE/SUNAT en entorno mock.
+ * Pasado este tiempo, un comprobante recién emitido pasa de 'Enviado' a 'Aceptado'.
+ */
+export const MOCK_OSE_RESPONSE_DELAY_MS = 1500;
+
+/**
+ * Controla si se aplica estrictamente la regla de estado 'Aceptado' para NC.
+ *
+ * - true (por defecto): solo 'Aceptado' habilita NC. En mock, el setTimeout de
+ *   useComprobanteActions simula la respuesta OSE que eleva el estado a 'Aceptado'
+ *   automáticamente tras MOCK_OSE_RESPONSE_DELAY_MS ms.
+ *
+ * - false (opt-out): acepta 'Enviado' además de 'Aceptado'.
+ *   Usar solo si se deshabilita la auto-transición mock. Activar en .env.local:
+ *   VITE_SUNAT_ESTADO_ENFORCEMENT=false
+ */
+export const SUNAT_NC_ESTADO_ENFORCEMENT_HABILITADO: boolean =
+  import.meta.env.VITE_SUNAT_ESTADO_ENFORCEMENT !== 'false';
+
+/**
+ * Evalúa si el estado de un comprobante permite generar Nota de Crédito.
+ *
+ * En producción (enforcement habilitado): solo acepta 'Aceptado'.
+ * En desarrollo: acepta 'Aceptado' o 'Enviado' (sustituto mock).
+ */
+export const esEstadoValidoParaNotaCredito = (status: string): boolean => {
+  const normalizado = status.toLowerCase().trim();
+  if (SUNAT_NC_ESTADO_ENFORCEMENT_HABILITADO) {
+    return normalizado === 'aceptado';
+  }
+  return normalizado === 'aceptado' || normalizado === 'enviado';
+};
 
 export const obtenerCodigoSunatPorTipoComprobante = (tipo: TipoComprobante): string => {
   return TIPO_COMPROBANTE_CODIGOS_SUNAT[tipo];

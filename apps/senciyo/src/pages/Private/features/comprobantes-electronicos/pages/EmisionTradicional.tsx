@@ -53,6 +53,7 @@ import type {
   ClientData,
   PaymentCollectionMode,
   PaymentCollectionPayload,
+  ContextoOrigenNotaCredito,
   Currency,
   PreviewData,
   PaymentTotals,
@@ -165,6 +166,16 @@ const EmisionTradicional = () => {
       : undefined;
   }, [location.state]);
   const isNoteCreditFlow = Boolean(noteCreditState);
+
+  /**
+   * Contexto del documento origen para validaciones normativas de NC.
+   * Se extrae del state de navegación; undefined en flujos que no son NC.
+   */
+  const contextoOrigenNC = useMemo<ContextoOrigenNotaCredito | null>(
+    () => noteCreditState?.contextoOrigen ?? null,
+    [noteCreditState],
+  );
+
   const noteCreditTipoOrigen = useMemo<TipoComprobanteBase | null>(() => {
     const tipoRelacionado = noteCreditState?.datosNotaCredito?.documentoRelacionado?.tipoComprobanteOrigen;
     if (tipoRelacionado === 'factura' || tipoRelacionado === 'boleta') {
@@ -354,6 +365,18 @@ const EmisionTradicional = () => {
 
     setDatosNotaCredito(noteCreditState.datosNotaCredito);
   }, [noteCreditState]);
+
+  // Inicializar y bloquear la moneda desde el documento origen en flujo NC.
+  // Ref para ejecutar solo una vez por instancia del formulario.
+  const monedaOrigenInicializada = useRef(false);
+  useEffect(() => {
+    if (!isNoteCreditFlow || monedaOrigenInicializada.current) return;
+    const monedaOrigen = contextoOrigenNC?.monedaOrigen;
+    if (monedaOrigen) {
+      changeCurrency(monedaOrigen);
+      monedaOrigenInicializada.current = true;
+    }
+  }, [isNoteCreditFlow, contextoOrigenNC, changeCurrency]);
 
   const clienteSeleccionadoGlobalRef = useRef<ClienteSeleccionadoEmision>(null);
   useEffect(() => {
@@ -873,7 +896,8 @@ const EmisionTradicional = () => {
     notaCredito: datosNotaCredito,
     cartItems: cartItemsForDocument,
     totals,
-  }), [cartItemsForDocument, currentCurrency, datosNotaCredito, draftClientData, fechaEmision, formaPago, serieSeleccionada, tipoComprobante, totals]);
+    contextoOrigenNC: isNoteCreditFlow ? contextoOrigenNC : null,
+  }), [cartItemsForDocument, contextoOrigenNC, currentCurrency, datosNotaCredito, draftClientData, fechaEmision, formaPago, isNoteCreditFlow, serieSeleccionada, tipoComprobante, totals]);
 
   const noteCreditRequiredFieldsPending = useMemo(() => {
     if (!isNoteCreditFlow) {
@@ -1490,6 +1514,7 @@ const EmisionTradicional = () => {
                   seriesFiltradas={seriesFiltradas}
                   moneda={currentCurrency}
                   setMoneda={changeCurrency}
+                  readOnlyMoneda={isNoteCreditFlow}
                   currencyOptions={availableCurrencies}
                   baseCurrencyCode={baseCurrency.code as Currency}
                   formaPago={formaPago}

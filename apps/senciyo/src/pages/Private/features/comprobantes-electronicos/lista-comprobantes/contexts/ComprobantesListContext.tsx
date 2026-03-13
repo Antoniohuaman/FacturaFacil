@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import { useTenant } from '../../../../../../shared/tenant/TenantContext';
-import type { CartItem, PaymentTotals, ComprobanteCreditTerms, DatosNotaCredito } from '../../models/comprobante.types';
+import type { CartItem, ComprobanteStatus, PaymentTotals, ComprobanteCreditTerms, DatosNotaCredito } from '../../models/comprobante.types';
 import type { InstantaneaDocumentoComercial } from '../../models/instantaneaDocumentoComercial';
 
 // ============================================
@@ -20,7 +20,8 @@ export interface Comprobante {
   date: string;
   vendor: string;
   total: number;
-  status: string;
+  /** Estado normativo del comprobante. Usar ComprobanteStatus para valores SUNAT. */
+  status: ComprobanteStatus | string;
   statusColor: 'blue' | 'green' | 'red' | 'orange';
   // Campos opcionales agregados
   currency?: string;

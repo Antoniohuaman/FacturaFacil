@@ -51,7 +51,9 @@ import {
   construirCargaReutilizacionDocumentoComercial,
   convertirComprobanteListadoAInstantaneaDocumentoComercial,
   crearDatosNotaCreditoDesdeInstantanea,
+  extraerContextoOrigenDesdeInstantanea,
 } from '../../models/instantaneaDocumentoComercial';
+import { esEstadoValidoParaNotaCredito } from '../../models/constants';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -74,8 +76,8 @@ const resolveTipoComprobante = (label?: string): TipoComprobante => {
 
 const canGenerateCreditNote = (invoice: Comprobante): boolean => {
   const tipo = resolveTipoComprobante(invoice.type);
-  const status = String(invoice.status || '').toLowerCase();
-  return (tipo === 'factura' || tipo === 'boleta') && !status.includes('anulado');
+  if (tipo !== 'factura' && tipo !== 'boleta') return false;
+  return esEstadoValidoParaNotaCredito(String(invoice.status ?? ''));
 };
 
 type ComprobanteExportRow = Record<string, string | number | Date | null>;
@@ -615,11 +617,17 @@ const InvoiceListDashboard = () => {
       return;
     }
 
+    const contextoOrigen = extraerContextoOrigenDesdeInstantanea(
+      instantaneaDocumentoComercial,
+      String(invoice.status ?? 'Enviado'),
+    );
+
     navigate('/comprobantes/emision', {
       state: {
         noteCredit: construirCargaReutilizacionDocumentoComercial({
           instantaneaDocumentoComercial,
           datosNotaCredito,
+          contextoOrigen,
         }),
       },
     });

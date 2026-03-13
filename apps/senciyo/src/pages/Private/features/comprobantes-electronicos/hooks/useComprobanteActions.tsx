@@ -43,7 +43,7 @@ import {
   getBusinessNow,
   getBusinessTodayISODate,
 } from '@/shared/time/businessTime';
-import { obtenerEtiquetaTipoComprobante } from '../models/constants';
+import { obtenerEtiquetaTipoComprobante, MOCK_OSE_RESPONSE_DELAY_MS } from '../models/constants';
 import { crearInstantaneaDocumentoComercial } from '../models/instantaneaDocumentoComercial';
 
 interface ComprobanteData {
@@ -111,7 +111,7 @@ const buildPaymentModeLabel = (isCreditSale: boolean, creditTerms?: ComprobanteC
 export const useComprobanteActions = () => {
   const toast = useToast();
   const { addMovimiento: addMovimientoStock } = useInventoryFacade();
-  const { addComprobante } = useComprobanteContext();
+  const { addComprobante, dispatch } = useComprobanteContext();
   const { session } = useUserSession();
   const { upsertCuenta, registerCobranza } = useCobranzasContext();
   const { allProducts: catalogProducts } = useProductStore();
@@ -773,6 +773,16 @@ export const useComprobanteActions = () => {
         // Agregar al contexto global
         addComprobante(nuevoComprobante);
 
+        // ✅ SIMULAR RESPUESTA OSE: Enviado → Aceptado (solo Factura/Boleta, no NC)
+        if (!isNoteCredit) {
+          setTimeout(() => {
+            dispatch({
+              type: 'UPDATE_COMPROBANTE',
+              payload: { ...nuevoComprobante, status: 'Aceptado', statusColor: 'green' as const },
+            });
+          }, MOCK_OSE_RESPONSE_DELAY_MS);
+        }
+
         // ✅ ACTUALIZAR DOCUMENTO ORIGEN SI VIENE DE CONVERSIÓN
         try {
           const conversionSourceId = sessionStorage.getItem('conversionSourceId');
@@ -896,7 +906,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig, rolesConfigurados, usuarioActual]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, dispatch, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig, rolesConfigurados, usuarioActual]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

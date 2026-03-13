@@ -1,6 +1,7 @@
 import type {
   CartItem,
   ComprobanteCreditTerms,
+  ContextoOrigenNotaCredito,
   Currency,
   DatosNotaCredito,
   PaymentCollectionPayload,
@@ -125,6 +126,11 @@ export interface InstantaneaDocumentoComercial {
 export interface CargaReutilizacionDocumentoComercial {
   instantaneaDocumentoComercial: InstantaneaDocumentoComercial;
   datosNotaCredito: DatosNotaCredito | null;
+  /**
+   * Contexto del documento origen para las validaciones normativas de NC.
+   * Presente solo en flujo de Nota de Crédito; undefined en duplicación y conversión.
+   */
+  contextoOrigen?: ContextoOrigenNotaCredito;
 }
 
 export interface DatosRehidratacionDocumentoComercial {
@@ -512,9 +518,11 @@ export const crearInstantaneaDocumentoComercial = (
 export const construirCargaReutilizacionDocumentoComercial = (parametros: {
   instantaneaDocumentoComercial: InstantaneaDocumentoComercial;
   datosNotaCredito?: DatosNotaCredito | null;
+  contextoOrigen?: ContextoOrigenNotaCredito;
 }): CargaReutilizacionDocumentoComercial => ({
   instantaneaDocumentoComercial: parametros.instantaneaDocumentoComercial,
   datosNotaCredito: parametros.datosNotaCredito ?? null,
+  contextoOrigen: parametros.contextoOrigen,
 });
 
 export const esCargaReutilizacionDocumentoComercial = (
@@ -525,6 +533,39 @@ export const esCargaReutilizacionDocumentoComercial = (
   }
 
   return 'instantaneaDocumentoComercial' in valor;
+};
+
+/**
+ * Extrae el ContextoOrigenNotaCredito desde una InstantaneaDocumentoComercial.
+ *
+ * Recibe el estado actual del comprobante origen (string del Comprobante en lista)
+ * para que la regla de habilitación de NC use el estado real del documento.
+ */
+export const extraerContextoOrigenDesdeInstantanea = (
+  instantanea: InstantaneaDocumentoComercial,
+  estadoOrigen: string = 'Enviado',
+): ContextoOrigenNotaCredito => {
+  const tipoComprobanteOrigen = normalizarTipoComprobanteBase(
+    instantanea.identidad.tipoComprobante ?? instantanea.identidad.tipoDocumento,
+  );
+
+  const tieneCredito = Boolean(
+    (instantanea.camposComerciales.terminosCredito?.schedule?.length ?? 0) > 0 ||
+    (typeof instantanea.camposComerciales.formaPagoId === 'string' &&
+      instantanea.camposComerciales.formaPagoId.toLowerCase().includes('credito')),
+  );
+
+  return {
+    estadoOrigen,
+    fechaEmisionOrigen: instantanea.identidad.fechaEmision,
+    totalOrigen: instantanea.totales.total,
+    monedaOrigen: instantanea.identidad.moneda,
+    tieneCredito,
+    tipoDocumentoCodigoOrigen:
+      tipoComprobanteOrigen === 'factura' ? '01'
+      : tipoComprobanteOrigen === 'boleta' ? '03'
+      : null,
+  };
 };
 
 export const crearDatosNotaCreditoDesdeInstantanea = (

@@ -1,11 +1,13 @@
 import type {
   CartItem,
+  ContextoOrigenNotaCredito,
   TipoComprobante,
   ClientData,
   PaymentTotals,
   PaymentCollectionMode,
   DatosNotaCredito,
 } from '../../models/comprobante.types';
+import { esCodigoNotaCreditoValido, obtenerDescriptorCodigoNC } from '../../models/constants';
 
 export type ComprobanteField =
   | 'tipoComprobante'
@@ -35,6 +37,11 @@ export interface ComprobanteValidationInput {
   cartItems: CartItem[];
   totals?: PaymentTotals | null;
   paymentMode?: PaymentCollectionMode;
+  /**
+   * Contexto del documento origen para validaciones normativas de NC.
+   * Solo se pasa cuando el tipo es 'nota_credito'.
+   */
+  contextoOrigenNC?: ContextoOrigenNotaCredito | null;
 }
 
 export interface ComprobanteValidationResult {
@@ -149,14 +156,22 @@ export const validateComprobanteNormativa = (
     const codigo = input.notaCredito?.codigo?.trim() ?? '';
     const motivo = input.notaCredito?.motivo?.trim() ?? '';
     const documentoRelacionado = input.notaCredito?.documentoRelacionado;
+    const contexto = input.contextoOrigenNC ?? null;
 
+    // — Código: requerido y debe pertenecer al catálogo 01–13
     if (!codigo) {
       errors.push({
         field: 'codigoNotaCredito',
         message: 'Debe seleccionar el código de Nota de Crédito.',
       });
+    } else if (!esCodigoNotaCreditoValido(codigo)) {
+      errors.push({
+        field: 'codigoNotaCredito',
+        message: 'El código de Nota de Crédito no es válido según el catálogo SUNAT (01–13).',
+      });
     }
 
+    // — Motivo: requerido
     if (!motivo) {
       errors.push({
         field: 'motivoNotaCredito',
@@ -164,6 +179,7 @@ export const validateComprobanteNormativa = (
       });
     }
 
+    // — Documento relacionado: requerido con todos sus campos clave
     if (
       !documentoRelacionado
       || !documentoRelacionado.tipoComprobanteOrigen
@@ -175,6 +191,85 @@ export const validateComprobanteNormativa = (
         field: 'documentoRelacionado',
         message: 'La Nota de Crédito debe estar vinculada a una factura o boleta origen.',
       });
+    }
+
+    // — Código 13: solo para Facturas al crédito
+    if (codigo === '13') {
+      const tipoOrigenCode =
+        contexto?.tipoDocumentoCodigoOrigen ??
+        documentoRelacionado?.tipoDocumentoCodigoOrigen ??
+        null;
+
+      if (tipoOrigenCode !== '01') {
+        errors.push({
+          field: 'codigoNotaCredito',
+          message:
+            'El código 13 solo aplica a Notas de Crédito sobre Facturas. No es aplicable a Boletas.',
+        });
+      } else if (contexto !== null && !contexto.tieneCredito) {
+        errors.push({
+          field: 'codigoNotaCredito',
+          message:
+            'El código 13 solo aplica cuando la Factura fue emitida al crédito (con términos de pago o fecha de vencimiento).',
+        });
+      }
+    }
+
+    // — Restricciones adicionales por descriptor de código
+    if (codigo && esCodigoNotaCreditoValido(codigo)) {
+      const descriptor = obtenerDescriptorCodigoNC(codigo);
+      if (descriptor?.soloFactura) {
+        const tipoOrigenCode =
+          contexto?.tipoDocumentoCodigoOrigen ??
+          documentoRelacionado?.tipoDocumentoCodigoOrigen ??
+          null;
+        // Solo emitir error si el origen es Boleta (código '03') de forma confirmada
+        if (tipoOrigenCode === '03') {
+          errors.push({
+            field: 'codigoNotaCredito',
+            message: `El código ${codigo} solo aplica a Notas de Crédito sobre Facturas, no sobre Boletas.`,
+          });
+        }
+      }
+    }
+
+    // — Validaciones con contexto del documento origen
+    if (contexto !== null) {
+      // Fecha NC >= fecha del documento origen (comparación ISO YYYY-MM-DD)
+      const fechaNCStr = (input.fechaEmision ?? '').substring(0, 10);
+      const fechaOrigenStr = (contexto.fechaEmisionOrigen ?? '').substring(0, 10);
+      if (fechaNCStr && fechaOrigenStr && fechaNCStr < fechaOrigenStr) {
+        errors.push({
+          field: 'fechaEmision',
+          message: `La fecha de la Nota de Crédito (${fechaNCStr}) no puede ser anterior a la fecha del comprobante que modifica (${fechaOrigenStr}).`,
+        });
+      }
+
+      // Moneda NC debe coincidir con la moneda del documento origen
+      const monedaNCCode =
+        typeof input.moneda === 'string'
+          ? input.moneda
+          : (input.moneda?.code ?? '');
+      if (monedaNCCode && contexto.monedaOrigen && monedaNCCode !== contexto.monedaOrigen) {
+        errors.push({
+          field: 'moneda',
+          message: `La moneda de la Nota de Crédito (${monedaNCCode}) debe coincidir con la del comprobante que modifica (${contexto.monedaOrigen}).`,
+        });
+      }
+
+      // Total NC no puede exceder el total del documento origen
+      const totalNC = input.totals?.total ?? 0;
+      const TOLERANCIA_FLOTANTE = 0.01;
+      if (
+        contexto.totalOrigen != null &&
+        contexto.totalOrigen > 0 &&
+        totalNC > contexto.totalOrigen + TOLERANCIA_FLOTANTE
+      ) {
+        errors.push({
+          field: 'productos',
+          message: `El total de la Nota de Crédito (${totalNC.toFixed(2)}) no puede exceder el total del comprobante que modifica (${contexto.totalOrigen.toFixed(2)}).`,
+        });
+      }
     }
   }
 

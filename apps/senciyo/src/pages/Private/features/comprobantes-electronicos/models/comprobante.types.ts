@@ -283,6 +283,52 @@ export interface DraftData {
 }
 
 // ===================================================================
+// ESTADOS NORMATIVOS DEL COMPROBANTE ELECTRÓNICO (SUNAT/OSE)
+// ===================================================================
+
+/**
+ * Estados del ciclo de vida de un comprobante electrónico según SUNAT/OSE.
+ *
+ * - Enviado:      transmitido a SUNAT/OSE, pendiente de respuesta.
+ * - Aceptado:     aceptado por SUNAT/OSE — único estado que habilita NC/ND.
+ * - Rechazado:    rechazado por SUNAT/OSE — requiere corrección y reenvío.
+ * - Por corregir: observado con advertencias — debe corregirse.
+ * - Anulado:      dado de baja — no puede generar NC/ND.
+ */
+export type ComprobanteStatus =
+  | 'Enviado'
+  | 'Aceptado'
+  | 'Rechazado'
+  | 'Por corregir'
+  | 'Anulado';
+
+// ===================================================================
+// CONTEXTO DEL DOCUMENTO ORIGEN PARA NOTA DE CRÉDITO
+// ===================================================================
+
+/**
+ * Datos del comprobante origen necesarios para validar normativamente
+ * una Nota de Crédito antes de emitirla.
+ *
+ * Se extrae de la InstantaneaDocumentoComercial y viaja junto con la
+ * CargaReutilizacionDocumentoComercial cuando se navega al formulario NC.
+ */
+export interface ContextoOrigenNotaCredito {
+  /** Estado actual del comprobante origen */
+  estadoOrigen: ComprobanteStatus | string;
+  /** Fecha de emisión del comprobante origen en formato ISO (YYYY-MM-DD) */
+  fechaEmisionOrigen: string | null;
+  /** Total del comprobante origen en la moneda del mismo */
+  totalOrigen: number | null;
+  /** Moneda del comprobante origen */
+  monedaOrigen: Currency | null;
+  /** El comprobante origen fue emitido al crédito (con cuotas o fecha de vencimiento) */
+  tieneCredito: boolean;
+  /** Código SUNAT del tipo de documento origen: '01' = Factura, '03' = Boleta */
+  tipoDocumentoCodigoOrigen: '01' | '03' | null;
+}
+
+// ===================================================================
 // INTERFACES DE CLIENTE
 // ===================================================================
 

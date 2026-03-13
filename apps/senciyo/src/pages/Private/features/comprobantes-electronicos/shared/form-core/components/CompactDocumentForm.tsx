@@ -186,6 +186,11 @@ interface CompactDocumentFormProps {
   datosNotaCredito?: DatosNotaCredito | null;
   onDatosNotaCreditoChange?: (value: DatosNotaCredito) => void;
   tipoComprobanteBaseNotaCredito?: TipoComprobanteBase | null;
+  /**
+   * Cuando true, el selector de moneda queda en solo lectura.
+   * Se activa en flujo NC para forzar la moneda del documento origen.
+   */
+  readOnlyMoneda?: boolean;
 
   // Valores iniciales para rehidratar campos opcionales
   valoresIniciales?: ValoresInicialesCompactDocumentForm;
@@ -216,6 +221,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   datosNotaCredito,
   onDatosNotaCreditoChange,
   tipoComprobanteBaseNotaCredito,
+  readOnlyMoneda = false,
   tiposHabilitados = ['factura', 'boleta'],
   valoresIniciales,
 }) => {
@@ -1058,9 +1064,11 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 <div className="relative">
                   <select
                     id="moneda"
-                    className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                    className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
                     value={moneda}
                     onChange={(e) => setMoneda?.(e.target.value as Currency)}
+                    disabled={readOnlyMoneda}
+                    title={readOnlyMoneda ? 'La moneda debe coincidir con la del comprobante que modifica' : undefined}
                   >
                     {selectableCurrencies.map((option) => (
                       <option key={option.code} value={option.code}>
