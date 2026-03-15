@@ -250,7 +250,7 @@ export function PaginaStakeholders() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => abrirModal('crear')} disabled={!esEdicionPermitida} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">Nuevo stakeholder</button>
+        <button type="button" onClick={() => abrirModal('crear')} disabled={!esEdicionPermitida} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">Crear stakeholder</button>
         <button type="button" onClick={exportar} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700">Exportar CSV</button>
       </div>
 
@@ -310,7 +310,7 @@ export function PaginaStakeholders() {
         </>
       </EstadoVista>
 
-      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nuevo stakeholder' : modoModal === 'editar' ? `Editar ${stakeholderActivo?.codigo ?? 'stakeholder'}` : `Detalle ${stakeholderActivo?.codigo ?? 'stakeholder'}`} alCerrar={() => setModalAbierto(false)}>
+      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Crear stakeholder' : modoModal === 'editar' ? `Editar ${stakeholderActivo?.codigo ?? 'stakeholder'}` : `Detalle ${stakeholderActivo?.codigo ?? 'stakeholder'}`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => { try { if (modoModal === 'ver') { setModalAbierto(false); return } if (modoModal === 'crear') await crearStakeholderPm(valores); if (modoModal === 'editar' && stakeholderActivo) await editarStakeholderPm(stakeholderActivo.id, valores); setModalAbierto(false); await cargar() } catch (errorInterno) { setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el stakeholder') } })}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm"><span>Código</span><input {...formulario.register('codigo')} disabled={modoModal === 'ver'} className={claseCampo} /></label>

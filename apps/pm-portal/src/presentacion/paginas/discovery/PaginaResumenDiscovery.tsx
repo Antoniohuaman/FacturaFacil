@@ -316,21 +316,21 @@ export function PaginaResumenDiscovery() {
               <h2 className="text-base font-semibold">Vínculos opcionales</h2>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                  <p className="font-medium">Problemas conectados con estrategia</p>
+                  <p className="font-medium">Problemas vinculados a estrategia</p>
                   <p className="mt-1 text-2xl font-semibold">{relProblemaObjetivo}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {totalProblemasVinculados} problemas vinculados sobre {totalObjetivosEstrategicos} objetivos estratégicos
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                  <p className="font-medium">Hipótesis discovery conectadas a iniciativas roadmap</p>
+                  <p className="font-medium">Hipótesis discovery vinculadas a iniciativas roadmap</p>
                   <p className="mt-1 text-2xl font-semibold">{relHipotesisIniciativa}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {totalHipotesisVinculadas} hipótesis vinculadas sobre {totalIniciativas} iniciativas roadmap
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                  <p className="font-medium">Insights conectados a decisiones</p>
+                  <p className="font-medium">Insights vinculados a decisiones</p>
                   <p className="mt-1 text-2xl font-semibold">{relInsightDecision}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {totalInsightsVinculados} insights vinculados sobre {totalDecisiones} decisiones registradas

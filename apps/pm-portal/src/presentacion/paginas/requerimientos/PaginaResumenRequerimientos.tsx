@@ -232,14 +232,14 @@ export function PaginaResumenRequerimientos() {
               <h2 className="text-base font-semibold">Vínculos opcionales</h2>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                  <p className="font-medium">Requerimientos conectados a iniciativas</p>
+                  <p className="font-medium">Requerimientos vinculados a iniciativas</p>
                   <p className="mt-1 text-2xl font-semibold">{historiasConIniciativa + casosUsoConIniciativa + rnfConIniciativa}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {historiasConIniciativa} historias · {casosUsoConIniciativa} casos de uso · {rnfConIniciativa} RNF sobre {totalIniciativas} iniciativas
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                  <p className="font-medium">Requerimientos conectados a entregas</p>
+                  <p className="font-medium">Requerimientos vinculados a entregas</p>
                   <p className="mt-1 text-2xl font-semibold">{historiasConEntrega + rnfConEntrega}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {historiasConEntrega} historias · {rnfConEntrega} RNF sobre {totalEntregas} entregas

@@ -189,7 +189,7 @@ export function PaginaResumenEstrategico() {
                 <h2 className="text-base font-semibold">Relaciones cruzadas</h2>
                 <div className="mt-4 space-y-3 text-sm">
                   <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                    <p className="font-medium">Problemas discovery conectados a objetivos</p>
+                    <p className="font-medium">Problemas discovery vinculados a objetivos estratégicos</p>
                     <p className="mt-1 text-2xl font-semibold">{relProblemasObjetivos}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{problemasDiscoveryVinculados} problemas discovery con vínculo estratégico</p>
                   </div>
@@ -206,7 +206,7 @@ export function PaginaResumenEstrategico() {
                   <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
                     <p className="font-medium">Iniciativas vinculadas a hipótesis estrategia</p>
                     <p className="mt-1 text-2xl font-semibold">{relHipotesisIniciativas}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">hipótesis estrategia conectadas con ejecución del roadmap</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">hipótesis estrategia vinculadas con ejecución del roadmap</p>
                   </div>
                 </div>
               </article>
