@@ -5,7 +5,7 @@ const enlaces = [
   { etiqueta: 'Períodos', ruta: '/estrategia/periodos' },
   { etiqueta: 'OKRs', ruta: '/estrategia/okrs' },
   { etiqueta: 'KPIs', ruta: '/estrategia/kpis' },
-  { etiqueta: 'Hipótesis', ruta: '/estrategia/hipotesis' }
+  { etiqueta: 'Hipótesis estrategia', ruta: '/estrategia/hipotesis' }
 ]
 
 export function NavegacionEstrategia() {

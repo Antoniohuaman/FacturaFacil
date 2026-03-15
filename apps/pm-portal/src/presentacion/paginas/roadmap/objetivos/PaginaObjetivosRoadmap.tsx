@@ -102,11 +102,18 @@ export function PaginaObjetivosRoadmap() {
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Roadmap de objetivos</h1>
+        <h1 className="text-2xl font-semibold">Objetivos roadmap</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Define objetivos estratégicos y su estado de ejecución.
+          Define objetivos del módulo Roadmap para ordenar la ejecución y priorización del delivery. No reemplazan objetivos estratégicos de OKRs.
         </p>
       </header>
+
+      <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100">
+        <p className="font-medium">Qué es y qué no es</p>
+        <p className="mt-1">
+          El objetivo roadmap vive en Roadmap y sirve para organizar ejecución, entregas e iniciativas. No equivale a un objetivo estratégico del módulo Estrategia.
+        </p>
+      </article>
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
@@ -138,10 +145,10 @@ export function PaginaObjetivosRoadmap() {
             type="button"
             disabled={!esEdicionPermitida}
             onClick={() => abrirModal('crear')}
-            aria-label="Crear objetivo"
+            aria-label="Crear objetivo roadmap"
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
           >
-            Crear
+            Crear objetivo roadmap
           </button>
         </div>
 
@@ -222,7 +229,7 @@ export function PaginaObjetivosRoadmap() {
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left dark:bg-slate-800">
               <tr>
-                <th className="px-3 py-2">Nombre</th>
+                <th className="px-3 py-2">Objetivo roadmap</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Prioridad</th>
                 <th className="px-3 py-2">Vínculo estratégico</th>
@@ -285,7 +292,7 @@ export function PaginaObjetivosRoadmap() {
 
       <ModalPortal
         abierto={modalAbierto}
-        titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} objetivo`}
+        titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} objetivo roadmap`}
         alCerrar={() => setModalAbierto(false)}
       >
         <form

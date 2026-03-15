@@ -122,36 +122,43 @@ export function PaginaHipotesis() {
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-2">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">Hipótesis</h1>
+          <h1 className="text-2xl font-semibold">Hipótesis estrategia</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Gestiona hipótesis estratégicas y relaciónalas con iniciativas existentes del roadmap.
+            Gestiona hipótesis del módulo Estrategia para orientar apuestas del período y relaciónalas opcionalmente con iniciativas del roadmap.
           </p>
         </div>
         <NavegacionEstrategia />
       </header>
 
+      <article className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-100">
+        <p className="font-medium">Qué es y qué no es</p>
+        <p className="mt-1">
+          La hipótesis estrategia vive en Estrategia y sirve para sostener apuestas del período estratégico. No equivale a una hipótesis discovery de experimentación sobre problemas detectados.
+        </p>
+      </article>
+
       <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4 dark:border-slate-800 dark:bg-slate-900">
         <select value={filtroPeriodo} onChange={(evento) => setFiltroPeriodo(evento.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="todos">Periodo: todos</option>{periodos.map((periodo) => <option key={periodo.id} value={periodo.id}>{periodo.nombre}</option>)}</select>
         <select value={filtroEstado} onChange={(evento) => setFiltroEstado(evento.target.value as 'todos' | (typeof estadosRegistro)[number])} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="todos">Estado: todos</option>{estadosRegistro.map((estado) => <option key={estado} value={estado}>{estado}</option>)}</select>
         <select value={filtroPrioridad} onChange={(evento) => setFiltroPrioridad(evento.target.value as 'todas' | (typeof prioridadesRegistro)[number])} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"><option value="todas">Prioridad: todas</option>{prioridadesRegistro.map((prioridad) => <option key={prioridad} value={prioridad}>{prioridad}</option>)}</select>
-        <button type="button" disabled={!esEdicionPermitida || !hayPeriodos} onClick={() => abrirModal('crear')} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900">Crear hipótesis</button>
+        <button type="button" disabled={!esEdicionPermitida || !hayPeriodos} onClick={() => abrirModal('crear')} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900">Crear hipótesis estrategia</button>
       </div>
 
       {!hayPeriodos ? (
         <article className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
-          <p className="font-medium">No hay períodos estratégicos disponibles para crear hipótesis.</p>
+          <p className="font-medium">No hay períodos estratégicos disponibles para crear hipótesis estrategia.</p>
           <p className="mt-1">
             Crea el dato maestro en <Link to="/estrategia/periodos" className="font-medium underline underline-offset-2">Períodos</Link> y luego vuelve a esta pantalla.
           </p>
         </article>
       ) : null}
 
-      <EstadoVista cargando={cargando} error={error} vacio={hipotesisFiltradas.length === 0} mensajeVacio="No hay hipótesis para los filtros seleccionados.">
+      <EstadoVista cargando={cargando} error={error} vacio={hipotesisFiltradas.length === 0} mensajeVacio="No hay hipótesis estrategia para los filtros seleccionados.">
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 text-left dark:bg-slate-800">
               <tr>
-                <th className="px-3 py-2">Hipótesis</th>
+                <th className="px-3 py-2">Hipótesis estrategia</th>
                 <th className="px-3 py-2">Periodo</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Vínculos</th>
@@ -182,7 +189,7 @@ export function PaginaHipotesis() {
         </div>
       </EstadoVista>
 
-      <ModalPortal abierto={modalAbierto} titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} hipótesis`} alCerrar={() => setModalAbierto(false)}>
+      <ModalPortal abierto={modalAbierto} titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} hipótesis estrategia`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => {
           if (modoModal === 'ver') {
             return

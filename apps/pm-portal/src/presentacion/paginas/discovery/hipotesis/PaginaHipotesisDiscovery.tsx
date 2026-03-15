@@ -218,11 +218,18 @@ export function PaginaHipotesisDiscovery() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">Hipótesis discovery</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Formula hipótesis de discovery separadas de Estrategia y con vínculo opcional hacia iniciativas del roadmap.
+            Formula hipótesis de discovery para experimentar sobre problemas detectados y relaciónalas opcionalmente con iniciativas roadmap, separadas de las hipótesis estrategia.
           </p>
         </div>
         <NavegacionDiscovery />
       </header>
+
+      <article className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-100">
+        <p className="font-medium">Qué es y qué no es</p>
+        <p className="mt-1">
+          La hipótesis discovery vive en Discovery y sirve para validar un cambio o experimento sobre un problema. No equivale a una hipótesis estrategia del período estratégico.
+        </p>
+      </article>
 
       <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3 dark:border-slate-800 dark:bg-slate-900">
         <input type="search" value={busqueda} onChange={(evento) => { setBusqueda(evento.target.value); paginacion.setPaginaActual(1) }} placeholder="Buscar hipótesis discovery" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none dark:border-slate-700 dark:bg-slate-800" />

@@ -212,11 +212,18 @@ export function PaginaOkrs() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">OKRs</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Administra objetivos estratégicos, key results y sus vínculos con roadmap existente.
+            Administra objetivos estratégicos del módulo Estrategia, sus key results y los vínculos opcionales con objetivos roadmap.
           </p>
         </div>
         <NavegacionEstrategia />
       </header>
+
+      <article className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-100">
+        <p className="font-medium">Diferencia semántica clave</p>
+        <p className="mt-1">
+          El objetivo estratégico vive en Estrategia y define una meta del período con OKRs. No sustituye al objetivo roadmap, que vive en Roadmap y ordena la ejecución del delivery.
+        </p>
+      </article>
 
       <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-5 dark:border-slate-800 dark:bg-slate-900">
         <select
@@ -261,7 +268,7 @@ export function PaginaOkrs() {
           onClick={() => abrirModalObjetivo('crear')}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
         >
-          Crear objetivo
+          Crear objetivo estratégico
         </button>
         <button
           type="button"

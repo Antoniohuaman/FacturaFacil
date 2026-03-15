@@ -253,7 +253,7 @@ export function PaginaResumenDiscovery() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">Resumen discovery</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Consolida señales, problemas, investigación y las conexiones opcionales con estrategia, roadmap y decisiones.
+            Consolida señales, problemas, investigación y las conexiones opcionales con objetivos estratégicos, iniciativas roadmap y decisiones.
           </p>
         </div>
         <NavegacionDiscovery />
@@ -323,10 +323,10 @@ export function PaginaResumenDiscovery() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                  <p className="font-medium">Hipótesis discovery conectadas a roadmap</p>
+                  <p className="font-medium">Hipótesis discovery conectadas a iniciativas roadmap</p>
                   <p className="mt-1 text-2xl font-semibold">{relHipotesisIniciativa}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {totalHipotesisVinculadas} hipótesis vinculadas sobre {totalIniciativas} iniciativas
+                    {totalHipotesisVinculadas} hipótesis vinculadas sobre {totalIniciativas} iniciativas roadmap
                   </p>
                 </div>
                 <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">

@@ -146,7 +146,7 @@ export function PaginaResumenEstrategico() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">Resumen estratégico</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Consolida el periodo activo, el avance de OKRs/KPIs y la relación con el roadmap existente.
+            Consolida el periodo activo, el avance de OKRs/KPIs y la relación entre objetivos estratégicos, hipótesis estrategia y artefactos de roadmap.
           </p>
         </div>
         <NavegacionEstrategia />
@@ -174,7 +174,7 @@ export function PaginaResumenEstrategico() {
                 <p className="mt-2 text-2xl font-semibold">{resumen.kpis}</p>
               </article>
               <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Hipótesis</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Hipótesis estrategia</p>
                 <p className="mt-2 text-2xl font-semibold">{resumen.hipotesis}</p>
               </article>
               <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -196,7 +196,7 @@ export function PaginaResumenEstrategico() {
                   <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
                     <p className="font-medium">Objetivos roadmap vinculados</p>
                     <p className="mt-1 text-2xl font-semibold">{relObjetivos}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">sobre {totalObjetivosRoadmap} objetivos disponibles</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">sobre {totalObjetivosRoadmap} objetivos roadmap disponibles</p>
                   </div>
                   <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
                     <p className="font-medium">Iniciativas vinculadas a KR</p>
@@ -204,9 +204,9 @@ export function PaginaResumenEstrategico() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">sobre {totalIniciativas} iniciativas del roadmap</p>
                   </div>
                   <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
-                    <p className="font-medium">Iniciativas vinculadas a hipótesis</p>
+                    <p className="font-medium">Iniciativas vinculadas a hipótesis estrategia</p>
                     <p className="mt-1 text-2xl font-semibold">{relHipotesisIniciativas}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">hipótesis conectadas con ejecución del roadmap</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">hipótesis estrategia conectadas con ejecución del roadmap</p>
                   </div>
                 </div>
               </article>
