@@ -10,17 +10,7 @@ interface PropiedadesBarraLateral {
 export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLateral) {
   const ubicacion = useLocation()
 
-  const [abiertos, setAbiertos] = useState<Record<string, boolean>>({
-    Roadmap: true,
-    Validación: true,
-    Estrategia: true,
-    Discovery: true,
-    Requerimientos: true,
-    Lanzamientos: true,
-    Operación: true,
-    Analítica: true,
-    Gobierno: true
-  })
+  const [abiertos, setAbiertos] = useState<Record<string, boolean>>({})
 
   const rutaActiva = ubicacion.pathname
 
@@ -55,7 +45,8 @@ export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLat
         <ul className="space-y-1">
           {menuConEstado.map((item) => {
             const tieneSubmenu = Boolean(item.submenus?.length)
-            const abierto = abiertos[item.etiqueta] ?? false
+            const estadoGuardado = abiertos[item.etiqueta] ?? false
+            const estaAbierto = item.activo || estadoGuardado
 
             return (
               <li key={item.etiqueta}>
@@ -72,24 +63,24 @@ export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLat
                     {colapsada ? item.etiqueta.charAt(0) : item.etiqueta}
                   </Link>
 
-                  {!colapsada && tieneSubmenu && (
+                  {!colapsada && tieneSubmenu && !item.activo && (
                     <button
                       type="button"
                       onClick={() =>
                         setAbiertos((estadoActual) => ({
                           ...estadoActual,
-                          [item.etiqueta]: !abierto
+                          [item.etiqueta]: !estadoGuardado
                         }))
                       }
                       className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                       aria-label={`Alternar submenú de ${item.etiqueta}`}
                     >
-                      {abierto ? '−' : '+'}
+                      {estaAbierto ? '−' : '+'}
                     </button>
                   )}
                 </div>
 
-                {!colapsada && tieneSubmenu && abierto && (
+                {!colapsada && tieneSubmenu && estaAbierto && (
                   <ul className="mt-1 space-y-1 pl-4">
                     {item.submenus?.map((submenu) => {
                       const activoSubmenu = rutaActiva === submenu.ruta
