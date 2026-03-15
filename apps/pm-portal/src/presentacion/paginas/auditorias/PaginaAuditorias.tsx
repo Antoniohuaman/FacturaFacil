@@ -503,7 +503,7 @@ export function PaginaAuditorias() {
         cargando={cargando}
         error={error}
         vacio={auditoriasFiltradas.length === 0 && hallazgosFiltrados.length === 0}
-        mensajeVacio="No hay auditorías ni hallazgos registrados."
+        mensajeVacio="No hay auditorías ni hallazgos para los filtros seleccionados."
       >
         <div className="grid gap-4 lg:grid-cols-2">
           <article className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -872,7 +872,7 @@ export function PaginaAuditorias() {
                 disabled={modoHallazgo === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
-                <option value="">Sin relación</option>
+                <option value="">Sin módulo</option>
                 {modulos.map((modulo) => (
                   <option key={modulo.id} value={modulo.id}>
                     {modulo.nombre}
@@ -887,7 +887,7 @@ export function PaginaAuditorias() {
                 disabled={modoHallazgo === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
-                <option value="">Sin relación</option>
+                <option value="">Sin decisión</option>
                 {decisiones.map((decision) => (
                   <option key={decision.id} value={decision.id}>
                     {decision.titulo}
@@ -902,7 +902,7 @@ export function PaginaAuditorias() {
                 disabled={modoHallazgo === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
-                <option value="">Sin relación</option>
+                <option value="">Sin ejecución de validación</option>
                 {ejecuciones.map((ejecucion) => (
                   <option key={ejecucion.id} value={ejecucion.id}>
                     {ejecucion.fecha_ejecucion} · {formatearEstadoLegible(ejecucion.estado_codigo)}

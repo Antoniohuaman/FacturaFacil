@@ -400,7 +400,7 @@ export function PaginaDecisiones() {
         cargando={cargando}
         error={error}
         vacio={decisionesFiltradas.length === 0}
-        mensajeVacio="No hay decisiones registradas."
+        mensajeVacio="No hay decisiones para los filtros seleccionados."
       >
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-sm">
@@ -613,7 +613,7 @@ export function PaginaDecisiones() {
                 disabled={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
-                <option value="">Sin referencia</option>
+                <option value="">Sin iniciativa</option>
                 {iniciativas.map((iniciativa) => (
                   <option key={iniciativa.id} value={iniciativa.id}>
                     {iniciativa.nombre}
@@ -628,7 +628,7 @@ export function PaginaDecisiones() {
                 disabled={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
-                <option value="">Sin referencia</option>
+                <option value="">Sin entrega</option>
                 {entregas.map((entrega) => (
                   <option key={entrega.id} value={entrega.id}>
                     {entrega.nombre}
@@ -643,7 +643,7 @@ export function PaginaDecisiones() {
                 disabled={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               >
-                <option value="">Sin referencia</option>
+                <option value="">Sin ejecución de validación</option>
                 {ejecuciones.map((ejecucion) => (
                   <option key={ejecucion.id} value={ejecucion.id}>
                     {ejecucion.fecha_ejecucion} · {formatearEstadoLegible(ejecucion.estado_codigo)}

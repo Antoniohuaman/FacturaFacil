@@ -284,7 +284,7 @@ export function PaginaEjecucionesValidacion() {
         cargando={cargando}
         error={error}
         vacio={ejecucionesFiltradas.length === 0}
-        mensajeVacio="No hay ejecuciones de validación registradas."
+        mensajeVacio="No hay ejecuciones de validación para los filtros seleccionados."
       >
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-sm">

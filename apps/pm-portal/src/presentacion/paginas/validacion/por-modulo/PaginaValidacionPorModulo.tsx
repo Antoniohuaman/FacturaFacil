@@ -316,7 +316,7 @@ export function PaginaValidacionPorModulo() {
         cargando={cargando}
         error={error}
         vacio={planesFiltrados.length === 0}
-        mensajeVacio="No hay planes de validación para mostrar."
+        mensajeVacio="No hay planes de validación para los filtros seleccionados."
       >
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-sm">
