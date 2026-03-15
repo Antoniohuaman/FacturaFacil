@@ -111,7 +111,7 @@ export function PaginaKpisEstrategicos() {
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-2">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">KPIs</h1>
+          <h1 className="text-2xl font-semibold">KPIs estratégicos</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Seguimiento funcional de KPIs estratégicos por periodo, owner y semáforo de resultado.
           </p>

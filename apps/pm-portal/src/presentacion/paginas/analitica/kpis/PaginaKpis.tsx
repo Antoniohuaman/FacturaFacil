@@ -175,7 +175,7 @@ export function PaginaKpis() {
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-2">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">KPIs</h1>
+          <h1 className="text-2xl font-semibold">KPIs ejecutivos</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Gestión formal de KPIs ejecutivos con lectura de valor actual, meta, tendencia y estado de salud.
           </p>
