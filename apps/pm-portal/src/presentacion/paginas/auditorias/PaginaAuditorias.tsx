@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   auditoriaPmSchema,
   hallazgoAuditoriaSchema,
+  validarCodigoCatalogoDinamico,
   type AuditoriaPmEntrada,
   type HallazgoAuditoriaEntrada
 } from '@/compartido/validacion/esquemas'
@@ -41,7 +42,11 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import {
+  formatearEstadoCatalogo,
+  formatearEstadoLegible,
+  normalizarFechaPortal
+} from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -206,6 +211,14 @@ export function PaginaAuditorias() {
   )
 
   const moduloPorId = useMemo(() => new Map(modulos.map((modulo) => [modulo.id, modulo.nombre])), [modulos])
+  const estadoAuditoriaPorCodigo = useMemo(
+    () => new Map(estadosAuditoria.map((estado) => [estado.codigo, estado.nombre])),
+    [estadosAuditoria]
+  )
+  const estadoHallazgoPorCodigo = useMemo(
+    () => new Map(estadosHallazgo.map((estado) => [estado.codigo, estado.nombre])),
+    [estadosHallazgo]
+  )
 
   const auditoriasFiltradas = useMemo(() => {
     const termino = busqueda.toLowerCase()
@@ -213,6 +226,7 @@ export function PaginaAuditorias() {
       const coincideBusqueda =
         auditoria.alcance.toLowerCase().includes(termino) ||
         auditoria.tipo_auditoria_codigo.toLowerCase().includes(termino) ||
+        (estadoAuditoriaPorCodigo.get(auditoria.estado_codigo) ?? '').toLowerCase().includes(termino) ||
         auditoria.estado_codigo.toLowerCase().includes(termino)
 
       const coincideTipo = filtroTipoAuditoria === 'todos' ? true : auditoria.tipo_auditoria_codigo === filtroTipoAuditoria
@@ -221,7 +235,7 @@ export function PaginaAuditorias() {
 
       return coincideBusqueda && coincideTipo && coincideEstado
     })
-  }, [auditorias, busqueda, filtroTipoAuditoria, filtroEstadoAuditoria])
+  }, [auditorias, busqueda, estadoAuditoriaPorCodigo, filtroTipoAuditoria, filtroEstadoAuditoria])
 
   const hallazgosFiltrados = useMemo(() => {
     const termino = busqueda.toLowerCase()
@@ -229,6 +243,7 @@ export function PaginaAuditorias() {
       const coincideBusqueda =
         hallazgo.titulo.toLowerCase().includes(termino) ||
         hallazgo.descripcion.toLowerCase().includes(termino) ||
+        (estadoHallazgoPorCodigo.get(hallazgo.estado_codigo) ?? '').toLowerCase().includes(termino) ||
         hallazgo.estado_codigo.toLowerCase().includes(termino)
 
       const coincideEstado = filtroEstadoHallazgo === 'todos' ? true : hallazgo.estado_codigo === filtroEstadoHallazgo
@@ -237,7 +252,7 @@ export function PaginaAuditorias() {
 
       return coincideBusqueda && coincideEstado && coincideSeveridad && coincideModulo
     })
-  }, [hallazgos, busqueda, filtroEstadoHallazgo, filtroSeveridad, filtroModulo])
+  }, [hallazgos, busqueda, estadoHallazgoPorCodigo, filtroEstadoHallazgo, filtroSeveridad, filtroModulo])
 
   const paginacionAuditorias = usePaginacion({
     items: auditoriasFiltradas,
@@ -469,7 +484,7 @@ export function PaginaAuditorias() {
             exportarCsv('auditorias.csv', [
               { encabezado: 'Fecha', valor: (auditoria) => normalizarFechaPortal(auditoria.fecha_auditoria) },
               { encabezado: 'Tipo', valor: (auditoria) => auditoria.tipo_auditoria_codigo },
-              { encabezado: 'Estado', valor: (auditoria) => formatearEstadoLegible(auditoria.estado_codigo) },
+              { encabezado: 'Estado', valor: (auditoria) => formatearEstadoCatalogo(auditoria.estado_codigo, estadoAuditoriaPorCodigo) },
               { encabezado: 'Responsable', valor: (auditoria) => auditoria.responsable ?? 'Sin responsable' },
               { encabezado: 'Alcance', valor: (auditoria) => auditoria.alcance },
               { encabezado: 'Checklist', valor: (auditoria) => auditoria.checklist },
@@ -499,7 +514,9 @@ export function PaginaAuditorias() {
               {paginacionAuditorias.itemsPaginados.map((auditoria) => (
                 <li key={auditoria.id} className="space-y-2 px-4 py-3 text-sm">
                   <p className="font-medium">{auditoria.fecha_auditoria} · {auditoria.tipo_auditoria_codigo}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Estado: {auditoria.estado_codigo}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Estado: {formatearEstadoCatalogo(auditoria.estado_codigo, estadoAuditoriaPorCodigo)}
+                  </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {bugsPorAuditoria.get(auditoria.id) ?? 0} bugs vinculados · {leccionesPorAuditoria.get(auditoria.id) ?? 0} lecciones aprendidas
                   </p>
@@ -561,7 +578,7 @@ export function PaginaAuditorias() {
                 <li key={hallazgo.id} className="space-y-2 px-4 py-3 text-sm">
                   <p className="font-medium">{hallazgo.titulo}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {hallazgo.severidad_codigo.toUpperCase()} · {hallazgo.estado_codigo} · {moduloPorId.get(hallazgo.modulo_id ?? '') ?? 'Sin módulo'}
+                    {hallazgo.severidad_codigo.toUpperCase()} · {formatearEstadoCatalogo(hallazgo.estado_codigo, estadoHallazgoPorCodigo)} · {moduloPorId.get(hallazgo.modulo_id ?? '') ?? 'Sin módulo'}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Auditoría: {auditoriaPorId.get(hallazgo.auditoria_id) ?? 'No disponible'}
@@ -632,6 +649,15 @@ export function PaginaAuditorias() {
             }
 
             try {
+              const errorEstado = validarCodigoCatalogoDinamico(valores.estado_codigo, estadosAuditoria)
+
+              if (errorEstado) {
+                formularioAuditoria.setError('estado_codigo', { type: 'validate', message: errorEstado })
+                return
+              }
+
+              formularioAuditoria.clearErrors('estado_codigo')
+
               if (modoAuditoria === 'crear') {
                 await crearAuditoriaPm(valores)
               }
@@ -675,6 +701,9 @@ export function PaginaAuditorias() {
                   </option>
                 ))}
               </select>
+              <p className={`mt-1 text-xs ${formularioAuditoria.formState.errors.estado_codigo ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                {formularioAuditoria.formState.errors.estado_codigo?.message ?? 'La auditoría usa un estado del catálogo activo configurado en Ajustes.'}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Fecha</label>
@@ -745,6 +774,15 @@ export function PaginaAuditorias() {
             }
 
             try {
+              const errorEstado = validarCodigoCatalogoDinamico(valores.estado_codigo, estadosHallazgo)
+
+              if (errorEstado) {
+                formularioHallazgo.setError('estado_codigo', { type: 'validate', message: errorEstado })
+                return
+              }
+
+              formularioHallazgo.clearErrors('estado_codigo')
+
               if (modoHallazgo === 'crear') {
                 await crearHallazgoAuditoriaPm(valores)
               }
@@ -802,6 +840,9 @@ export function PaginaAuditorias() {
                   </option>
                 ))}
               </select>
+              <p className={`mt-1 text-xs ${formularioHallazgo.formState.errors.estado_codigo ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                {formularioHallazgo.formState.errors.estado_codigo?.message ?? 'El hallazgo debe usar un estado vigente del catálogo activo.'}
+              </p>
             </div>
           </div>
 
@@ -864,7 +905,7 @@ export function PaginaAuditorias() {
                 <option value="">Sin relación</option>
                 {ejecuciones.map((ejecucion) => (
                   <option key={ejecucion.id} value={ejecucion.id}>
-                    {ejecucion.fecha_ejecucion} · {ejecucion.estado_codigo}
+                    {ejecucion.fecha_ejecucion} · {formatearEstadoLegible(ejecucion.estado_codigo)}
                   </option>
                 ))}
               </select>

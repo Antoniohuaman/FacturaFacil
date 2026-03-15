@@ -17,6 +17,17 @@ export function formatearEstadoLegible(estado: string | null | undefined) {
   return formatearEstadoRegistro(estado)
 }
 
+export function formatearEstadoCatalogo(
+  estado: string | null | undefined,
+  estadosPorCodigo: ReadonlyMap<string, string>
+) {
+  if (!estado) {
+    return ''
+  }
+
+  return estadosPorCodigo.get(estado) ?? formatearEstadoLegible(estado)
+}
+
 export function formatearTendenciaLegible(tendencia: string | null | undefined) {
   if (!tendencia) {
     return ''

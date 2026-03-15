@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
 import {
   ejecucionValidacionSchema,
+  validarCodigoCatalogoDinamico,
   type EjecucionValidacionEntrada
 } from '@/compartido/validacion/esquemas'
 import type { CatalogoEstadoPm, CatalogoModuloPm, EjecucionValidacion, PlanValidacion } from '@/dominio/modelos'
@@ -22,7 +23,7 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoCatalogo, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -92,10 +93,12 @@ export function PaginaEjecucionesValidacion() {
 
   const moduloPorId = useMemo(() => new Map(modulos.map((modulo) => [modulo.id, modulo.nombre])), [modulos])
   const planPorId = useMemo(() => new Map(planes.map((plan) => [plan.id, plan.nombre])), [planes])
+  const estadoPorCodigo = useMemo(() => new Map(estados.map((estado) => [estado.codigo, estado.nombre])), [estados])
 
   const ejecucionesFiltradas = useMemo(() => {
     const termino = busqueda.toLowerCase()
     return ejecuciones.filter((ejecucion) => {
+      const nombreEstado = estadoPorCodigo.get(ejecucion.estado_codigo) ?? ''
       const coincideEstado = filtroEstado === 'todos' ? true : ejecucion.estado_codigo === filtroEstado
       const coincideModulo = filtroModulo === 'todos' ? true : ejecucion.modulo_id === filtroModulo
       const coincideDesde = fechaDesde ? ejecucion.fecha_ejecucion >= fechaDesde : true
@@ -104,10 +107,11 @@ export function PaginaEjecucionesValidacion() {
       return (
         (planPorId.get(ejecucion.plan_validacion_id) ?? '').toLowerCase().includes(termino) ||
         (moduloPorId.get(ejecucion.modulo_id) ?? '').toLowerCase().includes(termino) ||
+        nombreEstado.toLowerCase().includes(termino) ||
         ejecucion.estado_codigo.toLowerCase().includes(termino)
       ) && coincideEstado && coincideModulo && coincideDesde && coincideHasta
     })
-  }, [ejecuciones, busqueda, moduloPorId, planPorId, filtroEstado, filtroModulo, fechaDesde, fechaHasta])
+  }, [ejecuciones, busqueda, moduloPorId, planPorId, estadoPorCodigo, filtroEstado, filtroModulo, fechaDesde, fechaHasta])
 
   const paginacion = usePaginacion({
     items: ejecucionesFiltradas,
@@ -256,7 +260,7 @@ export function PaginaEjecucionesValidacion() {
               { encabezado: 'Fecha', valor: (ejecucion) => normalizarFechaPortal(ejecucion.fecha_ejecucion) },
               { encabezado: 'Plan', valor: (ejecucion) => planPorId.get(ejecucion.plan_validacion_id) ?? 'No disponible' },
               { encabezado: 'Módulo', valor: (ejecucion) => moduloPorId.get(ejecucion.modulo_id) ?? 'No disponible' },
-              { encabezado: 'Estado', valor: (ejecucion) => formatearEstadoLegible(ejecucion.estado_codigo) },
+              { encabezado: 'Estado', valor: (ejecucion) => formatearEstadoCatalogo(ejecucion.estado_codigo, estadoPorCodigo) },
               { encabezado: 'Rango desde', valor: (ejecucion) => normalizarFechaPortal(ejecucion.rango_desde) },
               { encabezado: 'Rango hasta', valor: (ejecucion) => normalizarFechaPortal(ejecucion.rango_hasta) },
               { encabezado: 'Aprobador', valor: (ejecucion) => ejecucion.aprobador ?? 'Sin aprobador' }
@@ -299,7 +303,7 @@ export function PaginaEjecucionesValidacion() {
                   <td className="px-3 py-2">{ejecucion.fecha_ejecucion}</td>
                   <td className="px-3 py-2">{planPorId.get(ejecucion.plan_validacion_id) ?? 'No disponible'}</td>
                   <td className="px-3 py-2">{moduloPorId.get(ejecucion.modulo_id) ?? 'No disponible'}</td>
-                  <td className="px-3 py-2">{ejecucion.estado_codigo}</td>
+                  <td className="px-3 py-2">{formatearEstadoCatalogo(ejecucion.estado_codigo, estadoPorCodigo)}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
                       <button
@@ -367,6 +371,15 @@ export function PaginaEjecucionesValidacion() {
             }
 
             try {
+              const errorEstado = validarCodigoCatalogoDinamico(valores.estado_codigo, estados)
+
+              if (errorEstado) {
+                formulario.setError('estado_codigo', { type: 'validate', message: errorEstado })
+                return
+              }
+
+              formulario.clearErrors('estado_codigo')
+
               if (modoModal === 'crear') {
                 await crearEjecucionValidacion(valores)
               }
@@ -493,6 +506,9 @@ export function PaginaEjecucionesValidacion() {
                   </option>
                 ))}
               </select>
+              <p className={`mt-1 text-xs ${formulario.formState.errors.estado_codigo ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                {formulario.formState.errors.estado_codigo?.message ?? 'El estado debe existir en el catálogo activo configurado en Ajustes.'}
+              </p>
             </div>
           </div>
 

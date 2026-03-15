@@ -3,7 +3,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSearchParams } from 'react-router-dom'
-import { decisionPmSchema, type DecisionPmEntrada } from '@/compartido/validacion/esquemas'
+import {
+  decisionPmSchema,
+  validarCodigoCatalogoDinamico,
+  type DecisionPmEntrada
+} from '@/compartido/validacion/esquemas'
 import type { CatalogoEstadoPm, DecisionPm, EjecucionValidacion, Entrega, Iniciativa, RelInsightDecisionPm } from '@/dominio/modelos'
 import {
   crearDecisionPm,
@@ -27,7 +31,7 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoCatalogo, formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -186,9 +190,14 @@ export function PaginaDecisiones() {
     void cargar()
   }, [])
 
+  const estadoPorCodigo = useMemo(() => {
+    return new Map(estados.map((estado) => [estado.codigo, estado.nombre]))
+  }, [estados])
+
   const decisionesFiltradas = useMemo(() => {
     const termino = busqueda.toLowerCase()
     return decisiones.filter((decision) => {
+      const nombreEstado = estadoPorCodigo.get(decision.estado_codigo) ?? ''
       const coincideEstado = filtroEstado === 'todos' ? true : decision.estado_codigo === filtroEstado
       const coincideDesde = fechaDesde ? decision.fecha_decision >= fechaDesde : true
       const coincideHasta = fechaHasta ? decision.fecha_decision <= fechaHasta : true
@@ -196,13 +205,14 @@ export function PaginaDecisiones() {
       return (
         (decision.titulo.toLowerCase().includes(termino) ||
           decision.estado_codigo.toLowerCase().includes(termino) ||
+          nombreEstado.toLowerCase().includes(termino) ||
           decision.tags.some((tag) => tag.toLowerCase().includes(termino))) &&
         coincideEstado &&
         coincideDesde &&
         coincideHasta
       )
     })
-  }, [decisiones, busqueda, filtroEstado, fechaDesde, fechaHasta])
+  }, [decisiones, busqueda, estadoPorCodigo, filtroEstado, fechaDesde, fechaHasta])
 
   const paginacion = usePaginacion({
     items: decisionesFiltradas,
@@ -356,7 +366,7 @@ export function PaginaDecisiones() {
           onClick={() => {
             exportarCsv('decisiones.csv', [
               { encabezado: 'Título', valor: (decision) => decision.titulo },
-              { encabezado: 'Estado', valor: (decision) => formatearEstadoLegible(decision.estado_codigo) },
+              { encabezado: 'Estado', valor: (decision) => formatearEstadoCatalogo(decision.estado_codigo, estadoPorCodigo) },
               { encabezado: 'Fecha', valor: (decision) => normalizarFechaPortal(decision.fecha_decision) },
               { encabezado: 'Owner', valor: (decision) => decision.owner ?? 'Sin owner' },
               { encabezado: 'Tags', valor: (decision) => decision.tags.join(', ') },
@@ -424,7 +434,7 @@ export function PaginaDecisiones() {
                       {stakeholdersPorDecision.get(decision.id) ?? 0} stakeholders · {riesgosPorDecision.get(decision.id) ?? 0} riesgos · {dependenciasPorDecision.get(decision.id) ?? 0} dependencias de Gobierno
                     </p>
                   </td>
-                  <td className="px-3 py-2">{decision.estado_codigo}</td>
+                  <td className="px-3 py-2">{formatearEstadoCatalogo(decision.estado_codigo, estadoPorCodigo)}</td>
                   <td className="px-3 py-2">{decision.fecha_decision}</td>
                   <td className="px-3 py-2">{decision.owner ?? 'Sin owner'}</td>
                   <td className="px-3 py-2">
@@ -491,6 +501,14 @@ export function PaginaDecisiones() {
 
             try {
               const entrada = construirEntradaDecision(valores)
+              const errorEstado = validarCodigoCatalogoDinamico(entrada.estado_codigo, estados)
+
+              if (errorEstado) {
+                formulario.setError('estado_codigo', { type: 'validate', message: errorEstado })
+                return
+              }
+
+              formulario.clearErrors('estado_codigo')
 
               if (modoModal === 'crear') {
                 await crearDecisionPm(entrada)
@@ -564,6 +582,9 @@ export function PaginaDecisiones() {
                   </option>
                 ))}
               </select>
+              <p className={`mt-1 text-xs ${formulario.formState.errors.estado_codigo ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                {formulario.formState.errors.estado_codigo?.message ?? 'El estado se valida contra el catálogo activo de decisiones.'}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Owner</label>
@@ -625,7 +646,7 @@ export function PaginaDecisiones() {
                 <option value="">Sin referencia</option>
                 {ejecuciones.map((ejecucion) => (
                   <option key={ejecucion.id} value={ejecucion.id}>
-                    {ejecucion.fecha_ejecucion} · {ejecucion.estado_codigo}
+                    {ejecucion.fecha_ejecucion} · {formatearEstadoLegible(ejecucion.estado_codigo)}
                   </option>
                 ))}
               </select>

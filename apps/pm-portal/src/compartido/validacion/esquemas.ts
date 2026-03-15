@@ -91,6 +91,29 @@ export const ingresoSchema = z.object({
 
 const fechaOpcionalSchema = z.string().trim().nullable().optional()
 
+type CatalogoDinamicoCodigo = {
+  codigo: string
+  activo?: boolean
+}
+
+export function validarCodigoCatalogoDinamico(
+  codigo: string | null | undefined,
+  catalogo: CatalogoDinamicoCodigo[],
+  etiqueta = 'estado'
+) {
+  const codigoNormalizado = codigo?.trim()
+
+  if (!codigoNormalizado) {
+    return null
+  }
+
+  const existeEnCatalogoActivo = catalogo.some(
+    (opcion) => opcion.codigo === codigoNormalizado && opcion.activo !== false
+  )
+
+  return existeEnCatalogoActivo ? null : `Selecciona un ${etiqueta} válido del catálogo activo`
+}
+
 export const plantillaValidacionSchema = z.object({
   modulo_id: z.string().uuid('Selecciona un módulo válido'),
   nombre: z.string().trim().min(3).max(120),

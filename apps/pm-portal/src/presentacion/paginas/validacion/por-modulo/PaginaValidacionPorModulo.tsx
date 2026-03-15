@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   planValidacionSchema,
   plantillaValidacionSchema,
+  validarCodigoCatalogoDinamico,
   type PlanValidacionEntrada,
   type PlantillaValidacionEntrada
 } from '@/compartido/validacion/esquemas'
@@ -27,7 +28,7 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoCatalogo, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -113,6 +114,10 @@ export function PaginaValidacionPorModulo() {
     return new Map(modulos.map((modulo) => [modulo.id, modulo.nombre]))
   }, [modulos])
 
+  const estadoPorCodigo = useMemo(() => {
+    return new Map(estados.map((estado) => [estado.codigo, estado.nombre]))
+  }, [estados])
+
   const plantillasPorId = useMemo(() => {
     return new Map(plantillas.map((plantilla) => [plantilla.id, plantilla]))
   }, [plantillas])
@@ -121,16 +126,18 @@ export function PaginaValidacionPorModulo() {
     const termino = busqueda.toLowerCase()
     return planes.filter((plan) => {
       const nombreModulo = moduloPorId.get(plan.modulo_id) ?? ''
+      const nombreEstado = estadoPorCodigo.get(plan.estado_codigo) ?? ''
       const coincideModulo = filtroModulo === 'todos' ? true : plan.modulo_id === filtroModulo
       const coincideEstado = filtroEstado === 'todos' ? true : plan.estado_codigo === filtroEstado
 
       return (
         plan.nombre.toLowerCase().includes(termino) ||
         plan.estado_codigo.toLowerCase().includes(termino) ||
+        nombreEstado.toLowerCase().includes(termino) ||
         nombreModulo.toLowerCase().includes(termino)
       ) && coincideModulo && coincideEstado
     })
-  }, [planes, busqueda, moduloPorId, filtroModulo, filtroEstado])
+  }, [planes, busqueda, moduloPorId, estadoPorCodigo, filtroModulo, filtroEstado])
 
   const paginacion = usePaginacion({
     items: planesFiltrados,
@@ -276,7 +283,7 @@ export function PaginaValidacionPorModulo() {
             exportarCsv('validacion-por-modulo.csv', [
               { encabezado: 'Plan', valor: (plan) => plan.nombre },
               { encabezado: 'Módulo', valor: (plan) => moduloPorId.get(plan.modulo_id) ?? 'No disponible' },
-              { encabezado: 'Estado', valor: (plan) => formatearEstadoLegible(plan.estado_codigo) },
+              { encabezado: 'Estado', valor: (plan) => formatearEstadoCatalogo(plan.estado_codigo, estadoPorCodigo) },
               { encabezado: 'Owner', valor: (plan) => plan.owner ?? 'Sin owner' },
               { encabezado: 'Fecha inicio', valor: (plan) => normalizarFechaPortal(plan.fecha_inicio) },
               { encabezado: 'Fecha fin', valor: (plan) => normalizarFechaPortal(plan.fecha_fin) },
@@ -330,7 +337,7 @@ export function PaginaValidacionPorModulo() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">{plan.fecha_inicio ?? 'Sin inicio'} → {plan.fecha_fin ?? 'Sin fin'}</p>
                   </td>
                   <td className="px-3 py-2">{moduloPorId.get(plan.modulo_id) ?? 'No disponible'}</td>
-                  <td className="px-3 py-2">{plan.estado_codigo}</td>
+                  <td className="px-3 py-2">{formatearEstadoCatalogo(plan.estado_codigo, estadoPorCodigo)}</td>
                   <td className="px-3 py-2">{plan.owner ?? 'Sin owner'}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
@@ -446,6 +453,15 @@ export function PaginaValidacionPorModulo() {
             }
 
             try {
+              const errorEstado = validarCodigoCatalogoDinamico(valores.estado_codigo, estados)
+
+              if (errorEstado) {
+                formularioPlan.setError('estado_codigo', { type: 'validate', message: errorEstado })
+                return
+              }
+
+              formularioPlan.clearErrors('estado_codigo')
+
               if (modoPlan === 'crear') {
                 await crearPlanValidacion(valores)
               }
@@ -548,6 +564,9 @@ export function PaginaValidacionPorModulo() {
                   </option>
                 ))}
               </select>
+              <p className={`mt-1 text-xs ${formularioPlan.formState.errors.estado_codigo ? 'text-red-600 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                {formularioPlan.formState.errors.estado_codigo?.message ?? 'Se guarda el código del estado activo configurado en Ajustes.'}
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">Fecha inicio</label>
