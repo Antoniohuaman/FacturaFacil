@@ -265,7 +265,7 @@ export function PaginaMejoras() {
         </>
       </EstadoVista>
 
-      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nueva mejora' : modoModal === 'editar' ? `Editar ${mejoraActiva?.codigo ?? 'mejora'}` : `Detalle ${mejoraActiva?.codigo ?? 'mejora'}`} alCerrar={() => setModalAbierto(false)}>
+      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nueva mejora' : modoModal === 'editar' ? `Editar ${mejoraActiva?.codigo ?? 'mejora'}` : `Ver ${mejoraActiva?.codigo ?? 'mejora'}`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => {
           try {
             if (modoModal === 'ver') { setModalAbierto(false); return }

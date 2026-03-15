@@ -310,7 +310,7 @@ export function PaginaStakeholders() {
         </>
       </EstadoVista>
 
-      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Crear stakeholder' : modoModal === 'editar' ? `Editar ${stakeholderActivo?.codigo ?? 'stakeholder'}` : `Detalle ${stakeholderActivo?.codigo ?? 'stakeholder'}`} alCerrar={() => setModalAbierto(false)}>
+      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Crear stakeholder' : modoModal === 'editar' ? `Editar ${stakeholderActivo?.codigo ?? 'stakeholder'}` : `Ver ${stakeholderActivo?.codigo ?? 'stakeholder'}`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => { try { if (modoModal === 'ver') { setModalAbierto(false); return } if (modoModal === 'crear') await crearStakeholderPm(valores); if (modoModal === 'editar' && stakeholderActivo) await editarStakeholderPm(stakeholderActivo.id, valores); setModalAbierto(false); await cargar() } catch (errorInterno) { setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el stakeholder') } })}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm"><span>Código</span><input {...formulario.register('codigo')} disabled={modoModal === 'ver'} className={claseCampo} /></label>

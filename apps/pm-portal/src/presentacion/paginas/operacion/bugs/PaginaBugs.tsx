@@ -508,7 +508,7 @@ export function PaginaBugs() {
             ? 'Nuevo bug'
             : modoModal === 'editar'
               ? `Editar ${bugActivo?.codigo ?? 'bug'}`
-              : `Detalle ${bugActivo?.codigo ?? 'bug'}`
+              : `Ver ${bugActivo?.codigo ?? 'bug'}`
         }
         alCerrar={() => setModalAbierto(false)}
       >

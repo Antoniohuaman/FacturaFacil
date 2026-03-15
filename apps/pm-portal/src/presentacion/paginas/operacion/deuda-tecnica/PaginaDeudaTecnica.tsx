@@ -202,7 +202,7 @@ export function PaginaDeudaTecnica() {
         </>
       </EstadoVista>
 
-      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nueva deuda técnica' : modoModal === 'editar' ? `Editar ${deudaActiva?.codigo ?? 'deuda técnica'}` : `Detalle ${deudaActiva?.codigo ?? 'deuda técnica'}`} alCerrar={() => setModalAbierto(false)}>
+      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nueva deuda técnica' : modoModal === 'editar' ? `Editar ${deudaActiva?.codigo ?? 'deuda técnica'}` : `Ver ${deudaActiva?.codigo ?? 'deuda técnica'}`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => { try { if (modoModal === 'ver') { setModalAbierto(false); return } if (modoModal === 'crear') await crearDeudaTecnicaPm(valores); if (modoModal === 'editar' && deudaActiva) await editarDeudaTecnicaPm(deudaActiva.id, valores); setModalAbierto(false); await cargar() } catch (errorInterno) { setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar la deuda técnica') } })}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm"><span>Código</span><input {...formulario.register('codigo')} disabled={modoModal === 'ver'} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800" /></label>

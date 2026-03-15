@@ -293,7 +293,7 @@ export function PaginaRiesgos() {
         </>
       </EstadoVista>
 
-      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nuevo riesgo' : modoModal === 'editar' ? `Editar ${riesgoActivo?.codigo ?? 'riesgo'}` : `Detalle ${riesgoActivo?.codigo ?? 'riesgo'}`} alCerrar={() => setModalAbierto(false)}>
+      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nuevo riesgo' : modoModal === 'editar' ? `Editar ${riesgoActivo?.codigo ?? 'riesgo'}` : `Ver ${riesgoActivo?.codigo ?? 'riesgo'}`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => { try { if (modoModal === 'ver') { setModalAbierto(false); return } if (modoModal === 'crear') await crearRiesgoPm(valores); if (modoModal === 'editar' && riesgoActivo) await editarRiesgoPm(riesgoActivo.id, valores); setModalAbierto(false); await cargar() } catch (errorInterno) { setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el riesgo') } })}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm"><span>Código</span><input {...formulario.register('codigo')} disabled={modoModal === 'ver'} className={claseCampo} /></label>

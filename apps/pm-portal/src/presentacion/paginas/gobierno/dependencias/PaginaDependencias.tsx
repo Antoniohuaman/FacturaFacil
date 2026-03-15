@@ -284,7 +284,7 @@ export function PaginaDependencias() {
         </>
       </EstadoVista>
 
-      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nueva dependencia' : modoModal === 'editar' ? `Editar ${dependenciaActiva?.codigo ?? 'dependencia'}` : `Detalle ${dependenciaActiva?.codigo ?? 'dependencia'}`} alCerrar={() => setModalAbierto(false)}>
+      <ModalPortal abierto={modalAbierto} titulo={modoModal === 'crear' ? 'Nueva dependencia' : modoModal === 'editar' ? `Editar ${dependenciaActiva?.codigo ?? 'dependencia'}` : `Ver ${dependenciaActiva?.codigo ?? 'dependencia'}`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => { try { if (modoModal === 'ver') { setModalAbierto(false); return } if (modoModal === 'crear') await crearDependenciaPm(valores); if (modoModal === 'editar' && dependenciaActiva) await editarDependenciaPm(dependenciaActiva.id, valores); setModalAbierto(false); await cargar() } catch (errorInterno) { setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar la dependencia') } })}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm"><span>Código</span><input {...formulario.register('codigo')} disabled={modoModal === 'ver'} className={claseCampo} /></label>

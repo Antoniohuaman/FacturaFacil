@@ -495,7 +495,7 @@ export function PaginaAuditorias() {
           }}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
         >
-          Exportar CSV auditorías
+          Exportar CSV
         </button>
       </div>
 
