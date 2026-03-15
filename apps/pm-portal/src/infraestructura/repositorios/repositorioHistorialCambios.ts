@@ -47,11 +47,11 @@ export const repositorioHistorialCambios = {
     }
 
     if (filtros.fechaDesde) {
-      consulta = consulta.gte('created_at', `${filtros.fechaDesde}T00:00:00`)
+      consulta = consulta.gte('created_at', `${filtros.fechaDesde}T00:00:00-05:00`)
     }
 
     if (filtros.fechaHasta) {
-      consulta = consulta.lte('created_at', `${filtros.fechaHasta}T23:59:59.999`)
+      consulta = consulta.lte('created_at', `${filtros.fechaHasta}T23:59:59.999-05:00`)
     }
 
     const { data, error } = await consulta

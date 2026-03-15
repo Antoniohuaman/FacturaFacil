@@ -13,7 +13,10 @@ import { normalizarFechaPortal, formatearFechaCorta } from '@/compartido/utilida
 import { NavegacionLanzamientos } from '@/presentacion/paginas/lanzamientos/NavegacionLanzamientos'
 
 function inicioDia(fecha: Date) {
-  return fecha.toISOString().slice(0, 10)
+  const año = String(fecha.getFullYear())
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const dia = String(fecha.getDate()).padStart(2, '0')
+  return `${año}-${mes}-${dia}`
 }
 
 function construirChecklistPorRelease(checklist: ReleaseChecklistItemPm[]) {

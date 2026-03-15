@@ -29,6 +29,27 @@ export function formatearFechaCorta(fecha: string | null | undefined): string {
   return formateadorFechaCorta.format(fechaDate)
 }
 
+const formateadorFechaHoraCorta = new Intl.DateTimeFormat('es-PE', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})
+
+export function formatearFechaHoraCorta(fecha: string | null | undefined): string {
+  if (!fecha) {
+    return ''
+  }
+
+  const fechaDate = new Date(fecha)
+  if (Number.isNaN(fechaDate.getTime())) {
+    return fecha.slice(0, 16)
+  }
+
+  return formateadorFechaHoraCorta.format(fechaDate)
+}
+
 export function formatearEstadoLegible(estado: string | null | undefined) {
   if (!estado) {
     return ''
