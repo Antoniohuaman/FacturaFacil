@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { menuPortal } from '@/presentacion/navegacion/menuPortal'
 
@@ -13,6 +13,16 @@ export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLat
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>({})
 
   const rutaActiva = ubicacion.pathname
+
+  // Auto-abre el módulo activo cuando cambia la ruta, sin forzarlo permanentemente
+  useEffect(() => {
+    const itemActivo = menuPortal.find(
+      (item) => rutaActiva === item.ruta || rutaActiva.startsWith(`${item.ruta}/`)
+    )
+    if (itemActivo) {
+      setAbiertos((prev) => ({ ...prev, [itemActivo.etiqueta]: true }))
+    }
+  }, [rutaActiva])
 
   const menuConEstado = useMemo(
     () =>
@@ -45,8 +55,7 @@ export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLat
         <ul className="space-y-1">
           {menuConEstado.map((item) => {
             const tieneSubmenu = Boolean(item.submenus?.length)
-            const estadoGuardado = abiertos[item.etiqueta] ?? false
-            const estaAbierto = item.activo || estadoGuardado
+            const estaAbierto = abiertos[item.etiqueta] ?? false
 
             return (
               <li key={item.etiqueta}>
@@ -63,13 +72,13 @@ export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLat
                     {colapsada ? item.etiqueta.charAt(0) : item.etiqueta}
                   </Link>
 
-                  {!colapsada && tieneSubmenu && !item.activo && (
+                  {!colapsada && tieneSubmenu && (
                     <button
                       type="button"
                       onClick={() =>
                         setAbiertos((estadoActual) => ({
                           ...estadoActual,
-                          [item.etiqueta]: !estadoGuardado
+                          [item.etiqueta]: !estaAbierto
                         }))
                       }
                       className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
