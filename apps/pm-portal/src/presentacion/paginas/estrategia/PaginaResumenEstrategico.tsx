@@ -19,7 +19,7 @@ import { NavegacionEstrategia } from '@/presentacion/paginas/estrategia/Navegaci
 import { GestionPeriodosEstrategicos } from '@/presentacion/paginas/estrategia/GestionPeriodosEstrategicos'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
-import { calcularAvancePorcentaje } from '@/compartido/utilidades/formatoPortal'
+import { calcularAvancePorcentaje, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 
 function calcularAvanceGeneral(keyResults: KeyResultPm[], kpis: KpiEstrategicoPm[]) {
   const avancesKr = keyResults
@@ -159,7 +159,7 @@ export function PaginaResumenEstrategico() {
               <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Periodo activo</p>
                 <p className="mt-2 text-base font-semibold">{periodoActivo.nombre}</p>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{periodoActivo.fecha_inicio} → {periodoActivo.fecha_fin}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatearFechaCorta(periodoActivo.fecha_inicio)} → {formatearFechaCorta(periodoActivo.fecha_fin)}</p>
               </article>
               <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Objetivos estratégicos</p>

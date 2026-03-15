@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { obtenerFuentesResumenAnalitico } from '@/aplicacion/casos-uso/analitica'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionAnalitica } from '@/presentacion/paginas/analitica/NavegacionAnalitica'
 
 type FuentesResumenAnalitico = Awaited<ReturnType<typeof obtenerFuentesResumenAnalitico>>
@@ -373,7 +373,7 @@ export function PaginaResumenAnalitico() {
                             <p className="text-sm text-slate-600 dark:text-slate-300">{release.nombre}</p>
                           </div>
                           <span className="text-xs text-slate-500 dark:text-slate-400">
-                            {normalizarFechaPortal(release.fecha_lanzamiento_real ?? release.fecha_programada)}
+                            {formatearFechaCorta(release.fecha_lanzamiento_real ?? release.fecha_programada)}
                           </span>
                         </div>
                       </Link>

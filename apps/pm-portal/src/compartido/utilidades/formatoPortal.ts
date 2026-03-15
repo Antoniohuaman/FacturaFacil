@@ -9,6 +9,26 @@ export function normalizarFechaPortal(fecha: string | null | undefined) {
   return fechaNormalizada
 }
 
+const formateadorFechaCorta = new Intl.DateTimeFormat('es-PE', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric'
+})
+
+export function formatearFechaCorta(fecha: string | null | undefined): string {
+  if (!fecha) {
+    return ''
+  }
+
+  const fechaNormalizada = fecha.includes('T') ? fecha : `${fecha}T00:00:00`
+  const fechaDate = new Date(fechaNormalizada)
+  if (Number.isNaN(fechaDate.getTime())) {
+    return fecha.slice(0, 10)
+  }
+
+  return formateadorFechaCorta.format(fechaDate)
+}
+
 export function formatearEstadoLegible(estado: string | null | undefined) {
   if (!estado) {
     return ''

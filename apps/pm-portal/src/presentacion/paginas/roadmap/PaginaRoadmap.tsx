@@ -17,6 +17,7 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import {
   estadosRegistro,
+  formatearEstadoRegistro,
   formatearEstadoRelease,
   type BloqueoPm,
   type BugPm,
@@ -727,7 +728,7 @@ export function PaginaRoadmap() {
                             ) : null}
                           </div>
                           <span className={`rounded-full px-2 py-0.5 text-xs ${clasesBadgeEstado(objetivo.estado)}`}>
-                            {objetivo.estado}
+                            {formatearEstadoRegistro(objetivo.estado)}
                           </span>
                         </div>
 
@@ -789,7 +790,7 @@ export function PaginaRoadmap() {
                             RICE: {iniciativa.rice}
                           </span>
                           <span className={`rounded-full px-2 py-0.5 text-xs ${clasesBadgeEstado(iniciativa.estado)}`}>
-                            {iniciativa.estado}
+                            {formatearEstadoRegistro(iniciativa.estado)}
                           </span>
                         </div>
                       </li>
@@ -827,7 +828,7 @@ export function PaginaRoadmap() {
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-medium">{entrega.nombre}</p>
                           <span className={`rounded-full px-2 py-0.5 text-xs ${clasesBadgeEstado(entrega.estado)}`}>
-                            {entrega.estado}
+                            {formatearEstadoRegistro(entrega.estado)}
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">

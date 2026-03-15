@@ -9,7 +9,7 @@ import {
 import { listarDependenciasPm, listarRiesgosPm } from '@/aplicacion/casos-uso/gobierno'
 import { obtenerContadoresLanzamientos } from '@/aplicacion/casos-uso/lanzamientos'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { normalizarFechaPortal, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionLanzamientos } from '@/presentacion/paginas/lanzamientos/NavegacionLanzamientos'
 
 function inicioDia(fecha: Date) {
@@ -243,7 +243,7 @@ export function PaginaResumenLanzamientos() {
                           <p className="font-medium">{release.codigo} · {release.nombre}</p>
                           <p className="text-xs text-slate-500 dark:text-slate-400">{formatearEstadoRelease(release.estado)}</p>
                         </div>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">{normalizarFechaPortal(release.fecha_programada)}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{formatearFechaCorta(release.fecha_programada)}</span>
                       </div>
                     </div>
                   ))
@@ -281,7 +281,7 @@ export function PaginaResumenLanzamientos() {
                               {incompletos > 0 ? ` · ${incompletos} items pendientes` : ' · Checklist al día'}
                             </p>
                           </div>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">{normalizarFechaPortal(release.updated_at)}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{formatearFechaCorta(release.updated_at)}</span>
                         </div>
                       </div>
                     )
