@@ -251,7 +251,7 @@ export function PaginaResumenDiscovery() {
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-2">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">Resumen discovery</h1>
+          <h1 className="text-2xl font-semibold">Resumen de discovery</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Consolida señales, problemas, investigación y las conexiones opcionales con objetivos estratégicos, iniciativas roadmap y decisiones.
           </p>

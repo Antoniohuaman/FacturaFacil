@@ -144,7 +144,7 @@ export function PaginaResumenEstrategico() {
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-2">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">Resumen estratégico</h1>
+          <h1 className="text-2xl font-semibold">Resumen de estrategia</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Consolida el periodo activo, el avance de OKRs/KPIs y la relación entre objetivos estratégicos, hipótesis estrategia y artefactos de roadmap.
           </p>

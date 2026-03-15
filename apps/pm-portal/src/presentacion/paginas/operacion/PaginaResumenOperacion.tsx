@@ -118,7 +118,7 @@ export function PaginaResumenOperacion() {
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-2">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">Resumen operativo</h1>
+          <h1 className="text-2xl font-semibold">Resumen de operación</h1>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Consolida bugs, mejoras, deuda técnica, bloqueos y lecciones aprendidas con trazabilidad opcional hacia delivery, auditoría, discovery y lanzamientos.
           </p>
