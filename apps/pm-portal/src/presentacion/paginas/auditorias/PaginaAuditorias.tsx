@@ -45,6 +45,7 @@ import { exportarCsv } from '@/compartido/utilidades/csv'
 import {
   formatearEstadoCatalogo,
   formatearEstadoLegible,
+  formatearFechaCorta,
   normalizarFechaPortal
 } from '@/compartido/utilidades/formatoPortal'
 
@@ -513,7 +514,7 @@ export function PaginaAuditorias() {
             <ul className="divide-y divide-slate-200 dark:divide-slate-800">
               {paginacionAuditorias.itemsPaginados.map((auditoria) => (
                 <li key={auditoria.id} className="space-y-2 px-4 py-3 text-sm">
-                  <p className="font-medium">{auditoria.fecha_auditoria} · {auditoria.tipo_auditoria_codigo}</p>
+                  <p className="font-medium">{formatearFechaCorta(auditoria.fecha_auditoria)} · {auditoria.tipo_auditoria_codigo}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Estado: {formatearEstadoCatalogo(auditoria.estado_codigo, estadoAuditoriaPorCodigo)}
                   </p>
@@ -808,7 +809,7 @@ export function PaginaAuditorias() {
               >
                 {auditorias.map((auditoria) => (
                   <option key={auditoria.id} value={auditoria.id}>
-                    {auditoria.fecha_auditoria} · {auditoria.tipo_auditoria_codigo}
+                    {formatearFechaCorta(auditoria.fecha_auditoria)} · {auditoria.tipo_auditoria_codigo}
                   </option>
                 ))}
               </select>
@@ -905,7 +906,7 @@ export function PaginaAuditorias() {
                 <option value="">Sin ejecución de validación</option>
                 {ejecuciones.map((ejecucion) => (
                   <option key={ejecucion.id} value={ejecucion.id}>
-                    {ejecucion.fecha_ejecucion} · {formatearEstadoLegible(ejecucion.estado_codigo)}
+                    {formatearFechaCorta(ejecucion.fecha_ejecucion)} · {formatearEstadoLegible(ejecucion.estado_codigo)}
                   </option>
                 ))}
               </select>

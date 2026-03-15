@@ -11,7 +11,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionOperacion } from '@/presentacion/paginas/operacion/NavegacionOperacion'
@@ -201,7 +201,7 @@ export function PaginaBugs() {
       new Map(
         (referencias?.auditorias ?? []).map((auditoria) => [
           auditoria.id,
-          `${auditoria.tipo_auditoria_codigo} · ${normalizarFechaPortal(auditoria.fecha_auditoria)}`
+          `${auditoria.tipo_auditoria_codigo} · ${formatearFechaCorta(auditoria.fecha_auditoria)}`
         ])
       ),
     [referencias]
@@ -363,7 +363,7 @@ export function PaginaBugs() {
           <option value="todos">Auditoría: todas</option>
           {(referencias?.auditorias ?? []).map((auditoria) => (
             <option key={auditoria.id} value={auditoria.id}>
-              {auditoria.tipo_auditoria_codigo} · {normalizarFechaPortal(auditoria.fecha_auditoria)}
+              {auditoria.tipo_auditoria_codigo} · {formatearFechaCorta(auditoria.fecha_auditoria)}
             </option>
           ))}
         </select>
@@ -443,8 +443,8 @@ export function PaginaBugs() {
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                          <p>Reporte: {normalizarFechaPortal(bug.fecha_reporte)}</p>
-                          <p>Resolución: {normalizarFechaPortal(bug.fecha_resolucion) || 'Pendiente'}</p>
+                          <p>Reporte: {formatearFechaCorta(bug.fecha_reporte)}</p>
+                          <p>Resolución: {formatearFechaCorta(bug.fecha_resolucion) || 'Pendiente'}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top">
@@ -631,7 +631,7 @@ export function PaginaBugs() {
                 <option value="">Sin auditoría</option>
                 {(referencias?.auditorias ?? []).map((auditoria) => (
                   <option key={auditoria.id} value={auditoria.id}>
-                    {auditoria.tipo_auditoria_codigo} · {normalizarFechaPortal(auditoria.fecha_auditoria)}
+                    {auditoria.tipo_auditoria_codigo} · {formatearFechaCorta(auditoria.fecha_auditoria)}
                   </option>
                 ))}
               </select>

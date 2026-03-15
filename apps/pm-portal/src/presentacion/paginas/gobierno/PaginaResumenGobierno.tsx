@@ -16,7 +16,7 @@ import {
 } from '@/dominio/modelos'
 import { obtenerResumenGobierno } from '@/aplicacion/casos-uso/gobierno'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionGobierno } from '@/presentacion/paginas/gobierno/NavegacionGobierno'
 
 type ResumenGobierno = Awaited<ReturnType<typeof obtenerResumenGobierno>>
@@ -303,7 +303,7 @@ export function PaginaResumenGobierno() {
                             <p className="font-medium">{item.tipo}</p>
                             <p className="text-sm text-slate-600 dark:text-slate-300">{item.titulo}</p>
                           </div>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">{normalizarFechaPortal(item.fecha)}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{formatearFechaCorta(item.fecha)}</span>
                         </div>
                       </Link>
                     ))

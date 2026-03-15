@@ -18,7 +18,7 @@ import {
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionRequerimientos } from '@/presentacion/paginas/requerimientos/NavegacionRequerimientos'
 
 interface RegistroReciente {
@@ -277,7 +277,7 @@ export function PaginaResumenRequerimientos() {
                         <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{registro.entidad}</p>
                         <p className="mt-1 font-medium">{registro.titulo}</p>
                       </div>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">{normalizarFechaPortal(registro.fecha)}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{formatearFechaCorta(registro.fecha)}</span>
                     </div>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{registro.descripcion}</p>
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">

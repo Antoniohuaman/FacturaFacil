@@ -20,7 +20,7 @@ import {
 import { listarDependenciasPm, listarRiesgosPm } from '@/aplicacion/casos-uso/gobierno'
 import { obtenerResumenOperacion } from '@/aplicacion/casos-uso/operacion'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionOperacion } from '@/presentacion/paginas/operacion/NavegacionOperacion'
 
 export function PaginaResumenOperacion() {
@@ -227,7 +227,7 @@ export function PaginaResumenOperacion() {
                           <p className="font-medium">{item.tipo}</p>
                           <p className="text-sm text-slate-600 dark:text-slate-300">{item.titulo}</p>
                         </div>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">{normalizarFechaPortal(item.fecha)}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{formatearFechaCorta(item.fecha)}</span>
                       </div>
                     </Link>
                   ))

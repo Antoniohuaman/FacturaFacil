@@ -28,7 +28,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionGobierno } from '@/presentacion/paginas/gobierno/NavegacionGobierno'
@@ -265,7 +265,7 @@ export function PaginaRiesgos() {
                         <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                           <p>{formatearCriticidadGobierno(riesgo.criticidad)}</p>
                           <p>{formatearEstadoRiesgo(riesgo.estado)}</p>
-                          <p>{normalizarFechaPortal(riesgo.fecha_objetivo) || 'Sin fecha objetivo'}</p>
+                          <p>{formatearFechaCorta(riesgo.fecha_objetivo) || 'Sin fecha objetivo'}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top">
@@ -314,7 +314,7 @@ export function PaginaRiesgos() {
             <label className="space-y-1 text-sm"><span>Entrega</span><select {...formulario.register('entrega_id')} disabled={modoModal === 'ver'} className={claseCampo}><option value="">Sin entrega</option>{(referencias?.entregas ?? []).map((entrega) => <option key={entrega.id} value={entrega.id}>{entrega.nombre}</option>)}</select></label>
             <label className="space-y-1 text-sm"><span>Release</span><select {...formulario.register('release_id')} disabled={modoModal === 'ver'} className={claseCampo}><option value="">Sin release</option>{(referencias?.releases ?? []).map((release) => <option key={release.id} value={release.id}>{release.codigo} · {release.nombre}</option>)}</select></label>
             <label className="space-y-1 text-sm"><span>Decisión</span><select {...formulario.register('decision_id')} disabled={modoModal === 'ver'} className={claseCampo}><option value="">Sin decisión</option>{(referencias?.decisiones ?? []).map((decision) => <option key={decision.id} value={decision.id}>{decision.titulo}</option>)}</select></label>
-            <label className="space-y-1 text-sm"><span>Auditoría</span><select {...formulario.register('auditoria_id')} disabled={modoModal === 'ver'} className={claseCampo}><option value="">Sin auditoría</option>{(referencias?.auditorias ?? []).map((auditoria) => <option key={auditoria.id} value={auditoria.id}>{auditoria.fecha_auditoria}</option>)}</select></label>
+            <label className="space-y-1 text-sm"><span>Auditoría</span><select {...formulario.register('auditoria_id')} disabled={modoModal === 'ver'} className={claseCampo}><option value="">Sin auditoría</option>{(referencias?.auditorias ?? []).map((auditoria) => <option key={auditoria.id} value={auditoria.id}>{formatearFechaCorta(auditoria.fecha_auditoria)}</option>)}</select></label>
             <label className="space-y-1 text-sm md:col-span-2"><span>Notas</span><textarea {...formulario.register('notas')} disabled={modoModal === 'ver'} rows={3} className={claseCampo} /></label>
           </div>
           {Object.keys(formulario.formState.errors).length > 0 && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">Revisa los campos obligatorios y las fechas antes de guardar.</div>}

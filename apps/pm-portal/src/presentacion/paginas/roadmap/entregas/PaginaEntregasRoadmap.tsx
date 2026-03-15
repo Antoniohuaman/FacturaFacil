@@ -32,7 +32,7 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '../../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import { formatearEstadoRelease } from '@/dominio/modelos'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
@@ -727,8 +727,8 @@ export function PaginaEntregasRoadmap() {
                       Real: {ventanaPorId.get(entrega.ventana_real_id ?? '') ?? 'Sin asignar'}
                     </p>
                   </td>
-                  <td className="px-3 py-2">{entrega.fecha_objetivo ?? 'Sin fecha'}</td>
-                  <td className="px-3 py-2">{entrega.fecha_completado ?? 'Sin fecha'}</td>
+                  <td className="px-3 py-2">{entrega.fecha_objetivo ? formatearFechaCorta(entrega.fecha_objetivo) : 'Sin fecha'}</td>
+                  <td className="px-3 py-2">{entrega.fecha_completado ? formatearFechaCorta(entrega.fecha_completado) : 'Sin fecha'}</td>
                   <td className="px-3 py-2">{entrega.estado}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">

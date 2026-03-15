@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { periodoEstrategicoSchema, type PeriodoEstrategicoEntrada } from '@/compartido/validacion/esquemas'
 import type { PeriodoEstrategicoPm } from '@/dominio/modelos'
 import {
@@ -95,7 +96,7 @@ export function GestionPeriodosEstrategicos({
                       <p className="font-medium">{periodo.nombre}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{periodo.descripcion ?? 'Sin descripción'}</p>
                     </td>
-                    <td className="px-3 py-2">{periodo.fecha_inicio} → {periodo.fecha_fin}</td>
+                    <td className="px-3 py-2">{formatearFechaCorta(periodo.fecha_inicio)} → {formatearFechaCorta(periodo.fecha_fin)}</td>
                     <td className="px-3 py-2">{periodo.activo ? 'Activo' : 'Inactivo'}</td>
                     <td className="px-3 py-2">
                       <div className="flex gap-2">

@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { exportarCsv } from '@/compartido/utilidades/csv'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { kpiEjecutivoSchema, type KpiEjecutivoEntrada } from '@/compartido/validacion/esquemas'
@@ -248,7 +249,7 @@ export function PaginaKpis() {
                         <p className="text-xs text-slate-500 dark:text-slate-400">{variacion === null ? 'Sin base comparativa' : `${String(variacion)}%`}</p>
                       </td>
                       <td className="px-4 py-3">{formatearEstadoSaludAnalitica(kpi.estado)}</td>
-                      <td className="px-4 py-3">{kpi.fecha_corte}</td>
+                      <td className="px-4 py-3">{formatearFechaCorta(kpi.fecha_corte)}</td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           <button type="button" onClick={() => abrirModal('ver', kpi)} className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-700">Ver</button>

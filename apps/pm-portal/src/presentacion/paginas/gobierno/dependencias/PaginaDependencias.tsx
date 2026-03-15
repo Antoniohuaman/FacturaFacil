@@ -24,7 +24,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionGobierno } from '@/presentacion/paginas/gobierno/NavegacionGobierno'
@@ -263,8 +263,8 @@ export function PaginaDependencias() {
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                          <p>Identificada: {normalizarFechaPortal(dependencia.fecha_identificacion)}</p>
-                          <p>Objetivo: {normalizarFechaPortal(dependencia.fecha_objetivo) || 'Sin fecha objetivo'}</p>
+                          <p>Identificada: {formatearFechaCorta(dependencia.fecha_identificacion)}</p>
+                          <p>Objetivo: {formatearFechaCorta(dependencia.fecha_objetivo) || 'Sin fecha objetivo'}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top">

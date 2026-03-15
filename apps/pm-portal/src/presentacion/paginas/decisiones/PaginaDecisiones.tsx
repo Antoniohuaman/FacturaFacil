@@ -31,7 +31,7 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoCatalogo, formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoCatalogo, formatearEstadoLegible, formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -435,7 +435,7 @@ export function PaginaDecisiones() {
                     </p>
                   </td>
                   <td className="px-3 py-2">{formatearEstadoCatalogo(decision.estado_codigo, estadoPorCodigo)}</td>
-                  <td className="px-3 py-2">{decision.fecha_decision}</td>
+                  <td className="px-3 py-2">{formatearFechaCorta(decision.fecha_decision)}</td>
                   <td className="px-3 py-2">{decision.owner ?? 'Sin owner'}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
@@ -646,7 +646,7 @@ export function PaginaDecisiones() {
                 <option value="">Sin ejecución de validación</option>
                 {ejecuciones.map((ejecucion) => (
                   <option key={ejecucion.id} value={ejecucion.id}>
-                    {ejecucion.fecha_ejecucion} · {formatearEstadoLegible(ejecucion.estado_codigo)}
+                    {formatearFechaCorta(ejecucion.fecha_ejecucion)} · {formatearEstadoLegible(ejecucion.estado_codigo)}
                   </option>
                 ))}
               </select>

@@ -31,7 +31,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionLanzamientos } from '@/presentacion/paginas/lanzamientos/NavegacionLanzamientos'
@@ -546,9 +546,9 @@ export function PaginaReleases() {
                       </p>
                     </td>
                     <td className="px-3 py-2">
-                      <p>{normalizarFechaPortal(release.fecha_programada)}</p>
+                      <p>{formatearFechaCorta(release.fecha_programada)}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Real: {normalizarFechaPortal(release.fecha_lanzamiento_real) || 'Sin fecha'}
+                        Real: {formatearFechaCorta(release.fecha_lanzamiento_real) || 'Sin fecha'}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {release.rollback_preparado ? 'Rollback preparado' : 'Sin rollback preparado'}

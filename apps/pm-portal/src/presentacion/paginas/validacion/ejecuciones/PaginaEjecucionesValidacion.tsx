@@ -23,7 +23,7 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoCatalogo, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoCatalogo, formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionValidacion } from '@/presentacion/paginas/validacion/NavegacionValidacion'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
@@ -304,7 +304,7 @@ export function PaginaEjecucionesValidacion() {
             <tbody>
               {paginacion.itemsPaginados.map((ejecucion) => (
                 <tr key={ejecucion.id} className="border-t border-slate-200 dark:border-slate-800">
-                  <td className="px-3 py-2">{ejecucion.fecha_ejecucion}</td>
+                  <td className="px-3 py-2">{formatearFechaCorta(ejecucion.fecha_ejecucion)}</td>
                   <td className="px-3 py-2">{planPorId.get(ejecucion.plan_validacion_id) ?? 'No disponible'}</td>
                   <td className="px-3 py-2">{moduloPorId.get(ejecucion.modulo_id) ?? 'No disponible'}</td>
                   <td className="px-3 py-2">{formatearEstadoCatalogo(ejecucion.estado_codigo, estadoPorCodigo)}</td>

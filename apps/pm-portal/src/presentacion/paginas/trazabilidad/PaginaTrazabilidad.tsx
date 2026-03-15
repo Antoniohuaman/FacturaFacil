@@ -5,7 +5,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeAdministrar } from '@/compartido/utilidades/permisosRol'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 
 export function PaginaTrazabilidad() {
   const { rol } = useSesionPortalPM()
@@ -115,7 +115,7 @@ export function PaginaTrazabilidad() {
             <tbody>
               {eventos.map((evento) => (
                 <tr key={evento.id} className="border-t border-slate-200 dark:border-slate-800">
-                  <td className="px-3 py-2">{normalizarFechaPortal(evento.created_at)}</td>
+                  <td className="px-3 py-2">{formatearFechaCorta(evento.created_at)}</td>
                   <td className="px-3 py-2">{evento.modulo_codigo}</td>
                   <td className="px-3 py-2">{evento.entidad}</td>
                   <td className="px-3 py-2">{formatearEstadoLegible(evento.accion)}</td>

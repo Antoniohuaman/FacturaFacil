@@ -19,7 +19,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionDiscovery } from '@/presentacion/paginas/discovery/NavegacionDiscovery'
@@ -264,7 +264,7 @@ export function PaginaInvestigaciones() {
                 <tr key={investigacion.id} className="border-t border-slate-200 dark:border-slate-800">
                   <td className="px-3 py-2">
                     <p className="font-medium">{investigacion.titulo}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{investigacion.tipo_investigacion} · {normalizarFechaPortal(investigacion.fecha_investigacion)}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{investigacion.tipo_investigacion} · {formatearFechaCorta(investigacion.fecha_investigacion)}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{relacionesInsights.get(investigacion.id) ?? 0} insights vinculados</p>
                   </td>
                   <td className="px-3 py-2">

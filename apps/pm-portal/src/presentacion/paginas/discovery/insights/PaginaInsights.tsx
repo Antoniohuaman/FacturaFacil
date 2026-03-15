@@ -28,7 +28,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionDiscovery } from '@/presentacion/paginas/discovery/NavegacionDiscovery'
@@ -304,7 +304,7 @@ export function PaginaInsights() {
       decisiones.map((decision) => ({
         id: decision.id,
         etiqueta: decision.titulo,
-        descripcion: `${decision.estado_codigo} · ${normalizarFechaPortal(decision.fecha_decision)}`
+        descripcion: `${decision.estado_codigo} · ${formatearFechaCorta(decision.fecha_decision)}`
       })),
     [decisiones]
   )
@@ -508,7 +508,7 @@ export function PaginaInsights() {
                     <p>{insight.estado}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{insight.relevancia}</p>
                   </td>
-                  <td className="px-3 py-2">{normalizarFechaPortal(insight.fecha_hallazgo)}</td>
+                  <td className="px-3 py-2">{formatearFechaCorta(insight.fecha_hallazgo)}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
                       <button type="button" onClick={() => abrirModal('ver', insight)} className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-700">Ver</button>

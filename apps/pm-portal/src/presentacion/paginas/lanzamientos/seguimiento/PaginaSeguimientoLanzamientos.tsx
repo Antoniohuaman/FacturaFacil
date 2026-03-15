@@ -20,7 +20,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionLanzamientos } from '@/presentacion/paginas/lanzamientos/NavegacionLanzamientos'
@@ -284,7 +284,7 @@ export function PaginaSeguimientoLanzamientos() {
                     <p className="font-medium">{releasePorId.get(seguimiento.release_id) ?? 'Release no disponible'}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{seguimiento.metrica_clave ?? 'Sin métrica clave'}</p>
                   </td>
-                  <td className="px-3 py-2">{normalizarFechaPortal(seguimiento.fecha_registro)}</td>
+                  <td className="px-3 py-2">{formatearFechaCorta(seguimiento.fecha_registro)}</td>
                   <td className="px-3 py-2">
                     <p>{formatearEstadoEstabilizacionRelease(seguimiento.estado_estabilizacion)}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { NavegacionValidacion } from '@/presentacion/paginas/validacion/NavegacionValidacion'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { obtenerResumenValidacion } from '@/aplicacion/casos-uso/validaciones'
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
@@ -119,7 +120,7 @@ export function PaginaValidacion() {
               <ul className="mt-2 space-y-2 text-sm">
                 {ejecucionesRecientes.map((ejecucion) => (
                   <li key={ejecucion.id} className="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
-                    <p className="font-medium">{ejecucion.fecha_ejecucion}</p>
+                    <p className="font-medium">{formatearFechaCorta(ejecucion.fecha_ejecucion)}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">Estado: {ejecucion.estado_codigo}</p>
                   </li>
                 ))}

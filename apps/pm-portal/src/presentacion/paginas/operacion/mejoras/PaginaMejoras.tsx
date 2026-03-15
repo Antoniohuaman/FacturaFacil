@@ -11,7 +11,7 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { NavegacionOperacion } from '@/presentacion/paginas/operacion/NavegacionOperacion'
@@ -253,7 +253,7 @@ export function PaginaMejoras() {
                       <td className="px-4 py-3 align-top">{formatearEstadoMejora(mejora.estado)}</td>
                       <td className="px-4 py-3 align-top">{formatearPrioridadRegistro(mejora.prioridad)}</td>
                       <td className="px-4 py-3 align-top"><div className="space-y-1 text-xs text-slate-500 dark:text-slate-400"><p>{nombresModulo.get(mejora.modulo_codigo ?? '') ?? 'Sin módulo'}</p><p>{nombresInsight.get(mejora.insight_id ?? '') ?? 'Sin insight'}</p><p>{nombresHipotesis.get(mejora.hipotesis_discovery_id ?? '') ?? 'Sin hipótesis'}</p></div></td>
-                      <td className="px-4 py-3 align-top"><div className="space-y-1 text-xs text-slate-500 dark:text-slate-400"><p>Solicitud: {normalizarFechaPortal(mejora.fecha_solicitud)}</p><p>Cierre: {normalizarFechaPortal(mejora.fecha_cierre) || 'Pendiente'}</p></div></td>
+                      <td className="px-4 py-3 align-top"><div className="space-y-1 text-xs text-slate-500 dark:text-slate-400"><p>Solicitud: {formatearFechaCorta(mejora.fecha_solicitud)}</p><p>Cierre: {formatearFechaCorta(mejora.fecha_cierre) || 'Pendiente'}</p></div></td>
                       <td className="px-4 py-3 align-top"><div className="flex justify-end gap-2"><button type="button" onClick={() => abrirModal('ver', mejora)} className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-700">Ver</button><button type="button" onClick={() => abrirModal('editar', mejora)} disabled={!esEdicionPermitida} className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700">Editar</button><button type="button" onClick={async () => { if (!esEdicionPermitida || !window.confirm(`Eliminar ${mejora.codigo}?`)) return; try { await eliminarMejoraPm(mejora.id); await cargar() } catch (errorInterno) { setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la mejora') } }} disabled={!esEdicionPermitida} className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-700 disabled:opacity-50 dark:border-rose-800 dark:text-rose-300">Eliminar</button></div></td>
                     </tr>
                   ))}
