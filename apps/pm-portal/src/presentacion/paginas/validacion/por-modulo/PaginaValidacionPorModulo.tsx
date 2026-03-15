@@ -29,6 +29,7 @@ import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoCatalogo, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
+import { NavegacionValidacion } from '@/presentacion/paginas/validacion/NavegacionValidacion'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -217,11 +218,14 @@ export function PaginaValidacionPorModulo() {
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Validación por módulo</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Administra planes/checklist por módulo y sus plantillas reutilizables.
-        </p>
+      <header className="space-y-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">Validación por módulo</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Administra planes/checklist por módulo y sus plantillas reutilizables.
+          </p>
+        </div>
+        <NavegacionValidacion />
       </header>
 
       <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3 dark:border-slate-800 dark:bg-slate-900">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { NavegacionValidacion } from '@/presentacion/paginas/validacion/NavegacionValidacion'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { obtenerResumenValidacion } from '@/aplicacion/casos-uso/validaciones'
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
@@ -57,11 +58,14 @@ export function PaginaValidacion() {
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Validación</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Control central de planes, plantillas y ejecuciones de validación por módulo.
-        </p>
+      <header className="space-y-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">Validación</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Control central de planes, plantillas y ejecuciones de validación por módulo.
+          </p>
+        </div>
+        <NavegacionValidacion />
       </header>
 
       <EstadoVista
