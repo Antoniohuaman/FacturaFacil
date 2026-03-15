@@ -12,6 +12,37 @@ export interface ItemMenuPortal {
 export const menuPortal: ItemMenuPortal[] = [
   { etiqueta: 'Tablero', ruta: '/' },
   {
+    etiqueta: 'Estrategia',
+    ruta: '/estrategia',
+    submenus: [
+      { etiqueta: 'Períodos', ruta: '/estrategia/periodos' },
+      { etiqueta: 'OKRs', ruta: '/estrategia/okrs' },
+      { etiqueta: 'KPIs estratégicos', ruta: '/estrategia/kpis' },
+      { etiqueta: 'Hipótesis', ruta: '/estrategia/hipotesis' }
+    ]
+  },
+  {
+    etiqueta: 'Discovery',
+    ruta: '/discovery',
+    submenus: [
+      { etiqueta: 'Insights', ruta: '/discovery/insights' },
+      { etiqueta: 'Problemas y oportunidades', ruta: '/discovery/problemas' },
+      { etiqueta: 'Investigaciones', ruta: '/discovery/investigaciones' },
+      { etiqueta: 'Segmentos', ruta: '/discovery/segmentos' },
+      { etiqueta: 'Hipótesis discovery', ruta: '/discovery/hipotesis' }
+    ]
+  },
+  {
+    etiqueta: 'Requerimientos',
+    ruta: '/requerimientos',
+    submenus: [
+      { etiqueta: 'Historias de usuario', ruta: '/requerimientos/historias' },
+      { etiqueta: 'Casos de uso', ruta: '/requerimientos/casos-uso' },
+      { etiqueta: 'Reglas de negocio', ruta: '/requerimientos/reglas-negocio' },
+      { etiqueta: 'Requerimientos no funcionales', ruta: '/requerimientos/no-funcionales' }
+    ]
+  },
+  {
     etiqueta: 'Roadmap',
     ruta: '/roadmap',
     submenus: [
@@ -30,44 +61,9 @@ export const menuPortal: ItemMenuPortal[] = [
     ]
   },
   {
-    etiqueta: 'Estrategia',
-    ruta: '/estrategia',
-    submenus: [
-      { etiqueta: 'Resumen estratégico', ruta: '/estrategia' },
-      { etiqueta: 'Períodos', ruta: '/estrategia/periodos' },
-      { etiqueta: 'OKRs', ruta: '/estrategia/okrs' },
-      { etiqueta: 'KPIs', ruta: '/estrategia/kpis' },
-      { etiqueta: 'Hipótesis', ruta: '/estrategia/hipotesis' }
-    ]
-  },
-  {
-    etiqueta: 'Discovery',
-    ruta: '/discovery',
-    submenus: [
-      { etiqueta: 'Resumen discovery', ruta: '/discovery' },
-      { etiqueta: 'Insights', ruta: '/discovery/insights' },
-      { etiqueta: 'Problemas y oportunidades', ruta: '/discovery/problemas' },
-      { etiqueta: 'Investigaciones', ruta: '/discovery/investigaciones' },
-      { etiqueta: 'Segmentos', ruta: '/discovery/segmentos' },
-      { etiqueta: 'Hipótesis discovery', ruta: '/discovery/hipotesis' }
-    ]
-  },
-  {
-    etiqueta: 'Requerimientos',
-    ruta: '/requerimientos',
-    submenus: [
-      { etiqueta: 'Resumen de requerimientos', ruta: '/requerimientos' },
-      { etiqueta: 'Historias de usuario', ruta: '/requerimientos/historias' },
-      { etiqueta: 'Casos de uso', ruta: '/requerimientos/casos-uso' },
-      { etiqueta: 'Reglas de negocio', ruta: '/requerimientos/reglas-negocio' },
-      { etiqueta: 'Requerimientos no funcionales', ruta: '/requerimientos/no-funcionales' }
-    ]
-  },
-  {
     etiqueta: 'Lanzamientos',
     ruta: '/lanzamientos',
     submenus: [
-      { etiqueta: 'Resumen de lanzamientos', ruta: '/lanzamientos' },
       { etiqueta: 'Releases', ruta: '/lanzamientos/releases' },
       { etiqueta: 'Seguimiento post-lanzamiento', ruta: '/lanzamientos/seguimiento' }
     ]
@@ -76,7 +72,6 @@ export const menuPortal: ItemMenuPortal[] = [
     etiqueta: 'Operación',
     ruta: '/operacion',
     submenus: [
-      { etiqueta: 'Resumen operativo', ruta: '/operacion' },
       { etiqueta: 'Bugs', ruta: '/operacion/bugs' },
       { etiqueta: 'Mejoras', ruta: '/operacion/mejoras' },
       { etiqueta: 'Deuda técnica', ruta: '/operacion/deuda-tecnica' },
@@ -88,8 +83,7 @@ export const menuPortal: ItemMenuPortal[] = [
     etiqueta: 'Analítica',
     ruta: '/analitica',
     submenus: [
-      { etiqueta: 'Resumen analítico', ruta: '/analitica' },
-      { etiqueta: 'KPIs', ruta: '/analitica/kpis' },
+      { etiqueta: 'KPIs ejecutivos', ruta: '/analitica/kpis' },
       { etiqueta: 'Portafolio', ruta: '/analitica/portafolio' },
       { etiqueta: 'Tendencias', ruta: '/analitica/tendencias' },
       { etiqueta: 'Health scores', ruta: '/analitica/health-scores' }
@@ -99,7 +93,6 @@ export const menuPortal: ItemMenuPortal[] = [
     etiqueta: 'Gobierno',
     ruta: '/gobierno',
     submenus: [
-      { etiqueta: 'Resumen de gobierno', ruta: '/gobierno' },
       { etiqueta: 'Stakeholders', ruta: '/gobierno/stakeholders' },
       { etiqueta: 'Riesgos', ruta: '/gobierno/riesgos' },
       { etiqueta: 'Dependencias', ruta: '/gobierno/dependencias' }
