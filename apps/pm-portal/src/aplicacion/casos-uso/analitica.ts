@@ -6,6 +6,11 @@ import { listarInsightsDiscovery, listarHipotesisDiscovery } from '@/aplicacion/
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import {
+  listarDependenciasPm,
+  listarRiesgosPm,
+  listarStakeholdersPm
+} from '@/aplicacion/casos-uso/gobierno'
+import {
   obtenerRegistroTablaPorId,
   registrarCambioEntidadBestEffort
 } from '@/aplicacion/casos-uso/historialCambios'
@@ -133,6 +138,9 @@ export async function obtenerFuentesResumenAnalitico() {
     decisiones,
     auditorias,
     hallazgos,
+    stakeholders,
+    riesgosGobierno,
+    dependenciasGobierno,
     healthScores,
     periodosEstrategicos,
     objetivosEstrategicos,
@@ -158,6 +166,9 @@ export async function obtenerFuentesResumenAnalitico() {
     listarDecisionesPm(),
     listarAuditoriasPm(),
     listarHallazgosAuditoriaPm(),
+    listarStakeholdersPm(),
+    listarRiesgosPm(),
+    listarDependenciasPm(),
     listarHealthScoresPm(),
     listarPeriodosEstrategicos(),
     listarObjetivosEstrategicos(),
@@ -185,6 +196,9 @@ export async function obtenerFuentesResumenAnalitico() {
     decisiones,
     auditorias,
     hallazgos,
+    stakeholders,
+    riesgosGobierno,
+    dependenciasGobierno,
     healthScores,
     periodosEstrategicos,
     objetivosEstrategicos,

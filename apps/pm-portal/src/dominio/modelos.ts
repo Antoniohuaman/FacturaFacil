@@ -759,6 +759,101 @@ export interface LeccionAprendidaPm {
   updated_at: string
 }
 
+export type TipoStakeholderPm =
+  | 'sponsor'
+  | 'decisor'
+  | 'usuario_clave'
+  | 'cliente'
+  | 'aliado'
+  | 'proveedor'
+  | 'interno'
+
+export type InfluenciaStakeholderPm = 'baja' | 'media' | 'alta'
+export type InteresStakeholderPm = 'bajo' | 'medio' | 'alto'
+export type EstadoStakeholderPm = 'activo' | 'en_seguimiento' | 'inactivo'
+
+export interface StakeholderPm {
+  id: string
+  codigo: string
+  nombre: string
+  tipo: TipoStakeholderPm
+  area: string
+  organizacion: string | null
+  cargo: string | null
+  influencia: InfluenciaStakeholderPm
+  interes: InteresStakeholderPm
+  estado: EstadoStakeholderPm
+  owner: string | null
+  correo: string | null
+  contacto_referencia: string | null
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  decision_id: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CategoriaRiesgoPm = 'negocio' | 'tecnico' | 'operativo' | 'regulatorio' | 'adopcion' | 'dependencia'
+export type ProbabilidadRiesgoPm = 'baja' | 'media' | 'alta'
+export type ImpactoRiesgoPm = 'bajo' | 'medio' | 'alto'
+export type CriticidadGobiernoPm = 'baja' | 'media' | 'alta' | 'critica'
+export type EstadoRiesgoPm = 'identificado' | 'en_mitigacion' | 'monitoreo' | 'cerrado'
+
+export interface RiesgoPm {
+  id: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  categoria: CategoriaRiesgoPm
+  probabilidad: ProbabilidadRiesgoPm
+  impacto: ImpactoRiesgoPm
+  criticidad: CriticidadGobiernoPm
+  estado: EstadoRiesgoPm
+  owner: string | null
+  fecha_identificacion: string
+  fecha_objetivo: string | null
+  trigger_riesgo: string | null
+  plan_mitigacion: string | null
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  release_id: string | null
+  decision_id: string | null
+  auditoria_id: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type TipoDependenciaPm = 'equipo' | 'sistema' | 'proveedor' | 'aprobacion' | 'datos' | 'infraestructura' | 'negocio'
+export type EstadoDependenciaPm = 'abierta' | 'en_seguimiento' | 'resuelta' | 'bloqueante'
+
+export interface DependenciaPm {
+  id: string
+  codigo: string
+  titulo: string
+  descripcion: string
+  tipo_dependencia: TipoDependenciaPm
+  estado: EstadoDependenciaPm
+  criticidad: CriticidadGobiernoPm
+  owner: string | null
+  responsable_externo: string | null
+  fecha_identificacion: string
+  fecha_objetivo: string | null
+  impacto_si_falla: string
+  proximo_paso: string | null
+  modulo_codigo: string | null
+  iniciativa_id: string | null
+  entrega_id: string | null
+  release_id: string | null
+  decision_id: string | null
+  notas: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type CategoriaKpiEjecutivoPm =
   | 'estrategia'
   | 'delivery'
@@ -874,6 +969,40 @@ export const estadosDeudaTecnicaPm: EstadoDeudaTecnicaPm[] = [
 ]
 export const estadosBloqueoPm: EstadoBloqueoPm[] = ['abierto', 'en_seguimiento', 'escalado', 'resuelto']
 export const estadosLeccionAprendidaPm: EstadoLeccionAprendidaPm[] = ['capturada', 'validada', 'aplicada', 'archivada']
+export const tiposStakeholderPm: TipoStakeholderPm[] = [
+  'sponsor',
+  'decisor',
+  'usuario_clave',
+  'cliente',
+  'aliado',
+  'proveedor',
+  'interno'
+]
+export const influenciasStakeholderPm: InfluenciaStakeholderPm[] = ['baja', 'media', 'alta']
+export const interesesStakeholderPm: InteresStakeholderPm[] = ['bajo', 'medio', 'alto']
+export const estadosStakeholderPm: EstadoStakeholderPm[] = ['activo', 'en_seguimiento', 'inactivo']
+export const categoriasRiesgoPm: CategoriaRiesgoPm[] = [
+  'negocio',
+  'tecnico',
+  'operativo',
+  'regulatorio',
+  'adopcion',
+  'dependencia'
+]
+export const probabilidadesRiesgoPm: ProbabilidadRiesgoPm[] = ['baja', 'media', 'alta']
+export const impactosRiesgoPm: ImpactoRiesgoPm[] = ['bajo', 'medio', 'alto']
+export const criticidadesGobiernoPm: CriticidadGobiernoPm[] = ['baja', 'media', 'alta', 'critica']
+export const estadosRiesgoPm: EstadoRiesgoPm[] = ['identificado', 'en_mitigacion', 'monitoreo', 'cerrado']
+export const tiposDependenciaPm: TipoDependenciaPm[] = [
+  'equipo',
+  'sistema',
+  'proveedor',
+  'aprobacion',
+  'datos',
+  'infraestructura',
+  'negocio'
+]
+export const estadosDependenciaPm: EstadoDependenciaPm[] = ['abierta', 'en_seguimiento', 'resuelta', 'bloqueante']
 
 export function formatearAlcancePeriodoRice(periodo: AlcancePeriodoRice) {
   if (periodo === 'semana') {
@@ -941,6 +1070,50 @@ export function formatearEstadoBloqueo(estado: EstadoBloqueoPm) {
 }
 
 export function formatearEstadoLeccionAprendida(estado: EstadoLeccionAprendidaPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearTipoStakeholder(tipo: TipoStakeholderPm) {
+  return formatearEstadoRegistro(tipo)
+}
+
+export function formatearInfluenciaStakeholder(influencia: InfluenciaStakeholderPm) {
+  return formatearEstadoRegistro(influencia)
+}
+
+export function formatearInteresStakeholder(interes: InteresStakeholderPm) {
+  return formatearEstadoRegistro(interes)
+}
+
+export function formatearEstadoStakeholder(estado: EstadoStakeholderPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearCategoriaRiesgo(categoria: CategoriaRiesgoPm) {
+  return formatearEstadoRegistro(categoria)
+}
+
+export function formatearProbabilidadRiesgo(probabilidad: ProbabilidadRiesgoPm) {
+  return formatearEstadoRegistro(probabilidad)
+}
+
+export function formatearImpactoRiesgo(impacto: ImpactoRiesgoPm) {
+  return formatearEstadoRegistro(impacto)
+}
+
+export function formatearCriticidadGobierno(criticidad: CriticidadGobiernoPm) {
+  return formatearEstadoRegistro(criticidad)
+}
+
+export function formatearEstadoRiesgo(estado: EstadoRiesgoPm) {
+  return formatearEstadoRegistro(estado)
+}
+
+export function formatearTipoDependencia(tipo: TipoDependenciaPm) {
+  return formatearEstadoRegistro(tipo)
+}
+
+export function formatearEstadoDependencia(estado: EstadoDependenciaPm) {
   return formatearEstadoRegistro(estado)
 }
 

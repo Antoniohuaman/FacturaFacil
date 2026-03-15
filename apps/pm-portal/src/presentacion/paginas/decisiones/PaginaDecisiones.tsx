@@ -15,6 +15,7 @@ import { listarEstadosPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
+import { listarDependenciasPm, listarRiesgosPm, listarStakeholdersPm } from '@/aplicacion/casos-uso/gobierno'
 import { listarRelInsightDecision } from '@/aplicacion/casos-uso/discovery'
 import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
 import { listarBloqueosPm } from '@/aplicacion/casos-uso/operacion'
@@ -60,6 +61,9 @@ export function PaginaDecisiones() {
   const [reglasPorDecision, setReglasPorDecision] = useState<Map<string, number>>(new Map())
   const [releasesPorDecision, setReleasesPorDecision] = useState<Map<string, number>>(new Map())
   const [bloqueosPorDecision, setBloqueosPorDecision] = useState<Map<string, number>>(new Map())
+  const [stakeholdersPorDecision, setStakeholdersPorDecision] = useState<Map<string, number>>(new Map())
+  const [riesgosPorDecision, setRiesgosPorDecision] = useState<Map<string, number>>(new Map())
+  const [dependenciasPorDecision, setDependenciasPorDecision] = useState<Map<string, number>>(new Map())
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
   const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') ?? 'todos')
   const [fechaDesde, setFechaDesde] = useState(searchParams.get('desde') ?? '')
@@ -96,7 +100,7 @@ export function PaginaDecisiones() {
     setError(null)
 
     try {
-      const [decisionesData, iniciativasData, entregasData, ejecucionesData, estadosData, relInsightsData, reglasData, releasesData, bloqueosData] = await Promise.all([
+      const [decisionesData, iniciativasData, entregasData, ejecucionesData, estadosData, relInsightsData, reglasData, releasesData, bloqueosData, stakeholdersData, riesgosData, dependenciasData] = await Promise.all([
         listarDecisionesPm(),
         listarIniciativas(),
         listarEntregas(),
@@ -105,7 +109,10 @@ export function PaginaDecisiones() {
         listarRelInsightDecision(),
         listarReglasNegocio(),
         listarReleases(),
-        listarBloqueosPm()
+        listarBloqueosPm(),
+        listarStakeholdersPm(),
+        listarRiesgosPm(),
+        listarDependenciasPm()
       ])
 
       setDecisiones(decisionesData)
@@ -139,6 +146,33 @@ export function PaginaDecisiones() {
           }
 
           return mapa.set(bloqueo.decision_id, (mapa.get(bloqueo.decision_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setStakeholdersPorDecision(
+        stakeholdersData.reduce((mapa, stakeholder) => {
+          if (!stakeholder.decision_id) {
+            return mapa
+          }
+
+          return mapa.set(stakeholder.decision_id, (mapa.get(stakeholder.decision_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setRiesgosPorDecision(
+        riesgosData.reduce((mapa, riesgo) => {
+          if (!riesgo.decision_id) {
+            return mapa
+          }
+
+          return mapa.set(riesgo.decision_id, (mapa.get(riesgo.decision_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setDependenciasPorDecision(
+        dependenciasData.reduce((mapa, dependencia) => {
+          if (!dependencia.decision_id) {
+            return mapa
+          }
+
+          return mapa.set(dependencia.decision_id, (mapa.get(dependencia.decision_id) ?? 0) + 1)
         }, new Map<string, number>())
       )
     } catch (errorInterno) {
@@ -332,7 +366,10 @@ export function PaginaDecisiones() {
               { encabezado: 'Insights discovery vinculados', valor: (decision) => insightsPorDecision.get(decision.id) ?? 0 },
               { encabezado: 'Reglas de negocio vinculadas', valor: (decision) => reglasPorDecision.get(decision.id) ?? 0 },
               { encabezado: 'Releases vinculados', valor: (decision) => releasesPorDecision.get(decision.id) ?? 0 },
-              { encabezado: 'Bloqueos operativos', valor: (decision) => bloqueosPorDecision.get(decision.id) ?? 0 }
+              { encabezado: 'Bloqueos operativos', valor: (decision) => bloqueosPorDecision.get(decision.id) ?? 0 },
+              { encabezado: 'Stakeholders Gobierno', valor: (decision) => stakeholdersPorDecision.get(decision.id) ?? 0 },
+              { encabezado: 'Riesgos Gobierno', valor: (decision) => riesgosPorDecision.get(decision.id) ?? 0 },
+              { encabezado: 'Dependencias Gobierno', valor: (decision) => dependenciasPorDecision.get(decision.id) ?? 0 }
             ], decisionesFiltradas)
           }}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
@@ -382,6 +419,9 @@ export function PaginaDecisiones() {
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {bloqueosPorDecision.get(decision.id) ?? 0} bloqueos operativos vinculados
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {stakeholdersPorDecision.get(decision.id) ?? 0} stakeholders · {riesgosPorDecision.get(decision.id) ?? 0} riesgos · {dependenciasPorDecision.get(decision.id) ?? 0} dependencias de Gobierno
                     </p>
                   </td>
                   <td className="px-3 py-2">{decision.estado_codigo}</td>

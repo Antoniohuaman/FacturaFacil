@@ -95,6 +95,16 @@ export const menuPortal: ItemMenuPortal[] = [
       { etiqueta: 'Health scores', ruta: '/analitica/health-scores' }
     ]
   },
+  {
+    etiqueta: 'Gobierno',
+    ruta: '/gobierno',
+    submenus: [
+      { etiqueta: 'Resumen de gobierno', ruta: '/gobierno' },
+      { etiqueta: 'Stakeholders', ruta: '/gobierno/stakeholders' },
+      { etiqueta: 'Riesgos', ruta: '/gobierno/riesgos' },
+      { etiqueta: 'Dependencias', ruta: '/gobierno/dependencias' }
+    ]
+  },
   { etiqueta: 'Decisiones', ruta: '/decisiones' },
   { etiqueta: 'Auditorías', ruta: '/auditorias' },
   { etiqueta: 'Ajustes', ruta: '/ajustes' },

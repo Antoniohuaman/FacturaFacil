@@ -29,6 +29,7 @@ import {
   listarHallazgosAuditoriaPm,
   listarTiposAuditoriaPm
 } from '@/aplicacion/casos-uso/auditorias'
+import { listarRiesgosPm } from '@/aplicacion/casos-uso/gobierno'
 import { listarBugsPm, listarLeccionesAprendidasPm } from '@/aplicacion/casos-uso/operacion'
 import { listarDecisionesPm } from '@/aplicacion/casos-uso/decisiones'
 import { listarEjecucionesValidacion } from '@/aplicacion/casos-uso/ejecucionesValidacion'
@@ -62,6 +63,7 @@ export function PaginaAuditorias() {
   const [hallazgos, setHallazgos] = useState<HallazgoAuditoriaPm[]>([])
   const [bugsPorAuditoria, setBugsPorAuditoria] = useState<Map<string, number>>(new Map())
   const [leccionesPorAuditoria, setLeccionesPorAuditoria] = useState<Map<string, number>>(new Map())
+  const [riesgosPorAuditoria, setRiesgosPorAuditoria] = useState<Map<string, number>>(new Map())
   const [bugsPorHallazgo, setBugsPorHallazgo] = useState<Map<string, number>>(new Map())
   const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
   const [filtroTipoAuditoria, setFiltroTipoAuditoria] = useState(searchParams.get('tipo') ?? 'todos')
@@ -125,7 +127,8 @@ export function PaginaAuditorias() {
         auditoriasData,
         hallazgosData,
         bugsData,
-        leccionesData
+        leccionesData,
+        riesgosData
       ] = await Promise.all([
         listarTiposAuditoriaPm(),
         listarEstadosPm('auditoria'),
@@ -137,7 +140,8 @@ export function PaginaAuditorias() {
         listarAuditoriasPm(),
         listarHallazgosAuditoriaPm(),
         listarBugsPm(),
-        listarLeccionesAprendidasPm()
+        listarLeccionesAprendidasPm(),
+        listarRiesgosPm()
       ])
 
       setTiposAuditoria(tiposAuditoriaData)
@@ -165,6 +169,15 @@ export function PaginaAuditorias() {
           }
 
           return mapa.set(leccion.auditoria_id, (mapa.get(leccion.auditoria_id) ?? 0) + 1)
+        }, new Map<string, number>())
+      )
+      setRiesgosPorAuditoria(
+        riesgosData.reduce((mapa, riesgo) => {
+          if (!riesgo.auditoria_id) {
+            return mapa
+          }
+
+          return mapa.set(riesgo.auditoria_id, (mapa.get(riesgo.auditoria_id) ?? 0) + 1)
         }, new Map<string, number>())
       )
       setBugsPorHallazgo(
@@ -461,7 +474,8 @@ export function PaginaAuditorias() {
               { encabezado: 'Alcance', valor: (auditoria) => auditoria.alcance },
               { encabezado: 'Checklist', valor: (auditoria) => auditoria.checklist },
               { encabezado: 'Bugs vinculados', valor: (auditoria) => bugsPorAuditoria.get(auditoria.id) ?? 0 },
-              { encabezado: 'Lecciones vinculadas', valor: (auditoria) => leccionesPorAuditoria.get(auditoria.id) ?? 0 }
+              { encabezado: 'Lecciones vinculadas', valor: (auditoria) => leccionesPorAuditoria.get(auditoria.id) ?? 0 },
+              { encabezado: 'Riesgos vinculados', valor: (auditoria) => riesgosPorAuditoria.get(auditoria.id) ?? 0 }
             ], auditoriasFiltradas)
           }}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700"
@@ -489,6 +503,7 @@ export function PaginaAuditorias() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {bugsPorAuditoria.get(auditoria.id) ?? 0} bugs vinculados · {leccionesPorAuditoria.get(auditoria.id) ?? 0} lecciones aprendidas
                   </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{riesgosPorAuditoria.get(auditoria.id) ?? 0} riesgos de Gobierno vinculados</p>
                   <div className="flex gap-2">
                     <button
                       type="button"

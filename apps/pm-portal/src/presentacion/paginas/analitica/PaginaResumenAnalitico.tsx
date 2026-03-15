@@ -97,6 +97,13 @@ export function PaginaResumenAnalitico() {
     const mejorasPendientes = fuentes.mejoras.filter((mejora) => !['implementada', 'cerrada'].includes(mejora.estado))
     const deudaActiva = fuentes.deudas.filter((deuda) => !['resuelta', 'descartada'].includes(deuda.estado))
     const hallazgosAbiertos = fuentes.hallazgos.filter((hallazgo) => hallazgo.estado_codigo !== 'cerrado')
+    const stakeholdersActivos = fuentes.stakeholders.filter((stakeholder) => stakeholder.estado === 'activo')
+    const riesgosGobiernoAbiertos = fuentes.riesgosGobierno.filter((riesgo) => riesgo.estado !== 'cerrado')
+    const riesgosGobiernoAltos = riesgosGobiernoAbiertos.filter((riesgo) => ['alta', 'critica'].includes(riesgo.criticidad))
+    const dependenciasGobiernoAbiertas = fuentes.dependenciasGobierno.filter((dependencia) => dependencia.estado !== 'resuelta')
+    const dependenciasGobiernoCriticas = dependenciasGobiernoAbiertas.filter(
+      (dependencia) => dependencia.estado === 'bloqueante' || ['alta', 'critica'].includes(dependencia.criticidad)
+    )
     const releasesRecientes = [...fuentes.releases]
       .sort((a, b) => (b.fecha_lanzamiento_real ?? b.fecha_programada).localeCompare(a.fecha_lanzamiento_real ?? a.fecha_programada))
       .slice(0, 6)
@@ -198,9 +205,9 @@ export function PaginaResumenAnalitico() {
       {
         codigo: 'gobierno',
         nombre: 'Gobierno',
-        valor: hallazgosAbiertos.length,
-        estado: obtenerEstadoSenal(hallazgosAbiertos.length, 5, 1),
-        detalle: `${hallazgosAbiertos.length} hallazgos abiertos y ${decisionesRecientes.length} decisiones recientes`
+        valor: riesgosGobiernoAbiertos.length + dependenciasGobiernoAbiertas.length,
+        estado: obtenerEstadoSenal(riesgosGobiernoAltos.length + dependenciasGobiernoCriticas.length, 6, 2),
+        detalle: `${stakeholdersActivos.length} stakeholders activos, ${riesgosGobiernoAbiertos.length} riesgos abiertos y ${dependenciasGobiernoAbiertas.length} dependencias abiertas`
       }
     ]
 
@@ -214,6 +221,9 @@ export function PaginaResumenAnalitico() {
       totalValidacionesRecientes: validacionesRecientes.length,
       totalDecisionesRecientes: decisionesRecientes.length,
       totalHallazgosAbiertos: hallazgosAbiertos.length,
+      totalStakeholdersActivos: stakeholdersActivos.length,
+      totalRiesgosGobiernoAbiertos: riesgosGobiernoAbiertos.length,
+      totalDependenciasGobiernoAbiertas: dependenciasGobiernoAbiertas.length,
       totalMejorasPendientes: mejorasPendientes.length,
       totalDeudaTecnicaActiva: deudaActiva.length,
       totalLeccionesRecientes: leccionesRecientes.length,
@@ -227,7 +237,8 @@ export function PaginaResumenAnalitico() {
         discovery: `${insightsRecientes.length} insights activos y ${hipotesisDiscoveryActivas.length} hipótesis discovery abiertas`,
         requerimientos: `${backlogFuncional} piezas funcionales pendientes y ${fuentes.reglasNegocio.length} reglas de negocio registradas`,
         roadmapBase: `${fuentes.objetivos.length} objetivos roadmap base y ${fuentes.entregas.length} entregas consolidadas`,
-        auditorias: `${fuentes.auditorias.length} auditorías y ${hallazgosAbiertos.length} hallazgos abiertos`
+        auditorias: `${fuentes.auditorias.length} auditorías y ${hallazgosAbiertos.length} hallazgos abiertos`,
+        gobierno: `${stakeholdersActivos.length} stakeholders activos, ${riesgosGobiernoAltos.length} riesgos altos y ${dependenciasGobiernoCriticas.length} dependencias críticas`
       }
     }
   }, [fuentes])
@@ -258,6 +269,9 @@ export function PaginaResumenAnalitico() {
                 ['Validaciones recientes', metricas.totalValidacionesRecientes],
                 ['Decisiones recientes', metricas.totalDecisionesRecientes],
                 ['Hallazgos abiertos', metricas.totalHallazgosAbiertos],
+                ['Stakeholders activos', metricas.totalStakeholdersActivos],
+                ['Riesgos abiertos', metricas.totalRiesgosGobiernoAbiertos],
+                ['Dependencias abiertas', metricas.totalDependenciasGobiernoAbiertas],
                 ['Mejoras pendientes', metricas.totalMejorasPendientes],
                 ['Deuda técnica activa', metricas.totalDeudaTecnicaActiva],
                 ['Lecciones recientes', metricas.totalLeccionesRecientes]

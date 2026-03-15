@@ -18,7 +18,8 @@ export function BarraLateral({ colapsada, alternarColapso }: PropiedadesBarraLat
     Requerimientos: true,
     Lanzamientos: true,
     Operación: true,
-    Analítica: true
+    Analítica: true,
+    Gobierno: true
   })
 
   const rutaActiva = ubicacion.pathname

@@ -6,6 +6,7 @@ import {
   type ReleaseChecklistItemPm,
   type ReleasePm
 } from '@/dominio/modelos'
+import { listarDependenciasPm, listarRiesgosPm } from '@/aplicacion/casos-uso/gobierno'
 import { obtenerContadoresLanzamientos } from '@/aplicacion/casos-uso/lanzamientos'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
@@ -25,6 +26,8 @@ function construirChecklistPorRelease(checklist: ReleaseChecklistItemPm[]) {
 export function PaginaResumenLanzamientos() {
   const [releases, setReleases] = useState<ReleasePm[]>([])
   const [checklist, setChecklist] = useState<ReleaseChecklistItemPm[]>([])
+  const [riesgosGobierno, setRiesgosGobierno] = useState<Array<{ release_id: string | null; estado: string; criticidad: string }>>([])
+  const [dependenciasGobierno, setDependenciasGobierno] = useState<Array<{ release_id: string | null; estado: string; criticidad: string }>>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,9 +37,15 @@ export function PaginaResumenLanzamientos() {
       setError(null)
 
       try {
-        const resultado = await obtenerContadoresLanzamientos()
+        const [resultado, riesgosData, dependenciasData] = await Promise.all([
+          obtenerContadoresLanzamientos(),
+          listarRiesgosPm(),
+          listarDependenciasPm()
+        ])
         setReleases(resultado.releases)
         setChecklist(resultado.checklist)
+        setRiesgosGobierno(riesgosData)
+        setDependenciasGobierno(dependenciasData)
       } catch (errorInterno) {
         setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar lanzamientos')
       } finally {
@@ -105,6 +114,19 @@ export function PaginaResumenLanzamientos() {
     [releases, hace30Dias]
   )
 
+  const resumenGobierno = useMemo(() => {
+    const releaseIds = new Set(releases.map((release) => release.id))
+    const riesgosRelacionados = riesgosGobierno.filter((riesgo) => releaseIds.has(riesgo.release_id ?? ''))
+    const dependenciasRelacionadas = dependenciasGobierno.filter((dependencia) => releaseIds.has(dependencia.release_id ?? ''))
+
+    return {
+      riesgosAbiertos: riesgosRelacionados.filter((riesgo) => riesgo.estado !== 'cerrado').length,
+      riesgosAltos: riesgosRelacionados.filter((riesgo) => riesgo.estado !== 'cerrado' && ['alta', 'critica'].includes(riesgo.criticidad)).length,
+      dependenciasAbiertas: dependenciasRelacionadas.filter((dependencia) => dependencia.estado !== 'resuelta').length,
+      dependenciasBloqueantes: dependenciasRelacionadas.filter((dependencia) => dependencia.estado === 'bloqueante').length
+    }
+  }, [releases, riesgosGobierno, dependenciasGobierno])
+
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
       <header className="space-y-2">
@@ -119,7 +141,7 @@ export function PaginaResumenLanzamientos() {
 
       <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="">
         <>
-          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
             <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Total releases</p>
               <p className="mt-2 text-2xl font-semibold">{releases.length}</p>
@@ -139,6 +161,14 @@ export function PaginaResumenLanzamientos() {
             <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Requieren comunicación</p>
               <p className="mt-2 text-2xl font-semibold">{releasesComunicacion.length}</p>
+            </article>
+            <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Riesgos abiertos</p>
+              <p className="mt-2 text-2xl font-semibold">{resumenGobierno.riesgosAbiertos}</p>
+            </article>
+            <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Dependencias bloqueantes</p>
+              <p className="mt-2 text-2xl font-semibold">{resumenGobierno.dependenciasBloqueantes}</p>
             </article>
           </div>
 
@@ -176,8 +206,17 @@ export function PaginaResumenLanzamientos() {
                   <p className="font-medium">Total cerrados recientemente</p>
                   <p className="mt-1 text-2xl font-semibold">{releasesCerradosRecientemente.length}</p>
                 </div>
+                <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
+                  <p className="font-medium">Gobierno ligado a releases</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    {resumenGobierno.riesgosAltos} riesgos altos y {resumenGobierno.dependenciasAbiertas} dependencias abiertas.
+                  </p>
+                </div>
                 <Link to="/lanzamientos/seguimiento" className="block rounded-lg border border-slate-200 px-3 py-3 text-sm transition hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600">
                   Ver Seguimiento post-lanzamiento
+                </Link>
+                <Link to="/gobierno" className="block rounded-lg border border-slate-200 px-3 py-3 text-sm transition hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600">
+                  Ver Resumen de gobierno
                 </Link>
               </div>
             </article>

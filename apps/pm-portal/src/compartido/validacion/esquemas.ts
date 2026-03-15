@@ -2,22 +2,33 @@ import { z } from 'zod'
 import {
   ambitosHealthScorePm,
   categoriasKpiEjecutivoPm,
+  categoriasRiesgoPm,
+  criticidadesGobiernoPm,
   estadosBloqueoPm,
   estadosBugPm,
+  estadosDependenciaPm,
   estadosDeudaTecnicaPm,
   estadosEstabilizacionReleasePm,
+  estadosRiesgoPm,
   estadosSaludAnaliticaPm,
+  estadosStakeholderPm,
   estadosLeccionAprendidaPm,
   estadosMejoraPm,
   estadosReleasePm,
   estadosRegistro,
   frecuenciasEstrategicas,
+  impactosRiesgoPm,
+  influenciasStakeholderPm,
+  interesesStakeholderPm,
   prioridadesRegistro,
+  probabilidadesRiesgoPm,
   tendenciasAnaliticaPm,
   tiposChecklistSalidaPm,
+  tiposDependenciaPm,
   tiposReleasePm,
   tiposRequerimientoNoFuncionalPm,
   tiposProblemaOportunidadDiscovery,
+  tiposStakeholderPm,
   tendenciasKpiEstrategico
 } from '@/dominio/modelos'
 
@@ -616,6 +627,90 @@ export const leccionAprendidaSchema = z.object({
   notas: textoLargoOpcionalSchema
 })
 
+export const stakeholderSchema = z.object({
+  codigo: z.string().trim().min(2).max(40),
+  nombre: z.string().trim().min(3).max(160),
+  tipo: z.enum(tiposStakeholderPm),
+  area: z.string().trim().min(2).max(120),
+  organizacion: textoCortoOpcionalSchema,
+  cargo: textoCortoOpcionalSchema,
+  influencia: z.enum(influenciasStakeholderPm),
+  interes: z.enum(interesesStakeholderPm),
+  estado: z.enum(estadosStakeholderPm),
+  owner: textoCortoOpcionalSchema,
+  correo: z.string().email('Ingresa un correo válido').nullable().optional().or(z.literal('')),
+  contacto_referencia: textoCortoOpcionalSchema,
+  modulo_codigo: moduloOpcionalSchema,
+  iniciativa_id: uuidOpcionalSchema,
+  entrega_id: uuidOpcionalSchema,
+  decision_id: uuidOpcionalSchema,
+  notas: textoLargoOpcionalSchema
+})
+
+export const riesgoSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    titulo: z.string().trim().min(3).max(160),
+    descripcion: z.string().trim().min(5).max(4000),
+    categoria: z.enum(categoriasRiesgoPm),
+    probabilidad: z.enum(probabilidadesRiesgoPm),
+    impacto: z.enum(impactosRiesgoPm),
+    criticidad: z.enum(criticidadesGobiernoPm),
+    estado: z.enum(estadosRiesgoPm),
+    owner: textoCortoOpcionalSchema,
+    fecha_identificacion: z.string().trim().min(10).max(20),
+    fecha_objetivo: fechaOpcionalSchema,
+    trigger_riesgo: textoLargoOpcionalSchema,
+    plan_mitigacion: textoLargoOpcionalSchema,
+    modulo_codigo: moduloOpcionalSchema,
+    iniciativa_id: uuidOpcionalSchema,
+    entrega_id: uuidOpcionalSchema,
+    release_id: uuidOpcionalSchema,
+    decision_id: uuidOpcionalSchema,
+    auditoria_id: uuidOpcionalSchema,
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_objetivo && valores.fecha_objetivo < valores.fecha_identificacion) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_objetivo'],
+        message: 'La fecha objetivo no puede ser menor que la fecha de identificación'
+      })
+    }
+  })
+
+export const dependenciaSchema = z
+  .object({
+    codigo: z.string().trim().min(2).max(40),
+    titulo: z.string().trim().min(3).max(160),
+    descripcion: z.string().trim().min(5).max(4000),
+    tipo_dependencia: z.enum(tiposDependenciaPm),
+    estado: z.enum(estadosDependenciaPm),
+    criticidad: z.enum(criticidadesGobiernoPm),
+    owner: textoCortoOpcionalSchema,
+    responsable_externo: textoCortoOpcionalSchema,
+    fecha_identificacion: z.string().trim().min(10).max(20),
+    fecha_objetivo: fechaOpcionalSchema,
+    impacto_si_falla: z.string().trim().min(5).max(4000),
+    proximo_paso: textoLargoOpcionalSchema,
+    modulo_codigo: moduloOpcionalSchema,
+    iniciativa_id: uuidOpcionalSchema,
+    entrega_id: uuidOpcionalSchema,
+    release_id: uuidOpcionalSchema,
+    decision_id: uuidOpcionalSchema,
+    notas: textoLargoOpcionalSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_objetivo && valores.fecha_objetivo < valores.fecha_identificacion) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_objetivo'],
+        message: 'La fecha objetivo no puede ser menor que la fecha de identificación'
+      })
+    }
+  })
+
 export const kpiEjecutivoSchema = z.object({
   codigo: z.string().trim().min(2).max(40),
   nombre: z.string().trim().min(3).max(160),
@@ -707,5 +802,8 @@ export type MejoraEntrada = z.infer<typeof mejoraSchema>
 export type DeudaTecnicaEntrada = z.infer<typeof deudaTecnicaSchema>
 export type BloqueoEntrada = z.infer<typeof bloqueoSchema>
 export type LeccionAprendidaEntrada = z.infer<typeof leccionAprendidaSchema>
+export type StakeholderEntrada = z.infer<typeof stakeholderSchema>
+export type RiesgoEntrada = z.infer<typeof riesgoSchema>
+export type DependenciaEntrada = z.infer<typeof dependenciaSchema>
 export type KpiEjecutivoEntrada = z.infer<typeof kpiEjecutivoSchema>
 export type HealthScoreEntrada = z.infer<typeof healthScoreSchema>

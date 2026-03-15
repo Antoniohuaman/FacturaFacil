@@ -17,6 +17,7 @@ import {
   type LeccionAprendidaPm,
   type MejoraPm
 } from '@/dominio/modelos'
+import { listarDependenciasPm, listarRiesgosPm } from '@/aplicacion/casos-uso/gobierno'
 import { obtenerResumenOperacion } from '@/aplicacion/casos-uso/operacion'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
@@ -28,6 +29,8 @@ export function PaginaResumenOperacion() {
   const [deudas, setDeudas] = useState<DeudaTecnicaPm[]>([])
   const [bloqueos, setBloqueos] = useState<BloqueoPm[]>([])
   const [lecciones, setLecciones] = useState<LeccionAprendidaPm[]>([])
+  const [riesgosGobierno, setRiesgosGobierno] = useState<Array<{ categoria: string; estado: string; criticidad: string }>>([])
+  const [dependenciasGobierno, setDependenciasGobierno] = useState<Array<{ estado: string; criticidad: string }>>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,12 +40,18 @@ export function PaginaResumenOperacion() {
       setError(null)
 
       try {
-        const resultado = await obtenerResumenOperacion()
+        const [resultado, riesgosData, dependenciasData] = await Promise.all([
+          obtenerResumenOperacion(),
+          listarRiesgosPm(),
+          listarDependenciasPm()
+        ])
         setBugs(resultado.bugs)
         setMejoras(resultado.mejoras)
         setDeudas(resultado.deudas)
         setBloqueos(resultado.bloqueos)
         setLecciones(resultado.lecciones)
+        setRiesgosGobierno(riesgosData)
+        setDependenciasGobierno(dependenciasData)
       } catch (errorInterno) {
         setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar operación')
       } finally {
@@ -72,6 +81,14 @@ export function PaginaResumenOperacion() {
   const leccionesAplicables = useMemo(
     () => lecciones.filter((leccion) => ['capturada', 'validada'].includes(leccion.estado)).length,
     [lecciones]
+  )
+  const riesgosOperativos = useMemo(
+    () => riesgosGobierno.filter((riesgo) => riesgo.estado !== 'cerrado' && ['operativo', 'dependencia'].includes(riesgo.categoria)).length,
+    [riesgosGobierno]
+  )
+  const dependenciasBloqueantes = useMemo(
+    () => dependenciasGobierno.filter((dependencia) => dependencia.estado === 'bloqueante').length,
+    [dependenciasGobierno]
   )
 
   const recientes = useMemo(() => {
@@ -111,7 +128,7 @@ export function PaginaResumenOperacion() {
 
       <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="">
         <>
-          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
             <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bugs abiertos</p>
               <p className="mt-2 text-2xl font-semibold">{bugsAbiertos}</p>
@@ -131,6 +148,14 @@ export function PaginaResumenOperacion() {
             <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Lecciones aplicables</p>
               <p className="mt-2 text-2xl font-semibold">{leccionesAplicables}</p>
+            </article>
+            <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Riesgos operativos</p>
+              <p className="mt-2 text-2xl font-semibold">{riesgosOperativos}</p>
+            </article>
+            <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Dependencias bloqueantes</p>
+              <p className="mt-2 text-2xl font-semibold">{dependenciasBloqueantes}</p>
             </article>
           </div>
 
@@ -175,8 +200,17 @@ export function PaginaResumenOperacion() {
                   <h2 className="text-base font-semibold">Movimientos recientes</h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Últimos cambios en los cinco frentes de Operación.</p>
                 </div>
+                <Link to="/gobierno" className="text-sm font-medium text-slate-700 underline underline-offset-2 dark:text-slate-200">
+                  Ver Gobierno
+                </Link>
               </div>
               <div className="mt-4 space-y-3">
+                <div className="rounded-lg border border-slate-200 px-3 py-3 dark:border-slate-800">
+                  <p className="font-medium">Señales de gobierno</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    {riesgosOperativos} riesgos operativos/dependencia abiertos y {dependenciasBloqueantes} dependencias bloqueantes.
+                  </p>
+                </div>
                 {recientes.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
                     Operación todavía no tiene registros.

@@ -45,6 +45,10 @@ import { PaginaKpis } from '@/presentacion/paginas/analitica/kpis/PaginaKpis'
 import { PaginaPortafolio } from '@/presentacion/paginas/analitica/portafolio/PaginaPortafolio'
 import { PaginaTendencias } from '@/presentacion/paginas/analitica/tendencias/PaginaTendencias'
 import { PaginaHealthScores } from '@/presentacion/paginas/analitica/health-scores/PaginaHealthScores'
+import { PaginaResumenGobierno } from '@/presentacion/paginas/gobierno/PaginaResumenGobierno'
+import { PaginaStakeholders } from '@/presentacion/paginas/gobierno/stakeholders/PaginaStakeholders'
+import { PaginaRiesgos } from '@/presentacion/paginas/gobierno/riesgos/PaginaRiesgos'
+import { PaginaDependencias } from '@/presentacion/paginas/gobierno/dependencias/PaginaDependencias'
 
 export const enrutadorPortal = createBrowserRouter([
   {
@@ -98,6 +102,10 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'analitica/portafolio', element: <PaginaPortafolio /> },
       { path: 'analitica/tendencias', element: <PaginaTendencias /> },
       { path: 'analitica/health-scores', element: <PaginaHealthScores /> },
+      { path: 'gobierno', element: <PaginaResumenGobierno /> },
+      { path: 'gobierno/stakeholders', element: <PaginaStakeholders /> },
+      { path: 'gobierno/riesgos', element: <PaginaRiesgos /> },
+      { path: 'gobierno/dependencias', element: <PaginaDependencias /> },
       { path: 'decisiones', element: <PaginaDecisiones /> },
       { path: 'auditorias', element: <PaginaAuditorias /> },
       { path: 'ajustes', element: <PaginaAjustes /> },

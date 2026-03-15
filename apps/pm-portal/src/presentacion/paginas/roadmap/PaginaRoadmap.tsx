@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
+import { listarDependenciasPm, listarRiesgosPm } from '@/aplicacion/casos-uso/gobierno'
 import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
 import {
   listarBloqueosPm,
@@ -62,6 +63,8 @@ export function PaginaRoadmap() {
   const [deudasRoadmap, setDeudasRoadmap] = useState<DeudaTecnicaPm[]>([])
   const [bloqueosRoadmap, setBloqueosRoadmap] = useState<BloqueoPm[]>([])
   const [leccionesRoadmap, setLeccionesRoadmap] = useState<LeccionAprendidaPm[]>([])
+  const [riesgosGobiernoRoadmap, setRiesgosGobiernoRoadmap] = useState<Array<{ iniciativa_id: string | null; entrega_id: string | null; release_id: string | null; estado: string; criticidad: string }>>([])
+  const [dependenciasGobiernoRoadmap, setDependenciasGobiernoRoadmap] = useState<Array<{ iniciativa_id: string | null; entrega_id: string | null; release_id: string | null; estado: string; criticidad: string }>>([])
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
   const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
   const [filtroVentanaGlobal, setFiltroVentanaGlobal] = useState(() =>
@@ -81,7 +84,7 @@ export function PaginaRoadmap() {
     setError(null)
 
     try {
-      const [objetivosData, iniciativasData, entregasData, releasesData, bugsData, mejorasData, deudasData, bloqueosData, leccionesData] = await Promise.all([
+      const [objetivosData, iniciativasData, entregasData, releasesData, bugsData, mejorasData, deudasData, bloqueosData, leccionesData, riesgosData, dependenciasData] = await Promise.all([
         listarObjetivos(),
         listarIniciativas(),
         listarEntregas(),
@@ -90,7 +93,9 @@ export function PaginaRoadmap() {
         listarMejorasPm(),
         listarDeudaTecnicaPm(),
         listarBloqueosPm(),
-        listarLeccionesAprendidasPm()
+        listarLeccionesAprendidasPm(),
+        listarRiesgosPm(),
+        listarDependenciasPm()
       ])
 
       setObjetivos(objetivosData)
@@ -102,6 +107,8 @@ export function PaginaRoadmap() {
       setDeudasRoadmap(deudasData)
       setBloqueosRoadmap(bloqueosData)
       setLeccionesRoadmap(leccionesData)
+      setRiesgosGobiernoRoadmap(riesgosData)
+      setDependenciasGobiernoRoadmap(dependenciasData)
 
       const [ventanasResultado, etapasResultado] = await Promise.allSettled([
         listarVentanasPm(),
@@ -327,6 +334,30 @@ export function PaginaRoadmap() {
       bloqueosActivos: bloqueosRelacionados.filter((bloqueo) => bloqueo.estado !== 'resuelto').length
     }
   }, [iniciativasFiltradas, entregasFiltradas, releasesRoadmap, bugsRoadmap, mejorasRoadmap, deudasRoadmap, bloqueosRoadmap, leccionesRoadmap])
+
+  const resumenGobiernoRoadmap = useMemo(() => {
+    const iniciativasIds = new Set(iniciativasFiltradas.map((iniciativa) => iniciativa.id))
+    const entregasIds = new Set(entregasFiltradas.map((entrega) => entrega.id))
+    const releasesRelacionados = new Set(
+      releasesRoadmap
+        .filter((release) => iniciativasIds.has(release.iniciativa_id ?? '') || entregasIds.has(release.entrega_id ?? ''))
+        .map((release) => release.id)
+    )
+
+    const relacionado = (registro: { iniciativa_id: string | null; entrega_id: string | null; release_id: string | null }) =>
+      iniciativasIds.has(registro.iniciativa_id ?? '') ||
+      entregasIds.has(registro.entrega_id ?? '') ||
+      releasesRelacionados.has(registro.release_id ?? '')
+
+    const riesgosRelacionados = riesgosGobiernoRoadmap.filter((riesgo) => relacionado(riesgo))
+    const dependenciasRelacionadas = dependenciasGobiernoRoadmap.filter((dependencia) => relacionado(dependencia))
+
+    return {
+      total: riesgosRelacionados.length + dependenciasRelacionadas.length,
+      riesgosAbiertos: riesgosRelacionados.filter((riesgo) => riesgo.estado !== 'cerrado').length,
+      dependenciasBloqueantes: dependenciasRelacionadas.filter((dependencia) => dependencia.estado === 'bloqueante').length
+    }
+  }, [iniciativasFiltradas, entregasFiltradas, releasesRoadmap, riesgosGobiernoRoadmap, dependenciasGobiernoRoadmap])
 
   const progresoPorObjetivo = useMemo(() => {
     const ahora = new Date().getTime()
@@ -559,7 +590,7 @@ export function PaginaRoadmap() {
         </select>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-9">
         <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Releases vinculados</p>
           <p className="mt-2 text-2xl font-semibold">{resumenReleasesRoadmap.total}</p>
@@ -585,6 +616,18 @@ export function PaginaRoadmap() {
         <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bloqueos activos</p>
           <p className="mt-2 text-2xl font-semibold">{resumenOperacionRoadmap.bloqueosActivos}</p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Gobierno vinculado</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenGobiernoRoadmap.total}</p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Riesgos abiertos</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenGobiernoRoadmap.riesgosAbiertos}</p>
+        </article>
+        <article className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Dependencias bloqueantes</p>
+          <p className="mt-2 text-2xl font-semibold">{resumenGobiernoRoadmap.dependenciasBloqueantes}</p>
         </article>
       </div>
 
