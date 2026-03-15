@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { obtenerFuentesPortafolioAnalitica } from '@/aplicacion/casos-uso/analitica'
@@ -50,14 +51,15 @@ function topOwners(valores: (string | null)[]) {
 }
 
 export function PaginaPortafolio() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [fuentes, setFuentes] = useState<FuentesPortafolio | null>(null)
-  const [filtroModulo, setFiltroModulo] = useState('todos')
-  const [filtroEstado, setFiltroEstado] = useState('todos')
-  const [filtroOwner, setFiltroOwner] = useState('')
-  const [filtroVentana, setFiltroVentana] = useState('todas')
-  const [filtroEtapa, setFiltroEtapa] = useState('todas')
-  const [fechaDesde, setFechaDesde] = useState('')
-  const [fechaHasta, setFechaHasta] = useState('')
+  const [filtroModulo, setFiltroModulo] = useState(searchParams.get('modulo') ?? 'todos')
+  const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') ?? 'todos')
+  const [filtroOwner, setFiltroOwner] = useState(searchParams.get('owner') ?? '')
+  const [filtroVentana, setFiltroVentana] = useState(searchParams.get('ventana') ?? 'todas')
+  const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa') ?? 'todas')
+  const [fechaDesde, setFechaDesde] = useState(searchParams.get('desde') ?? '')
+  const [fechaHasta, setFechaHasta] = useState(searchParams.get('hasta') ?? '')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -263,7 +265,7 @@ export function PaginaPortafolio() {
 
     return filas.filter((fila) => {
       const coincideModulo = filtroModulo === 'todos' ? true : fila.codigo === filtroModulo
-      const coincideEstado = filtroEstado === 'todos' ? true : fila.estados.includes(filtroEstado)
+      const coincideEstado = filtroEstado === 'todos' ? true : fila.healthEstado === filtroEstado
       const coincideOwner = owner ? fila.owners.some((item) => item.toLowerCase().includes(owner)) : true
       const coincideVentana = filtroVentana === 'todas' ? true : fila.ventanas.includes(filtroVentana)
       const coincideEtapa = filtroEtapa === 'todas' ? true : fila.etapas.includes(filtroEtapa)
@@ -273,6 +275,18 @@ export function PaginaPortafolio() {
       return coincideModulo && coincideEstado && coincideOwner && coincideVentana && coincideEtapa && coincideDesde && coincideHasta
     })
   }, [fechaDesde, fechaHasta, filas, filtroEstado, filtroEtapa, filtroModulo, filtroOwner, filtroVentana])
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+    if (filtroModulo !== 'todos') parametros.set('modulo', filtroModulo)
+    if (filtroEstado !== 'todos') parametros.set('estado', filtroEstado)
+    if (filtroOwner) parametros.set('owner', filtroOwner)
+    if (filtroVentana !== 'todas') parametros.set('ventana', filtroVentana)
+    if (filtroEtapa !== 'todas') parametros.set('etapa', filtroEtapa)
+    if (fechaDesde) parametros.set('desde', fechaDesde)
+    if (fechaHasta) parametros.set('hasta', fechaHasta)
+    setSearchParams(parametros, { replace: true })
+  }, [filtroModulo, filtroEstado, filtroOwner, filtroVentana, filtroEtapa, fechaDesde, fechaHasta, setSearchParams])
 
   const exportar = () => {
     exportarCsv(
@@ -316,7 +330,13 @@ export function PaginaPortafolio() {
           <option value="operacion">Operación</option>
           <option value="auditorias">Auditorías</option>
         </select>
-        <input value={filtroEstado} onChange={(evento) => setFiltroEstado(evento.target.value)} placeholder="Estado" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+        <select value={filtroEstado} onChange={(evento) => setFiltroEstado(evento.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+          <option value="todos">Estado health: todos</option>
+          <option value="Saludable">Saludable</option>
+          <option value="Atención">Atención</option>
+          <option value="Riesgo">Riesgo</option>
+          <option value="Sin dato">Sin dato</option>
+        </select>
         <input value={filtroOwner} onChange={(evento) => setFiltroOwner(evento.target.value)} placeholder="Owner si aplica" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
         <select value={filtroVentana} onChange={(evento) => setFiltroVentana(evento.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
           <option value="todas">Ventana: todas</option>

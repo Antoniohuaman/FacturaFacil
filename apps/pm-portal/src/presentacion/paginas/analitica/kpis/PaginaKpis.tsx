@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { kpiEjecutivoSchema, type KpiEjecutivoEntrada } from '@/compartido/validacion/esquemas'
 import {
   categoriasKpiEjecutivoPm,
@@ -38,16 +41,19 @@ function calcularVariacion(valorActual: number | null, valorAnterior: number | n
 }
 
 export function PaginaKpis() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaInicial = Number(searchParams.get('pagina') ?? '1')
+  const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
   const [kpis, setKpis] = useState<KpiEjecutivoPm[]>([])
   const [referencias, setReferencias] = useState<ReferenciasAnalitica | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [filtroCategoria, setFiltroCategoria] = useState<'todas' | (typeof categoriasKpiEjecutivoPm)[number]>('todas')
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosSaludAnaliticaPm)[number]>('todos')
-  const [filtroModulo, setFiltroModulo] = useState('todos')
-  const [filtroOwner, setFiltroOwner] = useState('')
-  const [fechaDesde, setFechaDesde] = useState('')
-  const [fechaHasta, setFechaHasta] = useState('')
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroCategoria, setFiltroCategoria] = useState<'todas' | (typeof categoriasKpiEjecutivoPm)[number]>((searchParams.get('categoria') as (typeof categoriasKpiEjecutivoPm)[number]) ?? 'todas')
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosSaludAnaliticaPm)[number]>((searchParams.get('estado') as (typeof estadosSaludAnaliticaPm)[number]) ?? 'todos')
+  const [filtroModulo, setFiltroModulo] = useState(searchParams.get('modulo') ?? 'todos')
+  const [filtroOwner, setFiltroOwner] = useState(searchParams.get('owner') ?? '')
+  const [fechaDesde, setFechaDesde] = useState(searchParams.get('desde') ?? '')
+  const [fechaHasta, setFechaHasta] = useState(searchParams.get('hasta') ?? '')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -123,6 +129,26 @@ export function PaginaKpis() {
       )
     })
   }, [busqueda, fechaDesde, fechaHasta, filtroCategoria, filtroEstado, filtroModulo, filtroOwner, kpis])
+
+  const paginacion = usePaginacion({
+    items: kpisFiltrados,
+    paginaInicial: Number.isFinite(paginaInicial) && paginaInicial > 0 ? paginaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoInicial) ? tamanoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+    if (busqueda) parametros.set('q', busqueda)
+    if (filtroCategoria !== 'todas') parametros.set('categoria', filtroCategoria)
+    if (filtroEstado !== 'todos') parametros.set('estado', filtroEstado)
+    if (filtroModulo !== 'todos') parametros.set('modulo', filtroModulo)
+    if (filtroOwner) parametros.set('owner', filtroOwner)
+    if (fechaDesde) parametros.set('desde', fechaDesde)
+    if (fechaHasta) parametros.set('hasta', fechaHasta)
+    if (paginacion.paginaActual > 1) parametros.set('pagina', String(paginacion.paginaActual))
+    if (paginacion.tamanoPagina !== 10) parametros.set('tamano', String(paginacion.tamanoPagina))
+    setSearchParams(parametros, { replace: true })
+  }, [busqueda, filtroCategoria, filtroEstado, filtroModulo, filtroOwner, fechaDesde, fechaHasta, paginacion.paginaActual, paginacion.tamanoPagina, setSearchParams])
 
   const nombresModulo = useMemo(
     () => new Map((referencias?.modulos ?? []).map((modulo) => [modulo.codigo, modulo.nombre])),
@@ -234,7 +260,7 @@ export function PaginaKpis() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {kpisFiltrados.map((kpi) => {
+                {paginacion.itemsPaginados.map((kpi) => {
                   const variacion = calcularVariacion(kpi.valor_actual, kpi.valor_anterior)
                   return (
                     <tr key={kpi.id}>
@@ -265,6 +291,17 @@ export function PaginaKpis() {
           </div>
         </div>
       </EstadoVista>
+
+      <PaginacionTabla
+        paginaActual={paginacion.paginaActual}
+        totalPaginas={paginacion.totalPaginas}
+        totalItems={paginacion.totalItems}
+        desde={paginacion.desde}
+        hasta={paginacion.hasta}
+        tamanoPagina={paginacion.tamanoPagina}
+        alCambiarTamanoPagina={paginacion.setTamanoPagina}
+        alCambiarPagina={paginacion.setPaginaActual}
+      />
 
       <ModalPortal abierto={modalAbierto} titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} KPI ejecutivo`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => {

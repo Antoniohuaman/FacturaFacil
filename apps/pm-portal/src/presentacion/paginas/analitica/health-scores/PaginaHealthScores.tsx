@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { healthScoreSchema, type HealthScoreEntrada } from '@/compartido/validacion/esquemas'
 import {
   ambitosHealthScorePm,
@@ -35,13 +38,17 @@ function calcularScoreVisible(score: HealthScorePm) {
 }
 
 export function PaginaHealthScores() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaInicial = Number(searchParams.get('pagina') ?? '1')
+  const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
   const [scores, setScores] = useState<HealthScorePm[]>([])
   const [referencias, setReferencias] = useState<ReferenciasAnalitica | null>(null)
-  const [filtroAmbito, setFiltroAmbito] = useState<'todos' | (typeof ambitosHealthScorePm)[number]>('todos')
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosSaludAnaliticaPm)[number]>('todos')
-  const [filtroModulo, setFiltroModulo] = useState('todos')
-  const [filtroOwner, setFiltroOwner] = useState('')
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroAmbito, setFiltroAmbito] = useState<'todos' | (typeof ambitosHealthScorePm)[number]>((searchParams.get('ambito') as (typeof ambitosHealthScorePm)[number]) ?? 'todos')
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosSaludAnaliticaPm)[number]>((searchParams.get('estado') as (typeof estadosSaludAnaliticaPm)[number]) ?? 'todos')
+  const [filtroModulo, setFiltroModulo] = useState(searchParams.get('modulo') ?? 'todos')
+  const [filtroOwner, setFiltroOwner] = useState(searchParams.get('owner') ?? '')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -89,22 +96,44 @@ export function PaginaHealthScores() {
   }, [])
 
   const scoresFiltrados = useMemo(() => {
+    const termino = busqueda.toLowerCase()
     const owner = filtroOwner.toLowerCase()
 
     return scores.filter((score) => {
+      const coincideBusqueda = termino
+        ? score.codigo.toLowerCase().includes(termino) || score.nombre.toLowerCase().includes(termino) || score.descripcion.toLowerCase().includes(termino)
+        : true
       const coincideAmbito = filtroAmbito === 'todos' ? true : score.ambito === filtroAmbito
       const coincideEstado = filtroEstado === 'todos' ? true : score.estado === filtroEstado
       const coincideModulo = filtroModulo === 'todos' ? true : score.modulo_codigo === filtroModulo
       const coincideOwner = owner ? (score.owner ?? '').toLowerCase().includes(owner) : true
 
-      return coincideAmbito && coincideEstado && coincideModulo && coincideOwner
+      return coincideBusqueda && coincideAmbito && coincideEstado && coincideModulo && coincideOwner
     })
-  }, [filtroAmbito, filtroEstado, filtroModulo, filtroOwner, scores])
+  }, [busqueda, filtroAmbito, filtroEstado, filtroModulo, filtroOwner, scores])
 
   const nombresModulo = useMemo(
     () => new Map((referencias?.modulos ?? []).map((modulo) => [modulo.codigo, modulo.nombre])),
     [referencias]
   )
+
+  const paginacion = usePaginacion({
+    items: scoresFiltrados,
+    paginaInicial: Number.isFinite(paginaInicial) && paginaInicial > 0 ? paginaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoInicial) ? tamanoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+    if (busqueda) parametros.set('q', busqueda)
+    if (filtroAmbito !== 'todos') parametros.set('ambito', filtroAmbito)
+    if (filtroEstado !== 'todos') parametros.set('estado', filtroEstado)
+    if (filtroModulo !== 'todos') parametros.set('modulo', filtroModulo)
+    if (filtroOwner) parametros.set('owner', filtroOwner)
+    if (paginacion.paginaActual > 1) parametros.set('pagina', String(paginacion.paginaActual))
+    if (paginacion.tamanoPagina !== 10) parametros.set('tamano', String(paginacion.tamanoPagina))
+    setSearchParams(parametros, { replace: true })
+  }, [busqueda, filtroAmbito, filtroEstado, filtroModulo, filtroOwner, paginacion.paginaActual, paginacion.tamanoPagina, setSearchParams])
 
   const abrirModal = (modo: ModoModal, score?: HealthScorePm) => {
     setModoModal(modo)
@@ -160,6 +189,7 @@ export function PaginaHealthScores() {
       </header>
 
       <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4 dark:border-slate-800 dark:bg-slate-900">
+        <input value={busqueda} onChange={(evento) => setBusqueda(evento.target.value)} placeholder="Buscar health score" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
         <select value={filtroAmbito} onChange={(evento) => setFiltroAmbito(evento.target.value as 'todos' | (typeof ambitosHealthScorePm)[number])} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
           <option value="todos">Ámbito: todos</option>
           {ambitosHealthScorePm.map((ambito) => <option key={ambito} value={ambito}>{formatearAmbitoHealthScore(ambito)}</option>)}
@@ -182,7 +212,7 @@ export function PaginaHealthScores() {
 
       <EstadoVista cargando={cargando} error={error} vacio={scoresFiltrados.length === 0} mensajeVacio="No hay health scores para los filtros seleccionados.">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {scoresFiltrados.map((score) => (
+          {paginacion.itemsPaginados.map((score) => (
             <article key={score.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -219,6 +249,17 @@ export function PaginaHealthScores() {
           ))}
         </div>
       </EstadoVista>
+
+      <PaginacionTabla
+        paginaActual={paginacion.paginaActual}
+        totalPaginas={paginacion.totalPaginas}
+        totalItems={paginacion.totalItems}
+        desde={paginacion.desde}
+        hasta={paginacion.hasta}
+        tamanoPagina={paginacion.tamanoPagina}
+        alCambiarTamanoPagina={paginacion.setTamanoPagina}
+        alCambiarPagina={paginacion.setPaginaActual}
+      />
 
       <ModalPortal abierto={modalAbierto} titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} health score`} alCerrar={() => setModalAbierto(false)}>
         <form className="space-y-4" onSubmit={formulario.handleSubmit(async (valores) => {

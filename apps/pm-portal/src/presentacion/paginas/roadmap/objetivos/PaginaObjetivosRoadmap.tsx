@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import { objetivoSchema, type ObjetivoEntrada } from '@/compartido/validacion/esquemas'
 import { estadosRegistro, prioridadesRegistro, type Objetivo, type RelObjetivoRoadmapKrPm } from '@/dominio/modelos'
 import {
@@ -12,22 +13,31 @@ import {
 import { listarRelObjetivoRoadmapKr } from '@/aplicacion/casos-uso/estrategia'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
+import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
+import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
 export function PaginaObjetivosRoadmap() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paginaInicial = Number(searchParams.get('pagina') ?? '1')
+  const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [relacionesKr, setRelacionesKr] = useState<RelObjetivoRoadmapKrPm[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosRegistro)[number]>('todos')
-  const [filtroPrioridad, setFiltroPrioridad] = useState<'todas' | (typeof prioridadesRegistro)[number]>('todas')
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') ?? '')
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | (typeof estadosRegistro)[number]>(
+    (searchParams.get('estado') as 'todos' | (typeof estadosRegistro)[number]) ?? 'todos'
+  )
+  const [filtroPrioridad, setFiltroPrioridad] = useState<'todas' | (typeof prioridadesRegistro)[number]>(
+    (searchParams.get('prioridad') as 'todas' | (typeof prioridadesRegistro)[number]) ?? 'todas'
+  )
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModal>('crear')
   const [objetivoActivo, setObjetivoActivo] = useState<Objetivo | null>(null)
@@ -86,6 +96,22 @@ export function PaginaObjetivosRoadmap() {
       new Map<string, number>()
     )
   }, [relacionesKr])
+
+  const paginacion = usePaginacion({
+    items: objetivosFiltrados,
+    paginaInicial: Number.isFinite(paginaInicial) && paginaInicial > 0 ? paginaInicial : 1,
+    tamanoInicial: [10, 25, 50].includes(tamanoInicial) ? tamanoInicial : 10
+  })
+
+  useEffect(() => {
+    const parametros = new URLSearchParams()
+    if (busqueda) parametros.set('q', busqueda)
+    if (filtroEstado !== 'todos') parametros.set('estado', filtroEstado)
+    if (filtroPrioridad !== 'todas') parametros.set('prioridad', filtroPrioridad)
+    if (paginacion.paginaActual > 1) parametros.set('pagina', String(paginacion.paginaActual))
+    if (paginacion.tamanoPagina !== 10) parametros.set('tamano', String(paginacion.tamanoPagina))
+    setSearchParams(parametros, { replace: true })
+  }, [busqueda, filtroEstado, filtroPrioridad, paginacion.paginaActual, paginacion.tamanoPagina, setSearchParams])
 
   const abrirModal = (modo: ModoModal, objetivo?: Objetivo) => {
     setModoModal(modo)
@@ -237,7 +263,7 @@ export function PaginaObjetivosRoadmap() {
               </tr>
             </thead>
             <tbody>
-              {objetivosFiltrados.map((objetivo) => (
+              {paginacion.itemsPaginados.map((objetivo) => (
                 <tr key={objetivo.id} className="border-t border-slate-200 dark:border-slate-800">
                   <td className="px-3 py-2">
                     <p className="font-medium">{objetivo.nombre}</p>
@@ -289,6 +315,17 @@ export function PaginaObjetivosRoadmap() {
           </table>
         </div>
       </EstadoVista>
+
+      <PaginacionTabla
+        paginaActual={paginacion.paginaActual}
+        totalPaginas={paginacion.totalPaginas}
+        totalItems={paginacion.totalItems}
+        desde={paginacion.desde}
+        hasta={paginacion.hasta}
+        tamanoPagina={paginacion.tamanoPagina}
+        alCambiarTamanoPagina={paginacion.setTamanoPagina}
+        alCambiarPagina={paginacion.setPaginaActual}
+      />
 
       <ModalPortal
         abierto={modalAbierto}
