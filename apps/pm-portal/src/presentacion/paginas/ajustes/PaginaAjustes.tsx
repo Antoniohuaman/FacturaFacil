@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 import {
   catalogoEtapaPmSchema,
@@ -19,9 +20,6 @@ import {
   type KpiConfigPmEntrada
 } from '@/compartido/validacion/esquemas'
 import {
-  alcancesPeriodoRice,
-  formatearEsfuerzoUnidadRice,
-  unidadesEsfuerzoRice,
   type CatalogoEtapaPm,
   type CatalogoModuloPm,
   type CatalogoSeveridadPm,
@@ -62,6 +60,19 @@ import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeAdministrar } from '@/compartido/utilidades/permisosRol'
+import { NavegacionAjustes } from '@/presentacion/paginas/ajustes/componentes/NavegacionAjustes'
+import { PanelRiceAjustes } from '@/presentacion/paginas/ajustes/componentes/PanelRiceAjustes'
+import { PanelPlanificacionAjustes } from '@/presentacion/paginas/ajustes/componentes/PanelPlanificacionAjustes'
+import { PanelModulosAjustes } from '@/presentacion/paginas/ajustes/componentes/PanelModulosAjustes'
+import { PanelSeveridadesAjustes } from '@/presentacion/paginas/ajustes/componentes/PanelSeveridadesAjustes'
+import { PanelKpisAjustes } from '@/presentacion/paginas/ajustes/componentes/PanelKpisAjustes'
+import { PanelIntegracionesAjustes } from '@/presentacion/paginas/ajustes/componentes/PanelIntegracionesAjustes'
+import {
+  normalizarPestanaPlanificacion,
+  normalizarSeccionAjustes,
+  type AjustesSeccionId,
+  type AjustesPlanificacionTabId
+} from '@/presentacion/paginas/ajustes/modeloAjustes'
 
 type ModoModal = 'crear' | 'editar'
 
@@ -98,6 +109,7 @@ function convertirJsonATexto(valor: Record<string, unknown> | null) {
 }
 
 export function PaginaAjustes() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { rol } = useSesionPortalPM()
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
   const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
@@ -109,7 +121,6 @@ export function PaginaAjustes() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [mensajeRice, setMensajeRice] = useState<string | null>(null)
-  const [pestanaPlanificacion, setPestanaPlanificacion] = useState<'ventanas' | 'etapas'>('ventanas')
 
   const [modalVentanaAbierto, setModalVentanaAbierto] = useState(false)
   const [modoVentana, setModoVentana] = useState<ModoModal>('crear')
@@ -136,6 +147,8 @@ export function PaginaAjustes() {
   const [integracionActiva, setIntegracionActiva] = useState<IntegracionPm | null>(null)
 
   const esAdmin = puedeAdministrar(rol)
+  const seccionActiva = normalizarSeccionAjustes(searchParams.get('vista'))
+  const pestanaPlanificacion = normalizarPestanaPlanificacion(searchParams.get('planificacion'))
 
   const formularioModulo = useForm<CatalogoModuloPmEntrada>({
     resolver: zodResolver(catalogoModuloPmSchema),
@@ -252,6 +265,196 @@ export function PaginaAjustes() {
     void cargar()
   }, [cargar])
 
+  const actualizarNavegacion = useCallback(
+    (actualizar: (params: URLSearchParams) => void) => {
+      const siguientes = new URLSearchParams(searchParams)
+      actualizar(siguientes)
+      setSearchParams(siguientes)
+    },
+    [searchParams, setSearchParams]
+  )
+
+  const seleccionarSeccion = useCallback(
+    (seccion: AjustesSeccionId) => {
+      actualizarNavegacion((params) => {
+        params.set('vista', seccion)
+        if (seccion === 'planificacion') {
+          if (!params.get('planificacion')) {
+            params.set('planificacion', 'ventanas')
+          }
+        } else {
+          params.delete('planificacion')
+        }
+      })
+    },
+    [actualizarNavegacion]
+  )
+
+  const seleccionarPestanaPlanificacion = useCallback(
+    (pestana: AjustesPlanificacionTabId) => {
+      actualizarNavegacion((params) => {
+        params.set('vista', 'planificacion')
+        params.set('planificacion', pestana)
+      })
+    },
+    [actualizarNavegacion]
+  )
+
+  const eliminarVentana = useCallback(
+    (ventana: CatalogoVentanaPm) => {
+      if (window.confirm('¿Eliminar esta ventana?')) {
+        void eliminarVentanaPm(ventana.id).then(cargar).catch((errorInterno) => {
+          setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la ventana')
+        })
+      }
+    },
+    [cargar]
+  )
+
+  const eliminarEtapa = useCallback(
+    (etapa: CatalogoEtapaPm) => {
+      if (window.confirm('¿Eliminar esta etapa?')) {
+        void eliminarEtapaPm(etapa.id).then(cargar).catch((errorInterno) => {
+          setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la etapa')
+        })
+      }
+    },
+    [cargar]
+  )
+
+  const eliminarModulo = useCallback(
+    (modulo: CatalogoModuloPm) => {
+      if (window.confirm('¿Eliminar este módulo?')) {
+        void eliminarModuloPm(modulo.id).then(cargar).catch((errorInterno) => {
+          setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar el módulo')
+        })
+      }
+    },
+    [cargar]
+  )
+
+  const eliminarSeveridad = useCallback(
+    (severidad: CatalogoSeveridadPm) => {
+      if (window.confirm('¿Eliminar esta severidad?')) {
+        void eliminarSeveridadPm(severidad.id).then(cargar).catch((errorInterno) => {
+          setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la severidad')
+        })
+      }
+    },
+    [cargar]
+  )
+
+  const eliminarKpi = useCallback(
+    (kpi: KpiConfigPm) => {
+      if (window.confirm('¿Eliminar este KPI?')) {
+        void eliminarKpiPm(kpi.id).then(cargar).catch((errorInterno) => {
+          setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar el KPI')
+        })
+      }
+    },
+    [cargar]
+  )
+
+  const eliminarIntegracion = useCallback(
+    (integracion: IntegracionPm) => {
+      if (window.confirm('¿Eliminar esta integración?')) {
+        void eliminarIntegracionPm(integracion.id).then(cargar).catch((errorInterno) => {
+          setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la integración')
+        })
+      }
+    },
+    [cargar]
+  )
+
+  const guardarConfiguracionRice = useCallback(
+    async (valores: ConfiguracionRiceEntrada) => {
+      try {
+        const actualizada = await actualizarConfiguracionRice(valores)
+        setConfiguracionRice(actualizada)
+        formularioRice.reset({
+          alcance_periodo: actualizada.alcance_periodo,
+          esfuerzo_unidad: actualizada.esfuerzo_unidad
+        })
+        setMensajeRice('Configuración guardada.')
+      } catch (errorInterno) {
+        setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar la configuración RICE')
+      }
+    },
+    [formularioRice]
+  )
+
+  const renderSeccionActiva = () => {
+    switch (seccionActiva) {
+      case 'planificacion':
+        return (
+          <PanelPlanificacionAjustes
+            esAdmin={esAdmin}
+            etapas={etapas}
+            ventanas={ventanas}
+            pestanaActiva={pestanaPlanificacion}
+            onCambiarPestana={seleccionarPestanaPlanificacion}
+            onCrearVentana={() => abrirModalVentana('crear')}
+            onEditarVentana={(ventana) => abrirModalVentana('editar', ventana)}
+            onEliminarVentana={eliminarVentana}
+            onCrearEtapa={() => abrirModalEtapa('crear')}
+            onEditarEtapa={(etapa) => abrirModalEtapa('editar', etapa)}
+            onEliminarEtapa={eliminarEtapa}
+          />
+        )
+      case 'modulos':
+        return (
+          <PanelModulosAjustes
+            esAdmin={esAdmin}
+            modulos={modulos}
+            onCrear={() => abrirModalModulo('crear')}
+            onEditar={(modulo) => abrirModalModulo('editar', modulo)}
+            onEliminar={eliminarModulo}
+          />
+        )
+      case 'severidades':
+        return (
+          <PanelSeveridadesAjustes
+            esAdmin={esAdmin}
+            severidades={severidades}
+            onCrear={() => abrirModalSeveridad('crear')}
+            onEditar={(severidad) => abrirModalSeveridad('editar', severidad)}
+            onEliminar={eliminarSeveridad}
+          />
+        )
+      case 'kpis':
+        return (
+          <PanelKpisAjustes
+            esAdmin={esAdmin}
+            kpis={kpis}
+            onCrear={() => abrirModalKpi('crear')}
+            onEditar={(kpi) => abrirModalKpi('editar', kpi)}
+            onEliminar={eliminarKpi}
+          />
+        )
+      case 'integraciones':
+        return (
+          <PanelIntegracionesAjustes
+            esAdmin={esAdmin}
+            integraciones={integraciones}
+            onCrear={() => abrirModalIntegracion('crear')}
+            onEditar={(integracion) => abrirModalIntegracion('editar', integracion)}
+            onEliminar={eliminarIntegracion}
+          />
+        )
+      case 'rice':
+      default:
+        return (
+          <PanelRiceAjustes
+            configuracionRice={configuracionRice}
+            esAdmin={esAdmin}
+            formularioRice={formularioRice}
+            mensajeRice={mensajeRice}
+            onGuardar={guardarConfiguracionRice}
+          />
+        )
+    }
+  }
+
   const abrirModalModulo = (modo: ModoModal, modulo?: CatalogoModuloPm) => {
     setModoModulo(modo)
     setModuloActivo(modulo ?? null)
@@ -339,432 +542,15 @@ export function PaginaAjustes() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold">Ajustes</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Catálogos y configuraciones operativas del portal PM (módulos, severidades, KPIs e integraciones).
+          Reestructura interna del módulo para administrar catálogos y configuraciones operativas sin salir de
+          la ruta raíz.
         </p>
       </header>
 
+      <NavegacionAjustes seccionActiva={seccionActiva} onSeleccionar={seleccionarSeccion} />
+
       <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="Sin datos de ajustes.">
-        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Estándar RICE</h2>
-            {mensajeRice ? <p className="text-xs text-emerald-600 dark:text-emerald-400">{mensajeRice}</p> : null}
-          </div>
-
-          <form
-            className="grid gap-3 md:grid-cols-2"
-            onSubmit={formularioRice.handleSubmit(async (valores) => {
-              try {
-                const actualizada = await actualizarConfiguracionRice(valores)
-                setConfiguracionRice(actualizada)
-                formularioRice.reset({
-                  alcance_periodo: actualizada.alcance_periodo,
-                  esfuerzo_unidad: actualizada.esfuerzo_unidad
-                })
-                setMensajeRice('Configuración guardada.')
-              } catch (errorInterno) {
-                setError(
-                  errorInterno instanceof Error
-                    ? errorInterno.message
-                    : 'No se pudo guardar la configuración RICE'
-                )
-              }
-            })}
-          >
-            <div>
-              <label className="text-sm font-medium">Alcance (periodo)</label>
-              <select
-                {...formularioRice.register('alcance_periodo')}
-                disabled={!esAdmin || formularioRice.formState.isSubmitting}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {alcancesPeriodoRice.map((periodo) => (
-                  <option key={periodo} value={periodo}>
-                    {periodo === 'semana' ? 'Semana' : periodo === 'trimestre' ? 'Trimestre' : 'Mes'}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Esfuerzo (unidad)</label>
-              <select
-                {...formularioRice.register('esfuerzo_unidad')}
-                disabled={!esAdmin || formularioRice.formState.isSubmitting}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {unidadesEsfuerzoRice.map((unidad) => (
-                  <option key={unidad} value={unidad}>
-                    {formatearEsfuerzoUnidadRice(unidad)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="md:col-span-2 flex items-center justify-between gap-3">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Esta configuración ajusta etiquetas y estándar visual RICE en iniciativas.
-              </p>
-              <button
-                type="submit"
-                disabled={!esAdmin || formularioRice.formState.isSubmitting || !formularioRice.formState.isDirty}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-              >
-                {formularioRice.formState.isSubmitting ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
-
-            {configuracionRice ? (
-              <p className="md:col-span-2 text-xs text-slate-500 dark:text-slate-400">
-                Actual: alcance por {configuracionRice.alcance_periodo} · esfuerzo en{' '}
-                {formatearEsfuerzoUnidadRice(configuracionRice.esfuerzo_unidad)}.
-              </p>
-            ) : null}
-          </form>
-        </article>
-
-        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Planificación</h2>
-            {pestanaPlanificacion === 'ventanas' ? (
-              <button
-                type="button"
-                disabled={!esAdmin}
-                onClick={() => abrirModalVentana('crear')}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-              >
-                Crear ventana
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={!esAdmin}
-                onClick={() => abrirModalEtapa('crear')}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-              >
-                Crear etapa
-              </button>
-            )}
-          </div>
-
-          <div className="mb-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPestanaPlanificacion('ventanas')}
-              className={`rounded-full px-3 py-1 text-xs ${
-                pestanaPlanificacion === 'ventanas'
-                  ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
-                  : 'border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
-              }`}
-            >
-              Ventanas
-            </button>
-            <button
-              type="button"
-              onClick={() => setPestanaPlanificacion('etapas')}
-              className={`rounded-full px-3 py-1 text-xs ${
-                pestanaPlanificacion === 'etapas'
-                  ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
-                  : 'border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
-              }`}
-            >
-              Etapas
-            </button>
-          </div>
-
-          {pestanaPlanificacion === 'ventanas' ? (
-            <ul className="grid gap-2 md:grid-cols-2">
-              {ventanas.map((ventana) => (
-                <li key={ventana.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
-                  <p className="font-medium">{ventana.etiqueta_visible}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {ventana.tipo} · Orden {ventana.orden}
-                    {ventana.anio ? ` · ${ventana.anio}` : ''}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {ventana.fecha_inicio ?? 'Sin fecha inicio'} → {ventana.fecha_fin ?? 'Sin fecha fin'}
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      disabled={!esAdmin}
-                      onClick={() => abrirModalVentana('editar', ventana)}
-                      className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!esAdmin}
-                      onClick={() => {
-                        if (window.confirm('¿Eliminar esta ventana?')) {
-                          void eliminarVentanaPm(ventana.id).then(cargar).catch((errorInterno) => {
-                            setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la ventana')
-                          })
-                        }
-                      }}
-                      className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </li>
-              ))}
-              {ventanas.length === 0 ? (
-                <li className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  No hay ventanas configuradas.
-                </li>
-              ) : null}
-            </ul>
-          ) : (
-            <ul className="grid gap-2 md:grid-cols-2">
-              {etapas.map((etapa) => (
-                <li key={etapa.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
-                  <p className="font-medium">{etapa.etiqueta_visible}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Orden {etapa.orden}</p>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      disabled={!esAdmin}
-                      onClick={() => abrirModalEtapa('editar', etapa)}
-                      className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!esAdmin}
-                      onClick={() => {
-                        if (window.confirm('¿Eliminar esta etapa?')) {
-                          void eliminarEtapaPm(etapa.id).then(cargar).catch((errorInterno) => {
-                            setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la etapa')
-                          })
-                        }
-                      }}
-                      className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </li>
-              ))}
-              {etapas.length === 0 ? (
-                <li className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                  No hay etapas configuradas.
-                </li>
-              ) : null}
-            </ul>
-          )}
-        </article>
-
-        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Catálogo de módulos</h2>
-            <button
-              type="button"
-              disabled={!esAdmin}
-              onClick={() => abrirModalModulo('crear')}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-            >
-              Crear módulo
-            </button>
-          </div>
-          <ul className="grid gap-2 md:grid-cols-2">
-            {modulos.map((modulo) => (
-              <li key={modulo.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
-                <p className="font-medium">{modulo.nombre}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{modulo.codigo} · Orden {modulo.orden}</p>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={!esAdmin}
-                    onClick={() => abrirModalModulo('editar', modulo)}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!esAdmin}
-                    onClick={() => {
-                      if (window.confirm('¿Eliminar este módulo?')) {
-                        void eliminarModuloPm(modulo.id).then(cargar).catch((errorInterno) => {
-                          setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar el módulo')
-                        })
-                      }
-                    }}
-                    className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Catálogo de severidades</h2>
-            <button
-              type="button"
-              disabled={!esAdmin}
-              onClick={() => abrirModalSeveridad('crear')}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-            >
-              Crear severidad
-            </button>
-          </div>
-          <ul className="grid gap-2 md:grid-cols-3">
-            {severidades.map((severidad) => (
-              <li key={severidad.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
-                <p className="font-medium">{severidad.nombre}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{severidad.codigo} · Nivel {severidad.nivel}</p>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={!esAdmin}
-                    onClick={() => abrirModalSeveridad('editar', severidad)}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!esAdmin}
-                    onClick={() => {
-                      if (window.confirm('¿Eliminar esta severidad?')) {
-                        void eliminarSeveridadPm(severidad.id).then(cargar).catch((errorInterno) => {
-                          setError(
-                            errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la severidad'
-                          )
-                        })
-                      }
-                    }}
-                    className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Configuración de KPIs</h2>
-            <button
-              type="button"
-              disabled={!esAdmin}
-              onClick={() => abrirModalKpi('crear')}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-            >
-              Crear KPI
-            </button>
-          </div>
-          <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-100 text-left dark:bg-slate-800">
-                <tr>
-                  <th className="px-3 py-2">KPI</th>
-                  <th className="px-3 py-2">Unidad</th>
-                  <th className="px-3 py-2">Meta 7/30/90</th>
-                  <th className="px-3 py-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kpis.map((kpi) => (
-                  <tr key={kpi.id} className="border-t border-slate-200 dark:border-slate-800">
-                    <td className="px-3 py-2">
-                      <p className="font-medium">{kpi.nombre}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{kpi.clave_kpi}</p>
-                    </td>
-                    <td className="px-3 py-2">{kpi.unidad}</td>
-                    <td className="px-3 py-2">{kpi.meta_7 ?? '-'} / {kpi.meta_30 ?? '-'} / {kpi.meta_90 ?? '-'}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={!esAdmin}
-                          onClick={() => abrirModalKpi('editar', kpi)}
-                          className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!esAdmin}
-                          onClick={() => {
-                            if (window.confirm('¿Eliminar este KPI?')) {
-                              void eliminarKpiPm(kpi.id).then(cargar).catch((errorInterno) => {
-                                setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar el KPI')
-                              })
-                            }
-                          }}
-                          className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-        <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold">Integraciones</h2>
-            <button
-              type="button"
-              disabled={!esAdmin}
-              onClick={() => abrirModalIntegracion('crear')}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50 dark:bg-slate-200 dark:text-slate-900"
-            >
-              Crear integración
-            </button>
-          </div>
-          <ul className="grid gap-2 md:grid-cols-2">
-            {integraciones.map((integracion) => (
-              <li key={integracion.id} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
-                <p className="font-medium">{integracion.nombre}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {integracion.clave} · {integracion.habilitado ? 'Habilitada' : 'Deshabilitada'}
-                </p>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={!esAdmin}
-                    onClick={() => abrirModalIntegracion('editar', integracion)}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-700"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!esAdmin}
-                    onClick={() => {
-                      if (window.confirm('¿Eliminar esta integración?')) {
-                        void eliminarIntegracionPm(integracion.id).then(cargar).catch((errorInterno) => {
-                          setError(
-                            errorInterno instanceof Error
-                              ? errorInterno.message
-                              : 'No se pudo eliminar la integración'
-                          )
-                        })
-                      }
-                    }}
-                    className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </article>
+        {renderSeccionActiva()}
       </EstadoVista>
 
       <ModalPortal
