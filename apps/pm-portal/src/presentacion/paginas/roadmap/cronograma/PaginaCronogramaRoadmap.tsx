@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+  type MouseEvent,
+  type ReactNode
+} from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
@@ -51,10 +59,113 @@ interface FilaCronograma {
   entregaAtrasada: boolean
 }
 
+interface TooltipCronogramaProps {
+  content: ReactNode
+  children: ReactNode
+  className?: string
+  disabled?: boolean
+  maxWidthClassName?: string
+}
+
 const FILA_SIN_OBJETIVO = '__sin_objetivo__'
 const FILA_SIN_INICIATIVA = '__sin_iniciativa__'
-const ANCHO_COLUMNA_FIJA = 320
 const ANCHO_MES = 140
+const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden'
+}
+
+function TooltipCronograma({
+  content,
+  children,
+  className,
+  disabled = false,
+  maxWidthClassName = 'max-w-xs'
+}: TooltipCronogramaProps) {
+  const [abierto, setAbierto] = useState(false)
+  const [posicion, setPosicion] = useState({ x: 0, y: 0 })
+
+  const actualizarPosicion = (elemento: HTMLElement) => {
+    const rect = elemento.getBoundingClientRect()
+    setPosicion({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    })
+  }
+
+  const manejarMouseEnter = (evento: MouseEvent<HTMLSpanElement>) => {
+    if (disabled) {
+      return
+    }
+
+    actualizarPosicion(evento.currentTarget)
+    setAbierto(true)
+  }
+
+  const manejarMouseMove = (evento: MouseEvent<HTMLSpanElement>) => {
+    if (disabled || !abierto) {
+      return
+    }
+
+    actualizarPosicion(evento.currentTarget)
+  }
+
+  const manejarFocus = (evento: FocusEvent<HTMLSpanElement>) => {
+    if (disabled) {
+      return
+    }
+
+    actualizarPosicion(evento.currentTarget)
+    setAbierto(true)
+  }
+
+  return (
+    <span
+      className={className}
+      onMouseEnter={manejarMouseEnter}
+      onMouseMove={manejarMouseMove}
+      onMouseLeave={() => setAbierto(false)}
+      onFocus={manejarFocus}
+      onBlur={() => setAbierto(false)}
+    >
+      {children}
+      {abierto ? (
+        <span
+          className={`pointer-events-none fixed z-[80] -translate-x-1/2 -translate-y-full rounded-xl border border-slate-200 bg-white/96 px-3 py-2 text-left text-xs text-slate-700 shadow-2xl shadow-slate-900/10 backdrop-blur dark:border-slate-700 dark:bg-slate-900/96 dark:text-slate-200 ${maxWidthClassName}`}
+          style={{ left: posicion.x, top: posicion.y }}
+          role="tooltip"
+        >
+          {content}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
+function IconoFiltros({ abierto }: { abierto: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path d="M3 5h14M6 10h8M8 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d={abierto ? 'M14 8l-4 4-4-4' : 'M6 8l4 4 4-4'}
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function IconoChevron({ abierto }: { abierto: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className={`h-3.5 w-3.5 transition ${abierto ? 'rotate-90' : ''}`}>
+      <path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 function normalizarVistaTemporal(valor: string | null): VistaTemporal {
   return valor === 'trimestre' ? 'trimestre' : 'anio'
@@ -109,6 +220,10 @@ function formatearAnio(fecha: Date) {
   return new Intl.DateTimeFormat('es-PE', { year: 'numeric' }).format(fecha)
 }
 
+function formatearRangoFechas(inicio: Date, fin: Date) {
+  return `${formatearFechaCorta(inicio.toISOString().slice(0, 10))} - ${formatearFechaCorta(fin.toISOString().slice(0, 10))}`
+}
+
 function obtenerClaseBadgeEstado(estado: EstadoRegistro | null) {
   if (estado === 'completado') {
     return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
@@ -121,32 +236,80 @@ function obtenerClaseBadgeEstado(estado: EstadoRegistro | null) {
   return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
 }
 
-function obtenerClaseSegmento(variante: SegmentoCronograma['variante']) {
+function obtenerClaseFila(fila: FilaCronograma) {
+  if (fila.tipo === 'objetivo') {
+    return 'bg-slate-50/90 dark:bg-slate-950/40'
+  }
+
+  return 'bg-white dark:bg-slate-900'
+}
+
+function obtenerEstiloSegmento(variante: SegmentoCronograma['variante']) {
   if (variante === 'objetivo') {
-    return 'bg-slate-300/80 dark:bg-slate-700/80'
+    return {
+      className: 'bg-slate-300/55 ring-1 ring-inset ring-slate-400/25 dark:bg-slate-700/55 dark:ring-slate-500/30',
+      top: 30,
+      height: 4,
+      borderRadius: 9999
+    }
   }
 
   if (variante === 'iniciativa') {
-    return 'bg-cyan-500/80 dark:bg-cyan-400/70'
+    return {
+      className: 'bg-cyan-500/80 shadow-sm shadow-cyan-900/10 dark:bg-cyan-400/75',
+      top: 20,
+      height: 10,
+      borderRadius: 9999
+    }
   }
 
   if (variante === 'real') {
-    return 'bg-emerald-500/85 dark:bg-emerald-400/70'
+    return {
+      className: 'bg-emerald-500/85 dark:bg-emerald-400/80',
+      top: 36,
+      height: 6,
+      borderRadius: 9999
+    }
   }
 
-  return 'bg-amber-400/80 dark:bg-amber-300/70'
+  return {
+    className: 'bg-amber-400/85 dark:bg-amber-300/80',
+    top: 16,
+    height: 6,
+    borderRadius: 9999
+  }
 }
 
-function obtenerClaseMarcador(variante: MarcadorCronograma['variante']) {
-  if (variante === 'release_real' || variante === 'entrega_real') {
-    return 'bg-emerald-600 dark:bg-emerald-400'
+function obtenerEstiloMarcador(variante: MarcadorCronograma['variante']) {
+  if (variante === 'release_real') {
+    return {
+      top: 30,
+      className: 'bg-emerald-600 ring-2 ring-white shadow-sm dark:bg-emerald-400 dark:ring-slate-900',
+      size: 10
+    }
   }
 
   if (variante === 'release') {
-    return 'bg-slate-900 dark:bg-slate-100'
+    return {
+      top: 12,
+      className: 'bg-slate-900 ring-2 ring-white shadow-sm dark:bg-slate-100 dark:ring-slate-900',
+      size: 10
+    }
   }
 
-  return 'bg-amber-500 dark:bg-amber-300'
+  if (variante === 'entrega_real') {
+    return {
+      top: 36,
+      className: 'bg-emerald-500 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900',
+      size: 9
+    }
+  }
+
+  return {
+    top: 18,
+    className: 'bg-amber-500 ring-2 ring-white dark:bg-amber-300 dark:ring-slate-900',
+    size: 9
+  }
 }
 
 function compararFechasAscendente(fechaA: Date, fechaB: Date) {
@@ -249,6 +412,16 @@ export function PaginaCronogramaRoadmap() {
   const [densidad, setDensidad] = useState<DensidadCronograma>(() => normalizarDensidad(searchParams.get('densidad')))
   const [objetivosExpandidos, setObjetivosExpandidos] = useState<string[]>([])
   const [iniciativasExpandidas, setIniciativasExpandidas] = useState<string[]>([])
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(() => {
+    return Boolean(
+      searchParams.get('objetivo') ||
+        searchParams.get('estado') ||
+        searchParams.get('ventana') ||
+        searchParams.get('trimestre') ||
+        searchParams.get('vista') === 'trimestre' ||
+        searchParams.get('densidad') === 'detalle'
+    )
+  })
 
   useEffect(() => {
     const cargar = async () => {
@@ -390,12 +563,14 @@ export function PaginaCronogramaRoadmap() {
   }, [anioSeleccionado, aniosDisponibles])
 
   const rangoTemporal = useMemo(() => {
-    const inicio = vistaTemporal === 'trimestre'
-      ? new Date(anioSeleccionado, (trimestreSeleccionado - 1) * 3, 1)
-      : new Date(anioSeleccionado, 0, 1)
-    const fin = vistaTemporal === 'trimestre'
-      ? new Date(anioSeleccionado, trimestreSeleccionado * 3, 0)
-      : new Date(anioSeleccionado, 11, 31)
+    const inicio =
+      vistaTemporal === 'trimestre'
+        ? new Date(anioSeleccionado, (trimestreSeleccionado - 1) * 3, 1)
+        : new Date(anioSeleccionado, 0, 1)
+    const fin =
+      vistaTemporal === 'trimestre'
+        ? new Date(anioSeleccionado, trimestreSeleccionado * 3, 0)
+        : new Date(anioSeleccionado, 11, 31)
 
     const meses: Date[] = []
     const cursor = new Date(inicio.getFullYear(), inicio.getMonth(), 1)
@@ -412,7 +587,8 @@ export function PaginaCronogramaRoadmap() {
     }
   }, [anioSeleccionado, trimestreSeleccionado, vistaTemporal])
 
-  const anchoTimeline = Math.max(rangoTemporal.meses.length * ANCHO_MES, 720)
+  const anchoColumnaJerarquia = densidad === 'detalle' ? 420 : 392
+  const anchoTimeline = Math.max(rangoTemporal.meses.length * ANCHO_MES, 760)
 
   const iniciativasFiltradas = useMemo(() => {
     return iniciativas.filter((iniciativa) => {
@@ -430,13 +606,16 @@ export function PaginaCronogramaRoadmap() {
 
       const rangoVentana = obtenerRangoVentana(iniciativa.ventana_planificada_id, ventanasPorId)
       const releasesIniciativa = releasesPorIniciativa.get(iniciativa.id) ?? []
-      const tieneReleaseEnRango = releasesIniciativa.some((release) => {
+      const tieneReleaseEnRango = releasesIniciativa.some((release: ReleasePm) => {
         const fecha = fechaRelease(release)
         return fecha ? fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin) : false
       })
 
       if (rangoVentana) {
-        return rangoSeSuperpone(rangoVentana.inicio, rangoVentana.fin, rangoTemporal.inicio, rangoTemporal.fin) || tieneReleaseEnRango
+        return (
+          rangoSeSuperpone(rangoVentana.inicio, rangoVentana.fin, rangoTemporal.inicio, rangoTemporal.fin) ||
+          tieneReleaseEnRango
+        )
       }
 
       return tieneReleaseEnRango
@@ -486,7 +665,7 @@ export function PaginaCronogramaRoadmap() {
         return true
       }
 
-      return releasesEntrega.some((release) => {
+      return releasesEntrega.some((release: ReleasePm) => {
         const fecha = fechaRelease(release)
         return fecha ? fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin) : false
       })
@@ -499,21 +678,19 @@ export function PaginaCronogramaRoadmap() {
         return false
       }
 
-      const directMatch = iniciativasFiltradas.some((actual) => actual.id === iniciativa.id)
+      const coincideDirecto = iniciativasFiltradas.some((actual) => actual.id === iniciativa.id)
       const tieneEntregas = entregasFiltradas.some((entrega) => entrega.iniciativa_id === iniciativa.id)
-      const tieneReleases = (releasesPorIniciativa.get(iniciativa.id) ?? []).some((release) => {
+      const tieneReleases = (releasesPorIniciativa.get(iniciativa.id) ?? []).some((release: ReleasePm) => {
         const fecha = fechaRelease(release)
         return fecha ? fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin) : false
       })
 
-      return directMatch || tieneEntregas || tieneReleases
+      return coincideDirecto || tieneEntregas || tieneReleases
     })
   }, [entregasFiltradas, filtroObjetivo, iniciativas, iniciativasFiltradas, rangoTemporal.fin, rangoTemporal.inicio, releasesPorIniciativa])
 
   const objetivosVisibles = useMemo(() => {
-    const idsObjetivos = new Set(
-      iniciativasVisibles.map((iniciativa) => iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO)
-    )
+    const idsObjetivos = new Set(iniciativasVisibles.map((iniciativa) => iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO))
 
     const base = objetivos.filter((objetivo) => {
       if (filtroObjetivo !== 'todos' && objetivo.id !== filtroObjetivo) {
@@ -550,27 +727,73 @@ export function PaginaCronogramaRoadmap() {
       const dias = diferenciaDias(hoy, fecha)
       return dias >= 0 && dias <= 45
     }).length
-    const entregasAtrasadas = entregasFiltradas.filter((entrega) => {
-      const fecha = parsearFechaPortal(entrega.fecha_objetivo)
-      return Boolean(fecha && fecha.getTime() < hoy.getTime() && entrega.estado !== 'completado')
-    }).length
+    const entregasAtrasadas = entregasFiltradas.filter((entrega) => esEntregaAtrasada(entrega, hoy)).length
 
     return [
-      { etiqueta: 'Objetivos activos', valor: objetivosActivos, apoyo: 'con tracción visible en el rango' },
-      { etiqueta: 'Iniciativas en curso', valor: iniciativasEnCurso, apoyo: 'con ventana o hitos vigentes' },
-      { etiqueta: 'Entregas próximas', valor: entregasProximas, apoyo: 'vencen en los próximos 45 días' },
-      { etiqueta: 'Entregas atrasadas', valor: entregasAtrasadas, apoyo: 'siguen abiertas sobre la fecha objetivo' }
+      { etiqueta: 'Objetivos activos', valor: objetivosActivos, apoyo: 'con tracción visible' },
+      { etiqueta: 'Iniciativas en curso', valor: iniciativasEnCurso, apoyo: 'vigentes en el rango' },
+      { etiqueta: 'Entregas próximas', valor: entregasProximas, apoyo: 'hasta 45 días' },
+      { etiqueta: 'Entregas atrasadas', valor: entregasAtrasadas, apoyo: 'siguen abiertas' }
     ]
   }, [entregasFiltradas, hoy, iniciativasVisibles, objetivosVisibles])
+
+  const filtrosActivos = useMemo(() => {
+    let total = 0
+
+    if (vistaTemporal === 'trimestre') {
+      total += 1
+    }
+
+    if (filtroObjetivo !== 'todos') {
+      total += 1
+    }
+
+    if (filtroEstado !== 'todos') {
+      total += 1
+    }
+
+    if (filtroVentana !== 'todas') {
+      total += 1
+    }
+
+    if (densidad === 'detalle') {
+      total += 1
+    }
+
+    return total
+  }, [densidad, filtroEstado, filtroObjetivo, filtroVentana, vistaTemporal])
+
+  const resumenControles = useMemo(() => {
+    const items = [`${anioSeleccionado}`]
+
+    items.push(vistaTemporal === 'trimestre' ? `T${trimestreSeleccionado}` : 'Vista anual')
+    items.push(densidad === 'detalle' ? 'Detalle' : 'Ejecutivo')
+
+    if (filtroObjetivo !== 'todos') {
+      items.push('Objetivo filtrado')
+    }
+
+    if (filtroEstado !== 'todos') {
+      items.push(formatearEstadoLegible(filtroEstado))
+    }
+
+    if (filtroVentana !== 'todas') {
+      items.push(ventanasPorId.get(filtroVentana)?.etiqueta_visible ?? 'Ventana filtrada')
+    }
+
+    return items
+  }, [anioSeleccionado, densidad, filtroEstado, filtroObjetivo, filtroVentana, trimestreSeleccionado, vistaTemporal, ventanasPorId])
 
   const filasCronograma = useMemo(() => {
     const filas: FilaCronograma[] = []
 
     const calcularSegmentosIniciativa = (iniciativa: Iniciativa) => {
       const plan = obtenerRangoVentana(iniciativa.ventana_planificada_id, ventanasPorId)
-      const releasesAsociados = (releasesPorIniciativa.get(iniciativa.id) ?? []).filter((release) => !release.entrega_id)
+      const releasesAsociados = (releasesPorIniciativa.get(iniciativa.id) ?? []).filter(
+        (release: ReleasePm) => !release.entrega_id
+      )
       const marcadores = releasesAsociados
-        .map((release) =>
+        .map((release: ReleasePm) =>
           construirMarcador(
             fechaRelease(release),
             `release-${release.id}`,
@@ -578,7 +801,7 @@ export function PaginaCronogramaRoadmap() {
             release.codigo
           )
         )
-        .filter((item): item is MarcadorCronograma => Boolean(item))
+        .filter((item: MarcadorCronograma | null): item is MarcadorCronograma => Boolean(item))
 
       return {
         segmentos: [construirSegmento(plan?.inicio ?? null, plan?.fin ?? null, `plan-${iniciativa.id}`, 'iniciativa')].filter(
@@ -594,7 +817,7 @@ export function PaginaCronogramaRoadmap() {
       const marcadores = [
         construirMarcador(parsearFechaPortal(entrega.fecha_objetivo), `objetivo-${entrega.id}`, 'entrega', 'Fecha objetivo'),
         construirMarcador(parsearFechaPortal(entrega.fecha_completado), `real-${entrega.id}`, 'entrega_real', 'Fecha completada'),
-        ...(releasesPorEntrega.get(entrega.id) ?? []).map((release) =>
+        ...(releasesPorEntrega.get(entrega.id) ?? []).map((release: ReleasePm) =>
           construirMarcador(
             fechaRelease(release),
             `release-${release.id}`,
@@ -617,14 +840,15 @@ export function PaginaCronogramaRoadmap() {
       const segmentosEntregas = entregasObjetivo.flatMap((entrega) => calcularSegmentosEntrega(entrega).segmentos)
       const todosLosSegmentos = [...segmentosIniciativas, ...segmentosEntregas].sort((a, b) => compararFechasAscendente(a.inicio, b.inicio))
 
-      const segmentoObjetivo: SegmentoCronograma | null = todosLosSegmentos.length > 0
-        ? {
-            id: `objetivo-${objetivo.id}`,
-            inicio: todosLosSegmentos[0].inicio,
-            fin: [...todosLosSegmentos].sort((a, b) => compararFechasAscendente(a.fin, b.fin))[todosLosSegmentos.length - 1].fin,
-            variante: 'objetivo'
-          }
-        : null
+      const segmentoObjetivo: SegmentoCronograma | null =
+        todosLosSegmentos.length > 0
+          ? {
+              id: `objetivo-${objetivo.id}`,
+              inicio: todosLosSegmentos[0].inicio,
+              fin: [...todosLosSegmentos].sort((a, b) => compararFechasAscendente(a.fin, b.fin))[todosLosSegmentos.length - 1].fin,
+              variante: 'objetivo'
+            }
+          : null
 
       const marcadoresObjetivo = [...iniciativasObjetivo, ...entregasObjetivo]
         .flatMap((item) => {
@@ -635,7 +859,7 @@ export function PaginaCronogramaRoadmap() {
           return calcularSegmentosEntrega(item).marcadores
         })
         .sort((a, b) => compararFechasAscendente(a.fecha, b.fecha))
-        .slice(0, 8)
+        .slice(0, 6)
 
       const totalReleases = iniciativasObjetivo.reduce(
         (acumulado, iniciativa) => acumulado + (releasesPorIniciativa.get(iniciativa.id) ?? []).length,
@@ -648,7 +872,10 @@ export function PaginaCronogramaRoadmap() {
         tipo: 'objetivo',
         nivel: 0,
         titulo: objetivo.nombre,
-        estado: objetivo.id === FILA_SIN_OBJETIVO ? estadoDominante(iniciativasObjetivo.map((iniciativa) => iniciativa.estado)) : objetivo.estado,
+        estado:
+          objetivo.id === FILA_SIN_OBJETIVO
+            ? estadoDominante(iniciativasObjetivo.map((iniciativa) => iniciativa.estado))
+            : objetivo.estado,
         resumen: `${iniciativasObjetivo.length} iniciativas`,
         detalle: `${entregasObjetivo.length} entregas · ${totalReleases} releases`,
         tieneHijos: iniciativasObjetivo.length > 0,
@@ -788,8 +1015,7 @@ export function PaginaCronogramaRoadmap() {
     setFiltroEstado('todos')
     setFiltroVentana('todas')
     setDensidad('ejecutivo')
-    setObjetivosExpandidos([])
-    setIniciativasExpandidas([])
+    setFiltrosAbiertos(false)
   }
 
   const alternarExpansionObjetivo = (objetivoId: string) => {
@@ -806,7 +1032,7 @@ export function PaginaCronogramaRoadmap() {
 
   return (
     <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="No hay cronograma para mostrar.">
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+      <section className="mx-auto flex w-full max-w-7xl flex-col gap-4">
         <header className="space-y-2">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold">Cronograma</h1>
@@ -817,141 +1043,184 @@ export function PaginaCronogramaRoadmap() {
           <NavegacionRoadmap />
         </header>
 
-      <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[repeat(6,minmax(0,1fr))]">
-        <label className="space-y-1 text-sm lg:col-span-1">
-          <span className="text-slate-500 dark:text-slate-400">Vista temporal</span>
-          <select
-            value={vistaTemporal}
-            onChange={(evento) => setVistaTemporal(evento.target.value === 'trimestre' ? 'trimestre' : 'anio')}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-          >
-            <option value="anio">Año</option>
-            <option value="trimestre">Trimestre</option>
-          </select>
-        </label>
+        <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                Vista activa
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {resumenControles.map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
 
-        <label className="space-y-1 text-sm lg:col-span-1">
-          <span className="text-slate-500 dark:text-slate-400">Año</span>
-          <select
-            value={anioSeleccionado}
-            onChange={(evento) => setAnioSeleccionado(Number(evento.target.value))}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-          >
-            {aniosDisponibles.map((anio) => (
-              <option key={anio} value={anio}>
-                {anio}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {vistaTemporal === 'trimestre' ? (
-          <label className="space-y-1 text-sm lg:col-span-1">
-            <span className="text-slate-500 dark:text-slate-400">Trimestre</span>
-            <select
-              value={trimestreSeleccionado}
-              onChange={(evento) => setTrimestreSeleccionado(Number(evento.target.value))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value={1}>T1</option>
-              <option value={2}>T2</option>
-              <option value={3}>T3</option>
-              <option value={4}>T4</option>
-            </select>
-          </label>
-        ) : (
-          <div className="lg:col-span-1" />
-        )}
-
-        <label className="space-y-1 text-sm lg:col-span-1">
-          <span className="text-slate-500 dark:text-slate-400">Objetivo</span>
-          <select
-            value={filtroObjetivo}
-            onChange={(evento) => setFiltroObjetivo(evento.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-          >
-            <option value="todos">Todos</option>
-            {objetivos.map((objetivo) => (
-              <option key={objetivo.id} value={objetivo.id}>
-                {objetivo.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1 text-sm lg:col-span-1">
-          <span className="text-slate-500 dark:text-slate-400">Estado</span>
-          <select
-            value={filtroEstado}
-            onChange={(evento) => setFiltroEstado(evento.target.value as 'todos' | EstadoRegistro)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-          >
-            <option value="todos">Todos</option>
-            <option value="pendiente">Pendiente</option>
-            <option value="en_progreso">En progreso</option>
-            <option value="completado">Completado</option>
-          </select>
-        </label>
-
-        <label className="space-y-1 text-sm lg:col-span-1">
-          <span className="text-slate-500 dark:text-slate-400">Ventana</span>
-          <select
-            value={filtroVentana}
-            onChange={(evento) => setFiltroVentana(evento.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-          >
-            <option value="todas">Todas</option>
-            {ventanas.map((ventana) => (
-              <option key={ventana.id} value={ventana.id}>
-                {ventana.etiqueta_visible}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="space-y-1 text-sm lg:col-span-5">
-          <span className="text-slate-500 dark:text-slate-400">Densidad</span>
-          <div className="flex flex-wrap gap-2">
-            {(['ejecutivo', 'detalle'] as DensidadCronograma[]).map((valor) => (
-              <button
-                key={valor}
-                type="button"
-                onClick={() => setDensidad(valor)}
-                className={`rounded-full px-3 py-1.5 text-sm transition ${
-                  densidad === valor
-                    ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
-                    : 'border border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
-                }`}
-              >
-                {valor === 'ejecutivo' ? 'Ejecutivo' : 'Detalle'}
-              </button>
-            ))}
             <button
               type="button"
-              onClick={limpiarFiltros}
-              className="rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300"
+              onClick={() => setFiltrosAbiertos((actual) => !actual)}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              aria-expanded={filtrosAbiertos}
+              aria-controls="panel-filtros-cronograma-roadmap"
             >
-              Limpiar
+              <IconoFiltros abierto={filtrosAbiertos} />
+              <span>Filtros</span>
+              {filtrosActivos > 0 ? (
+                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-slate-200 dark:text-slate-900">
+                  {filtrosActivos}
+                </span>
+              ) : null}
             </button>
           </div>
-        </div>
+
+          {filtrosAbiertos ? (
+            <div id="panel-filtros-cronograma-roadmap" className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+              <div className="grid gap-3 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
+                <label className="space-y-1 text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Vista temporal</span>
+                  <select
+                    value={vistaTemporal}
+                    onChange={(evento) => setVistaTemporal(evento.target.value === 'trimestre' ? 'trimestre' : 'anio')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="anio">Año</option>
+                    <option value="trimestre">Trimestre</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1 text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Año</span>
+                  <select
+                    value={anioSeleccionado}
+                    onChange={(evento) => setAnioSeleccionado(Number(evento.target.value))}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    {aniosDisponibles.map((anio) => (
+                      <option key={anio} value={anio}>
+                        {anio}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1 text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Objetivo</span>
+                  <select
+                    value={filtroObjetivo}
+                    onChange={(evento) => setFiltroObjetivo(evento.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="todos">Todos</option>
+                    {objetivos.map((objetivo) => (
+                      <option key={objetivo.id} value={objetivo.id}>
+                        {objetivo.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1 text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Estado</span>
+                  <select
+                    value={filtroEstado}
+                    onChange={(evento) => setFiltroEstado(evento.target.value as 'todos' | EstadoRegistro)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="en_progreso">En progreso</option>
+                    <option value="completado">Completado</option>
+                  </select>
+                </label>
+
+                <label className="space-y-1 text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Ventana</span>
+                  <select
+                    value={filtroVentana}
+                    onChange={(evento) => setFiltroVentana(evento.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
+                  >
+                    <option value="todas">Todas</option>
+                    {ventanas.map((ventana) => (
+                      <option key={ventana.id} value={ventana.id}>
+                        {ventana.etiqueta_visible}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={limpiarFiltros}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  >
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {vistaTemporal === 'trimestre' ? (
+                  <label className="space-y-1 text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">Trimestre</span>
+                    <select
+                      value={trimestreSeleccionado}
+                      onChange={(evento) => setTrimestreSeleccionado(Number(evento.target.value))}
+                      className="w-36 rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
+                    >
+                      <option value={1}>T1</option>
+                      <option value={2}>T2</option>
+                      <option value={3}>T3</option>
+                      <option value={4}>T4</option>
+                    </select>
+                  </label>
+                ) : null}
+
+                <div className="space-y-1 text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">Densidad</span>
+                  <div className="inline-flex rounded-xl border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/70">
+                    {(['ejecutivo', 'detalle'] as DensidadCronograma[]).map((valor) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => setDensidad(valor)}
+                        className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                          densidad === valor
+                            ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-200 dark:text-slate-900'
+                            : 'text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        {valor === 'ejecutivo' ? 'Ejecutivo' : 'Detalle'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {kpis.map((kpi) => (
-            <article key={kpi.etiqueta} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{kpi.etiqueta}</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-950 dark:text-slate-50">{kpi.valor}</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{kpi.apoyo}</p>
+            <article key={kpi.etiqueta} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{kpi.etiqueta}</p>
+              <p className="mt-1.5 text-2xl font-semibold text-slate-950 dark:text-slate-50">{kpi.valor}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{kpi.apoyo}</p>
             </article>
           ))}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+          <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
             <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Lienzo temporal</h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Objetivos agrupados a la izquierda, meses arriba, línea de hoy y detalle gradual según expansión.
+              Objetivos agrupados a la izquierda, meses arriba y una lectura progresiva del delivery de izquierda a derecha.
             </p>
           </div>
 
@@ -961,133 +1230,215 @@ export function PaginaCronogramaRoadmap() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-            <div style={{ minWidth: `${ANCHO_COLUMNA_FIJA + anchoTimeline}px` }}>
-              <div
-                className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95"
-                style={{ gridTemplateColumns: `${ANCHO_COLUMNA_FIJA}px ${anchoTimeline}px` }}
-              >
-                <div className="sticky left-0 z-30 flex items-end border-r border-slate-200 bg-slate-50/95 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/95">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Jerarquía</p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Roadmap</p>
-                  </div>
-                </div>
-                <div className="relative h-16">
-                  <div className="absolute inset-0 flex">
-                    {rangoTemporal.meses.map((mes) => (
-                      <div key={`${mes.getFullYear()}-${mes.getMonth()}`} className="flex h-full flex-1 flex-col justify-between border-l border-slate-200 px-3 py-2 first:border-l-0 dark:border-slate-800">
-                        <span className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{formatearAnio(mes)}</span>
-                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{formatearMesCorto(mes)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {hoyVisible ? (
-                    <div className="pointer-events-none absolute inset-y-0" style={{ left: `${porcentajeHorizontal(hoy)}%` }}>
-                      <div className="absolute -left-px top-0 h-full w-0.5 bg-rose-500/80" />
-                      <span className="absolute left-2 top-2 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
-                        Hoy
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              {filasCronograma.map((fila) => (
+              <div style={{ minWidth: `${anchoColumnaJerarquia + anchoTimeline}px` }}>
                 <div
-                  key={`${fila.tipo}-${fila.id}`}
-                  className="grid border-b border-slate-200 last:border-b-0 dark:border-slate-800"
-                  style={{ gridTemplateColumns: `${ANCHO_COLUMNA_FIJA}px ${anchoTimeline}px` }}
+                  className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95"
+                  style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px ${anchoTimeline}px` }}
                 >
-                  <div className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-                    <div className="flex items-start gap-3" style={{ paddingLeft: `${fila.nivel * 18}px` }}>
-                      {fila.tieneHijos ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (fila.tipo === 'objetivo') {
-                              alternarExpansionObjetivo(fila.claveExpansion)
-                              return
-                            }
-
-                            alternarExpansionIniciativa(fila.claveExpansion)
-                          }}
-                          className="mt-0.5 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                          aria-label={fila.expandido ? `Colapsar ${fila.titulo}` : `Expandir ${fila.titulo}`}
-                        >
-                          {fila.expandido ? '−' : '+'}
-                        </button>
-                      ) : (
-                        <span className="mt-2 block h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
-                      )}
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-medium text-slate-950 dark:text-slate-50">{fila.titulo}</p>
-                          {fila.estado ? (
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
-                              {formatearEstadoLegible(fila.estado)}
-                            </span>
-                          ) : null}
-                          {fila.entregaAtrasada ? (
-                            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                              Desvío
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{fila.resumen}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500">{fila.detalle}</p>
-                      </div>
+                  <div className="sticky left-0 z-30 flex items-end border-r border-slate-200 bg-slate-50/95 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/95">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Jerarquía</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Roadmap</p>
                     </div>
                   </div>
 
-                  <div className="relative h-16 bg-[linear-gradient(to_right,rgba(148,163,184,0.12)_1px,transparent_1px)] bg-[length:140px_100%] dark:bg-[linear-gradient(to_right,rgba(71,85,105,0.24)_1px,transparent_1px)]">
+                  <div className="relative h-[58px]">
+                    <div className="absolute inset-0 flex">
+                      {rangoTemporal.meses.map((mes) => (
+                        <div
+                          key={`${mes.getFullYear()}-${mes.getMonth()}`}
+                          className="flex h-full flex-1 flex-col justify-between border-l border-slate-200 px-3 py-2 first:border-l-0 dark:border-slate-800"
+                        >
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                            {formatearAnio(mes)}
+                          </span>
+                          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{formatearMesCorto(mes)}</span>
+                        </div>
+                      ))}
+                    </div>
+
                     {hoyVisible ? (
                       <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${porcentajeHorizontal(hoy)}%` }}>
-                        <div className="absolute -left-px top-0 h-full w-0.5 bg-rose-500/70" />
+                        <div className="absolute -left-px top-0 h-full w-0.5 bg-rose-500/75" />
+                        <span className="absolute left-2 top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm">
+                          Hoy
+                        </span>
                       </div>
                     ) : null}
-
-                    {fila.segmentos.map((segmento) => {
-                      const inicioVisible = segmento.inicio.getTime() < rangoTemporal.inicio.getTime() ? rangoTemporal.inicio : segmento.inicio
-                      const finVisible = segmento.fin.getTime() > rangoTemporal.fin.getTime() ? rangoTemporal.fin : segmento.fin
-                      if (!rangoSeSuperpone(inicioVisible, finVisible, rangoTemporal.inicio, rangoTemporal.fin)) {
-                        return null
-                      }
-
-                      const left = porcentajeHorizontal(inicioVisible)
-                      const width = Math.max(((diferenciaDias(inicioVisible, finVisible) + 1) / rangoTemporal.totalDias) * 100, 1.2)
-
-                      return (
-                        <div
-                          key={segmento.id}
-                          className={`absolute top-5 h-5 rounded-full ${obtenerClaseSegmento(segmento.variante)}`}
-                          style={{ left: `${left}%`, width: `${width}%` }}
-                          title={`${fila.titulo}: ${fila.resumen}`}
-                        />
-                      )
-                    })}
-
-                    {fila.marcadores.map((marcador) => {
-                      if (!fechaDentroDeRango(marcador.fecha, rangoTemporal.inicio, rangoTemporal.fin)) {
-                        return null
-                      }
-
-                      const left = porcentajeHorizontal(marcador.fecha)
-                      return (
-                        <div
-                          key={marcador.id}
-                          className="absolute top-3 z-10"
-                          style={{ left: `${left}%`, transform: 'translateX(-50%)' }}
-                          title={`${marcador.etiqueta}: ${formatearFechaCorta(marcador.fecha.toISOString().slice(0, 10))}`}
-                        >
-                          <div className={`h-2.5 w-2.5 rounded-full ${obtenerClaseMarcador(marcador.variante)}`} />
-                        </div>
-                      )
-                    })}
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {filasCronograma.map((fila) => {
+                  const claseFila = obtenerClaseFila(fila)
+
+                  return (
+                    <div
+                      key={`${fila.tipo}-${fila.id}`}
+                      className="grid border-b border-slate-200 last:border-b-0 dark:border-slate-800"
+                      style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px ${anchoTimeline}px` }}
+                    >
+                      <div className={`sticky left-0 z-10 border-r border-slate-200 px-4 py-3 dark:border-slate-800 ${claseFila}`}>
+                        <div className="flex items-start gap-3" style={{ paddingLeft: `${fila.nivel * 18}px` }}>
+                          {fila.tieneHijos ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (fila.tipo === 'objetivo') {
+                                  alternarExpansionObjetivo(fila.claveExpansion)
+                                  return
+                                }
+
+                                alternarExpansionIniciativa(fila.claveExpansion)
+                              }}
+                              className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                              aria-label={fila.expandido ? `Colapsar ${fila.titulo}` : `Expandir ${fila.titulo}`}
+                            >
+                              <IconoChevron abierto={fila.expandido} />
+                            </button>
+                          ) : (
+                            <span className="mt-2 block h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-start gap-2">
+                              <TooltipCronograma
+                                className="min-w-0 flex-1"
+                                maxWidthClassName="max-w-sm"
+                                content={
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
+                                    {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
+                                    <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p>
+                                  </div>
+                                }
+                              >
+                                <p
+                                  className={`min-w-0 break-words text-sm ${fila.tipo === 'objetivo' ? 'font-semibold text-slate-900 dark:text-slate-100' : 'font-medium text-slate-950 dark:text-slate-50'}`}
+                                  style={ESTILO_TITULO_DOS_LINEAS}
+                                >
+                                  {fila.titulo}
+                                </p>
+                              </TooltipCronograma>
+
+                              {fila.estado ? (
+                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
+                                  {formatearEstadoLegible(fila.estado)}
+                                </span>
+                              ) : null}
+
+                              {fila.entregaAtrasada ? (
+                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                  Desvío
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{fila.resumen}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">{fila.detalle}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={`relative h-[58px] ${claseFila}`}>
+                        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[length:140px_100%] dark:bg-[linear-gradient(to_right,rgba(71,85,105,0.22)_1px,transparent_1px)]" />
+
+                        {hoyVisible ? (
+                          <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${porcentajeHorizontal(hoy)}%` }}>
+                            <div className="absolute -left-px top-0 h-full w-0.5 bg-rose-500/70" />
+                          </div>
+                        ) : null}
+
+                        {fila.segmentos.map((segmento) => {
+                          const inicioVisible =
+                            segmento.inicio.getTime() < rangoTemporal.inicio.getTime() ? rangoTemporal.inicio : segmento.inicio
+                          const finVisible = segmento.fin.getTime() > rangoTemporal.fin.getTime() ? rangoTemporal.fin : segmento.fin
+
+                          if (!rangoSeSuperpone(inicioVisible, finVisible, rangoTemporal.inicio, rangoTemporal.fin)) {
+                            return null
+                          }
+
+                          const left = porcentajeHorizontal(inicioVisible)
+                          const width = Math.max(
+                            ((diferenciaDias(inicioVisible, finVisible) + 1) / rangoTemporal.totalDias) * 100,
+                            segmento.variante === 'objetivo' ? 0.8 : 1.2
+                          )
+                          const estiloSegmento = obtenerEstiloSegmento(segmento.variante)
+
+                          return (
+                            <TooltipCronograma
+                              key={segmento.id}
+                              content={
+                                <div className="space-y-1">
+                                  <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
+                                  <p>
+                                    {segmento.variante === 'objetivo'
+                                      ? 'Agrupación temporal derivada'
+                                      : segmento.variante === 'iniciativa'
+                                        ? 'Ventana planificada de iniciativa'
+                                        : segmento.variante === 'plan'
+                                          ? 'Ventana planificada de entrega'
+                                          : 'Ventana real de entrega'}
+                                  </p>
+                                  <p className="text-slate-500 dark:text-slate-400">{formatearRangoFechas(inicioVisible, finVisible)}</p>
+                                  {fila.estado ? <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p> : null}
+                                </div>
+                              }
+                              className="absolute z-[12]"
+                            >
+                              <div
+                                className={`${estiloSegmento.className} absolute`}
+                                style={{
+                                  left: `${left}%`,
+                                  width: `${width}%`,
+                                  top: estiloSegmento.top,
+                                  height: estiloSegmento.height,
+                                  borderRadius: estiloSegmento.borderRadius
+                                }}
+                              />
+                            </TooltipCronograma>
+                          )
+                        })}
+
+                        {fila.marcadores.map((marcador) => {
+                          if (!fechaDentroDeRango(marcador.fecha, rangoTemporal.inicio, rangoTemporal.fin)) {
+                            return null
+                          }
+
+                          const left = porcentajeHorizontal(marcador.fecha)
+                          const estiloMarcador = obtenerEstiloMarcador(marcador.variante)
+
+                          return (
+                            <TooltipCronograma
+                              key={marcador.id}
+                              content={
+                                <div className="space-y-1">
+                                  <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
+                                  <p>{marcador.etiqueta}</p>
+                                  <p className="text-slate-500 dark:text-slate-400">
+                                    {formatearFechaCorta(marcador.fecha.toISOString().slice(0, 10))}
+                                  </p>
+                                  {fila.estado ? <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p> : null}
+                                </div>
+                              }
+                              className="absolute z-[14]"
+                            >
+                              <div
+                                className="absolute"
+                                style={{ left: `${left}%`, top: estiloMarcador.top, transform: 'translateX(-50%)' }}
+                              >
+                                <div
+                                  className={`rounded-full ${estiloMarcador.className}`}
+                                  style={{ width: estiloMarcador.size, height: estiloMarcador.size }}
+                                />
+                              </div>
+                            </TooltipCronograma>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </section>
