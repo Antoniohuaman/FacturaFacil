@@ -40,7 +40,7 @@ import { usePaginacion } from '../../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { calcularRice } from '@/compartido/utilidades/calcularRice'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
@@ -120,7 +120,9 @@ export function PaginaIniciativasRoadmap() {
       confianza: 70,
       esfuerzo: 1,
       estado: 'pendiente',
-      prioridad: 'media'
+      prioridad: 'media',
+      fecha_inicio: null,
+      fecha_fin: null
     }
   })
 
@@ -361,7 +363,9 @@ export function PaginaIniciativasRoadmap() {
       confianza: iniciativa?.confianza ?? 70,
       esfuerzo: iniciativa?.esfuerzo ?? 1,
       estado: iniciativa?.estado ?? 'pendiente',
-      prioridad: iniciativa?.prioridad ?? 'media'
+      prioridad: iniciativa?.prioridad ?? 'media',
+      fecha_inicio: iniciativa?.fecha_inicio ?? null,
+      fecha_fin: iniciativa?.fecha_fin ?? null
     })
   }
 
@@ -428,6 +432,8 @@ export function PaginaIniciativasRoadmap() {
                 { encabezado: 'Objetivo', valor: (iniciativa) => objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo' },
                 { encabezado: 'Ventana', valor: (iniciativa) => ventanaPorId.get(iniciativa.ventana_planificada_id ?? '') ?? 'Sin asignar' },
                 { encabezado: 'Etapa', valor: (iniciativa) => etapaPorId.get(iniciativa.etapa_id ?? '') ?? 'Sin asignar' },
+                { encabezado: 'Fecha inicio', valor: (iniciativa) => formatearFechaCorta(iniciativa.fecha_inicio) },
+                { encabezado: 'Fecha fin', valor: (iniciativa) => formatearFechaCorta(iniciativa.fecha_fin) },
                 { encabezado: 'RICE', valor: (iniciativa) => iniciativa.rice },
                 { encabezado: 'Estado', valor: (iniciativa) => formatearEstadoLegible(iniciativa.estado) },
                 { encabezado: 'Prioridad', valor: (iniciativa) => iniciativa.prioridad },
@@ -596,6 +602,12 @@ export function PaginaIniciativasRoadmap() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {etapaPorId.get(iniciativa.etapa_id ?? '') ?? 'Sin asignar'}
                     </p>
+                    {iniciativa.fecha_inicio ? (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatearFechaCorta(iniciativa.fecha_inicio)}
+                        {iniciativa.fecha_fin ? ` — ${formatearFechaCorta(iniciativa.fecha_fin)}` : ''}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 font-semibold">{iniciativa.rice}</td>
                   <td className="px-3 py-2">{iniciativa.estado}</td>
@@ -671,7 +683,9 @@ export function PaginaIniciativasRoadmap() {
                 ...valores,
                 objetivo_id: valores.objetivo_id || null,
                 ventana_planificada_id: valores.ventana_planificada_id || null,
-                etapa_id: valores.etapa_id || null
+                etapa_id: valores.etapa_id || null,
+                fecha_inicio: valores.fecha_inicio || null,
+                fecha_fin: valores.fecha_fin || null
               }
 
               if (modoModal === 'crear') {
@@ -895,6 +909,31 @@ export function PaginaIniciativasRoadmap() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium">Fecha inicio</label>
+              <input
+                type="date"
+                {...register('fecha_inicio')}
+                readOnly={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Opcional</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha fin</label>
+              <input
+                type="date"
+                {...register('fecha_fin')}
+                readOnly={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+              {errors.fecha_fin ? (
+                <p className="mt-1 text-xs text-red-500">{errors.fecha_fin.message}</p>
+              ) : null}
             </div>
           </div>
 

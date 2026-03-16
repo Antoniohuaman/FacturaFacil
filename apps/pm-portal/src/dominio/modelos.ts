@@ -9,6 +9,8 @@ export interface Objetivo {
   descripcion: string
   estado: EstadoRegistro
   prioridad: PrioridadRegistro
+  fecha_inicio?: string | null
+  fecha_fin?: string | null
   created_at: string
   updated_at: string
 }
@@ -27,6 +29,8 @@ export interface Iniciativa {
   rice: number
   estado: EstadoRegistro
   prioridad: PrioridadRegistro
+  fecha_inicio?: string | null
+  fecha_fin?: string | null
   created_at: string
   updated_at: string
 }

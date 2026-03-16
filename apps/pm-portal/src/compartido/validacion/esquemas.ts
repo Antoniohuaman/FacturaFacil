@@ -41,26 +41,50 @@ const moduloOpcionalSchema = z.string().trim().min(2).max(60).nullable().optiona
 const textoCortoOpcionalSchema = z.string().trim().max(120).nullable().optional().or(z.literal(''))
 const textoLargoOpcionalSchema = z.string().trim().max(4000).nullable().optional().or(z.literal(''))
 
-export const objetivoSchema = z.object({
-  nombre: z.string().trim().min(3, 'El nombre debe tener al menos 3 caracteres').max(120),
-  descripcion: z.string().trim().min(5, 'La descripción debe tener al menos 5 caracteres').max(500),
-  estado: estadoSchema,
-  prioridad: prioridadSchema
-})
+export const objetivoSchema = z
+  .object({
+    nombre: z.string().trim().min(3, 'El nombre debe tener al menos 3 caracteres').max(120),
+    descripcion: z.string().trim().min(5, 'La descripción debe tener al menos 5 caracteres').max(500),
+    estado: estadoSchema,
+    prioridad: prioridadSchema,
+    fecha_inicio: fechaCatalogoSchema,
+    fecha_fin: fechaCatalogoSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_inicio && valores.fecha_fin && valores.fecha_inicio > valores.fecha_fin) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_fin'],
+        message: 'La fecha fin no puede ser menor que la fecha inicio'
+      })
+    }
+  })
 
-export const iniciativaSchema = z.object({
-  objetivo_id: z.string().uuid().nullable().optional(),
-  ventana_planificada_id: z.string().uuid().nullable().optional(),
-  etapa_id: z.string().uuid().nullable().optional(),
-  nombre: z.string().trim().min(3).max(120),
-  descripcion: z.string().trim().min(5).max(500),
-  alcance: z.number().int().min(0),
-  impacto: z.union([z.literal(0.25), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
-  confianza: z.number().min(0).max(100),
-  esfuerzo: z.number().min(0.5),
-  estado: estadoSchema,
-  prioridad: prioridadSchema
-})
+export const iniciativaSchema = z
+  .object({
+    objetivo_id: z.string().uuid().nullable().optional(),
+    ventana_planificada_id: z.string().uuid().nullable().optional(),
+    etapa_id: z.string().uuid().nullable().optional(),
+    nombre: z.string().trim().min(3).max(120),
+    descripcion: z.string().trim().min(5).max(500),
+    alcance: z.number().int().min(0),
+    impacto: z.union([z.literal(0.25), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
+    confianza: z.number().min(0).max(100),
+    esfuerzo: z.number().min(0.5),
+    estado: estadoSchema,
+    prioridad: prioridadSchema,
+    fecha_inicio: fechaCatalogoSchema,
+    fecha_fin: fechaCatalogoSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_inicio && valores.fecha_fin && valores.fecha_inicio > valores.fecha_fin) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_fin'],
+        message: 'La fecha fin no puede ser menor que la fecha inicio'
+      })
+    }
+  })
 
 export const entregaSchema = z.object({
   iniciativa_id: z.string().uuid().nullable().optional(),

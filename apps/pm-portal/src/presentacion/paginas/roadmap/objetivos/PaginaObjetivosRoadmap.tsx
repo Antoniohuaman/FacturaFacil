@@ -18,7 +18,7 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { exportarCsv } from '@/compartido/utilidades/csv'
-import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
@@ -54,7 +54,9 @@ export function PaginaObjetivosRoadmap() {
       nombre: '',
       descripcion: '',
       estado: 'pendiente',
-      prioridad: 'media'
+      prioridad: 'media',
+      fecha_inicio: null,
+      fecha_fin: null
     }
   })
 
@@ -122,7 +124,9 @@ export function PaginaObjetivosRoadmap() {
       nombre: objetivo?.nombre ?? '',
       descripcion: objetivo?.descripcion ?? '',
       estado: objetivo?.estado ?? 'pendiente',
-      prioridad: objetivo?.prioridad ?? 'media'
+      prioridad: objetivo?.prioridad ?? 'media',
+      fecha_inicio: objetivo?.fecha_inicio ?? null,
+      fecha_fin: objetivo?.fecha_fin ?? null
     })
   }
 
@@ -163,6 +167,8 @@ export function PaginaObjetivosRoadmap() {
                 { encabezado: 'Descripción', valor: (objetivo) => objetivo.descripcion },
                 { encabezado: 'Estado', valor: (objetivo) => formatearEstadoLegible(objetivo.estado) },
                 { encabezado: 'Prioridad', valor: (objetivo) => objetivo.prioridad },
+                { encabezado: 'Fecha inicio', valor: (objetivo) => formatearFechaCorta(objetivo.fecha_inicio) },
+                { encabezado: 'Fecha fin', valor: (objetivo) => formatearFechaCorta(objetivo.fecha_fin) },
                 { encabezado: 'Vínculos KR', valor: (objetivo) => krPorObjetivo.get(objetivo.id) ?? 0 }
               ], objetivosFiltrados)
             }}
@@ -262,6 +268,7 @@ export function PaginaObjetivosRoadmap() {
                 <th className="px-3 py-2">Objetivo roadmap</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2">Prioridad</th>
+                <th className="px-3 py-2">Período</th>
                 <th className="px-3 py-2">Vínculo estratégico</th>
                 <th className="px-3 py-2">Acciones</th>
               </tr>
@@ -275,6 +282,16 @@ export function PaginaObjetivosRoadmap() {
                   </td>
                   <td className="px-3 py-2">{objetivo.estado}</td>
                   <td className="px-3 py-2">{objetivo.prioridad}</td>
+                  <td className="px-3 py-2">
+                    {objetivo.fecha_inicio ? (
+                      <p className="text-xs">
+                        {formatearFechaCorta(objetivo.fecha_inicio)}
+                        {objetivo.fecha_fin ? ` — ${formatearFechaCorta(objetivo.fecha_fin)}` : ''}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-400 dark:text-slate-600">Sin período</p>
+                    )}
+                  </td>
                   <td className="px-3 py-2">{krPorObjetivo.get(objetivo.id) ? `${krPorObjetivo.get(objetivo.id)} KR vinculados` : 'Sin vínculo'}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
@@ -344,12 +361,18 @@ export function PaginaObjetivosRoadmap() {
             }
 
             try {
+              const carga = {
+                ...valores,
+                fecha_inicio: valores.fecha_inicio || null,
+                fecha_fin: valores.fecha_fin || null
+              }
+
               if (modoModal === 'crear') {
-                await crearObjetivo(valores)
+                await crearObjetivo(carga)
               }
 
               if (modoModal === 'editar' && objetivoActivo) {
-                await editarObjetivo(objetivoActivo.id, valores)
+                await editarObjetivo(objetivoActivo.id, carga)
               }
 
               setModalAbierto(false)
@@ -408,6 +431,31 @@ export function PaginaObjetivosRoadmap() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium">Fecha inicio</label>
+              <input
+                type="date"
+                {...register('fecha_inicio')}
+                readOnly={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Opcional</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha fin</label>
+              <input
+                type="date"
+                {...register('fecha_fin')}
+                readOnly={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+              {errors.fecha_fin ? (
+                <p className="mt-1 text-xs text-red-500">{errors.fecha_fin.message}</p>
+              ) : null}
             </div>
           </div>
 
