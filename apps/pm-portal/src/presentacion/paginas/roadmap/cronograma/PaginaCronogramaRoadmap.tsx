@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type FocusEvent,
@@ -70,11 +71,19 @@ interface TooltipCronogramaProps {
 const FILA_SIN_OBJETIVO = '__sin_objetivo__'
 const FILA_SIN_INICIATIVA = '__sin_iniciativa__'
 const ANCHO_MES = 140
+const ANCHO_COLUMNA_JERARQUIA_MIN = 320
+const ANCHO_COLUMNA_JERARQUIA_MAX = 560
+const ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO = 392
+const CLAVE_ANCHO_COLUMNA_JERARQUIA = 'pm-portal-roadmap-cronograma-ancho-jerarquia'
 const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
   display: '-webkit-box',
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden'
+}
+
+function limitarAnchoColumnaJerarquia(valor: number) {
+  return Math.min(Math.max(valor, ANCHO_COLUMNA_JERARQUIA_MIN), ANCHO_COLUMNA_JERARQUIA_MAX)
 }
 
 function TooltipCronograma({
@@ -410,8 +419,19 @@ export function PaginaCronogramaRoadmap() {
   })
   const [filtroVentana, setFiltroVentana] = useState(() => searchParams.get('ventana') ?? 'todas')
   const [densidad, setDensidad] = useState<DensidadCronograma>(() => normalizarDensidad(searchParams.get('densidad')))
+  const [anchoColumnaJerarquia, setAnchoColumnaJerarquia] = useState(() => {
+    if (typeof window === 'undefined') {
+      return ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO
+    }
+
+    const anchoPersistido = Number(window.localStorage.getItem(CLAVE_ANCHO_COLUMNA_JERARQUIA))
+    return Number.isFinite(anchoPersistido)
+      ? limitarAnchoColumnaJerarquia(anchoPersistido)
+      : ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO
+  })
   const [objetivosExpandidos, setObjetivosExpandidos] = useState<string[]>([])
   const [iniciativasExpandidas, setIniciativasExpandidas] = useState<string[]>([])
+  const [redimensionandoJerarquia, setRedimensionandoJerarquia] = useState(false)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(() => {
     return Boolean(
       searchParams.get('objetivo') ||
@@ -422,6 +442,9 @@ export function PaginaCronogramaRoadmap() {
         searchParams.get('densidad') === 'detalle'
     )
   })
+  const contenedorCronogramaRef = useRef<HTMLDivElement | null>(null)
+  const densidadPreviaRef = useRef<DensidadCronograma>(densidad)
+  const jerarquiaDetalleInicializadaRef = useRef(false)
 
   useEffect(() => {
     const cargar = async () => {
@@ -562,6 +585,51 @@ export function PaginaCronogramaRoadmap() {
     }
   }, [anioSeleccionado, aniosDisponibles])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(CLAVE_ANCHO_COLUMNA_JERARQUIA, String(anchoColumnaJerarquia))
+  }, [anchoColumnaJerarquia])
+
+  useEffect(() => {
+    if (!redimensionandoJerarquia) {
+      return
+    }
+
+    const manejarMouseMove = (evento: globalThis.MouseEvent) => {
+      const contenedor = contenedorCronogramaRef.current
+      if (!contenedor) {
+        return
+      }
+
+      const rect = contenedor.getBoundingClientRect()
+      const nuevoAncho = limitarAnchoColumnaJerarquia(evento.clientX - rect.left)
+      setAnchoColumnaJerarquia(nuevoAncho)
+    }
+
+    const manejarMouseUp = () => {
+      setRedimensionandoJerarquia(false)
+    }
+
+    const cursorAnterior = document.body.style.cursor
+    const seleccionAnterior = document.body.style.userSelect
+
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    window.addEventListener('mousemove', manejarMouseMove)
+    window.addEventListener('mouseup', manejarMouseUp)
+
+    return () => {
+      document.body.style.cursor = cursorAnterior
+      document.body.style.userSelect = seleccionAnterior
+      window.removeEventListener('mousemove', manejarMouseMove)
+      window.removeEventListener('mouseup', manejarMouseUp)
+    }
+  }, [redimensionandoJerarquia])
+
   const rangoTemporal = useMemo(() => {
     const inicio =
       vistaTemporal === 'trimestre'
@@ -587,7 +655,6 @@ export function PaginaCronogramaRoadmap() {
     }
   }, [anioSeleccionado, trimestreSeleccionado, vistaTemporal])
 
-  const anchoColumnaJerarquia = densidad === 'detalle' ? 420 : 392
   const anchoTimeline = Math.max(rangoTemporal.meses.length * ANCHO_MES, 760)
 
   const iniciativasFiltradas = useMemo(() => {
@@ -714,6 +781,27 @@ export function PaginaCronogramaRoadmap() {
 
     return base
   }, [filtroObjetivo, iniciativasVisibles, objetivos])
+
+  useEffect(() => {
+    const entraEnDetalle = densidad === 'detalle' && densidadPreviaRef.current !== 'detalle'
+    const requiereInicializacion = densidad === 'detalle' && !jerarquiaDetalleInicializadaRef.current
+
+    if ((entraEnDetalle || requiereInicializacion) && objetivosVisibles.length > 0) {
+      const objetivosConHijos = objetivosVisibles
+        .filter((objetivo) =>
+          iniciativasVisibles.some((iniciativa) => (iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id)
+        )
+        .map((objetivo) => objetivo.id)
+
+      if (objetivosConHijos.length > 0) {
+        setObjetivosExpandidos((actuales) => (actuales.length > 0 && !entraEnDetalle ? actuales : objetivosConHijos))
+      }
+
+      jerarquiaDetalleInicializadaRef.current = true
+    }
+
+    densidadPreviaRef.current = densidad
+  }, [densidad, iniciativasVisibles, objetivosVisibles])
 
   const kpis = useMemo(() => {
     const objetivosActivos = objetivosVisibles.filter((objetivo) => objetivo.estado !== 'completado').length
@@ -1030,6 +1118,11 @@ export function PaginaCronogramaRoadmap() {
     )
   }
 
+  const iniciarResizeJerarquia = (evento: MouseEvent<HTMLButtonElement>) => {
+    evento.preventDefault()
+    setRedimensionandoJerarquia(true)
+  }
+
   return (
     <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="No hay cronograma para mostrar.">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-4">
@@ -1230,7 +1323,7 @@ export function PaginaCronogramaRoadmap() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <div style={{ minWidth: `${anchoColumnaJerarquia + anchoTimeline}px` }}>
+              <div ref={contenedorCronogramaRef} className="relative" style={{ minWidth: `${anchoColumnaJerarquia + anchoTimeline}px` }}>
                 <div
                   className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95"
                   style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px ${anchoTimeline}px` }}
@@ -1268,6 +1361,20 @@ export function PaginaCronogramaRoadmap() {
                   </div>
                 </div>
 
+                <div className="pointer-events-none absolute inset-y-0 z-40" style={{ left: `${anchoColumnaJerarquia}px` }}>
+                  <div className="h-full w-px -translate-x-1/2 bg-slate-200 dark:bg-slate-700" />
+                </div>
+
+                <button
+                  type="button"
+                  onMouseDown={iniciarResizeJerarquia}
+                  className={`absolute inset-y-0 z-50 hidden w-4 -translate-x-1/2 cursor-col-resize md:block ${redimensionandoJerarquia ? 'bg-sky-500/10' : 'hover:bg-slate-400/10 dark:hover:bg-slate-500/10'}`}
+                  style={{ left: `${anchoColumnaJerarquia}px` }}
+                  aria-label="Redimensionar columna de jerarquia"
+                >
+                  <span className="absolute left-1/2 top-6 h-10 w-1.5 -translate-x-1/2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                </button>
+
                 {filasCronograma.map((fila) => {
                   const claseFila = obtenerClaseFila(fila)
 
@@ -1290,8 +1397,13 @@ export function PaginaCronogramaRoadmap() {
 
                                 alternarExpansionIniciativa(fila.claveExpansion)
                               }}
-                              className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                              className={`mt-0.5 inline-flex items-center justify-center rounded-full border transition ${
+                                fila.tipo === 'objetivo'
+                                  ? 'h-7 w-7 border-slate-400 bg-slate-100 text-slate-700 shadow-sm hover:border-slate-500 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700'
+                                  : 'h-6 w-6 border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800'
+                              }`}
                               aria-label={fila.expandido ? `Colapsar ${fila.titulo}` : `Expandir ${fila.titulo}`}
+                              aria-expanded={fila.expandido}
                             >
                               <IconoChevron abierto={fila.expandido} />
                             </button>
@@ -1308,7 +1420,10 @@ export function PaginaCronogramaRoadmap() {
                                   <div className="space-y-1">
                                     <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
                                     {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
-                                    <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p>
+                                    {fila.resumen && fila.resumen !== fila.detalle ? (
+                                      <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
+                                    ) : null}
+                                    {fila.detalle ? <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p> : null}
                                   </div>
                                 }
                               >
@@ -1332,9 +1447,6 @@ export function PaginaCronogramaRoadmap() {
                                 </span>
                               ) : null}
                             </div>
-
-                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{fila.resumen}</p>
-                            <p className="text-xs text-slate-400 dark:text-slate-500">{fila.detalle}</p>
                           </div>
                         </div>
                       </div>
