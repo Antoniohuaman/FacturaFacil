@@ -53,6 +53,7 @@ interface FilaCronograma {
   estado: EstadoRegistro | null
   resumen: string
   detalle: string
+  rangoFechas: string | null
   tieneHijos: boolean
   expandido: boolean
   segmentos: SegmentoCronograma[]
@@ -321,6 +322,38 @@ function obtenerEstiloMarcador(variante: MarcadorCronograma['variante']) {
   }
 }
 
+function describirSegmentoTemporal(variante: SegmentoCronograma['variante']) {
+  if (variante === 'objetivo') {
+    return 'Rango agregado de objetivo'
+  }
+
+  if (variante === 'iniciativa') {
+    return 'Ventana planificada de iniciativa'
+  }
+
+  if (variante === 'real') {
+    return 'Ventana real de entrega'
+  }
+
+  return 'Ventana planificada de entrega'
+}
+
+function describirMarcadorTemporal(variante: MarcadorCronograma['variante']) {
+  if (variante === 'release_real') {
+    return 'Release ejecutado'
+  }
+
+  if (variante === 'release') {
+    return 'Release programado'
+  }
+
+  if (variante === 'entrega_real') {
+    return 'Entrega completada'
+  }
+
+  return 'Fecha objetivo de entrega'
+}
+
 function compararFechasAscendente(fechaA: Date, fechaB: Date) {
   return fechaA.getTime() - fechaB.getTime()
 }
@@ -443,8 +476,11 @@ export function PaginaCronogramaRoadmap() {
     )
   })
   const contenedorCronogramaRef = useRef<HTMLDivElement | null>(null)
+  const contenedorScrollRef = useRef<HTMLDivElement | null>(null)
   const densidadPreviaRef = useRef<DensidadCronograma>(densidad)
   const jerarquiaDetalleInicializadaRef = useRef(false)
+  const entregablesDetalleInicializadosRef = useRef(false)
+  const ejecutivoInicializadoRef = useRef(false)
 
   useEffect(() => {
     const cargar = async () => {
@@ -599,12 +635,13 @@ export function PaginaCronogramaRoadmap() {
     }
 
     const manejarMouseMove = (evento: globalThis.MouseEvent) => {
-      const contenedor = contenedorCronogramaRef.current
-      if (!contenedor) {
+      const contenedorScroll = contenedorScrollRef.current
+      if (!contenedorScroll) {
         return
       }
 
-      const rect = contenedor.getBoundingClientRect()
+      // Usar el contenedor externo (overflow-x-auto): su left nunca cambia al scrollear
+      const rect = contenedorScroll.getBoundingClientRect()
       const nuevoAncho = limitarAnchoColumnaJerarquia(evento.clientX - rect.left)
       setAnchoColumnaJerarquia(nuevoAncho)
     }
@@ -783,10 +820,26 @@ export function PaginaCronogramaRoadmap() {
   }, [filtroObjetivo, iniciativasVisibles, objetivos])
 
   useEffect(() => {
-    const entraEnDetalle = densidad === 'detalle' && densidadPreviaRef.current !== 'detalle'
-    const requiereInicializacion = densidad === 'detalle' && !jerarquiaDetalleInicializadaRef.current
+    // Auto-expansión inicial: al cargar datos por primera vez, expandir objetivos con hijos
+    if (!ejecutivoInicializadoRef.current && objetivosVisibles.length > 0) {
+      const conHijos = objetivosVisibles
+        .filter((objetivo) =>
+          iniciativasVisibles.some((iniciativa) => (iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id)
+        )
+        .map((objetivo) => objetivo.id)
 
-    if ((entraEnDetalle || requiereInicializacion) && objetivosVisibles.length > 0) {
+      if (conHijos.length > 0) {
+        setObjetivosExpandidos((prev) => (prev.length === 0 ? conHijos : prev))
+      }
+
+      ejecutivoInicializadoRef.current = true
+    }
+
+    const entraEnDetalle = densidad === 'detalle' && densidadPreviaRef.current !== 'detalle'
+    const requiereInicializacionJerarquia = densidad === 'detalle' && !jerarquiaDetalleInicializadaRef.current
+    const requiereInicializacionEntregables = densidad === 'detalle' && !entregablesDetalleInicializadosRef.current
+
+    if ((entraEnDetalle || requiereInicializacionJerarquia) && objetivosVisibles.length > 0) {
       const objetivosConHijos = objetivosVisibles
         .filter((objetivo) =>
           iniciativasVisibles.some((iniciativa) => (iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id)
@@ -800,8 +853,35 @@ export function PaginaCronogramaRoadmap() {
       jerarquiaDetalleInicializadaRef.current = true
     }
 
+    if ((entraEnDetalle || requiereInicializacionEntregables) && iniciativasVisibles.length > 0) {
+      const iniciativasConHijos = iniciativasVisibles
+        .filter((iniciativa) => entregasFiltradas.some((entrega) => entrega.iniciativa_id === iniciativa.id))
+        .map((iniciativa) => iniciativa.id)
+
+      const gruposSinIniciativa = objetivosVisibles
+        .filter((objetivo) => {
+          return entregasFiltradas.some((entrega) => {
+            if (entrega.iniciativa_id) {
+              return false
+            }
+
+            const iniciativa = entrega.iniciativa_id ? iniciativasPorId.get(entrega.iniciativa_id) : null
+            return (iniciativa?.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id
+          })
+        })
+        .map((objetivo) => `${objetivo.id}-${FILA_SIN_INICIATIVA}`)
+
+      const clavesExpandibles = [...iniciativasConHijos, ...gruposSinIniciativa]
+
+      if (clavesExpandibles.length > 0) {
+        setIniciativasExpandidas((actuales) => (actuales.length > 0 && !entraEnDetalle ? actuales : clavesExpandibles))
+      }
+
+      entregablesDetalleInicializadosRef.current = true
+    }
+
     densidadPreviaRef.current = densidad
-  }, [densidad, iniciativasVisibles, objetivosVisibles])
+  }, [densidad, entregasFiltradas, iniciativasPorId, iniciativasVisibles, objetivosVisibles])
 
   const kpis = useMemo(() => {
     const objetivosActivos = objetivosVisibles.filter((objetivo) => objetivo.estado !== 'completado').length
@@ -844,12 +924,8 @@ export function PaginaCronogramaRoadmap() {
       total += 1
     }
 
-    if (densidad === 'detalle') {
-      total += 1
-    }
-
     return total
-  }, [densidad, filtroEstado, filtroObjetivo, filtroVentana, vistaTemporal])
+  }, [filtroEstado, filtroObjetivo, filtroVentana, vistaTemporal])
 
   const resumenControles = useMemo(() => {
     const items = [`${anioSeleccionado}`]
@@ -947,7 +1023,6 @@ export function PaginaCronogramaRoadmap() {
           return calcularSegmentosEntrega(item).marcadores
         })
         .sort((a, b) => compararFechasAscendente(a.fecha, b.fecha))
-        .slice(0, 6)
 
       const totalReleases = iniciativasObjetivo.reduce(
         (acumulado, iniciativa) => acumulado + (releasesPorIniciativa.get(iniciativa.id) ?? []).length,
@@ -966,6 +1041,7 @@ export function PaginaCronogramaRoadmap() {
             : objetivo.estado,
         resumen: `${iniciativasObjetivo.length} iniciativas`,
         detalle: `${entregasObjetivo.length} entregas · ${totalReleases} releases`,
+        rangoFechas: segmentoObjetivo ? formatearRangoFechas(segmentoObjetivo.inicio, segmentoObjetivo.fin) : null,
         tieneHijos: iniciativasObjetivo.length > 0,
         expandido: objetivosExpandidos.includes(objetivo.id),
         segmentos: segmentoObjetivo ? [segmentoObjetivo] : [],
@@ -995,6 +1071,7 @@ export function PaginaCronogramaRoadmap() {
         const etiquetaVentana = iniciativa.ventana_planificada_id
           ? ventanasPorId.get(iniciativa.ventana_planificada_id)?.etiqueta_visible ?? 'Sin ventana'
           : 'Sin ventana'
+        const rangoIni = obtenerRangoVentana(iniciativa.ventana_planificada_id, ventanasPorId)
 
         filas.push({
           id: iniciativa.id,
@@ -1005,6 +1082,7 @@ export function PaginaCronogramaRoadmap() {
           estado: iniciativa.estado,
           resumen: etiquetaVentana,
           detalle: `${entregasIniciativa.length} entregas · ${(releasesPorIniciativa.get(iniciativa.id) ?? []).length} releases`,
+          rangoFechas: rangoIni ? formatearRangoFechas(rangoIni.inicio, rangoIni.fin) : null,
           tieneHijos: densidad === 'detalle' && entregasIniciativa.length > 0,
           expandido: iniciativasExpandidas.includes(iniciativa.id),
           segmentos: visual.segmentos,
@@ -1022,6 +1100,9 @@ export function PaginaCronogramaRoadmap() {
             ? ventanasPorId.get(entrega.ventana_planificada_id)?.etiqueta_visible ?? 'Sin ventana plan'
             : 'Sin ventana plan'
           const fecha = entrega.fecha_objetivo ? formatearFechaCorta(entrega.fecha_objetivo) : 'Sin fecha objetivo'
+          const rangoPlan = obtenerRangoVentana(entrega.ventana_planificada_id, ventanasPorId)
+          const rangoReal = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
+          const rangoEntrega = rangoPlan ?? rangoReal
 
           filas.push({
             id: entrega.id,
@@ -1032,6 +1113,7 @@ export function PaginaCronogramaRoadmap() {
             estado: entrega.estado,
             resumen: ventanaPlan,
             detalle: fecha,
+            rangoFechas: rangoEntrega ? formatearRangoFechas(rangoEntrega.inicio, rangoEntrega.fin) : null,
             tieneHijos: false,
             expandido: false,
             segmentos: visualEntrega.segmentos,
@@ -1044,6 +1126,20 @@ export function PaginaCronogramaRoadmap() {
       const entregasSinIniciativa = entregasObjetivo.filter((entrega) => !entrega.iniciativa_id)
       if (densidad === 'detalle' && entregasSinIniciativa.length > 0) {
         const clave = `${objetivo.id}-${FILA_SIN_INICIATIVA}`
+
+        const segsSinIni = entregasSinIniciativa
+          .flatMap((entrega) => calcularSegmentosEntrega(entrega).segmentos)
+          .sort((a, b) => compararFechasAscendente(a.inicio, b.inicio))
+        const segAgregadoSinIni: SegmentoCronograma | null =
+          segsSinIni.length > 0
+            ? {
+                id: `agregado-${clave}`,
+                inicio: segsSinIni[0].inicio,
+                fin: [...segsSinIni].sort((a, b) => compararFechasAscendente(a.fin, b.fin))[segsSinIni.length - 1].fin,
+                variante: 'objetivo'
+              }
+            : null
+
         filas.push({
           id: clave,
           claveExpansion: clave,
@@ -1051,11 +1147,12 @@ export function PaginaCronogramaRoadmap() {
           nivel: 1,
           titulo: 'Sin iniciativa asignada',
           estado: estadoDominante(entregasSinIniciativa.map((entrega) => entrega.estado)),
-          resumen: 'Entregas huérfanas',
+          resumen: 'Entregas sin iniciativa',
           detalle: `${entregasSinIniciativa.length} entregas`,
+          rangoFechas: segAgregadoSinIni ? formatearRangoFechas(segAgregadoSinIni.inicio, segAgregadoSinIni.fin) : null,
           tieneHijos: true,
           expandido: iniciativasExpandidas.includes(clave),
-          segmentos: [],
+          segmentos: segAgregadoSinIni ? [segAgregadoSinIni] : [],
           marcadores: [],
           entregaAtrasada: entregasSinIniciativa.some((entrega) => esEntregaAtrasada(entrega, hoy))
         })
@@ -1063,6 +1160,10 @@ export function PaginaCronogramaRoadmap() {
         if (iniciativasExpandidas.includes(clave)) {
           entregasSinIniciativa.forEach((entrega) => {
             const visualEntrega = calcularSegmentosEntrega(entrega)
+            const rangoPlanH = obtenerRangoVentana(entrega.ventana_planificada_id, ventanasPorId)
+            const rangoRealH = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
+            const rangoEntregaH = rangoPlanH ?? rangoRealH
+
             filas.push({
               id: entrega.id,
               claveExpansion: entrega.id,
@@ -1074,6 +1175,7 @@ export function PaginaCronogramaRoadmap() {
                 ? ventanasPorId.get(entrega.ventana_planificada_id)?.etiqueta_visible ?? 'Sin ventana plan'
                 : 'Sin ventana plan',
               detalle: entrega.fecha_objetivo ? formatearFechaCorta(entrega.fecha_objetivo) : 'Sin fecha objetivo',
+              rangoFechas: rangoEntregaH ? formatearRangoFechas(rangoEntregaH.inicio, rangoEntregaH.fin) : null,
               tieneHijos: false,
               expandido: false,
               segmentos: visualEntrega.segmentos,
@@ -1097,7 +1199,7 @@ export function PaginaCronogramaRoadmap() {
 
   const limpiarFiltros = () => {
     setVistaTemporal('anio')
-    setAnioSeleccionado(aniosDisponibles[aniosDisponibles.length - 1] ?? new Date().getFullYear())
+    setAnioSeleccionado(new Date().getFullYear())
     setTrimestreSeleccionado(1)
     setFiltroObjetivo('todos')
     setFiltroEstado('todos')
@@ -1317,12 +1419,50 @@ export function PaginaCronogramaRoadmap() {
             </p>
           </div>
 
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800/60">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+              Referencia
+            </p>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[4px] w-6 rounded-full bg-slate-300/80 ring-1 ring-inset ring-slate-400/30 dark:bg-slate-600/70" />
+              Objetivo
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[10px] w-6 rounded-full bg-cyan-500/80 dark:bg-cyan-400/75" />
+              Iniciativa plan
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[6px] w-6 rounded-full bg-amber-400/85 dark:bg-amber-300/80" />
+              Entrega plan
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[6px] w-6 rounded-full bg-emerald-500/85 dark:bg-emerald-400/80" />
+              Entrega real
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[9px] w-[9px] rounded-full bg-amber-500 ring-2 ring-white dark:bg-amber-300 dark:ring-slate-900" />
+              Fecha objetivo
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[9px] w-[9px] rounded-full bg-emerald-500 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
+              Completada
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[10px] w-[10px] rounded-full bg-slate-900 ring-2 ring-white dark:bg-slate-100 dark:ring-slate-900" />
+              Release plan
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="inline-block h-[10px] w-[10px] rounded-full bg-emerald-600 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
+              Release real
+            </span>
+          </div>
+
           {filasCronograma.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
               No hay evidencia temporal suficiente en el rango y filtros actuales para construir un cronograma honesto.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div ref={contenedorScrollRef} className="overflow-x-auto">
               <div ref={contenedorCronogramaRef} className="relative" style={{ minWidth: `${anchoColumnaJerarquia + anchoTimeline}px` }}>
                 <div
                   className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95"
@@ -1368,11 +1508,18 @@ export function PaginaCronogramaRoadmap() {
                 <button
                   type="button"
                   onMouseDown={iniciarResizeJerarquia}
-                  className={`absolute inset-y-0 z-50 hidden w-4 -translate-x-1/2 cursor-col-resize md:block ${redimensionandoJerarquia ? 'bg-sky-500/10' : 'hover:bg-slate-400/10 dark:hover:bg-slate-500/10'}`}
+                  className={`group absolute inset-y-0 z-50 hidden w-5 -translate-x-1/2 cursor-col-resize md:block ${redimensionandoJerarquia ? 'bg-sky-500/15' : 'hover:bg-slate-400/10 dark:hover:bg-slate-500/10'}`}
                   style={{ left: `${anchoColumnaJerarquia}px` }}
-                  aria-label="Redimensionar columna de jerarquia"
+                  aria-label="Arrastrar para redimensionar la columna de jerarquía"
+                  title="Arrastrar para redimensionar"
                 >
-                  <span className="absolute left-1/2 top-6 h-10 w-1.5 -translate-x-1/2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <span
+                    className={`absolute left-1/2 top-1/2 h-16 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors ${
+                      redimensionandoJerarquia
+                        ? 'bg-sky-500 dark:bg-sky-400'
+                        : 'bg-slate-300 group-hover:bg-slate-400 dark:bg-slate-600 dark:group-hover:bg-slate-500'
+                    }`}
+                  />
                 </button>
 
                 {filasCronograma.map((fila) => {
@@ -1420,6 +1567,9 @@ export function PaginaCronogramaRoadmap() {
                                   <div className="space-y-1">
                                     <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
                                     {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
+                                    {fila.rangoFechas ? (
+                                      <p className="text-slate-500 dark:text-slate-400">{fila.rangoFechas}</p>
+                                    ) : null}
                                     {fila.resumen && fila.resumen !== fila.detalle ? (
                                       <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
                                     ) : null}
@@ -1442,11 +1592,19 @@ export function PaginaCronogramaRoadmap() {
                               ) : null}
 
                               {fila.entregaAtrasada ? (
-                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                                  Desvío
-                                </span>
+                                <TooltipCronograma content="Tiene entregas con fecha objetivo vencida aún sin completar">
+                                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                    Desvío
+                                  </span>
+                                </TooltipCronograma>
                               ) : null}
                             </div>
+
+                            {fila.tipo !== 'objetivo' && fila.resumen ? (
+                              <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">
+                                {fila.resumen}
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -1482,16 +1640,8 @@ export function PaginaCronogramaRoadmap() {
                               content={
                                 <div className="space-y-1">
                                   <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                  <p>
-                                    {segmento.variante === 'objetivo'
-                                      ? 'Agrupación temporal derivada'
-                                      : segmento.variante === 'iniciativa'
-                                        ? 'Ventana planificada de iniciativa'
-                                        : segmento.variante === 'plan'
-                                          ? 'Ventana planificada de entrega'
-                                          : 'Ventana real de entrega'}
-                                  </p>
-                                  <p className="text-slate-500 dark:text-slate-400">{formatearRangoFechas(inicioVisible, finVisible)}</p>
+                                  <p>{describirSegmentoTemporal(segmento.variante)}</p>
+                                  <p className="text-slate-500 dark:text-slate-400">{formatearRangoFechas(segmento.inicio, segmento.fin)}</p>
                                   {fila.estado ? <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p> : null}
                                 </div>
                               }
@@ -1525,7 +1675,8 @@ export function PaginaCronogramaRoadmap() {
                               content={
                                 <div className="space-y-1">
                                   <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                  <p>{marcador.etiqueta}</p>
+                                  <p>{describirMarcadorTemporal(marcador.variante)}</p>
+                                  <p className="text-slate-500 dark:text-slate-400">{marcador.etiqueta}</p>
                                   <p className="text-slate-500 dark:text-slate-400">
                                     {formatearFechaCorta(marcador.fecha.toISOString().slice(0, 10))}
                                   </p>

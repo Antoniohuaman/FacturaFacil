@@ -2,10 +2,10 @@ import { NavLink } from 'react-router-dom'
 
 const enlaces = [
   { etiqueta: 'Resumen', ruta: '/roadmap' },
+  { etiqueta: 'Cronograma', ruta: '/roadmap/cronograma' },
   { etiqueta: 'Objetivos', ruta: '/roadmap/objetivos' },
   { etiqueta: 'Iniciativas', ruta: '/roadmap/iniciativas' },
-  { etiqueta: 'Entregas', ruta: '/roadmap/entregas' },
-  { etiqueta: 'Cronograma', ruta: '/roadmap/cronograma' }
+  { etiqueta: 'Entregas', ruta: '/roadmap/entregas' }
 ]
 
 export function NavegacionRoadmap() {
