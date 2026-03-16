@@ -19,6 +19,7 @@ import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
+import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -127,11 +128,14 @@ export function PaginaObjetivosRoadmap() {
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Objetivos roadmap</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Define objetivos del módulo Roadmap para ordenar la ejecución y priorización del delivery. No reemplazan objetivos estratégicos de OKRs.
-        </p>
+      <header className="space-y-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">Objetivos roadmap</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Define objetivos del módulo Roadmap para ordenar la ejecución y priorización del delivery. No reemplazan objetivos estratégicos de OKRs.
+          </p>
+        </div>
+        <NavegacionRoadmap />
       </header>
 
       <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100">

@@ -4,6 +4,7 @@ import { GuardSesionPortalPM } from '@/aplicacion/autenticacion/GuardSesionPorta
 import { PaginaIngresar } from '@/presentacion/paginas/ingresar/PaginaIngresar'
 import { PaginaTablero } from '@/presentacion/paginas/tablero/PaginaTablero'
 import { PaginaRoadmap } from '@/presentacion/paginas/roadmap/PaginaRoadmap'
+import { PaginaCronogramaRoadmap } from '@/presentacion/paginas/roadmap/cronograma/PaginaCronogramaRoadmap'
 import { PaginaObjetivosRoadmap } from '@/presentacion/paginas/roadmap/objetivos/PaginaObjetivosRoadmap'
 import { PaginaIniciativasRoadmap } from '@/presentacion/paginas/roadmap/iniciativas/PaginaIniciativasRoadmap'
 import { PaginaEntregasRoadmap } from '@/presentacion/paginas/roadmap/entregas/PaginaEntregasRoadmap'
@@ -65,6 +66,7 @@ export const enrutadorPortal = createBrowserRouter([
     children: [
       { index: true, element: <PaginaTablero /> },
       { path: 'roadmap', element: <PaginaRoadmap /> },
+      { path: 'roadmap/cronograma', element: <PaginaCronogramaRoadmap /> },
       { path: 'roadmap/objetivos', element: <PaginaObjetivosRoadmap /> },
       { path: 'roadmap/iniciativas', element: <PaginaIniciativasRoadmap /> },
       { path: 'roadmap/entregas', element: <PaginaEntregasRoadmap /> },

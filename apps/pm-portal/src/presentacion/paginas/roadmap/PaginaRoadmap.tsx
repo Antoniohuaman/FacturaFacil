@@ -15,6 +15,7 @@ import {
 import { listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
+import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 import {
   estadosRegistro,
   formatearEstadoRegistro,
@@ -514,11 +515,14 @@ export function PaginaRoadmap() {
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Roadmap</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Panorama general de objetivos, iniciativas y entregas planificadas.
-        </p>
+      <header className="space-y-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">Roadmap</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Panorama general de objetivos, iniciativas y entregas planificadas.
+          </p>
+        </div>
+        <NavegacionRoadmap />
       </header>
 
       <div className="relative flex justify-end">

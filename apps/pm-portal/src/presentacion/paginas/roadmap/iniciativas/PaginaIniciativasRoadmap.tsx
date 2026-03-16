@@ -41,6 +41,7 @@ import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { calcularRice } from '@/compartido/utilidades/calcularRice'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible } from '@/compartido/utilidades/formatoPortal'
+import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 
 type ModoModal = 'crear' | 'ver' | 'editar'
 
@@ -366,11 +367,14 @@ export function PaginaIniciativasRoadmap() {
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Roadmap de iniciativas</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Gestiona iniciativas y prioriza usando cálculo RICE automático.
-        </p>
+      <header className="space-y-2">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">Roadmap de iniciativas</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Gestiona iniciativas y prioriza usando cálculo RICE automático.
+          </p>
+        </div>
+        <NavegacionRoadmap />
       </header>
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
