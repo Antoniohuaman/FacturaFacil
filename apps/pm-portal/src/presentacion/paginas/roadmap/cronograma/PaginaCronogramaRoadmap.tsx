@@ -27,7 +27,6 @@ import {
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 
 type VistaTemporal = 'anio' | 'trimestre'
-type DensidadCronograma = 'ejecutivo' | 'detalle'
 type TipoFilaCronograma = 'objetivo' | 'iniciativa' | 'entrega'
 
 interface SegmentoCronograma {
@@ -65,6 +64,7 @@ interface TooltipCronogramaProps {
   content: ReactNode
   children: ReactNode
   className?: string
+  style?: CSSProperties
   disabled?: boolean
   maxWidthClassName?: string
 }
@@ -76,6 +76,8 @@ const ANCHO_COLUMNA_JERARQUIA_MIN = 320
 const ANCHO_COLUMNA_JERARQUIA_MAX = 560
 const ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO = 392
 const CLAVE_ANCHO_COLUMNA_JERARQUIA = 'pm-portal-roadmap-cronograma-ancho-jerarquia'
+const CLAVE_OBJETIVOS_EXPANDIDOS = 'pm-portal-roadmap-cronograma-objetivos-expandidos'
+const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-expandidas'
 const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
   display: '-webkit-box',
   WebkitLineClamp: 2,
@@ -91,6 +93,7 @@ function TooltipCronograma({
   content,
   children,
   className,
+  style,
   disabled = false,
   maxWidthClassName = 'max-w-xs'
 }: TooltipCronogramaProps) {
@@ -134,6 +137,7 @@ function TooltipCronograma({
   return (
     <span
       className={className}
+      style={style}
       onMouseEnter={manejarMouseEnter}
       onMouseMove={manejarMouseMove}
       onMouseLeave={() => setAbierto(false)}
@@ -179,10 +183,6 @@ function IconoChevron({ abierto }: { abierto: boolean }) {
 
 function normalizarVistaTemporal(valor: string | null): VistaTemporal {
   return valor === 'trimestre' ? 'trimestre' : 'anio'
-}
-
-function normalizarDensidad(valor: string | null): DensidadCronograma {
-  return valor === 'detalle' ? 'detalle' : 'ejecutivo'
 }
 
 function normalizarNumero(valor: string | null, respaldo: number) {
@@ -451,7 +451,6 @@ export function PaginaCronogramaRoadmap() {
     return valor === 'pendiente' || valor === 'en_progreso' || valor === 'completado' ? valor : 'todos'
   })
   const [filtroVentana, setFiltroVentana] = useState(() => searchParams.get('ventana') ?? 'todas')
-  const [densidad, setDensidad] = useState<DensidadCronograma>(() => normalizarDensidad(searchParams.get('densidad')))
   const [anchoColumnaJerarquia, setAnchoColumnaJerarquia] = useState(() => {
     if (typeof window === 'undefined') {
       return ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO
@@ -462,8 +461,24 @@ export function PaginaCronogramaRoadmap() {
       ? limitarAnchoColumnaJerarquia(anchoPersistido)
       : ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO
   })
-  const [objetivosExpandidos, setObjetivosExpandidos] = useState<string[]>([])
-  const [iniciativasExpandidas, setIniciativasExpandidas] = useState<string[]>([])
+  const [objetivosExpandidos, setObjetivosExpandidos] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const guardado = window.localStorage.getItem(CLAVE_OBJETIVOS_EXPANDIDOS)
+      return guardado ? (JSON.parse(guardado) as string[]) : []
+    } catch {
+      return []
+    }
+  })
+  const [iniciativasExpandidas, setIniciativasExpandidas] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const guardado = window.localStorage.getItem(CLAVE_INICIATIVAS_EXPANDIDAS)
+      return guardado ? (JSON.parse(guardado) as string[]) : []
+    } catch {
+      return []
+    }
+  })
   const [redimensionandoJerarquia, setRedimensionandoJerarquia] = useState(false)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(() => {
     return Boolean(
@@ -471,15 +486,11 @@ export function PaginaCronogramaRoadmap() {
         searchParams.get('estado') ||
         searchParams.get('ventana') ||
         searchParams.get('trimestre') ||
-        searchParams.get('vista') === 'trimestre' ||
-        searchParams.get('densidad') === 'detalle'
+        searchParams.get('vista') === 'trimestre'
     )
   })
   const contenedorCronogramaRef = useRef<HTMLDivElement | null>(null)
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null)
-  const densidadPreviaRef = useRef<DensidadCronograma>(densidad)
-  const jerarquiaDetalleInicializadaRef = useRef(false)
-  const entregablesDetalleInicializadosRef = useRef(false)
   const ejecutivoInicializadoRef = useRef(false)
 
   useEffect(() => {
@@ -516,7 +527,7 @@ export function PaginaCronogramaRoadmap() {
 
     parametros.set('vista', vistaTemporal)
     parametros.set('anio', String(anioSeleccionado))
-    parametros.set('densidad', densidad)
+    parametros.delete('densidad')
 
     if (vistaTemporal === 'trimestre') {
       parametros.set('trimestre', String(trimestreSeleccionado))
@@ -547,7 +558,7 @@ export function PaginaCronogramaRoadmap() {
     if (actual !== siguiente) {
       setSearchParams(parametros, { replace: true })
     }
-  }, [anioSeleccionado, densidad, filtroEstado, filtroObjetivo, filtroVentana, searchParams, setSearchParams, trimestreSeleccionado, vistaTemporal])
+  }, [anioSeleccionado, filtroEstado, filtroObjetivo, filtroVentana, searchParams, setSearchParams, trimestreSeleccionado, vistaTemporal])
 
   const iniciativasPorId = useMemo(() => new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa])), [iniciativas])
   const ventanasPorId = useMemo(() => new Map(ventanas.map((ventana) => [ventana.id, ventana])), [ventanas])
@@ -628,6 +639,16 @@ export function PaginaCronogramaRoadmap() {
 
     window.localStorage.setItem(CLAVE_ANCHO_COLUMNA_JERARQUIA, String(anchoColumnaJerarquia))
   }, [anchoColumnaJerarquia])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(CLAVE_OBJETIVOS_EXPANDIDOS, JSON.stringify(objetivosExpandidos))
+  }, [objetivosExpandidos])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(CLAVE_INICIATIVAS_EXPANDIDAS, JSON.stringify(iniciativasExpandidas))
+  }, [iniciativasExpandidas])
 
   useEffect(() => {
     if (!redimensionandoJerarquia) {
@@ -820,7 +841,7 @@ export function PaginaCronogramaRoadmap() {
   }, [filtroObjetivo, iniciativasVisibles, objetivos])
 
   useEffect(() => {
-    // Auto-expansión inicial: al cargar datos por primera vez, expandir objetivos con hijos
+    // Auto-expansión inicial: si no hay nada restaurado del localStorage, expandir objetivos con hijos
     if (!ejecutivoInicializadoRef.current && objetivosVisibles.length > 0) {
       const conHijos = objetivosVisibles
         .filter((objetivo) =>
@@ -834,54 +855,7 @@ export function PaginaCronogramaRoadmap() {
 
       ejecutivoInicializadoRef.current = true
     }
-
-    const entraEnDetalle = densidad === 'detalle' && densidadPreviaRef.current !== 'detalle'
-    const requiereInicializacionJerarquia = densidad === 'detalle' && !jerarquiaDetalleInicializadaRef.current
-    const requiereInicializacionEntregables = densidad === 'detalle' && !entregablesDetalleInicializadosRef.current
-
-    if ((entraEnDetalle || requiereInicializacionJerarquia) && objetivosVisibles.length > 0) {
-      const objetivosConHijos = objetivosVisibles
-        .filter((objetivo) =>
-          iniciativasVisibles.some((iniciativa) => (iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id)
-        )
-        .map((objetivo) => objetivo.id)
-
-      if (objetivosConHijos.length > 0) {
-        setObjetivosExpandidos((actuales) => (actuales.length > 0 && !entraEnDetalle ? actuales : objetivosConHijos))
-      }
-
-      jerarquiaDetalleInicializadaRef.current = true
-    }
-
-    if ((entraEnDetalle || requiereInicializacionEntregables) && iniciativasVisibles.length > 0) {
-      const iniciativasConHijos = iniciativasVisibles
-        .filter((iniciativa) => entregasFiltradas.some((entrega) => entrega.iniciativa_id === iniciativa.id))
-        .map((iniciativa) => iniciativa.id)
-
-      const gruposSinIniciativa = objetivosVisibles
-        .filter((objetivo) => {
-          return entregasFiltradas.some((entrega) => {
-            if (entrega.iniciativa_id) {
-              return false
-            }
-
-            const iniciativa = entrega.iniciativa_id ? iniciativasPorId.get(entrega.iniciativa_id) : null
-            return (iniciativa?.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id
-          })
-        })
-        .map((objetivo) => `${objetivo.id}-${FILA_SIN_INICIATIVA}`)
-
-      const clavesExpandibles = [...iniciativasConHijos, ...gruposSinIniciativa]
-
-      if (clavesExpandibles.length > 0) {
-        setIniciativasExpandidas((actuales) => (actuales.length > 0 && !entraEnDetalle ? actuales : clavesExpandibles))
-      }
-
-      entregablesDetalleInicializadosRef.current = true
-    }
-
-    densidadPreviaRef.current = densidad
-  }, [densidad, entregasFiltradas, iniciativasPorId, iniciativasVisibles, objetivosVisibles])
+  }, [iniciativasVisibles, objetivosVisibles])
 
   const kpis = useMemo(() => {
     const objetivosActivos = objetivosVisibles.filter((objetivo) => objetivo.estado !== 'completado').length
@@ -931,7 +905,6 @@ export function PaginaCronogramaRoadmap() {
     const items = [`${anioSeleccionado}`]
 
     items.push(vistaTemporal === 'trimestre' ? `T${trimestreSeleccionado}` : 'Vista anual')
-    items.push(densidad === 'detalle' ? 'Detalle' : 'Ejecutivo')
 
     if (filtroObjetivo !== 'todos') {
       items.push('Objetivo filtrado')
@@ -946,7 +919,7 @@ export function PaginaCronogramaRoadmap() {
     }
 
     return items
-  }, [anioSeleccionado, densidad, filtroEstado, filtroObjetivo, filtroVentana, trimestreSeleccionado, vistaTemporal, ventanasPorId])
+  }, [anioSeleccionado, filtroEstado, filtroObjetivo, filtroVentana, trimestreSeleccionado, vistaTemporal, ventanasPorId])
 
   const filasCronograma = useMemo(() => {
     const filas: FilaCronograma[] = []
@@ -1083,14 +1056,14 @@ export function PaginaCronogramaRoadmap() {
           resumen: etiquetaVentana,
           detalle: `${entregasIniciativa.length} entregas · ${(releasesPorIniciativa.get(iniciativa.id) ?? []).length} releases`,
           rangoFechas: rangoIni ? formatearRangoFechas(rangoIni.inicio, rangoIni.fin) : null,
-          tieneHijos: densidad === 'detalle' && entregasIniciativa.length > 0,
+          tieneHijos: entregasIniciativa.length > 0,
           expandido: iniciativasExpandidas.includes(iniciativa.id),
           segmentos: visual.segmentos,
           marcadores: visual.marcadores,
           entregaAtrasada: entregasIniciativa.some((entrega) => esEntregaAtrasada(entrega, hoy))
         })
 
-        if (densidad !== 'detalle' || !iniciativasExpandidas.includes(iniciativa.id)) {
+        if (!iniciativasExpandidas.includes(iniciativa.id)) {
           return
         }
 
@@ -1124,7 +1097,7 @@ export function PaginaCronogramaRoadmap() {
       })
 
       const entregasSinIniciativa = entregasObjetivo.filter((entrega) => !entrega.iniciativa_id)
-      if (densidad === 'detalle' && entregasSinIniciativa.length > 0) {
+      if (entregasSinIniciativa.length > 0) {
         const clave = `${objetivo.id}-${FILA_SIN_INICIATIVA}`
 
         const segsSinIni = entregasSinIniciativa
@@ -1188,7 +1161,7 @@ export function PaginaCronogramaRoadmap() {
     })
 
     return filas
-  }, [densidad, entregasFiltradas, hoy, iniciativasExpandidas, iniciativasPorId, iniciativasVisibles, objetivosExpandidos, objetivosVisibles, releasesPorEntrega, releasesPorIniciativa, ventanasPorId])
+  }, [entregasFiltradas, hoy, iniciativasExpandidas, iniciativasPorId, iniciativasVisibles, objetivosExpandidos, objetivosVisibles, releasesPorEntrega, releasesPorIniciativa, ventanasPorId])
 
   const porcentajeHorizontal = (fecha: Date) => {
     const dias = diferenciaDias(rangoTemporal.inicio, fecha)
@@ -1204,7 +1177,6 @@ export function PaginaCronogramaRoadmap() {
     setFiltroObjetivo('todos')
     setFiltroEstado('todos')
     setFiltroVentana('todas')
-    setDensidad('ejecutivo')
     setFiltrosAbiertos(false)
   }
 
@@ -1360,8 +1332,8 @@ export function PaginaCronogramaRoadmap() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                {vistaTemporal === 'trimestre' ? (
+              {vistaTemporal === 'trimestre' ? (
+                <div className="mt-3">
                   <label className="space-y-1 text-sm">
                     <span className="text-slate-500 dark:text-slate-400">Trimestre</span>
                     <select
@@ -1375,28 +1347,8 @@ export function PaginaCronogramaRoadmap() {
                       <option value={4}>T4</option>
                     </select>
                   </label>
-                ) : null}
-
-                <div className="space-y-1 text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Densidad</span>
-                  <div className="inline-flex rounded-xl border border-slate-300 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/70">
-                    {(['ejecutivo', 'detalle'] as DensidadCronograma[]).map((valor) => (
-                      <button
-                        key={valor}
-                        type="button"
-                        onClick={() => setDensidad(valor)}
-                        className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                          densidad === valor
-                            ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-200 dark:text-slate-900'
-                            : 'text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        {valor === 'ejecutivo' ? 'Ejecutivo' : 'Detalle'}
-                      </button>
-                    ))}
-                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
           ) : null}
         </section>
@@ -1640,23 +1592,31 @@ export function PaginaCronogramaRoadmap() {
                               content={
                                 <div className="space-y-1">
                                   <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                  <p>{describirSegmentoTemporal(segmento.variante)}</p>
-                                  <p className="text-slate-500 dark:text-slate-400">{formatearRangoFechas(segmento.inicio, segmento.fin)}</p>
-                                  {fila.estado ? <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p> : null}
+                                  <p className="text-slate-600 dark:text-slate-300">{describirSegmentoTemporal(segmento.variante)}</p>
+                                  <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                                    {formatearRangoFechas(segmento.inicio, segmento.fin)}
+                                  </p>
+                                  {fila.estado ? (
+                                    <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p>
+                                  ) : null}
+                                  {fila.tipo === 'entrega' && segmento.variante === 'real' ? (
+                                    <p className="text-emerald-600 dark:text-emerald-400">Ventana real confirmada</p>
+                                  ) : null}
+                                  {fila.tipo === 'objetivo' ? (
+                                    <p className="text-slate-400 dark:text-slate-500">Rango derivado de hijos</p>
+                                  ) : null}
                                 </div>
                               }
-                              className="absolute z-[12]"
+                              className={`${estiloSegmento.className} absolute z-[12] cursor-default`}
+                              style={{
+                                left: `${left}%`,
+                                width: `${width}%`,
+                                top: estiloSegmento.top,
+                                height: estiloSegmento.height,
+                                borderRadius: estiloSegmento.borderRadius
+                              }}
                             >
-                              <div
-                                className={`${estiloSegmento.className} absolute`}
-                                style={{
-                                  left: `${left}%`,
-                                  width: `${width}%`,
-                                  top: estiloSegmento.top,
-                                  height: estiloSegmento.height,
-                                  borderRadius: estiloSegmento.borderRadius
-                                }}
-                              />
+                              {''}
                             </TooltipCronograma>
                           )
                         })}
@@ -1675,25 +1635,26 @@ export function PaginaCronogramaRoadmap() {
                               content={
                                 <div className="space-y-1">
                                   <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                  <p>{describirMarcadorTemporal(marcador.variante)}</p>
+                                  <p className="text-slate-600 dark:text-slate-300">{describirMarcadorTemporal(marcador.variante)}</p>
                                   <p className="text-slate-500 dark:text-slate-400">{marcador.etiqueta}</p>
-                                  <p className="text-slate-500 dark:text-slate-400">
+                                  <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
                                     {formatearFechaCorta(marcador.fecha.toISOString().slice(0, 10))}
                                   </p>
-                                  {fila.estado ? <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p> : null}
+                                  {fila.estado ? (
+                                    <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p>
+                                  ) : null}
                                 </div>
                               }
-                              className="absolute z-[14]"
+                              className={`absolute z-[14] cursor-default rounded-full ${estiloMarcador.className}`}
+                              style={{
+                                left: `${left}%`,
+                                top: estiloMarcador.top,
+                                width: estiloMarcador.size,
+                                height: estiloMarcador.size,
+                                transform: 'translateX(-50%)'
+                              }}
                             >
-                              <div
-                                className="absolute"
-                                style={{ left: `${left}%`, top: estiloMarcador.top, transform: 'translateX(-50%)' }}
-                              >
-                                <div
-                                  className={`rounded-full ${estiloMarcador.className}`}
-                                  style={{ width: estiloMarcador.size, height: estiloMarcador.size }}
-                                />
-                              </div>
+                              {''}
                             </TooltipCronograma>
                           )
                         })}
