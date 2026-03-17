@@ -42,6 +42,8 @@ export interface Entrega {
   ventana_real_id: string | null
   nombre: string
   descripcion: string
+  fecha_inicio?: string | null
+  fecha_fin?: string | null
   fecha_objetivo: string | null
   fecha_completado: string | null
   estado: EstadoRegistro

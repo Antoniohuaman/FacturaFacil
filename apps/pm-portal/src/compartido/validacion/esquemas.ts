@@ -86,17 +86,43 @@ export const iniciativaSchema = z
     }
   })
 
-export const entregaSchema = z.object({
-  iniciativa_id: z.string().uuid().nullable().optional(),
-  ventana_planificada_id: z.string().uuid().nullable().optional(),
-  ventana_real_id: z.string().uuid().nullable().optional(),
-  nombre: z.string().trim().min(3).max(120),
-  descripcion: z.string().trim().min(5).max(500),
-  fecha_objetivo: z.string().nullable().optional(),
-  fecha_completado: z.string().trim().nullable().optional(),
-  estado: estadoSchema,
-  prioridad: prioridadSchema
-})
+export const entregaSchema = z
+  .object({
+    iniciativa_id: z.string().uuid().nullable().optional(),
+    ventana_planificada_id: z.string().uuid().nullable().optional(),
+    ventana_real_id: z.string().uuid().nullable().optional(),
+    nombre: z.string().trim().min(3).max(120),
+    descripcion: z.string().trim().min(5).max(500),
+    fecha_inicio: fechaCatalogoSchema,
+    fecha_fin: fechaCatalogoSchema,
+    fecha_objetivo: z.string().nullable().optional(),
+    fecha_completado: z.string().trim().nullable().optional(),
+    estado: estadoSchema,
+    prioridad: prioridadSchema
+  })
+  .superRefine((valores, contexto) => {
+    if (valores.fecha_inicio && valores.fecha_fin && valores.fecha_inicio > valores.fecha_fin) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_fin'],
+        message: 'La fecha fin no puede ser menor que la fecha inicio'
+      })
+    }
+    if (valores.fecha_inicio && valores.fecha_objetivo && valores.fecha_objetivo < valores.fecha_inicio) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_objetivo'],
+        message: 'La fecha objetivo no puede ser anterior a la fecha inicio'
+      })
+    }
+    if (valores.fecha_fin && valores.fecha_objetivo && valores.fecha_objetivo > valores.fecha_fin) {
+      contexto.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fecha_objetivo'],
+        message: 'La fecha objetivo no puede ser posterior a la fecha fin'
+      })
+    }
+  })
 
 export const matrizValorSchema = z.object({
   iniciativa_id: z.string().uuid('Selecciona una iniciativa válida'),

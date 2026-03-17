@@ -91,6 +91,8 @@ export function PaginaEntregasRoadmap() {
       ventana_real_id: null,
       nombre: '',
       descripcion: '',
+      fecha_inicio: null,
+      fecha_fin: null,
       fecha_objetivo: null,
       fecha_completado: null,
       estado: 'pendiente',
@@ -403,6 +405,8 @@ export function PaginaEntregasRoadmap() {
       ventana_real_id: entrega?.ventana_real_id ?? null,
       nombre: entrega?.nombre ?? '',
       descripcion: entrega?.descripcion ?? '',
+      fecha_inicio: entrega?.fecha_inicio ?? null,
+      fecha_fin: entrega?.fecha_fin ?? null,
       fecha_objetivo: entrega?.fecha_objetivo ?? null,
       fecha_completado: entrega?.fecha_completado ?? null,
       estado: entrega?.estado ?? 'pendiente',
@@ -494,6 +498,8 @@ export function PaginaEntregasRoadmap() {
                 { encabezado: 'Iniciativa', valor: (entrega) => iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa' },
                 { encabezado: 'Ventana planificada', valor: (entrega) => ventanaPorId.get(entrega.ventana_planificada_id ?? '') ?? 'Sin asignar' },
                 { encabezado: 'Ventana real', valor: (entrega) => ventanaPorId.get(entrega.ventana_real_id ?? '') ?? 'Sin asignar' },
+                { encabezado: 'Fecha inicio', valor: (entrega) => normalizarFechaPortal(entrega.fecha_inicio ?? null) },
+                { encabezado: 'Fecha fin', valor: (entrega) => normalizarFechaPortal(entrega.fecha_fin ?? null) },
                 { encabezado: 'Fecha objetivo', valor: (entrega) => normalizarFechaPortal(entrega.fecha_objetivo) },
                 { encabezado: 'Fecha completado', valor: (entrega) => normalizarFechaPortal(entrega.fecha_completado) },
                 { encabezado: 'Estado', valor: (entrega) => formatearEstadoLegible(entrega.estado) },
@@ -804,6 +810,8 @@ export function PaginaEntregasRoadmap() {
                 iniciativa_id: valores.iniciativa_id || null,
                 ventana_planificada_id: valores.ventana_planificada_id || null,
                 ventana_real_id: valores.ventana_real_id || null,
+                fecha_inicio: valores.fecha_inicio || null,
+                fecha_fin: valores.fecha_fin || null,
                 fecha_objetivo: valores.fecha_objetivo || null
               }
 
@@ -891,6 +899,28 @@ export function PaginaEntregasRoadmap() {
             {errors.descripcion ? <p className="text-xs text-red-500">{errors.descripcion.message}</p> : null}
           </div>
 
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium">Fecha inicio</label>
+              <input
+                type="date"
+                {...register('fecha_inicio')}
+                readOnly={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Fecha fin</label>
+              <input
+                type="date"
+                {...register('fecha_fin')}
+                readOnly={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+              {errors.fecha_fin ? <p className="text-xs text-red-500">{errors.fecha_fin.message}</p> : null}
+            </div>
+          </div>
+
           <div>
             <label className="text-sm font-medium">Fecha objetivo</label>
             <input
@@ -899,6 +929,7 @@ export function PaginaEntregasRoadmap() {
               readOnly={modoModal === 'ver'}
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
+            {errors.fecha_objetivo ? <p className="text-xs text-red-500">{errors.fecha_objetivo.message}</p> : null}
           </div>
 
           {entregaActiva?.fecha_completado ? (
