@@ -34,6 +34,7 @@ interface SegmentoCronograma {
   inicio: Date
   fin: Date
   variante: 'objetivo' | 'iniciativa' | 'plan' | 'real'
+  origen: 'plan_propio' | 'fallback_ventana_plan' | 'fallback_agregado_hijos' | 'historico_real'
 }
 
 interface MarcadorCronograma {
@@ -53,6 +54,7 @@ interface FilaCronograma {
   resumen: string
   detalle: string
   rangoFechas: string | null
+  contextoTemporal: string | null
   tieneHijos: boolean
   expandido: boolean
   segmentos: SegmentoCronograma[]
@@ -67,6 +69,15 @@ interface TooltipCronogramaProps {
   style?: CSSProperties
   disabled?: boolean
   maxWidthClassName?: string
+}
+
+interface RangoCronogramaBase {
+  inicio: Date
+  fin: Date
+}
+
+interface RangoTemporalCronograma extends RangoCronogramaBase {
+  origen: SegmentoCronograma['origen']
 }
 
 const FILA_SIN_OBJETIVO = '__sin_objetivo__'
@@ -98,14 +109,60 @@ function TooltipCronograma({
   maxWidthClassName = 'max-w-xs'
 }: TooltipCronogramaProps) {
   const [abierto, setAbierto] = useState(false)
-  const [posicion, setPosicion] = useState({ x: 0, y: 0 })
+  const [posicion, setPosicion] = useState({ x: 0, y: 0, transform: 'translate(-50%, -100%)' })
+  const anclaRef = useRef<HTMLElement | null>(null)
+  const tooltipRef = useRef<HTMLSpanElement | null>(null)
 
-  const actualizarPosicion = (elemento: HTMLElement) => {
+  const actualizarPosicion = (elemento: HTMLElement, dimensiones?: { ancho: number; alto: number }) => {
     const rect = elemento.getBoundingClientRect()
+    const anchoTooltip = dimensiones?.ancho ?? 240
+    const altoTooltip = dimensiones?.alto ?? 88
+    const margenViewport = 12
+    const espacioSuperior = rect.top
+    const espacioInferior = window.innerHeight - rect.bottom
+    const mostrarDebajo = espacioSuperior < altoTooltip + 20 && espacioInferior > altoTooltip + 20
+    const centro = rect.left + rect.width / 2
+    const posicionX = Math.min(
+      Math.max(centro, margenViewport + anchoTooltip / 2),
+      window.innerWidth - margenViewport - anchoTooltip / 2
+    )
+
     setPosicion({
-      x: rect.left + rect.width / 2,
-      y: rect.top - 10
+      x: posicionX,
+      y: mostrarDebajo ? rect.bottom + 10 : rect.top - 10,
+      transform: mostrarDebajo ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
     })
+  }
+
+  useEffect(() => {
+    if (!abierto || !anclaRef.current || !tooltipRef.current) {
+      return
+    }
+
+    const recalcular = () => {
+      if (!anclaRef.current || !tooltipRef.current) {
+        return
+      }
+
+      const rectTooltip = tooltipRef.current.getBoundingClientRect()
+      actualizarPosicion(anclaRef.current, { ancho: rectTooltip.width, alto: rectTooltip.height })
+    }
+
+    recalcular()
+
+    window.addEventListener('resize', recalcular)
+    window.addEventListener('scroll', recalcular, true)
+
+    return () => {
+      window.removeEventListener('resize', recalcular)
+      window.removeEventListener('scroll', recalcular, true)
+    }
+  }, [abierto])
+
+  const abrirTooltip = (elemento: HTMLElement) => {
+    anclaRef.current = elemento
+    actualizarPosicion(elemento)
+    setAbierto(true)
   }
 
   const manejarMouseEnter = (evento: MouseEvent<HTMLSpanElement>) => {
@@ -113,8 +170,7 @@ function TooltipCronograma({
       return
     }
 
-    actualizarPosicion(evento.currentTarget)
-    setAbierto(true)
+    abrirTooltip(evento.currentTarget)
   }
 
   const manejarMouseMove = (evento: MouseEvent<HTMLSpanElement>) => {
@@ -122,6 +178,7 @@ function TooltipCronograma({
       return
     }
 
+    anclaRef.current = evento.currentTarget
     actualizarPosicion(evento.currentTarget)
   }
 
@@ -130,8 +187,7 @@ function TooltipCronograma({
       return
     }
 
-    actualizarPosicion(evento.currentTarget)
-    setAbierto(true)
+    abrirTooltip(evento.currentTarget)
   }
 
   return (
@@ -147,8 +203,9 @@ function TooltipCronograma({
       {children}
       {abierto ? (
         <span
+          ref={tooltipRef}
           className={`pointer-events-none fixed z-[80] -translate-x-1/2 -translate-y-full rounded-xl border border-slate-200 bg-white/96 px-3 py-2 text-left text-xs text-slate-700 shadow-2xl shadow-slate-900/10 backdrop-blur dark:border-slate-700 dark:bg-slate-900/96 dark:text-slate-200 ${maxWidthClassName}`}
-          style={{ left: posicion.x, top: posicion.y }}
+          style={{ left: posicion.x, top: posicion.y, transform: posicion.transform }}
           role="tooltip"
         >
           {content}
@@ -220,6 +277,14 @@ function fechaDentroDeRango(fecha: Date, inicio: Date, fin: Date) {
 
 function rangoSeSuperpone(inicio: Date, fin: Date, rangoInicio: Date, rangoFin: Date) {
   return inicio.getTime() <= rangoFin.getTime() && fin.getTime() >= rangoInicio.getTime()
+}
+
+function rangosCoinciden(rangoA: RangoCronogramaBase | null, rangoB: RangoCronogramaBase | null) {
+  if (!rangoA || !rangoB) {
+    return false
+  }
+
+  return rangoA.inicio.getTime() === rangoB.inicio.getTime() && rangoA.fin.getTime() === rangoB.fin.getTime()
 }
 
 function formatearMesCorto(fecha: Date) {
@@ -322,22 +387,6 @@ function obtenerEstiloMarcador(variante: MarcadorCronograma['variante']) {
   }
 }
 
-function describirSegmentoTemporal(variante: SegmentoCronograma['variante']) {
-  if (variante === 'objetivo') {
-    return 'Rango agregado de objetivo'
-  }
-
-  if (variante === 'iniciativa') {
-    return 'Ventana planificada de iniciativa'
-  }
-
-  if (variante === 'real') {
-    return 'Ventana real de entrega'
-  }
-
-  return 'Ventana planificada de entrega'
-}
-
 function describirMarcadorTemporal(variante: MarcadorCronograma['variante']) {
   if (variante === 'release_real') {
     return 'Release ejecutado'
@@ -367,6 +416,15 @@ function esEntregaAtrasada(entrega: Entrega, hoy: Date) {
   return Boolean(fechaObjetivo && fechaObjetivo.getTime() < hoy.getTime() && entrega.estado !== 'completado')
 }
 
+function registrarAniosRango(anios: Set<number>, rango: RangoCronogramaBase | null) {
+  if (!rango) {
+    return
+  }
+
+  anios.add(rango.inicio.getFullYear())
+  anios.add(rango.fin.getFullYear())
+}
+
 function obtenerRangoVentana(ventanaId: string | null, ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>) {
   if (!ventanaId) {
     return null
@@ -390,7 +448,105 @@ function obtenerRangoVentana(ventanaId: string | null, ventanasPorId: ReadonlyMa
   }
 }
 
-function construirSegmento(inicio: Date | null, fin: Date | null, id: string, variante: SegmentoCronograma['variante']) {
+function obtenerRangoFechasPropias(fechaInicio: string | null | undefined, fechaFin: string | null | undefined) {
+  const inicio = parsearFechaPortal(fechaInicio)
+  const fin = parsearFechaPortal(fechaFin)
+
+  if (!inicio || !fin) {
+    return null
+  }
+
+  return { inicio, fin } satisfies RangoCronogramaBase
+}
+
+function obtenerRangoPlanObjetivo(objetivo: Objetivo, segmentosRespaldo: SegmentoCronograma[]) {
+  const rangoPropio = obtenerRangoFechasPropias(objetivo.fecha_inicio, objetivo.fecha_fin)
+
+  if (rangoPropio) {
+    return {
+      ...rangoPropio,
+      origen: 'plan_propio'
+    } satisfies RangoTemporalCronograma
+  }
+
+  if (segmentosRespaldo.length === 0) {
+    return null
+  }
+
+  const segmentosOrdenadosPorInicio = [...segmentosRespaldo].sort((a, b) => compararFechasAscendente(a.inicio, b.inicio))
+  const segmentosOrdenadosPorFin = [...segmentosRespaldo].sort((a, b) => compararFechasAscendente(a.fin, b.fin))
+
+  return {
+    inicio: segmentosOrdenadosPorInicio[0].inicio,
+    fin: segmentosOrdenadosPorFin[segmentosOrdenadosPorFin.length - 1].fin,
+    origen: 'fallback_agregado_hijos'
+  } satisfies RangoTemporalCronograma
+}
+
+function obtenerRangoPlanIniciativa(iniciativa: Iniciativa, ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>) {
+  const rangoPropio = obtenerRangoFechasPropias(iniciativa.fecha_inicio, iniciativa.fecha_fin)
+
+  if (rangoPropio) {
+    return {
+      ...rangoPropio,
+      origen: 'plan_propio'
+    } satisfies RangoTemporalCronograma
+  }
+
+  const rangoVentana = obtenerRangoVentana(iniciativa.ventana_planificada_id, ventanasPorId)
+  if (!rangoVentana) {
+    return null
+  }
+
+  return {
+    inicio: rangoVentana.inicio,
+    fin: rangoVentana.fin,
+    origen: 'fallback_ventana_plan'
+  } satisfies RangoTemporalCronograma
+}
+
+function obtenerRangoPlanEntrega(entrega: Entrega, ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>) {
+  const rangoPropio = obtenerRangoFechasPropias(entrega.fecha_inicio, entrega.fecha_fin)
+
+  if (rangoPropio) {
+    return {
+      ...rangoPropio,
+      origen: 'plan_propio'
+    } satisfies RangoTemporalCronograma
+  }
+
+  const rangoVentana = obtenerRangoVentana(entrega.ventana_planificada_id, ventanasPorId)
+  if (!rangoVentana) {
+    return null
+  }
+
+  return {
+    inicio: rangoVentana.inicio,
+    fin: rangoVentana.fin,
+    origen: 'fallback_ventana_plan'
+  } satisfies RangoTemporalCronograma
+}
+
+function obtenerRangoRealEntrega(entrega: Entrega, ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>) {
+  const rangoVentana = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
+  if (!rangoVentana) {
+    return null
+  }
+
+  return {
+    inicio: rangoVentana.inicio,
+    fin: rangoVentana.fin,
+    origen: 'historico_real'
+  } satisfies RangoTemporalCronograma
+}
+
+function construirSegmento(
+  inicio: Date | null,
+  fin: Date | null,
+  id: string,
+  variante: SegmentoCronograma['variante'],
+  origen: SegmentoCronograma['origen']
+) {
   if (!inicio || !fin) {
     return null
   }
@@ -399,8 +555,41 @@ function construirSegmento(inicio: Date | null, fin: Date | null, id: string, va
     id,
     inicio,
     fin,
-    variante
+    variante,
+    origen
   } satisfies SegmentoCronograma
+}
+
+function describirContextoTemporalRango(tipo: TipoFilaCronograma, origen: SegmentoCronograma['origen']) {
+  if (origen === 'plan_propio') {
+    if (tipo === 'objetivo') {
+      return 'Rango planificado del objetivo'
+    }
+
+    if (tipo === 'iniciativa') {
+      return 'Rango planificado de la iniciativa'
+    }
+
+    return 'Rango planificado del entregable'
+  }
+
+  if (origen === 'fallback_agregado_hijos') {
+    return 'Rango derivado de iniciativas y entregables'
+  }
+
+  if (origen === 'historico_real') {
+    return 'Ventana real histórica'
+  }
+
+  return 'Ventana planificada usada como respaldo'
+}
+
+function describirSegmentoTemporal(segmento: SegmentoCronograma, tipoFila: TipoFilaCronograma) {
+  if (segmento.origen === 'historico_real') {
+    return 'Ventana real histórica'
+  }
+
+  return describirContextoTemporalRango(tipoFila, segmento.origen)
 }
 
 function construirMarcador(fecha: Date | null, id: string, variante: MarcadorCronograma['variante'], etiqueta: string) {
@@ -590,6 +779,18 @@ export function PaginaCronogramaRoadmap() {
   const aniosDisponibles = useMemo(() => {
     const anios = new Set<number>([new Date().getFullYear()])
 
+    objetivos.forEach((objetivo) => {
+      registrarAniosRango(anios, obtenerRangoFechasPropias(objetivo.fecha_inicio, objetivo.fecha_fin))
+    })
+
+    iniciativas.forEach((iniciativa) => {
+      registrarAniosRango(anios, obtenerRangoFechasPropias(iniciativa.fecha_inicio, iniciativa.fecha_fin))
+    })
+
+    entregas.forEach((entrega) => {
+      registrarAniosRango(anios, obtenerRangoFechasPropias(entrega.fecha_inicio, entrega.fecha_fin))
+    })
+
     ventanas.forEach((ventana) => {
       if (typeof ventana.anio === 'number') {
         anios.add(ventana.anio)
@@ -624,7 +825,7 @@ export function PaginaCronogramaRoadmap() {
     })
 
     return [...anios].sort((a, b) => a - b)
-  }, [entregas, releases, ventanas])
+  }, [entregas, iniciativas, objetivos, releases, ventanas])
 
   useEffect(() => {
     if (!aniosDisponibles.includes(anioSeleccionado)) {
@@ -729,18 +930,15 @@ export function PaginaCronogramaRoadmap() {
         return false
       }
 
-      const rangoVentana = obtenerRangoVentana(iniciativa.ventana_planificada_id, ventanasPorId)
+      const rangoPlan = obtenerRangoPlanIniciativa(iniciativa, ventanasPorId)
       const releasesIniciativa = releasesPorIniciativa.get(iniciativa.id) ?? []
       const tieneReleaseEnRango = releasesIniciativa.some((release: ReleasePm) => {
         const fecha = fechaRelease(release)
         return fecha ? fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin) : false
       })
 
-      if (rangoVentana) {
-        return (
-          rangoSeSuperpone(rangoVentana.inicio, rangoVentana.fin, rangoTemporal.inicio, rangoTemporal.fin) ||
-          tieneReleaseEnRango
-        )
+      if (rangoPlan) {
+        return rangoSeSuperpone(rangoPlan.inicio, rangoPlan.fin, rangoTemporal.inicio, rangoTemporal.fin) || tieneReleaseEnRango
       }
 
       return tieneReleaseEnRango
@@ -768,17 +966,17 @@ export function PaginaCronogramaRoadmap() {
         return false
       }
 
-      const plan = obtenerRangoVentana(entrega.ventana_planificada_id, ventanasPorId)
-      const real = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
+      const rangoPlan = obtenerRangoPlanEntrega(entrega, ventanasPorId)
+      const rangoReal = obtenerRangoRealEntrega(entrega, ventanasPorId)
       const fechaObjetivo = parsearFechaPortal(entrega.fecha_objetivo)
       const fechaCompletado = parsearFechaPortal(entrega.fecha_completado)
       const releasesEntrega = releasesPorEntrega.get(entrega.id) ?? []
 
-      if (plan && rangoSeSuperpone(plan.inicio, plan.fin, rangoTemporal.inicio, rangoTemporal.fin)) {
+      if (rangoPlan && rangoSeSuperpone(rangoPlan.inicio, rangoPlan.fin, rangoTemporal.inicio, rangoTemporal.fin)) {
         return true
       }
 
-      if (real && rangoSeSuperpone(real.inicio, real.fin, rangoTemporal.inicio, rangoTemporal.fin)) {
+      if (rangoReal && rangoSeSuperpone(rangoReal.inicio, rangoReal.fin, rangoTemporal.inicio, rangoTemporal.fin)) {
         return true
       }
 
@@ -817,6 +1015,13 @@ export function PaginaCronogramaRoadmap() {
   const objetivosVisibles = useMemo(() => {
     const idsObjetivos = new Set(iniciativasVisibles.map((iniciativa) => iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO))
 
+    objetivos.forEach((objetivo) => {
+      const rangoPropio = obtenerRangoFechasPropias(objetivo.fecha_inicio, objetivo.fecha_fin)
+      if (rangoPropio && rangoSeSuperpone(rangoPropio.inicio, rangoPropio.fin, rangoTemporal.inicio, rangoTemporal.fin)) {
+        idsObjetivos.add(objetivo.id)
+      }
+    })
+
     const base = objetivos.filter((objetivo) => {
       if (filtroObjetivo !== 'todos' && objetivo.id !== filtroObjetivo) {
         return false
@@ -838,7 +1043,7 @@ export function PaginaCronogramaRoadmap() {
     }
 
     return base
-  }, [filtroObjetivo, iniciativasVisibles, objetivos])
+  }, [filtroObjetivo, iniciativasVisibles, objetivos, rangoTemporal.fin, rangoTemporal.inicio])
 
   useEffect(() => {
     // Auto-expansión inicial: si no hay nada restaurado del localStorage, expandir objetivos con hijos
@@ -925,7 +1130,7 @@ export function PaginaCronogramaRoadmap() {
     const filas: FilaCronograma[] = []
 
     const calcularSegmentosIniciativa = (iniciativa: Iniciativa) => {
-      const plan = obtenerRangoVentana(iniciativa.ventana_planificada_id, ventanasPorId)
+      const rangoPlan = obtenerRangoPlanIniciativa(iniciativa, ventanasPorId)
       const releasesAsociados = (releasesPorIniciativa.get(iniciativa.id) ?? []).filter(
         (release: ReleasePm) => !release.entrega_id
       )
@@ -941,16 +1146,19 @@ export function PaginaCronogramaRoadmap() {
         .filter((item: MarcadorCronograma | null): item is MarcadorCronograma => Boolean(item))
 
       return {
-        segmentos: [construirSegmento(plan?.inicio ?? null, plan?.fin ?? null, `plan-${iniciativa.id}`, 'iniciativa')].filter(
-          (item): item is SegmentoCronograma => Boolean(item)
-        ),
+        rangoPlan,
+        segmentos: rangoPlan
+          ? [construirSegmento(rangoPlan.inicio, rangoPlan.fin, `plan-${iniciativa.id}`, 'iniciativa', rangoPlan.origen)].filter(
+              (item): item is SegmentoCronograma => Boolean(item)
+            )
+          : [],
         marcadores
       }
     }
 
     const calcularSegmentosEntrega = (entrega: Entrega) => {
-      const plan = obtenerRangoVentana(entrega.ventana_planificada_id, ventanasPorId)
-      const real = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
+      const rangoPlan = obtenerRangoPlanEntrega(entrega, ventanasPorId)
+      const rangoReal = obtenerRangoRealEntrega(entrega, ventanasPorId)
       const marcadores = [
         construirMarcador(parsearFechaPortal(entrega.fecha_objetivo), `objetivo-${entrega.id}`, 'entrega', 'Fecha objetivo'),
         construirMarcador(parsearFechaPortal(entrega.fecha_completado), `real-${entrega.id}`, 'entrega_real', 'Fecha completada'),
@@ -965,35 +1173,37 @@ export function PaginaCronogramaRoadmap() {
       ].filter((item): item is MarcadorCronograma => Boolean(item))
 
       const segmentos = [
-        construirSegmento(plan?.inicio ?? null, plan?.fin ?? null, `plan-${entrega.id}`, 'plan'),
-        construirSegmento(real?.inicio ?? null, real?.fin ?? null, `real-${entrega.id}`, 'real')
+        rangoPlan
+          ? construirSegmento(rangoPlan.inicio, rangoPlan.fin, `plan-${entrega.id}`, 'plan', rangoPlan.origen)
+          : null,
+        rangoReal && !rangosCoinciden(rangoPlan, rangoReal)
+          ? construirSegmento(rangoReal.inicio, rangoReal.fin, `real-${entrega.id}`, 'real', rangoReal.origen)
+          : null
       ].filter((item): item is SegmentoCronograma => Boolean(item))
 
-      return { segmentos, marcadores }
+      return { rangoPlan, rangoReal, segmentos, marcadores }
     }
 
     const construirFilaObjetivo = (objetivo: Objetivo, iniciativasObjetivo: Iniciativa[], entregasObjetivo: Entrega[]) => {
-      const segmentosIniciativas = iniciativasObjetivo.flatMap((iniciativa) => calcularSegmentosIniciativa(iniciativa).segmentos)
-      const segmentosEntregas = entregasObjetivo.flatMap((entrega) => calcularSegmentosEntrega(entrega).segmentos)
-      const todosLosSegmentos = [...segmentosIniciativas, ...segmentosEntregas].sort((a, b) => compararFechasAscendente(a.inicio, b.inicio))
+      const visualesIniciativas = new Map(iniciativasObjetivo.map((iniciativa) => [iniciativa.id, calcularSegmentosIniciativa(iniciativa)]))
+      const visualesEntregas = new Map(entregasObjetivo.map((entrega) => [entrega.id, calcularSegmentosEntrega(entrega)]))
 
-      const segmentoObjetivo: SegmentoCronograma | null =
-        todosLosSegmentos.length > 0
-          ? {
-              id: `objetivo-${objetivo.id}`,
-              inicio: todosLosSegmentos[0].inicio,
-              fin: [...todosLosSegmentos].sort((a, b) => compararFechasAscendente(a.fin, b.fin))[todosLosSegmentos.length - 1].fin,
-              variante: 'objetivo'
-            }
-          : null
+      const segmentosRespaldo = [
+        ...[...visualesIniciativas.values()].flatMap((visual) => visual.segmentos),
+        ...[...visualesEntregas.values()].flatMap((visual) => visual.segmentos)
+      ]
+      const rangoObjetivo = obtenerRangoPlanObjetivo(objetivo, segmentosRespaldo)
+      const segmentoObjetivo = rangoObjetivo
+        ? construirSegmento(rangoObjetivo.inicio, rangoObjetivo.fin, `objetivo-${objetivo.id}`, 'objetivo', rangoObjetivo.origen)
+        : null
 
       const marcadoresObjetivo = [...iniciativasObjetivo, ...entregasObjetivo]
         .flatMap((item) => {
           if ('objetivo_id' in item) {
-            return calcularSegmentosIniciativa(item).marcadores
+            return visualesIniciativas.get(item.id)?.marcadores ?? []
           }
 
-          return calcularSegmentosEntrega(item).marcadores
+          return visualesEntregas.get(item.id)?.marcadores ?? []
         })
         .sort((a, b) => compararFechasAscendente(a.fecha, b.fecha))
 
@@ -1015,6 +1225,7 @@ export function PaginaCronogramaRoadmap() {
         resumen: `${iniciativasObjetivo.length} iniciativas`,
         detalle: `${entregasObjetivo.length} entregas · ${totalReleases} releases`,
         rangoFechas: segmentoObjetivo ? formatearRangoFechas(segmentoObjetivo.inicio, segmentoObjetivo.fin) : null,
+        contextoTemporal: rangoObjetivo ? describirContextoTemporalRango('objetivo', rangoObjetivo.origen) : null,
         tieneHijos: iniciativasObjetivo.length > 0,
         expandido: objetivosExpandidos.includes(objetivo.id),
         segmentos: segmentoObjetivo ? [segmentoObjetivo] : [],
@@ -1044,7 +1255,6 @@ export function PaginaCronogramaRoadmap() {
         const etiquetaVentana = iniciativa.ventana_planificada_id
           ? ventanasPorId.get(iniciativa.ventana_planificada_id)?.etiqueta_visible ?? 'Sin ventana'
           : 'Sin ventana'
-        const rangoIni = obtenerRangoVentana(iniciativa.ventana_planificada_id, ventanasPorId)
 
         filas.push({
           id: iniciativa.id,
@@ -1055,7 +1265,8 @@ export function PaginaCronogramaRoadmap() {
           estado: iniciativa.estado,
           resumen: etiquetaVentana,
           detalle: `${entregasIniciativa.length} entregas · ${(releasesPorIniciativa.get(iniciativa.id) ?? []).length} releases`,
-          rangoFechas: rangoIni ? formatearRangoFechas(rangoIni.inicio, rangoIni.fin) : null,
+          rangoFechas: visual.rangoPlan ? formatearRangoFechas(visual.rangoPlan.inicio, visual.rangoPlan.fin) : null,
+          contextoTemporal: visual.rangoPlan ? describirContextoTemporalRango('iniciativa', visual.rangoPlan.origen) : null,
           tieneHijos: entregasIniciativa.length > 0,
           expandido: iniciativasExpandidas.includes(iniciativa.id),
           segmentos: visual.segmentos,
@@ -1073,9 +1284,7 @@ export function PaginaCronogramaRoadmap() {
             ? ventanasPorId.get(entrega.ventana_planificada_id)?.etiqueta_visible ?? 'Sin ventana plan'
             : 'Sin ventana plan'
           const fecha = entrega.fecha_objetivo ? formatearFechaCorta(entrega.fecha_objetivo) : 'Sin fecha objetivo'
-          const rangoPlan = obtenerRangoVentana(entrega.ventana_planificada_id, ventanasPorId)
-          const rangoReal = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
-          const rangoEntrega = rangoPlan ?? rangoReal
+          const rangoEntrega = visualEntrega.rangoPlan ?? visualEntrega.rangoReal
 
           filas.push({
             id: entrega.id,
@@ -1087,6 +1296,7 @@ export function PaginaCronogramaRoadmap() {
             resumen: ventanaPlan,
             detalle: fecha,
             rangoFechas: rangoEntrega ? formatearRangoFechas(rangoEntrega.inicio, rangoEntrega.fin) : null,
+            contextoTemporal: rangoEntrega ? describirContextoTemporalRango('entrega', rangoEntrega.origen) : null,
             tieneHijos: false,
             expandido: false,
             segmentos: visualEntrega.segmentos,
@@ -1105,12 +1315,13 @@ export function PaginaCronogramaRoadmap() {
           .sort((a, b) => compararFechasAscendente(a.inicio, b.inicio))
         const segAgregadoSinIni: SegmentoCronograma | null =
           segsSinIni.length > 0
-            ? {
-                id: `agregado-${clave}`,
-                inicio: segsSinIni[0].inicio,
-                fin: [...segsSinIni].sort((a, b) => compararFechasAscendente(a.fin, b.fin))[segsSinIni.length - 1].fin,
-                variante: 'objetivo'
-              }
+            ? construirSegmento(
+                segsSinIni[0].inicio,
+                [...segsSinIni].sort((a, b) => compararFechasAscendente(a.fin, b.fin))[segsSinIni.length - 1].fin,
+                `agregado-${clave}`,
+                'objetivo',
+                'fallback_agregado_hijos'
+              )
             : null
 
         filas.push({
@@ -1123,6 +1334,7 @@ export function PaginaCronogramaRoadmap() {
           resumen: 'Entregas sin iniciativa',
           detalle: `${entregasSinIniciativa.length} entregas`,
           rangoFechas: segAgregadoSinIni ? formatearRangoFechas(segAgregadoSinIni.inicio, segAgregadoSinIni.fin) : null,
+          contextoTemporal: segAgregadoSinIni ? 'Rango derivado de entregables sin iniciativa' : null,
           tieneHijos: true,
           expandido: iniciativasExpandidas.includes(clave),
           segmentos: segAgregadoSinIni ? [segAgregadoSinIni] : [],
@@ -1133,9 +1345,7 @@ export function PaginaCronogramaRoadmap() {
         if (iniciativasExpandidas.includes(clave)) {
           entregasSinIniciativa.forEach((entrega) => {
             const visualEntrega = calcularSegmentosEntrega(entrega)
-            const rangoPlanH = obtenerRangoVentana(entrega.ventana_planificada_id, ventanasPorId)
-            const rangoRealH = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
-            const rangoEntregaH = rangoPlanH ?? rangoRealH
+            const rangoEntregaH = visualEntrega.rangoPlan ?? visualEntrega.rangoReal
 
             filas.push({
               id: entrega.id,
@@ -1149,6 +1359,7 @@ export function PaginaCronogramaRoadmap() {
                 : 'Sin ventana plan',
               detalle: entrega.fecha_objetivo ? formatearFechaCorta(entrega.fecha_objetivo) : 'Sin fecha objetivo',
               rangoFechas: rangoEntregaH ? formatearRangoFechas(rangoEntregaH.inicio, rangoEntregaH.fin) : null,
+              contextoTemporal: rangoEntregaH ? describirContextoTemporalRango('entrega', rangoEntregaH.origen) : null,
               tieneHijos: false,
               expandido: false,
               segmentos: visualEntrega.segmentos,
@@ -1201,22 +1412,14 @@ export function PaginaCronogramaRoadmap() {
     <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="No hay cronograma para mostrar.">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-4">
         <header className="space-y-2">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">Cronograma</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Lectura horizontal del roadmap para revisar hitos, progreso y secuencia sin convertirlo en un gantt operativo.
-            </p>
-          </div>
+          <h1 className="text-2xl font-semibold">Cronograma</h1>
           <NavegacionRoadmap />
         </header>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                Vista activa
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 {resumenControles.map((item) => (
                   <span
                     key={item}
@@ -1364,51 +1567,6 @@ export function PaginaCronogramaRoadmap() {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-slate-50">Lienzo temporal</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Objetivos agrupados a la izquierda, meses arriba y una lectura progresiva del delivery de izquierda a derecha.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800/60">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-              Referencia
-            </p>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[4px] w-6 rounded-full bg-slate-300/80 ring-1 ring-inset ring-slate-400/30 dark:bg-slate-600/70" />
-              Objetivo
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[10px] w-6 rounded-full bg-cyan-500/80 dark:bg-cyan-400/75" />
-              Iniciativa plan
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[6px] w-6 rounded-full bg-amber-400/85 dark:bg-amber-300/80" />
-              Entrega plan
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[6px] w-6 rounded-full bg-emerald-500/85 dark:bg-emerald-400/80" />
-              Entrega real
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[9px] w-[9px] rounded-full bg-amber-500 ring-2 ring-white dark:bg-amber-300 dark:ring-slate-900" />
-              Fecha objetivo
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[9px] w-[9px] rounded-full bg-emerald-500 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
-              Completada
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[10px] w-[10px] rounded-full bg-slate-900 ring-2 ring-white dark:bg-slate-100 dark:ring-slate-900" />
-              Release plan
-            </span>
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-block h-[10px] w-[10px] rounded-full bg-emerald-600 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
-              Release real
-            </span>
-          </div>
-
           {filasCronograma.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
               No hay evidencia temporal suficiente en el rango y filtros actuales para construir un cronograma honesto.
@@ -1522,6 +1680,9 @@ export function PaginaCronogramaRoadmap() {
                                     {fila.rangoFechas ? (
                                       <p className="text-slate-500 dark:text-slate-400">{fila.rangoFechas}</p>
                                     ) : null}
+                                    {fila.contextoTemporal ? (
+                                      <p className="text-slate-600 dark:text-slate-300">{fila.contextoTemporal}</p>
+                                    ) : null}
                                     {fila.resumen && fila.resumen !== fila.detalle ? (
                                       <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
                                     ) : null}
@@ -1592,7 +1753,7 @@ export function PaginaCronogramaRoadmap() {
                               content={
                                 <div className="space-y-1">
                                   <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                  <p className="text-slate-600 dark:text-slate-300">{describirSegmentoTemporal(segmento.variante)}</p>
+                                  <p className="text-slate-600 dark:text-slate-300">{describirSegmentoTemporal(segmento, fila.tipo)}</p>
                                   <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
                                     {formatearRangoFechas(segmento.inicio, segmento.fin)}
                                   </p>
@@ -1601,9 +1762,6 @@ export function PaginaCronogramaRoadmap() {
                                   ) : null}
                                   {fila.tipo === 'entrega' && segmento.variante === 'real' ? (
                                     <p className="text-emerald-600 dark:text-emerald-400">Ventana real confirmada</p>
-                                  ) : null}
-                                  {fila.tipo === 'objetivo' ? (
-                                    <p className="text-slate-400 dark:text-slate-500">Rango derivado de hijos</p>
                                   ) : null}
                                 </div>
                               }
@@ -1665,6 +1823,43 @@ export function PaginaCronogramaRoadmap() {
               </div>
             </div>
           )}
+
+          <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-800/60">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[4px] w-6 rounded-full bg-slate-300/80 ring-1 ring-inset ring-slate-400/30 dark:bg-slate-600/70" />
+                Objetivo
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[10px] w-6 rounded-full bg-cyan-500/80 dark:bg-cyan-400/75" />
+                Iniciativa plan
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[6px] w-6 rounded-full bg-amber-400/85 dark:bg-amber-300/80" />
+                Entrega plan
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[6px] w-6 rounded-full bg-emerald-500/85 dark:bg-emerald-400/80" />
+                Entrega real
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[9px] w-[9px] rounded-full bg-amber-500 ring-2 ring-white dark:bg-amber-300 dark:ring-slate-900" />
+                Fecha objetivo
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[9px] w-[9px] rounded-full bg-emerald-500 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
+                Completada
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[10px] w-[10px] rounded-full bg-slate-900 ring-2 ring-white dark:bg-slate-100 dark:ring-slate-900" />
+                Release plan
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-[10px] w-[10px] rounded-full bg-emerald-600 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
+                Release real
+              </span>
+            </div>
+          </div>
         </section>
       </section>
     </EstadoVista>
