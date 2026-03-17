@@ -4,6 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
 import { iniciativaSchema, type IniciativaEntrada } from '@/compartido/validacion/esquemas'
 import {
+  construirLimitesFechasJerarquicas,
+  validarCampoFechaEnJerarquia,
+  validarJerarquiaFechas
+} from '@/compartido/validacion/roadmapJerarquiaFechas'
+import {
   formatearAlcancePeriodoRice,
   formatearEsfuerzoUnidadRice,
   type CatalogoEtapaPm,
@@ -104,6 +109,8 @@ export function PaginaIniciativasRoadmap() {
     handleSubmit,
     watch,
     reset,
+    setError: setErrorFormulario,
+    trigger,
     formState: { errors, isSubmitting, isValid }
   } = useForm<IniciativaEntrada>({
     resolver: zodResolver(iniciativaSchema),
@@ -132,6 +139,9 @@ export function PaginaIniciativasRoadmap() {
   const impacto = watch('impacto')
   const confianza = watch('confianza')
   const esfuerzo = watch('esfuerzo')
+  const objetivoSeleccionadoId = watch('objetivo_id')
+  const fechaInicioSeleccionada = watch('fecha_inicio')
+  const fechaFinSeleccionada = watch('fecha_fin')
 
   const camposRiceValidos = useMemo(() => {
     return (
@@ -311,6 +321,10 @@ export function PaginaIniciativasRoadmap() {
     return new Map(objetivos.map((objetivo) => [objetivo.id, objetivo.nombre]))
   }, [objetivos])
 
+  const objetivoEntidadPorId = useMemo(() => {
+    return new Map(objetivos.map((objetivo) => [objetivo.id, objetivo]))
+  }, [objetivos])
+
   const ventanaPorId = useMemo(() => {
     return new Map(ventanas.map((ventana) => [ventana.id, ventana.etiqueta_visible]))
   }, [ventanas])
@@ -339,6 +353,26 @@ export function PaginaIniciativasRoadmap() {
       new Map<string, number>()
     )
   }, [relacionesHipotesisDiscovery])
+
+  const objetivoSeleccionado = objetivoSeleccionadoId ? objetivoEntidadPorId.get(objetivoSeleccionadoId) ?? null : null
+
+  const limitesFechasObjetivo = useMemo(() => {
+    return construirLimitesFechasJerarquicas(
+      {
+        fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
+        fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
+      },
+      fechaInicioSeleccionada
+    )
+  }, [objetivoSeleccionado, fechaInicioSeleccionada])
+
+  useEffect(() => {
+    if (!modalAbierto || modoModal === 'ver') {
+      return
+    }
+
+    void trigger(['fecha_inicio', 'fecha_fin'])
+  }, [modalAbierto, modoModal, objetivoSeleccionadoId, fechaInicioSeleccionada, fechaFinSeleccionada, trigger])
 
   const helperAlcance = configuracionRice
     ? `Impactados por ${formatearAlcancePeriodoRice(configuracionRice.alcance_periodo)}`
@@ -679,6 +713,26 @@ export function PaginaIniciativasRoadmap() {
             }
 
             try {
+              const erroresJerarquicos = validarJerarquiaFechas(
+                {
+                  fecha_inicio: valores.fecha_inicio,
+                  fecha_fin: valores.fecha_fin
+                },
+                {
+                  fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
+                  fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
+                },
+                'objetivo'
+              )
+
+              if (erroresJerarquicos.length > 0) {
+                for (const errorJerarquico of erroresJerarquicos) {
+                  setErrorFormulario(errorJerarquico.campo, { type: 'validate', message: errorJerarquico.mensaje })
+                }
+
+                return
+              }
+
               const carga = {
                 ...valores,
                 objetivo_id: valores.objetivo_id || null,
@@ -917,17 +971,47 @@ export function PaginaIniciativasRoadmap() {
               <label className="text-sm font-medium">Fecha inicio</label>
               <input
                 type="date"
-                {...register('fecha_inicio')}
+                min={limitesFechasObjetivo.minFechaInicio}
+                max={limitesFechasObjetivo.maxFechaInicio}
+                {...register('fecha_inicio', {
+                  validate: (valor) =>
+                    validarCampoFechaEnJerarquia(
+                      'fecha_inicio',
+                      valor,
+                      {
+                        fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
+                        fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
+                      },
+                      'objetivo'
+                    )
+                })}
                 readOnly={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Opcional</p>
+              {errors.fecha_inicio ? (
+                <p className="mt-1 text-xs text-red-500">{errors.fecha_inicio.message}</p>
+              ) : (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Opcional</p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium">Fecha fin</label>
               <input
                 type="date"
-                {...register('fecha_fin')}
+                min={limitesFechasObjetivo.minFechaFin}
+                max={limitesFechasObjetivo.maxFechaFin}
+                {...register('fecha_fin', {
+                  validate: (valor) =>
+                    validarCampoFechaEnJerarquia(
+                      'fecha_fin',
+                      valor,
+                      {
+                        fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
+                        fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
+                      },
+                      'objetivo'
+                    )
+                })}
                 readOnly={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               />

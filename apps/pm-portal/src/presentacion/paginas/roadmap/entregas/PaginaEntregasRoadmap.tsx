@@ -4,6 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
 import { entregaSchema, type EntregaEntrada } from '@/compartido/validacion/esquemas'
 import {
+  construirLimitesFechasJerarquicas,
+  validarCampoFechaEnJerarquia,
+  validarJerarquiaFechas
+} from '@/compartido/validacion/roadmapJerarquiaFechas'
+import {
   estadosRegistro,
   prioridadesRegistro,
   type CatalogoVentanaPm,
@@ -82,6 +87,9 @@ export function PaginaEntregasRoadmap() {
     register,
     handleSubmit,
     reset,
+    setError: setErrorFormulario,
+    trigger,
+    watch,
     formState: { errors, isSubmitting }
   } = useForm<EntregaEntrada>({
     resolver: zodResolver(entregaSchema),
@@ -101,6 +109,9 @@ export function PaginaEntregasRoadmap() {
   })
 
   const esEdicionPermitida = puedeEditar(rol)
+  const iniciativaSeleccionadaId = watch('iniciativa_id')
+  const fechaInicioSeleccionada = watch('fecha_inicio')
+  const fechaFinSeleccionada = watch('fecha_fin')
 
   const cargarInformacion = async () => {
     setCargando(true)
@@ -390,6 +401,30 @@ export function PaginaEntregasRoadmap() {
   const iniciativaPorId = useMemo(() => {
     return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre]))
   }, [iniciativas])
+
+  const iniciativaEntidadPorId = useMemo(() => {
+    return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa]))
+  }, [iniciativas])
+
+  const iniciativaSeleccionada = iniciativaSeleccionadaId ? iniciativaEntidadPorId.get(iniciativaSeleccionadaId) ?? null : null
+
+  const limitesFechasIniciativa = useMemo(() => {
+    return construirLimitesFechasJerarquicas(
+      {
+        fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
+        fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
+      },
+      fechaInicioSeleccionada
+    )
+  }, [iniciativaSeleccionada, fechaInicioSeleccionada])
+
+  useEffect(() => {
+    if (!modalAbierto || modoModal === 'ver') {
+      return
+    }
+
+    void trigger(['fecha_inicio', 'fecha_fin'])
+  }, [modalAbierto, modoModal, iniciativaSeleccionadaId, fechaInicioSeleccionada, fechaFinSeleccionada, trigger])
 
   const ventanaPorId = useMemo(() => {
     return new Map(ventanas.map((ventana) => [ventana.id, ventana.etiqueta_visible]))
@@ -805,6 +840,26 @@ export function PaginaEntregasRoadmap() {
             }
 
             try {
+              const erroresJerarquicos = validarJerarquiaFechas(
+                {
+                  fecha_inicio: valores.fecha_inicio,
+                  fecha_fin: valores.fecha_fin
+                },
+                {
+                  fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
+                  fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
+                },
+                'iniciativa'
+              )
+
+              if (erroresJerarquicos.length > 0) {
+                for (const errorJerarquico of erroresJerarquicos) {
+                  setErrorFormulario(errorJerarquico.campo, { type: 'validate', message: errorJerarquico.mensaje })
+                }
+
+                return
+              }
+
               const carga = {
                 ...valores,
                 iniciativa_id: valores.iniciativa_id || null,
@@ -904,16 +959,43 @@ export function PaginaEntregasRoadmap() {
               <label className="text-sm font-medium">Fecha inicio</label>
               <input
                 type="date"
-                {...register('fecha_inicio')}
+                min={limitesFechasIniciativa.minFechaInicio}
+                max={limitesFechasIniciativa.maxFechaInicio}
+                {...register('fecha_inicio', {
+                  validate: (valor) =>
+                    validarCampoFechaEnJerarquia(
+                      'fecha_inicio',
+                      valor,
+                      {
+                        fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
+                        fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
+                      },
+                      'iniciativa'
+                    )
+                })}
                 readOnly={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               />
+              {errors.fecha_inicio ? <p className="text-xs text-red-500">{errors.fecha_inicio.message}</p> : null}
             </div>
             <div>
               <label className="text-sm font-medium">Fecha fin</label>
               <input
                 type="date"
-                {...register('fecha_fin')}
+                min={limitesFechasIniciativa.minFechaFin}
+                max={limitesFechasIniciativa.maxFechaFin}
+                {...register('fecha_fin', {
+                  validate: (valor) =>
+                    validarCampoFechaEnJerarquia(
+                      'fecha_fin',
+                      valor,
+                      {
+                        fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
+                        fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
+                      },
+                      'iniciativa'
+                    )
+                })}
                 readOnly={modoModal === 'ver'}
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
               />
