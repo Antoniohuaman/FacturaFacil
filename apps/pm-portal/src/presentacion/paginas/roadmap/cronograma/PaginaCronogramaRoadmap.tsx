@@ -81,6 +81,8 @@ const ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO = 392
 const CLAVE_ANCHO_COLUMNA_JERARQUIA = 'pm-portal-roadmap-cronograma-ancho-jerarquia'
 const CLAVE_OBJETIVOS_EXPANDIDOS = 'pm-portal-roadmap-cronograma-objetivos-expandidos'
 const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-expandidas'
+const ALTURA_MINIMA_FILA_CRONOGRAMA = 58
+const ALTURA_VISTA_CUERPO_CRONOGRAMA = 'min(68vh, 720px)'
 const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
   display: '-webkit-box',
   WebkitLineClamp: 2,
@@ -579,9 +581,13 @@ export function PaginaCronogramaRoadmap() {
         searchParams.get('vista') === 'trimestre'
     )
   })
-  const contenedorCronogramaRef = useRef<HTMLDivElement | null>(null)
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null)
+  const encabezadoTimelineRef = useRef<HTMLDivElement | null>(null)
+  const cuerpoTimelineRef = useRef<HTMLDivElement | null>(null)
+  const referenciasFilasJerarquiaRef = useRef<Array<HTMLDivElement | null>>([])
+  const sincronizandoScrollHorizontalRef = useRef<'encabezado' | 'cuerpo' | null>(null)
   const ejecutivoInicializadoRef = useRef(false)
+  const [alturasFilas, setAlturasFilas] = useState<number[]>([])
 
   useEffect(() => {
     const cargar = async () => {
@@ -1183,7 +1189,76 @@ export function PaginaCronogramaRoadmap() {
     return (dias / rangoTemporal.totalDias) * 100
   }
 
+  const posicionHorizontalPx = (fecha: Date) => {
+    const dias = diferenciaDias(rangoTemporal.inicio, fecha)
+    return Math.min(Math.max((dias / rangoTemporal.totalDias) * anchoTimeline, 0), anchoTimeline)
+  }
+
   const hoyVisible = fechaDentroDeRango(hoy, rangoTemporal.inicio, rangoTemporal.fin)
+
+  useEffect(() => {
+    let frame = 0
+    const medirAlturas = () => {
+      const nuevasAlturas = filasCronograma.map((_, indice) => {
+        const fila = referenciasFilasJerarquiaRef.current[indice]
+        return Math.max(Math.ceil(fila?.getBoundingClientRect().height ?? 0), ALTURA_MINIMA_FILA_CRONOGRAMA)
+      })
+
+      setAlturasFilas((actuales) => {
+        if (
+          actuales.length === nuevasAlturas.length &&
+          actuales.every((altura, indice) => Math.abs(altura - nuevasAlturas[indice]) < 1)
+        ) {
+          return actuales
+        }
+
+        return nuevasAlturas
+      })
+    }
+
+    const programarMedicion = () => {
+      cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(medirAlturas)
+    }
+
+    programarMedicion()
+
+    const observer = new ResizeObserver(programarMedicion)
+    referenciasFilasJerarquiaRef.current.forEach((fila) => {
+      if (fila) {
+        observer.observe(fila)
+      }
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [anchoColumnaJerarquia, filasCronograma])
+
+  const sincronizarScrollHorizontal = (origen: 'encabezado' | 'cuerpo') => {
+    const scrollOrigen = origen === 'encabezado' ? encabezadoTimelineRef.current : cuerpoTimelineRef.current
+    const scrollDestino = origen === 'encabezado' ? cuerpoTimelineRef.current : encabezadoTimelineRef.current
+
+    if (!scrollOrigen || !scrollDestino) {
+      return
+    }
+
+    const origenBloqueado = origen === 'encabezado' ? 'cuerpo' : 'encabezado'
+    if (sincronizandoScrollHorizontalRef.current === origenBloqueado) {
+      sincronizandoScrollHorizontalRef.current = null
+      return
+    }
+
+    sincronizandoScrollHorizontalRef.current = origen
+    scrollDestino.scrollLeft = scrollOrigen.scrollLeft
+
+    window.requestAnimationFrame(() => {
+      if (sincronizandoScrollHorizontalRef.current === origen) {
+        sincronizandoScrollHorizontalRef.current = null
+      }
+    })
+  }
 
   const limpiarFiltros = () => {
     setVistaTemporal('anio')
@@ -1376,222 +1451,239 @@ export function PaginaCronogramaRoadmap() {
               No hay evidencia temporal suficiente en el rango y filtros actuales para construir un cronograma honesto.
             </div>
           ) : (
-            <div ref={contenedorScrollRef} className="overflow-x-auto">
-              <div ref={contenedorCronogramaRef} className="relative" style={{ minWidth: `${anchoColumnaJerarquia + anchoTimeline}px` }}>
-                <div
-                  className="sticky top-0 z-20 grid border-b border-slate-200 bg-slate-50/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95"
-                  style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px ${anchoTimeline}px` }}
-                >
-                  <div className="sticky left-0 z-30 flex items-end border-r border-slate-200 bg-slate-50/95 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/95">
+            <div ref={contenedorScrollRef} className="relative">
+              <button
+                type="button"
+                onMouseDown={iniciarResizeJerarquia}
+                className={`group absolute inset-y-0 z-50 hidden w-5 -translate-x-1/2 cursor-col-resize md:block ${redimensionandoJerarquia ? 'bg-sky-500/15' : 'hover:bg-slate-400/10 dark:hover:bg-slate-500/10'}`}
+                style={{ left: `${anchoColumnaJerarquia}px` }}
+                aria-label="Arrastrar para redimensionar la columna de jerarquía"
+                title="Arrastrar para redimensionar"
+              >
+                <span
+                  className={`absolute left-1/2 top-1/2 h-16 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors ${
+                    redimensionandoJerarquia
+                      ? 'bg-sky-500 dark:bg-sky-400'
+                      : 'bg-slate-300 group-hover:bg-slate-400 dark:bg-slate-600 dark:group-hover:bg-slate-500'
+                  }`}
+                />
+              </button>
+
+              <div className="grid border-b border-slate-200 dark:border-slate-800" style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px minmax(0, 1fr)` }}>
+                <div className="border-r border-slate-200 dark:border-slate-800">
+                  <div className="flex h-[58px] items-end bg-slate-50/95 px-4 py-3 backdrop-blur dark:bg-slate-950/95">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Jerarquía</p>
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Roadmap</p>
                     </div>
                   </div>
+                </div>
 
-                  <div className="relative h-[58px]">
-                    <div className="absolute inset-0 flex">
-                      {rangoTemporal.meses.map((mes) => (
-                        <div
-                          key={`${mes.getFullYear()}-${mes.getMonth()}`}
-                          className="flex h-full flex-1 flex-col justify-between border-l border-slate-200 px-3 py-2 first:border-l-0 dark:border-slate-800"
-                        >
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                            {formatearAnio(mes)}
-                          </span>
-                          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{formatearMesCorto(mes)}</span>
-                        </div>
-                      ))}
+                <div className="min-w-0 border-l border-slate-200 dark:border-slate-800">
+                  <div ref={encabezadoTimelineRef} className="overflow-x-hidden">
+                    <div className="relative h-[58px] bg-slate-50/95 backdrop-blur dark:bg-slate-950/95" style={{ width: `${anchoTimeline}px` }}>
+                      <div className="absolute inset-0 flex">
+                        {rangoTemporal.meses.map((mes) => (
+                          <div
+                            key={`${mes.getFullYear()}-${mes.getMonth()}`}
+                            className="flex h-full flex-1 flex-col justify-between border-l border-slate-200 px-3 py-2 first:border-l-0 dark:border-slate-800"
+                          >
+                            <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                              {formatearAnio(mes)}
+                            </span>
+                            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{formatearMesCorto(mes)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="pointer-events-none absolute inset-y-0 z-40" style={{ left: `${anchoColumnaJerarquia}px` }}>
-                  <div className="h-full w-px -translate-x-1/2 bg-slate-200 dark:bg-slate-700" />
-                </div>
+              <div className="overflow-y-auto" style={{ maxHeight: ALTURA_VISTA_CUERPO_CRONOGRAMA }}>
+                <div className="grid" style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px minmax(0, 1fr)` }}>
+                  <div className="border-r border-slate-200 dark:border-slate-800">
+                    {filasCronograma.map((fila, indice) => {
+                      const claseFila = obtenerClaseFila(fila)
 
-                <button
-                  type="button"
-                  onMouseDown={iniciarResizeJerarquia}
-                  className={`group absolute inset-y-0 z-50 hidden w-5 -translate-x-1/2 cursor-col-resize md:block ${redimensionandoJerarquia ? 'bg-sky-500/15' : 'hover:bg-slate-400/10 dark:hover:bg-slate-500/10'}`}
-                  style={{ left: `${anchoColumnaJerarquia}px` }}
-                  aria-label="Arrastrar para redimensionar la columna de jerarquía"
-                  title="Arrastrar para redimensionar"
-                >
-                  <span
-                    className={`absolute left-1/2 top-1/2 h-16 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors ${
-                      redimensionandoJerarquia
-                        ? 'bg-sky-500 dark:bg-sky-400'
-                        : 'bg-slate-300 group-hover:bg-slate-400 dark:bg-slate-600 dark:group-hover:bg-slate-500'
-                    }`}
-                  />
-                </button>
+                      return (
+                        <div
+                          key={`${fila.tipo}-${fila.id}`}
+                          ref={(elemento) => {
+                            referenciasFilasJerarquiaRef.current[indice] = elemento
+                          }}
+                          className={`border-b border-slate-200 px-4 py-3 last:border-b-0 dark:border-slate-800 ${claseFila}`}
+                        >
+                          <div className="flex items-start gap-3" style={{ paddingLeft: `${fila.nivel * 18}px` }}>
+                            {fila.tieneHijos ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (fila.tipo === 'objetivo') {
+                                    alternarExpansionObjetivo(fila.claveExpansion)
+                                    return
+                                  }
 
-                {hoyVisible ? (
-                  <div
-                    className="pointer-events-none absolute inset-y-0 z-[18]"
-                    style={{ left: `${anchoColumnaJerarquia}px`, width: `${anchoTimeline}px` }}
-                  >
-                    <TooltipCronograma
-                      content={
-                        <div className="space-y-1">
-                          <p className="font-medium text-slate-900 dark:text-slate-100">Hoy</p>
-                          <p className="text-slate-600 dark:text-slate-300">{formatearFechaLarga(hoy)}</p>
-                        </div>
-                      }
-                      className="pointer-events-auto absolute inset-y-0 block w-6 -translate-x-1/2"
-                      style={{ left: `${porcentajeHorizontal(hoy)}%` }}
-                      maxWidthClassName="max-w-[220px]"
-                    >
-                      <div className="absolute left-1/2 top-0 h-full w-0.5 -translate-x-1/2 bg-rose-500/80" />
-                      <span className="absolute left-[calc(50%+10px)] top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm">
-                        Hoy
-                      </span>
-                    </TooltipCronograma>
-                  </div>
-                ) : null}
-
-                {filasCronograma.map((fila) => {
-                  const claseFila = obtenerClaseFila(fila)
-
-                  return (
-                    <div
-                      key={`${fila.tipo}-${fila.id}`}
-                      className="grid border-b border-slate-200 last:border-b-0 dark:border-slate-800"
-                      style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px ${anchoTimeline}px` }}
-                    >
-                      <div className={`sticky left-0 z-10 border-r border-slate-200 px-4 py-3 dark:border-slate-800 ${claseFila}`}>
-                        <div className="flex items-start gap-3" style={{ paddingLeft: `${fila.nivel * 18}px` }}>
-                          {fila.tieneHijos ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (fila.tipo === 'objetivo') {
-                                  alternarExpansionObjetivo(fila.claveExpansion)
-                                  return
-                                }
-
-                                alternarExpansionIniciativa(fila.claveExpansion)
-                              }}
-                              className={`mt-0.5 inline-flex items-center justify-center rounded-full border transition ${
-                                fila.tipo === 'objetivo'
-                                  ? 'h-7 w-7 border-slate-400 bg-slate-100 text-slate-700 shadow-sm hover:border-slate-500 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700'
-                                  : 'h-6 w-6 border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800'
-                              }`}
-                              aria-label={fila.expandido ? `Colapsar ${fila.titulo}` : `Expandir ${fila.titulo}`}
-                              aria-expanded={fila.expandido}
-                            >
-                              <IconoChevron abierto={fila.expandido} />
-                            </button>
-                          ) : (
-                            <span className="mt-2 block h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-                          )}
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-start gap-2">
-                              <TooltipCronograma
-                                className="min-w-0 flex-1"
-                                maxWidthClassName="max-w-sm"
-                                content={
-                                  <div className="space-y-1">
-                                    <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                    {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
-                                    {fila.rangoFechas ? (
-                                      <p className="text-slate-500 dark:text-slate-400">{fila.rangoFechas}</p>
-                                    ) : null}
-                                    {fila.contextoTemporal ? (
-                                      <p className="text-slate-600 dark:text-slate-300">{fila.contextoTemporal}</p>
-                                    ) : null}
-                                    {fila.resumen && fila.resumen !== fila.detalle ? (
-                                      <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
-                                    ) : null}
-                                    {fila.detalle ? <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p> : null}
-                                  </div>
-                                }
+                                  alternarExpansionIniciativa(fila.claveExpansion)
+                                }}
+                                className={`mt-0.5 inline-flex items-center justify-center rounded-full border transition ${
+                                  fila.tipo === 'objetivo'
+                                    ? 'h-7 w-7 border-slate-400 bg-slate-100 text-slate-700 shadow-sm hover:border-slate-500 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700'
+                                    : 'h-6 w-6 border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800'
+                                }`}
+                                aria-label={fila.expandido ? `Colapsar ${fila.titulo}` : `Expandir ${fila.titulo}`}
+                                aria-expanded={fila.expandido}
                               >
-                                <p
-                                  className={`min-w-0 break-words text-sm ${fila.tipo === 'objetivo' ? 'font-semibold text-slate-900 dark:text-slate-100' : 'font-medium text-slate-950 dark:text-slate-50'}`}
-                                  style={ESTILO_TITULO_DOS_LINEAS}
+                                <IconoChevron abierto={fila.expandido} />
+                              </button>
+                            ) : (
+                              <span className="mt-2 block h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-start gap-2">
+                                <TooltipCronograma
+                                  className="min-w-0 flex-1"
+                                  maxWidthClassName="max-w-sm"
+                                  content={
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
+                                      {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
+                                      {fila.rangoFechas ? (
+                                        <p className="text-slate-500 dark:text-slate-400">{fila.rangoFechas}</p>
+                                      ) : null}
+                                      {fila.contextoTemporal ? (
+                                        <p className="text-slate-600 dark:text-slate-300">{fila.contextoTemporal}</p>
+                                      ) : null}
+                                      {fila.resumen && fila.resumen !== fila.detalle ? (
+                                        <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
+                                      ) : null}
+                                      {fila.detalle ? <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p> : null}
+                                    </div>
+                                  }
                                 >
-                                  {fila.titulo}
-                                </p>
-                              </TooltipCronograma>
-
-                              {fila.estado ? (
-                                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
-                                  {formatearEstadoLegible(fila.estado)}
-                                </span>
-                              ) : null}
-
-                              {fila.entregaAtrasada ? (
-                                <TooltipCronograma content="Tiene entregas con fecha objetivo vencida aún sin completar">
-                                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                                    Desvío
-                                  </span>
+                                  <p
+                                    className={`min-w-0 break-words text-sm ${fila.tipo === 'objetivo' ? 'font-semibold text-slate-900 dark:text-slate-100' : 'font-medium text-slate-950 dark:text-slate-50'}`}
+                                    style={ESTILO_TITULO_DOS_LINEAS}
+                                  >
+                                    {fila.titulo}
+                                  </p>
                                 </TooltipCronograma>
+
+                                {fila.estado ? (
+                                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
+                                    {formatearEstadoLegible(fila.estado)}
+                                  </span>
+                                ) : null}
+
+                                {fila.entregaAtrasada ? (
+                                  <TooltipCronograma content="Tiene entregas con fecha objetivo vencida aún sin completar">
+                                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                      Desvío
+                                    </span>
+                                  </TooltipCronograma>
+                                ) : null}
+                              </div>
+
+                              {fila.tipo !== 'objetivo' && fila.resumen ? (
+                                <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">{fila.resumen}</p>
                               ) : null}
                             </div>
-
-                            {fila.tipo !== 'objetivo' && fila.resumen ? (
-                              <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">
-                                {fila.resumen}
-                              </p>
-                            ) : null}
                           </div>
                         </div>
-                      </div>
+                      )
+                    })}
+                  </div>
 
-                      <div className={`relative h-[58px] ${claseFila}`}>
-                        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[length:140px_100%] dark:bg-[linear-gradient(to_right,rgba(71,85,105,0.22)_1px,transparent_1px)]" />
-
-                        {fila.segmentos.map((segmento) => {
-                          const inicioVisible =
-                            segmento.inicio.getTime() < rangoTemporal.inicio.getTime() ? rangoTemporal.inicio : segmento.inicio
-                          const finVisible = segmento.fin.getTime() > rangoTemporal.fin.getTime() ? rangoTemporal.fin : segmento.fin
-
-                          if (!rangoSeSuperpone(inicioVisible, finVisible, rangoTemporal.inicio, rangoTemporal.fin)) {
-                            return null
-                          }
-
-                          const left = porcentajeHorizontal(inicioVisible)
-                          const width = Math.max(
-                            ((diferenciaDias(inicioVisible, finVisible) + 1) / rangoTemporal.totalDias) * 100,
-                            segmento.variante === 'objetivo' ? 0.8 : 1.2
-                          )
-                          const estiloSegmento = obtenerEstiloSegmento(segmento.variante)
-
-                          return (
+                  <div className="min-w-0 border-l border-slate-200 dark:border-slate-800">
+                    <div ref={cuerpoTimelineRef} className="overflow-x-auto" onScroll={() => sincronizarScrollHorizontal('cuerpo')}>
+                      <div className="relative" style={{ width: `${anchoTimeline}px` }}>
+                        {hoyVisible ? (
+                          <div className="pointer-events-none absolute inset-0 z-[18]">
                             <TooltipCronograma
-                              key={segmento.id}
                               content={
                                 <div className="space-y-1">
-                                  <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                  <p className="text-slate-600 dark:text-slate-300">{describirSegmentoTemporal(segmento, fila.tipo)}</p>
-                                  <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                                    {formatearRangoFechas(segmento.inicio, segmento.fin)}
-                                  </p>
-                                  {fila.estado ? (
-                                    <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p>
-                                  ) : null}
+                                  <p className="font-medium text-slate-900 dark:text-slate-100">Hoy</p>
+                                  <p className="text-slate-600 dark:text-slate-300">{formatearFechaLarga(hoy)}</p>
                                 </div>
                               }
-                              className={`${estiloSegmento.className} absolute z-[12] cursor-default`}
-                              style={{
-                                left: `${left}%`,
-                                width: `${width}%`,
-                                top: estiloSegmento.top,
-                                height: estiloSegmento.height,
-                                borderRadius: estiloSegmento.borderRadius
-                              }}
+                              className="pointer-events-auto absolute inset-y-0 block w-6 -translate-x-1/2"
+                              style={{ left: `${posicionHorizontalPx(hoy)}px` }}
+                              maxWidthClassName="max-w-[220px]"
                             >
-                              {''}
+                              <div className="absolute left-1/2 top-0 h-full w-0.5 -translate-x-1/2 bg-rose-500/80" />
+                              <span className="absolute left-[calc(50%+10px)] top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm">
+                                Hoy
+                              </span>
                             </TooltipCronograma>
-                          )
-                        })}
+                          </div>
+                        ) : null}
+
+                        <div className="relative">
+                          {filasCronograma.map((fila, indice) => {
+                            const claseFila = obtenerClaseFila(fila)
+                            const alturaFila = alturasFilas[indice] ?? ALTURA_MINIMA_FILA_CRONOGRAMA
+
+                            return (
+                              <div
+                                key={`${fila.tipo}-${fila.id}`}
+                                className={`relative border-b border-slate-200 last:border-b-0 dark:border-slate-800 ${claseFila}`}
+                                style={{ height: `${alturaFila}px` }}
+                              >
+                                <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[length:140px_100%] dark:bg-[linear-gradient(to_right,rgba(71,85,105,0.22)_1px,transparent_1px)]" />
+
+                                {fila.segmentos.map((segmento) => {
+                                  const inicioVisible =
+                                    segmento.inicio.getTime() < rangoTemporal.inicio.getTime() ? rangoTemporal.inicio : segmento.inicio
+                                  const finVisible = segmento.fin.getTime() > rangoTemporal.fin.getTime() ? rangoTemporal.fin : segmento.fin
+
+                                  if (!rangoSeSuperpone(inicioVisible, finVisible, rangoTemporal.inicio, rangoTemporal.fin)) {
+                                    return null
+                                  }
+
+                                  const left = porcentajeHorizontal(inicioVisible)
+                                  const width = Math.max(
+                                    ((diferenciaDias(inicioVisible, finVisible) + 1) / rangoTemporal.totalDias) * 100,
+                                    segmento.variante === 'objetivo' ? 0.8 : 1.2
+                                  )
+                                  const estiloSegmento = obtenerEstiloSegmento(segmento.variante)
+
+                                  return (
+                                    <TooltipCronograma
+                                      key={segmento.id}
+                                      content={
+                                        <div className="space-y-1">
+                                          <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
+                                          <p className="text-slate-600 dark:text-slate-300">{describirSegmentoTemporal(segmento, fila.tipo)}</p>
+                                          <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                                            {formatearRangoFechas(segmento.inicio, segmento.fin)}
+                                          </p>
+                                          {fila.estado ? (
+                                            <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p>
+                                          ) : null}
+                                        </div>
+                                      }
+                                      className={`${estiloSegmento.className} absolute z-[12] cursor-default`}
+                                      style={{
+                                        left: `${left}%`,
+                                        width: `${width}%`,
+                                        top: estiloSegmento.top,
+                                        height: estiloSegmento.height,
+                                        borderRadius: estiloSegmento.borderRadius
+                                      }}
+                                    >
+                                      {''}
+                                    </TooltipCronograma>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
-                  )
-                })}
+                  </div>
+                </div>
               </div>
             </div>
           )}
