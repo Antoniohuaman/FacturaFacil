@@ -38,6 +38,12 @@ Motivo:
 - La combinacion actual de columna sticky, scroll horizontal, cabecera sticky y timeline absoluto hace que introducir resize arrastre bastante complejidad de layout y mantenimiento.
 - Para un pulido quirurgico, el ajuste dinamico por densidad entrega valor con mucho menos riesgo.
 
+### 6. Ajuste complementario en la linea de hoy
+
+- La linea vertical continua de hoy se mantuvo como referencia unica sobre todo el lienzo temporal.
+- Se reincorporo un tooltip al hacer hover sobre esa linea, mostrando la fecha real actual en formato legible.
+- El tooltip se resolvio sobre una sola ancla interactiva estrecha, sin volver a segmentar la linea por filas.
+
 ## Alcance respetado
 
 - Sin cambios en base de datos.
@@ -49,8 +55,9 @@ Motivo:
 ## Archivo intervenido
 
 - `src/presentacion/paginas/roadmap/cronograma/PaginaCronogramaRoadmap.tsx`
+- `IMPLEMENTACION_PULIDO_CRONOGRAMA_ROADMAP_PM_PORTAL.md`
 
 ## Validacion ejecutada
 
 - `npm run lint` completado sin hallazgos.
-- `npm run build` completado correctamente.
+- `npm run build` completo correctamente, con warning no bloqueante preexistente de Vite por tamano de chunk.

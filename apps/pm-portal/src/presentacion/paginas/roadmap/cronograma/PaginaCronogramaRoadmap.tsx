@@ -33,15 +33,8 @@ interface SegmentoCronograma {
   id: string
   inicio: Date
   fin: Date
-  variante: 'objetivo' | 'iniciativa' | 'plan' | 'real'
-  origen: 'plan_propio' | 'fallback_ventana_plan' | 'fallback_agregado_hijos' | 'historico_real'
-}
-
-interface MarcadorCronograma {
-  id: string
-  fecha: Date
-  variante: 'entrega' | 'entrega_real' | 'release' | 'release_real'
-  etiqueta: string
+  variante: 'objetivo' | 'iniciativa' | 'plan'
+  origen: 'plan_propio' | 'fallback_ventana_plan' | 'fallback_agregado_hijos'
 }
 
 interface FilaCronograma {
@@ -58,7 +51,6 @@ interface FilaCronograma {
   tieneHijos: boolean
   expandido: boolean
   segmentos: SegmentoCronograma[]
-  marcadores: MarcadorCronograma[]
   entregaAtrasada: boolean
 }
 
@@ -279,16 +271,16 @@ function rangoSeSuperpone(inicio: Date, fin: Date, rangoInicio: Date, rangoFin: 
   return inicio.getTime() <= rangoFin.getTime() && fin.getTime() >= rangoInicio.getTime()
 }
 
-function rangosCoinciden(rangoA: RangoCronogramaBase | null, rangoB: RangoCronogramaBase | null) {
-  if (!rangoA || !rangoB) {
-    return false
-  }
-
-  return rangoA.inicio.getTime() === rangoB.inicio.getTime() && rangoA.fin.getTime() === rangoB.fin.getTime()
-}
-
 function formatearMesCorto(fecha: Date) {
   return new Intl.DateTimeFormat('es-PE', { month: 'short' }).format(fecha)
+}
+
+function formatearFechaLarga(fecha: Date) {
+  return new Intl.DateTimeFormat('es-PE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(fecha)
 }
 
 function formatearAnio(fecha: Date) {
@@ -338,69 +330,12 @@ function obtenerEstiloSegmento(variante: SegmentoCronograma['variante']) {
     }
   }
 
-  if (variante === 'real') {
-    return {
-      className: 'bg-emerald-500/85 dark:bg-emerald-400/80',
-      top: 36,
-      height: 6,
-      borderRadius: 9999
-    }
-  }
-
   return {
     className: 'bg-amber-400/85 dark:bg-amber-300/80',
     top: 16,
     height: 6,
     borderRadius: 9999
   }
-}
-
-function obtenerEstiloMarcador(variante: MarcadorCronograma['variante']) {
-  if (variante === 'release_real') {
-    return {
-      top: 30,
-      className: 'bg-emerald-600 ring-2 ring-white shadow-sm dark:bg-emerald-400 dark:ring-slate-900',
-      size: 10
-    }
-  }
-
-  if (variante === 'release') {
-    return {
-      top: 12,
-      className: 'bg-slate-900 ring-2 ring-white shadow-sm dark:bg-slate-100 dark:ring-slate-900',
-      size: 10
-    }
-  }
-
-  if (variante === 'entrega_real') {
-    return {
-      top: 36,
-      className: 'bg-emerald-500 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900',
-      size: 9
-    }
-  }
-
-  return {
-    top: 18,
-    className: 'bg-amber-500 ring-2 ring-white dark:bg-amber-300 dark:ring-slate-900',
-    size: 9
-  }
-}
-
-function describirMarcadorTemporal(variante: MarcadorCronograma['variante']) {
-  if (variante === 'release_real') {
-    return 'Release ejecutado'
-  }
-
-  if (variante === 'release') {
-    return 'Release programado'
-  }
-
-  if (variante === 'entrega_real') {
-    return 'Entrega completada'
-  }
-
-  return 'Fecha objetivo de entrega'
 }
 
 function compararFechasAscendente(fechaA: Date, fechaB: Date) {
@@ -527,19 +462,6 @@ function obtenerRangoPlanEntrega(entrega: Entrega, ventanasPorId: ReadonlyMap<st
   } satisfies RangoTemporalCronograma
 }
 
-function obtenerRangoRealEntrega(entrega: Entrega, ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>) {
-  const rangoVentana = obtenerRangoVentana(entrega.ventana_real_id, ventanasPorId)
-  if (!rangoVentana) {
-    return null
-  }
-
-  return {
-    inicio: rangoVentana.inicio,
-    fin: rangoVentana.fin,
-    origen: 'historico_real'
-  } satisfies RangoTemporalCronograma
-}
-
 function construirSegmento(
   inicio: Date | null,
   fin: Date | null,
@@ -577,32 +499,11 @@ function describirContextoTemporalRango(tipo: TipoFilaCronograma, origen: Segmen
     return 'Rango derivado de iniciativas y entregables'
   }
 
-  if (origen === 'historico_real') {
-    return 'Ventana real histórica'
-  }
-
   return 'Ventana planificada usada como respaldo'
 }
 
 function describirSegmentoTemporal(segmento: SegmentoCronograma, tipoFila: TipoFilaCronograma) {
-  if (segmento.origen === 'historico_real') {
-    return 'Ventana real histórica'
-  }
-
   return describirContextoTemporalRango(tipoFila, segmento.origen)
-}
-
-function construirMarcador(fecha: Date | null, id: string, variante: MarcadorCronograma['variante'], etiqueta: string) {
-  if (!fecha) {
-    return null
-  }
-
-  return {
-    id,
-    fecha,
-    variante,
-    etiqueta
-  } satisfies MarcadorCronograma
 }
 
 function estadoDominante(estados: EstadoRegistro[]) {
@@ -751,18 +652,6 @@ export function PaginaCronogramaRoadmap() {
 
   const iniciativasPorId = useMemo(() => new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa])), [iniciativas])
   const ventanasPorId = useMemo(() => new Map(ventanas.map((ventana) => [ventana.id, ventana])), [ventanas])
-
-  const releasesPorEntrega = useMemo(() => {
-    return releases.reduce((mapa, release) => {
-      if (!release.entrega_id) {
-        return mapa
-      }
-
-      const actuales = mapa.get(release.entrega_id) ?? []
-      mapa.set(release.entrega_id, [...actuales, release])
-      return mapa
-    }, new Map<string, ReleasePm[]>())
-  }, [releases])
 
   const releasesPorIniciativa = useMemo(() => {
     return releases.reduce((mapa, release) => {
@@ -931,19 +820,9 @@ export function PaginaCronogramaRoadmap() {
       }
 
       const rangoPlan = obtenerRangoPlanIniciativa(iniciativa, ventanasPorId)
-      const releasesIniciativa = releasesPorIniciativa.get(iniciativa.id) ?? []
-      const tieneReleaseEnRango = releasesIniciativa.some((release: ReleasePm) => {
-        const fecha = fechaRelease(release)
-        return fecha ? fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin) : false
-      })
-
-      if (rangoPlan) {
-        return rangoSeSuperpone(rangoPlan.inicio, rangoPlan.fin, rangoTemporal.inicio, rangoTemporal.fin) || tieneReleaseEnRango
-      }
-
-      return tieneReleaseEnRango
+      return Boolean(rangoPlan && rangoSeSuperpone(rangoPlan.inicio, rangoPlan.fin, rangoTemporal.inicio, rangoTemporal.fin))
     })
-  }, [filtroEstado, filtroObjetivo, filtroVentana, iniciativas, rangoTemporal.fin, rangoTemporal.inicio, releasesPorIniciativa, ventanasPorId])
+  }, [filtroEstado, filtroObjetivo, filtroVentana, iniciativas, rangoTemporal.fin, rangoTemporal.inicio, ventanasPorId])
 
   const entregasFiltradas = useMemo(() => {
     return entregas.filter((entrega) => {
@@ -967,33 +846,9 @@ export function PaginaCronogramaRoadmap() {
       }
 
       const rangoPlan = obtenerRangoPlanEntrega(entrega, ventanasPorId)
-      const rangoReal = obtenerRangoRealEntrega(entrega, ventanasPorId)
-      const fechaObjetivo = parsearFechaPortal(entrega.fecha_objetivo)
-      const fechaCompletado = parsearFechaPortal(entrega.fecha_completado)
-      const releasesEntrega = releasesPorEntrega.get(entrega.id) ?? []
-
-      if (rangoPlan && rangoSeSuperpone(rangoPlan.inicio, rangoPlan.fin, rangoTemporal.inicio, rangoTemporal.fin)) {
-        return true
-      }
-
-      if (rangoReal && rangoSeSuperpone(rangoReal.inicio, rangoReal.fin, rangoTemporal.inicio, rangoTemporal.fin)) {
-        return true
-      }
-
-      if (fechaObjetivo && fechaDentroDeRango(fechaObjetivo, rangoTemporal.inicio, rangoTemporal.fin)) {
-        return true
-      }
-
-      if (fechaCompletado && fechaDentroDeRango(fechaCompletado, rangoTemporal.inicio, rangoTemporal.fin)) {
-        return true
-      }
-
-      return releasesEntrega.some((release: ReleasePm) => {
-        const fecha = fechaRelease(release)
-        return fecha ? fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin) : false
-      })
+      return Boolean(rangoPlan && rangoSeSuperpone(rangoPlan.inicio, rangoPlan.fin, rangoTemporal.inicio, rangoTemporal.fin))
     })
-  }, [entregas, filtroEstado, filtroObjetivo, filtroVentana, iniciativasPorId, rangoTemporal.fin, rangoTemporal.inicio, releasesPorEntrega, ventanasPorId])
+  }, [entregas, filtroEstado, filtroObjetivo, filtroVentana, iniciativasPorId, rangoTemporal.fin, rangoTemporal.inicio, ventanasPorId])
 
   const iniciativasVisibles = useMemo(() => {
     return iniciativas.filter((iniciativa) => {
@@ -1003,14 +858,9 @@ export function PaginaCronogramaRoadmap() {
 
       const coincideDirecto = iniciativasFiltradas.some((actual) => actual.id === iniciativa.id)
       const tieneEntregas = entregasFiltradas.some((entrega) => entrega.iniciativa_id === iniciativa.id)
-      const tieneReleases = (releasesPorIniciativa.get(iniciativa.id) ?? []).some((release: ReleasePm) => {
-        const fecha = fechaRelease(release)
-        return fecha ? fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin) : false
-      })
-
-      return coincideDirecto || tieneEntregas || tieneReleases
+      return coincideDirecto || tieneEntregas
     })
-  }, [entregasFiltradas, filtroObjetivo, iniciativas, iniciativasFiltradas, rangoTemporal.fin, rangoTemporal.inicio, releasesPorIniciativa])
+  }, [entregasFiltradas, filtroObjetivo, iniciativas, iniciativasFiltradas])
 
   const objetivosVisibles = useMemo(() => {
     const idsObjetivos = new Set(iniciativasVisibles.map((iniciativa) => iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO))
@@ -1131,19 +981,6 @@ export function PaginaCronogramaRoadmap() {
 
     const calcularSegmentosIniciativa = (iniciativa: Iniciativa) => {
       const rangoPlan = obtenerRangoPlanIniciativa(iniciativa, ventanasPorId)
-      const releasesAsociados = (releasesPorIniciativa.get(iniciativa.id) ?? []).filter(
-        (release: ReleasePm) => !release.entrega_id
-      )
-      const marcadores = releasesAsociados
-        .map((release: ReleasePm) =>
-          construirMarcador(
-            fechaRelease(release),
-            `release-${release.id}`,
-            release.fecha_lanzamiento_real ? 'release_real' : 'release',
-            release.codigo
-          )
-        )
-        .filter((item: MarcadorCronograma | null): item is MarcadorCronograma => Boolean(item))
 
       return {
         rangoPlan,
@@ -1151,37 +988,19 @@ export function PaginaCronogramaRoadmap() {
           ? [construirSegmento(rangoPlan.inicio, rangoPlan.fin, `plan-${iniciativa.id}`, 'iniciativa', rangoPlan.origen)].filter(
               (item): item is SegmentoCronograma => Boolean(item)
             )
-          : [],
-        marcadores
+          : []
       }
     }
 
     const calcularSegmentosEntrega = (entrega: Entrega) => {
       const rangoPlan = obtenerRangoPlanEntrega(entrega, ventanasPorId)
-      const rangoReal = obtenerRangoRealEntrega(entrega, ventanasPorId)
-      const marcadores = [
-        construirMarcador(parsearFechaPortal(entrega.fecha_objetivo), `objetivo-${entrega.id}`, 'entrega', 'Fecha objetivo'),
-        construirMarcador(parsearFechaPortal(entrega.fecha_completado), `real-${entrega.id}`, 'entrega_real', 'Fecha completada'),
-        ...(releasesPorEntrega.get(entrega.id) ?? []).map((release: ReleasePm) =>
-          construirMarcador(
-            fechaRelease(release),
-            `release-${release.id}`,
-            release.fecha_lanzamiento_real ? 'release_real' : 'release',
-            release.codigo
-          )
-        )
-      ].filter((item): item is MarcadorCronograma => Boolean(item))
-
       const segmentos = [
         rangoPlan
           ? construirSegmento(rangoPlan.inicio, rangoPlan.fin, `plan-${entrega.id}`, 'plan', rangoPlan.origen)
-          : null,
-        rangoReal && !rangosCoinciden(rangoPlan, rangoReal)
-          ? construirSegmento(rangoReal.inicio, rangoReal.fin, `real-${entrega.id}`, 'real', rangoReal.origen)
           : null
       ].filter((item): item is SegmentoCronograma => Boolean(item))
 
-      return { rangoPlan, rangoReal, segmentos, marcadores }
+      return { rangoPlan, segmentos }
     }
 
     const construirFilaObjetivo = (objetivo: Objetivo, iniciativasObjetivo: Iniciativa[], entregasObjetivo: Entrega[]) => {
@@ -1196,16 +1015,6 @@ export function PaginaCronogramaRoadmap() {
       const segmentoObjetivo = rangoObjetivo
         ? construirSegmento(rangoObjetivo.inicio, rangoObjetivo.fin, `objetivo-${objetivo.id}`, 'objetivo', rangoObjetivo.origen)
         : null
-
-      const marcadoresObjetivo = [...iniciativasObjetivo, ...entregasObjetivo]
-        .flatMap((item) => {
-          if ('objetivo_id' in item) {
-            return visualesIniciativas.get(item.id)?.marcadores ?? []
-          }
-
-          return visualesEntregas.get(item.id)?.marcadores ?? []
-        })
-        .sort((a, b) => compararFechasAscendente(a.fecha, b.fecha))
 
       const totalReleases = iniciativasObjetivo.reduce(
         (acumulado, iniciativa) => acumulado + (releasesPorIniciativa.get(iniciativa.id) ?? []).length,
@@ -1229,7 +1038,6 @@ export function PaginaCronogramaRoadmap() {
         tieneHijos: iniciativasObjetivo.length > 0,
         expandido: objetivosExpandidos.includes(objetivo.id),
         segmentos: segmentoObjetivo ? [segmentoObjetivo] : [],
-        marcadores: marcadoresObjetivo,
         entregaAtrasada: entregasObjetivo.some((entrega) => esEntregaAtrasada(entrega, hoy))
       })
     }
@@ -1270,7 +1078,6 @@ export function PaginaCronogramaRoadmap() {
           tieneHijos: entregasIniciativa.length > 0,
           expandido: iniciativasExpandidas.includes(iniciativa.id),
           segmentos: visual.segmentos,
-          marcadores: visual.marcadores,
           entregaAtrasada: entregasIniciativa.some((entrega) => esEntregaAtrasada(entrega, hoy))
         })
 
@@ -1284,7 +1091,7 @@ export function PaginaCronogramaRoadmap() {
             ? ventanasPorId.get(entrega.ventana_planificada_id)?.etiqueta_visible ?? 'Sin ventana plan'
             : 'Sin ventana plan'
           const fecha = entrega.fecha_objetivo ? formatearFechaCorta(entrega.fecha_objetivo) : 'Sin fecha objetivo'
-          const rangoEntrega = visualEntrega.rangoPlan ?? visualEntrega.rangoReal
+          const rangoEntrega = visualEntrega.rangoPlan
 
           filas.push({
             id: entrega.id,
@@ -1300,7 +1107,6 @@ export function PaginaCronogramaRoadmap() {
             tieneHijos: false,
             expandido: false,
             segmentos: visualEntrega.segmentos,
-            marcadores: visualEntrega.marcadores,
             entregaAtrasada: esEntregaAtrasada(entrega, hoy)
           })
         })
@@ -1338,14 +1144,13 @@ export function PaginaCronogramaRoadmap() {
           tieneHijos: true,
           expandido: iniciativasExpandidas.includes(clave),
           segmentos: segAgregadoSinIni ? [segAgregadoSinIni] : [],
-          marcadores: [],
           entregaAtrasada: entregasSinIniciativa.some((entrega) => esEntregaAtrasada(entrega, hoy))
         })
 
         if (iniciativasExpandidas.includes(clave)) {
           entregasSinIniciativa.forEach((entrega) => {
             const visualEntrega = calcularSegmentosEntrega(entrega)
-            const rangoEntregaH = visualEntrega.rangoPlan ?? visualEntrega.rangoReal
+            const rangoEntregaH = visualEntrega.rangoPlan
 
             filas.push({
               id: entrega.id,
@@ -1363,7 +1168,6 @@ export function PaginaCronogramaRoadmap() {
               tieneHijos: false,
               expandido: false,
               segmentos: visualEntrega.segmentos,
-              marcadores: visualEntrega.marcadores,
               entregaAtrasada: esEntregaAtrasada(entrega, hoy)
             })
           })
@@ -1372,7 +1176,7 @@ export function PaginaCronogramaRoadmap() {
     })
 
     return filas
-  }, [entregasFiltradas, hoy, iniciativasExpandidas, iniciativasPorId, iniciativasVisibles, objetivosExpandidos, objetivosVisibles, releasesPorEntrega, releasesPorIniciativa, ventanasPorId])
+  }, [entregasFiltradas, hoy, iniciativasExpandidas, iniciativasPorId, iniciativasVisibles, objetivosExpandidos, objetivosVisibles, releasesPorIniciativa, ventanasPorId])
 
   const porcentajeHorizontal = (fecha: Date) => {
     const dias = diferenciaDias(rangoTemporal.inicio, fecha)
@@ -1599,15 +1403,6 @@ export function PaginaCronogramaRoadmap() {
                         </div>
                       ))}
                     </div>
-
-                    {hoyVisible ? (
-                      <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${porcentajeHorizontal(hoy)}%` }}>
-                        <div className="absolute -left-px top-0 h-full w-0.5 bg-rose-500/75" />
-                        <span className="absolute left-2 top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm">
-                          Hoy
-                        </span>
-                      </div>
-                    ) : null}
                   </div>
                 </div>
 
@@ -1631,6 +1426,30 @@ export function PaginaCronogramaRoadmap() {
                     }`}
                   />
                 </button>
+
+                {hoyVisible ? (
+                  <div
+                    className="pointer-events-none absolute inset-y-0 z-[18]"
+                    style={{ left: `${anchoColumnaJerarquia}px`, width: `${anchoTimeline}px` }}
+                  >
+                    <TooltipCronograma
+                      content={
+                        <div className="space-y-1">
+                          <p className="font-medium text-slate-900 dark:text-slate-100">Hoy</p>
+                          <p className="text-slate-600 dark:text-slate-300">{formatearFechaLarga(hoy)}</p>
+                        </div>
+                      }
+                      className="pointer-events-auto absolute inset-y-0 block w-6 -translate-x-1/2"
+                      style={{ left: `${porcentajeHorizontal(hoy)}%` }}
+                      maxWidthClassName="max-w-[220px]"
+                    >
+                      <div className="absolute left-1/2 top-0 h-full w-0.5 -translate-x-1/2 bg-rose-500/80" />
+                      <span className="absolute left-[calc(50%+10px)] top-1.5 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white shadow-sm">
+                        Hoy
+                      </span>
+                    </TooltipCronograma>
+                  </div>
+                ) : null}
 
                 {filasCronograma.map((fila) => {
                   const claseFila = obtenerClaseFila(fila)
@@ -1725,12 +1544,6 @@ export function PaginaCronogramaRoadmap() {
                       <div className={`relative h-[58px] ${claseFila}`}>
                         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[length:140px_100%] dark:bg-[linear-gradient(to_right,rgba(71,85,105,0.22)_1px,transparent_1px)]" />
 
-                        {hoyVisible ? (
-                          <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${porcentajeHorizontal(hoy)}%` }}>
-                            <div className="absolute -left-px top-0 h-full w-0.5 bg-rose-500/70" />
-                          </div>
-                        ) : null}
-
                         {fila.segmentos.map((segmento) => {
                           const inicioVisible =
                             segmento.inicio.getTime() < rangoTemporal.inicio.getTime() ? rangoTemporal.inicio : segmento.inicio
@@ -1760,9 +1573,6 @@ export function PaginaCronogramaRoadmap() {
                                   {fila.estado ? (
                                     <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p>
                                   ) : null}
-                                  {fila.tipo === 'entrega' && segmento.variante === 'real' ? (
-                                    <p className="text-emerald-600 dark:text-emerald-400">Ventana real confirmada</p>
-                                  ) : null}
                                 </div>
                               }
                               className={`${estiloSegmento.className} absolute z-[12] cursor-default`}
@@ -1772,44 +1582,6 @@ export function PaginaCronogramaRoadmap() {
                                 top: estiloSegmento.top,
                                 height: estiloSegmento.height,
                                 borderRadius: estiloSegmento.borderRadius
-                              }}
-                            >
-                              {''}
-                            </TooltipCronograma>
-                          )
-                        })}
-
-                        {fila.marcadores.map((marcador) => {
-                          if (!fechaDentroDeRango(marcador.fecha, rangoTemporal.inicio, rangoTemporal.fin)) {
-                            return null
-                          }
-
-                          const left = porcentajeHorizontal(marcador.fecha)
-                          const estiloMarcador = obtenerEstiloMarcador(marcador.variante)
-
-                          return (
-                            <TooltipCronograma
-                              key={marcador.id}
-                              content={
-                                <div className="space-y-1">
-                                  <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                  <p className="text-slate-600 dark:text-slate-300">{describirMarcadorTemporal(marcador.variante)}</p>
-                                  <p className="text-slate-500 dark:text-slate-400">{marcador.etiqueta}</p>
-                                  <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                                    {formatearFechaCorta(marcador.fecha.toISOString().slice(0, 10))}
-                                  </p>
-                                  {fila.estado ? (
-                                    <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p>
-                                  ) : null}
-                                </div>
-                              }
-                              className={`absolute z-[14] cursor-default rounded-full ${estiloMarcador.className}`}
-                              style={{
-                                left: `${left}%`,
-                                top: estiloMarcador.top,
-                                width: estiloMarcador.size,
-                                height: estiloMarcador.size,
-                                transform: 'translateX(-50%)'
                               }}
                             >
                               {''}
@@ -1837,26 +1609,6 @@ export function PaginaCronogramaRoadmap() {
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-[6px] w-6 rounded-full bg-amber-400/85 dark:bg-amber-300/80" />
                 Entrega plan
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[6px] w-6 rounded-full bg-emerald-500/85 dark:bg-emerald-400/80" />
-                Entrega real
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[9px] w-[9px] rounded-full bg-amber-500 ring-2 ring-white dark:bg-amber-300 dark:ring-slate-900" />
-                Fecha objetivo
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[9px] w-[9px] rounded-full bg-emerald-500 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
-                Completada
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[10px] w-[10px] rounded-full bg-slate-900 ring-2 ring-white dark:bg-slate-100 dark:ring-slate-900" />
-                Release plan
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[10px] w-[10px] rounded-full bg-emerald-600 ring-2 ring-white dark:bg-emerald-400 dark:ring-slate-900" />
-                Release real
               </span>
             </div>
           </div>
