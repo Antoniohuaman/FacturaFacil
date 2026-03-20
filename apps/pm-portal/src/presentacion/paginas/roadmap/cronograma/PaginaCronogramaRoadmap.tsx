@@ -526,6 +526,37 @@ function obtenerRangoPlanEntrega(entrega: Entrega, ventanasPorId: ReadonlyMap<st
   } satisfies RangoTemporalCronograma
 }
 
+function coincideFiltroVentanaEntrega(
+  entrega: Entrega,
+  filtroVentana: string,
+  ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>
+) {
+  if (filtroVentana === 'todas') {
+    return true
+  }
+
+  const rangoPlanVisible = obtenerRangoPlanEntrega(entrega, ventanasPorId)
+  if (!rangoPlanVisible) {
+    return false
+  }
+
+  if (rangoPlanVisible.origen === 'fallback_ventana_plan') {
+    return entrega.ventana_planificada_id === filtroVentana
+  }
+
+  const rangoVentanaFiltro = obtenerRangoVentana(filtroVentana, ventanasPorId)
+  if (!rangoVentanaFiltro) {
+    return false
+  }
+
+  return rangoSeSuperpone(
+    rangoPlanVisible.inicio,
+    rangoPlanVisible.fin,
+    rangoVentanaFiltro.inicio,
+    rangoVentanaFiltro.fin
+  )
+}
+
 function construirSegmento(
   inicio: Date | null,
   fin: Date | null,
@@ -921,11 +952,7 @@ export function PaginaCronogramaRoadmap() {
         return false
       }
 
-      if (
-        filtroVentana !== 'todas' &&
-        entrega.ventana_planificada_id !== filtroVentana &&
-        entrega.ventana_real_id !== filtroVentana
-      ) {
+      if (!coincideFiltroVentanaEntrega(entrega, filtroVentana, ventanasPorId)) {
         return false
       }
 

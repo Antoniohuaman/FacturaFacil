@@ -19,6 +19,15 @@ export const repositorioIniciativas = {
 
     return (data ?? []) as Iniciativa[]
   },
+  async obtenerPorId(id: string) {
+    const { data, error } = await clienteSupabase.from('iniciativas').select('*').eq('id', id).maybeSingle()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? null) as Iniciativa | null
+  },
   async crear(entrada: IniciativaPersistencia) {
     const { data, error } = await clienteSupabase.from('iniciativas').insert(entrada).select('*').single()
 

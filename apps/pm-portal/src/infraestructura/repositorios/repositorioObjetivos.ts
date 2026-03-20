@@ -15,6 +15,15 @@ export const repositorioObjetivos = {
 
     return (data ?? []) as Objetivo[]
   },
+  async obtenerPorId(id: string) {
+    const { data, error } = await clienteSupabase.from('objetivos').select('*').eq('id', id).maybeSingle()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? null) as Objetivo | null
+  },
   async crear(entrada: ObjetivoEntrada) {
     const { data, error } = await clienteSupabase.from('objetivos').insert(entrada).select('*').single()
 
