@@ -81,6 +81,7 @@ const ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO = 392
 const CLAVE_ANCHO_COLUMNA_JERARQUIA = 'pm-portal-roadmap-cronograma-ancho-jerarquia'
 const CLAVE_OBJETIVOS_EXPANDIDOS = 'pm-portal-roadmap-cronograma-objetivos-expandidos'
 const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-expandidas'
+const CLAVE_RESUMEN_VISIBLE = 'pm-portal-roadmap-cronograma-resumen-visible'
 const ALTURA_MINIMA_FILA_CRONOGRAMA = 58
 const ALTURA_VISTA_CUERPO_CRONOGRAMA = 'min(68vh, 720px)'
 const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
@@ -220,6 +221,15 @@ function IconoFiltros({ abierto }: { abierto: boolean }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  )
+}
+
+function IconoResumen() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
+      <rect x="3.5" y="4" width="13" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 4v12M3.5 8.5h13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
@@ -571,6 +581,13 @@ export function PaginaCronogramaRoadmap() {
       return []
     }
   })
+  const [resumenVisible, setResumenVisible] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.localStorage.getItem(CLAVE_RESUMEN_VISIBLE) === 'true'
+  })
   const [redimensionandoJerarquia, setRedimensionandoJerarquia] = useState(false)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(() => {
     return Boolean(
@@ -745,6 +762,14 @@ export function PaginaCronogramaRoadmap() {
     if (typeof window === 'undefined') return
     window.localStorage.setItem(CLAVE_INICIATIVAS_EXPANDIDAS, JSON.stringify(iniciativasExpandidas))
   }, [iniciativasExpandidas])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(CLAVE_RESUMEN_VISIBLE, String(resumenVisible))
+  }, [resumenVisible])
 
   useEffect(() => {
     if (!redimensionandoJerarquia) {
@@ -1310,21 +1335,37 @@ export function PaginaCronogramaRoadmap() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setFiltrosAbiertos((actual) => !actual)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-              aria-expanded={filtrosAbiertos}
-              aria-controls="panel-filtros-cronograma-roadmap"
-            >
-              <IconoFiltros abierto={filtrosAbiertos} />
-              <span>Filtros</span>
-              {filtrosActivos > 0 ? (
-                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-slate-200 dark:text-slate-900">
-                  {filtrosActivos}
-                </span>
-              ) : null}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setResumenVisible((actual) => !actual)}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  resumenVisible
+                    ? 'border-slate-400 bg-slate-100 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'
+                    : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800'
+                }`}
+                aria-pressed={resumenVisible}
+              >
+                <IconoResumen />
+                <span>Resumen</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFiltrosAbiertos((actual) => !actual)}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                aria-expanded={filtrosAbiertos}
+                aria-controls="panel-filtros-cronograma-roadmap"
+              >
+                <IconoFiltros abierto={filtrosAbiertos} />
+                <span>Filtros</span>
+                {filtrosActivos > 0 ? (
+                  <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-slate-200 dark:text-slate-900">
+                    {filtrosActivos}
+                  </span>
+                ) : null}
+              </button>
+            </div>
           </div>
 
           {filtrosAbiertos ? (
@@ -1435,15 +1476,17 @@ export function PaginaCronogramaRoadmap() {
           ) : null}
         </section>
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {kpis.map((kpi) => (
-            <article key={kpi.etiqueta} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{kpi.etiqueta}</p>
-              <p className="mt-1.5 text-2xl font-semibold text-slate-950 dark:text-slate-50">{kpi.valor}</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{kpi.apoyo}</p>
-            </article>
-          ))}
-        </section>
+        {resumenVisible ? (
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {kpis.map((kpi) => (
+              <article key={kpi.etiqueta} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{kpi.etiqueta}</p>
+                <p className="mt-1.5 text-2xl font-semibold text-slate-950 dark:text-slate-50">{kpi.valor}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{kpi.apoyo}</p>
+              </article>
+            ))}
+          </section>
+        ) : null}
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           {filasCronograma.length === 0 ? (
