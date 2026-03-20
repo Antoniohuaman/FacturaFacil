@@ -82,7 +82,7 @@ const CLAVE_ANCHO_COLUMNA_JERARQUIA = 'pm-portal-roadmap-cronograma-ancho-jerarq
 const CLAVE_OBJETIVOS_EXPANDIDOS = 'pm-portal-roadmap-cronograma-objetivos-expandidos'
 const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-expandidas'
 const CLAVE_RESUMEN_VISIBLE = 'pm-portal-roadmap-cronograma-resumen-visible'
-const ALTURA_MINIMA_FILA_CRONOGRAMA = 58
+const ALTURA_MINIMA_FILA_CRONOGRAMA = 52
 const ALTURA_VISTA_CUERPO_CRONOGRAMA = 'min(68vh, 720px)'
 const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
   display: '-webkit-box',
@@ -315,19 +315,39 @@ function obtenerClaseBadgeEstado(estado: EstadoRegistro | null) {
   return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
 }
 
-function obtenerClaseFila(fila: FilaCronograma) {
+function obtenerClaseFila(fila: FilaCronograma, activa: boolean) {
+  const base =
+    fila.tipo === 'objetivo'
+      ? 'bg-slate-50/90 dark:bg-slate-950/40'
+      : fila.tipo === 'iniciativa'
+        ? 'bg-white dark:bg-slate-900'
+        : 'bg-white dark:bg-slate-900/95'
+
+  const destacada =
+    fila.tipo === 'objetivo'
+      ? 'bg-slate-100/95 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.28)] dark:bg-slate-800/75 dark:shadow-[inset_0_0_0_1px_rgba(71,85,105,0.52)]'
+      : 'bg-slate-50/95 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)] dark:bg-slate-800/55 dark:shadow-[inset_0_0_0_1px_rgba(71,85,105,0.4)]'
+
+  return `${base} ${activa ? destacada : ''} transition-colors duration-150`
+}
+
+function obtenerClaseTituloFila(fila: FilaCronograma) {
   if (fila.tipo === 'objetivo') {
-    return 'bg-slate-50/90 dark:bg-slate-950/40'
+    return 'text-sm font-semibold leading-5 text-slate-900 dark:text-slate-100'
   }
 
-  return 'bg-white dark:bg-slate-900'
+  if (fila.tipo === 'iniciativa') {
+    return 'text-[13px] font-semibold leading-5 text-slate-900 dark:text-slate-100'
+  }
+
+  return 'text-[13px] font-medium leading-5 text-slate-800 dark:text-slate-200'
 }
 
 function obtenerEstiloSegmento(variante: SegmentoCronograma['variante']) {
   if (variante === 'objetivo') {
     return {
       className: 'bg-slate-300/55 ring-1 ring-inset ring-slate-400/25 dark:bg-slate-700/55 dark:ring-slate-500/30',
-      top: 30,
+      top: 27,
       height: 4,
       borderRadius: 9999
     }
@@ -336,15 +356,15 @@ function obtenerEstiloSegmento(variante: SegmentoCronograma['variante']) {
   if (variante === 'iniciativa') {
     return {
       className: 'bg-cyan-500/80 shadow-sm shadow-cyan-900/10 dark:bg-cyan-400/75',
-      top: 20,
-      height: 10,
+      top: 18,
+      height: 9,
       borderRadius: 9999
     }
   }
 
   return {
     className: 'bg-amber-400/85 dark:bg-amber-300/80',
-    top: 16,
+    top: 14,
     height: 6,
     borderRadius: 9999
   }
@@ -605,6 +625,7 @@ export function PaginaCronogramaRoadmap() {
   const sincronizandoScrollHorizontalRef = useRef<'encabezado' | 'cuerpo' | null>(null)
   const ejecutivoInicializadoRef = useRef(false)
   const [alturasFilas, setAlturasFilas] = useState<number[]>([])
+  const [filaActiva, setFilaActiva] = useState<string | null>(null)
 
   useEffect(() => {
     const cargar = async () => {
@@ -1547,17 +1568,20 @@ export function PaginaCronogramaRoadmap() {
                 <div className="grid" style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px minmax(0, 1fr)` }}>
                   <div className="border-r border-slate-200 dark:border-slate-800">
                     {filasCronograma.map((fila, indice) => {
-                      const claseFila = obtenerClaseFila(fila)
+                      const claveVisualFila = `${fila.tipo}-${fila.id}`
+                      const claseFila = obtenerClaseFila(fila, filaActiva === claveVisualFila)
 
                       return (
                         <div
-                          key={`${fila.tipo}-${fila.id}`}
+                          key={claveVisualFila}
                           ref={(elemento) => {
                             referenciasFilasJerarquiaRef.current[indice] = elemento
                           }}
-                          className={`border-b border-slate-200 px-4 py-3 last:border-b-0 dark:border-slate-800 ${claseFila}`}
+                          className={`border-b border-slate-200 px-4 py-2.5 last:border-b-0 dark:border-slate-800 ${claseFila}`}
+                          onMouseEnter={() => setFilaActiva(claveVisualFila)}
+                          onMouseLeave={() => setFilaActiva((actual) => (actual === claveVisualFila ? null : actual))}
                         >
-                          <div className="flex items-start gap-3" style={{ paddingLeft: `${fila.nivel * 18}px` }}>
+                          <div className="flex items-start gap-2.5" style={{ paddingLeft: `${fila.nivel * 16}px` }}>
                             {fila.tieneHijos ? (
                               <button
                                 type="button"
@@ -1569,10 +1593,10 @@ export function PaginaCronogramaRoadmap() {
 
                                   alternarExpansionIniciativa(fila.claveExpansion)
                                 }}
-                                className={`mt-0.5 inline-flex items-center justify-center rounded-full border transition ${
+                                className={`mt-0.5 inline-flex shrink-0 items-center justify-center rounded-full border transition ${
                                   fila.tipo === 'objetivo'
-                                    ? 'h-7 w-7 border-slate-400 bg-slate-100 text-slate-700 shadow-sm hover:border-slate-500 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700'
-                                    : 'h-6 w-6 border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800'
+                                    ? 'h-6 w-6 border-slate-400/90 bg-slate-100 text-slate-700 shadow-sm hover:border-slate-500 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-700'
+                                    : 'h-5 w-5 border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800'
                                 }`}
                                 aria-label={fila.expandido ? `Colapsar ${fila.titulo}` : `Expandir ${fila.titulo}`}
                                 aria-expanded={fila.expandido}
@@ -1580,11 +1604,11 @@ export function PaginaCronogramaRoadmap() {
                                 <IconoChevron abierto={fila.expandido} />
                               </button>
                             ) : (
-                              <span className="mt-2 block h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+                              <span className="block h-6 w-6 shrink-0" aria-hidden="true" />
                             )}
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-start gap-2">
+                              <div className="flex flex-wrap items-start gap-1.5">
                                 <TooltipCronograma
                                   className="min-w-0 flex-1"
                                   maxWidthClassName="max-w-sm"
@@ -1606,7 +1630,7 @@ export function PaginaCronogramaRoadmap() {
                                   }
                                 >
                                   <p
-                                    className={`min-w-0 break-words text-sm ${fila.tipo === 'objetivo' ? 'font-semibold text-slate-900 dark:text-slate-100' : 'font-medium text-slate-950 dark:text-slate-50'}`}
+                                    className={`min-w-0 break-words ${obtenerClaseTituloFila(fila)}`}
                                     style={ESTILO_TITULO_DOS_LINEAS}
                                   >
                                     {fila.titulo}
@@ -1628,9 +1652,6 @@ export function PaginaCronogramaRoadmap() {
                                 ) : null}
                               </div>
 
-                              {fila.tipo !== 'objetivo' && fila.resumen ? (
-                                <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">{fila.resumen}</p>
-                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -1664,14 +1685,17 @@ export function PaginaCronogramaRoadmap() {
 
                         <div className="relative">
                           {filasCronograma.map((fila, indice) => {
-                            const claseFila = obtenerClaseFila(fila)
+                            const claveVisualFila = `${fila.tipo}-${fila.id}`
+                            const claseFila = obtenerClaseFila(fila, filaActiva === claveVisualFila)
                             const alturaFila = alturasFilas[indice] ?? ALTURA_MINIMA_FILA_CRONOGRAMA
 
                             return (
                               <div
-                                key={`${fila.tipo}-${fila.id}`}
+                                key={claveVisualFila}
                                 className={`relative border-b border-slate-200 last:border-b-0 dark:border-slate-800 ${claseFila}`}
                                 style={{ height: `${alturaFila}px` }}
+                                onMouseEnter={() => setFilaActiva(claveVisualFila)}
+                                onMouseLeave={() => setFilaActiva((actual) => (actual === claveVisualFila ? null : actual))}
                               >
                                 <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px)] bg-[length:140px_100%] dark:bg-[linear-gradient(to_right,rgba(71,85,105,0.22)_1px,transparent_1px)]" />
 
