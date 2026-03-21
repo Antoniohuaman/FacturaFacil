@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
-import { entregaSchema, type EntregaEntrada } from '@/compartido/validacion/esquemas'
-import {
-  construirLimitesFechasJerarquicas,
-  validarCampoFechaEnJerarquia,
-  validarJerarquiaFechas
-} from '@/compartido/validacion/roadmapJerarquiaFechas'
 import {
   estadosRegistro,
   prioridadesRegistro,
@@ -17,7 +9,7 @@ import {
   type Objetivo,
   type ReleasePm
 } from '@/dominio/modelos'
-import { crearEntrega, editarEntrega, eliminarEntrega, listarEntregas } from '@/aplicacion/casos-uso/entregas'
+import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
@@ -30,7 +22,6 @@ import {
   listarLeccionesAprendidasPm,
   listarMejorasPm
 } from '@/aplicacion/casos-uso/operacion'
-import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
@@ -40,8 +31,9 @@ import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible, formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import { formatearEstadoRelease } from '@/dominio/modelos'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
-
-type ModoModal = 'crear' | 'ver' | 'editar'
+import { eliminarEntregaRoadmapConConfirmacion } from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
+import { GestorModalEntregaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalEntregaRoadmap'
+import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 
 export function PaginaEntregasRoadmap() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -80,38 +72,10 @@ export function PaginaEntregasRoadmap() {
   const [fechaDesde, setFechaDesde] = useState(searchParams.get('desde') ?? '')
   const [fechaHasta, setFechaHasta] = useState(searchParams.get('hasta') ?? '')
   const [modalAbierto, setModalAbierto] = useState(false)
-  const [modoModal, setModoModal] = useState<ModoModal>('crear')
+  const [modoModal, setModoModal] = useState<ModoModalRoadmap>('crear')
   const [entregaActiva, setEntregaActiva] = useState<Entrega | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setError: setErrorFormulario,
-    trigger,
-    watch,
-    formState: { errors, isSubmitting }
-  } = useForm<EntregaEntrada>({
-    resolver: zodResolver(entregaSchema),
-    defaultValues: {
-      iniciativa_id: null,
-      ventana_planificada_id: null,
-      ventana_real_id: null,
-      nombre: '',
-      descripcion: '',
-      fecha_inicio: null,
-      fecha_fin: null,
-      fecha_objetivo: null,
-      fecha_completado: null,
-      estado: 'pendiente',
-      prioridad: 'media'
-    }
-  })
-
   const esEdicionPermitida = puedeEditar(rol)
-  const iniciativaSeleccionadaId = watch('iniciativa_id')
-  const fechaInicioSeleccionada = watch('fecha_inicio')
-  const fechaFinSeleccionada = watch('fecha_fin')
 
   const cargarInformacion = async () => {
     setCargando(true)
@@ -402,51 +366,14 @@ export function PaginaEntregasRoadmap() {
     return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre]))
   }, [iniciativas])
 
-  const iniciativaEntidadPorId = useMemo(() => {
-    return new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa]))
-  }, [iniciativas])
-
-  const iniciativaSeleccionada = iniciativaSeleccionadaId ? iniciativaEntidadPorId.get(iniciativaSeleccionadaId) ?? null : null
-
-  const limitesFechasIniciativa = useMemo(() => {
-    return construirLimitesFechasJerarquicas(
-      {
-        fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
-        fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
-      },
-      fechaInicioSeleccionada
-    )
-  }, [iniciativaSeleccionada, fechaInicioSeleccionada])
-
-  useEffect(() => {
-    if (!modalAbierto || modoModal === 'ver') {
-      return
-    }
-
-    void trigger(['fecha_inicio', 'fecha_fin'])
-  }, [modalAbierto, modoModal, iniciativaSeleccionadaId, fechaInicioSeleccionada, fechaFinSeleccionada, trigger])
-
   const ventanaPorId = useMemo(() => {
     return new Map(ventanas.map((ventana) => [ventana.id, ventana.etiqueta_visible]))
   }, [ventanas])
 
-  const abrirModal = (modo: ModoModal, entrega?: Entrega) => {
+  const abrirModal = (modo: ModoModalRoadmap, entrega?: Entrega) => {
     setModoModal(modo)
     setEntregaActiva(entrega ?? null)
     setModalAbierto(true)
-    reset({
-      iniciativa_id: entrega?.iniciativa_id ?? null,
-      ventana_planificada_id: entrega?.ventana_planificada_id ?? null,
-      ventana_real_id: entrega?.ventana_real_id ?? null,
-      nombre: entrega?.nombre ?? '',
-      descripcion: entrega?.descripcion ?? '',
-      fecha_inicio: entrega?.fecha_inicio ?? null,
-      fecha_fin: entrega?.fecha_fin ?? null,
-      fecha_objetivo: entrega?.fecha_objetivo ?? null,
-      fecha_completado: entrega?.fecha_completado ?? null,
-      estado: entrega?.estado ?? 'pendiente',
-      prioridad: entrega?.prioridad ?? 'media'
-    })
   }
 
   return (
@@ -796,13 +723,7 @@ export function PaginaEntregasRoadmap() {
                         type="button"
                         disabled={!esEdicionPermitida}
                         onClick={() => {
-                          if (window.confirm('¿Eliminar esta entrega?')) {
-                            void eliminarEntrega(entrega.id).then(cargarInformacion).catch((errorInterno) => {
-                              setError(
-                                errorInterno instanceof Error ? errorInterno.message : 'No se pudo eliminar la entrega'
-                              )
-                            })
-                          }
+                          void eliminarEntregaRoadmapConConfirmacion(entrega.id, cargarInformacion, setError)
                         }}
                         className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
                       >
@@ -827,246 +748,16 @@ export function PaginaEntregasRoadmap() {
         />
       </EstadoVista>
 
-      <ModalPortal
+      <GestorModalEntregaRoadmap
         abierto={modalAbierto}
-        titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} entrega`}
+        modo={modoModal}
+        entrega={entregaActiva}
+        iniciativas={iniciativas}
+        ventanas={ventanas}
         alCerrar={() => setModalAbierto(false)}
-      >
-        <form
-          className="space-y-4"
-          onSubmit={handleSubmit(async (valores) => {
-            if (modoModal === 'ver') {
-              return
-            }
-
-            try {
-              const erroresJerarquicos = validarJerarquiaFechas(
-                {
-                  fecha_inicio: valores.fecha_inicio,
-                  fecha_fin: valores.fecha_fin
-                },
-                {
-                  fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
-                  fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
-                },
-                'iniciativa'
-              )
-
-              if (erroresJerarquicos.length > 0) {
-                for (const errorJerarquico of erroresJerarquicos) {
-                  setErrorFormulario(errorJerarquico.campo, { type: 'validate', message: errorJerarquico.mensaje })
-                }
-
-                return
-              }
-
-              const carga = {
-                ...valores,
-                iniciativa_id: valores.iniciativa_id || null,
-                ventana_planificada_id: valores.ventana_planificada_id || null,
-                ventana_real_id: valores.ventana_real_id || null,
-                fecha_inicio: valores.fecha_inicio || null,
-                fecha_fin: valores.fecha_fin || null,
-                fecha_objetivo: valores.fecha_objetivo || null
-              }
-
-              if (modoModal === 'crear') {
-                await crearEntrega(carga)
-              }
-
-              if (modoModal === 'editar' && entregaActiva) {
-                await editarEntrega(entregaActiva.id, carga)
-              }
-
-              setModalAbierto(false)
-              await cargarInformacion()
-            } catch (errorInterno) {
-              setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar la entrega')
-            }
-          })}
-        >
-          <div>
-            <label className="text-sm font-medium">Iniciativa</label>
-            <select
-              {...register('iniciativa_id')}
-              disabled={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value="">Sin iniciativa</option>
-              {iniciativas.map((iniciativa) => (
-                <option key={iniciativa.id} value={iniciativa.id}>
-                  {iniciativa.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Ventana planificada</label>
-              <select
-                {...register('ventana_planificada_id')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                <option value="">Sin asignar</option>
-                {ventanas.map((ventana) => (
-                  <option key={ventana.id} value={ventana.id}>
-                    {ventana.etiqueta_visible}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Ventana real</label>
-              <select
-                {...register('ventana_real_id')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                <option value="">Sin asignar</option>
-                {ventanas.map((ventana) => (
-                  <option key={ventana.id} value={ventana.id}>
-                    {ventana.etiqueta_visible}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Nombre</label>
-            <input
-              {...register('nombre')}
-              readOnly={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.nombre ? <p className="text-xs text-red-500">{errors.nombre.message}</p> : null}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Descripción</label>
-            <textarea
-              {...register('descripcion')}
-              readOnly={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.descripcion ? <p className="text-xs text-red-500">{errors.descripcion.message}</p> : null}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Fecha inicio</label>
-              <input
-                type="date"
-                min={limitesFechasIniciativa.minFechaInicio}
-                max={limitesFechasIniciativa.maxFechaInicio}
-                {...register('fecha_inicio', {
-                  validate: (valor) =>
-                    validarCampoFechaEnJerarquia(
-                      'fecha_inicio',
-                      valor,
-                      {
-                        fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
-                        fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
-                      },
-                      'iniciativa'
-                    )
-                })}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
-              {errors.fecha_inicio ? <p className="text-xs text-red-500">{errors.fecha_inicio.message}</p> : null}
-            </div>
-            <div>
-              <label className="text-sm font-medium">Fecha fin</label>
-              <input
-                type="date"
-                min={limitesFechasIniciativa.minFechaFin}
-                max={limitesFechasIniciativa.maxFechaFin}
-                {...register('fecha_fin', {
-                  validate: (valor) =>
-                    validarCampoFechaEnJerarquia(
-                      'fecha_fin',
-                      valor,
-                      {
-                        fecha_inicio: iniciativaSeleccionada?.fecha_inicio ?? null,
-                        fecha_fin: iniciativaSeleccionada?.fecha_fin ?? null
-                      },
-                      'iniciativa'
-                    )
-                })}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
-              {errors.fecha_fin ? <p className="text-xs text-red-500">{errors.fecha_fin.message}</p> : null}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Fecha objetivo</label>
-            <input
-              type="date"
-              {...register('fecha_objetivo')}
-              readOnly={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.fecha_objetivo ? <p className="text-xs text-red-500">{errors.fecha_objetivo.message}</p> : null}
-          </div>
-
-          {entregaActiva?.fecha_completado ? (
-            <div>
-              <label className="text-sm font-medium">Fecha completado</label>
-              <input
-                value={entregaActiva.fecha_completado}
-                readOnly
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
-            </div>
-          ) : null}
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Estado</label>
-              <select
-                {...register('estado')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {estadosRegistro.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {estado}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Prioridad</label>
-              <select
-                {...register('prioridad')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {prioridadesRegistro.map((prioridad) => (
-                  <option key={prioridad} value={prioridad}>
-                    {prioridad}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {modoModal !== 'ver' ? (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-70 dark:bg-slate-200 dark:text-slate-900"
-            >
-              {isSubmitting ? 'Guardando...' : 'Guardar'}
-            </button>
-          ) : null}
-        </form>
-      </ModalPortal>
+        alGuardado={cargarInformacion}
+        alError={setError}
+      />
     </section>
   )
 }

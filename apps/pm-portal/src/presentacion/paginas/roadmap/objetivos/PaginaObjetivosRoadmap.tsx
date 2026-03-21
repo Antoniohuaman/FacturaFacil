@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
-import { objetivoSchema, type ObjetivoEntrada } from '@/compartido/validacion/esquemas'
 import { estadosRegistro, prioridadesRegistro, type Objetivo, type RelObjetivoRoadmapKrPm } from '@/dominio/modelos'
 import {
-  crearObjetivo,
-  editarObjetivo,
-  eliminarObjetivo,
   listarObjetivos
 } from '@/aplicacion/casos-uso/objetivos'
 import { listarRelObjetivoRoadmapKr } from '@/aplicacion/casos-uso/estrategia'
-import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -20,8 +13,9 @@ import { usePaginacion } from '@/compartido/utilidades/usePaginacion'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
-
-type ModoModal = 'crear' | 'ver' | 'editar'
+import { eliminarObjetivoRoadmapConConfirmacion } from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
+import { GestorModalObjetivoRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalObjetivoRoadmap'
+import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 
 export function PaginaObjetivosRoadmap() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -40,25 +34,8 @@ export function PaginaObjetivosRoadmap() {
     (searchParams.get('prioridad') as 'todas' | (typeof prioridadesRegistro)[number]) ?? 'todas'
   )
   const [modalAbierto, setModalAbierto] = useState(false)
-  const [modoModal, setModoModal] = useState<ModoModal>('crear')
+  const [modoModal, setModoModal] = useState<ModoModalRoadmap>('crear')
   const [objetivoActivo, setObjetivoActivo] = useState<Objetivo | null>(null)
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting }
-  } = useForm<ObjetivoEntrada>({
-    resolver: zodResolver(objetivoSchema),
-    defaultValues: {
-      nombre: '',
-      descripcion: '',
-      estado: 'pendiente',
-      prioridad: 'media',
-      fecha_inicio: null,
-      fecha_fin: null
-    }
-  })
 
   const esEdicionPermitida = puedeEditar(rol)
 
@@ -116,18 +93,10 @@ export function PaginaObjetivosRoadmap() {
     setSearchParams(parametros, { replace: true })
   }, [busqueda, filtroEstado, filtroPrioridad, paginacion.paginaActual, paginacion.tamanoPagina, setSearchParams])
 
-  const abrirModal = (modo: ModoModal, objetivo?: Objetivo) => {
+  const abrirModal = (modo: ModoModalRoadmap, objetivo?: Objetivo) => {
     setModoModal(modo)
     setObjetivoActivo(objetivo ?? null)
     setModalAbierto(true)
-    reset({
-      nombre: objetivo?.nombre ?? '',
-      descripcion: objetivo?.descripcion ?? '',
-      estado: objetivo?.estado ?? 'pendiente',
-      prioridad: objetivo?.prioridad ?? 'media',
-      fecha_inicio: objetivo?.fecha_inicio ?? null,
-      fecha_fin: objetivo?.fecha_fin ?? null
-    })
   }
 
   return (
@@ -314,15 +283,7 @@ export function PaginaObjetivosRoadmap() {
                         type="button"
                         disabled={!esEdicionPermitida}
                         onClick={() => {
-                          if (window.confirm('¿Eliminar este objetivo?')) {
-                            void eliminarObjetivo(objetivo.id).then(cargarObjetivos).catch((errorInterno) => {
-                              setError(
-                                errorInterno instanceof Error
-                                  ? errorInterno.message
-                                  : 'No se pudo eliminar el objetivo'
-                              )
-                            })
-                          }
+                          void eliminarObjetivoRoadmapConConfirmacion(objetivo.id, cargarObjetivos, setError)
                         }}
                         className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
                       >
@@ -348,128 +309,14 @@ export function PaginaObjetivosRoadmap() {
         alCambiarPagina={paginacion.setPaginaActual}
       />
 
-      <ModalPortal
+      <GestorModalObjetivoRoadmap
         abierto={modalAbierto}
-        titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} objetivo roadmap`}
+        modo={modoModal}
+        objetivo={objetivoActivo}
         alCerrar={() => setModalAbierto(false)}
-      >
-        <form
-          className="space-y-4"
-          onSubmit={handleSubmit(async (valores) => {
-            if (modoModal === 'ver') {
-              return
-            }
-
-            try {
-              const carga = {
-                ...valores,
-                fecha_inicio: valores.fecha_inicio || null,
-                fecha_fin: valores.fecha_fin || null
-              }
-
-              if (modoModal === 'crear') {
-                await crearObjetivo(carga)
-              }
-
-              if (modoModal === 'editar' && objetivoActivo) {
-                await editarObjetivo(objetivoActivo.id, carga)
-              }
-
-              setModalAbierto(false)
-              await cargarObjetivos()
-            } catch (errorInterno) {
-              setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el objetivo')
-            }
-          })}
-        >
-          <div>
-            <label className="text-sm font-medium">Nombre</label>
-            <input
-              {...register('nombre')}
-              readOnly={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.nombre ? <p className="text-xs text-red-500">{errors.nombre.message}</p> : null}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Descripción</label>
-            <textarea
-              {...register('descripcion')}
-              readOnly={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.descripcion ? <p className="text-xs text-red-500">{errors.descripcion.message}</p> : null}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Estado</label>
-              <select
-                {...register('estado')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {estadosRegistro.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {estado}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Prioridad</label>
-              <select
-                {...register('prioridad')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {prioridadesRegistro.map((prioridad) => (
-                  <option key={prioridad} value={prioridad}>
-                    {prioridad}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Fecha inicio</label>
-              <input
-                type="date"
-                {...register('fecha_inicio')}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Opcional</p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Fecha fin</label>
-              <input
-                type="date"
-                {...register('fecha_fin')}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
-              {errors.fecha_fin ? (
-                <p className="mt-1 text-xs text-red-500">{errors.fecha_fin.message}</p>
-              ) : null}
-            </div>
-          </div>
-
-          {modoModal !== 'ver' ? (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-70 dark:bg-slate-200 dark:text-slate-900"
-            >
-              {isSubmitting ? 'Guardando...' : 'Guardar'}
-            </button>
-          ) : null}
-        </form>
-      </ModalPortal>
+        alGuardado={cargarObjetivos}
+        alError={setError}
+      />
     </section>
   )
 }

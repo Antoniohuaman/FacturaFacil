@@ -1,0 +1,1 @@
+export type ModoModalRoadmap = 'crear' | 'ver' | 'editar'

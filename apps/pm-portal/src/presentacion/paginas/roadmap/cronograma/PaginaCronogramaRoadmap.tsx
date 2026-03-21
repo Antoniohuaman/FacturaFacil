@@ -9,21 +9,35 @@ import {
   type ReactNode
 } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
+import { cargarConfiguracionRice, listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
+import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
+import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import {
+  type CatalogoEtapaPm,
   type CatalogoVentanaPm,
+  type ConfiguracionRice,
   type Entrega,
   type EstadoRegistro,
   type Iniciativa,
   type Objetivo,
   type ReleasePm
 } from '@/dominio/modelos'
+import {
+  eliminarEntregaRoadmapConConfirmacion,
+  eliminarIniciativaRoadmapConConfirmacion,
+  eliminarObjetivoRoadmapConConfirmacion
+} from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
+import { GestorModalEntregaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalEntregaRoadmap'
+import { GestorModalIniciativaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalIniciativaRoadmap'
+import { GestorModalObjetivoRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalObjetivoRoadmap'
+import { MenuContextualFilaRoadmap } from '@/presentacion/paginas/roadmap/componentes/MenuContextualFilaRoadmap'
+import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 
 type VistaTemporal = 'anio' | 'trimestre'
@@ -71,6 +85,12 @@ interface RangoCronogramaBase {
 interface RangoTemporalCronograma extends RangoCronogramaBase {
   origen: SegmentoCronograma['origen']
 }
+
+type ModalContextualCronograma =
+  | { tipo: 'objetivo'; modo: ModoModalRoadmap; entidad: Objetivo }
+  | { tipo: 'iniciativa'; modo: ModoModalRoadmap; entidad: Iniciativa }
+  | { tipo: 'entrega'; modo: ModoModalRoadmap; entidad: Entrega }
+  | null
 
 const FILA_SIN_OBJETIVO = '__sin_objetivo__'
 const FILA_SIN_INICIATIVA = '__sin_iniciativa__'
@@ -614,6 +634,7 @@ function estadoDominante(estados: EstadoRegistro[]) {
 }
 
 export function PaginaCronogramaRoadmap() {
+  const { rol } = useSesionPortalPM()
   const hoy = useMemo(() => {
     const fecha = new Date()
     fecha.setHours(0, 0, 0, 0)
@@ -625,6 +646,8 @@ export function PaginaCronogramaRoadmap() {
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [releases, setReleases] = useState<ReleasePm[]>([])
   const [ventanas, setVentanas] = useState<CatalogoVentanaPm[]>([])
+  const [etapas, setEtapas] = useState<CatalogoEtapaPm[]>([])
+  const [configuracionRice, setConfiguracionRice] = useState<ConfiguracionRice | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [vistaTemporal, setVistaTemporal] = useState<VistaTemporal>(() => normalizarVistaTemporal(searchParams.get('vista')))
@@ -689,34 +712,50 @@ export function PaginaCronogramaRoadmap() {
   const ejecutivoInicializadoRef = useRef(false)
   const [alturasFilas, setAlturasFilas] = useState<number[]>([])
   const [filaActiva, setFilaActiva] = useState<string | null>(null)
+  const [menuAbiertoFilaId, setMenuAbiertoFilaId] = useState<string | null>(null)
+  const [modalContextual, setModalContextual] = useState<ModalContextualCronograma>(null)
+
+  const esEdicionPermitida = puedeEditar(rol)
+
+  const cargarCronograma = async () => {
+    setCargando(true)
+    setError(null)
+
+    try {
+      const [
+        objetivosData,
+        iniciativasData,
+        entregasData,
+        releasesData,
+        ventanasData,
+        etapasData,
+        configuracionData
+      ] = await Promise.all([
+        listarObjetivos(),
+        listarIniciativas(),
+        listarEntregas(),
+        listarReleases(),
+        listarVentanasPm(),
+        listarEtapasPm(),
+        cargarConfiguracionRice()
+      ])
+
+      setObjetivos(objetivosData)
+      setIniciativas(iniciativasData)
+      setEntregas(entregasData)
+      setReleases(releasesData)
+      setVentanas(ventanasData)
+      setEtapas(etapasData)
+      setConfiguracionRice(configuracionData)
+    } catch (errorInterno) {
+      setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar el cronograma roadmap')
+    } finally {
+      setCargando(false)
+    }
+  }
 
   useEffect(() => {
-    const cargar = async () => {
-      setCargando(true)
-      setError(null)
-
-      try {
-        const [objetivosData, iniciativasData, entregasData, releasesData, ventanasData] = await Promise.all([
-          listarObjetivos(),
-          listarIniciativas(),
-          listarEntregas(),
-          listarReleases(),
-          listarVentanasPm()
-        ])
-
-        setObjetivos(objetivosData)
-        setIniciativas(iniciativasData)
-        setEntregas(entregasData)
-        setReleases(releasesData)
-        setVentanas(ventanasData)
-      } catch (errorInterno) {
-        setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar el cronograma roadmap')
-      } finally {
-        setCargando(false)
-      }
-    }
-
-    void cargar()
+    void cargarCronograma()
   }, [])
 
   useEffect(() => {
@@ -757,7 +796,9 @@ export function PaginaCronogramaRoadmap() {
     }
   }, [anioSeleccionado, filtroEstado, filtroObjetivo, filtroVentana, searchParams, setSearchParams, trimestreSeleccionado, vistaTemporal])
 
+  const objetivosRealesPorId = useMemo(() => new Map(objetivos.map((objetivo) => [objetivo.id, objetivo])), [objetivos])
   const iniciativasPorId = useMemo(() => new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa])), [iniciativas])
+  const entregasPorId = useMemo(() => new Map(entregas.map((entrega) => [entrega.id, entrega])), [entregas])
   const ventanasPorId = useMemo(() => new Map(ventanas.map((ventana) => [ventana.id, ventana])), [ventanas])
 
   const releasesPorIniciativa = useMemo(() => {
@@ -1392,6 +1433,72 @@ export function PaginaCronogramaRoadmap() {
     setRedimensionandoJerarquia(true)
   }
 
+  const filaEsOperable = (fila: FilaCronograma) => {
+    if (fila.tipo === 'objetivo') {
+      return objetivosRealesPorId.has(fila.id)
+    }
+
+    if (fila.tipo === 'iniciativa') {
+      return iniciativasPorId.has(fila.id)
+    }
+
+    return entregasPorId.has(fila.id)
+  }
+
+  const abrirModalDesdeFila = (fila: FilaCronograma, modo: ModoModalRoadmap) => {
+    if (fila.tipo === 'objetivo') {
+      const objetivo = objetivosRealesPorId.get(fila.id)
+      if (objetivo) {
+        setModalContextual({ tipo: 'objetivo', modo, entidad: objetivo })
+      }
+      return
+    }
+
+    if (fila.tipo === 'iniciativa') {
+      const iniciativa = iniciativasPorId.get(fila.id)
+      if (iniciativa) {
+        setModalContextual({ tipo: 'iniciativa', modo, entidad: iniciativa })
+      }
+      return
+    }
+
+    const entrega = entregasPorId.get(fila.id)
+    if (entrega) {
+      setModalContextual({ tipo: 'entrega', modo, entidad: entrega })
+    }
+  }
+
+  const eliminarDesdeFila = async (fila: FilaCronograma) => {
+    if (fila.tipo === 'objetivo') {
+      const objetivo = objetivosRealesPorId.get(fila.id)
+      if (objetivo) {
+        await eliminarObjetivoRoadmapConConfirmacion(objetivo.id, cargarCronograma, setError)
+      }
+      return
+    }
+
+    if (fila.tipo === 'iniciativa') {
+      const iniciativa = iniciativasPorId.get(fila.id)
+      if (iniciativa) {
+        await eliminarIniciativaRoadmapConConfirmacion(iniciativa.id, cargarCronograma, setError)
+      }
+      return
+    }
+
+    const entrega = entregasPorId.get(fila.id)
+    if (entrega) {
+      await eliminarEntregaRoadmapConConfirmacion(entrega.id, cargarCronograma, setError)
+    }
+  }
+
+  const manejarBlurFilaJerarquia = (evento: FocusEvent<HTMLDivElement>, claveVisualFila: string) => {
+    if (evento.currentTarget.contains(evento.relatedTarget as Node | null)) {
+      return
+    }
+
+    setFilaActiva((actual) => (actual === claveVisualFila && menuAbiertoFilaId !== claveVisualFila ? null : actual))
+  }
+
   return (
     <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="No hay cronograma para mostrar.">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-4">
@@ -1628,8 +1735,9 @@ export function PaginaCronogramaRoadmap() {
                   <div className="border-r border-slate-200 dark:border-slate-800">
                     {filasCronograma.map((fila, indice) => {
                       const claveVisualFila = `${fila.tipo}-${fila.id}`
-                      const claseFila = obtenerClaseFila(fila, filaActiva === claveVisualFila)
-                      const filaEstaActiva = filaActiva === claveVisualFila
+                      const filaEstaActiva = filaActiva === claveVisualFila || menuAbiertoFilaId === claveVisualFila
+                      const claseFila = obtenerClaseFila(fila, filaEstaActiva)
+                      const filaOperable = filaEsOperable(fila)
 
                       return (
                         <div
@@ -1637,9 +1745,15 @@ export function PaginaCronogramaRoadmap() {
                           ref={(elemento) => {
                             referenciasFilasJerarquiaRef.current[indice] = elemento
                           }}
-                          className={`border-b border-slate-200 px-4 py-2 last:border-b-0 dark:border-slate-800 ${claseFila}`}
+                          className={`group border-b border-slate-200 px-4 py-2 last:border-b-0 dark:border-slate-800 ${claseFila}`}
                           onMouseEnter={() => setFilaActiva(claveVisualFila)}
-                          onMouseLeave={() => setFilaActiva((actual) => (actual === claveVisualFila ? null : actual))}
+                          onMouseLeave={() =>
+                            setFilaActiva((actual) =>
+                              actual === claveVisualFila && menuAbiertoFilaId !== claveVisualFila ? null : actual
+                            )
+                          }
+                          onFocusCapture={() => setFilaActiva(claveVisualFila)}
+                          onBlurCapture={(evento) => manejarBlurFilaJerarquia(evento, claveVisualFila)}
                         >
                           <div
                             className="flex items-start gap-2"
@@ -1673,47 +1787,71 @@ export function PaginaCronogramaRoadmap() {
                             )}
 
                             <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-start gap-1">
-                                <TooltipCronograma
-                                  className="min-w-0 flex-1"
-                                  maxWidthClassName="max-w-sm"
-                                  content={
-                                    <div className="space-y-1">
-                                      <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                      {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
-                                      {fila.rangoFechas ? (
-                                        <p className="text-slate-500 dark:text-slate-400">{fila.rangoFechas}</p>
-                                      ) : null}
-                                      {fila.contextoTemporal ? (
-                                        <p className="text-slate-600 dark:text-slate-300">{fila.contextoTemporal}</p>
-                                      ) : null}
-                                      {fila.resumen && fila.resumen !== fila.detalle ? (
-                                        <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
-                                      ) : null}
-                                      {fila.detalle ? <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p> : null}
-                                    </div>
-                                  }
-                                >
-                                  <p
-                                    className={`min-w-0 break-words ${obtenerClaseTituloFila(fila)}`}
-                                    style={ESTILO_TITULO_DOS_LINEAS}
-                                  >
-                                    {fila.titulo}
-                                  </p>
-                                </TooltipCronograma>
+                              <div className="flex items-start gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-start gap-1">
+                                    <TooltipCronograma
+                                      className="min-w-0 flex-1"
+                                      maxWidthClassName="max-w-sm"
+                                      content={
+                                        <div className="space-y-1">
+                                          <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
+                                          {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
+                                          {fila.rangoFechas ? (
+                                            <p className="text-slate-500 dark:text-slate-400">{fila.rangoFechas}</p>
+                                          ) : null}
+                                          {fila.contextoTemporal ? (
+                                            <p className="text-slate-600 dark:text-slate-300">{fila.contextoTemporal}</p>
+                                          ) : null}
+                                          {fila.resumen && fila.resumen !== fila.detalle ? (
+                                            <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
+                                          ) : null}
+                                          {fila.detalle ? <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p> : null}
+                                        </div>
+                                      }
+                                    >
+                                      <p
+                                        className={`min-w-0 break-words ${obtenerClaseTituloFila(fila)}`}
+                                        style={ESTILO_TITULO_DOS_LINEAS}
+                                      >
+                                        {fila.titulo}
+                                      </p>
+                                    </TooltipCronograma>
 
-                                {fila.estado ? (
-                                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
-                                    {formatearEstadoLegible(fila.estado)}
-                                  </span>
-                                ) : null}
+                                    {fila.estado ? (
+                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
+                                        {formatearEstadoLegible(fila.estado)}
+                                      </span>
+                                    ) : null}
 
-                                {fila.entregaAtrasada ? (
-                                  <TooltipCronograma content="Tiene entregas con fecha objetivo vencida aún sin completar">
-                                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                                      Desvío
-                                    </span>
-                                  </TooltipCronograma>
+                                    {fila.entregaAtrasada ? (
+                                      <TooltipCronograma content="Tiene entregas con fecha objetivo vencida aún sin completar">
+                                        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                          Desvío
+                                        </span>
+                                      </TooltipCronograma>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                {filaOperable ? (
+                                  <MenuContextualFilaRoadmap
+                                    etiquetaEntidad={`${fila.tipo} ${fila.titulo}`}
+                                    visible={filaEstaActiva}
+                                    abierto={menuAbiertoFilaId === claveVisualFila}
+                                    puedeEditar={esEdicionPermitida}
+                                    alAlternar={() =>
+                                      setMenuAbiertoFilaId((actual) =>
+                                        actual === claveVisualFila ? null : claveVisualFila
+                                      )
+                                    }
+                                    alCerrar={() => setMenuAbiertoFilaId((actual) => (actual === claveVisualFila ? null : actual))}
+                                    alVer={() => abrirModalDesdeFila(fila, 'ver')}
+                                    alEditar={() => abrirModalDesdeFila(fila, 'editar')}
+                                    alEliminar={() => {
+                                      void eliminarDesdeFila(fila)
+                                    }}
+                                  />
                                 ) : null}
                               </div>
 
@@ -1844,6 +1982,39 @@ export function PaginaCronogramaRoadmap() {
             </div>
           </div>
         </section>
+
+        <GestorModalObjetivoRoadmap
+          abierto={modalContextual?.tipo === 'objetivo'}
+          modo={modalContextual?.tipo === 'objetivo' ? modalContextual.modo : 'ver'}
+          objetivo={modalContextual?.tipo === 'objetivo' ? modalContextual.entidad : null}
+          alCerrar={() => setModalContextual(null)}
+          alGuardado={cargarCronograma}
+          alError={setError}
+        />
+
+        <GestorModalIniciativaRoadmap
+          abierto={modalContextual?.tipo === 'iniciativa'}
+          modo={modalContextual?.tipo === 'iniciativa' ? modalContextual.modo : 'ver'}
+          iniciativa={modalContextual?.tipo === 'iniciativa' ? modalContextual.entidad : null}
+          objetivos={objetivos}
+          ventanas={ventanas}
+          etapas={etapas}
+          configuracionRice={configuracionRice}
+          alCerrar={() => setModalContextual(null)}
+          alGuardado={cargarCronograma}
+          alError={setError}
+        />
+
+        <GestorModalEntregaRoadmap
+          abierto={modalContextual?.tipo === 'entrega'}
+          modo={modalContextual?.tipo === 'entrega' ? modalContextual.modo : 'ver'}
+          entrega={modalContextual?.tipo === 'entrega' ? modalContextual.entidad : null}
+          iniciativas={iniciativas}
+          ventanas={ventanas}
+          alCerrar={() => setModalContextual(null)}
+          alGuardado={cargarCronograma}
+          alError={setError}
+        />
       </section>
     </EstadoVista>
   )

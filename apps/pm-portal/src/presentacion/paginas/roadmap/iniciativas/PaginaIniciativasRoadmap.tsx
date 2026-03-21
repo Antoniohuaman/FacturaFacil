@@ -1,16 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
-import { iniciativaSchema, type IniciativaEntrada } from '@/compartido/validacion/esquemas'
 import {
-  construirLimitesFechasJerarquicas,
-  validarCampoFechaEnJerarquia,
-  validarJerarquiaFechas
-} from '@/compartido/validacion/roadmapJerarquiaFechas'
-import {
-  formatearAlcancePeriodoRice,
-  formatearEsfuerzoUnidadRice,
   type CatalogoEtapaPm,
   type CatalogoVentanaPm,
   type ConfiguracionRice,
@@ -23,9 +13,6 @@ import {
   type RelIniciativaKrPm
 } from '@/dominio/modelos'
 import {
-  crearIniciativa,
-  editarIniciativa,
-  eliminarIniciativa,
   listarIniciativas
 } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
@@ -37,40 +24,17 @@ import {
   listarHistoriasUsuario,
   listarRequerimientosNoFuncionales
 } from '@/aplicacion/casos-uso/requerimientos'
-import { ModalPortal } from '@/compartido/ui/ModalPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
 import { usePaginacion } from '../../../../compartido/utilidades/usePaginacion'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
-import { calcularRice } from '@/compartido/utilidades/calcularRice'
 import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
-
-type ModoModal = 'crear' | 'ver' | 'editar'
-
-const opcionesImpacto: IniciativaEntrada['impacto'][] = [0.25, 0.5, 1, 2, 3]
-
-function convertirNumeroControlado(valor: unknown, respaldo: number) {
-  const numero = typeof valor === 'number' ? valor : Number(valor)
-  return Number.isFinite(numero) ? numero : respaldo
-}
-
-function normalizarImpacto(valor: number | null | undefined): IniciativaEntrada['impacto'] {
-  const impacto = convertirNumeroControlado(valor, 1)
-
-  if (opcionesImpacto.includes(impacto as IniciativaEntrada['impacto'])) {
-    return impacto as IniciativaEntrada['impacto']
-  }
-
-  return opcionesImpacto.reduce((masCercano, opcionActual) => {
-    const distanciaActual = Math.abs(opcionActual - impacto)
-    const distanciaMasCercana = Math.abs(masCercano - impacto)
-
-    return distanciaActual < distanciaMasCercana ? opcionActual : masCercano
-  }, 1)
-}
+import { eliminarIniciativaRoadmapConConfirmacion } from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
+import { GestorModalIniciativaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalIniciativaRoadmap'
+import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 
 export function PaginaIniciativasRoadmap() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -100,74 +64,11 @@ export function PaginaIniciativasRoadmap() {
   const [filtroVentana, setFiltroVentana] = useState(searchParams.get('ventana') ?? 'todas')
   const [filtroEtapa, setFiltroEtapa] = useState(searchParams.get('etapa') ?? 'todas')
   const [modalAbierto, setModalAbierto] = useState(false)
-  const [modoModal, setModoModal] = useState<ModoModal>('crear')
+  const [modoModal, setModoModal] = useState<ModoModalRoadmap>('crear')
   const [iniciativaActiva, setIniciativaActiva] = useState<Iniciativa | null>(null)
   const [configuracionRice, setConfiguracionRice] = useState<ConfiguracionRice | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    reset,
-    setError: setErrorFormulario,
-    trigger,
-    formState: { errors, isSubmitting, isValid }
-  } = useForm<IniciativaEntrada>({
-    resolver: zodResolver(iniciativaSchema),
-    mode: 'onChange',
-    reValidateMode: 'onChange',
-    defaultValues: {
-      objetivo_id: null,
-      ventana_planificada_id: null,
-      etapa_id: null,
-      nombre: '',
-      descripcion: '',
-      alcance: 10,
-      impacto: 1,
-      confianza: 70,
-      esfuerzo: 1,
-      estado: 'pendiente',
-      prioridad: 'media',
-      fecha_inicio: null,
-      fecha_fin: null
-    }
-  })
-
   const esEdicionPermitida = puedeEditar(rol)
-
-  const alcance = watch('alcance')
-  const impacto = watch('impacto')
-  const confianza = watch('confianza')
-  const esfuerzo = watch('esfuerzo')
-  const objetivoSeleccionadoId = watch('objetivo_id')
-  const fechaInicioSeleccionada = watch('fecha_inicio')
-  const fechaFinSeleccionada = watch('fecha_fin')
-
-  const camposRiceValidos = useMemo(() => {
-    return (
-      Number.isInteger(alcance) &&
-      alcance >= 0 &&
-      opcionesImpacto.includes(impacto) &&
-      Number.isFinite(confianza) &&
-      confianza >= 0 &&
-      confianza <= 100 &&
-      Number.isFinite(esfuerzo) &&
-      esfuerzo >= 0.5
-    )
-  }, [alcance, impacto, confianza, esfuerzo])
-
-  const riceCalculado = useMemo(() => {
-    if (!camposRiceValidos) {
-      return null
-    }
-
-    return calcularRice({ alcance, impacto, confianza, esfuerzo })
-  }, [alcance, impacto, confianza, esfuerzo, camposRiceValidos])
-
-  const claseCampoNumero = (campo: 'alcance' | 'impacto' | 'confianza' | 'esfuerzo') =>
-    `mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm dark:bg-slate-800 ${
-      errors[campo] ? 'border-red-300 dark:border-red-800' : 'border-slate-300 dark:border-slate-700'
-    }`
 
   const cargarInformacion = async () => {
     setCargando(true)
@@ -321,10 +222,6 @@ export function PaginaIniciativasRoadmap() {
     return new Map(objetivos.map((objetivo) => [objetivo.id, objetivo.nombre]))
   }, [objetivos])
 
-  const objetivoEntidadPorId = useMemo(() => {
-    return new Map(objetivos.map((objetivo) => [objetivo.id, objetivo]))
-  }, [objetivos])
-
   const ventanaPorId = useMemo(() => {
     return new Map(ventanas.map((ventana) => [ventana.id, ventana.etiqueta_visible]))
   }, [ventanas])
@@ -354,53 +251,10 @@ export function PaginaIniciativasRoadmap() {
     )
   }, [relacionesHipotesisDiscovery])
 
-  const objetivoSeleccionado = objetivoSeleccionadoId ? objetivoEntidadPorId.get(objetivoSeleccionadoId) ?? null : null
-
-  const limitesFechasObjetivo = useMemo(() => {
-    return construirLimitesFechasJerarquicas(
-      {
-        fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
-        fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
-      },
-      fechaInicioSeleccionada
-    )
-  }, [objetivoSeleccionado, fechaInicioSeleccionada])
-
-  useEffect(() => {
-    if (!modalAbierto || modoModal === 'ver') {
-      return
-    }
-
-    void trigger(['fecha_inicio', 'fecha_fin'])
-  }, [modalAbierto, modoModal, objetivoSeleccionadoId, fechaInicioSeleccionada, fechaFinSeleccionada, trigger])
-
-  const helperAlcance = configuracionRice
-    ? `Impactados por ${formatearAlcancePeriodoRice(configuracionRice.alcance_periodo)}`
-    : 'Impactados (periodo)'
-
-  const helperEsfuerzo = configuracionRice
-    ? formatearEsfuerzoUnidadRice(configuracionRice.esfuerzo_unidad)
-    : 'Esfuerzo (unidad)'
-
-  const abrirModal = (modo: ModoModal, iniciativa?: Iniciativa) => {
+  const abrirModal = (modo: ModoModalRoadmap, iniciativa?: Iniciativa) => {
     setModoModal(modo)
     setIniciativaActiva(iniciativa ?? null)
     setModalAbierto(true)
-    reset({
-      objetivo_id: iniciativa?.objetivo_id ?? null,
-      ventana_planificada_id: iniciativa?.ventana_planificada_id ?? null,
-      etapa_id: iniciativa?.etapa_id ?? null,
-      nombre: iniciativa?.nombre ?? '',
-      descripcion: iniciativa?.descripcion ?? '',
-      alcance: iniciativa?.alcance ?? 10,
-      impacto: normalizarImpacto(iniciativa?.impacto),
-      confianza: iniciativa?.confianza ?? 70,
-      esfuerzo: iniciativa?.esfuerzo ?? 1,
-      estado: iniciativa?.estado ?? 'pendiente',
-      prioridad: iniciativa?.prioridad ?? 'media',
-      fecha_inicio: iniciativa?.fecha_inicio ?? null,
-      fecha_fin: iniciativa?.fecha_fin ?? null
-    })
   }
 
   return (
@@ -476,7 +330,10 @@ export function PaginaIniciativasRoadmap() {
                 { encabezado: 'Hipótesis discovery vinculadas', valor: (iniciativa) => hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0 },
                 { encabezado: 'Historias vinculadas', valor: (iniciativa) => historiasPorIniciativaMapa.get(iniciativa.id) ?? 0 },
                 { encabezado: 'Casos de uso vinculados', valor: (iniciativa) => casosUsoPorIniciativaMapa.get(iniciativa.id) ?? 0 },
-                { encabezado: 'RNF vinculados', valor: (iniciativa) => requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0 }
+                {
+                  encabezado: 'RNF vinculados',
+                  valor: (iniciativa) => requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0
+                }
               ], iniciativasFiltradas)
             }}
             aria-label="Exportar iniciativas a CSV"
@@ -624,22 +481,22 @@ export function PaginaIniciativasRoadmap() {
                     <p className="font-medium">{iniciativa.nombre}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">{iniciativa.descripcion}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis estrategia · {hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0} hipótesis discovery
+                      {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis estrategia ·{' '}
+                      {hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0} hipótesis discovery
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {historiasPorIniciativaMapa.get(iniciativa.id) ?? 0} historias · {casosUsoPorIniciativaMapa.get(iniciativa.id) ?? 0} casos de uso · {requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0} RNF
+                      {historiasPorIniciativaMapa.get(iniciativa.id) ?? 0} historias · {casosUsoPorIniciativaMapa.get(iniciativa.id) ?? 0} casos de uso ·{' '}
+                      {requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0} RNF
                     </p>
                   </td>
                   <td className="px-3 py-2">{objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}</td>
                   <td className="px-3 py-2">
                     <p className="text-xs">{ventanaPorId.get(iniciativa.ventana_planificada_id ?? '') ?? 'Sin asignar'}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {etapaPorId.get(iniciativa.etapa_id ?? '') ?? 'Sin asignar'}
-                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{etapaPorId.get(iniciativa.etapa_id ?? '') ?? 'Sin asignar'}</p>
                     {iniciativa.fecha_inicio ? (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {formatearFechaCorta(iniciativa.fecha_inicio)}
-                        {iniciativa.fecha_fin ? ` — ${formatearFechaCorta(iniciativa.fecha_fin)}` : ''}
+                        {iniciativa.fecha_fin ? ` - ${formatearFechaCorta(iniciativa.fecha_fin)}` : ''}
                       </p>
                     ) : null}
                   </td>
@@ -666,15 +523,7 @@ export function PaginaIniciativasRoadmap() {
                         type="button"
                         disabled={!esEdicionPermitida}
                         onClick={() => {
-                          if (window.confirm('¿Eliminar esta iniciativa?')) {
-                            void eliminarIniciativa(iniciativa.id).then(cargarInformacion).catch((errorInterno) => {
-                              setError(
-                                errorInterno instanceof Error
-                                  ? errorInterno.message
-                                  : 'No se pudo eliminar la iniciativa'
-                              )
-                            })
-                          }
+                          void eliminarIniciativaRoadmapConConfirmacion(iniciativa.id, cargarInformacion, setError)
                         }}
                         className="rounded border border-red-300 px-2 py-1 text-xs text-red-600 disabled:opacity-50 dark:border-red-800 dark:text-red-300"
                       >
@@ -699,339 +548,18 @@ export function PaginaIniciativasRoadmap() {
         />
       </EstadoVista>
 
-      <ModalPortal
+      <GestorModalIniciativaRoadmap
         abierto={modalAbierto}
-        titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} iniciativa`}
+        modo={modoModal}
+        iniciativa={iniciativaActiva}
+        objetivos={objetivos}
+        ventanas={ventanas}
+        etapas={etapas}
+        configuracionRice={configuracionRice}
         alCerrar={() => setModalAbierto(false)}
-      >
-        <form
-          noValidate
-          className="space-y-4"
-          onSubmit={handleSubmit(async (valores) => {
-            if (modoModal === 'ver') {
-              return
-            }
-
-            try {
-              const erroresJerarquicos = validarJerarquiaFechas(
-                {
-                  fecha_inicio: valores.fecha_inicio,
-                  fecha_fin: valores.fecha_fin
-                },
-                {
-                  fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
-                  fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
-                },
-                'objetivo'
-              )
-
-              if (erroresJerarquicos.length > 0) {
-                for (const errorJerarquico of erroresJerarquicos) {
-                  setErrorFormulario(errorJerarquico.campo, { type: 'validate', message: errorJerarquico.mensaje })
-                }
-
-                return
-              }
-
-              const carga = {
-                ...valores,
-                objetivo_id: valores.objetivo_id || null,
-                ventana_planificada_id: valores.ventana_planificada_id || null,
-                etapa_id: valores.etapa_id || null,
-                fecha_inicio: valores.fecha_inicio || null,
-                fecha_fin: valores.fecha_fin || null
-              }
-
-              if (modoModal === 'crear') {
-                await crearIniciativa(carga)
-              }
-
-              if (modoModal === 'editar' && iniciativaActiva) {
-                await editarIniciativa(iniciativaActiva.id, carga)
-              }
-
-              setModalAbierto(false)
-              await cargarInformacion()
-            } catch (errorInterno) {
-              setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar la iniciativa')
-            }
-          })}
-        >
-          <div>
-            <label className="text-sm font-medium">Objetivo</label>
-            <select
-              {...register('objetivo_id')}
-              disabled={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value="">Sin objetivo</option>
-              {objetivos.map((objetivo) => (
-                <option key={objetivo.id} value={objetivo.id}>
-                  {objetivo.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Ventana planificada</label>
-              <select
-                {...register('ventana_planificada_id')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                <option value="">Sin asignar</option>
-                {ventanas.map((ventana) => (
-                  <option key={ventana.id} value={ventana.id}>
-                    {ventana.etiqueta_visible}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Etapa</label>
-              <select
-                {...register('etapa_id')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                <option value="">Sin asignar</option>
-                {etapas.map((etapa) => (
-                  <option key={etapa.id} value={etapa.id}>
-                    {etapa.etiqueta_visible}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Nombre</label>
-            <input
-              {...register('nombre')}
-              readOnly={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.nombre ? <p className="text-xs text-red-500">{errors.nombre.message}</p> : null}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Descripción</label>
-            <textarea
-              {...register('descripcion')}
-              readOnly={modoModal === 'ver'}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
-            {errors.descripcion ? <p className="text-xs text-red-500">{errors.descripcion.message}</p> : null}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
-            <div>
-              <label className="text-sm font-medium">Alcance</label>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                {...register('alcance', {
-                  setValueAs: (valor) => {
-                    if (valor === '' || valor === null || valor === undefined) {
-                      return Number.NaN
-                    }
-
-                    return Number(valor)
-                  }
-                })}
-                readOnly={modoModal === 'ver'}
-                className={claseCampoNumero('alcance')}
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{helperAlcance}</p>
-              {errors.alcance ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.alcance.message}</p> : null}
-            </div>
-            <div>
-              <label className="text-sm font-medium">Impacto</label>
-              <select
-                {...register('impacto', {
-                  setValueAs: (valor) => Number(valor)
-                })}
-                disabled={modoModal === 'ver'}
-                className={claseCampoNumero('impacto')}
-              >
-                {opcionesImpacto.map((impactoOpcion) => (
-                  <option key={impactoOpcion} value={impactoOpcion}>
-                    {impactoOpcion === 0.25
-                      ? '0.25 (muy bajo)'
-                      : impactoOpcion === 0.5
-                        ? '0.5 (bajo)'
-                        : impactoOpcion === 1
-                          ? '1 (medio)'
-                          : impactoOpcion === 2
-                            ? '2 (alto)'
-                            : '3 (muy alto)'}
-                  </option>
-                ))}
-              </select>
-              {errors.impacto ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.impacto.message}</p> : null}
-            </div>
-            <div>
-              <label className="text-sm font-medium">Confianza</label>
-              <div className="relative mt-1">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  {...register('confianza', {
-                    setValueAs: (valor) => {
-                      if (valor === '' || valor === null || valor === undefined) {
-                        return Number.NaN
-                      }
-
-                      return Number(valor)
-                    }
-                  })}
-                  readOnly={modoModal === 'ver'}
-                  className={`${claseCampoNumero('confianza')} pr-8`}
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500 dark:text-slate-400">
-                  %
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">0–100%</p>
-              {errors.confianza ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.confianza.message}</p> : null}
-            </div>
-            <div>
-              <label className="text-sm font-medium">Esfuerzo</label>
-              <input
-                type="number"
-                min={0.5}
-                step={0.5}
-                {...register('esfuerzo', {
-                  setValueAs: (valor) => {
-                    if (valor === '' || valor === null || valor === undefined) {
-                      return Number.NaN
-                    }
-
-                    return Number(valor)
-                  }
-                })}
-                readOnly={modoModal === 'ver'}
-                className={claseCampoNumero('esfuerzo')}
-              />
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{helperEsfuerzo}</p>
-              {errors.esfuerzo ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.esfuerzo.message}</p> : null}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
-            {riceCalculado === null ? (
-              <>
-                RICE: <span className="font-semibold">inválido</span>. Corrige los campos para ver el RICE.
-              </>
-            ) : (
-              <>
-                RICE calculado automáticamente: <span className="font-semibold">{riceCalculado}</span>
-              </>
-            )}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Estado</label>
-              <select
-                {...register('estado')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {estadosRegistro.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {estado}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Prioridad</label>
-              <select
-                {...register('prioridad')}
-                disabled={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                {prioridadesRegistro.map((prioridad) => (
-                  <option key={prioridad} value={prioridad}>
-                    {prioridad}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="text-sm font-medium">Fecha inicio</label>
-              <input
-                type="date"
-                min={limitesFechasObjetivo.minFechaInicio}
-                max={limitesFechasObjetivo.maxFechaInicio}
-                {...register('fecha_inicio', {
-                  validate: (valor) =>
-                    validarCampoFechaEnJerarquia(
-                      'fecha_inicio',
-                      valor,
-                      {
-                        fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
-                        fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
-                      },
-                      'objetivo'
-                    )
-                })}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
-              {errors.fecha_inicio ? (
-                <p className="mt-1 text-xs text-red-500">{errors.fecha_inicio.message}</p>
-              ) : (
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Opcional</p>
-              )}
-            </div>
-            <div>
-              <label className="text-sm font-medium">Fecha fin</label>
-              <input
-                type="date"
-                min={limitesFechasObjetivo.minFechaFin}
-                max={limitesFechasObjetivo.maxFechaFin}
-                {...register('fecha_fin', {
-                  validate: (valor) =>
-                    validarCampoFechaEnJerarquia(
-                      'fecha_fin',
-                      valor,
-                      {
-                        fecha_inicio: objetivoSeleccionado?.fecha_inicio ?? null,
-                        fecha_fin: objetivoSeleccionado?.fecha_fin ?? null
-                      },
-                      'objetivo'
-                    )
-                })}
-                readOnly={modoModal === 'ver'}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
-              {errors.fecha_fin ? (
-                <p className="mt-1 text-xs text-red-500">{errors.fecha_fin.message}</p>
-              ) : null}
-            </div>
-          </div>
-
-          {modoModal !== 'ver' ? (
-            <button
-              type="submit"
-              disabled={isSubmitting || !isValid}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-70 dark:bg-slate-200 dark:text-slate-900"
-            >
-              {isSubmitting ? 'Guardando...' : 'Guardar'}
-            </button>
-          ) : null}
-        </form>
-      </ModalPortal>
+        alGuardado={cargarInformacion}
+        alError={setError}
+      />
     </section>
   )
 }
