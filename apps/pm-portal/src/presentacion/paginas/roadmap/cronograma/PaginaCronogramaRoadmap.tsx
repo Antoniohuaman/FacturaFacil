@@ -40,6 +40,7 @@ import { GestorModalObjetivoRoadmap } from '@/presentacion/paginas/roadmap/compo
 import { MenuCrearRoadmapGlobal } from '@/presentacion/paginas/roadmap/componentes/MenuCrearRoadmapGlobal'
 import { MenuContextualFilaRoadmap } from '@/presentacion/paginas/roadmap/componentes/MenuContextualFilaRoadmap'
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
+import { ControlTemporalCronograma } from '@/presentacion/paginas/roadmap/cronograma/ControlTemporalCronograma'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 
 type VistaTemporal = 'anio' | 'trimestre'
@@ -104,6 +105,7 @@ const CLAVE_ANCHO_COLUMNA_JERARQUIA = 'pm-portal-roadmap-cronograma-ancho-jerarq
 const CLAVE_OBJETIVOS_EXPANDIDOS = 'pm-portal-roadmap-cronograma-objetivos-expandidos'
 const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-expandidas'
 const CLAVE_RESUMEN_VISIBLE = 'pm-portal-roadmap-cronograma-resumen-visible'
+const CLAVE_PREFERENCIAS_TEMPORALES = 'pm-portal-roadmap-cronograma-preferencias-temporales'
 const ALTURA_MINIMA_FILA_CRONOGRAMA = 48
 const INDENTACION_POR_NIVEL_CRONOGRAMA = 14
 const ANCHO_MARCADOR_JERARQUIA = 22
@@ -310,6 +312,38 @@ function normalizarNumero(valor: string | null, respaldo: number) {
 function normalizarTrimestre(valor: string | null) {
   const trimestre = Number(valor)
   return trimestre >= 1 && trimestre <= 4 ? trimestre : 1
+}
+
+function leerPreferenciasTemporalesPersistidas() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const guardado = window.localStorage.getItem(CLAVE_PREFERENCIAS_TEMPORALES)
+    if (!guardado) {
+      return null
+    }
+
+    const preferencias = JSON.parse(guardado) as {
+      vista?: string
+      anio?: number | string
+      trimestre?: number | string
+    }
+
+    return {
+      vistaTemporal: normalizarVistaTemporal(preferencias.vista ?? null),
+      anioSeleccionado: normalizarNumero(
+        preferencias.anio === undefined ? null : String(preferencias.anio),
+        new Date().getFullYear()
+      ),
+      trimestreSeleccionado: normalizarTrimestre(
+        preferencias.trimestre === undefined ? null : String(preferencias.trimestre)
+      )
+    }
+  } catch {
+    return null
+  }
 }
 
 function parsearFechaPortal(fecha: string | null | undefined) {
@@ -675,6 +709,13 @@ export function PaginaCronogramaRoadmap() {
     return fecha
   }, [])
   const [searchParams, setSearchParams] = useSearchParams()
+  const preferenciasTemporalesPersistidas = useMemo(() => {
+    const tieneParametrosTemporales = Boolean(
+      searchParams.get('vista') || searchParams.get('anio') || searchParams.get('trimestre')
+    )
+
+    return tieneParametrosTemporales ? null : leerPreferenciasTemporalesPersistidas()
+  }, [searchParams])
   const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
   const [entregas, setEntregas] = useState<Entrega[]>([])
@@ -684,9 +725,15 @@ export function PaginaCronogramaRoadmap() {
   const [configuracionRice, setConfiguracionRice] = useState<ConfiguracionRice | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [vistaTemporal, setVistaTemporal] = useState<VistaTemporal>(() => normalizarVistaTemporal(searchParams.get('vista')))
-  const [anioSeleccionado, setAnioSeleccionado] = useState(() => normalizarNumero(searchParams.get('anio'), new Date().getFullYear()))
-  const [trimestreSeleccionado, setTrimestreSeleccionado] = useState(() => normalizarTrimestre(searchParams.get('trimestre')))
+  const [vistaTemporal, setVistaTemporal] = useState<VistaTemporal>(() => {
+    return preferenciasTemporalesPersistidas?.vistaTemporal ?? normalizarVistaTemporal(searchParams.get('vista'))
+  })
+  const [anioSeleccionado, setAnioSeleccionado] = useState(() => {
+    return preferenciasTemporalesPersistidas?.anioSeleccionado ?? normalizarNumero(searchParams.get('anio'), new Date().getFullYear())
+  })
+  const [trimestreSeleccionado, setTrimestreSeleccionado] = useState(() => {
+    return preferenciasTemporalesPersistidas?.trimestreSeleccionado ?? normalizarTrimestre(searchParams.get('trimestre'))
+  })
   const [filtroObjetivo, setFiltroObjetivo] = useState(() => searchParams.get('objetivo') ?? 'todos')
   const [filtroEstado, setFiltroEstado] = useState<'todos' | EstadoRegistro>(() => {
     const valor = searchParams.get('estado')
@@ -731,13 +778,7 @@ export function PaginaCronogramaRoadmap() {
   })
   const [redimensionandoJerarquia, setRedimensionandoJerarquia] = useState(false)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(() => {
-    return Boolean(
-      searchParams.get('objetivo') ||
-        searchParams.get('estado') ||
-        searchParams.get('ventana') ||
-        searchParams.get('trimestre') ||
-        searchParams.get('vista') === 'trimestre'
-    )
+    return Boolean(searchParams.get('objetivo') || searchParams.get('estado') || searchParams.get('ventana'))
   })
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null)
   const encabezadoTimelineRef = useRef<HTMLDivElement | null>(null)
@@ -937,6 +978,21 @@ export function PaginaCronogramaRoadmap() {
 
     window.localStorage.setItem(CLAVE_RESUMEN_VISIBLE, String(resumenVisible))
   }, [resumenVisible])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(
+      CLAVE_PREFERENCIAS_TEMPORALES,
+      JSON.stringify({
+        vista: vistaTemporal,
+        anio: anioSeleccionado,
+        trimestre: trimestreSeleccionado
+      })
+    )
+  }, [anioSeleccionado, trimestreSeleccionado, vistaTemporal])
 
   useEffect(() => {
     if (!redimensionandoJerarquia) {
@@ -1331,10 +1387,6 @@ export function PaginaCronogramaRoadmap() {
   const filtrosActivos = useMemo(() => {
     let total = 0
 
-    if (vistaTemporal === 'trimestre') {
-      total += 1
-    }
-
     if (filtroObjetivo !== 'todos') {
       total += 1
     }
@@ -1348,12 +1400,10 @@ export function PaginaCronogramaRoadmap() {
     }
 
     return total
-  }, [filtroEstado, filtroObjetivo, filtroVentana, vistaTemporal])
+  }, [filtroEstado, filtroObjetivo, filtroVentana])
 
   const resumenControles = useMemo(() => {
-    const items = [`${anioSeleccionado}`]
-
-    items.push(vistaTemporal === 'trimestre' ? `T${trimestreSeleccionado}` : 'Vista anual')
+    const items: string[] = []
 
     if (filtroObjetivo !== 'todos') {
       items.push('Objetivo filtrado')
@@ -1368,7 +1418,7 @@ export function PaginaCronogramaRoadmap() {
     }
 
     return items
-  }, [anioSeleccionado, filtroEstado, filtroObjetivo, filtroVentana, trimestreSeleccionado, vistaTemporal, ventanasPorId])
+  }, [filtroEstado, filtroObjetivo, filtroVentana, ventanasPorId])
 
   const filasCronograma = useMemo(() => {
     const filas: FilaCronograma[] = []
@@ -1659,9 +1709,6 @@ export function PaginaCronogramaRoadmap() {
   }
 
   const limpiarFiltros = () => {
-    setVistaTemporal('anio')
-    setAnioSeleccionado(new Date().getFullYear())
-    setTrimestreSeleccionado(1)
     setFiltroObjetivo('todos')
     setFiltroEstado('todos')
     setFiltroVentana('todas')
@@ -1808,16 +1855,18 @@ export function PaginaCronogramaRoadmap() {
 
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {resumenControles.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
+              {resumenControles.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {resumenControles.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -1869,33 +1918,7 @@ export function PaginaCronogramaRoadmap() {
 
           {filtrosAbiertos ? (
             <div id="panel-filtros-cronograma-roadmap" className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-800">
-              <div className="grid gap-3 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Vista temporal</span>
-                  <select
-                    value={vistaTemporal}
-                    onChange={(evento) => setVistaTemporal(evento.target.value === 'trimestre' ? 'trimestre' : 'anio')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-                  >
-                    <option value="anio">Año</option>
-                    <option value="trimestre">Trimestre</option>
-                  </select>
-                </label>
-
-                <label className="space-y-1 text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Año</span>
-                  <select
-                    value={anioSeleccionado}
-                    onChange={(evento) => setAnioSeleccionado(Number(evento.target.value))}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-                  >
-                    {aniosDisponibles.map((anio) => (
-                      <option key={anio} value={anio}>
-                        {anio}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="grid gap-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]">
 
                 <label className="space-y-1 text-sm">
                   <span className="text-slate-500 dark:text-slate-400">Objetivo</span>
@@ -1953,24 +1976,6 @@ export function PaginaCronogramaRoadmap() {
                   </button>
                 </div>
               </div>
-
-              {vistaTemporal === 'trimestre' ? (
-                <div className="mt-3">
-                  <label className="space-y-1 text-sm">
-                    <span className="text-slate-500 dark:text-slate-400">Trimestre</span>
-                    <select
-                      value={trimestreSeleccionado}
-                      onChange={(evento) => setTrimestreSeleccionado(Number(evento.target.value))}
-                      className="w-36 rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-800"
-                    >
-                      <option value={1}>T1</option>
-                      <option value={2}>T2</option>
-                      <option value={3}>T3</option>
-                      <option value={4}>T4</option>
-                    </select>
-                  </label>
-                </div>
-              ) : null}
             </div>
           ) : null}
         </section>
@@ -2295,20 +2300,32 @@ export function PaginaCronogramaRoadmap() {
             </div>
           )}
 
-          <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-800/60">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[4px] w-6 rounded-full bg-slate-300/80 ring-1 ring-inset ring-slate-400/30 dark:bg-slate-600/70" />
-                Objetivo
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[10px] w-6 rounded-full bg-cyan-500/80 dark:bg-cyan-400/75" />
-                Iniciativa plan
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-[6px] w-6 rounded-full bg-amber-400/85 dark:bg-amber-300/80" />
-                Entrega plan
-              </span>
+          <div className="relative border-t border-slate-100 px-4 py-2 dark:border-slate-800/60">
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-[4px] w-6 rounded-full bg-slate-300/80 ring-1 ring-inset ring-slate-400/30 dark:bg-slate-600/70" />
+                  Objetivo
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-[10px] w-6 rounded-full bg-cyan-500/80 dark:bg-cyan-400/75" />
+                  Iniciativa plan
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-[6px] w-6 rounded-full bg-amber-400/85 dark:bg-amber-300/80" />
+                  Entrega plan
+                </span>
+              </div>
+
+              <ControlTemporalCronograma
+                vistaTemporal={vistaTemporal}
+                anioSeleccionado={anioSeleccionado}
+                trimestreSeleccionado={trimestreSeleccionado}
+                aniosDisponibles={aniosDisponibles}
+                alCambiarVistaTemporal={setVistaTemporal}
+                alCambiarAnio={setAnioSeleccionado}
+                alCambiarTrimestre={setTrimestreSeleccionado}
+              />
             </div>
           </div>
         </section>
