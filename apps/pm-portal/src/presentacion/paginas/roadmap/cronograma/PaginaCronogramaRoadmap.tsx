@@ -36,6 +36,7 @@ import {
 import { GestorModalEntregaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalEntregaRoadmap'
 import { GestorModalIniciativaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalIniciativaRoadmap'
 import { GestorModalObjetivoRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalObjetivoRoadmap'
+import { MenuCrearRoadmapGlobal } from '@/presentacion/paginas/roadmap/componentes/MenuCrearRoadmapGlobal'
 import { MenuContextualFilaRoadmap } from '@/presentacion/paginas/roadmap/componentes/MenuContextualFilaRoadmap'
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
@@ -87,9 +88,9 @@ interface RangoTemporalCronograma extends RangoCronogramaBase {
 }
 
 type ModalContextualCronograma =
-  | { tipo: 'objetivo'; modo: ModoModalRoadmap; entidad: Objetivo }
-  | { tipo: 'iniciativa'; modo: ModoModalRoadmap; entidad: Iniciativa }
-  | { tipo: 'entrega'; modo: ModoModalRoadmap; entidad: Entrega }
+  | { tipo: 'objetivo'; modo: ModoModalRoadmap; entidad: Objetivo | null }
+  | { tipo: 'iniciativa'; modo: ModoModalRoadmap; entidad: Iniciativa | null }
+  | { tipo: 'entrega'; modo: ModoModalRoadmap; entidad: Entrega | null }
   | null
 
 const FILA_SIN_OBJETIVO = '__sin_objetivo__'
@@ -713,6 +714,7 @@ export function PaginaCronogramaRoadmap() {
   const [alturasFilas, setAlturasFilas] = useState<number[]>([])
   const [filaActiva, setFilaActiva] = useState<string | null>(null)
   const [menuAbiertoFilaId, setMenuAbiertoFilaId] = useState<string | null>(null)
+  const [menuCrearAbierto, setMenuCrearAbierto] = useState(false)
   const [modalContextual, setModalContextual] = useState<ModalContextualCronograma>(null)
 
   const esEdicionPermitida = puedeEditar(rol)
@@ -1446,6 +1448,8 @@ export function PaginaCronogramaRoadmap() {
   }
 
   const abrirModalDesdeFila = (fila: FilaCronograma, modo: ModoModalRoadmap) => {
+    setMenuCrearAbierto(false)
+
     if (fila.tipo === 'objetivo') {
       const objetivo = objetivosRealesPorId.get(fila.id)
       if (objetivo) {
@@ -1466,6 +1470,22 @@ export function PaginaCronogramaRoadmap() {
     if (entrega) {
       setModalContextual({ tipo: 'entrega', modo, entidad: entrega })
     }
+  }
+
+  const abrirCreacionGlobal = (tipo: 'objetivo' | 'iniciativa' | 'entrega') => {
+    setMenuAbiertoFilaId(null)
+
+    if (tipo === 'objetivo') {
+      setModalContextual({ tipo: 'objetivo', modo: 'crear', entidad: null })
+      return
+    }
+
+    if (tipo === 'iniciativa') {
+      setModalContextual({ tipo: 'iniciativa', modo: 'crear', entidad: null })
+      return
+    }
+
+    setModalContextual({ tipo: 'entrega', modo: 'crear', entidad: null })
   }
 
   const eliminarDesdeFila = async (fila: FilaCronograma) => {
@@ -1523,6 +1543,20 @@ export function PaginaCronogramaRoadmap() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {esEdicionPermitida ? (
+                <MenuCrearRoadmapGlobal
+                  abierto={menuCrearAbierto}
+                  alAlternar={() => {
+                    setMenuAbiertoFilaId(null)
+                    setMenuCrearAbierto((actual) => !actual)
+                  }}
+                  alCerrar={() => setMenuCrearAbierto(false)}
+                  alCrearObjetivo={() => abrirCreacionGlobal('objetivo')}
+                  alCrearIniciativa={() => abrirCreacionGlobal('iniciativa')}
+                  alCrearEntrega={() => abrirCreacionGlobal('entrega')}
+                />
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => setResumenVisible((actual) => !actual)}
@@ -1841,9 +1875,12 @@ export function PaginaCronogramaRoadmap() {
                                     abierto={menuAbiertoFilaId === claveVisualFila}
                                     puedeEditar={esEdicionPermitida}
                                     alAlternar={() =>
-                                      setMenuAbiertoFilaId((actual) =>
-                                        actual === claveVisualFila ? null : claveVisualFila
-                                      )
+                                      {
+                                        setMenuCrearAbierto(false)
+                                        setMenuAbiertoFilaId((actual) =>
+                                          actual === claveVisualFila ? null : claveVisualFila
+                                        )
+                                      }
                                     }
                                     alCerrar={() => setMenuAbiertoFilaId((actual) => (actual === claveVisualFila ? null : actual))}
                                     alVer={() => abrirModalDesdeFila(fila, 'ver')}
