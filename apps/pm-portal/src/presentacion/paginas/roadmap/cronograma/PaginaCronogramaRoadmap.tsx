@@ -1,4 +1,5 @@
 import {
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -247,6 +248,21 @@ function IconoFiltros({ abierto }: { abierto: boolean }) {
     </svg>
   )
 }
+  function normalizarTextoBusqueda(valor: string) {
+    return valor
+      .trim()
+      .toLocaleLowerCase('es-PE')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+  }
+
+  function coincideTextoBusqueda(texto: string, termino: string) {
+    if (!termino) {
+      return true
+    }
+
+    return normalizarTextoBusqueda(texto).includes(termino)
+  }
 
 function IconoResumen() {
   return (
@@ -256,6 +272,23 @@ function IconoResumen() {
     </svg>
   )
 }
+
+  function IconoBusqueda() {
+    return (
+      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
+        <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    )
+  }
+
+  function IconoCerrarBusqueda() {
+    return (
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="h-3.5 w-3.5">
+        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    )
+  }
 
 function IconoChevron({ abierto }: { abierto: boolean }) {
   return (
@@ -660,6 +693,7 @@ export function PaginaCronogramaRoadmap() {
     return valor === 'pendiente' || valor === 'en_progreso' || valor === 'completado' ? valor : 'todos'
   })
   const [filtroVentana, setFiltroVentana] = useState(() => searchParams.get('ventana') ?? 'todas')
+  const [busquedaCronograma, setBusquedaCronograma] = useState('')
   const [anchoColumnaJerarquia, setAnchoColumnaJerarquia] = useState(() => {
     if (typeof window === 'undefined') {
       return ANCHO_COLUMNA_JERARQUIA_POR_DEFECTO
@@ -716,8 +750,14 @@ export function PaginaCronogramaRoadmap() {
   const [menuAbiertoFilaId, setMenuAbiertoFilaId] = useState<string | null>(null)
   const [menuCrearAbierto, setMenuCrearAbierto] = useState(false)
   const [modalContextual, setModalContextual] = useState<ModalContextualCronograma>(null)
+  const busquedaCronogramaDiferida = useDeferredValue(busquedaCronograma)
 
   const esEdicionPermitida = puedeEditar(rol)
+  const terminoBusquedaCronograma = useMemo(
+    () => normalizarTextoBusqueda(busquedaCronogramaDiferida),
+    [busquedaCronogramaDiferida]
+  )
+  const hayBusquedaCronogramaActiva = terminoBusquedaCronograma.length > 0
 
   const cargarCronograma = async () => {
     setCargando(true)
@@ -1049,12 +1089,212 @@ export function PaginaCronogramaRoadmap() {
     return base
   }, [filtroObjetivo, iniciativasVisibles, objetivos, rangoTemporal.fin, rangoTemporal.inicio])
 
+  const iniciativasPorObjetivoVisible = useMemo(() => {
+    return iniciativasVisibles.reduce((mapa, iniciativa) => {
+      const claveObjetivo = iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO
+      const actuales = mapa.get(claveObjetivo) ?? []
+      mapa.set(claveObjetivo, [...actuales, iniciativa])
+      return mapa
+    }, new Map<string, Iniciativa[]>())
+  }, [iniciativasVisibles])
+
+  const entregasPorIniciativaVisible = useMemo(() => {
+    return entregasFiltradas.reduce((mapa, entrega) => {
+      if (!entrega.iniciativa_id) {
+        return mapa
+      }
+
+      const actuales = mapa.get(entrega.iniciativa_id) ?? []
+      mapa.set(entrega.iniciativa_id, [...actuales, entrega])
+      return mapa
+    }, new Map<string, Entrega[]>())
+  }, [entregasFiltradas])
+
+  const entregasSinIniciativaPorObjetivo = useMemo(() => {
+    return entregasFiltradas.reduce((mapa, entrega) => {
+      if (entrega.iniciativa_id) {
+        return mapa
+      }
+
+      const actuales = mapa.get(FILA_SIN_OBJETIVO) ?? []
+      mapa.set(FILA_SIN_OBJETIVO, [...actuales, entrega])
+      return mapa
+    }, new Map<string, Entrega[]>())
+  }, [entregasFiltradas])
+
+  const resultadoBusquedaCronograma = useMemo(() => {
+    if (!hayBusquedaCronogramaActiva) {
+      return null
+    }
+
+    const objetivosResultado = new Set<string>()
+    const iniciativasResultado = new Set<string>()
+    const entregasResultado = new Set<string>()
+    const objetivosExpandidosBusqueda = new Set<string>()
+    const iniciativasExpandidasBusqueda = new Set<string>()
+
+    const incluirSubarbolObjetivo = (objetivoId: string) => {
+      objetivosResultado.add(objetivoId)
+
+      const iniciativasHijas = iniciativasPorObjetivoVisible.get(objetivoId) ?? []
+      const entregasSinIniciativa = entregasSinIniciativaPorObjetivo.get(objetivoId) ?? []
+
+      if (iniciativasHijas.length > 0 || entregasSinIniciativa.length > 0) {
+        objetivosExpandidosBusqueda.add(objetivoId)
+      }
+
+      iniciativasHijas.forEach((iniciativa) => {
+        iniciativasResultado.add(iniciativa.id)
+
+        const entregasHijas = entregasPorIniciativaVisible.get(iniciativa.id) ?? []
+        if (entregasHijas.length > 0) {
+          iniciativasExpandidasBusqueda.add(iniciativa.id)
+        }
+
+        entregasHijas.forEach((entrega) => {
+          entregasResultado.add(entrega.id)
+        })
+      })
+
+      if (entregasSinIniciativa.length > 0) {
+        iniciativasExpandidasBusqueda.add(`${objetivoId}-${FILA_SIN_INICIATIVA}`)
+        entregasSinIniciativa.forEach((entrega) => {
+          entregasResultado.add(entrega.id)
+        })
+      }
+    }
+
+    objetivosVisibles.forEach((objetivo) => {
+      if (coincideTextoBusqueda(objetivo.nombre, terminoBusquedaCronograma)) {
+        incluirSubarbolObjetivo(objetivo.id)
+      }
+    })
+
+    iniciativasVisibles.forEach((iniciativa) => {
+      if (!coincideTextoBusqueda(iniciativa.nombre, terminoBusquedaCronograma)) {
+        return
+      }
+
+      const objetivoId = iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO
+      objetivosResultado.add(objetivoId)
+      objetivosExpandidosBusqueda.add(objetivoId)
+      iniciativasResultado.add(iniciativa.id)
+
+      const entregasHijas = entregasPorIniciativaVisible.get(iniciativa.id) ?? []
+      if (entregasHijas.length > 0) {
+        iniciativasExpandidasBusqueda.add(iniciativa.id)
+      }
+
+      entregasHijas.forEach((entrega) => {
+        entregasResultado.add(entrega.id)
+      })
+    })
+
+    entregasFiltradas.forEach((entrega) => {
+      if (!coincideTextoBusqueda(entrega.nombre, terminoBusquedaCronograma)) {
+        return
+      }
+
+      entregasResultado.add(entrega.id)
+
+      if (entrega.iniciativa_id) {
+        const iniciativa = iniciativasPorId.get(entrega.iniciativa_id)
+        const objetivoId = iniciativa?.objetivo_id ?? FILA_SIN_OBJETIVO
+
+        iniciativasResultado.add(entrega.iniciativa_id)
+        iniciativasExpandidasBusqueda.add(entrega.iniciativa_id)
+        objetivosResultado.add(objetivoId)
+        objetivosExpandidosBusqueda.add(objetivoId)
+        return
+      }
+
+      objetivosResultado.add(FILA_SIN_OBJETIVO)
+      objetivosExpandidosBusqueda.add(FILA_SIN_OBJETIVO)
+      iniciativasExpandidasBusqueda.add(`${FILA_SIN_OBJETIVO}-${FILA_SIN_INICIATIVA}`)
+    })
+
+    if (coincideTextoBusqueda('Sin iniciativa asignada', terminoBusquedaCronograma)) {
+      entregasSinIniciativaPorObjetivo.forEach((entregasSinIniciativa, objetivoId) => {
+        if (entregasSinIniciativa.length === 0) {
+          return
+        }
+
+        objetivosResultado.add(objetivoId)
+        objetivosExpandidosBusqueda.add(objetivoId)
+        iniciativasExpandidasBusqueda.add(`${objetivoId}-${FILA_SIN_INICIATIVA}`)
+
+        entregasSinIniciativa.forEach((entrega) => {
+          entregasResultado.add(entrega.id)
+        })
+      })
+    }
+
+    return {
+      objetivosResultado,
+      iniciativasResultado,
+      entregasResultado,
+      objetivosExpandidosBusqueda,
+      iniciativasExpandidasBusqueda
+    }
+  }, [
+    entregasFiltradas,
+    entregasPorIniciativaVisible,
+    entregasSinIniciativaPorObjetivo,
+    hayBusquedaCronogramaActiva,
+    iniciativasPorId,
+    iniciativasPorObjetivoVisible,
+    iniciativasVisibles,
+    objetivosVisibles,
+    terminoBusquedaCronograma
+  ])
+
+  const objetivosCronograma = useMemo(() => {
+    if (!resultadoBusquedaCronograma) {
+      return objetivosVisibles
+    }
+
+    return objetivosVisibles.filter((objetivo) => resultadoBusquedaCronograma.objetivosResultado.has(objetivo.id))
+  }, [objetivosVisibles, resultadoBusquedaCronograma])
+
+  const iniciativasCronograma = useMemo(() => {
+    if (!resultadoBusquedaCronograma) {
+      return iniciativasVisibles
+    }
+
+    return iniciativasVisibles.filter((iniciativa) => resultadoBusquedaCronograma.iniciativasResultado.has(iniciativa.id))
+  }, [iniciativasVisibles, resultadoBusquedaCronograma])
+
+  const entregasCronograma = useMemo(() => {
+    if (!resultadoBusquedaCronograma) {
+      return entregasFiltradas
+    }
+
+    return entregasFiltradas.filter((entrega) => resultadoBusquedaCronograma.entregasResultado.has(entrega.id))
+  }, [entregasFiltradas, resultadoBusquedaCronograma])
+
+  const objetivosExpandidosEfectivos = useMemo(() => {
+    if (!resultadoBusquedaCronograma) {
+      return objetivosExpandidos
+    }
+
+    return [...resultadoBusquedaCronograma.objetivosExpandidosBusqueda]
+  }, [objetivosExpandidos, resultadoBusquedaCronograma])
+
+  const iniciativasExpandidasEfectivas = useMemo(() => {
+    if (!resultadoBusquedaCronograma) {
+      return iniciativasExpandidas
+    }
+
+    return [...resultadoBusquedaCronograma.iniciativasExpandidasBusqueda]
+  }, [iniciativasExpandidas, resultadoBusquedaCronograma])
+
   useEffect(() => {
     // Auto-expansión inicial: si no hay nada restaurado del localStorage, expandir objetivos con hijos
     if (!ejecutivoInicializadoRef.current && objetivosVisibles.length > 0) {
       const conHijos = objetivosVisibles
         .filter((objetivo) =>
-          iniciativasVisibles.some((iniciativa) => (iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id)
+          iniciativasVisibles.some((iniciativa) => (iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id) ||
+          entregasFiltradas.some((entrega) => !entrega.iniciativa_id && objetivo.id === FILA_SIN_OBJETIVO)
         )
         .map((objetivo) => objetivo.id)
 
@@ -1064,12 +1304,12 @@ export function PaginaCronogramaRoadmap() {
 
       ejecutivoInicializadoRef.current = true
     }
-  }, [iniciativasVisibles, objetivosVisibles])
+  }, [entregasFiltradas, iniciativasVisibles, objetivosVisibles])
 
   const kpis = useMemo(() => {
-    const objetivosActivos = objetivosVisibles.filter((objetivo) => objetivo.estado !== 'completado').length
-    const iniciativasEnCurso = iniciativasVisibles.filter((iniciativa) => iniciativa.estado === 'en_progreso').length
-    const entregasProximas = entregasFiltradas.filter((entrega) => {
+    const objetivosActivos = objetivosCronograma.filter((objetivo) => objetivo.estado !== 'completado').length
+    const iniciativasEnCurso = iniciativasCronograma.filter((iniciativa) => iniciativa.estado === 'en_progreso').length
+    const entregasProximas = entregasCronograma.filter((entrega) => {
       const fecha = parsearFechaPortal(entrega.fecha_objetivo)
       if (!fecha || entrega.estado === 'completado') {
         return false
@@ -1078,7 +1318,7 @@ export function PaginaCronogramaRoadmap() {
       const dias = diferenciaDias(hoy, fecha)
       return dias >= 0 && dias <= 45
     }).length
-    const entregasAtrasadas = entregasFiltradas.filter((entrega) => esEntregaAtrasada(entrega, hoy)).length
+    const entregasAtrasadas = entregasCronograma.filter((entrega) => esEntregaAtrasada(entrega, hoy)).length
 
     return [
       { etiqueta: 'Objetivos activos', valor: objetivosActivos, apoyo: 'con tracción visible' },
@@ -1086,7 +1326,7 @@ export function PaginaCronogramaRoadmap() {
       { etiqueta: 'Entregas próximas', valor: entregasProximas, apoyo: 'hasta 45 días' },
       { etiqueta: 'Entregas atrasadas', valor: entregasAtrasadas, apoyo: 'siguen abiertas' }
     ]
-  }, [entregasFiltradas, hoy, iniciativasVisibles, objetivosVisibles])
+  }, [entregasCronograma, hoy, iniciativasCronograma, objetivosCronograma])
 
   const filtrosActivos = useMemo(() => {
     let total = 0
@@ -1189,30 +1429,30 @@ export function PaginaCronogramaRoadmap() {
         detalle: `${entregasObjetivo.length} entregas · ${totalReleases} releases`,
         rangoFechas: segmentoObjetivo ? formatearRangoFechas(segmentoObjetivo.inicio, segmentoObjetivo.fin) : null,
         contextoTemporal: rangoObjetivo ? describirContextoTemporalRango('objetivo', rangoObjetivo.origen) : null,
-        tieneHijos: iniciativasObjetivo.length > 0,
-        expandido: objetivosExpandidos.includes(objetivo.id),
+        tieneHijos: iniciativasObjetivo.length > 0 || entregasObjetivo.some((entrega) => !entrega.iniciativa_id),
+        expandido: objetivosExpandidosEfectivos.includes(objetivo.id),
         segmentos: segmentoObjetivo ? [segmentoObjetivo] : [],
         entregaAtrasada: entregasObjetivo.some((entrega) => esEntregaAtrasada(entrega, hoy))
       })
     }
 
-    objetivosVisibles.forEach((objetivo) => {
-      const iniciativasObjetivo = iniciativasVisibles.filter(
+    objetivosCronograma.forEach((objetivo) => {
+      const iniciativasObjetivo = iniciativasCronograma.filter(
         (iniciativa) => (iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id
       )
-      const entregasObjetivo = entregasFiltradas.filter((entrega) => {
+      const entregasObjetivo = entregasCronograma.filter((entrega) => {
         const iniciativa = entrega.iniciativa_id ? iniciativasPorId.get(entrega.iniciativa_id) : null
         return (iniciativa?.objetivo_id ?? FILA_SIN_OBJETIVO) === objetivo.id
       })
 
       construirFilaObjetivo(objetivo, iniciativasObjetivo, entregasObjetivo)
 
-      if (!objetivosExpandidos.includes(objetivo.id)) {
+      if (!objetivosExpandidosEfectivos.includes(objetivo.id)) {
         return
       }
 
       iniciativasObjetivo.forEach((iniciativa) => {
-        const entregasIniciativa = entregasFiltradas.filter((entrega) => entrega.iniciativa_id === iniciativa.id)
+        const entregasIniciativa = entregasCronograma.filter((entrega) => entrega.iniciativa_id === iniciativa.id)
         const visual = calcularSegmentosIniciativa(iniciativa)
         const etiquetaVentana = iniciativa.ventana_planificada_id
           ? ventanasPorId.get(iniciativa.ventana_planificada_id)?.etiqueta_visible ?? 'Sin ventana'
@@ -1230,12 +1470,12 @@ export function PaginaCronogramaRoadmap() {
           rangoFechas: visual.rangoPlan ? formatearRangoFechas(visual.rangoPlan.inicio, visual.rangoPlan.fin) : null,
           contextoTemporal: visual.rangoPlan ? describirContextoTemporalRango('iniciativa', visual.rangoPlan.origen) : null,
           tieneHijos: entregasIniciativa.length > 0,
-          expandido: iniciativasExpandidas.includes(iniciativa.id),
+          expandido: iniciativasExpandidasEfectivas.includes(iniciativa.id),
           segmentos: visual.segmentos,
           entregaAtrasada: entregasIniciativa.some((entrega) => esEntregaAtrasada(entrega, hoy))
         })
 
-        if (!iniciativasExpandidas.includes(iniciativa.id)) {
+        if (!iniciativasExpandidasEfectivas.includes(iniciativa.id)) {
           return
         }
 
@@ -1296,12 +1536,12 @@ export function PaginaCronogramaRoadmap() {
           rangoFechas: segAgregadoSinIni ? formatearRangoFechas(segAgregadoSinIni.inicio, segAgregadoSinIni.fin) : null,
           contextoTemporal: segAgregadoSinIni ? 'Rango derivado de entregables sin iniciativa' : null,
           tieneHijos: true,
-          expandido: iniciativasExpandidas.includes(clave),
+          expandido: iniciativasExpandidasEfectivas.includes(clave),
           segmentos: segAgregadoSinIni ? [segAgregadoSinIni] : [],
           entregaAtrasada: entregasSinIniciativa.some((entrega) => esEntregaAtrasada(entrega, hoy))
         })
 
-        if (iniciativasExpandidas.includes(clave)) {
+        if (iniciativasExpandidasEfectivas.includes(clave)) {
           entregasSinIniciativa.forEach((entrega) => {
             const visualEntrega = calcularSegmentosEntrega(entrega)
             const rangoEntregaH = visualEntrega.rangoPlan
@@ -1330,7 +1570,17 @@ export function PaginaCronogramaRoadmap() {
     })
 
     return filas
-  }, [entregasFiltradas, hoy, iniciativasExpandidas, iniciativasPorId, iniciativasVisibles, objetivosExpandidos, objetivosVisibles, releasesPorIniciativa, ventanasPorId])
+  }, [
+    entregasCronograma,
+    hoy,
+    iniciativasCronograma,
+    iniciativasExpandidasEfectivas,
+    iniciativasPorId,
+    objetivosCronograma,
+    objetivosExpandidosEfectivos,
+    releasesPorIniciativa,
+    ventanasPorId
+  ])
 
   const porcentajeHorizontal = (fecha: Date) => {
     const dias = diferenciaDias(rangoTemporal.inicio, fecha)
@@ -1529,7 +1779,35 @@ export function PaginaCronogramaRoadmap() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:gap-3">
+              <div className="min-w-0 flex-[1_1_26rem] lg:max-w-xl">
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-slate-500">
+                  <IconoBusqueda />
+                </span>
+                <input
+                  type="search"
+                  value={busquedaCronograma}
+                  onChange={(evento) => setBusquedaCronograma(evento.target.value)}
+                  placeholder="Buscar en el cronograma..."
+                  aria-label="Buscar en el cronograma"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-10 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-600"
+                />
+                {busquedaCronograma ? (
+                  <button
+                    type="button"
+                    onClick={() => setBusquedaCronograma('')}
+                    className="absolute inset-y-1.5 right-1.5 inline-flex items-center justify-center rounded-lg px-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                    aria-label="Limpiar búsqueda del cronograma"
+                    title="Limpiar búsqueda"
+                  >
+                    <IconoCerrarBusqueda />
+                  </button>
+                ) : null}
+              </div>
+
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 {resumenControles.map((item) => (
                   <span
@@ -1542,7 +1820,7 @@ export function PaginaCronogramaRoadmap() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
               {esEdicionPermitida ? (
                 <MenuCrearRoadmapGlobal
                   abierto={menuCrearAbierto}
@@ -1711,9 +1989,24 @@ export function PaginaCronogramaRoadmap() {
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           {filasCronograma.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-              No hay evidencia temporal suficiente en el rango y filtros actuales para construir un cronograma honesto.
-            </div>
+            hayBusquedaCronogramaActiva ? (
+              <div className="px-4 py-10 text-center">
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  No hay resultados para &ldquo;{busquedaCronograma.trim()}&rdquo; dentro del rango temporal y filtros actuales.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setBusquedaCronograma('')}
+                  className="mt-3 inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                >
+                  Limpiar búsqueda
+                </button>
+              </div>
+            ) : (
+              <div className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                No hay evidencia temporal suficiente en el rango y filtros actuales para construir un cronograma honesto.
+              </div>
+            )
           ) : (
             <div ref={contenedorScrollRef} className="relative">
               <button
