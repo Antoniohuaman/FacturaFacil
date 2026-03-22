@@ -107,6 +107,7 @@ const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-e
 const CLAVE_RESUMEN_VISIBLE = 'pm-portal-roadmap-cronograma-resumen-visible'
 const CLAVE_PREFERENCIAS_TEMPORALES = 'pm-portal-roadmap-cronograma-preferencias-temporales'
 const ALTURA_MINIMA_FILA_CRONOGRAMA = 48
+const ALTURA_SEGMENTO_CRONOGRAMA = 8
 const INDENTACION_POR_NIVEL_CRONOGRAMA = 14
 const ANCHO_MARCADOR_JERARQUIA = 22
 const ALTURA_VISTA_CUERPO_CRONOGRAMA = 'min(68vh, 720px)'
@@ -225,7 +226,7 @@ function TooltipCronograma({
       {abierto ? (
         <span
           ref={tooltipRef}
-          className={`pointer-events-none fixed z-[80] -translate-x-1/2 -translate-y-full rounded-xl border border-slate-200 bg-white/96 px-3 py-2 text-left text-xs text-slate-700 shadow-2xl shadow-slate-900/10 backdrop-blur dark:border-slate-700 dark:bg-slate-900/96 dark:text-slate-200 ${maxWidthClassName}`}
+          className={`pointer-events-none fixed z-[80] -translate-x-1/2 -translate-y-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-900 shadow-2xl shadow-slate-900/12 [&_p]:!text-inherit [&_span]:!text-inherit dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50 dark:shadow-black/25 ${maxWidthClassName}`}
           style={{ left: posicion.x, top: posicion.y, transform: posicion.transform }}
           role="tooltip"
         >
@@ -271,6 +272,32 @@ function IconoResumen() {
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
       <rect x="3.5" y="4" width="13" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
       <path d="M7 4v12M3.5 8.5h13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconoExpandirCronograma({ expandido }: { expandido: boolean }) {
+  return expandido ? (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path d="M7 3.5H3.5V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 3.5h3.5V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 16.5H3.5V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 16.5h3.5V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 8 3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 8l4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M8 12 3.5 16.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 12l4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path d="M8 3.5H3.5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 3.5h4.5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 16.5H3.5V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 16.5h4.5V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 8 3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 8l4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M8 12 3.5 16.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 12l4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
 }
@@ -466,26 +493,26 @@ function obtenerClaseIndicadorTerminal(fila: FilaCronograma) {
 function obtenerEstiloSegmento(variante: SegmentoCronograma['variante']) {
   if (variante === 'objetivo') {
     return {
-      className: 'bg-slate-300/55 ring-1 ring-inset ring-slate-400/25 dark:bg-slate-700/55 dark:ring-slate-500/30',
-      top: 24,
-      height: 4,
+      className: 'bg-slate-500 shadow-sm shadow-slate-500/20 ring-1 ring-inset ring-slate-600/15 dark:bg-slate-400 dark:shadow-slate-950/20 dark:ring-slate-200/10',
+      top: 20,
+      height: ALTURA_SEGMENTO_CRONOGRAMA,
       borderRadius: 9999
     }
   }
 
   if (variante === 'iniciativa') {
     return {
-      className: 'bg-cyan-500/80 shadow-sm shadow-cyan-900/10 dark:bg-cyan-400/75',
-      top: 15,
-      height: 8,
+      className: 'bg-teal-500 shadow-sm shadow-teal-600/20 ring-1 ring-inset ring-teal-700/12 dark:bg-teal-400 dark:shadow-teal-950/20 dark:ring-teal-100/10',
+      top: 20,
+      height: ALTURA_SEGMENTO_CRONOGRAMA,
       borderRadius: 9999
     }
   }
 
   return {
-    className: 'bg-amber-400/85 dark:bg-amber-300/80',
-    top: 12,
-    height: 5,
+    className: 'bg-orange-400 shadow-sm shadow-orange-500/20 ring-1 ring-inset ring-orange-600/12 dark:bg-orange-300 dark:shadow-orange-950/20 dark:ring-orange-100/10',
+    top: 20,
+    height: ALTURA_SEGMENTO_CRONOGRAMA,
     borderRadius: 9999
   }
 }
@@ -685,10 +712,6 @@ function describirContextoTemporalRango(tipo: TipoFilaCronograma, origen: Segmen
   return 'Ventana planificada usada como respaldo'
 }
 
-function describirSegmentoTemporal(segmento: SegmentoCronograma, tipoFila: TipoFilaCronograma) {
-  return describirContextoTemporalRango(tipoFila, segmento.origen)
-}
-
 function estadoDominante(estados: EstadoRegistro[]) {
   if (estados.includes('en_progreso')) {
     return 'en_progreso'
@@ -777,9 +800,11 @@ export function PaginaCronogramaRoadmap() {
     return window.localStorage.getItem(CLAVE_RESUMEN_VISIBLE) === 'true'
   })
   const [redimensionandoJerarquia, setRedimensionandoJerarquia] = useState(false)
+  const [cronogramaExpandido, setCronogramaExpandido] = useState(false)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(() => {
     return Boolean(searchParams.get('objetivo') || searchParams.get('estado') || searchParams.get('ventana'))
   })
+  const contenedorFullscreenCronogramaRef = useRef<HTMLDivElement | null>(null)
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null)
   const encabezadoTimelineRef = useRef<HTMLDivElement | null>(null)
   const cuerpoTimelineRef = useRef<HTMLDivElement | null>(null)
@@ -1643,19 +1668,37 @@ export function PaginaCronogramaRoadmap() {
   }
 
   const hoyVisible = fechaDentroDeRango(hoy, rangoTemporal.inicio, rangoTemporal.fin)
+  const etiquetaTooltipCronograma = cronogramaExpandido ? 'Restaurar cronograma' : 'Expandir cronograma'
+  const alturaVistaCuerpoCronograma = cronogramaExpandido ? '100%' : ALTURA_VISTA_CUERPO_CRONOGRAMA
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    const sincronizarEstadoFullscreen = () => {
+      setCronogramaExpandido(document.fullscreenElement === contenedorFullscreenCronogramaRef.current)
+    }
+
+    document.addEventListener('fullscreenchange', sincronizarEstadoFullscreen)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', sincronizarEstadoFullscreen)
+    }
+  }, [])
 
   useEffect(() => {
     let frame = 0
     const medirAlturas = () => {
       const nuevasAlturas = filasCronograma.map((_, indice) => {
         const fila = referenciasFilasJerarquiaRef.current[indice]
-        return Math.max(Math.ceil(fila?.getBoundingClientRect().height ?? 0), ALTURA_MINIMA_FILA_CRONOGRAMA)
+        return Math.max(fila?.getBoundingClientRect().height ?? 0, ALTURA_MINIMA_FILA_CRONOGRAMA)
       })
 
       setAlturasFilas((actuales) => {
         if (
           actuales.length === nuevasAlturas.length &&
-          actuales.every((altura, indice) => Math.abs(altura - nuevasAlturas[indice]) < 1)
+          actuales.every((altura, indice) => Math.abs(altura - nuevasAlturas[indice]) < 0.25)
         ) {
           return actuales
         }
@@ -1744,6 +1787,21 @@ export function PaginaCronogramaRoadmap() {
     return entregasPorId.has(fila.id)
   }
 
+  const obtenerDescripcionTooltipActividad = (fila: FilaCronograma) => {
+    if (fila.tipo === 'objetivo') {
+      const descripcion = objetivosRealesPorId.get(fila.id)?.descripcion?.trim()
+      return descripcion ? descripcion : null
+    }
+
+    if (fila.tipo === 'iniciativa') {
+      const descripcion = iniciativasPorId.get(fila.id)?.descripcion?.trim()
+      return descripcion ? descripcion : null
+    }
+
+    const descripcion = entregasPorId.get(fila.id)?.descripcion?.trim()
+    return descripcion ? descripcion : null
+  }
+
   const abrirModalDesdeFila = (fila: FilaCronograma, modo: ModoModalRoadmap) => {
     setMenuCrearAbierto(false)
 
@@ -1816,6 +1874,32 @@ export function PaginaCronogramaRoadmap() {
     setFilaActiva((actual) => (actual === claveVisualFila && menuAbiertoFilaId !== claveVisualFila ? null : actual))
   }
 
+  const alternarFullscreenCronograma = async () => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    const contenedor = contenedorFullscreenCronogramaRef.current
+    if (!contenedor) {
+      return
+    }
+
+    try {
+      if (document.fullscreenElement === contenedor) {
+        await document.exitFullscreen()
+        return
+      }
+
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+      }
+
+      await contenedor.requestFullscreen()
+    } catch {
+      // Si el navegador bloquea fullscreen por política o gesto inválido, mantener estado actual sin romper la UI.
+    }
+  }
+
   return (
     <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="No hay cronograma para mostrar.">
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-4">
@@ -1824,6 +1908,10 @@ export function PaginaCronogramaRoadmap() {
           <NavegacionRoadmap />
         </header>
 
+        <div
+          ref={contenedorFullscreenCronogramaRef}
+          className={`flex flex-col gap-4 ${cronogramaExpandido ? 'h-full bg-slate-100 p-4 dark:bg-slate-950' : ''}`}
+        >
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:gap-3">
@@ -1913,6 +2001,21 @@ export function PaginaCronogramaRoadmap() {
                   </span>
                 ) : null}
               </button>
+
+              <TooltipCronograma content={etiquetaTooltipCronograma}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void alternarFullscreenCronograma()
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  aria-label={etiquetaTooltipCronograma}
+                  title={etiquetaTooltipCronograma}
+                  aria-pressed={cronogramaExpandido}
+                >
+                  <IconoExpandirCronograma expandido={cronogramaExpandido} />
+                </button>
+              </TooltipCronograma>
             </div>
           </div>
 
@@ -1992,7 +2095,7 @@ export function PaginaCronogramaRoadmap() {
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className={`rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${cronogramaExpandido ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : ''}`}>
           {filasCronograma.length === 0 ? (
             hayBusquedaCronogramaActiva ? (
               <div className="px-4 py-10 text-center">
@@ -2013,7 +2116,7 @@ export function PaginaCronogramaRoadmap() {
               </div>
             )
           ) : (
-            <div ref={contenedorScrollRef} className="relative">
+            <div ref={contenedorScrollRef} className={`relative ${cronogramaExpandido ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
               <button
                 type="button"
                 onMouseDown={iniciarResizeJerarquia}
@@ -2062,14 +2165,16 @@ export function PaginaCronogramaRoadmap() {
                 </div>
               </div>
 
-              <div className="overflow-y-auto" style={{ maxHeight: ALTURA_VISTA_CUERPO_CRONOGRAMA }}>
+              <div className={`overflow-y-auto ${cronogramaExpandido ? 'min-h-0 flex-1' : ''}`} style={{ maxHeight: alturaVistaCuerpoCronograma }}>
                 <div className="grid" style={{ gridTemplateColumns: `${anchoColumnaJerarquia}px minmax(0, 1fr)` }}>
                   <div className="border-r border-slate-200 dark:border-slate-800">
                     {filasCronograma.map((fila, indice) => {
                       const claveVisualFila = `${fila.tipo}-${fila.id}`
                       const filaEstaActiva = filaActiva === claveVisualFila || menuAbiertoFilaId === claveVisualFila
+                      const alturaFila = alturasFilas[indice]
                       const claseFila = obtenerClaseFila(fila, filaEstaActiva)
                       const filaOperable = filaEsOperable(fila)
+                      const descripcionTooltipActividad = obtenerDescripcionTooltipActividad(fila)
 
                       return (
                         <div
@@ -2078,6 +2183,7 @@ export function PaginaCronogramaRoadmap() {
                             referenciasFilasJerarquiaRef.current[indice] = elemento
                           }}
                           className={`group border-b border-slate-200 px-4 py-2 last:border-b-0 dark:border-slate-800 ${claseFila}`}
+                          style={alturaFila ? { height: `${alturaFila}px` } : undefined}
                           onMouseEnter={() => setFilaActiva(claveVisualFila)}
                           onMouseLeave={() =>
                             setFilaActiva((actual) =>
@@ -2128,17 +2234,9 @@ export function PaginaCronogramaRoadmap() {
                                       content={
                                         <div className="space-y-1">
                                           <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                          {fila.estado ? <p>{formatearEstadoLegible(fila.estado)}</p> : null}
-                                          {fila.rangoFechas ? (
-                                            <p className="text-slate-500 dark:text-slate-400">{fila.rangoFechas}</p>
+                                          {descripcionTooltipActividad ? (
+                                            <p className="text-slate-500 dark:text-slate-400">{descripcionTooltipActividad}</p>
                                           ) : null}
-                                          {fila.contextoTemporal ? (
-                                            <p className="text-slate-600 dark:text-slate-300">{fila.contextoTemporal}</p>
-                                          ) : null}
-                                          {fila.resumen && fila.resumen !== fila.detalle ? (
-                                            <p className="text-slate-500 dark:text-slate-400">{fila.resumen}</p>
-                                          ) : null}
-                                          {fila.detalle ? <p className="text-slate-500 dark:text-slate-400">{fila.detalle}</p> : null}
                                         </div>
                                       }
                                     >
@@ -2224,7 +2322,7 @@ export function PaginaCronogramaRoadmap() {
                         <div className="relative">
                           {filasCronograma.map((fila, indice) => {
                             const claveVisualFila = `${fila.tipo}-${fila.id}`
-                            const filaEstaActiva = filaActiva === claveVisualFila
+                              const filaEstaActiva = filaActiva === claveVisualFila || menuAbiertoFilaId === claveVisualFila
                             const claseFila = obtenerClaseFila(fila, filaEstaActiva)
                             const alturaFila = alturasFilas[indice] ?? ALTURA_MINIMA_FILA_CRONOGRAMA
 
@@ -2265,14 +2363,12 @@ export function PaginaCronogramaRoadmap() {
                                       key={segmento.id}
                                       content={
                                         <div className="space-y-1">
-                                          <p className="font-medium text-slate-900 dark:text-slate-100">{fila.titulo}</p>
-                                          <p className="text-slate-600 dark:text-slate-300">{describirSegmentoTemporal(segmento, fila.tipo)}</p>
-                                          <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                                            {formatearRangoFechas(segmento.inicio, segmento.fin)}
+                                          <p className="text-slate-600 dark:text-slate-300">
+                                            Inicio: {formatearFechaCorta(segmento.inicio.toISOString().slice(0, 10))}
                                           </p>
-                                          {fila.estado ? (
-                                            <p className="text-slate-500 dark:text-slate-400">{formatearEstadoLegible(fila.estado)}</p>
-                                          ) : null}
+                                          <p className="text-slate-600 dark:text-slate-300">
+                                            Fin: {formatearFechaCorta(segmento.fin.toISOString().slice(0, 10))}
+                                          </p>
                                         </div>
                                       }
                                       className={`${estiloSegmento.className} absolute z-[12] cursor-default`}
@@ -2304,15 +2400,15 @@ export function PaginaCronogramaRoadmap() {
             <div className="flex items-center justify-between gap-2.5">
               <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-[4px] w-6 rounded-full bg-slate-300/80 ring-1 ring-inset ring-slate-400/30 dark:bg-slate-600/70" />
+                  <span className="inline-block h-[8px] w-6 rounded-full bg-slate-500 shadow-sm shadow-slate-500/20 ring-1 ring-inset ring-slate-600/15 dark:bg-slate-400 dark:shadow-slate-950/20 dark:ring-slate-200/10" />
                   Objetivo
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-[10px] w-6 rounded-full bg-cyan-500/80 dark:bg-cyan-400/75" />
+                  <span className="inline-block h-[8px] w-6 rounded-full bg-teal-500 shadow-sm shadow-teal-600/20 ring-1 ring-inset ring-teal-700/12 dark:bg-teal-400 dark:shadow-teal-950/20 dark:ring-teal-100/10" />
                   Iniciativa plan
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-[6px] w-6 rounded-full bg-amber-400/85 dark:bg-amber-300/80" />
+                  <span className="inline-block h-[8px] w-6 rounded-full bg-orange-400 shadow-sm shadow-orange-500/20 ring-1 ring-inset ring-orange-600/12 dark:bg-orange-300 dark:shadow-orange-950/20 dark:ring-orange-100/10" />
                   Entrega plan
                 </span>
               </div>
@@ -2338,6 +2434,7 @@ export function PaginaCronogramaRoadmap() {
           alGuardado={cargarCronograma}
           alError={setError}
         />
+        </div>
 
         <GestorModalIniciativaRoadmap
           abierto={modalContextual?.tipo === 'iniciativa'}
