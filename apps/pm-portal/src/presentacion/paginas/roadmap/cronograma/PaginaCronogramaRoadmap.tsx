@@ -17,8 +17,9 @@ import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
+import { exportarCsv } from '@/compartido/utilidades/csv'
 import { puedeEditar } from '@/compartido/utilidades/permisosRol'
-import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
+import { formatearEstadoLegible, formatearFechaCorta, normalizarFechaPortal } from '@/compartido/utilidades/formatoPortal'
 import {
   type CatalogoEtapaPm,
   type CatalogoVentanaPm,
@@ -69,6 +70,34 @@ interface FilaCronograma {
   expandido: boolean
   segmentos: SegmentoCronograma[]
   entregaAtrasada: boolean
+}
+
+interface FilaExportableCronograma {
+  nivel: 'Objetivo' | 'Iniciativa' | 'Entregable'
+  nombre: string
+  descripcion: string
+  estado: string
+  padre: string
+  objetivo: string
+  iniciativa: string
+  fechaInicio: string
+  fechaFin: string
+  fechaObjetivo: string
+  ventanaPlanificada: string
+  ventanaReal: string
+  origenTemporal: string
+  rangoVisibleCronograma: string
+}
+
+interface ConstruirFilasExportablesCronogramaParams {
+  objetivos: Objetivo[]
+  iniciativas: Iniciativa[]
+  entregas: Entrega[]
+  ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>
+  vistaTemporal: VistaTemporal
+  anioSeleccionado: number
+  trimestreSeleccionado: number
+  rangoTemporal: RangoCronogramaBase
 }
 
 interface TooltipCronogramaProps {
@@ -251,6 +280,18 @@ function IconoFiltros({ abierto }: { abierto: boolean }) {
     </svg>
   )
 }
+
+function IconoExportarCronograma() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path d="M10 3.5v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M6.75 8.75 10 12l3.25-3.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 14.5h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M5 16.5h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.55" />
+    </svg>
+  )
+}
+
   function normalizarTextoBusqueda(valor: string) {
     return valor
       .trim()
@@ -710,6 +751,176 @@ function describirContextoTemporalRango(tipo: TipoFilaCronograma, origen: Segmen
   }
 
   return 'Ventana planificada usada como respaldo'
+}
+
+function serializarFechaCronograma(fecha: Date | null | undefined) {
+  if (!fecha) {
+    return ''
+  }
+
+  const anio = String(fecha.getFullYear())
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const dia = String(fecha.getDate()).padStart(2, '0')
+
+  return `${anio}-${mes}-${dia}`
+}
+
+function obtenerEtiquetaVentana(
+  ventanaId: string | null | undefined,
+  ventanasPorId: ReadonlyMap<string, CatalogoVentanaPm>,
+  etiquetaVacia = ''
+) {
+  if (!ventanaId) {
+    return etiquetaVacia
+  }
+
+  return ventanasPorId.get(ventanaId)?.etiqueta_visible ?? etiquetaVacia
+}
+
+function construirEtiquetaRangoVisibleCronograma(
+  vistaTemporal: VistaTemporal,
+  anioSeleccionado: number,
+  trimestreSeleccionado: number,
+  rangoTemporal: RangoCronogramaBase
+) {
+  const etiquetaVista =
+    vistaTemporal === 'trimestre' ? `${anioSeleccionado} · T${trimestreSeleccionado}` : `${anioSeleccionado} · Anual`
+
+  return `${etiquetaVista} (${serializarFechaCronograma(rangoTemporal.inicio)} a ${serializarFechaCronograma(rangoTemporal.fin)})`
+}
+
+function construirNombreArchivoExportacionCronograma(vistaTemporal: VistaTemporal, anioSeleccionado: number, trimestreSeleccionado: number) {
+  const sufijoPeriodo = vistaTemporal === 'trimestre' ? `t${trimestreSeleccionado}` : 'anual'
+
+  return `roadmap-cronograma-${anioSeleccionado}-${sufijoPeriodo}.csv`
+}
+
+function construirFilasExportablesCronograma({
+  objetivos,
+  iniciativas,
+  entregas,
+  ventanasPorId,
+  vistaTemporal,
+  anioSeleccionado,
+  trimestreSeleccionado,
+  rangoTemporal
+}: ConstruirFilasExportablesCronogramaParams) {
+  const filas: FilaExportableCronograma[] = []
+  const rangoVisibleCronograma = construirEtiquetaRangoVisibleCronograma(
+    vistaTemporal,
+    anioSeleccionado,
+    trimestreSeleccionado,
+    rangoTemporal
+  )
+  const iniciativasPorId = new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa]))
+  const nombreObjetivoPorId = new Map<string, string>([[FILA_SIN_OBJETIVO, 'Sin objetivo asignado']])
+  const iniciativasPorObjetivo = iniciativas.reduce((mapa, iniciativa) => {
+    const claveObjetivo = iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO
+    const actuales = mapa.get(claveObjetivo) ?? []
+    mapa.set(claveObjetivo, [...actuales, iniciativa])
+    return mapa
+  }, new Map<string, Iniciativa[]>())
+  const entregasPorIniciativa = entregas.reduce((mapa, entrega) => {
+    if (!entrega.iniciativa_id) {
+      return mapa
+    }
+
+    const actuales = mapa.get(entrega.iniciativa_id) ?? []
+    mapa.set(entrega.iniciativa_id, [...actuales, entrega])
+    return mapa
+  }, new Map<string, Entrega[]>())
+  const entregasSinIniciativa = entregas.filter((entrega) => !entrega.iniciativa_id)
+
+  objetivos.forEach((objetivo) => {
+    nombreObjetivoPorId.set(objetivo.id, objetivo.nombre)
+  })
+
+  const construirFilaEntrega = (entrega: Entrega) => {
+    const iniciativa = entrega.iniciativa_id ? iniciativasPorId.get(entrega.iniciativa_id) ?? null : null
+    const nombreObjetivo = nombreObjetivoPorId.get(iniciativa?.objetivo_id ?? FILA_SIN_OBJETIVO) ?? 'Sin objetivo asignado'
+    const nombreIniciativa = iniciativa?.nombre ?? 'Sin iniciativa asignada'
+    const rangoEntrega = obtenerRangoPlanEntrega(entrega, ventanasPorId)
+
+    filas.push({
+      nivel: 'Entregable',
+      nombre: entrega.nombre,
+      descripcion: entrega.descripcion,
+      estado: formatearEstadoLegible(entrega.estado),
+      padre: nombreIniciativa,
+      objetivo: nombreObjetivo,
+      iniciativa: nombreIniciativa,
+      fechaInicio: normalizarFechaPortal(entrega.fecha_inicio),
+      fechaFin: normalizarFechaPortal(entrega.fecha_fin),
+      fechaObjetivo: normalizarFechaPortal(entrega.fecha_objetivo),
+      ventanaPlanificada: obtenerEtiquetaVentana(entrega.ventana_planificada_id, ventanasPorId),
+      ventanaReal: obtenerEtiquetaVentana(entrega.ventana_real_id, ventanasPorId),
+      origenTemporal: rangoEntrega ? describirContextoTemporalRango('entrega', rangoEntrega.origen) : '',
+      rangoVisibleCronograma
+    })
+  }
+
+  const construirFilaIniciativa = (iniciativa: Iniciativa) => {
+    const nombreObjetivo = nombreObjetivoPorId.get(iniciativa.objetivo_id ?? FILA_SIN_OBJETIVO) ?? 'Sin objetivo asignado'
+    const rangoIniciativa = obtenerRangoPlanIniciativa(iniciativa, ventanasPorId)
+
+    filas.push({
+      nivel: 'Iniciativa',
+      nombre: iniciativa.nombre,
+      descripcion: iniciativa.descripcion,
+      estado: formatearEstadoLegible(iniciativa.estado),
+      padre: nombreObjetivo,
+      objetivo: nombreObjetivo,
+      iniciativa: iniciativa.nombre,
+      fechaInicio: normalizarFechaPortal(iniciativa.fecha_inicio),
+      fechaFin: normalizarFechaPortal(iniciativa.fecha_fin),
+      fechaObjetivo: '',
+      ventanaPlanificada: obtenerEtiquetaVentana(iniciativa.ventana_planificada_id, ventanasPorId),
+      ventanaReal: '',
+      origenTemporal: rangoIniciativa ? describirContextoTemporalRango('iniciativa', rangoIniciativa.origen) : '',
+      rangoVisibleCronograma
+    })
+
+    ;(entregasPorIniciativa.get(iniciativa.id) ?? []).forEach(construirFilaEntrega)
+  }
+
+  objetivos
+    .filter((objetivo) => objetivo.id !== FILA_SIN_OBJETIVO)
+    .forEach((objetivo) => {
+      const iniciativasObjetivo = iniciativasPorObjetivo.get(objetivo.id) ?? []
+      const segmentosRespaldo = iniciativasObjetivo.flatMap((iniciativa) => {
+        const rangoIniciativa = obtenerRangoPlanIniciativa(iniciativa, ventanasPorId)
+        const segmento = rangoIniciativa
+          ? construirSegmento(rangoIniciativa.inicio, rangoIniciativa.fin, `export-iniciativa-${iniciativa.id}`, 'iniciativa', rangoIniciativa.origen)
+          : null
+
+        return segmento ? [segmento] : []
+      })
+      const rangoObjetivo = obtenerRangoPlanObjetivo(objetivo, segmentosRespaldo)
+
+      filas.push({
+        nivel: 'Objetivo',
+        nombre: objetivo.nombre,
+        descripcion: objetivo.descripcion,
+        estado: formatearEstadoLegible(objetivo.estado),
+        padre: '',
+        objetivo: objetivo.nombre,
+        iniciativa: '',
+        fechaInicio: normalizarFechaPortal(objetivo.fecha_inicio),
+        fechaFin: normalizarFechaPortal(objetivo.fecha_fin),
+        fechaObjetivo: '',
+        ventanaPlanificada: '',
+        ventanaReal: '',
+        origenTemporal: rangoObjetivo ? describirContextoTemporalRango('objetivo', rangoObjetivo.origen) : '',
+        rangoVisibleCronograma
+      })
+
+      iniciativasObjetivo.forEach(construirFilaIniciativa)
+    })
+
+  ;(iniciativasPorObjetivo.get(FILA_SIN_OBJETIVO) ?? []).forEach(construirFilaIniciativa)
+  entregasSinIniciativa.forEach(construirFilaEntrega)
+
+  return filas
 }
 
 function estadoDominante(estados: EstadoRegistro[]) {
@@ -1657,6 +1868,54 @@ export function PaginaCronogramaRoadmap() {
     ventanasPorId
   ])
 
+  const filasExportablesCronograma = useMemo(() => {
+    return construirFilasExportablesCronograma({
+      objetivos: objetivosCronograma,
+      iniciativas: iniciativasCronograma,
+      entregas: entregasCronograma,
+      ventanasPorId,
+      vistaTemporal,
+      anioSeleccionado,
+      trimestreSeleccionado,
+      rangoTemporal
+    })
+  }, [
+    anioSeleccionado,
+    entregasCronograma,
+    iniciativasCronograma,
+    objetivosCronograma,
+    rangoTemporal,
+    trimestreSeleccionado,
+    ventanasPorId,
+    vistaTemporal
+  ])
+
+  const etiquetaTooltipExportarCronograma =
+    filasExportablesCronograma.length > 0 ? 'Exportar cronograma CSV' : 'No hay filas para exportar en el contexto actual'
+
+  const exportarCronogramaCsv = () => {
+    exportarCsv(
+      construirNombreArchivoExportacionCronograma(vistaTemporal, anioSeleccionado, trimestreSeleccionado),
+      [
+        { encabezado: 'Nivel', valor: (fila) => fila.nivel },
+        { encabezado: 'Nombre', valor: (fila) => fila.nombre },
+        { encabezado: 'Descripción', valor: (fila) => fila.descripcion },
+        { encabezado: 'Estado', valor: (fila) => fila.estado },
+        { encabezado: 'Padre', valor: (fila) => fila.padre },
+        { encabezado: 'Objetivo', valor: (fila) => fila.objetivo },
+        { encabezado: 'Iniciativa', valor: (fila) => fila.iniciativa },
+        { encabezado: 'Fecha inicio', valor: (fila) => fila.fechaInicio },
+        { encabezado: 'Fecha fin', valor: (fila) => fila.fechaFin },
+        { encabezado: 'Fecha objetivo', valor: (fila) => fila.fechaObjetivo },
+        { encabezado: 'Ventana planificada', valor: (fila) => fila.ventanaPlanificada },
+        { encabezado: 'Ventana real', valor: (fila) => fila.ventanaReal },
+        { encabezado: 'Origen temporal', valor: (fila) => fila.origenTemporal },
+        { encabezado: 'Rango visible cronograma', valor: (fila) => fila.rangoVisibleCronograma }
+      ],
+      filasExportablesCronograma
+    )
+  }
+
   const porcentajeHorizontal = (fecha: Date) => {
     const dias = diferenciaDias(rangoTemporal.inicio, fecha)
     return (dias / rangoTemporal.totalDias) * 100
@@ -2001,6 +2260,19 @@ export function PaginaCronogramaRoadmap() {
                   </span>
                 ) : null}
               </button>
+
+              <TooltipCronograma content={etiquetaTooltipExportarCronograma}>
+                <button
+                  type="button"
+                  onClick={exportarCronogramaCsv}
+                  disabled={filasExportablesCronograma.length === 0}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  aria-label="Exportar cronograma a CSV"
+                  title="Exportar cronograma a CSV"
+                >
+                  <IconoExportarCronograma />
+                </button>
+              </TooltipCronograma>
 
               <TooltipCronograma content={etiquetaTooltipCronograma}>
                 <button
