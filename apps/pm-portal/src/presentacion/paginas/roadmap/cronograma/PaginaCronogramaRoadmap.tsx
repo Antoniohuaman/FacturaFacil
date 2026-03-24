@@ -1,9 +1,11 @@
 import {
+  createContext,
   useDeferredValue,
   useEffect,
   useMemo,
   useRef,
   useState,
+  useContext,
   type CSSProperties,
   type FocusEvent,
   type MouseEvent,
@@ -40,6 +42,7 @@ import { GestorModalIniciativaRoadmap } from '@/presentacion/paginas/roadmap/com
 import { GestorModalObjetivoRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalObjetivoRoadmap'
 import { MenuCrearRoadmapGlobal } from '@/presentacion/paginas/roadmap/componentes/MenuCrearRoadmapGlobal'
 import { MenuContextualFilaRoadmap } from '@/presentacion/paginas/roadmap/componentes/MenuContextualFilaRoadmap'
+import { MenuPersonalizacionCronograma } from '@/presentacion/paginas/roadmap/componentes/MenuPersonalizacionCronograma'
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 import { ControlTemporalCronograma } from '@/presentacion/paginas/roadmap/cronograma/ControlTemporalCronograma'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
@@ -135,6 +138,7 @@ const CLAVE_OBJETIVOS_EXPANDIDOS = 'pm-portal-roadmap-cronograma-objetivos-expan
 const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-expandidas'
 const CLAVE_RESUMEN_VISIBLE = 'pm-portal-roadmap-cronograma-resumen-visible'
 const CLAVE_PREFERENCIAS_TEMPORALES = 'pm-portal-roadmap-cronograma-preferencias-temporales'
+const CLAVE_TOOLTIPS_VISIBLES = 'pm-portal-roadmap-cronograma-tooltips-visible'
 const ALTURA_MINIMA_FILA_CRONOGRAMA = 48
 const ALTURA_SEGMENTO_CRONOGRAMA = 8
 const INDENTACION_POR_NIVEL_CRONOGRAMA = 14
@@ -146,6 +150,7 @@ const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden'
 }
+const ContextoTooltipsCronograma = createContext(true)
 
 function limitarAnchoColumnaJerarquia(valor: number) {
   return Math.min(Math.max(valor, ANCHO_COLUMNA_JERARQUIA_MIN), ANCHO_COLUMNA_JERARQUIA_MAX)
@@ -159,6 +164,8 @@ function TooltipCronograma({
   disabled = false,
   maxWidthClassName = 'max-w-xs'
 }: TooltipCronogramaProps) {
+  const tooltipsHabilitados = useContext(ContextoTooltipsCronograma)
+  const tooltipsDeshabilitados = disabled || !tooltipsHabilitados
   const [abierto, setAbierto] = useState(false)
   const [posicion, setPosicion] = useState({ x: 0, y: 0, transform: 'translate(-50%, -100%)' })
   const anclaRef = useRef<HTMLElement | null>(null)
@@ -211,13 +218,17 @@ function TooltipCronograma({
   }, [abierto])
 
   const abrirTooltip = (elemento: HTMLElement) => {
+    if (tooltipsDeshabilitados) {
+      return
+    }
+
     anclaRef.current = elemento
     actualizarPosicion(elemento)
     setAbierto(true)
   }
 
   const manejarMouseEnter = (evento: MouseEvent<HTMLSpanElement>) => {
-    if (disabled) {
+    if (tooltipsDeshabilitados) {
       return
     }
 
@@ -225,7 +236,7 @@ function TooltipCronograma({
   }
 
   const manejarMouseMove = (evento: MouseEvent<HTMLSpanElement>) => {
-    if (disabled || !abierto) {
+    if (tooltipsDeshabilitados || !abierto) {
       return
     }
 
@@ -234,12 +245,18 @@ function TooltipCronograma({
   }
 
   const manejarFocus = (evento: FocusEvent<HTMLSpanElement>) => {
-    if (disabled) {
+    if (tooltipsDeshabilitados) {
       return
     }
 
     abrirTooltip(evento.currentTarget)
   }
+
+  useEffect(() => {
+    if (tooltipsDeshabilitados && abierto) {
+      setAbierto(false)
+    }
+  }, [abierto, tooltipsDeshabilitados])
 
   return (
     <span
@@ -412,6 +429,14 @@ function leerPreferenciasTemporalesPersistidas() {
   } catch {
     return null
   }
+}
+
+function leerPreferenciaTooltipsPersistida() {
+  if (typeof window === 'undefined') {
+    return true
+  }
+
+  return window.localStorage.getItem(CLAVE_TOOLTIPS_VISIBLES) !== 'false'
 }
 
 function parsearFechaPortal(fecha: string | null | undefined) {
@@ -1010,6 +1035,7 @@ export function PaginaCronogramaRoadmap() {
 
     return window.localStorage.getItem(CLAVE_RESUMEN_VISIBLE) === 'true'
   })
+  const [tooltipsVisibles, setTooltipsVisibles] = useState(leerPreferenciaTooltipsPersistida)
   const [redimensionandoJerarquia, setRedimensionandoJerarquia] = useState(false)
   const [cronogramaExpandido, setCronogramaExpandido] = useState(false)
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(() => {
@@ -1026,6 +1052,7 @@ export function PaginaCronogramaRoadmap() {
   const [filaActiva, setFilaActiva] = useState<string | null>(null)
   const [menuAbiertoFilaId, setMenuAbiertoFilaId] = useState<string | null>(null)
   const [menuCrearAbierto, setMenuCrearAbierto] = useState(false)
+  const [menuPersonalizacionAbierto, setMenuPersonalizacionAbierto] = useState(false)
   const [modalContextual, setModalContextual] = useState<ModalContextualCronograma>(null)
   const busquedaCronogramaDiferida = useDeferredValue(busquedaCronograma)
 
@@ -1214,6 +1241,14 @@ export function PaginaCronogramaRoadmap() {
 
     window.localStorage.setItem(CLAVE_RESUMEN_VISIBLE, String(resumenVisible))
   }, [resumenVisible])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(CLAVE_TOOLTIPS_VISIBLES, String(tooltipsVisibles))
+  }, [tooltipsVisibles])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -2063,6 +2098,7 @@ export function PaginaCronogramaRoadmap() {
 
   const abrirModalDesdeFila = (fila: FilaCronograma, modo: ModoModalRoadmap) => {
     setMenuCrearAbierto(false)
+    setMenuPersonalizacionAbierto(false)
 
     if (fila.tipo === 'objetivo') {
       const objetivo = objetivosRealesPorId.get(fila.id)
@@ -2088,6 +2124,7 @@ export function PaginaCronogramaRoadmap() {
 
   const abrirCreacionGlobal = (tipo: 'objetivo' | 'iniciativa' | 'entrega') => {
     setMenuAbiertoFilaId(null)
+    setMenuPersonalizacionAbierto(false)
 
     if (tipo === 'objetivo') {
       setModalContextual({ tipo: 'objetivo', modo: 'crear', entidad: null })
@@ -2161,6 +2198,7 @@ export function PaginaCronogramaRoadmap() {
 
   return (
     <EstadoVista cargando={cargando} error={error} vacio={false} mensajeVacio="No hay cronograma para mostrar.">
+      <ContextoTooltipsCronograma.Provider value={tooltipsVisibles}>
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-4">
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold">Cronograma</h1>
@@ -2221,6 +2259,7 @@ export function PaginaCronogramaRoadmap() {
                 <MenuCrearRoadmapGlobal
                   abierto={menuCrearAbierto}
                   alAlternar={() => {
+                    setMenuPersonalizacionAbierto(false)
                     setMenuAbiertoFilaId(null)
                     setMenuCrearAbierto((actual) => !actual)
                   }}
@@ -2288,6 +2327,18 @@ export function PaginaCronogramaRoadmap() {
                   <IconoExpandirCronograma expandido={cronogramaExpandido} />
                 </button>
               </TooltipCronograma>
+
+              <MenuPersonalizacionCronograma
+                abierto={menuPersonalizacionAbierto}
+                tooltipsVisibles={tooltipsVisibles}
+                alAlternar={() => {
+                  setMenuCrearAbierto(false)
+                  setMenuAbiertoFilaId(null)
+                  setMenuPersonalizacionAbierto((actual) => !actual)
+                }}
+                alCerrar={() => setMenuPersonalizacionAbierto(false)}
+                alCambiarTooltipsVisibles={setTooltipsVisibles}
+              />
             </div>
           </div>
 
@@ -2544,6 +2595,7 @@ export function PaginaCronogramaRoadmap() {
                                     puedeEditar={esEdicionPermitida}
                                     alAlternar={() =>
                                       {
+                                        setMenuPersonalizacionAbierto(false)
                                         setMenuCrearAbierto(false)
                                         setMenuAbiertoFilaId((actual) =>
                                           actual === claveVisualFila ? null : claveVisualFila
@@ -2732,6 +2784,7 @@ export function PaginaCronogramaRoadmap() {
           alError={setError}
         />
       </section>
+      </ContextoTooltipsCronograma.Provider>
     </EstadoVista>
   )
 }
