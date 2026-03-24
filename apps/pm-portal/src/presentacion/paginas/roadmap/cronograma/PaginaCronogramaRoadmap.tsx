@@ -46,6 +46,7 @@ import { MenuPersonalizacionCronograma } from '@/presentacion/paginas/roadmap/co
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 import { ControlTemporalCronograma } from '@/presentacion/paginas/roadmap/cronograma/ControlTemporalCronograma'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
+import { calcularProgresoRoadmapDerivado } from '@/presentacion/paginas/roadmap/roadmapProgreso'
 
 type VistaTemporal = 'anio' | 'trimestre'
 type TipoFilaCronograma = 'objetivo' | 'iniciativa' | 'entrega'
@@ -1599,6 +1600,15 @@ export function PaginaCronogramaRoadmap() {
     return entregasFiltradas.filter((entrega) => resultadoBusquedaCronograma.entregasResultado.has(entrega.id))
   }, [entregasFiltradas, resultadoBusquedaCronograma])
 
+  const progresoCronograma = useMemo(() => {
+    return calcularProgresoRoadmapDerivado({
+      objetivos: objetivosCronograma,
+      iniciativas: iniciativasCronograma,
+      entregas: entregasCronograma,
+      ahora: hoy
+    })
+  }, [entregasCronograma, hoy, iniciativasCronograma, objetivosCronograma])
+
   const objetivosExpandidosEfectivos = useMemo(() => {
     if (!resultadoBusquedaCronograma) {
       return objetivosExpandidos
@@ -2572,9 +2582,37 @@ export function PaginaCronogramaRoadmap() {
                                     </TooltipCronograma>
 
                                     {fila.estado ? (
-                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
-                                        {formatearEstadoLegible(fila.estado)}
-                                      </span>
+                                      <TooltipCronograma
+                                        content={
+                                          <div className="space-y-1">
+                                            <p className="font-medium text-slate-900 dark:text-slate-100">{formatearEstadoLegible(fila.estado)}</p>
+                                            {fila.tipo === 'objetivo' ? (
+                                              <>
+                                                <p className="text-slate-600 dark:text-slate-300">
+                                                  Progreso: {progresoCronograma.objetivosPorId.get(fila.id)?.porcentaje ?? 0}%
+                                                </p>
+                                                <p className="text-slate-500 dark:text-slate-400">
+                                                  {progresoCronograma.objetivosPorId.get(fila.id)?.completadas ?? 0} de {progresoCronograma.objetivosPorId.get(fila.id)?.totalRelacionadas ?? 0}
+                                                </p>
+                                              </>
+                                            ) : null}
+                                            {fila.tipo === 'iniciativa' ? (
+                                              <>
+                                                <p className="text-slate-600 dark:text-slate-300">
+                                                  Progreso: {progresoCronograma.iniciativasPorId.get(fila.id)?.porcentaje ?? 0}%
+                                                </p>
+                                                <p className="text-slate-500 dark:text-slate-400">
+                                                  {progresoCronograma.iniciativasPorId.get(fila.id)?.completadas ?? 0} de {progresoCronograma.iniciativasPorId.get(fila.id)?.totalRelacionadas ?? 0}
+                                                </p>
+                                              </>
+                                            ) : null}
+                                          </div>
+                                        }
+                                      >
+                                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${obtenerClaseBadgeEstado(fila.estado)}`}>
+                                          {formatearEstadoLegible(fila.estado)}
+                                        </span>
+                                      </TooltipCronograma>
                                     ) : null}
 
                                     {fila.entregaAtrasada ? (

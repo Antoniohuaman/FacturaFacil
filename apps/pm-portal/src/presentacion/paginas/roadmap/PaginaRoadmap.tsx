@@ -16,6 +16,7 @@ import { listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
+import { calcularProgresoRoadmapDerivado } from '@/presentacion/paginas/roadmap/roadmapProgreso'
 import {
   estadosRegistro,
   formatearEstadoRegistro,
@@ -362,66 +363,12 @@ export function PaginaRoadmap() {
   }, [iniciativasFiltradas, entregasFiltradas, releasesRoadmap, riesgosGobiernoRoadmap, dependenciasGobiernoRoadmap])
 
   const progresoPorObjetivo = useMemo(() => {
-    const ahora = new Date().getTime()
-    const estadoOrden: Record<'pendiente' | 'en_progreso' | 'completado', number> = {
-      en_progreso: 0,
-      pendiente: 1,
-      completado: 2
-    }
-
-    const lista = objetivosFiltrados.map((objetivo) => {
-      const iniciativasObjetivo = iniciativasFiltradas.filter((iniciativa) => iniciativa.objetivo_id === objetivo.id)
-      const idsIniciativas = new Set(iniciativasObjetivo.map((iniciativa) => iniciativa.id))
-      const entregasObjetivo = entregasFiltradas.filter((entrega) => idsIniciativas.has(entrega.iniciativa_id ?? ''))
-
-      const totalRelacionadas = iniciativasObjetivo.length + entregasObjetivo.length
-      const completadas =
-        iniciativasObjetivo.filter((iniciativa) => iniciativa.estado === 'completado').length +
-        entregasObjetivo.filter((entrega) => entrega.estado === 'completado').length
-      const pendientes =
-        iniciativasObjetivo.filter((iniciativa) => iniciativa.estado === 'pendiente').length +
-        entregasObjetivo.filter((entrega) => entrega.estado === 'pendiente').length
-      const enProgreso =
-        iniciativasObjetivo.filter((iniciativa) => iniciativa.estado === 'en_progreso').length +
-        entregasObjetivo.filter((entrega) => entrega.estado === 'en_progreso').length
-      const proximas = entregasObjetivo.filter((entrega) => {
-        if (!entrega.fecha_objetivo) {
-          return false
-        }
-
-        const fecha = new Date(`${entrega.fecha_objetivo}T00:00:00`).getTime()
-        if (Number.isNaN(fecha)) {
-          return false
-        }
-
-        return fecha >= ahora
-      }).length
-
-      const puntajeActividad = enProgreso * 3 + pendientes * 2 + proximas
-
-      return {
-        id: objetivo.id,
-        nombre: objetivo.nombre,
-        estado: objetivo.estado,
-        totalRelacionadas,
-        completadas,
-        porcentaje: totalRelacionadas === 0 ? null : Math.round((completadas / totalRelacionadas) * 100),
-        pendientes,
-        enProgreso,
-        proximas,
-        puntajeActividad
-      }
-    })
-
-    return lista.sort((objetivoA, objetivoB) => {
-      const ordenEstado = estadoOrden[objetivoA.estado] - estadoOrden[objetivoB.estado]
-      if (ordenEstado !== 0) {
-        return ordenEstado
-      }
-
-      return objetivoB.puntajeActividad - objetivoA.puntajeActividad
-    })
-  }, [objetivosFiltrados, iniciativasFiltradas, entregasFiltradas])
+    return calcularProgresoRoadmapDerivado({
+      objetivos: objetivosFiltrados,
+      iniciativas: iniciativasFiltradas,
+      entregas: entregasFiltradas
+    }).objetivos
+  }, [entregasFiltradas, iniciativasFiltradas, objetivosFiltrados])
 
   const objetivoMasActivoId = useMemo(() => {
     if (progresoPorObjetivo.length === 0) {
