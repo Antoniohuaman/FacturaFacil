@@ -13,7 +13,7 @@ import type { Company } from '../pages/Private/features/configuracion-sistema/mo
  * - Permisos y configuración
  */
 
-interface UserSession {
+export interface UserSession {
   // Identificación del usuario
   userId: string;
   userName: string;

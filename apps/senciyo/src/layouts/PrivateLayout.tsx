@@ -15,6 +15,7 @@ import { TenantDataResetEffect } from "../shared/tenant/TenantDataResetEffect";
 import { CajaProvider, useCaja } from "../pages/Private/features/control-caja/context/CajaContext";
 import { ToastContainer } from "../pages/Private/features/control-caja/components/common/Toast";
 import { FeedbackHost } from "../shared/feedback/FeedbackHost";
+import { AnalyticsIdentitySync } from "../shared/analitica/AnalyticsIdentitySync";
 import { TourFlotante, usarTour } from "../shared/tour";
 import { MicroSplashIngreso } from "../shared/ui/transiciones/MicroSplashIngreso";
 import { useTransicionIngresoStore } from "../shared/ui/transiciones/useTransicionIngresoStore";
@@ -38,6 +39,7 @@ export default function AppShell() {
       <UserSessionProvider>
         <ConfigurationProvider key={configurationTenantId ?? 'no-tenant'} tenantIdOverride={configurationTenantId}>
           <SessionInitializer>
+            <AnalyticsIdentitySync />
             <TenantDataResetEffect />
             <CajaProvider>
               <FieldsConfigurationProvider>

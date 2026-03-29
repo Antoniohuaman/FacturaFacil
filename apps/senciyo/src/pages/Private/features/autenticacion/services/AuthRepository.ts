@@ -8,6 +8,7 @@ import { rateLimitService } from './RateLimitService';
 import { useAuthStore } from '../store/AuthStore';
 import { useTenantStore } from '../store/TenantStore';
 import type { LoginCredentials, AuthResponse } from '../types/auth.types';
+import { resetearIdentidadAnalitica } from '@/shared/analitica/analitica';
 
 /**
  * ============================================
@@ -274,6 +275,8 @@ class AuthRepository {
       // Continuar con logout local incluso si falla la API
       console.error('Error en logout:', error);
     } finally {
+      resetearIdentidadAnalitica();
+
       // Limpiar todo
       tokenService.clearTokens();
       contextService.clearContext();

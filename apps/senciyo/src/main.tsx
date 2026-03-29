@@ -16,6 +16,7 @@ const posthogHost = import.meta.env.VITE_PUBLIC_POSTHOG_HOST as string | undefin
 // ✅ NUEVO (Amplitude)
 const amplitudeApiKey = import.meta.env.VITE_PUBLIC_AMPLITUDE_API_KEY as string | undefined;
 const eventosAnaliticaPermitidos = new Set<string>(Object.values(EVENTOS_ANALITICA));
+const eventosPosthogInternosPermitidos = new Set<string>(['$identify', '$groupidentify']);
 
 if (posthogKey) {
   posthog.init(posthogKey, {
@@ -34,7 +35,7 @@ if (posthogKey) {
       }
 
       if (nombreEvento.startsWith("$")) {
-        return null;
+        return eventosPosthogInternosPermitidos.has(nombreEvento) ? event : null;
       }
 
       return eventosAnaliticaPermitidos.has(nombreEvento) ? event : null;
