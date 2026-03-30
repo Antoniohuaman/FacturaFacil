@@ -1,6 +1,7 @@
 import posthog from 'posthog-js';
 import * as amplitude from '@amplitude/analytics-browser';
 import mixpanel from 'mixpanel-browser';
+import { useTenantStore } from '../../pages/Private/features/autenticacion/store/TenantStore';
 
 import {
   EVENTOS_ANALITICA,
@@ -12,7 +13,10 @@ import {
   type OrigenVenta,
   type ResultadoImportacion,
 } from './eventosAnalitica';
-import type { ContextoIdentidadAnalitica } from './identidadAnalitica';
+import {
+  resolverContextoEmpresaAnaliticaDesdeTenant,
+  type ContextoIdentidadAnalitica,
+} from './identidadAnalitica';
 
 type PropiedadesAnalitica = Record<string, unknown>;
 const amplitudeApiKey = import.meta.env.VITE_PUBLIC_AMPLITUDE_API_KEY?.trim();
@@ -298,8 +302,31 @@ function capturarEvento(nombreEvento: string, propiedades?: PropiedadesAnalitica
   }
 }
 
+function construirPropiedadesRegistroUsuarioCompletado(
+  entrada: { entorno: EntornoAnalitica },
+): PropiedadesAnalitica {
+  if (contextoIdentidadActual?.companyId) {
+    return entrada;
+  }
+
+  const { empresas, contextoActual } = useTenantStore.getState();
+  const contextoEmpresa = resolverContextoEmpresaAnaliticaDesdeTenant(empresas, contextoActual);
+
+  if (!contextoEmpresa?.companyId) {
+    return entrada;
+  }
+
+  return limpiarValoresIndefinidos({
+    ...contextoEmpresa,
+    ...entrada,
+  });
+}
+
 export function registrarRegistroUsuarioCompletado(entrada: { entorno: EntornoAnalitica }): void {
-  capturarEvento(EVENTOS_ANALITICA.REGISTRO_USUARIO_COMPLETADO, entrada);
+  capturarEvento(
+    EVENTOS_ANALITICA.REGISTRO_USUARIO_COMPLETADO,
+    construirPropiedadesRegistroUsuarioCompletado(entrada),
+  );
 }
 
 export function registrarVentaCompletada(entrada: { entorno: EntornoAnalitica; origenVenta: OrigenVenta }): void {

@@ -1,4 +1,8 @@
-import type { User } from '../../pages/Private/features/autenticacion/types/auth.types';
+import type {
+  Empresa,
+  User,
+  WorkspaceContext,
+} from '../../pages/Private/features/autenticacion/types/auth.types';
 import type { Company } from '../../pages/Private/features/configuracion-sistema/modelos/Company';
 import type { UserSession } from '../../contexts/UserSessionContext';
 
@@ -21,6 +25,9 @@ interface ResolverContextoAnaliticoEntrada {
   tenantId: string | null;
   activeEstablecimientoId: string | null;
 }
+
+type EmpresaAnalitica = Pick<Company, 'ruc' | 'razonSocial' | 'nombreComercial'>
+  | Pick<Empresa, 'ruc' | 'razonSocial' | 'nombreComercial'>;
 
 const obtenerCompanyIdCanonico = (
   session: UserSession | null,
@@ -49,7 +56,7 @@ const derivarEntornoAnalitico = (
   return entornoSunat === 'PRODUCTION' ? 'produccion' : 'demo';
 };
 
-const obtenerNombreEmpresaSeguro = (company: Company | null | undefined): string | undefined => {
+const obtenerNombreEmpresaSeguro = (company: EmpresaAnalitica | null | undefined): string | undefined => {
   const razonSocial = company?.razonSocial?.trim();
   const nombreComercial = company?.nombreComercial?.trim();
 
@@ -58,7 +65,7 @@ const obtenerNombreEmpresaSeguro = (company: Company | null | undefined): string
 
 const derivarEmpresaConfigurada = (
   companyId: string | undefined,
-  company: Company | null | undefined,
+  company: EmpresaAnalitica | null | undefined,
 ): boolean => {
   if (!companyId) {
     return false;
@@ -69,6 +76,32 @@ const derivarEmpresaConfigurada = (
 
   return Boolean(nombreEmpresa || ruc);
 };
+
+export function resolverContextoEmpresaAnalitica(
+  companyId: string | undefined,
+  company: EmpresaAnalitica | null | undefined,
+): Pick<ContextoIdentidadAnalitica, 'companyId' | 'companyName' | 'companyConfigured'> {
+  return {
+    companyId,
+    companyName: obtenerNombreEmpresaSeguro(company),
+    companyConfigured: derivarEmpresaConfigurada(companyId, company),
+  };
+}
+
+export function resolverContextoEmpresaAnaliticaDesdeTenant(
+  empresas: Empresa[],
+  contextoActual: WorkspaceContext | null,
+): Pick<ContextoIdentidadAnalitica, 'companyId' | 'companyName' | 'companyConfigured'> | null {
+  if (!contextoActual?.empresaId) {
+    return null;
+  }
+
+  const empresaActual = contextoActual.empresa
+    || empresas.find((empresa) => empresa.id === contextoActual.empresaId)
+    || null;
+
+  return resolverContextoEmpresaAnalitica(contextoActual.empresaId, empresaActual);
+}
 
 export function resolverContextoIdentidadAnalitica({
   isAuthenticated,
@@ -83,6 +116,7 @@ export function resolverContextoIdentidadAnalitica({
 
   const companyId = obtenerCompanyIdCanonico(session, tenantId);
   const currentCompany = session?.currentCompany;
+  const contextoEmpresa = resolverContextoEmpresaAnalitica(companyId, currentCompany);
   const entornoSunat = obtenerEntornoSunat(currentCompany);
   const entorno = derivarEntornoAnalitico(entornoSunat);
   const establecimientoId = session?.currentEstablecimientoId || activeEstablecimientoId || undefined;
@@ -91,9 +125,9 @@ export function resolverContextoIdentidadAnalitica({
     userId: authUser.id,
     userRole: authUser.rol,
     userStatus: authUser.estado,
-    companyId,
-    companyName: obtenerNombreEmpresaSeguro(currentCompany),
-    companyConfigured: derivarEmpresaConfigurada(companyId, currentCompany),
+    companyId: contextoEmpresa.companyId,
+    companyName: contextoEmpresa.companyName,
+    companyConfigured: contextoEmpresa.companyConfigured,
     establecimientoId,
     entorno,
     entornoSunat,
