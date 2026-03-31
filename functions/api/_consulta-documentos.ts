@@ -151,11 +151,13 @@ function detectarErrorExplicito(payload: unknown): { message?: string; status?: 
   }
 
   const success = record.success
-  const status = textoPlano(record.status)
+  const status = textoPlano(record.status)?.toLowerCase()
+  const estadoExitoso = success === true || status === 'success' || status === 'ok'
+  const mensajeError = textoPlano(record.error) || textoPlano(record.detail)
   const message = mensajeProveedor(record)
-  const tieneMarcaError = success === false || status === 'error' || status === 'fail'
+  const tieneMarcaError = success === false || status === 'error' || status === 'fail' || status === 'failed'
 
-  if (!tieneMarcaError && !message) {
+  if (estadoExitoso || (!tieneMarcaError && !mensajeError)) {
     return null
   }
 
@@ -241,7 +243,7 @@ function clasificarErrorProveedor(responseStatus: number, payload: unknown): { s
     error: {
       success: false,
       message: mensaje,
-      codigoError: 'respuesta_proveedor_invalida'
+      codigoError: 'respuesta_inesperada'
     }
   }
 }
@@ -433,34 +435,43 @@ async function resolverRespuestaProveedor(
   try {
     const response = await consultarProveedor(tipo, numero, env)
     const payload = await extraerPayload(response)
+    const normalizado = response.ok
+      ? (tipo === 'dni' ? normalizarDni(payload, numero) : normalizarRuc(payload, numero))
+      : null
+
+    if (normalizado) {
+      return { status: 200, payload: normalizado }
+    }
 
     const errorExplicito = detectarErrorExplicito(payload)
 
     if (errorExplicito) {
+      const clasificacion = clasificarErrorProveedor(response.ok ? 200 : response.status, payload)
+
       console.error('[consulta-documentos] Proveedor respondió error explícito', {
         tipo,
         numero,
         status: response.status,
+        clasificacion: clasificacion.error.codigoError,
         payload: serializarPayloadParaLog(payload)
       })
 
-      return clasificarErrorProveedor(response.ok ? 200 : response.status, payload)
+      return clasificacion
     }
 
     if (!response.ok) {
+      const clasificacion = clasificarErrorProveedor(response.status, payload)
+
       console.error('[consulta-documentos] Proveedor respondió HTTP no exitoso', {
         tipo,
         numero,
         status: response.status,
+        clasificacion: clasificacion.error.codigoError,
         payload: serializarPayloadParaLog(payload)
       })
 
-      return clasificarErrorProveedor(response.status, payload)
+      return clasificacion
     }
-
-    const normalizado = tipo === 'dni'
-      ? normalizarDni(payload, numero)
-      : normalizarRuc(payload, numero)
 
     if (!normalizado) {
       console.error('[consulta-documentos] Payload exitoso no normalizable', {
