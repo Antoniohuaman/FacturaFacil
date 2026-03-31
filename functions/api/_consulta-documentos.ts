@@ -60,7 +60,7 @@ type ContextoConsulta = {
   }
 }
 
-const BASE_APIPERU = 'https://dniruc.apisperu.com/api/v1'
+const BASE_APIPERU = 'https://apiperu.dev/api'
 const DNI_REGEX = /^\d{8}$/
 const RUC_REGEX = /^[12]\d{10}$/
 const TIMEOUT_MS = 8_000
@@ -128,6 +128,30 @@ function serializarPayloadParaLog(payload: unknown): string {
 
 function normalizarBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '')
+}
+
+function primerTextoPlano(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const texto = textoPlano(value)
+    if (texto) {
+      return texto
+    }
+  }
+
+  return undefined
+}
+
+function ubigeoComoTexto(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    for (let index = value.length - 1; index >= 0; index -= 1) {
+      const texto = textoPlano(value[index])
+      if (texto) {
+        return texto
+      }
+    }
+  }
+
+  return textoPlano(value)
 }
 
 function extraerRegistroDatos(payload: unknown): Record<string, unknown> | null {
@@ -323,19 +347,21 @@ async function consultarProveedor(tipo: 'dni' | 'ruc', numero: string, env: Ento
   }
 
   const baseUrl = normalizarBaseUrl(env.APIPERU_BASE_URL?.trim() || BASE_APIPERU)
-  const url = new URL(`${baseUrl}/${tipo}/${numero}`)
-  url.searchParams.set('token', token)
+  const url = new URL(`${baseUrl}/${tipo}`)
+  const body = JSON.stringify({ [tipo]: numero })
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
     return await fetch(url.toString(), {
-      method: 'GET',
+      method: 'POST',
       headers: {
         accept: 'application/json',
+        'content-type': 'application/json',
         authorization: `Bearer ${token}`
       },
+      body,
       signal: controller.signal
     })
   } finally {
@@ -362,12 +388,14 @@ function normalizarDni(payload: unknown, dni: string): DatosConsultaDni | null {
     return null
   }
 
-  const nombres = textoPlano(data.nombres) || ''
-  const apellidoPaterno = textoPlano(data.apellidoPaterno) || ''
-  const apellidoMaterno = textoPlano(data.apellidoMaterno) || ''
-  const nombreCompleto = [nombres, apellidoPaterno, apellidoMaterno].filter(Boolean).join(' ').trim()
+  const nombres = primerTextoPlano(data.nombres) || ''
+  const apellidoPaterno = primerTextoPlano(data.apellidoPaterno, data.apellido_paterno) || ''
+  const apellidoMaterno = primerTextoPlano(data.apellidoMaterno, data.apellido_materno) || ''
+  const nombreCompleto =
+    primerTextoPlano(data.nombreCompleto, data.nombre_completo) ||
+    [nombres, apellidoPaterno, apellidoMaterno].filter(Boolean).join(' ').trim()
 
-  if (!nombres && !apellidoPaterno && !apellidoMaterno) {
+  if (!nombres && !apellidoPaterno && !apellidoMaterno && !nombreCompleto) {
     return null
   }
 
@@ -386,8 +414,14 @@ function normalizarRuc(payload: unknown, ruc: string): DatosConsultaRuc | null {
     return null
   }
 
-  const razonSocial = textoPlano(data.razonSocial) || textoPlano(data.nombre) || textoPlano(data.razon_social)
-  const direccion = textoPlano(data.direccion) || textoPlano(data.domicilioFiscal) || textoPlano(data.domicilio) || '-'
+  const razonSocial = primerTextoPlano(
+    data.razonSocial,
+    data.nombre,
+    data.razon_social,
+    data.nombre_o_razon_social
+  )
+  const direccion =
+    primerTextoPlano(data.direccion, data.direccion_completa, data.domicilioFiscal, data.domicilio) || '-'
 
   if (!razonSocial) {
     return null
@@ -402,8 +436,8 @@ function normalizarRuc(payload: unknown, ruc: string): DatosConsultaRuc | null {
   return {
     ruc: textoPlano(data.ruc) || ruc,
     razonSocial,
-    nombreComercial: textoPlano(data.nombreComercial),
-    tipo: textoPlano(data.tipo) || textoPlano(data.tipoContribuyente),
+    nombreComercial: primerTextoPlano(data.nombreComercial, data.nombre_comercial),
+    tipo: primerTextoPlano(data.tipo, data.tipoContribuyente, data.tipo_contribuyente),
     direccion,
     estado: textoPlano(data.estado) || 'No disponible',
     condicion: textoPlano(data.condicion) || 'No disponible',
@@ -411,19 +445,24 @@ function normalizarRuc(payload: unknown, ruc: string): DatosConsultaRuc | null {
     departamento: textoPlano(data.departamento),
     provincia: textoPlano(data.provincia),
     distrito: textoPlano(data.distrito),
-    ubigeo: textoPlano(data.ubigeo),
-    referenciaDireccion: textoPlano(data.referenciaDireccion),
-    fechaInscripcion: textoPlano(data.fechaInscripcion),
+    ubigeo: primerTextoPlano(data.ubigeo_sunat) || ubigeoComoTexto(data.ubigeo),
+    referenciaDireccion: primerTextoPlano(data.referenciaDireccion, data.referencia_direccion),
+    fechaInscripcion: primerTextoPlano(data.fechaInscripcion, data.fecha_inscripcion),
     sistemaEmision,
     sistEmsion: sistemaEmision,
-    sistContabilidad: textoPlano(data.sistContabilidad),
+    sistContabilidad: primerTextoPlano(data.sistContabilidad, data.sist_contabilidad),
     actEconomicas: actividades.lista,
     actividadEconomicaPrincipal: actividades.principal,
-    esAgenteRetencion: booleanoPlano(data.esAgenteRetencion),
-    esAgentePercepcion: booleanoPlano(data.esAgentePercepcion),
-    esBuenContribuyente: booleanoPlano(data.esBuenContribuyente),
-    esEmisorElectronico: booleanoPlano(data.esEmisorElectronico),
-    exceptuadaPercepcion: booleanoPlano(data.exceptuadaPercepcion)
+    esAgenteRetencion: booleanoPlano(data.esAgenteRetencion) ?? booleanoPlano(data.es_agente_de_retencion),
+    esAgentePercepcion:
+      booleanoPlano(data.esAgentePercepcion) ?? booleanoPlano(data.es_agente_de_percepcion),
+    esBuenContribuyente:
+      booleanoPlano(data.esBuenContribuyente) ?? booleanoPlano(data.es_buen_contribuyente),
+    esEmisorElectronico: booleanoPlano(data.esEmisorElectronico) ?? booleanoPlano(data.es_emisor_electronico),
+    exceptuadaPercepcion:
+      booleanoPlano(data.exceptuadaPercepcion) ??
+      booleanoPlano(data.exceptuada_percepcion) ??
+      booleanoPlano(data.es_agente_de_percepcion_combustible)
   }
 }
 
