@@ -46,6 +46,11 @@ reintentarlo sobre un artifact ya compilado no es suficiente.
 | `VITE_PUBLIC_AMPLITUDE_API_KEY` | Production | Clave publishable |
 | `VITE_PUBLIC_MIXPANEL_TOKEN` | Production | Token publishable |
 | `VITE_DEV_MODE` | Preview | `true` para activar mocks |
+| `APIPERU_TOKEN` | Production | Runtime (Functions) — **Secret** para consulta real de RUC/DNI |
+| `APIPERU_BASE_URL` | Production | Runtime (Functions) — opcional, default `https://dniruc.apisperu.com/api/v1` |
+
+La consulta documental real de SenciYo se resuelve desde `functions/api/documentos/*`.
+El token del proveedor debe existir solo como secreto runtime y no debe declararse como `VITE_*`.
 
 ### PM Portal
 

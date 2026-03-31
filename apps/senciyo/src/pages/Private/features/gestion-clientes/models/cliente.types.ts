@@ -1,3 +1,8 @@
+import type {
+  RespuestaConsultaDni,
+  RespuestaConsultaRuc,
+} from '@/shared/documentos/servicioConsultaDocumentos';
+
 export type DocumentType =
   | 'RUC'
   | 'DNI'
@@ -291,47 +296,9 @@ export interface BulkImportResponse {
   clientes: Cliente[];
 }
 
-export interface ReniecResponse {
-  success: boolean;
-  data?: {
-    dni: string;
-    nombres: string;
-    apellidoPaterno: string;
-    apellidoMaterno: string;
-    nombreCompleto: string;
-  };
-  message?: string;
-}
+export type ReniecResponse = RespuestaConsultaDni;
 
-export interface SunatResponse {
-  success: boolean;
-  data?: {
-    ruc: string;
-    razonSocial: string;
-    nombreComercial?: string;
-    tipo?: string; // Tipo de contribuyente
-    direccion: string;
-    estado: string; // Estado del contribuyente
-    condicion: string; // Habido / No Habido
-    pais?: string;
-    departamento?: string;
-    provincia?: string;
-    distrito?: string;
-    ubigeo?: string;
-    referenciaDireccion?: string;
-    fechaInscripcion?: string;
-    sistEmsion?: string; // Sistema de emisión (puede venir como sistEmsion o sistemaEmision)
-    sistemaEmision?: string;
-    sistContabilidad?: string;
-    actEconomicas?: string[]; // Array de strings con formato "Principal - código - descripción"
-    esAgenteRetencion?: boolean;
-    esAgentePercepcion?: boolean;
-    esBuenContribuyente?: boolean;
-    esEmisorElectronico?: boolean;
-    exceptuadaPercepcion?: boolean;
-  };
-  message?: string;
-}
+export type SunatResponse = RespuestaConsultaRuc;
 
 export interface PaginatedResponse<T> {
   data: T[];

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/pages/CompanyConfiguration.tsx
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -28,6 +27,7 @@ import { registrarRucActualizadoExitoso } from '../../../../../shared/analitica/
 import type { Company } from '../modelos/Company';
 import type { Establecimiento } from '../modelos/Establecimiento';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
+import type { DatosConsultaRuc } from '@/shared/documentos/servicioConsultaDocumentos';
 
 
 interface CompanyFormData {
@@ -36,6 +36,9 @@ interface CompanyFormData {
   nombreComercial: string;
   direccionFiscal: string;
   ubigeo: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
   monedaBase: 'PEN' | 'USD';
   entornoSunat: 'TEST' | 'PRODUCTION';
   telefonos: string[];
@@ -91,6 +94,9 @@ export function CompanyConfiguration() {
     nombreComercial: '',
     direccionFiscal: '',
     ubigeo: '',
+    departamento: '',
+    provincia: '',
+    distrito: '',
     monedaBase: 'PEN',
     entornoSunat: 'TEST',
     telefonos: [''],
@@ -101,7 +107,7 @@ export function CompanyConfiguration() {
   const [rucValidation, setRucValidation] = useState<{
     isValid: boolean;
     message: string;
-    data?: any;
+    data?: DatosConsultaRuc;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showProductionModal, setShowProductionModal] = useState(false);
@@ -122,6 +128,9 @@ export function CompanyConfiguration() {
         nombreComercial: company.nombreComercial || '',
         direccionFiscal: company.direccionFiscal,
         ubigeo: company.codigoPostal || '',
+        departamento: company.departamento || '',
+        provincia: company.provincia || '',
+        distrito: company.distrito || '',
         monedaBase: company.monedaBase || 'PEN',
         entornoSunat: (company.configuracionSunatEmpresa.entornoSunat === 'TESTING' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
         telefonos: company.telefonos?.length > 0 ? company.telefonos : [''],
@@ -148,6 +157,9 @@ export function CompanyConfiguration() {
       datosFormulario.nombreComercial !== originalData.nombreComercial ||
       datosFormulario.direccionFiscal !== originalData.direccionFiscal ||
       datosFormulario.ubigeo !== originalData.ubigeo ||
+      datosFormulario.departamento !== originalData.departamento ||
+      datosFormulario.provincia !== originalData.provincia ||
+      datosFormulario.distrito !== originalData.distrito ||
       datosFormulario.monedaBase !== originalData.monedaBase ||
       datosFormulario.entornoSunat !== originalData.entornoSunat ||
       datosFormulario.actividadEconomica !== originalData.actividadEconomica ||
@@ -158,15 +170,24 @@ export function CompanyConfiguration() {
   }, [datosFormulario, originalData]);
 
   // Handle RUC validation callback from RucValidator component
-  const handleRucValidation = (result: { isValid: boolean; message: string; data?: any }) => {
+  const handleRucValidation = (result: { isValid: boolean; message: string; data?: DatosConsultaRuc }) => {
     setRucValidation(result);
 
     if (result.isValid && result.data) {
+      const datosSunat = result.data;
+
       setFormData(prev => ({
         ...prev,
-        razonSocial: result.data.razonSocial,
-        direccionFiscal: result.data.direccionFiscal,
-        ubigeo: result.data.ubigeo
+        razonSocial: datosSunat.razonSocial,
+        nombreComercial: prev.nombreComercial.trim() ? prev.nombreComercial : (datosSunat.nombreComercial || ''),
+        direccionFiscal: datosSunat.direccion,
+        ubigeo: datosSunat.ubigeo || prev.ubigeo,
+        departamento: datosSunat.departamento || prev.departamento,
+        provincia: datosSunat.provincia || prev.provincia,
+        distrito: datosSunat.distrito || prev.distrito,
+        actividadEconomica: prev.actividadEconomica.trim()
+          ? prev.actividadEconomica
+          : (datosSunat.actividadEconomicaPrincipal || datosSunat.actEconomicas?.[0] || ''),
       }));
     }
   };
@@ -243,9 +264,9 @@ export function CompanyConfiguration() {
         razonSocial: datosFormulario.razonSocial,
         nombreComercial: datosFormulario.nombreComercial || undefined,
         direccionFiscal: datosFormulario.direccionFiscal,
-        distrito: company?.distrito || '',
-        provincia: company?.provincia || '',
-        departamento: company?.departamento || '',
+        distrito: datosFormulario.distrito,
+        provincia: datosFormulario.provincia,
+        departamento: datosFormulario.departamento,
         codigoPostal: datosFormulario.ubigeo,
         telefonos: cleanPhones.length > 0 ? cleanPhones : [],
         correosElectronicos: cleanEmails.length > 0 ? cleanEmails : [],
@@ -263,7 +284,9 @@ export function CompanyConfiguration() {
           estaConfiguradoEnSunat: company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
           usuarioSunat: company?.configuracionSunatEmpresa?.usuarioSunat,
           entornoSunat: datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
-          fechaUltimaSincronizacionSunat: company?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat
+          fechaUltimaSincronizacionSunat: rucValidation?.isValid && rucValidation.data?.ruc === datosFormulario.ruc
+            ? new Date()
+            : company?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat
         },
         creadoEl: company?.creadoEl || new Date(),
         actualizadoEl: new Date(),

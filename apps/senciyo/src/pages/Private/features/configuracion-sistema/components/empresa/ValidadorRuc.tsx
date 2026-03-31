@@ -1,96 +1,37 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
-/* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
-// src/features/configuration/components/empresa/RucValidator.tsx
 import { useState } from 'react';
 import { CheckCircle2, AlertTriangle, Search, Building2 } from 'lucide-react';
 import { Button } from '@/contasis';
+import {
+  servicioConsultaDocumentos,
+  type DatosConsultaRuc,
+} from '@/shared/documentos/servicioConsultaDocumentos';
+
+interface ResultadoValidacionRuc {
+  isValid: boolean;
+  message: string;
+  data?: DatosConsultaRuc;
+}
 
 interface RucValidatorProps {
   value: string;
   onChange: (value: string) => void;
-  onValidation: (result: { isValid: boolean; message: string; data?: any }) => void;
+  onValidation: (result: ResultadoValidacionRuc) => void;
   disabled?: boolean;
 }
 
 export function RucValidator({ value, onChange, onValidation, disabled = false }: RucValidatorProps) {
   const [isValidating, setIsValidating] = useState(false);
-  const [validation, setValidation] = useState<{
-    isValid: boolean;
-    message: string;
-    data?: any;
-  } | null>(null);
-
+  const [validation, setValidation] = useState<ResultadoValidacionRuc | null>(null);
   const [lastValidatedRuc, setLastValidatedRuc] = useState('');
 
-  // Mock SUNAT validation
-  const validateRuc = async (ruc: string): Promise<{ isValid: boolean; message: string; data?: any }> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Basic RUC validation
-    if (ruc.length !== 11) {
-      return { isValid: false, message: 'El RUC debe tener 11 dígitos' };
-    }
-    
-    if (!/^\d+$/.test(ruc)) {
-      return { isValid: false, message: 'El RUC solo debe contener números' };
-    }
-
-    // Mock different scenarios based on RUC
-    const lastDigit = parseInt(ruc.slice(-1));
-    
-    if (lastDigit === 0) {
-      return { 
-        isValid: false, 
-        message: 'RUC no encontrado en SUNAT. Verifica que esté correctamente escrito.' 
-      };
-    }
-    
-    if (lastDigit === 1) {
-      return { 
-        isValid: false, 
-        message: 'Error de conexión con SUNAT. Intenta nuevamente en unos momentos.' 
-      };
-    }
-
-    // Successful validation with mock data
-    const mockCompanies = {
-      '20123456789': {
-        razonSocial: 'EMPRESA EJEMPLO S.A.C.',
-        direccionFiscal: 'JR. LOS EJEMPLOS 123, LIMA, LIMA, LIMA',
-        ubigeo: '150101'
-      },
-      '20111111112': {
-        razonSocial: 'COMERCIAL EJEMPLO EIRL',
-        direccionFiscal: 'AV. PRINCIPAL 456, SAN ISIDRO, LIMA, LIMA',
-        ubigeo: '150127'
-      }
-    };
-
-    const mockData = mockCompanies[ruc as keyof typeof mockCompanies] || {
-      razonSocial: 'EMPRESA VALIDADA S.A.C.',
-      direccionFiscal: 'AV. PRINCIPAL 789, MIRAFLORES, LIMA, LIMA',
-      ubigeo: '150122'
-    };
-
-    return {
-      isValid: true,
-      message: 'RUC válido. Datos completados automáticamente desde SUNAT.',
-      data: mockData
-    };
-  };
-
-  // Handle RUC input change
   const handleRucChange = (inputValue: string) => {
     const numericValue = inputValue.replace(/\D/g, '').slice(0, 11);
     onChange(numericValue);
 
-    // Reset validation if RUC changed
     if (validation && numericValue !== lastValidatedRuc) {
       setValidation(null);
       onValidation({ isValid: false, message: 'RUC modificado, necesita validación' });
     }
-
   };
 
   const handleValidate = async () => {
@@ -98,15 +39,29 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
 
     setIsValidating(true);
     setValidation(null);
+
     try {
-      const result = await validateRuc(value);
+      const response = await servicioConsultaDocumentos.consultarRuc(value);
+      const result: ResultadoValidacionRuc = response.success && response.data
+        ? {
+            isValid: true,
+            message: 'RUC válido. Datos completados automáticamente desde SUNAT.',
+            data: response.data,
+          }
+        : {
+            isValid: false,
+            message: response.message || 'No se pudo obtener información válida desde SUNAT.',
+          };
+
       setValidation(result);
-      setLastValidatedRuc(value);
+      if (result.isValid) {
+        setLastValidatedRuc(value);
+      }
       onValidation(result);
-    } catch (error) {
-      const errorResult = {
+    } catch {
+      const errorResult: ResultadoValidacionRuc = {
         isValid: false,
-        message: 'Error al conectar con SUNAT. Intenta nuevamente.'
+        message: 'Error al conectar con SUNAT. Intenta nuevamente.',
       };
       setValidation(errorResult);
       onValidation(errorResult);
@@ -118,7 +73,7 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
   const handleRetry = () => {
     setValidation(null);
     setLastValidatedRuc('');
-    handleValidate();
+    void handleValidate();
   };
 
   return (
@@ -127,7 +82,6 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
         RUC <span className="text-red-500">*</span>
       </label>
 
-      {/* Input with Validation Button */}
       <div className="flex gap-1">
         <div className="relative flex-1">
           <div className="absolute left-3 top-1/2 -translate-y-1/2">
@@ -156,7 +110,6 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
             maxLength={11}
           />
 
-          {/* Status Icon in Input */}
           {validation && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               {validation.isValid ? (
@@ -168,18 +121,17 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
           )}
         </div>
 
-        {/* Validate Button */}
         <Button
           type="button"
-          onClick={handleValidate}
+          onClick={() => void handleValidate()}
           disabled={value.length !== 11 || disabled || (validation?.isValid && value === lastValidatedRuc)}
           loading={isValidating}
           loadingText="Consultando SUNAT"
-          variant={validation?.isValid && value === lastValidatedRuc ? "secondary" : "primary"}
+          variant={validation?.isValid && value === lastValidatedRuc ? 'secondary' : 'primary'}
           size="md"
           icon={validation?.isValid && value === lastValidatedRuc ? <CheckCircle2 /> : <Search />}
         >
-          {validation?.isValid && value === lastValidatedRuc ? "Validado" : "Consultar SUNAT"}
+          {validation?.isValid && value === lastValidatedRuc ? 'Validado' : 'Consultar SUNAT'}
         </Button>
       </div>
 
@@ -194,7 +146,6 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
         </button>
       )}
 
-      {/* Validation Success Message */}
       {validation?.isValid && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-2 animate-in slide-in-from-top-2 duration-300">
           <div className="flex items-start gap-2">
@@ -214,7 +165,6 @@ export function RucValidator({ value, onChange, onValidation, disabled = false }
         </div>
       )}
 
-      {/* Validation Error Message */}
       {validation?.isValid === false && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-2 animate-in slide-in-from-top-2 duration-300">
           <div className="flex items-start gap-2">

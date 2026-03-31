@@ -16,9 +16,9 @@ import { mergeEmails, sanitizePhones, splitEmails, splitPhones } from '../utils/
 import { documentCodeFromType, normalizeDocumentNumber, parseLegacyDocumentString } from '../utils/documents';
 import { emitClientesChanged } from '../utils/clientesEvents';
 import { normalizarNombres } from '../utils/names';
-import { lookupEmpresaPorRuc, lookupPersonaPorDni } from '../../comprobantes-electronicos/shared/clienteLookup/clienteLookupService';
 import { lsKey } from '../../../../../shared/tenant';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
+import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsultaDocumentos';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true' || !import.meta.env.VITE_API_URL;
@@ -459,24 +459,7 @@ class ClientesClient {
         };
       }
 
-      const lookup = await lookupPersonaPorDni(dni);
-      if (!lookup?.reniec) {
-        throw {
-          code: 'NOT_FOUND',
-          message: 'No se encontraron datos para el DNI consultado',
-        };
-      }
-
-      return {
-        success: true,
-        data: {
-          dni: lookup.reniec.dni,
-          nombres: lookup.reniec.nombres,
-          apellidoPaterno: lookup.reniec.apellidoPaterno,
-          apellidoMaterno: lookup.reniec.apellidoMaterno,
-          nombreCompleto: lookup.reniec.nombreCompleto,
-        }
-      } as T;
+      return await servicioConsultaDocumentos.consultarDni(dni) as T;
     }
 
     // GET /clientes/consultar-sunat/:ruc
@@ -492,41 +475,7 @@ class ClientesClient {
         };
       }
 
-      const lookup = await lookupEmpresaPorRuc(ruc);
-      if (!lookup?.sunat) {
-        throw {
-          code: 'NOT_FOUND',
-          message: 'No se encontraron datos para el RUC consultado',
-        };
-      }
-
-      return {
-        success: true,
-        data: {
-          ruc: lookup.sunat.ruc,
-          razonSocial: lookup.sunat.razonSocial,
-          nombreComercial: lookup.sunat.nombreComercial,
-          tipo: lookup.sunat.tipo,
-          direccion: lookup.sunat.direccion,
-          estado: lookup.sunat.estado,
-          condicion: lookup.sunat.condicion,
-          departamento: lookup.sunat.departamento,
-          provincia: lookup.sunat.provincia,
-          distrito: lookup.sunat.distrito,
-          fechaInscripcion: lookup.sunat.fechaInscripcion,
-          sistemaEmision: lookup.sunat.sistemaEmision,
-          sistEmsion: lookup.sunat.sistemaEmision,
-          actEconomicas: lookup.sunat.actEconomicas,
-          esAgenteRetencion: lookup.sunat.esAgenteRetencion,
-          esAgentePercepcion: lookup.sunat.esAgentePercepcion,
-          esBuenContribuyente: lookup.sunat.esBuenContribuyente,
-          esEmisorElectronico: lookup.sunat.esEmisorElectronico,
-          exceptuadaPercepcion: lookup.sunat.exceptuadaPercepcion,
-          pais: lookup.sunat.pais,
-          ubigeo: lookup.sunat.ubigeo,
-          referenciaDireccion: lookup.sunat.referenciaDireccion,
-        }
-      } as T;
+      return await servicioConsultaDocumentos.consultarRuc(ruc) as T;
     }
 
     throw {
@@ -714,20 +663,14 @@ class ClientesClient {
    * Consultar RENIEC por DNI
    */
   async consultarReniec(dni: string, options: { signal?: AbortSignal } = {}): Promise<ReniecResponse> {
-    return this.request<ReniecResponse>(`/clientes/consultar-reniec/${dni}`, {
-      method: 'GET',
-      signal: options.signal,
-    });
+    return servicioConsultaDocumentos.consultarDni(dni, options);
   }
 
   /**
    * Consultar SUNAT por RUC
    */
   async consultarSunat(ruc: string, options: { signal?: AbortSignal } = {}): Promise<SunatResponse> {
-    return this.request<SunatResponse>(`/clientes/consultar-sunat/${ruc}`, {
-      method: 'GET',
-      signal: options.signal,
-    });
+    return servicioConsultaDocumentos.consultarRuc(ruc, options);
   }
 
   // ==================== UTILIDADES DEV ====================
