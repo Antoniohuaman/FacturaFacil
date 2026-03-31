@@ -117,6 +117,135 @@ function mensajeProveedor(data: unknown): string | undefined {
   )
 }
 
+function serializarPayloadParaLog(payload: unknown): string {
+  try {
+    const serialized = JSON.stringify(payload)
+    return serialized.length > 500 ? `${serialized.slice(0, 500)}...` : serialized
+  } catch {
+    return String(payload)
+  }
+}
+
+function normalizarBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '')
+}
+
+function extraerRegistroDatos(payload: unknown): Record<string, unknown> | null {
+  const record = recordPlano(payload)
+  if (!record) {
+    return null
+  }
+
+  const nested =
+    recordPlano(record.data) ||
+    recordPlano(record.result) ||
+    recordPlano(record.resultado)
+
+  return nested || record
+}
+
+function detectarErrorExplicito(payload: unknown): { message?: string; status?: string } | null {
+  const record = recordPlano(payload)
+  if (!record) {
+    return null
+  }
+
+  const success = record.success
+  const status = textoPlano(record.status)
+  const message = mensajeProveedor(record)
+  const tieneMarcaError = success === false || status === 'error' || status === 'fail'
+
+  if (!tieneMarcaError && !message) {
+    return null
+  }
+
+  return {
+    message,
+    status,
+  }
+}
+
+function clasificarErrorProveedor(responseStatus: number, payload: unknown): { status: number; error: RespuestaErrorConsulta } {
+  const detalleError = detectarErrorExplicito(payload)
+  const mensaje = detalleError?.message || mensajeProveedor(payload) || 'El proveedor devolvió una respuesta no procesable.'
+  const mensajeNormalizado = mensaje.toLowerCase()
+
+  if (responseStatus === 404 || mensajeNormalizado.includes('no encontrado') || mensajeNormalizado.includes('not found')) {
+    return {
+      status: 404,
+      error: {
+        success: false,
+        message: 'No se encontraron datos para el documento consultado.',
+        codigoError: 'sin_resultados'
+      }
+    }
+  }
+
+  if (
+    responseStatus === 400 ||
+    responseStatus === 422 ||
+    mensajeNormalizado.includes('inválido') ||
+    mensajeNormalizado.includes('invalido')
+  ) {
+    return {
+      status: 400,
+      error: {
+        success: false,
+        message: mensaje || 'El documento enviado no es válido para la consulta.',
+        codigoError: 'documento_invalido'
+      }
+    }
+  }
+
+  if (
+    responseStatus === 401 ||
+    responseStatus === 403 ||
+    mensajeNormalizado.includes('token') ||
+    (responseStatus === 500 && mensajeNormalizado === 'ocurrió un error') ||
+    (responseStatus === 500 && mensajeNormalizado === 'ocurrio un error')
+  ) {
+    return {
+      status: 503,
+      error: {
+        success: false,
+        message: 'El proveedor rechazó la autenticación o devolvió un error interno al consultar el documento. Verifica el token y el estado del servicio.',
+        codigoError: 'configuracion_proveedor'
+      }
+    }
+  }
+
+  if (responseStatus === 429) {
+    return {
+      status: 503,
+      error: {
+        success: false,
+        message: 'El servicio de consulta documental alcanzó su límite temporal. Intenta nuevamente en unos minutos.',
+        codigoError: 'limite_proveedor'
+      }
+    }
+  }
+
+  if (responseStatus >= 500) {
+    return {
+      status: 502,
+      error: {
+        success: false,
+        message: 'El proveedor devolvió un error interno al consultar el documento. Intenta nuevamente más tarde.',
+        codigoError: 'proveedor_no_disponible'
+      }
+    }
+  }
+
+  return {
+    status: 502,
+    error: {
+      success: false,
+      message: mensaje,
+      codigoError: 'respuesta_proveedor_invalida'
+    }
+  }
+}
+
 function esMismaOrigen(request: Request): boolean {
   const origin = request.headers.get('origin')
   if (!origin) {
@@ -191,7 +320,7 @@ async function consultarProveedor(tipo: 'dni' | 'ruc', numero: string, env: Ento
     throw new Error('La consulta documental no está configurada en este entorno.')
   }
 
-  const baseUrl = env.APIPERU_BASE_URL?.trim() || BASE_APIPERU
+  const baseUrl = normalizarBaseUrl(env.APIPERU_BASE_URL?.trim() || BASE_APIPERU)
   const url = new URL(`${baseUrl}/${tipo}/${numero}`)
   url.searchParams.set('token', token)
 
@@ -202,7 +331,8 @@ async function consultarProveedor(tipo: 'dni' | 'ruc', numero: string, env: Ento
     return await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        accept: 'application/json'
+        accept: 'application/json',
+        authorization: `Bearer ${token}`
       },
       signal: controller.signal
     })
@@ -225,7 +355,7 @@ async function extraerPayload(response: Response): Promise<unknown> {
 }
 
 function normalizarDni(payload: unknown, dni: string): DatosConsultaDni | null {
-  const data = recordPlano(payload)
+  const data = extraerRegistroDatos(payload)
   if (!data) {
     return null
   }
@@ -249,15 +379,15 @@ function normalizarDni(payload: unknown, dni: string): DatosConsultaDni | null {
 }
 
 function normalizarRuc(payload: unknown, ruc: string): DatosConsultaRuc | null {
-  const data = recordPlano(payload)
+  const data = extraerRegistroDatos(payload)
   if (!data) {
     return null
   }
 
   const razonSocial = textoPlano(data.razonSocial) || textoPlano(data.nombre) || textoPlano(data.razon_social)
-  const direccion = textoPlano(data.direccion) || textoPlano(data.domicilioFiscal) || textoPlano(data.domicilio)
+  const direccion = textoPlano(data.direccion) || textoPlano(data.domicilioFiscal) || textoPlano(data.domicilio) || '-'
 
-  if (!razonSocial || !direccion) {
+  if (!razonSocial) {
     return null
   }
 
@@ -304,61 +434,28 @@ async function resolverRespuestaProveedor(
     const response = await consultarProveedor(tipo, numero, env)
     const payload = await extraerPayload(response)
 
+    const errorExplicito = detectarErrorExplicito(payload)
+
+    if (errorExplicito) {
+      console.error('[consulta-documentos] Proveedor respondió error explícito', {
+        tipo,
+        numero,
+        status: response.status,
+        payload: serializarPayloadParaLog(payload)
+      })
+
+      return clasificarErrorProveedor(response.ok ? 200 : response.status, payload)
+    }
+
     if (!response.ok) {
-      const mensaje = mensajeProveedor(payload)
+      console.error('[consulta-documentos] Proveedor respondió HTTP no exitoso', {
+        tipo,
+        numero,
+        status: response.status,
+        payload: serializarPayloadParaLog(payload)
+      })
 
-      if (response.status === 404) {
-        return {
-          status: 404,
-          error: {
-            success: false,
-            message: mensaje || 'No se encontraron datos para el documento consultado.',
-            codigoError: 'sin_resultados'
-          }
-        }
-      }
-
-      if (response.status === 400 || response.status === 422) {
-        return {
-          status: 400,
-          error: {
-            success: false,
-            message: mensaje || 'El documento enviado no es válido para la consulta.',
-            codigoError: 'documento_invalido'
-          }
-        }
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        return {
-          status: 503,
-          error: {
-            success: false,
-            message: 'La consulta documental no está disponible por un problema de configuración del servicio.',
-            codigoError: 'configuracion_proveedor'
-          }
-        }
-      }
-
-      if (response.status === 429) {
-        return {
-          status: 503,
-          error: {
-            success: false,
-            message: 'El servicio de consulta documental alcanzó su límite temporal. Intenta nuevamente en unos minutos.',
-            codigoError: 'limite_proveedor'
-          }
-        }
-      }
-
-      return {
-        status: 502,
-        error: {
-          success: false,
-          message: mensaje || 'El proveedor de consulta documental no respondió correctamente.',
-          codigoError: 'respuesta_proveedor_invalida'
-        }
-      }
+      return clasificarErrorProveedor(response.status, payload)
     }
 
     const normalizado = tipo === 'dni'
@@ -366,6 +463,13 @@ async function resolverRespuestaProveedor(
       : normalizarRuc(payload, numero)
 
     if (!normalizado) {
+      console.error('[consulta-documentos] Payload exitoso no normalizable', {
+        tipo,
+        numero,
+        status: response.status,
+        payload: serializarPayloadParaLog(payload)
+      })
+
       return {
         status: 502,
         error: {
