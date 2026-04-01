@@ -1,10 +1,5 @@
 import { tokenService } from '@/pages/Private/features/autenticacion/services/TokenService';
-import {
-  lookupEmpresaPorRuc,
-  lookupPersonaPorDni,
-} from '@/pages/Private/features/comprobantes-electronicos/shared/clienteLookup/clienteLookupService';
 
-const MODO_SIMULADO = import.meta.env.VITE_DEV_MODE === 'true' || (import.meta.env.DEV && !import.meta.env.VITE_API_URL);
 const RUTA_BASE_DOCUMENTOS = '/api/documentos';
 const DNI_REGEX = /^\d{8}$/;
 const RUC_REGEX = /^[12]\d{10}$/;
@@ -111,68 +106,6 @@ async function consultarEndpoint<T extends { success: boolean; message?: string;
   }
 }
 
-async function consultarDniSimulado(dni: string): Promise<RespuestaConsultaDni> {
-  const lookup = await lookupPersonaPorDni(dni);
-  if (!lookup?.reniec) {
-    return {
-      success: false,
-      message: 'No se encontraron datos para el DNI consultado.',
-      codigoError: 'sin_resultados',
-    };
-  }
-
-  return {
-    success: true,
-    data: {
-      dni: lookup.reniec.dni,
-      nombres: lookup.reniec.nombres,
-      apellidoPaterno: lookup.reniec.apellidoPaterno,
-      apellidoMaterno: lookup.reniec.apellidoMaterno,
-      nombreCompleto: lookup.reniec.nombreCompleto,
-    },
-  };
-}
-
-async function consultarRucSimulado(ruc: string): Promise<RespuestaConsultaRuc> {
-  const lookup = await lookupEmpresaPorRuc(ruc);
-  if (!lookup?.sunat) {
-    return {
-      success: false,
-      message: 'No se encontraron datos para el RUC consultado.',
-      codigoError: 'sin_resultados',
-    };
-  }
-
-  return {
-    success: true,
-    data: {
-      ruc: lookup.sunat.ruc,
-      razonSocial: lookup.sunat.razonSocial,
-      nombreComercial: lookup.sunat.nombreComercial,
-      tipo: lookup.sunat.tipo,
-      direccion: lookup.sunat.direccion,
-      estado: lookup.sunat.estado,
-      condicion: lookup.sunat.condicion,
-      pais: lookup.sunat.pais,
-      departamento: lookup.sunat.departamento,
-      provincia: lookup.sunat.provincia,
-      distrito: lookup.sunat.distrito,
-      ubigeo: lookup.sunat.ubigeo,
-      referenciaDireccion: lookup.sunat.referenciaDireccion,
-      fechaInscripcion: lookup.sunat.fechaInscripcion,
-      sistemaEmision: lookup.sunat.sistemaEmision,
-      sistEmsion: lookup.sunat.sistemaEmision,
-      actEconomicas: lookup.sunat.actEconomicas,
-      actividadEconomicaPrincipal: lookup.sunat.actEconomicas?.[0],
-      esAgenteRetencion: lookup.sunat.esAgenteRetencion,
-      esAgentePercepcion: lookup.sunat.esAgentePercepcion,
-      esBuenContribuyente: lookup.sunat.esBuenContribuyente,
-      esEmisorElectronico: lookup.sunat.esEmisorElectronico,
-      exceptuadaPercepcion: lookup.sunat.exceptuadaPercepcion,
-    },
-  };
-}
-
 async function consultarDni(dni: string, options: { signal?: AbortSignal } = {}): Promise<RespuestaConsultaDni> {
   const numero = (dni || '').trim();
   if (!DNI_REGEX.test(numero)) {
@@ -181,10 +114,6 @@ async function consultarDni(dni: string, options: { signal?: AbortSignal } = {})
       message: 'DNI inválido. Debe tener exactamente 8 dígitos.',
       codigoError: 'documento_invalido',
     };
-  }
-
-  if (MODO_SIMULADO) {
-    return consultarDniSimulado(numero);
   }
 
   return consultarEndpoint<RespuestaConsultaDni>(`${RUTA_BASE_DOCUMENTOS}/dni/${numero}`, options.signal);
@@ -198,10 +127,6 @@ async function consultarRuc(ruc: string, options: { signal?: AbortSignal } = {})
       message: 'RUC inválido. Debe tener 11 dígitos y comenzar con 1 o 2.',
       codigoError: 'documento_invalido',
     };
-  }
-
-  if (MODO_SIMULADO) {
-    return consultarRucSimulado(numero);
   }
 
   return consultarEndpoint<RespuestaConsultaRuc>(`${RUTA_BASE_DOCUMENTOS}/ruc/${numero}`, options.signal);
