@@ -28,6 +28,8 @@ import {
   type ConfiguracionRice,
   type Entrega,
   type EstadoRegistro,
+  formatearEstadoRelease,
+  formatearTipoRelease,
   type Iniciativa,
   type Objetivo,
   type ReleasePm
@@ -122,6 +124,26 @@ interface RangoTemporalCronograma extends RangoCronogramaBase {
   origen: SegmentoCronograma['origen']
 }
 
+interface ReleaseCronogramaVisual {
+  id: string
+  fecha: Date
+  fechaFormateada: string
+  origenFecha: 'real' | 'programada'
+  nombre: string
+  nombreCorto: string
+  estado: ReleasePm['estado']
+  tipo: ReleasePm['tipo_release']
+  iniciativa: string | null
+  entrega: string | null
+}
+
+interface ReleaseCronogramaPosicionado extends ReleaseCronogramaVisual {
+  filaEtiqueta: number
+  anchoEtiquetaPx: number
+  posicionNodoPx: number
+  posicionEtiquetaPx: number
+}
+
 type ModalContextualCronograma =
   | { tipo: 'objetivo'; modo: ModoModalRoadmap; entidad: Objetivo | null }
   | { tipo: 'iniciativa'; modo: ModoModalRoadmap; entidad: Iniciativa | null }
@@ -138,10 +160,14 @@ const CLAVE_ANCHO_COLUMNA_JERARQUIA = 'pm-portal-roadmap-cronograma-ancho-jerarq
 const CLAVE_OBJETIVOS_EXPANDIDOS = 'pm-portal-roadmap-cronograma-objetivos-expandidos'
 const CLAVE_INICIATIVAS_EXPANDIDAS = 'pm-portal-roadmap-cronograma-iniciativas-expandidas'
 const CLAVE_RESUMEN_VISIBLE = 'pm-portal-roadmap-cronograma-resumen-visible'
+const CLAVE_RELEASES_VISIBLE = 'pm-portal-roadmap-cronograma-releases-visible'
 const CLAVE_PREFERENCIAS_TEMPORALES = 'pm-portal-roadmap-cronograma-preferencias-temporales'
 const CLAVE_TOOLTIPS_VISIBLES = 'pm-portal-roadmap-cronograma-tooltips-visible'
 const ALTURA_MINIMA_FILA_CRONOGRAMA = 48
 const ALTURA_SEGMENTO_CRONOGRAMA = 8
+const ALTURA_BANDA_RELEASES = 108
+const POSICION_LINEA_RELEASES = 32
+const TOTAL_FILAS_ETIQUETA_RELEASES = 2
 const INDENTACION_POR_NIVEL_CRONOGRAMA = 14
 const ANCHO_MARCADOR_JERARQUIA = 22
 const ALTURA_VISTA_CUERPO_CRONOGRAMA = 'min(68vh, 720px)'
@@ -152,9 +178,17 @@ const ESTILO_TITULO_DOS_LINEAS: CSSProperties = {
   overflow: 'hidden'
 }
 const ContextoTooltipsCronograma = createContext(true)
+const formateadorFechaReleaseVisual = new Intl.DateTimeFormat('es', {
+  day: '2-digit',
+  month: '2-digit'
+})
 
 function limitarAnchoColumnaJerarquia(valor: number) {
   return Math.min(Math.max(valor, ANCHO_COLUMNA_JERARQUIA_MIN), ANCHO_COLUMNA_JERARQUIA_MAX)
+}
+
+function formatearFechaReleaseVisual(fecha: Date) {
+  return formateadorFechaReleaseVisual.format(fecha)
 }
 
 function TooltipCronograma({
@@ -335,6 +369,17 @@ function IconoResumen() {
   )
 }
 
+function IconoReleases() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
+      <path d="M3.5 10h13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="6" cy="10" r="2" fill="currentColor" />
+      <circle cx="10" cy="10" r="2" fill="currentColor" opacity="0.78" />
+      <circle cx="14" cy="10" r="2" fill="currentColor" opacity="0.58" />
+    </svg>
+  )
+}
+
 function IconoExpandirCronograma({ expandido }: { expandido: boolean }) {
   return expandido ? (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
@@ -440,6 +485,14 @@ function leerPreferenciaTooltipsPersistida() {
   return window.localStorage.getItem(CLAVE_TOOLTIPS_VISIBLES) !== 'false'
 }
 
+function leerPreferenciaReleasesPersistida() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(CLAVE_RELEASES_VISIBLE) === 'true'
+}
+
 function parsearFechaPortal(fecha: string | null | undefined) {
   if (!fecha) {
     return null
@@ -485,6 +538,15 @@ function formatearAnio(fecha: Date) {
 
 function formatearRangoFechas(inicio: Date, fin: Date) {
   return `${formatearFechaCorta(inicio.toISOString().slice(0, 10))} - ${formatearFechaCorta(fin.toISOString().slice(0, 10))}`
+}
+
+function resumirEtiquetaRelease(valor: string, longitudMaxima = 24) {
+  const texto = valor.trim()
+  if (texto.length <= longitudMaxima) {
+    return texto
+  }
+
+  return `${texto.slice(0, Math.max(longitudMaxima - 1, 1)).trimEnd()}…`
 }
 
 function obtenerClaseBadgeEstado(estado: EstadoRegistro | null) {
@@ -1036,6 +1098,7 @@ export function PaginaCronogramaRoadmap() {
 
     return window.localStorage.getItem(CLAVE_RESUMEN_VISIBLE) === 'true'
   })
+  const [releasesVisible, setReleasesVisible] = useState(leerPreferenciaReleasesPersistida)
   const [tooltipsVisibles, setTooltipsVisibles] = useState(leerPreferenciaTooltipsPersistida)
   const [redimensionandoJerarquia, setRedimensionandoJerarquia] = useState(false)
   const [cronogramaExpandido, setCronogramaExpandido] = useState(false)
@@ -1046,8 +1109,9 @@ export function PaginaCronogramaRoadmap() {
   const contenedorScrollRef = useRef<HTMLDivElement | null>(null)
   const encabezadoTimelineRef = useRef<HTMLDivElement | null>(null)
   const cuerpoTimelineRef = useRef<HTMLDivElement | null>(null)
+  const bandaReleasesTimelineRef = useRef<HTMLDivElement | null>(null)
   const referenciasFilasJerarquiaRef = useRef<Array<HTMLDivElement | null>>([])
-  const sincronizandoScrollHorizontalRef = useRef<'encabezado' | 'cuerpo' | null>(null)
+  const sincronizandoScrollHorizontalRef = useRef<'encabezado' | 'cuerpo' | 'releases' | null>(null)
   const ejecutivoInicializadoRef = useRef(false)
   const [alturasFilas, setAlturasFilas] = useState<number[]>([])
   const [filaActiva, setFilaActiva] = useState<string | null>(null)
@@ -1148,17 +1212,46 @@ export function PaginaCronogramaRoadmap() {
   const entregasPorId = useMemo(() => new Map(entregas.map((entrega) => [entrega.id, entrega])), [entregas])
   const ventanasPorId = useMemo(() => new Map(ventanas.map((ventana) => [ventana.id, ventana])), [ventanas])
 
-  const releasesPorIniciativa = useMemo(() => {
+  const releasesPorEntrega = useMemo(() => {
     return releases.reduce((mapa, release) => {
-      if (!release.iniciativa_id) {
+      if (!release.entrega_id) {
         return mapa
       }
 
-      const actuales = mapa.get(release.iniciativa_id) ?? []
-      mapa.set(release.iniciativa_id, [...actuales, release])
+      const actuales = mapa.get(release.entrega_id) ?? []
+      mapa.set(release.entrega_id, [...actuales, release])
       return mapa
     }, new Map<string, ReleasePm[]>())
   }, [releases])
+
+  const releasesRelacionadosPorIniciativa = useMemo(() => {
+    const mapa = new Map<string, Map<string, ReleasePm>>()
+
+    releases.forEach((release) => {
+      const iniciativasRelacionadas = new Set<string>()
+
+      if (release.iniciativa_id) {
+        iniciativasRelacionadas.add(release.iniciativa_id)
+      }
+
+      if (release.entrega_id) {
+        const iniciativaIdDesdeEntrega = entregasPorId.get(release.entrega_id)?.iniciativa_id
+        if (iniciativaIdDesdeEntrega) {
+          iniciativasRelacionadas.add(iniciativaIdDesdeEntrega)
+        }
+      }
+
+      iniciativasRelacionadas.forEach((iniciativaId) => {
+        const actuales = mapa.get(iniciativaId) ?? new Map<string, ReleasePm>()
+        actuales.set(release.id, release)
+        mapa.set(iniciativaId, actuales)
+      })
+    })
+
+    return new Map(
+      [...mapa.entries()].map(([iniciativaId, releasesMap]) => [iniciativaId, [...releasesMap.values()]])
+    )
+  }, [entregasPorId, releases])
 
   const aniosDisponibles = useMemo(() => {
     const anios = new Set<number>([new Date().getFullYear()])
@@ -1242,6 +1335,14 @@ export function PaginaCronogramaRoadmap() {
 
     window.localStorage.setItem(CLAVE_RESUMEN_VISIBLE, String(resumenVisible))
   }, [resumenVisible])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(CLAVE_RELEASES_VISIBLE, String(releasesVisible))
+  }, [releasesVisible])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1742,9 +1843,16 @@ export function PaginaCronogramaRoadmap() {
         : null
 
       const totalReleases = iniciativasObjetivo.reduce(
-        (acumulado, iniciativa) => acumulado + (releasesPorIniciativa.get(iniciativa.id) ?? []).length,
-        0
+        (acumulado, iniciativa) => {
+          ;(releasesRelacionadosPorIniciativa.get(iniciativa.id) ?? []).forEach((release) => acumulado.add(release.id))
+          return acumulado
+        },
+        new Set<string>()
       )
+
+      entregasObjetivo.forEach((entrega) => {
+        ;(releasesPorEntrega.get(entrega.id) ?? []).forEach((release) => totalReleases.add(release.id))
+      })
 
       filas.push({
         id: objetivo.id,
@@ -1757,7 +1865,7 @@ export function PaginaCronogramaRoadmap() {
             ? estadoDominante(iniciativasObjetivo.map((iniciativa) => iniciativa.estado))
             : objetivo.estado,
         resumen: `${iniciativasObjetivo.length} iniciativas`,
-        detalle: `${entregasObjetivo.length} entregas · ${totalReleases} releases`,
+        detalle: `${entregasObjetivo.length} entregas · ${totalReleases.size} releases`,
         rangoFechas: segmentoObjetivo ? formatearRangoFechas(segmentoObjetivo.inicio, segmentoObjetivo.fin) : null,
         contextoTemporal: rangoObjetivo ? describirContextoTemporalRango('objetivo', rangoObjetivo.origen) : null,
         tieneHijos: iniciativasObjetivo.length > 0 || entregasObjetivo.some((entrega) => !entrega.iniciativa_id),
@@ -1797,7 +1905,7 @@ export function PaginaCronogramaRoadmap() {
           titulo: iniciativa.nombre,
           estado: iniciativa.estado,
           resumen: etiquetaVentana,
-          detalle: `${entregasIniciativa.length} entregas · ${(releasesPorIniciativa.get(iniciativa.id) ?? []).length} releases`,
+          detalle: `${entregasIniciativa.length} entregas · ${(releasesRelacionadosPorIniciativa.get(iniciativa.id) ?? []).length} releases`,
           rangoFechas: visual.rangoPlan ? formatearRangoFechas(visual.rangoPlan.inicio, visual.rangoPlan.fin) : null,
           contextoTemporal: visual.rangoPlan ? describirContextoTemporalRango('iniciativa', visual.rangoPlan.origen) : null,
           tieneHijos: entregasIniciativa.length > 0,
@@ -1840,10 +1948,16 @@ export function PaginaCronogramaRoadmap() {
       const entregasSinIniciativa = entregasObjetivo.filter((entrega) => !entrega.iniciativa_id)
       if (entregasSinIniciativa.length > 0) {
         const clave = `${objetivo.id}-${FILA_SIN_INICIATIVA}`
+        const releasesSinIniciativa = new Set<string>()
 
         const segsSinIni = entregasSinIniciativa
           .flatMap((entrega) => calcularSegmentosEntrega(entrega).segmentos)
           .sort((a, b) => compararFechasAscendente(a.inicio, b.inicio))
+
+        entregasSinIniciativa.forEach((entrega) => {
+          ;(releasesPorEntrega.get(entrega.id) ?? []).forEach((release) => releasesSinIniciativa.add(release.id))
+        })
+
         const segAgregadoSinIni: SegmentoCronograma | null =
           segsSinIni.length > 0
             ? construirSegmento(
@@ -1863,7 +1977,7 @@ export function PaginaCronogramaRoadmap() {
           titulo: 'Sin iniciativa asignada',
           estado: estadoDominante(entregasSinIniciativa.map((entrega) => entrega.estado)),
           resumen: 'Entregas sin iniciativa',
-          detalle: `${entregasSinIniciativa.length} entregas`,
+          detalle: `${entregasSinIniciativa.length} entregas · ${releasesSinIniciativa.size} releases`,
           rangoFechas: segAgregadoSinIni ? formatearRangoFechas(segAgregadoSinIni.inicio, segAgregadoSinIni.fin) : null,
           contextoTemporal: segAgregadoSinIni ? 'Rango derivado de entregables sin iniciativa' : null,
           tieneHijos: true,
@@ -1909,7 +2023,8 @@ export function PaginaCronogramaRoadmap() {
     iniciativasPorId,
     objetivosCronograma,
     objetivosExpandidosEfectivos,
-    releasesPorIniciativa,
+    releasesPorEntrega,
+    releasesRelacionadosPorIniciativa,
     ventanasPorId
   ])
 
@@ -1961,6 +2076,81 @@ export function PaginaCronogramaRoadmap() {
     )
   }
 
+  const releasesCronograma = useMemo(() => {
+    return releases
+      .reduce((acumulado, release) => {
+        const fecha = fechaRelease(release)
+        if (!fecha || !fechaDentroDeRango(fecha, rangoTemporal.inicio, rangoTemporal.fin)) {
+          return acumulado
+        }
+
+        const entrega = release.entrega_id ? entregasPorId.get(release.entrega_id) ?? null : null
+        const iniciativaDirecta = release.iniciativa_id ? iniciativasPorId.get(release.iniciativa_id) ?? null : null
+        const iniciativaDesdeEntrega = entrega?.iniciativa_id ? iniciativasPorId.get(entrega.iniciativa_id) ?? null : null
+        const iniciativaRelacionada = iniciativaDirecta ?? iniciativaDesdeEntrega
+
+        if (!release.iniciativa_id && !release.entrega_id && !iniciativaRelacionada) {
+          return acumulado
+        }
+
+        if (filtroObjetivo !== 'todos' && iniciativaRelacionada?.objetivo_id !== filtroObjetivo) {
+          return acumulado
+        }
+
+        const nombreBase = release.nombre.trim() || release.codigo
+
+        acumulado.push({
+          id: release.id,
+          fecha,
+          fechaFormateada: formatearFechaCorta(serializarFechaCronograma(fecha)),
+          origenFecha: release.fecha_lanzamiento_real ? 'real' : 'programada',
+          nombre: nombreBase,
+          nombreCorto: resumirEtiquetaRelease(nombreBase),
+          estado: release.estado,
+          tipo: release.tipo_release,
+          iniciativa: iniciativaRelacionada?.nombre ?? null,
+          entrega: entrega?.nombre ?? null
+        })
+
+        return acumulado
+      }, [] as ReleaseCronogramaVisual[])
+      .sort((releaseA, releaseB) => {
+        const diferencia = compararFechasAscendente(releaseA.fecha, releaseB.fecha)
+        return diferencia !== 0 ? diferencia : releaseA.nombre.localeCompare(releaseB.nombre, 'es')
+      })
+  }, [entregasPorId, filtroObjetivo, iniciativasPorId, rangoTemporal.fin, rangoTemporal.inicio, releases])
+
+  const releasesCronogramaPosicionados = useMemo(() => {
+    const finPorFila = Array.from({ length: TOTAL_FILAS_ETIQUETA_RELEASES }, () => Number.NEGATIVE_INFINITY)
+
+    return releasesCronograma.map((release) => {
+      const diasDesdeInicio = diferenciaDias(rangoTemporal.inicio, release.fecha)
+      const posicionNodoPx = Math.min(Math.max((diasDesdeInicio / rangoTemporal.totalDias) * anchoTimeline, 0), anchoTimeline)
+      const anchoEtiquetaPx = Math.max(92, Math.min(136, 68 + release.nombreCorto.length * 4.2))
+      const posicionEtiquetaPx = Math.min(
+        Math.max(posicionNodoPx, anchoEtiquetaPx / 2 + 8),
+        anchoTimeline - anchoEtiquetaPx / 2 - 8
+      )
+      const inicioEtiqueta = posicionEtiquetaPx - anchoEtiquetaPx / 2
+      let filaEtiqueta = finPorFila.findIndex((fin) => inicioEtiqueta > fin + 10)
+
+      if (filaEtiqueta === -1) {
+        const menorFin = Math.min(...finPorFila)
+        filaEtiqueta = finPorFila.findIndex((fin) => fin === menorFin)
+      }
+
+      finPorFila[filaEtiqueta] = inicioEtiqueta + anchoEtiquetaPx
+
+      return {
+        ...release,
+        filaEtiqueta,
+        anchoEtiquetaPx,
+        posicionNodoPx,
+        posicionEtiquetaPx
+      } satisfies ReleaseCronogramaPosicionado
+    })
+  }, [anchoTimeline, rangoTemporal.inicio, rangoTemporal.totalDias, releasesCronograma])
+
   const porcentajeHorizontal = (fecha: Date) => {
     const dias = diferenciaDias(rangoTemporal.inicio, fecha)
     return (dias / rangoTemporal.totalDias) * 100
@@ -1974,6 +2164,23 @@ export function PaginaCronogramaRoadmap() {
   const hoyVisible = fechaDentroDeRango(hoy, rangoTemporal.inicio, rangoTemporal.fin)
   const etiquetaTooltipCronograma = cronogramaExpandido ? 'Restaurar cronograma' : 'Expandir cronograma'
   const alturaVistaCuerpoCronograma = cronogramaExpandido ? '100%' : ALTURA_VISTA_CUERPO_CRONOGRAMA
+  const anchoCardReleases = anchoColumnaJerarquia + anchoTimeline
+
+  useEffect(() => {
+    if (!releasesVisible) {
+      return
+    }
+
+    const scrollActual = cuerpoTimelineRef.current?.scrollLeft ?? 0
+
+    if (encabezadoTimelineRef.current) {
+      encabezadoTimelineRef.current.scrollLeft = scrollActual
+    }
+
+    if (bandaReleasesTimelineRef.current) {
+      bandaReleasesTimelineRef.current.scrollLeft = scrollActual
+    }
+  }, [releasesVisible, releasesCronogramaPosicionados.length])
 
   useEffect(() => {
     if (typeof document === 'undefined') {
@@ -2031,22 +2238,34 @@ export function PaginaCronogramaRoadmap() {
     }
   }, [anchoColumnaJerarquia, filasCronograma])
 
-  const sincronizarScrollHorizontal = (origen: 'encabezado' | 'cuerpo') => {
-    const scrollOrigen = origen === 'encabezado' ? encabezadoTimelineRef.current : cuerpoTimelineRef.current
-    const scrollDestino = origen === 'encabezado' ? cuerpoTimelineRef.current : encabezadoTimelineRef.current
+  const sincronizarScrollHorizontal = (origen: 'encabezado' | 'cuerpo' | 'releases') => {
+    const scrollOrigen =
+      origen === 'encabezado'
+        ? encabezadoTimelineRef.current
+        : origen === 'releases'
+          ? bandaReleasesTimelineRef.current
+          : cuerpoTimelineRef.current
 
-    if (!scrollOrigen || !scrollDestino) {
+    if (!scrollOrigen) {
       return
     }
 
-    const origenBloqueado = origen === 'encabezado' ? 'cuerpo' : 'encabezado'
+    const origenBloqueado =
+      origen === 'encabezado' ? 'cuerpo' : origen === 'cuerpo' ? 'encabezado' : 'cuerpo'
     if (sincronizandoScrollHorizontalRef.current === origenBloqueado) {
       sincronizandoScrollHorizontalRef.current = null
       return
     }
 
     sincronizandoScrollHorizontalRef.current = origen
-    scrollDestino.scrollLeft = scrollOrigen.scrollLeft
+
+    ;[encabezadoTimelineRef.current, cuerpoTimelineRef.current, bandaReleasesTimelineRef.current].forEach((contenedor) => {
+      if (!contenedor || contenedor === scrollOrigen) {
+        return
+      }
+
+      contenedor.scrollLeft = scrollOrigen.scrollLeft
+    })
 
     window.requestAnimationFrame(() => {
       if (sincronizandoScrollHorizontalRef.current === origen) {
@@ -2296,6 +2515,20 @@ export function PaginaCronogramaRoadmap() {
 
               <button
                 type="button"
+                onClick={() => setReleasesVisible((actual) => !actual)}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  releasesVisible
+                    ? 'border-slate-400 bg-slate-100 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'
+                    : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800'
+                }`}
+                aria-pressed={releasesVisible}
+              >
+                <IconoReleases />
+                <span>Releases</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setFiltrosAbiertos((actual) => !actual)}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                 aria-expanded={filtrosAbiertos}
@@ -2449,6 +2682,97 @@ export function PaginaCronogramaRoadmap() {
               </div>
             )
           ) : (
+            <>
+              {releasesVisible ? (
+                <div className="border-b border-slate-200 px-3 py-3 dark:border-slate-800">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.94))]">
+                    <div ref={bandaReleasesTimelineRef} className="overflow-x-hidden">
+                      <div className="relative" style={{ width: `${anchoCardReleases}px`, height: `${ALTURA_BANDA_RELEASES}px` }}>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.10),transparent_58%)] dark:bg-[radial-gradient(circle_at_top,rgba(71,85,105,0.22),transparent_58%)]" />
+                        <div
+                          className="absolute h-px bg-gradient-to-r from-slate-300 via-slate-400/80 to-slate-300 dark:from-slate-700 dark:via-slate-500 dark:to-slate-700"
+                          style={{ left: '24px', right: '24px', top: `${POSICION_LINEA_RELEASES}px` }}
+                        />
+
+                        {releasesCronogramaPosicionados.length === 0 ? (
+                          <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                            No hay releases del modulo Lanzamientos dentro del rango temporal actual.
+                          </div>
+                        ) : (
+                          releasesCronogramaPosicionados.map((release) => {
+                            const topEtiqueta = POSICION_LINEA_RELEASES + 16 + release.filaEtiqueta * 18
+                            const posicionNodoCardPx = anchoColumnaJerarquia + release.posicionNodoPx
+                            const desplazamientoEtiqueta = release.posicionEtiquetaPx - release.posicionNodoPx
+
+                            return (
+                              <TooltipCronograma
+                                key={release.id}
+                                className="absolute z-[16] block cursor-default"
+                                style={{
+                                  left: `${posicionNodoCardPx}px`,
+                                  top: 0,
+                                  width: '1px',
+                                  height: `${ALTURA_BANDA_RELEASES}px`,
+                                  overflow: 'visible'
+                                }}
+                                maxWidthClassName="max-w-[280px]"
+                                content={
+                                  <div className="space-y-1.5">
+                                    <p className="font-medium text-slate-900 dark:text-slate-100">{release.nombre}</p>
+                                    <p className="text-slate-600 dark:text-slate-300">
+                                      Fecha efectiva: {release.fechaFormateada} · {release.origenFecha === 'real' ? 'Real' : 'Programada'}
+                                    </p>
+                                    <p className="text-slate-600 dark:text-slate-300">
+                                      {formatearTipoRelease(release.tipo)} · {formatearEstadoRelease(release.estado)}
+                                    </p>
+                                    {release.iniciativa ? (
+                                      <p className="text-slate-500 dark:text-slate-400">Iniciativa: {release.iniciativa}</p>
+                                    ) : null}
+                                    {release.entrega ? (
+                                      <p className="text-slate-500 dark:text-slate-400">Entrega: {release.entrega}</p>
+                                    ) : null}
+                                  </div>
+                                }
+                              >
+                                <span
+                                  tabIndex={0}
+                                  className="relative block h-full w-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50 dark:focus-visible:ring-slate-500/60"
+                                >
+                                  <span
+                                    className={`absolute left-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-[0_0_0_4px_rgba(255,255,255,0.78)] dark:shadow-[0_0_0_4px_rgba(2,6,23,0.92)] ${
+                                      release.origenFecha === 'real'
+                                        ? 'border-slate-900 bg-slate-900 dark:border-slate-100 dark:bg-slate-100'
+                                        : 'border-slate-500 bg-white dark:border-slate-400 dark:bg-slate-950'
+                                    }`}
+                                    style={{ top: `${POSICION_LINEA_RELEASES}px` }}
+                                  />
+                                  <span
+                                    className="absolute text-center"
+                                    style={{
+                                      left: `${desplazamientoEtiqueta}px`,
+                                      top: `${topEtiqueta}px`,
+                                      width: `${release.anchoEtiquetaPx}px`,
+                                      transform: 'translateX(-50%)'
+                                    }}
+                                  >
+                                    <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                                      {formatearFechaReleaseVisual(release.fecha)}
+                                    </span>
+                                    <span className="mt-1 block truncate text-[12px] font-medium leading-4 text-slate-900 dark:text-slate-100">
+                                      {release.nombreCorto}
+                                    </span>
+                                  </span>
+                                </span>
+                              </TooltipCronograma>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
             <div ref={contenedorScrollRef} className={`relative ${cronogramaExpandido ? 'flex min-h-0 flex-1 flex-col' : ''}`}>
               <button
                 type="button"
@@ -2756,6 +3080,7 @@ export function PaginaCronogramaRoadmap() {
                 </div>
               </div>
             </div>
+            </>
           )}
 
           <div className="relative border-t border-slate-100 px-4 py-2 dark:border-slate-800/60">
@@ -2773,6 +3098,15 @@ export function PaginaCronogramaRoadmap() {
                   <span className="inline-block h-[8px] w-6 rounded-full bg-orange-400 shadow-sm shadow-orange-500/20 ring-1 ring-inset ring-orange-600/12 dark:bg-orange-300 dark:shadow-orange-950/20 dark:ring-orange-100/10" />
                   Entrega plan
                 </span>
+                {releasesVisible ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="relative inline-block h-3 w-6">
+                      <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-slate-300 dark:bg-slate-700" />
+                      <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-slate-900 dark:border-slate-900 dark:bg-slate-100" />
+                    </span>
+                    Release
+                  </span>
+                ) : null}
               </div>
 
               <ControlTemporalCronograma

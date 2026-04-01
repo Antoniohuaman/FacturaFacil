@@ -5,12 +5,20 @@ import type {
 } from '@/compartido/validacion/esquemas'
 import type { ReleaseChecklistItemPm } from '@/dominio/modelos'
 import { obtenerRegistroTablaPorId, registrarCambioEntidadBestEffort } from '@/aplicacion/casos-uso/historialCambios'
+import { repositorioEntregas } from '@/infraestructura/repositorios/repositorioEntregas'
 import { repositorioLanzamientos } from '@/infraestructura/repositorios/repositorioLanzamientos'
 
 const MODULO_LANZAMIENTOS = 'lanzamientos'
 const TABLA_RELEASES = 'pm_releases'
 const TABLA_CHECKLIST = 'pm_release_checklist_items'
 const TABLA_SEGUIMIENTO = 'pm_release_seguimiento'
+
+export class ErrorValidacionReleaseRoadmap extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ErrorValidacionReleaseRoadmap'
+  }
+}
 
 function registrarCambioLanzamientos(
   tabla: string,
@@ -60,6 +68,22 @@ async function registrarCambiosChecklist(previas: ReleaseChecklistItemPm[], actu
   await Promise.all(tareas)
 }
 
+async function asegurarCoherenciaRoadmapRelease(entrada: ReleaseEntrada) {
+  if (!entrada.iniciativa_id || !entrada.entrega_id) {
+    return
+  }
+
+  const entrega = await repositorioEntregas.obtenerPorId(entrada.entrega_id)
+
+  if (!entrega) {
+    throw new ErrorValidacionReleaseRoadmap('La entrega seleccionada ya no existe o no está disponible.')
+  }
+
+  if (entrega.iniciativa_id !== entrada.iniciativa_id) {
+    throw new ErrorValidacionReleaseRoadmap('La entrega seleccionada no pertenece a la iniciativa elegida.')
+  }
+}
+
 export function listarReleases() {
   return repositorioLanzamientos.listarReleases()
 }
@@ -69,6 +93,7 @@ export function listarChecklistSalida(releaseId?: string) {
 }
 
 export async function crearRelease(entrada: ReleaseEntrada, checklist: ChecklistSalidaEntrada[] = []) {
+  await asegurarCoherenciaRoadmapRelease(entrada)
   const creado = await repositorioLanzamientos.crearRelease(entrada)
   const checklistSincronizado = await repositorioLanzamientos.sincronizarChecklistSalida(creado.id, checklist)
 
@@ -83,6 +108,7 @@ export async function crearRelease(entrada: ReleaseEntrada, checklist: Checklist
 }
 
 export async function editarRelease(id: string, entrada: ReleaseEntrada, checklist: ChecklistSalidaEntrada[] = []) {
+  await asegurarCoherenciaRoadmapRelease(entrada)
   const antes = await obtenerRegistroTablaPorId<Record<string, unknown>>(TABLA_RELEASES, id)
   const actualizado = await repositorioLanzamientos.editarRelease(id, entrada)
   const checklistSincronizado = await repositorioLanzamientos.sincronizarChecklistSalida(id, checklist)

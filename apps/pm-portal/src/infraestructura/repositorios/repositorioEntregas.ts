@@ -15,6 +15,15 @@ export const repositorioEntregas = {
 
     return (data ?? []) as Entrega[]
   },
+  async obtenerPorId(id: string) {
+    const { data, error } = await clienteSupabase.from('entregas').select('*').eq('id', id).maybeSingle()
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? null) as Entrega | null
+  },
   async crear(entrada: EntregaEntrada) {
     const { data, error } = await clienteSupabase.from('entregas').insert(entrada).select('*').single()
 

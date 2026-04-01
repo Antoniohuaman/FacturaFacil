@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'react-router-dom'
 import { releaseSchema, type ChecklistSalidaEntrada, type ReleaseEntrada } from '@/compartido/validacion/esquemas'
-import type { DecisionPm, Entrega, Iniciativa, ReleaseChecklistItemPm, ReleasePm } from '@/dominio/modelos'
+import type { DecisionPm, Entrega, Iniciativa, Objetivo, ReleaseChecklistItemPm, ReleasePm } from '@/dominio/modelos'
 import {
   estadosReleasePm,
   formatearEstadoRelease,
@@ -11,6 +11,7 @@ import {
   tiposReleasePm
 } from '@/dominio/modelos'
 import {
+  ErrorValidacionReleaseRoadmap,
   crearRelease,
   editarRelease,
   eliminarRelease,
@@ -23,6 +24,7 @@ import {
   listarDeudaTecnicaPm,
   listarLeccionesAprendidasPm
 } from '@/aplicacion/casos-uso/operacion'
+import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarDecisionesPm } from '@/aplicacion/casos-uso/decisiones'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
@@ -51,6 +53,7 @@ export function PaginaReleases() {
   const paginaInicial = Number(searchParams.get('pagina') ?? '1')
   const tamanoInicial = Number(searchParams.get('tamano') ?? '10')
   const { rol } = useSesionPortalPM()
+  const [objetivos, setObjetivos] = useState<Objetivo[]>([])
   const [releases, setReleases] = useState<ReleasePm[]>([])
   const [checklist, setChecklist] = useState<ReleaseChecklistItemPm[]>([])
   const [iniciativas, setIniciativas] = useState<Iniciativa[]>([])
@@ -79,6 +82,7 @@ export function PaginaReleases() {
   const [modoModal, setModoModal] = useState<ModoModal>('crear')
   const [releaseActivo, setReleaseActivo] = useState<ReleasePm | null>(null)
   const [checklistEdicion, setChecklistEdicion] = useState<ChecklistSalidaEntrada[]>([])
+  const [objetivoAuxiliarId, setObjetivoAuxiliarId] = useState('')
 
   const esEdicionPermitida = puedeEditar(rol)
 
@@ -112,7 +116,8 @@ export function PaginaReleases() {
     setError(null)
 
     try {
-      const [releasesData, checklistData, iniciativasData, entregasData, decisionesData, bugsData, deudasData, bloqueosData, leccionesData] = await Promise.all([
+      const [objetivosData, releasesData, checklistData, iniciativasData, entregasData, decisionesData, bugsData, deudasData, bloqueosData, leccionesData] = await Promise.all([
+        listarObjetivos(),
         listarReleases(),
         listarChecklistSalida(),
         listarIniciativas(),
@@ -124,6 +129,7 @@ export function PaginaReleases() {
         listarLeccionesAprendidasPm()
       ])
 
+      setObjetivos(objetivosData)
       setReleases(releasesData)
       setChecklist(checklistData)
       setIniciativas(iniciativasData)
@@ -280,14 +286,84 @@ export function PaginaReleases() {
     setSearchParams
   ])
 
+  const iniciativasPorId = useMemo(() => new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa])), [iniciativas])
+  const entregasPorId = useMemo(() => new Map(entregas.map((entrega) => [entrega.id, entrega])), [entregas])
   const iniciativaPorId = useMemo(() => new Map(iniciativas.map((iniciativa) => [iniciativa.id, iniciativa.nombre])), [iniciativas])
   const entregaPorId = useMemo(() => new Map(entregas.map((entrega) => [entrega.id, entrega.nombre])), [entregas])
   const decisionPorId = useMemo(() => new Map(decisiones.map((decision) => [decision.id, decision.titulo])), [decisiones])
+
+  const iniciativaSeleccionadaId = formulario.watch('iniciativa_id') ?? ''
+  const entregaSeleccionadaId = formulario.watch('entrega_id') ?? ''
+  const sinVinculoRoadmap = !iniciativaSeleccionadaId && !entregaSeleccionadaId
+
+  const iniciativasDisponiblesFormulario = useMemo(() => {
+    if (!objetivoAuxiliarId) {
+      return iniciativas
+    }
+
+    return iniciativas.filter((iniciativa) => iniciativa.objetivo_id === objetivoAuxiliarId)
+  }, [iniciativas, objetivoAuxiliarId])
+
+  const entregasDisponiblesFormulario = useMemo(() => {
+    if (iniciativaSeleccionadaId) {
+      return entregas.filter((entrega) => entrega.iniciativa_id === iniciativaSeleccionadaId)
+    }
+
+    if (!objetivoAuxiliarId) {
+      return entregas
+    }
+
+    const iniciativasCompatibles = new Set(iniciativasDisponiblesFormulario.map((iniciativa) => iniciativa.id))
+    return entregas.filter((entrega) => (entrega.iniciativa_id ? iniciativasCompatibles.has(entrega.iniciativa_id) : false))
+  }, [entregas, iniciativaSeleccionadaId, iniciativasDisponiblesFormulario, objetivoAuxiliarId])
+
+  useEffect(() => {
+    if (!iniciativaSeleccionadaId) {
+      return
+    }
+
+    const sigueSiendoValida = iniciativasDisponiblesFormulario.some((iniciativa) => iniciativa.id === iniciativaSeleccionadaId)
+    if (!sigueSiendoValida) {
+      formulario.setValue('iniciativa_id', null, { shouldDirty: true, shouldValidate: true })
+    }
+  }, [formulario, iniciativaSeleccionadaId, iniciativasDisponiblesFormulario])
+
+  useEffect(() => {
+    if (!entregaSeleccionadaId) {
+      formulario.clearErrors('entrega_id')
+      return
+    }
+
+    const sigueSiendoValida = entregasDisponiblesFormulario.some((entrega) => entrega.id === entregaSeleccionadaId)
+    if (!sigueSiendoValida) {
+      formulario.setValue('entrega_id', null, { shouldDirty: true, shouldValidate: true })
+      formulario.clearErrors('entrega_id')
+      return
+    }
+
+    const entregaActual = entregasPorId.get(entregaSeleccionadaId)
+    if (iniciativaSeleccionadaId && entregaActual && entregaActual.iniciativa_id !== iniciativaSeleccionadaId) {
+      formulario.setError('entrega_id', {
+        type: 'validate',
+        message: 'La entrega seleccionada no pertenece a la iniciativa elegida.'
+      })
+      return
+    }
+
+    formulario.clearErrors('entrega_id')
+  }, [entregaSeleccionadaId, entregasDisponiblesFormulario, entregasPorId, formulario, iniciativaSeleccionadaId])
 
   const abrirModal = (modo: ModoModal, release?: ReleasePm) => {
     setModoModal(modo)
     setReleaseActivo(release ?? null)
     setModalAbierto(true)
+    setError(null)
+
+    const iniciativaBase = release?.iniciativa_id ? iniciativasPorId.get(release.iniciativa_id) ?? null : null
+    const entregaBase = release?.entrega_id ? entregasPorId.get(release.entrega_id) ?? null : null
+    const iniciativaDerivada = entregaBase?.iniciativa_id ? iniciativasPorId.get(entregaBase.iniciativa_id) ?? null : null
+    setObjetivoAuxiliarId(iniciativaBase?.objetivo_id ?? iniciativaDerivada?.objetivo_id ?? '')
+
     formulario.reset({
       codigo: release?.codigo ?? '',
       nombre: release?.nombre ?? '',
@@ -610,13 +686,28 @@ export function PaginaReleases() {
       <ModalPortal
         abierto={modalAbierto}
         titulo={`${modoModal === 'crear' ? 'Crear' : modoModal === 'editar' ? 'Editar' : 'Ver'} release`}
-        alCerrar={() => setModalAbierto(false)}
+        alCerrar={() => {
+          setModalAbierto(false)
+          setObjetivoAuxiliarId('')
+          formulario.clearErrors('entrega_id')
+        }}
       >
         <form
           noValidate
           className="space-y-4"
           onSubmit={formulario.handleSubmit(async (valores) => {
             if (modoModal === 'ver') {
+              return
+            }
+
+            setError(null)
+
+            const entregaSeleccionada = valores.entrega_id ? entregasPorId.get(valores.entrega_id) ?? null : null
+            if (valores.iniciativa_id && entregaSeleccionada && entregaSeleccionada.iniciativa_id !== valores.iniciativa_id) {
+              formulario.setError('entrega_id', {
+                type: 'validate',
+                message: 'La entrega seleccionada no pertenece a la iniciativa elegida.'
+              })
               return
             }
 
@@ -630,8 +721,17 @@ export function PaginaReleases() {
               }
 
               setModalAbierto(false)
+              setObjetivoAuxiliarId('')
               await cargar()
             } catch (errorInterno) {
+              if (errorInterno instanceof ErrorValidacionReleaseRoadmap) {
+                formulario.setError('entrega_id', {
+                  type: 'validate',
+                  message: errorInterno.message
+                })
+                return
+              }
+
               setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el release')
             }
           })}
@@ -675,20 +775,52 @@ export function PaginaReleases() {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div>
+              <label className="text-sm font-medium">Objetivo</label>
+              <select
+                value={objetivoAuxiliarId}
+                onChange={(evento) => setObjetivoAuxiliarId(evento.target.value)}
+                disabled={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                <option value="">Sin objetivo</option>
+                {objetivos.map((objetivo) => (
+                  <option key={objetivo.id} value={objetivo.id}>
+                    {objetivo.nombre}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Auxiliar de seleccion. No se guarda en el release.</p>
+            </div>
             <div>
               <label className="text-sm font-medium">Iniciativa</label>
-              <select {...formulario.register('iniciativa_id')} disabled={modoModal === 'ver'} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+              <select
+                {...formulario.register('iniciativa_id')}
+                disabled={modoModal === 'ver'}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              >
                 <option value="">Sin iniciativa</option>
-                {iniciativas.map((iniciativa) => <option key={iniciativa.id} value={iniciativa.id}>{iniciativa.nombre}</option>)}
+                {iniciativasDisponiblesFormulario.map((iniciativa) => <option key={iniciativa.id} value={iniciativa.id}>{iniciativa.nombre}</option>)}
               </select>
             </div>
             <div>
               <label className="text-sm font-medium">Entrega</label>
-              <select {...formulario.register('entrega_id')} disabled={modoModal === 'ver'} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+              <select
+                {...formulario.register('entrega_id')}
+                disabled={modoModal === 'ver'}
+                className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm dark:bg-slate-800 ${
+                  formulario.formState.errors.entrega_id
+                    ? 'border-red-300 dark:border-red-800'
+                    : 'border-slate-300 dark:border-slate-700'
+                }`}
+              >
                 <option value="">Sin entrega</option>
-                {entregas.map((entrega) => <option key={entrega.id} value={entrega.id}>{entrega.nombre}</option>)}
+                {entregasDisponiblesFormulario.map((entrega) => <option key={entrega.id} value={entrega.id}>{entrega.nombre}</option>)}
               </select>
+              {formulario.formState.errors.entrega_id?.message ? (
+                <p className="mt-1 text-[11px] text-red-600 dark:text-red-300">{formulario.formState.errors.entrega_id.message}</p>
+              ) : null}
             </div>
             <div>
               <label className="text-sm font-medium">Decisión</label>
@@ -698,6 +830,12 @@ export function PaginaReleases() {
               </select>
             </div>
           </div>
+
+          {sinVinculoRoadmap ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Sin iniciativa ni entrega, este release no se mostrara en el cronograma.
+            </p>
+          ) : null}
 
           <div className="grid gap-3 md:grid-cols-3">
             <div>
