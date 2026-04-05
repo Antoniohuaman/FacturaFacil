@@ -6,10 +6,8 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-    "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"],
-      "@facturafacil/analytics-events": ["../../packages/analytics-events/index.ts"]
+      "@/*": ["./src/*"]
     },
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
