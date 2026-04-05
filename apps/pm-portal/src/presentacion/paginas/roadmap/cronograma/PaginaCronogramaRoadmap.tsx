@@ -131,10 +131,14 @@ interface ReleaseCronogramaVisual {
   origenFecha: 'real' | 'programada'
   nombre: string
   nombreCorto: string
+  descripcion: string | null
   estado: ReleasePm['estado']
   tipo: ReleasePm['tipo_release']
+  objetivoId: string | null
+  objetivo: string | null
   iniciativa: string | null
   entrega: string | null
+  alcance: 'objetivo' | 'roadmap' | 'transversal'
 }
 
 interface ReleaseCronogramaPosicionado extends ReleaseCronogramaVisual {
@@ -165,9 +169,10 @@ const CLAVE_PREFERENCIAS_TEMPORALES = 'pm-portal-roadmap-cronograma-preferencias
 const CLAVE_TOOLTIPS_VISIBLES = 'pm-portal-roadmap-cronograma-tooltips-visible'
 const ALTURA_MINIMA_FILA_CRONOGRAMA = 48
 const ALTURA_SEGMENTO_CRONOGRAMA = 8
-const ALTURA_BANDA_RELEASES = 108
-const POSICION_LINEA_RELEASES = 32
+const ALTURA_BANDA_RELEASES = 92
+const POSICION_LINEA_RELEASES = 22
 const TOTAL_FILAS_ETIQUETA_RELEASES = 2
+const DESPLAZAMIENTO_OPTICO_ETIQUETA_RELEASE = 6
 const INDENTACION_POR_NIVEL_CRONOGRAMA = 14
 const ANCHO_MARCADOR_JERARQUIA = 22
 const ALTURA_VISTA_CUERPO_CRONOGRAMA = 'min(68vh, 720px)'
@@ -652,6 +657,37 @@ function compararFechasAscendente(fechaA: Date, fechaB: Date) {
 
 function fechaRelease(release: ReleasePm) {
   return parsearFechaPortal(release.fecha_lanzamiento_real ?? release.fecha_programada)
+}
+
+function normalizarTextoRelease(valor: string | null | undefined) {
+  const texto = valor?.trim()
+  return texto ? texto : null
+}
+
+function resolverContextoVisualRelease(
+  release: ReleasePm,
+  iniciativasPorId: ReadonlyMap<string, Iniciativa>,
+  entregasPorId: ReadonlyMap<string, Entrega>,
+  objetivosPorId: ReadonlyMap<string, Objetivo>
+) {
+  const entrega = release.entrega_id ? entregasPorId.get(release.entrega_id) ?? null : null
+  const iniciativaDirecta = release.iniciativa_id ? iniciativasPorId.get(release.iniciativa_id) ?? null : null
+  const iniciativaDesdeEntrega = entrega?.iniciativa_id ? iniciativasPorId.get(entrega.iniciativa_id) ?? null : null
+  const iniciativaRelacionada = iniciativaDirecta ?? iniciativaDesdeEntrega
+  const objetivoId = iniciativaRelacionada?.objetivo_id ?? null
+  const objetivo = objetivoId ? objetivosPorId.get(objetivoId)?.nombre ?? null : null
+
+  return {
+    objetivoId,
+    objetivo,
+    iniciativa: iniciativaRelacionada?.nombre ?? null,
+    entrega: entrega?.nombre ?? null,
+    alcance: objetivo
+      ? ('objetivo' as const)
+      : iniciativaRelacionada || entrega
+        ? ('roadmap' as const)
+        : ('transversal' as const)
+  }
 }
 
 function esEntregaAtrasada(entrega: Entrega, hoy: Date) {
@@ -2084,16 +2120,8 @@ export function PaginaCronogramaRoadmap() {
           return acumulado
         }
 
-        const entrega = release.entrega_id ? entregasPorId.get(release.entrega_id) ?? null : null
-        const iniciativaDirecta = release.iniciativa_id ? iniciativasPorId.get(release.iniciativa_id) ?? null : null
-        const iniciativaDesdeEntrega = entrega?.iniciativa_id ? iniciativasPorId.get(entrega.iniciativa_id) ?? null : null
-        const iniciativaRelacionada = iniciativaDirecta ?? iniciativaDesdeEntrega
-
-        if (!release.iniciativa_id && !release.entrega_id && !iniciativaRelacionada) {
-          return acumulado
-        }
-
-        if (filtroObjetivo !== 'todos' && iniciativaRelacionada?.objetivo_id !== filtroObjetivo) {
+        const contextoVisual = resolverContextoVisualRelease(release, iniciativasPorId, entregasPorId, objetivosRealesPorId)
+        if (filtroObjetivo !== 'todos' && contextoVisual.objetivoId !== filtroObjetivo) {
           return acumulado
         }
 
@@ -2105,11 +2133,15 @@ export function PaginaCronogramaRoadmap() {
           fechaFormateada: formatearFechaCorta(serializarFechaCronograma(fecha)),
           origenFecha: release.fecha_lanzamiento_real ? 'real' : 'programada',
           nombre: nombreBase,
-          nombreCorto: resumirEtiquetaRelease(nombreBase),
+          nombreCorto: resumirEtiquetaRelease(nombreBase, 30),
+          descripcion: normalizarTextoRelease(release.descripcion),
           estado: release.estado,
           tipo: release.tipo_release,
-          iniciativa: iniciativaRelacionada?.nombre ?? null,
-          entrega: entrega?.nombre ?? null
+          objetivoId: contextoVisual.objetivoId,
+          objetivo: contextoVisual.objetivo,
+          iniciativa: contextoVisual.iniciativa,
+          entrega: contextoVisual.entrega,
+          alcance: contextoVisual.alcance
         })
 
         return acumulado
@@ -2118,7 +2150,7 @@ export function PaginaCronogramaRoadmap() {
         const diferencia = compararFechasAscendente(releaseA.fecha, releaseB.fecha)
         return diferencia !== 0 ? diferencia : releaseA.nombre.localeCompare(releaseB.nombre, 'es')
       })
-  }, [entregasPorId, filtroObjetivo, iniciativasPorId, rangoTemporal.fin, rangoTemporal.inicio, releases])
+  }, [entregasPorId, filtroObjetivo, iniciativasPorId, objetivosRealesPorId, rangoTemporal.fin, rangoTemporal.inicio, releases])
 
   const releasesCronogramaPosicionados = useMemo(() => {
     const finPorFila = Array.from({ length: TOTAL_FILAS_ETIQUETA_RELEASES }, () => Number.NEGATIVE_INFINITY)
@@ -2126,13 +2158,13 @@ export function PaginaCronogramaRoadmap() {
     return releasesCronograma.map((release) => {
       const diasDesdeInicio = diferenciaDias(rangoTemporal.inicio, release.fecha)
       const posicionNodoPx = Math.min(Math.max((diasDesdeInicio / rangoTemporal.totalDias) * anchoTimeline, 0), anchoTimeline)
-      const anchoEtiquetaPx = Math.max(92, Math.min(136, 68 + release.nombreCorto.length * 4.2))
+      const anchoEtiquetaPx = Math.max(112, Math.min(156, 82 + release.nombreCorto.length * 2.9))
       const posicionEtiquetaPx = Math.min(
-        Math.max(posicionNodoPx, anchoEtiquetaPx / 2 + 8),
+        Math.max(posicionNodoPx - DESPLAZAMIENTO_OPTICO_ETIQUETA_RELEASE, anchoEtiquetaPx / 2 + 8),
         anchoTimeline - anchoEtiquetaPx / 2 - 8
       )
       const inicioEtiqueta = posicionEtiquetaPx - anchoEtiquetaPx / 2
-      let filaEtiqueta = finPorFila.findIndex((fin) => inicioEtiqueta > fin + 10)
+      let filaEtiqueta = finPorFila.findIndex((fin) => inicioEtiqueta > fin + 8)
 
       if (filaEtiqueta === -1) {
         const menorFin = Math.min(...finPorFila)
@@ -2164,7 +2196,6 @@ export function PaginaCronogramaRoadmap() {
   const hoyVisible = fechaDentroDeRango(hoy, rangoTemporal.inicio, rangoTemporal.fin)
   const etiquetaTooltipCronograma = cronogramaExpandido ? 'Restaurar cronograma' : 'Expandir cronograma'
   const alturaVistaCuerpoCronograma = cronogramaExpandido ? '100%' : ALTURA_VISTA_CUERPO_CRONOGRAMA
-  const anchoCardReleases = anchoColumnaJerarquia + anchoTimeline
 
   useEffect(() => {
     if (!releasesVisible) {
@@ -2684,65 +2715,78 @@ export function PaginaCronogramaRoadmap() {
           ) : (
             <>
               {releasesVisible ? (
-                <div className="border-b border-slate-200 px-3 py-3 dark:border-slate-800">
-                  <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)] dark:border-slate-800 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.94))]">
+                <div className="border-b border-slate-200 py-2 dark:border-slate-800">
+                  <div
+                    className="overflow-hidden rounded-xl border border-slate-200/70 bg-[linear-gradient(180deg,rgba(250,252,255,0.98),rgba(244,247,250,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] dark:border-slate-800/80 dark:bg-[linear-gradient(180deg,rgba(8,13,24,0.96),rgba(7,11,20,0.92))]"
+                  >
                     <div ref={bandaReleasesTimelineRef} className="overflow-x-hidden">
-                      <div className="relative" style={{ width: `${anchoCardReleases}px`, height: `${ALTURA_BANDA_RELEASES}px` }}>
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.10),transparent_58%)] dark:bg-[radial-gradient(circle_at_top,rgba(71,85,105,0.22),transparent_58%)]" />
+                      <div
+                        className="relative"
+                        style={{ width: `${anchoTimeline}px`, height: `${ALTURA_BANDA_RELEASES}px` }}
+                      >
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(148,163,184,0.08),transparent_62%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(71,85,105,0.14),transparent_62%)]" />
                         <div
-                          className="absolute h-px bg-gradient-to-r from-slate-300 via-slate-400/80 to-slate-300 dark:from-slate-700 dark:via-slate-500 dark:to-slate-700"
-                          style={{ left: '24px', right: '24px', top: `${POSICION_LINEA_RELEASES}px` }}
+                          className="absolute h-px bg-gradient-to-r from-slate-300/75 via-slate-400/85 to-slate-300/75 dark:from-slate-700/75 dark:via-slate-500/90 dark:to-slate-700/75"
+                          style={{ left: 0, right: 0, top: `${POSICION_LINEA_RELEASES}px` }}
                         />
 
                         {releasesCronogramaPosicionados.length === 0 ? (
                           <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                            No hay releases del modulo Lanzamientos dentro del rango temporal actual.
+                            No hay releases dentro del rango temporal actual y filtro seleccionado.
                           </div>
                         ) : (
                           releasesCronogramaPosicionados.map((release) => {
-                            const topEtiqueta = POSICION_LINEA_RELEASES + 16 + release.filaEtiqueta * 18
-                            const posicionNodoCardPx = anchoColumnaJerarquia + release.posicionNodoPx
+                            const topEtiqueta = POSICION_LINEA_RELEASES + 12 + release.filaEtiqueta * 22
                             const desplazamientoEtiqueta = release.posicionEtiquetaPx - release.posicionNodoPx
+                            const alturaGuia = Math.max(topEtiqueta - POSICION_LINEA_RELEASES - 8, 8)
 
                             return (
                               <TooltipCronograma
                                 key={release.id}
                                 className="absolute z-[16] block cursor-default"
                                 style={{
-                                  left: `${posicionNodoCardPx}px`,
+                                  left: `${release.posicionNodoPx}px`,
                                   top: 0,
                                   width: '1px',
                                   height: `${ALTURA_BANDA_RELEASES}px`,
                                   overflow: 'visible'
                                 }}
-                                maxWidthClassName="max-w-[280px]"
+                                maxWidthClassName="max-w-[320px]"
                                 content={
-                                  <div className="space-y-1.5">
-                                    <p className="font-medium text-slate-900 dark:text-slate-100">{release.nombre}</p>
-                                    <p className="text-slate-600 dark:text-slate-300">
-                                      Fecha efectiva: {release.fechaFormateada} · {release.origenFecha === 'real' ? 'Real' : 'Programada'}
-                                    </p>
-                                    <p className="text-slate-600 dark:text-slate-300">
+                                  <div className="space-y-2">
+                                    <div className="space-y-1">
+                                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                        {release.fechaFormateada} · {release.origenFecha === 'real' ? 'Fecha real' : 'Fecha programada'}
+                                      </p>
+                                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{release.nombre}</p>
+                                      {release.descripcion ? (
+                                        <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">{release.descripcion}</p>
+                                      ) : null}
+                                    </div>
+
+                                    {release.objetivo ? (
+                                      <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300">Objetivo: {release.objetivo}</p>
+                                    ) : null}
+
+                                    <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                                       {formatearTipoRelease(release.tipo)} · {formatearEstadoRelease(release.estado)}
                                     </p>
-                                    {release.iniciativa ? (
-                                      <p className="text-slate-500 dark:text-slate-400">Iniciativa: {release.iniciativa}</p>
-                                    ) : null}
-                                    {release.entrega ? (
-                                      <p className="text-slate-500 dark:text-slate-400">Entrega: {release.entrega}</p>
-                                    ) : null}
                                   </div>
                                 }
                               >
                                 <span
                                   tabIndex={0}
-                                  className="relative block h-full w-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50 dark:focus-visible:ring-slate-500/60"
+                                  className="relative block h-full w-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/45 dark:focus-visible:ring-slate-500/55"
                                 >
                                   <span
-                                    className={`absolute left-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 shadow-[0_0_0_4px_rgba(255,255,255,0.78)] dark:shadow-[0_0_0_4px_rgba(2,6,23,0.92)] ${
+                                    className="absolute left-1/2 w-px -translate-x-1/2 bg-slate-300/80 dark:bg-slate-600/70"
+                                    style={{ top: `${POSICION_LINEA_RELEASES + 5}px`, height: `${alturaGuia}px` }}
+                                  />
+                                  <span
+                                    className={`absolute left-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-[0_0_0_3px_rgba(248,250,252,0.94)] dark:shadow-[0_0_0_3px_rgba(8,13,24,0.96)] ${
                                       release.origenFecha === 'real'
                                         ? 'border-slate-900 bg-slate-900 dark:border-slate-100 dark:bg-slate-100'
-                                        : 'border-slate-500 bg-white dark:border-slate-400 dark:bg-slate-950'
+                                        : 'border-slate-500 bg-slate-50 dark:border-slate-400 dark:bg-slate-900'
                                     }`}
                                     style={{ top: `${POSICION_LINEA_RELEASES}px` }}
                                   />
@@ -2755,10 +2799,13 @@ export function PaginaCronogramaRoadmap() {
                                       transform: 'translateX(-50%)'
                                     }}
                                   >
-                                    <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                                    <span className="block text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                                       {formatearFechaReleaseVisual(release.fecha)}
                                     </span>
-                                    <span className="mt-1 block truncate text-[12px] font-medium leading-4 text-slate-900 dark:text-slate-100">
+                                    <span
+                                      className="mx-auto mt-1 block text-[11px] font-semibold leading-[1.05rem] text-slate-900 dark:text-slate-100"
+                                      style={ESTILO_TITULO_DOS_LINEAS}
+                                    >
                                       {release.nombreCorto}
                                     </span>
                                   </span>
