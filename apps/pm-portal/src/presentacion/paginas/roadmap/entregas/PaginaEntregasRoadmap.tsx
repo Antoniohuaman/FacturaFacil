@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   estadosRegistro,
@@ -10,6 +10,7 @@ import {
   type ReleasePm
 } from '@/dominio/modelos'
 import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
+import { reordenarEntregasRoadmap } from '@/aplicacion/casos-uso/entregas'
 import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
@@ -32,8 +33,16 @@ import { formatearEstadoLegible, formatearFechaCorta, normalizarFechaPortal } fr
 import { formatearEstadoRelease } from '@/dominio/modelos'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 import { eliminarEntregaRoadmapConConfirmacion } from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
+import { HandleArrastreRoadmap } from '@/presentacion/paginas/roadmap/componentes/HandleArrastreRoadmap'
 import { GestorModalEntregaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalEntregaRoadmap'
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
+import {
+  ordenarEntregasRoadmapParaVista,
+  ordenarIniciativasRoadmapParaVista,
+  ordenarObjetivosRoadmap,
+  reconstruirOrdenConMovimiento,
+  reemplazarRegistrosPorId
+} from '@/presentacion/paginas/roadmap/ordenManualRoadmap'
 
 export function PaginaEntregasRoadmap() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -74,6 +83,9 @@ export function PaginaEntregasRoadmap() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModalRoadmap>('crear')
   const [entregaActiva, setEntregaActiva] = useState<Entrega | null>(null)
+  const [entregaArrastradaId, setEntregaArrastradaId] = useState<string | null>(null)
+  const [entregaDestinoId, setEntregaDestinoId] = useState<string | null>(null)
+  const [guardandoOrden, setGuardandoOrden] = useState(false)
 
   const esEdicionPermitida = puedeEditar(rol)
 
@@ -108,9 +120,11 @@ export function PaginaEntregasRoadmap() {
         listarBloqueosPm(),
         listarLeccionesAprendidasPm()
       ])
-      setEntregas(listaEntregas)
-      setIniciativas(listaIniciativas)
-      setObjetivos(listaObjetivos)
+      const objetivosOrdenados = ordenarObjetivosRoadmap(listaObjetivos)
+      const iniciativasOrdenadas = ordenarIniciativasRoadmapParaVista(listaIniciativas, objetivosOrdenados)
+      setObjetivos(objetivosOrdenados)
+      setIniciativas(iniciativasOrdenadas)
+      setEntregas(ordenarEntregasRoadmapParaVista(listaEntregas, iniciativasOrdenadas, objetivosOrdenados))
       setVentanas(listaVentanas)
       setHistoriasPorEntrega(
         historiasData.reduce((mapa, historia) => {
@@ -374,6 +388,61 @@ export function PaginaEntregasRoadmap() {
     setModoModal(modo)
     setEntregaActiva(entrega ?? null)
     setModalAbierto(true)
+  }
+
+  const limpiarEstadoArrastre = () => {
+    setEntregaArrastradaId(null)
+    setEntregaDestinoId(null)
+  }
+
+  const obtenerIniciativaContenedora = (entrega: Entrega) => entrega.iniciativa_id ?? null
+
+  const manejarDropEntrega = async (evento: DragEvent<HTMLTableRowElement>, entregaDestino: Entrega) => {
+    evento.preventDefault()
+
+    if (!entregaArrastradaId || entregaArrastradaId === entregaDestino.id || guardandoOrden) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    const entregaArrastrada = entregas.find((entrega) => entrega.id === entregaArrastradaId)
+    if (!entregaArrastrada) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    const iniciativaId = obtenerIniciativaContenedora(entregaDestino)
+    if (obtenerIniciativaContenedora(entregaArrastrada) !== iniciativaId) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    const rect = evento.currentTarget.getBoundingClientRect()
+    const posicion = evento.clientY >= rect.top + rect.height / 2 ? 'despues' : 'antes'
+    const idsActuales = entregas
+      .filter((entrega) => obtenerIniciativaContenedora(entrega) === iniciativaId)
+      .map((entrega) => entrega.id)
+    const idsReordenados = reconstruirOrdenConMovimiento(idsActuales, entregaArrastradaId, entregaDestino.id, posicion)
+
+    if (idsReordenados.join('|') === idsActuales.join('|')) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    setGuardandoOrden(true)
+    setError(null)
+
+    try {
+      const actualizadas = await reordenarEntregasRoadmap({ iniciativa_id: iniciativaId, ids: idsReordenados })
+      setEntregas((actuales) =>
+        ordenarEntregasRoadmapParaVista(reemplazarRegistrosPorId(actuales, actualizadas), iniciativas, objetivos)
+      )
+    } catch (errorInterno) {
+      setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el nuevo orden de entregas')
+    } finally {
+      setGuardandoOrden(false)
+      limpiarEstadoArrastre()
+    }
   }
 
   return (
@@ -673,10 +742,49 @@ export function PaginaEntregasRoadmap() {
             </thead>
             <tbody>
               {paginacion.itemsPaginados.map((entrega) => (
-                <tr key={entrega.id} className="border-t border-slate-200 dark:border-slate-800">
+                <tr
+                  key={entrega.id}
+                  className={`border-t border-slate-200 dark:border-slate-800 ${
+                    entregaArrastradaId === entrega.id ? 'bg-slate-50 dark:bg-slate-800/70' : ''
+                  } ${entregaDestinoId === entrega.id ? 'outline outline-1 outline-sky-300 dark:outline-sky-700' : ''}`}
+                  onDragOver={(evento) => {
+                    if (!entregaArrastradaId || entregaArrastradaId === entrega.id || guardandoOrden) {
+                      return
+                    }
+
+                    const entregaArrastrada = entregas.find((item) => item.id === entregaArrastradaId)
+                    if (!entregaArrastrada) {
+                      return
+                    }
+
+                    if (obtenerIniciativaContenedora(entregaArrastrada) !== obtenerIniciativaContenedora(entrega)) {
+                      return
+                    }
+
+                    evento.preventDefault()
+                    setEntregaDestinoId(entrega.id)
+                  }}
+                  onDrop={(evento) => {
+                    void manejarDropEntrega(evento, entrega)
+                  }}
+                >
                   <td className="px-3 py-2">
-                    <p className="font-medium">{entrega.nombre}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{entrega.descripcion}</p>
+                    <div className="flex items-start gap-2">
+                      <HandleArrastreRoadmap
+                        etiqueta={entrega.nombre}
+                        deshabilitado={!esEdicionPermitida || guardandoOrden}
+                        activo={entregaArrastradaId === entrega.id}
+                        onDragStart={() => {
+                          setEntregaArrastradaId(entrega.id)
+                          setEntregaDestinoId(null)
+                        }}
+                        onDragEnd={limpiarEstadoArrastre}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium">{entrega.nombre}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{entrega.descripcion}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <p>{iniciativaPorId.get(entrega.iniciativa_id ?? '') ?? 'Sin iniciativa'}</p>

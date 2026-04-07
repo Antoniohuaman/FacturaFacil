@@ -1,23 +1,20 @@
 import type { Iniciativa } from '@/dominio/modelos'
 import type { IniciativaEntrada } from '@/compartido/validacion/esquemas'
 import { clienteSupabase } from '@/infraestructura/supabase/clienteSupabase'
+import {
+  obtenerSiguienteOrdenRoadmap,
+  listarRegistrosOrdenadosRoadmap,
+  reordenarRegistrosRoadmap
+} from '@/infraestructura/repositorios/repositorioRoadmapOrden'
 
 interface IniciativaPersistencia extends IniciativaEntrada {
+  orden: number
   rice: number
 }
 
 export const repositorioIniciativas = {
   async listar() {
-    const { data, error } = await clienteSupabase
-      .from('iniciativas')
-      .select('*')
-      .order('updated_at', { ascending: false })
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    return (data ?? []) as Iniciativa[]
+    return listarRegistrosOrdenadosRoadmap<Iniciativa>('iniciativas')
   },
   async obtenerPorId(id: string) {
     const { data, error } = await clienteSupabase.from('iniciativas').select('*').eq('id', id).maybeSingle()
@@ -56,5 +53,14 @@ export const repositorioIniciativas = {
     if (error) {
       throw new Error(error.message)
     }
+  },
+  listarEnObjetivo(objetivoId: string | null) {
+    return listarRegistrosOrdenadosRoadmap<Iniciativa>('iniciativas', { campo: 'objetivo_id', valor: objetivoId })
+  },
+  obtenerSiguienteOrdenEnObjetivo(objetivoId: string | null) {
+    return obtenerSiguienteOrdenRoadmap('iniciativas', { campo: 'objetivo_id', valor: objetivoId })
+  },
+  reordenarEnObjetivo(objetivoId: string | null, idsOrdenados: string[]) {
+    return reordenarRegistrosRoadmap<Iniciativa>('iniciativas', idsOrdenados, { campo: 'objetivo_id', valor: objetivoId })
   }
 }

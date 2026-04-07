@@ -5,6 +5,7 @@ export type PrioridadRegistro = 'baja' | 'media' | 'alta'
 
 export interface Objetivo {
   id: string
+  orden: number
   nombre: string
   descripcion: string
   estado: EstadoRegistro
@@ -17,6 +18,7 @@ export interface Objetivo {
 
 export interface Iniciativa {
   id: string
+  orden: number
   objetivo_id: string | null
   ventana_planificada_id: string | null
   etapa_id: string | null
@@ -37,6 +39,7 @@ export interface Iniciativa {
 
 export interface Entrega {
   id: string
+  orden: number
   iniciativa_id: string | null
   ventana_planificada_id: string | null
   ventana_real_id: string | null

@@ -7,16 +7,17 @@ import {
   useState,
   useContext,
   type CSSProperties,
+  type DragEvent,
   type FocusEvent,
   type MouseEvent,
   type ReactNode
 } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { cargarConfiguracionRice, listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
-import { listarEntregas } from '@/aplicacion/casos-uso/entregas'
-import { listarIniciativas } from '@/aplicacion/casos-uso/iniciativas'
+import { listarEntregas, reordenarEntregasRoadmap } from '@/aplicacion/casos-uso/entregas'
+import { listarIniciativas, reordenarIniciativasRoadmap } from '@/aplicacion/casos-uso/iniciativas'
 import { listarReleases } from '@/aplicacion/casos-uso/lanzamientos'
-import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
+import { listarObjetivos, reordenarObjetivosRoadmap } from '@/aplicacion/casos-uso/objetivos'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { exportarCsv } from '@/compartido/utilidades/csv'
@@ -40,6 +41,7 @@ import {
   eliminarObjetivoRoadmapConConfirmacion
 } from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
 import { GestorModalEntregaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalEntregaRoadmap'
+import { HandleArrastreRoadmap } from '@/presentacion/paginas/roadmap/componentes/HandleArrastreRoadmap'
 import { GestorModalIniciativaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalIniciativaRoadmap'
 import { GestorModalObjetivoRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalObjetivoRoadmap'
 import { MenuCrearRoadmapGlobal } from '@/presentacion/paginas/roadmap/componentes/MenuCrearRoadmapGlobal'
@@ -48,6 +50,13 @@ import { MenuPersonalizacionCronograma } from '@/presentacion/paginas/roadmap/co
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
 import { ControlTemporalCronograma } from '@/presentacion/paginas/roadmap/cronograma/ControlTemporalCronograma'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
+import {
+  ordenarEntregasRoadmapParaVista,
+  ordenarIniciativasRoadmapParaVista,
+  ordenarObjetivosRoadmap,
+  reconstruirOrdenConMovimiento,
+  reemplazarRegistrosPorId
+} from '@/presentacion/paginas/roadmap/ordenManualRoadmap'
 import { calcularProgresoRoadmapDerivado } from '@/presentacion/paginas/roadmap/roadmapProgreso'
 
 type VistaTemporal = 'anio' | 'trimestre'
@@ -153,6 +162,8 @@ type ModalContextualCronograma =
   | { tipo: 'iniciativa'; modo: ModoModalRoadmap; entidad: Iniciativa | null }
   | { tipo: 'entrega'; modo: ModoModalRoadmap; entidad: Entrega | null }
   | null
+
+type FilaReordenableCronograma = { tipo: TipoFilaCronograma; id: string }
 
 const FILA_SIN_OBJETIVO = '__sin_objetivo__'
 const FILA_SIN_INICIATIVA = '__sin_iniciativa__'
@@ -1155,6 +1166,9 @@ export function PaginaCronogramaRoadmap() {
   const [menuCrearAbierto, setMenuCrearAbierto] = useState(false)
   const [menuPersonalizacionAbierto, setMenuPersonalizacionAbierto] = useState(false)
   const [modalContextual, setModalContextual] = useState<ModalContextualCronograma>(null)
+  const [filaArrastrada, setFilaArrastrada] = useState<FilaReordenableCronograma | null>(null)
+  const [filaDestinoReorden, setFilaDestinoReorden] = useState<FilaReordenableCronograma | null>(null)
+  const [guardandoOrdenManual, setGuardandoOrdenManual] = useState(false)
   const busquedaCronogramaDiferida = useDeferredValue(busquedaCronograma)
 
   const esEdicionPermitida = puedeEditar(rol)
@@ -1187,9 +1201,12 @@ export function PaginaCronogramaRoadmap() {
         cargarConfiguracionRice()
       ])
 
-      setObjetivos(objetivosData)
-      setIniciativas(iniciativasData)
-      setEntregas(entregasData)
+      const objetivosOrdenados = ordenarObjetivosRoadmap(objetivosData)
+      const iniciativasOrdenadas = ordenarIniciativasRoadmapParaVista(iniciativasData, objetivosOrdenados)
+
+      setObjetivos(objetivosOrdenados)
+      setIniciativas(iniciativasOrdenadas)
+      setEntregas(ordenarEntregasRoadmapParaVista(entregasData, iniciativasOrdenadas, objetivosOrdenados))
       setReleases(releasesData)
       setVentanas(ventanasData)
       setEtapas(etapasData)
@@ -1542,6 +1559,7 @@ export function PaginaCronogramaRoadmap() {
     if (idsObjetivos.has(FILA_SIN_OBJETIVO)) {
       base.push({
         id: FILA_SIN_OBJETIVO,
+        orden: Number.MAX_SAFE_INTEGER,
         nombre: 'Sin objetivo asignado',
         descripcion: '',
         estado: 'pendiente',
@@ -2341,6 +2359,128 @@ export function PaginaCronogramaRoadmap() {
     return entregasPorId.has(fila.id)
   }
 
+  const obtenerFilaReordenable = (fila: FilaCronograma): FilaReordenableCronograma | null => {
+    if (!filaEsOperable(fila)) {
+      return null
+    }
+
+    return { tipo: fila.tipo, id: fila.id }
+  }
+
+  const obtenerClaveContenedorReorden = (fila: FilaReordenableCronograma) => {
+    if (fila.tipo === 'objetivo') {
+      return 'objetivos'
+    }
+
+    if (fila.tipo === 'iniciativa') {
+      return `objetivo:${iniciativasPorId.get(fila.id)?.objetivo_id ?? FILA_SIN_OBJETIVO}`
+    }
+
+    return `iniciativa:${entregasPorId.get(fila.id)?.iniciativa_id ?? FILA_SIN_INICIATIVA}`
+  }
+
+  const obtenerCantidadHermanosReordenables = (fila: FilaCronograma) => {
+    const filaReordenable = obtenerFilaReordenable(fila)
+    if (!filaReordenable) {
+      return 0
+    }
+
+    if (filaReordenable.tipo === 'objetivo') {
+      return objetivos.length
+    }
+
+    if (filaReordenable.tipo === 'iniciativa') {
+      const objetivoId = iniciativasPorId.get(filaReordenable.id)?.objetivo_id ?? null
+      return iniciativas.filter((iniciativa) => (iniciativa.objetivo_id ?? null) === objetivoId).length
+    }
+
+    const iniciativaId = entregasPorId.get(filaReordenable.id)?.iniciativa_id ?? null
+    return entregas.filter((entrega) => (entrega.iniciativa_id ?? null) === iniciativaId).length
+  }
+
+  const limpiarEstadoReordenCronograma = () => {
+    setFilaArrastrada(null)
+    setFilaDestinoReorden(null)
+  }
+
+  const manejarDropFilaCronograma = async (evento: DragEvent<HTMLDivElement>, filaDestino: FilaCronograma) => {
+    evento.preventDefault()
+
+    const destino = obtenerFilaReordenable(filaDestino)
+    if (!filaArrastrada || !destino || guardandoOrdenManual) {
+      limpiarEstadoReordenCronograma()
+      return
+    }
+
+    if (filaArrastrada.tipo !== destino.tipo || filaArrastrada.id === destino.id) {
+      limpiarEstadoReordenCronograma()
+      return
+    }
+
+    if (obtenerClaveContenedorReorden(filaArrastrada) !== obtenerClaveContenedorReorden(destino)) {
+      limpiarEstadoReordenCronograma()
+      return
+    }
+
+    const rect = evento.currentTarget.getBoundingClientRect()
+    const posicion = evento.clientY >= rect.top + rect.height / 2 ? 'despues' : 'antes'
+
+    setGuardandoOrdenManual(true)
+    setError(null)
+
+    try {
+      if (filaArrastrada.tipo === 'objetivo') {
+        const idsActuales = objetivos.map((objetivo) => objetivo.id)
+        const idsReordenados = reconstruirOrdenConMovimiento(idsActuales, filaArrastrada.id, destino.id, posicion)
+
+        if (idsReordenados.join('|') !== idsActuales.join('|')) {
+          const actualizados = await reordenarObjetivosRoadmap(idsReordenados)
+          setObjetivos(ordenarObjetivosRoadmap(actualizados))
+          setIniciativas((actuales) => ordenarIniciativasRoadmapParaVista(actuales, actualizados))
+          setEntregas((actuales) => ordenarEntregasRoadmapParaVista(actuales, iniciativas, actualizados))
+        }
+      }
+
+      if (filaArrastrada.tipo === 'iniciativa') {
+        const objetivoId = iniciativasPorId.get(destino.id)?.objetivo_id ?? null
+        const idsActuales = iniciativas
+          .filter((iniciativa) => (iniciativa.objetivo_id ?? null) === objetivoId)
+          .map((iniciativa) => iniciativa.id)
+        const idsReordenados = reconstruirOrdenConMovimiento(idsActuales, filaArrastrada.id, destino.id, posicion)
+
+        if (idsReordenados.join('|') !== idsActuales.join('|')) {
+          const actualizadas = await reordenarIniciativasRoadmap({ objetivo_id: objetivoId, ids: idsReordenados })
+          setIniciativas((actuales) =>
+            ordenarIniciativasRoadmapParaVista(reemplazarRegistrosPorId(actuales, actualizadas), objetivos)
+          )
+          setEntregas((actuales) =>
+            ordenarEntregasRoadmapParaVista(actuales, reemplazarRegistrosPorId(iniciativas, actualizadas), objetivos)
+          )
+        }
+      }
+
+      if (filaArrastrada.tipo === 'entrega') {
+        const iniciativaId = entregasPorId.get(destino.id)?.iniciativa_id ?? null
+        const idsActuales = entregas
+          .filter((entrega) => (entrega.iniciativa_id ?? null) === iniciativaId)
+          .map((entrega) => entrega.id)
+        const idsReordenados = reconstruirOrdenConMovimiento(idsActuales, filaArrastrada.id, destino.id, posicion)
+
+        if (idsReordenados.join('|') !== idsActuales.join('|')) {
+          const actualizadas = await reordenarEntregasRoadmap({ iniciativa_id: iniciativaId, ids: idsReordenados })
+          setEntregas((actuales) =>
+            ordenarEntregasRoadmapParaVista(reemplazarRegistrosPorId(actuales, actualizadas), iniciativas, objetivos)
+          )
+        }
+      }
+    } catch (errorInterno) {
+      setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el nuevo orden del cronograma')
+    } finally {
+      setGuardandoOrdenManual(false)
+      limpiarEstadoReordenCronograma()
+    }
+  }
+
   const obtenerDescripcionTooltipActividad = (fila: FilaCronograma) => {
     if (fila.tipo === 'objetivo') {
       const descripcion = objetivosRealesPorId.get(fila.id)?.descripcion?.trim()
@@ -2878,6 +3018,9 @@ export function PaginaCronogramaRoadmap() {
                       const alturaFila = alturasFilas[indice]
                       const claseFila = obtenerClaseFila(fila, filaEstaActiva)
                       const filaOperable = filaEsOperable(fila)
+                      const filaReordenable = obtenerFilaReordenable(fila)
+                      const filaEsDestinoReorden =
+                        filaDestinoReorden?.tipo === fila.tipo && filaDestinoReorden.id === fila.id
                       const descripcionTooltipActividad = obtenerDescripcionTooltipActividad(fila)
 
                       return (
@@ -2886,7 +3029,9 @@ export function PaginaCronogramaRoadmap() {
                           ref={(elemento) => {
                             referenciasFilasJerarquiaRef.current[indice] = elemento
                           }}
-                          className={`group border-b border-slate-200 px-4 py-2 last:border-b-0 dark:border-slate-800 ${claseFila}`}
+                          className={`group border-b border-slate-200 px-4 py-2 last:border-b-0 dark:border-slate-800 ${claseFila} ${
+                            filaArrastrada?.tipo === fila.tipo && filaArrastrada.id === fila.id ? 'bg-slate-50 dark:bg-slate-800/70' : ''
+                          } ${filaEsDestinoReorden ? 'outline outline-1 outline-sky-300 dark:outline-sky-700' : ''}`}
                           style={alturaFila ? { height: `${alturaFila}px` } : undefined}
                           onMouseEnter={() => setFilaActiva(claveVisualFila)}
                           onMouseLeave={() =>
@@ -2896,11 +3041,45 @@ export function PaginaCronogramaRoadmap() {
                           }
                           onFocusCapture={() => setFilaActiva(claveVisualFila)}
                           onBlurCapture={(evento) => manejarBlurFilaJerarquia(evento, claveVisualFila)}
+                          onDragOver={(evento) => {
+                            if (!filaArrastrada || !filaReordenable || guardandoOrdenManual) {
+                              return
+                            }
+
+                            if (filaArrastrada.tipo !== filaReordenable.tipo || filaArrastrada.id === filaReordenable.id) {
+                              return
+                            }
+
+                            if (obtenerClaveContenedorReorden(filaArrastrada) !== obtenerClaveContenedorReorden(filaReordenable)) {
+                              return
+                            }
+
+                            evento.preventDefault()
+                            setFilaDestinoReorden(filaReordenable)
+                          }}
+                          onDrop={(evento) => {
+                            void manejarDropFilaCronograma(evento, fila)
+                          }}
                         >
                           <div
                             className="flex items-start gap-2"
                             style={{ paddingLeft: `${fila.nivel * INDENTACION_POR_NIVEL_CRONOGRAMA}px` }}
                           >
+                            {filaReordenable ? (
+                              <HandleArrastreRoadmap
+                                etiqueta={fila.titulo}
+                                deshabilitado={!esEdicionPermitida || guardandoOrdenManual || obtenerCantidadHermanosReordenables(fila) < 2}
+                                activo={filaArrastrada?.tipo === fila.tipo && filaArrastrada.id === fila.id}
+                                onDragStart={() => {
+                                  setFilaArrastrada(filaReordenable)
+                                  setFilaDestinoReorden(null)
+                                }}
+                                onDragEnd={limpiarEstadoReordenCronograma}
+                              />
+                            ) : (
+                              <span className="h-4 w-4 shrink-0" aria-hidden="true" />
+                            )}
+
                             {fila.tieneHijos ? (
                               <button
                                 type="button"

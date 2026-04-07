@@ -1,19 +1,19 @@
 import type { Objetivo } from '@/dominio/modelos'
 import type { ObjetivoEntrada } from '@/compartido/validacion/esquemas'
 import { clienteSupabase } from '@/infraestructura/supabase/clienteSupabase'
+import {
+  obtenerSiguienteOrdenRoadmap,
+  listarRegistrosOrdenadosRoadmap,
+  reordenarRegistrosRoadmap
+} from '@/infraestructura/repositorios/repositorioRoadmapOrden'
+
+interface ObjetivoPersistencia extends ObjetivoEntrada {
+  orden: number
+}
 
 export const repositorioObjetivos = {
   async listar() {
-    const { data, error } = await clienteSupabase
-      .from('objetivos')
-      .select('*')
-      .order('updated_at', { ascending: false })
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    return (data ?? []) as Objetivo[]
+    return listarRegistrosOrdenadosRoadmap<Objetivo>('objetivos')
   },
   async obtenerPorId(id: string) {
     const { data, error } = await clienteSupabase.from('objetivos').select('*').eq('id', id).maybeSingle()
@@ -24,7 +24,7 @@ export const repositorioObjetivos = {
 
     return (data ?? null) as Objetivo | null
   },
-  async crear(entrada: ObjetivoEntrada) {
+  async crear(entrada: ObjetivoPersistencia) {
     const { data, error } = await clienteSupabase.from('objetivos').insert(entrada).select('*').single()
 
     if (error) {
@@ -33,7 +33,7 @@ export const repositorioObjetivos = {
 
     return data as Objetivo
   },
-  async editar(id: string, entrada: ObjetivoEntrada) {
+  async editar(id: string, entrada: ObjetivoPersistencia) {
     const { data, error } = await clienteSupabase
       .from('objetivos')
       .update(entrada)
@@ -52,5 +52,11 @@ export const repositorioObjetivos = {
     if (error) {
       throw new Error(error.message)
     }
+  },
+  obtenerSiguienteOrden() {
+    return obtenerSiguienteOrdenRoadmap('objetivos')
+  },
+  reordenar(idsOrdenados: string[]) {
+    return reordenarRegistrosRoadmap<Objetivo>('objetivos', idsOrdenados)
   }
 }

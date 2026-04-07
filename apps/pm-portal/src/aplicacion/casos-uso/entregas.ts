@@ -1,8 +1,13 @@
-import type { EntregaEntrada } from '@/compartido/validacion/esquemas'
+import {
+  type EntregaEntrada,
+  reordenamientoEntregasRoadmapSchema,
+  type ReordenamientoEntregasRoadmapEntrada
+} from '@/compartido/validacion/esquemas'
 import { repositorioEntregas } from '@/infraestructura/repositorios/repositorioEntregas'
 import { repositorioIniciativas } from '@/infraestructura/repositorios/repositorioIniciativas'
 import { obtenerRegistroTablaPorId, registrarCambioEntidadBestEffort } from '@/aplicacion/casos-uso/historialCambios'
 import { asegurarEntregaDentroDeIniciativa } from '@/aplicacion/validaciones/contencionJerarquicaRoadmap'
+import { registrarCambiosOrdenRoadmapBestEffort } from '@/aplicacion/casos-uso/roadmapOrdenHistorial'
 
 const TABLA_ENTREGAS = 'entregas'
 
@@ -22,7 +27,8 @@ export async function crearEntrega(entrada: EntregaEntrada) {
   const iniciativaPadre = await obtenerIniciativaPadre(entrada.iniciativa_id)
   asegurarEntregaDentroDeIniciativa(entrada, iniciativaPadre)
 
-  const creada = await repositorioEntregas.crear(entrada)
+  const orden = await repositorioEntregas.obtenerSiguienteOrdenEnIniciativa(entrada.iniciativa_id ?? null)
+  const creada = await repositorioEntregas.crear({ ...entrada, orden })
   await registrarCambioEntidadBestEffort({
     tabla: TABLA_ENTREGAS,
     moduloCodigo: 'roadmap',
@@ -38,8 +44,18 @@ export async function editarEntrega(id: string, entrada: EntregaEntrada) {
   const iniciativaPadre = await obtenerIniciativaPadre(entrada.iniciativa_id)
   asegurarEntregaDentroDeIniciativa(entrada, iniciativaPadre)
 
+  const entregaActual = await repositorioEntregas.obtenerPorId(id)
+  if (!entregaActual) {
+    throw new Error('No se encontró la entrega a editar')
+  }
+
+  const cambioDeIniciativa = entregaActual.iniciativa_id !== (entrada.iniciativa_id ?? null)
+  const orden = cambioDeIniciativa
+    ? await repositorioEntregas.obtenerSiguienteOrdenEnIniciativa(entrada.iniciativa_id ?? null)
+    : entregaActual.orden
+
   const antes = await obtenerRegistroTablaPorId<Record<string, unknown>>(TABLA_ENTREGAS, id)
-  const actualizada = await repositorioEntregas.editar(id, entrada)
+  const actualizada = await repositorioEntregas.editar(id, { ...entrada, orden })
   await registrarCambioEntidadBestEffort({
     tabla: TABLA_ENTREGAS,
     moduloCodigo: 'roadmap',
@@ -63,4 +79,19 @@ export async function eliminarEntrega(id: string) {
     accion: 'eliminar',
     antes
   })
+}
+
+export async function reordenarEntregasRoadmap(entrada: ReordenamientoEntregasRoadmapEntrada) {
+  const { iniciativa_id, ids } = reordenamientoEntregasRoadmapSchema.parse(entrada)
+  const { previas, actuales } = await repositorioEntregas.reordenarEnIniciativa(iniciativa_id, ids)
+  await registrarCambiosOrdenRoadmapBestEffort({
+    tabla: TABLA_ENTREGAS,
+    entidad: 'entrega',
+    previas,
+    actuales,
+    metadata: {
+      iniciativa_id
+    }
+  })
+  return actuales
 }

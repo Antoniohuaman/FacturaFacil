@@ -33,6 +33,7 @@ create table if not exists public.perfiles (
 
 create table if not exists public.objetivos (
   id uuid primary key default gen_random_uuid(),
+  orden integer not null default 0,
   nombre text not null,
   descripcion text not null,
   estado estado_registro not null default 'pendiente',
@@ -43,6 +44,7 @@ create table if not exists public.objetivos (
 
 create table if not exists public.iniciativas (
   id uuid primary key default gen_random_uuid(),
+  orden integer not null default 0,
   objetivo_id uuid references public.objetivos (id) on delete set null,
   nombre text not null,
   descripcion text not null,
@@ -59,6 +61,7 @@ create table if not exists public.iniciativas (
 
 create table if not exists public.entregas (
   id uuid primary key default gen_random_uuid(),
+  orden integer not null default 0,
   iniciativa_id uuid references public.iniciativas (id) on delete set null,
   nombre text not null,
   descripcion text not null,
@@ -82,6 +85,48 @@ create table if not exists public.matriz_valor (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+```
+
+## 2.1) Migracion de orden manual roadmap
+
+```sql
+alter table public.objetivos add column if not exists orden integer not null default 0;
+alter table public.iniciativas add column if not exists orden integer not null default 0;
+alter table public.entregas add column if not exists orden integer not null default 0;
+
+with objetivos_ordenados as (
+  select id, row_number() over (order by updated_at desc, created_at desc, id) * 10 as nuevo_orden
+  from public.objetivos
+)
+update public.objetivos objetivo
+set orden = objetivos_ordenados.nuevo_orden
+from objetivos_ordenados
+where objetivos_ordenados.id = objetivo.id
+  and coalesce(objetivo.orden, 0) = 0;
+
+with iniciativas_ordenadas as (
+  select id, row_number() over (partition by objetivo_id order by updated_at desc, created_at desc, id) * 10 as nuevo_orden
+  from public.iniciativas
+)
+update public.iniciativas iniciativa
+set orden = iniciativas_ordenadas.nuevo_orden
+from iniciativas_ordenadas
+where iniciativas_ordenadas.id = iniciativa.id
+  and coalesce(iniciativa.orden, 0) = 0;
+
+with entregas_ordenadas as (
+  select id, row_number() over (partition by iniciativa_id order by updated_at desc, created_at desc, id) * 10 as nuevo_orden
+  from public.entregas
+)
+update public.entregas entrega
+set orden = entregas_ordenadas.nuevo_orden
+from entregas_ordenadas
+where entregas_ordenadas.id = entrega.id
+  and coalesce(entrega.orden, 0) = 0;
+
+create index if not exists idx_objetivos_orden on public.objetivos (orden);
+create index if not exists idx_iniciativas_objetivo_orden on public.iniciativas (objetivo_id, orden);
+create index if not exists idx_entregas_iniciativa_orden on public.entregas (iniciativa_id, orden);
 ```
 
 ## 3) Triggers updated_at

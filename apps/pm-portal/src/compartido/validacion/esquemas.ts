@@ -40,6 +40,16 @@ const urlOpcionalSchema = z.string().url('Ingresa un enlace válido').nullable()
 const moduloOpcionalSchema = z.string().trim().min(2).max(60).nullable().optional().or(z.literal(''))
 const textoCortoOpcionalSchema = z.string().trim().max(120).nullable().optional().or(z.literal(''))
 const textoLargoOpcionalSchema = z.string().trim().max(4000).nullable().optional().or(z.literal(''))
+const reordenamientoIdsRoadmapSchemaBase = z.array(z.string().uuid('Identificador inválido')).min(1, 'Se requiere al menos un registro')
+
+function validarIdsUnicosRoadmap(ids: string[], contexto: z.RefinementCtx) {
+  if (new Set(ids).size !== ids.length) {
+    contexto.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'La lista de reordenamiento contiene registros repetidos'
+    })
+  }
+}
 
 export const objetivoSchema = z
   .object({
@@ -123,6 +133,18 @@ export const entregaSchema = z
       })
     }
   })
+
+export const reordenamientoObjetivosRoadmapSchema = reordenamientoIdsRoadmapSchemaBase.superRefine(validarIdsUnicosRoadmap)
+
+export const reordenamientoIniciativasRoadmapSchema = z.object({
+  objetivo_id: z.string().uuid().nullable(),
+  ids: reordenamientoIdsRoadmapSchemaBase.superRefine(validarIdsUnicosRoadmap)
+})
+
+export const reordenamientoEntregasRoadmapSchema = z.object({
+  iniciativa_id: z.string().uuid().nullable(),
+  ids: reordenamientoIdsRoadmapSchemaBase.superRefine(validarIdsUnicosRoadmap)
+})
 
 export const matrizValorSchema = z.object({
   iniciativa_id: z.string().uuid('Selecciona una iniciativa válida'),
@@ -837,6 +859,9 @@ export const healthScoreSchema = z
 export type ObjetivoEntrada = z.infer<typeof objetivoSchema>
 export type IniciativaEntrada = z.infer<typeof iniciativaSchema>
 export type EntregaEntrada = z.infer<typeof entregaSchema>
+export type ReordenamientoObjetivosRoadmapEntrada = z.infer<typeof reordenamientoObjetivosRoadmapSchema>
+export type ReordenamientoIniciativasRoadmapEntrada = z.infer<typeof reordenamientoIniciativasRoadmapSchema>
+export type ReordenamientoEntregasRoadmapEntrada = z.infer<typeof reordenamientoEntregasRoadmapSchema>
 export type MatrizValorEntrada = z.infer<typeof matrizValorSchema>
 export type IngresoEntrada = z.infer<typeof ingresoSchema>
 export type PlantillaValidacionEntrada = z.infer<typeof plantillaValidacionSchema>

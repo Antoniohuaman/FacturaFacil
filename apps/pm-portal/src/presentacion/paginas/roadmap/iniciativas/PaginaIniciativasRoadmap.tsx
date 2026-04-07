@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   type CatalogoEtapaPm,
@@ -13,7 +13,8 @@ import {
   type RelIniciativaKrPm
 } from '@/dominio/modelos'
 import {
-  listarIniciativas
+  listarIniciativas,
+  reordenarIniciativasRoadmap
 } from '@/aplicacion/casos-uso/iniciativas'
 import { listarObjetivos } from '@/aplicacion/casos-uso/objetivos'
 import { cargarConfiguracionRice, listarEtapasPm, listarVentanasPm } from '@/aplicacion/casos-uso/ajustes'
@@ -33,8 +34,15 @@ import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 import { eliminarIniciativaRoadmapConConfirmacion } from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
+import { HandleArrastreRoadmap } from '@/presentacion/paginas/roadmap/componentes/HandleArrastreRoadmap'
 import { GestorModalIniciativaRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalIniciativaRoadmap'
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
+import {
+  ordenarIniciativasRoadmapParaVista,
+  ordenarObjetivosRoadmap,
+  reconstruirOrdenConMovimiento,
+  reemplazarRegistrosPorId
+} from '@/presentacion/paginas/roadmap/ordenManualRoadmap'
 
 export function PaginaIniciativasRoadmap() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -67,6 +75,9 @@ export function PaginaIniciativasRoadmap() {
   const [modoModal, setModoModal] = useState<ModoModalRoadmap>('crear')
   const [iniciativaActiva, setIniciativaActiva] = useState<Iniciativa | null>(null)
   const [configuracionRice, setConfiguracionRice] = useState<ConfiguracionRice | null>(null)
+  const [iniciativaArrastradaId, setIniciativaArrastradaId] = useState<string | null>(null)
+  const [iniciativaDestinoId, setIniciativaDestinoId] = useState<string | null>(null)
+  const [guardandoOrden, setGuardandoOrden] = useState(false)
 
   const esEdicionPermitida = puedeEditar(rol)
 
@@ -97,8 +108,9 @@ export function PaginaIniciativasRoadmap() {
         listarCasosUso(),
         listarRequerimientosNoFuncionales()
       ])
-      setIniciativas(listaIniciativas)
-      setObjetivos(listaObjetivos)
+      const objetivosOrdenados = ordenarObjetivosRoadmap(listaObjetivos)
+      setObjetivos(objetivosOrdenados)
+      setIniciativas(ordenarIniciativasRoadmapParaVista(listaIniciativas, objetivosOrdenados))
       setVentanas(listaVentanas)
       setEtapas(listaEtapas)
       setRelacionesKr(relKrData)
@@ -255,6 +267,61 @@ export function PaginaIniciativasRoadmap() {
     setModoModal(modo)
     setIniciativaActiva(iniciativa ?? null)
     setModalAbierto(true)
+  }
+
+  const limpiarEstadoArrastre = () => {
+    setIniciativaArrastradaId(null)
+    setIniciativaDestinoId(null)
+  }
+
+  const obtenerObjetivoContenedor = (iniciativa: Iniciativa) => iniciativa.objetivo_id ?? null
+
+  const manejarDropIniciativa = async (evento: DragEvent<HTMLTableRowElement>, iniciativaDestino: Iniciativa) => {
+    evento.preventDefault()
+
+    if (!iniciativaArrastradaId || iniciativaArrastradaId === iniciativaDestino.id || guardandoOrden) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    const iniciativaArrastrada = iniciativas.find((iniciativa) => iniciativa.id === iniciativaArrastradaId)
+    if (!iniciativaArrastrada) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    const objetivoId = obtenerObjetivoContenedor(iniciativaDestino)
+    if (obtenerObjetivoContenedor(iniciativaArrastrada) !== objetivoId) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    const rect = evento.currentTarget.getBoundingClientRect()
+    const posicion = evento.clientY >= rect.top + rect.height / 2 ? 'despues' : 'antes'
+    const idsActuales = iniciativas
+      .filter((iniciativa) => obtenerObjetivoContenedor(iniciativa) === objetivoId)
+      .map((iniciativa) => iniciativa.id)
+    const idsReordenados = reconstruirOrdenConMovimiento(idsActuales, iniciativaArrastradaId, iniciativaDestino.id, posicion)
+
+    if (idsReordenados.join('|') === idsActuales.join('|')) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    setGuardandoOrden(true)
+    setError(null)
+
+    try {
+      const actualizados = await reordenarIniciativasRoadmap({ objetivo_id: objetivoId, ids: idsReordenados })
+      setIniciativas((actuales) =>
+        ordenarIniciativasRoadmapParaVista(reemplazarRegistrosPorId(actuales, actualizados), objetivos)
+      )
+    } catch (errorInterno) {
+      setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el nuevo orden de iniciativas')
+    } finally {
+      setGuardandoOrden(false)
+      limpiarEstadoArrastre()
+    }
   }
 
   return (
@@ -476,18 +543,57 @@ export function PaginaIniciativasRoadmap() {
             </thead>
             <tbody>
               {paginacion.itemsPaginados.map((iniciativa) => (
-                <tr key={iniciativa.id} className="border-t border-slate-200 dark:border-slate-800">
+                <tr
+                  key={iniciativa.id}
+                  className={`border-t border-slate-200 dark:border-slate-800 ${
+                    iniciativaArrastradaId === iniciativa.id ? 'bg-slate-50 dark:bg-slate-800/70' : ''
+                  } ${iniciativaDestinoId === iniciativa.id ? 'outline outline-1 outline-sky-300 dark:outline-sky-700' : ''}`}
+                  onDragOver={(evento) => {
+                    if (!iniciativaArrastradaId || iniciativaArrastradaId === iniciativa.id || guardandoOrden) {
+                      return
+                    }
+
+                    const iniciativaArrastrada = iniciativas.find((item) => item.id === iniciativaArrastradaId)
+                    if (!iniciativaArrastrada) {
+                      return
+                    }
+
+                    if (obtenerObjetivoContenedor(iniciativaArrastrada) !== obtenerObjetivoContenedor(iniciativa)) {
+                      return
+                    }
+
+                    evento.preventDefault()
+                    setIniciativaDestinoId(iniciativa.id)
+                  }}
+                  onDrop={(evento) => {
+                    void manejarDropIniciativa(evento, iniciativa)
+                  }}
+                >
                   <td className="px-3 py-2">
-                    <p className="font-medium">{iniciativa.nombre}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{iniciativa.descripcion}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis estrategia ·{' '}
-                      {hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0} hipótesis discovery
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {historiasPorIniciativaMapa.get(iniciativa.id) ?? 0} historias · {casosUsoPorIniciativaMapa.get(iniciativa.id) ?? 0} casos de uso ·{' '}
-                      {requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0} RNF
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <HandleArrastreRoadmap
+                        etiqueta={iniciativa.nombre}
+                        deshabilitado={!esEdicionPermitida || guardandoOrden}
+                        activo={iniciativaArrastradaId === iniciativa.id}
+                        onDragStart={() => {
+                          setIniciativaArrastradaId(iniciativa.id)
+                          setIniciativaDestinoId(null)
+                        }}
+                        onDragEnd={limpiarEstadoArrastre}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium">{iniciativa.nombre}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{iniciativa.descripcion}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {krPorIniciativa.get(iniciativa.id) ?? 0} KR · {hipotesisPorIniciativa.get(iniciativa.id) ?? 0} hipótesis estrategia ·{' '}
+                          {hipotesisDiscoveryPorIniciativa.get(iniciativa.id) ?? 0} hipótesis discovery
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {historiasPorIniciativaMapa.get(iniciativa.id) ?? 0} historias · {casosUsoPorIniciativaMapa.get(iniciativa.id) ?? 0} casos de uso ·{' '}
+                          {requerimientosNoFuncionalesPorIniciativaMapa.get(iniciativa.id) ?? 0} RNF
+                        </p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-3 py-2">{objetivoPorId.get(iniciativa.objetivo_id ?? '') ?? 'Sin objetivo'}</td>
                   <td className="px-3 py-2">

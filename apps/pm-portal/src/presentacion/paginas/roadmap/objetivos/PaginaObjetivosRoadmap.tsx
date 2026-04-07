@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { estadosRegistro, prioridadesRegistro, type Objetivo, type RelObjetivoRoadmapKrPm } from '@/dominio/modelos'
 import {
-  listarObjetivos
+  listarObjetivos,
+  reordenarObjetivosRoadmap
 } from '@/aplicacion/casos-uso/objetivos'
 import { listarRelObjetivoRoadmapKr } from '@/aplicacion/casos-uso/estrategia'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
@@ -14,8 +15,10 @@ import { exportarCsv } from '@/compartido/utilidades/csv'
 import { formatearEstadoLegible, formatearFechaCorta } from '@/compartido/utilidades/formatoPortal'
 import { NavegacionRoadmap } from '@/presentacion/paginas/roadmap/NavegacionRoadmap'
 import { eliminarObjetivoRoadmapConConfirmacion } from '@/presentacion/paginas/roadmap/componentes/accionesContextualesRoadmap'
+import { HandleArrastreRoadmap } from '@/presentacion/paginas/roadmap/componentes/HandleArrastreRoadmap'
 import { GestorModalObjetivoRoadmap } from '@/presentacion/paginas/roadmap/componentes/GestorModalObjetivoRoadmap'
 import type { ModoModalRoadmap } from '@/presentacion/paginas/roadmap/componentes/tiposModalRoadmap'
+import { ordenarObjetivosRoadmap, reconstruirOrdenConMovimiento } from '@/presentacion/paginas/roadmap/ordenManualRoadmap'
 
 export function PaginaObjetivosRoadmap() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -36,6 +39,9 @@ export function PaginaObjetivosRoadmap() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modoModal, setModoModal] = useState<ModoModalRoadmap>('crear')
   const [objetivoActivo, setObjetivoActivo] = useState<Objetivo | null>(null)
+  const [objetivoArrastradoId, setObjetivoArrastradoId] = useState<string | null>(null)
+  const [objetivoDestinoId, setObjetivoDestinoId] = useState<string | null>(null)
+  const [guardandoOrden, setGuardandoOrden] = useState(false)
 
   const esEdicionPermitida = puedeEditar(rol)
 
@@ -44,7 +50,7 @@ export function PaginaObjetivosRoadmap() {
     setError(null)
     try {
       const [data, relaciones] = await Promise.all([listarObjetivos(), listarRelObjetivoRoadmapKr()])
-      setObjetivos(data)
+      setObjetivos(ordenarObjetivosRoadmap(data))
       setRelacionesKr(relaciones)
     } catch (errorInterno) {
       setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar objetivos')
@@ -97,6 +103,47 @@ export function PaginaObjetivosRoadmap() {
     setModoModal(modo)
     setObjetivoActivo(objetivo ?? null)
     setModalAbierto(true)
+  }
+
+  const limpiarEstadoArrastre = () => {
+    setObjetivoArrastradoId(null)
+    setObjetivoDestinoId(null)
+  }
+
+  const manejarDropObjetivo = async (evento: DragEvent<HTMLTableRowElement>, objetivoDestino: Objetivo) => {
+    evento.preventDefault()
+
+    if (!objetivoArrastradoId || objetivoArrastradoId === objetivoDestino.id || guardandoOrden) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    const rect = evento.currentTarget.getBoundingClientRect()
+    const posicion = evento.clientY >= rect.top + rect.height / 2 ? 'despues' : 'antes'
+    const idsReordenados = reconstruirOrdenConMovimiento(
+      objetivos.map((objetivo) => objetivo.id),
+      objetivoArrastradoId,
+      objetivoDestino.id,
+      posicion
+    )
+
+    if (idsReordenados.join('|') === objetivos.map((objetivo) => objetivo.id).join('|')) {
+      limpiarEstadoArrastre()
+      return
+    }
+
+    setGuardandoOrden(true)
+    setError(null)
+
+    try {
+      const actualizados = await reordenarObjetivosRoadmap(idsReordenados)
+      setObjetivos(ordenarObjetivosRoadmap(actualizados))
+    } catch (errorInterno) {
+      setError(errorInterno instanceof Error ? errorInterno.message : 'No se pudo guardar el nuevo orden de objetivos')
+    } finally {
+      setGuardandoOrden(false)
+      limpiarEstadoArrastre()
+    }
   }
 
   return (
@@ -244,10 +291,40 @@ export function PaginaObjetivosRoadmap() {
             </thead>
             <tbody>
               {paginacion.itemsPaginados.map((objetivo) => (
-                <tr key={objetivo.id} className="border-t border-slate-200 dark:border-slate-800">
+                <tr
+                  key={objetivo.id}
+                  className={`border-t border-slate-200 dark:border-slate-800 ${
+                    objetivoArrastradoId === objetivo.id ? 'bg-slate-50 dark:bg-slate-800/70' : ''
+                  } ${objetivoDestinoId === objetivo.id ? 'outline outline-1 outline-sky-300 dark:outline-sky-700' : ''}`}
+                  onDragOver={(evento) => {
+                    if (!objetivoArrastradoId || objetivoArrastradoId === objetivo.id || guardandoOrden) {
+                      return
+                    }
+
+                    evento.preventDefault()
+                    setObjetivoDestinoId(objetivo.id)
+                  }}
+                  onDrop={(evento) => {
+                    void manejarDropObjetivo(evento, objetivo)
+                  }}
+                >
                   <td className="px-3 py-2">
-                    <p className="font-medium">{objetivo.nombre}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{objetivo.descripcion}</p>
+                    <div className="flex items-start gap-2">
+                      <HandleArrastreRoadmap
+                        etiqueta={objetivo.nombre}
+                        deshabilitado={!esEdicionPermitida || guardandoOrden || objetivos.length < 2}
+                        activo={objetivoArrastradoId === objetivo.id}
+                        onDragStart={() => {
+                          setObjetivoArrastradoId(objetivo.id)
+                          setObjetivoDestinoId(null)
+                        }}
+                        onDragEnd={limpiarEstadoArrastre}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium">{objetivo.nombre}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{objetivo.descripcion}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-3 py-2">{objetivo.estado}</td>
                   <td className="px-3 py-2">{objetivo.prioridad}</td>
