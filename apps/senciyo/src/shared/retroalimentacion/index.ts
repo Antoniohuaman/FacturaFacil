@@ -13,3 +13,4 @@ export * from './componentes/EncuestaNps';
 export * from './componentes/EstadoAnimoDiario';
 export * from './componentes/PanelRetroalimentacion';
 export * from './controladores/ControladorRetroalimentacion';
+export * from './servicios/retroalimentacionSupabase';

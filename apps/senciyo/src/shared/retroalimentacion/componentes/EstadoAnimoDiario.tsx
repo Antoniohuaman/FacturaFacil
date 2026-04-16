@@ -58,7 +58,7 @@ export function EstadoAnimoDiario() {
     }));
 
     if (!ok) {
-      feedback.warning('Revisa el comentario breve antes de enviarlo.', 'Retroalimentación');
+      feedback.error('No pudimos guardar tu respuesta. Inténtalo de nuevo.', 'Retroalimentación');
       return;
     }
 

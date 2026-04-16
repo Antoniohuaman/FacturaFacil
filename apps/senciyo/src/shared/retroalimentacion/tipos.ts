@@ -40,7 +40,7 @@ export interface RetroalimentacionApi {
   cerrarPanel: () => void;
   cambiarFlujo: (flujo: FlujoRetroalimentacion) => void;
   solicitarEncuestaNps: () => void;
-  enviarEstadoAnimo: (entrada: EnvioEstadoAnimo) => boolean;
-  enviarIdea: (entrada: EnvioIdea) => boolean;
-  enviarRespuestaNps: (entrada: EnvioRespuestaNps) => boolean;
+  enviarEstadoAnimo: (entrada: EnvioEstadoAnimo) => Promise<boolean>;
+  enviarIdea: (entrada: EnvioIdea) => Promise<boolean>;
+  enviarRespuestaNps: (entrada: EnvioRespuestaNps) => Promise<boolean>;
 }

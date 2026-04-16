@@ -56,7 +56,7 @@ export function EncuestaNps() {
     }));
 
     if (!ok) {
-      feedback.warning('Revisa tu comentario antes de enviarlo.', 'Calificación');
+      feedback.error('No pudimos guardar tu calificación. Inténtalo de nuevo.', 'Calificación');
       return;
     }
 

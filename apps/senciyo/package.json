@@ -19,6 +19,7 @@
     "@facturafacil/analytics-events": "*",
     "@hookform/resolvers": "^3.9.1",
     "@posthog/react": "^1.8.0",
+    "@supabase/supabase-js": "^2.103.3",
     "exceljs": "^4.4.0",
     "lucide-react": "^0.544.0",
     "mixpanel-browser": "^2.75.0",
