@@ -15,8 +15,12 @@
     "build:senciyo": "npm run build -w senciyo",
     "lint:senciyo": "npm run lint -w senciyo",
     "dev:pm": "npm run dev -w portal-pm",
+    "dev:pm:cf": "npm run build:pm && wrangler pages dev",
     "build:pm": "npm run build -w portal-pm",
     "lint:pm": "npm run lint -w portal-pm",
     "typecheck:functions": "tsc --project functions/tsconfig.json"
+  },
+  "devDependencies": {
+    "wrangler": "4.83.0"
   }
 }
