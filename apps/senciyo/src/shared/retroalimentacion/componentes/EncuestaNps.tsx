@@ -12,22 +12,6 @@ import { useRetroalimentacion } from '../hooks/useRetroalimentacion';
 import { registrarSeleccionPuntuacionNps } from '../integracionAnalitica';
 import { normalizarTextoBreve } from '../reglasFrecuencia';
 
-function describirPuntuacionNps(puntuacion: number | null): string {
-  if (puntuacion === null) {
-    return 'Selecciona un puntaje para continuar.';
-  }
-
-  if (puntuacion <= 6) {
-    return `Marcaste ${puntuacion}/10. Señala una experiencia que hoy necesita mejorar.`;
-  }
-
-  if (puntuacion <= 8) {
-    return `Marcaste ${puntuacion}/10. Si quieres, agrega qué falta para subir ese puntaje.`;
-  }
-
-  return `Marcaste ${puntuacion}/10. Si quieres, cuéntanos qué está funcionando bien.`;
-}
-
 export function EncuestaNps() {
   const { enviarRespuestaNps, cerrarPanel } = useRetroalimentacion();
   const feedback = useFeedback();
@@ -62,7 +46,7 @@ export function EncuestaNps() {
 
   const enviar = async () => {
     if (puntuacion === null) {
-      feedback.warning('Selecciona una puntuación antes de continuar.', 'Encuesta NPS');
+      feedback.warning('Selecciona una calificación antes de continuar.', 'Calificación');
       return;
     }
 
@@ -72,7 +56,7 @@ export function EncuestaNps() {
     }));
 
     if (!ok) {
-      feedback.warning('Revisa tu comentario breve antes de enviarlo.', 'Encuesta NPS');
+      feedback.warning('Revisa tu comentario antes de enviarlo.', 'Calificación');
       return;
     }
 
@@ -87,10 +71,7 @@ export function EncuestaNps() {
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Gracias por calificar tu experiencia</h3>
-              <p className="text-sm text-emerald-800/90 dark:text-emerald-300/90">
-                Puedes cerrar el panel o volver a responder si solo estabas explorando esta experiencia.
-              </p>
+              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Gracias por tu calificación</h3>
             </div>
           </div>
         </div>
@@ -101,7 +82,7 @@ export function EncuestaNps() {
             onClick={reiniciarEstadoEnvio}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-gray-700 dark:bg-gray-900 dark:text-slate-200 dark:hover:border-gray-600 dark:hover:bg-gray-800"
           >
-            Responder otra vez
+            Calificar de nuevo
           </button>
           <button
             type="button"
@@ -118,9 +99,9 @@ export function EncuestaNps() {
   return (
     <div className="space-y-5 px-4 py-4">
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Encuesta NPS</h3>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Tu calificación</h3>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Del {PUNTUACION_NPS_MINIMA} al {PUNTUACION_NPS_MAXIMA}, ¿qué tan probable es que recomiendes SenciYo a otra empresa similar a la tuya?
+          ¿Qué tan satisfecho estás con SenciYo?
         </p>
       </div>
 
@@ -147,11 +128,9 @@ export function EncuestaNps() {
       </div>
 
       <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
-        <span>Poco probable</span>
-        <span>Muy probable</span>
+        <span>Muy baja</span>
+        <span>Muy alta</span>
       </div>
-
-      <p className="text-xs text-slate-500 dark:text-slate-400">{describirPuntuacionNps(puntuacion)}</p>
 
       {puntuacion !== null && (
         <CampoComentarioBreve
@@ -160,22 +139,18 @@ export function EncuestaNps() {
           onChange={actualizarComentario}
           placeholder="Si quieres, agrega un contexto breve para tu puntuación."
           maximoCaracteres={MAXIMO_COMENTARIO_BREVE_RETROALIMENTACION}
-          descripcion="Este comentario es opcional y solo busca contexto breve."
           disabled={enviando}
         />
       )}
 
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          {puntuacion === null ? 'Selecciona una puntuación para habilitar el envío.' : 'Listo para enviar.'}
-        </p>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={enviar}
           disabled={!puedeEnviar}
           className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:disabled:bg-slate-700 dark:disabled:text-slate-300"
         >
-          {enviando ? 'Enviando...' : 'Enviar respuesta'}
+          {enviando ? 'Enviando...' : 'Enviar calificación'}
         </button>
       </div>
     </div>

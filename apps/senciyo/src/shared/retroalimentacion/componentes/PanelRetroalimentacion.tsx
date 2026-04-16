@@ -13,7 +13,7 @@ interface PanelRetroalimentacionProps {
 const OPCIONES_FLUJO: Array<{ id: FlujoRetroalimentacion; etiqueta: string }> = [
   { id: 'estado_animo', etiqueta: 'Estado de ánimo' },
   { id: 'buzon_ideas', etiqueta: 'Buzón de ideas' },
-  { id: 'nps', etiqueta: 'NPS' },
+  { id: 'nps', etiqueta: 'Calificación' },
 ];
 
 function renderizarContenido(flujoActivo: FlujoRetroalimentacion) {
@@ -36,12 +36,12 @@ export function PanelRetroalimentacion({ devolverFocoARef }: PanelRetroalimentac
       abierto={panelAbierto}
       alCerrar={cerrarPanel}
       titulo="Retroalimentación"
-      subtitulo="Una forma rápida y no invasiva de compartir cómo va tu experiencia en SenciYo."
-      tamano="md"
+      subtitulo="Tu opinión nos ayuda a mejorar."
+      tamano="lg"
       devolverFocoARef={devolverFocoARef}
     >
       <div className="border-b border-slate-200 px-4 py-3 dark:border-gray-700">
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {OPCIONES_FLUJO.map((opcion) => {
             const activa = opcion.id === flujoActivo;
 
@@ -50,13 +50,13 @@ export function PanelRetroalimentacion({ devolverFocoARef }: PanelRetroalimentac
                 key={opcion.id}
                 type="button"
                 onClick={() => cambiarFlujo(opcion.id)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${activa
+                className={`min-w-0 rounded-full px-3 py-2 text-center text-sm font-medium transition ${activa
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700'
                   }`}
                 aria-pressed={activa}
               >
-                {opcion.etiqueta}
+                <span className="block whitespace-nowrap">{opcion.etiqueta}</span>
               </button>
             );
           })}

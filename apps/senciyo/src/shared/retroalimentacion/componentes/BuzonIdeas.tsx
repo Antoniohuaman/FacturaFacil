@@ -50,10 +50,7 @@ export function BuzonIdeas() {
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Gracias por compartir una idea de mejora</h3>
-              <p className="text-sm text-emerald-800/90 dark:text-emerald-300/90">
-                Si quieres, puedes dejar otra sugerencia o cerrar el panel.
-              </p>
+              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Gracias por compartir tu idea</h3>
             </div>
           </div>
         </div>
@@ -80,12 +77,7 @@ export function BuzonIdeas() {
 
   return (
     <div className="space-y-5 px-4 py-4">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Buzón de ideas</h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Comparte una mejora, una sugerencia o una idea concreta para el producto. Este espacio no es para soporte ni incidencias.
-        </p>
-      </div>
+      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cuéntanos tu idea</h3>
 
       <CampoComentarioBreve
         etiqueta="Tu idea"
@@ -94,14 +86,10 @@ export function BuzonIdeas() {
         placeholder="Ejemplo: me ayudaría tener un resumen más claro al cerrar la caja del día."
         maximoCaracteres={MAXIMO_IDEA_RETROALIMENTACION}
         filas={5}
-        descripcion="Intenta compartir una sola idea por envío para mantenerla clara."
         disabled={enviando}
       />
 
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          {puedeEnviar ? 'Lista para enviar.' : 'Escribe una idea breve y concreta.'}
-        </p>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={enviar}

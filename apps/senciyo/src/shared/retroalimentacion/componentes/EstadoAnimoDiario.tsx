@@ -73,10 +73,7 @@ export function EstadoAnimoDiario() {
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Gracias por compartir cómo te sientes hoy</h3>
-              <p className="text-sm text-emerald-800/90 dark:text-emerald-300/90">
-                Puedes cerrar este panel o dejar un nuevo registro cuando quieras.
-              </p>
+              <h3 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Gracias por compartir tu estado de ánimo</h3>
             </div>
           </div>
         </div>
@@ -103,12 +100,7 @@ export function EstadoAnimoDiario() {
 
   return (
     <div className="space-y-5 px-4 py-4">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Estado de ánimo diario</h3>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Comparte en segundos cómo viene tu jornada. Es el flujo más rápido del panel y el comentario es opcional.
-        </p>
-      </div>
+      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">¿Cómo va tu día?</h3>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {OPCIONES_ESTADO_ANIMO.map((opcion) => {
@@ -142,14 +134,10 @@ export function EstadoAnimoDiario() {
         onChange={actualizarComentario}
         placeholder={opcionSeleccionada ? `Si quieres, cuéntanos por qué elegiste “${opcionSeleccionada.etiqueta}”.` : 'Si quieres, agrega un comentario breve.'}
         maximoCaracteres={MAXIMO_COMENTARIO_BREVE_RETROALIMENTACION}
-        descripcion="Úsalo solo si quieres dar un poco más de contexto."
         disabled={enviando}
       />
 
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          {estadoSeleccionado ? 'Listo para enviar.' : 'Selecciona una opción para continuar.'}
-        </p>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={enviar}
