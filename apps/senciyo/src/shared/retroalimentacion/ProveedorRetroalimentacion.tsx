@@ -38,6 +38,12 @@ function resolverRutaActual(pathname: string, search: string): string {
   return `${pathname}${search ?? ''}` || '/';
 }
 
+function resolverNombreUsuario(session: UserSession): string {
+  return session.userName?.trim()
+    || session.userEmail?.trim()
+    || session.userId;
+}
+
 function resolverNombreEmpresa(session: UserSession): string {
   return session.currentCompany?.nombreComercial?.trim()
     || session.currentCompany?.razonSocial?.trim()
@@ -74,7 +80,7 @@ export function ProveedorRetroalimentacion({ children }: { children: ReactNode }
 
     return {
       usuarioId: session.userId,
-      usuarioNombre: session.userName,
+      usuarioNombre: resolverNombreUsuario(session),
       empresaId: session.currentCompanyId,
       empresaNombre: resolverNombreEmpresa(session),
       establecimientoId: session.currentEstablecimiento?.id ?? null,
@@ -117,6 +123,9 @@ export function ProveedorRetroalimentacion({ children }: { children: ReactNode }
     const comentario = normalizarTextoBreve(entrada.comentario);
 
     if (!entrada.estado || !validarComentarioBreve(comentario) || !contextoRegistro) {
+      if (!contextoRegistro) {
+        console.warn('[retroalimentacion] Contexto incompleto para guardar estado de ánimo');
+      }
       return false;
     }
 
@@ -137,6 +146,9 @@ export function ProveedorRetroalimentacion({ children }: { children: ReactNode }
     const contenido = normalizarTextoBreve(entrada.contenido);
 
     if (!validarIdea(contenido) || !contextoRegistro) {
+      if (!contextoRegistro) {
+        console.warn('[retroalimentacion] Contexto incompleto para guardar idea');
+      }
       return false;
     }
 
@@ -157,6 +169,9 @@ export function ProveedorRetroalimentacion({ children }: { children: ReactNode }
     };
 
     if (!validarRespuestaNps(respuesta) || !contextoRegistro) {
+      if (!contextoRegistro) {
+        console.warn('[retroalimentacion] Contexto incompleto para guardar calificación');
+      }
       return false;
     }
 

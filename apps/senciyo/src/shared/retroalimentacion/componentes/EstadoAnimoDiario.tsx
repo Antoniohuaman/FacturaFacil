@@ -57,7 +57,11 @@ export function EstadoAnimoDiario() {
       comentario: comentarioNormalizado || undefined,
     }));
 
-    if (!ok) {
+    if (ok === 'omitido') {
+      return;
+    }
+
+    if (ok === 'fallido') {
       feedback.error('No pudimos guardar tu respuesta. Inténtalo de nuevo.', 'Retroalimentación');
       return;
     }

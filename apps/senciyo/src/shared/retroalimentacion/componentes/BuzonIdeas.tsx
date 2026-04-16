@@ -34,7 +34,11 @@ export function BuzonIdeas() {
   const enviar = async () => {
     const ok = await ejecutarEnvioLocal(() => enviarIdea({ contenido: contenidoNormalizado }));
 
-    if (!ok) {
+    if (ok === 'omitido') {
+      return;
+    }
+
+    if (ok === 'fallido') {
       feedback.error('No pudimos guardar tu idea. Inténtalo de nuevo.', 'Buzón de ideas');
       return;
     }

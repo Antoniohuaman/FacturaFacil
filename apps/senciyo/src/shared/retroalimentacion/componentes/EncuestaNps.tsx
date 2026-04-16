@@ -55,7 +55,11 @@ export function EncuestaNps() {
       comentario: comentarioNormalizado || undefined,
     }));
 
-    if (!ok) {
+    if (ok === 'omitido') {
+      return;
+    }
+
+    if (ok === 'fallido') {
       feedback.error('No pudimos guardar tu calificación. Inténtalo de nuevo.', 'Calificación');
       return;
     }
