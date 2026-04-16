@@ -16,6 +16,7 @@ import { CajaProvider, useCaja } from "../pages/Private/features/control-caja/co
 import { ToastContainer } from "../pages/Private/features/control-caja/components/common/Toast";
 import { FeedbackHost } from "../shared/feedback/FeedbackHost";
 import { AnalyticsIdentitySync } from "../shared/analitica/AnalyticsIdentitySync";
+import { ControladorRetroalimentacion, ProveedorRetroalimentacion } from "../shared/retroalimentacion";
 import { TourFlotante, usarTour } from "../shared/tour";
 import { MicroSplashIngreso } from "../shared/ui/transiciones/MicroSplashIngreso";
 import { useTransicionIngresoStore } from "../shared/ui/transiciones/useTransicionIngresoStore";
@@ -42,40 +43,43 @@ export default function AppShell() {
             <AnalyticsIdentitySync />
             <TenantDataResetEffect />
             <CajaProvider>
-              <FieldsConfigurationProvider>
-                <ComprobanteProvider>
-                  <CobranzasProvider>
-                    <DocumentoProvider>
-                      <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden print:block print:h-auto print:min-h-0 print:bg-white print:overflow-visible">
-                        {/* Header fijo */}
-                        <div className="flex-shrink-0 z-50 print:hidden">
-                          <Header
-                            sidebarCollapsed={sidebarCollapsed}
-                            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-                          />
-                        </div>
-                        <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
-                          {/* Sidebar fijo */}
-                          <div className="flex-shrink-0 h-full z-40 print:hidden">
-                            <SideNav
-                              collapsed={sidebarCollapsed}
+              <ProveedorRetroalimentacion>
+                <ControladorRetroalimentacion />
+                <FieldsConfigurationProvider>
+                  <ComprobanteProvider>
+                    <CobranzasProvider>
+                      <DocumentoProvider>
+                        <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden print:block print:h-auto print:min-h-0 print:bg-white print:overflow-visible">
+                          {/* Header fijo */}
+                          <div className="flex-shrink-0 z-50 print:hidden">
+                            <Header
+                              sidebarCollapsed={sidebarCollapsed}
+                              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
                             />
                           </div>
-                          {/* Contenido principal */}
-                          <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden print:block print:overflow-visible`}>
-                            <div className="flex-1 overflow-y-auto overflow-x-hidden print:block print:overflow-visible">
-                              <Outlet />
+                          <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
+                            {/* Sidebar fijo */}
+                            <div className="flex-shrink-0 h-full z-40 print:hidden">
+                              <SideNav
+                                collapsed={sidebarCollapsed}
+                              />
+                            </div>
+                            {/* Contenido principal */}
+                            <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden print:block print:overflow-visible`}>
+                              <div className="flex-1 overflow-y-auto overflow-x-hidden print:block print:overflow-visible">
+                                <Outlet />
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                      <CajaGlobalOverlays />
-                      <TourGlobalOverlays />
-                      <MicroSplashIngreso activa={activa} motivo={motivo ?? undefined} />
-                    </DocumentoProvider>
-                  </CobranzasProvider>
-                </ComprobanteProvider>
-              </FieldsConfigurationProvider>
+                        <CajaGlobalOverlays />
+                        <TourGlobalOverlays />
+                        <MicroSplashIngreso activa={activa} motivo={motivo ?? undefined} />
+                      </DocumentoProvider>
+                    </CobranzasProvider>
+                  </ComprobanteProvider>
+                </FieldsConfigurationProvider>
+              </ProveedorRetroalimentacion>
             </CajaProvider>
           </SessionInitializer>
         </ConfigurationProvider>

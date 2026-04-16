@@ -8,6 +8,7 @@ import { useUserSession } from '../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
+import { AccesoRetroalimentacionHeader } from '@/shared/retroalimentacion';
 import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import {
@@ -420,6 +421,8 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
             </div>
           )}
         </div>
+
+        <AccesoRetroalimentacionHeader />
 
         {/* Botón de ayuda */}
         <div className="relative" ref={ayudaMenuRef}>

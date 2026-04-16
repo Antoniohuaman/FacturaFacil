@@ -369,3 +369,7 @@ export function registrarRucActualizadoExitoso(entrada: {
 }): void {
   capturarEvento(EVENTOS_ANALITICA.RUC_ACTUALIZADO_EXITOSO, entrada);
 }
+
+export function registrarEventoTecnico(nombreEvento: string, propiedades?: PropiedadesAnalitica): void {
+  capturarEvento(nombreEvento, propiedades);
+}
