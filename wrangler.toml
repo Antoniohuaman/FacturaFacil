@@ -7,6 +7,6 @@ compatibility_date = "2026-03-07"
 # Secretos locales para wrangler pages dev: usar ./.dev.vars y no commitearlo.
 
 [dev]
-ip = "localhost"
+ip = "127.0.0.1"
 port = 8788
 local_protocol = "http"

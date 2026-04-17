@@ -1,5 +1,5 @@
-import type { EntornoAuth } from '../_autorizacion'
 import {
+  type EntornoRetroalimentacion,
   type RegistroRetroalimentacion,
   type RespuestaDistribucionesRetroalimentacion,
   agruparPorClave,
@@ -12,7 +12,7 @@ import {
 } from '../_retroalimentacion'
 
 type ContextoRetroalimentacion = {
-  env: EntornoAuth
+  env: EntornoRetroalimentacion
   request: Request
 }
 

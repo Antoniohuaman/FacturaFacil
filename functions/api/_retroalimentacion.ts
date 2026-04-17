@@ -1,5 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { obtenerClienteSupabaseAdmin, type EntornoAuth, validarAutorizacion } from './_autorizacion'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { type EntornoAuth, validarAutorizacion } from './_autorizacion'
 
 const VISTA_RETROALIMENTACION = 'v_retroalimentacion_unificada'
 const TIPOS_RETROALIMENTACION = ['estado_animo', 'idea', 'calificacion'] as const
@@ -139,6 +139,17 @@ export interface RespuestaDetalleRetroalimentacion {
   item: RegistroRetroalimentacion
 }
 
+export interface EntornoRetroalimentacion extends EntornoAuth {
+  SENCIYO_SUPABASE_URL?: string
+  SENCIYO_SUPABASE_SERVICE_ROLE_KEY?: string
+}
+
+let clienteSupabaseRetroalimentacionCache: {
+  supabaseUrl: string
+  serviceRoleKey: string
+  cliente: SupabaseClient
+} | null = null
+
 function construirRespuestaJson<T>(status: number, cuerpo: T, cache: 'no-store' | 'public, max-age=60' = 'no-store') {
   return new Response(JSON.stringify(cuerpo), {
     status,
@@ -160,14 +171,45 @@ export function responderError(status: number, codigo: string, mensaje: string) 
   return construirRespuestaJson(status, cuerpo)
 }
 
-export async function obtenerClienteAutorizado(request: Request, env: EntornoAuth): Promise<SupabaseClient | Response> {
+function obtenerClienteSupabaseRetroalimentacion(env: EntornoRetroalimentacion): SupabaseClient | null {
+  const supabaseUrl = env.SENCIYO_SUPABASE_URL?.trim() || env.SUPABASE_URL?.trim()
+  const serviceRoleKey = env.SENCIYO_SUPABASE_SERVICE_ROLE_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null
+  }
+
+  if (
+    clienteSupabaseRetroalimentacionCache &&
+    clienteSupabaseRetroalimentacionCache.supabaseUrl === supabaseUrl &&
+    clienteSupabaseRetroalimentacionCache.serviceRoleKey === serviceRoleKey
+  ) {
+    return clienteSupabaseRetroalimentacionCache.cliente
+  }
+
+  const cliente = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  })
+
+  clienteSupabaseRetroalimentacionCache = { supabaseUrl, serviceRoleKey, cliente }
+  return cliente
+}
+
+export async function obtenerClienteAutorizado(
+  request: Request,
+  env: EntornoRetroalimentacion
+): Promise<SupabaseClient | Response> {
   const autorizacion = await validarAutorizacion(request, env)
 
   if (!autorizacion.autorizado) {
     return responderError(autorizacion.status, autorizacion.codigoError, autorizacion.motivo)
   }
 
-  const cliente = obtenerClienteSupabaseAdmin(env)
+  const cliente = obtenerClienteSupabaseRetroalimentacion(env)
 
   if (!cliente) {
     return responderError(500, 'configuracion_supabase', 'Falta configuración de Supabase en el servidor.')
