@@ -915,6 +915,143 @@ export interface HealthScorePm {
   updated_at: string
 }
 
+export const tiposRetroalimentacionPm = ['estado_animo', 'idea', 'calificacion'] as const
+export type TipoRetroalimentacionPm = (typeof tiposRetroalimentacionPm)[number]
+
+export const camposOrdenRetroalimentacionPm = [
+  'created_at',
+  'tipo',
+  'empresa_nombre',
+  'usuario_nombre',
+  'modulo',
+  'puntaje'
+] as const
+export type CampoOrdenRetroalimentacionPm = (typeof camposOrdenRetroalimentacionPm)[number]
+
+export const direccionesOrdenRetroalimentacionPm = ['asc', 'desc'] as const
+export type DireccionOrdenRetroalimentacionPm = (typeof direccionesOrdenRetroalimentacionPm)[number]
+
+export interface RegistroRetroalimentacionPm {
+  registro_uid: string
+  tipo: TipoRetroalimentacionPm
+  id: string
+  created_at: string
+  usuario_id: string
+  usuario_nombre: string
+  empresa_id: string
+  empresa_nombre: string
+  establecimiento_id: string | null
+  establecimiento_nombre: string | null
+  modulo: string
+  ruta: string
+  valor_principal: string
+  detalle: string | null
+  puntaje: number | null
+  estado_animo: string | null
+}
+
+export interface FiltrosRetroalimentacionPm {
+  tipo?: TipoRetroalimentacionPm | null
+  desde?: string | null
+  hasta?: string | null
+  empresa_id?: string | null
+  empresa?: string | null
+  usuario_id?: string | null
+  usuario?: string | null
+  modulo?: string | null
+  ruta?: string | null
+}
+
+export interface FiltrosRetroalimentacionAplicadosPm {
+  tipo: TipoRetroalimentacionPm | null
+  desde: string | null
+  hasta: string | null
+  empresa_id: string | null
+  empresa: string | null
+  usuario_id: string | null
+  usuario: string | null
+  modulo: string | null
+  ruta: string | null
+}
+
+export interface ParametrosListadoRetroalimentacionPm extends FiltrosRetroalimentacionPm {
+  pagina?: number
+  tamano?: number
+  ordenar_por?: CampoOrdenRetroalimentacionPm
+  direccion?: DireccionOrdenRetroalimentacionPm
+}
+
+export interface PaginacionRetroalimentacionPm {
+  pagina: number
+  tamano: number
+  total: number
+  total_paginas: number
+  ordenar_por: CampoOrdenRetroalimentacionPm
+  direccion: DireccionOrdenRetroalimentacionPm
+}
+
+export interface IdentificadorRetroalimentacionPm {
+  tipo: TipoRetroalimentacionPm
+  id: string
+}
+
+export interface RespuestaListadoRetroalimentacionPm {
+  fuente: 'supabase'
+  actualizado_en: string
+  filtros_aplicados: FiltrosRetroalimentacionAplicadosPm
+  paginacion: PaginacionRetroalimentacionPm
+  items: RegistroRetroalimentacionPm[]
+}
+
+export interface RespuestaResumenRetroalimentacionPm {
+  fuente: 'supabase'
+  actualizado_en: string
+  filtros_aplicados: FiltrosRetroalimentacionAplicadosPm
+  total_registros: number
+  totales_por_tipo: Record<TipoRetroalimentacionPm, number>
+  promedio_calificacion: number | null
+  distribucion_estado_animo: Array<{
+    estado_animo: string
+    total: number
+  }>
+  cantidad_ideas: number
+}
+
+export interface RespuestaDistribucionesRetroalimentacionPm {
+  fuente: 'supabase'
+  actualizado_en: string
+  filtros_aplicados: FiltrosRetroalimentacionAplicadosPm
+  por_tipo: Array<{
+    tipo: TipoRetroalimentacionPm
+    total: number
+  }>
+  por_modulo: Array<{
+    modulo: string
+    total: number
+  }>
+  puntajes: Array<{
+    puntaje: number
+    total: number
+  }>
+  estados_animo: Array<{
+    estado_animo: string
+    total: number
+  }>
+  serie_diaria: Array<{
+    fecha: string
+    total: number
+    estado_animo: number
+    idea: number
+    calificacion: number
+  }>
+}
+
+export interface RespuestaDetalleRetroalimentacionPm {
+  fuente: 'supabase'
+  actualizado_en: string
+  item: RegistroRetroalimentacionPm
+}
+
 export const alcancesPeriodoRice: AlcancePeriodoRice[] = ['semana', 'mes', 'trimestre']
 export const unidadesEsfuerzoRice: EsfuerzoUnidadRice[] = ['persona_dia', 'persona_semana']
 export const frecuenciasEstrategicas: FrecuenciaEstrategica[] = ['semanal', 'mensual', 'trimestral']

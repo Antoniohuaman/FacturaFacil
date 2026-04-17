@@ -84,6 +84,7 @@ export const menuPortal: ItemMenuPortal[] = [
     etiqueta: 'Analítica',
     ruta: '/analitica',
     submenus: [
+      { etiqueta: 'Retroalimentación', ruta: '/analitica/retroalimentacion' },
       { etiqueta: 'KPIs ejecutivos', ruta: '/analitica/kpis' },
       { etiqueta: 'Portafolio', ruta: '/analitica/portafolio' },
       { etiqueta: 'Tendencias', ruta: '/analitica/tendencias' },

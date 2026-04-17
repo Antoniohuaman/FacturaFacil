@@ -152,6 +152,10 @@ const PaginaResumenAnalitico = cargarComponenteDiferido(
   () => import('@/presentacion/paginas/analitica/PaginaResumenAnalitico'),
   'PaginaResumenAnalitico'
 )
+const PaginaRetroalimentacion = cargarComponenteDiferido(
+  () => import('@/presentacion/paginas/analitica/retroalimentacion/PaginaRetroalimentacion'),
+  'PaginaRetroalimentacion'
+)
 const PaginaKpis = cargarComponenteDiferido(() => import('@/presentacion/paginas/analitica/kpis/PaginaKpis'), 'PaginaKpis')
 const PaginaPortafolio = cargarComponenteDiferido(
   () => import('@/presentacion/paginas/analitica/portafolio/PaginaPortafolio'),
@@ -228,6 +232,7 @@ export const enrutadorPortal = createBrowserRouter([
       { path: 'operacion/bloqueos', element: crearElementoDiferido(PaginaBloqueos) },
       { path: 'operacion/lecciones-aprendidas', element: crearElementoDiferido(PaginaLeccionesAprendidas) },
       { path: 'analitica', element: crearElementoDiferido(PaginaResumenAnalitico) },
+      { path: 'analitica/retroalimentacion', element: crearElementoDiferido(PaginaRetroalimentacion) },
       { path: 'analitica/kpis', element: crearElementoDiferido(PaginaKpis) },
       { path: 'analitica/portafolio', element: crearElementoDiferido(PaginaPortafolio) },
       { path: 'analitica/tendencias', element: crearElementoDiferido(PaginaTendencias) },
