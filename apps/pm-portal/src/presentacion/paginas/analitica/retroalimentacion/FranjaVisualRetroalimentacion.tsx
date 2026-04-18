@@ -22,7 +22,7 @@ interface PropiedadesTarjetaVisual {
 function TarjetaVisual({ titulo, className, children }: PropiedadesTarjetaVisual) {
   return (
     <article
-      className={`rounded-xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/80 p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-800/90 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950/70 dark:shadow-none ${className ?? ''}`}
+      className={`rounded-xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/80 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-800/90 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950/70 dark:shadow-none ${className ?? ''}`}
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{titulo}</h2>
@@ -129,7 +129,7 @@ function DistribucionTiposCompacta({ distribuciones }: { distribuciones: Respues
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       <div className="flex h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         {items.map((item) => {
           if (item.total === 0) {
@@ -146,7 +146,7 @@ function DistribucionTiposCompacta({ distribuciones }: { distribuciones: Respues
         })}
       </div>
 
-      <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+      <div className="flex flex-wrap gap-x-2.5 gap-y-1.5">
         {items.map((item) => {
           const proporcion = porcentaje(item.total, total)
 
@@ -155,7 +155,7 @@ function DistribucionTiposCompacta({ distribuciones }: { distribuciones: Respues
           }
 
           return (
-            <div key={item.id} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${item.superficieClase}`}>
+            <div key={item.id} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${item.superficieClase}`}>
               <span className={`h-2 w-2 rounded-full ${item.barraClase}`} />
               <span className="font-medium text-slate-700 dark:text-slate-200">{item.etiqueta}</span>
               <span className={`font-medium ${item.acentoClase}`}>
@@ -210,28 +210,28 @@ function PanelActividadPrincipal({ distribuciones }: { distribuciones: Respuesta
   const inicio = serie[0]
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-end gap-2">
-          <p className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          <p className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             {formatearNumero(ultimo.total)}
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
             {formateadorFechaVisual.format(new Date(`${ultimo.fecha}T00:00:00`))}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 text-[11px]">
-          <div className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <div className="flex flex-wrap gap-1.5 text-[10px]">
+          <div className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
             Pico {formatearNumero(pico.total)}
           </div>
-          <div className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          <div className="rounded-full bg-slate-100 px-2 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
             Prom. {formatearNumero(promedio)}
           </div>
         </div>
       </div>
 
       <div className="rounded-xl border border-slate-200/80 bg-slate-50/90 p-2.5 dark:border-slate-800 dark:bg-slate-950/40">
-        <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-16 w-full" preserveAspectRatio="none" aria-hidden="true">
+        <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-14 w-full" preserveAspectRatio="none" aria-hidden="true">
           <defs>
             <linearGradient id="retroalimentacionActividad" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="currentColor" stopOpacity="0.14" />
@@ -306,9 +306,9 @@ function DonutEstadosAnimo({ distribuciones }: { distribuciones: RespuestaDistri
   const principal = segmentos[0]
 
   return (
-    <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)] sm:items-center">
+    <div className="grid gap-2.5 sm:grid-cols-[82px_minmax(0,1fr)] sm:items-center">
       <div className="relative mx-auto h-[88px] w-[88px]">
-        <svg viewBox={`0 0 ${tamano} ${tamano}`} className="h-[88px] w-[88px]" aria-hidden="true">
+        <svg viewBox={`0 0 ${tamano} ${tamano}`} className="h-[82px] w-[82px]" aria-hidden="true">
           <circle
             cx={tamano / 2}
             cy={tamano / 2}
@@ -341,7 +341,7 @@ function DonutEstadosAnimo({ distribuciones }: { distribuciones: RespuestaDistri
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {segmentos.map((segmento) => (
           <div key={segmento.estado_animo} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-[11px]">
             <span className={`h-2 w-2 rounded-full ${segmento.barraClase}`} />
@@ -366,14 +366,14 @@ function HistogramaCalificaciones({ distribuciones }: { distribuciones: Respuest
   const maximo = Math.max(...puntajes.map((item) => item.total), 1)
 
   return (
-    <div className="space-y-2">
-      <div className="flex h-20 items-end gap-1.5">
+    <div className="space-y-1.5">
+      <div className="flex h-[4.5rem] items-end gap-1.5">
         {puntajes.map((item) => {
           const altura = Math.max(Math.round((item.total / maximo) * 100), item.total > 0 ? 16 : 0)
 
           return (
             <div key={item.puntaje} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-              <div className="flex h-16 w-full items-end rounded-lg bg-slate-100/90 px-1 dark:bg-slate-950/50">
+              <div className="flex h-14 w-full items-end rounded-lg bg-slate-100/90 px-1 dark:bg-slate-950/50">
                 <div
                   className="w-full rounded-md bg-gradient-to-t from-amber-500 to-amber-400 dark:from-amber-400 dark:to-amber-300"
                   style={{ height: `${altura}%` }}
@@ -399,12 +399,12 @@ export function FranjaVisualRetroalimentacion({
   distribuciones: RespuestaDistribucionesRetroalimentacionPm
 }) {
   return (
-    <section className="grid gap-2.5 xl:grid-cols-[minmax(0,1.75fr)_minmax(280px,0.92fr)]">
-      <TarjetaVisual titulo="Actividad">
+    <section className="grid gap-2 xl:grid-cols-[minmax(0,1.75fr)_minmax(260px,0.88fr)] xl:h-full">
+      <TarjetaVisual titulo="Actividad" className="xl:h-full">
         <PanelActividadPrincipal distribuciones={distribuciones} />
       </TarjetaVisual>
 
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
         <TarjetaVisual titulo="Ánimo">
           <DonutEstadosAnimo distribuciones={distribuciones} />
         </TarjetaVisual>

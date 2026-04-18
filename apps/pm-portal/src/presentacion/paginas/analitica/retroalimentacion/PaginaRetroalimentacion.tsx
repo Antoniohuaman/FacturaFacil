@@ -10,7 +10,6 @@ import {
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { formatearFechaHoraCorta } from '@/compartido/utilidades/formatoPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
-import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import type {
   CatalogoModuloPm,
   RegistroRetroalimentacionPm,
@@ -40,6 +39,8 @@ const CLASE_CONTROL_FILTRO =
   'h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 text-sm text-slate-700 transition outline-none focus:border-slate-400 focus:bg-white dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-200 dark:focus:border-slate-600 dark:focus:bg-slate-900'
 const CLASE_BOTON_TABLA =
   'h-9 rounded-full border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
+const CLASE_BOTON_PAGINACION =
+  'inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-slate-200 px-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
 
 function CampoFiltro({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -398,7 +399,7 @@ export function PaginaRetroalimentacion() {
     modulo !== 'todos'
 
   return (
-    <section className="mx-auto flex w-full max-w-[94rem] flex-col gap-3 xl:gap-4">
+    <section className="mx-auto flex w-full max-w-[94rem] flex-col gap-2.5 xl:gap-3">
       <header className="space-y-1.5">
         <div className="space-y-0.5">
           <h1 className="text-[1.7rem] font-semibold tracking-tight text-slate-950 dark:text-slate-50">Retroalimentación</h1>
@@ -411,28 +412,36 @@ export function PaginaRetroalimentacion() {
 
       <EstadoVista cargando={cargandoInicial} error={error && !resumen ? error : null} vacio={false} mensajeVacio="">
         <>
-          {resumen ? (
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-              {tarjetasResumen.map((tarjeta) => (
-                <article
-                  key={tarjeta.titulo}
-                  className="rounded-xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/80 px-3.5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-800/90 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950/70 dark:shadow-none"
-                >
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{tarjeta.titulo}</p>
-                  <p className="mt-1.5 text-[1.45rem] font-semibold tracking-tight text-slate-900 dark:text-slate-50">{tarjeta.valor}</p>
-                  {tarjeta.detalle ? (
-                    <div className="mt-2">
-                      <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {tarjeta.detalle}
-                      </span>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          ) : null}
+          {resumen || distribuciones ? (
+            <section className="grid gap-2.5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.94fr)] xl:items-stretch">
+              {resumen ? (
+                <div className="order-1 grid gap-2 sm:grid-cols-2 xl:order-2 xl:auto-rows-fr">
+                  {tarjetasResumen.map((tarjeta, indice) => (
+                    <article
+                      key={tarjeta.titulo}
+                      className={`rounded-xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/80 px-3.5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-slate-800/90 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950/70 dark:shadow-none ${indice === tarjetasResumen.length - 1 ? 'sm:col-span-2' : ''}`}
+                    >
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{tarjeta.titulo}</p>
+                      <div className="mt-1.5 flex items-end justify-between gap-2">
+                        <p className="text-[1.35rem] font-semibold tracking-tight text-slate-900 dark:text-slate-50">{tarjeta.valor}</p>
+                        {tarjeta.detalle ? (
+                          <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            {tarjeta.detalle}
+                          </span>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
 
-          {distribuciones ? <FranjaVisualRetroalimentacion distribuciones={distribuciones} /> : null}
+              {distribuciones ? (
+                <div className="order-2 xl:order-1 xl:h-full">
+                  <FranjaVisualRetroalimentacion distribuciones={distribuciones} />
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           {error && resumen && listado ? (
             <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
@@ -516,6 +525,7 @@ export function PaginaRetroalimentacion() {
                   <input
                     type="date"
                     value={fechaDesde}
+                    max={fechaHasta || undefined}
                     onChange={(evento) => {
                       setFechaDesde(evento.target.value)
                       setPagina(1)
@@ -528,6 +538,7 @@ export function PaginaRetroalimentacion() {
                   <input
                     type="date"
                     value={fechaHasta}
+                    min={fechaDesde || undefined}
                     onChange={(evento) => {
                       setFechaHasta(evento.target.value)
                       setPagina(1)
@@ -597,7 +608,7 @@ export function PaginaRetroalimentacion() {
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {listado.items.map((registro) => {
                       const metaSecundaria = obtenerMetaSecundariaRetroalimentacion(registro)
-                      const detalleBreve = resumirTexto(registro.detalle, 72)
+                      const detalleBreve = resumirTexto(registro.detalle, 64)
                       const subtituloEmpresa = obtenerSubtituloEmpresa(registro)
 
                       return (
@@ -611,15 +622,25 @@ export function PaginaRetroalimentacion() {
                             </span>
                           </td>
                           <td className="px-4 py-2.5">
-                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{registro.usuario_nombre}</p>
+                            <p className="max-w-[10rem] truncate text-sm font-medium text-slate-900 dark:text-slate-100" title={registro.usuario_nombre}>
+                              {registro.usuario_nombre}
+                            </p>
                           </td>
                           <td className="px-4 py-2.5">
-                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{registro.empresa_nombre}</p>
+                            <p className="max-w-[12rem] truncate text-sm font-medium text-slate-900 dark:text-slate-100" title={registro.empresa_nombre}>
+                              {registro.empresa_nombre}
+                            </p>
                             {subtituloEmpresa ? (
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400">{subtituloEmpresa}</p>
+                              <p className="max-w-[12rem] truncate text-[11px] text-slate-500 dark:text-slate-400" title={subtituloEmpresa}>
+                                {subtituloEmpresa}
+                              </p>
                             ) : null}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-slate-700 dark:text-slate-200">{registro.modulo}</td>
+                          <td className="px-4 py-2.5 text-[13px] text-slate-700 dark:text-slate-200">
+                            <span className="block max-w-[9rem] truncate" title={registro.modulo}>
+                              {registro.modulo}
+                            </span>
+                          </td>
                           <td className="px-4 py-2.5">
                             <div className="max-w-[36rem] space-y-0.5 xl:max-w-[44rem]">
                               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{registro.valor_principal}</p>
@@ -656,23 +677,71 @@ export function PaginaRetroalimentacion() {
                 No hay resultados con los filtros actuales.
               </div>
             )}
-          </article>
 
-          {listado && listado.paginacion.total > 0 ? (
-            <PaginacionTabla
-              paginaActual={listado.paginacion.pagina}
-              totalPaginas={listado.paginacion.total_paginas}
-              totalItems={listado.paginacion.total}
-              desde={rangoPagina.desde}
-              hasta={rangoPagina.hasta}
-              tamanoPagina={listado.paginacion.tamano}
-              alCambiarTamanoPagina={(nuevoTamano) => {
-                setTamano(nuevoTamano)
-                setPagina(1)
-              }}
-              alCambiarPagina={setPagina}
-            />
-          ) : null}
+            {listado && listado.paginacion.total > 0 ? (
+              <footer className="flex flex-col gap-2 border-t border-slate-200/90 px-4 py-3 dark:border-slate-800/90 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <label htmlFor="tamano-retroalimentacion">Filas</label>
+                  <select
+                    id="tamano-retroalimentacion"
+                    value={listado.paginacion.tamano}
+                    onChange={(evento) => {
+                      setTamano(Number(evento.target.value))
+                      setPagina(1)
+                    }}
+                    className="h-8 rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-200"
+                  >
+                    {TAMANOS_PAGINA.map((opcion) => (
+                      <option key={opcion} value={opcion}>
+                        {opcion}
+                      </option>
+                    ))}
+                  </select>
+                  <span>
+                    {rangoPagina.desde}-{rangoPagina.hasta} de {listado.paginacion.total.toLocaleString('es-PE')}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPagina(1)}
+                    disabled={listado.paginacion.pagina <= 1}
+                    className={`${CLASE_BOTON_PAGINACION} hidden sm:inline-flex`}
+                  >
+                    Inicio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPagina(Math.max(1, listado.paginacion.pagina - 1))}
+                    disabled={listado.paginacion.pagina <= 1}
+                    className={CLASE_BOTON_PAGINACION}
+                  >
+                    {'<'}
+                  </button>
+                  <span className="min-w-14 text-center text-xs font-medium text-slate-600 dark:text-slate-300">
+                    {listado.paginacion.pagina}/{listado.paginacion.total_paginas}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPagina(Math.min(listado.paginacion.total_paginas, listado.paginacion.pagina + 1))}
+                    disabled={listado.paginacion.pagina >= listado.paginacion.total_paginas}
+                    className={CLASE_BOTON_PAGINACION}
+                  >
+                    {'>'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPagina(listado.paginacion.total_paginas)}
+                    disabled={listado.paginacion.pagina >= listado.paginacion.total_paginas}
+                    className={`${CLASE_BOTON_PAGINACION} hidden sm:inline-flex`}
+                  >
+                    Fin
+                  </button>
+                </div>
+              </footer>
+            ) : null}
+          </article>
         </>
       </EstadoVista>
 
