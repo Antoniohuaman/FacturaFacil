@@ -37,7 +37,7 @@ export function obtenerClaseTipoRetroalimentacion(tipo: TipoRetroalimentacionPm)
 
 export function resumirTexto(valor: string | null | undefined, maximo = 96) {
   if (!valor) {
-    return 'Sin detalle adicional.'
+    return null
   }
 
   const limpio = valor.replace(/\s+/g, ' ').trim()
@@ -62,7 +62,7 @@ export function obtenerMetaSecundariaRetroalimentacion(registro: RegistroRetroal
   }
 
   if (registro.tipo === 'estado_animo' && registro.estado_animo) {
-    return `Estado de ánimo: ${formatearEstadoLegible(registro.estado_animo)}`
+    return formatearEstadoLegible(registro.estado_animo)
   }
 
   if (typeof registro.puntaje === 'number') {
@@ -70,12 +70,25 @@ export function obtenerMetaSecundariaRetroalimentacion(registro: RegistroRetroal
   }
 
   if (registro.estado_animo) {
-    return `Estado de ánimo: ${formatearEstadoLegible(registro.estado_animo)}`
+    return formatearEstadoLegible(registro.estado_animo)
   }
 
   return null
 }
 
 export function obtenerSubtituloEmpresa(registro: RegistroRetroalimentacionPm) {
-  return registro.establecimiento_nombre ?? 'Sin establecimiento'
+  return registro.establecimiento_nombre ?? null
+}
+
+export function formatearEstadoDominanteRetroalimentacion(estado: string | null) {
+  if (!estado) {
+    return null
+  }
+
+  return `Más frecuente: ${formatearEstadoLegible(estado)}`
+}
+
+export function formatearCantidadConPuntaje(total: number) {
+  const etiqueta = total === 1 ? 'respuesta' : 'respuestas'
+  return `${total.toLocaleString('es-PE')} ${etiqueta} con puntaje`
 }

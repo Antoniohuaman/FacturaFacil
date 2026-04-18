@@ -1,27 +1,32 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { listarModulosPm } from '@/aplicacion/casos-uso/ajustes'
 import {
   obtenerDetalleRetroalimentacion,
+  obtenerDistribucionesRetroalimentacion,
   obtenerListadoRetroalimentacion,
   obtenerResumenRetroalimentacion
 } from '@/aplicacion/casos-uso/retroalimentacion'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
-import { formatearEstadoLegible, formatearFechaHoraCorta } from '@/compartido/utilidades/formatoPortal'
+import { formatearFechaHoraCorta } from '@/compartido/utilidades/formatoPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import { PaginacionTabla } from '@/compartido/ui/PaginacionTabla'
 import type {
   CatalogoModuloPm,
   RegistroRetroalimentacionPm,
   RespuestaDetalleRetroalimentacionPm,
+  RespuestaDistribucionesRetroalimentacionPm,
   RespuestaListadoRetroalimentacionPm,
   RespuestaResumenRetroalimentacionPm,
   TipoRetroalimentacionPm
 } from '@/dominio/modelos'
 import { tiposRetroalimentacionPm } from '@/dominio/modelos'
 import { NavegacionAnalitica } from '@/presentacion/paginas/analitica/NavegacionAnalitica'
+import { FranjaVisualRetroalimentacion } from '@/presentacion/paginas/analitica/retroalimentacion/FranjaVisualRetroalimentacion'
 import { ModalDetalleRetroalimentacion } from '@/presentacion/paginas/analitica/retroalimentacion/ModalDetalleRetroalimentacion'
 import {
+  formatearCantidadConPuntaje,
+  formatearEstadoDominanteRetroalimentacion,
   formatearTipoRetroalimentacion,
   obtenerClaseTipoRetroalimentacion,
   obtenerMetaSecundariaRetroalimentacion,
@@ -32,6 +37,17 @@ import {
 
 const TAMANOS_PAGINA = [10, 25, 50]
 const TAMANO_POR_DEFECTO = 10
+
+function CampoFiltro({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  return (
+    <label className="space-y-1.5">
+      <span className="block text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+        {etiqueta}
+      </span>
+      {children}
+    </label>
+  )
+}
 
 function leerPagina(valor: string | null) {
   const numero = Number(valor ?? '1')
@@ -60,22 +76,22 @@ function construirTarjetasResumen(resumen: RespuestaResumenRetroalimentacionPm) 
     {
       titulo: 'Total de registros',
       valor: resumen.total_registros.toLocaleString('es-PE'),
-      detalle: 'Lecturas directas consolidadas con los filtros actuales.'
+      detalle: null
     },
     {
       titulo: 'Ideas',
       valor: resumen.cantidad_ideas.toLocaleString('es-PE'),
-      detalle: 'Aportes y sugerencias ingresadas por usuarios.'
+      detalle: null
     },
     {
       titulo: 'Estados de ánimo',
       valor: resumen.totales_por_tipo.estado_animo.toLocaleString('es-PE'),
-      detalle: estadoPrincipal ? `Predomina ${formatearEstadoLegible(estadoPrincipal)}.` : 'Sin estado dominante.'
+      detalle: formatearEstadoDominanteRetroalimentacion(estadoPrincipal)
     },
     {
       titulo: 'Calificaciones',
       valor: resumen.totales_por_tipo.calificacion.toLocaleString('es-PE'),
-      detalle: 'Registros con puntaje explícito de experiencia.'
+      detalle: null
     },
     {
       titulo: 'Promedio de calificación',
@@ -86,7 +102,10 @@ function construirTarjetasResumen(resumen: RespuestaResumenRetroalimentacionPm) 
               minimumFractionDigits: resumen.promedio_calificacion % 1 === 0 ? 0 : 1,
               maximumFractionDigits: 2
             }),
-      detalle: `${resumen.totales_por_tipo.calificacion.toLocaleString('es-PE')} respuestas con puntaje.`
+      detalle:
+        resumen.totales_por_tipo.calificacion > 0
+          ? formatearCantidadConPuntaje(resumen.totales_por_tipo.calificacion)
+          : 'Sin respuestas con puntaje'
     }
   ]
 }
@@ -107,6 +126,7 @@ export function PaginaRetroalimentacion() {
   const [modulos, setModulos] = useState<CatalogoModuloPm[]>([])
   const [listado, setListado] = useState<RespuestaListadoRetroalimentacionPm | null>(null)
   const [resumen, setResumen] = useState<RespuestaResumenRetroalimentacionPm | null>(null)
+  const [distribuciones, setDistribuciones] = useState<RespuestaDistribucionesRetroalimentacionPm | null>(null)
   const [cargandoInicial, setCargandoInicial] = useState(true)
   const [actualizando, setActualizando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -225,6 +245,7 @@ export function PaginaRetroalimentacion() {
       haCargadoContenidoRef.current = false
       setListado(null)
       setResumen(null)
+      setDistribuciones(null)
       setError('Inicia sesión para consultar Retroalimentación.')
       setCargandoInicial(false)
       setActualizando(false)
@@ -240,12 +261,16 @@ export function PaginaRetroalimentacion() {
     setError(null)
 
     try {
-      const [respuestaListado, respuestaResumen] = await Promise.all([
+      const [respuestaListado, respuestaResumen, respuestaDistribuciones] = await Promise.all([
         obtenerListadoRetroalimentacion({
           accessToken,
           parametros: parametrosListado
         }),
         obtenerResumenRetroalimentacion({
+          accessToken,
+          filtros: filtrosConsulta
+        }),
+        obtenerDistribucionesRetroalimentacion({
           accessToken,
           filtros: filtrosConsulta
         })
@@ -257,6 +282,7 @@ export function PaginaRetroalimentacion() {
 
       setListado(respuestaListado)
       setResumen(respuestaResumen)
+      setDistribuciones(respuestaDistribuciones)
       haCargadoContenidoRef.current = true
     } catch (errorInterno) {
       if (solicitudActual !== solicitudContenidoRef.current) {
@@ -266,6 +292,7 @@ export function PaginaRetroalimentacion() {
       if (!haCargadoContenidoRef.current) {
         setListado(null)
         setResumen(null)
+        setDistribuciones(null)
       }
 
       setError(
@@ -370,8 +397,14 @@ export function PaginaRetroalimentacion() {
     Boolean(usuarioFiltro) ||
     modulo !== 'todos'
 
+  const textoActualizacion = actualizando
+    ? 'Actualizando resultados…'
+    : resumen
+      ? `Actualizado ${formatearFechaHoraCorta(resumen.actualizado_en)}`
+      : 'Ajusta los filtros para refinar la lectura.'
+
   return (
-    <section className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+    <section className="mx-auto flex w-full max-w-7xl flex-col gap-4 xl:gap-5">
       <header className="space-y-2">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">Retroalimentación</h1>
@@ -382,138 +415,151 @@ export function PaginaRetroalimentacion() {
         <NavegacionAnalitica />
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
-          <p>Lectura unificada de estados de ánimo, ideas y calificaciones.</p>
-          <p className="text-xs text-slate-500 dark:text-slate-500">
-            {actualizando
-              ? 'Actualizando información…'
-              : resumen
-                ? `Última actualización ${formatearFechaHoraCorta(resumen.actualizado_en)}.`
-                : 'Preparando lectura del módulo.'}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              void cargarContenido()
-            }}
-            disabled={cargandoInicial || actualizando}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Recargar
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFiltroTipo('todos')
-              setFechaDesde('')
-              setFechaHasta('')
-              setEmpresa('')
-              setUsuarioFiltro('')
-              setModulo('todos')
-              setPagina(1)
-            }}
-            disabled={!hayFiltrosActivos}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Limpiar filtros
-          </button>
-        </div>
-      </div>
-
       <EstadoVista cargando={cargandoInicial} error={error && !resumen ? error : null} vacio={false} mensajeVacio="">
         <>
           {resumen ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-5">
               {tarjetasResumen.map((tarjeta) => (
-                <article key={tarjeta.titulo} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <article key={tarjeta.titulo} className="rounded-2xl border border-slate-200/90 bg-white p-4 dark:border-slate-800/90 dark:bg-slate-900">
                   <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{tarjeta.titulo}</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-50">{tarjeta.valor}</p>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{tarjeta.detalle}</p>
+                  <p className="mt-2.5 text-[1.65rem] font-semibold tracking-tight text-slate-900 dark:text-slate-50">{tarjeta.valor}</p>
+                  {tarjeta.detalle ? (
+                    <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">{tarjeta.detalle}</p>
+                  ) : null}
                 </article>
               ))}
             </div>
           ) : null}
 
-          <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-6 dark:border-slate-800 dark:bg-slate-900">
-            <select
-              value={filtroTipo}
-              onChange={(evento) => {
-                setFiltroTipo(evento.target.value as 'todos' | TipoRetroalimentacionPm)
-                setPagina(1)
-              }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            >
-              {opcionesTipoRetroalimentacion.map((opcion) => (
-                <option key={opcion.valor} value={opcion.valor}>
-                  {opcion.etiqueta}
-                </option>
-              ))}
-            </select>
+          {distribuciones ? <FranjaVisualRetroalimentacion distribuciones={distribuciones} /> : null}
 
-            <input
-              type="date"
-              value={fechaDesde}
-              onChange={(evento) => {
-                setFechaDesde(evento.target.value)
-                setPagina(1)
-              }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <article className="rounded-2xl border border-slate-200/90 bg-white p-3.5 dark:border-slate-800/90 dark:bg-slate-900">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">Filtros</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{textoActualizacion}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void cargarContenido()
+                  }}
+                  disabled={cargandoInicial || actualizando}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Recargar
+                </button>
+                {hayFiltrosActivos ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroTipo('todos')
+                      setFechaDesde('')
+                      setFechaHasta('')
+                      setEmpresa('')
+                      setUsuarioFiltro('')
+                      setModulo('todos')
+                      setPagina(1)
+                    }}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Limpiar
+                  </button>
+                ) : null}
+              </div>
+            </div>
 
-            <input
-              type="date"
-              value={fechaHasta}
-              onChange={(evento) => {
-                setFechaHasta(evento.target.value)
-                setPagina(1)
-              }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+              <CampoFiltro etiqueta="Tipo">
+                <select
+                  value={filtroTipo}
+                  onChange={(evento) => {
+                    setFiltroTipo(evento.target.value as 'todos' | TipoRetroalimentacionPm)
+                    setPagina(1)
+                  }}
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                >
+                  {opcionesTipoRetroalimentacion.map((opcion) => (
+                    <option key={opcion.valor} value={opcion.valor}>
+                      {opcion.etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </CampoFiltro>
 
-            <input
-              value={empresa}
-              onChange={(evento) => {
-                setEmpresa(evento.target.value)
-                setPagina(1)
-              }}
-              placeholder="Empresa"
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+              <CampoFiltro etiqueta="Desde">
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(evento) => {
+                    setFechaDesde(evento.target.value)
+                    setPagina(1)
+                  }}
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                />
+              </CampoFiltro>
 
-            <input
-              value={usuarioFiltro}
-              onChange={(evento) => {
-                setUsuarioFiltro(evento.target.value)
-                setPagina(1)
-              }}
-              placeholder="Usuario"
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+              <CampoFiltro etiqueta="Hasta">
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(evento) => {
+                    setFechaHasta(evento.target.value)
+                    setPagina(1)
+                  }}
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                />
+              </CampoFiltro>
 
-            <select
-              value={modulo}
-              onChange={(evento) => {
-                setModulo(evento.target.value)
-                setPagina(1)
-              }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value="todos">Todos los módulos</option>
-              {modulos.map((item) => (
-                <option key={item.id} value={item.codigo}>
-                  {item.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+              <CampoFiltro etiqueta="Empresa">
+                <input
+                  value={empresa}
+                  onChange={(evento) => {
+                    setEmpresa(evento.target.value)
+                    setPagina(1)
+                  }}
+                  placeholder="Todas"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                />
+              </CampoFiltro>
+
+              <CampoFiltro etiqueta="Usuario">
+                <input
+                  value={usuarioFiltro}
+                  onChange={(evento) => {
+                    setUsuarioFiltro(evento.target.value)
+                    setPagina(1)
+                  }}
+                  placeholder="Todos"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                />
+              </CampoFiltro>
+
+              <CampoFiltro etiqueta="Módulo">
+                <select
+                  value={modulo}
+                  onChange={(evento) => {
+                    setModulo(evento.target.value)
+                    setPagina(1)
+                  }}
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+                >
+                  <option value="todos">Todos</option>
+                  {modulos.map((item) => (
+                    <option key={item.id} value={item.codigo}>
+                      {item.nombre}
+                    </option>
+                  ))}
+                </select>
+              </CampoFiltro>
+            </div>
+          </article>
 
           {error && resumen && listado ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p>{error}</p>
+                <p>No se pudo actualizar la información. Se muestran los últimos datos disponibles.</p>
                 <button
                   type="button"
                   onClick={() => {
@@ -527,43 +573,44 @@ export function PaginaRetroalimentacion() {
             </div>
           ) : null}
 
-          <article className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <article className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white dark:border-slate-800/90 dark:bg-slate-900">
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
               <div>
                 <h2 className="text-base font-semibold">Registros</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {resumen ? `${resumen.total_registros.toLocaleString('es-PE')} resultados con los filtros aplicados.` : 'Cargando resultados.'}
+                  {resumen ? `${resumen.total_registros.toLocaleString('es-PE')} registros` : 'Cargando registros…'}
                 </p>
               </div>
               {actualizando ? (
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
-                  Actualizando…
+                  Actualizando
                 </span>
               ) : null}
             </header>
 
             {listado && listado.items.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-auto md:max-h-[52vh]">
                 <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/40">
+                  <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-3 font-medium">Fecha</th>
-                      <th className="px-4 py-3 font-medium">Tipo</th>
-                      <th className="px-4 py-3 font-medium">Usuario</th>
-                      <th className="px-4 py-3 font-medium">Empresa</th>
-                      <th className="px-4 py-3 font-medium">Módulo</th>
-                      <th className="px-4 py-3 font-medium">Valor principal</th>
-                      <th className="px-4 py-3 font-medium">Detalle breve</th>
-                      <th className="px-4 py-3 text-right font-medium">Acción</th>
+                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-3 font-medium backdrop-blur dark:bg-slate-950/95">Fecha</th>
+                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-3 font-medium backdrop-blur dark:bg-slate-950/95">Tipo</th>
+                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-3 font-medium backdrop-blur dark:bg-slate-950/95">Usuario</th>
+                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-3 font-medium backdrop-blur dark:bg-slate-950/95">Empresa</th>
+                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-3 font-medium backdrop-blur dark:bg-slate-950/95">Módulo</th>
+                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-3 font-medium backdrop-blur dark:bg-slate-950/95">Señal</th>
+                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-3 text-right font-medium backdrop-blur dark:bg-slate-950/95">Acción</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {listado.items.map((registro) => {
                       const metaSecundaria = obtenerMetaSecundariaRetroalimentacion(registro)
+                      const detalleBreve = resumirTexto(registro.detalle, 84)
+                      const subtituloEmpresa = obtenerSubtituloEmpresa(registro)
 
                       return (
-                        <tr key={registro.registro_uid} className="align-top">
-                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                        <tr key={registro.registro_uid} className="align-top transition hover:bg-slate-50/70 dark:hover:bg-slate-950/30">
+                          <td className="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-300">
                             {formatearFechaHoraCorta(registro.created_at)}
                           </td>
                           <td className="px-4 py-3">
@@ -573,20 +620,25 @@ export function PaginaRetroalimentacion() {
                           </td>
                           <td className="px-4 py-3">
                             <p className="font-medium text-slate-900 dark:text-slate-100">{registro.usuario_nombre}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{registro.usuario_id}</p>
                           </td>
                           <td className="px-4 py-3">
                             <p className="font-medium text-slate-900 dark:text-slate-100">{registro.empresa_nombre}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{obtenerSubtituloEmpresa(registro)}</p>
+                            {subtituloEmpresa ? (
+                              <p className="text-xs text-slate-500 dark:text-slate-400">{subtituloEmpresa}</p>
+                            ) : null}
                           </td>
                           <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{registro.modulo}</td>
                           <td className="px-4 py-3">
-                            <p className="font-medium text-slate-900 dark:text-slate-100">{registro.valor_principal}</p>
-                            {metaSecundaria ? (
-                              <p className="text-xs text-slate-500 dark:text-slate-400">{metaSecundaria}</p>
-                            ) : null}
+                            <div className="max-w-[30rem] space-y-1 xl:max-w-[36rem]">
+                              <p className="font-medium text-slate-900 dark:text-slate-100">{registro.valor_principal}</p>
+                              {metaSecundaria || detalleBreve ? (
+                                <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  {metaSecundaria ? <p>{metaSecundaria}</p> : null}
+                                  {detalleBreve ? <p>{detalleBreve}</p> : null}
+                                </div>
+                              ) : null}
+                            </div>
                           </td>
-                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{resumirTexto(registro.detalle)}</td>
                           <td className="px-4 py-3 text-right">
                             <button
                               type="button"
@@ -596,9 +648,9 @@ export function PaginaRetroalimentacion() {
                                 setErrorDetalle(null)
                                 setModalDetalleAbierto(true)
                               }}
-                              className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                              className="rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                             >
-                              Ver detalle
+                              Abrir
                             </button>
                           </td>
                         </tr>
@@ -609,7 +661,7 @@ export function PaginaRetroalimentacion() {
               </div>
             ) : (
               <div className="m-4 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-                No hay registros para los filtros seleccionados.
+                No hay resultados con los filtros actuales.
               </div>
             )}
           </article>
