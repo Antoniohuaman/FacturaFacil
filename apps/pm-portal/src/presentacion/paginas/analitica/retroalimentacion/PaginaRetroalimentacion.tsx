@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { listarModulosPm } from '@/aplicacion/casos-uso/ajustes'
 import {
@@ -12,7 +12,9 @@ import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPort
 import { formatearFechaHoraCorta } from '@/compartido/utilidades/formatoPortal'
 import { EstadoVista } from '@/compartido/ui/EstadoVista'
 import type {
+  CampoOrdenRetroalimentacionPm,
   CatalogoModuloPm,
+  DireccionOrdenRetroalimentacionPm,
   RegistroRetroalimentacionPm,
   RespuestaDetalleRetroalimentacionPm,
   RespuestaDistribucionesRetroalimentacionPm,
@@ -20,7 +22,11 @@ import type {
   RespuestaResumenRetroalimentacionPm,
   TipoRetroalimentacionPm
 } from '@/dominio/modelos'
-import { tiposRetroalimentacionPm } from '@/dominio/modelos'
+import {
+  camposOrdenRetroalimentacionPm,
+  direccionesOrdenRetroalimentacionPm,
+  tiposRetroalimentacionPm
+} from '@/dominio/modelos'
 import { NavegacionAnalitica } from '@/presentacion/paginas/analitica/NavegacionAnalitica'
 import { exportarRetroalimentacionExcel } from '@/presentacion/paginas/analitica/retroalimentacion/exportarRetroalimentacionExcel'
 import { FranjaVisualRetroalimentacion } from '@/presentacion/paginas/analitica/retroalimentacion/FranjaVisualRetroalimentacion'
@@ -37,6 +43,8 @@ import {
 
 const TAMANOS_PAGINA = [10, 25, 50]
 const TAMANO_POR_DEFECTO = 10
+const ORDENAR_POR_DEFECTO: CampoOrdenRetroalimentacionPm = 'created_at'
+const DIRECCION_ORDEN_POR_DEFECTO: DireccionOrdenRetroalimentacionPm = 'desc'
 const CLASE_CONTROL_FILTRO =
   'h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 text-sm text-slate-700 transition outline-none focus:border-slate-400 focus:bg-white dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-200 dark:focus:border-slate-600 dark:focus:bg-slate-900'
 const CLASE_BOTON_TABLA =
@@ -45,11 +53,27 @@ const CLASE_BOTON_EXPORTAR =
   'h-9 rounded-full bg-slate-950 px-3.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white'
 const CLASE_BOTON_PAGINACION =
   'inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-slate-200 px-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+const CLASE_BOTON_ENCABEZADO_ORDENABLE =
+  'group inline-flex items-center gap-2 rounded-md px-0.5 py-1 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40 dark:focus-visible:ring-slate-600/40'
 const formateadorFechaFiltroExportacion = new Intl.DateTimeFormat('es-PE', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric'
 })
+
+type FiltroActivoRetroalimentacion = {
+  id: 'tipo' | 'desde' | 'hasta' | 'empresa' | 'usuario' | 'modulo'
+  etiqueta: string
+  valor: string
+}
+
+type EncabezadoOrdenableTablaProps = {
+  etiqueta: string
+  campo: CampoOrdenRetroalimentacionPm
+  ordenarPor: CampoOrdenRetroalimentacionPm
+  direccion: DireccionOrdenRetroalimentacionPm
+  alOrdenar: (campo: CampoOrdenRetroalimentacionPm) => void
+}
 
 function CampoFiltro({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -80,6 +104,33 @@ function leerTipo(valor: string | null): 'todos' | TipoRetroalimentacionPm {
   return tiposRetroalimentacionPm.includes(valor as TipoRetroalimentacionPm)
     ? (valor as TipoRetroalimentacionPm)
     : 'todos'
+}
+
+function obtenerDireccionInicialOrden(campo: CampoOrdenRetroalimentacionPm): DireccionOrdenRetroalimentacionPm {
+  return campo === 'created_at' || campo === 'puntaje' ? 'desc' : 'asc'
+}
+
+function leerOrdenarPor(valor: string | null): CampoOrdenRetroalimentacionPm {
+  if (!valor) {
+    return ORDENAR_POR_DEFECTO
+  }
+
+  return camposOrdenRetroalimentacionPm.includes(valor as CampoOrdenRetroalimentacionPm)
+    ? (valor as CampoOrdenRetroalimentacionPm)
+    : ORDENAR_POR_DEFECTO
+}
+
+function leerDireccion(
+  valor: string | null,
+  ordenarPor: CampoOrdenRetroalimentacionPm
+): DireccionOrdenRetroalimentacionPm {
+  if (!valor) {
+    return obtenerDireccionInicialOrden(ordenarPor)
+  }
+
+  return direccionesOrdenRetroalimentacionPm.includes(valor as DireccionOrdenRetroalimentacionPm)
+    ? (valor as DireccionOrdenRetroalimentacionPm)
+    : obtenerDireccionInicialOrden(ordenarPor)
 }
 
 function construirTarjetasResumen(resumen: RespuestaResumenRetroalimentacionPm) {
@@ -134,6 +185,67 @@ function formatearFechaFiltroExportacion(valor: string | null) {
   return formateadorFechaFiltroExportacion.format(fecha)
 }
 
+function resolverNombreModuloFiltro(codigo: string, modulos: CatalogoModuloPm[]) {
+  return modulos.find((item) => item.codigo === codigo)?.nombre ?? codigo
+}
+
+function construirFiltrosActivos(
+  filtros: RespuestaListadoRetroalimentacionPm['filtros_aplicados'],
+  modulos: CatalogoModuloPm[]
+) {
+  const filtrosActivos: FiltroActivoRetroalimentacion[] = []
+
+  if (filtros.tipo) {
+    filtrosActivos.push({
+      id: 'tipo',
+      etiqueta: 'Tipo',
+      valor: formatearTipoRetroalimentacion(filtros.tipo)
+    })
+  }
+
+  if (filtros.desde) {
+    filtrosActivos.push({
+      id: 'desde',
+      etiqueta: 'Desde',
+      valor: formatearFechaFiltroExportacion(filtros.desde)
+    })
+  }
+
+  if (filtros.hasta) {
+    filtrosActivos.push({
+      id: 'hasta',
+      etiqueta: 'Hasta',
+      valor: formatearFechaFiltroExportacion(filtros.hasta)
+    })
+  }
+
+  if (filtros.empresa) {
+    filtrosActivos.push({
+      id: 'empresa',
+      etiqueta: 'Empresa',
+      valor: filtros.empresa
+    })
+  }
+
+  if (filtros.usuario) {
+    filtrosActivos.push({
+      id: 'usuario',
+      etiqueta: 'Usuario',
+      valor: filtros.usuario
+    })
+  }
+
+  if (filtros.modulo) {
+    filtrosActivos.push({
+      id: 'modulo',
+      etiqueta: 'Módulo',
+      valor: resolverNombreModuloFiltro(filtros.modulo, modulos)
+    })
+  }
+
+  return filtrosActivos
+}
+
 function construirFiltrosExportacion(
   filtros: RespuestaListadoRetroalimentacionPm['filtros_aplicados'],
   modulos: CatalogoModuloPm[]
@@ -176,7 +288,7 @@ function construirFiltrosExportacion(
   if (filtros.modulo) {
     filtrosExportacion.push({
       etiqueta: 'Modulo',
-      valor: modulos.find((item) => item.codigo === filtros.modulo)?.nombre ?? filtros.modulo
+      valor: resolverNombreModuloFiltro(filtros.modulo, modulos)
     })
   }
 
@@ -187,9 +299,95 @@ function construirFiltrosExportacion(
   return filtrosExportacion
 }
 
+function obtenerAriaSort(
+  campo: CampoOrdenRetroalimentacionPm,
+  ordenarPor: CampoOrdenRetroalimentacionPm,
+  direccion: DireccionOrdenRetroalimentacionPm
+): 'ascending' | 'descending' | 'none' {
+  if (campo !== ordenarPor) {
+    return 'none'
+  }
+
+  return direccion === 'asc' ? 'ascending' : 'descending'
+}
+
+function IndicadorOrdenTabla({
+  activo,
+  direccion
+}: {
+  activo: boolean
+  direccion: DireccionOrdenRetroalimentacionPm
+}) {
+  return (
+    <span
+      className={`inline-flex h-4 w-4 flex-col items-center justify-center rounded-full border transition ${
+        activo
+          ? 'border-slate-300 bg-white text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100'
+          : 'border-transparent text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
+      }`}
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 8 8"
+        className={`-mb-px h-[7px] w-[7px] ${activo ? (direccion === 'asc' ? 'opacity-100' : 'opacity-35') : 'opacity-80'}`}
+        fill="currentColor"
+      >
+        <path d="M4 1 7 5H1z" />
+      </svg>
+      <svg
+        viewBox="0 0 8 8"
+        className={`-mt-px h-[7px] w-[7px] ${activo ? (direccion === 'desc' ? 'opacity-100' : 'opacity-35') : 'opacity-80'}`}
+        fill="currentColor"
+      >
+        <path d="M1 3h6L4 7z" />
+      </svg>
+    </span>
+  )
+}
+
+function EncabezadoOrdenableTabla({
+  etiqueta,
+  campo,
+  ordenarPor,
+  direccion,
+  alOrdenar
+}: EncabezadoOrdenableTablaProps) {
+  const activo = ordenarPor === campo
+
+  return (
+    <th
+      scope="col"
+      aria-sort={obtenerAriaSort(campo, ordenarPor, direccion)}
+      className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 font-medium backdrop-blur dark:bg-slate-950/95"
+    >
+      <button
+        type="button"
+        onClick={() => alOrdenar(campo)}
+        className={`${CLASE_BOTON_ENCABEZADO_ORDENABLE} ${
+          activo ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'
+        }`}
+        title={activo ? `Ordenado por ${etiqueta.toLowerCase()}` : `Ordenar por ${etiqueta.toLowerCase()}`}
+      >
+        <span>{etiqueta}</span>
+        <IndicadorOrdenTabla activo={activo} direccion={direccion} />
+      </button>
+    </th>
+  )
+}
+
+function IconoCerrarChip() {
+  return (
+    <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M3 3 9 9" strokeLinecap="round" />
+      <path d="M9 3 3 9" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function PaginaRetroalimentacion() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { usuario: usuarioSesion, accessToken } = useSesionPortalPM()
+  const ordenarInicial = leerOrdenarPor(searchParams.get('ordenar_por'))
 
   const [pagina, setPagina] = useState(() => leerPagina(searchParams.get('pagina')))
   const [tamano, setTamano] = useState(() => leerTamano(searchParams.get('tamano')))
@@ -199,6 +397,10 @@ export function PaginaRetroalimentacion() {
   const [empresa, setEmpresa] = useState(searchParams.get('empresa') ?? '')
   const [usuarioFiltro, setUsuarioFiltro] = useState(searchParams.get('usuario') ?? '')
   const [modulo, setModulo] = useState(searchParams.get('modulo') ?? 'todos')
+  const [ordenarPor, setOrdenarPor] = useState<CampoOrdenRetroalimentacionPm>(ordenarInicial)
+  const [direccionOrden, setDireccionOrden] = useState<DireccionOrdenRetroalimentacionPm>(() =>
+    leerDireccion(searchParams.get('direccion'), ordenarInicial)
+  )
 
   const [modulos, setModulos] = useState<CatalogoModuloPm[]>([])
   const [listado, setListado] = useState<RespuestaListadoRetroalimentacionPm | null>(null)
@@ -216,12 +418,11 @@ export function PaginaRetroalimentacion() {
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
   const [errorDetalle, setErrorDetalle] = useState<string | null>(null)
 
-  const empresaDiferida = useDeferredValue(empresa)
-  const usuarioDiferido = useDeferredValue(usuarioFiltro)
-
   const solicitudContenidoRef = useRef(0)
   const solicitudDetalleRef = useRef(0)
   const haCargadoContenidoRef = useRef(false)
+  const empresaNormalizada = empresa.trim()
+  const usuarioFiltroNormalizado = usuarioFiltro.trim()
 
   useEffect(() => {
     const parametros = new URLSearchParams()
@@ -238,16 +439,21 @@ export function PaginaRetroalimentacion() {
       parametros.set('hasta', fechaHasta)
     }
 
-    if (empresa) {
-      parametros.set('empresa', empresa)
+    if (empresaNormalizada) {
+      parametros.set('empresa', empresaNormalizada)
     }
 
-    if (usuarioFiltro) {
-      parametros.set('usuario', usuarioFiltro)
+    if (usuarioFiltroNormalizado) {
+      parametros.set('usuario', usuarioFiltroNormalizado)
     }
 
     if (modulo !== 'todos') {
       parametros.set('modulo', modulo)
+    }
+
+    if (ordenarPor !== ORDENAR_POR_DEFECTO || direccionOrden !== DIRECCION_ORDEN_POR_DEFECTO) {
+      parametros.set('ordenar_por', ordenarPor)
+      parametros.set('direccion', direccionOrden)
     }
 
     if (pagina > 1) {
@@ -259,7 +465,19 @@ export function PaginaRetroalimentacion() {
     }
 
     setSearchParams(parametros, { replace: true })
-  }, [empresa, fechaDesde, fechaHasta, filtroTipo, modulo, pagina, setSearchParams, tamano, usuarioFiltro])
+  }, [
+    direccionOrden,
+    empresaNormalizada,
+    fechaDesde,
+    fechaHasta,
+    filtroTipo,
+    modulo,
+    ordenarPor,
+    pagina,
+    setSearchParams,
+    tamano,
+    usuarioFiltroNormalizado
+  ])
 
   useEffect(() => {
     let activo = true
@@ -293,27 +511,30 @@ export function PaginaRetroalimentacion() {
     }
   }, [])
 
-  const filtrosConsulta = useMemo(
+  const filtrosActuales = useMemo<RespuestaListadoRetroalimentacionPm['filtros_aplicados']>(
     () => ({
       tipo: filtroTipo === 'todos' ? null : filtroTipo,
       desde: fechaDesde || null,
       hasta: fechaHasta || null,
-      empresa: empresaDiferida || null,
-      usuario: usuarioDiferido || null,
-      modulo: modulo === 'todos' ? null : modulo
+      empresa_id: null,
+      empresa: empresaNormalizada || null,
+      usuario_id: null,
+      usuario: usuarioFiltroNormalizado || null,
+      modulo: modulo === 'todos' ? null : modulo,
+      ruta: null
     }),
-    [empresaDiferida, fechaDesde, fechaHasta, filtroTipo, modulo, usuarioDiferido]
+    [empresaNormalizada, fechaDesde, fechaHasta, filtroTipo, modulo, usuarioFiltroNormalizado]
   )
 
   const parametrosListado = useMemo(
     () => ({
       pagina,
       tamano,
-      ordenar_por: 'created_at' as const,
-      direccion: 'desc' as const,
-      ...filtrosConsulta
+      ordenar_por: ordenarPor,
+      direccion: direccionOrden,
+      ...filtrosActuales
     }),
-    [filtrosConsulta, pagina, tamano]
+    [direccionOrden, filtrosActuales, ordenarPor, pagina, tamano]
   )
 
   const cargarContenido = useCallback(async () => {
@@ -347,11 +568,11 @@ export function PaginaRetroalimentacion() {
         }),
         obtenerResumenRetroalimentacion({
           accessToken,
-          filtros: filtrosConsulta
+          filtros: filtrosActuales
         }),
         obtenerDistribucionesRetroalimentacion({
           accessToken,
-          filtros: filtrosConsulta
+          filtros: filtrosActuales
         })
       ])
 
@@ -383,7 +604,7 @@ export function PaginaRetroalimentacion() {
         setActualizando(false)
       }
     }
-  }, [accessToken, filtrosConsulta, parametrosListado, usuarioSesion])
+  }, [accessToken, filtrosActuales, parametrosListado, usuarioSesion])
 
   useEffect(() => {
     void cargarContenido()
@@ -459,8 +680,13 @@ export function PaginaRetroalimentacion() {
   )
 
   const filtrosExportacion = useMemo(
-    () => (listado ? construirFiltrosExportacion(listado.filtros_aplicados, modulos) : []),
-    [listado, modulos]
+    () => construirFiltrosExportacion(filtrosActuales, modulos),
+    [filtrosActuales, modulos]
+  )
+
+  const filtrosActivos = useMemo(
+    () => construirFiltrosActivos(filtrosActuales, modulos),
+    [filtrosActuales, modulos]
   )
 
   const rangoPagina = useMemo(() => {
@@ -473,13 +699,57 @@ export function PaginaRetroalimentacion() {
     return { desde, hasta }
   }, [listado])
 
-  const hayFiltrosActivos =
-    filtroTipo !== 'todos' ||
-    Boolean(fechaDesde) ||
-    Boolean(fechaHasta) ||
-    Boolean(empresa) ||
-    Boolean(usuarioFiltro) ||
-    modulo !== 'todos'
+  const hayFiltrosActivos = filtrosActivos.length > 0
+
+  const limpiarFiltros = () => {
+    setFiltroTipo('todos')
+    setFechaDesde('')
+    setFechaHasta('')
+    setEmpresa('')
+    setUsuarioFiltro('')
+    setModulo('todos')
+    setPagina(1)
+  }
+
+  const quitarFiltroActivo = (filtroId: FiltroActivoRetroalimentacion['id']) => {
+    if (filtroId === 'tipo') {
+      setFiltroTipo('todos')
+    }
+
+    if (filtroId === 'desde') {
+      setFechaDesde('')
+    }
+
+    if (filtroId === 'hasta') {
+      setFechaHasta('')
+    }
+
+    if (filtroId === 'empresa') {
+      setEmpresa('')
+    }
+
+    if (filtroId === 'usuario') {
+      setUsuarioFiltro('')
+    }
+
+    if (filtroId === 'modulo') {
+      setModulo('todos')
+    }
+
+    setPagina(1)
+  }
+
+  const alternarOrden = (campo: CampoOrdenRetroalimentacionPm) => {
+    if (ordenarPor === campo) {
+      setDireccionOrden(direccionOrden === 'asc' ? 'desc' : 'asc')
+      setPagina(1)
+      return
+    }
+
+    setOrdenarPor(campo)
+    setDireccionOrden(obtenerDireccionInicialOrden(campo))
+    setPagina(1)
+  }
 
   const exportarExcel = useCallback(async () => {
     if (!listado || listado.paginacion.total === 0) {
@@ -605,28 +875,48 @@ export function PaginaRetroalimentacion() {
                   >
                     {actualizando ? 'Actualizando…' : 'Recargar'}
                   </button>
-                  {hayFiltrosActivos ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFiltroTipo('todos')
-                        setFechaDesde('')
-                        setFechaHasta('')
-                        setEmpresa('')
-                        setUsuarioFiltro('')
-                        setModulo('todos')
-                        setPagina(1)
-                      }}
-                      className={CLASE_BOTON_TABLA}
-                    >
-                      Limpiar
-                    </button>
-                  ) : null}
                 </div>
               </div>
 
               {errorExportacion ? (
                 <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-300">{errorExportacion}</p>
+              ) : null}
+
+              {hayFiltrosActivos ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    Activos
+                  </span>
+
+                  {filtrosActivos.map((filtro) => (
+                    <span
+                      key={filtro.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300"
+                    >
+                      <span className="font-medium text-slate-500 dark:text-slate-400">{filtro.etiqueta}:</span>
+                      <span className="max-w-[14rem] truncate text-slate-700 dark:text-slate-100" title={filtro.valor}>
+                        {filtro.valor}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => quitarFiltroActivo(filtro.id)}
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/80 hover:text-slate-700 dark:hover:bg-slate-700/80 dark:hover:text-slate-100"
+                        aria-label={`Quitar filtro ${filtro.etiqueta}`}
+                        title={`Quitar filtro ${filtro.etiqueta}`}
+                      >
+                        <IconoCerrarChip />
+                      </button>
+                    </span>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={limpiarFiltros}
+                    className="inline-flex items-center rounded-full border border-transparent px-2.5 py-1 text-xs font-medium text-slate-500 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
               ) : null}
 
               <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-6">
@@ -722,11 +1012,41 @@ export function PaginaRetroalimentacion() {
                 <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
                   <thead className="text-left text-[10px] uppercase tracking-[0.12em] text-slate-500">
                     <tr>
-                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 font-medium backdrop-blur dark:bg-slate-950/95">Fecha</th>
-                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 font-medium backdrop-blur dark:bg-slate-950/95">Tipo</th>
-                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 font-medium backdrop-blur dark:bg-slate-950/95">Usuario</th>
-                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 font-medium backdrop-blur dark:bg-slate-950/95">Empresa</th>
-                      <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 font-medium backdrop-blur dark:bg-slate-950/95">Módulo</th>
+                      <EncabezadoOrdenableTabla
+                        etiqueta="Fecha"
+                        campo="created_at"
+                        ordenarPor={ordenarPor}
+                        direccion={direccionOrden}
+                        alOrdenar={alternarOrden}
+                      />
+                      <EncabezadoOrdenableTabla
+                        etiqueta="Tipo"
+                        campo="tipo"
+                        ordenarPor={ordenarPor}
+                        direccion={direccionOrden}
+                        alOrdenar={alternarOrden}
+                      />
+                      <EncabezadoOrdenableTabla
+                        etiqueta="Usuario"
+                        campo="usuario_nombre"
+                        ordenarPor={ordenarPor}
+                        direccion={direccionOrden}
+                        alOrdenar={alternarOrden}
+                      />
+                      <EncabezadoOrdenableTabla
+                        etiqueta="Empresa"
+                        campo="empresa_nombre"
+                        ordenarPor={ordenarPor}
+                        direccion={direccionOrden}
+                        alOrdenar={alternarOrden}
+                      />
+                      <EncabezadoOrdenableTabla
+                        etiqueta="Módulo"
+                        campo="modulo"
+                        ordenarPor={ordenarPor}
+                        direccion={direccionOrden}
+                        alOrdenar={alternarOrden}
+                      />
                       <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 font-medium backdrop-blur dark:bg-slate-950/95">Señal</th>
                       <th className="sticky top-0 z-10 bg-slate-50/95 px-4 py-2.5 text-right font-medium backdrop-blur dark:bg-slate-950/95">Acción</th>
                     </tr>
