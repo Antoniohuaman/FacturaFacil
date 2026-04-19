@@ -5,6 +5,7 @@ import {
   obtenerDetalleRetroalimentacion,
   obtenerDistribucionesRetroalimentacion,
   obtenerListadoRetroalimentacion,
+  obtenerTodosLosRegistrosRetroalimentacion,
   obtenerResumenRetroalimentacion
 } from '@/aplicacion/casos-uso/retroalimentacion'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
@@ -21,6 +22,7 @@ import type {
 } from '@/dominio/modelos'
 import { tiposRetroalimentacionPm } from '@/dominio/modelos'
 import { NavegacionAnalitica } from '@/presentacion/paginas/analitica/NavegacionAnalitica'
+import { exportarRetroalimentacionExcel } from '@/presentacion/paginas/analitica/retroalimentacion/exportarRetroalimentacionExcel'
 import { FranjaVisualRetroalimentacion } from '@/presentacion/paginas/analitica/retroalimentacion/FranjaVisualRetroalimentacion'
 import { ModalDetalleRetroalimentacion } from '@/presentacion/paginas/analitica/retroalimentacion/ModalDetalleRetroalimentacion'
 import {
@@ -39,8 +41,15 @@ const CLASE_CONTROL_FILTRO =
   'h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 text-sm text-slate-700 transition outline-none focus:border-slate-400 focus:bg-white dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-200 dark:focus:border-slate-600 dark:focus:bg-slate-900'
 const CLASE_BOTON_TABLA =
   'h-9 rounded-full border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'
+const CLASE_BOTON_EXPORTAR =
+  'h-9 rounded-full bg-slate-950 px-3.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white'
 const CLASE_BOTON_PAGINACION =
   'inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-slate-200 px-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+const formateadorFechaFiltroExportacion = new Intl.DateTimeFormat('es-PE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric'
+})
 
 function CampoFiltro({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -111,6 +120,73 @@ function construirTarjetasResumen(resumen: RespuestaResumenRetroalimentacionPm) 
   ]
 }
 
+function formatearFechaFiltroExportacion(valor: string | null) {
+  if (!valor) {
+    return ''
+  }
+
+  const fecha = new Date(`${valor}T00:00:00`)
+
+  if (Number.isNaN(fecha.getTime())) {
+    return valor
+  }
+
+  return formateadorFechaFiltroExportacion.format(fecha)
+}
+
+function construirFiltrosExportacion(
+  filtros: RespuestaListadoRetroalimentacionPm['filtros_aplicados'],
+  modulos: CatalogoModuloPm[]
+) {
+  const filtrosExportacion: Array<{ etiqueta: string; valor: string }> = []
+
+  if (filtros.tipo) {
+    filtrosExportacion.push({
+      etiqueta: 'Tipo',
+      valor: formatearTipoRetroalimentacion(filtros.tipo)
+    })
+  }
+
+  if (filtros.desde) {
+    filtrosExportacion.push({
+      etiqueta: 'Desde',
+      valor: formatearFechaFiltroExportacion(filtros.desde)
+    })
+  }
+
+  if (filtros.hasta) {
+    filtrosExportacion.push({
+      etiqueta: 'Hasta',
+      valor: formatearFechaFiltroExportacion(filtros.hasta)
+    })
+  }
+
+  if (filtros.empresa) {
+    filtrosExportacion.push({ etiqueta: 'Empresa', valor: filtros.empresa })
+  } else if (filtros.empresa_id) {
+    filtrosExportacion.push({ etiqueta: 'Empresa ID', valor: filtros.empresa_id })
+  }
+
+  if (filtros.usuario) {
+    filtrosExportacion.push({ etiqueta: 'Usuario', valor: filtros.usuario })
+  } else if (filtros.usuario_id) {
+    filtrosExportacion.push({ etiqueta: 'Usuario ID', valor: filtros.usuario_id })
+  }
+
+  if (filtros.modulo) {
+    filtrosExportacion.push({
+      etiqueta: 'Modulo',
+      valor: modulos.find((item) => item.codigo === filtros.modulo)?.nombre ?? filtros.modulo
+    })
+  }
+
+  if (filtros.ruta) {
+    filtrosExportacion.push({ etiqueta: 'Ruta', valor: filtros.ruta })
+  }
+
+  return filtrosExportacion
+}
+
 export function PaginaRetroalimentacion() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { usuario: usuarioSesion, accessToken } = useSesionPortalPM()
@@ -131,6 +207,8 @@ export function PaginaRetroalimentacion() {
   const [cargandoInicial, setCargandoInicial] = useState(true)
   const [actualizando, setActualizando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [exportandoExcel, setExportandoExcel] = useState(false)
+  const [errorExportacion, setErrorExportacion] = useState<string | null>(null)
 
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false)
   const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroRetroalimentacionPm | null>(null)
@@ -380,6 +458,11 @@ export function PaginaRetroalimentacion() {
     [resumen]
   )
 
+  const filtrosExportacion = useMemo(
+    () => (listado ? construirFiltrosExportacion(listado.filtros_aplicados, modulos) : []),
+    [listado, modulos]
+  )
+
   const rangoPagina = useMemo(() => {
     if (!listado || listado.paginacion.total === 0) {
       return { desde: 0, hasta: 0 }
@@ -397,6 +480,34 @@ export function PaginaRetroalimentacion() {
     Boolean(empresa) ||
     Boolean(usuarioFiltro) ||
     modulo !== 'todos'
+
+  const exportarExcel = useCallback(async () => {
+    if (!listado || listado.paginacion.total === 0) {
+      return
+    }
+
+    setExportandoExcel(true)
+    setErrorExportacion(null)
+
+    try {
+      const registros = await obtenerTodosLosRegistrosRetroalimentacion({
+        accessToken,
+        parametros: parametrosListado,
+        tamanoLote: 100
+      })
+
+      await exportarRetroalimentacionExcel({
+        registros,
+        filtros: filtrosExportacion
+      })
+    } catch (errorInterno) {
+      setErrorExportacion(
+        errorInterno instanceof Error ? errorInterno.message : 'No se pudo exportar la vista actual a Excel.'
+      )
+    } finally {
+      setExportandoExcel(false)
+    }
+  }, [accessToken, filtrosExportacion, listado, parametrosListado])
 
   return (
     <section className="mx-auto flex w-full max-w-[94rem] flex-col gap-2.5 xl:gap-3">
@@ -476,9 +587,20 @@ export function PaginaRetroalimentacion() {
                   <button
                     type="button"
                     onClick={() => {
+                      void exportarExcel()
+                    }}
+                    disabled={cargandoInicial || actualizando || exportandoExcel || !listado || listado.paginacion.total === 0}
+                    className={CLASE_BOTON_EXPORTAR}
+                    title="Exporta todos los registros de la vista filtrada a Excel"
+                  >
+                    {exportandoExcel ? 'Exportando Excel…' : 'Exportar Excel'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       void cargarContenido()
                     }}
-                    disabled={cargandoInicial || actualizando}
+                    disabled={cargandoInicial || actualizando || exportandoExcel}
                     className={CLASE_BOTON_TABLA}
                   >
                     {actualizando ? 'Actualizando…' : 'Recargar'}
@@ -502,6 +624,10 @@ export function PaginaRetroalimentacion() {
                   ) : null}
                 </div>
               </div>
+
+              {errorExportacion ? (
+                <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-300">{errorExportacion}</p>
+              ) : null}
 
               <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-6">
                 <CampoFiltro etiqueta="Tipo">
