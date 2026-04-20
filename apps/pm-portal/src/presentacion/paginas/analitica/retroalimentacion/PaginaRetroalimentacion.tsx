@@ -3,10 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { listarModulosPm } from '@/aplicacion/casos-uso/ajustes'
 import {
   obtenerDetalleRetroalimentacion,
-  obtenerDistribucionesRetroalimentacion,
   obtenerListadoRetroalimentacion,
+  obtenerPanelRetroalimentacion,
   obtenerTodosLosRegistrosRetroalimentacion,
-  obtenerResumenRetroalimentacion
 } from '@/aplicacion/casos-uso/retroalimentacion'
 import { useSesionPortalPM } from '@/compartido/autenticacion/contextoSesionPortalPM'
 import { formatearFechaHoraCorta } from '@/compartido/utilidades/formatoPortal'
@@ -57,11 +56,18 @@ const CLASE_BOTON_PAGINACION =
   'inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-slate-200 px-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
 const CLASE_BOTON_ENCABEZADO_ORDENABLE =
   'group inline-flex items-center gap-2 rounded-md px-0.5 py-1 font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40 dark:focus-visible:ring-slate-600/40'
+const DURACION_CACHE_MODULOS_RETROALIMENTACION_MS = 5 * 60_000
 const formateadorFechaFiltroExportacion = new Intl.DateTimeFormat('es-PE', {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric'
 })
+
+let cacheModulosRetroalimentacion: {
+  expiraEn: number
+  valor: CatalogoModuloPm[]
+} | null = null
+let promesaModulosRetroalimentacion: Promise<CatalogoModuloPm[]> | null = null
 
 type FiltroActivoRetroalimentacion = {
   id: 'tipo' | 'desde' | 'hasta' | 'empresa' | 'usuario' | 'modulo'
@@ -75,6 +81,49 @@ type EncabezadoOrdenableTablaProps = {
   ordenarPor: CampoOrdenRetroalimentacionPm
   direccion: DireccionOrdenRetroalimentacionPm
   alOrdenar: (campo: CampoOrdenRetroalimentacionPm) => void
+}
+
+function normalizarModulosRetroalimentacion(modulos: CatalogoModuloPm[]) {
+  return [...modulos]
+    .filter((item) => item.activo)
+    .sort((a, b) => a.orden - b.orden)
+}
+
+async function obtenerModulosRetroalimentacionConCache() {
+  const ahora = Date.now()
+
+  if (cacheModulosRetroalimentacion && cacheModulosRetroalimentacion.expiraEn > ahora) {
+    return cacheModulosRetroalimentacion.valor
+  }
+
+  if (promesaModulosRetroalimentacion) {
+    return promesaModulosRetroalimentacion
+  }
+
+  promesaModulosRetroalimentacion = listarModulosPm()
+    .then((respuesta) => {
+      const valor = normalizarModulosRetroalimentacion(respuesta)
+
+      cacheModulosRetroalimentacion = {
+        expiraEn: Date.now() + DURACION_CACHE_MODULOS_RETROALIMENTACION_MS,
+        valor
+      }
+
+      return valor
+    })
+    .finally(() => {
+      promesaModulosRetroalimentacion = null
+    })
+
+  return promesaModulosRetroalimentacion
+}
+
+function construirClaveRetroalimentacion(valor: unknown) {
+  return JSON.stringify(valor)
+}
+
+function esErrorAbortado(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError'
 }
 
 function CampoFiltro({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
@@ -423,6 +472,10 @@ export function PaginaRetroalimentacion() {
   const solicitudContenidoRef = useRef(0)
   const solicitudDetalleRef = useRef(0)
   const haCargadoContenidoRef = useRef(false)
+  const ultimaClaveListadoRef = useRef<string | null>(null)
+  const ultimaClavePanelRef = useRef<string | null>(null)
+  const controladorContenidoRef = useRef<AbortController | null>(null)
+  const controladorDetalleRef = useRef<AbortController | null>(null)
   const empresaNormalizada = empresa.trim()
   const usuarioFiltroNormalizado = usuarioFiltro.trim()
 
@@ -486,17 +539,13 @@ export function PaginaRetroalimentacion() {
 
     const cargarModulos = async () => {
       try {
-        const respuesta = await listarModulosPm()
+        const respuesta = await obtenerModulosRetroalimentacionConCache()
 
         if (!activo) {
           return
         }
 
-        setModulos(
-          [...respuesta]
-            .filter((item) => item.activo)
-            .sort((a, b) => a.orden - b.orden)
-        )
+        setModulos(respuesta)
       } catch {
         if (!activo) {
           return
@@ -539,11 +588,17 @@ export function PaginaRetroalimentacion() {
     [direccionOrden, filtrosActuales, ordenarPor, pagina, tamano]
   )
 
-  const cargarContenido = useCallback(async () => {
+  const clavePanel = useMemo(() => construirClaveRetroalimentacion(filtrosActuales), [filtrosActuales])
+  const claveListado = useMemo(() => construirClaveRetroalimentacion(parametrosListado), [parametrosListado])
+
+  const cargarContenido = useCallback(async (opciones?: { forzarListado?: boolean; forzarPanel?: boolean }) => {
     const solicitudActual = solicitudContenidoRef.current + 1
     solicitudContenidoRef.current = solicitudActual
 
     if (!usuarioSesion || !accessToken) {
+      controladorContenidoRef.current?.abort()
+      ultimaClaveListadoRef.current = null
+      ultimaClavePanelRef.current = null
       haCargadoContenidoRef.current = false
       setListado(null)
       setResumen(null)
@@ -554,6 +609,17 @@ export function PaginaRetroalimentacion() {
       return
     }
 
+    const debeRecargarListado = opciones?.forzarListado === true || !listado || ultimaClaveListadoRef.current !== claveListado
+    const debeRecargarPanel = opciones?.forzarPanel === true || !resumen || !distribuciones || ultimaClavePanelRef.current !== clavePanel
+
+    if (!debeRecargarListado && !debeRecargarPanel) {
+      return
+    }
+
+    controladorContenidoRef.current?.abort()
+    const controlador = new AbortController()
+    controladorContenidoRef.current = controlador
+
     if (haCargadoContenidoRef.current) {
       setActualizando(true)
     } else {
@@ -563,31 +629,42 @@ export function PaginaRetroalimentacion() {
     setError(null)
 
     try {
-      const [respuestaListado, respuestaResumen, respuestaDistribuciones] = await Promise.all([
-        obtenerListadoRetroalimentacion({
-          accessToken,
-          parametros: parametrosListado
-        }),
-        obtenerResumenRetroalimentacion({
-          accessToken,
-          filtros: filtrosActuales
-        }),
-        obtenerDistribucionesRetroalimentacion({
-          accessToken,
-          filtros: filtrosActuales
-        })
+      const [respuestaListado, respuestaPanel] = await Promise.all([
+        debeRecargarListado
+          ? obtenerListadoRetroalimentacion({
+              accessToken,
+              parametros: parametrosListado,
+              signal: controlador.signal
+            })
+          : Promise.resolve(null),
+        debeRecargarPanel
+          ? obtenerPanelRetroalimentacion({
+              accessToken,
+              filtros: filtrosActuales,
+              signal: controlador.signal,
+              omitirCache: opciones?.forzarPanel === true
+            })
+          : Promise.resolve(null)
       ])
 
-      if (solicitudActual !== solicitudContenidoRef.current) {
+      if (controlador.signal.aborted || solicitudActual !== solicitudContenidoRef.current) {
         return
       }
 
-      setListado(respuestaListado)
-      setResumen(respuestaResumen)
-      setDistribuciones(respuestaDistribuciones)
+      if (respuestaListado) {
+        setListado(respuestaListado)
+        ultimaClaveListadoRef.current = claveListado
+      }
+
+      if (respuestaPanel) {
+        setResumen(respuestaPanel.resumen)
+        setDistribuciones(respuestaPanel.distribuciones)
+        ultimaClavePanelRef.current = clavePanel
+      }
+
       haCargadoContenidoRef.current = true
     } catch (errorInterno) {
-      if (solicitudActual !== solicitudContenidoRef.current) {
+      if (controlador.signal.aborted || esErrorAbortado(errorInterno) || solicitudActual !== solicitudContenidoRef.current) {
         return
       }
 
@@ -601,16 +678,27 @@ export function PaginaRetroalimentacion() {
         errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar el módulo de Retroalimentación.'
       )
     } finally {
+      if (controladorContenidoRef.current === controlador) {
+        controladorContenidoRef.current = null
+      }
+
       if (solicitudActual === solicitudContenidoRef.current) {
         setCargandoInicial(false)
         setActualizando(false)
       }
     }
-  }, [accessToken, filtrosActuales, parametrosListado, usuarioSesion])
+  }, [accessToken, claveListado, clavePanel, distribuciones, filtrosActuales, listado, parametrosListado, resumen, usuarioSesion])
 
   useEffect(() => {
     void cargarContenido()
   }, [cargarContenido])
+
+  useEffect(() => {
+    return () => {
+      controladorContenidoRef.current?.abort()
+      controladorDetalleRef.current?.abort()
+    }
+  }, [])
 
   useEffect(() => {
     if (!listado) {
@@ -637,6 +725,10 @@ export function PaginaRetroalimentacion() {
       return
     }
 
+    controladorDetalleRef.current?.abort()
+    const controlador = new AbortController()
+    controladorDetalleRef.current = controlador
+
     setCargandoDetalle(true)
     setErrorDetalle(null)
 
@@ -644,16 +736,17 @@ export function PaginaRetroalimentacion() {
       const respuesta = await obtenerDetalleRetroalimentacion({
         accessToken,
         tipo: registroSeleccionado.tipo,
-        id: registroSeleccionado.id
+        id: registroSeleccionado.id,
+        signal: controlador.signal
       })
 
-      if (solicitudActual !== solicitudDetalleRef.current) {
+      if (controlador.signal.aborted || solicitudActual !== solicitudDetalleRef.current) {
         return
       }
 
       setDetalleSeleccionado(respuesta)
     } catch (errorInterno) {
-      if (solicitudActual !== solicitudDetalleRef.current) {
+      if (controlador.signal.aborted || esErrorAbortado(errorInterno) || solicitudActual !== solicitudDetalleRef.current) {
         return
       }
 
@@ -662,6 +755,10 @@ export function PaginaRetroalimentacion() {
         errorInterno instanceof Error ? errorInterno.message : 'No se pudo cargar el detalle del registro.'
       )
     } finally {
+      if (controladorDetalleRef.current === controlador) {
+        controladorDetalleRef.current = null
+      }
+
       if (solicitudActual === solicitudDetalleRef.current) {
         setCargandoDetalle(false)
       }
@@ -670,6 +767,7 @@ export function PaginaRetroalimentacion() {
 
   useEffect(() => {
     if (!modalDetalleAbierto || !registroSeleccionado) {
+      controladorDetalleRef.current?.abort()
       return
     }
 
@@ -793,7 +891,7 @@ export function PaginaRetroalimentacion() {
         <NavegacionAnalitica />
       </header>
 
-      <EstadoVista cargando={cargandoInicial} error={error && !resumen ? error : null} vacio={false} mensajeVacio="">
+      <EstadoVista cargando={cargandoInicial} error={error && !listado ? error : null} vacio={false} mensajeVacio="">
         <>
           {resumen || distribuciones ? (
             <section className="grid gap-2.5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.94fr)] xl:items-stretch">
@@ -826,14 +924,14 @@ export function PaginaRetroalimentacion() {
             </section>
           ) : null}
 
-          {error && resumen && listado ? (
+          {error && listado ? (
             <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p>No se pudo actualizar la información. Se muestran los últimos datos disponibles.</p>
                 <button
                   type="button"
                   onClick={() => {
-                    void cargarContenido()
+                    void cargarContenido({ forzarListado: true, forzarPanel: true })
                   }}
                   className="rounded-full border border-amber-300 px-3 py-1.5 text-xs font-medium transition hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40"
                 >
@@ -870,7 +968,7 @@ export function PaginaRetroalimentacion() {
                   <button
                     type="button"
                     onClick={() => {
-                      void cargarContenido()
+                      void cargarContenido({ forzarListado: true, forzarPanel: true })
                     }}
                     disabled={cargandoInicial || actualizando || exportandoExcel}
                     className={CLASE_BOTON_TABLA}

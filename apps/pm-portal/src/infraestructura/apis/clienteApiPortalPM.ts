@@ -3,6 +3,7 @@ import type {
   FiltrosRetroalimentacionPm,
   IdentificadorRetroalimentacionPm,
   ParametrosListadoRetroalimentacionPm,
+  RespuestaPanelRetroalimentacionPm,
   RespuestaDetalleRetroalimentacionPm,
   RespuestaDistribucionesRetroalimentacionPm,
   RespuestaListadoRetroalimentacionPm,
@@ -13,6 +14,7 @@ import {
   esquemaRespuestaDistribucionesRetroalimentacionPm,
   esquemaRespuestaListadoRetroalimentacionPm,
   esquemaRespuestaMetricasPosthog,
+  esquemaRespuestaPanelRetroalimentacionPm,
   esquemaRespuestaResumenRetroalimentacionPm,
   esquemaRespuestaResumenRepo,
   type RespuestaMetricasPosthog,
@@ -21,6 +23,7 @@ import {
 
 interface OpcionesSolicitud {
   accessToken?: string | null
+  signal?: AbortSignal
 }
 
 export type PeriodoMetricas = 7 | 30 | 90
@@ -47,7 +50,8 @@ async function solicitarJson<T>(url: string, esquema: z.ZodSchema<T>, opciones?:
 
   const respuesta = await fetch(url, {
     method: 'GET',
-    headers
+    headers,
+    signal: opciones?.signal
   })
 
   if (!respuesta.ok) {
@@ -88,12 +92,17 @@ async function solicitarJson<T>(url: string, esquema: z.ZodSchema<T>, opciones?:
   return validacion.data
 }
 
-function solicitarJsonAutenticado<T>(url: string, esquema: z.ZodSchema<T>, accessToken: string | null): Promise<T> {
+function solicitarJsonAutenticado<T>(
+  url: string,
+  esquema: z.ZodSchema<T>,
+  accessToken: string | null,
+  signal?: AbortSignal
+): Promise<T> {
   if (!accessToken) {
     return Promise.reject(new Error('No autorizado. Inicia sesión nuevamente.'))
   }
 
-  return solicitarJson(url, esquema, { accessToken })
+  return solicitarJson(url, esquema, { accessToken, signal })
 }
 
 function construirRutaConQuery(rutaBase: string, search: URLSearchParams): string {
@@ -192,42 +201,62 @@ function construirRutaRetroalimentacion(rutaBase: string, filtros?: FiltrosRetro
 
 export function listarRetroalimentacionApiPortalPM(
   parametros: ParametrosListadoRetroalimentacionPm | undefined,
-  accessToken: string | null
+  accessToken: string | null,
+  signal?: AbortSignal
 ): Promise<RespuestaListadoRetroalimentacionPm> {
   return solicitarJsonAutenticado(
     construirRutaListadoRetroalimentacion(parametros),
     esquemaRespuestaListadoRetroalimentacionPm,
-    accessToken
+    accessToken,
+    signal
+  )
+}
+
+export function obtenerPanelRetroalimentacionApiPortalPM(
+  filtros: FiltrosRetroalimentacionPm | undefined,
+  accessToken: string | null,
+  signal?: AbortSignal
+): Promise<RespuestaPanelRetroalimentacionPm> {
+  return solicitarJsonAutenticado(
+    construirRutaRetroalimentacion('/api/retroalimentacion/panel', filtros),
+    esquemaRespuestaPanelRetroalimentacionPm,
+    accessToken,
+    signal
   )
 }
 
 export function obtenerResumenRetroalimentacionApiPortalPM(
   filtros: FiltrosRetroalimentacionPm | undefined,
-  accessToken: string | null
+  accessToken: string | null,
+  signal?: AbortSignal
 ): Promise<RespuestaResumenRetroalimentacionPm> {
   return solicitarJsonAutenticado(
     construirRutaRetroalimentacion('/api/retroalimentacion/resumen', filtros),
     esquemaRespuestaResumenRetroalimentacionPm,
-    accessToken
+    accessToken,
+    signal
   )
 }
 
 export function obtenerDistribucionesRetroalimentacionApiPortalPM(
   filtros: FiltrosRetroalimentacionPm | undefined,
-  accessToken: string | null
+  accessToken: string | null,
+  signal?: AbortSignal
 ): Promise<RespuestaDistribucionesRetroalimentacionPm> {
   return solicitarJsonAutenticado(
     construirRutaRetroalimentacion('/api/retroalimentacion/distribuciones', filtros),
     esquemaRespuestaDistribucionesRetroalimentacionPm,
-    accessToken
+    accessToken,
+    signal
   )
 }
 
 export function obtenerDetalleRetroalimentacionApiPortalPM(
   identificador: IdentificadorRetroalimentacionPm,
-  accessToken: string | null
+  accessToken: string | null,
+  signal?: AbortSignal
 ): Promise<RespuestaDetalleRetroalimentacionPm> {
   const ruta = `/api/retroalimentacion/${encodeURIComponent(identificador.tipo)}/${encodeURIComponent(identificador.id)}`
 
-  return solicitarJsonAutenticado(ruta, esquemaRespuestaDetalleRetroalimentacionPm, accessToken)
+  return solicitarJsonAutenticado(ruta, esquemaRespuestaDetalleRetroalimentacionPm, accessToken, signal)
 }

@@ -7,23 +7,36 @@ import {
   listarRetroalimentacionApiPortalPM,
   obtenerDetalleRetroalimentacionApiPortalPM,
   obtenerDistribucionesRetroalimentacionApiPortalPM,
+  obtenerPanelRetroalimentacionApiPortalPM,
   obtenerResumenRetroalimentacionApiPortalPM
 } from '@/infraestructura/apis/clienteApiPortalPM'
 
 export const repositorioRetroalimentacion = {
-  listarRetroalimentacion(accessToken: string | null, parametros?: ParametrosListadoRetroalimentacionPm) {
-    return listarRetroalimentacionApiPortalPM(parametros, accessToken)
+  listarRetroalimentacion(
+    accessToken: string | null,
+    parametros?: ParametrosListadoRetroalimentacionPm,
+    signal?: AbortSignal
+  ) {
+    return listarRetroalimentacionApiPortalPM(parametros, accessToken, signal)
   },
 
-  obtenerResumenRetroalimentacion(accessToken: string | null, filtros?: FiltrosRetroalimentacionPm) {
-    return obtenerResumenRetroalimentacionApiPortalPM(filtros, accessToken)
+  obtenerPanelRetroalimentacion(accessToken: string | null, filtros?: FiltrosRetroalimentacionPm, signal?: AbortSignal) {
+    return obtenerPanelRetroalimentacionApiPortalPM(filtros, accessToken, signal)
   },
 
-  obtenerDistribucionesRetroalimentacion(accessToken: string | null, filtros?: FiltrosRetroalimentacionPm) {
-    return obtenerDistribucionesRetroalimentacionApiPortalPM(filtros, accessToken)
+  obtenerResumenRetroalimentacion(accessToken: string | null, filtros?: FiltrosRetroalimentacionPm, signal?: AbortSignal) {
+    return obtenerResumenRetroalimentacionApiPortalPM(filtros, accessToken, signal)
   },
 
-  obtenerDetalleRetroalimentacion(accessToken: string | null, identificador: IdentificadorRetroalimentacionPm) {
-    return obtenerDetalleRetroalimentacionApiPortalPM(identificador, accessToken)
+  obtenerDistribucionesRetroalimentacion(accessToken: string | null, filtros?: FiltrosRetroalimentacionPm, signal?: AbortSignal) {
+    return obtenerDistribucionesRetroalimentacionApiPortalPM(filtros, accessToken, signal)
+  },
+
+  obtenerDetalleRetroalimentacion(
+    accessToken: string | null,
+    identificador: IdentificadorRetroalimentacionPm,
+    signal?: AbortSignal
+  ) {
+    return obtenerDetalleRetroalimentacionApiPortalPM(identificador, accessToken, signal)
   }
 }

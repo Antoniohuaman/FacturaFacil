@@ -136,6 +136,14 @@ export interface RespuestaDistribucionesRetroalimentacion {
   }>
 }
 
+export interface RespuestaPanelRetroalimentacion {
+  fuente: 'supabase'
+  actualizado_en: string
+  filtros_aplicados: FiltrosRetroalimentacion
+  resumen: RespuestaResumenRetroalimentacion
+  distribuciones: RespuestaDistribucionesRetroalimentacion
+}
+
 export interface RespuestaDetalleRetroalimentacion {
   fuente: 'supabase'
   actualizado_en: string

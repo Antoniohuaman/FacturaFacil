@@ -1049,6 +1049,14 @@ export interface RespuestaDistribucionesRetroalimentacionPm {
   }>
 }
 
+export interface RespuestaPanelRetroalimentacionPm {
+  fuente: 'supabase'
+  actualizado_en: string
+  filtros_aplicados: FiltrosRetroalimentacionAplicadosPm
+  resumen: RespuestaResumenRetroalimentacionPm
+  distribuciones: RespuestaDistribucionesRetroalimentacionPm
+}
+
 export interface RespuestaDetalleRetroalimentacionPm {
   fuente: 'supabase'
   actualizado_en: string

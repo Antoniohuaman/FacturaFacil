@@ -9,6 +9,7 @@ import {
   type RespuestaDetalleRetroalimentacionPm,
   type RespuestaDistribucionesRetroalimentacionPm,
   type RespuestaListadoRetroalimentacionPm,
+  type RespuestaPanelRetroalimentacionPm,
   type RespuestaResumenRetroalimentacionPm
 } from '@/dominio/modelos'
 
@@ -181,6 +182,14 @@ export const esquemaRespuestaDistribucionesRetroalimentacionPm: z.ZodType<Respue
       calificacion: z.number().int().nonnegative()
     })
   )
+})
+
+export const esquemaRespuestaPanelRetroalimentacionPm: z.ZodType<RespuestaPanelRetroalimentacionPm> = z.object({
+  fuente: z.literal('supabase'),
+  actualizado_en: z.string().min(1),
+  filtros_aplicados: esquemaFiltrosRetroalimentacionAplicadosPm,
+  resumen: esquemaRespuestaResumenRetroalimentacionPm,
+  distribuciones: esquemaRespuestaDistribucionesRetroalimentacionPm
 })
 
 export const esquemaRespuestaDetalleRetroalimentacionPm: z.ZodType<RespuestaDetalleRetroalimentacionPm> = z.object({

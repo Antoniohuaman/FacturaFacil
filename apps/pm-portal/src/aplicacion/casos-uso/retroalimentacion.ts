@@ -2,24 +2,38 @@ import type {
   FiltrosRetroalimentacionPm,
   IdentificadorRetroalimentacionPm,
   ParametrosListadoRetroalimentacionPm,
+  RespuestaPanelRetroalimentacionPm,
   RegistroRetroalimentacionPm
 } from '@/dominio/modelos'
 import { repositorioRetroalimentacion } from '@/infraestructura/repositorios/repositorioRetroalimentacion'
 
 const MAXIMO_TAMANO_LOTE_EXPORTACION_RETROALIMENTACION = 100
+const DURACION_CACHE_PANEL_RETROALIMENTACION_MS = 15_000
+
+const cachePanelRetroalimentacion = new Map<
+  string,
+  {
+    expiraEn: number
+    respuesta: RespuestaPanelRetroalimentacionPm
+  }
+>()
 
 export interface SolicitudListadoRetroalimentacionPm {
   accessToken: string | null
   parametros?: ParametrosListadoRetroalimentacionPm
+  signal?: AbortSignal
 }
 
 export interface SolicitudLecturaRetroalimentacionPm {
   accessToken: string | null
   filtros?: FiltrosRetroalimentacionPm
+  signal?: AbortSignal
+  omitirCache?: boolean
 }
 
 export interface SolicitudDetalleRetroalimentacionPm extends IdentificadorRetroalimentacionPm {
   accessToken: string | null
+  signal?: AbortSignal
 }
 
 export interface SolicitudExportacionRetroalimentacionPm {
@@ -28,8 +42,26 @@ export interface SolicitudExportacionRetroalimentacionPm {
   tamanoLote?: number
 }
 
+function construirClaveFiltrosRetroalimentacion(filtros?: FiltrosRetroalimentacionPm) {
+  return JSON.stringify({
+    tipo: filtros?.tipo ?? null,
+    desde: filtros?.desde ?? null,
+    hasta: filtros?.hasta ?? null,
+    empresa_id: filtros?.empresa_id ?? null,
+    empresa: filtros?.empresa ?? null,
+    usuario_id: filtros?.usuario_id ?? null,
+    usuario: filtros?.usuario ?? null,
+    modulo: filtros?.modulo ?? null,
+    ruta: filtros?.ruta ?? null
+  })
+}
+
 export function obtenerListadoRetroalimentacion(solicitud: SolicitudListadoRetroalimentacionPm) {
-  return repositorioRetroalimentacion.listarRetroalimentacion(solicitud.accessToken, solicitud.parametros)
+  return repositorioRetroalimentacion.listarRetroalimentacion(
+    solicitud.accessToken,
+    solicitud.parametros,
+    solicitud.signal
+  )
 }
 
 export async function obtenerTodosLosRegistrosRetroalimentacion(
@@ -65,14 +97,42 @@ export async function obtenerTodosLosRegistrosRetroalimentacion(
   return registros
 }
 
+export async function obtenerPanelRetroalimentacion(solicitud: SolicitudLecturaRetroalimentacionPm) {
+  const claveCache = construirClaveFiltrosRetroalimentacion(solicitud.filtros)
+  const ahora = Date.now()
+  const cacheActual = cachePanelRetroalimentacion.get(claveCache)
+
+  if (!solicitud.omitirCache && cacheActual && cacheActual.expiraEn > ahora) {
+    return cacheActual.respuesta
+  }
+
+  const respuesta = await repositorioRetroalimentacion.obtenerPanelRetroalimentacion(
+    solicitud.accessToken,
+    solicitud.filtros,
+    solicitud.signal
+  )
+
+  cachePanelRetroalimentacion.set(claveCache, {
+    expiraEn: ahora + DURACION_CACHE_PANEL_RETROALIMENTACION_MS,
+    respuesta
+  })
+
+  return respuesta
+}
+
 export function obtenerResumenRetroalimentacion(solicitud: SolicitudLecturaRetroalimentacionPm) {
-  return repositorioRetroalimentacion.obtenerResumenRetroalimentacion(solicitud.accessToken, solicitud.filtros)
+  return repositorioRetroalimentacion.obtenerResumenRetroalimentacion(
+    solicitud.accessToken,
+    solicitud.filtros,
+    solicitud.signal
+  )
 }
 
 export function obtenerDistribucionesRetroalimentacion(solicitud: SolicitudLecturaRetroalimentacionPm) {
   return repositorioRetroalimentacion.obtenerDistribucionesRetroalimentacion(
     solicitud.accessToken,
-    solicitud.filtros
+    solicitud.filtros,
+    solicitud.signal
   )
 }
 
@@ -80,5 +140,5 @@ export function obtenerDetalleRetroalimentacion(solicitud: SolicitudDetalleRetro
   return repositorioRetroalimentacion.obtenerDetalleRetroalimentacion(solicitud.accessToken, {
     tipo: solicitud.tipo,
     id: solicitud.id
-  })
+  }, solicitud.signal)
 }
