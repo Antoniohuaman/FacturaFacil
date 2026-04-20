@@ -12,6 +12,8 @@ export interface EntornoAuth {
   SUPABASE_URL?: string
   SUPABASE_ANON_KEY?: string
   SUPABASE_SERVICE_ROLE_KEY?: string
+  VITE_SUPABASE_URL?: string
+  VITE_SUPABASE_ANON_KEY?: string
 }
 
 export type ResultadoAutorizacion =
@@ -21,6 +23,24 @@ export type ResultadoAutorizacion =
 interface ConfiguracionClienteSupabase {
   supabaseUrl: string
   clave: string
+}
+
+function leerVariableEntorno(valor?: string): string | null {
+  const normalizado = valor?.trim()
+  return normalizado ? normalizado : null
+}
+
+function construirDiagnosticoConfiguracionAuth(env: EntornoAuth) {
+  return {
+    hasPmPortalSupabaseUrl: Boolean(leerVariableEntorno(env.PM_PORTAL_SUPABASE_URL)),
+    hasPmPortalSupabaseAnonKey: Boolean(leerVariableEntorno(env.PM_PORTAL_SUPABASE_ANON_KEY)),
+    hasPmPortalSupabaseServiceRoleKey: Boolean(leerVariableEntorno(env.PM_PORTAL_SUPABASE_SERVICE_ROLE_KEY)),
+    hasLegacySupabaseUrl: Boolean(leerVariableEntorno(env.SUPABASE_URL)),
+    hasLegacySupabaseAnonKey: Boolean(leerVariableEntorno(env.SUPABASE_ANON_KEY)),
+    hasLegacySupabaseServiceRoleKey: Boolean(leerVariableEntorno(env.SUPABASE_SERVICE_ROLE_KEY)),
+    hasViteSupabaseUrl: Boolean(leerVariableEntorno(env.VITE_SUPABASE_URL)),
+    hasViteSupabaseAnonKey: Boolean(leerVariableEntorno(env.VITE_SUPABASE_ANON_KEY))
+  }
 }
 
 let clienteSupabaseAuthCache: {
@@ -46,12 +66,14 @@ function crearClienteSupabase(configuracion: ConfiguracionClienteSupabase): Supa
 }
 
 function obtenerConfiguracionSupabaseAuth(env: EntornoAuth): ConfiguracionClienteSupabase | null {
-  const pmPortalSupabaseUrl = env.PM_PORTAL_SUPABASE_URL?.trim()
-  const pmPortalSupabaseAnonKey = env.PM_PORTAL_SUPABASE_ANON_KEY?.trim()
-  const pmPortalSupabaseServiceRoleKey = env.PM_PORTAL_SUPABASE_SERVICE_ROLE_KEY?.trim()
-  const legacySupabaseUrl = env.SUPABASE_URL?.trim()
-  const legacySupabaseAnonKey = env.SUPABASE_ANON_KEY?.trim()
-  const legacySupabaseServiceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  const pmPortalSupabaseUrl = leerVariableEntorno(env.PM_PORTAL_SUPABASE_URL)
+  const pmPortalSupabaseAnonKey = leerVariableEntorno(env.PM_PORTAL_SUPABASE_ANON_KEY)
+  const pmPortalSupabaseServiceRoleKey = leerVariableEntorno(env.PM_PORTAL_SUPABASE_SERVICE_ROLE_KEY)
+  const legacySupabaseUrl = leerVariableEntorno(env.SUPABASE_URL)
+  const legacySupabaseAnonKey = leerVariableEntorno(env.SUPABASE_ANON_KEY)
+  const legacySupabaseServiceRoleKey = leerVariableEntorno(env.SUPABASE_SERVICE_ROLE_KEY)
+  const viteSupabaseUrl = leerVariableEntorno(env.VITE_SUPABASE_URL)
+  const viteSupabaseAnonKey = leerVariableEntorno(env.VITE_SUPABASE_ANON_KEY)
 
   if (pmPortalSupabaseUrl && pmPortalSupabaseAnonKey) {
     return {
@@ -74,6 +96,13 @@ function obtenerConfiguracionSupabaseAuth(env: EntornoAuth): ConfiguracionClient
     }
   }
 
+  if (viteSupabaseUrl && viteSupabaseAnonKey) {
+    return {
+      supabaseUrl: viteSupabaseUrl,
+      clave: viteSupabaseAnonKey
+    }
+  }
+
   if (legacySupabaseUrl && legacySupabaseServiceRoleKey) {
     return {
       supabaseUrl: legacySupabaseUrl,
@@ -85,8 +114,10 @@ function obtenerConfiguracionSupabaseAuth(env: EntornoAuth): ConfiguracionClient
 }
 
 function obtenerConfiguracionSupabaseAdmin(env: EntornoAuth): ConfiguracionClienteSupabase | null {
-  const supabaseUrl = env.PM_PORTAL_SUPABASE_URL?.trim() || env.SUPABASE_URL?.trim()
-  const clave = env.PM_PORTAL_SUPABASE_SERVICE_ROLE_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  const supabaseUrl = leerVariableEntorno(env.PM_PORTAL_SUPABASE_URL) || leerVariableEntorno(env.SUPABASE_URL)
+  const clave =
+    leerVariableEntorno(env.PM_PORTAL_SUPABASE_SERVICE_ROLE_KEY) ||
+    leerVariableEntorno(env.SUPABASE_SERVICE_ROLE_KEY)
 
   if (!supabaseUrl || !clave) {
     return null
@@ -155,10 +186,11 @@ export async function validarAutorizacion(
   const clienteAuth = obtenerClienteSupabaseAuth(env)
 
   if (!clienteAuth) {
+    console.error('[auth] configuracion_auth_faltante', construirDiagnosticoConfiguracionAuth(env))
     return {
       autorizado: false,
       status: 500,
-      motivo: 'Falta configuración de seguridad en el servidor.',
+      motivo: 'Falta configuración de auth de Supabase en el servidor.',
       codigoError: 'configuracion_auth'
     }
   }

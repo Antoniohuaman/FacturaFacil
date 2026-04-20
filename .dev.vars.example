@@ -1,0 +1,30 @@
+# Variables runtime para `npm run dev:pm:cf`
+# Copia este archivo como `/.dev.vars` y completa los valores reales.
+# No commitees `/.dev.vars`.
+
+# Auth/server-side del Portal PM
+PM_PORTAL_SUPABASE_URL=
+PM_PORTAL_SUPABASE_ANON_KEY=
+PM_PORTAL_SUPABASE_SERVICE_ROLE_KEY=
+
+# Lectura de retroalimentación desde el Supabase de SenciYo
+SENCIYO_SUPABASE_URL=
+SENCIYO_SUPABASE_SERVICE_ROLE_KEY=
+
+# PostHog (solo si se usan métricas en local)
+POSTHOG_HOST=
+POSTHOG_PROJECT_ID=
+POSTHOG_PERSONAL_API_KEY=
+
+# GitHub (solo si se usa `/api/resumen-repo`)
+GITHUB_OWNER=
+GITHUB_REPO=
+GITHUB_TOKEN=
+
+# Diagnóstico opcional
+DIAGNOSTICO_METRICAS=false
+
+# Compatibilidad legada opcional:
+# SUPABASE_URL=
+# SUPABASE_ANON_KEY=
+# SUPABASE_SERVICE_ROLE_KEY=

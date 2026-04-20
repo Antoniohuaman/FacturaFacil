@@ -35,4 +35,5 @@ dist-ssr
 !**/.env.example
 /.dev.vars
 /.dev.vars.*
+!/.dev.vars.example
 /apps/pm-portal/.dev.vars
