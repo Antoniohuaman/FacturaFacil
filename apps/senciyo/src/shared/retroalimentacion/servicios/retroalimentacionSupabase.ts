@@ -1,4 +1,9 @@
-import { obtenerClienteSupabase, supabaseEstaConfigurado } from '../../supabase/clienteSupabase';
+import { tokenService } from '../../../pages/Private/features/autenticacion/services/TokenService';
+import {
+  obtenerClienteSupabase,
+  sincronizarSesionClienteSupabase,
+  supabaseEstaConfigurado,
+} from '../../supabase/clienteSupabase';
 import type { EstadoAnimoId } from '../tipos';
 
 type CodigoErrorPersistenciaRetroalimentacion = 'configuracion' | 'contexto' | 'persistencia';
@@ -71,6 +76,27 @@ function asegurarSupabaseDisponible(): void {
   }
 }
 
+function authSimuladaActiva(): boolean {
+  return import.meta.env.VITE_DEV_MODE === 'true' || !import.meta.env.VITE_API_URL;
+}
+
+async function obtenerClienteSupabaseAutenticado() {
+  const supabase = obtenerClienteSupabase();
+  const sesionSincronizada = await sincronizarSesionClienteSupabase(
+    tokenService.getAccessToken(),
+    tokenService.getRefreshToken(),
+  );
+
+  if (!sesionSincronizada && !authSimuladaActiva()) {
+    throw new ErrorPersistenciaRetroalimentacion(
+      'contexto',
+      'No se encontró una sesión autenticada de Supabase para guardar la retroalimentación.',
+    );
+  }
+
+  return supabase;
+}
+
 function construirRegistroBase(contexto: ContextoRegistroRetroalimentacion): RegistroBaseSupabase {
   return {
     usuario_id: normalizarTextoObligatorio(contexto.usuarioId, 'usuario_id'),
@@ -92,7 +118,7 @@ export async function guardarEstadoAnimoEnSupabase(
   entrada: { estado: EstadoAnimoId; comentario: string | null },
 ): Promise<void> {
   asegurarSupabaseDisponible();
-  const supabase = obtenerClienteSupabase();
+  const supabase = await obtenerClienteSupabaseAutenticado();
   const { error } = await supabase
     .from('retroalimentacion_estado_animo')
     .insert({
@@ -111,7 +137,7 @@ export async function guardarIdeaEnSupabase(
   entrada: { contenido: string },
 ): Promise<void> {
   asegurarSupabaseDisponible();
-  const supabase = obtenerClienteSupabase();
+  const supabase = await obtenerClienteSupabaseAutenticado();
   const { error } = await supabase
     .from('retroalimentacion_ideas')
     .insert({
@@ -129,7 +155,7 @@ export async function guardarCalificacionEnSupabase(
   entrada: { puntaje: number; comentario: string | null },
 ): Promise<void> {
   asegurarSupabaseDisponible();
-  const supabase = obtenerClienteSupabase();
+  const supabase = await obtenerClienteSupabaseAutenticado();
   const { error } = await supabase
     .from('retroalimentacion_calificaciones')
     .insert({

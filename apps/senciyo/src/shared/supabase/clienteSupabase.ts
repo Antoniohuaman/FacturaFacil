@@ -124,6 +124,7 @@ type Database = {
 };
 
 let clienteSupabase: ReturnType<typeof createClient<Database>> | null = null;
+let ultimoAccessTokenSincronizado: string | null = null;
 
 function obtenerUrlSupabase(): string {
   return import.meta.env.VITE_SUPABASE_URL?.trim() ?? '';
@@ -158,4 +159,49 @@ export function obtenerClienteSupabase() {
   });
 
   return clienteSupabase;
+}
+
+function normalizarToken(valor: string | null | undefined): string {
+  return valor?.trim() ?? '';
+}
+
+function esAccessTokenJwt(accessToken: string): boolean {
+  return accessToken.split('.').length === 3;
+}
+
+export async function sincronizarSesionClienteSupabase(
+  accessToken: string | null | undefined,
+  refreshToken: string | null | undefined,
+): Promise<boolean> {
+  const accessTokenNormalizado = normalizarToken(accessToken);
+  const refreshTokenNormalizado = normalizarToken(refreshToken);
+
+  if (!accessTokenNormalizado || !refreshTokenNormalizado || !esAccessTokenJwt(accessTokenNormalizado)) {
+    return false;
+  }
+
+  const cliente = obtenerClienteSupabase();
+
+  if (ultimoAccessTokenSincronizado === accessTokenNormalizado) {
+    return true;
+  }
+
+  const { data: sesionActual } = await cliente.auth.getSession();
+
+  if (sesionActual.session?.access_token === accessTokenNormalizado) {
+    ultimoAccessTokenSincronizado = accessTokenNormalizado;
+    return true;
+  }
+
+  const { error } = await cliente.auth.setSession({
+    access_token: accessTokenNormalizado,
+    refresh_token: refreshTokenNormalizado,
+  });
+
+  if (error) {
+    return false;
+  }
+
+  ultimoAccessTokenSincronizado = accessTokenNormalizado;
+  return true;
 }
