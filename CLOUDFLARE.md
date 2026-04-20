@@ -73,6 +73,8 @@ El token del proveedor debe existir solo como secreto runtime y no debe declarar
 | `VITE_SUPABASE_ANON_KEY` | Production + Preview | Build-time — Clave anon (pública) |
 | `SUPABASE_URL` | Production + Preview | Runtime (Functions) — igual que la anterior |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | **Secret** — acceso admin total, solo servidor |
+| `SENCIYO_SUPABASE_URL` | Production + Preview | Runtime (Functions) — URL del proyecto Supabase de SenciYo para endpoints `/api/retroalimentacion/*` |
+| `SENCIYO_SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | **Secret** — service role del proyecto Supabase de SenciYo para lectura de retroalimentación |
 | `POSTHOG_HOST` | Production | Runtime (Functions) |
 | `POSTHOG_PROJECT_ID` | Production | Runtime (Functions) |
 | `POSTHOG_PERSONAL_API_KEY` | Production | **Secret** — solo servidor |
@@ -80,6 +82,11 @@ El token del proveedor debe existir solo como secreto runtime y no debe declarar
 | `GITHUB_REPO` | Production | Opcional |
 | `GITHUB_TOKEN` | Production | **Secret** — opcional |
 | `DIAGNOSTICO_METRICAS` | Production | Opcional — activa logs de diagnóstico |
+
+Los endpoints ` /api/retroalimentacion/* ` del PM Portal no leen datos desde el Supabase del propio portal.
+Autorizan con variables `PM_PORTAL_*` o `SUPABASE_*`, pero consultan retroalimentación con
+`SENCIYO_SUPABASE_URL` y `SENCIYO_SUPABASE_SERVICE_ROLE_KEY` en `functions/api/_retroalimentacion.ts`.
+Si esas variables faltan en Cloudflare Pages, la Function responde `500 configuracion_supabase`.
 
 ---
 

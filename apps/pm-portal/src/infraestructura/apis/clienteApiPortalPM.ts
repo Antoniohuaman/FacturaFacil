@@ -51,11 +51,31 @@ async function solicitarJson<T>(url: string, esquema: z.ZodSchema<T>, opciones?:
   })
 
   if (!respuesta.ok) {
-    if (respuesta.status === 401 || respuesta.status === 403) {
-      throw new Error('No autorizado. Inicia sesión nuevamente.')
+    let mensajeApi: string | null = null
+
+    try {
+      const contenido = (await respuesta.json()) as unknown
+
+      if (contenido && typeof contenido === 'object' && 'error' in contenido) {
+        const errorApi = (contenido as { error?: unknown }).error
+
+        if (errorApi && typeof errorApi === 'object' && 'mensaje' in errorApi) {
+          const mensaje = (errorApi as { mensaje?: unknown }).mensaje
+
+          if (typeof mensaje === 'string' && mensaje.trim()) {
+            mensajeApi = mensaje.trim()
+          }
+        }
+      }
+    } catch {
+      mensajeApi = null
     }
 
-    throw new Error(`La API respondió con ${String(respuesta.status)}.`)
+    if (respuesta.status === 401 || respuesta.status === 403) {
+      throw new Error(mensajeApi ?? 'No autorizado. Inicia sesión nuevamente.')
+    }
+
+    throw new Error(mensajeApi ?? `La API respondió con ${String(respuesta.status)}.`)
   }
 
   const json = (await respuesta.json()) as unknown

@@ -153,6 +153,44 @@ let clienteSupabaseRetroalimentacionCache: {
   cliente: SupabaseClient
 } | null = null
 
+function construirDiagnosticoConfiguracionRetroalimentacion(env: EntornoRetroalimentacion) {
+  return {
+    hasSenciyoSupabaseUrl: Boolean(env.SENCIYO_SUPABASE_URL?.trim()),
+    hasSenciyoServiceRoleKey: Boolean(env.SENCIYO_SUPABASE_SERVICE_ROLE_KEY?.trim()),
+    hasLegacySupabaseUrl: Boolean(env.SUPABASE_URL?.trim()),
+    hasLegacyServiceRoleKey: Boolean(env.SUPABASE_SERVICE_ROLE_KEY?.trim())
+  }
+}
+
+function registrarErrorRetroalimentacion(contexto: string, error: unknown, extra?: Record<string, unknown>) {
+  if (error instanceof Error) {
+    console.error(`[retroalimentacion] ${contexto}`, {
+      name: error.name,
+      message: error.message,
+      ...extra
+    })
+    return
+  }
+
+  if (error && typeof error === 'object') {
+    const errorRegistro = error as Record<string, unknown>
+
+    console.error(`[retroalimentacion] ${contexto}`, {
+      code: typeof errorRegistro.code === 'string' ? errorRegistro.code : null,
+      message: typeof errorRegistro.message === 'string' ? errorRegistro.message : null,
+      details: typeof errorRegistro.details === 'string' ? errorRegistro.details : null,
+      hint: typeof errorRegistro.hint === 'string' ? errorRegistro.hint : null,
+      ...extra
+    })
+    return
+  }
+
+  console.error(`[retroalimentacion] ${contexto}`, {
+    error: error === undefined ? null : String(error),
+    ...extra
+  })
+}
+
 function construirRespuestaJson<T>(status: number, cuerpo: T, cache: 'no-store' | 'public, max-age=60' = 'no-store') {
   return new Response(JSON.stringify(cuerpo), {
     status,
@@ -215,6 +253,11 @@ export async function obtenerClienteAutorizado(
   const cliente = obtenerClienteSupabaseRetroalimentacion(env)
 
   if (!cliente) {
+    registrarErrorRetroalimentacion(
+      'configuracion_supabase_faltante',
+      'missing_senciyo_supabase_runtime',
+      construirDiagnosticoConfiguracionRetroalimentacion(env)
+    )
     return responderError(500, 'configuracion_supabase', 'Falta configuración de Supabase en el servidor.')
   }
 
@@ -469,6 +512,8 @@ export function manejarErrorRetroalimentacion(error: unknown) {
   if (error instanceof ErrorParametrosApi) {
     return responderError(error.status, error.codigo, error.message)
   }
+
+  registrarErrorRetroalimentacion('error_no_controlado', error)
 
   return responderErrorDesconocido('No se pudo procesar la lectura de retroalimentación.')
 }
