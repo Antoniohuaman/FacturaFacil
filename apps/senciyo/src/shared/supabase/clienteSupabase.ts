@@ -9,7 +9,10 @@ type Database = {
           created_at: string;
           usuario_id: string;
           usuario_nombre: string;
+          usuario_correo: string | null;
           empresa_id: string;
+          empresa_ruc: string | null;
+          empresa_razon_social: string | null;
           empresa_nombre: string;
           establecimiento_id: string | null;
           establecimiento_nombre: string | null;
@@ -23,7 +26,10 @@ type Database = {
           created_at?: string;
           usuario_id: string;
           usuario_nombre: string;
+          usuario_correo?: string | null;
           empresa_id: string;
+          empresa_ruc?: string | null;
+          empresa_razon_social?: string | null;
           empresa_nombre: string;
           establecimiento_id?: string | null;
           establecimiento_nombre?: string | null;
@@ -41,7 +47,10 @@ type Database = {
           created_at: string;
           usuario_id: string;
           usuario_nombre: string;
+          usuario_correo: string | null;
           empresa_id: string;
+          empresa_ruc: string | null;
+          empresa_razon_social: string | null;
           empresa_nombre: string;
           establecimiento_id: string | null;
           establecimiento_nombre: string | null;
@@ -54,7 +63,10 @@ type Database = {
           created_at?: string;
           usuario_id: string;
           usuario_nombre: string;
+          usuario_correo?: string | null;
           empresa_id: string;
+          empresa_ruc?: string | null;
+          empresa_razon_social?: string | null;
           empresa_nombre: string;
           establecimiento_id?: string | null;
           establecimiento_nombre?: string | null;
@@ -71,7 +83,10 @@ type Database = {
           created_at: string;
           usuario_id: string;
           usuario_nombre: string;
+          usuario_correo: string | null;
           empresa_id: string;
+          empresa_ruc: string | null;
+          empresa_razon_social: string | null;
           empresa_nombre: string;
           establecimiento_id: string | null;
           establecimiento_nombre: string | null;
@@ -85,7 +100,10 @@ type Database = {
           created_at?: string;
           usuario_id: string;
           usuario_nombre: string;
+          usuario_correo?: string | null;
           empresa_id: string;
+          empresa_ruc?: string | null;
+          empresa_razon_social?: string | null;
           empresa_nombre: string;
           establecimiento_id?: string | null;
           establecimiento_nombre?: string | null;

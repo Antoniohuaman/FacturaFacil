@@ -7,7 +7,8 @@ import type {
 import {
   formatearTipoRetroalimentacion,
   obtenerClaseTipoRetroalimentacion,
-  obtenerMetaSecundariaRetroalimentacion
+  obtenerMetaSecundariaRetroalimentacion,
+  obtenerNombreEmpresaVisible
 } from '@/presentacion/paginas/analitica/retroalimentacion/retroalimentacionPresentacion'
 
 interface PropiedadesModalDetalleRetroalimentacion {
@@ -40,8 +41,12 @@ export function ModalDetalleRetroalimentacion({
 }: PropiedadesModalDetalleRetroalimentacion) {
   const registro = detalle?.item ?? registroBase
   const metaSecundaria = registro ? obtenerMetaSecundariaRetroalimentacion(registro) : null
+  const nombreEmpresaVisible = registro ? obtenerNombreEmpresaVisible(registro) : null
   const estadoAnimo = registro?.estado_animo ? formatearEstadoLegible(registro.estado_animo) : null
   const puntaje = typeof registro?.puntaje === 'number' ? `Puntaje ${registro.puntaje.toLocaleString('es-PE')}` : null
+  const mostrarEmpresaRegistrada = Boolean(
+    registro && nombreEmpresaVisible && registro.empresa_nombre.trim() !== nombreEmpresaVisible.trim()
+  )
 
   return (
     <ModalPortal abierto={abierto} titulo="Detalle de retroalimentación" alCerrar={alCerrar}>
@@ -105,7 +110,10 @@ export function ModalDetalleRetroalimentacion({
           <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <div className="grid gap-x-6 gap-y-3.5 md:grid-cols-2">
               <FilaDetalle etiqueta="Usuario" valor={registro.usuario_nombre} />
-              <FilaDetalle etiqueta="Empresa" valor={registro.empresa_nombre} />
+              {registro.usuario_correo ? <FilaDetalle etiqueta="Correo" valor={registro.usuario_correo} /> : null}
+              <FilaDetalle etiqueta="Razón social" valor={nombreEmpresaVisible ?? registro.empresa_nombre} />
+              {registro.empresa_ruc ? <FilaDetalle etiqueta="RUC" valor={registro.empresa_ruc} /> : null}
+              {mostrarEmpresaRegistrada ? <FilaDetalle etiqueta="Empresa" valor={registro.empresa_nombre} /> : null}
               <FilaDetalle etiqueta="Módulo" valor={registro.modulo} />
               <FilaDetalle etiqueta="Ruta" valor={registro.ruta} />
               {registro.establecimiento_nombre ? (

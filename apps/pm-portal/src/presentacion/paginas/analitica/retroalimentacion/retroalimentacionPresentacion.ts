@@ -76,8 +76,21 @@ export function obtenerMetaSecundariaRetroalimentacion(registro: RegistroRetroal
   return null
 }
 
+export function obtenerNombreEmpresaVisible(registro: RegistroRetroalimentacionPm) {
+  return registro.empresa_razon_social?.trim() || registro.empresa_nombre
+}
+
+export function obtenerSubtituloUsuario(registro: RegistroRetroalimentacionPm) {
+  return registro.usuario_correo?.trim() || null
+}
+
 export function obtenerSubtituloEmpresa(registro: RegistroRetroalimentacionPm) {
-  return registro.establecimiento_nombre ?? null
+  const partes = [
+    registro.empresa_ruc ? `RUC ${registro.empresa_ruc}` : null,
+    registro.establecimiento_nombre ?? null
+  ].filter((valor): valor is string => Boolean(valor))
+
+  return partes.length > 0 ? partes.join(' · ') : null
 }
 
 export function formatearEstadoDominanteRetroalimentacion(estado: string | null) {

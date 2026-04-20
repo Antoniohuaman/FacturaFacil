@@ -18,7 +18,10 @@ class ErrorPersistenciaRetroalimentacion extends Error {
 export interface ContextoRegistroRetroalimentacion {
   usuarioId: string;
   usuarioNombre: string;
+  usuarioCorreo: string | null;
   empresaId: string;
+  empresaRuc: string | null;
+  empresaRazonSocial: string | null;
   empresaNombre: string;
   establecimientoId: string | null;
   establecimientoNombre: string | null;
@@ -29,7 +32,10 @@ export interface ContextoRegistroRetroalimentacion {
 interface RegistroBaseSupabase {
   usuario_id: string;
   usuario_nombre: string;
+  usuario_correo: string | null;
   empresa_id: string;
+  empresa_ruc: string | null;
+  empresa_razon_social: string | null;
   empresa_nombre: string;
   establecimiento_id: string | null;
   establecimiento_nombre: string | null;
@@ -69,7 +75,10 @@ function construirRegistroBase(contexto: ContextoRegistroRetroalimentacion): Reg
   return {
     usuario_id: normalizarTextoObligatorio(contexto.usuarioId, 'usuario_id'),
     usuario_nombre: normalizarTextoObligatorio(contexto.usuarioNombre, 'usuario_nombre'),
+    usuario_correo: normalizarTextoOpcional(contexto.usuarioCorreo),
     empresa_id: normalizarTextoObligatorio(contexto.empresaId, 'empresa_id'),
+    empresa_ruc: normalizarTextoOpcional(contexto.empresaRuc),
+    empresa_razon_social: normalizarTextoOpcional(contexto.empresaRazonSocial),
     empresa_nombre: normalizarTextoObligatorio(contexto.empresaNombre, 'empresa_nombre'),
     establecimiento_id: normalizarTextoOpcional(contexto.establecimientoId),
     establecimiento_nombre: normalizarTextoOpcional(contexto.establecimientoNombre),

@@ -27,7 +27,7 @@ export const onRequestGet = async (context: ContextoRetroalimentacion): Promise<
     const filtros = obtenerFiltrosRetroalimentacion(context.request)
     const { data, error } = await crearConsultaRetroalimentacion(
       cliente,
-      'tipo, created_at, modulo, puntaje, estado_animo, registro_uid, id, usuario_id, usuario_nombre, empresa_id, empresa_nombre, establecimiento_id, establecimiento_nombre, ruta, valor_principal, detalle',
+      'tipo, created_at, modulo, puntaje, estado_animo, registro_uid, id, usuario_id, usuario_nombre, usuario_correo, empresa_id, empresa_ruc, empresa_razon_social, empresa_nombre, establecimiento_id, establecimiento_nombre, ruta, valor_principal, detalle',
       filtros
     ).order('created_at', { ascending: true })
 

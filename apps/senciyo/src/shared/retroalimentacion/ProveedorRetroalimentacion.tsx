@@ -30,8 +30,12 @@ import type { EnvioEstadoAnimo, EnvioIdea, EnvioRespuestaNps, FlujoRetroalimenta
 const FLUJO_INICIAL: FlujoRetroalimentacion = 'estado_animo';
 
 function resolverModuloDesdeRuta(pathname: string): string {
-  const primerSegmento = pathname.split('/').filter(Boolean)[0];
-  return primerSegmento ?? 'inicio';
+  const primerSegmento = pathname
+    .split('/')
+    .map((segmento) => segmento.trim())
+    .filter(Boolean)[0];
+
+  return primerSegmento?.toLowerCase() ?? 'inicio';
 }
 
 function resolverRutaActual(pathname: string, search: string): string {
@@ -45,9 +49,24 @@ function resolverNombreUsuario(session: UserSession): string {
 }
 
 function resolverNombreEmpresa(session: UserSession): string {
-  return session.currentCompany?.nombreComercial?.trim()
-    || session.currentCompany?.razonSocial?.trim()
+  return session.currentCompany?.razonSocial?.trim()
+    || session.currentCompany?.nombreComercial?.trim()
     || session.currentCompanyId;
+}
+
+function resolverCorreoUsuario(session: UserSession): string | null {
+  const correo = session.userEmail?.trim();
+  return correo || null;
+}
+
+function resolverRucEmpresa(session: UserSession): string | null {
+  const ruc = session.currentCompany?.ruc?.trim();
+  return ruc || null;
+}
+
+function resolverRazonSocialEmpresa(session: UserSession): string | null {
+  const razonSocial = session.currentCompany?.razonSocial?.trim();
+  return razonSocial || null;
 }
 
 function validarComentarioBreve(comentario: string | undefined): boolean {
@@ -81,7 +100,10 @@ export function ProveedorRetroalimentacion({ children }: { children: ReactNode }
     return {
       usuarioId: session.userId,
       usuarioNombre: resolverNombreUsuario(session),
+      usuarioCorreo: resolverCorreoUsuario(session),
       empresaId: session.currentCompanyId,
+      empresaRuc: resolverRucEmpresa(session),
+      empresaRazonSocial: resolverRazonSocialEmpresa(session),
       empresaNombre: resolverNombreEmpresa(session),
       establecimientoId: session.currentEstablecimiento?.id ?? null,
       establecimientoNombre: session.currentEstablecimiento?.nombreEstablecimiento ?? null,

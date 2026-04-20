@@ -36,7 +36,9 @@ import {
   formatearTipoRetroalimentacion,
   obtenerClaseTipoRetroalimentacion,
   obtenerMetaSecundariaRetroalimentacion,
+  obtenerNombreEmpresaVisible,
   obtenerSubtituloEmpresa,
+  obtenerSubtituloUsuario,
   opcionesTipoRetroalimentacion,
   resumirTexto
 } from '@/presentacion/paginas/analitica/retroalimentacion/retroalimentacionPresentacion'
@@ -1055,6 +1057,8 @@ export function PaginaRetroalimentacion() {
                     {listado.items.map((registro) => {
                       const metaSecundaria = obtenerMetaSecundariaRetroalimentacion(registro)
                       const detalleBreve = resumirTexto(registro.detalle, 64)
+                      const subtituloUsuario = obtenerSubtituloUsuario(registro)
+                      const nombreEmpresaVisible = obtenerNombreEmpresaVisible(registro)
                       const subtituloEmpresa = obtenerSubtituloEmpresa(registro)
 
                       return (
@@ -1071,10 +1075,15 @@ export function PaginaRetroalimentacion() {
                             <p className="max-w-[10rem] truncate text-sm font-medium text-slate-900 dark:text-slate-100" title={registro.usuario_nombre}>
                               {registro.usuario_nombre}
                             </p>
+                            {subtituloUsuario ? (
+                              <p className="max-w-[10rem] truncate text-[11px] text-slate-500 dark:text-slate-400" title={subtituloUsuario}>
+                                {subtituloUsuario}
+                              </p>
+                            ) : null}
                           </td>
                           <td className="px-4 py-2.5">
-                            <p className="max-w-[12rem] truncate text-sm font-medium text-slate-900 dark:text-slate-100" title={registro.empresa_nombre}>
-                              {registro.empresa_nombre}
+                            <p className="max-w-[12rem] truncate text-sm font-medium text-slate-900 dark:text-slate-100" title={nombreEmpresaVisible}>
+                              {nombreEmpresaVisible}
                             </p>
                             {subtituloEmpresa ? (
                               <p className="max-w-[12rem] truncate text-[11px] text-slate-500 dark:text-slate-400" title={subtituloEmpresa}>

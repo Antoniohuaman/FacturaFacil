@@ -1,5 +1,27 @@
--- Superficie de lectura unificada para la API de retroalimentacion.
--- Mantiene intactas las tablas de escritura y expone un shape comun para consumidores externos.
+-- Migración incremental para enriquecer la trazabilidad de negocio en retroalimentación.
+-- Agrega correo de usuario, RUC y razón social sin romper registros históricos.
+
+alter table if exists public.retroalimentacion_estado_animo
+  add column if not exists usuario_correo text,
+  add column if not exists empresa_ruc text,
+  add column if not exists empresa_razon_social text;
+
+alter table if exists public.retroalimentacion_ideas
+  add column if not exists usuario_correo text,
+  add column if not exists empresa_ruc text,
+  add column if not exists empresa_razon_social text;
+
+alter table if exists public.retroalimentacion_calificaciones
+  add column if not exists usuario_correo text,
+  add column if not exists empresa_ruc text,
+  add column if not exists empresa_razon_social text;
+
+comment on column public.retroalimentacion_estado_animo.modulo is
+  'Primer segmento lógico normalizado en minúsculas de la ruta desde donde se envió la retroalimentación.';
+comment on column public.retroalimentacion_ideas.modulo is
+  'Primer segmento lógico normalizado en minúsculas de la ruta desde donde se envió la retroalimentación.';
+comment on column public.retroalimentacion_calificaciones.modulo is
+  'Primer segmento lógico normalizado en minúsculas de la ruta desde donde se envió la retroalimentación.';
 
 create or replace view public.v_retroalimentacion_unificada as
   select

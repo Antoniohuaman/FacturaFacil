@@ -7,7 +7,10 @@ create table if not exists public.retroalimentacion_estado_animo (
   created_at timestamptz not null default now(),
   usuario_id text not null,
   usuario_nombre text not null,
+  usuario_correo text,
   empresa_id text not null,
+  empresa_ruc text,
+  empresa_razon_social text,
   empresa_nombre text not null,
   establecimiento_id text,
   establecimiento_nombre text,
@@ -18,7 +21,7 @@ create table if not exists public.retroalimentacion_estado_animo (
 );
 
 comment on table public.retroalimentacion_estado_animo is 'Registra el estado de ánimo diario enviado desde SenciYo.';
-comment on column public.retroalimentacion_estado_animo.modulo is 'Primer segmento lógico de la ruta desde donde se envió la retroalimentación.';
+comment on column public.retroalimentacion_estado_animo.modulo is 'Primer segmento lógico normalizado en minúsculas de la ruta desde donde se envió la retroalimentación.';
 comment on column public.retroalimentacion_estado_animo.ruta is 'Ruta completa del frontend al momento del envío.';
 
 create index if not exists idx_retro_estado_animo_created_at
@@ -33,7 +36,10 @@ create table if not exists public.retroalimentacion_ideas (
   created_at timestamptz not null default now(),
   usuario_id text not null,
   usuario_nombre text not null,
+  usuario_correo text,
   empresa_id text not null,
+  empresa_ruc text,
+  empresa_razon_social text,
   empresa_nombre text not null,
   establecimiento_id text,
   establecimiento_nombre text,
@@ -56,7 +62,10 @@ create table if not exists public.retroalimentacion_calificaciones (
   created_at timestamptz not null default now(),
   usuario_id text not null,
   usuario_nombre text not null,
+  usuario_correo text,
   empresa_id text not null,
+  empresa_ruc text,
+  empresa_razon_social text,
   empresa_nombre text not null,
   establecimiento_id text,
   establecimiento_nombre text,

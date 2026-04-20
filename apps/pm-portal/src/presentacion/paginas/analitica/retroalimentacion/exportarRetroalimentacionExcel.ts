@@ -36,9 +36,24 @@ const COLUMNAS_EXPORTACION: ColumnaExportacionRetroalimentacion[] = [
     obtenerValor: (registro) => registro.usuario_nombre
   },
   {
+    encabezado: 'Usuario correo',
+    ancho: 32,
+    obtenerValor: (registro) => registro.usuario_correo ?? ''
+  },
+  {
     encabezado: 'Empresa',
     ancho: 28,
     obtenerValor: (registro) => registro.empresa_nombre
+  },
+  {
+    encabezado: 'Empresa RUC',
+    ancho: 18,
+    obtenerValor: (registro) => registro.empresa_ruc ?? ''
+  },
+  {
+    encabezado: 'Empresa razón social',
+    ancho: 36,
+    obtenerValor: (registro) => registro.empresa_razon_social ?? ''
   },
   {
     encabezado: 'Establecimiento',
