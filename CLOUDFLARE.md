@@ -7,6 +7,11 @@ Las apps dependen del workspace package `@facturafacil/analytics-events` (en `pa
 Si se configura Root Directory como el directorio de la app (`apps/senciyo/` o `apps/pm-portal/`),
 el `npm install` de Cloudflare no instalará el workspace completo y el build fallará.
 
+El repositorio no debe exponer un `wrangler.toml` en la raíz para los deploys Git de Pages.
+Cloudflare lo autodetecta y puede sobrescribir el output esperado de otra app del monorepo.
+PM Portal mantiene su flujo local de `wrangler pages dev` invocando explícitamente
+`apps/pm-portal/dist` y sus flags de desarrollo desde `npm run dev:pm:cf`.
+
 ### SenciYo
 
 | Parámetro | Valor |
@@ -24,6 +29,14 @@ el `npm install` de Cloudflare no instalará el workspace completo y el build fa
 | Build command | `npm run build:pm` |
 | Output directory | `apps/pm-portal/dist` |
 | Node.js version | 22 |
+
+Para desarrollo local con Pages Functions, PM Portal usa:
+
+- Script: `npm run dev:pm:cf`
+- Static directory: `apps/pm-portal/dist`
+- Wrangler flags: `--compatibility-date 2026-03-07 --ip 127.0.0.1 --port 8788 --local-protocol http`
+- Functions directory: `functions/`
+- Secretos locales: `/.dev.vars`
 
 ---
 
