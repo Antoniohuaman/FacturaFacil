@@ -1474,10 +1474,6 @@ const EmisionTradicional = () => {
             >
               <div className="max-w-7xl mx-auto p-3 md:p-4 space-y-3">
 
-            <div className="flex justify-end">
-              <AccesoGuiaContextual tourId={tourPrimeraVenta.id} />
-            </div>
-
             {!isCajaOpen && (
               <div data-tour="primera-venta-caja">
                 <BloqueoCajaCerrada
@@ -1507,6 +1503,12 @@ const EmisionTradicional = () => {
                   isCreditMethod={isCreditPaymentSelection}
                   creditDueDate={creditDueDateForForm || null}
                   onOpenFieldsConfig={() => setShowFieldsConfigModal(true)}
+                  accionContextual={(
+                    <AccesoGuiaContextual
+                      tourId={tourPrimeraVenta.id}
+                      className="border-transparent bg-transparent px-2 py-1 text-[12px] font-medium text-slate-600 shadow-none hover:bg-slate-100"
+                    />
+                  )}
                   onVistaPrevia={sidePreview?.togglePane}
                   clienteSeleccionado={clienteSeleccionadoGlobal ?? undefined}
                   onClienteChange={setClienteSeleccionadoGlobal}

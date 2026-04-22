@@ -160,6 +160,7 @@ interface CompactDocumentFormProps {
   // Modal de configuración
   onOpenFieldsConfig?: () => void;
   onVistaPrevia?: () => void;
+  accionContextual?: React.ReactNode;
 
   // Cliente
   clienteSeleccionado?: {
@@ -212,6 +213,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   creditDueDate,
   onOpenFieldsConfig,
   onVistaPrevia,
+  accionContextual,
   clienteSeleccionado,
   onClienteChange,
   fechaEmision,
@@ -791,6 +793,7 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 </button>
               </Tooltip>
             )}
+            {accionContextual}
           </div>
         }
       >
