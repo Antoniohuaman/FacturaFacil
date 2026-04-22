@@ -26,10 +26,11 @@ import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { getRate } from '@/shared/currency';
+import { crearAyudaPasoTemporal } from '@/shared/tour/contenidoAyudaTemporal';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../../../shared/payments/paymentMeans';
 import { AttachmentsSection } from '../components/AttachmentsSection';
 import type { DefinicionTour } from '@/shared/tour';
-import { usarAyudaGuiada, usarTour } from '@/shared/tour';
+import { TourFlotante, usarAyudaGuiada, usarTour } from '@/shared/tour';
 const tolerance = 0.01;
 const UNSET_PAYMENT_AMOUNT = Number.NaN;
 type CobranzaModalContextType = 'emision' | 'cobranzas';
@@ -47,6 +48,13 @@ const TOUR_COBRANZA_MODAL: DefinicionTour = {
       titulo: 'Medios de pago',
       descripcion: 'Selecciona el medio con el que el cliente pagará.',
       posicion: 'abajo',
+      ...crearAyudaPasoTemporal({
+        tituloVideo: 'Como elegir el medio de pago',
+        contenidoLectura: [
+          'Selecciona el medio que mejor representa como el cliente pagara esta operacion.',
+          'Confirma el metodo correcto antes de registrar montos o referencias.',
+        ],
+      }),
     },
     {
       idPaso: 'cobranza-monto',
@@ -54,6 +62,13 @@ const TOUR_COBRANZA_MODAL: DefinicionTour = {
       titulo: 'Monto recibido',
       descripcion: 'Ingresa el monto que está entregando el cliente.',
       posicion: 'abajo',
+      ...crearAyudaPasoTemporal({
+        tituloVideo: 'Como registrar el monto recibido',
+        contenidoLectura: [
+          'Ingresa el monto recibido con cuidado para evitar diferencias innecesarias.',
+          'Si el pago es parcial, revisa que el monto aplicado coincida con lo esperado.',
+        ],
+      }),
     },
     {
       idPaso: 'cobranza-totales',
@@ -61,6 +76,13 @@ const TOUR_COBRANZA_MODAL: DefinicionTour = {
       titulo: 'Totales',
       descripcion: 'Verifica total, recibido y la diferencia.',
       posicion: 'arriba',
+      ...crearAyudaPasoTemporal({
+        tituloVideo: 'Como validar totales en cobranza',
+        contenidoLectura: [
+          'Compara total, recibido y diferencia antes de confirmar el cobro.',
+          'Si hay vuelto o faltante, corrige el monto o la distribucion antes de seguir.',
+        ],
+      }),
     },
     {
       idPaso: 'cobranza-cobrar',
@@ -68,6 +90,13 @@ const TOUR_COBRANZA_MODAL: DefinicionTour = {
       titulo: 'Cobrar',
       descripcion: 'Confirma el cobro para registrar la venta.',
       posicion: 'arriba',
+      ...crearAyudaPasoTemporal({
+        tituloVideo: 'Como confirmar el cobro final',
+        contenidoLectura: [
+          'Usa este boton solo cuando los importes y referencias ya esten validados.',
+          'Al confirmar, el cobro queda registrado dentro del flujo actual de la venta.',
+        ],
+      }),
     },
   ],
 };
@@ -268,7 +297,20 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
 }) => {
   const { formatPrice, availableCurrencies } = useCurrency();
   const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
-  const { tourActivo, iniciarTour, cerrarTour } = usarTour();
+  const {
+    tourActivo,
+    pasoActual,
+    indicePaso,
+    totalPasos,
+    elementoObjetivo,
+    iniciarTour,
+    avanzar,
+    saltarPaso,
+    retroceder,
+    omitir,
+    finalizar,
+    cerrarTour,
+  } = usarTour();
   const intentoTourRef = useRef<number | null>(null);
   const intentosRestantesRef = useRef(0);
   const { state } = useConfigurationContext();
@@ -1176,7 +1218,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={disableBackdropClose ? undefined : onClose} />
 
       <div className="relative mx-4 flex max-h-[94vh] w-full max-w-6xl flex-col rounded-xl border border-slate-100 bg-white shadow-2xl">
@@ -1563,46 +1606,58 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
           </div>
         </div>
 
-        <footer className="border-t border-slate-200 bg-white px-4 py-2">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div
-              className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700"
-              data-tour="cobranza-totales"
-            >
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Total {formatCollectionCurrency(amountToApplyInCollection)}</span>
-              {mode === 'contado' && (
-                <>
-                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Recibido {formatCollectionCurrency(totalRecibido)}</span>
-                  <span className={`rounded-md border px-2.5 py-0.5 ${differenceChipClass}`}>
-                    {differenceChipLabel} {formattedDifference}
-                  </span>
-                </>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={disableBackdropClose}
-                className="rounded-md border border-slate-200 px-3.5 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+          <footer className="border-t border-slate-200 bg-white px-4 py-2">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div
+                className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-700"
+                data-tour="cobranza-totales"
               >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleCobrar}
-                disabled={cobrarDisabled}
-                data-tour="cobranza-cobrar"
-                className={`rounded-md px-4 py-1.5 text-sm font-semibold text-white transition ${
-                  cobrarDisabled ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-              >
-                {cobrarButtonLabel}
-              </button>
+                <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Total {formatCollectionCurrency(amountToApplyInCollection)}</span>
+                {mode === 'contado' && (
+                  <>
+                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5">Recibido {formatCollectionCurrency(totalRecibido)}</span>
+                    <span className={`rounded-md border px-2.5 py-0.5 ${differenceChipClass}`}>
+                      {differenceChipLabel} {formattedDifference}
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={disableBackdropClose}
+                  className="rounded-md border border-slate-200 px-3.5 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCobrar}
+                  disabled={cobrarDisabled}
+                  data-tour="cobranza-cobrar"
+                  className={`rounded-md px-4 py-1.5 text-sm font-semibold text-white transition ${
+                    cobrarDisabled ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
+                >
+                  {cobrarButtonLabel}
+                </button>
+              </div>
             </div>
-          </div>
-        </footer>
+          </footer>
+        </div>
       </div>
-    </div>
+      <TourFlotante
+        paso={pasoActual}
+        indicePaso={indicePaso}
+        totalPasos={totalPasos}
+        elementoObjetivo={elementoObjetivo}
+        onSiguiente={avanzar}
+        onAtras={retroceder}
+        onOmitir={omitir}
+        onSaltarPaso={saltarPaso}
+        onFinalizar={finalizar}
+      />
+    </>
   );
 };

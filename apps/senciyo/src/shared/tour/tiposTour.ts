@@ -13,6 +13,10 @@ export interface PasoTour {
   titulo: string;
   descripcion: string;
   posicion?: PosicionPasoTour;
+  contenidoLectura?: string[];
+  videoUrl?: string;
+  tituloVideo?: string;
+  etiquetaBotonVideo?: string;
 }
 
 export interface DefinicionTour {
