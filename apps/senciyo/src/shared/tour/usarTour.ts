@@ -36,7 +36,7 @@ const resolverPasoDisponible = (
 };
 
 export function useTourGuiado() {
-  const { marcarTourCompletado, marcarTourOmitido } = usarAyudaGuiada();
+  const { ayudaActivada, marcarTourCompletado, marcarTourOmitido } = usarAyudaGuiada();
   const [estado, setEstado] = useState<EstadoTourActivo | null>(null);
   const elementoResaltadoRef = useRef<HTMLElement | null>(null);
 
@@ -67,6 +67,11 @@ export function useTourGuiado() {
 
   const iniciarTour = useCallback(
     (definicion: DefinicionTour) => {
+      if (!ayudaActivada) {
+        cerrarTour();
+        return;
+      }
+
       const primerPaso = resolverPasoDisponible(definicion, 0, 1);
       if (!primerPaso) {
         cerrarTour();
@@ -74,7 +79,7 @@ export function useTourGuiado() {
       }
       aplicarPaso(primerPaso);
     },
-    [aplicarPaso, cerrarTour]
+    [aplicarPaso, ayudaActivada, cerrarTour]
   );
 
   const avanzar = useCallback(() => {
@@ -161,6 +166,12 @@ export function useTourGuiado() {
       window.removeEventListener(EVENTO_SOLICITAR_TOUR, handleSolicitud);
     };
   }, [iniciarTour]);
+
+  useEffect(() => {
+    if (!ayudaActivada && estado) {
+      cerrarTour();
+    }
+  }, [ayudaActivada, cerrarTour, estado]);
 
   useEffect(() => () => limpiarResaltadoActual(), [limpiarResaltadoActual]);
 

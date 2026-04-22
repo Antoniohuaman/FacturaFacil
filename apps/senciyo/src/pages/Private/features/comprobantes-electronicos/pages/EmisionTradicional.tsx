@@ -88,7 +88,7 @@ import type { CreditInstallment, CreditInstallmentDefinition } from '../../../..
 import { calculateCurrencyAwareTotals } from '../shared/core/currencyTotals';
 import { BloqueoCajaCerrada } from '../shared/ui/BloqueoCajaCerrada';
 import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
-import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
+import { AccesoGuiaContextual } from '@/shared/tour';
 import { tourPrimeraVenta } from '../tour/tourPrimeraVenta';
 import { FORMA_PAGO_CREDITO_MANUAL, obtenerEtiquetaTipoComprobante } from '../models/constants';
 import {
@@ -155,8 +155,6 @@ const EmisionTradicional = () => {
   const location = useLocation();
   const abrirCajaButtonRef = useRef<HTMLButtonElement>(null);
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
-  const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
-  const autoTourLanzadoRef = useRef(false);
 
   const noteCreditState = useMemo(() => {
     const state = location.state as any;
@@ -220,23 +218,6 @@ const EmisionTradicional = () => {
     }
     setProductSelectorKey(prev => prev + 1);
   }, [currentEstablecimientoId]);
-
-  useEffect(() => {
-    if (autoTourLanzadoRef.current) {
-      return;
-    }
-    if (!ayudaActivada) {
-      return;
-    }
-    if (
-      estaTourCompletado(tourPrimeraVenta.id, tourPrimeraVenta.version)
-      || estaTourOmitido(tourPrimeraVenta.id, tourPrimeraVenta.version)
-    ) {
-      return;
-    }
-    autoTourLanzadoRef.current = true;
-    solicitarInicioTour(tourPrimeraVenta.id);
-  }, [ayudaActivada, estaTourCompletado, estaTourOmitido]);
 
   // ✅ Estado para modal de configuración de campos
   const [showFieldsConfigModal, setShowFieldsConfigModal] = useState(false);
@@ -1492,6 +1473,10 @@ const EmisionTradicional = () => {
               }}
             >
               <div className="max-w-7xl mx-auto p-3 md:p-4 space-y-3">
+
+            <div className="flex justify-end">
+              <AccesoGuiaContextual tourId={tourPrimeraVenta.id} />
+            </div>
 
             {!isCajaOpen && (
               <div data-tour="primera-venta-caja">

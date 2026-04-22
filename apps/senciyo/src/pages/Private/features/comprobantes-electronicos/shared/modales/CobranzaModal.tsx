@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CreditCard, Plus, Trash2, X } from 'lucide-react';
 import type {
   CartItem,
@@ -30,7 +30,7 @@ import { crearAyudaPasoTemporal } from '@/shared/tour/contenidoAyudaTemporal';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '../../../../../../shared/payments/paymentMeans';
 import { AttachmentsSection } from '../components/AttachmentsSection';
 import type { DefinicionTour } from '@/shared/tour';
-import { TourFlotante, usarAyudaGuiada, usarTour } from '@/shared/tour';
+import { AccesoGuiaContextual, TourFlotante, usarTour } from '@/shared/tour';
 const tolerance = 0.01;
 const UNSET_PAYMENT_AMOUNT = Number.NaN;
 type CobranzaModalContextType = 'emision' | 'cobranzas';
@@ -296,7 +296,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   context = 'emision',
 }) => {
   const { formatPrice, availableCurrencies } = useCurrency();
-  const { ayudaActivada, estaTourCompletado, estaTourOmitido } = usarAyudaGuiada();
   const {
     tourActivo,
     pasoActual,
@@ -311,8 +310,6 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     finalizar,
     cerrarTour,
   } = usarTour();
-  const intentoTourRef = useRef<number | null>(null);
-  const intentosRestantesRef = useRef(0);
   const { state } = useConfigurationContext();
   const { cajas } = state;
   const { status: cajaStatus, aperturaActual } = useCaja();
@@ -1151,69 +1148,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     void handleSubmit('contado');
   }, [handleSubmit]);
 
+  const handleVerGuiaCobranza = useCallback(() => {
+    if (mode !== 'contado') {
+      return;
+    }
+    iniciarTour(TOUR_COBRANZA_MODAL);
+  }, [iniciarTour, mode]);
+
   useEffect(() => {
     if (!isOpen && tourActivo?.id === TOUR_COBRANZA_MODAL.id) {
       cerrarTour();
     }
   }, [cerrarTour, isOpen, tourActivo?.id]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined;
-    }
-    if (!isOpen || mode !== 'contado') {
-      return undefined;
-    }
-    if (!ayudaActivada) {
-      return undefined;
-    }
-    if (tourActivo) {
-      return undefined;
-    }
-    if (
-      estaTourCompletado(TOUR_COBRANZA_MODAL.id, TOUR_COBRANZA_MODAL.version) ||
-      estaTourOmitido(TOUR_COBRANZA_MODAL.id, TOUR_COBRANZA_MODAL.version)
-    ) {
-      return undefined;
-    }
-
-    intentosRestantesRef.current = 8;
-
-    const intentarIniciar = () => {
-      if (!isOpen || mode !== 'contado' || tourActivo) {
-        return;
-      }
-      const elementosListos = TOUR_COBRANZA_MODAL.pasos.every((paso) =>
-        Boolean(document.querySelector(paso.selector))
-      );
-      if (elementosListos) {
-        iniciarTour(TOUR_COBRANZA_MODAL);
-        return;
-      }
-      intentosRestantesRef.current -= 1;
-      if (intentosRestantesRef.current <= 0) {
-        return;
-      }
-      intentoTourRef.current = window.setTimeout(intentarIniciar, 120);
-    };
-
-    intentoTourRef.current = window.setTimeout(intentarIniciar, 60);
-
-    return () => {
-      if (intentoTourRef.current) {
-        window.clearTimeout(intentoTourRef.current);
-        intentoTourRef.current = null;
-      }
-    };
-  }, [
-    ayudaActivada,
-    estaTourCompletado,
-    estaTourOmitido,
-    iniciarTour,
-    isOpen,
-    mode,
-    tourActivo,
-  ]);
 
   if (!isOpen) return null;
 
@@ -1228,9 +1174,17 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Cobranza de {docTypeLabel}</p>
             <h2 className="text-[16px] font-semibold text-slate-900">{''}</h2>
           </div>
-          <button type="button" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100" onClick={onClose} disabled={disableBackdropClose} aria-label="Cerrar">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {mode === 'contado' && (
+              <AccesoGuiaContextual
+                onClick={handleVerGuiaCobranza}
+                className="px-2.5 py-1 text-[11px] shadow-none"
+              />
+            )}
+            <button type="button" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100" onClick={onClose} disabled={disableBackdropClose} aria-label="Cerrar">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         {errorMessage && (

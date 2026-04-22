@@ -9,8 +9,7 @@ import { useConfigurationContext } from '../../pages/Private/features/configurac
 import { useCaja } from '../../pages/Private/features/control-caja/context/CajaContext';
 import { useHeaderNotifications } from '@/shared/notifications/useHeaderNotifications';
 import { AccesoRetroalimentacionHeader } from '@/shared/retroalimentacion';
-import { solicitarInicioTour, usarAyudaGuiada } from '@/shared/tour';
-import { useFeedback } from '@/shared/feedback/useFeedback';
+import { usarAyudaGuiada } from '@/shared/tour';
 import {
   construirNombreCompletoSeguro,
   normalizarCorreo,
@@ -41,8 +40,7 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
   const { state: configuracionState } = useConfigurationContext();
   const { status, aperturaActual, getResumen } = useCaja();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useHeaderNotifications();
-  const { ayudaActivada, cambiarAyudaActivada, reiniciarAyudaGuiada } = usarAyudaGuiada();
-  const feedback = useFeedback();
+  const { ayudaActivada, cambiarAyudaActivada } = usarAyudaGuiada();
 
   const correoSesion = normalizarCorreo(session?.userEmail);
   const usuarioSesion = configuracionState.users.find((usuario) => {
@@ -135,25 +133,6 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
     }
 
     navigate('/');
-  };
-
-  const handleVerGuiaPantalla = () => {
-    if (!ayudaActivada) {
-      return;
-    }
-    if (location.pathname === '/comprobantes/emision') {
-      solicitarInicioTour('primera-venta');
-      setMostrarMenuAyuda(false);
-      return;
-    }
-    feedback.info('Guías disponibles próximamente', 'Ayuda');
-    setMostrarMenuAyuda(false);
-  };
-
-  const handleReiniciarAyuda = () => {
-    reiniciarAyudaGuiada();
-    feedback.success('Ayuda guiada reiniciada', 'Ayuda');
-    setMostrarMenuAyuda(false);
   };
 
   return (
@@ -437,13 +416,8 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
           </button>
 
           {mostrarMenuAyuda && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg shadow-lg py-3 z-50">
-              <div className="px-4 pb-2 border-b border-slate-100 dark:border-gray-700">
-                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Ayuda</h3>
-              </div>
-
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-gray-700">
-                <label className="flex items-center justify-between text-sm text-slate-700 dark:text-gray-200">
+            <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border border-slate-200 bg-white p-3 shadow-lg z-50 dark:border-gray-700 dark:bg-gray-800">
+              <label className="flex items-center justify-between gap-3 text-sm font-medium text-slate-700 dark:text-gray-200">
                   <span>Ayuda guiada</span>
                   <button
                     type="button"
@@ -464,36 +438,6 @@ export default function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProp
                     />
                   </button>
                 </label>
-              </div>
-
-              <div className="px-2 py-2">
-                <button
-                  type="button"
-                  onClick={handleVerGuiaPantalla}
-                  disabled={!ayudaActivada}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${ayudaActivada
-                      ? 'text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700'
-                      : 'text-slate-400 dark:text-gray-500 cursor-not-allowed'
-                    }`}
-                >
-                  Ver guía de esta pantalla
-                </button>
-                {!ayudaActivada && (
-                  <p className="px-3 text-xs text-slate-400 dark:text-gray-500">
-                    Activa “Ayuda guiada” para ver guías.
-                  </p>
-                )}
-              </div>
-
-              <div className="px-2 pb-2">
-                <button
-                  type="button"
-                  onClick={handleReiniciarAyuda}
-                  className="w-full text-left px-3 py-2 rounded-md text-sm text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Reiniciar ayuda guiada
-                </button>
-              </div>
             </div>
           )}
         </div>
