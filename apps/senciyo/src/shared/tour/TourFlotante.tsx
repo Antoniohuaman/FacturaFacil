@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink, Play, Video } from "lucide-react";
+import { BookOpen, ExternalLink, Maximize2, Minimize2, Play, Video } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PasoTour } from "./tiposTour";
 
@@ -160,6 +160,7 @@ export function TourFlotante({
   const [posicion, setPosicion] = useState<PosicionTooltip | null>(null);
   const [modoAyuda, setModoAyuda] = useState<ModoAyuda>("leer");
   const [videoEmbebidoActivo, setVideoEmbebidoActivo] = useState(false);
+  const [videoExpandido, setVideoExpandido] = useState(false);
 
   const contenidoLectura = useMemo(() => obtenerContenidoLectura(paso), [paso]);
   const tieneLectura = contenidoLectura.length > 0;
@@ -173,6 +174,27 @@ export function TourFlotante({
     [paso?.videoUrl]
   );
   const puedeEmbeberVideo = Boolean(urlVideoEmbebido);
+  const mostrandoVideo = tieneVideo && (modoAyuda === "ver" || !tieneLectura);
+  const mostrandoLectura = tieneLectura && (modoAyuda === "leer" || !tieneVideo);
+  const estaReproduciendoVideo = mostrandoVideo && puedeEmbeberVideo && videoEmbebidoActivo;
+  const videoExpandidoActivo = estaReproduciendoVideo && videoExpandido;
+  const mostrarAccionReproducir = puedeEmbeberVideo && !estaReproduciendoVideo;
+  const etiquetaBotonVideo = (() => {
+    const etiquetaConfigurada = paso?.etiquetaBotonVideo?.trim();
+
+    if (!etiquetaConfigurada) {
+      return "Reproducir";
+    }
+
+    return etiquetaConfigurada.toLowerCase() === "ver video" ? "Reproducir" : etiquetaConfigurada;
+  })();
+  const anchoTooltip = videoExpandidoActivo ? 672 : tieneVideo ? 448 : 384;
+  const altoTooltip = videoExpandidoActivo ? 340 : 320;
+  const clasesAnchoTooltip = videoExpandidoActivo
+    ? "w-[42rem] max-w-[96vw]"
+    : tieneVideo
+      ? "w-[28rem] max-w-[95vw]"
+      : "w-[24rem] max-w-[94vw]";
 
   const esUltimoPaso = useMemo(() => indicePaso >= totalPasos - 1, [indicePaso, totalPasos]);
 
@@ -183,14 +205,14 @@ export function TourFlotante({
     }
 
     const rect = elementoObjetivo.getBoundingClientRect();
-    const ancho = contenedorRef.current?.offsetWidth ?? 384;
-    const alto = contenedorRef.current?.offsetHeight ?? 320;
+    const ancho = contenedorRef.current?.offsetWidth ?? anchoTooltip;
+    const alto = contenedorRef.current?.offsetHeight ?? altoTooltip;
     setPosicion(calcularPosicion(rect, ancho, alto, paso?.posicion));
-  }, [elementoObjetivo, paso?.posicion]);
+  }, [altoTooltip, anchoTooltip, elementoObjetivo, paso?.posicion]);
 
   useLayoutEffect(() => {
     actualizarPosicion();
-  }, [actualizarPosicion, modoAyuda, paso, videoEmbebidoActivo]);
+  }, [actualizarPosicion, modoAyuda, paso, videoEmbebidoActivo, videoExpandidoActivo]);
 
   useEffect(() => {
     setModoAyuda(resolverModoInicial(tieneLectura, tieneVideo));
@@ -198,6 +220,7 @@ export function TourFlotante({
 
   useEffect(() => {
     setVideoEmbebidoActivo(false);
+    setVideoExpandido(false);
   }, [paso?.idPaso]);
 
   useEffect(() => {
@@ -205,6 +228,12 @@ export function TourFlotante({
       setVideoEmbebidoActivo(false);
     }
   }, [modoAyuda, videoEmbebidoActivo]);
+
+  useEffect(() => {
+    if (!videoEmbebidoActivo && videoExpandido) {
+      setVideoExpandido(false);
+    }
+  }, [videoEmbebidoActivo, videoExpandido]);
 
   useEffect(() => {
     if (!paso) {
@@ -238,16 +267,13 @@ export function TourFlotante({
 
   const posicionSegura = posicion ?? { top: 12, left: 12 };
   const mostrarSelectorModo = tieneLectura && tieneVideo;
-  const mostrandoVideo = tieneVideo && (modoAyuda === "ver" || !tieneLectura);
-  const mostrandoLectura = tieneLectura && (modoAyuda === "leer" || !tieneVideo);
-  const estaReproduciendoVideo = mostrandoVideo && puedeEmbeberVideo && videoEmbebidoActivo;
 
   return (
     <>
       <div className="fixed inset-0 bg-slate-900/10 pointer-events-none z-[70]" aria-hidden="true" />
       <div
         ref={contenedorRef}
-        className="fixed z-[80] w-[24rem] max-w-[94vw] rounded-xl border border-slate-200 bg-white shadow-xl p-4 text-sm text-slate-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+        className={`fixed z-[80] rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-xl transition-[width,max-width] duration-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 ${clasesAnchoTooltip}`}
         style={{ top: posicionSegura.top, left: posicionSegura.left }}
         role="dialog"
         aria-label="Ayuda guiada"
@@ -298,9 +324,9 @@ export function TourFlotante({
 
             {mostrandoVideo && paso.videoUrl && (
               <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                <div className="p-3">
+                <div className="p-2.5 sm:p-3">
                   {estaReproduciendoVideo ? (
-                    <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950 shadow-sm dark:border-gray-700">
+                    <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950 shadow-sm transition-all duration-200 dark:border-gray-700">
                       <div className="aspect-video w-full">
                         <iframe
                           src={urlVideoEmbebido ?? undefined}
@@ -346,39 +372,46 @@ export function TourFlotante({
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-red-500">Ver</p>
-                        <h4 className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
                           {paso.tituloVideo ?? "Video rapido del paso"}
                         </h4>
                         <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-gray-400">
                           {puedeEmbeberVideo
-                            ? "Reproduce este paso dentro del tour para seguir en contexto sin salir del sistema."
+                            ? "Reproduce este paso aqui mismo sin salir del sistema."
                             : "No pudimos preparar una vista embebida para este enlace. Puedes abrirlo externamente sin romper el flujo."}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <div className="min-h-[20px] text-[11px] font-medium text-slate-500 dark:text-gray-400">
-                      {estaReproduciendoVideo ? "Reproduciendo dentro del tour" : "Video contextual del paso"}
-                    </div>
+                  <div className={`mt-2.5 flex gap-2 ${estaReproduciendoVideo ? "items-center justify-between" : "justify-end"}`}>
+                    {estaReproduciendoVideo && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoExpandido((valorActual) => !valorActual)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                        aria-label={videoExpandidoActivo ? "Reducir video" : "Expandir video"}
+                      >
+                        {videoExpandidoActivo ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                        {videoExpandidoActivo ? "Reducir video" : "Expandir video"}
+                      </button>
+                    )}
                     <div className="flex flex-wrap justify-end gap-2">
-                      {puedeEmbeberVideo ? (
+                      {mostrarAccionReproducir ? (
                         <button
                           type="button"
                           onClick={() => setVideoEmbebidoActivo(true)}
                           className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-700"
                         >
                           <Play className="h-3.5 w-3.5" />
-                          {paso.etiquetaBotonVideo ?? "Ver video"}
+                          {etiquetaBotonVideo}
                         </button>
-                      ) : (
+                      ) : !puedeEmbeberVideo ? (
                         <span className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 dark:border-gray-600 dark:text-gray-300">
                           <Video className="h-3.5 w-3.5" />
                           Embed no disponible
                         </span>
-                      )}
+                      ) : null}
                       <a
                         href={paso.videoUrl}
                         target="_blank"
