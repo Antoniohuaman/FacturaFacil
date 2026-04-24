@@ -27,7 +27,8 @@ const esHostLocal = (): boolean =>
   typeof window !== "undefined" && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 const normalizarSampleRateReplay = (valor: string | undefined): number => {
-  const sampleRate = Number(valor ?? '1');
+  const valorNormalizado = valor?.trim();
+  const sampleRate = Number(valorNormalizado === undefined || valorNormalizado === '' ? '1' : valorNormalizado);
 
   if (!Number.isFinite(sampleRate)) {
     return 1;
