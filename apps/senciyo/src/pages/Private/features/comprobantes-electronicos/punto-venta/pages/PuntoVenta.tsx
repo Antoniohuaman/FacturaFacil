@@ -36,7 +36,7 @@ import {
 import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 const BLANK_QR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
-const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION = 'analitica_primera_venta_completada';
+const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION_BASE = 'analitica_primera_venta_completada';
 
 const PuntoVenta = () => {
   const { state: configState } = useConfigurationContext();
@@ -128,6 +128,15 @@ const PuntoVenta = () => {
 
   const currentCompanyId = useCurrentCompanyId();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const llavePrimeraVentaCompletadaSesion = useMemo(
+    () => [
+      LLAVE_PRIMERA_VENTA_COMPLETADA_SESION_BASE,
+      currentCompanyId || 'sin_empresa',
+      currentEstablecimientoId || 'sin_establecimiento',
+      'pos',
+    ].join(':'),
+    [currentCompanyId, currentEstablecimientoId],
+  );
   const borradorHabilitado = Boolean(currentCompanyId && currentEstablecimientoId);
   const claveBorradorEnProgreso = useMemo(() => crearClaveBorradorEnProgreso({
     app: 'facturafacil',
@@ -215,13 +224,13 @@ const PuntoVenta = () => {
       return;
     }
 
-    if (window.sessionStorage.getItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION) === '1') {
+    if (window.sessionStorage.getItem(llavePrimeraVentaCompletadaSesion) === '1') {
       return;
     }
 
     registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'pos' });
-    window.sessionStorage.setItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION, '1');
-  }, [entornoAnalitica, showSuccessModal]);
+    window.sessionStorage.setItem(llavePrimeraVentaCompletadaSesion, '1');
+  }, [entornoAnalitica, llavePrimeraVentaCompletadaSesion, showSuccessModal]);
 
   const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
 

@@ -7,6 +7,7 @@ import { useAuth } from '../hooks';
 import type { LoginFormData } from '../schemas/login.schema';
 import { AUTH_PATHS } from '../utils/path';
 import { useTransicionIngresoStore } from '../../../../../shared/ui/transiciones/useTransicionIngresoStore';
+import { registrarInicioSesionExitoso } from '@/shared/analitica/analitica';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -32,7 +33,10 @@ export function LoginPage() {
 
   const handleLogin = async (data: LoginFormData) => {
     try {
-      await login(data);
+      const result = await login(data);
+      if (result.success) {
+        registrarInicioSesionExitoso();
+      }
       // La navegación se maneja en el useEffect anterior
     } catch (err) {
       // El error ya está manejado en el AuthProvider

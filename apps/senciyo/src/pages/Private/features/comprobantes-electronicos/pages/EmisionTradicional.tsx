@@ -112,7 +112,7 @@ const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInsta
 
 const CREDIT_SCHEDULE_TOLERANCE = 0.01;
 const TOLERANCIA_CREDITO_MANUAL = 0.01;
-const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION = 'analitica_primera_venta_completada';
+const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION_BASE = 'analitica_primera_venta_completada';
 
 type ClienteSeleccionadoEmision = {
   clienteId?: number | string;
@@ -225,6 +225,15 @@ const EmisionTradicional = () => {
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { session } = useUserSession();
+  const llavePrimeraVentaCompletadaSesion = useMemo(
+    () => [
+      LLAVE_PRIMERA_VENTA_COMPLETADA_SESION_BASE,
+      session?.currentCompanyId ?? 'sin_empresa',
+      currentEstablecimientoId || 'sin_establecimiento',
+      'emision',
+    ].join(':'),
+    [currentEstablecimientoId, session?.currentCompanyId],
+  );
   const entornoAnalitica = derivarEntornoAnaliticoEmpresa(session?.currentCompany) ?? 'demo';
   const {
     cartItems,
@@ -446,13 +455,13 @@ const EmisionTradicional = () => {
       return;
     }
 
-    if (window.sessionStorage.getItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION) === '1') {
+    if (window.sessionStorage.getItem(llavePrimeraVentaCompletadaSesion) === '1') {
       return;
     }
 
     registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'emision' });
-    window.sessionStorage.setItem(LLAVE_PRIMERA_VENTA_COMPLETADA_SESION, '1');
-  }, [entornoAnalitica, showSuccessModal]);
+    window.sessionStorage.setItem(llavePrimeraVentaCompletadaSesion, '1');
+  }, [entornoAnalitica, llavePrimeraVentaCompletadaSesion, showSuccessModal]);
 
   const { createCliente } = useClientes();
   const { allProducts: catalogProducts } = useProductStore();

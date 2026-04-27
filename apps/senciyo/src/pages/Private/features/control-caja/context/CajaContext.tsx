@@ -17,6 +17,11 @@ import { useCurrentCompanyId, useCurrentEstablecimientoId, useUserSession } from
 import { resolveActiveCajaForEstablecimiento, NoActiveCajaError } from "../../configuracion-sistema/utilidades/seleccionCaja";
 import type { MedioPago } from "../../../../../shared/payments/medioPago";
 import { obtenerUsuarioDesdeSesion, tienePermiso } from "../../configuracion-sistema/utilidades/permisos";
+import {
+  registrarCajaAbiertaExitoso,
+  registrarCajaCerradaExitoso,
+  registrarMovimientoCajaRegistrado,
+} from "@/shared/analitica/analitica";
 
 type PersistedMovimiento = Omit<Movimiento, 'fecha'> & { fecha: string };
 
@@ -55,6 +60,18 @@ const deserializeMovimientos = (raw: PersistedMovimiento[] | null | undefined): 
 
 const sortMovimientosByFechaDesc = (movimientos: Movimiento[]): Movimiento[] =>
   [...movimientos].sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+
+const mapearTipoMovimientoAnalitica = (tipo: Movimiento['tipo']): 'ingreso' | 'egreso' | 'otro' => {
+  if (tipo === 'Ingreso') {
+    return 'ingreso';
+  }
+
+  if (tipo === 'Egreso') {
+    return 'egreso';
+  }
+
+  return 'otro';
+};
 
 interface CajaContextValue {
   // Estado de caja
@@ -313,6 +330,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       // TODO: Actualización de flags (tieneHistorial, tieneSesionAbierta) debe hacerse
       // desde la página que tiene acceso a empresaId/establecimientoId
 
+      registrarCajaAbiertaExitoso();
+
       showToast(
         "success",
         "¡Caja abierta!",
@@ -369,6 +388,8 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       // TODO: Actualización de flag tieneSesionAbierta debe hacerse desde la página
       // que tiene acceso a empresaId/establecimientoId
 
+      registrarCajaCerradaExitoso();
+
       showToast(
         "success",
         "¡Caja cerrada!",
@@ -417,6 +438,10 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
 
       setMovimientos((prev) => [nuevoMovimiento, ...prev]);
       setHistorialMovimientos((prev) => [nuevoMovimiento, ...prev]);
+
+      registrarMovimientoCajaRegistrado({
+        tipoMovimiento: mapearTipoMovimientoAnalitica(nuevoMovimiento.tipo),
+      });
 
       showToast(
         "success",

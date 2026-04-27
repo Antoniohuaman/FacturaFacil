@@ -146,7 +146,7 @@ SenciYo emite (en `src/shared/analitica/eventosAnalitica.ts`):
 ```
 registro_usuario_completado, venta_completada, primera_venta_completada,
 producto_creado_exitoso, cliente_creado_exitoso, importacion_completada,
-ruc_actualizado_exitoso
+registro_empresa_exitoso
 ```
 
 PM Portal consulta PostHog usando (en `apps/pm-portal/functions/api/eventos-posthog-kpi.ts`):

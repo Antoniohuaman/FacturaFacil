@@ -219,7 +219,7 @@ El **RUC** (Registro Único de Contribuyente peruano, 11 dígitos) **no se usa c
 
 - Está definido como `ruc: string` en `Empresa`, `Workspace`, `Company` y `RegisterData`.
 - Se **valida contra SUNAT** en formularios (`ConfiguracionEmpresa.tsx`).
-- Se **puede actualizar** (transición de RUC demo vacío a RUC real con `registrarRucActualizadoExitoso`).
+- El alta de una empresa real se registra desde el flujo de creación con `registrarRegistroEmpresaExitoso`.
 - Un cambio de RUC no genera un nuevo ID de empresa.
 
 **Veredicto:** El RUC debe ser **propiedad analítica (user/group property)** de la empresa, nunca su identificador técnico.
@@ -370,12 +370,12 @@ El negocio describe que "un usuario entra con rol demo y después pasa a rol rea
 - **`configuracionSunatEmpresa.entornoSunat`** queda como `'TESTING'` o `'PRODUCTION'` según lo que elija el usuario.
 - **En este punto:** la empresa tiene datos reales pero el entorno puede seguir en TESTING.
 
-**Paso 5 — Transición de TESTING a PRODUCTION** (`ConfiguracionEmpresa.tsx:327-340`)
-- El usuario edita la configuración y cambia `entornoSunat` de `'TESTING'` a `'PRODUCTION'`.
-- Se detecta el cambio: `veniaDeRucDemo = company?.configuracionSunatEmpresa?.entornoSunat === 'TESTING' && updatedCompany.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION'`.
-- Evento analítico: `registrarRucActualizadoExitoso({ entorno: 'produccion', veniaDeRucDemo: true })`.
-- Deduplicación: `localStorage key: analytics_ruc_actualizado:${updatedCompany.id}`.
-- **En este punto:** la empresa ya se considera "real" para fines analíticos. Los eventos subsiguientes envían `entorno: 'produccion'`.
+**Paso 5 — Registro exitoso de empresa real**
+- El usuario completa el flujo `create_workspace` con formulario vacío.
+- La empresa nueva queda persistida con su workspace y establecimiento inicial.
+- Evento analítico: `registrarRegistroEmpresaExitoso()`.
+- Payload específico: `{ entorno: 'produccion', origen: 'formulario_empresa' }`.
+- **En este punto:** la empresa real ya existe para fines analíticos y los eventos subsiguientes heredan el contexto global de empresa.
 
 ### 8.3 Derivación de `entornoAnalitica`
 
@@ -671,14 +671,14 @@ Las propiedades existentes (`entorno`, `origen`, `origenVenta`, etc.) deben mant
 | `entornoSunat === 'TESTING'` | Ejecutar `identify` y `group` normalmente, pero con la propiedad `entorno_sunat: 'TESTING'`. Filtrar en dashboards. |
 | Modo desarrollo (localhost/dev) | No enviar eventos (ya está implementado en `analitica.ts`). |
 
-### 14.7 Cómo reflejar el cambio de demo a real en analytics
+### 14.7 Cómo reflejar el registro de empresa real en analytics
 
 1. **Antes de configurar empresa:** El usuario está identificado (`user_id`), pero no tiene grupo empresa (`group` no se ejecuta si `ruc === ''`).
-2. **Al configurar empresa (RUC completado):** Se ejecuta `posthog.group('company', companyId, { ruc, razon_social, entorno_sunat })`. A partir de este punto, todos los eventos llevan contexto de empresa.
-3. **Al cambiar entorno SUNAT de TESTING a PRODUCTION:** Se actualiza la propiedad del grupo: `posthog.group('company', companyId, { entorno_sunat: 'PRODUCTION' })`. Se dispara el evento existente `ruc_actualizado_exitoso`.
+2. **Al registrar una empresa real nueva:** Se ejecuta el flujo de creación de workspace y se dispara `registro_empresa_exitoso`.
+3. **Después de sincronizar identidad y contexto:** Los eventos posteriores ya llevan `company_id`, `company_name` y `entorno` desde la capa global.
 
 Este modelo permite construir funnels como:
-- Registro → Primera configuración de empresa → Primera venta → Cambio a producción.
+- Registro → Registro de empresa real → Primera venta.
 - Separar métricas de empresas TESTING vs PRODUCTION.
 - Identificar usuarios que nunca completan la configuración de empresa.
 

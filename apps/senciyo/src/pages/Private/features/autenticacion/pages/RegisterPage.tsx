@@ -20,7 +20,7 @@ import { registrarRegistroUsuarioCompletado } from '@/shared/analitica/analitica
  */
 
 export function RegisterPage() {
-  const REGISTRO_ANALITICA_LLAVE = 'analytics_registro_ok';
+  const REGISTRO_ANALITICA_LLAVE_BASE = 'analytics_registro_ok';
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +65,10 @@ export function RegisterPage() {
       });
 
       if (loginResult.success) {
-        if (typeof window !== 'undefined' && window.localStorage.getItem(REGISTRO_ANALITICA_LLAVE) !== '1') {
+        const registroAnaliticaKey = `${REGISTRO_ANALITICA_LLAVE_BASE}:${data.email.trim().toLowerCase()}`;
+        if (typeof window !== 'undefined' && window.localStorage.getItem(registroAnaliticaKey) !== '1') {
           registrarRegistroUsuarioCompletado({ entorno: 'demo' });
-          window.localStorage.setItem(REGISTRO_ANALITICA_LLAVE, '1');
+          window.localStorage.setItem(registroAnaliticaKey, '1');
         }
         // Login exitoso, navegar al dashboard principal
         if (!activa) {

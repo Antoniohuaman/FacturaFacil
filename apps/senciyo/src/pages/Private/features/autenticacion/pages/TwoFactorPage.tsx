@@ -8,6 +8,7 @@ import { AuthLayout } from '../layouts/AuthLayout';
 import { twoFactorSchema, type TwoFactorFormData } from '../schemas';
 import { useAuth } from '../hooks/useAuth';
 import { AUTH_PATHS } from '../utils/path';
+import { registrarInicioSesionExitoso } from '@/shared/analitica/analitica';
 
 /**
  * ============================================
@@ -53,6 +54,7 @@ export function TwoFactorPage() {
       const result = await verify2FA(data.otp);
 
       if (result.success) {
+        registrarInicioSesionExitoso();
         navigate(AUTH_PATHS.DASHBOARD, { replace: true });
       } else {
         setError(result.error || 'Código incorrecto');

@@ -332,6 +332,40 @@ export function registrarRegistroUsuarioCompletado(entrada: { entorno: EntornoAn
   );
 }
 
+export function registrarRegistroEmpresaExitoso(): void {
+  capturarEvento(EVENTOS_ANALITICA.REGISTRO_EMPRESA_EXITOSO, {
+    entorno: 'produccion',
+    origen: 'formulario_empresa',
+  });
+}
+
+export function registrarInicioSesionExitoso(): void {
+  capturarEvento(EVENTOS_ANALITICA.INICIO_SESION_EXITOSO, {
+    origen: 'formulario_login',
+  });
+}
+
+export function registrarCajaAbiertaExitoso(): void {
+  capturarEvento(EVENTOS_ANALITICA.CAJA_ABIERTA_EXITOSO, {
+    origen: 'caja',
+  });
+}
+
+export function registrarMovimientoCajaRegistrado(entrada?: {
+  tipoMovimiento?: 'ingreso' | 'egreso' | 'otro';
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.MOVIMIENTO_CAJA_REGISTRADO, {
+    origen: 'caja',
+    ...(entrada?.tipoMovimiento ? { tipo_movimiento: entrada.tipoMovimiento } : {}),
+  });
+}
+
+export function registrarCajaCerradaExitoso(): void {
+  capturarEvento(EVENTOS_ANALITICA.CAJA_CERRADA_EXITOSO, {
+    origen: 'caja',
+  });
+}
+
 export function registrarVentaCompletada(entrada: { entorno: EntornoAnalitica; origenVenta: OrigenVenta }): void {
   capturarEvento(EVENTOS_ANALITICA.VENTA_COMPLETADA, entrada);
 }
@@ -364,13 +398,6 @@ export function registrarImportacionCompletada(entrada: {
   erroresRango: ErroresRangoImportacion;
 }): void {
   capturarEvento(EVENTOS_ANALITICA.IMPORTACION_COMPLETADA, entrada);
-}
-
-export function registrarRucActualizadoExitoso(entrada: {
-  entorno: EntornoAnalitica;
-  veniaDeRucDemo: true;
-}): void {
-  capturarEvento(EVENTOS_ANALITICA.RUC_ACTUALIZADO_EXITOSO, entrada);
 }
 
 export function registrarEventoTecnico(nombreEvento: string, propiedades?: PropiedadesAnalitica): void {

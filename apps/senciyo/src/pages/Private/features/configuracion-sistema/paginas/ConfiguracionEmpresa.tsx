@@ -30,6 +30,7 @@ import {
   esRucEmpresaDemo,
   obtenerEtiquetaEntornoEmpresa,
 } from '@/shared/empresas/entornoEmpresa';
+import { registrarRegistroEmpresaExitoso } from '@/shared/analitica/analitica';
 
 
 interface CompanyFormData {
@@ -361,6 +362,8 @@ export function CompanyConfiguration() {
         if (resultadoInicializacion.impuestos.length) {
           dispatch({ type: 'SET_TAXES', payload: resultadoInicializacion.impuestos });
         }
+
+        registrarRegistroEmpresaExitoso();
 
         navigate(rutaRetorno);
         return;
