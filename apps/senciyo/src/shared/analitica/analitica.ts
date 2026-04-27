@@ -138,8 +138,9 @@ const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): Propiedad
     propiedadesBase.user_role = contextoIdentidadActual.userRole;
   }
 
-  if (contextoIdentidadActual?.entornoSunat) {
-    propiedadesBase.entorno_sunat = contextoIdentidadActual.entornoSunat;
+  if (contextoIdentidadActual?.entornoEmision) {
+    propiedadesBase.entorno_emision = contextoIdentidadActual.entornoEmision;
+    propiedadesBase.entorno_sunat = contextoIdentidadActual.entornoEmision;
   }
 
   if (contextoIdentidadActual?.entorno) {
@@ -168,7 +169,8 @@ const construirPropiedadesUsuario = (contexto: ContextoIdentidadAnalitica): Reco
   user_role: contexto.userRole,
   user_status: contexto.userStatus,
   entorno: contexto.entorno,
-  entorno_sunat: contexto.entornoSunat,
+  entorno_emision: contexto.entornoEmision,
+  entorno_sunat: contexto.entornoEmision,
   company_configured: contexto.companyConfigured,
   company_id: contexto.companyId,
   company_name: contexto.companyName,
@@ -234,7 +236,8 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
       posthog.group('company', contexto.companyId, limpiarValoresIndefinidos({
         company_id: contexto.companyId,
         company_name: contexto.companyName,
-        entorno_sunat: contexto.entornoSunat,
+        entorno_emision: contexto.entornoEmision,
+        entorno_sunat: contexto.entornoEmision,
         entorno: contexto.entorno,
         company_configured: contexto.companyConfigured,
       }));

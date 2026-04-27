@@ -5,6 +5,10 @@ import type {
 } from '../../pages/Private/features/autenticacion/types/auth.types';
 import type { Company } from '../../pages/Private/features/configuracion-sistema/modelos/Company';
 import type { UserSession } from '../../contexts/UserSessionContext';
+import {
+  derivarEntornoAnaliticoEmpresa,
+  obtenerEntornoTecnicoEmisionEmpresa,
+} from '../empresas/entornoEmpresa';
 
 export interface ContextoIdentidadAnalitica {
   userId: string;
@@ -15,7 +19,7 @@ export interface ContextoIdentidadAnalitica {
   companyConfigured: boolean;
   establecimientoId?: string;
   entorno?: 'demo' | 'produccion';
-  entornoSunat?: 'TESTING' | 'PRODUCTION';
+  entornoEmision?: 'TESTING' | 'PRODUCTION';
 }
 
 interface ResolverContextoAnaliticoEntrada {
@@ -42,18 +46,8 @@ const obtenerCompanyIdCanonico = (
   return tenantId || undefined;
 };
 
-const obtenerEntornoSunat = (company: Company | null | undefined): 'TESTING' | 'PRODUCTION' | undefined => {
-  return company?.configuracionSunatEmpresa?.entornoSunat;
-};
-
-const derivarEntornoAnalitico = (
-  entornoSunat: 'TESTING' | 'PRODUCTION' | undefined,
-): 'demo' | 'produccion' | undefined => {
-  if (!entornoSunat) {
-    return undefined;
-  }
-
-  return entornoSunat === 'PRODUCTION' ? 'produccion' : 'demo';
+const obtenerEntornoEmision = (company: Company | null | undefined): 'TESTING' | 'PRODUCTION' | undefined => {
+  return obtenerEntornoTecnicoEmisionEmpresa(company);
 };
 
 const obtenerNombreEmpresaSeguro = (company: EmpresaAnalitica | null | undefined): string | undefined => {
@@ -117,8 +111,8 @@ export function resolverContextoIdentidadAnalitica({
   const companyId = obtenerCompanyIdCanonico(session, tenantId);
   const currentCompany = session?.currentCompany;
   const contextoEmpresa = resolverContextoEmpresaAnalitica(companyId, currentCompany);
-  const entornoSunat = obtenerEntornoSunat(currentCompany);
-  const entorno = derivarEntornoAnalitico(entornoSunat);
+  const entornoEmision = obtenerEntornoEmision(currentCompany);
+  const entorno = derivarEntornoAnaliticoEmpresa(currentCompany);
   const establecimientoId = session?.currentEstablecimientoId || activeEstablecimientoId || undefined;
 
   return {
@@ -130,6 +124,6 @@ export function resolverContextoIdentidadAnalitica({
     companyConfigured: contextoEmpresa.companyConfigured,
     establecimientoId,
     entorno,
-    entornoSunat,
+    entornoEmision,
   };
 }

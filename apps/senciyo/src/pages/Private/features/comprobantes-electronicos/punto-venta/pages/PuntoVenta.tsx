@@ -33,6 +33,7 @@ import {
   registrarPrimeraVentaCompletada,
   registrarVentaCompletada,
 } from '@/shared/analitica/analitica';
+import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 const BLANK_QR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION = 'analitica_primera_venta_completada';
@@ -201,10 +202,7 @@ const PuntoVenta = () => {
     limpiarBorradorEnProgreso();
   }, [limpiarBorradorEnProgreso, showSuccessModal]);
 
-  const entornoAnalitica =
-    configState.company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-      ? 'produccion'
-      : 'demo';
+  const entornoAnalitica = derivarEntornoAnaliticoEmpresa(configState.company) ?? 'demo';
 
   useEffect(() => {
     if (!showSuccessModal) {

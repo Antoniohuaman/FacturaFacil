@@ -12,6 +12,7 @@ import { useCurrentEstablecimientoId, useUserSession } from '../../../../../../c
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getAvailableStockForUnit } from '../../../../../../shared/inventory/stockGateway';
 import { registrarProductoCreadoExitoso } from '../../../../../../shared/analitica/analitica';
+import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 interface Product {
   id: string;
@@ -169,10 +170,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
 
   const handleProductCreated = useCallback((productData: ProductInput) => {
     const created = addProduct(productData);
-    const entornoAnalitica =
-      session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-        ? 'produccion'
-        : 'demo';
+    const entornoAnalitica = derivarEntornoAnaliticoEmpresa(session?.currentCompany) ?? 'demo';
     registrarProductoCreadoExitoso({ entorno: entornoAnalitica, origen: 'emision_inline' });
     const selectorProduct = mapCatalogProductToSelectorProduct(created);
     onAddProducts([{ product: selectorProduct, quantity: 1 }]);
@@ -185,7 +183,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
-  }, [addProduct, mapCatalogProductToSelectorProduct, onAddProducts, session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat]);
+  }, [addProduct, mapCatalogProductToSelectorProduct, onAddProducts, session?.currentCompany]);
 
 
   // Intelligent search with prioritization

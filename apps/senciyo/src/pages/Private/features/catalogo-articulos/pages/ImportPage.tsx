@@ -7,6 +7,7 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { parseExcelFile, exportImportErrors, type ImportResult } from '../utils/excelHelpers';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { registrarImportacionCompletada } from '../../../../../shared/analitica/analitica';
+import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 type ImportStep = 'select' | 'preview' | 'result';
 
@@ -79,10 +80,7 @@ const ImportPage: React.FC = () => {
 
     try {
       const result = importProducts(importResult.filasValidas as Parameters<typeof importProducts>[0]);
-      const entornoAnalitica =
-        session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-          ? 'produccion'
-          : 'demo';
+      const entornoAnalitica = derivarEntornoAnaliticoEmpresa(session?.currentCompany) ?? 'demo';
       const errores = importResult.filasInvalidas.length;
       registrarImportacionCompletada({
         entorno: entornoAnalitica,

@@ -10,6 +10,7 @@ import type {
 } from '../modelos/Series';
 import { SUNAT_DOCUMENT_TYPES } from '../modelos/Series';
 import { validateSeriesCodeForDocumentType } from '../utilidades/catalogoSeries';
+import { obtenerEntornoTecnicoEmisionEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 interface UseSeriesReturn {
   series: Series[];
@@ -197,6 +198,7 @@ export function useSeries(): UseSeriesReturn {
 
   const series = state.series;
   const documentTypes = SUNAT_DOCUMENT_TYPES;
+  const environmentTypePorDefecto = obtenerEntornoTecnicoEmisionEmpresa(state.company) ?? 'TESTING';
 
   // Load series
   const loadSeries = useCallback(async () => {
@@ -252,7 +254,7 @@ export function useSeries(): UseSeriesReturn {
         configuration: data.configuration,
         sunatConfiguration: {
           isElectronic: documentType.properties.isElectronic,
-          environmentType: 'TESTING',
+          environmentType: environmentTypePorDefecto,
           certificateRequired: documentType.properties.isElectronic,
           mustReportToSunat: documentType.properties.isElectronic,
           maxDaysToReport: documentType.category === 'INVOICE' ? 1 : 7,
@@ -290,7 +292,7 @@ export function useSeries(): UseSeriesReturn {
     } finally {
       setLoading(false);
     }
-  }, [series, documentTypes, dispatch]);
+  }, [series, documentTypes, dispatch, environmentTypePorDefecto]);
 
   // Update series
   const updateSeries = useCallback(async (id: string, data: UpdateSeriesRequest): Promise<Series> => {

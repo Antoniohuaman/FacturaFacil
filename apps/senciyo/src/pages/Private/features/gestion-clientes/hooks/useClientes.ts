@@ -19,6 +19,7 @@ import {
   registrarImportacionCompletada,
 } from '../../../../../shared/analitica/analitica';
 import type { OrigenCliente } from '../../../../../shared/analitica/eventosAnalitica';
+import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 const INITIAL_PAGINATION = {
   total: 0,
@@ -42,10 +43,7 @@ export const useClientes = (initialFilters?: ClienteFilters) => {
       : Math.random().toString(36).slice(2)
   );
 
-  const entornoAnalitica =
-    session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-      ? 'produccion'
-      : 'demo';
+  const entornoAnalitica = derivarEntornoAnaliticoEmpresa(session?.currentCompany) ?? 'demo';
 
   const resolverErroresRango = (errores: number): '0' | '1-5' | '6-20' | '21+' => {
     if (errores <= 0) return '0';

@@ -33,6 +33,7 @@ import {
   type SeriesVoucherType,
   validateSeriesCodeForVoucherType,
 } from '../utilidades/catalogoSeries';
+import { obtenerEntornoTecnicoEmisionEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 type VoucherType = SeriesVoucherType;
 
@@ -128,6 +129,7 @@ export function SeriesConfiguration() {
   const navigate = useNavigate();
   const { state, dispatch, rolesConfigurados } = useConfigurationContext();
   const { session } = useUserSession();
+  const environmentTypePorDefecto = obtenerEntornoTecnicoEmisionEmpresa(state.company) ?? 'TESTING';
   const { series: rawSeries, Establecimientos } = state;
   const establecimientoId = session?.currentEstablecimientoId;
   const usuarioActual = obtenerUsuarioDesdeSesion(state.users, session);
@@ -384,7 +386,7 @@ export function SeriesConfiguration() {
           },
           sunatConfiguration: {
             isElectronic: documentType.properties.isElectronic,
-            environmentType: 'TESTING',
+            environmentType: environmentTypePorDefecto,
             certificateRequired: documentType.properties.isElectronic,
             mustReportToSunat: documentType.properties.isElectronic,
             maxDaysToReport: datosFormulario.type === 'INVOICE' ? 1 : (documentType.properties.isElectronic ? 7 : 0)

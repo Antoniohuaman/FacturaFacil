@@ -19,6 +19,7 @@ import {
 import { PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
+import { esEntornoDemoEmpresa, obtenerEtiquetaEntornoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 interface ConfigurationModule {
   id: string;
@@ -35,6 +36,8 @@ interface ConfigurationModule {
 export function ConfigurationDashboard() {
   const { state } = useConfigurationContext();
   const { company } = state;
+  const esEntornoDemoActual = esEntornoDemoEmpresa(company);
+  const etiquetaEntorno = obtenerEtiquetaEntornoEmpresa(company) ?? 'Producción';
 
   // Calculate status from current data
   const status = {
@@ -231,26 +234,25 @@ export function ConfigurationDashboard() {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Ambiente</p>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Entorno</p>
                   <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION' ? 'Producción' : 'Prueba'}
+                    {etiquetaEntorno}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION'
-                  ? 'bg-red-50 dark:bg-red-900/30'
-                  : 'bg-yellow-50 dark:bg-yellow-900/30'
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${esEntornoDemoActual
+                  ? 'bg-yellow-50 dark:bg-yellow-900/30'
+                  : 'bg-red-50 dark:bg-red-900/30'
                   }`}>
-                  <Shield className={`w-6 h-6 ${company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION'
-                    ? 'text-red-600 dark:text-red-400'
-                    : 'text-yellow-600 dark:text-yellow-400'
+                  <Shield className={`w-6 h-6 ${esEntornoDemoActual
+                    ? 'text-yellow-600 dark:text-yellow-400'
+                    : 'text-red-600 dark:text-red-400'
                     }`} />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Environment Alert */}
-          {company?.configuracionSunatEmpresa.entornoSunat === 'TESTING' && (
+          {esEntornoDemoActual && (
             <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4">
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-800/30 rounded-full flex items-center justify-center flex-shrink-0">
@@ -258,21 +260,29 @@ export function ConfigurationDashboard() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base font-semibold text-yellow-800 dark:text-yellow-200">
-                    Ambiente de Prueba Activo
+                    Demo inicial activa
                   </h3>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                    Actualmente estás en modo de prueba. Los documentos emitidos no tienen validez legal.
-                    Una vez que completes la configuración, podrás cambiar a producción.
+                    Esta empresa conserva el entorno Demo inicial y no se convierte en empresa real.
                   </p>
-                  <div className="mt-3">
-                    <Link
-                      to="/configuracion/empresa"
-                      className="inline-flex items-center px-4 py-2 bg-yellow-600 dark:bg-yellow-700 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 dark:hover:bg-yellow-600 transition-colors"
-                    >
-                      Configurar para Producción
-                      <ArrowRight className="ml-2 w-4 h-4" />
-                    </Link>
-                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!esEntornoDemoActual && (
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-800/30 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-blue-800 dark:text-blue-200">
+                    Empresa en Producción
+                  </h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Esta empresa opera como empresa real en entorno Producción.
+                  </p>
                 </div>
               </div>
             </div>

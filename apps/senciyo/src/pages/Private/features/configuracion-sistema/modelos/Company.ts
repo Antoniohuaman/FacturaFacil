@@ -1,5 +1,9 @@
+import type { EntornoOperacionEmpresa, TipoEmpresa } from '@/shared/empresas/entornoEmpresa';
+
 export interface Company {
   id: string;
+  tipoEmpresa?: TipoEmpresa;
+  entornoOperacion?: EntornoOperacionEmpresa;
   ruc: string;
   razonSocial: string;
   nombreComercial?: string;
@@ -81,9 +85,4 @@ export const DOCUMENT_TYPES = [
   { value: 'DNI', label: 'DNI' },
   { value: 'CE', label: 'Carné de Extranjería' },
   { value: 'PASSPORT', label: 'Pasaporte' },
-] as const;
-
-export const SUNAT_ENVIRONMENTS = [
-  { value: 'TESTING', label: 'Ambiente de Pruebas' },
-  { value: 'PRODUCTION', label: 'Ambiente de Producción' },
 ] as const;

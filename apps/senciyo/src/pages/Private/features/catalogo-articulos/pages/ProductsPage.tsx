@@ -20,6 +20,7 @@ import { MasterDetailLayout } from '@/components/layouts/MasterDetail';
 import ProductDetailPanel from '../components/ProductDetailPanel';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 import { registrarProductoCreadoExitoso } from '@/shared/analitica/analitica';
+import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 const MAIN_EXPORT_COLUMNS: Array<{ key: keyof Product; label: string; type: 'text' | 'currency' | 'number' }> = [
   { key: 'codigo', label: 'Código', type: 'text' },
@@ -173,10 +174,7 @@ const ProductsPage: React.FC = () => {
       updateProduct(editingProduct.id, productData);
     } else {
       addProduct(productData);
-      const entornoAnalitica =
-        configState.company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-          ? 'produccion'
-          : 'demo';
+      const entornoAnalitica = derivarEntornoAnaliticoEmpresa(configState.company) ?? 'demo';
       registrarProductoCreadoExitoso({ entorno: entornoAnalitica, origen: 'catalogo' });
     }
     setShowProductModal(false);

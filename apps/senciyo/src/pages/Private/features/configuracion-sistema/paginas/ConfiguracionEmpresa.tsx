@@ -10,24 +10,26 @@ import {
   Shield,
   ArrowLeft
 } from 'lucide-react';
-import { Button, Select, Input, RadioButton, PageHeader } from '@/contasis';
+import { Button, Select, Input, PageHeader } from '@/contasis';
 import {
-  asegurarConfiguracionOperativaPredeterminada,
-  construirConfiguracionInicialEmpresa,
+  construirEmpresaInicial,
+  inicializarEmpresaEnAlmacenamiento,
   useConfigurationContext,
 } from '../contexto/ContextoConfiguracion';
 import { TarjetaConfiguracion } from '../components/comunes/TarjetaConfiguracion';
-import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
-import { ModalConfirmacion } from '../components/comunes/ModalConfirmacion';
 import { RucValidator } from '../components/empresa/ValidadorRuc';
 import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { generateWorkspaceId } from '../../../../../shared/tenant';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
-import { registrarRucActualizadoExitoso } from '../../../../../shared/analitica/analitica';
 import type { Company } from '../modelos/Company';
-import type { Establecimiento } from '../modelos/Establecimiento';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 import type { DatosConsultaRuc } from '@/shared/documentos/servicioConsultaDocumentos';
+import {
+  coincideConDatosBaseDemo,
+  esEmpresaDemo,
+  esRucEmpresaDemo,
+  obtenerEtiquetaEntornoEmpresa,
+} from '@/shared/empresas/entornoEmpresa';
 
 
 interface CompanyFormData {
@@ -40,7 +42,6 @@ interface CompanyFormData {
   provincia: string;
   distrito: string;
   monedaBase: 'PEN' | 'USD';
-  entornoSunat: 'TEST' | 'PRODUCTION';
   telefonos: string[];
   correosElectronicos: string[];
   actividadEconomica: string;
@@ -51,10 +52,6 @@ type WorkspaceNavigationState = {
   workspaceId?: string;
   returnTo?: string;
 } | null;
-
-const ANALYTICS_RUC_ACTUALIZADO_KEY = 'analytics_ruc_actualizado_exitoso_v1';
-
-
 
 export function CompanyConfiguration() {
   const navigate = useNavigate();
@@ -69,11 +66,24 @@ export function CompanyConfiguration() {
     rolesDisponibles: rolesConfigurados,
     establecimientoId: session?.currentEstablecimientoId,
   }), [rolesConfigurados, session?.currentEstablecimientoId, usuarioActual]);
-  const { createOrUpdateWorkspace, activeWorkspace, tenantId, setActiveEstablecimientoId } = useTenant();
+  const {
+    createOrUpdateWorkspace,
+    activeWorkspace,
+    tenantId,
+    workspaces,
+    setActiveEstablecimientoId,
+    setActiveEstablecimientoIdParaTenant,
+  } = useTenant();
   const workspaceState = (location.state as WorkspaceNavigationState) ?? null;
   const rutaRetorno = workspaceState?.returnTo || '/configuracion';
   const navegarRetorno = () => navigate(rutaRetorno);
   const isCreateWorkspaceMode = workspaceState?.workspaceMode === 'create_workspace';
+  const empresaActual = isCreateWorkspaceMode ? null : company;
+  const esEmpresaDemoActual = esEmpresaDemo(empresaActual);
+  const etiquetaEntornoOperacion = useMemo(
+    () => (isCreateWorkspaceMode ? 'Producción' : obtenerEtiquetaEntornoEmpresa(empresaActual) ?? 'Producción'),
+    [empresaActual, isCreateWorkspaceMode],
+  );
   const initialWorkspaceId = useMemo(() => {
     if (workspaceState?.workspaceId) {
       return workspaceState.workspaceId;
@@ -98,7 +108,6 @@ export function CompanyConfiguration() {
     provincia: '',
     distrito: '',
     monedaBase: 'PEN',
-    entornoSunat: 'TEST',
     telefonos: [''],
     correosElectronicos: [''],
     actividadEconomica: ''
@@ -110,9 +119,65 @@ export function CompanyConfiguration() {
     data?: DatosConsultaRuc;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showProductionModal, setShowProductionModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState<CompanyFormData | null>(null);
+  const entornoOperacionInterno = useMemo<'DEMO' | 'PRODUCCION'>(() => {
+    if (isCreateWorkspaceMode) {
+      return 'PRODUCCION';
+    }
+
+    return esEmpresaDemoActual ? 'DEMO' : 'PRODUCCION';
+  }, [esEmpresaDemoActual, isCreateWorkspaceMode]);
+
+  const datosFormularioCoincidenConDemo = useMemo(
+    () => coincideConDatosBaseDemo({
+      ruc: datosFormulario.ruc,
+      razonSocial: datosFormulario.razonSocial,
+      nombreComercial: datosFormulario.nombreComercial,
+      direccionFiscal: datosFormulario.direccionFiscal,
+      actividadEconomica: datosFormulario.actividadEconomica,
+    }),
+    [
+      datosFormulario.actividadEconomica,
+      datosFormulario.direccionFiscal,
+      datosFormulario.nombreComercial,
+      datosFormulario.razonSocial,
+      datosFormulario.ruc,
+    ],
+  );
+
+  const existeRucDuplicado = useMemo(() => {
+    const ruc = datosFormulario.ruc.trim();
+    if (!ruc || ruc.length !== 11) {
+      return false;
+    }
+
+    const empresaActualId = empresaActual?.id ?? workspaceIdForSubmit;
+
+    return workspaces.some((workspace) => {
+      if (workspace.id === empresaActualId) {
+        return false;
+      }
+
+      return workspace.ruc.trim() !== '' && workspace.ruc === ruc;
+    });
+  }, [datosFormulario.ruc, empresaActual?.id, workspaceIdForSubmit, workspaces]);
+
+  const mensajeValidacionBloqueante = useMemo(() => {
+    if (!esEmpresaDemoActual && esRucEmpresaDemo(datosFormulario.ruc)) {
+      return 'El RUC de la demo solo puede usarse en la empresa demo inicial.';
+    }
+
+    if (!esEmpresaDemoActual && datosFormularioCoincidenConDemo) {
+      return 'Los datos base de SenciYo solo pueden existir en la demo inicial.';
+    }
+
+    if (existeRucDuplicado) {
+      return 'Ya existe una empresa registrada con ese RUC.';
+    }
+
+    return null;
+  }, [datosFormulario.ruc, datosFormularioCoincidenConDemo, esEmpresaDemoActual, existeRucDuplicado]);
 
   // Load existing company data
   useEffect(() => {
@@ -120,28 +185,27 @@ export function CompanyConfiguration() {
       return;
     }
 
-    if (company) {
+    if (empresaActual) {
       // Empresa ya existe en el contexto, cargar sus datos
       const loadedData = {
-        ruc: company.ruc,
-        razonSocial: company.razonSocial,
-        nombreComercial: company.nombreComercial || '',
-        direccionFiscal: company.direccionFiscal,
-        ubigeo: company.codigoPostal || '',
-        departamento: company.departamento || '',
-        provincia: company.provincia || '',
-        distrito: company.distrito || '',
-        monedaBase: company.monedaBase || 'PEN',
-        entornoSunat: (company.configuracionSunatEmpresa.entornoSunat === 'TESTING' ? 'TEST' : 'PRODUCTION') as 'TEST' | 'PRODUCTION',
-        telefonos: company.telefonos?.length > 0 ? company.telefonos : [''],
-        correosElectronicos: company.correosElectronicos?.length > 0 ? company.correosElectronicos : [''],
-        actividadEconomica: company.actividadEconomica || ''
+        ruc: empresaActual.ruc,
+        razonSocial: empresaActual.razonSocial,
+        nombreComercial: empresaActual.nombreComercial || '',
+        direccionFiscal: empresaActual.direccionFiscal,
+        ubigeo: empresaActual.codigoPostal || '',
+        departamento: empresaActual.departamento || '',
+        provincia: empresaActual.provincia || '',
+        distrito: empresaActual.distrito || '',
+        monedaBase: empresaActual.monedaBase || 'PEN',
+        telefonos: empresaActual.telefonos?.length > 0 ? empresaActual.telefonos : [''],
+        correosElectronicos: empresaActual.correosElectronicos?.length > 0 ? empresaActual.correosElectronicos : [''],
+        actividadEconomica: empresaActual.actividadEconomica || ''
       };
       setFormData(loadedData);
       setOriginalData(loadedData);
       setHasChanges(false);
     }
-  }, [company, dispatch, isCreateWorkspaceMode]);
+  }, [empresaActual, isCreateWorkspaceMode]);
 
   // Detect if form has changes compared to original data
   useEffect(() => {
@@ -161,7 +225,6 @@ export function CompanyConfiguration() {
       datosFormulario.provincia !== originalData.provincia ||
       datosFormulario.distrito !== originalData.distrito ||
       datosFormulario.monedaBase !== originalData.monedaBase ||
-      datosFormulario.entornoSunat !== originalData.entornoSunat ||
       datosFormulario.actividadEconomica !== originalData.actividadEconomica ||
       JSON.stringify(datosFormulario.telefonos) !== JSON.stringify(originalData.telefonos) ||
       JSON.stringify(datosFormulario.correosElectronicos) !== JSON.stringify(originalData.correosElectronicos);
@@ -171,6 +234,18 @@ export function CompanyConfiguration() {
 
   // Handle RUC validation callback from RucValidator component
   const handleRucValidation = (result: { isValid: boolean; message: string; data?: DatosConsultaRuc }) => {
+    if (esEmpresaDemoActual) {
+      return;
+    }
+
+    if (result.isValid && isCreateWorkspaceMode && esRucEmpresaDemo(result.data?.ruc || datosFormulario.ruc)) {
+      setRucValidation({
+        isValid: false,
+        message: 'El RUC de la demo no se puede registrar como empresa real.',
+      });
+      return;
+    }
+
     setRucValidation(result);
 
     if (result.isValid && result.data) {
@@ -217,25 +292,6 @@ export function CompanyConfiguration() {
     }));
   };
 
-
-  const handleEnvironmentChange = (entorno: 'TEST' | 'PRODUCTION') => {
-    // Block changing back to TEST if already in PRODUCTION
-    if (entorno === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION') {
-      return; // Do nothing - this change is not allowed
-    }
-
-    if (entorno === 'PRODUCTION') {
-      setShowProductionModal(true);
-    } else {
-      setFormData(prev => ({ ...prev, entornoSunat: entorno }));
-    }
-  };
-
-  const confirmProductionChange = () => {
-    setFormData(prev => ({ ...prev, entornoSunat: 'PRODUCTION' }));
-    setShowProductionModal(false);
-  };
-
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -251,6 +307,10 @@ export function CompanyConfiguration() {
         throw new Error('No hay workspace activo para guardar la empresa.');
       }
 
+      if (mensajeValidacionBloqueante) {
+        throw new Error(mensajeValidacionBloqueante);
+      }
+
       const targetWorkspaceId = workspaceIdForSubmit;
       ensuredWorkspaceIdRef.current = targetWorkspaceId;
 
@@ -258,45 +318,70 @@ export function CompanyConfiguration() {
       const cleanPhones = datosFormulario.telefonos.filter(phone => phone.trim() !== '');
       const cleanEmails = datosFormulario.correosElectronicos.filter(email => email.trim() !== '');
 
-      const updatedCompany: Company = {
-        id: targetWorkspaceId,
+      const datosEmpresa = {
         ruc: datosFormulario.ruc,
         razonSocial: datosFormulario.razonSocial,
-        nombreComercial: datosFormulario.nombreComercial || undefined,
+        nombreComercial: datosFormulario.nombreComercial,
         direccionFiscal: datosFormulario.direccionFiscal,
-        distrito: datosFormulario.distrito,
-        provincia: datosFormulario.provincia,
+        ubigeo: datosFormulario.ubigeo,
         departamento: datosFormulario.departamento,
-        codigoPostal: datosFormulario.ubigeo,
-        telefonos: cleanPhones.length > 0 ? cleanPhones : [],
-        correosElectronicos: cleanEmails.length > 0 ? cleanEmails : [],
-        sitioWeb: company?.sitioWeb,
+        provincia: datosFormulario.provincia,
+        distrito: datosFormulario.distrito,
         actividadEconomica: datosFormulario.actividadEconomica,
-        regimenTributario: company?.regimenTributario || 'GENERAL',
+        telefonos: cleanPhones,
+        correosElectronicos: cleanEmails,
         monedaBase: datosFormulario.monedaBase,
-        representanteLegal: company?.representanteLegal || {
-          nombreRepresentanteLegal: '',
-          tipoDocumentoRepresentante: 'DNI',
-          numeroDocumentoRepresentante: ''
-        },
-        certificadoDigital: company?.certificadoDigital,
-        configuracionSunatEmpresa: {
-          estaConfiguradoEnSunat: company?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
-          usuarioSunat: company?.configuracionSunatEmpresa?.usuarioSunat,
-          entornoSunat: datosFormulario.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
-          fechaUltimaSincronizacionSunat: rucValidation?.isValid && rucValidation.data?.ruc === datosFormulario.ruc
-            ? new Date()
-            : company?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat
-        },
-        creadoEl: company?.creadoEl || new Date(),
-        actualizadoEl: new Date(),
-        estaActiva: company?.estaActiva ?? true
+        entornoOperacion: entornoOperacionInterno,
+        tipoEmpresa: esEmpresaDemoActual ? 'demo' as const : 'real' as const,
       };
+
+      if (isCreateWorkspaceMode) {
+        const resultadoInicializacion = await inicializarEmpresaEnAlmacenamiento({
+          tenantId: targetWorkspaceId,
+          datos: datosEmpresa,
+          userId: session?.userId ?? null,
+        });
+
+        createOrUpdateWorkspace({
+          id: targetWorkspaceId,
+          tipoEmpresa: resultadoInicializacion.company.tipoEmpresa,
+          entornoOperacion: resultadoInicializacion.company.entornoOperacion,
+          ruc: resultadoInicializacion.company.ruc,
+          razonSocial: resultadoInicializacion.company.razonSocial,
+          nombreComercial: resultadoInicializacion.company.nombreComercial,
+          domicilioFiscal: resultadoInicializacion.company.direccionFiscal,
+        });
+
+        setActiveEstablecimientoIdParaTenant(targetWorkspaceId, resultadoInicializacion.establecimiento.id);
+
+        if (resultadoInicializacion.monedas.length) {
+          dispatch({ type: 'SET_CURRENCIES', payload: resultadoInicializacion.monedas });
+        }
+
+        if (resultadoInicializacion.impuestos.length) {
+          dispatch({ type: 'SET_TAXES', payload: resultadoInicializacion.impuestos });
+        }
+
+        navigate(rutaRetorno);
+        return;
+      }
+
+      const updatedCompany: Company = construirEmpresaInicial({
+        companyId: targetWorkspaceId,
+        datos: datosEmpresa,
+        baseCompany: empresaActual,
+        fechaUltimaSincronizacionSunat:
+          rucValidation?.isValid && rucValidation.data?.ruc === datosFormulario.ruc
+            ? new Date()
+            : empresaActual?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat,
+      });
 
       dispatch({ type: 'SET_COMPANY', payload: updatedCompany });
 
       const workspace = createOrUpdateWorkspace({
         id: targetWorkspaceId,
+        tipoEmpresa: updatedCompany.tipoEmpresa,
+        entornoOperacion: updatedCompany.entornoOperacion,
         ruc: datosFormulario.ruc,
         razonSocial: datosFormulario.razonSocial,
         nombreComercial: datosFormulario.nombreComercial,
@@ -307,55 +392,23 @@ export function CompanyConfiguration() {
       // ===================================================================
       // ONBOARDING AUTOMÁTICO: Crear configuración inicial si es nueva empresa
       // ===================================================================
-      const isNewCompany = !company?.id;
-      let defaultEstablecimiento: Establecimiento | null = null;
+      const isNewCompany = !empresaActual?.id;
+      let defaultEstablecimiento = null;
 
       if (isNewCompany && state.Establecimientos.length === 0) {
-        const resultadoConfiguracion = construirConfiguracionInicialEmpresa({
-          empresa: updatedCompany,
-          datos: {
-            direccionFiscal: datosFormulario.direccionFiscal,
-            ubigeo: datosFormulario.ubigeo,
-            entornoSunat: datosFormulario.entornoSunat,
-            telefonos: cleanPhones,
-            correosElectronicos: cleanEmails,
-            actividadEconomica: datosFormulario.actividadEconomica,
-          },
-          seriesExistentes: state.series,
-          monedasExistentes: state.currencies,
-          impuestosExistentes: state.taxes,
-        });
-
-        defaultEstablecimiento = resultadoConfiguracion.establecimiento;
-        dispatch({ type: 'ADD_Establecimiento', payload: resultadoConfiguracion.establecimiento });
-        dispatch({ type: 'ADD_ALMACEN', payload: resultadoConfiguracion.almacen });
-
-        resultadoConfiguracion.series.forEach((seriesItem) => {
-          dispatch({ type: 'ADD_SERIES', payload: seriesItem });
-        });
-
-        if (resultadoConfiguracion.monedas.length) {
-          dispatch({ type: 'SET_CURRENCIES', payload: resultadoConfiguracion.monedas });
-        }
-
-        if (resultadoConfiguracion.impuestos.length) {
-          dispatch({ type: 'SET_TAXES', payload: resultadoConfiguracion.impuestos });
-        }
-
-        const monedasParaCaja = resultadoConfiguracion.monedas.length
-          ? resultadoConfiguracion.monedas
-          : state.currencies;
-
-        await asegurarConfiguracionOperativaPredeterminada({
-          empresa: updatedCompany,
-          Establecimiento: defaultEstablecimiento,
+        const resultadoInicializacion = await inicializarEmpresaEnAlmacenamiento({
+          tenantId: targetWorkspaceId,
+          datos: datosEmpresa,
           userId: session?.userId ?? null,
-          estadoConfiguracion: {
-            cajas: state.cajas,
-            currencies: monedasParaCaja,
-          },
-          dispatch,
         });
+
+        defaultEstablecimiento = resultadoInicializacion.establecimiento;
+        dispatch({ type: 'SET_EstablecimientoS', payload: [resultadoInicializacion.establecimiento] });
+        dispatch({ type: 'SET_ALMACENES', payload: [resultadoInicializacion.almacen] });
+        dispatch({ type: 'SET_CAJAS', payload: [resultadoInicializacion.caja] });
+        dispatch({ type: 'SET_SERIES', payload: resultadoInicializacion.series });
+        dispatch({ type: 'SET_CURRENCIES', payload: resultadoInicializacion.monedas });
+        dispatch({ type: 'SET_TAXES', payload: resultadoInicializacion.impuestos });
       }
 
       const EstablecimientoForContext =
@@ -368,27 +421,8 @@ export function CompanyConfiguration() {
         setActiveEstablecimientoId(EstablecimientoForContext.id);
       }
 
-      const veniaDeRucDemo =
-        company?.configuracionSunatEmpresa?.entornoSunat === 'TESTING' &&
-        updatedCompany.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION';
-
-      if (veniaDeRucDemo && typeof window !== 'undefined') {
-        const storageKey = `${ANALYTICS_RUC_ACTUALIZADO_KEY}:${updatedCompany.id}`;
-        const yaRegistrado = window.localStorage.getItem(storageKey) === '1';
-
-        if (!yaRegistrado) {
-          registrarRucActualizadoExitoso({
-            entorno: 'produccion',
-            veniaDeRucDemo: true,
-          });
-          window.localStorage.setItem(storageKey, '1');
-        }
-      }
-
       // Show success and redirect
-      setTimeout(() => {
-        navigate(rutaRetorno);
-      }, 1500);
+      navigate(rutaRetorno);
     } catch (error) {
       console.error('Error saving company:', error);
     } finally {
@@ -402,10 +436,11 @@ export function CompanyConfiguration() {
   const isFormValid = datosFormulario.ruc.length === 11 &&
     datosFormulario.razonSocial.trim() !== '' &&
     datosFormulario.direccionFiscal.trim() !== '' &&
-    (company?.id ? true : rucValidation?.isValid === true) &&
+    (empresaActual?.id ? true : rucValidation?.isValid === true) &&
+    !mensajeValidacionBloqueante &&
     hasChanges; // Only enable if there are changes
 
-  if (!company && !isCreateWorkspaceMode) {
+  if (!empresaActual && !isCreateWorkspaceMode) {
     return (
       <div className="flex flex-col h-full">
         <PageHeader
@@ -455,11 +490,18 @@ export function CompanyConfiguration() {
               density="compact"
             >
               <div className="space-y-2">
+                {esEmpresaDemoActual && (
+                  <div className="mb-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-200">
+                    Esta empresa corresponde a la demo inicial.
+                  </div>
+                )}
+
                 {/* RUC Validator Component */}
                 <RucValidator
                   value={datosFormulario.ruc}
                   onChange={(ruc) => setFormData(prev => ({ ...prev, ruc }))}
                   onValidation={handleRucValidation}
+                  disabled={esEmpresaDemoActual}
                 />
 
                 {/* Business Name */}
@@ -497,6 +539,7 @@ export function CompanyConfiguration() {
                     value={datosFormulario.nombreComercial}
                     onChange={(e) => setFormData(prev => ({ ...prev, nombreComercial: e.target.value }))}
                     placeholder="Nombre con el que se conoce tu empresa"
+                    disabled={esEmpresaDemoActual}
                   />
                 </div>
 
@@ -532,6 +575,7 @@ export function CompanyConfiguration() {
                   type="text"
                   value={datosFormulario.actividadEconomica}
                   onChange={(e) => setFormData(prev => ({ ...prev, actividadEconomica: e.target.value }))}
+                  disabled={esEmpresaDemoActual}
                 />
               </div>
             </TarjetaConfiguracion>
@@ -555,62 +599,18 @@ export function CompanyConfiguration() {
                   ]}
                 />
 
-                {/* Environment */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Ambiente
+                    Entorno de operación
                   </label>
-                  <div className="flex items-center space-x-6">
-                    <div className="flex items-center space-x-2">
-                      <RadioButton
-                        name="environment"
-                        value="TEST"
-                        checked={datosFormulario.entornoSunat === 'TEST'}
-                        onChange={() => handleEnvironmentChange('TEST')}
-                        disabled={company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'}
-                        label="Prueba"
-                      />
-                      {datosFormulario.entornoSunat === 'TEST' && (
-                        <IndicadorEstado status="warning" label="Activo" size="sm" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <RadioButton
-                        name="environment"
-                        value="PRODUCTION"
-                        checked={datosFormulario.entornoSunat === 'PRODUCTION'}
-                        onChange={() => handleEnvironmentChange('PRODUCTION')}
-                        label="Producción"
-                      />
-                      {datosFormulario.entornoSunat === 'PRODUCTION' && (
-                        <IndicadorEstado status="success" label="Activo" size="sm" />
-                      )}
-                    </div>
+                  <div className="inline-flex h-10 items-center rounded-lg border border-gray-300 bg-gray-50 px-3 text-sm font-medium text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100">
+                    {etiquetaEntornoOperacion}
                   </div>
-
-                  {/* Warning: Test Mode */}
-                  {datosFormulario.entornoSunat === 'TEST' && company?.configuracionSunatEmpresa?.entornoSunat !== 'PRODUCTION' && (
-                    <div className="mt-2 p-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-                      <div className="flex items-start gap-1.5 text-xs text-yellow-800 dark:text-yellow-200 leading-tight">
-                        <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span>Los documentos emitidos en prueba no tienen validez legal</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Info: Production Mode Locked */}
-                  {company?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION' && (
-                    <div className="mt-2 p-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                      <div className="flex items-start gap-1.5 text-xs text-blue-800 dark:text-blue-200 leading-tight">
-                        <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium">Ambiente de Producción Activado</p>
-                          <p className="text-xs mt-0.5">Por seguridad, no es posible regresar al ambiente de prueba una vez activado producción.</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {esEmpresaDemoActual
+                      ? 'La empresa demo se mantiene en entorno Demo.'
+                      : 'Toda empresa real opera en entorno Producción.'}
+                  </p>
                 </div>
               </div>
             </TarjetaConfiguracion>
@@ -709,17 +709,23 @@ export function CompanyConfiguration() {
                   <div className="flex items-center gap-2 text-green-600 dark:text-green-400 animate-in slide-in-from-left duration-300">
                     <CheckCircle2 className="w-5 h-5" />
                     <span className="text-sm font-medium">
-                      {company?.id ? 'Listo para guardar cambios' : 'Formulario completo y listo para guardar'}
+                      {empresaActual?.id ? 'Listo para guardar cambios' : 'Formulario completo y listo para guardar'}
                     </span>
                   </div>
                 )}
-                {company?.id && !hasChanges && (
+                {empresaActual?.id && !hasChanges && (
                   <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                     <CheckCircle2 className="w-5 h-5" />
                     <span className="text-sm font-medium">Sin cambios pendientes</span>
                   </div>
                 )}
-                {!isFormValid && datosFormulario.ruc.length === 11 && !rucValidation?.isValid && !company?.id && (
+                {mensajeValidacionBloqueante && (
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                    <Shield className="w-5 h-5" />
+                    <span className="text-sm font-medium">{mensajeValidacionBloqueante}</span>
+                  </div>
+                )}
+                {!isFormValid && datosFormulario.ruc.length === 11 && !rucValidation?.isValid && !empresaActual?.id && !mensajeValidacionBloqueante && (
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                     <Shield className="w-5 h-5" />
                     <span className="text-sm font-medium">Valida el RUC para continuar</span>
@@ -741,30 +747,11 @@ export function CompanyConfiguration() {
                   disabled={!isFormValid || isLoading}
                   icon={isLoading ? <Loader2 className="animate-spin" /> : undefined}
                 >
-                  {isLoading ? 'Guardando...' : company?.id ? 'Guardar Cambios' : 'Crear Empresa'}
+                  {isLoading ? 'Guardando...' : empresaActual?.id ? 'Guardar Cambios' : 'Crear Empresa'}
                 </Button>
               </div>
             </div>
           </form>
-
-          {/* Production Confirmation Modal */}
-          <ModalConfirmacion
-            isOpen={showProductionModal}
-            onClose={() => setShowProductionModal(false)}
-            onConfirm={confirmProductionChange}
-            title="⚠️ Cambiar a Ambiente de Producción"
-            message={`Esta es una acción IRREVERSIBLE. Al activar producción:
-
-• Se eliminarán todos los documentos de prueba
-• Necesitarás un Certificado Digital válido
-• Los documentos tendrán validez legal ante SUNAT
-• NO podrás volver al ambiente de pruebas
-
-¿Estás seguro de continuar?`}
-            type="warning"
-            confirmText="Sí, Activar Producción"
-            cancelText="No, Mantener en Prueba"
-          />
         </div>
       </div>
     </div>

@@ -20,6 +20,7 @@ import { ImportActionControls } from './import-prices/ImportActionControls';
 import { ImportStatusMessages } from './import-prices/ImportStatusMessages';
 import { ImportPreviewTable } from './import-prices/ImportPreviewTable';
 import { readTenantJson, writeTenantJson } from '../utils/storage';
+import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 export interface ExportPricesResult {
   success: boolean;
@@ -204,10 +205,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       setRows(prev => prev.map(row => (row.status === 'ready' ? { ...row, status: 'applied' } : row)));
       setLastResult({ summary, completedAt: formatBusinessDateTimeIso() });
 
-      const entornoAnalitica =
-        session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-          ? 'produccion'
-          : 'demo';
+      const entornoAnalitica = derivarEntornoAnaliticoEmpresa(session?.currentCompany) ?? 'demo';
       const errores = errorRows.length + summary.skippedRows;
       registrarImportacionCompletada({
         entorno: entornoAnalitica,

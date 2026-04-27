@@ -38,6 +38,7 @@ import { Toast } from '../shared/ui/Toast/Toast';
 import { ToastContainer } from '../shared/ui/Toast/ToastContainer';
 import { DraftModal } from '../shared/modales/DraftModal';
 import { PreviewModal } from '../shared/modales/PreviewModal';
+import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 import { ErrorBoundary } from '../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../shared/modales/SuccessModal';
 import { PostIssueOptionsModal } from '../shared/modales/PostIssueOptionsModal';
@@ -224,10 +225,7 @@ const EmisionTradicional = () => {
 
   // Use custom hooks (SIN CAMBIOS - exactamente igual)
   const { session } = useUserSession();
-  const entornoAnalitica =
-    session?.currentCompany?.configuracionSunatEmpresa?.entornoSunat === 'PRODUCTION'
-      ? 'produccion'
-      : 'demo';
+  const entornoAnalitica = derivarEntornoAnaliticoEmpresa(session?.currentCompany) ?? 'demo';
   const {
     cartItems,
     removeFromCart,
