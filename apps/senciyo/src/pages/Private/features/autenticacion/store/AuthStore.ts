@@ -14,14 +14,12 @@ export type AuthStatus =
   | 'loading' 
   | 'authenticated' 
   | 'unauthenticated' 
-  | 'requires_2fa'
-  | 'requires_workspace';
+  | 'requires_2fa';
 
 interface AuthState {
   // Estado
   user: User | null;
   isAuthenticated: boolean;
-  hasWorkspace: boolean;
   require2FA: boolean;
   status: AuthStatus;
   error: string | null;
@@ -29,7 +27,6 @@ interface AuthState {
   // Acciones
   setUser: (user: User | null) => void;
   setAuthenticated: (value: boolean) => void;
-  setHasWorkspace: (value: boolean) => void;
   setRequire2FA: (value: boolean) => void;
   setStatus: (status: AuthStatus) => void;
   setError: (error: string | null) => void;
@@ -40,7 +37,6 @@ interface AuthState {
 const initialState = {
   user: null,
   isAuthenticated: false,
-  hasWorkspace: false,
   require2FA: false,
   status: 'idle' as AuthStatus,
   error: null,
@@ -57,8 +53,6 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: value,
         status: value ? 'authenticated' : 'unauthenticated',
       }),
-      
-      setHasWorkspace: (value) => set({ hasWorkspace: value }),
       
       setRequire2FA: (value) => set({ 
         require2FA: value,
@@ -77,7 +71,6 @@ export const useAuthStore = create<AuthState>()(
       name: 'senciyo-auth-store',
       partialize: (state) => ({
         user: state.user,
-        hasWorkspace: state.hasWorkspace,
       }),
     }
   )

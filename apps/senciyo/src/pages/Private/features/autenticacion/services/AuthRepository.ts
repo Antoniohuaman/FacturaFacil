@@ -179,7 +179,6 @@ class AuthRepository {
     useAuthStore.setState({
       user: response.user,
       isAuthenticated: true,
-      hasWorkspace: true,
       require2FA: false,
       status: 'authenticated',
       error: null,
@@ -218,7 +217,7 @@ class AuthRepository {
       // Guardar contexto
       contextService.saveContext(contexto!);
       useTenantStore.setState({ contextoActual: contexto });
-      useAuthStore.setState({ hasWorkspace: true, status: 'authenticated' });
+      useAuthStore.setState({ status: 'authenticated' });
 
       return { success: true };
     } catch (error: any) {
@@ -251,7 +250,6 @@ class AuthRepository {
       useAuthStore.setState({
         user,
         isAuthenticated: true,
-        hasWorkspace: true,
         require2FA: false,
         status: 'authenticated',
         error: null,
@@ -286,7 +284,6 @@ class AuthRepository {
       useAuthStore.setState({
         user: null,
         isAuthenticated: false,
-        hasWorkspace: false,
         require2FA: false,
         status: 'unauthenticated',
         error: null,
@@ -370,7 +367,6 @@ class AuthRepository {
         useAuthStore.setState({
           user: null,
           isAuthenticated: false,
-          hasWorkspace: false,
           require2FA: false,
           status: 'unauthenticated',
           error: null,
@@ -384,7 +380,6 @@ class AuthRepository {
       useAuthStore.setState({
         user,
         isAuthenticated: true,
-        hasWorkspace: true,
         require2FA: false,
         status: 'authenticated',
         error: null,
@@ -397,7 +392,6 @@ class AuthRepository {
         useAuthStore.setState({
           user: null,
           isAuthenticated: false,
-          hasWorkspace: false,
           require2FA: false,
           status: 'unauthenticated',
           error: null,

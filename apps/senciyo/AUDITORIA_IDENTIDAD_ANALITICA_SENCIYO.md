@@ -112,7 +112,7 @@ Se verificaron los 13+ puntos donde se invocan funciones analíticas, incluyendo
 
 7. **La distinción "demo vs. producción" se basa exclusivamente en `Company.configuracionSunatEmpresa.entornoSunat`** (`'TESTING'` | `'PRODUCTION'`). Todos los eventos analíticos derivan `entornoAnalitica` de este campo.
 
-8. **`hasWorkspace` se establece en `true` inmediatamente** en `AuthRepository.completeAuthentication()`, independientemente de si el usuario realmente tiene un workspace configurado con datos de empresa válidos. No existe validación real.
+8. **La autenticación pasa inmediatamente a estado `authenticated`** en `AuthRepository.completeAuthentication()`, independientemente de si el usuario realmente tiene un workspace configurado con datos de empresa válidos. No existe validación real.
 
 9. **Al arrancar la aplicación sin datos, `TenantProvider` crea un workspace bootstrap** con RUC vacío y razón social vacía. Este workspace recibe un UUID local y se activa automáticamente. Desde la perspectiva analítica, los eventos emitidos en este estado no son distinguibles de eventos de usuarios con empresa real (excepto por la propiedad `entorno: 'demo'`).
 
@@ -355,7 +355,7 @@ El negocio describe que "un usuario entra con rol demo y después pasa a rol rea
 **Paso 2 — Login automático post-registro** (`RegisterPage.tsx:56-60`)
 - Se invoca `authRepository.login()` con las credenciales recién registradas.
 - El backend devuelve `AuthResponse` con `user`, `tokens`, `empresas[]` y posiblemente `contextoActual`.
-- `completeAuthentication()` establece `hasWorkspace: true` y `status: 'authenticated'` **sin verificar si los datos de empresa son válidos**.
+- `completeAuthentication()` establece `status: 'authenticated'` **sin verificar si los datos de empresa son válidos**.
 
 **Paso 3 — Workspace bootstrap** (`TenantProvider.resolveBootstrapState()`)
 - Si ya existía un workspace en localStorage (del paso anterior o de una visita previa), se usa.

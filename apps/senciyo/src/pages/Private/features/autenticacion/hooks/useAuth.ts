@@ -17,7 +17,6 @@ export function useAuth() {
   const {
     user,
     isAuthenticated,
-    hasWorkspace,
     require2FA,
     status,
     error,
@@ -116,20 +115,16 @@ export function useAuth() {
   // ==================== COMPUTED ====================
 
   const isLoading = status === 'loading' || status === 'idle';
-  const requiresContext = status === 'requires_workspace';
-
   return {
     // Estado
     user,
     empresas,
     contextoActual,
     isAuthenticated,
-    hasWorkspace,
     require2FA,
     status,
     error,
     isLoading,
-    requiresContext,
 
     // Acciones
     login,
