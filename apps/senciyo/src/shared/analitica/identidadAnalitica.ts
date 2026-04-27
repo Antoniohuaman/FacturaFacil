@@ -7,7 +7,6 @@ import type { Company } from '../../pages/Private/features/configuracion-sistema
 import type { UserSession } from '../../contexts/UserSessionContext';
 import {
   derivarEntornoAnaliticoEmpresa,
-  obtenerEntornoTecnicoEmisionEmpresa,
 } from '../empresas/entornoEmpresa';
 
 export interface ContextoIdentidadAnalitica {
@@ -18,7 +17,6 @@ export interface ContextoIdentidadAnalitica {
   companyConfigured: boolean;
   establecimientoId?: string;
   entorno?: 'demo' | 'produccion';
-  entornoEmision?: 'TESTING' | 'PRODUCTION';
 }
 
 interface ResolverContextoAnaliticoEntrada {
@@ -43,10 +41,6 @@ const obtenerCompanyIdCanonico = (
   // Prototipo: la sesión normalizada usa currentCompanyId; si aún no existe,
   // el fallback más consistente es el tenant activo expuesto por TenantProvider.
   return tenantId || undefined;
-};
-
-const obtenerEntornoEmision = (company: Company | null | undefined): 'TESTING' | 'PRODUCTION' | undefined => {
-  return obtenerEntornoTecnicoEmisionEmpresa(company);
 };
 
 const obtenerNombreEmpresaSeguro = (company: EmpresaAnalitica | null | undefined): string | undefined => {
@@ -109,7 +103,6 @@ export function resolverContextoIdentidadAnalitica({
   const companyId = obtenerCompanyIdCanonico(session, tenantId);
   const currentCompany = session?.currentCompany;
   const contextoEmpresa = resolverContextoEmpresaAnalitica(companyId, currentCompany);
-  const entornoEmision = obtenerEntornoEmision(currentCompany);
   const entorno = derivarEntornoAnaliticoEmpresa(currentCompany);
   const establecimientoId = session?.currentEstablecimientoId || activeEstablecimientoId || undefined;
 
@@ -121,6 +114,5 @@ export function resolverContextoIdentidadAnalitica({
     companyConfigured: contextoEmpresa.companyConfigured,
     establecimientoId,
     entorno,
-    entornoEmision,
   };
 }

@@ -141,11 +141,6 @@ const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): Propiedad
     propiedadesBase.user_role = contextoIdentidadActual.userRole;
   }
 
-  if (contextoIdentidadActual?.entornoEmision) {
-    propiedadesBase.entorno_emision = contextoIdentidadActual.entornoEmision;
-    propiedadesBase.entorno_sunat = contextoIdentidadActual.entornoEmision;
-  }
-
   if (contextoIdentidadActual?.entorno) {
     propiedadesBase.entorno = contextoIdentidadActual.entorno;
   }
@@ -172,8 +167,6 @@ const construirPropiedadesUsuario = (contexto: ContextoIdentidadAnalitica): Reco
   user_role: contexto.userRole,
   user_status: contexto.userStatus,
   entorno: contexto.entorno,
-  entorno_emision: contexto.entornoEmision,
-  entorno_sunat: contexto.entornoEmision,
   company_configured: contexto.companyConfigured,
   company_id: contexto.companyId,
   establecimiento_id: contexto.establecimientoId,
@@ -237,8 +230,6 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
     if (contexto.companyId) {
       posthog.group('company', contexto.companyId, limpiarValoresIndefinidos({
         company_id: contexto.companyId,
-        entorno_emision: contexto.entornoEmision,
-        entorno_sunat: contexto.entornoEmision,
         entorno: contexto.entorno,
         company_configured: contexto.companyConfigured,
       }));
@@ -251,7 +242,10 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
     amplitude.setUserId(contexto.userId);
 
     const identify = new amplitude.Identify();
+    // Cleanup legacy properties removed from the active product analytics contract.
     identify.unset('company_name');
+    identify.unset('entorno_emision');
+    identify.unset('entorno_sunat');
     Object.entries(propiedadesUsuario).forEach(([key, value]) => {
       if (value !== undefined) {
         identify.set(key, value as string | number | boolean);
@@ -269,12 +263,14 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
     mixpanel.identify(contexto.userId);
 
     const mixpanelClient = mixpanel as MixpanelConSuperProps;
+    // Cleanup legacy superprops removed from the active product analytics contract.
     mixpanelClient.unregister?.('company_name');
+    mixpanelClient.unregister?.('entorno_emision');
+    mixpanelClient.unregister?.('entorno_sunat');
     mixpanelClient.register?.(propiedadesUsuario);
 
     if (!contexto.companyId) {
       mixpanelClient.unregister?.('company_id');
-      mixpanelClient.unregister?.('company_name');
     }
 
     if (!contexto.establecimientoId) {

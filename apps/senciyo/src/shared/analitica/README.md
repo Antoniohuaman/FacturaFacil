@@ -99,8 +99,10 @@ Cuando existe identidad analítica sincronizada, la capa agrega automáticamente
 - `user_role`
 - `user_status`
 - `entorno`
-- `entorno_emision`
-- `entorno_sunat`
+
+Para analítica de producto, el único entorno enviado es `entorno` y sus únicos valores válidos son `demo` y `produccion`.
+
+La configuración técnica o tributaria interna puede seguir existiendo en el dominio, pero no se expone como propiedad analítica.
 
 ## Propiedades específicas por evento
 
