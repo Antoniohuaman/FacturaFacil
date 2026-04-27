@@ -1,5 +1,8 @@
+import type { TipoEmpresa } from '@/shared/empresas/empresaDemo';
+
 export interface Company {
   id: string;
+  tipoEmpresa?: TipoEmpresa;
   ruc: string;
   razonSocial: string;
   nombreComercial?: string;

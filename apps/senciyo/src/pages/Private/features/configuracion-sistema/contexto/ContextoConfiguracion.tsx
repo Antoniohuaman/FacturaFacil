@@ -42,6 +42,11 @@ import { useTenant } from '../../../../../shared/tenant/TenantContext';
 import { currencyManager } from '@/shared/currency';
 import type { CurrencyCode } from '@/shared/currency';
 import { useUserSession } from '@/contexts/UserSessionContext';
+import {
+  DATOS_EMPRESA_DEMO_SENCIYO,
+  obtenerTipoEmpresa,
+  type TipoEmpresa,
+} from '@/shared/empresas/empresaDemo';
 import { EmpresaStatus, RegimenTributario, type Empresa as EmpresaTenant } from '../../autenticacion/types/auth.types';
 
 // Category interface - moved from catalogo-articulos
@@ -112,6 +117,78 @@ type ParametrosConfiguracionInicialEmpresa = {
   seriesExistentes: Series[];
   monedasExistentes: Currency[];
   impuestosExistentes: Tax[];
+};
+
+export type DatosEmpresaInicial = {
+  ruc: string;
+  razonSocial: string;
+  nombreComercial: string;
+  direccionFiscal: string;
+  ubigeo: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  actividadEconomica: string;
+  telefonos: string[];
+  correosElectronicos: string[];
+  monedaBase: 'PEN' | 'USD';
+  entornoSunat: 'TEST' | 'PRODUCTION';
+  tipoEmpresa: TipoEmpresa;
+};
+
+type ParametrosConstruccionEmpresa = {
+  companyId?: string;
+  datos: DatosEmpresaInicial;
+  baseCompany?: Company | null;
+  fechaUltimaSincronizacionSunat?: Date;
+};
+
+export const construirEmpresaInicial = ({
+  companyId,
+  datos,
+  baseCompany,
+  fechaUltimaSincronizacionSunat,
+}: ParametrosConstruccionEmpresa): Company => {
+  const ubicacion = parseUbigeoCode(datos.ubigeo);
+  const telefonosLimpios = datos.telefonos.filter((telefono) => telefono.trim() !== '');
+  const correosLimpios = datos.correosElectronicos.filter((correo) => correo.trim() !== '');
+  const ahora = new Date();
+
+  return {
+    id: companyId ?? baseCompany?.id ?? generateWorkspaceId(),
+    tipoEmpresa: datos.tipoEmpresa,
+    ruc: datos.ruc,
+    razonSocial: datos.razonSocial,
+    nombreComercial: datos.nombreComercial || undefined,
+    direccionFiscal: datos.direccionFiscal,
+    distrito: datos.distrito || ubicacion?.district || baseCompany?.distrito || 'Lima',
+    provincia: datos.provincia || ubicacion?.province || baseCompany?.provincia || 'Lima',
+    departamento: datos.departamento || ubicacion?.department || baseCompany?.departamento || 'Lima',
+    codigoPostal: datos.ubigeo,
+    telefonos: telefonosLimpios,
+    correosElectronicos: correosLimpios,
+    sitioWeb: baseCompany?.sitioWeb,
+    actividadEconomica: datos.actividadEconomica,
+    regimenTributario: baseCompany?.regimenTributario || 'GENERAL',
+    monedaBase: datos.monedaBase,
+    representanteLegal: baseCompany?.representanteLegal || {
+      nombreRepresentanteLegal: '',
+      tipoDocumentoRepresentante: 'DNI',
+      numeroDocumentoRepresentante: '',
+    },
+    certificadoDigital: baseCompany?.certificadoDigital,
+    configuracionSunatEmpresa: {
+      estaConfiguradoEnSunat: baseCompany?.configuracionSunatEmpresa?.estaConfiguradoEnSunat || false,
+      usuarioSunat: baseCompany?.configuracionSunatEmpresa?.usuarioSunat,
+      entornoSunat: datos.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
+      fechaUltimaSincronizacionSunat:
+        fechaUltimaSincronizacionSunat
+        ?? baseCompany?.configuracionSunatEmpresa?.fechaUltimaSincronizacionSunat,
+    },
+    creadoEl: baseCompany?.creadoEl || ahora,
+    actualizadoEl: ahora,
+    estaActiva: baseCompany?.estaActiva ?? true,
+  };
 };
 
 export const construirConfiguracionInicialEmpresa = ({
@@ -283,6 +360,39 @@ export const construirConfiguracionInicialEmpresa = ({
   };
 };
 
+type ParametrosCajaPredeterminada = {
+  empresa: Company;
+  Establecimiento: Establecimiento;
+  userId: string | null;
+  currencies: Currency[];
+};
+
+const construirEntradaCajaPredeterminada = ({
+  empresa,
+  Establecimiento,
+  userId,
+  currencies,
+}: ParametrosCajaPredeterminada): CreateCajaInput => {
+  const codigoPreferido = empresa.monedaBase || 'PEN';
+  const porId = currencies.find((currency) => currency.id === codigoPreferido);
+  const porCodigo = currencies.find((currency) => currency.code === codigoPreferido);
+  const monedaPen = currencies.find(
+    (currency) => currency.id === 'PEN' || currency.code === 'PEN',
+  );
+  const monedaId = porId?.id || porCodigo?.id || monedaPen?.id || codigoPreferido;
+
+  return {
+    establecimientoIdCaja: Establecimiento.id,
+    nombreCaja: 'Caja 1',
+    monedaIdCaja: monedaId,
+    mediosPagoPermitidos: [...MEDIOS_PAGO_DISPONIBLES],
+    limiteMaximoCaja: CAJA_CONSTRAINTS.LIMITE_MIN,
+    margenDescuadreCaja: CAJA_CONSTRAINTS.MARGEN_MIN,
+    habilitadaCaja: true,
+    usuariosAutorizadosCaja: userId ? [userId] : [],
+  };
+};
+
 type ParametrosConfiguracionOperativaPredeterminada = {
   empresa: Company | null;
   Establecimiento: Establecimiento | null;
@@ -307,25 +417,6 @@ export async function asegurarConfiguracionOperativaPredeterminada({
 
   const empresaId = empresa.id;
   const establecimientoId = Establecimiento.id;
-
-  const derivarIdMonedaBase = (): string => {
-    const codigoPreferido = empresa.monedaBase || 'PEN';
-
-    const porId = estadoConfiguracion.currencies.find((currency) => currency.id === codigoPreferido);
-    if (porId) return porId.id;
-
-    const porCodigo = estadoConfiguracion.currencies.find((currency) => currency.code === codigoPreferido);
-    if (porCodigo) return porCodigo.id;
-
-    const monedaPen = estadoConfiguracion.currencies.find(
-      (currency) => currency.id === 'PEN' || currency.code === 'PEN',
-    );
-    if (monedaPen) return monedaPen.id;
-
-    return codigoPreferido;
-  };
-
-  const monedaId = derivarIdMonedaBase();
 
   let cajaPorDefecto: Caja | undefined;
 
@@ -367,18 +458,12 @@ export async function asegurarConfiguracionOperativaPredeterminada({
     return;
   }
 
-  const mediosPagoPermitidos = [...MEDIOS_PAGO_DISPONIBLES];
-
-  const entradaCreacion: CreateCajaInput = {
-    establecimientoIdCaja: establecimientoId,
-    nombreCaja: 'Caja 1',
-    monedaIdCaja: monedaId,
-    mediosPagoPermitidos,
-    limiteMaximoCaja: CAJA_CONSTRAINTS.LIMITE_MIN,
-    margenDescuadreCaja: CAJA_CONSTRAINTS.MARGEN_MIN,
-    habilitadaCaja: true,
-    usuariosAutorizadosCaja: userId ? [userId] : [],
-  };
+  const entradaCreacion = construirEntradaCajaPredeterminada({
+    empresa,
+    Establecimiento,
+    userId,
+    currencies: estadoConfiguracion.currencies,
+  });
 
   const nuevaCaja = await cajasDataSource.create(empresaId, establecimientoId, entradaCreacion);
   dispatch({ type: 'ADD_CAJA', payload: nuevaCaja });
@@ -430,6 +515,7 @@ const reviveCompany = (company: Company): Company => {
 
   return {
     ...company,
+    tipoEmpresa: company.tipoEmpresa ?? obtenerTipoEmpresa(company),
     creadoEl: reviveDate(company.creadoEl) ?? new Date(),
     actualizadoEl: reviveDate(company.actualizadoEl) ?? new Date(),
     certificadoDigital,
@@ -819,71 +905,105 @@ const persistUsersToGlobalStorage = (users: User[]) => {
   }
 };
 
-type DatosEmpresaBase = {
-  ruc: string;
-  razonSocial: string;
-  nombreComercial: string;
-  direccionFiscal: string;
-  ubigeo: string;
-  actividadEconomica: string;
-  telefonos: string[];
-  correosElectronicos: string[];
-  monedaBase: 'PEN' | 'USD';
-  entornoSunat: 'TEST' | 'PRODUCTION';
-};
+type DatosEmpresaBase = typeof DATOS_EMPRESA_DEMO_SENCIYO;
 
-const DATOS_EMPRESA_BASE: DatosEmpresaBase = {
-  ruc: '20000000000',
-  razonSocial: 'SENCIYO S.A.C.',
-  nombreComercial: 'SENCIYO',
-  direccionFiscal: 'AV. PRINCIPAL 123, LIMA, LIMA, LIMA',
-  ubigeo: '150101',
-  actividadEconomica: 'COMERCIO AL POR MENOR',
-  telefonos: ['949970564'],
-  correosElectronicos: ['contacto@senciyo.com'],
-  monedaBase: 'PEN',
-  entornoSunat: 'TEST',
-};
+const DATOS_EMPRESA_BASE: DatosEmpresaBase = DATOS_EMPRESA_DEMO_SENCIYO;
 
 const construirEmpresaBase = (datos: DatosEmpresaBase): Company => {
-  const ubicacion = parseUbigeoCode(datos.ubigeo);
-  const telefonosLimpios = datos.telefonos.filter((telefono) => telefono.trim() !== '');
-  const correosLimpios = datos.correosElectronicos.filter((correo) => correo.trim() !== '');
-  const ahora = new Date();
+  return construirEmpresaInicial({
+    datos: {
+      ...datos,
+      departamento: '',
+      provincia: '',
+      distrito: '',
+      tipoEmpresa: 'demo',
+    },
+  });
+};
+
+type ParametrosInicializacionEmpresaEnAlmacenamiento = {
+  tenantId: string;
+  datos: DatosEmpresaInicial;
+  userId: string | null;
+};
+
+type ResultadoInicializacionEmpresaEnAlmacenamiento = {
+  company: Company;
+  establecimiento: Establecimiento;
+  almacen: Almacen;
+  caja: Caja;
+  series: Series[];
+  monedas: Currency[];
+  impuestos: Tax[];
+  units: Unit[];
+  salesPreferences: SalesPreferences;
+};
+
+export async function inicializarEmpresaEnAlmacenamiento({
+  tenantId,
+  datos,
+  userId,
+}: ParametrosInicializacionEmpresaEnAlmacenamiento): Promise<ResultadoInicializacionEmpresaEnAlmacenamiento> {
+  const company = construirEmpresaInicial({
+    companyId: tenantId,
+    datos,
+  });
+
+  const resultadoConfiguracion = construirConfiguracionInicialEmpresa({
+    empresa: company,
+    datos: {
+      direccionFiscal: datos.direccionFiscal,
+      ubigeo: datos.ubigeo,
+      entornoSunat: datos.entornoSunat,
+      telefonos: datos.telefonos,
+      correosElectronicos: datos.correosElectronicos,
+      actividadEconomica: datos.actividadEconomica,
+    },
+    seriesExistentes: [],
+    monedasExistentes: [],
+    impuestosExistentes: [],
+  });
+
+  const units = normalizeUnitsWithCatalog([]);
+  const impuestos = normalizeTaxes(resultadoConfiguracion.impuestos);
+  const entradaCaja = construirEntradaCajaPredeterminada({
+    empresa: company,
+    Establecimiento: resultadoConfiguracion.establecimiento,
+    userId,
+    currencies: resultadoConfiguracion.monedas,
+  });
+  const caja = await cajasDataSource.create(
+    company.id,
+    resultadoConfiguracion.establecimiento.id,
+    entradaCaja,
+  );
+
+  const snapshot: PersistedTenantConfig = {
+    version: 1,
+    company,
+    Establecimientos: [resultadoConfiguracion.establecimiento],
+    almacenes: [resultadoConfiguracion.almacen],
+    cajas: [caja],
+    units,
+    rolesPersonalizados: [],
+    salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
+  };
+
+  persistTenantSnapshot(lsKey(LLAVE_ALMACENAMIENTO_CONFIGURACION, tenantId), snapshot);
+  persistSeries(lsKey(LLAVE_ALMACENAMIENTO_SERIES, tenantId), resultadoConfiguracion.series);
 
   return {
-    id: generateWorkspaceId(),
-    ruc: datos.ruc,
-    razonSocial: datos.razonSocial,
-    nombreComercial: datos.nombreComercial || undefined,
-    direccionFiscal: datos.direccionFiscal,
-    distrito: ubicacion?.district || 'Lima',
-    provincia: ubicacion?.province || 'Lima',
-    departamento: ubicacion?.department || 'Lima',
-    codigoPostal: datos.ubigeo,
-    telefonos: telefonosLimpios,
-    correosElectronicos: correosLimpios,
-    sitioWeb: undefined,
-    actividadEconomica: datos.actividadEconomica,
-    regimenTributario: 'GENERAL',
-    monedaBase: datos.monedaBase,
-    representanteLegal: {
-      nombreRepresentanteLegal: '',
-      tipoDocumentoRepresentante: 'DNI',
-      numeroDocumentoRepresentante: '',
-    },
-    certificadoDigital: undefined,
-    configuracionSunatEmpresa: {
-      estaConfiguradoEnSunat: false,
-      usuarioSunat: undefined,
-      entornoSunat: datos.entornoSunat === 'TEST' ? 'TESTING' : 'PRODUCTION',
-      fechaUltimaSincronizacionSunat: undefined,
-    },
-    creadoEl: ahora,
-    actualizadoEl: ahora,
-    estaActiva: true,
+    company,
+    establecimiento: resultadoConfiguracion.establecimiento,
+    almacen: resultadoConfiguracion.almacen,
+    caja,
+    series: resultadoConfiguracion.series,
+    monedas: resultadoConfiguracion.monedas,
+    impuestos,
+    units,
+    salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
   };
-};
+}
 
 type ConfigurationAction =
   | { type: 'SET_LOADING'; payload: boolean }
@@ -1325,6 +1445,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
     const workspaceBase = createOrUpdateWorkspace({
       id: generateWorkspaceId(),
+      tipoEmpresa: 'demo',
       ruc: DATOS_EMPRESA_BASE.ruc,
       razonSocial: DATOS_EMPRESA_BASE.razonSocial,
       nombreComercial: DATOS_EMPRESA_BASE.nombreComercial,
@@ -1500,6 +1621,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
     const datosWorkspace = {
       id: tenantId,
+      tipoEmpresa: state.company.tipoEmpresa ?? obtenerTipoEmpresa(state.company),
       ruc: state.company.ruc,
       razonSocial: state.company.razonSocial,
       nombreComercial: state.company.nombreComercial,
@@ -1509,6 +1631,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     const requiereActualizarWorkspace =
       !activeWorkspace ||
       activeWorkspace.id !== datosWorkspace.id ||
+      activeWorkspace.tipoEmpresa !== datosWorkspace.tipoEmpresa ||
       activeWorkspace.ruc !== datosWorkspace.ruc ||
       activeWorkspace.razonSocial !== datosWorkspace.razonSocial ||
       activeWorkspace.nombreComercial !== datosWorkspace.nombreComercial ||
@@ -1533,6 +1656,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     const empresaNormalizada: Company = {
       ...empresa,
       id: tenantId,
+      tipoEmpresa: empresa.tipoEmpresa ?? obtenerTipoEmpresa(empresa),
     };
 
     const establecimientoPrincipal =

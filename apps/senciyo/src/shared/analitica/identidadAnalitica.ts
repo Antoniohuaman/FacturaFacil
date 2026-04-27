@@ -5,6 +5,7 @@ import type {
 } from '../../pages/Private/features/autenticacion/types/auth.types';
 import type { Company } from '../../pages/Private/features/configuracion-sistema/modelos/Company';
 import type { UserSession } from '../../contexts/UserSessionContext';
+import { derivarEntornoAnaliticoEmpresa } from '../empresas/empresaDemo';
 
 export interface ContextoIdentidadAnalitica {
   userId: string;
@@ -44,16 +45,6 @@ const obtenerCompanyIdCanonico = (
 
 const obtenerEntornoSunat = (company: Company | null | undefined): 'TESTING' | 'PRODUCTION' | undefined => {
   return company?.configuracionSunatEmpresa?.entornoSunat;
-};
-
-const derivarEntornoAnalitico = (
-  entornoSunat: 'TESTING' | 'PRODUCTION' | undefined,
-): 'demo' | 'produccion' | undefined => {
-  if (!entornoSunat) {
-    return undefined;
-  }
-
-  return entornoSunat === 'PRODUCTION' ? 'produccion' : 'demo';
 };
 
 const obtenerNombreEmpresaSeguro = (company: EmpresaAnalitica | null | undefined): string | undefined => {
@@ -118,7 +109,7 @@ export function resolverContextoIdentidadAnalitica({
   const currentCompany = session?.currentCompany;
   const contextoEmpresa = resolverContextoEmpresaAnalitica(companyId, currentCompany);
   const entornoSunat = obtenerEntornoSunat(currentCompany);
-  const entorno = derivarEntornoAnalitico(entornoSunat);
+  const entorno = derivarEntornoAnaliticoEmpresa(currentCompany);
   const establecimientoId = session?.currentEstablecimientoId || activeEstablecimientoId || undefined;
 
   return {

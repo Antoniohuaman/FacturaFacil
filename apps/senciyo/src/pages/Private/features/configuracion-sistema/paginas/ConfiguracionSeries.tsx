@@ -384,7 +384,7 @@ export function SeriesConfiguration() {
           },
           sunatConfiguration: {
             isElectronic: documentType.properties.isElectronic,
-            environmentType: 'TESTING',
+            environmentType: state.company?.configuracionSunatEmpresa.entornoSunat ?? 'TESTING',
             certificateRequired: documentType.properties.isElectronic,
             mustReportToSunat: documentType.properties.isElectronic,
             maxDaysToReport: datosFormulario.type === 'INVOICE' ? 1 : (documentType.properties.isElectronic ? 7 : 0)

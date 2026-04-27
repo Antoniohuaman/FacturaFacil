@@ -19,6 +19,7 @@ import {
 import { PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
+import { esEmpresaDemo } from '@/shared/empresas/empresaDemo';
 
 interface ConfigurationModule {
   id: string;
@@ -35,6 +36,7 @@ interface ConfigurationModule {
 export function ConfigurationDashboard() {
   const { state } = useConfigurationContext();
   const { company } = state;
+  const esEmpresaDemoActual = esEmpresaDemo(company);
 
   // Calculate status from current data
   const status = {
@@ -233,7 +235,11 @@ export function ConfigurationDashboard() {
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Ambiente</p>
                   <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    {company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION' ? 'Producción' : 'Prueba'}
+                    {esEmpresaDemoActual
+                      ? 'Demo'
+                      : company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION'
+                        ? 'Producción'
+                        : 'Prueba'}
                   </p>
                 </div>
                 <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${company?.configuracionSunatEmpresa.entornoSunat === 'PRODUCTION'
@@ -258,21 +264,13 @@ export function ConfigurationDashboard() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base font-semibold text-yellow-800 dark:text-yellow-200">
-                    Ambiente de Prueba Activo
+                    {esEmpresaDemoActual ? 'Demo inicial activa' : 'Ambiente de prueba activo'}
                   </h3>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                    Actualmente estás en modo de prueba. Los documentos emitidos no tienen validez legal.
-                    Una vez que completes la configuración, podrás cambiar a producción.
+                    {esEmpresaDemoActual
+                      ? 'Esta empresa conserva el entorno de prueba de la demo inicial y no se convierte en empresa real.'
+                      : 'Esta empresa mantiene un entorno de prueba configurado internamente. Los documentos emitidos no tienen validez legal.'}
                   </p>
-                  <div className="mt-3">
-                    <Link
-                      to="/configuracion/empresa"
-                      className="inline-flex items-center px-4 py-2 bg-yellow-600 dark:bg-yellow-700 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 dark:hover:bg-yellow-600 transition-colors"
-                    >
-                      Configurar para Producción
-                      <ArrowRight className="ml-2 w-4 h-4" />
-                    </Link>
-                  </div>
                 </div>
               </div>
             </div>
