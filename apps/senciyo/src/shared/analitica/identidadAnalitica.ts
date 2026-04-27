@@ -15,7 +15,6 @@ export interface ContextoIdentidadAnalitica {
   userRole?: string;
   userStatus?: string;
   companyId?: string;
-  companyName?: string;
   companyConfigured: boolean;
   establecimientoId?: string;
   entorno?: 'demo' | 'produccion';
@@ -74,10 +73,9 @@ const derivarEmpresaConfigurada = (
 export function resolverContextoEmpresaAnalitica(
   companyId: string | undefined,
   company: EmpresaAnalitica | null | undefined,
-): Pick<ContextoIdentidadAnalitica, 'companyId' | 'companyName' | 'companyConfigured'> {
+): Pick<ContextoIdentidadAnalitica, 'companyId' | 'companyConfigured'> {
   return {
     companyId,
-    companyName: obtenerNombreEmpresaSeguro(company),
     companyConfigured: derivarEmpresaConfigurada(companyId, company),
   };
 }
@@ -85,7 +83,7 @@ export function resolverContextoEmpresaAnalitica(
 export function resolverContextoEmpresaAnaliticaDesdeTenant(
   empresas: Empresa[],
   contextoActual: WorkspaceContext | null,
-): Pick<ContextoIdentidadAnalitica, 'companyId' | 'companyName' | 'companyConfigured'> | null {
+): Pick<ContextoIdentidadAnalitica, 'companyId' | 'companyConfigured'> | null {
   if (!contextoActual?.empresaId) {
     return null;
   }
@@ -120,7 +118,6 @@ export function resolverContextoIdentidadAnalitica({
     userRole: authUser.rol,
     userStatus: authUser.estado,
     companyId: contextoEmpresa.companyId,
-    companyName: contextoEmpresa.companyName,
     companyConfigured: contextoEmpresa.companyConfigured,
     establecimientoId,
     entorno,

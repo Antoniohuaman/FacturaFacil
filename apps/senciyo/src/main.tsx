@@ -26,19 +26,22 @@ const selectoresReplayDesenmascarados = ['.amp-unmask'];
 const esHostLocal = (): boolean =>
   typeof window !== "undefined" && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
+const posthogHabilitado = Boolean(posthogKey) && import.meta.env.PROD && !esHostLocal();
+const amplitudeHabilitado = Boolean(amplitudeApiKey) && import.meta.env.PROD && !esHostLocal();
+
 const normalizarSampleRateReplay = (valor: string | undefined): number => {
   const valorNormalizado = valor?.trim();
-  const sampleRate = Number(valorNormalizado === undefined || valorNormalizado === '' ? '1' : valorNormalizado);
+  const sampleRate = Number(valorNormalizado === undefined || valorNormalizado === '' ? '0' : valorNormalizado);
 
   if (!Number.isFinite(sampleRate)) {
-    return 1;
+    return 0;
   }
 
   return Math.min(1, Math.max(0, sampleRate));
 };
 
-if (posthogKey) {
-  posthog.init(posthogKey, {
+if (posthogHabilitado) {
+  posthog.init(posthogKey!, {
     ...(posthogHost ? { api_host: posthogHost } : {}),
     autocapture: false, // Desactivar autocapture para evitar capturar eventos no deseados
     capture_pageview: false, // Desactivar captura automática de pageviews
@@ -57,14 +60,16 @@ if (posthogKey) {
         return eventosPosthogInternosPermitidos.has(nombreEvento) ? event : null;
       }
 
+      // PostHog recibe solo el contrato principal de negocio/KPI.
+      // Los eventos técnicos (por ejemplo, retroalimentación_*) se excluyen aquí a propósito.
       return eventosAnaliticaPermitidos.has(nombreEvento) ? event : null;
     },
   });
 }
 
 // ✅ NUEVO (Amplitude): init seguro, sin tracking automático
-if (amplitudeApiKey && import.meta.env.PROD && !esHostLocal()) {
-  amplitude.init(amplitudeApiKey, {
+if (amplitudeHabilitado) {
+  amplitude.init(amplitudeApiKey!, {
     // Session Replay exige sesiones automáticas, pero se mantiene apagado el resto.
     defaultTracking: {
       attribution: false,
@@ -100,7 +105,7 @@ const AppTree = (
 );
 
 createRoot(document.getElementById("root")!).render(
-  posthogKey ? (
+  posthogHabilitado ? (
     <PostHogProvider client={posthog}>{AppTree}</PostHogProvider>
   ) : (
     AppTree

@@ -129,10 +129,6 @@ const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): Propiedad
     propiedadesBase.company_id = contextoIdentidadActual.companyId;
   }
 
-  if (contextoIdentidadActual?.companyName) {
-    propiedadesBase.company_name = contextoIdentidadActual.companyName;
-  }
-
   if (typeof contextoIdentidadActual?.companyConfigured === 'boolean') {
     propiedadesBase.company_configured = contextoIdentidadActual.companyConfigured;
   }
@@ -180,7 +176,6 @@ const construirPropiedadesUsuario = (contexto: ContextoIdentidadAnalitica): Reco
   entorno_sunat: contexto.entornoEmision,
   company_configured: contexto.companyConfigured,
   company_id: contexto.companyId,
-  company_name: contexto.companyName,
   establecimiento_id: contexto.establecimientoId,
 });
 
@@ -242,7 +237,6 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
     if (contexto.companyId) {
       posthog.group('company', contexto.companyId, limpiarValoresIndefinidos({
         company_id: contexto.companyId,
-        company_name: contexto.companyName,
         entorno_emision: contexto.entornoEmision,
         entorno_sunat: contexto.entornoEmision,
         entorno: contexto.entorno,
@@ -257,6 +251,7 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
     amplitude.setUserId(contexto.userId);
 
     const identify = new amplitude.Identify();
+    identify.unset('company_name');
     Object.entries(propiedadesUsuario).forEach(([key, value]) => {
       if (value !== undefined) {
         identify.set(key, value as string | number | boolean);
@@ -274,6 +269,7 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
     mixpanel.identify(contexto.userId);
 
     const mixpanelClient = mixpanel as MixpanelConSuperProps;
+    mixpanelClient.unregister?.('company_name');
     mixpanelClient.register?.(propiedadesUsuario);
 
     if (!contexto.companyId) {
@@ -424,7 +420,7 @@ export function registrarVentaCompletada(entrada: {
 }): void {
   capturarEvento(EVENTOS_ANALITICA.VENTA_COMPLETADA, {
     entorno: entrada.entorno,
-    origenVenta: entrada.origenVenta,
+    origen_venta: entrada.origenVenta,
     ...(entrada.formaPago ? { forma_pago: entrada.formaPago } : {}),
   });
 }
@@ -436,7 +432,7 @@ export function registrarPrimeraVentaCompletada(entrada: {
 }): void {
   capturarEvento(EVENTOS_ANALITICA.PRIMERA_VENTA_COMPLETADA, {
     entorno: entrada.entorno,
-    origenVenta: entrada.origenVenta,
+    origen_venta: entrada.origenVenta,
     ...(entrada.formaPago ? { forma_pago: entrada.formaPago } : {}),
   });
 }
@@ -461,9 +457,16 @@ export function registrarImportacionCompletada(entrada: {
   resultado: ResultadoImportacion;
   erroresRango: ErroresRangoImportacion;
 }): void {
-  capturarEvento(EVENTOS_ANALITICA.IMPORTACION_COMPLETADA, entrada);
+  capturarEvento(EVENTOS_ANALITICA.IMPORTACION_COMPLETADA, {
+    entorno: entrada.entorno,
+    entidad: entrada.entidad,
+    resultado: entrada.resultado,
+    errores_rango: entrada.erroresRango,
+  });
 }
 
 export function registrarEventoTecnico(nombreEvento: string, propiedades?: PropiedadesAnalitica): void {
+  // Los eventos técnicos no forman parte del contrato KPI compartido.
+  // La política de proveedores se define en main.tsx mediante before_send de PostHog.
   capturarEvento(nombreEvento, propiedades);
 }

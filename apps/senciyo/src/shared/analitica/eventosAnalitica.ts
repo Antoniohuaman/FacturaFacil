@@ -1,3 +1,12 @@
+/**
+ * Tipos locales del frontend para analítica.
+ *
+ * - Los nombres de eventos salen del contrato compartido en packages/analytics-events.
+ * - Los payloads wire se normalizan en snake_case dentro de analitica.ts.
+ * - Algunas variantes se mantienen aunque hoy no tengan callsites activos,
+ *   porque forman parte del rango soportado por el frontend (p. ej. estados
+ *   futuros de comprobante o entidades de importación aún no disparadas).
+ */
 import { ANALYTICS_EVENTS } from '@facturafacil/analytics-events'
 
 export { ANALYTICS_EVENTS as EVENTOS_ANALITICA }
