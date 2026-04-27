@@ -103,6 +103,7 @@ import {
   validarFechasManual,
 } from '../shared/payments/creditoManualTransaccion';
 import {
+  registrarFlujoVentaAbandonado,
   registrarPrimeraVentaCompletada,
   registrarVentaCompletada,
 } from '@/shared/analitica/analitica';
@@ -443,25 +444,6 @@ const EmisionTradicional = () => {
   const [pendingReceivableHighlightId, setPendingReceivableHighlightId] = useState<string | undefined>(undefined);
   const [showObservacionesPanel, setShowObservacionesPanel] = useState(false);
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
-
-  useEffect(() => {
-    if (!showSuccessModal) {
-      return;
-    }
-
-    registrarVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'emision' });
-
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    if (window.sessionStorage.getItem(llavePrimeraVentaCompletadaSesion) === '1') {
-      return;
-    }
-
-    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'emision' });
-    window.sessionStorage.setItem(llavePrimeraVentaCompletadaSesion, '1');
-  }, [entornoAnalitica, llavePrimeraVentaCompletadaSesion, showSuccessModal]);
 
   const { createCliente } = useClientes();
   const { allProducts: catalogProducts } = useProductStore();
@@ -814,6 +796,54 @@ const EmisionTradicional = () => {
     iniciarAperturaCaja();
   }, [forzarGuardadoBorrador, iniciarAperturaCaja]);
 
+  const tieneOptionalFieldsReales = useMemo(() => {
+    return Object.values(optionalFields || {}).some((value) => {
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (typeof value === 'number') return Number.isFinite(value) && value !== 0;
+      if (typeof value === 'boolean') return value;
+      return value !== null && value !== undefined;
+    });
+  }, [optionalFields]);
+
+  const tieneActividadFlujoVenta = useMemo(() => {
+    const defaults = borradorDefaultsRef.current;
+    const cambioEnDefaults = Boolean(defaults && (
+      tipoComprobante !== defaults.tipoComprobante ||
+      serieSeleccionada !== defaults.serieSeleccionada ||
+      fechaEmision !== defaults.fechaEmision ||
+      formaPago !== defaults.formaPago ||
+      currentCurrency !== defaults.moneda
+    ));
+
+    return Boolean(
+      hasDocumentItems ||
+      clienteSeleccionadoGlobal ||
+      observaciones.trim() ||
+      notaInterna.trim() ||
+      tieneOptionalFieldsReales ||
+      appliedGlobalDiscount ||
+      creditTemplates.length > 0 ||
+      cuotasManual.length > 0 ||
+      creditoManualConfirmado ||
+      cambioEnDefaults
+    );
+  }, [
+    appliedGlobalDiscount,
+    creditTemplates.length,
+    creditoManualConfirmado,
+    currentCurrency,
+    cuotasManual.length,
+    clienteSeleccionadoGlobal,
+    fechaEmision,
+    formaPago,
+    hasDocumentItems,
+    notaInterna,
+    observaciones,
+    serieSeleccionada,
+    tieneOptionalFieldsReales,
+    tipoComprobante,
+  ]);
+
   // Resumen: snapshot de defaults en el primer render; persistencia solo con cambios reales o datos; habilitación por tenant+establecimiento.
 
 
@@ -1033,6 +1063,34 @@ const EmisionTradicional = () => {
   const creditDueDateForForm = isCreditPaymentSelection
     ? (creditTermsForSubmit?.fechaVencimientoGlobal ?? optionalFields?.fechaVencimiento ?? '')
     : '';
+
+  useEffect(() => {
+    if (!showSuccessModal) {
+      return;
+    }
+
+    registrarVentaCompletada({
+      entorno: entornoAnalitica,
+      origenVenta: 'emision',
+      formaPago: isCreditPaymentSelection ? 'credito' : 'contado',
+    });
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (window.sessionStorage.getItem(llavePrimeraVentaCompletadaSesion) === '1') {
+      return;
+    }
+
+    registrarPrimeraVentaCompletada({
+      entorno: entornoAnalitica,
+      origenVenta: 'emision',
+      formaPago: isCreditPaymentSelection ? 'credito' : 'contado',
+    });
+    window.sessionStorage.setItem(llavePrimeraVentaCompletadaSesion, '1');
+  }, [entornoAnalitica, isCreditPaymentSelection, llavePrimeraVentaCompletadaSesion, showSuccessModal]);
+
   const issueButtonLabel = useMemo(() => {
     if (tipoComprobante === 'nota_credito') {
       return 'EMITIR NOTA DE CRÉDITO';
@@ -1592,6 +1650,12 @@ const EmisionTradicional = () => {
                   <ActionButtonsSection
                     onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
                     onCancelar={() => {
+                      if (tieneActividadFlujoVenta) {
+                        registrarFlujoVentaAbandonado({
+                          origenVenta: 'emision',
+                          motivoAbandono: 'cancelacion_usuario',
+                        });
+                      }
                       limpiarBorradorEnProgreso();
                       clearCart();
                       resetForm();

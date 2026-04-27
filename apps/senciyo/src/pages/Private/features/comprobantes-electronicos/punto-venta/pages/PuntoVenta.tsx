@@ -30,6 +30,7 @@ import { PreviewTicket } from '../../shared/ui/PreviewTicket';
 import type { PreviewData } from '../../models/comprobante.types';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import {
+  registrarFlujoVentaAbandonado,
   registrarPrimeraVentaCompletada,
   registrarVentaCompletada,
 } from '@/shared/analitica/analitica';
@@ -198,6 +199,13 @@ const PuntoVenta = () => {
     ),
   });
 
+  const tieneActividadVentaPos = useMemo(() => Boolean(
+    cartItems.length > 0
+    || clienteSeleccionado
+    || observaciones.trim()
+    || notaInterna.trim()
+  ), [cartItems.length, clienteSeleccionado, notaInterna, observaciones]);
+
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
   const handleAbrirCaja = useCallback(() => {
     forzarGuardadoBorrador();
@@ -218,7 +226,11 @@ const PuntoVenta = () => {
       return;
     }
 
-    registrarVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'pos' });
+    registrarVentaCompletada({
+      entorno: entornoAnalitica,
+      origenVenta: 'pos',
+      formaPago: isCreditMethod ? 'credito' : 'contado',
+    });
 
     if (typeof window === 'undefined') {
       return;
@@ -228,9 +240,13 @@ const PuntoVenta = () => {
       return;
     }
 
-    registrarPrimeraVentaCompletada({ entorno: entornoAnalitica, origenVenta: 'pos' });
+    registrarPrimeraVentaCompletada({
+      entorno: entornoAnalitica,
+      origenVenta: 'pos',
+      formaPago: isCreditMethod ? 'credito' : 'contado',
+    });
     window.sessionStorage.setItem(llavePrimeraVentaCompletadaSesion, '1');
-  }, [entornoAnalitica, llavePrimeraVentaCompletadaSesion, showSuccessModal]);
+  }, [entornoAnalitica, isCreditMethod, llavePrimeraVentaCompletadaSesion, showSuccessModal]);
 
   const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
 
@@ -354,7 +370,15 @@ const PuntoVenta = () => {
               {/* Right side - Estado de caja mejorado */}
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => navigate('/punto-venta/dashboard')}
+                  onClick={() => {
+                    if (tieneActividadVentaPos && !showSuccessModal) {
+                      registrarFlujoVentaAbandonado({
+                        origenVenta: 'pos',
+                        motivoAbandono: 'salida_flujo',
+                      });
+                    }
+                    navigate('/punto-venta/dashboard');
+                  }}
                   className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:border-[#2ccdb0] hover:text-[#2f70b4] focus-visible:ring-2 focus-visible:ring-[#2f70b4]/20"
                   title="Ir al dashboard de Punto de Venta"
                 >

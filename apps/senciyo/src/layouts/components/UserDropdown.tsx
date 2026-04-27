@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../pages/Private/features/autenticacion/hooks/useAuth';
 import { useUserSession } from '../../contexts/UserSessionContext';
 import ConfirmationModal from '../../../app/shared/src/components/ConfirmationModal';
+import { registrarAyudaConsultada } from '@/shared/analitica/analitica';
 
 interface UserDropdownProps {
   userName: string;
@@ -33,6 +34,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({
         break;
       case 'ayuda':
         onClose();
+        registrarAyudaConsultada({ tipoAyuda: 'centro_ayuda', origen: 'header' });
         alert('Redirigiendo a Centro de Ayuda...\n(Aquí se implementaría la navegación al centro de ayuda)');
         break;
       case 'suscripcion':

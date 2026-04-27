@@ -45,6 +45,7 @@ import {
 } from '@/shared/time/businessTime';
 import { obtenerEtiquetaTipoComprobante, MOCK_OSE_RESPONSE_DELAY_MS } from '../models/constants';
 import { crearInstantaneaDocumentoComercial } from '../models/instantaneaDocumentoComercial';
+import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
 
 interface ComprobanteData {
   tipoComprobante: TipoComprobante;
@@ -106,6 +107,20 @@ const buildPaymentModeLabel = (isCreditSale: boolean, creditTerms?: ComprobanteC
     return `Crédito ${orderedDays[0]} días`;
   }
   return `Crédito ${orderedDays.join('-')} días`;
+};
+
+const resolverTipoComprobanteAnalitica = (
+  tipoComprobante: TipoComprobante,
+): 'factura' | 'boleta' | 'nota_credito' | 'nota_debito' | 'otro' => {
+  if (tipoComprobante === 'factura' || tipoComprobante === 'boleta' || tipoComprobante === 'nota_credito' || tipoComprobante === 'nota_debito') {
+    return tipoComprobante;
+  }
+
+  return 'otro';
+};
+
+const resolverFormaPagoAnalitica = (isCreditSale: boolean): 'contado' | 'credito' => {
+  return isCreditSale ? 'credito' : 'contado';
 };
 
 export const useComprobanteActions = () => {
@@ -304,6 +319,7 @@ export const useComprobanteActions = () => {
       const normalizedFormaPago = data.formaPago?.toLowerCase?.().trim();
       const isCreditSale = normalizedFormaPago === 'credito' || Boolean(data.creditTerms);
       const paymentModeLabel = buildPaymentModeLabel(isCreditSale, data.creditTerms);
+      const origenVentaAnalitica = data.source === 'emision' || data.source === 'pos' ? data.source : undefined;
       let createdCuenta: CuentaPorCobrarSummary | null = null;
 
       if (!isNoteCredit && isCreditSale) {
@@ -772,10 +788,22 @@ export const useComprobanteActions = () => {
 
         // Agregar al contexto global
         addComprobante(nuevoComprobante);
+        registrarComprobanteEstadoActualizado({
+          estado: 'enviado',
+          tipoComprobante: resolverTipoComprobanteAnalitica(data.tipoComprobante),
+          formaPago: resolverFormaPagoAnalitica(isCreditSale),
+          ...(origenVentaAnalitica ? { origenVenta: origenVentaAnalitica } : {}),
+        });
 
         // ✅ SIMULAR RESPUESTA OSE: Enviado → Aceptado (solo Factura/Boleta, no NC)
         if (!isNoteCredit) {
           setTimeout(() => {
+            registrarComprobanteEstadoActualizado({
+              estado: 'aceptado',
+              tipoComprobante: resolverTipoComprobanteAnalitica(data.tipoComprobante),
+              formaPago: resolverFormaPagoAnalitica(isCreditSale),
+              ...(origenVentaAnalitica ? { origenVenta: origenVentaAnalitica } : {}),
+            });
             dispatch({
               type: 'UPDATE_COMPROBANTE',
               payload: { ...nuevoComprobante, status: 'Aceptado', statusColor: 'green' as const },

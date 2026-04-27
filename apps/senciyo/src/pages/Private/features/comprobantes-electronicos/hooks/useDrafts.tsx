@@ -20,6 +20,7 @@ import {
 } from '../shared/drafts/draftStorage';
 import { validateComprobanteNormativa } from '../shared/core/comprobanteValidation';
 import { getBusinessTodayISODate, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
+import { registrarBorradorAccionRealizada } from '@/shared/analitica/analitica';
 
 interface DraftSaveParams {
   tipoComprobante: TipoComprobante;
@@ -166,6 +167,7 @@ export const useDrafts = (): UseDraftsReturn => {
     
     // Guardar en localStorage
     saveDraftToStorage(draftData);
+    registrarBorradorAccionRealizada({ accion: 'guardado', origenVenta: 'emision' });
     
     // Auto-ocultar toast después del tiempo configurado
     setTimeout(() => {

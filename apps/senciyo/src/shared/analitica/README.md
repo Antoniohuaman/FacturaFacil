@@ -17,8 +17,12 @@ Esta carpeta centraliza la analítica del frontend con enfoque en hitos de negoc
 - caja_abierta_exitoso
 - movimiento_caja_registrado
 - caja_cerrada_exitoso
-- venta_completada
-- primera_venta_completada
+- flujo_venta_abandonado: `origen_venta`, `motivo_abandono?`
+- comprobante_estado_actualizado: `estado`, `tipo_comprobante?`, `forma_pago?`, `origen_venta?`
+- ayuda_consultada: `tipo_ayuda`, `origen`
+- borrador_accion_realizada: `accion`, `origen_venta?`
+- venta_completada: `entorno`, `origenVenta`, `forma_pago?`
+- primera_venta_completada: `entorno`, `origenVenta`, `forma_pago?`
 - producto_creado_exitoso
 - cliente_creado_exitoso
 - importacion_completada

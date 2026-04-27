@@ -1178,6 +1178,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
             {mode === 'contado' && (
               <AccesoGuiaContextual
                 onClick={handleVerGuiaCobranza}
+                analyticsOrigin="panel"
                 className="px-2.5 py-1 text-[11px] shadow-none"
               />
             )}

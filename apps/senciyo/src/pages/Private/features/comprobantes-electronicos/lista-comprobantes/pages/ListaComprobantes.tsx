@@ -54,6 +54,7 @@ import {
   extraerContextoOrigenDesdeInstantanea,
 } from '../../models/instantaneaDocumentoComercial';
 import { esEstadoValidoParaNotaCredito } from '../../models/constants';
+import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -72,6 +73,52 @@ const resolveTipoComprobante = (label?: string): TipoComprobante => {
     return 'boleta';
   }
   return 'factura';
+};
+
+const resolveTipoComprobanteAnalitica = (label?: string): 'factura' | 'boleta' | 'nota_credito' | 'nota_debito' | 'otro' => {
+  if (!label) {
+    return 'otro';
+  }
+
+  const normalized = label.toLowerCase();
+  if (normalized.includes('nota de crédito') || normalized.includes('nota de credito')) {
+    return 'nota_credito';
+  }
+  if (normalized.includes('nota de débito') || normalized.includes('nota de debito')) {
+    return 'nota_debito';
+  }
+  if (normalized.includes('boleta')) {
+    return 'boleta';
+  }
+  if (normalized.includes('factura')) {
+    return 'factura';
+  }
+
+  return 'otro';
+};
+
+const resolveOrigenVentaAnalitica = (invoice: Comprobante): 'emision' | 'pos' | undefined => {
+  const source = String((invoice as unknown as Record<string, unknown>).source ?? '').toLowerCase();
+  return source === 'emision' || source === 'pos' ? source : undefined;
+};
+
+const resolveFormaPagoAnalitica = (invoice: Comprobante): 'contado' | 'credito' | undefined => {
+  const invoiceRecord = invoice as unknown as Record<string, unknown>;
+  if (invoiceRecord.creditTerms) {
+    return 'credito';
+  }
+
+  const paymentMethod = String(invoiceRecord.paymentMethod ?? '').toLowerCase();
+  const paymentMethodId = String(invoiceRecord.paymentMethodId ?? '').toLowerCase();
+  if (paymentMethod.includes('credito') || paymentMethodId === 'credito') {
+    return 'credito';
+  }
+
+  if (paymentMethod || paymentMethodId) {
+    return 'contado';
+  }
+
+  return undefined;
 };
 
 const canGenerateCreditNote = (invoice: Comprobante): boolean => {
@@ -657,6 +704,14 @@ const InvoiceListDashboard = () => {
           status: 'Anulado',
           statusColor: 'red'
         }
+      });
+      const formaPagoAnalitica = resolveFormaPagoAnalitica(selectedInvoiceForVoid);
+      const origenVentaAnalitica = resolveOrigenVentaAnalitica(selectedInvoiceForVoid);
+      registrarComprobanteEstadoActualizado({
+        estado: 'anulado',
+        tipoComprobante: resolveTipoComprobanteAnalitica(selectedInvoiceForVoid.type),
+        ...(formaPagoAnalitica ? { formaPago: formaPagoAnalitica } : {}),
+        ...(origenVentaAnalitica ? { origenVenta: origenVentaAnalitica } : {}),
       });
     } catch (error) {
       console.error('No se pudo actualizar el comprobante en memoria', error);

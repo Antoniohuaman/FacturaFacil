@@ -4,14 +4,21 @@ import mixpanel from 'mixpanel-browser';
 import { useTenantStore } from '../../pages/Private/features/autenticacion/store/TenantStore';
 
 import {
+  type AccionBorradorAnalitica,
   EVENTOS_ANALITICA,
   type EntidadImportacion,
   type EntornoAnalitica,
   type ErroresRangoImportacion,
+  type EstadoComprobanteAnalitica,
+  type FormaPagoAnalitica,
+  type MotivoAbandonoVenta,
+  type OrigenAyudaAnalitica,
   type OrigenCliente,
   type OrigenProducto,
   type OrigenVenta,
   type ResultadoImportacion,
+  type TipoAyudaAnalitica,
+  type TipoComprobanteAnalitica,
 } from './eventosAnalitica';
 import {
   resolverContextoEmpresaAnaliticaDesdeTenant,
@@ -366,15 +373,72 @@ export function registrarCajaCerradaExitoso(): void {
   });
 }
 
-export function registrarVentaCompletada(entrada: { entorno: EntornoAnalitica; origenVenta: OrigenVenta }): void {
-  capturarEvento(EVENTOS_ANALITICA.VENTA_COMPLETADA, entrada);
+export function registrarFlujoVentaAbandonado(entrada: {
+  origenVenta: OrigenVenta;
+  motivoAbandono?: MotivoAbandonoVenta;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.FLUJO_VENTA_ABANDONADO, {
+    origen_venta: entrada.origenVenta,
+    ...(entrada.motivoAbandono ? { motivo_abandono: entrada.motivoAbandono } : {}),
+  });
+}
+
+export function registrarComprobanteEstadoActualizado(entrada: {
+  estado: EstadoComprobanteAnalitica;
+  tipoComprobante?: TipoComprobanteAnalitica;
+  formaPago?: FormaPagoAnalitica;
+  origenVenta?: OrigenVenta;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.COMPROBANTE_ESTADO_ACTUALIZADO, {
+    estado: entrada.estado,
+    ...(entrada.tipoComprobante ? { tipo_comprobante: entrada.tipoComprobante } : {}),
+    ...(entrada.formaPago ? { forma_pago: entrada.formaPago } : {}),
+    ...(entrada.origenVenta ? { origen_venta: entrada.origenVenta } : {}),
+  });
+}
+
+export function registrarAyudaConsultada(entrada: {
+  tipoAyuda: TipoAyudaAnalitica;
+  origen: OrigenAyudaAnalitica;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.AYUDA_CONSULTADA, {
+    tipo_ayuda: entrada.tipoAyuda,
+    origen: entrada.origen,
+  });
+}
+
+export function registrarBorradorAccionRealizada(entrada: {
+  accion: AccionBorradorAnalitica;
+  origenVenta?: OrigenVenta;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.BORRADOR_ACCION_REALIZADA, {
+    accion: entrada.accion,
+    ...(entrada.origenVenta ? { origen_venta: entrada.origenVenta } : {}),
+  });
+}
+
+export function registrarVentaCompletada(entrada: {
+  entorno: EntornoAnalitica;
+  origenVenta: OrigenVenta;
+  formaPago?: FormaPagoAnalitica;
+}): void {
+  capturarEvento(EVENTOS_ANALITICA.VENTA_COMPLETADA, {
+    entorno: entrada.entorno,
+    origenVenta: entrada.origenVenta,
+    ...(entrada.formaPago ? { forma_pago: entrada.formaPago } : {}),
+  });
 }
 
 export function registrarPrimeraVentaCompletada(entrada: {
   entorno: EntornoAnalitica;
   origenVenta: OrigenVenta;
+  formaPago?: FormaPagoAnalitica;
 }): void {
-  capturarEvento(EVENTOS_ANALITICA.PRIMERA_VENTA_COMPLETADA, entrada);
+  capturarEvento(EVENTOS_ANALITICA.PRIMERA_VENTA_COMPLETADA, {
+    entorno: entrada.entorno,
+    origenVenta: entrada.origenVenta,
+    ...(entrada.formaPago ? { forma_pago: entrada.formaPago } : {}),
+  });
 }
 
 export function registrarProductoCreadoExitoso(entrada: {

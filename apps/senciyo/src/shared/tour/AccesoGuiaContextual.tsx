@@ -2,12 +2,15 @@ import { HelpCircle } from "lucide-react";
 import { solicitarInicioTour } from "./motorTour";
 import type { IdTour } from "./tiposTour";
 import { usarAyudaGuiada } from "./usarAyudaGuiada";
+import { registrarAyudaConsultada } from "@/shared/analitica/analitica";
+import type { OrigenAyudaAnalitica } from "@/shared/analitica/eventosAnalitica";
 
 interface AccesoGuiaContextualProps {
   tourId?: IdTour;
   onClick?: () => void;
   label?: string;
   className?: string;
+  analyticsOrigin?: OrigenAyudaAnalitica;
 }
 
 export function AccesoGuiaContextual({
@@ -15,6 +18,7 @@ export function AccesoGuiaContextual({
   onClick,
   label = "Ver guía",
   className = "",
+  analyticsOrigin = 'modulo',
 }: AccesoGuiaContextualProps) {
   const { ayudaActivada } = usarAyudaGuiada();
 
@@ -23,6 +27,8 @@ export function AccesoGuiaContextual({
   }
 
   const handleClick = () => {
+    registrarAyudaConsultada({ tipoAyuda: 'tour', origen: analyticsOrigin });
+
     if (onClick) {
       onClick();
       return;
