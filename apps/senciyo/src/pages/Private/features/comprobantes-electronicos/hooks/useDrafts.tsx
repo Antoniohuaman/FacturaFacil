@@ -19,7 +19,7 @@ import {
   readDraftsFromStorage
 } from '../shared/drafts/draftStorage';
 import { validateComprobanteNormativa } from '../shared/core/comprobanteValidation';
-import { getBusinessTodayISODate, formatBusinessDateTimeIso } from '@/shared/time/businessTime';
+import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 import { registrarBorradorAccionRealizada } from '@/shared/analitica/analitica';
 
 interface DraftSaveParams {
@@ -30,9 +30,15 @@ interface DraftSaveParams {
   cliente?: ClientData;
   totals?: PaymentTotals;
   currency?: Currency;
+  formaPago: string;
+  fechaEmision: string;
   observaciones?: string;
   notaInterna?: string;
   vendedor?: string;
+}
+
+interface UseDraftsOptions {
+  onDraftSavedSuccessfully?: (action: DraftAction) => void;
 }
 
 export interface UseDraftsReturn {
@@ -49,7 +55,7 @@ export interface UseDraftsReturn {
   setDraftAction: (action: DraftAction) => void;
   
   // Funciones principales
-  handleSaveDraft: (params: DraftSaveParams) => void;
+  handleSaveDraft: (params: DraftSaveParams) => boolean;
   
   handleDraftModalSave: (params: DraftSaveParams) => void;
   
@@ -62,7 +68,7 @@ export interface UseDraftsReturn {
   saveDraftToStorage: (draft: DraftData) => void;
 }
 
-export const useDrafts = (): UseDraftsReturn => {
+export const useDrafts = ({ onDraftSavedSuccessfully }: UseDraftsOptions = {}): UseDraftsReturn => {
   // ===================================================================
   // ESTADOS DEL BORRADOR
   // ===================================================================
@@ -72,7 +78,7 @@ export const useDrafts = (): UseDraftsReturn => {
   const [draftAction, setDraftAction] = useState<DraftAction>('terminar');
 
   const navigate = useNavigate();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup effect para el timeout
   useEffect(() => {
@@ -118,7 +124,7 @@ export const useDrafts = (): UseDraftsReturn => {
    * Guardar borrador (función principal)
    * Mantiene exactamente la misma lógica del archivo original
    */
-  const handleSaveDraft = useCallback((params: DraftSaveParams) => {
+  const handleSaveDraft = useCallback((params: DraftSaveParams): boolean => {
     const {
       tipoComprobante,
       serieSeleccionada,
@@ -126,6 +132,8 @@ export const useDrafts = (): UseDraftsReturn => {
       cliente,
       totals,
       currency,
+      formaPago,
+      fechaEmision,
       observaciones,
       notaInterna,
       vendedor
@@ -135,8 +143,8 @@ export const useDrafts = (): UseDraftsReturn => {
       tipoComprobante,
       serieSeleccionada,
       cliente,
-      formaPago: undefined,
-      fechaEmision: undefined,
+      formaPago,
+      fechaEmision,
       moneda: currency,
       cartItems,
       totals,
@@ -144,7 +152,7 @@ export const useDrafts = (): UseDraftsReturn => {
 
     if (!validation.isValid) {
       // No mostrar toast de guardado; la capa superior debe manejar mensajes si es necesario
-      return;
+      return false;
     }
     
     // Recopilar datos relevantes del formulario
@@ -153,7 +161,7 @@ export const useDrafts = (): UseDraftsReturn => {
       tipo: tipoComprobante,
       serie: serieSeleccionada,
       productos: cartItems,
-      fechaEmision: getBusinessTodayISODate(),
+      fechaEmision,
       fechaVencimiento: draftExpiryDate || undefined,
       cliente,
       observaciones,
@@ -167,12 +175,14 @@ export const useDrafts = (): UseDraftsReturn => {
     
     // Guardar en localStorage
     saveDraftToStorage(draftData);
+    setShowDraftToast(true);
     registrarBorradorAccionRealizada({ accion: 'guardado', origenVenta: 'emision' });
     
     // Auto-ocultar toast después del tiempo configurado
     setTimeout(() => {
       setShowDraftToast(false);
     }, SYSTEM_CONFIG.TOAST_DURATION);
+    return true;
   }, [draftExpiryDate, generateDraftId, saveDraftToStorage]);
 
   /**
@@ -181,12 +191,15 @@ export const useDrafts = (): UseDraftsReturn => {
    */
   const handleDraftModalSave = useCallback((params: DraftSaveParams) => {
     const { onClearCart } = params;
-    
-    // Cerrar modal
+
+    const guardadoExitoso = handleSaveDraft(params);
+    if (!guardadoExitoso) {
+      return;
+    }
+
+    // Cerrar modal solo cuando el guardado fue exitoso.
     setShowDraftModal(false);
-    
-    // Guardar borrador
-    handleSaveDraft(params);
+    onDraftSavedSuccessfully?.(draftAction);
     
     // Ejecutar acciones según la opción seleccionada
     if (draftAction === 'continuar') {
@@ -208,7 +221,7 @@ export const useDrafts = (): UseDraftsReturn => {
       // Terminar - ir a lista de comprobantes
       navigate('/comprobantes');
     }
-  }, [draftAction, handleSaveDraft, navigate]);
+  }, [draftAction, handleSaveDraft, navigate, onDraftSavedSuccessfully]);
 
   // ===================================================================
   // FUNCIONES DE CONTROL DE UI

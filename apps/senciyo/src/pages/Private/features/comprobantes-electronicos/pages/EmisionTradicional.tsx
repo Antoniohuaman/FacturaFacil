@@ -52,6 +52,7 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type {
   ClientData,
+  DraftAction,
   PaymentCollectionMode,
   PaymentCollectionPayload,
   ContextoOrigenNotaCredito,
@@ -107,6 +108,7 @@ import {
   registrarPrimeraVentaCompletada,
   registrarVentaCompletada,
 } from '@/shared/analitica/analitica';
+import type { MotivoAbandonoVenta } from '@/shared/analitica/eventosAnalitica';
 
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
@@ -274,7 +276,17 @@ const EmisionTradicional = () => {
     documentCurrency,
     convertPrice,
   } = useCurrency();
-  const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts();
+  const abandonoVentaRegistradoRef = useRef(false);
+  const ventaActualCompletadaRef = useRef(false);
+  const salidaControladaRef = useRef(false);
+  const handleDraftSavedSuccessfully = useCallback((action: DraftAction) => {
+    abandonoVentaRegistradoRef.current = false;
+    ventaActualCompletadaRef.current = false;
+    salidaControladaRef.current = action !== 'continuar';
+  }, []);
+  const { showDraftModal, setShowDraftModal, showDraftToast, setShowDraftToast, handleDraftModalSave, draftAction, setDraftAction, draftExpiryDate, setDraftExpiryDate } = useDrafts({
+    onDraftSavedSuccessfully: handleDraftSavedSuccessfully,
+  });
   const { tipoComprobante, setTipoComprobante: setTipoComprobanteCore, serieSeleccionada, setSerieSeleccionada, seriesFiltradas } = useDocumentType({
     forcedTipoComprobante: isNoteCreditFlow ? 'nota_credito' : null,
     notaCreditoTipoOrigen: noteCreditTipoOrigen,
@@ -844,6 +856,29 @@ const EmisionTradicional = () => {
     tipoComprobante,
   ]);
 
+  const registrarAbandonoVentaSiCorresponde = useCallback((motivoAbandono: MotivoAbandonoVenta) => {
+    if (
+      abandonoVentaRegistradoRef.current
+      || ventaActualCompletadaRef.current
+      || salidaControladaRef.current
+      || !tieneActividadFlujoVenta
+    ) {
+      return;
+    }
+
+    abandonoVentaRegistradoRef.current = true;
+    registrarFlujoVentaAbandonado({
+      origenVenta: 'emision',
+      motivoAbandono,
+    });
+  }, [tieneActividadFlujoVenta]);
+
+  useEffect(() => {
+    return () => {
+      registrarAbandonoVentaSiCorresponde('navegacion_fuera');
+    };
+  }, [registrarAbandonoVentaSiCorresponde]);
+
   // Resumen: snapshot de defaults en el primer render; persistencia solo con cambios reales o datos; habilitación por tenant+establecimiento.
 
 
@@ -1372,6 +1407,9 @@ const EmisionTradicional = () => {
       });
 
       if (success) {
+        ventaActualCompletadaRef.current = true;
+        abandonoVentaRegistradoRef.current = false;
+        salidaControladaRef.current = false;
         limpiarBorradorEnProgreso();
         setShowCobranzaModal(false);
         if (lookupClient && !(clienteSeleccionadoGlobal?.clienteId !== undefined && clienteSeleccionadoGlobal?.clienteId !== null)) {
@@ -1479,6 +1517,9 @@ const EmisionTradicional = () => {
   };
 
   const handleNewSale = () => {
+    abandonoVentaRegistradoRef.current = false;
+    ventaActualCompletadaRef.current = false;
+    salidaControladaRef.current = false;
     limpiarBorradorEnProgreso();
     clearCart();
     setModoProductos('catalogo');
@@ -1650,12 +1691,7 @@ const EmisionTradicional = () => {
                   <ActionButtonsSection
                     onVistaPrevia={fieldsConfig.actionButtons.vistaPrevia ? handleVistaPrevia : undefined}
                     onCancelar={() => {
-                      if (tieneActividadFlujoVenta) {
-                        registrarFlujoVentaAbandonado({
-                          origenVenta: 'emision',
-                          motivoAbandono: 'cancelacion_usuario',
-                        });
-                      }
+                      registrarAbandonoVentaSiCorresponde('cancelacion_usuario');
                       limpiarBorradorEnProgreso();
                       clearCart();
                       resetForm();
@@ -1745,6 +1781,8 @@ const EmisionTradicional = () => {
               cliente: draftClientData,
               totals,
               currency: currentCurrency,
+              formaPago,
+              fechaEmision,
               observaciones,
               notaInterna,
               vendedor: session?.userName || undefined

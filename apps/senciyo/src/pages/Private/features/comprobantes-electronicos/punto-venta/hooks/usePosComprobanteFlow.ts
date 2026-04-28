@@ -33,9 +33,10 @@ import { getBusinessTodayISODate } from '../../../../../../shared/time/businessT
 interface UsePosComprobanteFlowParams {
   cartItems: CartItem[];
   totals: PaymentTotals;
+  onVentaCompletada?: () => void;
 }
 
-export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFlowParams) => {
+export const usePosComprobanteFlow = ({ cartItems, totals, onVentaCompletada }: UsePosComprobanteFlowParams) => {
   const navigate = useNavigate();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
   const currentCompanyId = useCurrentCompanyId();
@@ -333,6 +334,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals }: UsePosComprobanteFl
       });
 
       if (success) {
+        onVentaCompletada?.();
         if (lookupClient && !(clienteSeleccionadoState?.id !== undefined && clienteSeleccionadoState?.id !== null)) {
           const lookupResolved = buildCreateClientePayloadFromLookup(lookupClient.data);
 

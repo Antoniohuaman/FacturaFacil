@@ -15,7 +15,7 @@ export type EntornoAnalitica = 'demo' | 'produccion'
 
 export type OrigenVenta = 'emision' | 'pos'
 
-export type MotivoAbandonoVenta = 'cancelacion_usuario' | 'salida_flujo' | 'cierre_modal' | 'otro'
+export type MotivoAbandonoVenta = 'cancelacion_usuario' | 'salida_flujo' | 'navegacion_fuera' | 'cierre_modal' | 'otro'
 
 export type EstadoComprobanteAnalitica = 'enviado' | 'aceptado' | 'rechazado' | 'por_corregir' | 'anulado'
 

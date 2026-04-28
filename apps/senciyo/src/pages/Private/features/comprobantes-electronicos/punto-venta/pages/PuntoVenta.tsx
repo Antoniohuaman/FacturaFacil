@@ -34,6 +34,7 @@ import {
   registrarPrimeraVentaCompletada,
   registrarVentaCompletada,
 } from '@/shared/analitica/analitica';
+import type { MotivoAbandonoVenta } from '@/shared/analitica/eventosAnalitica';
 import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
 const BLANK_QR_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
@@ -41,6 +42,12 @@ const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION_BASE = 'analitica_primera_venta_comp
 
 const PuntoVenta = () => {
   const { state: configState } = useConfigurationContext();
+  const abandonoVentaRegistradoRef = useRef(false);
+  const ventaActualCompletadaRef = useRef(false);
+  const marcarVentaCompletada = useCallback(() => {
+    abandonoVentaRegistradoRef.current = false;
+    ventaActualCompletadaRef.current = true;
+  }, []);
   const {
     cartItems,
     totals,
@@ -114,7 +121,7 @@ const PuntoVenta = () => {
     handlePrint,
     handleNewSale,
     paymentMethods,
-  } = usePosComprobanteFlow({ cartItems, totals });
+  } = usePosComprobanteFlow({ cartItems, totals, onVentaCompletada: marcarVentaCompletada });
 
   type EstadoBorradorPos = {
     tipoComprobante: typeof tipoComprobante;
@@ -205,6 +212,34 @@ const PuntoVenta = () => {
     || observaciones.trim()
     || notaInterna.trim()
   ), [cartItems.length, clienteSeleccionado, notaInterna, observaciones]);
+
+  const registrarAbandonoVentaPosSiCorresponde = useCallback((motivoAbandono: MotivoAbandonoVenta) => {
+    if (
+      abandonoVentaRegistradoRef.current
+      || ventaActualCompletadaRef.current
+      || !tieneActividadVentaPos
+    ) {
+      return;
+    }
+
+    abandonoVentaRegistradoRef.current = true;
+    registrarFlujoVentaAbandonado({
+      origenVenta: 'pos',
+      motivoAbandono,
+    });
+  }, [tieneActividadVentaPos]);
+
+  useEffect(() => {
+    return () => {
+      registrarAbandonoVentaPosSiCorresponde('navegacion_fuera');
+    };
+  }, [registrarAbandonoVentaPosSiCorresponde]);
+
+  const handleNuevaVenta = useCallback(() => {
+    abandonoVentaRegistradoRef.current = false;
+    ventaActualCompletadaRef.current = false;
+    handleNewSale(clearCart);
+  }, [clearCart, handleNewSale]);
 
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
   const handleAbrirCaja = useCallback(() => {
@@ -371,12 +406,7 @@ const PuntoVenta = () => {
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => {
-                    if (tieneActividadVentaPos && !showSuccessModal) {
-                      registrarFlujoVentaAbandonado({
-                        origenVenta: 'pos',
-                        motivoAbandono: 'salida_flujo',
-                      });
-                    }
+                    registrarAbandonoVentaPosSiCorresponde('salida_flujo');
                     navigate('/punto-venta/dashboard');
                   }}
                   className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:border-[#2ccdb0] hover:text-[#2f70b4] focus-visible:ring-2 focus-visible:ring-[#2f70b4]/20"
@@ -511,7 +541,7 @@ const PuntoVenta = () => {
             onClose={() => setShowSuccessModal(false)}
             comprobante={lastComprobante}
             onPrint={handlePrint}
-            onNewSale={() => handleNewSale(clearCart)}
+            onNewSale={handleNuevaVenta}
           />
         )}
         </div>
