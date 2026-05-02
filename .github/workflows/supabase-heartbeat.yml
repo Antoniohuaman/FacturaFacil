@@ -1,0 +1,29 @@
+name: Supabase Heartbeat
+
+on:
+  schedule:
+    # Lunes y jueves a las 8:00 a.m. Perú aprox.
+    # GitHub Actions usa UTC.
+    - cron: "0 13 * * 1,4"
+
+  workflow_dispatch:
+
+jobs:
+  heartbeat:
+    name: Mantener activos proyectos Supabase
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Consultar Supabase SenciYo
+        run: |
+          curl -f -sS \
+            "${{ secrets.SENCIYO_SUPABASE_URL }}/rest/v1/monitor_actividad?id=eq.1&select=id,nombre" \
+            -H "apikey: ${{ secrets.SENCIYO_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SENCIYO_SUPABASE_ANON_KEY }}"
+
+      - name: Consultar Supabase Portal PM
+        run: |
+          curl -f -sS \
+            "${{ secrets.PM_SUPABASE_URL }}/rest/v1/monitor_actividad?id=eq.1&select=id,nombre" \
+            -H "apikey: ${{ secrets.PM_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.PM_SUPABASE_ANON_KEY }}"
