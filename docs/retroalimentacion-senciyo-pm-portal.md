@@ -205,20 +205,19 @@ Resultado funcional del portal:
 
 ## API server-side de lectura actual
 
-La especificación formal de la futura API oficial versionada se documenta por separado en `docs/api-retroalimentacion.md` para mantener separación entre la superficie interna operativa actual y el diseño objetivo de integración reutilizable.
+La especificación formal de la API oficial versionada se documenta por separado en [docs/api-retroalimentacion.md](docs/api-retroalimentacion.md) para mantener separación entre la superficie interna operativa actual y la superficie oficial agregada para aplicaciones autorizadas.
 
 ### Estado actual
 
 - La API actual existe bajo `/api/retroalimentacion` y rutas auxiliares del mismo prefijo.
 - PM Portal es el consumidor actual confirmado en el repositorio.
-- Existe además una superficie versionada inicial bajo `/api/v1/retroalimentacion`, implementada en paralelo y sin migrar todavía a PM Portal.
-- `GET /api/v1/retroalimentacion/resumen` incorpora autorización real por token de aplicación opaco, bootstrap server-side mediante `FEEDBACK_API_CONSUMERS_JSON` y control por empresa autorizado.
-- `GET /api/v1/retroalimentacion/panel` incorpora autorización real por token de aplicación opaco, bootstrap server-side mediante `FEEDBACK_API_CONSUMERS_JSON`, scope dedicado de panel, control por empresa autorizado y feature flag operativo `FEEDBACK_API_V1_PANEL_ENABLED`.
-- `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` permanecen pendientes de habilitación operativa y responden `501 operational_read_not_enabled` tras validar consumidor de aplicación.
+- La API oficial v1 existe bajo `/api/v1/retroalimentacion` y expone actualmente solo dos rutas agregadas: `GET /api/v1/retroalimentacion/resumen` y `GET /api/v1/retroalimentacion/panel`.
+- `GET /api/v1/retroalimentacion/resumen` exige token de aplicación, valida el scope `feedback:read:summary` y aplica control por empresa autorizado del lado servidor.
+- `GET /api/v1/retroalimentacion/panel` exige token de aplicación, valida el scope `feedback:read:panel`, aplica control por empresa autorizado y requiere `FEEDBACK_API_V1_PANEL_ENABLED=true`.
 - La API actual lee `public.v_retroalimentacion_unificada`.
 - La lectura ocurre server-side mediante `functions/api/_retroalimentacion.ts` usando service role hacia el proyecto Supabase de SenciYo.
 - El service role no se expone al frontend.
-- La API actual exige `Authorization: Bearer <token>`.
+- La API interna actual exige `Authorization: Bearer <token-de-usuario>`.
 - La API actual debe tratarse hoy como API interna del ecosistema y no como API pública/oficial para terceros.
 - No se detectó CORS explícito para estos endpoints en el código versionado.
 - No se detectó rate limiting explícito para estos endpoints en el código versionado.
@@ -271,24 +270,24 @@ Motivo:
 
 Límite actual:
 
-- Aún no debe considerarse API oficial para otras aplicaciones o terceros porque falta formalizar contrato, separar campos públicos vs internos, endurecer autorización y definir estrategia de versionado.
+- `GET /api/retroalimentacion` sigue siendo una API interna. No debe exponerse como contrato oficial para otras aplicaciones mientras no se formalicen sus reglas de datos sensibles, scopes y tenant.
 
-### Futura API oficial recomendada
+### API oficial v1 disponible
 
-Diseño recomendado desde el estado actual:
+La superficie oficial disponible hoy es agregada y está orientada a dashboards autorizados:
 
-- `GET /api/v1/retroalimentacion`
-- `GET /api/v1/retroalimentacion/{id}`
-- `GET /api/v1/retroalimentacion/resumen`
-- `GET /api/v1/retroalimentacion/panel`
+| Método | Ruta | Tipo de respuesta | Scope | Feature flag | ¿Devuelve PII? |
+|---|---|---|---|---|---|
+| `GET` | `/api/v1/retroalimentacion/resumen` | Agregada | `feedback:read:summary` | No | No |
+| `GET` | `/api/v1/retroalimentacion/panel` | Agregada compuesta | `feedback:read:panel` | `FEEDBACK_API_V1_PANEL_ENABLED=true` | No |
 
-Condición de migración:
+Estas rutas están preparadas para aplicaciones autorizadas que necesiten construir dashboards agregados y no entregan acceso directo a Supabase.
 
-- La futura API oficial ya existe en paralelo.
-- `GET /api/v1/retroalimentacion/resumen` y `GET /api/v1/retroalimentacion/panel` deben validarse funcional y contractualmente con consumidores autorizados de aplicación antes de ampliar su consumo.
-- PM Portal debe seguir consumiendo la API actual hasta que la nueva versión esté probada.
-- PM Portal debe seguir consumiendo específicamente `/api/retroalimentacion/panel` para el dashboard visual en esta fase.
-- La migración del portal debe hacerse después, de forma progresiva y sin desconectar el camino actual antes de tiempo.
+Condición operativa actual:
+
+- PM Portal sigue consumiendo la API interna actual.
+- La API oficial v1 no requiere cambios en PM Portal para existir ni para operar.
+- Otras aplicaciones autorizadas pueden consumir `resumen` y `panel` para construir dashboards agregados.
 
 ### Contrato actual
 
@@ -333,30 +332,11 @@ Forma actual de respuesta:
 - Otra aplicación no debería consumir Supabase directo para este caso; en una fase posterior debería consumir la API oficial.
 - Si otra app consume en el futuro, debe hacerlo contra una API oficial versionada y con token, API key o scopes definidos explícitamente.
 
-### Pendientes para fase 2
-
-- [ ] Definir si la futura API será interna, externa o ambas.
-- [ ] Crear versión oficial bajo `/api/v1`.
-- [ ] Definir contrato JSON oficial y estable.
-- [ ] Decidir campos públicos vs internos.
-- [ ] Sanitizar PII para consumidores externos.
-- [ ] Implementar control por empresa o tenant.
-- [ ] Implementar scopes, roles o API keys por aplicación.
-- [ ] Evaluar CORS si habrá consumo desde navegador externo.
-- [ ] Añadir rate limiting.
-- [ ] Añadir logs y observabilidad.
-- [ ] Crear ejemplos request/response.
-- [ ] Crear pruebas de contrato.
-- [ ] Migrar PM Portal solo después de validar la nueva API.
-
 ## Advertencias importantes
 
-- Esta solución es coherente con la arquitectura actual del monorepo porque SenciYo no tiene un backend propio versionado para retroalimentación y PM Portal ya dispone de Functions para lectura segura.
-- La `anon key` sigue siendo pública por diseño y solo sirve para bootstrap del cliente; no reemplaza las policies de Supabase.
 - Los valores reales de entorno no están en el repositorio; el comportamiento final de producción depende de la configuración efectiva en Cloudflare y Supabase.
-- El estado actual de RLS/policies insert queda versionado como referencia reproducible, pero no debe interpretarse como política final endurecida para el repo oficial.
-- Si en el futuro SenciYo incorpora un backend propio para este módulo, o si migra su login real a Supabase Auth de forma nativa en frontend o backend, esta decisión debe reevaluarse.
-- Si se versionan las policies RLS en el futuro, este documento debe actualizarse para reflejar esas reglas de forma explícita.
+- El service role de SenciYo debe seguir existiendo solo del lado servidor.
+- Otras aplicaciones no deben consumir Supabase directo para este caso; deben consumir la API oficial v1 cuando requieran agregados autorizados.
 
 ## Estado actual
 

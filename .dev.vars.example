@@ -11,7 +11,7 @@ PM_PORTAL_SUPABASE_SERVICE_ROLE_KEY=
 SENCIYO_SUPABASE_URL=
 SENCIYO_SUPABASE_SERVICE_ROLE_KEY=
 
-# Autorización de aplicación para `GET /api/v1/retroalimentacion/resumen` y `GET /api/v1/retroalimentacion/panel`
+# Autorización de aplicación para la API oficial v1 agregada
 # token_hash esperado en FEEDBACK_API_CONSUMERS_JSON: sha256("<pepper>:<token>")
 FEEDBACK_API_CONSUMERS_JSON=
 FEEDBACK_API_KEY_HASH_PEPPER=
