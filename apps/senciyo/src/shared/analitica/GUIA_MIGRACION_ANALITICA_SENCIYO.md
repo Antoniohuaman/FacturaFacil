@@ -21,16 +21,18 @@ Se puede reutilizar directamente, o con ajustes mínimos, lo siguiente:
 
 - El contrato KPI compartido en `packages/analytics-events/index.ts`.
 - La convención de nombres de eventos y payloads en snake_case.
+- La política actual de Amplitude como proveedor principal y de PostHog/Mixpanel como proveedores compatibles y opcionales.
 - La idea de un wrapper único de captura en `apps/senciyo/src/shared/analitica/analitica.ts`.
 - La separación entre:
   - eventos KPI de negocio,
   - eventos técnicos,
   - identidad analítica,
   - bootstrap de proveedores.
+- La normalización central de variables públicas en `apps/senciyo/src/shared/analitica/configuracionAnalitica.ts`.
 - La política actual por proveedor:
-  - PostHog recibe solo KPI del contrato principal.
-  - Amplitude recibe KPI y eventos técnicos.
-  - Mixpanel recibe KPI y eventos técnicos.
+  - Amplitude recibe KPI y eventos técnicos como proveedor principal.
+  - PostHog recibe solo KPI del contrato principal como proveedor compatible/secundario.
+  - Mixpanel recibe KPI y eventos técnicos como proveedor compatible/secundario.
 - La estrategia de propiedades base por evento:
   - `ruta_actual`
   - `timestamp_cliente`
@@ -56,7 +58,7 @@ No copies literalmente estas partes al repo oficial:
 - La forma actual de resolver `company_id` desde `tenantId` o `currentCompanyId` del frontend.
 - El montaje actual dentro de `PrivateLayout`, `SessionInitializer`, `UserSessionContext` y `TenantProvider`.
 - Los nombres actuales de stores, providers, hooks o rutas.
-- Los hardcodes actuales de entorno en registro de usuario y registro de empresa.
+- Los atajos provisionales del prototipo cuando el repo oficial ya disponga de backend real.
 - La persistencia funcional de retroalimentación en Supabase como si fuera parte del tracking KPI.
 - La clave legacy `EMPRESA_ID` usada por `http-client.ts`.
 - La configuración de Cloudflare Pages tal cual si el repo oficial no es un monorepo con workspaces.
@@ -76,6 +78,7 @@ Regla práctica:
 | `packages/analytics-events/index.ts` | Contrato oficial de nombres KPI | Copiar casi directo o recrear exactamente en el repo oficial |
 | `apps/senciyo/src/shared/analitica/eventosAnalitica.ts` | Tipos locales de payloads y variantes permitidas | Copiar como base y adaptar si cambian entidades o nombres de dominio |
 | `apps/senciyo/src/shared/analitica/analitica.ts` | Wrapper central de captura, propiedades base e identidad por proveedor | Reusar el patrón; no copiar tal cual sin adaptar fuentes de identidad |
+| `apps/senciyo/src/shared/analitica/configuracionAnalitica.ts` | Normalización común de envs públicos y guards de entorno | Reusar para evitar habilitaciones accidentales por espacios o placeholders booleanos |
 | `apps/senciyo/src/shared/analitica/identidadAnalitica.ts` | Traduce auth/sesión/tenant a contexto analítico | Reescribir contra el modelo real del repo oficial |
 | `apps/senciyo/src/shared/analitica/AnalyticsIdentitySync.tsx` | Efecto reactivo que sincroniza identify/reset | Reusar el patrón y adaptar al app shell oficial |
 | `apps/senciyo/src/main.tsx` | Bootstrap de PostHog, Amplitude y Session Replay | Reusar lógica de init, guards y filtros; adaptar al punto de arranque real |
@@ -130,6 +133,7 @@ Punto operativo importante:
 - Las `VITE_*` son build-time.
 - Si cambian, el repo oficial debe ejecutar un build nuevo.
 - No basta con cambiar la variable sobre un artefacto ya compilado.
+- Los placeholders vacíos, con espacios o booleanos (`0`, `1`, `true`, `false`) no deben habilitar proveedores por accidente.
 - No actives variables `VITE_PUBLIC_*` productivas en Preview o Staging de Cloudflare Pages salvo decisión explícita, aislamiento claro de datos y verificación operativa del entorno.
 - Si Preview o Staging comparten proyecto, llaves o destino de analítica con Producción, el riesgo es contaminar datos productivos aunque el código no haya cambiado.
 
@@ -236,21 +240,26 @@ No copies estos call sites a ciegas.
 
 **Advertencia crítica:**
 
-El repo actual tiene dos puntos que no deben migrarse tal cual:
-
-- `registro_usuario_completado` hoy se manda con `entorno: 'demo'` fijo.
-- `registro_empresa_exitoso` hoy se manda con `entorno: 'produccion'` fijo.
+El repo actual ya corrige los hardcodes históricos y resuelve `demo | produccion` desde una derivación central con fallback controlado para flujos previos al shell privado.
 
 Acción obligatoria en migración:
 
-- reemplazar esos valores por una derivación real desde la fuente oficial de entorno,
-- o por una política explícita del repo oficial para `demo | produccion`.
+- conservar una derivación central de entorno,
+- no reintroducir `entorno: 'demo'` ni `entorno: 'produccion'` en callsites concretos,
+- y confirmar cuál es la fuente oficial del entorno en el producto real.
 
 Riesgo si no se corrige:
 
 - funnels de activación mal clasificados,
 - dashboards mezclando pruebas con operación real,
 - cohortes de empresa y usuario con entorno incorrecto.
+
+### 10.1 Eventos provisionales del prototipo que deben reconectarse en el repo oficial
+
+- `primera_venta_completada` hoy sigue activo, pero se deduplica por sesión del navegador en emisión y POS. En el repo oficial debe depender de una verdad persistente por empresa/establecimiento.
+- `comprobante_estado_actualizado` con `estado = aceptado` hoy sigue activo, pero nace de la transición mock `Enviado -> Aceptado`. En el repo oficial debe salir de confirmación real de backend/OSE.
+- `caja_abierta_exitoso`, `movimiento_caja_registrado` y `caja_cerrada_exitoso` hoy siguen activos para validar el prototipo, pero salen de un flujo simulado. En el repo oficial deben conectarse a persistencia real.
+- `producto_creado_exitoso` e `importacion_completada` para `entidad = productos` hoy siguen activos, pero reflejan persistencia local/store del prototipo. En el repo oficial deben conectarse a persistencia real.
 
 Advertencia adicional para Preview, Staging y Cloudflare:
 

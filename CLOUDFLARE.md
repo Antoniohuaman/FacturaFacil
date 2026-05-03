@@ -57,6 +57,7 @@ reintentarlo sobre un artifact ya compilado no es suficiente.
 | `VITE_PUBLIC_POSTHOG_KEY` | Production | Clave publishable |
 | `VITE_PUBLIC_POSTHOG_HOST` | Production | Ej: `https://us.i.posthog.com` |
 | `VITE_PUBLIC_AMPLITUDE_API_KEY` | Production | Clave publishable |
+| `VITE_PUBLIC_AMPLITUDE_SESSION_REPLAY_SAMPLE_RATE` | Production | `0` = apagado, `0.05` = 5%, `0.1` = 10%, `1` = 100% |
 | `VITE_PUBLIC_MIXPANEL_TOKEN` | Production | Token publishable |
 | `VITE_DEV_MODE` | Preview | `true` para activar mocks |
 | `APIPERU_TOKEN` | Production | Runtime (Functions) — **Secret** para consulta real de RUC/DNI |
@@ -64,6 +65,13 @@ reintentarlo sobre un artifact ya compilado no es suficiente.
 
 La consulta documental real de SenciYo se resuelve desde `functions/api/documentos/*`.
 El token del proveedor debe existir solo como secreto runtime y no debe declararse como `VITE_*`.
+
+Notas de analítica:
+
+- Amplitude es el proveedor principal de producto; PostHog y Mixpanel son opcionales.
+- No configures claves productivas en Preview si ese entorno comparte el mismo destino analítico que Production.
+- Mantén `VITE_PUBLIC_AMPLITUDE_SESSION_REPLAY_SAMPLE_RATE=0` por defecto.
+- Antes de subir el sample rate de Replay en Production, marca pantallas sensibles con masking/blocking en UI.
 
 ### PM Portal
 

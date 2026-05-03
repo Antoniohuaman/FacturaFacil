@@ -38,6 +38,23 @@ Los eventos ya implementados actualmente se mantienen documentados en el README 
 - Un evento solo pasa al codigo cuando exista el modulo, el flujo real y el punto de disparo confiable.
 - Todo evento debe responder una pregunta concreta de producto.
 
+## 3.1 Regla temporal del prototipo funcional
+
+Este repo es un prototipo funcional. Algunos eventos ya implementados pueden seguir activos para validar la instrumentacion actual aunque hoy dependan de `sessionStorage`, stores locales, mocks o flujos simulados.
+
+En esos casos aplican estas reglas:
+
+- el evento no debe presentarse como verdad final de backend,
+- la documentacion debe explicitar la fuente provisional,
+- y el repositorio oficial debe reemplazar el disparo por una confirmacion real de backend o API.
+
+Hoy aplica a:
+
+- `primera_venta_completada`, que en emision y POS se deduplica por sesion del navegador.
+- `comprobante_estado_actualizado` con `estado = aceptado`, que hoy depende de la transicion mock del flujo OSE.
+- `caja_abierta_exitoso`, `movimiento_caja_registrado` y `caja_cerrada_exitoso`, mientras caja siga operando con simulacion frontend.
+- `producto_creado_exitoso` e `importacion_completada` para `entidad = productos`, mientras el catalogo siga dependiendo de store/local persistence.
+
 ## 4. Eventos adicionales definidos
 
 Los siguientes son los unicos eventos adicionales definidos para la evolucion de la analitica global del producto. No deben agregarse al codigo hasta que el modulo y el flujo real existan y el punto de disparo sea confiable.

@@ -67,7 +67,7 @@ export function RegisterPage() {
       if (loginResult.success) {
         const registroAnaliticaKey = `${REGISTRO_ANALITICA_LLAVE_BASE}:${data.email.trim().toLowerCase()}`;
         if (typeof window !== 'undefined' && window.localStorage.getItem(registroAnaliticaKey) !== '1') {
-          registrarRegistroUsuarioCompletado({ entorno: 'demo' });
+          registrarRegistroUsuarioCompletado();
           window.localStorage.setItem(registroAnaliticaKey, '1');
         }
         // Login exitoso, navegar al dashboard principal

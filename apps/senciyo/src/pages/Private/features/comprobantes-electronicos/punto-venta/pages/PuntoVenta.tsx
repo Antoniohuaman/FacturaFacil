@@ -275,6 +275,8 @@ const PuntoVenta = () => {
       return;
     }
 
+    // Prototipo funcional: "primera venta" se deduplica por sesión del navegador.
+    // En el repositorio oficial debe reemplazarse por una verdad persistente de backend.
     registrarPrimeraVentaCompletada({
       entorno: entornoAnalitica,
       origenVenta: 'pos',

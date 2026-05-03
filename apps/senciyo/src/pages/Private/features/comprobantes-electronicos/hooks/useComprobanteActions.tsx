@@ -795,7 +795,8 @@ export const useComprobanteActions = () => {
           ...(origenVentaAnalitica ? { origenVenta: origenVentaAnalitica } : {}),
         });
 
-        // ✅ SIMULAR RESPUESTA OSE: Enviado → Aceptado (solo Factura/Boleta, no NC)
+        // ✅ PROTOTIPO FUNCIONAL: Enviado -> Aceptado sigue viniendo del mock OSE.
+        // En el repo oficial debe reemplazarse por una confirmación real de backend/OSE.
         if (!isNoteCredit) {
           setTimeout(() => {
             registrarComprobanteEstadoActualizado({

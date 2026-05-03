@@ -1,5 +1,8 @@
 # Auditoría de identidad analítica y jerarquía operativa – SenciYo
 
+> Documento histórico/desactualizado.
+> No refleja el estado actual de la implementación después de la limpieza conservadora y el hardening de analítica; úsalo solo como referencia histórica.
+
 ---
 
 ## 1. Resumen ejecutivo

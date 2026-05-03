@@ -24,10 +24,13 @@ import {
   resolverContextoEmpresaAnaliticaDesdeTenant,
   type ContextoIdentidadAnalitica,
 } from './identidadAnalitica';
+import {
+  esEntornoAnaliticaHabilitado,
+  obtenerConfiguracionAnaliticaPublica,
+} from './configuracionAnalitica';
 
 type PropiedadesAnalitica = Record<string, unknown>;
-const amplitudeApiKey = import.meta.env.VITE_PUBLIC_AMPLITUDE_API_KEY?.trim();
-const mixpanelToken = import.meta.env.VITE_PUBLIC_MIXPANEL_TOKEN?.trim();
+const { amplitudeApiKey, mixpanelToken, posthogKey } = obtenerConfiguracionAnaliticaPublica();
 
 type PosthogConEstado = typeof posthog & {
   __loaded?: boolean;
@@ -44,16 +47,27 @@ const esNavegador = (): boolean => typeof window !== 'undefined';
 let contextoIdentidadActual: ContextoIdentidadAnalitica | null = null;
 let firmaContextoIdentidadActual: string | null = null;
 
-const esHostLocal = (): boolean => {
-  if (!esNavegador()) {
-    return false;
-  }
-  return ['localhost', '127.0.0.1'].includes(window.location.hostname);
-};
-
 const posthogDisponible = (): boolean => {
   const cliente = posthog as PosthogConEstado;
   return cliente.__loaded === true;
+};
+
+const ejecutarOperacionAnaliticaSegura = (operacion: () => void): boolean => {
+  try {
+    operacion();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const obtenerContextoEmpresaTentativo = () => {
+  const { empresas, contextoActual } = useTenantStore.getState();
+  return resolverContextoEmpresaAnaliticaDesdeTenant(empresas, contextoActual);
+};
+
+const resolverEntornoAnaliticaContextual = (entorno?: EntornoAnalitica): EntornoAnalitica => {
+  return entorno ?? contextoIdentidadActual?.entorno ?? 'demo';
 };
 
 const puedeCapturarEventos = (): boolean => {
@@ -61,11 +75,11 @@ const puedeCapturarEventos = (): boolean => {
     return false;
   }
 
-  if (import.meta.env.MODE === 'development') {
+  if (!esEntornoAnaliticaHabilitado()) {
     return false;
   }
 
-  if (esHostLocal()) {
+  if (!posthogKey) {
     return false;
   }
 
@@ -77,11 +91,7 @@ const amplitudeDisponible = (): boolean => {
     return false;
   }
 
-  if (!import.meta.env.PROD) {
-    return false;
-  }
-
-  if (esHostLocal()) {
+  if (!esEntornoAnaliticaHabilitado()) {
     return false;
   }
 
@@ -93,11 +103,7 @@ const mixpanelDisponible = (): boolean => {
     return false;
   }
 
-  if (!import.meta.env.PROD) {
-    return false;
-  }
-
-  if (esHostLocal()) {
+  if (!esEntornoAnaliticaHabilitado()) {
     return false;
   }
 
@@ -105,18 +111,28 @@ const mixpanelDisponible = (): boolean => {
 };
 
 let mixpanelInicializado = false;
-const asegurarMixpanelInicializado = (): void => {
-  if (!mixpanelDisponible() || mixpanelInicializado) {
-    return;
+let mixpanelInicializacionBloqueada = false;
+const asegurarMixpanelInicializado = (): boolean => {
+  if (mixpanelInicializacionBloqueada) {
+    return false;
   }
 
-  mixpanel.init(mixpanelToken as string, {
-    track_pageview: false,
-    persistence: 'localStorage',
-    ignore_dnt: true,
+  if (!mixpanelDisponible() || mixpanelInicializado) {
+    return mixpanelInicializado;
+  }
+
+  const inicializado = ejecutarOperacionAnaliticaSegura(() => {
+    mixpanel.init(mixpanelToken as string, {
+      track_pageview: false,
+      persistence: 'localStorage',
+      ignore_dnt: true,
+    });
   });
 
-  mixpanelInicializado = true;
+  mixpanelInicializado = inicializado;
+  mixpanelInicializacionBloqueada = !inicializado;
+
+  return mixpanelInicializado;
 };
 
 const construirPropiedadesBase = (propiedades?: PropiedadesAnalitica): PropiedadesAnalitica => {
@@ -191,17 +207,22 @@ export function resetearIdentidadAnalitica(): void {
 
   const clientePosthog = posthog as PosthogConEstado;
   if (posthogDisponible()) {
-    clientePosthog.resetGroups?.();
-    posthog.reset();
+    ejecutarOperacionAnaliticaSegura(() => {
+      clientePosthog.resetGroups?.();
+      posthog.reset();
+    });
   }
 
   if (amplitudeDisponible()) {
-    amplitude.reset();
+    ejecutarOperacionAnaliticaSegura(() => {
+      amplitude.reset();
+    });
   }
 
-  if (mixpanelDisponible()) {
-    asegurarMixpanelInicializado();
-    mixpanel.reset();
+  if (mixpanelDisponible() && asegurarMixpanelInicializado()) {
+    ejecutarOperacionAnaliticaSegura(() => {
+      mixpanel.reset();
+    });
   }
 
   firmaContextoIdentidadActual = null;
@@ -225,57 +246,65 @@ export function sincronizarIdentidadAnalitica(contexto: ContextoIdentidadAnaliti
   const posthogIdentidadHabilitada = puedeCapturarEventos();
 
   if (posthogIdentidadHabilitada) {
-    posthog.identify(contexto.userId, propiedadesUsuario);
+    ejecutarOperacionAnaliticaSegura(() => {
+      posthog.identify(contexto.userId, propiedadesUsuario);
+    });
 
-    if (contexto.companyId) {
-      posthog.group('company', contexto.companyId, limpiarValoresIndefinidos({
-        company_id: contexto.companyId,
-        entorno: contexto.entorno,
-        company_configured: contexto.companyConfigured,
-      }));
+    const companyId = contexto.companyId;
+    if (companyId) {
+      ejecutarOperacionAnaliticaSegura(() => {
+        posthog.group('company', companyId, limpiarValoresIndefinidos({
+          company_id: companyId,
+          entorno: contexto.entorno,
+          company_configured: contexto.companyConfigured,
+        }));
+      });
     } else {
-      (posthog as PosthogConEstado).resetGroups?.();
+      ejecutarOperacionAnaliticaSegura(() => {
+        (posthog as PosthogConEstado).resetGroups?.();
+      });
     }
   }
 
   if (amplitudeDisponible()) {
-    amplitude.setUserId(contexto.userId);
+    ejecutarOperacionAnaliticaSegura(() => {
+      amplitude.setUserId(contexto.userId);
 
-    const identify = new amplitude.Identify();
-    // Cleanup legacy properties removed from the active product analytics contract.
-    identify.unset('company_name');
-    identify.unset('entorno_emision');
-    identify.unset('entorno_sunat');
-    Object.entries(propiedadesUsuario).forEach(([key, value]) => {
-      if (value !== undefined) {
-        identify.set(key, value as string | number | boolean);
+      const identify = new amplitude.Identify();
+      identify.unset('company_name');
+      identify.unset('entorno_emision');
+      identify.unset('entorno_sunat');
+      Object.entries(propiedadesUsuario).forEach(([key, value]) => {
+        if (value !== undefined) {
+          identify.set(key, value as string | number | boolean);
+        }
+      });
+      amplitude.identify(identify);
+
+      if (contexto.companyId) {
+        amplitude.setGroup('company', contexto.companyId);
       }
     });
-    amplitude.identify(identify);
-
-    if (contexto.companyId) {
-      amplitude.setGroup('company', contexto.companyId);
-    }
   }
 
-  if (mixpanelDisponible()) {
-    asegurarMixpanelInicializado();
-    mixpanel.identify(contexto.userId);
+  if (mixpanelDisponible() && asegurarMixpanelInicializado()) {
+    ejecutarOperacionAnaliticaSegura(() => {
+      mixpanel.identify(contexto.userId);
 
-    const mixpanelClient = mixpanel as MixpanelConSuperProps;
-    // Cleanup legacy superprops removed from the active product analytics contract.
-    mixpanelClient.unregister?.('company_name');
-    mixpanelClient.unregister?.('entorno_emision');
-    mixpanelClient.unregister?.('entorno_sunat');
-    mixpanelClient.register?.(propiedadesUsuario);
+      const mixpanelClient = mixpanel as MixpanelConSuperProps;
+      mixpanelClient.unregister?.('company_name');
+      mixpanelClient.unregister?.('entorno_emision');
+      mixpanelClient.unregister?.('entorno_sunat');
+      mixpanelClient.register?.(propiedadesUsuario);
 
-    if (!contexto.companyId) {
-      mixpanelClient.unregister?.('company_id');
-    }
+      if (!contexto.companyId) {
+        mixpanelClient.unregister?.('company_id');
+      }
 
-    if (!contexto.establecimientoId) {
-      mixpanelClient.unregister?.('establecimiento_id');
-    }
+      if (!contexto.establecimientoId) {
+        mixpanelClient.unregister?.('establecimiento_id');
+      }
+    });
   }
 }
 
@@ -291,40 +320,46 @@ function capturarEvento(nombreEvento: string, propiedades?: PropiedadesAnalitica
   const propiedadesEvento = construirPropiedadesBase(propiedades);
 
   if (posthogHabilitado) {
-    posthog.capture(nombreEvento, propiedadesEvento);
+    ejecutarOperacionAnaliticaSegura(() => {
+      posthog.capture(nombreEvento, propiedadesEvento);
+    });
   }
 
   if (amplitudeHabilitado) {
-    amplitude.track(nombreEvento, propiedadesEvento);
+    ejecutarOperacionAnaliticaSegura(() => {
+      amplitude.track(nombreEvento, propiedadesEvento);
+    });
   }
 
-  if (mixpanelHabilitado) {
-    asegurarMixpanelInicializado();
-    mixpanel.track(nombreEvento, propiedadesEvento);
+  if (mixpanelHabilitado && asegurarMixpanelInicializado()) {
+    ejecutarOperacionAnaliticaSegura(() => {
+      mixpanel.track(nombreEvento, propiedadesEvento);
+    });
   }
 }
 
 function construirPropiedadesRegistroUsuarioCompletado(
-  entrada: { entorno: EntornoAnalitica },
+  entrada?: { entorno?: EntornoAnalitica },
 ): PropiedadesAnalitica {
+  const entorno = resolverEntornoAnaliticaContextual(entrada?.entorno);
+
   if (contextoIdentidadActual?.companyId) {
-    return entrada;
+    return { entorno };
   }
 
-  const { empresas, contextoActual } = useTenantStore.getState();
-  const contextoEmpresa = resolverContextoEmpresaAnaliticaDesdeTenant(empresas, contextoActual);
+  const contextoEmpresa = obtenerContextoEmpresaTentativo();
 
   if (!contextoEmpresa?.companyId) {
-    return entrada;
+    return { entorno };
   }
 
   return limpiarValoresIndefinidos({
     ...contextoEmpresa,
-    ...entrada,
+    entorno,
   });
 }
 
-export function registrarRegistroUsuarioCompletado(entrada: { entorno: EntornoAnalitica }): void {
+export function registrarRegistroUsuarioCompletado(entrada?: { entorno?: EntornoAnalitica }): void {
   capturarEvento(
     EVENTOS_ANALITICA.REGISTRO_USUARIO_COMPLETADO,
     construirPropiedadesRegistroUsuarioCompletado(entrada),
@@ -333,7 +368,7 @@ export function registrarRegistroUsuarioCompletado(entrada: { entorno: EntornoAn
 
 export function registrarRegistroEmpresaExitoso(): void {
   capturarEvento(EVENTOS_ANALITICA.REGISTRO_EMPRESA_EXITOSO, {
-    entorno: 'produccion',
+    entorno: resolverEntornoAnaliticaContextual(),
     origen: 'formulario_empresa',
   });
 }
