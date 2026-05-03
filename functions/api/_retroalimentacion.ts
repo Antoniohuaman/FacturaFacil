@@ -220,7 +220,7 @@ export function responderError(status: number, codigo: string, mensaje: string) 
   return construirRespuestaJson(status, cuerpo)
 }
 
-function obtenerClienteSupabaseRetroalimentacion(env: EntornoRetroalimentacion): SupabaseClient | null {
+export function obtenerClienteSupabaseRetroalimentacion(env: EntornoRetroalimentacion): SupabaseClient | null {
   const supabaseUrl = env.SENCIYO_SUPABASE_URL?.trim() || env.SUPABASE_URL?.trim()
   const serviceRoleKey = env.SENCIYO_SUPABASE_SERVICE_ROLE_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim()
 

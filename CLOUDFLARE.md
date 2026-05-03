@@ -103,7 +103,7 @@ Notas de analítica:
 | `GITHUB_TOKEN` | Production | **Secret** — opcional |
 | `DIAGNOSTICO_METRICAS` | Production | Opcional — activa logs de diagnóstico |
 
-La API server-side de lectura de retroalimentación, consumida actualmente por PM Portal bajo ` /api/retroalimentacion/* `, no lee datos desde el Supabase del propio portal.
+La API server-side de lectura de retroalimentación, disponible bajo ` /api/retroalimentacion/* ` y ` /api/v1/retroalimentacion/* `, no lee datos desde el Supabase del propio portal.
 Autorizan con esta prioridad en `functions/api/_autorizacion.ts`:
 
 1. `PM_PORTAL_SUPABASE_URL` + `PM_PORTAL_SUPABASE_ANON_KEY` (preferido)

@@ -205,10 +205,13 @@ Resultado funcional del portal:
 
 ## API server-side de lectura actual
 
+La especificación formal de la futura API oficial versionada se documenta por separado en `docs/api-retroalimentacion.md` para mantener separación entre la superficie interna operativa actual y el diseño objetivo de integración reutilizable.
+
 ### Estado actual
 
 - La API actual existe bajo `/api/retroalimentacion` y rutas auxiliares del mismo prefijo.
 - PM Portal es el consumidor actual confirmado en el repositorio.
+- Existe además una superficie versionada inicial bajo `/api/v1/retroalimentacion`, implementada en paralelo y sin migrar todavía a PM Portal.
 - La API actual lee `public.v_retroalimentacion_unificada`.
 - La lectura ocurre server-side mediante `functions/api/_retroalimentacion.ts` usando service role hacia el proyecto Supabase de SenciYo.
 - El service role no se expone al frontend.
