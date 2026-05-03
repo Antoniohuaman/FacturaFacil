@@ -15,37 +15,23 @@ import {
 } from './_retroalimentacion'
 
 const API_VERSION = 'v1'
-const TAMANO_PAGINA_POR_DEFECTO = 20
-const MAX_TAMANO_PAGINA_V1 = 100
 const TIPOS_RETROALIMENTACION = ['estado_animo', 'idea', 'calificacion'] as const
-const CAMPOS_ORDENABLES_V1 = [
-  'created_at',
-  'tipo',
-  'empresa_nombre',
-  'establecimiento_nombre',
-  'modulo',
-  'puntaje'
-] as const
-const DIRECCIONES_ORDEN = ['asc', 'desc'] as const
 const SCOPE_RESUMEN_RETROALIMENTACION_V1 = 'feedback:read:summary'
+const SCOPE_PANEL_RETROALIMENTACION_V1 = 'feedback:read:panel'
+const FEATURE_FLAG_PANEL_RETROALIMENTACION_V1 = 'FEEDBACK_API_V1_PANEL_ENABLED'
+const PARAMETROS_AGREGADOS_V1 = ['tipo', 'empresa_id', 'establecimiento_id', 'modulo', 'desde', 'hasta'] as const
 
-type CampoOrdenRetroalimentacionV1 = (typeof CAMPOS_ORDENABLES_V1)[number]
-type DireccionOrdenV1 = (typeof DIRECCIONES_ORDEN)[number]
-type ScopeProfileV1 = 'application_sanitized' | 'application_summary'
+type ScopeProfileV1 = 'application_summary' | 'application_panel'
 type CodigoErrorV1 =
   | 'operational_read_not_enabled'
   | 'unauthorized'
   | 'invalid_token'
   | 'forbidden'
-  | 'invalid_scope'
   | 'insufficient_scope'
   | 'invalid_filter'
-  | 'invalid_pagination'
   | 'tenant_not_authorized'
   | 'tenant_scope_empty'
   | 'tenant_selection_required'
-  | 'not_found'
-  | 'rate_limited'
   | 'internal_error'
   | 'service_unavailable'
 
@@ -53,11 +39,11 @@ type DetallesErrorV1 = Record<string, string | number | boolean | null>
 
 class ErrorApiV1 extends Error {
   code: CodigoErrorV1
-  status: 400 | 401 | 403 | 404 | 429 | 500 | 501 | 503
+  status: 400 | 401 | 403 | 500 | 501 | 503
   details?: DetallesErrorV1
 
   constructor(
-    status: 400 | 401 | 403 | 404 | 429 | 500 | 501 | 503,
+    status: 400 | 401 | 403 | 500 | 501 | 503,
     code: CodigoErrorV1,
     message: string,
     details?: DetallesErrorV1
@@ -70,20 +56,6 @@ class ErrorApiV1 extends Error {
   }
 }
 
-export interface RegistroRetroalimentacionV1 {
-  registro_uid: string
-  tipo: TipoRetroalimentacion
-  created_at: string
-  empresa_id: string
-  empresa_nombre: string
-  establecimiento_id: string | null
-  establecimiento_nombre: string | null
-  modulo: string
-  valor_principal: string
-  puntaje: number | null
-  estado_animo: string | null
-}
-
 export interface FiltrosRetroalimentacionV1 {
   tipo: TipoRetroalimentacion | null
   empresa_id: string | null
@@ -91,15 +63,6 @@ export interface FiltrosRetroalimentacionV1 {
   modulo: string | null
   desde: string | null
   hasta: string | null
-  usuario_id: string | null
-  incluir_sensibles: boolean
-}
-
-export interface PaginacionRetroalimentacionV1 {
-  pagina: number
-  tamano: number
-  ordenar_por: CampoOrdenRetroalimentacionV1
-  direccion: DireccionOrdenV1
 }
 
 export interface MetaRespuestaV1 {
@@ -109,34 +72,9 @@ export interface MetaRespuestaV1 {
   scope_profile: ScopeProfileV1
 }
 
-export interface RespuestaListadoRetroalimentacionV1 {
-  data: RegistroRetroalimentacionV1[]
-  meta: MetaRespuestaV1
-  filters: {
-    tipo: TipoRetroalimentacion | null
-    empresa_id: string | null
-    establecimiento_id: string | null
-    modulo: string | null
-    desde: string | null
-    hasta: string | null
-    usuario_id: string | null
-    incluir_sensibles: boolean
-    ordenar_por: CampoOrdenRetroalimentacionV1
-    direccion: DireccionOrdenV1
-  }
-  pagination: {
-    pagina: number
-    tamano: number
-    total: number
-    total_paginas: number
-    ordenar_por: CampoOrdenRetroalimentacionV1
-    direccion: DireccionOrdenV1
-  }
-}
-
-export interface RespuestaDetalleRetroalimentacionV1 {
-  data: RegistroRetroalimentacionV1
-  meta: MetaRespuestaV1
+interface MetaRespuestaPanelV1 extends MetaRespuestaV1 {
+  source: 'supabase'
+  scope_profile: 'application_panel'
 }
 
 export type RegistroRetroalimentacionResumenV1 = Pick<
@@ -163,21 +101,68 @@ export interface RespuestaResumenRetroalimentacionV1 {
     }>
   }
   meta: MetaRespuestaV1
-  filters: {
-    tipo: TipoRetroalimentacion | null
-    empresa_id: string | null
-    establecimiento_id: string | null
-    modulo: string | null
-    desde: string | null
-    hasta: string | null
-    usuario_id: string | null
-    incluir_sensibles: boolean
-  }
+  filters: FiltrosRetroalimentacionV1
 }
 
-interface AlcanceEmpresaResumenV1 {
+export interface RespuestaPanelRetroalimentacionV1 {
+  data: {
+    resumen: {
+      total_registros: number
+      totales_por_tipo: Record<TipoRetroalimentacion, number>
+      promedio_calificacion: number | null
+      distribucion_estado_animo: Array<{
+        estado_animo: string
+        total: number
+      }>
+      cantidad_ideas: number
+    }
+    distribuciones: {
+      por_tipo: Array<{
+        tipo: TipoRetroalimentacion
+        total: number
+      }>
+      estados_animo: Array<{
+        estado_animo: string
+        total: number
+      }>
+      puntajes: Array<{
+        puntaje: number
+        total: number
+      }>
+      serie_diaria: Array<{
+        fecha: string
+        total: number
+        estado_animo: number
+        idea: number
+        calificacion: number
+      }>
+    }
+  }
+  meta: MetaRespuestaPanelV1
+  filters: FiltrosRetroalimentacionV1
+}
+
+interface AlcanceEmpresaAgregadoV1 {
   empresaIdsConsulta: string[]
   empresaIdRespuesta: string | null
+}
+
+interface AgregadosResumenBaseV1 {
+  totalRegistros: number
+  totalesPorTipo: Record<TipoRetroalimentacion, number>
+  promedioCalificacion: number | null
+  distribucionEstadoAnimo: Array<{
+    estado_animo: string
+    total: number
+  }>
+  cantidadIdeas: number
+  serieDiaria: Array<{
+    fecha: string
+    total: number
+    estado_animo: number
+    idea: number
+    calificacion: number
+  }>
 }
 
 interface RespuestaErrorV1 {
@@ -189,33 +174,8 @@ interface RespuestaErrorV1 {
   request_id: string
 }
 
-const PARAMETROS_LISTADO_V1 = new Set([
-  'tipo',
-  'empresa_id',
-  'establecimiento_id',
-  'modulo',
-  'desde',
-  'hasta',
-  'usuario_id',
-  'incluir_sensibles',
-  'pagina',
-  'tamano',
-  'ordenar_por',
-  'direccion'
-])
-
-const PARAMETROS_RESUMEN_V1 = new Set([
-  'tipo',
-  'empresa_id',
-  'establecimiento_id',
-  'modulo',
-  'desde',
-  'hasta',
-  'usuario_id',
-  'incluir_sensibles'
-])
-
-const PARAMETROS_DETALLE_V1 = new Set<string>()
+const PARAMETROS_RESUMEN_V1 = new Set<string>(PARAMETROS_AGREGADOS_V1)
+const PARAMETROS_PANEL_V1 = new Set<string>(PARAMETROS_AGREGADOS_V1)
 
 function crearRequestId(request: Request): string {
   const requestId = request.headers.get('x-request-id')?.trim()
@@ -231,6 +191,16 @@ function construirMetaV1(requestId: string, scopeProfile: ScopeProfileV1): MetaR
   }
 }
 
+function construirMetaPanelV1(requestId: string): MetaRespuestaPanelV1 {
+  return {
+    api_version: API_VERSION,
+    generated_at: new Date().toISOString(),
+    request_id: requestId,
+    scope_profile: 'application_panel',
+    source: 'supabase'
+  }
+}
+
 function construirRespuestaJsonV1<T>(status: number, cuerpo: T, requestId: string) {
   return new Response(JSON.stringify(cuerpo), {
     status,
@@ -243,7 +213,7 @@ function construirRespuestaJsonV1<T>(status: number, cuerpo: T, requestId: strin
 }
 
 export function responderErrorV1(
-  status: 400 | 401 | 403 | 404 | 429 | 500 | 501 | 503,
+  status: 400 | 401 | 403 | 500 | 501 | 503,
   code: CodigoErrorV1,
   message: string,
   requestId: string,
@@ -284,24 +254,6 @@ function esFechaYmd(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
-function normalizarBooleano(value: string | null, key: string): boolean {
-  if (value === null) {
-    return false
-  }
-
-  if (value === 'true') {
-    return true
-  }
-
-  if (value === 'false') {
-    return false
-  }
-
-  throw new ErrorApiV1(400, 'invalid_filter', `El parámetro ${key} es inválido.`, {
-    parametro: key
-  })
-}
-
 function normalizarTipo(value: string | null): TipoRetroalimentacion | null {
   if (!value) {
     return null
@@ -316,57 +268,6 @@ function normalizarTipo(value: string | null): TipoRetroalimentacion | null {
   })
 }
 
-function normalizarCampoOrden(value: string | null): CampoOrdenRetroalimentacionV1 {
-  if (!value) {
-    return 'created_at'
-  }
-
-  if (CAMPOS_ORDENABLES_V1.includes(value as CampoOrdenRetroalimentacionV1)) {
-    return value as CampoOrdenRetroalimentacionV1
-  }
-
-  throw new ErrorApiV1(400, 'invalid_pagination', 'El parámetro ordenar_por no es válido.', {
-    parametro: 'ordenar_por'
-  })
-}
-
-function normalizarDireccion(value: string | null): DireccionOrdenV1 {
-  if (!value) {
-    return 'desc'
-  }
-
-  if (DIRECCIONES_ORDEN.includes(value as DireccionOrdenV1)) {
-    return value as DireccionOrdenV1
-  }
-
-  throw new ErrorApiV1(400, 'invalid_pagination', 'El parámetro direccion no es válido.', {
-    parametro: 'direccion'
-  })
-}
-
-function normalizarEntero(
-  value: string | null,
-  defaultValue: number,
-  min: number,
-  max: number,
-  code: 'invalid_filter' | 'invalid_pagination',
-  key: string
-): number {
-  if (!value) {
-    return defaultValue
-  }
-
-  const numberValue = Number(value)
-
-  if (!Number.isInteger(numberValue) || numberValue < min || numberValue > max) {
-    throw new ErrorApiV1(400, code, `El parámetro ${key} es inválido.`, {
-      parametro: key
-    })
-  }
-
-  return numberValue
-}
-
 function inicioDeDia(fecha: string): string {
   return `${fecha}T00:00:00.000Z`
 }
@@ -375,24 +276,8 @@ function incluirFinDeDia(fecha: string): string {
   return `${fecha}T23:59:59.999Z`
 }
 
-function validarRestriccionesSensibles(filtros: Pick<FiltrosRetroalimentacionV1, 'usuario_id' | 'incluir_sensibles'>) {
-  if (filtros.usuario_id) {
-    throw new ErrorApiV1(
-      403,
-      'invalid_scope',
-      'El filtro usuario_id requiere permisos adicionales de datos sensibles.',
-      { parametro: 'usuario_id' }
-    )
-  }
-
-  if (filtros.incluir_sensibles) {
-    throw new ErrorApiV1(
-      403,
-      'invalid_scope',
-      'La exposición de campos sensibles requiere permisos adicionales.',
-      { parametro: 'incluir_sensibles' }
-    )
-  }
+function banderaEntornoActiva(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === 'true'
 }
 
 function responderErrorAutorizacionAplicacionV1(
@@ -418,7 +303,7 @@ function responderErrorAutorizacionAplicacionV1(
   return responderErrorV1(401, 'unauthorized', resultado.motivo, requestId)
 }
 
-async function obtenerConsumidorAplicacionAutorizadoV1(
+export async function obtenerConsumidorAplicacionAutorizadoV1(
   request: Request,
   env: EntornoRetroalimentacion,
   requestId: string
@@ -432,39 +317,29 @@ async function obtenerConsumidorAplicacionAutorizadoV1(
   return autorizacion.consumer
 }
 
-export function obtenerRequestIdV1(request: Request): string {
-  return crearRequestId(request)
-}
-
-export async function validarAccesoBaseV1(
-  request: Request,
-  env: EntornoRetroalimentacion,
-  requestId: string
-): Promise<Response | null> {
-  const consumidor = await obtenerConsumidorAplicacionAutorizadoV1(request, env, requestId)
-
-  if (consumidor instanceof Response) {
+function validarScopeConsumidorV1(
+  consumidor: ConsumidorAplicacionAutorizado,
+  requestId: string,
+  requiredScope: string,
+  surfaceLabel: 'resumen' | 'panel'
+): ConsumidorAplicacionAutorizado | Response {
+  if (consumidor.scopes.includes(requiredScope)) {
     return consumidor
   }
 
-  return null
-}
-
-export function obtenerBloqueoLecturaOperativaV1(
-  requestId: string,
-  surface = '/api/v1/retroalimentacion',
-  pendingIntegration = 'list_and_detail_operational_enablement'
-): Response | null {
   return responderErrorV1(
-    501,
-    'operational_read_not_enabled',
-    'La ruta versionada solicitada permanece pendiente de habilitación operativa.',
+    403,
+    'insufficient_scope',
+    `El consumidor autenticado no tiene el alcance requerido para acceder al ${surfaceLabel} de retroalimentación.`,
     requestId,
     {
-      surface,
-      pending_integration: pendingIntegration
+      required_scope: requiredScope
     }
   )
+}
+
+export function obtenerRequestIdV1(request: Request): string {
+  return crearRequestId(request)
 }
 
 export async function autorizarResumenRetroalimentacionV1(
@@ -478,19 +353,41 @@ export async function autorizarResumenRetroalimentacionV1(
     return consumidor
   }
 
-  if (!consumidor.scopes.includes(SCOPE_RESUMEN_RETROALIMENTACION_V1)) {
-    return responderErrorV1(
-      403,
-      'insufficient_scope',
-      'El consumidor autenticado no tiene el alcance requerido para acceder al resumen de retroalimentación.',
-      requestId,
-      {
-        required_scope: SCOPE_RESUMEN_RETROALIMENTACION_V1
-      }
-    )
+  return validarScopeConsumidorV1(consumidor, requestId, SCOPE_RESUMEN_RETROALIMENTACION_V1, 'resumen')
+}
+
+export async function autorizarPanelRetroalimentacionV1(
+  request: Request,
+  env: EntornoRetroalimentacion,
+  requestId: string
+): Promise<ConsumidorAplicacionAutorizado | Response> {
+  const consumidor = await obtenerConsumidorAplicacionAutorizadoV1(request, env, requestId)
+
+  if (consumidor instanceof Response) {
+    return consumidor
   }
 
-  return consumidor
+  return validarScopeConsumidorV1(consumidor, requestId, SCOPE_PANEL_RETROALIMENTACION_V1, 'panel')
+}
+
+export function validarHabilitacionPanelRetroalimentacionV1(
+  env: EntornoRetroalimentacion,
+  requestId: string
+): Response | null {
+  if (banderaEntornoActiva(env.FEEDBACK_API_V1_PANEL_ENABLED)) {
+    return null
+  }
+
+  return responderErrorV1(
+    501,
+    'operational_read_not_enabled',
+    'La ruta versionada solicitada permanece pendiente de habilitación operativa.',
+    requestId,
+    {
+      surface: '/api/v1/retroalimentacion/panel',
+      feature_flag: FEATURE_FLAG_PANEL_RETROALIMENTACION_V1
+    }
+  )
 }
 
 export function obtenerFiltrosRetroalimentacionV1(
@@ -521,58 +418,14 @@ export function obtenerFiltrosRetroalimentacionV1(
     })
   }
 
-  const filtros: FiltrosRetroalimentacionV1 = {
+  return {
     tipo: normalizarTipo(leerTexto(url.searchParams, 'tipo')),
     empresa_id: leerTexto(url.searchParams, 'empresa_id'),
     establecimiento_id: leerTexto(url.searchParams, 'establecimiento_id'),
     modulo: leerTexto(url.searchParams, 'modulo'),
     desde,
-    hasta,
-    usuario_id: leerTexto(url.searchParams, 'usuario_id'),
-    incluir_sensibles: normalizarBooleano(leerTexto(url.searchParams, 'incluir_sensibles'), 'incluir_sensibles')
+    hasta
   }
-
-  validarRestriccionesSensibles(filtros)
-
-  return filtros
-}
-
-export function obtenerPaginacionRetroalimentacionV1(request: Request): PaginacionRetroalimentacionV1 {
-  const url = new URL(request.url)
-
-  return {
-    pagina: normalizarEntero(leerTexto(url.searchParams, 'pagina'), 1, 1, 10_000, 'invalid_pagination', 'pagina'),
-    tamano: normalizarEntero(
-      leerTexto(url.searchParams, 'tamano'),
-      TAMANO_PAGINA_POR_DEFECTO,
-      1,
-      MAX_TAMANO_PAGINA_V1,
-      'invalid_pagination',
-      'tamano'
-    ),
-    ordenar_por: normalizarCampoOrden(leerTexto(url.searchParams, 'ordenar_por')),
-    direccion: normalizarDireccion(leerTexto(url.searchParams, 'direccion'))
-  }
-}
-
-export function validarRegistroUidV1(registroUid: string | undefined): string {
-  const normalizado = registroUid?.trim()
-
-  if (!normalizado) {
-    throw new ErrorApiV1(400, 'invalid_filter', 'El identificador solicitado no es válido.', {
-      parametro: 'registro_uid'
-    })
-  }
-
-  const coincide = normalizado.match(/^(estado_animo|idea|calificacion):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)
-
-  if (!coincide) {
-    throw new ErrorApiV1(400, 'invalid_filter', 'El identificador solicitado no es válido.', {
-      parametro: 'registro_uid'
-    })
-  }
-
-  return normalizado
 }
 
 export function obtenerClienteLecturaV1(
@@ -597,8 +450,23 @@ export function obtenerClienteLecturaV1(
 export function resolverAlcanceEmpresaResumenV1(
   filtros: FiltrosRetroalimentacionV1,
   consumidor: ConsumidorAplicacionAutorizado
-): AlcanceEmpresaResumenV1 {
-  const empresasAutorizadas = [...new Set(consumidor.allowedEmpresaIds)]
+): AlcanceEmpresaAgregadoV1 {
+  return resolverAlcanceEmpresaAgregadoV1(filtros, consumidor.allowedEmpresaIds, consumidor.allowMultiTenantSummary)
+}
+
+export function resolverAlcanceEmpresaPanelV1(
+  filtros: FiltrosRetroalimentacionV1,
+  consumidor: ConsumidorAplicacionAutorizado
+): AlcanceEmpresaAgregadoV1 {
+  return resolverAlcanceEmpresaAgregadoV1(filtros, consumidor.allowedEmpresaIds, consumidor.allowMultiTenantPanel)
+}
+
+function resolverAlcanceEmpresaAgregadoV1(
+  filtros: FiltrosRetroalimentacionV1,
+  allowedEmpresaIds: readonly string[],
+  allowMultiTenant: boolean
+): AlcanceEmpresaAgregadoV1 {
+  const empresasAutorizadas = [...new Set(allowedEmpresaIds)]
 
   if (empresasAutorizadas.length === 0) {
     throw new ErrorApiV1(
@@ -631,7 +499,7 @@ export function resolverAlcanceEmpresaResumenV1(
     }
   }
 
-  if (consumidor.allowMultiTenantSummary) {
+  if (allowMultiTenant) {
     return {
       empresaIdsConsulta: empresasAutorizadas,
       empresaIdRespuesta: null
@@ -650,7 +518,7 @@ export function aplicarAlcanceEmpresaAutorizadoV1<
   TConsulta extends {
     in(column: string, values: readonly string[]): TConsulta
   }
->(consulta: TConsulta, alcance: AlcanceEmpresaResumenV1): TConsulta {
+>(consulta: TConsulta, alcance: AlcanceEmpresaAgregadoV1): TConsulta {
   if (alcance.empresaIdsConsulta.length <= 1) {
     return consulta
   }
@@ -696,70 +564,77 @@ export function crearConsultaRetroalimentacionV1(
   return consulta
 }
 
-export function mapearRegistroRetroalimentacionV1(registro: RegistroRetroalimentacion): RegistroRetroalimentacionV1 {
-  return {
-    registro_uid: registro.registro_uid,
-    tipo: registro.tipo,
-    created_at: registro.created_at,
-    empresa_id: registro.empresa_id,
-    empresa_nombre: registro.empresa_nombre,
-    establecimiento_id: registro.establecimiento_id,
-    establecimiento_nombre: registro.establecimiento_nombre,
-    modulo: registro.modulo,
-    valor_principal: registro.valor_principal,
-    puntaje: registro.puntaje,
-    estado_animo: registro.estado_animo
-  }
-}
-
-export function construirRespuestaListadoV1(
-  registros: RegistroRetroalimentacion[],
+export function construirRespuestaResumenV1(
+  registros: RegistroRetroalimentacionResumenV1[],
   filtros: FiltrosRetroalimentacionV1,
-  paginacion: PaginacionRetroalimentacionV1,
-  total: number,
   requestId: string
-): RespuestaListadoRetroalimentacionV1 {
+): RespuestaResumenRetroalimentacionV1 {
+  const agregados = construirAgregadosResumenBaseV1(registros)
+
   return {
-    data: registros.map(mapearRegistroRetroalimentacionV1),
-    meta: construirMetaV1(requestId, 'application_sanitized'),
+    data: {
+      total_registros: agregados.totalRegistros,
+      totales_por_tipo: agregados.totalesPorTipo,
+      promedio_calificacion: agregados.promedioCalificacion,
+      distribucion_estado_animo: agregados.distribucionEstadoAnimo,
+      cantidad_ideas: agregados.cantidadIdeas,
+      serie_diaria: agregados.serieDiaria
+    },
+    meta: construirMetaV1(requestId, 'application_summary'),
     filters: {
       tipo: filtros.tipo,
       empresa_id: filtros.empresa_id,
       establecimiento_id: filtros.establecimiento_id,
       modulo: filtros.modulo,
       desde: filtros.desde,
-      hasta: filtros.hasta,
-      usuario_id: filtros.usuario_id,
-      incluir_sensibles: filtros.incluir_sensibles,
-      ordenar_por: paginacion.ordenar_por,
-      direccion: paginacion.direccion
-    },
-    pagination: {
-      pagina: paginacion.pagina,
-      tamano: paginacion.tamano,
-      total,
-      total_paginas: Math.max(1, Math.ceil(total / paginacion.tamano)),
-      ordenar_por: paginacion.ordenar_por,
-      direccion: paginacion.direccion
+      hasta: filtros.hasta
     }
   }
 }
 
-export function construirRespuestaDetalleV1(
-  registro: RegistroRetroalimentacion,
-  requestId: string
-): RespuestaDetalleRetroalimentacionV1 {
-  return {
-    data: mapearRegistroRetroalimentacionV1(registro),
-    meta: construirMetaV1(requestId, 'application_sanitized')
-  }
-}
-
-export function construirRespuestaResumenV1(
+export function construirRespuestaPanelV1(
   registros: RegistroRetroalimentacionResumenV1[],
   filtros: FiltrosRetroalimentacionV1,
   requestId: string
-): RespuestaResumenRetroalimentacionV1 {
+): RespuestaPanelRetroalimentacionV1 {
+  const agregados = construirAgregadosResumenBaseV1(registros)
+
+  return {
+    data: {
+      resumen: {
+        total_registros: agregados.totalRegistros,
+        totales_por_tipo: agregados.totalesPorTipo,
+        promedio_calificacion: agregados.promedioCalificacion,
+        distribucion_estado_animo: agregados.distribucionEstadoAnimo,
+        cantidad_ideas: agregados.cantidadIdeas
+      },
+      distribuciones: {
+        por_tipo: agruparPorClave(registros.map((registro) => registro.tipo)).map(({ clave, total }) => ({
+          tipo: clave,
+          total
+        })),
+        estados_animo: agregados.distribucionEstadoAnimo,
+        puntajes: agruparPorClave(
+          registros
+            .map((registro) => registro.puntaje)
+            .filter((puntaje): puntaje is number => typeof puntaje === 'number')
+        ).map(({ clave, total }) => ({ puntaje: clave, total })),
+        serie_diaria: agregados.serieDiaria
+      }
+    },
+    meta: construirMetaPanelV1(requestId),
+    filters: {
+      tipo: filtros.tipo,
+      empresa_id: filtros.empresa_id,
+      establecimiento_id: filtros.establecimiento_id,
+      modulo: filtros.modulo,
+      desde: filtros.desde,
+      hasta: filtros.hasta
+    }
+  }
+}
+
+function construirAgregadosResumenBaseV1(registros: RegistroRetroalimentacionResumenV1[]): AgregadosResumenBaseV1 {
   const totalesPorTipo: Record<TipoRetroalimentacion, number> = {
     estado_animo: 0,
     idea: 0,
@@ -777,27 +652,14 @@ export function construirRespuestaResumenV1(
   ).map(({ clave, total }) => ({ estado_animo: clave, total }))
 
   return {
-    data: {
-      total_registros: registros.length,
-      totales_por_tipo: totalesPorTipo,
-      promedio_calificacion: calcularPromedioPuntajes(
-        registros.map((registro) => ({ puntaje: registro.puntaje }))
-      ),
-      distribucion_estado_animo: distribucionEstadoAnimo,
-      cantidad_ideas: totalesPorTipo.idea,
-      serie_diaria: construirSerieDiaria(registros as RegistroRetroalimentacion[])
-    },
-    meta: construirMetaV1(requestId, 'application_summary'),
-    filters: {
-      tipo: filtros.tipo,
-      empresa_id: filtros.empresa_id,
-      establecimiento_id: filtros.establecimiento_id,
-      modulo: filtros.modulo,
-      desde: filtros.desde,
-      hasta: filtros.hasta,
-      usuario_id: filtros.usuario_id,
-      incluir_sensibles: filtros.incluir_sensibles
-    }
+    totalRegistros: registros.length,
+    totalesPorTipo,
+    promedioCalificacion: calcularPromedioPuntajes(
+      registros.map((registro) => ({ puntaje: registro.puntaje }))
+    ),
+    distribucionEstadoAnimo,
+    cantidadIdeas: totalesPorTipo.idea,
+    serieDiaria: construirSerieDiaria(registros as RegistroRetroalimentacion[])
   }
 }
 
@@ -810,6 +672,5 @@ export function manejarErrorRetroalimentacionV1(error: unknown, requestId: strin
   return responderErrorV1(500, 'internal_error', 'No se pudo procesar la lectura de retroalimentación.', requestId)
 }
 
-export const PARAMS_LISTADO_RETROALIMENTACION_V1 = PARAMETROS_LISTADO_V1
 export const PARAMS_RESUMEN_RETROALIMENTACION_V1 = PARAMETROS_RESUMEN_V1
-export const PARAMS_DETALLE_RETROALIMENTACION_V1 = PARAMETROS_DETALLE_V1
+export const PARAMS_PANEL_RETROALIMENTACION_V1 = PARAMETROS_PANEL_V1

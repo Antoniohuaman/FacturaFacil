@@ -95,8 +95,9 @@ Notas de analítica:
 | `SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | **Secret** — acceso admin total, solo servidor |
 | `SENCIYO_SUPABASE_URL` | Production + Preview | Runtime (Functions) — URL del proyecto Supabase de SenciYo para endpoints `/api/retroalimentacion/*` |
 | `SENCIYO_SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | **Secret** — service role del proyecto Supabase de SenciYo para lectura de retroalimentación |
-| `FEEDBACK_API_CONSUMERS_JSON` | Production + Preview | **Secret** — bootstrap controlado de consumidores autorizados para `/api/v1/retroalimentacion/resumen` |
+| `FEEDBACK_API_CONSUMERS_JSON` | Production + Preview | **Secret** — configuración declarativa de consumidores autorizados para `/api/v1/retroalimentacion/resumen` y `/api/v1/retroalimentacion/panel` |
 | `FEEDBACK_API_KEY_HASH_PEPPER` | Production + Preview | **Secret** — pepper para validar `token_hash = sha256(<pepper>:<token>)` de consumidores de aplicación |
+| `FEEDBACK_API_V1_PANEL_ENABLED` | Production + Preview | Runtime (Functions) — habilita `GET /api/v1/retroalimentacion/panel` solo cuando está en `true`; default seguro deshabilitado |
 | `POSTHOG_HOST` | Production | Runtime (Functions) |
 | `POSTHOG_PROJECT_ID` | Production | Runtime (Functions) |
 | `POSTHOG_PERSONAL_API_KEY` | Production | **Secret** — solo servidor |
@@ -117,15 +118,30 @@ Para lectura de retroalimentación, además requieren `SENCIYO_SUPABASE_URL` y
 Si faltan las variables de auth, la Function responde `500 configuracion_auth`.
 Si falta la conexión runtime hacia SenciYo, responde `500 configuracion_supabase`.
 
-La ruta versionada `GET /api/v1/retroalimentacion/resumen` no usa el JWT de usuario del PM Portal como principal de autorización.
+La API oficial v1 de retroalimentación expone actualmente dos rutas agregadas:
+
+- `GET /api/v1/retroalimentacion/resumen`
+- `GET /api/v1/retroalimentacion/panel`
+
+Estas rutas no usan el JWT de usuario del PM Portal como principal de autorización.
 Su autorización real se resuelve con:
 
 - `Authorization: Bearer <token-de-aplicacion>`
-- `FEEDBACK_API_CONSUMERS_JSON` como bootstrap controlado de consumidores autorizados
+- `FEEDBACK_API_CONSUMERS_JSON` como configuración declarativa de consumidores autorizados
 - `FEEDBACK_API_KEY_HASH_PEPPER` para validar `token_hash = sha256(<pepper>:<token>)`
 
-La ruta versionada de resumen sigue leyendo datos desde el Supabase de SenciYo por backend y no expone service role al frontend.
-Las rutas `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` permanecen sin habilitación operativa.
+La ruta `GET /api/v1/retroalimentacion/resumen` además exige:
+
+- scope `feedback:read:summary`
+- `allowed_empresa_ids` en la configuración del consumidor
+
+La ruta `GET /api/v1/retroalimentacion/panel` además exige:
+
+- scope `feedback:read:panel`
+- `FEEDBACK_API_V1_PANEL_ENABLED=true`
+- `allow_multi_tenant_panel=true` en `FEEDBACK_API_CONSUMERS_JSON` solo si se desea agregado multiempresa sin `empresa_id` explícito
+
+Las rutas versionadas de resumen y panel siguen leyendo datos desde el Supabase de SenciYo por backend y no exponen service role al frontend.
 
 Configuración recomendada final para PM Portal en Cloudflare Production:
 
@@ -145,10 +161,11 @@ Variables opcionales por endpoint:
 - `GITHUB_TOKEN`
 - `DIAGNOSTICO_METRICAS`
 
-Variables adicionales para la autorización versionada de resumen:
+Variables adicionales para la API oficial v1 agregada:
 
 - `FEEDBACK_API_CONSUMERS_JSON`
 - `FEEDBACK_API_KEY_HASH_PEPPER`
+- `FEEDBACK_API_V1_PANEL_ENABLED`
 
 ---
 

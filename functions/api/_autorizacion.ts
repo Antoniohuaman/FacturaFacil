@@ -28,8 +28,7 @@ export interface ConsumidorAplicacionAutorizado {
   scopes: string[]
   allowedEmpresaIds: string[]
   allowMultiTenantSummary: boolean
-  allowSensitive: boolean
-  rateLimitProfile: string | null
+  allowMultiTenantPanel: boolean
 }
 
 export type ResultadoAutorizacionAplicacion =
@@ -54,8 +53,7 @@ interface ConsumidorAplicacionConfigurado {
   scopes: string[]
   allowedEmpresaIds: string[]
   allowMultiTenantSummary: boolean
-  allowSensitive: boolean
-  rateLimitProfile: string | null
+  allowMultiTenantPanel: boolean
 }
 
 interface ConfiguracionConsumidoresAplicacion {
@@ -197,8 +195,7 @@ function normalizarConsumidorAplicacion(value: unknown): ConsumidorAplicacionCon
     scopes: normalizarListaTexto(consumer.scopes),
     allowedEmpresaIds: normalizarListaTexto(consumer.allowed_empresa_ids),
     allowMultiTenantSummary: normalizarBooleanoConfig(consumer.allow_multi_tenant_summary, false),
-    allowSensitive: normalizarBooleanoConfig(consumer.allow_sensitive, false),
-    rateLimitProfile: normalizarTextoNoVacio(consumer.rate_limit_profile)
+    allowMultiTenantPanel: normalizarBooleanoConfig(consumer.allow_multi_tenant_panel, false)
   }
 }
 
@@ -461,8 +458,7 @@ export async function validarAutorizacionAplicacion(
         scopes: consumer.scopes,
         allowedEmpresaIds: consumer.allowedEmpresaIds,
         allowMultiTenantSummary: consumer.allowMultiTenantSummary,
-        allowSensitive: consumer.allowSensitive,
-        rateLimitProfile: consumer.rateLimitProfile
+        allowMultiTenantPanel: consumer.allowMultiTenantPanel
       }
     }
   } catch {
