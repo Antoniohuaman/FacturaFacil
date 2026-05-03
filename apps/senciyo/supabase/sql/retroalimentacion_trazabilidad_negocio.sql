@@ -1,5 +1,11 @@
 -- Migración incremental para enriquecer la trazabilidad de negocio en retroalimentación.
 -- Agrega correo de usuario, RUC y razón social sin romper registros históricos.
+--
+-- Nota de mantenimiento:
+-- Este script conserva una recreación equivalente de public.v_retroalimentacion_unificada
+-- por compatibilidad histórica con la migración de trazabilidad.
+-- La definición canónica actual de lectura para API y PM Portal se mantiene en
+-- retroalimentacion_lectura_api.sql.
 
 alter table if exists public.retroalimentacion_estado_animo
   add column if not exists usuario_correo text,

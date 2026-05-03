@@ -69,12 +69,20 @@ La creación y evolución de estas estructuras se rastrea en:
 - `apps/senciyo/supabase/sql/retroalimentacion_inicial.sql`
 - `apps/senciyo/supabase/sql/retroalimentacion_trazabilidad_negocio.sql`
 - `apps/senciyo/supabase/sql/retroalimentacion_lectura_api.sql`
+- `apps/senciyo/supabase/sql/retroalimentacion_policies_insert_actual.sql`
 
 Resumen de cada archivo SQL:
 
 - `retroalimentacion_inicial.sql`: crea las tres tablas de escritura e índices iniciales.
-- `retroalimentacion_trazabilidad_negocio.sql`: agrega `usuario_correo`, `empresa_ruc`, `empresa_razon_social` y recompone la vista unificada.
-- `retroalimentacion_lectura_api.sql`: define la superficie de lectura uniforme para API y dashboards sobre `v_retroalimentacion_unificada`.
+- `retroalimentacion_trazabilidad_negocio.sql`: agrega `usuario_correo`, `empresa_ruc`, `empresa_razon_social` y conserva una recreación histórica equivalente de la vista unificada.
+- `retroalimentacion_lectura_api.sql`: script canónico actual para la definición final de lectura usada por API y PM Portal sobre `v_retroalimentacion_unificada`.
+- `retroalimentacion_policies_insert_actual.sql`: refleja el estado validado actual de RLS y las policies INSERT para los roles `anon` y `authenticated` con `WITH CHECK (true)` en las tres tablas de escritura.
+
+Decisión de mantenimiento sobre la vista unificada:
+
+- La vista `public.v_retroalimentacion_unificada` no cambia en esta limpieza controlada.
+- `retroalimentacion_lectura_api.sql` queda marcado como el script canónico para su definición final.
+- `retroalimentacion_trazabilidad_negocio.sql` mantiene una recreación equivalente por compatibilidad histórica con la migración que añadió trazabilidad de negocio.
 
 ## Proyectos Supabase y configuración
 
@@ -102,6 +110,8 @@ La escritura actual quedó así:
 - La clave de arranque del cliente sigue siendo la `anon key` pública de Supabase.
 - No existe un backend propio de SenciYo para este módulo en el repositorio.
 - El login de SenciYo no usa `supabase.auth.signIn*`; sigue pasando por `/auth/*` a través de `AuthClient.ts` y `VITE_API_URL`.
+- La persistencia funcional en Supabase es independiente de la analítica técnica del módulo.
+- Los eventos técnicos `retroalimentacion_*` no reemplazan la persistencia y no envían textos libres; solo metadatos operativos del flujo.
 
 Matiz importante del estado actual:
 
@@ -134,10 +144,21 @@ La solución final del flujo quedó compuesta por dos capas:
 - Reutilizar el cliente singleton de `apps/senciyo/src/shared/supabase/clienteSupabase.ts` y evitar una reescritura arquitectónica mayor.
 - Mantener la lectura fuera del frontend de SenciYo y no abrir una vía de lectura pública directa desde la app operativa.
 
+### Estado reproducible versionado para RLS y policies INSERT
+
+- El repositorio ahora incluye `apps/senciyo/supabase/sql/retroalimentacion_policies_insert_actual.sql` como script seguro de documentación/migración para reflejar el estado funcional validado.
+- Ese archivo deja versionado:
+  - `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` en las tres tablas.
+  - Policies `INSERT` para `anon` y `authenticated`.
+  - `WITH CHECK (true)` en las tres tablas.
+- Ese script no habilita `SELECT` público sobre las tablas de retroalimentación.
+- La lectura del PM Portal debe seguir siendo server-side con service role sobre `public.v_retroalimentacion_unificada`.
+
 ### Resolución operativa efectiva en producción
 
 - Mantener RLS activo.
 - Permitir `INSERT` para el rol `anon` únicamente en las tablas de retroalimentación.
+- Permitir `INSERT` para el rol `authenticated` en las tablas de retroalimentación.
 - Aplicar esa apertura solo sobre:
   - `public.retroalimentacion_estado_animo`
   - `public.retroalimentacion_calificaciones`
@@ -153,10 +174,9 @@ Motivo técnico de esta decisión:
 
 Límite importante:
 
-- El repositorio no contiene SQL versionado de las policies RLS para `anon` o `authenticated` en estas tablas.
-- Por esa razón, la configuración exacta de esas policies no puede reconstruirse desde archivos SQL del repositorio.
-- Sí queda documentado como estado operativo validado que en producción se aplicaron policies para permitir `INSERT` del rol `anon` en las tres tablas de retroalimentación, manteniendo RLS activo.
-- Lo que sí queda versionado en el repositorio es el ajuste de código para sincronización de sesión en memoria, pero no la policy final que destrabó el flujo en producción.
+- El script versionado refleja el estado funcional validado actual, pero no ejecuta cambios sobre ningún proyecto Supabase por sí solo.
+- Los valores reales de entorno, los nombres efectivos ya existentes de policies en producción y cualquier ajuste adicional de grants siguen dependiendo de la revisión manual del entorno operativo.
+- Para el repo oficial debe evaluarse endurecimiento adicional contra abuso, spam o automatización indebida.
 
 ## Cómo consume PM Portal la información
 
@@ -188,6 +208,7 @@ Resultado funcional del portal:
 - Esta solución es coherente con la arquitectura actual del monorepo porque SenciYo no tiene un backend propio versionado para retroalimentación y PM Portal ya dispone de Functions para lectura segura.
 - La `anon key` sigue siendo pública por diseño y solo sirve para bootstrap del cliente; no reemplaza las policies de Supabase.
 - Los valores reales de entorno no están en el repositorio; el comportamiento final de producción depende de la configuración efectiva en Cloudflare y Supabase.
+- El estado actual de RLS/policies insert queda versionado como referencia reproducible, pero no debe interpretarse como política final endurecida para el repo oficial.
 - Si en el futuro SenciYo incorpora un backend propio para este módulo, o si migra su login real a Supabase Auth de forma nativa en frontend o backend, esta decisión debe reevaluarse.
 - Si se versionan las policies RLS en el futuro, este documento debe actualizarse para reflejar esas reglas de forma explícita.
 
@@ -197,13 +218,18 @@ Resultado funcional del portal:
 
 - SenciYo tiene implementada la escritura directa de retroalimentación hacia Supabase con contexto de usuario, empresa, establecimiento, módulo y ruta.
 - PM Portal tiene implementada la lectura consolidada de panel, listado y detalle sobre `public.v_retroalimentacion_unificada`.
-- El repositorio no versiona secretos reales, URLs finales de despliegue ni las policies RLS efectivas aplicadas en producción.
+- La persistencia funcional de retroalimentación está separada de la analítica técnica del módulo.
+- Los eventos técnicos `retroalimentacion_*` no envían textos libres y no reemplazan la persistencia en Supabase.
+- El repositorio versiona un script reproducible del estado validado actual de RLS/policies INSERT para `anon` y `authenticated`.
+- El repositorio no versiona secretos reales ni URLs finales de despliegue.
 
 ### Estado operativo validado
 
 - SenciYo guarda correctamente estado de ánimo.
 - SenciYo guarda correctamente calificaciones.
 - SenciYo guarda correctamente ideas.
+- RLS está activo en las tres tablas de escritura.
+- Existen policies `INSERT` para `anon` y `authenticated` con `WITH CHECK (true)`.
 - PM Portal visualiza correctamente panel y registros.
 - El flujo quedó operativo en producción.
 
@@ -222,6 +248,7 @@ Resultado funcional del portal:
 - `apps/senciyo/supabase/sql/retroalimentacion_inicial.sql`
 - `apps/senciyo/supabase/sql/retroalimentacion_trazabilidad_negocio.sql`
 - `apps/senciyo/supabase/sql/retroalimentacion_lectura_api.sql`
+- `apps/senciyo/supabase/sql/retroalimentacion_policies_insert_actual.sql`
 
 ### PM Portal y Functions
 

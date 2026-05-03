@@ -36,6 +36,7 @@ export function CampoComentarioBreve({
         rows={filas}
         value={valor}
         maxLength={maximoCaracteres}
+        data-sensitive="true"
         placeholder={placeholder}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

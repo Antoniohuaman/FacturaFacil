@@ -1,5 +1,9 @@
 -- Superficie de lectura unificada para la API de retroalimentacion.
 -- Mantiene intactas las tablas de escritura y expone un shape comun para consumidores externos.
+--
+-- Script canónico actual para la definición final de public.v_retroalimentacion_unificada.
+-- retroalimentacion_trazabilidad_negocio.sql mantiene una recreación equivalente de la vista
+-- por razones históricas de migración; cualquier cambio futuro debe mantenerse alineado.
 
 create or replace view public.v_retroalimentacion_unificada as
   select

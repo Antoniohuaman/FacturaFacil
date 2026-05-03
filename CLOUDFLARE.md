@@ -54,6 +54,8 @@ reintentarlo sobre un artifact ya compilado no es suficiente.
 | `VITE_API_URL` | Production | URL base del backend |
 | `VITE_INDICADORES_API_URL` | Production | API de KPIs |
 | `VITE_INDICADORES_NOTIFICACIONES_API_URL` | Production | API de notificaciones de KPIs |
+| `VITE_SUPABASE_URL` | Production + Preview | Build-time — URL pública del proyecto Supabase usada por SenciYo para insertar retroalimentación desde frontend |
+| `VITE_SUPABASE_ANON_KEY` | Production + Preview | Build-time — Clave anon pública usada por SenciYo para insertar retroalimentación desde frontend |
 | `VITE_PUBLIC_POSTHOG_KEY` | Production | Clave publishable |
 | `VITE_PUBLIC_POSTHOG_HOST` | Production | Ej: `https://us.i.posthog.com` |
 | `VITE_PUBLIC_AMPLITUDE_API_KEY` | Production | Clave publishable |
@@ -65,6 +67,12 @@ reintentarlo sobre un artifact ya compilado no es suficiente.
 
 La consulta documental real de SenciYo se resuelve desde `functions/api/documentos/*`.
 El token del proveedor debe existir solo como secreto runtime y no debe declararse como `VITE_*`.
+
+Notas de retroalimentación:
+
+- `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` son necesarios para que SenciYo pueda insertar retroalimentación real en Supabase desde el frontend.
+- `VITE_SUPABASE_ANON_KEY` puede cargarse como Secret en Cloudflare Pages por higiene operativa, pero al ser una variable `VITE_*` termina embebida en el bundle final y debe tratarse como credencial pública de cliente, no como secreto de servidor.
+- Estas variables no reemplazan RLS ni las policies INSERT de Supabase; solo permiten bootstrap del cliente browser-side.
 
 Notas de analítica:
 
