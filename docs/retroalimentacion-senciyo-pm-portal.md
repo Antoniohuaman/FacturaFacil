@@ -212,6 +212,8 @@ La especificación formal de la futura API oficial versionada se documenta por s
 - La API actual existe bajo `/api/retroalimentacion` y rutas auxiliares del mismo prefijo.
 - PM Portal es el consumidor actual confirmado en el repositorio.
 - Existe además una superficie versionada inicial bajo `/api/v1/retroalimentacion`, implementada en paralelo y sin migrar todavía a PM Portal.
+- `GET /api/v1/retroalimentacion/resumen` incorpora autorización real por token de aplicación opaco, bootstrap server-side mediante `FEEDBACK_API_CONSUMERS_JSON` y control por empresa autorizado.
+- `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` permanecen pendientes de habilitación operativa y responden `501 operational_read_not_enabled` tras validar consumidor de aplicación.
 - La API actual lee `public.v_retroalimentacion_unificada`.
 - La lectura ocurre server-side mediante `functions/api/_retroalimentacion.ts` usando service role hacia el proyecto Supabase de SenciYo.
 - El service role no se expone al frontend.
@@ -272,16 +274,16 @@ Límite actual:
 
 ### Futura API oficial recomendada
 
-Diseño recomendado para una fase posterior, sin implementarlo aún en esta fase:
+Diseño recomendado desde el estado actual:
 
 - `GET /api/v1/retroalimentacion`
 - `GET /api/v1/retroalimentacion/{id}`
-- Opcionalmente `GET /api/v1/retroalimentacion/resumen`
+- `GET /api/v1/retroalimentacion/resumen`
 
 Condición de migración:
 
-- La futura API oficial debe crearse en paralelo.
-- Debe validarse funcional y contractualmente.
+- La futura API oficial ya existe en paralelo.
+- `GET /api/v1/retroalimentacion/resumen` debe validarse funcional y contractualmente con consumidores autorizados de aplicación antes de ampliar su consumo.
 - PM Portal debe seguir consumiendo la API actual hasta que la nueva versión esté probada.
 - La migración del portal debe hacerse después, de forma progresiva y sin desconectar el camino actual antes de tiempo.
 

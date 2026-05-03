@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { validarAutorizacion } from './_autorizacion'
+import {
+  type ConsumidorAplicacionAutorizado,
+  type ResultadoAutorizacionAplicacion,
+  validarAutorizacionAplicacion
+} from './_autorizacion'
 import {
   agruparPorClave,
   calcularPromedioPuntajes,
@@ -23,17 +27,23 @@ const CAMPOS_ORDENABLES_V1 = [
   'puntaje'
 ] as const
 const DIRECCIONES_ORDEN = ['asc', 'desc'] as const
+const SCOPE_RESUMEN_RETROALIMENTACION_V1 = 'feedback:read:summary'
 
 type CampoOrdenRetroalimentacionV1 = (typeof CAMPOS_ORDENABLES_V1)[number]
 type DireccionOrdenV1 = (typeof DIRECCIONES_ORDEN)[number]
-type ScopeProfileV1 = 'authenticated_sanitized' | 'authenticated_summary'
+type ScopeProfileV1 = 'application_sanitized' | 'application_summary'
 type CodigoErrorV1 =
   | 'operational_read_not_enabled'
   | 'unauthorized'
+  | 'invalid_token'
   | 'forbidden'
   | 'invalid_scope'
+  | 'insufficient_scope'
   | 'invalid_filter'
   | 'invalid_pagination'
+  | 'tenant_not_authorized'
+  | 'tenant_scope_empty'
+  | 'tenant_selection_required'
   | 'not_found'
   | 'rate_limited'
   | 'internal_error'
@@ -163,6 +173,11 @@ export interface RespuestaResumenRetroalimentacionV1 {
     usuario_id: string | null
     incluir_sensibles: boolean
   }
+}
+
+interface AlcanceEmpresaResumenV1 {
+  empresaIdsConsulta: string[]
+  empresaIdRespuesta: string | null
 }
 
 interface RespuestaErrorV1 {
@@ -380,6 +395,43 @@ function validarRestriccionesSensibles(filtros: Pick<FiltrosRetroalimentacionV1,
   }
 }
 
+function responderErrorAutorizacionAplicacionV1(
+  resultado: Exclude<ResultadoAutorizacionAplicacion, { autorizado: true }>,
+  requestId: string
+) {
+  if (resultado.status === 503) {
+    return responderErrorV1(503, 'service_unavailable', resultado.motivo, requestId)
+  }
+
+  if (resultado.status === 500) {
+    return responderErrorV1(500, 'internal_error', resultado.motivo, requestId)
+  }
+
+  if (resultado.codigoError === 'token_invalido') {
+    return responderErrorV1(401, 'invalid_token', resultado.motivo, requestId)
+  }
+
+  if (resultado.status === 403) {
+    return responderErrorV1(403, 'forbidden', resultado.motivo, requestId)
+  }
+
+  return responderErrorV1(401, 'unauthorized', resultado.motivo, requestId)
+}
+
+async function obtenerConsumidorAplicacionAutorizadoV1(
+  request: Request,
+  env: EntornoRetroalimentacion,
+  requestId: string
+): Promise<ConsumidorAplicacionAutorizado | Response> {
+  const autorizacion = await validarAutorizacionAplicacion(request, env)
+
+  if (!autorizacion.autorizado) {
+    return responderErrorAutorizacionAplicacionV1(autorizacion, requestId)
+  }
+
+  return autorizacion.consumer
+}
+
 export function obtenerRequestIdV1(request: Request): string {
   return crearRequestId(request)
 }
@@ -389,35 +441,56 @@ export async function validarAccesoBaseV1(
   env: EntornoRetroalimentacion,
   requestId: string
 ): Promise<Response | null> {
-  const autorizacion = await validarAutorizacion(request, env)
+  const consumidor = await obtenerConsumidorAplicacionAutorizadoV1(request, env, requestId)
 
-  if (!autorizacion.autorizado) {
-    if (autorizacion.status === 500) {
-      return responderErrorV1(
-        500,
-        'internal_error',
-        'No se pudo validar la autorización de la solicitud.',
-        requestId
-      )
-    }
-
-    return responderErrorV1(401, 'unauthorized', 'No autorizado.', requestId)
+  if (consumidor instanceof Response) {
+    return consumidor
   }
 
   return null
 }
 
-export function obtenerBloqueoLecturaOperativaV1(requestId: string): Response | null {
+export function obtenerBloqueoLecturaOperativaV1(
+  requestId: string,
+  surface = '/api/v1/retroalimentacion',
+  pendingIntegration = 'list_and_detail_operational_enablement'
+): Response | null {
   return responderErrorV1(
     501,
     'operational_read_not_enabled',
-    'La superficie versionada de retroalimentación requiere integración de autorización por alcance y ámbito autorizado antes de habilitar la lectura operativa.',
+    'La ruta versionada solicitada permanece pendiente de habilitación operativa.',
     requestId,
     {
-      surface: '/api/v1/retroalimentacion',
-      pending_integration: 'authorization_scope_and_authorized_scope'
+      surface,
+      pending_integration: pendingIntegration
     }
   )
+}
+
+export async function autorizarResumenRetroalimentacionV1(
+  request: Request,
+  env: EntornoRetroalimentacion,
+  requestId: string
+): Promise<ConsumidorAplicacionAutorizado | Response> {
+  const consumidor = await obtenerConsumidorAplicacionAutorizadoV1(request, env, requestId)
+
+  if (consumidor instanceof Response) {
+    return consumidor
+  }
+
+  if (!consumidor.scopes.includes(SCOPE_RESUMEN_RETROALIMENTACION_V1)) {
+    return responderErrorV1(
+      403,
+      'insufficient_scope',
+      'El consumidor autenticado no tiene el alcance requerido para acceder al resumen de retroalimentación.',
+      requestId,
+      {
+        required_scope: SCOPE_RESUMEN_RETROALIMENTACION_V1
+      }
+    )
+  }
+
+  return consumidor
 }
 
 export function obtenerFiltrosRetroalimentacionV1(
@@ -521,6 +594,70 @@ export function obtenerClienteLecturaV1(
   return cliente
 }
 
+export function resolverAlcanceEmpresaResumenV1(
+  filtros: FiltrosRetroalimentacionV1,
+  consumidor: ConsumidorAplicacionAutorizado
+): AlcanceEmpresaResumenV1 {
+  const empresasAutorizadas = [...new Set(consumidor.allowedEmpresaIds)]
+
+  if (empresasAutorizadas.length === 0) {
+    throw new ErrorApiV1(
+      403,
+      'tenant_scope_empty',
+      'El consumidor autenticado no tiene empresas autorizadas configuradas.'
+    )
+  }
+
+  if (filtros.empresa_id) {
+    if (!empresasAutorizadas.includes(filtros.empresa_id)) {
+      throw new ErrorApiV1(
+        403,
+        'tenant_not_authorized',
+        'La empresa solicitada no pertenece al ámbito autorizado del consumidor.',
+        { parametro: 'empresa_id' }
+      )
+    }
+
+    return {
+      empresaIdsConsulta: [filtros.empresa_id],
+      empresaIdRespuesta: filtros.empresa_id
+    }
+  }
+
+  if (empresasAutorizadas.length === 1) {
+    return {
+      empresaIdsConsulta: empresasAutorizadas,
+      empresaIdRespuesta: empresasAutorizadas[0]
+    }
+  }
+
+  if (consumidor.allowMultiTenantSummary) {
+    return {
+      empresaIdsConsulta: empresasAutorizadas,
+      empresaIdRespuesta: null
+    }
+  }
+
+  throw new ErrorApiV1(
+    403,
+    'tenant_selection_required',
+    'La solicitud debe indicar una empresa autorizada para este consumidor.',
+    { parametro: 'empresa_id' }
+  )
+}
+
+export function aplicarAlcanceEmpresaAutorizadoV1<
+  TConsulta extends {
+    in(column: string, values: readonly string[]): TConsulta
+  }
+>(consulta: TConsulta, alcance: AlcanceEmpresaResumenV1): TConsulta {
+  if (alcance.empresaIdsConsulta.length <= 1) {
+    return consulta
+  }
+
+  return consulta.in('empresa_id', alcance.empresaIdsConsulta)
+}
+
 export function crearConsultaRetroalimentacionV1(
   cliente: SupabaseClient,
   columnas: string,
@@ -584,7 +721,7 @@ export function construirRespuestaListadoV1(
 ): RespuestaListadoRetroalimentacionV1 {
   return {
     data: registros.map(mapearRegistroRetroalimentacionV1),
-    meta: construirMetaV1(requestId, 'authenticated_sanitized'),
+    meta: construirMetaV1(requestId, 'application_sanitized'),
     filters: {
       tipo: filtros.tipo,
       empresa_id: filtros.empresa_id,
@@ -614,7 +751,7 @@ export function construirRespuestaDetalleV1(
 ): RespuestaDetalleRetroalimentacionV1 {
   return {
     data: mapearRegistroRetroalimentacionV1(registro),
-    meta: construirMetaV1(requestId, 'authenticated_sanitized')
+    meta: construirMetaV1(requestId, 'application_sanitized')
   }
 }
 
@@ -650,7 +787,7 @@ export function construirRespuestaResumenV1(
       cantidad_ideas: totalesPorTipo.idea,
       serie_diaria: construirSerieDiaria(registros as RegistroRetroalimentacion[])
     },
-    meta: construirMetaV1(requestId, 'authenticated_summary'),
+    meta: construirMetaV1(requestId, 'application_summary'),
     filters: {
       tipo: filtros.tipo,
       empresa_id: filtros.empresa_id,

@@ -4,7 +4,7 @@
 
 Este documento define la arquitectura objetivo y el estado actual de la implementación inicial versionada de lectura de retroalimentación bajo `/api/v1/retroalimentacion`.
 
-Su propósito es documentar una superficie versionada mantenible, con compatibilidad operativa respecto de la API interna actual consumida por PM Portal, sin presentar esta implementación inicial como una API habilitada para terceros mientras permanezca pendiente la integración de autorización por alcance y ámbito autorizado.
+Su propósito es documentar una superficie versionada mantenible, con compatibilidad operativa respecto de la API interna actual consumida por PM Portal, sin presentar listado ni detalle como superficies habilitadas para terceros mientras permanezcan pendientes sus fases posteriores de habilitación operativa.
 
 Alcance de esta documentación:
 
@@ -33,19 +33,19 @@ La implementación inicial versionada de la API queda expuesta en paralelo a la 
 
 Características de esta implementación:
 
-- Reutiliza la validación Bearer server-side ya existente.
-- Mantiene preparados los contratos versionados para listado, detalle y resumen.
-- Permanece pendiente de integración de autorización por alcance y ámbito autorizado antes de habilitar lectura operativa.
-- Responde con error formal `501 operational_read_not_enabled` cuando una solicitud autenticada intenta ejecutar lectura operativa.
-- No expone datos reales de retroalimentación mientras la habilitación operativa permanezca pendiente.
-- No habilita acceso a campos sensibles, scopes formales ni control por empresa o tenant.
+- Mantiene preparados los contratos versionados para listado y detalle.
+- Implementa autorización real por token de aplicación opaco para `GET /api/v1/retroalimentacion/resumen`.
+- Valida server-side el consumidor autorizado mediante `FEEDBACK_API_CONSUMERS_JSON` y `FEEDBACK_API_KEY_HASH_PEPPER`.
+- Aplica el scope real `feedback:read:summary` en la ruta de resumen.
+- Resuelve `empresa_id` autorizado del lado servidor para la ruta de resumen y evita lectura transversal de empresas.
+- Mantiene `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` en `501 operational_read_not_enabled`.
+- No expone datos sensibles ni PII en `/api/v1/retroalimentacion/resumen`.
 - Coexiste con la API interna actual sin modificar el comportamiento de `/api/retroalimentacion/*`.
 
 Límites de la implementación actual:
 
-- La autorización formal por scopes permanece pendiente de implementación.
-- El control explícito por empresa o tenant permanece pendiente de implementación.
-- La habilitación operativa de lectura permanece bloqueada hasta integrar esas capacidades.
+- La habilitación operativa actual solo aplica a `GET /api/v1/retroalimentacion/resumen` cuando la configuración runtime de autorización de aplicación está presente.
+- `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` permanecen bloqueados hasta una fase posterior.
 - La exposición de campos sensibles permanece restringida para una fase posterior.
 - La migración de PM Portal permanece fuera de alcance en esta fase.
 
@@ -57,7 +57,8 @@ Límites de la implementación actual:
 - Esa API es consumida actualmente por PM Portal.
 - La lectura se resuelve server-side sobre `public.v_retroalimentacion_unificada`.
 - La conexión a Supabase de SenciYo usa service role solo en backend.
-- El acceso actual usa `Authorization: Bearer <token>`.
+- La API interna actual usa `Authorization: Bearer <token de usuario>` validado contra Supabase del PM Portal.
+- `GET /api/v1/retroalimentacion/resumen` usa `Authorization: Bearer <token de aplicación>` validado server-side por hash.
 - La superficie actual mantiene compatibilidad operativa con PM Portal y no debe modificarse durante la transición controlada.
 
 ### Objetivo arquitectónico
@@ -80,9 +81,9 @@ Principios de diseño:
 
 | Método | Ruta | Propósito | Consumidor esperado | Tipo de respuesta | Naturaleza de datos | ¿Puede incluir PII? | Alcance de autorización objetivo | Filtros | Paginación | Observaciones |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `GET` | `/api/v1/retroalimentacion` | Listado oficial de retroalimentación | Consumidor interno administrativo, consumidor interno analítico, consumidor externo autorizado | Detallada paginada | Registros individuales | Sí, solo bajo alcance sensible | `feedback:read` | Sí | Sí | Ruta implementada y pendiente de habilitación operativa; actualmente responde `501 operational_read_not_enabled` tras autenticación base y validación de parámetros. |
-| `GET` | `/api/v1/retroalimentacion/{registro_uid}` | Detalle oficial de un registro consolidado | Consumidor interno administrativo, consumidor externo autorizado con permiso específico | Detallada individual | Registro individual | Sí, solo bajo alcance sensible | `feedback:read:detail` | No por query | No | Ruta implementada y pendiente de habilitación operativa; actualmente responde `501 operational_read_not_enabled` tras autenticación base y validación de parámetros. |
-| `GET` | `/api/v1/retroalimentacion/resumen` | Resumen agregado oficial | Consumidor interno analítico, consumidor externo autorizado con alcance agregado | Agregada | Métricas consolidadas | No por defecto | `feedback:read:summary` | Sí | No | Ruta implementada y pendiente de habilitación operativa; actualmente responde `501 operational_read_not_enabled` tras autenticación base y validación de parámetros. |
+| `GET` | `/api/v1/retroalimentacion` | Listado oficial de retroalimentación | Consumidor interno administrativo, consumidor interno analítico, consumidor externo autorizado | Detallada paginada | Registros individuales | Sí, solo bajo alcance sensible | `feedback:read` | Sí | Sí | Ruta implementada, autenticación base de aplicación integrada y habilitación operativa pendiente; actualmente responde `501 operational_read_not_enabled` tras validar el consumidor. |
+| `GET` | `/api/v1/retroalimentacion/{registro_uid}` | Detalle oficial de un registro consolidado | Consumidor interno administrativo, consumidor externo autorizado con permiso específico | Detallada individual | Registro individual | Sí, solo bajo alcance sensible | `feedback:read:detail` | No por query | No | Ruta implementada, autenticación base de aplicación integrada y habilitación operativa pendiente; actualmente responde `501 operational_read_not_enabled` tras validar el consumidor. |
+| `GET` | `/api/v1/retroalimentacion/resumen` | Resumen agregado oficial | Consumidor interno analítico, integración externa autorizada, service-to-service | Agregada | Métricas consolidadas | No | `feedback:read:summary` | Sí | No | Ruta operativa con autorización real por token de aplicación, control por empresa autorizado server-side y respuesta agregada sin PII. |
 
 ### Endpoints analíticos futuros opcionales
 
@@ -100,17 +101,22 @@ Decisión de diseño:
 
 ### Estado HTTP actual de la implementación inicial
 
-La implementación inicial versionada no se encuentra habilitada para lectura operativa mientras permanezca pendiente la integración de autorización por alcance y ámbito autorizado.
+El estado operativo actual de la superficie versionada es el siguiente:
 
-Para solicitudes autenticadas válidas, las rutas versionadas responden actualmente con el siguiente error formal:
+- `GET /api/v1/retroalimentacion` valida consumidor de aplicación y responde `501 operational_read_not_enabled`.
+- `GET /api/v1/retroalimentacion/{registro_uid}` valida consumidor de aplicación y responde `501 operational_read_not_enabled`.
+- `GET /api/v1/retroalimentacion/resumen` valida consumidor de aplicación, exige `feedback:read:summary`, resuelve `empresa_id` autorizado del lado servidor y responde agregados sin PII.
+- Si la configuración runtime de autorización de aplicación no está presente, `/api/v1/retroalimentacion/resumen` responde `503 service_unavailable`.
+
+Para rutas versionadas que permanecen deshabilitadas operativamente, la respuesta formal es la siguiente:
 
     {
       "error": {
         "code": "operational_read_not_enabled",
-        "message": "La superficie versionada de retroalimentación requiere integración de autorización por alcance y ámbito autorizado antes de habilitar la lectura operativa.",
+        "message": "La ruta versionada solicitada permanece pendiente de habilitación operativa.",
         "details": {
           "surface": "/api/v1/retroalimentacion",
-          "pending_integration": "authorization_scope_and_authorized_scope"
+          "pending_integration": "list_and_detail_operational_enablement"
         }
       },
       "request_id": "req_01HXYZ..."
@@ -144,7 +150,7 @@ Contrato de datos preparado para la habilitación operativa:
         "api_version": "v1",
         "generated_at": "2026-05-03T18:00:00.000Z",
         "request_id": "req_01HXYZ...",
-        "scope_profile": "authenticated_sanitized"
+        "scope_profile": "application_sanitized"
       },
       "filters": {
         "tipo": "estado_animo",
@@ -201,7 +207,7 @@ Contrato de datos preparado para la habilitación operativa:
         "api_version": "v1",
         "generated_at": "2026-05-03T18:00:00.000Z",
         "request_id": "req_01HXYZ...",
-        "scope_profile": "authenticated_sanitized"
+        "scope_profile": "application_sanitized"
       }
     }
 
@@ -216,7 +222,7 @@ Ruta:
 
 - `GET /api/v1/retroalimentacion/resumen`
 
-Contrato de datos preparado para la habilitación operativa:
+Contrato de datos operativo para consumidores autorizados:
 
     {
       "data": {
@@ -248,11 +254,11 @@ Contrato de datos preparado para la habilitación operativa:
         "api_version": "v1",
         "generated_at": "2026-05-03T18:00:00.000Z",
         "request_id": "req_01HXYZ...",
-        "scope_profile": "authenticated_summary"
+        "scope_profile": "application_summary"
       },
       "filters": {
         "tipo": null,
-        "empresa_id": null,
+        "empresa_id": "empresa_autorizada_01",
         "establecimiento_id": null,
         "modulo": null,
         "desde": "2026-05-01",
@@ -266,7 +272,7 @@ Reglas del contrato preparado:
 
 - `data`: agregado de negocio.
 - `meta`: metadatos de respuesta.
-- `filters`: eco normalizado de filtros agregados.
+- `filters`: eco normalizado de filtros agregados. En `empresa_id`, la respuesta refleja el ámbito efectivo resuelto del lado servidor cuando el consumidor es monoempresa.
 
 ## Error estándar
 
@@ -275,10 +281,10 @@ Forma de respuesta:
     {
       "error": {
         "code": "operational_read_not_enabled",
-        "message": "La superficie versionada de retroalimentación requiere integración de autorización por alcance y ámbito autorizado antes de habilitar la lectura operativa.",
+        "message": "La ruta versionada solicitada permanece pendiente de habilitación operativa.",
         "details": {
           "surface": "/api/v1/retroalimentacion",
-          "pending_integration": "authorization_scope_and_authorized_scope"
+          "pending_integration": "list_and_detail_operational_enablement"
         }
       },
       "request_id": "req_01HXYZ..."
@@ -340,13 +346,20 @@ Regla recomendada:
 
 - `incluir_sensibles=true` solo debe aceptarse con `feedback:read:sensitive` o `feedback:admin`.
 
-## Modelo objetivo de autenticación y autorización
+## Modelo actual y objetivo de autenticación y autorización
 
 ## Autenticación
 
-La API oficial debe estandarizar el acceso mediante:
+Estado actual implementado en `/api/v1`:
 
-- `Authorization: Bearer <access_token>`
+- `GET /api/v1/retroalimentacion/resumen` exige `Authorization: Bearer <token-de-aplicacion>`.
+- El token es opaco y se valida server-side comparando `token_hash = sha256(<pepper>:<token>)` contra el bootstrap controlado en `FEEDBACK_API_CONSUMERS_JSON`.
+- El `pepper` se resuelve desde `FEEDBACK_API_KEY_HASH_PEPPER`.
+- `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` reutilizan la misma autenticación base de aplicación, pero permanecen en `501 operational_read_not_enabled`.
+
+Modelo objetivo completo:
+
+- `Authorization: Bearer <application_token>`
 
 Modelos admitidos de principal autenticado:
 
@@ -354,9 +367,9 @@ Modelos admitidos de principal autenticado:
 2. Aplicación interna autenticada mediante token de aplicación.
 3. Integración service-to-service autenticada mediante token de servicio emitido por una capa de identidad o gateway.
 
-Lineamiento recomendado:
+Lineamiento vigente para la implementación actual:
 
-- Si se incorporan API keys, deben utilizarse como mecanismo de identificación o provisionamiento en una capa de gateway o broker de identidad, no como sustituto directo del bearer token con scopes.
+- En esta fase, el bearer token de `/api/v1/resumen` corresponde a identidad de aplicación y no a sesión interactiva de usuario.
 
 ## Autorización
 
@@ -368,9 +381,12 @@ La autorización de la API oficial debe combinar:
 - perfil del consumidor,
 - política de exposición de campos sensibles.
 
-Scopes propuestos:
+Scopes del modelo versionado:
 
-Los scopes definidos a continuación corresponden al modelo objetivo y no se encuentran integrados en la implementación inicial versionada actual.
+Estado de integración actual:
+
+- `feedback:read:summary` está integrado y se valida realmente en `GET /api/v1/retroalimentacion/resumen`.
+- Los scopes restantes permanecen como modelo objetivo para fases posteriores.
 
 | Scope | Permiso |
 |---|---|
@@ -380,11 +396,11 @@ Los scopes definidos a continuación corresponden al modelo objetivo y no se enc
 | `feedback:read:sensitive` | Permite acceder a campos sensibles y filtros restringidos. |
 | `feedback:admin` | Permite operación administrativa ampliada, incluyendo consulta transversal según políticas internas. |
 
-Reglas de autorización recomendadas:
+Reglas de autorización vigentes y objetivo:
 
 1. Un token sin scopes de feedback no debe acceder a la API.
 2. Un token con `feedback:read` debe quedar restringido a su empresa o tenant autorizado.
-3. Un token con `feedback:read:summary` debe poder acceder a agregados sin PII.
+3. Un token con `feedback:read:summary` puede acceder a agregados sin PII solo dentro del ámbito de empresa resuelto server-side.
 4. Un token con `feedback:read:detail` puede consultar detalle, pero no necesariamente campos sensibles.
 5. Un token con `feedback:read:sensitive` habilita campos sensibles y filtros restringidos.
 6. `feedback:admin` habilita operación ampliada, siempre bajo control organizacional y trazabilidad.
@@ -399,11 +415,14 @@ Opciones válidas de diseño:
 - Resolver empresas permitidas desde una tabla o servicio interno de autorización.
 - Exigir `empresa_id` en tokens de aplicación no administrativos.
 
-Reglas recomendadas:
+Reglas vigentes para `/api/v1/retroalimentacion/resumen` y lineamiento posterior:
 
-1. Para tokens de usuario, la API debe resolver su ámbito permitido antes de consultar datos.
-2. Para tokens de aplicación no administrativos, `empresa_id` debe ser obligatorio o derivarse del principal autenticado.
-3. Para `feedback:admin`, el acceso transversal debe quedar auditado y limitado a casos administrativos.
+1. El consumidor autorizado declara `allowed_empresa_ids` en `FEEDBACK_API_CONSUMERS_JSON`.
+2. Si el request envía `empresa_id`, la API valida que pertenezca al conjunto autorizado.
+3. Si el consumidor es monoempresa y no envía `empresa_id`, la API resuelve esa empresa del lado servidor.
+4. Si el consumidor tiene varias empresas y no tiene `allow_multi_tenant_summary=true`, la API rechaza la solicitud hasta que se indique una empresa autorizada.
+5. Si el consumidor tiene varias empresas y `allow_multi_tenant_summary=true`, la API limita el resumen al conjunto autorizado y no habilita lectura fuera de ese alcance.
+6. Para `feedback:admin`, el acceso transversal debe quedar auditado y limitado a casos administrativos en fases posteriores.
 
 ## Estrategia de seguridad
 
@@ -481,7 +500,7 @@ Filtros previstos para la habilitación operativa:
 | Filtro | Disponibilidad | Observación |
 |---|---|---|
 | `tipo` | General | Valores permitidos: `estado_animo`, `idea`, `calificacion`. |
-| `empresa_id` | General | Debe respetar el ámbito resuelto del token. |
+| `empresa_id` | General | Debe pertenecer al conjunto `allowed_empresa_ids` del consumidor. |
 | `establecimiento_id` | General | Subconjunto de empresa. |
 | `modulo` | General | Filtro funcional. |
 | `desde` | General | Formato `YYYY-MM-DD`. |
@@ -519,16 +538,21 @@ Direcciones permitidas:
 
 | HTTP | Código | Significado |
 |---|---|---|
-| `401` | `unauthorized` | No existe autenticación válida o el bearer token es inválido. |
-| `403` | `forbidden` | El principal autenticado no está autorizado para el recurso solicitado. |
-| `403` | `invalid_scope` | El token no incluye el scope requerido. |
+| `401` | `unauthorized` | No existe autenticación válida en la solicitud. |
+| `401` | `invalid_token` | El bearer token de aplicación no coincide con un consumidor autorizado activo. |
+| `403` | `forbidden` | El consumidor autenticado no está habilitado para el recurso solicitado. |
+| `403` | `invalid_scope` | La solicitud intenta filtros o flags sensibles no habilitados por esta fase. |
+| `403` | `insufficient_scope` | El consumidor autenticado no incluye `feedback:read:summary`. |
 | `400` | `invalid_filter` | Uno o más filtros no cumplen el contrato esperado. |
 | `400` | `invalid_pagination` | Los parámetros de paginación u orden son inválidos. |
+| `403` | `tenant_not_authorized` | El `empresa_id` solicitado no pertenece al ámbito autorizado del consumidor. |
+| `403` | `tenant_scope_empty` | El consumidor autenticado no tiene empresas autorizadas configuradas. |
+| `403` | `tenant_selection_required` | El consumidor debe indicar una empresa autorizada porque no tiene permiso de resumen multiempresa. |
 | `404` | `not_found` | El recurso solicitado no existe o no está disponible para el principal autenticado. |
 | `429` | `rate_limited` | El consumidor excedió la cuota permitida. |
 | `500` | `internal_error` | Error interno no controlado. |
-| `501` | `operational_read_not_enabled` | La superficie versionada permanece pendiente de integración de autorización por alcance y ámbito autorizado antes de habilitar lectura operativa. |
-| `503` | `service_unavailable` | Dependencia temporalmente no disponible. |
+| `501` | `operational_read_not_enabled` | La ruta versionada solicitada permanece pendiente de habilitación operativa. |
+| `503` | `service_unavailable` | La configuración runtime de autorización de aplicación no está disponible. |
 
 Lineamiento adicional:
 
@@ -581,34 +605,35 @@ La entrega a un integrador deberá publicarse únicamente cuando la lectura oper
 
 ### Ejemplo de request para integradores
 
-  GET /api/v1/retroalimentacion?tipo=idea&pagina=1&tamano=20&ordenar_por=created_at&direccion=desc
-    Authorization: Bearer <access_token>
+  GET /api/v1/retroalimentacion/resumen?desde=2026-05-01&hasta=2026-05-03&empresa_id=empresa_autorizada_01
+    Authorization: Bearer <application_token>
     Accept: application/json
 
 ### Headers esperados
 
-- `Authorization: Bearer <access_token>`
+- `Authorization: Bearer <application_token>`
 - `Accept: application/json`
 - Opcionalmente `X-Request-Id` si la plataforma de entrada lo soporta.
 
 ## Estrategia de implementación posterior
 
-Secuencia recomendada:
+Secuencia recomendada desde el estado actual:
 
-1. Formalizar principal autenticado y scopes.
-2. Incorporar control por empresa o tenant.
-3. Incorporar exposición autorizada de campos sensibles.
-4. Añadir observabilidad, request_id enriquecido y rate limiting.
-5. Validar seguridad y performance.
-6. Integrar pruebas de contrato.
-7. Migrar PM Portal de forma controlada.
+1. Mantener el bootstrap de consumidores autorizado y prepararlo para migración a una tabla formal.
+2. Incorporar observabilidad y rate limiting sobre la autorización ya integrada en `/resumen`.
+3. Incorporar exposición autorizada de campos sensibles para fases posteriores internas.
+4. Habilitar listado con proyección sanitizada y enforcement de tenant.
+5. Habilitar detalle con proyección sanitizada y enforcement de tenant.
+6. Integrar pruebas de contrato y smoke tests de autorización.
+7. Migrar PM Portal de forma controlada, si corresponde.
 8. Retirar la superficie anterior solo cuando la migración y el monitoreo estén cerrados.
 
 ## Checklist de pendientes para implementación
 
-- [ ] Definir el principal autenticado oficial para usuarios y aplicaciones.
-- [ ] Definir emisión y validación de scopes.
-- [ ] Definir estrategia definitiva de control por empresa o tenant.
+- [x] Definir el principal autenticado de aplicación para `GET /api/v1/retroalimentacion/resumen`.
+- [x] Definir bootstrap server-side de consumidores autorizados mediante `FEEDBACK_API_CONSUMERS_JSON`.
+- [x] Integrar validación real de `feedback:read:summary` en `GET /api/v1/retroalimentacion/resumen`.
+- [x] Integrar control por empresa autorizado en `GET /api/v1/retroalimentacion/resumen`.
 - [ ] Definir contrato JSON final y ejemplos oficiales.
 - [ ] Definir política de sanitización por perfil de consumidor.
 - [ ] Definir CORS para consumo browser externo, si aplica.

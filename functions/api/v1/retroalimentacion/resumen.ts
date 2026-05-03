@@ -1,14 +1,15 @@
 import {
   PARAMS_RESUMEN_RETROALIMENTACION_V1,
+  aplicarAlcanceEmpresaAutorizadoV1,
+  autorizarResumenRetroalimentacionV1,
   type RegistroRetroalimentacionResumenV1,
   construirRespuestaResumenV1,
   crearConsultaRetroalimentacionV1,
   manejarErrorRetroalimentacionV1,
-  obtenerBloqueoLecturaOperativaV1,
   obtenerClienteLecturaV1,
   obtenerFiltrosRetroalimentacionV1,
   obtenerRequestIdV1,
-  validarAccesoBaseV1,
+  resolverAlcanceEmpresaResumenV1,
   responderExitoV1
 } from '../../_retroalimentacion_v1'
 import type { EntornoRetroalimentacion } from '../../_retroalimentacion'
@@ -22,17 +23,21 @@ export const onRequestGet = async (context: ContextoRetroalimentacionResumenV1):
   const requestId = obtenerRequestIdV1(context.request)
 
   try {
-    const accesoBase = await validarAccesoBaseV1(context.request, context.env, requestId)
+    const consumidor = await autorizarResumenRetroalimentacionV1(context.request, context.env, requestId)
 
-    if (accesoBase) {
-      return accesoBase
+    if (consumidor instanceof Response) {
+      return consumidor
     }
 
     const filtros = obtenerFiltrosRetroalimentacionV1(context.request, PARAMS_RESUMEN_RETROALIMENTACION_V1)
-    const bloqueoLectura = obtenerBloqueoLecturaOperativaV1(requestId)
-
-    if (bloqueoLectura) {
-      return bloqueoLectura
+    const alcanceEmpresas = resolverAlcanceEmpresaResumenV1(filtros, consumidor)
+    const filtrosConsulta = {
+      ...filtros,
+      empresa_id: alcanceEmpresas.empresaIdsConsulta.length === 1 ? alcanceEmpresas.empresaIdsConsulta[0] : null
+    }
+    const filtrosRespuesta = {
+      ...filtros,
+      empresa_id: alcanceEmpresas.empresaIdRespuesta
     }
 
     const cliente = obtenerClienteLecturaV1(context.env, requestId)
@@ -41,11 +46,16 @@ export const onRequestGet = async (context: ContextoRetroalimentacionResumenV1):
       return cliente
     }
 
-    const { data, error } = await crearConsultaRetroalimentacionV1(
-      cliente,
-      'tipo, created_at, puntaje, estado_animo',
-      filtros
-    ).order('created_at', { ascending: true })
+    const consulta = aplicarAlcanceEmpresaAutorizadoV1(
+      crearConsultaRetroalimentacionV1(
+        cliente,
+        'tipo, created_at, puntaje, estado_animo',
+        filtrosConsulta
+      ),
+      alcanceEmpresas
+    )
+
+    const { data, error } = await consulta.order('created_at', { ascending: true })
 
     if (error) {
       return manejarErrorRetroalimentacionV1(error, requestId)
@@ -53,7 +63,7 @@ export const onRequestGet = async (context: ContextoRetroalimentacionResumenV1):
 
     const respuesta = construirRespuestaResumenV1(
       (data ?? []) as unknown as RegistroRetroalimentacionResumenV1[],
-      filtros,
+      filtrosRespuesta,
       requestId
     )
     return responderExitoV1(200, respuesta, requestId)
