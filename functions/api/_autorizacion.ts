@@ -16,6 +16,7 @@ export interface EntornoAuth {
   VITE_SUPABASE_ANON_KEY?: string
   FEEDBACK_API_CONSUMERS_JSON?: string
   FEEDBACK_API_KEY_HASH_PEPPER?: string
+  FEEDBACK_API_V1_PANEL_ENABLED?: string
 }
 
 export type ResultadoAutorizacion =
@@ -28,6 +29,7 @@ export interface ConsumidorAplicacionAutorizado {
   scopes: string[]
   allowedEmpresaIds: string[]
   allowMultiTenantSummary: boolean
+  allowMultiTenantPanel: boolean
   allowSensitive: boolean
   rateLimitProfile: string | null
 }
@@ -54,6 +56,7 @@ interface ConsumidorAplicacionConfigurado {
   scopes: string[]
   allowedEmpresaIds: string[]
   allowMultiTenantSummary: boolean
+  allowMultiTenantPanel: boolean
   allowSensitive: boolean
   rateLimitProfile: string | null
 }
@@ -197,6 +200,7 @@ function normalizarConsumidorAplicacion(value: unknown): ConsumidorAplicacionCon
     scopes: normalizarListaTexto(consumer.scopes),
     allowedEmpresaIds: normalizarListaTexto(consumer.allowed_empresa_ids),
     allowMultiTenantSummary: normalizarBooleanoConfig(consumer.allow_multi_tenant_summary, false),
+    allowMultiTenantPanel: normalizarBooleanoConfig(consumer.allow_multi_tenant_panel, false),
     allowSensitive: normalizarBooleanoConfig(consumer.allow_sensitive, false),
     rateLimitProfile: normalizarTextoNoVacio(consumer.rate_limit_profile)
   }
@@ -461,6 +465,7 @@ export async function validarAutorizacionAplicacion(
         scopes: consumer.scopes,
         allowedEmpresaIds: consumer.allowedEmpresaIds,
         allowMultiTenantSummary: consumer.allowMultiTenantSummary,
+        allowMultiTenantPanel: consumer.allowMultiTenantPanel,
         allowSensitive: consumer.allowSensitive,
         rateLimitProfile: consumer.rateLimitProfile
       }

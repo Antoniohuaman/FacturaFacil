@@ -28,10 +28,12 @@ const CAMPOS_ORDENABLES_V1 = [
 ] as const
 const DIRECCIONES_ORDEN = ['asc', 'desc'] as const
 const SCOPE_RESUMEN_RETROALIMENTACION_V1 = 'feedback:read:summary'
+const SCOPE_PANEL_RETROALIMENTACION_V1 = 'feedback:read:panel'
+const FEATURE_FLAG_PANEL_RETROALIMENTACION_V1 = 'FEEDBACK_API_V1_PANEL_ENABLED'
 
 type CampoOrdenRetroalimentacionV1 = (typeof CAMPOS_ORDENABLES_V1)[number]
 type DireccionOrdenV1 = (typeof DIRECCIONES_ORDEN)[number]
-type ScopeProfileV1 = 'application_sanitized' | 'application_summary'
+type ScopeProfileV1 = 'application_sanitized' | 'application_summary' | 'application_panel'
 type CodigoErrorV1 =
   | 'operational_read_not_enabled'
   | 'unauthorized'
@@ -109,6 +111,11 @@ export interface MetaRespuestaV1 {
   scope_profile: ScopeProfileV1
 }
 
+interface MetaRespuestaPanelV1 extends MetaRespuestaV1 {
+  source: 'supabase'
+  scope_profile: 'application_panel'
+}
+
 export interface RespuestaListadoRetroalimentacionV1 {
   data: RegistroRetroalimentacionV1[]
   meta: MetaRespuestaV1
@@ -175,9 +182,72 @@ export interface RespuestaResumenRetroalimentacionV1 {
   }
 }
 
-interface AlcanceEmpresaResumenV1 {
+export interface RespuestaPanelRetroalimentacionV1 {
+  data: {
+    resumen: {
+      total_registros: number
+      totales_por_tipo: Record<TipoRetroalimentacion, number>
+      promedio_calificacion: number | null
+      distribucion_estado_animo: Array<{
+        estado_animo: string
+        total: number
+      }>
+      cantidad_ideas: number
+    }
+    distribuciones: {
+      por_tipo: Array<{
+        tipo: TipoRetroalimentacion
+        total: number
+      }>
+      estados_animo: Array<{
+        estado_animo: string
+        total: number
+      }>
+      puntajes: Array<{
+        puntaje: number
+        total: number
+      }>
+      serie_diaria: Array<{
+        fecha: string
+        total: number
+        estado_animo: number
+        idea: number
+        calificacion: number
+      }>
+    }
+  }
+  meta: MetaRespuestaPanelV1
+  filters: {
+    tipo: TipoRetroalimentacion | null
+    empresa_id: string | null
+    establecimiento_id: string | null
+    modulo: string | null
+    desde: string | null
+    hasta: string | null
+  }
+}
+
+interface AlcanceEmpresaAgregadoV1 {
   empresaIdsConsulta: string[]
   empresaIdRespuesta: string | null
+}
+
+interface AgregadosResumenBaseV1 {
+  totalRegistros: number
+  totalesPorTipo: Record<TipoRetroalimentacion, number>
+  promedioCalificacion: number | null
+  distribucionEstadoAnimo: Array<{
+    estado_animo: string
+    total: number
+  }>
+  cantidadIdeas: number
+  serieDiaria: Array<{
+    fecha: string
+    total: number
+    estado_animo: number
+    idea: number
+    calificacion: number
+  }>
 }
 
 interface RespuestaErrorV1 {
@@ -215,6 +285,8 @@ const PARAMETROS_RESUMEN_V1 = new Set([
   'incluir_sensibles'
 ])
 
+const PARAMETROS_PANEL_V1 = new Set(PARAMETROS_RESUMEN_V1)
+
 const PARAMETROS_DETALLE_V1 = new Set<string>()
 
 function crearRequestId(request: Request): string {
@@ -228,6 +300,18 @@ function construirMetaV1(requestId: string, scopeProfile: ScopeProfileV1): MetaR
     generated_at: new Date().toISOString(),
     request_id: requestId,
     scope_profile: scopeProfile
+  }
+}
+
+function construirMetaPanelV1(requestId: string): MetaRespuestaPanelV1 {
+  const metaBase = construirMetaV1(requestId, 'application_panel')
+
+  return {
+    api_version: metaBase.api_version,
+    generated_at: metaBase.generated_at,
+    request_id: metaBase.request_id,
+    scope_profile: 'application_panel',
+    source: 'supabase'
   }
 }
 
@@ -375,6 +459,10 @@ function incluirFinDeDia(fecha: string): string {
   return `${fecha}T23:59:59.999Z`
 }
 
+function banderaEntornoActiva(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === 'true'
+}
+
 function validarRestriccionesSensibles(filtros: Pick<FiltrosRetroalimentacionV1, 'usuario_id' | 'incluir_sensibles'>) {
   if (filtros.usuario_id) {
     throw new ErrorApiV1(
@@ -418,7 +506,7 @@ function responderErrorAutorizacionAplicacionV1(
   return responderErrorV1(401, 'unauthorized', resultado.motivo, requestId)
 }
 
-async function obtenerConsumidorAplicacionAutorizadoV1(
+export async function obtenerConsumidorAplicacionAutorizadoV1(
   request: Request,
   env: EntornoRetroalimentacion,
   requestId: string
@@ -430,6 +518,27 @@ async function obtenerConsumidorAplicacionAutorizadoV1(
   }
 
   return autorizacion.consumer
+}
+
+function validarScopeConsumidorV1(
+  consumidor: ConsumidorAplicacionAutorizado,
+  requestId: string,
+  requiredScope: string,
+  surfaceLabel: 'resumen' | 'panel'
+): ConsumidorAplicacionAutorizado | Response {
+  if (consumidor.scopes.includes(requiredScope)) {
+    return consumidor
+  }
+
+  return responderErrorV1(
+    403,
+    'insufficient_scope',
+    `El consumidor autenticado no tiene el alcance requerido para acceder al ${surfaceLabel} de retroalimentación.`,
+    requestId,
+    {
+      required_scope: requiredScope
+    }
+  )
 }
 
 export function obtenerRequestIdV1(request: Request): string {
@@ -478,19 +587,42 @@ export async function autorizarResumenRetroalimentacionV1(
     return consumidor
   }
 
-  if (!consumidor.scopes.includes(SCOPE_RESUMEN_RETROALIMENTACION_V1)) {
-    return responderErrorV1(
-      403,
-      'insufficient_scope',
-      'El consumidor autenticado no tiene el alcance requerido para acceder al resumen de retroalimentación.',
-      requestId,
-      {
-        required_scope: SCOPE_RESUMEN_RETROALIMENTACION_V1
-      }
-    )
+  return validarScopeConsumidorV1(consumidor, requestId, SCOPE_RESUMEN_RETROALIMENTACION_V1, 'resumen')
+}
+
+export async function autorizarPanelRetroalimentacionV1(
+  request: Request,
+  env: EntornoRetroalimentacion,
+  requestId: string
+): Promise<ConsumidorAplicacionAutorizado | Response> {
+  const consumidor = await obtenerConsumidorAplicacionAutorizadoV1(request, env, requestId)
+
+  if (consumidor instanceof Response) {
+    return consumidor
   }
 
-  return consumidor
+  return validarScopeConsumidorV1(consumidor, requestId, SCOPE_PANEL_RETROALIMENTACION_V1, 'panel')
+}
+
+export function validarHabilitacionPanelRetroalimentacionV1(
+  env: EntornoRetroalimentacion,
+  requestId: string
+): Response | null {
+  if (banderaEntornoActiva(env.FEEDBACK_API_V1_PANEL_ENABLED)) {
+    return null
+  }
+
+  return responderErrorV1(
+    501,
+    'operational_read_not_enabled',
+    'La ruta versionada solicitada permanece pendiente de habilitación operativa.',
+    requestId,
+    {
+      surface: '/api/v1/retroalimentacion/panel',
+      feature_flag: FEATURE_FLAG_PANEL_RETROALIMENTACION_V1,
+      pending_integration: 'panel_operational_enablement'
+    }
+  )
 }
 
 export function obtenerFiltrosRetroalimentacionV1(
@@ -597,8 +729,23 @@ export function obtenerClienteLecturaV1(
 export function resolverAlcanceEmpresaResumenV1(
   filtros: FiltrosRetroalimentacionV1,
   consumidor: ConsumidorAplicacionAutorizado
-): AlcanceEmpresaResumenV1 {
-  const empresasAutorizadas = [...new Set(consumidor.allowedEmpresaIds)]
+): AlcanceEmpresaAgregadoV1 {
+  return resolverAlcanceEmpresaAgregadoV1(filtros, consumidor.allowedEmpresaIds, consumidor.allowMultiTenantSummary)
+}
+
+export function resolverAlcanceEmpresaPanelV1(
+  filtros: FiltrosRetroalimentacionV1,
+  consumidor: ConsumidorAplicacionAutorizado
+): AlcanceEmpresaAgregadoV1 {
+  return resolverAlcanceEmpresaAgregadoV1(filtros, consumidor.allowedEmpresaIds, consumidor.allowMultiTenantPanel)
+}
+
+function resolverAlcanceEmpresaAgregadoV1(
+  filtros: FiltrosRetroalimentacionV1,
+  allowedEmpresaIds: readonly string[],
+  allowMultiTenant: boolean
+): AlcanceEmpresaAgregadoV1 {
+  const empresasAutorizadas = [...new Set(allowedEmpresaIds)]
 
   if (empresasAutorizadas.length === 0) {
     throw new ErrorApiV1(
@@ -631,7 +778,7 @@ export function resolverAlcanceEmpresaResumenV1(
     }
   }
 
-  if (consumidor.allowMultiTenantSummary) {
+  if (allowMultiTenant) {
     return {
       empresaIdsConsulta: empresasAutorizadas,
       empresaIdRespuesta: null
@@ -650,7 +797,7 @@ export function aplicarAlcanceEmpresaAutorizadoV1<
   TConsulta extends {
     in(column: string, values: readonly string[]): TConsulta
   }
->(consulta: TConsulta, alcance: AlcanceEmpresaResumenV1): TConsulta {
+>(consulta: TConsulta, alcance: AlcanceEmpresaAgregadoV1): TConsulta {
   if (alcance.empresaIdsConsulta.length <= 1) {
     return consulta
   }
@@ -760,6 +907,74 @@ export function construirRespuestaResumenV1(
   filtros: FiltrosRetroalimentacionV1,
   requestId: string
 ): RespuestaResumenRetroalimentacionV1 {
+  const agregados = construirAgregadosResumenBaseV1(registros)
+
+  return {
+    data: {
+      total_registros: agregados.totalRegistros,
+      totales_por_tipo: agregados.totalesPorTipo,
+      promedio_calificacion: agregados.promedioCalificacion,
+      distribucion_estado_animo: agregados.distribucionEstadoAnimo,
+      cantidad_ideas: agregados.cantidadIdeas,
+      serie_diaria: agregados.serieDiaria
+    },
+    meta: construirMetaV1(requestId, 'application_summary'),
+    filters: {
+      tipo: filtros.tipo,
+      empresa_id: filtros.empresa_id,
+      establecimiento_id: filtros.establecimiento_id,
+      modulo: filtros.modulo,
+      desde: filtros.desde,
+      hasta: filtros.hasta,
+      usuario_id: filtros.usuario_id,
+      incluir_sensibles: filtros.incluir_sensibles
+    }
+  }
+}
+
+export function construirRespuestaPanelV1(
+  registros: RegistroRetroalimentacionResumenV1[],
+  filtros: FiltrosRetroalimentacionV1,
+  requestId: string
+): RespuestaPanelRetroalimentacionV1 {
+  const agregados = construirAgregadosResumenBaseV1(registros)
+
+  return {
+    data: {
+      resumen: {
+        total_registros: agregados.totalRegistros,
+        totales_por_tipo: agregados.totalesPorTipo,
+        promedio_calificacion: agregados.promedioCalificacion,
+        distribucion_estado_animo: agregados.distribucionEstadoAnimo,
+        cantidad_ideas: agregados.cantidadIdeas
+      },
+      distribuciones: {
+        por_tipo: agruparPorClave(registros.map((registro) => registro.tipo)).map(({ clave, total }) => ({
+          tipo: clave,
+          total
+        })),
+        estados_animo: agregados.distribucionEstadoAnimo,
+        puntajes: agruparPorClave(
+          registros
+            .map((registro) => registro.puntaje)
+            .filter((puntaje): puntaje is number => typeof puntaje === 'number')
+        ).map(({ clave, total }) => ({ puntaje: clave, total })),
+        serie_diaria: agregados.serieDiaria
+      }
+    },
+    meta: construirMetaPanelV1(requestId),
+    filters: {
+      tipo: filtros.tipo,
+      empresa_id: filtros.empresa_id,
+      establecimiento_id: filtros.establecimiento_id,
+      modulo: filtros.modulo,
+      desde: filtros.desde,
+      hasta: filtros.hasta
+    }
+  }
+}
+
+function construirAgregadosResumenBaseV1(registros: RegistroRetroalimentacionResumenV1[]): AgregadosResumenBaseV1 {
   const totalesPorTipo: Record<TipoRetroalimentacion, number> = {
     estado_animo: 0,
     idea: 0,
@@ -777,27 +992,14 @@ export function construirRespuestaResumenV1(
   ).map(({ clave, total }) => ({ estado_animo: clave, total }))
 
   return {
-    data: {
-      total_registros: registros.length,
-      totales_por_tipo: totalesPorTipo,
-      promedio_calificacion: calcularPromedioPuntajes(
-        registros.map((registro) => ({ puntaje: registro.puntaje }))
-      ),
-      distribucion_estado_animo: distribucionEstadoAnimo,
-      cantidad_ideas: totalesPorTipo.idea,
-      serie_diaria: construirSerieDiaria(registros as RegistroRetroalimentacion[])
-    },
-    meta: construirMetaV1(requestId, 'application_summary'),
-    filters: {
-      tipo: filtros.tipo,
-      empresa_id: filtros.empresa_id,
-      establecimiento_id: filtros.establecimiento_id,
-      modulo: filtros.modulo,
-      desde: filtros.desde,
-      hasta: filtros.hasta,
-      usuario_id: filtros.usuario_id,
-      incluir_sensibles: filtros.incluir_sensibles
-    }
+    totalRegistros: registros.length,
+    totalesPorTipo,
+    promedioCalificacion: calcularPromedioPuntajes(
+      registros.map((registro) => ({ puntaje: registro.puntaje }))
+    ),
+    distribucionEstadoAnimo,
+    cantidadIdeas: totalesPorTipo.idea,
+    serieDiaria: construirSerieDiaria(registros as RegistroRetroalimentacion[])
   }
 }
 
@@ -812,4 +1014,5 @@ export function manejarErrorRetroalimentacionV1(error: unknown, requestId: strin
 
 export const PARAMS_LISTADO_RETROALIMENTACION_V1 = PARAMETROS_LISTADO_V1
 export const PARAMS_RESUMEN_RETROALIMENTACION_V1 = PARAMETROS_RESUMEN_V1
+export const PARAMS_PANEL_RETROALIMENTACION_V1 = PARAMETROS_PANEL_V1
 export const PARAMS_DETALLE_RETROALIMENTACION_V1 = PARAMETROS_DETALLE_V1

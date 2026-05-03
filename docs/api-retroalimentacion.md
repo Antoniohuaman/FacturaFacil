@@ -30,21 +30,28 @@ La implementación inicial versionada de la API queda expuesta en paralelo a la 
 - `GET /api/v1/retroalimentacion`
 - `GET /api/v1/retroalimentacion/{registro_uid}`
 - `GET /api/v1/retroalimentacion/resumen`
+- `GET /api/v1/retroalimentacion/panel`
 
 Características de esta implementación:
 
 - Mantiene preparados los contratos versionados para listado y detalle.
 - Implementa autorización real por token de aplicación opaco para `GET /api/v1/retroalimentacion/resumen`.
+- Implementa autorización real por token de aplicación opaco para `GET /api/v1/retroalimentacion/panel`.
 - Valida server-side el consumidor autorizado mediante `FEEDBACK_API_CONSUMERS_JSON` y `FEEDBACK_API_KEY_HASH_PEPPER`.
 - Aplica el scope real `feedback:read:summary` en la ruta de resumen.
+- Aplica el scope real `feedback:read:panel` en la ruta de panel.
 - Resuelve `empresa_id` autorizado del lado servidor para la ruta de resumen y evita lectura transversal de empresas.
+- Resuelve `empresa_id` autorizado del lado servidor para la ruta de panel y evita lectura transversal de empresas.
+- Condiciona la habilitación operativa de `GET /api/v1/retroalimentacion/panel` a `FEEDBACK_API_V1_PANEL_ENABLED=true`.
 - Mantiene `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` en `501 operational_read_not_enabled`.
 - No expone datos sensibles ni PII en `/api/v1/retroalimentacion/resumen`.
+- No expone datos sensibles, PII ni textos libres en `/api/v1/retroalimentacion/panel`.
 - Coexiste con la API interna actual sin modificar el comportamiento de `/api/retroalimentacion/*`.
 
 Límites de la implementación actual:
 
-- La habilitación operativa actual solo aplica a `GET /api/v1/retroalimentacion/resumen` cuando la configuración runtime de autorización de aplicación está presente.
+- La habilitación operativa actual aplica a `GET /api/v1/retroalimentacion/resumen` y a `GET /api/v1/retroalimentacion/panel` cuando la configuración runtime de autorización de aplicación está presente.
+- `GET /api/v1/retroalimentacion/panel` requiere adicionalmente `FEEDBACK_API_V1_PANEL_ENABLED=true`.
 - `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` permanecen bloqueados hasta una fase posterior.
 - La exposición de campos sensibles permanece restringida para una fase posterior.
 - La migración de PM Portal permanece fuera de alcance en esta fase.
@@ -59,6 +66,7 @@ Límites de la implementación actual:
 - La conexión a Supabase de SenciYo usa service role solo en backend.
 - La API interna actual usa `Authorization: Bearer <token de usuario>` validado contra Supabase del PM Portal.
 - `GET /api/v1/retroalimentacion/resumen` usa `Authorization: Bearer <token de aplicación>` validado server-side por hash.
+- `GET /api/v1/retroalimentacion/panel` usa `Authorization: Bearer <token de aplicación>` validado server-side por hash.
 - La superficie actual mantiene compatibilidad operativa con PM Portal y no debe modificarse durante la transición controlada.
 
 ### Objetivo arquitectónico
@@ -84,18 +92,19 @@ Principios de diseño:
 | `GET` | `/api/v1/retroalimentacion` | Listado oficial de retroalimentación | Consumidor interno administrativo, consumidor interno analítico, consumidor externo autorizado | Detallada paginada | Registros individuales | Sí, solo bajo alcance sensible | `feedback:read` | Sí | Sí | Ruta implementada, autenticación base de aplicación integrada y habilitación operativa pendiente; actualmente responde `501 operational_read_not_enabled` tras validar el consumidor. |
 | `GET` | `/api/v1/retroalimentacion/{registro_uid}` | Detalle oficial de un registro consolidado | Consumidor interno administrativo, consumidor externo autorizado con permiso específico | Detallada individual | Registro individual | Sí, solo bajo alcance sensible | `feedback:read:detail` | No por query | No | Ruta implementada, autenticación base de aplicación integrada y habilitación operativa pendiente; actualmente responde `501 operational_read_not_enabled` tras validar el consumidor. |
 | `GET` | `/api/v1/retroalimentacion/resumen` | Resumen agregado oficial | Consumidor interno analítico, integración externa autorizada, service-to-service | Agregada | Métricas consolidadas | No | `feedback:read:summary` | Sí | No | Ruta operativa con autorización real por token de aplicación, control por empresa autorizado server-side y respuesta agregada sin PII. |
+| `GET` | `/api/v1/retroalimentacion/panel` | Panel agregado oficial para dashboard visual | Consumidor interno analítico, integración service-to-service autorizada | Agregada compuesta | KPIs y distribuciones consolidadas | No | `feedback:read:panel` | Sí | No | Ruta operativa con autorización real por token de aplicación, control por empresa autorizado server-side, `FEEDBACK_API_V1_PANEL_ENABLED=true` y respuesta agregada sin PII ni textos libres. |
 
-### Endpoints analíticos futuros opcionales
+### Endpoints analíticos complementarios
 
 | Método | Ruta | Propósito | Perfil recomendado | Observación de diseño |
 |---|---|---|---|---|
 | `GET` | `/api/v1/retroalimentacion/distribuciones` | Distribuciones especializadas para analítica | Consumidor interno analítico | Recomendado como endpoint analítico interno; no es necesario para integraciones generales. |
-| `GET` | `/api/v1/retroalimentacion/panel` | Superficie compuesta para panel operativo | Consumidor interno analítico | Recomendado como endpoint de composición interna; no es la primera opción para integraciones externas. |
 
 Decisión de diseño:
 
-- La superficie oficial mínima debe centrarse en listado, detalle y resumen.
-- Las superficies de panel y distribuciones pueden mantenerse como endpoints analíticos orientados a operación interna.
+- La superficie oficial agregada habilitada actualmente se centra en `resumen` y `panel`.
+- `panel` existe para abastecer dashboards visuales sin exponer PII ni registro individual.
+- `distribuciones` puede mantenerse como endpoint analítico complementario para fases posteriores, sin afectar la operación actual de PM Portal.
 
 ## Contratos JSON oficiales
 
@@ -106,7 +115,9 @@ El estado operativo actual de la superficie versionada es el siguiente:
 - `GET /api/v1/retroalimentacion` valida consumidor de aplicación y responde `501 operational_read_not_enabled`.
 - `GET /api/v1/retroalimentacion/{registro_uid}` valida consumidor de aplicación y responde `501 operational_read_not_enabled`.
 - `GET /api/v1/retroalimentacion/resumen` valida consumidor de aplicación, exige `feedback:read:summary`, resuelve `empresa_id` autorizado del lado servidor y responde agregados sin PII.
-- Si la configuración runtime de autorización de aplicación no está presente, `/api/v1/retroalimentacion/resumen` responde `503 service_unavailable`.
+- `GET /api/v1/retroalimentacion/panel` valida consumidor de aplicación, exige `feedback:read:panel`, requiere `FEEDBACK_API_V1_PANEL_ENABLED=true`, resuelve `empresa_id` autorizado del lado servidor y responde agregados sin PII ni textos libres.
+- Si la configuración runtime de autorización de aplicación no está presente, `/api/v1/retroalimentacion/resumen` y `/api/v1/retroalimentacion/panel` responden `503 service_unavailable`.
+- Si `FEEDBACK_API_V1_PANEL_ENABLED` no está en `true`, `/api/v1/retroalimentacion/panel` responde `501 operational_read_not_enabled`.
 
 Para rutas versionadas que permanecen deshabilitadas operativamente, la respuesta formal es la siguiente:
 
@@ -274,6 +285,87 @@ Reglas del contrato preparado:
 - `meta`: metadatos de respuesta.
 - `filters`: eco normalizado de filtros agregados. En `empresa_id`, la respuesta refleja el ámbito efectivo resuelto del lado servidor cuando el consumidor es monoempresa.
 
+## Panel versionado
+
+Ruta:
+
+- `GET /api/v1/retroalimentacion/panel`
+
+Contrato de datos operativo para consumidores autorizados:
+
+    {
+      "data": {
+        "resumen": {
+          "total_registros": 153,
+          "totales_por_tipo": {
+            "estado_animo": 60,
+            "idea": 33,
+            "calificacion": 60
+          },
+          "promedio_calificacion": 8.7,
+          "cantidad_ideas": 33,
+          "distribucion_estado_animo": [
+            {
+              "estado_animo": "feliz",
+              "total": 40
+            }
+          ]
+        },
+        "distribuciones": {
+          "por_tipo": [
+            {
+              "tipo": "estado_animo",
+              "total": 60
+            }
+          ],
+          "estados_animo": [
+            {
+              "estado_animo": "feliz",
+              "total": 40
+            }
+          ],
+          "puntajes": [
+            {
+              "puntaje": 9,
+              "total": 18
+            }
+          ],
+          "serie_diaria": [
+            {
+              "fecha": "2026-05-01",
+              "total": 12,
+              "estado_animo": 4,
+              "idea": 3,
+              "calificacion": 5
+            }
+          ]
+        }
+      },
+      "meta": {
+        "source": "supabase",
+        "api_version": "v1",
+        "generated_at": "2026-05-03T18:00:00.000Z",
+        "request_id": "req_01HXYZ...",
+        "scope_profile": "application_panel"
+      },
+      "filters": {
+        "tipo": null,
+        "empresa_id": "empresa_autorizada_01",
+        "establecimiento_id": null,
+        "modulo": null,
+        "desde": "2026-05-01",
+        "hasta": "2026-05-03"
+      }
+    }
+
+Reglas del contrato operativo:
+
+- `data.resumen`: KPIs agregados del dominio sin `serie_diaria` embebida.
+- `data.distribuciones`: agregados del dashboard visual sin PII ni textos libres individuales.
+- `meta.source`: identifica la fuente agregada server-side de la respuesta.
+- `filters`: eco normalizado de filtros agregados permitidos para panel. `empresa_id` refleja el ámbito efectivo resuelto del lado servidor cuando el consumidor es monoempresa.
+- La respuesta no devuelve `usuario_id`, `usuario_nombre`, `usuario_correo`, `empresa_ruc`, `empresa_razon_social`, `ruta`, `valor_principal` ni `detalle`.
+
 ## Error estándar
 
 Forma de respuesta:
@@ -353,8 +445,10 @@ Regla recomendada:
 Estado actual implementado en `/api/v1`:
 
 - `GET /api/v1/retroalimentacion/resumen` exige `Authorization: Bearer <token-de-aplicacion>`.
+- `GET /api/v1/retroalimentacion/panel` exige `Authorization: Bearer <token-de-aplicacion>`.
 - El token es opaco y se valida server-side comparando `token_hash = sha256(<pepper>:<token>)` contra el bootstrap controlado en `FEEDBACK_API_CONSUMERS_JSON`.
 - El `pepper` se resuelve desde `FEEDBACK_API_KEY_HASH_PEPPER`.
+- `GET /api/v1/retroalimentacion/panel` requiere además `FEEDBACK_API_V1_PANEL_ENABLED=true` para quedar habilitado operativamente.
 - `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` reutilizan la misma autenticación base de aplicación, pero permanecen en `501 operational_read_not_enabled`.
 
 Modelo objetivo completo:
@@ -369,7 +463,7 @@ Modelos admitidos de principal autenticado:
 
 Lineamiento vigente para la implementación actual:
 
-- En esta fase, el bearer token de `/api/v1/resumen` corresponde a identidad de aplicación y no a sesión interactiva de usuario.
+- En esta fase, el bearer token de `/api/v1/resumen` y `/api/v1/panel` corresponde a identidad de aplicación y no a sesión interactiva de usuario.
 
 ## Autorización
 
@@ -386,12 +480,14 @@ Scopes del modelo versionado:
 Estado de integración actual:
 
 - `feedback:read:summary` está integrado y se valida realmente en `GET /api/v1/retroalimentacion/resumen`.
+- `feedback:read:panel` está integrado y se valida realmente en `GET /api/v1/retroalimentacion/panel`.
 - Los scopes restantes permanecen como modelo objetivo para fases posteriores.
 
 | Scope | Permiso |
 |---|---|
 | `feedback:read` | Permite consultar el listado oficial con campos base dentro del ámbito autorizado. |
 | `feedback:read:summary` | Permite consultar resúmenes agregados sin exposición de campos sensibles. |
+| `feedback:read:panel` | Permite consultar paneles agregados para dashboard visual sin exposición de campos sensibles ni textos libres. |
 | `feedback:read:detail` | Permite consultar el detalle oficial de un registro con campos base. |
 | `feedback:read:sensitive` | Permite acceder a campos sensibles y filtros restringidos. |
 | `feedback:admin` | Permite operación administrativa ampliada, incluyendo consulta transversal según políticas internas. |
@@ -401,9 +497,10 @@ Reglas de autorización vigentes y objetivo:
 1. Un token sin scopes de feedback no debe acceder a la API.
 2. Un token con `feedback:read` debe quedar restringido a su empresa o tenant autorizado.
 3. Un token con `feedback:read:summary` puede acceder a agregados sin PII solo dentro del ámbito de empresa resuelto server-side.
-4. Un token con `feedback:read:detail` puede consultar detalle, pero no necesariamente campos sensibles.
-5. Un token con `feedback:read:sensitive` habilita campos sensibles y filtros restringidos.
-6. `feedback:admin` habilita operación ampliada, siempre bajo control organizacional y trazabilidad.
+4. Un token con `feedback:read:panel` puede acceder a KPIs y distribuciones agregadas sin PII solo dentro del ámbito de empresa resuelto server-side.
+5. Un token con `feedback:read:detail` puede consultar detalle, pero no necesariamente campos sensibles.
+6. Un token con `feedback:read:sensitive` habilita campos sensibles y filtros restringidos.
+7. `feedback:admin` habilita operación ampliada, siempre bajo control organizacional y trazabilidad.
 
 ## Control por empresa o tenant
 
@@ -420,9 +517,23 @@ Reglas vigentes para `/api/v1/retroalimentacion/resumen` y lineamiento posterior
 1. El consumidor autorizado declara `allowed_empresa_ids` en `FEEDBACK_API_CONSUMERS_JSON`.
 2. Si el request envía `empresa_id`, la API valida que pertenezca al conjunto autorizado.
 3. Si el consumidor es monoempresa y no envía `empresa_id`, la API resuelve esa empresa del lado servidor.
-4. Si el consumidor tiene varias empresas y no tiene `allow_multi_tenant_summary=true`, la API rechaza la solicitud hasta que se indique una empresa autorizada.
-5. Si el consumidor tiene varias empresas y `allow_multi_tenant_summary=true`, la API limita el resumen al conjunto autorizado y no habilita lectura fuera de ese alcance.
+4. Si el consumidor tiene varias empresas y no tiene `allow_multi_tenant_summary=true` para `/resumen` ni `allow_multi_tenant_panel=true` para `/panel`, la API rechaza la solicitud hasta que se indique una empresa autorizada.
+5. Si el consumidor tiene varias empresas y `allow_multi_tenant_summary=true` o `allow_multi_tenant_panel=true` según la ruta agregada solicitada, la API limita la lectura al conjunto autorizado y no habilita acceso fuera de ese alcance.
 6. Para `feedback:admin`, el acceso transversal debe quedar auditado y limitado a casos administrativos en fases posteriores.
+
+## Variables runtime requeridas para agregados versionados
+
+- `SENCIYO_SUPABASE_URL`
+- `SENCIYO_SUPABASE_SERVICE_ROLE_KEY`
+- `FEEDBACK_API_CONSUMERS_JSON`
+- `FEEDBACK_API_KEY_HASH_PEPPER`
+- `FEEDBACK_API_V1_PANEL_ENABLED` solo para `GET /api/v1/retroalimentacion/panel`; su default seguro es deshabilitado cuando no está en `true`.
+
+Lineamientos de configuración:
+
+- `FEEDBACK_API_CONSUMERS_JSON` define `consumer_id`, `name`, `status`, `token_hash`, `scopes`, `allowed_empresa_ids` y los flags `allow_multi_tenant_summary` y `allow_multi_tenant_panel` cuando corresponda.
+- `FEEDBACK_API_KEY_HASH_PEPPER` se usa exclusivamente server-side para validar `token_hash = sha256(<pepper>:<token>)`.
+- `FEEDBACK_API_V1_PANEL_ENABLED` no modifica `/api/v1/retroalimentacion/resumen`.
 
 ## Estrategia de seguridad
 
@@ -542,7 +653,7 @@ Direcciones permitidas:
 | `401` | `invalid_token` | El bearer token de aplicación no coincide con un consumidor autorizado activo. |
 | `403` | `forbidden` | El consumidor autenticado no está habilitado para el recurso solicitado. |
 | `403` | `invalid_scope` | La solicitud intenta filtros o flags sensibles no habilitados por esta fase. |
-| `403` | `insufficient_scope` | El consumidor autenticado no incluye `feedback:read:summary`. |
+| `403` | `insufficient_scope` | El consumidor autenticado no incluye el scope requerido por la ruta versionada, como `feedback:read:summary` o `feedback:read:panel`. |
 | `400` | `invalid_filter` | Uno o más filtros no cumplen el contrato esperado. |
 | `400` | `invalid_pagination` | Los parámetros de paginación u orden son inválidos. |
 | `403` | `tenant_not_authorized` | El `empresa_id` solicitado no pertenece al ámbito autorizado del consumidor. |
@@ -579,7 +690,7 @@ La transición debe preservar la operación actual del portal.
 
 Reglas de transición controlada:
 
-1. PM Portal debe continuar funcionando con `/api/retroalimentacion/*` hasta validar la nueva API.
+1. PM Portal debe continuar funcionando con `/api/retroalimentacion/*`, incluyendo `/api/retroalimentacion/panel`, hasta validar la nueva API.
 2. La nueva API `/api/v1/*` debe incorporarse en paralelo.
 3. El portal debe migrarse solo después de validar contrato, seguridad, observabilidad y performance.
 4. Durante la transición, ambas superficies pueden coexistir.
@@ -633,7 +744,10 @@ Secuencia recomendada desde el estado actual:
 - [x] Definir el principal autenticado de aplicación para `GET /api/v1/retroalimentacion/resumen`.
 - [x] Definir bootstrap server-side de consumidores autorizados mediante `FEEDBACK_API_CONSUMERS_JSON`.
 - [x] Integrar validación real de `feedback:read:summary` en `GET /api/v1/retroalimentacion/resumen`.
+- [x] Integrar validación real de `feedback:read:panel` en `GET /api/v1/retroalimentacion/panel`.
 - [x] Integrar control por empresa autorizado en `GET /api/v1/retroalimentacion/resumen`.
+- [x] Integrar control por empresa autorizado en `GET /api/v1/retroalimentacion/panel`.
+- [x] Integrar feature flag operativo `FEEDBACK_API_V1_PANEL_ENABLED` en `GET /api/v1/retroalimentacion/panel`.
 - [ ] Definir contrato JSON final y ejemplos oficiales.
 - [ ] Definir política de sanitización por perfil de consumidor.
 - [ ] Definir CORS para consumo browser externo, si aplica.
