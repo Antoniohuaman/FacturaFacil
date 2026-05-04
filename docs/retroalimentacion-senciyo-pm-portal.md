@@ -205,15 +205,15 @@ Resultado funcional del portal:
 
 ## API server-side de lectura actual
 
-La especificación formal de la futura API oficial versionada se documenta por separado en `docs/api-retroalimentacion.md` para mantener separación entre la superficie interna operativa actual y el diseño objetivo de integración reutilizable.
+La especificación formal de la API oficial versionada se documenta por separado en `docs/api-retroalimentacion.md` para mantener separación entre la superficie interna operativa actual y la estructura oficial v1.
 
 ### Estado actual
 
 - La API actual existe bajo `/api/retroalimentacion` y rutas auxiliares del mismo prefijo.
 - PM Portal es el consumidor actual confirmado en el repositorio.
-- Existe además una superficie versionada inicial bajo `/api/v1/retroalimentacion`, implementada en paralelo y sin migrar todavía a PM Portal.
-- `GET /api/v1/retroalimentacion/resumen` incorpora autorización real por token de aplicación opaco, bootstrap server-side mediante `FEEDBACK_API_CONSUMERS_JSON` y control por empresa autorizado.
-- `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` permanecen pendientes de habilitación operativa y responden `501 operational_read_not_enabled` tras validar consumidor de aplicación.
+- Existe además una superficie versionada bajo `/api/v1/retroalimentacion`.
+- En esta rama, `GET /api/v1/retroalimentacion/resumen` incorpora autorización real por token de aplicación opaco, bootstrap server-side mediante `FEEDBACK_API_CONSUMERS_JSON` y control por empresa autorizado.
+- Las rutas raíz `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` no forman parte de la superficie oficial y no deben existir como aliases ni como handlers bloqueados.
 - La API actual lee `public.v_retroalimentacion_unificada`.
 - La lectura ocurre server-side mediante `functions/api/_retroalimentacion.ts` usando service role hacia el proyecto Supabase de SenciYo.
 - El service role no se expone al frontend.
@@ -276,14 +276,16 @@ Límite actual:
 
 Diseño recomendado desde el estado actual:
 
-- `GET /api/v1/retroalimentacion`
-- `GET /api/v1/retroalimentacion/{id}`
 - `GET /api/v1/retroalimentacion/resumen`
+- `GET /api/v1/retroalimentacion/panel`
+- `GET /api/v1/retroalimentacion/registros`
+- `GET /api/v1/retroalimentacion/registros/{registro_uid}`
 
 Condición de migración:
 
-- La futura API oficial ya existe en paralelo.
-- `GET /api/v1/retroalimentacion/resumen` debe validarse funcional y contractualmente con consumidores autorizados de aplicación antes de ampliar su consumo.
+- La API oficial v1 no debe exponer rutas raíz incorrectas.
+- `GET /api/v1/retroalimentacion/resumen` debe mantenerse operativa.
+- `GET /api/v1/retroalimentacion/panel`, `GET /api/v1/retroalimentacion/registros` y `GET /api/v1/retroalimentacion/registros/{registro_uid}` deben existir solo cuando su implementación real esté presente.
 - PM Portal debe seguir consumiendo la API actual hasta que la nueva versión esté probada.
 - La migración del portal debe hacerse después, de forma progresiva y sin desconectar el camino actual antes de tiempo.
 
@@ -332,19 +334,10 @@ Forma actual de respuesta:
 
 ### Pendientes para fase 2
 
-- [ ] Definir si la futura API será interna, externa o ambas.
-- [ ] Crear versión oficial bajo `/api/v1`.
-- [ ] Definir contrato JSON oficial y estable.
-- [ ] Decidir campos públicos vs internos.
-- [ ] Sanitizar PII para consumidores externos.
-- [ ] Implementar control por empresa o tenant.
-- [ ] Implementar scopes, roles o API keys por aplicación.
-- [ ] Evaluar CORS si habrá consumo desde navegador externo.
-- [ ] Añadir rate limiting.
-- [ ] Añadir logs y observabilidad.
-- [ ] Crear ejemplos request/response.
-- [ ] Crear pruebas de contrato.
-- [ ] Migrar PM Portal solo después de validar la nueva API.
+- [ ] Implementar `GET /api/v1/retroalimentacion/panel` si la rama todavía no incluye `panel.ts`.
+- [ ] Implementar `GET /api/v1/retroalimentacion/registros`.
+- [ ] Implementar `GET /api/v1/retroalimentacion/registros/{registro_uid}`.
+- [ ] Mantener PM Portal sobre la API interna hasta cerrar validación de la API oficial.
 
 ## Advertencias importantes
 

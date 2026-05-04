@@ -15,37 +15,20 @@ import {
 } from './_retroalimentacion'
 
 const API_VERSION = 'v1'
-const TAMANO_PAGINA_POR_DEFECTO = 20
-const MAX_TAMANO_PAGINA_V1 = 100
 const TIPOS_RETROALIMENTACION = ['estado_animo', 'idea', 'calificacion'] as const
-const CAMPOS_ORDENABLES_V1 = [
-  'created_at',
-  'tipo',
-  'empresa_nombre',
-  'establecimiento_nombre',
-  'modulo',
-  'puntaje'
-] as const
-const DIRECCIONES_ORDEN = ['asc', 'desc'] as const
 const SCOPE_RESUMEN_RETROALIMENTACION_V1 = 'feedback:read:summary'
 
-type CampoOrdenRetroalimentacionV1 = (typeof CAMPOS_ORDENABLES_V1)[number]
-type DireccionOrdenV1 = (typeof DIRECCIONES_ORDEN)[number]
-type ScopeProfileV1 = 'application_sanitized' | 'application_summary'
+type ScopeProfileV1 = 'application_summary'
 type CodigoErrorV1 =
-  | 'operational_read_not_enabled'
   | 'unauthorized'
   | 'invalid_token'
   | 'forbidden'
   | 'invalid_scope'
   | 'insufficient_scope'
   | 'invalid_filter'
-  | 'invalid_pagination'
   | 'tenant_not_authorized'
   | 'tenant_scope_empty'
   | 'tenant_selection_required'
-  | 'not_found'
-  | 'rate_limited'
   | 'internal_error'
   | 'service_unavailable'
 
@@ -53,11 +36,11 @@ type DetallesErrorV1 = Record<string, string | number | boolean | null>
 
 class ErrorApiV1 extends Error {
   code: CodigoErrorV1
-  status: 400 | 401 | 403 | 404 | 429 | 500 | 501 | 503
+  status: 400 | 401 | 403 | 500 | 503
   details?: DetallesErrorV1
 
   constructor(
-    status: 400 | 401 | 403 | 404 | 429 | 500 | 501 | 503,
+    status: 400 | 401 | 403 | 500 | 503,
     code: CodigoErrorV1,
     message: string,
     details?: DetallesErrorV1
@@ -68,20 +51,6 @@ class ErrorApiV1 extends Error {
     this.code = code
     this.details = details
   }
-}
-
-export interface RegistroRetroalimentacionV1 {
-  registro_uid: string
-  tipo: TipoRetroalimentacion
-  created_at: string
-  empresa_id: string
-  empresa_nombre: string
-  establecimiento_id: string | null
-  establecimiento_nombre: string | null
-  modulo: string
-  valor_principal: string
-  puntaje: number | null
-  estado_animo: string | null
 }
 
 export interface FiltrosRetroalimentacionV1 {
@@ -95,48 +64,11 @@ export interface FiltrosRetroalimentacionV1 {
   incluir_sensibles: boolean
 }
 
-export interface PaginacionRetroalimentacionV1 {
-  pagina: number
-  tamano: number
-  ordenar_por: CampoOrdenRetroalimentacionV1
-  direccion: DireccionOrdenV1
-}
-
 export interface MetaRespuestaV1 {
   api_version: 'v1'
   generated_at: string
   request_id: string
   scope_profile: ScopeProfileV1
-}
-
-export interface RespuestaListadoRetroalimentacionV1 {
-  data: RegistroRetroalimentacionV1[]
-  meta: MetaRespuestaV1
-  filters: {
-    tipo: TipoRetroalimentacion | null
-    empresa_id: string | null
-    establecimiento_id: string | null
-    modulo: string | null
-    desde: string | null
-    hasta: string | null
-    usuario_id: string | null
-    incluir_sensibles: boolean
-    ordenar_por: CampoOrdenRetroalimentacionV1
-    direccion: DireccionOrdenV1
-  }
-  pagination: {
-    pagina: number
-    tamano: number
-    total: number
-    total_paginas: number
-    ordenar_por: CampoOrdenRetroalimentacionV1
-    direccion: DireccionOrdenV1
-  }
-}
-
-export interface RespuestaDetalleRetroalimentacionV1 {
-  data: RegistroRetroalimentacionV1
-  meta: MetaRespuestaV1
 }
 
 export type RegistroRetroalimentacionResumenV1 = Pick<
@@ -189,21 +121,6 @@ interface RespuestaErrorV1 {
   request_id: string
 }
 
-const PARAMETROS_LISTADO_V1 = new Set([
-  'tipo',
-  'empresa_id',
-  'establecimiento_id',
-  'modulo',
-  'desde',
-  'hasta',
-  'usuario_id',
-  'incluir_sensibles',
-  'pagina',
-  'tamano',
-  'ordenar_por',
-  'direccion'
-])
-
 const PARAMETROS_RESUMEN_V1 = new Set([
   'tipo',
   'empresa_id',
@@ -214,8 +131,6 @@ const PARAMETROS_RESUMEN_V1 = new Set([
   'usuario_id',
   'incluir_sensibles'
 ])
-
-const PARAMETROS_DETALLE_V1 = new Set<string>()
 
 function crearRequestId(request: Request): string {
   const requestId = request.headers.get('x-request-id')?.trim()
@@ -243,7 +158,7 @@ function construirRespuestaJsonV1<T>(status: number, cuerpo: T, requestId: strin
 }
 
 export function responderErrorV1(
-  status: 400 | 401 | 403 | 404 | 429 | 500 | 501 | 503,
+  status: 400 | 401 | 403 | 500 | 503,
   code: CodigoErrorV1,
   message: string,
   requestId: string,
@@ -316,57 +231,6 @@ function normalizarTipo(value: string | null): TipoRetroalimentacion | null {
   })
 }
 
-function normalizarCampoOrden(value: string | null): CampoOrdenRetroalimentacionV1 {
-  if (!value) {
-    return 'created_at'
-  }
-
-  if (CAMPOS_ORDENABLES_V1.includes(value as CampoOrdenRetroalimentacionV1)) {
-    return value as CampoOrdenRetroalimentacionV1
-  }
-
-  throw new ErrorApiV1(400, 'invalid_pagination', 'El parámetro ordenar_por no es válido.', {
-    parametro: 'ordenar_por'
-  })
-}
-
-function normalizarDireccion(value: string | null): DireccionOrdenV1 {
-  if (!value) {
-    return 'desc'
-  }
-
-  if (DIRECCIONES_ORDEN.includes(value as DireccionOrdenV1)) {
-    return value as DireccionOrdenV1
-  }
-
-  throw new ErrorApiV1(400, 'invalid_pagination', 'El parámetro direccion no es válido.', {
-    parametro: 'direccion'
-  })
-}
-
-function normalizarEntero(
-  value: string | null,
-  defaultValue: number,
-  min: number,
-  max: number,
-  code: 'invalid_filter' | 'invalid_pagination',
-  key: string
-): number {
-  if (!value) {
-    return defaultValue
-  }
-
-  const numberValue = Number(value)
-
-  if (!Number.isInteger(numberValue) || numberValue < min || numberValue > max) {
-    throw new ErrorApiV1(400, code, `El parámetro ${key} es inválido.`, {
-      parametro: key
-    })
-  }
-
-  return numberValue
-}
-
 function inicioDeDia(fecha: string): string {
   return `${fecha}T00:00:00.000Z`
 }
@@ -434,37 +298,6 @@ async function obtenerConsumidorAplicacionAutorizadoV1(
 
 export function obtenerRequestIdV1(request: Request): string {
   return crearRequestId(request)
-}
-
-export async function validarAccesoBaseV1(
-  request: Request,
-  env: EntornoRetroalimentacion,
-  requestId: string
-): Promise<Response | null> {
-  const consumidor = await obtenerConsumidorAplicacionAutorizadoV1(request, env, requestId)
-
-  if (consumidor instanceof Response) {
-    return consumidor
-  }
-
-  return null
-}
-
-export function obtenerBloqueoLecturaOperativaV1(
-  requestId: string,
-  surface = '/api/v1/retroalimentacion',
-  pendingIntegration = 'list_and_detail_operational_enablement'
-): Response | null {
-  return responderErrorV1(
-    501,
-    'operational_read_not_enabled',
-    'La ruta versionada solicitada permanece pendiente de habilitación operativa.',
-    requestId,
-    {
-      surface,
-      pending_integration: pendingIntegration
-    }
-  )
 }
 
 export async function autorizarResumenRetroalimentacionV1(
@@ -535,44 +368,6 @@ export function obtenerFiltrosRetroalimentacionV1(
   validarRestriccionesSensibles(filtros)
 
   return filtros
-}
-
-export function obtenerPaginacionRetroalimentacionV1(request: Request): PaginacionRetroalimentacionV1 {
-  const url = new URL(request.url)
-
-  return {
-    pagina: normalizarEntero(leerTexto(url.searchParams, 'pagina'), 1, 1, 10_000, 'invalid_pagination', 'pagina'),
-    tamano: normalizarEntero(
-      leerTexto(url.searchParams, 'tamano'),
-      TAMANO_PAGINA_POR_DEFECTO,
-      1,
-      MAX_TAMANO_PAGINA_V1,
-      'invalid_pagination',
-      'tamano'
-    ),
-    ordenar_por: normalizarCampoOrden(leerTexto(url.searchParams, 'ordenar_por')),
-    direccion: normalizarDireccion(leerTexto(url.searchParams, 'direccion'))
-  }
-}
-
-export function validarRegistroUidV1(registroUid: string | undefined): string {
-  const normalizado = registroUid?.trim()
-
-  if (!normalizado) {
-    throw new ErrorApiV1(400, 'invalid_filter', 'El identificador solicitado no es válido.', {
-      parametro: 'registro_uid'
-    })
-  }
-
-  const coincide = normalizado.match(/^(estado_animo|idea|calificacion):([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i)
-
-  if (!coincide) {
-    throw new ErrorApiV1(400, 'invalid_filter', 'El identificador solicitado no es válido.', {
-      parametro: 'registro_uid'
-    })
-  }
-
-  return normalizado
 }
 
 export function obtenerClienteLecturaV1(
@@ -696,65 +491,6 @@ export function crearConsultaRetroalimentacionV1(
   return consulta
 }
 
-export function mapearRegistroRetroalimentacionV1(registro: RegistroRetroalimentacion): RegistroRetroalimentacionV1 {
-  return {
-    registro_uid: registro.registro_uid,
-    tipo: registro.tipo,
-    created_at: registro.created_at,
-    empresa_id: registro.empresa_id,
-    empresa_nombre: registro.empresa_nombre,
-    establecimiento_id: registro.establecimiento_id,
-    establecimiento_nombre: registro.establecimiento_nombre,
-    modulo: registro.modulo,
-    valor_principal: registro.valor_principal,
-    puntaje: registro.puntaje,
-    estado_animo: registro.estado_animo
-  }
-}
-
-export function construirRespuestaListadoV1(
-  registros: RegistroRetroalimentacion[],
-  filtros: FiltrosRetroalimentacionV1,
-  paginacion: PaginacionRetroalimentacionV1,
-  total: number,
-  requestId: string
-): RespuestaListadoRetroalimentacionV1 {
-  return {
-    data: registros.map(mapearRegistroRetroalimentacionV1),
-    meta: construirMetaV1(requestId, 'application_sanitized'),
-    filters: {
-      tipo: filtros.tipo,
-      empresa_id: filtros.empresa_id,
-      establecimiento_id: filtros.establecimiento_id,
-      modulo: filtros.modulo,
-      desde: filtros.desde,
-      hasta: filtros.hasta,
-      usuario_id: filtros.usuario_id,
-      incluir_sensibles: filtros.incluir_sensibles,
-      ordenar_por: paginacion.ordenar_por,
-      direccion: paginacion.direccion
-    },
-    pagination: {
-      pagina: paginacion.pagina,
-      tamano: paginacion.tamano,
-      total,
-      total_paginas: Math.max(1, Math.ceil(total / paginacion.tamano)),
-      ordenar_por: paginacion.ordenar_por,
-      direccion: paginacion.direccion
-    }
-  }
-}
-
-export function construirRespuestaDetalleV1(
-  registro: RegistroRetroalimentacion,
-  requestId: string
-): RespuestaDetalleRetroalimentacionV1 {
-  return {
-    data: mapearRegistroRetroalimentacionV1(registro),
-    meta: construirMetaV1(requestId, 'application_sanitized')
-  }
-}
-
 export function construirRespuestaResumenV1(
   registros: RegistroRetroalimentacionResumenV1[],
   filtros: FiltrosRetroalimentacionV1,
@@ -810,6 +546,4 @@ export function manejarErrorRetroalimentacionV1(error: unknown, requestId: strin
   return responderErrorV1(500, 'internal_error', 'No se pudo procesar la lectura de retroalimentación.', requestId)
 }
 
-export const PARAMS_LISTADO_RETROALIMENTACION_V1 = PARAMETROS_LISTADO_V1
 export const PARAMS_RESUMEN_RETROALIMENTACION_V1 = PARAMETROS_RESUMEN_V1
-export const PARAMS_DETALLE_RETROALIMENTACION_V1 = PARAMETROS_DETALLE_V1
