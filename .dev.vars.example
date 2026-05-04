@@ -16,6 +16,9 @@ SENCIYO_SUPABASE_SERVICE_ROLE_KEY=
 FEEDBACK_API_CONSUMERS_JSON=
 FEEDBACK_API_KEY_HASH_PEPPER=
 
+# Habilita la lectura operativa de GET /api/v1/retroalimentacion/panel
+FEEDBACK_API_V1_PANEL_ENABLED=false
+
 # PostHog (solo si se usan métricas en local)
 POSTHOG_HOST=
 POSTHOG_PROJECT_ID=

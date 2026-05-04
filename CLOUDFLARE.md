@@ -123,8 +123,10 @@ Su autorización real se resuelve con:
 - `Authorization: Bearer <token-de-aplicacion>`
 - `FEEDBACK_API_CONSUMERS_JSON` como configuración declarativa de consumidores autorizados
 - `FEEDBACK_API_KEY_HASH_PEPPER` para validar `token_hash = sha256(<pepper>:<token>)`
+- scopes explícitos por ruta: `feedback:read:summary`, `feedback:read:panel`, `feedback:read:records`, `feedback:read:record-detail`, `feedback:read:sensitive` y `feedback:filter:user`
 
-La ruta `GET /api/v1/retroalimentacion/resumen` sigue leyendo datos desde el Supabase de SenciYo por backend y no expone service role al frontend.
+La superficie oficial `GET /api/v1/retroalimentacion/resumen`, `GET /api/v1/retroalimentacion/panel`, `GET /api/v1/retroalimentacion/registros` y `GET /api/v1/retroalimentacion/registros/{registro_uid}` sigue leyendo datos desde el Supabase de SenciYo por backend y no expone service role al frontend.
+La ruta `GET /api/v1/retroalimentacion/panel` requiere además `FEEDBACK_API_V1_PANEL_ENABLED=true` para quedar operativa.
 Las rutas raíz `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` no forman parte de la superficie oficial v1.
 
 Configuración recomendada final para PM Portal en Cloudflare Production:
@@ -149,6 +151,7 @@ Variables adicionales para la autorización versionada de retroalimentación:
 
 - `FEEDBACK_API_CONSUMERS_JSON`
 - `FEEDBACK_API_KEY_HASH_PEPPER`
+- `FEEDBACK_API_V1_PANEL_ENABLED`
 
 ---
 

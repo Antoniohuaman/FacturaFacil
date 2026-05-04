@@ -212,7 +212,9 @@ La especificación formal de la API oficial versionada se documenta por separado
 - La API actual existe bajo `/api/retroalimentacion` y rutas auxiliares del mismo prefijo.
 - PM Portal es el consumidor actual confirmado en el repositorio.
 - Existe además una superficie versionada bajo `/api/v1/retroalimentacion`.
-- En esta rama, `GET /api/v1/retroalimentacion/resumen` incorpora autorización real por token de aplicación opaco, bootstrap server-side mediante `FEEDBACK_API_CONSUMERS_JSON` y control por empresa autorizado.
+- En esta rama, la superficie oficial v1 implementada es `GET /api/v1/retroalimentacion/resumen`, `GET /api/v1/retroalimentacion/panel`, `GET /api/v1/retroalimentacion/registros` y `GET /api/v1/retroalimentacion/registros/{registro_uid}`.
+- La autorización oficial v1 usa token de aplicación opaco, `FEEDBACK_API_CONSUMERS_JSON`, `FEEDBACK_API_KEY_HASH_PEPPER`, scopes explícitos y control estricto por empresa autorizada.
+- `GET /api/v1/retroalimentacion/panel` queda condicionado por `FEEDBACK_API_V1_PANEL_ENABLED` y responde `501 operational_read_not_enabled` cuando la lectura operativa no está habilitada.
 - Las rutas raíz `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` no forman parte de la superficie oficial y no deben existir como aliases ni como handlers bloqueados.
 - La API actual lee `public.v_retroalimentacion_unificada`.
 - La lectura ocurre server-side mediante `functions/api/_retroalimentacion.ts` usando service role hacia el proyecto Supabase de SenciYo.
@@ -284,8 +286,8 @@ Diseño recomendado desde el estado actual:
 Condición de migración:
 
 - La API oficial v1 no debe exponer rutas raíz incorrectas.
+- Las cuatro rutas oficiales ya deben existir con implementación real y sin placeholders `501`, salvo el gating operacional explícito de `panel` por feature flag.
 - `GET /api/v1/retroalimentacion/resumen` debe mantenerse operativa.
-- `GET /api/v1/retroalimentacion/panel`, `GET /api/v1/retroalimentacion/registros` y `GET /api/v1/retroalimentacion/registros/{registro_uid}` deben existir solo cuando su implementación real esté presente.
 - PM Portal debe seguir consumiendo la API actual hasta que la nueva versión esté probada.
 - La migración del portal debe hacerse después, de forma progresiva y sin desconectar el camino actual antes de tiempo.
 
@@ -332,12 +334,11 @@ Forma actual de respuesta:
 - Otra aplicación no debería consumir Supabase directo para este caso; en una fase posterior debería consumir la API oficial.
 - Si otra app consume en el futuro, debe hacerlo contra una API oficial versionada y con token, API key o scopes definidos explícitamente.
 
-### Pendientes para fase 2
+### Pendientes después de la implementación oficial v1
 
-- [ ] Implementar `GET /api/v1/retroalimentacion/panel` si la rama todavía no incluye `panel.ts`.
-- [ ] Implementar `GET /api/v1/retroalimentacion/registros`.
-- [ ] Implementar `GET /api/v1/retroalimentacion/registros/{registro_uid}`.
-- [ ] Mantener PM Portal sobre la API interna hasta cerrar validación de la API oficial.
+- [ ] Validar consumidores reales con `FEEDBACK_API_CONSUMERS_JSON` y scopes finales.
+- [ ] Habilitar `FEEDBACK_API_V1_PANEL_ENABLED=true` solo cuando la lectura operativa del panel esté lista para consumo externo.
+- [ ] Mantener PM Portal sobre la API interna hasta cerrar validación funcional de la API oficial.
 
 ## Advertencias importantes
 

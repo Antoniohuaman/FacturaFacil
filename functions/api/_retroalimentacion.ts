@@ -153,6 +153,7 @@ export interface RespuestaDetalleRetroalimentacion {
 export interface EntornoRetroalimentacion extends EntornoAuth {
   SENCIYO_SUPABASE_URL?: string
   SENCIYO_SUPABASE_SERVICE_ROLE_KEY?: string
+  FEEDBACK_API_V1_PANEL_ENABLED?: string
 }
 
 let clienteSupabaseRetroalimentacionCache: {
