@@ -124,10 +124,20 @@ Su autorización real se resuelve con:
 - `FEEDBACK_API_CONSUMERS_JSON` como configuración declarativa de consumidores autorizados
 - `FEEDBACK_API_KEY_HASH_PEPPER` para validar `token_hash = sha256(<pepper>:<token>)`
 - scopes explícitos por ruta: `feedback:read:summary`, `feedback:read:panel`, `feedback:read:records`, `feedback:read:record-detail`, `feedback:read:sensitive` y `feedback:filter:user`
+- `tenant_access: restricted | all` para resolver el alcance multi-tenant de cada consumidor
 
 La superficie oficial `GET /api/v1/retroalimentacion/resumen`, `GET /api/v1/retroalimentacion/panel`, `GET /api/v1/retroalimentacion/registros` y `GET /api/v1/retroalimentacion/registros/{registro_uid}` sigue leyendo datos desde el Supabase de SenciYo por backend y no expone service role al frontend.
 La ruta `GET /api/v1/retroalimentacion/panel` requiere además `FEEDBACK_API_V1_PANEL_ENABLED=true` para quedar operativa.
 Las rutas raíz `GET /api/v1/retroalimentacion` y `GET /api/v1/retroalimentacion/{registro_uid}` no forman parte de la superficie oficial v1.
+
+Reglas de configuración del consumidor:
+
+- `tenant_access: "restricted"` mantiene consumidores limitados por `allowed_empresa_ids`.
+- `tenant_access: "all"` habilita consumidores administrativos globales para empresas actuales y futuras.
+- Si `tenant_access` falta, el runtime usa `restricted`.
+- `allowed_empresa_ids: ["*"]` es inválido y no debe configurarse.
+- `tenant_access: "all"` no debe combinarse con una lista no vacía de `allowed_empresa_ids`.
+- PM Portal administrativo debe usar `tenant_access: "all"` cuando se configure como consumidor oficial v1.
 
 Configuración recomendada final para PM Portal en Cloudflare Production:
 

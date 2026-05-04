@@ -243,8 +243,8 @@ export interface AlcanceEmpresaConsultaV1 {
 }
 
 export interface AlcanceEmpresaUnidadV1 {
-  empresaIdConsulta: string
-  empresaIdRespuesta: string
+  empresaIdConsulta: string | null
+  empresaIdRespuesta: string | null
 }
 
 const PARAMETROS_AGREGADOS_V1 = new Set([
@@ -472,11 +472,29 @@ function normalizarEmpresasAutorizadas(consumidor: ConsumidorAplicacionAutorizad
   return [...new Set(consumidor.allowedEmpresaIds.map((item) => item.trim()).filter((item) => item.length > 0))]
 }
 
+function consumidorTieneAccesoGlobal(consumidor: ConsumidorAplicacionAutorizado): boolean {
+  return consumidor.tenantAccess === 'all'
+}
+
 function resolverAlcanceEmpresaAgregadoV1(
   filtros: FiltrosRetroalimentacionV1,
   consumidor: ConsumidorAplicacionAutorizado,
   allowMultiTenant: boolean
 ): AlcanceEmpresaConsultaV1 {
+  if (consumidorTieneAccesoGlobal(consumidor)) {
+    if (filtros.empresa_id) {
+      return {
+        empresaIdsConsulta: [filtros.empresa_id],
+        empresaIdRespuesta: filtros.empresa_id
+      }
+    }
+
+    return {
+      empresaIdsConsulta: [],
+      empresaIdRespuesta: null
+    }
+  }
+
   const empresasAutorizadas = normalizarEmpresasAutorizadas(consumidor)
 
   if (empresasAutorizadas.length === 0) {
@@ -843,6 +861,13 @@ export function resolverAlcanceEmpresaRegistrosV1(
   filtros: FiltrosRetroalimentacionV1,
   consumidor: ConsumidorAplicacionAutorizado
 ): AlcanceEmpresaUnidadV1 {
+  if (consumidorTieneAccesoGlobal(consumidor)) {
+    return {
+      empresaIdConsulta: filtros.empresa_id,
+      empresaIdRespuesta: filtros.empresa_id
+    }
+  }
+
   const empresasAutorizadas = normalizarEmpresasAutorizadas(consumidor)
 
   if (empresasAutorizadas.length === 0) {
@@ -886,6 +911,10 @@ export function aplicarAlcanceEmpresaAutorizadoV1<
     in(column: string, values: readonly string[]): TConsulta
   }
 >(consulta: TConsulta, alcance: AlcanceEmpresaConsultaV1): TConsulta {
+  if (alcance.empresaIdsConsulta.length === 0) {
+    return consulta
+  }
+
   if (alcance.empresaIdsConsulta.length === 1) {
     return consulta.eq('empresa_id', alcance.empresaIdsConsulta[0])
   }

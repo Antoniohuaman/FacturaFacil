@@ -22,10 +22,13 @@ export type ResultadoAutorizacion =
   | { autorizado: true; usuarioId: string }
   | { autorizado: false; status: 401 | 403 | 500; motivo: string; codigoError: string }
 
+export type TenantAccessAplicacion = 'restricted' | 'all'
+
 export interface ConsumidorAplicacionAutorizado {
   consumerId: string
   name: string
   scopes: string[]
+  tenantAccess: TenantAccessAplicacion
   allowedEmpresaIds: string[]
   allowMultiTenantSummary: boolean
   allowMultiTenantPanel: boolean
@@ -51,6 +54,7 @@ interface ConsumidorAplicacionConfigurado {
   status: 'active' | 'inactive'
   tokenHash: string
   scopes: string[]
+  tenantAccess: TenantAccessAplicacion
   allowedEmpresaIds: string[]
   allowMultiTenantSummary: boolean
   allowMultiTenantPanel: boolean
@@ -126,6 +130,28 @@ function normalizarBooleanoConfig(value: unknown, defaultValue: boolean): boolea
   return typeof value === 'boolean' ? value : defaultValue
 }
 
+function normalizarTenantAccessConfig(value: unknown): TenantAccessAplicacion {
+  if (value === undefined) {
+    return 'restricted'
+  }
+
+  if (typeof value !== 'string') {
+    throw new Error('tenant_access debe ser restricted o all.')
+  }
+
+  const normalizado = value.trim().toLowerCase()
+
+  if (normalizado.length === 0) {
+    throw new Error('tenant_access debe ser restricted o all.')
+  }
+
+  if (normalizado === 'restricted' || normalizado === 'all') {
+    return normalizado
+  }
+
+  throw new Error('tenant_access debe ser restricted o all.')
+}
+
 function esHashSha256Hex(value: string): boolean {
   return /^[0-9a-f]{64}$/i.test(value)
 }
@@ -170,6 +196,8 @@ function normalizarConsumidorAplicacion(value: unknown): ConsumidorAplicacionCon
   const name = normalizarTextoNoVacio(consumer.name)
   const status = normalizarTextoNoVacio(consumer.status)?.toLowerCase()
   const tokenHash = normalizarTextoNoVacio(consumer.token_hash)?.toLowerCase()
+  const tenantAccess = normalizarTenantAccessConfig(consumer.tenant_access)
+  const allowedEmpresaIds = normalizarListaTexto(consumer.allowed_empresa_ids)
 
   if (!consumerId) {
     throw new Error('Cada consumidor debe incluir consumer_id.')
@@ -187,13 +215,22 @@ function normalizarConsumidorAplicacion(value: unknown): ConsumidorAplicacionCon
     throw new Error(`El consumidor ${consumerId} debe incluir token_hash SHA-256 hexadecimal.`)
   }
 
+  if (allowedEmpresaIds.includes('*')) {
+    throw new Error(`El consumidor ${consumerId} no puede usar allowed_empresa_ids con "*".`)
+  }
+
+  if (tenantAccess === 'all' && allowedEmpresaIds.length > 0) {
+    throw new Error(`El consumidor ${consumerId} con tenant_access=all no debe definir allowed_empresa_ids.`)
+  }
+
   return {
     consumerId,
     name,
     status,
     tokenHash,
     scopes: normalizarListaTexto(consumer.scopes),
-    allowedEmpresaIds: normalizarListaTexto(consumer.allowed_empresa_ids),
+    tenantAccess,
+    allowedEmpresaIds,
     allowMultiTenantSummary: normalizarBooleanoConfig(consumer.allow_multi_tenant_summary, false),
     allowMultiTenantPanel: normalizarBooleanoConfig(consumer.allow_multi_tenant_panel, false)
   }
@@ -456,6 +493,7 @@ export async function validarAutorizacionAplicacion(
         consumerId: consumer.consumerId,
         name: consumer.name,
         scopes: consumer.scopes,
+        tenantAccess: consumer.tenantAccess,
         allowedEmpresaIds: consumer.allowedEmpresaIds,
         allowMultiTenantSummary: consumer.allowMultiTenantSummary,
         allowMultiTenantPanel: consumer.allowMultiTenantPanel

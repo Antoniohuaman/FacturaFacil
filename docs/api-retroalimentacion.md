@@ -35,6 +35,14 @@ Autorización obligatoria en todas las rutas oficiales:
 - `FEEDBACK_API_CONSUMERS_JSON`
 - `FEEDBACK_API_KEY_HASH_PEPPER`
 
+Modelo formal de tenant por consumidor:
+
+- `tenant_access: "restricted"` para consumidores limitados a empresas explícitas.
+- `tenant_access: "all"` para consumidores administrativos globales.
+- Si `tenant_access` falta, el default seguro es `restricted`.
+- `allowed_empresa_ids: ["*"]` es inválido y no habilita acceso global.
+- En `tenant_access: "all"`, `allowed_empresa_ids` puede omitirse o enviarse vacío; cualquier valor no vacío es inválido.
+
 Scopes reales soportados:
 
 - `feedback:read:summary`
@@ -56,13 +64,56 @@ El tenant no viene del frontend; se resuelve con la configuración del consumido
 
 Reglas vigentes:
 
-- `allowed_empresa_ids` delimita siempre el universo permitido.
-- `empresa_id` solo puede reducir dentro de `allowed_empresa_ids`.
-- Si el consumidor es monoempresa, puede omitir `empresa_id`.
-- Si el consumidor es multiempresa, `resumen` solo permite omitir `empresa_id` cuando `allow_multi_tenant_summary=true`.
-- Si el consumidor es multiempresa, `panel` solo permite omitir `empresa_id` cuando `allow_multi_tenant_panel=true`.
-- Si el consumidor es multiempresa, `registros` y `registros/{registro_uid}` requieren `empresa_id`.
-- `registros/{registro_uid}` responde `404 not_found` si el registro no existe o queda fuera del tenant autorizado.
+- `tenant_access: "restricted"` conserva el modelo limitado actual.
+- `tenant_access: "all"` representa un consumidor administrativo global y permite consultar empresas actuales y futuras sin mantener una lista fija de `empresa_id`.
+- En `restricted`, `allowed_empresa_ids` delimita el universo permitido.
+- En `restricted`, `empresa_id` solo puede reducir dentro de `allowed_empresa_ids`.
+- En `restricted`, si el consumidor es monoempresa, puede omitir `empresa_id`.
+- En `restricted`, si el consumidor es multiempresa, `resumen` solo permite omitir `empresa_id` cuando `allow_multi_tenant_summary=true`.
+- En `restricted`, si el consumidor es multiempresa, `panel` solo permite omitir `empresa_id` cuando `allow_multi_tenant_panel=true`.
+- En `restricted`, `registros` y `registros/{registro_uid}` requieren `empresa_id` cuando hay más de una empresa autorizada.
+- En `all`, `resumen` y `panel` pueden consultar agregado global cuando no se envía `empresa_id`.
+- En `all`, `registros` puede listar globalmente cuando no se envía `empresa_id`, manteniendo paginación y scopes.
+- En `all`, `registros/{registro_uid}` puede consultar globalmente por `registro_uid` cuando no se envía `empresa_id`.
+- En cualquier modo, si se envía `empresa_id`, la consulta se acota a esa empresa.
+- `registros/{registro_uid}` responde `404 not_found` si el registro no existe o queda fuera del tenant autorizado efectivo.
+
+Ejemplo de consumidor limitado:
+
+```json
+{
+	"consumer_id": "cliente-externo",
+	"name": "Cliente externo",
+	"status": "active",
+	"token_hash": "sha256_hex_de_64_caracteres",
+	"tenant_access": "restricted",
+	"allowed_empresa_ids": ["empresa_1"],
+	"scopes": ["feedback:read:panel"]
+}
+```
+
+Ejemplo de consumidor administrativo global:
+
+```json
+{
+	"consumer_id": "pm-portal-admin",
+	"name": "PM Portal Administrativo",
+	"status": "active",
+	"token_hash": "sha256_hex_de_64_caracteres",
+	"tenant_access": "all",
+	"allowed_empresa_ids": [],
+	"scopes": [
+		"feedback:read:summary",
+		"feedback:read:panel",
+		"feedback:read:records",
+		"feedback:read:record-detail",
+		"feedback:read:sensitive",
+		"feedback:filter:user"
+	],
+	"allow_multi_tenant_summary": true,
+	"allow_multi_tenant_panel": true
+}
+```
 
 ## Contratos operativos
 
@@ -149,6 +200,8 @@ Paginación y orden:
 - `direccion`
 - `tamano` máximo: `100`
 - orden secundario determinista: `created_at desc`, `registro_uid asc` cuando aplica
+- en `tenant_access: "all"`, puede listar globalmente sin `empresa_id`
+- en `tenant_access: "restricted"`, si hay varias empresas autorizadas, requiere `empresa_id`
 
 Proyección por defecto:
 
@@ -188,7 +241,8 @@ Parámetros permitidos:
 Reglas:
 
 - `registro_uid` debe tener forma `tipo:uuid`.
-- En consumidores multiempresa, `empresa_id` es obligatorio.
+- En `tenant_access: "restricted"` con varias empresas autorizadas, `empresa_id` es obligatorio.
+- En `tenant_access: "all"`, `empresa_id` es opcional.
 - No devuelve `id` interno de tabla origen.
 - Si el registro existe fuera del tenant autorizado, la respuesta sigue siendo `404`.
 
@@ -199,6 +253,7 @@ Reglas:
 - La API oficial v1 no expone acceso directo a Supabase.
 - No hay CORS abierto `*` agregado por esta implementación.
 - No se entrega PII ni texto libre por defecto.
+- No se usa wildcard `*` para resolver acceso global.
 - La exportación debe resolverse consumiendo `/api/v1/retroalimentacion/registros` paginado; no existe endpoint adicional de exportación.
 
 ## Relación con PM Portal
@@ -207,6 +262,7 @@ Reglas:
 - Esta implementación no modifica PM Portal.
 - Esta implementación no modifica SenciYo.
 - Esta implementación no modifica la API interna actual.
+- PM Portal administrativo debe configurarse como consumidor `tenant_access: "all"` cuando se evalúe su migración futura a esta API oficial.
 
 ## Variables runtime relevantes
 

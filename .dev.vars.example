@@ -13,6 +13,9 @@ SENCIYO_SUPABASE_SERVICE_ROLE_KEY=
 
 # Autorización de aplicación para la API oficial v1 de retroalimentación
 # token_hash esperado en FEEDBACK_API_CONSUMERS_JSON: sha256("<pepper>:<token>")
+# tenant_access permitido por consumidor: "restricted" o "all"
+# no usar allowed_empresa_ids:["*"]
+# consumidor global: tenant_access="all" y allowed_empresa_ids=[]
 FEEDBACK_API_CONSUMERS_JSON=
 FEEDBACK_API_KEY_HASH_PEPPER=
 
