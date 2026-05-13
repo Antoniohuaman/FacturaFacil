@@ -12,9 +12,10 @@ interface PreviewTicketProps {
   data: PreviewData;
   qrUrl: string;
   disenoEfectivo?: DisenoEfectivoImpresion;
+  isPrecuenta?: boolean;
 }
 
-export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disenoEfectivo }) => {
+export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disenoEfectivo, isPrecuenta = false }) => {
   // Compatibilidad: mientras existan flujos no migrados al servicio central,
   // mantenemos fallback a storage. El servicio central siempre debe pasar disenoEfectivo.
   const fallbackConfig = useVoucherDesignConfigReader('TICKET');
@@ -36,11 +37,13 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
     notaCredito,
   } = data;
 
-  const documentTitle = (() => {
-    if (documentType === 'nota_credito') return 'NOTA DE CRÉDITO ELECTRÓNICA';
-    if (documentType === 'boleta') return 'BOLETA DE VENTA ELECTRÓNICA';
-    return 'FACTURA ELECTRÓNICA';
-  })();
+  const documentTitle = isPrecuenta
+    ? 'PRECUENTA'
+    : (() => {
+        if (documentType === 'nota_credito') return 'NOTA DE CRÉDITO ELECTRÓNICA';
+        if (documentType === 'boleta') return 'BOLETA DE VENTA ELECTRÓNICA';
+        return 'FACTURA ELECTRÓNICA';
+      })();
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
   const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
   const currentDateTime = new Date().toLocaleString('es-PE', {
@@ -164,6 +167,9 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
         <div className="mb-4 border-b border-dashed border-gray-400 pb-4 text-left">
           <div className="border border-black p-2 mb-2 text-center">
             <p className="font-bold text-sm">{documentTitle}</p>
+            {isPrecuenta && (
+              <p className="text-[10px] text-gray-500 mt-0.5">Documento preliminar</p>
+            )}
             {/* Serie sin correlativo - solo muestra la serie */}
             <p className="font-bold text-lg">{series}-</p>
           </div>
@@ -336,9 +342,15 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
 
         {/* Bloque legal configurable */}
         <div className="text-center text-[11px] leading-tight mb-4">
-          <p>Representación impresa de la {documentTitle.toLowerCase()}</p>
-          <p className="mt-1">Consulta tu comprobante en nuestra web</p>
-          <p className="mt-0.5">https://comprobantes.facturafacil.com/</p>
+          {isPrecuenta ? (
+            <p className="font-semibold">Documento preliminar, no válido como comprobante de pago.</p>
+          ) : (
+            <>
+              <p>Representación impresa de la {documentTitle.toLowerCase()}</p>
+              <p className="mt-1">Consulta tu comprobante en nuestra web</p>
+              <p className="mt-0.5">https://comprobantes.facturafacil.com/</p>
+            </>
+          )}
           <p className="mt-1">Fecha de impresión: {currentDateTime}</p>
         </div>
 

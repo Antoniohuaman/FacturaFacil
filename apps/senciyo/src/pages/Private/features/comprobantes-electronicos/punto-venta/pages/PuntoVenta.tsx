@@ -27,8 +27,9 @@ import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
 
 import { LayoutDashboard, ShoppingCart } from 'lucide-react';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
-import type { PreviewData } from '../../models/comprobante.types';
+import type { PreviewData, ClientData } from '../../models/comprobante.types';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
+import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
 import {
   registrarFlujoVentaAbandonado,
   registrarPrimeraVentaCompletada,
@@ -121,6 +122,7 @@ const PuntoVenta = () => {
     handlePrint,
     handleNewSale,
     paymentMethods,
+    warning,
   } = usePosComprobanteFlow({ cartItems, totals, onVentaCompletada: marcarVentaCompletada });
 
   type EstadoBorradorPos = {
@@ -286,6 +288,50 @@ const PuntoVenta = () => {
   }, [entornoAnalitica, isCreditMethod, llavePrimeraVentaCompletadaSesion, showSuccessModal]);
 
   const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
+
+  const handlePrintPrecuenta = useCallback(async () => {
+    if (cartItems.length === 0) {
+      return;
+    }
+    const resolvedClient: ClientData = clienteDraftData ?? {
+      nombre: 'Cliente',
+      tipoDocumento: 'dni',
+      documento: '-',
+      direccion: undefined,
+      email: undefined,
+    };
+    const precuentaData: PreviewData = {
+      companyData: buildCompanyData(configState.company),
+      clientData: resolvedClient,
+      documentType: tipoComprobante,
+      series: serieSeleccionada || '-',
+      number: null,
+      issueDate: fechaEmision,
+      dueDate: creditTerms?.fechaVencimientoGlobal,
+      currency: totals.currency ?? currentCurrency,
+      paymentMethod: selectedPaymentLabel,
+      cartItems,
+      totals,
+      observations: observaciones,
+      creditTerms,
+    };
+    try {
+      await imprimirComprobante({
+        formato: 'TICKET',
+        titulo: 'Precuenta',
+        render: (contexto) => (
+          <PreviewTicket
+            data={precuentaData}
+            qrUrl={BLANK_QR_DATA_URL}
+            isPrecuenta
+            disenoEfectivo={contexto?.disenoEfectivo}
+          />
+        ),
+      });
+    } catch {
+      warning('Error al imprimir', 'No se pudo generar la precuenta. Intenta nuevamente.');
+    }
+  }, [cartItems, clienteDraftData, configState.company, creditTerms, currentCurrency, fechaEmision, observaciones, selectedPaymentLabel, serieSeleccionada, tipoComprobante, totals, warning]);
 
   const previewData = useMemo<PreviewData>(() => {
     const resolvedClient =
@@ -492,6 +538,7 @@ const PuntoVenta = () => {
                   onObservacionesChange={setObservaciones}
                   onNotaInternaChange={setNotaInterna}
                   onAbrirCaja={handleAbrirCaja}
+                  onPrintPrecuenta={() => { void handlePrintPrecuenta(); }}
                 />
               </div>
             </div>

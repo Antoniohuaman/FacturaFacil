@@ -67,6 +67,7 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   onCartItemUnitChange: (id: string, unitCode: string) => void;
   getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
   onAbrirCaja?: () => void;
+  onPrintPrecuenta?: () => void;
 }
 
 const PERCENT_ERROR_MESSAGE = 'El descuento debe ser menor al 100%.';
@@ -115,6 +116,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   onClearDiscount,
   getDiscountPreviewTotals,
   onAbrirCaja,
+  onPrintPrecuenta,
 }) => {
   const { formatPrice, changeCurrency, availableCurrencies } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
@@ -508,17 +510,24 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               </div>
             )}
           </div>
-          {[{ icon: Printer, label: 'Imprimir' }, { icon: SlidersHorizontal, label: 'Configuración' }].map(({ icon: Icon, label }) => (
-            <button
-              key={label}
-              type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition"
-              title={label}
-              aria-label={label}
-            >
-              <Icon className="h-4 w-4" />
-            </button>
-          ))}
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Imprimir precuenta"
+            aria-label="Imprimir precuenta"
+            onClick={onPrintPrecuenta}
+            disabled={!hasItems}
+          >
+            <Printer className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition"
+            title="Configuración"
+            aria-label="Configuración"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
