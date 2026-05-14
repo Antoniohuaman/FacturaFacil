@@ -28,8 +28,11 @@ export type OpcionesImpresionComprobante = {
 
 const esperarFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-const copiarEstilos = (documentoOrigen: Document, documentoDestino: Document) => {
+const TIMEOUT_CARGA_CSS_MS = 5_000;
+
+const copiarEstilos = (documentoOrigen: Document, documentoDestino: Document): Promise<void> => {
   const nodos = documentoOrigen.querySelectorAll('link[rel="stylesheet"], style');
+  const promesasCarga: Promise<void>[] = [];
 
   nodos.forEach((nodo) => {
     if (nodo.tagName.toLowerCase() === 'link') {
@@ -40,6 +43,17 @@ const copiarEstilos = (documentoOrigen: Document, documentoDestino: Document) =>
         linkDestino.href = linkOrigen.href;
       }
       documentoDestino.head.appendChild(linkDestino);
+
+      // Esperar la carga real del archivo CSS externo antes de imprimir.
+      // En dev el CSS viene inline (<style>); en prod Vite genera un bundle
+      // externo (<link href="...">) que debe fetcharse de forma asíncrona.
+      // Sin esta espera, print() se llama antes de que el CSS esté disponible.
+      const promesaCarga = new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, TIMEOUT_CARGA_CSS_MS);
+        linkDestino.onload = () => { clearTimeout(timeout); resolve(); };
+        linkDestino.onerror = () => { clearTimeout(timeout); resolve(); };
+      });
+      promesasCarga.push(promesaCarga);
       return;
     }
 
@@ -48,6 +62,8 @@ const copiarEstilos = (documentoOrigen: Document, documentoDestino: Document) =>
     styleDestino.textContent = styleOrigen.textContent || '';
     documentoDestino.head.appendChild(styleDestino);
   });
+
+  return Promise.all(promesasCarga).then(() => undefined);
 };
 
 const inyectarCssImpresion = (documentoDestino: Document, disenoEfectivo: DisenoEfectivoImpresion) => {
@@ -175,7 +191,7 @@ export async function imprimirComprobante(opciones: OpcionesImpresionComprobante
       throw new Error('No se pudo acceder al documento de impresión.');
     }
 
-    copiarEstilos(document, documentoIframe);
+    await copiarEstilos(document, documentoIframe);
 
     const formatoSalida = opciones.formato === 'TICKET' ? FormatoSalida.Ticket : FormatoSalida.Hoja;
     const disenoEfectivo = await resolverDisenoImpresion({

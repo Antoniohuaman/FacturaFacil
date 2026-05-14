@@ -16,7 +16,8 @@
       "Bash(cp:*)",
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(git log *)"
     ],
     "deny": [],
     "ask": []
