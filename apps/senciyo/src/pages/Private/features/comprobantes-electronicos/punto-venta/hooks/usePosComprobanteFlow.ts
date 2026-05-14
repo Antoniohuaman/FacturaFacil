@@ -22,8 +22,11 @@ import type {
   Currency,
   PaymentCollectionMode,
   PaymentCollectionPayload,
+  PaymentLineInput,
   PaymentTotals,
 } from '../../models/comprobante.types';
+import { useCaja } from '../../../control-caja/context/CajaContext';
+import { filterCollectionSeries, getNextCollectionDocument } from '@/shared/series/collectionSeries';
 import type { CreditInstallmentDefinition } from '../../../../../../shared/payments/paymentTerms';
 import { useCurrentCompanyId, useCurrentEstablecimientoId, useUserSession } from '../../../../../../contexts/UserSessionContext';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -64,6 +67,8 @@ export const usePosComprobanteFlow = ({ cartItems, totals, onVentaCompletada }: 
     setNotaInterna,
     resetForm,
   } = useComprobanteState();
+
+  const { aperturaActual } = useCaja();
 
   const {
     createComprobante,
@@ -425,6 +430,60 @@ export const usePosComprobanteFlow = ({ cartItems, totals, onVentaCompletada }: 
     return success;
   };
 
+  const handleAutoCobranza = async (medioPagoCode: string, medioPagoLabel: string): Promise<boolean> => {
+    if (isCreditPaymentSelection) {
+      warning('Cobranza automática no disponible', 'La venta a crédito no es compatible con cobranza automática.');
+      return false;
+    }
+
+    const isReady = await ensureDataBeforeCobranza('Faltan datos para procesar la venta');
+    if (!isReady) {
+      return false;
+    }
+
+    if (!isCajaOpen) {
+      warning('Caja cerrada', 'Abre una caja para registrar el cobro o cambia la venta a crédito.');
+      return false;
+    }
+
+    const cajaAbierta = aperturaActual
+      ? configurationState.cajas.find((c) => c.id === aperturaActual.cajaId)
+      : undefined;
+
+    const cobranzasSeries = filterCollectionSeries(
+      configurationState.series,
+      currentEstablecimientoId || undefined,
+    );
+    const primeraSerie = cobranzasSeries[0] ?? null;
+    const collectionDoc = primeraSerie ? getNextCollectionDocument(primeraSerie) : null;
+
+    const lines: PaymentLineInput[] = [
+      {
+        id: `auto_${Date.now()}`,
+        method: medioPagoCode,
+        methodLabel: medioPagoLabel,
+        amount: totals.total,
+      },
+    ];
+
+    const payload: PaymentCollectionPayload = {
+      mode: 'contado',
+      lines,
+      cajaDestino: cajaAbierta?.nombreCaja,
+      cajaDestinoId: cajaAbierta?.id,
+      cajaDestinoLabel: cajaAbierta?.nombreCaja,
+      fechaCobranza: getBusinessTodayISODate(),
+      collectionDocument: collectionDoc
+        ? { ...collectionDoc, issuedAt: getBusinessTodayISODate() }
+        : undefined,
+      collectionCurrency: currentCurrency,
+      collectionExchangeRate: currencyInfo?.rate,
+      attachments: [],
+    };
+
+    return handleCrearComprobante(payload);
+  };
+
   const handleCobranzaComplete = async (payload: PaymentCollectionPayload) => {
     return handleCrearComprobante(payload);
   };
@@ -500,6 +559,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals, onVentaCompletada }: 
     handleCancelCreditScheduleModal,
     handleSaveCreditScheduleModal,
     handleConfirmSale,
+    handleAutoCobranza,
     handleEmitirCredito,
     handleCobranzaComplete,
     handlePrint,

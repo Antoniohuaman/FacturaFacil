@@ -4,6 +4,7 @@ export type PaymentMeanDefinition = {
   code: string;
   sunatName: string;
   defaultLabel: string;
+  isCash?: boolean;
 };
 
 const DEFAULT_VISIBLE_PAYMENT_MEANS = new Set(['001', '002', '003', '005', '006', '008', '999']);
@@ -16,8 +17,8 @@ export const PAYMENT_MEANS_CATALOG: PaymentMeanDefinition[] = [
   { code: '005', sunatName: 'Tarjeta de débito', defaultLabel: 'Tarjeta débito' },
   { code: '006', sunatName: 'Tarjeta de crédito (sistema financiero)', defaultLabel: 'Tarjeta crédito' },
   { code: '007', sunatName: 'Cheques no negociables / …', defaultLabel: 'Cheque' },
-  { code: '008', sunatName: 'Efectivo (sin obligación de medio)', defaultLabel: 'Efectivo' },
-  { code: '009', sunatName: 'Efectivo (demás casos)', defaultLabel: 'Efectivo' },
+  { code: '008', sunatName: 'Efectivo (sin obligación de medio)', defaultLabel: 'Efectivo', isCash: true },
+  { code: '009', sunatName: 'Efectivo (demás casos)', defaultLabel: 'Efectivo', isCash: true },
   { code: '010', sunatName: 'Medios de pago usados en comercio exterior', defaultLabel: 'Com. exterior' },
   { code: '011', sunatName: 'Documentos EDPYMES / cooperativas…', defaultLabel: 'EDPYMES' },
   { code: '012', sunatName: 'Tarjeta crédito (no sist. financiero)', defaultLabel: 'Tarj. crédito' },
@@ -110,6 +111,9 @@ export interface PaymentMeanOption {
   order: number;
 }
 
+export const isCashPaymentMeanCode = (code: string): boolean =>
+  PAYMENT_MEANS_CATALOG.find((m) => m.code === code)?.isCash === true;
+
 export const getConfiguredPaymentMeans = (): PaymentMeanOption[] => {
   const prefs = loadPaymentMeansPreferences();
 
@@ -130,3 +134,6 @@ export const getConfiguredPaymentMeans = (): PaymentMeanOption[] => {
     };
   }).sort((a, b) => a.order - b.order);
 };
+
+export const getCashPaymentMeans = (): PaymentMeanOption[] =>
+  getConfiguredPaymentMeans().filter((opt) => opt.isVisible && isCashPaymentMeanCode(opt.code));

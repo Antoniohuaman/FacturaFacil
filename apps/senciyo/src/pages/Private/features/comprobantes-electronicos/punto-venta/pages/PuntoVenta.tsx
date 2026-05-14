@@ -3,7 +3,7 @@
 // Preserva toda la funcionalidad original con mejor UX
 // ===================================================================
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCurrentCompanyId, useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 import { crearClaveBorradorEnProgreso } from '@/shared/borradores/almacenamientoBorradorEnProgreso';
@@ -25,11 +25,14 @@ import { SuccessModal } from '../../shared/modales/SuccessModal';
 import { CobranzaModal } from '../../shared/modales/CobranzaModal';
 import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
 
-import { LayoutDashboard, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, X } from 'lucide-react';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
 import type { PreviewData, ClientData } from '../../models/comprobante.types';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
+import { getCashPaymentMeans } from '@/shared/payments/paymentMeans';
+import type { PaymentMeanOption } from '@/shared/payments/paymentMeans';
+import { useConfiguracionPos } from '../hooks/useConfiguracionPos';
 import {
   registrarFlujoVentaAbandonado,
   registrarPrimeraVentaCompletada,
@@ -117,6 +120,7 @@ const PuntoVenta = () => {
     handleCancelCreditScheduleModal,
     handleSaveCreditScheduleModal,
     handleConfirmSale,
+    handleAutoCobranza,
     handleEmitirCredito,
     handleCobranzaComplete,
     handlePrint,
@@ -289,6 +293,23 @@ const PuntoVenta = () => {
 
   const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
 
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const { config: posConfig, setConfig: setPosConfig } = useConfiguracionPos(currentCompanyId);
+
+  const efectivoMeans = useMemo<PaymentMeanOption[]>(() => getCashPaymentMeans(), []);
+
+  const autoCobranzaValida = posConfig.activa && posConfig.medioPagoCode !== null && (
+    efectivoMeans.some((m) => m.code === posConfig.medioPagoCode)
+  );
+
+  const handleAutoCobranzaClick = useCallback(() => {
+    if (!posConfig.medioPagoCode || !posConfig.medioPagoLabel) {
+      warning('Medio de pago no configurado', 'Selecciona un medio de pago en la configuración del POS.');
+      return;
+    }
+    void handleAutoCobranza(posConfig.medioPagoCode, posConfig.medioPagoLabel);
+  }, [handleAutoCobranza, posConfig.medioPagoCode, posConfig.medioPagoLabel, warning]);
+
   const handlePrintPrecuenta = useCallback(async () => {
     if (cartItems.length === 0) {
       return;
@@ -318,7 +339,7 @@ const PuntoVenta = () => {
     try {
       await imprimirComprobante({
         formato: 'TICKET',
-        titulo: 'Precuenta',
+        titulo: 'Vista previa del comprobante',
         render: (contexto) => (
           <PreviewTicket
             data={precuentaData}
@@ -493,7 +514,7 @@ const PuntoVenta = () => {
             </div>
 
             {/* Cart Checkout Panel - columna derecha */}
-            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <CartCheckoutPanel
                   cartItems={cartItems}
@@ -539,8 +560,88 @@ const PuntoVenta = () => {
                   onNotaInternaChange={setNotaInterna}
                   onAbrirCaja={handleAbrirCaja}
                   onPrintPrecuenta={() => { void handlePrintPrecuenta(); }}
+                  onOpenSettings={() => setShowSettingsPanel(true)}
+                  autoCobranzaActiva={autoCobranzaValida}
+                  autoCobranzaLabel={posConfig.medioPagoLabel}
+                  onConfirmAutoCobranza={handleAutoCobranzaClick}
                 />
               </div>
+
+              {/* Panel de configuración del POS */}
+              {showSettingsPanel && (
+                <div className="absolute inset-0 z-30 flex flex-col bg-white">
+                  <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-slate-800">Configuración del POS</h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowSettingsPanel(false)}
+                      className="rounded-full p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                      aria-label="Cerrar configuración"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                    <div>
+                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Cobranza automática
+                      </p>
+
+                      <label className="flex cursor-pointer items-center justify-between">
+                        <span className="text-sm text-slate-700">Activar cobranza automática</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={posConfig.activa}
+                          onClick={() => setPosConfig({ activa: !posConfig.activa })}
+                          className={`relative h-5 w-9 rounded-full transition-colors ${posConfig.activa ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                        >
+                          <span
+                            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${posConfig.activa ? 'translate-x-4' : 'translate-x-0.5'}`}
+                          />
+                        </button>
+                      </label>
+
+                      {posConfig.activa && (
+                        <div className="mt-4">
+                          <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                            Medio de pago
+                          </label>
+                          {efectivoMeans.length === 0 ? (
+                            <p className="text-xs text-slate-500">
+                              No hay medios de tipo efectivo habilitados en la configuración de medios de pago.
+                            </p>
+                          ) : (
+                            <select
+                              value={posConfig.medioPagoCode ?? ''}
+                              onChange={(e) => {
+                                const selected = efectivoMeans.find((m) => m.code === e.target.value);
+                                setPosConfig({
+                                  medioPagoCode: selected?.code ?? null,
+                                  medioPagoLabel: selected?.label ?? null,
+                                });
+                              }}
+                              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            >
+                              <option value="">Seleccionar...</option>
+                              {efectivoMeans.map((m) => (
+                                <option key={m.code} value={m.code}>
+                                  {m.label}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="mt-3 text-[11px] leading-tight text-slate-400">
+                        Aplica solo para efectivo y monto exacto. Para pagos mixtos, vuelto, banco u operación, se usará la cobranza manual.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

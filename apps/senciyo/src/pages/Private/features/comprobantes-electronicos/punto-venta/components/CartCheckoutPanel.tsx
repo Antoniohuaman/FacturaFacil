@@ -68,6 +68,10 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
   onAbrirCaja?: () => void;
   onPrintPrecuenta?: () => void;
+  onOpenSettings?: () => void;
+  autoCobranzaActiva?: boolean;
+  autoCobranzaLabel?: string | null;
+  onConfirmAutoCobranza?: () => void;
 }
 
 const PERCENT_ERROR_MESSAGE = 'El descuento debe ser menor al 100%.';
@@ -117,6 +121,10 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   getDiscountPreviewTotals,
   onAbrirCaja,
   onPrintPrecuenta,
+  onOpenSettings,
+  autoCobranzaActiva = false,
+  autoCobranzaLabel,
+  onConfirmAutoCobranza,
 }) => {
   const { formatPrice, changeCurrency, availableCurrencies } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
@@ -147,9 +155,12 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   const isCashBoxClosed = cashBoxStatus === 'closed';
   const hasItems = cartItems.length > 0;
   const canProcessSale = !isProcessing && hasItems;
-  const issueButtonLabel = 'IR A COBRAR';
+  const isAutoCobranzaEnabled = autoCobranzaActiva && !isCreditPaymentSelection;
+  const issueButtonLabel = isAutoCobranzaEnabled ? 'COBRAR Y EMITIR' : 'IR A COBRAR';
 
-  const issueDisabled = !canProcessSale || (!isCreditPaymentSelection ? !onConfirmSale : !onEmitCredit);
+  const issueDisabled = !canProcessSale || (!isCreditPaymentSelection
+    ? isAutoCobranzaEnabled ? !onConfirmAutoCobranza : !onConfirmSale
+    : !onEmitCredit);
 
   const handleIssueAction = () => {
     if (issueDisabled) {
@@ -157,6 +168,10 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
     }
     if (isCreditPaymentSelection) {
       onEmitCredit?.();
+      return;
+    }
+    if (isAutoCobranzaEnabled) {
+      onConfirmAutoCobranza?.();
       return;
     }
     onConfirmSale?.();
@@ -510,24 +525,32 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Imprimir precuenta"
-            aria-label="Imprimir precuenta"
-            onClick={onPrintPrecuenta}
-            disabled={!hasItems}
-          >
-            <Printer className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition"
-            title="Configuración"
-            aria-label="Configuración"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {isAutoCobranzaEnabled && autoCobranzaLabel && (
+              <span className="text-[10px] font-medium text-emerald-600 whitespace-nowrap mr-1">
+                Auto: {autoCobranzaLabel}
+              </span>
+            )}
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Imprimir precuenta"
+              aria-label="Imprimir precuenta"
+              onClick={onPrintPrecuenta}
+              disabled={!hasItems}
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-slate-400 hover:text-slate-700 hover:border-slate-200 transition"
+              title="Configuración"
+              aria-label="Configuración"
+              onClick={onOpenSettings}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 

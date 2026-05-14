@@ -37,13 +37,11 @@ export const PreviewTicket: React.FC<PreviewTicketProps> = ({ data, qrUrl, disen
     notaCredito,
   } = data;
 
-  const documentTitle = isPrecuenta
-    ? 'PRECUENTA'
-    : (() => {
-        if (documentType === 'nota_credito') return 'NOTA DE CRÉDITO ELECTRÓNICA';
-        if (documentType === 'boleta') return 'BOLETA DE VENTA ELECTRÓNICA';
-        return 'FACTURA ELECTRÓNICA';
-      })();
+  const documentTitle = (() => {
+    if (documentType === 'nota_credito') return 'NOTA DE CRÉDITO ELECTRÓNICA';
+    if (documentType === 'boleta') return 'BOLETA DE VENTA ELECTRÓNICA';
+    return 'FACTURA ELECTRÓNICA';
+  })();
   const formatCurrencyValue = (value: number) => formatMoney(value ?? 0, currency);
   const resolvedDueDate = creditTerms?.fechaVencimientoGlobal ?? dueDate ?? '';
   const currentDateTime = new Date().toLocaleString('es-PE', {
