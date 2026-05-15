@@ -527,8 +527,11 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
           </div>
           <div className="flex items-center gap-1">
             {isAutoCobranzaEnabled && autoCobranzaLabel && (
-              <span className="text-[10px] font-medium text-emerald-600 whitespace-nowrap mr-1">
-                Auto: {autoCobranzaLabel}
+              <span
+                className="text-[10px] font-medium text-emerald-600 whitespace-nowrap mr-1"
+                title={`Cobranza automática habilitada con un solo medio de pago: ${autoCobranzaLabel}.`}
+              >
+                Auto: {autoCobranzaLabel.toLowerCase()}
               </span>
             )}
             <button

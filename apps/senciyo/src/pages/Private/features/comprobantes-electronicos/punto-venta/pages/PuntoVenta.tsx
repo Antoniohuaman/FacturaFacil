@@ -32,7 +32,7 @@ import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
 import { getCashPaymentMeans } from '@/shared/payments/paymentMeans';
 import type { PaymentMeanOption } from '@/shared/payments/paymentMeans';
-import { useConfiguracionPos } from '../hooks/useConfiguracionPos';
+import { useConfiguracionPos, type ConfigAutoCobranza } from '../hooks/useConfiguracionPos';
 import {
   registrarFlujoVentaAbandonado,
   registrarPrimeraVentaCompletada,
@@ -294,6 +294,7 @@ const PuntoVenta = () => {
   const selectedPaymentLabel = selectedPaymentMethod?.name ?? 'CONTADO';
 
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [draftConfig, setDraftConfig] = useState<ConfigAutoCobranza | null>(null);
   const { config: posConfig, setConfig: setPosConfig } = useConfiguracionPos(currentCompanyId);
 
   const efectivoMeans = useMemo<PaymentMeanOption[]>(() => getCashPaymentMeans(), []);
@@ -447,6 +448,23 @@ const PuntoVenta = () => {
     setSelectedPriceListId(resolvedProfileId);
   }, [basePriceListId, clienteSeleccionado, priceListOptions, selectedPriceListId, setSelectedPriceListId]);
 
+  // Configuración en edición: el draft vive solo mientras el panel está abierto.
+  // Los cambios en el panel no afectan el POS activo hasta que el usuario guarda.
+  const workingConfig = draftConfig ?? posConfig;
+
+  const handleCloseSettings = useCallback(() => {
+    setDraftConfig(null);
+    setShowSettingsPanel(false);
+  }, []);
+
+  const handleSaveSettings = useCallback(() => {
+    const cfg = draftConfig ?? posConfig;
+    if (cfg.activa && !cfg.medioPagoCode) return;
+    setPosConfig(cfg);
+    setDraftConfig(null);
+    setShowSettingsPanel(false);
+  }, [draftConfig, posConfig, setPosConfig]);
+
   return (
     <ErrorBoundary>
       <div className="print:hidden h-full flex flex-col min-h-0">
@@ -560,7 +578,10 @@ const PuntoVenta = () => {
                   onNotaInternaChange={setNotaInterna}
                   onAbrirCaja={handleAbrirCaja}
                   onPrintPrecuenta={() => { void handlePrintPrecuenta(); }}
-                  onOpenSettings={() => setShowSettingsPanel(true)}
+                  onOpenSettings={() => {
+                    setDraftConfig({ ...posConfig });
+                    setShowSettingsPanel(true);
+                  }}
                   autoCobranzaActiva={autoCobranzaValida}
                   autoCobranzaLabel={posConfig.medioPagoLabel}
                   onConfirmAutoCobranza={handleAutoCobranzaClick}
@@ -574,7 +595,7 @@ const PuntoVenta = () => {
                     <h3 className="text-sm font-semibold text-slate-800">Configuración del POS</h3>
                     <button
                       type="button"
-                      onClick={() => setShowSettingsPanel(false)}
+                      onClick={handleCloseSettings}
                       className="rounded-full p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
                       aria-label="Cerrar configuración"
                     >
@@ -593,19 +614,19 @@ const PuntoVenta = () => {
                         <button
                           type="button"
                           role="switch"
-                          aria-checked={posConfig.activa}
-                          onClick={() => setPosConfig({ activa: !posConfig.activa })}
-                          className={`relative h-5 w-9 rounded-full transition-colors ${posConfig.activa ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                          aria-checked={workingConfig.activa}
+                          onClick={() => setDraftConfig({ ...workingConfig, activa: !workingConfig.activa })}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 overflow-hidden rounded-full transition-colors ${workingConfig.activa ? 'bg-emerald-500' : 'bg-slate-300'}`}
                         >
                           <span
-                            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${posConfig.activa ? 'translate-x-4' : 'translate-x-0.5'}`}
+                            className={`pointer-events-none absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${workingConfig.activa ? 'translate-x-[18px]' : 'translate-x-0.5'}`}
                           />
                         </button>
                       </label>
 
-                      {posConfig.activa && (
-                        <div className="mt-4">
-                          <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                      {workingConfig.activa && (
+                        <div className="mt-4 space-y-2">
+                          <label className="block text-xs font-medium text-slate-600">
                             Medio de pago
                           </label>
                           {efectivoMeans.length === 0 ? (
@@ -614,10 +635,11 @@ const PuntoVenta = () => {
                             </p>
                           ) : (
                             <select
-                              value={posConfig.medioPagoCode ?? ''}
+                              value={workingConfig.medioPagoCode ?? ''}
                               onChange={(e) => {
                                 const selected = efectivoMeans.find((m) => m.code === e.target.value);
-                                setPosConfig({
+                                setDraftConfig({
+                                  ...workingConfig,
                                   medioPagoCode: selected?.code ?? null,
                                   medioPagoLabel: selected?.label ?? null,
                                 });
@@ -632,6 +654,11 @@ const PuntoVenta = () => {
                               ))}
                             </select>
                           )}
+                          {!workingConfig.medioPagoCode && (
+                            <p className="text-[11px] text-amber-600">
+                              Selecciona un medio de pago para habilitar la cobranza automática.
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -639,6 +666,21 @@ const PuntoVenta = () => {
                         Aplica solo para efectivo y monto exacto. Para pagos mixtos, vuelto, banco u operación, se usará la cobranza manual.
                       </p>
                     </div>
+                  </div>
+
+                  <div className="shrink-0 border-t border-slate-200 p-4">
+                    <button
+                      type="button"
+                      onClick={handleSaveSettings}
+                      disabled={workingConfig.activa && !workingConfig.medioPagoCode}
+                      className={`w-full rounded-lg py-2 text-sm font-semibold transition ${
+                        workingConfig.activa && !workingConfig.medioPagoCode
+                          ? 'cursor-not-allowed bg-slate-100 text-slate-400'
+                          : 'bg-[#2ccdb0] text-white hover:bg-[#28b59c]'
+                      }`}
+                    >
+                      Guardar cambios
+                    </button>
                   </div>
                 </div>
               )}
