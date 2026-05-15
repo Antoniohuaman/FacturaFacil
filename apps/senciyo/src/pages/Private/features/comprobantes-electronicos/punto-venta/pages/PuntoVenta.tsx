@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCurrentCompanyId, useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
+import { useModoAmpliado } from '../../../../../../contexts/ContextoAppShell';
 import { crearClaveBorradorEnProgreso } from '@/shared/borradores/almacenamientoBorradorEnProgreso';
 import { useBorradorEnProgreso } from '@/shared/borradores/useBorradorEnProgreso';
 import { useRetornoAperturaCaja } from '@/shared/caja/useRetornoAperturaCaja';
@@ -25,7 +26,7 @@ import { SuccessModal } from '../../shared/modales/SuccessModal';
 import { CobranzaModal } from '../../shared/modales/CobranzaModal';
 import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
 
-import { LayoutDashboard, ShoppingCart, X } from 'lucide-react';
+import { Maximize2, Minimize2, ShoppingCart, X } from 'lucide-react';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';
 import type { PreviewData, ClientData } from '../../models/comprobante.types';
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
@@ -448,6 +449,23 @@ const PuntoVenta = () => {
     setSelectedPriceListId(resolvedProfileId);
   }, [basePriceListId, clienteSeleccionado, priceListOptions, selectedPriceListId, setSelectedPriceListId]);
 
+  const { modoAmpliado, setModoAmpliado } = useModoAmpliado();
+
+  useEffect(() => {
+    if (!modoAmpliado) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModoAmpliado(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [modoAmpliado, setModoAmpliado]);
+
+  useEffect(() => {
+    return () => {
+      setModoAmpliado(false);
+    };
+  }, [setModoAmpliado]);
+
   // Configuración en edición: el draft vive solo mientras el panel está abierto.
   // Los cambios en el panel no afectan el POS activo hasta que el usuario guarda.
   const workingConfig = draftConfig ?? posConfig;
@@ -492,14 +510,11 @@ const PuntoVenta = () => {
               {/* Right side - Estado de caja mejorado */}
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => {
-                    registrarAbandonoVentaPosSiCorresponde('salida_flujo');
-                    navigate('/punto-venta/dashboard');
-                  }}
+                  onClick={() => setModoAmpliado(!modoAmpliado)}
                   className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:border-[#2ccdb0] hover:text-[#2f70b4] focus-visible:ring-2 focus-visible:ring-[#2f70b4]/20"
-                  title="Ir al dashboard de Punto de Venta"
+                  title={modoAmpliado ? 'Salir de pantalla completa' : 'Ver en pantalla completa'}
                 >
-                  <LayoutDashboard className="h-4 w-4" />
+                  {modoAmpliado ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
                 {/* Status of cash box is now shown in the global Header; keep an accessible live region */}
                 <span className="sr-only" aria-live="polite">Caja {cajaStatus === 'abierta' ? 'abierta' : 'cerrada'}</span>

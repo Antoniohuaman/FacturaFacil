@@ -10,7 +10,6 @@ import ComprobantesTabs from "../pages/Private/features/comprobantes-electronico
 import { SelectorModoEmision } from "../pages/Private/features/comprobantes-electronicos/pages/SelectorModoEmision";
 import EmisionTradicional from "../pages/Private/features/comprobantes-electronicos/pages/EmisionTradicional";
 import PuntoVenta from "../pages/Private/features/comprobantes-electronicos/punto-venta/pages/PuntoVenta";
-import { PuntoVentaHome } from "../pages/Private/features/comprobantes-electronicos/punto-venta/pages/PuntoVentaHome";
 import ImportarClientesPage from "../pages/Private/features/gestion-clientes/pages/ImportarClientesPage";
 import HistorialCompras from "../pages/Private/features/gestion-clientes/pages/HistorialCompras";
 import ControlCajaHome from "../pages/Private/features/control-caja/pages/Home";
@@ -76,7 +75,6 @@ export const privateRoutes: RouteObject[] = [
           return redirect(`/punto-venta/nueva-venta${search}`);
         },
       },
-      { path: "/punto-venta/dashboard", element: conPermisos(<PuntoVentaHome />, ['ventas.pos.ver', 'ventas.pos.vender']) },
       { path: "/punto-venta/nueva-venta", element: conPermisos(<PuntoVenta />, ['ventas.pos.ver', 'ventas.pos.vender']) },
       { path: "/catalogo", element: conPermisos(<CatalogoArticulosMain />, ['catalogo.ver', 'catalogo.crear', 'catalogo.editar']) },
       { path: "/lista-precios", element: conPermisos(<ListaPrecios />, ['precios.ver', 'precios.editar']) },

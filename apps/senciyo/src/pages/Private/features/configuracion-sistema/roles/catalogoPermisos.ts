@@ -44,7 +44,7 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     nombre: 'Ver punto de venta',
     descripcion: 'Acceder a las pantallas de POS.',
     modulo: 'ventas',
-    rutas: ['/punto-venta', '/punto-venta/dashboard', '/punto-venta/nueva-venta'],
+    rutas: ['/punto-venta', '/punto-venta/nueva-venta'],
   },
   {
     id: 'ventas.pos.vender',

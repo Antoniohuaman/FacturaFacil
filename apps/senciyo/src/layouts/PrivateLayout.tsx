@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useState } from "react";
 import Header from "./components/Header";
 import SideNav from "./components/SideNav";
+import { AppShellProvider, useModoAmpliado } from "../contexts/ContextoAppShell";
 import { ConfigurationProvider } from "../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
 import { ComprobanteProvider } from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { DocumentoProvider } from "../pages/Private/features/Documentos-negociacion/contexts/DocumentosContext";
@@ -21,8 +22,37 @@ import { TourFlotante, usarTour } from "../shared/tour";
 import { MicroSplashIngreso } from "../shared/ui/transiciones/MicroSplashIngreso";
 import { useTransicionIngresoStore } from "../shared/ui/transiciones/useTransicionIngresoStore";
 
-export default function AppShell() {
+function AppShellInner() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { modoAmpliado } = useModoAmpliado();
+
+  return (
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden print:block print:h-auto print:min-h-0 print:bg-white print:overflow-visible">
+      {!modoAmpliado && (
+        <div className="flex-shrink-0 z-50 print:hidden">
+          <Header
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          />
+        </div>
+      )}
+      <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
+        {!modoAmpliado && (
+          <div className="flex-shrink-0 h-full z-40 print:hidden">
+            <SideNav collapsed={sidebarCollapsed} />
+          </div>
+        )}
+        <div className="flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden print:block print:overflow-visible">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden print:block print:overflow-visible">
+            <Outlet />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AppShell() {
   const location = useLocation();
   const { activa, motivo } = useTransicionIngresoStore();
   const { tenantId, isTenantReady } = useTenant();
@@ -49,32 +79,12 @@ export default function AppShell() {
                   <ComprobanteProvider>
                     <CobranzasProvider>
                       <DocumentoProvider>
-                        <div className="h-screen flex flex-col bg-slate-50 dark:bg-gray-900 overflow-hidden print:block print:h-auto print:min-h-0 print:bg-white print:overflow-visible">
-                          {/* Header fijo */}
-                          <div className="flex-shrink-0 z-50 print:hidden">
-                            <Header
-                              sidebarCollapsed={sidebarCollapsed}
-                              onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-                            />
-                          </div>
-                          <div className="flex flex-1 overflow-hidden print:block print:overflow-visible">
-                            {/* Sidebar fijo */}
-                            <div className="flex-shrink-0 h-full z-40 print:hidden">
-                              <SideNav
-                                collapsed={sidebarCollapsed}
-                              />
-                            </div>
-                            {/* Contenido principal */}
-                            <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden print:block print:overflow-visible`}>
-                              <div className="flex-1 overflow-y-auto overflow-x-hidden print:block print:overflow-visible">
-                                <Outlet />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <CajaGlobalOverlays />
-                        <TourGlobalOverlays />
-                        <MicroSplashIngreso activa={activa} motivo={motivo ?? undefined} />
+                        <AppShellProvider>
+                          <AppShellInner />
+                          <CajaGlobalOverlays />
+                          <TourGlobalOverlays />
+                          <MicroSplashIngreso activa={activa} motivo={motivo ?? undefined} />
+                        </AppShellProvider>
                       </DocumentoProvider>
                     </CobranzasProvider>
                   </ComprobanteProvider>
