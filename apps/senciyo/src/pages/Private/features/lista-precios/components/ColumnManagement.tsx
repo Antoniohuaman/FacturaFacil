@@ -106,19 +106,20 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Plantilla de columnas</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tipos de precio</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Máximo {MANUAL_COLUMN_LIMIT} columnas manuales · Base y reglas globales son obligatorias.
+                Define qué precios usará tu negocio y cuáles se mostrarán en la tabla.
               </p>
             </div>
             <button
               onClick={onAddColumn}
               disabled={manualLimitReached}
+              title={manualLimitReached ? `Límite de ${MANUAL_COLUMN_LIMIT} tipos manuales alcanzado` : undefined}
               className="flex items-center px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
               style={!manualLimitReached ? { backgroundColor: '#1478D4' } : {}}
             >
               <Plus size={16} className="mr-2" />
-              Agregar columna
+              Agregar tipo de precio
             </button>
           </div>
 
@@ -133,8 +134,8 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">MODO DE VALORIZACIÓN</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">DETALLE / REGLA</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">BASE</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">VISIBLE</th>
-                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">VISIBLE EN TABLA</th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">ACTIVO</th>
+                  <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">MOSTRAR EN TABLA</th>
                   <th className="text-left py-3 px-2 text-sm font-medium text-gray-700 dark:text-gray-300">ACCIONES</th>
                 </tr>
               </thead>
@@ -191,11 +192,11 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                       <button
                         onClick={() => onToggleVisibility(column.id)}
                         className={`p-1 rounded transition-colors ${
-                          column.visible 
-                            ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20' 
+                          column.visible
+                            ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/20'
                             : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
-                        title={column.visible ? 'Ocultar en formularios' : 'Mostrar en formularios'}
+                        title={column.visible ? 'Desactivar este tipo de precio' : 'Activar este tipo de precio'}
                       >
                         {column.visible ? <Eye size={16} /> : <EyeOff size={16} />}
                       </button>
@@ -208,7 +209,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                             ? 'text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/20'
                             : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
-                        title={isTableVisible ? 'Ocultar en tablas' : 'Mostrar en tablas'}
+                        title={isTableVisible ? 'Ocultar en la tabla de precios' : 'Mostrar en la tabla de precios'}
                       >
                         {isTableVisible ? <Table size={16} /> : <EyeOff size={16} />}
                       </button>
@@ -218,14 +219,14 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                         <button
                           onClick={() => onEditColumn(column)}
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                          title="Editar columna"
+                          title="Editar tipo de precio"
                         >
                           <Edit2 size={14} />
                         </button>
                         {isFixedColumn(column) ? (
                           <span
                             className="text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                            title="No se puede eliminar esta columna"
+                            title="Este tipo de precio no se puede eliminar"
                           >
                             <Trash2 size={14} />
                           </span>
@@ -233,7 +234,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
                           <button
                             onClick={() => onDeleteColumn(column.id)}
                             className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
-                            title="Eliminar columna"
+                            title="Eliminar tipo de precio"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -253,11 +254,10 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
               <Info size={16} className="text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
               <div className="text-sm text-blue-800 space-y-1">
                 <p>
-                  <strong>Columna base:</strong> Define el precio de referencia principal que se usa al emitir comprobantes.
-                  Siempre es visible y se edita manualmente.
+                  <strong>Precio base:</strong> Referencia principal del negocio, siempre activo.
                 </p>
                 <p>
-                  <strong>Reglas globales:</strong> Las columnas de descuento y recargo calculan valores desde el precio base y son de solo lectura.
+                  <strong>Descuento global / Aumento global:</strong> Se calculan automáticamente desde el precio base.
                 </p>
               </div>
             </div>

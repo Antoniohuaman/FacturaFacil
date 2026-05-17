@@ -167,7 +167,7 @@ export const ProductPricingTable: React.FC<ProductPricingTableProps> = ({
       <div className="text-center py-8 text-gray-500">
         <div className="text-4xl mb-2">👁️</div>
         <p>No hay columnas visibles en la tabla</p>
-        <p className="text-sm">Ve a "Plantilla de columnas" y activa "Visible en tabla" al menos en una columna</p>
+        <p className="text-sm">Ve a "Tipos de precio" y activa "Mostrar en tabla" al menos en un tipo de precio.</p>
       </div>
     );
   }

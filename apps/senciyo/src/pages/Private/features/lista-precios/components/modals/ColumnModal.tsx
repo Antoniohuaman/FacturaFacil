@@ -130,7 +130,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            {editingColumn ? 'Editar columna' : 'Agregar nueva columna'}
+            {editingColumn ? 'Editar tipo de precio' : 'Agregar tipo de precio'}
           </h3>
           <button
             onClick={handleClose}
@@ -143,7 +143,7 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre de la columna
+              Nombre
             </label>
             <input
               type="text"
@@ -191,12 +191,12 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
           )}
 
           <div>
-            <p className="block text-sm font-medium text-gray-700 mb-2">Visibilidad</p>
+            <p className="block text-sm font-medium text-gray-700 mb-2">Disponibilidad</p>
             <div className="space-y-3">
               <label className="flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg">
                 <div>
-                  <span className="text-sm font-medium text-gray-900">Visible en formularios</span>
-                  <p className="text-xs text-gray-500">Permite usar esta columna al gestionar precios.</p>
+                  <span className="text-sm font-medium text-gray-900">Activo</span>
+                  <p className="text-xs text-gray-500">Permite usar este tipo de precio al gestionar y seleccionar precios.</p>
                 </div>
                 <input
                   type="checkbox"
@@ -208,8 +208,8 @@ export const ColumnModal: React.FC<ColumnModalProps> = ({
 
               <label className="flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg">
                 <div>
-                  <span className="text-sm font-medium text-gray-900">Visible en tabla</span>
-                  <p className="text-xs text-gray-500">Controla si la columna se muestra en la tabla de precios.</p>
+                  <span className="text-sm font-medium text-gray-900">Mostrar en tabla</span>
+                  <p className="text-xs text-gray-500">Muestra esta columna en la tabla principal de precios.</p>
                 </div>
                 <input
                   type="checkbox"
