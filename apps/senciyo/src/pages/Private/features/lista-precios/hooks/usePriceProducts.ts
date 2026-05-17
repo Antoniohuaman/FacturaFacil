@@ -602,6 +602,20 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
             appliedForRow += 1;
           });
 
+          const baseColDef = columns.find(col => col.kind === 'base');
+          const minColDef = columns.find(col => col.kind === 'min-allowed');
+          if (baseColDef && minColDef) {
+            const resultingBase = getFixedPriceValue(targetProduct.prices[baseColDef.id]?.[resolvedUnitCode]);
+            const resultingMin = getFixedPriceValue(targetProduct.prices[minColDef.id]?.[resolvedUnitCode]);
+            if (
+              typeof resultingBase === 'number' &&
+              typeof resultingMin === 'number' &&
+              resultingMin > resultingBase
+            ) {
+              return;
+            }
+          }
+
           if (appliedForRow === 0) {
             return;
           }

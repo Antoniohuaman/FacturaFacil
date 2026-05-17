@@ -326,11 +326,13 @@ const parseRawRows = (
     validateValidityRange(validFrom, validUntil, errors);
 
     const existingBasePrice = getExistingFixedPrice(existingProduct, BASE_COLUMN_ID, unitCode);
+    const existingMinPrice = getExistingFixedPrice(existingProduct, MIN_ALLOWED_COLUMN_ID, unitCode);
+
+    // Base de referencia: precio importado > precio existente en storage > ninguno
+    // null (celda vacía con precio existente = borrado) cae al bloque siguiente
+    // para usar el precio existente como referencia de comparación
     const referenceBaseValue = (() => {
       const nextBaseValue = priceValues[BASE_COLUMN_ID];
-      if (nextBaseValue === null) {
-        return null;
-      }
       if (typeof nextBaseValue === 'number') {
         return nextBaseValue;
       }
@@ -340,13 +342,26 @@ const parseRawRows = (
       return null;
     })();
 
-    const nextMinValue = priceValues[MIN_ALLOWED_COLUMN_ID];
+    // Mínimo efectivo: importado > existente sin cambio > ninguno
+    // null (celda vacía con precio existente = borrado) significa que el mínimo
+    // quedará eliminado, por lo que no puede violar ninguna restricción
+    const effectiveMinValue = (() => {
+      const nextMin = priceValues[MIN_ALLOWED_COLUMN_ID];
+      if (typeof nextMin === 'number') {
+        return nextMin;
+      }
+      if (nextMin === null) {
+        return null;
+      }
+      return existingMinPrice?.type === 'fixed' ? existingMinPrice.value : null;
+    })();
+
     if (
       referenceBaseValue !== null &&
-      typeof nextMinValue === 'number' &&
-      nextMinValue > referenceBaseValue
+      typeof effectiveMinValue === 'number' &&
+      effectiveMinValue > referenceBaseValue
     ) {
-      errors.push('El PRECIO MÍNIMO no puede ser mayor que el PRECIO BASE.');
+      errors.push('El precio mínimo no puede ser mayor que el precio base.');
     }
 
     const status = errors.length > 0 ? 'error' : 'ready';
