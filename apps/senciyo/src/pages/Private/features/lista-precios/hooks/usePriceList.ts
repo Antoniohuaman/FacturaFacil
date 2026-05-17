@@ -82,6 +82,8 @@ export const usePriceList = () => {
 		applyImportedFixedPrices: productsHook.applyImportedFixedPrices,
 		setProductActiveUnit: productsHook.setProductActiveUnit,
 		setSearchSKU: productsHook.setSearchSKU,
+		filtrosPrecios: productsHook.filtrosPrecios,
+		setFiltrosPrecios: productsHook.setFiltrosPrecios,
 		isSKUInCatalog: productsHook.isSKUInCatalog,
 		getCatalogProductBySKU: productsHook.getCatalogProductBySKU,
 		setActiveTab,

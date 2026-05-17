@@ -20,6 +20,7 @@ interface ProductPricingProps {
   catalogProducts?: CatalogProduct[];
   effectivePrices: EffectivePriceMatrix;
   registerAssignHandler?: (handler: (() => void) | null) => void;
+  claveFiltro?: string;
 }
 
 interface SwitchToVolumePayload {
@@ -38,7 +39,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   onUnitChange,
   catalogProducts = [],
   effectivePrices,
-  registerAssignHandler
+  registerAssignHandler,
+  claveFiltro
 }) => {
   const { state: configState } = useConfigurationContext();
   const tableColumns = useMemo(() => (
@@ -203,10 +205,10 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-  // Resetear página cuando cambia el filtro
+  // Resetear página cuando cambia la búsqueda o los filtros
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchSKU]);
+  }, [searchSKU, claveFiltro]);
 
   // Manejador para asignar precio - detecta el tipo según la columna
   const handleAssignPrice = useCallback((column?: Column) => {
@@ -412,6 +414,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
 
   const shouldShowEmptyState = orderedColumns.length > 0 && filteredProducts.length === 0;
   const showNoCatalogProducts = shouldShowEmptyState && products.length === 0;
+  const showNoFilterResults = shouldShowEmptyState && !showNoCatalogProducts && Boolean(claveFiltro);
 
   return (
     <div className="p-5">
@@ -455,6 +458,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
                 <>
                   <p className="font-medium">No hay productos, crea tus productos en el módulo Productos</p>
                   <p className="text-sm mt-1">Registra tus SKU en el módulo Productos para comenzar a asignar precios.</p>
+                </>
+              ) : showNoFilterResults ? (
+                <>
+                  <p className="font-medium">No se encontraron productos con los filtros aplicados</p>
+                  <p className="text-sm mt-1">Prueba ajustando o limpiando los filtros activos.</p>
                 </>
               ) : (
                 <>

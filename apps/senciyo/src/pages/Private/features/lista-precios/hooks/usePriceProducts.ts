@@ -2,9 +2,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price, Column } from '../models/PriceTypes';
 import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/PriceImportTypes';
+import type { FiltrosPrecios } from '../models/filtrosPrecios';
+import { FILTROS_POR_DEFECTO, hayFiltrosActivos } from '../models/filtrosPrecios';
 import { lsKey } from '../utils/tenantHelpers';
-import { buildEffectivePriceMatrix, getFixedPriceValue, getCanonicalColumnId } from '../utils/priceHelpers';
+import { buildEffectivePriceMatrix, getFixedPriceValue, getCanonicalColumnId, aplicarFiltros } from '../utils/priceHelpers';
 import { ensureTenantStorageMigration, readTenantJson, writeTenantJson } from '../utils/storage';
+import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 /**
  * Utilidad para cargar desde localStorage
@@ -125,6 +128,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
     return normalizeStoredProducts(stored, catalogProducts);
   });
   const [searchSKU, setSearchSKU] = useState('');
+  const [filtrosPrecios, setFiltrosPrecios] = useState<FiltrosPrecios>(FILTROS_POR_DEFECTO);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,18 +187,26 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
   }, [products, catalogProducts]);
 
   /**
-   * Productos filtrados por búsqueda (sobre la lista combinada)
+   * Productos filtrados por búsqueda y filtros activos (sobre la lista combinada)
    */
   const filteredProducts = useMemo(() => {
-    if (searchSKU === '') return catalogMergedProducts;
+    let resultado = catalogMergedProducts;
 
-    const searchTerm = searchSKU.toLowerCase().trim();
-    return catalogMergedProducts.filter(product => {
-      const skuMatch = product.sku.toLowerCase().includes(searchTerm);
-      const nameMatch = product.name.toLowerCase().includes(searchTerm);
-      return skuMatch || nameMatch;
-    });
-  }, [catalogMergedProducts, searchSKU]);
+    if (searchSKU.trim() !== '') {
+      const termino = searchSKU.toLowerCase().trim();
+      resultado = resultado.filter(
+        product =>
+          product.sku.toLowerCase().includes(termino) ||
+          product.name.toLowerCase().includes(termino),
+      );
+    }
+
+    if (hayFiltrosActivos(filtrosPrecios)) {
+      resultado = aplicarFiltros(resultado, filtrosPrecios, getBusinessTodayISODate());
+    }
+
+    return resultado;
+  }, [catalogMergedProducts, searchSKU, filtrosPrecios]);
 
   /**
    * Verificar si un SKU existe en el catálogo
@@ -663,9 +675,11 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
     products: catalogMergedProducts,
     filteredProducts,
     searchSKU,
+    filtrosPrecios,
     loading,
     error,
     setSearchSKU,
+    setFiltrosPrecios,
     addOrUpdateProductPrice,
     removeProductPricesForColumn,
     setProductActiveUnit,

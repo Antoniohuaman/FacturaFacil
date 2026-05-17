@@ -8,11 +8,13 @@ import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
 import { ProductPricing } from './ProductPricing';
 import { PriceColumnsManagerButton } from './product-pricing/PriceColumnsManagerButton';
+import { BotonFiltros } from './product-pricing/BotonFiltros';
 import { PackagesTab } from './PackagesTab';
 import { ImportPricesTab, type ExportPricesResult } from './ImportPricesTab';
 import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
 import { isFixedColumn } from '../utils/priceHelpers';
+import { hayFiltrosActivos } from '../models/filtrosPrecios';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
@@ -46,12 +48,14 @@ export const ListaPrecios: React.FC = () => {
     editingColumn,
     selectedProduct,
     searchSKU,
+    filtrosPrecios,
     catalogProducts,
     effectivePrices,
 
     // Actions
     setActiveTab,
     setSearchSKU,
+    setFiltrosPrecios,
     addColumn,
     deleteColumn,
     toggleColumnVisibility,
@@ -292,6 +296,23 @@ export const ListaPrecios: React.FC = () => {
     )
     : undefined;
 
+  const claveFiltro = useMemo(
+    () => hayFiltrosActivos(filtrosPrecios)
+      ? `${filtrosPrecios.vigencia}:${filtrosPrecios.columnaId}:${filtrosPrecios.estado}`
+      : '',
+    [filtrosPrecios],
+  );
+
+  const disparadorFiltros = currentTab === 'products'
+    ? (
+      <BotonFiltros
+        filtros={filtrosPrecios}
+        alCambiar={setFiltrosPrecios}
+        columnas={columns}
+      />
+    )
+    : undefined;
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
@@ -370,6 +391,7 @@ export const ListaPrecios: React.FC = () => {
         exportBusy={currentTab === 'products' ? exportingPrices : undefined}
         exportErrorMessage={currentTab === 'products' ? exportError || undefined : undefined}
         exportDisabledReason={currentTab === 'products' ? exportDisabledReason : undefined}
+        disparadorFiltros={disparadorFiltros}
         columnsManagerTrigger={columnsManagerTrigger}
       />
 
@@ -402,6 +424,7 @@ export const ListaPrecios: React.FC = () => {
             catalogProducts={catalogProducts}
             effectivePrices={effectivePrices}
             registerAssignHandler={registerAssignPriceHandler}
+            claveFiltro={claveFiltro}
           />
         ) : currentTab === 'import' ? (
           <ImportPricesTab
