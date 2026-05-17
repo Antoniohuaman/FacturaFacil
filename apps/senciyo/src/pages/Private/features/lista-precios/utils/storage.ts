@@ -2,6 +2,9 @@ import { lsKey } from './tenantHelpers';
 
 const migratedKeys = new Set<string>();
 
+export const PRICE_DATA_CHANGED_EVENT = 'price-list-data-changed';
+const PRICE_REACTIVE_BASE_KEYS = new Set(['price_list_products', 'price_list_columns']);
+
 type JsonValue = unknown;
 
 const LEGACY_STORAGE_KEYS: Record<string, string[]> = {
@@ -87,6 +90,9 @@ export const writeTenantJson = (baseKey: string, data: JsonValue): void => {
   const key = lsKey(baseKey);
   try {
     localStorage.setItem(key, JSON.stringify(data));
+    if (typeof window !== 'undefined' && PRICE_REACTIVE_BASE_KEYS.has(baseKey)) {
+      window.dispatchEvent(new CustomEvent(PRICE_DATA_CHANGED_EVENT));
+    }
   } catch (error) {
     console.error(`[storage] Error escribiendo ${key}:`, error);
   }

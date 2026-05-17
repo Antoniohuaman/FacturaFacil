@@ -78,6 +78,7 @@ const PuntoVenta = () => {
     applyDiscount,
     clearDiscount,
     getDiscountPreviewTotals,
+    priceErrors,
   } = usePosCartAndTotals();
 
   const {
@@ -600,6 +601,7 @@ const PuntoVenta = () => {
                   autoCobranzaActiva={autoCobranzaValida}
                   autoCobranzaLabel={posConfig.medioPagoLabel}
                   onConfirmAutoCobranza={handleAutoCobranzaClick}
+                  priceErrors={priceErrors}
                 />
               </div>
 

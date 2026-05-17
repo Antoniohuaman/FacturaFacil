@@ -17,6 +17,7 @@ interface CartItemsListProps {
   onRemoveItem: (id: string) => void;
   onUpdateUnit: (id: string, unitCode: string) => void;
   getUnitOptionsForProduct: (sku: string) => ProductUnitOption[];
+  priceErrors?: Record<string, string>;
 }
 
 export const CartItemsList: React.FC<CartItemsListProps> = ({
@@ -29,6 +30,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
   onRemoveItem,
   onUpdateUnit,
   getUnitOptionsForProduct,
+  priceErrors,
 }) => {
   const { state: configState } = useConfigurationContext();
   const resolveItemUnitLabel = (unitCode?: string, unitSymbol?: string, unitName?: string) =>
@@ -190,7 +192,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-4 gap-1.5 items-center">
+              <div className="grid grid-cols-4 gap-1.5 items-start">
                 <div>
                   <div
                     className="flex items-center bg-gray-50 rounded border border-gray-200 overflow-hidden h-7"
@@ -295,7 +297,7 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                         onFocus={(event) => event.target.select()}
                         step="0.01"
                         min="0"
-                        className="w-full h-full pl-6 pr-1 text-[11px] font-semibold text-right bg-white border border-gray-200 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-all no-number-spinner"
+                        className={`w-full h-full pl-6 pr-1 text-[11px] font-semibold text-right bg-white border rounded focus:ring-1 outline-none transition-all no-number-spinner ${priceErrors?.[itemId] ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-blue-500 focus:ring-blue-200'}`}
                         disabled={isProcessing}
                         placeholder="0.00"
                         aria-label="Precio"
@@ -321,6 +323,9 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                   </div>
                 </div>
               </div>
+              {priceErrors?.[itemId] && (
+                <p className="text-[11px] text-red-500 mt-1">{priceErrors[itemId]}</p>
+              )}
             </div>
           );
         })}

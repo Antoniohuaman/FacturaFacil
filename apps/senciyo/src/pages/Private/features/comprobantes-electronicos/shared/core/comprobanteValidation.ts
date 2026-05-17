@@ -150,6 +150,20 @@ export const validateComprobanteNormativa = (
           'Todos los productos deben tener cantidad mayor a 0 y precio unitario mayor a 0.',
       });
     }
+
+    const belowMinItems = input.cartItems.filter(
+      (item) =>
+        typeof item.minAllowedPrice === 'number' &&
+        item.minAllowedPrice > 0 &&
+        (item.price ?? 0) < item.minAllowedPrice,
+    );
+
+    if (belowMinItems.length > 0) {
+      errors.push({
+        field: 'productos',
+        message: 'Uno o más productos tienen un precio inferior al precio mínimo configurado.',
+      });
+    }
   }
 
   if (tipo === 'nota_credito') {

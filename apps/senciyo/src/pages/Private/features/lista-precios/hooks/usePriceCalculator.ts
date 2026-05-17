@@ -1,8 +1,9 @@
 // src/features/lista-precios/hooks/usePriceCalculator.ts
-import { useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Product, Price, PriceCalculation, ProductUnitPrices, Column } from '../models/PriceTypes';
 import { calculatePrice } from '../utils/priceHelpers';
-import { ensureTenantStorageMigration, readTenantJson } from '../utils/storage';
+import { ensureTenantStorageMigration, readTenantJson, PRICE_DATA_CHANGED_EVENT } from '../utils/storage';
+import { lsKey } from '../utils/tenantHelpers';
 
 /**
  * Utilidad para cargar productos con precios desde localStorage
@@ -39,15 +40,34 @@ const loadColumns = () => {
  * ```
  */
 export const usePriceCalculator = () => {
-  // Cargar productos con precios (memoizados)
-  const products = useMemo(() => loadPriceProducts(), []);
-  const columns = useMemo(() => loadColumns(), []);
+  const [products, setProducts] = useState<Product[]>(() => loadPriceProducts());
+  const [columns, setColumns] = useState<Column[]>(() => loadColumns());
+
+  useEffect(() => {
+    const reload = () => {
+      setProducts(loadPriceProducts());
+      setColumns(loadColumns());
+    };
+    const handleStorageChange = (e: StorageEvent) => {
+      const productKey = lsKey('price_list_products');
+      const columnsKey = lsKey('price_list_columns');
+      if (e.key === productKey || e.key === columnsKey) {
+        reload();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener(PRICE_DATA_CHANGED_EVENT, reload);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener(PRICE_DATA_CHANGED_EVENT, reload);
+    };
+  }, []);
 
   /**
    * Obtener columna base
    */
   const baseColumn = useMemo(() => {
-    return columns.find((col: { isBase: boolean }) => col.isBase);
+    return columns.find((col: Column) => col.isBase);
   }, [columns]);
 
   /**

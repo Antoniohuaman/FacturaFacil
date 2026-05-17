@@ -72,6 +72,7 @@ export interface CartCheckoutPanelProps extends CartSidebarProps {
   autoCobranzaActiva?: boolean;
   autoCobranzaLabel?: string | null;
   onConfirmAutoCobranza?: () => void;
+  priceErrors?: Record<string, string>;
 }
 
 const PERCENT_ERROR_MESSAGE = 'El descuento debe ser menor al 100%.';
@@ -125,6 +126,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
   autoCobranzaActiva = false,
   autoCobranzaLabel,
   onConfirmAutoCobranza,
+  priceErrors,
 }) => {
   const { formatPrice, changeCurrency, availableCurrencies } = useCurrency();
   const [showNotes, setShowNotes] = useState(false);
@@ -607,6 +609,7 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                     onRemoveItem={onRemoveItem}
                     onUpdateUnit={onCartItemUnitChange}
                     getUnitOptionsForProduct={getUnitOptionsForProduct}
+                    priceErrors={priceErrors}
                   />
                 </div>
               </div>

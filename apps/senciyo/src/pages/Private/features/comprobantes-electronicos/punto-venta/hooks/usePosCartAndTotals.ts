@@ -117,7 +117,7 @@ export const usePosCartAndTotals = () => {
     updateCartQuantity,
     setCartItemQuantity,
     updateCartItem,
-    updateCartItemPrice,
+    updateCartItemPrice: updateCartItemPriceRaw,
     clearCart,
     setCartItemsFromDraft,
   } = useCart();
@@ -158,6 +158,7 @@ export const usePosCartAndTotals = () => {
     getPreferredUnitForSku,
     getUnitLabelForSku,
     getUnitPriceWithFallback,
+    resolveMinPrice,
   } = usePriceBook();
 
   const priceListOptions: PosPriceListOption[] = useMemo(() => (
@@ -175,6 +176,7 @@ export const usePosCartAndTotals = () => {
   }, [priceListOptions]);
 
   const [selectedPriceListId, setSelectedPriceListId] = useState('');
+  const [priceErrors, setPriceErrors] = useState<Record<string, string>>({});
   const hasHydratedSelectionRef = useRef(false);
 
   useEffect(() => {
@@ -196,6 +198,17 @@ export const usePosCartAndTotals = () => {
       console.warn('[POS] No se pudo guardar la lista de precios seleccionada', error);
     }
   }, [selectedPriceListId]);
+
+  useEffect(() => {
+    const cartItemIds = new Set(cartItems.map(item => item.id));
+    setPriceErrors(prev => {
+      const staleIds = Object.keys(prev).filter(id => !cartItemIds.has(id));
+      if (staleIds.length === 0) return prev;
+      const next = { ...prev };
+      staleIds.forEach(id => delete next[id]);
+      return next;
+    });
+  }, [cartItems]);
 
   const getUnitOptionsForProduct = useCallback(
     (sku: string): ProductUnitOption[] => {
@@ -234,6 +247,10 @@ export const usePosCartAndTotals = () => {
       setIfDifferent('unidadMedida', normalizedUnit);
       setIfDifferent('unit', normalizedUnit);
     }
+
+    const itemMinPrice = resolveMinPrice(sku, normalizedUnit || undefined);
+    const roundedMin = typeof itemMinPrice === 'number' ? roundCurrency(itemMinPrice) : undefined;
+    setIfDifferent('minAllowedPrice', roundedMin);
 
     const shouldSkipPricing = item.isManualPrice && !options?.forceReprice;
     if (shouldSkipPricing) {
@@ -288,7 +305,7 @@ export const usePosCartAndTotals = () => {
     if (Object.keys(updates).length > 0) {
       updateCartItem(item.id, updates);
     }
-  }, [activePriceListLabel, baseColumnId, getPreferredUnitForSku, getUnitPriceWithFallback, resolveSku, selectedPriceListId, updateCartItem]);
+  }, [activePriceListLabel, baseColumnId, getPreferredUnitForSku, getUnitPriceWithFallback, resolveMinPrice, resolveSku, selectedPriceListId, updateCartItem]);
 
   useEffect(() => {
     if (!selectedPriceListId) {
@@ -604,6 +621,35 @@ export const usePosCartAndTotals = () => {
     };
   }, [appliedDiscount, baseCurrencyCode, convertPrice, documentCurrencyCode]);
 
+  const updateCartItemPrice = useCallback((id: string, newPrice: number) => {
+    const item = cartItems.find(i => i.id === id);
+    if (item) {
+      const sku = resolveSku(item);
+      const unitCode = item.unidadMedida || item.unit || '';
+      const minPrice = resolveMinPrice(sku, unitCode || undefined);
+      if (
+        typeof minPrice === 'number' &&
+        Number.isFinite(minPrice) &&
+        minPrice > 0 &&
+        newPrice < minPrice
+      ) {
+        setPriceErrors(prev => ({
+          ...prev,
+          [id]: 'El precio no puede ser menor al precio mínimo configurado.',
+        }));
+        updateCartItemPriceRaw(id, minPrice);
+        return;
+      }
+      setPriceErrors(prev => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+    updateCartItemPriceRaw(id, newPrice);
+  }, [cartItems, resolveMinPrice, resolveSku, updateCartItemPriceRaw]);
+
   const cartActions = useMemo(
     () => ({
       addToCart,
@@ -635,6 +681,7 @@ export const usePosCartAndTotals = () => {
     clearDiscount,
     getDiscountPreviewTotals,
     activePriceListLabel,
+    priceErrors,
     ...cartActions,
   };
 };
