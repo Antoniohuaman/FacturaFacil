@@ -77,7 +77,7 @@ export const ColumnManagement: React.FC<ColumnManagementProps> = ({
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tipos de precio</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Configura cuáles tipos de precio están activos y cómo se usan en cada canal de venta.
+              Define qué precios se usan en POS y comprobantes.
             </p>
           </div>
 

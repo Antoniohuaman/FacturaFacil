@@ -35,19 +35,14 @@ export const PriceColumnsManagerButton: React.FC<PriceColumnsManagerButtonProps>
   ), [columns]);
 
   return (
-    <div className="flex items-center gap-2">
-      <ColumnsManager
-        columns={manageableColumns}
-        onToggleColumn={onToggleColumnVisibility}
-        onResetColumns={onResetColumns}
-        onSelectAllColumns={onSelectAllColumns}
-        onReorderColumns={onReorderColumns}
-        title={`${visibleCount} columnas`}
-        buttonLabel="+ Precios"
-      />
-      <span className="text-[11px] text-gray-500 whitespace-nowrap">
-        {visibleCount} columna{visibleCount === 1 ? '' : 's'} visibles en tabla
-      </span>
-    </div>
+    <ColumnsManager
+      columns={manageableColumns}
+      onToggleColumn={onToggleColumnVisibility}
+      onResetColumns={onResetColumns}
+      onSelectAllColumns={onSelectAllColumns}
+      onReorderColumns={onReorderColumns}
+      title={`${visibleCount} columnas`}
+      buttonLabel="+ Precios"
+    />
   );
 };

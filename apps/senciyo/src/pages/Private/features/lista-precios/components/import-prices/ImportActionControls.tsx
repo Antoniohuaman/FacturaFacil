@@ -42,7 +42,7 @@ export const ImportActionControls: React.FC<ImportActionControlsProps> = ({
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Importar precios desde Excel</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Descarga la plantilla con las columnas visibles en "Precios por producto", completa los valores y súbela nuevamente para actualizar la lista.
+              Descarga, completa y sube la plantilla para actualizar precios.
             </p>
           </div>
         </div>
@@ -54,7 +54,7 @@ export const ImportActionControls: React.FC<ImportActionControlsProps> = ({
             className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${tableColumnsCount === 0 || isParsing
               ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
               : 'text-white bg-blue-600 hover:bg-blue-700'}`}
-            title={disabledMessage}
+            title={disabledMessage ?? 'La plantilla se genera con los precios visibles configurados en Precios por producto.'}
           >
             <Download className="w-4 h-4 mr-2" aria-hidden />
             Descargar plantilla

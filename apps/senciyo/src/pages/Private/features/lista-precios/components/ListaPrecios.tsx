@@ -248,17 +248,15 @@ export const ListaPrecios: React.FC = () => {
     ? 'Activa al menos una columna visible en la tabla para exportar.'
     : undefined;
 
-  const columnsManagerTrigger = currentTab === 'products'
-    ? (
-      <PriceColumnsManagerButton
-        columns={columns}
-        onToggleColumnVisibility={toggleColumnTableVisibility}
-        onReorderColumns={reorderColumns}
-        onResetColumns={resetTableColumns}
-        onSelectAllColumns={selectAllTableColumns}
-      />
-    )
-    : undefined;
+  const columnsManagerTrigger = (
+    <PriceColumnsManagerButton
+      columns={columns}
+      onToggleColumnVisibility={toggleColumnTableVisibility}
+      onReorderColumns={reorderColumns}
+      onResetColumns={resetTableColumns}
+      onSelectAllColumns={selectAllTableColumns}
+    />
+  );
 
   const claveFiltro = useMemo(
     () => hayFiltrosActivos(filtrosPrecios)
@@ -267,15 +265,13 @@ export const ListaPrecios: React.FC = () => {
     [filtrosPrecios],
   );
 
-  const disparadorFiltros = currentTab === 'products'
-    ? (
-      <BotonFiltros
-        filtros={filtrosPrecios}
-        alCambiar={setFiltrosPrecios}
-        columnas={columns}
-      />
-    )
-    : undefined;
+  const disparadorFiltros = (
+    <BotonFiltros
+      filtros={filtrosPrecios}
+      alCambiar={setFiltrosPrecios}
+      columnas={columns}
+    />
+  );
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -343,21 +339,21 @@ export const ListaPrecios: React.FC = () => {
       </div>
 
       {/* Summary Bar */}
-      <SummaryBar
-        columns={columns}
-        onAssignPrice={handleAssignPriceFromSummary}
-        viewMode={currentTab}
-        searchSKU={currentTab === 'products' ? searchSKU : undefined}
-        onSearchChange={currentTab === 'products' ? setSearchSKU : undefined}
-        filteredProductsCount={currentTab === 'products' ? filteredProducts.length : undefined}
-        onExportPrices={currentTab === 'products' ? handleExportVisibleFromMain : undefined}
-        exportDisabled={currentTab === 'products' ? exportDisabled : undefined}
-        exportBusy={currentTab === 'products' ? exportingPrices : undefined}
-        exportErrorMessage={currentTab === 'products' ? exportError || undefined : undefined}
-        exportDisabledReason={currentTab === 'products' ? exportDisabledReason : undefined}
-        disparadorFiltros={disparadorFiltros}
-        columnsManagerTrigger={columnsManagerTrigger}
-      />
+      {currentTab === 'products' && (
+        <SummaryBar
+          onAssignPrice={handleAssignPriceFromSummary}
+          searchSKU={searchSKU}
+          onSearchChange={setSearchSKU}
+          filteredProductsCount={filteredProducts.length}
+          onExportPrices={handleExportVisibleFromMain}
+          exportDisabled={exportDisabled}
+          exportBusy={exportingPrices}
+          exportErrorMessage={exportError || undefined}
+          exportDisabledReason={exportDisabledReason}
+          disparadorFiltros={disparadorFiltros}
+          columnsManagerTrigger={columnsManagerTrigger}
+        />
+      )}
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
