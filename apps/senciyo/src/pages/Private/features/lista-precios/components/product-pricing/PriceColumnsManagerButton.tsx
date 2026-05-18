@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ColumnsManager, type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import type { Column } from '../../models/PriceTypes';
-import { getColumnDisplayName } from '../../utils/priceHelpers';
+import { getColumnDisplayName, isGlobalColumn } from '../../utils/priceHelpers';
 
 interface PriceColumnsManagerButtonProps {
   columns: Column[];
@@ -20,7 +20,7 @@ export const PriceColumnsManagerButton: React.FC<PriceColumnsManagerButtonProps>
 }) => {
   const manageableColumns: ColumnsManagerColumn[] = useMemo(() => (
     columns
-      .filter(column => column.visible !== false)
+      .filter(column => !isGlobalColumn(column) && column.visible !== false)
       .sort((a, b) => a.order - b.order)
       .map(column => ({
         id: column.id,
@@ -31,7 +31,7 @@ export const PriceColumnsManagerButton: React.FC<PriceColumnsManagerButtonProps>
   ), [columns]);
 
   const visibleCount = useMemo(() => (
-    columns.filter(column => column.visible !== false && column.isVisibleInTable !== false).length
+    columns.filter(column => !isGlobalColumn(column) && column.visible !== false && column.isVisibleInTable !== false).length
   ), [columns]);
 
   return (
@@ -43,6 +43,7 @@ export const PriceColumnsManagerButton: React.FC<PriceColumnsManagerButtonProps>
         onSelectAllColumns={onSelectAllColumns}
         onReorderColumns={onReorderColumns}
         title={`${visibleCount} columnas`}
+        buttonLabel="+ Precios"
       />
       <span className="text-[11px] text-gray-500 whitespace-nowrap">
         {visibleCount} columna{visibleCount === 1 ? '' : 's'} visibles en tabla

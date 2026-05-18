@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/contasis';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
-import type { Column, NewColumnForm, Product } from '../models/PriceTypes';
+import type { NewColumnForm, Product } from '../models/PriceTypes';
 import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
@@ -13,7 +13,6 @@ import { PackagesTab } from './PackagesTab';
 import { ImportPricesTab, type ExportPricesResult } from './ImportPricesTab';
 import { ColumnModal } from './modals/ColumnModal';
 import { PriceModal } from './modals/PriceModal';
-import { isFixedColumn } from '../utils/priceHelpers';
 import { hayFiltrosActivos } from '../models/filtrosPrecios';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
@@ -56,10 +55,13 @@ export const ListaPrecios: React.FC = () => {
     setActiveTab,
     setSearchSKU,
     setFiltrosPrecios,
-    addColumn,
-    deleteColumn,
-    toggleColumnVisibility,
+    configCanales,
+    setPredeterminadoPOS,
+    setPredeterminadoComprobantes,
+    toggleColumnVisible,
     toggleColumnTableVisibility,
+    toggleUsarEnPOS,
+    toggleUsarEnComprobantes,
     reorderColumns,
     resetTableColumns,
     selectAllTableColumns,
@@ -106,49 +108,11 @@ export const ListaPrecios: React.FC = () => {
     }
   }, [currentTab, exportError]);
 
-  const handleSaveColumn = useCallback((data: NewColumnForm) => {
-    const trimmedName = data.name.trim();
-    if (!trimmedName && !editingColumn) {
-      return false;
-    }
-
-    const nextVisible = typeof data.visible === 'boolean' ? data.visible : true;
-    const nextTableVisibility = data.isVisibleInTable !== false;
-
-    if (editingColumn) {
-      const isFixed = isFixedColumn(editingColumn);
-      const updates: Partial<Column> = {
-        visible: nextVisible,
-        isVisibleInTable: nextTableVisibility
-      };
-
-      if (!isFixed) {
-        updates.name = trimmedName;
-      }
-
-      if (!isFixed && editingColumn.kind === 'manual') {
-        updates.mode = data.mode;
-      }
-
-      if (editingColumn.kind === 'global-discount' || editingColumn.kind === 'global-increase') {
-        updates.globalRuleType = data.globalRuleType;
-        updates.globalRuleValue = typeof data.globalRuleValue === 'number'
-          ? Math.max(data.globalRuleValue, 0)
-          : null;
-      }
-
-      updateColumn(editingColumn.id, updates);
-      return true;
-    }
-
-    return addColumn({
-      name: trimmedName,
-      mode: data.mode,
-      visible: nextVisible,
-      isVisibleInTable: nextTableVisibility,
-      kind: 'manual'
-    });
-  }, [addColumn, editingColumn, updateColumn]);
+  const handleSaveColumn = useCallback((data: NewColumnForm): boolean => {
+    if (!editingColumn || !data.name.trim()) return false;
+    updateColumn(editingColumn.id, { name: data.name.trim() });
+    return true;
+  }, [editingColumn, updateColumn]);
 
   const exportVisiblePrices = useCallback((productsToExport?: Product[]): ExportPricesResult => {
     if (tableColumnConfigs.length === 0) {
@@ -407,11 +371,13 @@ export const ListaPrecios: React.FC = () => {
         ) : currentTab === 'columns' ? (
           <ColumnManagement
             columns={columns}
-            onAddColumn={() => openColumnModal()}
+            configCanales={configCanales}
             onEditColumn={(column) => openColumnModal(column)}
-            onDeleteColumn={deleteColumn}
-            onToggleVisibility={toggleColumnVisibility}
-            onToggleTableVisibility={toggleColumnTableVisibility}
+            onToggleEstado={toggleColumnVisible}
+            onToggleUsarEnPOS={toggleUsarEnPOS}
+            onToggleUsarEnComprobantes={toggleUsarEnComprobantes}
+            onSetPredeterminadoPOS={setPredeterminadoPOS}
+            onSetPredeterminadoComprobantes={setPredeterminadoComprobantes}
           />
         ) : currentTab === 'products' ? (
           <ProductPricing

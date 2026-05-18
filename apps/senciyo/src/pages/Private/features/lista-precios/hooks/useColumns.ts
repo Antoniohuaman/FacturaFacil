@@ -1,17 +1,9 @@
 // src/features/lista-precios/hooks/useColumns.ts
 import { useState, useEffect, useCallback } from 'react';
-import type { Column, NewColumnForm } from '../models/PriceTypes';
+import type { Column } from '../models/PriceTypes';
 import {
-  generateColumnId,
-  getNextOrder,
   ensureRequiredColumns,
-  MANUAL_COLUMN_LIMIT,
-  countManualColumns,
-  isGlobalColumn,
-  isProductDiscountColumn,
-  isMinAllowedColumn,
   isFixedColumn,
-  BASE_COLUMN_ID,
   getDefaultTableVisibility,
   getDefaultColumnOrder
 } from '../utils/priceHelpers';
@@ -26,7 +18,6 @@ export const useColumns = () => {
     ensureTenantStorageMigration('price_list_columns');
     return ensureRequiredColumns(readTenantJson<Column[]>('price_list_columns', []));
   });
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const applyColumnsUpdate = useCallback((updater: (prev: Column[]) => Column[]) => {
@@ -54,92 +45,6 @@ export const useColumns = () => {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
-
-  /**
-   * Agregar nueva columna
-   */
-  const addColumn = useCallback(async (newColumnData: NewColumnForm): Promise<boolean> => {
-    if (!newColumnData.name.trim()) {
-      setError('El nombre de la columna es requerido');
-      return false;
-    }
-
-    const manualCount = countManualColumns(columns);
-    if (manualCount >= MANUAL_COLUMN_LIMIT) {
-      setError(`Has alcanzado el límite de ${MANUAL_COLUMN_LIMIT} columnas manuales`);
-      return false;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Simular operación async (futuro API call)
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const newId = generateColumnId(columns);
-      const newOrder = getNextOrder(columns);
-
-      const newColumn: Column = {
-        id: newId,
-        name: newColumnData.name.trim(),
-        mode: newColumnData.mode,
-        visible: newColumnData.visible,
-        isVisibleInTable: newColumnData.isVisibleInTable ?? true,
-        isBase: false,
-        order: newOrder,
-        kind: 'manual'
-      };
-
-      applyColumnsUpdate(prev => [...prev, newColumn]);
-      return true;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido al agregar columna';
-      console.error('[useColumns] Error adding column:', err);
-      setError(errorMessage);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [columns, applyColumnsUpdate]);
-
-  /**
-   * Eliminar columna
-   */
-  const deleteColumn = useCallback((columnId: string): boolean => {
-    const column = columns.find(c => c.id === columnId);
-
-    if (!column) {
-      setError('Columna no encontrada');
-      return false;
-    }
-
-    if (column.isBase) {
-      setError('No se puede eliminar la columna base');
-      return false;
-    }
-
-    if (isGlobalColumn(column)) {
-      setError('Las columnas globales son obligatorias');
-      return false;
-    }
-
-    if (isProductDiscountColumn(column) || isMinAllowedColumn(column) || isFixedColumn(column)) {
-      setError('Esta columna fija es obligatoria');
-      return false;
-    }
-
-    try {
-      applyColumnsUpdate(prev => prev.filter(c => c.id !== columnId));
-      setError(null);
-      return true;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al eliminar columna';
-      console.error('[useColumns] Error deleting column:', err);
-      setError(errorMessage);
-      return false;
-    }
-  }, [columns, applyColumnsUpdate]);
 
   /**
    * Alternar visibilidad de columna
@@ -200,56 +105,66 @@ export const useColumns = () => {
   }, [applyColumnsUpdate]);
 
   /**
-   * Establecer columna base
-   */
-  const setBaseColumn = useCallback((columnId: string): void => {
-    if (columnId !== BASE_COLUMN_ID) {
-      setError('La columna base es fija y no se puede reasignar');
-    }
-  }, [setError]);
-
-  /**
    * Actualizar columna
    */
   const updateColumn = useCallback((columnId: string, updates: Partial<Column>): void => {
     applyColumnsUpdate(prev => prev.map(col => {
       if (col.id !== columnId) return col;
-
-      if (isFixedColumn(col)) {
-        const next: Column = { ...col };
-        if (typeof updates.visible === 'boolean') {
-          next.visible = updates.visible;
-        }
-        if (typeof updates.isVisibleInTable === 'boolean') {
-          next.isVisibleInTable = updates.isVisibleInTable;
-        }
-        if (updates.globalRuleType) {
-          next.globalRuleType = updates.globalRuleType;
-        }
-        if (updates.globalRuleValue !== undefined) {
-          if (updates.globalRuleValue === null) {
-            next.globalRuleValue = null;
-          } else if (typeof updates.globalRuleValue === 'number' && Number.isFinite(updates.globalRuleValue)) {
-            next.globalRuleValue = Math.max(updates.globalRuleValue, 0);
-          }
-        }
-        return next;
-      }
-
       const next: Column = { ...col };
-      if (typeof updates.name === 'string') {
-        next.name = updates.name;
+
+      // Nombre: siempre editable
+      if (typeof updates.name === 'string' && updates.name.trim()) {
+        next.name = updates.name.trim();
       }
-      if (updates.mode === 'fixed' || updates.mode === 'volume') {
-        next.mode = updates.mode;
-      }
+
       if (typeof updates.visible === 'boolean') {
         next.visible = updates.visible;
       }
+
       if (typeof updates.isVisibleInTable === 'boolean') {
         next.isVisibleInTable = updates.isVisibleInTable;
       }
+
+      if (typeof updates.usarEnPuntoVenta === 'boolean') {
+        next.usarEnPuntoVenta = updates.usarEnPuntoVenta;
+      }
+      if (typeof updates.usarEnComprobantes === 'boolean') {
+        next.usarEnComprobantes = updates.usarEnComprobantes;
+      }
+
+      // Regla global (interno, para compatibilidad P8/P9)
+      if (updates.globalRuleType) {
+        next.globalRuleType = updates.globalRuleType;
+      }
+      if (updates.globalRuleValue !== undefined) {
+        if (updates.globalRuleValue === null) {
+          next.globalRuleValue = null;
+        } else if (typeof updates.globalRuleValue === 'number' && Number.isFinite(updates.globalRuleValue)) {
+          next.globalRuleValue = Math.max(updates.globalRuleValue, 0);
+        }
+      }
+
       return next;
+    }));
+  }, [applyColumnsUpdate]);
+
+  /**
+   * Alternar uso en Punto de Venta
+   */
+  const toggleColumnPOSUsage = useCallback((columnId: string): void => {
+    applyColumnsUpdate(prev => prev.map(col => {
+      if (col.id !== columnId) return col;
+      return { ...col, usarEnPuntoVenta: !(col.usarEnPuntoVenta !== false) };
+    }));
+  }, [applyColumnsUpdate]);
+
+  /**
+   * Alternar uso en Comprobantes
+   */
+  const toggleColumnComprobantesUsage = useCallback((columnId: string): void => {
+    applyColumnsUpdate(prev => prev.map(col => {
+      if (col.id !== columnId) return col;
+      return { ...col, usarEnComprobantes: !(col.usarEnComprobantes !== false) };
     }));
   }, [applyColumnsUpdate]);
 
@@ -262,17 +177,15 @@ export const useColumns = () => {
 
   return {
     columns,
-    loading,
     error,
-    addColumn,
-    deleteColumn,
     toggleColumnVisibility,
     toggleColumnTableVisibility,
     reorderColumns,
     resetTableColumns,
     selectAllTableColumns,
-    setBaseColumn,
     updateColumn,
+    toggleColumnPOSUsage,
+    toggleColumnComprobantesUsage,
     clearError
   };
 };

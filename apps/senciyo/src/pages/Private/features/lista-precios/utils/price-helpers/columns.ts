@@ -10,8 +10,9 @@ export const PREFERRED_COLUMN_ID = 'P6';
 export const PROMOTIONAL_COLUMN_ID = 'P7';
 export const GLOBAL_DISCOUNT_COLUMN_ID = 'P8';
 export const GLOBAL_INCREASE_COLUMN_ID = 'P9';
-export const MANUAL_COLUMN_LIMIT = 10;
-
+export const OTROS_1_COLUMN_ID = 'P10';
+export const OTROS_2_COLUMN_ID = 'P11';
+export const OTROS_3_COLUMN_ID = 'P12';
 const MANUAL_COLUMN_ID_PATTERN = /^P(\d+)$/i;
 
 type FixedColumnDefinition = {
@@ -25,6 +26,8 @@ type FixedColumnDefinition = {
   defaultVisibleInTable?: boolean;
   defaultMode?: Column['mode'];
   helpText?: string;
+  defaultUsarEnPuntoVenta?: boolean;
+  defaultUsarEnComprobantes?: boolean;
 };
 
 const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
@@ -37,7 +40,9 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultVisible: true,
     defaultVisibleInTable: true,
     defaultMode: 'fixed',
-    helpText: 'Precio de referencia principal definido manualmente.'
+    helpText: 'Precio de referencia principal definido manualmente.',
+    defaultUsarEnPuntoVenta: true,
+    defaultUsarEnComprobantes: true,
   },
   {
     id: MIN_ALLOWED_COLUMN_ID,
@@ -46,10 +51,12 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultName: 'PRECIO MÍNIMO',
     kind: 'min-allowed',
     isBase: false,
-    defaultVisible: true,
+    defaultVisible: false,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Valor mínimo permitido para aplicar descuentos.'
+    helpText: 'Valor mínimo permitido para aplicar descuentos.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
   },
   {
     id: WHOLESALE_COLUMN_ID,
@@ -58,10 +65,12 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultName: 'PRECIO MAYORISTA',
     kind: 'manual',
     isBase: false,
-    defaultVisible: true,
+    defaultVisible: false,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Precio manual para ventas al por mayor.'
+    helpText: 'Precio manual para ventas al por mayor.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
   },
   {
     id: DISTRIBUTOR_COLUMN_ID,
@@ -69,10 +78,12 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultName: 'PRECIO DISTRIBUIDOR',
     kind: 'manual',
     isBase: false,
-    defaultVisible: true,
+    defaultVisible: false,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Lista especial para socios distribuidores.'
+    helpText: 'Lista especial para socios distribuidores.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
   },
   {
     id: CORPORATE_COLUMN_ID,
@@ -80,10 +91,12 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultName: 'PRECIO CORPORATIVO',
     kind: 'manual',
     isBase: false,
-    defaultVisible: true,
+    defaultVisible: false,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Tarifa fija para cuentas corporativas.'
+    helpText: 'Tarifa fija para cuentas corporativas.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
   },
   {
     id: PREFERRED_COLUMN_ID,
@@ -92,10 +105,12 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultName: 'PRECIO PREFERENCIAL',
     kind: 'manual',
     isBase: false,
-    defaultVisible: true,
+    defaultVisible: false,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Precio exclusivo para clientes frecuentes.'
+    helpText: 'Precio exclusivo para clientes frecuentes.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
   },
   {
     id: PROMOTIONAL_COLUMN_ID,
@@ -104,10 +119,12 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultName: 'PRECIO PROMOCIONAL',
     kind: 'manual',
     isBase: false,
-    defaultVisible: true,
+    defaultVisible: false,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Precio especial para campañas y ofertas.'
+    helpText: 'Precio especial para campañas y ofertas.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
   },
   {
     id: GLOBAL_DISCOUNT_COLUMN_ID,
@@ -119,7 +136,9 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultVisible: true,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Aplicación automática de un descuento sobre el precio base.'
+    helpText: 'Aplicación automática de un descuento sobre el precio base.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
   },
   {
     id: GLOBAL_INCREASE_COLUMN_ID,
@@ -131,8 +150,49 @@ const FIXED_COLUMN_DEFINITIONS: FixedColumnDefinition[] = [
     defaultVisible: true,
     defaultVisibleInTable: false,
     defaultMode: 'fixed',
-    helpText: 'Aplicación automática de un recargo sobre el precio base.'
-  }
+    helpText: 'Aplicación automática de un recargo sobre el precio base.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
+  },
+  {
+    id: OTROS_1_COLUMN_ID,
+    order: 10,
+    defaultName: 'OTROS 1',
+    kind: 'manual',
+    isBase: false,
+    defaultVisible: false,
+    defaultVisibleInTable: false,
+    defaultMode: 'fixed',
+    helpText: 'Precio manual personalizable.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
+  },
+  {
+    id: OTROS_2_COLUMN_ID,
+    order: 11,
+    defaultName: 'OTROS 2',
+    kind: 'manual',
+    isBase: false,
+    defaultVisible: false,
+    defaultVisibleInTable: false,
+    defaultMode: 'fixed',
+    helpText: 'Precio manual personalizable.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
+  },
+  {
+    id: OTROS_3_COLUMN_ID,
+    order: 12,
+    defaultName: 'OTROS 3',
+    kind: 'manual',
+    isBase: false,
+    defaultVisible: false,
+    defaultVisibleInTable: false,
+    defaultMode: 'fixed',
+    helpText: 'Precio manual personalizable.',
+    defaultUsarEnPuntoVenta: false,
+    defaultUsarEnComprobantes: false,
+  },
 ];
 
 const fixedColumnMap = new Map(FIXED_COLUMN_DEFINITIONS.map(def => [def.id, def] as const));
@@ -161,7 +221,7 @@ const buildFixedColumn = (definition: FixedColumnDefinition, existing?: Column):
     : definition.order;
   const column: Column = {
     id: definition.id,
-    name: definition.defaultName,
+    name: existing?.name ?? definition.defaultName,
     mode: definition.defaultMode ?? 'fixed',
     visible: typeof existing?.visible === 'boolean' ? existing.visible : definition.defaultVisible !== false,
     isVisibleInTable: typeof existing?.isVisibleInTable === 'boolean'
@@ -173,13 +233,18 @@ const buildFixedColumn = (definition: FixedColumnDefinition, existing?: Column):
   };
 
   if (definition.isBase) {
-    column.visible = true;
     column.isVisibleInTable = true;
   }
 
   if (definition.kind === 'global-discount' || definition.kind === 'global-increase') {
     column.globalRuleType = existing?.globalRuleType ?? 'percent';
     column.globalRuleValue = normalizeGlobalRuleValue(existing?.globalRuleValue);
+  }
+
+  // Disponibilidad por canal: respeta valores guardados; globals no tienen opciones de canal
+  if (definition.kind !== 'global-discount' && definition.kind !== 'global-increase') {
+    column.usarEnPuntoVenta = existing?.usarEnPuntoVenta ?? definition.defaultUsarEnPuntoVenta ?? false;
+    column.usarEnComprobantes = existing?.usarEnComprobantes ?? definition.defaultUsarEnComprobantes ?? false;
   }
 
   return column;
@@ -275,9 +340,7 @@ export const getDefaultColumnOrder = (columnId: string): number | undefined => {
   return getFixedColumnDefinition(columnId)?.order;
 };
 
-export const getColumnDisplayName = (column: Column): string => {
-  return getFixedColumnDefinition(column.id)?.defaultName ?? column.name;
-};
+export const getColumnDisplayName = (column: Column): string => column.name;
 
 export const ensureRequiredColumns = (columns: Column[]): Column[] => {
   const normalized = columns
@@ -331,14 +394,6 @@ export const isProductDiscountColumn = (column: Column): boolean => column.kind 
 export const isMinAllowedColumn = (column: Column): boolean => column.kind === 'min-allowed';
 export const isManualInputColumn = (column: Column): boolean =>
   column.kind === 'manual' || isProductDiscountColumn(column) || isMinAllowedColumn(column);
-
-export const countColumnsByMode = (columns: Column[], mode: 'fixed' | 'volume'): number => {
-  return columns.filter(c => c.mode === mode).length;
-};
-
-export const countManualColumns = (columns: Column[]): number => {
-  return columns.filter(column => column.kind === 'manual' && !isFixedColumn(column)).length;
-};
 
 export const validateColumnConfiguration = (columns: Column[]): {
   hasBase: boolean;

@@ -248,7 +248,7 @@ export const usePosCartAndTotals = () => {
       setIfDifferent('unit', normalizedUnit);
     }
 
-    const itemMinPrice = resolveMinPrice(sku, normalizedUnit || undefined);
+    const itemMinPrice = resolveMinPrice(sku, normalizedUnit || undefined, 'pos');
     const roundedMin = typeof itemMinPrice === 'number' ? roundCurrency(itemMinPrice) : undefined;
     setIfDifferent('minAllowedPrice', roundedMin);
 
@@ -626,7 +626,7 @@ export const usePosCartAndTotals = () => {
     if (item) {
       const sku = resolveSku(item);
       const unitCode = item.unidadMedida || item.unit || '';
-      const minPrice = resolveMinPrice(sku, unitCode || undefined);
+      const minPrice = resolveMinPrice(sku, unitCode || undefined, 'pos');
       if (
         typeof minPrice === 'number' &&
         Number.isFinite(minPrice) &&

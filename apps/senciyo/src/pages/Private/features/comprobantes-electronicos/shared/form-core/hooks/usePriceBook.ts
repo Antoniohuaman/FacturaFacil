@@ -57,7 +57,9 @@ const resolvePriceValue = (price: Price | undefined): number | undefined => {
 
 const salesColumnPredicate = (column: Column): boolean => {
   if (!column.visible) return false;
-  return column.kind === 'base' || column.kind === 'manual';
+  if (column.kind === 'base') return true;
+  if (column.kind !== 'manual') return false;
+  return column.usarEnComprobantes !== false;
 };
 
 const isPositiveNumber = (value?: number): value is number => {
@@ -319,8 +321,11 @@ export const usePriceBook = () => {
     return baseOption?.code || options[0].code;
   }, [coerceUnitCode, unitOptionsBySku]);
 
-  const resolveMinPrice = useCallback((sku: string, unitCode?: string): number | undefined => {
+  const resolveMinPrice = useCallback((sku: string, unitCode?: string, canal: 'pos' | 'comprobantes' = 'comprobantes'): number | undefined => {
     if (!minPriceColumn) return undefined;
+    if (!minPriceColumn.visible) return undefined;
+    if (canal === 'comprobantes' && minPriceColumn.usarEnComprobantes === false) return undefined;
+    if (canal === 'pos' && minPriceColumn.usarEnPuntoVenta === false) return undefined;
     const result = getUnitPriceWithFallback({ sku, selectedUnitCode: unitCode, priceListId: minPriceColumn.id });
     return result.hasPrice ? result.price : undefined;
   }, [getUnitPriceWithFallback, minPriceColumn]);

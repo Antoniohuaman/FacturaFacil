@@ -18,6 +18,8 @@ export interface Column {
   kind: ColumnKind;
   globalRuleType?: GlobalRuleType;
   globalRuleValue?: number | null;
+  usarEnPuntoVenta?: boolean;
+  usarEnComprobantes?: boolean;
 }
 
 // Para precios fijos
@@ -65,13 +67,6 @@ export interface Product {
 
 export interface NewColumnForm {
   name: string;
-  mode: 'fixed' | 'volume';
-  visible: boolean;
-  isVisibleInTable?: boolean;
-  isBase?: boolean;
-  kind?: ColumnKind;
-  globalRuleType?: GlobalRuleType;
-  globalRuleValue?: number | null;
 }
 
 // Para el formulario de precio fijo

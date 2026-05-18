@@ -8,7 +8,10 @@ export interface PriceProfileOption {
 }
 
 const isVendibleColumn = (column: Column): boolean => {
-  return column.visible && column.kind === 'manual';
+  if (!column.visible) return false;
+  if (column.kind === 'base') return true;
+  if (column.kind !== 'manual') return false;
+  return column.usarEnPuntoVenta !== false;
 };
 
 const sortColumns = (columns: Column[]): Column[] => {
