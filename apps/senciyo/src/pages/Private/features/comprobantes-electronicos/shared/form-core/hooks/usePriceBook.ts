@@ -55,11 +55,11 @@ const resolvePriceValue = (price: Price | undefined): number | undefined => {
   return sortedRanges[0]?.price;
 };
 
-const salesColumnPredicate = (column: Column): boolean => {
+const salesColumnPredicate = (column: Column, canal: 'pos' | 'comprobantes'): boolean => {
   if (!column.visible) return false;
   if (column.kind === 'base') return true;
   if (column.kind !== 'manual') return false;
-  return column.usarEnComprobantes !== false;
+  return canal === 'pos' ? column.usarEnPuntoVenta !== false : column.usarEnComprobantes !== false;
 };
 
 const isPositiveNumber = (value?: number): value is number => {
@@ -82,7 +82,7 @@ const getUnitFactorFromCatalog = (product: CatalogProduct | undefined, targetUni
   return undefined;
 };
 
-export const usePriceBook = () => {
+export const usePriceBook = (canal: 'pos' | 'comprobantes' = 'comprobantes') => {
   const { columns, products } = usePriceCalculator();
   const { allProducts: catalogProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
@@ -91,9 +91,9 @@ export const usePriceBook = () => {
 
   const selectableColumns = useMemo<Column[]>(() => {
     return columns
-      .filter((column: Column) => salesColumnPredicate(column))
+      .filter((column: Column) => salesColumnPredicate(column, canal))
       .sort((a: Column, b: Column) => a.order - b.order);
-  }, [columns]);
+  }, [columns, canal]);
 
   const minPriceColumn = useMemo<Column | undefined>(() => columns.find((column: Column) => isMinAllowedColumn(column)), [columns]);
   const globalDiscountColumn = useMemo<Column | undefined>(() => columns.find((column: Column) => column.kind === 'global-discount'), [columns]);

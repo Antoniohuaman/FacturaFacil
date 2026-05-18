@@ -159,7 +159,7 @@ export const usePosCartAndTotals = () => {
     getUnitLabelForSku,
     getUnitPriceWithFallback,
     resolveMinPrice,
-  } = usePriceBook();
+  } = usePriceBook('pos');
 
   const priceListOptions: PosPriceListOption[] = useMemo(() => (
     priceColumns.map((column) => ({

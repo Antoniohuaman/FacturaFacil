@@ -67,7 +67,7 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
     addProduct,
     categories: catalogCategories
   } = useProductStore();
-  const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook();
+  const { baseColumnId, getPriceOptionsFor, hasSelectableColumns } = usePriceBook('comprobantes');
   const EstablecimientoId = useCurrentEstablecimientoId();
   const { session } = useUserSession();
   const { state: { almacenes } } = useConfigurationContext();

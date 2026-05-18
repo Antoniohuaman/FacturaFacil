@@ -430,7 +430,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     getPriceOptionsFor,
     resolveMinPrice,
     getUnitPriceWithFallback
-  } = usePriceBook();
+  } = usePriceBook('comprobantes');
 
   const { allProducts: catalogProducts } = useProductStore();
 
@@ -707,7 +707,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         : undefined;
       const selectedOption = item.isManualPrice ? undefined : (currentOption || preferredOption || fallbackOption);
 
-      const minPrice = hasSelectableColumns ? resolveMinPrice(sku, unitCode) : undefined;
+      const minPrice = hasSelectableColumns ? resolveMinPrice(sku, unitCode, 'comprobantes') : undefined;
       const roundedMin = typeof minPrice === 'number' ? roundCurrency(minPrice) : undefined;
 
       if (typeof roundedMin === 'number') {

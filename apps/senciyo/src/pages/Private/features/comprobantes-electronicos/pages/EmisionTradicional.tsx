@@ -75,6 +75,7 @@ import {
   type SaleDocumentType,
 } from '../../gestion-clientes/utils/saleClienteMapping';
 import { onlyDigits } from '../../gestion-clientes/utils/documents';
+import { useConfigCanales } from '../../lista-precios/hooks/useConfigCanales';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import type { Product as CatalogProduct } from '../../catalogo-articulos/models/types';
 import {
@@ -458,6 +459,7 @@ const EmisionTradicional = () => {
   const creditTemplatesBackupRef = useRef<CreditInstallmentDefinition[] | null>(null);
 
   const { createCliente } = useClientes();
+  const { configCanales } = useConfigCanales();
   const { allProducts: catalogProducts } = useProductStore();
   const catalogLookup = useMemo(() => {
     const map = new Map<string, CatalogProduct>();
@@ -937,7 +939,7 @@ const EmisionTradicional = () => {
     };
   }, [clienteSeleccionadoGlobal]);
 
-  const preferredPriceColumnId = clienteSeleccionadoGlobal?.priceProfileId;
+  const preferredPriceColumnId = clienteSeleccionadoGlobal?.priceProfileId ?? configCanales.predeterminadoComprobantes;
 
   const buildCobranzaValidationInput = useCallback(() => ({
     tipoComprobante,
