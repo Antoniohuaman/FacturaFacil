@@ -257,7 +257,7 @@ export const usePosCartAndTotals = () => {
       setIfDifferent('presentacionId', presCode);
     }
 
-    const itemMinPrice = resolveMinPrice(sku, normalizedUnit || undefined, 'pos');
+    const itemMinPrice = resolveMinPrice(sku, resolvedOptionCode || undefined, 'pos');
     const roundedMin = typeof itemMinPrice === 'number' ? roundCurrency(itemMinPrice) : undefined;
     setIfDifferent('minAllowedPrice', roundedMin);
 
@@ -272,7 +272,7 @@ export const usePosCartAndTotals = () => {
     const targetColumn = selectedPriceListId || baseColumnId;
     const priceResult = getUnitPriceWithFallback({
       sku,
-      selectedUnitCode: normalizedUnit,
+      selectedUnitCode: resolvedOptionCode,
       priceListId: targetColumn,
     });
 

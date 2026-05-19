@@ -421,7 +421,7 @@ export const useCart = (): UseCartReturn => {
       const existing = prev.find(item => item.id === id);
       if (existing && Number.isFinite(newPrice) && newPrice > 0) {
         const sku = (existing.code || String(existing.id)).trim();
-        const unitCode = String(existing.unidadMedida || existing.unit || '').trim();
+        const unitCode = String(existing.presentacionId || existing.unidadMedida || existing.unit || '').trim();
         learnBasePriceIfMissing({
           sku,
           unitCode,

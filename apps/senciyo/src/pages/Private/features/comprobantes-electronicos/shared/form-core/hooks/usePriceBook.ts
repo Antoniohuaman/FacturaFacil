@@ -244,6 +244,21 @@ export const usePriceBook = (canal: 'pos' | 'comprobantes' = 'comprobantes') => 
       };
     }
 
+    // Backward compat: precio almacenado en clave SUNAT simple antes de la migración PRICE_KEY
+    if (normalizedSelectedUnit.includes('__')) {
+      const sunatPart = normalizedSelectedUnit.split('__')[0];
+      const sunatPriceValue = resolvePriceValue(columnPrices[sunatPart]);
+      if (typeof sunatPriceValue === 'number') {
+        return {
+          price: roundCurrency(sunatPriceValue),
+          hasPrice: true,
+          hasExplicitPrice: true,
+          usedUnitCode: normalizedSelectedUnit,
+          usedColumnId: columnId,
+        };
+      }
+    }
+
     const baseUnitCode = coerceUnitCode(catalogProduct?.unidad)
       || coerceUnitCode(priceBookProduct.activeUnitCode)
       || '';

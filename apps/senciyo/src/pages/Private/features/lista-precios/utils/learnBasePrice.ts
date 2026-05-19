@@ -9,6 +9,12 @@ type StoredProduct = Omit<Product, 'prices'> & {
 
 const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 
+const normalizeUnitKey = (code: string): string => {
+  const sep = code.indexOf('__');
+  if (sep >= 0) return `${code.slice(0, sep).toUpperCase()}__${code.slice(sep + 2)}`;
+  return code.toUpperCase();
+};
+
 const isPriceObject = (value: unknown): value is Price => {
   if (!value || typeof value !== 'object') return false;
   const maybe = value as { type?: unknown };
@@ -46,7 +52,7 @@ export function learnBasePriceIfMissing(params: {
 }): void {
   try {
     const sku = String(params.sku ?? '').trim();
-    const unitCode = String(params.unitCode ?? '').trim().toUpperCase();
+    const unitCode = normalizeUnitKey(String(params.unitCode ?? '').trim());
     const rawValue = params.value;
 
     if (!sku || !unitCode) return;
@@ -77,7 +83,7 @@ export function learnBasePriceIfMissing(params: {
       nextProduct.name = (params.productName ?? '').trim() || sku;
     }
 
-    const activeUnit = (nextProduct.activeUnitCode || unitCode).toUpperCase();
+    const activeUnit = normalizeUnitKey(nextProduct.activeUnitCode || unitCode);
     nextProduct.activeUnitCode = nextProduct.activeUnitCode || activeUnit;
 
     const rawPrices = (nextProduct.prices ?? {}) as Record<string, unknown>;
@@ -101,7 +107,7 @@ export function learnBasePriceIfMissing(params: {
         const nextUnitPrices: Record<string, Price> = { ...(normalizedPrices[canonical] || {}) };
         Object.entries(unitEntries).forEach(([unit, unitPrice]) => {
           if (isPriceObject(unitPrice)) {
-            nextUnitPrices[String(unit).toUpperCase()] = unitPrice;
+            nextUnitPrices[normalizeUnitKey(String(unit))] = unitPrice;
           }
         });
         normalizedPrices[canonical] = nextUnitPrices;
