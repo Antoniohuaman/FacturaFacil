@@ -22,7 +22,12 @@ export type FormError = {
   defaultTaxLabel?: string;
 };
 
-export type AdditionalUnitError = { unidad?: string; factor?: string };
+export type AdditionalUnitError = {
+  nombre?: string;
+  unidad?: string;
+  factor?: string;
+  factorWarning?: string;
+};
 
 interface UseProductFormParams {
   isOpen: boolean;
@@ -39,6 +44,25 @@ interface UseProductFormParams {
   defaultTaxLabel?: string;
   prefillName?: string;
 }
+
+const generatePresentationId = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `pres-${crypto.randomUUID()}`;
+  }
+  return `pres-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+};
+
+const generateDefaultNombre = (
+  unitName: string | undefined,
+  unitCode: string,
+  factor: number
+): string => {
+  const label = unitName || unitCode;
+  const factorStr = Number.isInteger(factor)
+    ? String(factor)
+    : parseFloat(factor.toFixed(4)).toString();
+  return `${label} x ${factorStr}`;
+};
 
 const buildDefaultFormData = (
   defaultUnit: Product['unidad'],
@@ -292,13 +316,9 @@ export const useProductForm = ({
   const isUsingFallbackUnits = filteredUnitsForFamily.length === 0 && sortedVisibleUnits.length > 0;
 
   const remainingUnitsForAdditional = useMemo(() => {
-    const usedCodes = new Set<string>([
-      formData.unidad,
-      ...formData.unidadesMedidaAdicionales.map(unit => unit.unidadCodigo)
-    ]);
-    const allowedOptions = filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
-    return allowedOptions.filter(unit => !usedCodes.has(unit.code));
-  }, [formData.unidad, formData.unidadesMedidaAdicionales, filteredUnitsForFamily, sortedVisibleUnits]);
+    // Se permite repetir unidades; se retornan todas las disponibles para la familia
+    return filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
+  }, [filteredUnitsForFamily, sortedVisibleUnits]);
 
   const findUnitByCode = useCallback(
     (code?: string) => {
@@ -415,23 +435,20 @@ export const useProductForm = ({
   );
 
   const addAdditionalUnit = useCallback(() => {
-    if (remainingUnitsForAdditional.length === 0) return;
-    const nextUnit = remainingUnitsForAdditional[0];
-    const snapshot = resolveUnitSnapshot(nextUnit.code);
     setFormData(prev => ({
       ...prev,
       unidadesMedidaAdicionales: [
         ...prev.unidadesMedidaAdicionales,
         {
-          unidadCodigo: nextUnit.code,
-          factorConversion: 1,
-          unidadSymbol: snapshot.symbol,
-          unidadName: snapshot.name
+          id: generatePresentationId(),
+          nombre: '',
+          unidadCodigo: '',
+          factorConversion: 0
         }
       ]
     }));
     setAdditionalUnitErrors(prev => [...prev, {}]);
-  }, [remainingUnitsForAdditional, resolveUnitSnapshot]);
+  }, []);
 
   const removeAdditionalUnit = useCallback((index: number) => {
     setFormData(prev => ({
@@ -442,25 +459,25 @@ export const useProductForm = ({
   }, []);
 
   const updateAdditionalUnit = useCallback(
-    (index: number, field: 'unidadCodigo' | 'factorConversion', value: string) => {
+    (index: number, field: 'nombre' | 'unidadCodigo' | 'factorConversion', value: string) => {
       setFormData(prev => ({
         ...prev,
         unidadesMedidaAdicionales: prev.unidadesMedidaAdicionales.map((unit, i) =>
           i === index
             ? (() => {
                 if (field === 'factorConversion') {
+                  return { ...unit, factorConversion: Number(value) };
+                }
+                if (field === 'unidadCodigo') {
+                  const snapshot = resolveUnitSnapshot(value);
                   return {
                     ...unit,
-                    factorConversion: Number(value)
+                    unidadCodigo: value,
+                    unidadSymbol: snapshot.symbol,
+                    unidadName: snapshot.name
                   };
                 }
-                const snapshot = resolveUnitSnapshot(value);
-                return {
-                  ...unit,
-                  unidadCodigo: value,
-                  unidadSymbol: snapshot.symbol,
-                  unidadName: snapshot.name
-                };
+                return { ...unit, nombre: value };
               })()
             : unit
         )
@@ -471,8 +488,11 @@ export const useProductForm = ({
         const target = { ...(next[index] || {}) };
         if (field === 'factorConversion') {
           delete target.factor;
-        } else {
+          delete target.factorWarning;
+        } else if (field === 'unidadCodigo') {
           delete target.unidad;
+        } else {
+          delete target.nombre;
         }
         next[index] = target;
         return next;
@@ -482,17 +502,11 @@ export const useProductForm = ({
   );
 
   const getAdditionalUnitOptions = useCallback(
-    (rowIndex: number) => {
-      const allowedOptions = filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
-      return allowedOptions.filter(unit => {
-        if (unit.code === formData.unidad) return false;
-        return (
-          unit.code === formData.unidadesMedidaAdicionales[rowIndex]?.unidadCodigo ||
-          !formData.unidadesMedidaAdicionales.some((other, idx) => idx !== rowIndex && other.unidadCodigo === unit.code)
-        );
-      });
+    (): Unit[] => {
+      // Se permiten unidades repetidas entre presentaciones; se devuelven todas las disponibles
+      return filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
     },
-    [filteredUnitsForFamily, sortedVisibleUnits, formData.unidad, formData.unidadesMedidaAdicionales]
+    [filteredUnitsForFamily, sortedVisibleUnits]
   );
 
   useEffect(() => {
@@ -555,6 +569,10 @@ export const useProductForm = ({
     (productData: Product) => {
       const additionalUnits =
         productData.unidadesMedidaAdicionales?.map(unit => ({
+          id: unit.id || generatePresentationId(),
+          nombre:
+            unit.nombre ||
+            generateDefaultNombre(unit.unidadName, unit.unidadCodigo, unit.factorConversion),
           unidadCodigo: unit.unidadCodigo,
           factorConversion: unit.factorConversion,
           unidadSymbol: unit.unidadSymbol,
@@ -718,28 +736,35 @@ export const useProductForm = ({
       newErrors.tipoExistencia = 'El tipo de existencia es requerido';
     }
 
-    const seenUnits = new Set<string>();
+    const seenComposites = new Set<string>();
     formData.unidadesMedidaAdicionales.forEach((unit, index) => {
       const rowErrors: AdditionalUnitError = {};
 
-      if (!unit.unidadCodigo) {
-        rowErrors.unidad = 'Selecciona una unidad';
-      } else {
-        if (unit.unidadCodigo === formData.unidad) {
-          rowErrors.unidad = 'No puede coincidir con la unidad base';
-        } else if (seenUnits.has(unit.unidadCodigo)) {
-          rowErrors.unidad = 'Unidad repetida';
-        } else if (!isUsingFallbackUnits) {
-          const resolved = availableUnits.find(item => item.code === unit.unidadCodigo);
-          if (resolved && resolved.category !== selectedUnitFamily) {
-            rowErrors.unidad = 'No coincide con la familia seleccionada';
-          }
-        }
-        seenUnits.add(unit.unidadCodigo);
+      if (!unit.nombre || !unit.nombre.trim()) {
+        rowErrors.nombre = 'El nombre de presentación es requerido';
       }
 
-      if (!unit.factorConversion || unit.factorConversion <= 0) {
+      if (!unit.unidadCodigo) {
+        rowErrors.unidad = 'Selecciona una unidad comercial SUNAT';
+      }
+
+      const factor = unit.factorConversion;
+      if (!factor || !Number.isFinite(factor) || factor <= 0) {
         rowErrors.factor = 'El campo "Contiene" debe ser mayor a 0';
+      } else if (factor === 1) {
+        rowErrors.factorWarning = 'Verifica si esta presentación realmente equivale a 1 unidad base.';
+      } else if (factor < 1) {
+        rowErrors.factorWarning =
+          'Esta presentación representa una fracción de la unidad base. Úsala solo si realmente vendes o mueves el producto fraccionado.';
+      }
+
+      // Detectar duplicado exacto: mismo nombre + unidadCodigo + factor
+      if (unit.nombre?.trim() && unit.unidadCodigo && factor > 0 && Number.isFinite(factor)) {
+        const composite = `${unit.nombre.trim().toLowerCase()}|${unit.unidadCodigo.toUpperCase()}|${factor}`;
+        if (seenComposites.has(composite)) {
+          rowErrors.nombre = 'Presentación duplicada (mismo nombre, unidad y contenido)';
+        }
+        seenComposites.add(composite);
       }
 
       newAdditionalUnitErrors[index] = rowErrors;
@@ -748,17 +773,16 @@ export const useProductForm = ({
     setErrors(newErrors);
     setAdditionalUnitErrors(newAdditionalUnitErrors);
 
-    const hasAdditionalErrors = newAdditionalUnitErrors.some(row => row.unidad || row.factor);
+    const hasAdditionalErrors = newAdditionalUnitErrors.some(
+      row => row.nombre || row.unidad || row.factor
+    );
     return Object.keys(newErrors).length === 0 && !hasAdditionalErrors;
   }, [
     allProducts,
     formData,
     isFieldRequired,
     isFieldVisible,
-    product,
-    availableUnits,
-    isUsingFallbackUnits,
-    selectedUnitFamily
+    product
   ]);
 
   const handleSubmit = useCallback(

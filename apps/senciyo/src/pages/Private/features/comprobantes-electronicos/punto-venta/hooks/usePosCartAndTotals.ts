@@ -43,23 +43,16 @@ const buildCatalogUnitOptions = (
     options.push({ code: baseCode, isBase: true });
   }
 
-  product.unidadesMedidaAdicionales?.forEach((u: NonNullable<CatalogProduct['unidadesMedidaAdicionales']>[number]) => {
-    if (u?.unidadCodigo) {
-      options.push({ code: u.unidadCodigo, isBase: false });
+  product.unidadesMedidaAdicionales?.forEach(
+    (u: NonNullable<CatalogProduct['unidadesMedidaAdicionales']>[number]) => {
+      if (!u?.unidadCodigo) return;
+      // Código compuesto para distinguir presentaciones con el mismo código SUNAT
+      const code = u.id ? `${u.unidadCodigo}__${u.id}` : u.unidadCodigo;
+      options.push({ code, isBase: false });
     }
-  });
+  );
 
-  const dedup = new Map<string, CatalogUnit>();
-  options.forEach((opt) => {
-    const existing = dedup.get(opt.code);
-    if (!existing) {
-      dedup.set(opt.code, opt);
-    } else if (opt.isBase && !existing.isBase) {
-      dedup.set(opt.code, opt);
-    }
-  });
-
-  return Array.from(dedup.values()).map((opt) => ({
+  return options.map((opt) => ({
     ...opt,
     label: getUnitLabelForSku(sku, opt.code) || opt.code
   }));
@@ -236,7 +229,20 @@ export const usePosCartAndTotals = () => {
     if (!sku) {
       return;
     }
-    const normalizedUnit = getPreferredUnitForSku(sku, unitCode || item.unidadMedida || item.unit);
+
+    // Resolver código de opción (puede ser compuesto "BX__pres-abc123" o simple "NIU")
+    const resolvedOptionCode = getPreferredUnitForSku(
+      sku,
+      unitCode || item.presentacionId || item.unidadMedida || item.unit
+    );
+
+    // Separar código SUNAT (para unidadMedida/XML) del código compuesto (para factor)
+    const sunatCode = resolvedOptionCode.includes('__')
+      ? resolvedOptionCode.split('__')[0]
+      : resolvedOptionCode;
+    const presCode = resolvedOptionCode.includes('__') ? resolvedOptionCode : undefined;
+    const normalizedUnit = sunatCode;
+
     const updates: Partial<CartItem> = {};
     const setIfDifferent = <K extends keyof CartItem>(key: K, value: CartItem[K]) => {
       if (item[key] !== value) {
@@ -246,6 +252,9 @@ export const usePosCartAndTotals = () => {
     if (normalizedUnit && normalizedUnit !== item.unidadMedida) {
       setIfDifferent('unidadMedida', normalizedUnit);
       setIfDifferent('unit', normalizedUnit);
+    }
+    if (item.presentacionId !== presCode) {
+      setIfDifferent('presentacionId', presCode);
     }
 
     const itemMinPrice = resolveMinPrice(sku, normalizedUnit || undefined, 'pos');

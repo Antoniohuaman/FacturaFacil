@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Plus, Info, X, MinusCircle, HelpCircle } from 'lucide-react';
+import { Layers, Plus, Info, X, MinusCircle, HelpCircle, AlertTriangle } from 'lucide-react';
 import type { Unit } from '../../../configuracion-sistema/modelos';
 import type { ProductFormData } from '../../models/types';
 import type { AdditionalUnitError } from '../../hooks/useProductForm';
@@ -12,8 +12,12 @@ interface ProductAdditionalUnitsTableProps {
   additionalUnitErrors: AdditionalUnitError[];
   addAdditionalUnit: () => void;
   removeAdditionalUnit: (index: number) => void;
-  updateAdditionalUnit: (index: number, field: 'unidadCodigo' | 'factorConversion', value: string) => void;
-  getAdditionalUnitOptions: (rowIndex: number) => Unit[];
+  updateAdditionalUnit: (
+    index: number,
+    field: 'nombre' | 'unidadCodigo' | 'factorConversion',
+    value: string
+  ) => void;
+  getAdditionalUnitOptions: () => Unit[];
   remainingUnitsForAdditional: Unit[];
   findUnitByCode: (code?: string) => Unit | undefined;
   formatFactorValue: (value?: number) => string;
@@ -31,7 +35,6 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
   removeAdditionalUnit,
   updateAdditionalUnit,
   getAdditionalUnitOptions,
-  remainingUnitsForAdditional,
   findUnitByCode,
   formatFactorValue,
   unitInfoMessage,
@@ -39,16 +42,22 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
   showCheck,
   renderCheck
 }) => {
+  const baseUnit = findUnitByCode(baseUnitCode);
+  const baseUnitLabel = baseUnit ? resolveUnitLabelText(baseUnit) : baseUnitCode || '—';
+
   return (
     <div className="mt-4 space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-medium text-gray-800">
           <Layers className="w-3.5 h-3.5 text-violet-600" />
-          <span>Presentaciones comerciales</span>
-          <Tooltip contenido="Crea equivalencias: caja = 12 unidades, pack = 6, etc." ubicacion="derecha">
+          <span>Presentaciones de venta</span>
+          <Tooltip
+            contenido="Define cómo vendes este producto. Cada presentación se convertirá a la unidad base para controlar stock y futuro Kardex."
+            ubicacion="derecha"
+          >
             <button
               type="button"
-              aria-label="Ayuda: Presentaciones comerciales"
+              aria-label="Ayuda: Presentaciones de venta"
               className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
             >
               <HelpCircle className="w-4 h-4" />
@@ -56,17 +65,14 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
           </Tooltip>
           {showCheck && renderCheck?.('ml-2')}
         </div>
-        <Tooltip contenido="Crea equivalencias: caja = 12 unidades, pack = 6, etc." ubicacion="izquierda">
-          <button
-            type="button"
-            onClick={addAdditionalUnit}
-            disabled={remainingUnitsForAdditional.length === 0}
-            className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-700 disabled:text-gray-400 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 rounded-sm"
-            aria-label="Ayuda: Agregar presentación"
-          >
-            <Plus className="w-3 h-3" /> Agregar presentación
-          </button>
-        </Tooltip>
+        <button
+          type="button"
+          onClick={addAdditionalUnit}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 rounded-sm"
+          aria-label="Agregar presentación de venta"
+        >
+          <Plus className="w-3 h-3" /> Agregar presentación
+        </button>
       </div>
 
       {unitInfoMessage && (
@@ -87,88 +93,137 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
       {unidadesMedidaAdicionales.length > 0 && (
         <div className="divide-y divide-gray-100 border border-gray-100 rounded-md">
           {unidadesMedidaAdicionales.map((unit, index) => {
-            const options = getAdditionalUnitOptions(index);
-            const baseUnit = findUnitByCode(baseUnitCode);
-            const baseUnitLabel = baseUnit ? resolveUnitLabelText(baseUnit) : baseUnitCode || '—';
+            const options = getAdditionalUnitOptions();
             const selectedUnit = findUnitByCode(unit.unidadCodigo);
-            const selectedUnitLabel = selectedUnit ? resolveUnitLabelText(selectedUnit) : unit.unidadCodigo;
+            const selectedUnitLabel = selectedUnit
+              ? resolveUnitLabelText(selectedUnit)
+              : unit.unidadCodigo || '—';
+            const presentationLabel = unit.nombre?.trim() || selectedUnitLabel;
             const conversionText =
-              unit.unidadCodigo && unit.factorConversion
-                ? `1 ${selectedUnitLabel} = ${formatFactorValue(unit.factorConversion)} ${baseUnitLabel}`
-                : 'Selecciona unidad y completa "Contiene" para ver la conversión.';
+              unit.nombre?.trim() && unit.unidadCodigo && unit.factorConversion > 0
+                ? `1 ${presentationLabel} = ${formatFactorValue(unit.factorConversion)} ${baseUnitLabel}`
+                : 'Completa nombre, unidad y contenido para ver la fórmula.';
+
+            const err = additionalUnitErrors[index] || {};
 
             return (
-              <div key={`extra-unit-${index}`} className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-2 items-start p-2 text-xs">
-                <div>
-                  <label className="text-[11px] font-medium text-gray-600 mb-1 block">Unidad</label>
-                  <select
-                    value={unit.unidadCodigo}
-                    onChange={(e) => updateAdditionalUnit(index, 'unidadCodigo', e.target.value)}
-                    className={`w-full h-8 rounded-md border text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${
-                      additionalUnitErrors[index]?.unidad ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Seleccionar</option>
-                    {options.map(option => (
-                      <option key={option.id} value={option.code}>
-                        {resolveUnitLabelText(option)}
-                      </option>
-                    ))}
-                  </select>
-                  {additionalUnitErrors[index]?.unidad && (
-                    <p className="text-red-600 text-[11px] mt-1">{additionalUnitErrors[index]?.unidad}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium text-gray-600 mb-1 flex items-center gap-2">
-                    <span>Contiene</span>
-                    <Tooltip contenido="Cantidad de unidades mínimas que incluye esta presentación." ubicacion="derecha">
-                      <button
-                        type="button"
-                        aria-label="Ayuda: Contiene"
-                        className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+              <div key={unit.id || `pres-${index}`} className="p-2 text-xs space-y-2">
+                <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.75fr)_auto] gap-2 items-start">
+                  {/* Nombre de presentación */}
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-600 mb-1 block">
+                      Nombre de presentación
+                    </label>
+                    <input
+                      type="text"
+                      value={unit.nombre}
+                      onChange={(e) => updateAdditionalUnit(index, 'nombre', e.target.value)}
+                      placeholder="Ej: Caja x 12"
+                      className={`w-full h-8 rounded-md border text-xs px-3 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${
+                        err.nombre ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                    />
+                    {err.nombre && (
+                      <p className="text-red-600 text-[11px] mt-1">{err.nombre}</p>
+                    )}
+                  </div>
+
+                  {/* Unidad comercial SUNAT */}
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-600 mb-1 flex items-center gap-1">
+                      <span>Unidad SUNAT</span>
+                      <Tooltip
+                        contenido="Unidad de medida SUNAT que se usará en comprobantes y XML."
+                        ubicacion="derecha"
                       >
-                        <HelpCircle className="w-4 h-4" />
-                      </button>
-                    </Tooltip>
-                  </label>
-                  <div className="relative">
+                        <button
+                          type="button"
+                          aria-label="Ayuda: Unidad SUNAT"
+                          className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
+                    </label>
+                    <select
+                      value={unit.unidadCodigo}
+                      onChange={(e) => updateAdditionalUnit(index, 'unidadCodigo', e.target.value)}
+                      className={`w-full h-8 rounded-md border text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${
+                        err.unidad ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="">Seleccionar</option>
+                      {options.map((option) => (
+                        <option key={option.id} value={option.code}>
+                          {resolveUnitLabelText(option)}
+                        </option>
+                      ))}
+                    </select>
+                    {err.unidad && (
+                      <p className="text-red-600 text-[11px] mt-1">{err.unidad}</p>
+                    )}
+                  </div>
+
+                  {/* Contiene */}
+                  <div>
+                    <label className="text-[11px] font-medium text-gray-600 mb-1 flex items-center gap-1">
+                      <span>Contiene</span>
+                      <Tooltip
+                        contenido={`Cuántas ${baseUnitLabel} hay en 1 presentación. Ej: 1 Caja x 12 = 12 ${baseUnitLabel}.`}
+                        ubicacion="izquierda"
+                      >
+                        <button
+                          type="button"
+                          aria-label="Ayuda: Contiene"
+                          className="inline-flex items-center justify-center rounded-sm text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
+                    </label>
                     <input
                       type="number"
                       min="0.0001"
                       step="0.0001"
-                      value={unit.factorConversion ?? ''}
-                      onChange={(e) => updateAdditionalUnit(index, 'factorConversion', e.target.value)}
-                      className={`w-full h-8 rounded-md border text-xs pl-3 pr-5 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${
-                        additionalUnitErrors[index]?.factor ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      value={unit.factorConversion || ''}
+                      onChange={(e) =>
+                        updateAdditionalUnit(index, 'factorConversion', e.target.value)
+                      }
+                      className={`w-full h-8 rounded-md border text-xs px-2 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${
+                        err.factor ? 'border-red-300 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="0"
                     />
-                    <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-gray-500">
-                      {baseUnitLabel}
-                    </span>
+                    {err.factor && (
+                      <p className="text-red-600 text-[11px] mt-1">{err.factor}</p>
+                    )}
                   </div>
-                  {additionalUnitErrors[index]?.factor && (
-                    <p className="text-red-600 text-[11px] mt-1">{additionalUnitErrors[index]?.factor}</p>
-                  )}
+
+                  {/* Eliminar */}
+                  <button
+                    type="button"
+                    onClick={() => removeAdditionalUnit(index)}
+                    className="mt-6 inline-flex items-center text-gray-400 hover:text-red-500"
+                    aria-label="Eliminar presentación"
+                  >
+                    <MinusCircle className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeAdditionalUnit(index)}
-                  className="mt-6 inline-flex items-center text-gray-400 hover:text-red-500"
-                  aria-label="Eliminar presentación"
-                >
-                  <MinusCircle className="w-4 h-4" />
-                </button>
-                <div className="col-span-3 text-[10px] text-gray-500 pt-1">{conversionText}</div>
+
+                {/* Advertencia no bloqueante de factor */}
+                {err.factorWarning && (
+                  <div className="flex items-start gap-1.5 text-[11px] text-amber-700">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                    <span>{err.factorWarning}</span>
+                  </div>
+                )}
+
+                {/* Fórmula de conversión */}
+                <div className="text-[10px] text-gray-500">{conversionText}</div>
               </div>
             );
           })}
         </div>
-      )}
-
-      {remainingUnitsForAdditional.length === 0 && unidadesMedidaAdicionales.length > 0 && (
-        <p className="text-[11px] text-gray-500">Ya agregaste todas las unidades disponibles para esta familia.</p>
       )}
     </div>
   );

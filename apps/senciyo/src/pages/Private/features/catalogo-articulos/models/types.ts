@@ -1,6 +1,8 @@
 // src/features/catalogo-articulos/models/types.ts
 
 export interface AdditionalUnitMeasure {
+  id: string;
+  nombre: string;
   unidadCodigo: string;
   factorConversion: number;
   unidadSymbol?: string;

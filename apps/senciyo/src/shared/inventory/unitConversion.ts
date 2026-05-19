@@ -1,4 +1,9 @@
 import type { Product as CatalogProduct } from '../../pages/Private/features/catalogo-articulos/models/types';
+import {
+  esCodigoPresentacion,
+  extraerCodigoSunat,
+  extraerPresentacionId
+} from '../units/codigoPresentacion';
 
 const DEFAULT_UNIT_CODE = '';
 
@@ -26,11 +31,19 @@ export const resolveUnidadMinima = (product?: CatalogProduct | null): string => 
   return normalizeUnitCode(product?.unidad) || DEFAULT_UNIT_CODE;
 };
 
-const findAdditionalUnit = (product: CatalogProduct | undefined | null, normalizedCode: string | undefined) => {
-  if (!product || !normalizedCode) {
-    return undefined;
-  }
-  return product.unidadesMedidaAdicionales?.find(unit => normalizeUnitCode(unit.unidadCodigo) === normalizedCode);
+const findAdditionalUnit = (
+  product: CatalogProduct | undefined | null,
+  codeOrId: string | undefined
+) => {
+  if (!product || !codeOrId) return undefined;
+  // Busca primero por id exacto (código compuesto extraído o presentacionId directo)
+  const byId = product.unidadesMedidaAdicionales?.find(unit => unit.id === codeOrId);
+  if (byId) return byId;
+  // Luego por código SUNAT normalizado
+  const normalizedCode = normalizeUnitCode(codeOrId);
+  return product.unidadesMedidaAdicionales?.find(
+    unit => normalizeUnitCode(unit.unidadCodigo) === normalizedCode
+  );
 };
 
 export const getFactorToUnidadMinima = (
@@ -40,11 +53,26 @@ export const getFactorToUnidadMinima = (
   const unidadMinima = resolveUnidadMinima(product);
   const normalizedRequested = normalizeUnitCode(unitCode) || unidadMinima;
 
-  if (normalizedRequested === unidadMinima) {
-    return 1;
+  if (normalizedRequested === unidadMinima) return 1;
+
+  // Si es código compuesto (ej: "BX__pres-abc123"), extraer presentacionId para búsqueda exacta
+  if (unitCode && esCodigoPresentacion(unitCode)) {
+    const presId = extraerPresentacionId(unitCode);
+    if (presId) {
+      const byId = product?.unidadesMedidaAdicionales?.find(u => u.id === presId);
+      if (byId) {
+        const factor = toNumber(byId.factorConversion);
+        return isPositive(factor) ? factor : 1;
+      }
+    }
+    // Si no encontró por id, intentar por código SUNAT extraído
+    const sunatCode = extraerCodigoSunat(unitCode);
+    const match = findAdditionalUnit(product, sunatCode);
+    const factor = toNumber(match?.factorConversion);
+    return isPositive(factor) ? factor : 1;
   }
 
-  const match = findAdditionalUnit(product, normalizedRequested);
+  const match = findAdditionalUnit(product, unitCode ?? undefined);
   const factor = toNumber(match?.factorConversion);
   return isPositive(factor) ? factor : 1;
 };
@@ -102,4 +130,22 @@ export const ensureUnitCode = (
   fallback?: string
 ): string => {
   return normalizeUnitCode(requested) || normalizeUnitCode(fallback) || DEFAULT_UNIT_CODE;
+};
+
+// Dada una unidad (puede ser código SUNAT o código compuesto de presentación),
+// devuelve el código SUNAT real que debe ir en el XML/comprobante.
+export const resolveSunatUnitCode = (
+  product: CatalogProduct | null | undefined,
+  unitCode: string | null | undefined
+): string => {
+  if (!unitCode) return '';
+  if (esCodigoPresentacion(unitCode)) {
+    const presId = extraerPresentacionId(unitCode);
+    if (presId) {
+      const match = product?.unidadesMedidaAdicionales?.find(u => u.id === presId);
+      if (match) return normalizeUnitCode(match.unidadCodigo) || extraerCodigoSunat(unitCode);
+    }
+    return extraerCodigoSunat(unitCode);
+  }
+  return unitCode;
 };

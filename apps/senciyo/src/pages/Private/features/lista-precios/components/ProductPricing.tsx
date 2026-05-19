@@ -88,6 +88,18 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   const getUnitDisplay = useCallback((sku: string, code: string): string => {
     if (!code) return '';
     const catalogProduct = catalogProducts.find(product => product.codigo === sku);
+
+    // Código compuesto de presentación: buscar por id y retornar nombre
+    if (code.includes('__')) {
+      const presId = code.slice(code.indexOf('__') + 2) || undefined;
+      if (presId && catalogProduct) {
+        const byId = catalogProduct.unidadesMedidaAdicionales?.find(u => u.id === presId);
+        if (byId?.nombre) return byId.nombre;
+      }
+      const sunatCode = code.split('__')[0];
+      return getUnitDisplayForUI({ units: configState.units, code: sunatCode }) || sunatCode;
+    }
+
     if (!catalogProduct) {
       return getUnitDisplayForUI({ units: configState.units, code }) || code;
     }
@@ -102,7 +114,9 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       );
     }
     const additional = catalogProduct.unidadesMedidaAdicionales?.find(unit => unit.unidadCodigo === code);
-    if (!additional) return code;
+    if (!additional) return getUnitDisplayForUI({ units: configState.units, code }) || code;
+    // Preferir nombre de presentación cuando está disponible
+    if (additional.nombre) return additional.nombre;
     return (
       getUnitDisplayForUI({
         units: configState.units,
@@ -129,13 +143,25 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
       });
     };
 
+    // Códigos SUNAT cubiertos por presentaciones (evitar duplicados en opciones)
+    const sunatCodesEnPresentaciones = new Set<string>();
     if (catalogProduct) {
       addOption(catalogProduct.unidad, true);
-      catalogProduct.unidadesMedidaAdicionales?.forEach(unit => addOption(unit.unidadCodigo, false, unit.factorConversion));
+      catalogProduct.unidadesMedidaAdicionales?.forEach(unit => {
+        const optionCode =
+          unit?.id && unit?.unidadCodigo
+            ? `${unit.unidadCodigo}__${unit.id}`
+            : unit?.unidadCodigo;
+        addOption(optionCode, false, unit.factorConversion);
+        if (unit?.unidadCodigo) sunatCodesEnPresentaciones.add(unit.unidadCodigo.trim().toUpperCase());
+      });
     }
 
+    // Solo agregar códigos del libro de precios que no estén cubiertos por presentaciones
     Object.values(product.prices).forEach(unitPrices => {
-      Object.keys(unitPrices).forEach(code => addOption(code));
+      Object.keys(unitPrices).forEach(code => {
+        if (!sunatCodesEnPresentaciones.has(code.trim().toUpperCase())) addOption(code);
+      });
     });
 
     if (list.length === 0) {
@@ -153,11 +179,13 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   }, [resolveActiveUnit]);
 
   const handleUnitSelect = useCallback((product: Product, unitCode: string) => {
-    if (resolveActiveUnit(product) === unitCode) {
+    // Los precios en el libro se indexan por código SUNAT; extraer si es código compuesto
+    const effectiveCode = unitCode.includes('__') ? unitCode.split('__')[0] : unitCode;
+    if (resolveActiveUnit(product) === effectiveCode) {
       setUnitMenuOpenSku(null);
       return;
     }
-    onUnitChange(product.sku, unitCode);
+    onUnitChange(product.sku, effectiveCode);
     setUnitMenuOpenSku(null);
   }, [onUnitChange, resolveActiveUnit]);
 

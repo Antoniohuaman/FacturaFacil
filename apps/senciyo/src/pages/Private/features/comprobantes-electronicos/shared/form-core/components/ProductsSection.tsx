@@ -44,20 +44,16 @@ const buildCatalogUnitOptions = (
   const options: UnitOption[] = [];
 
   if (product.unidad) {
-    const code = product.unidad ?? '';
-    if (code) {
-      options.push({ code, label: getUnitLabelForSku(sku, code), isBase: true });
-    }
+    const code = product.unidad;
+    options.push({ code, label: getUnitLabelForSku(sku, code), isBase: true });
   }
 
   const presentationUnits = product?.unidadesMedidaAdicionales ?? [];
   presentationUnits.forEach((u) => {
     if (!u?.unidadCodigo) return;
-    const code = u.unidadCodigo;
-    const exists = options.some((opt) => opt.code === code);
-    if (!exists) {
-      options.push({ code, label: getUnitLabelForSku(sku, code) });
-    }
+    // Código compuesto para distinguir presentaciones con el mismo código SUNAT
+    const code = u.id ? `${u.unidadCodigo}__${u.id}` : u.unidadCodigo;
+    options.push({ code, label: getUnitLabelForSku(sku, code) });
   });
 
   return options;
@@ -628,16 +624,28 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
   const resolveUnitCode = useCallback((item: CartItem) => {
     const sku = resolveSku(item);
-    const requestedUnit = item.unidadMedida || item.unidad;
     const unitOptions = getUnitOptionsForProduct(sku);
 
-    if (requestedUnit && unitOptions.some(option => option.code === requestedUnit)) {
+    // 1. Coincidencia exacta por presentacionId (código compuesto)
+    const presId = item.presentacionId;
+    if (presId && unitOptions.some((opt) => opt.code === presId)) return presId;
+
+    // 2. Coincidencia exacta por unidadMedida como código de opción (backward compat)
+    const requestedUnit = item.unidadMedida || item.unidad;
+    if (requestedUnit && unitOptions.some((opt) => opt.code === requestedUnit)) {
       return requestedUnit;
     }
 
-    const baseOption = unitOptions.find(option => option.isBase);
-    if (baseOption) return baseOption.code;
+    // 3. Buscar opción cuyo código SUNAT coincida con unidadMedida
+    if (requestedUnit) {
+      const byCode = unitOptions.find(
+        (opt) => (opt.code.includes('__') ? opt.code.split('__')[0] : opt.code) === requestedUnit.toUpperCase()
+      );
+      if (byCode) return byCode.code;
+    }
 
+    const baseOption = unitOptions.find((opt) => opt.isBase);
+    if (baseOption) return baseOption.code;
     if (unitOptions.length > 0) return unitOptions[0].code;
 
     return getPreferredUnitForSku(sku, requestedUnit);
@@ -686,16 +694,25 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       const sku = resolveSku(item);
       if (!sku) return;
 
-      const unitCode = resolveUnitCode(item);
+      const resolvedOptionCode = resolveUnitCode(item);
+      // Extraer código SUNAT (unidadMedida siempre conserva el código SUNAT real)
+      const sunatCode = resolvedOptionCode.includes('__')
+        ? resolvedOptionCode.split('__')[0]
+        : resolvedOptionCode;
+      const presCode = resolvedOptionCode.includes('__') ? resolvedOptionCode : undefined;
+
       const updates: Partial<CartItem> = {};
 
-      if (item.unidadMedida !== unitCode) {
-        updates.unidadMedida = unitCode;
+      if (item.unidadMedida !== sunatCode) {
+        updates.unidadMedida = sunatCode;
+      }
+      if (item.presentacionId !== presCode) {
+        updates.presentacionId = presCode;
       }
 
       let priceOptions: PriceColumnOption[] = [];
       if (hasSelectableColumns) {
-        priceOptions = getPriceOptionsFor(sku, unitCode);
+        priceOptions = getPriceOptionsFor(sku, sunatCode);
       }
 
       const currentOption = priceOptions.find(option => option.columnId === item.priceColumnId);
@@ -707,7 +724,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         : undefined;
       const selectedOption = item.isManualPrice ? undefined : (currentOption || preferredOption || fallbackOption);
 
-      const minPrice = hasSelectableColumns ? resolveMinPrice(sku, unitCode, 'comprobantes') : undefined;
+      const minPrice = hasSelectableColumns ? resolveMinPrice(sku, sunatCode, 'comprobantes') : undefined;
       const roundedMin = typeof minPrice === 'number' ? roundCurrency(minPrice) : undefined;
 
       if (typeof roundedMin === 'number') {
@@ -859,16 +876,22 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
     clearErrorForItem(itemKey);
 
     const sku = resolveSku(item);
+
+    // Extraer código SUNAT (unidadMedida siempre tiene el código real para XML/stock)
+    const sunatCode = unitCode.includes('__') ? unitCode.split('__')[0] : unitCode;
+    const presCode = unitCode.includes('__') ? unitCode : undefined;
+
     const targetColumnId = item.priceColumnId || baseColumnId;
     const priceResult = getUnitPriceWithFallback({
       sku,
-      selectedUnitCode: unitCode,
+      selectedUnitCode: sunatCode,
       priceListId: targetColumnId
     });
 
     const updates: Partial<CartItem> = {
-      unidadMedida: unitCode,
-      unit: unitCode
+      unidadMedida: sunatCode,
+      unit: sunatCode,
+      presentacionId: presCode
     };
 
     if (priceResult.hasPrice) {

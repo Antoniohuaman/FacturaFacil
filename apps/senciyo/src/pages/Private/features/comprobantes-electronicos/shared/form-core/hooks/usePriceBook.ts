@@ -68,17 +68,28 @@ const isPositiveNumber = (value?: number): value is number => {
 
 const getUnitFactorFromCatalog = (product: CatalogProduct | undefined, targetUnit?: string): number | undefined => {
   if (!product || !targetUnit) return undefined;
-  const normalizedTarget = normalizeUnitCode(targetUnit);
+
+  // Resolver código SUNAT para la comparación con unidad base
+  const sunatCode = targetUnit.includes('__') ? targetUnit.split('__')[0] : targetUnit;
+  const normalizedTarget = normalizeUnitCode(sunatCode);
   if (!normalizedTarget) return undefined;
   const baseCode = normalizeUnitCode(product.unidad);
-  if (normalizedTarget === baseCode) {
-    return 1;
+  if (normalizedTarget === baseCode) return 1;
+
+  // Si es código compuesto, extraer presentacionId para búsqueda exacta
+  if (targetUnit.includes('__')) {
+    const presId = targetUnit.slice(targetUnit.indexOf('__') + 2) || undefined;
+    if (presId) {
+      const byId = product.unidadesMedidaAdicionales?.find(u => u.id === presId);
+      if (byId && isPositiveNumber(byId.factorConversion)) return byId.factorConversion;
+    }
   }
-  const match = product.unidadesMedidaAdicionales?.find(unit => normalizeUnitCode(unit.unidadCodigo) === normalizedTarget);
+
+  const match = product.unidadesMedidaAdicionales?.find(
+    unit => normalizeUnitCode(unit.unidadCodigo) === normalizedTarget
+  );
   const factor = match?.factorConversion;
-  if (isPositiveNumber(factor)) {
-    return factor;
-  }
+  if (isPositiveNumber(factor)) return factor;
   return undefined;
 };
 
@@ -118,6 +129,20 @@ export const usePriceBook = (canal: 'pos' | 'comprobantes' = 'comprobantes') => 
 
   const resolveUnitLabelForProduct = useCallback(
     (product: CatalogProduct | undefined, unitCode?: string) => {
+      if (!unitCode) return '';
+
+      // Código compuesto de presentación: extraer nombre directo
+      if (unitCode.includes('__')) {
+        const presId = unitCode.slice(unitCode.indexOf('__') + 2) || undefined;
+        if (presId) {
+          const byId = product?.unidadesMedidaAdicionales?.find(u => u.id === presId);
+          if (byId?.nombre) return byId.nombre;
+        }
+        const sunatCode = unitCode.split('__')[0];
+        const normalized = normalizeUnitCode(sunatCode);
+        return getUnitDisplayForUI({ units: configState.units, code: normalized || sunatCode }) || sunatCode;
+      }
+
       const normalized = normalizeUnitCode(unitCode);
       if (!normalized) return '';
       if (!product) {
@@ -136,9 +161,11 @@ export const usePriceBook = (canal: 'pos' | 'comprobantes' = 'comprobantes') => 
         );
       }
 
+      // Buscar primero por nombre de presentación si hay coincidencia de código SUNAT
       const match = product.unidadesMedidaAdicionales?.find(
         unit => normalizeUnitCode(unit.unidadCodigo) === normalized
       );
+      if (match?.nombre) return match.nombre;
 
       return (
         getUnitDisplayForUI({
@@ -268,12 +295,36 @@ export const usePriceBook = (canal: 'pos' | 'comprobantes' = 'comprobantes') => 
       const registry = new Map<string, ProductUnitOption>();
       const catalogProduct = catalogProductMap.get(product.sku);
 
+      // 1. Unidad base del producto
       registerUnit(registry, product.sku, catalogProduct?.unidad, true);
-      catalogProduct?.unidadesMedidaAdicionales?.forEach(unit => registerUnit(registry, product.sku, unit?.unidadCodigo));
 
-      registerUnit(registry, product.sku, product.activeUnitCode, true);
+      // 2. Presentaciones de venta como código compuesto; recopilar códigos SUNAT cubiertos
+      const sunatCodesEnPresentaciones = new Set<string>();
+      catalogProduct?.unidadesMedidaAdicionales?.forEach(unit => {
+        const optionCode =
+          unit?.id && unit?.unidadCodigo
+            ? `${unit.unidadCodigo}__${unit.id}`
+            : unit?.unidadCodigo;
+        registerUnit(registry, product.sku, optionCode);
+        const normalized = coerceUnitCode(unit?.unidadCodigo);
+        if (normalized) sunatCodesEnPresentaciones.add(normalized);
+      });
+
+      // 3. activeUnitCode: solo si es la unidad base o no está cubierto por una presentación
+      const baseNorm = coerceUnitCode(catalogProduct?.unidad);
+      const activeNorm = coerceUnitCode(product.activeUnitCode);
+      if (activeNorm && (activeNorm === baseNorm || !sunatCodesEnPresentaciones.has(activeNorm))) {
+        registerUnit(registry, product.sku, product.activeUnitCode, activeNorm === baseNorm);
+      }
+
+      // 4. Precios del libro: solo agregar códigos SUNAT no cubiertos por presentaciones
       Object.values(product.prices).forEach(unitPrices => {
-        Object.keys(unitPrices || {}).forEach(unitCode => registerUnit(registry, product.sku, unitCode));
+        Object.keys(unitPrices || {}).forEach(unitCode => {
+          const normalized = coerceUnitCode(unitCode);
+          if (normalized && !sunatCodesEnPresentaciones.has(normalized)) {
+            registerUnit(registry, product.sku, unitCode);
+          }
+        });
       });
 
       map.set(product.sku, Array.from(registry.values()));

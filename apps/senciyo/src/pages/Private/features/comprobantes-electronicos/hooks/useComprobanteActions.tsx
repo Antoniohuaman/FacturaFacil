@@ -524,7 +524,7 @@ export const useComprobanteActions = () => {
             ? calculateRequiredUnidadMinima({
                 product: catalogProduct,
                 quantity: item.quantity,
-                unitCode: item.unidadMedida || item.unit,
+                unitCode: item.presentacionId || item.unidadMedida || item.unit,
               })
             : (Number.isFinite(item.quantity) ? Number(item.quantity) : 0);
 

@@ -96,6 +96,7 @@ export interface CartItem {
   impuestoId?: string;
   unidadMedida?: string;
   unidadMedidaCodigo?: string;
+  presentacionId?: string; // Código compuesto de presentación ("BX__pres-abc123") para desambiguar factor
   descuentoItem?: number;
   currency?: Currency;
   priceColumnId?: string;

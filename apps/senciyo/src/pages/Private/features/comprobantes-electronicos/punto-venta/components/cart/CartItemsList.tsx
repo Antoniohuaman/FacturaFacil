@@ -146,7 +146,8 @@ export const CartItemsList: React.FC<CartItemsListProps> = ({
                   isBase: true,
                 }]
               : [];
-          const currentUnitCode = fallbackUnit || normalizedOptions[0]?.code || '';
+          // Preferir presentacionId (código compuesto) para coincidir con las opciones del selector
+          const currentUnitCode = item.presentacionId || fallbackUnit || normalizedOptions[0]?.code || '';
           const optionsWithSelection = currentUnitCode && normalizedOptions.every(option => option.code !== currentUnitCode)
             ? [
                 {

@@ -238,7 +238,8 @@ export const buildLinePricingInputFromCartItem = (
   catalogProduct?: CatalogProduct,
   options?: { priceIncludesTax?: boolean },
 ): LinePricingInput => {
-  const unitCode = item.unidadMedida || item.unit || '';
+  // Usar presentacionId cuando está disponible para obtener el factor correcto
+  const unitCode = item.presentacionId || item.unidadMedida || item.unit || '';
   const descriptor = describeUnitConversion(catalogProduct, unitCode);
   const factor = descriptor.factorToUnidadMinima > 0 ? descriptor.factorToUnidadMinima : 1;
   const precioUnitarioSeleccionado = Number.isFinite(item.price)
