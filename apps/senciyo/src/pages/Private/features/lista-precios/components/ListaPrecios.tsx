@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import * as XLSX from 'xlsx';
 import { PageHeader } from '@/contasis';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
-import type { NewColumnForm, Product } from '../models/PriceTypes';
+import type { NewColumnForm } from '../models/PriceTypes';
 import { usePriceList } from '../hooks/usePriceList';
 import { SummaryBar } from './SummaryBar';
 import { ColumnManagement } from './ColumnManagement';
@@ -19,12 +19,9 @@ import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import {
   EXPORT_TITLE,
-  SKU_HEADER,
-  UNIT_HEADER,
-  VALIDITY_HEADER,
   buildTableColumnConfigs,
   buildExpectedHeaders,
-  collectUnitsWithPrices,
+  buildWorksheetColConfig,
   formatDateLabel
 } from '../utils/importProcessing';
 
@@ -114,70 +111,79 @@ export const ListaPrecios: React.FC = () => {
     return true;
   }, [editingColumn, updateColumn]);
 
-  const exportVisiblePrices = useCallback((productsToExport?: Product[]): ExportPricesResult => {
+  const exportVisiblePrices = useCallback((filterSkus?: Set<string>): ExportPricesResult => {
     if (tableColumnConfigs.length === 0) {
       return { success: false, error: 'Activa al menos una columna visible en la tabla para exportar.' };
     }
 
-    const expectedHeaders = buildExpectedHeaders(tableColumnConfigs);
-    const allowedColumnIds = new Set(tableColumnConfigs.map(column => column.columnId));
-    const catalogLookup = new Map(catalogProducts.map(product => [product.codigo.toUpperCase(), product] as const));
-    const sourceProducts = productsToExport ?? products;
+    const exportHeaders = buildExpectedHeaders(tableColumnConfigs);
+    const productPricesMap = new Map(products.map(p => [p.sku.toUpperCase(), p] as const));
 
-    const aoa: (string | number)[][] = [expectedHeaders];
-    let exportedRows = 0;
+    // Backward-compat price lookup: compound code → SUNAT fallback for prices stored before migration
+    const getPrice = (product: ReturnType<typeof productPricesMap.get>, columnId: string, priceKey: string) => {
+      if (!product) return undefined;
+      const colPrices = product.prices[columnId];
+      if (!colPrices) return undefined;
+      const direct = colPrices[priceKey];
+      if (direct && direct.type === 'fixed') return direct;
+      if (priceKey.includes('__')) {
+        const sunat = priceKey.split('__')[0].toUpperCase();
+        const fallback = colPrices[sunat];
+        if (fallback && fallback.type === 'fixed') return fallback;
+      }
+      return undefined;
+    };
 
-    sourceProducts.forEach(product => {
-      const unitCodes = collectUnitsWithPrices(product, allowedColumnIds);
-      if (unitCodes.length === 0) {
-        return;
+    const aoa: (string | number)[][] = [exportHeaders];
+
+    catalogProducts.forEach(catalogProduct => {
+      const sku = catalogProduct.codigo;
+      if (filterSkus && !filterSkus.has(sku.toUpperCase())) return;
+
+      const existingProduct = productPricesMap.get(sku.toUpperCase());
+      const productName = catalogProduct.nombre;
+
+      // Row for base unit
+      const baseUnitCode = catalogProduct.unidad;
+      if (baseUnitCode) {
+        const priceKey = baseUnitCode.toUpperCase();
+        const presentationLabel = catalogProduct.unitName || baseUnitCode;
+        let validityIso: string | null = null;
+        const priceCells: (string | number)[] = tableColumnConfigs.map(({ columnId }) => {
+          const price = getPrice(existingProduct, columnId, priceKey);
+          if (price) {
+            if (!validityIso && price.validUntil) validityIso = price.validUntil;
+            return price.value;
+          }
+          return '';
+        });
+        aoa.push([sku, productName, presentationLabel, ...priceCells, validityIso ? formatDateLabel(validityIso) : '', priceKey]);
       }
 
-      const catalogUnit = catalogLookup.get(product.sku)?.unidad;
-      const orderedUnits = [...unitCodes].sort((a, b) => {
-        if (catalogUnit) {
-          if (a === catalogUnit && b !== catalogUnit) return -1;
-          if (b === catalogUnit && a !== catalogUnit) return 1;
-        }
-        if (product.activeUnitCode) {
-          if (a === product.activeUnitCode && b !== product.activeUnitCode) return -1;
-          if (b === product.activeUnitCode && a !== product.activeUnitCode) return 1;
-        }
-        return a.localeCompare(b);
-      });
-
-      orderedUnits.forEach(unitCode => {
-        const row: Record<string, string | number> = {
-          [SKU_HEADER]: product.sku,
-          [UNIT_HEADER]: unitCode
-        };
-
+      // Rows for each presentation
+      catalogProduct.unidadesMedidaAdicionales?.forEach(unit => {
+        if (!unit.id || !unit.unidadCodigo) return;
+        const priceKey = `${unit.unidadCodigo.toUpperCase()}__${unit.id}`;
+        const presentationLabel = unit.nombre || unit.unidadCodigo;
         let validityIso: string | null = null;
-
-        tableColumnConfigs.forEach(({ columnId, header }) => {
-          const price = product.prices[columnId]?.[unitCode];
-          if (price && price.type === 'fixed') {
-            row[header] = price.value;
-            if (!validityIso && price.validUntil) {
-              validityIso = price.validUntil;
-            }
-          } else {
-            row[header] = '';
+        const priceCells: (string | number)[] = tableColumnConfigs.map(({ columnId }) => {
+          const price = getPrice(existingProduct, columnId, priceKey);
+          if (price) {
+            if (!validityIso && price.validUntil) validityIso = price.validUntil;
+            return price.value;
           }
+          return '';
         });
-
-        row[VALIDITY_HEADER] = validityIso ? formatDateLabel(validityIso) : '';
-        const orderedRow = expectedHeaders.map(header => row[header] ?? '');
-        aoa.push(orderedRow);
-        exportedRows += 1;
+        aoa.push([sku, productName, presentationLabel, ...priceCells, validityIso ? formatDateLabel(validityIso) : '', priceKey]);
       });
     });
 
-    if (exportedRows === 0) {
-      return { success: false, error: 'No hay precios registrados para las columnas visibles.' };
+    if (aoa.length <= 1) {
+      return { success: false, error: 'No hay productos en el catálogo para exportar.' };
     }
 
     const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    worksheet['!cols'] = buildWorksheetColConfig(exportHeaders);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, EXPORT_TITLE);
     const today = getBusinessTodayISODate();
@@ -200,7 +206,7 @@ export const ListaPrecios: React.FC = () => {
 
     setExportingPrices(true);
     try {
-      const result = exportVisiblePrices(filteredProducts);
+      const result = exportVisiblePrices(new Set(filteredProducts.map(p => p.sku.toUpperCase())));
       if (!result.success && result.error) {
         setExportError(result.error);
       }
@@ -240,8 +246,8 @@ export const ListaPrecios: React.FC = () => {
   }, [autoExportRequest, currentTab, finishAutoExport, handleExportVisibleFromMain, loading, setActiveTab, setPackagesTabActive, visibleTableColumnsCount]);
 
   const handleExportAllFromImport = useCallback(() => {
-    return exportVisiblePrices(products);
-  }, [exportVisiblePrices, products]);
+    return exportVisiblePrices();
+  }, [exportVisiblePrices]);
 
   const exportDisabled = visibleTableColumnsCount === 0 || exportingPrices;
   const exportDisabledReason = visibleTableColumnsCount === 0

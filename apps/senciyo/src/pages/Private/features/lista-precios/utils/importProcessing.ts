@@ -16,8 +16,11 @@ import {
 } from './priceHelpers';
 
 export const SKU_HEADER = 'SKU';
+export const PRODUCT_HEADER = 'PRODUCTO';
+export const PRESENTATION_HEADER = 'PRESENTACIÓN';
 export const UNIT_HEADER = 'UNIDAD';
 export const VALIDITY_HEADER = 'VIGENCIA';
+export const PRICE_KEY_HEADER = 'PRICE_KEY';
 export const TEMPLATE_TITLE = 'Plantilla';
 export const EXPORT_TITLE = 'Precios';
 
@@ -128,7 +131,7 @@ const normalizeHeader = (value: string): string => value
   .replace(/\s+/g, ' ')
   .toUpperCase()
   .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '');
+  .replace(/[̀-ͯ]/g, '');
 
 const headersMatchTemplate = (headerRow: unknown[], expectedHeaders: string[]): boolean => {
   const matches = expectedHeaders.every((header, index) => {
@@ -156,6 +159,20 @@ const buildHeaderIndexMap = (expectedHeaders: string[]): Record<string, number> 
 
 const getDefaultValidity = () => getBusinessDefaultValidityRange();
 
+// Normalizes a price key: uppercases the SUNAT part before '__', preserves the ID part after.
+const normalizePriceKey = (key: string): string => {
+  if (!key) return '';
+  const sep = key.indexOf('__');
+  if (sep >= 0) {
+    return `${key.slice(0, sep).toUpperCase()}__${key.slice(sep + 2)}`;
+  }
+  return key.toUpperCase();
+};
+
+const buildLegacyExpectedHeaders = (tableColumns: ImportTableColumnConfig[]): string[] => (
+  [SKU_HEADER, UNIT_HEADER, ...tableColumns.map(c => c.header), VALIDITY_HEADER]
+);
+
 const collectAllowedUnits = (catalogProduct?: CatalogProduct, existingProduct?: Product): Set<string> => {
   const units = new Set<string>();
   if (catalogProduct?.unidad) {
@@ -179,8 +196,36 @@ const collectAllowedUnits = (catalogProduct?: CatalogProduct, existingProduct?: 
   return units;
 };
 
-const getExistingFixedPrice = (product: Product | undefined, columnId: string, unitCode: string): FixedPrice | undefined => {
-  if (!product || !unitCode) {
+const collectAllowedPriceKeys = (catalogProduct?: CatalogProduct, existingProduct?: Product): Set<string> => {
+  const keys = new Set<string>();
+
+  if (catalogProduct?.unidad) {
+    keys.add(catalogProduct.unidad.toUpperCase());
+  }
+
+  catalogProduct?.unidadesMedidaAdicionales?.forEach(unit => {
+    if (unit.unidadCodigo) {
+      if (unit.id) {
+        keys.add(`${unit.unidadCodigo.toUpperCase()}__${unit.id}`);
+      }
+      keys.add(unit.unidadCodigo.toUpperCase());
+    }
+  });
+
+  if (existingProduct) {
+    Object.values(existingProduct.prices).forEach(unitPrices => {
+      Object.keys(unitPrices).forEach(code => keys.add(normalizePriceKey(code)));
+    });
+    if (existingProduct.activeUnitCode) {
+      keys.add(normalizePriceKey(existingProduct.activeUnitCode));
+    }
+  }
+
+  return keys;
+};
+
+const getExistingFixedPrice = (product: Product | undefined, columnId: string, priceKey: string): FixedPrice | undefined => {
+  if (!product || !priceKey) {
     return undefined;
   }
   const columnPrices = product.prices[columnId];
@@ -188,27 +233,38 @@ const getExistingFixedPrice = (product: Product | undefined, columnId: string, u
     return undefined;
   }
 
-  const direct = columnPrices[unitCode];
+  const direct = columnPrices[priceKey];
   if (direct && direct.type === 'fixed') {
     return direct;
   }
 
-  const normalized = unitCode.toUpperCase();
-  const fallbackEntry = Object.entries(columnPrices).find(([code]) => code.toUpperCase() === normalized);
-  const fallbackPrice = fallbackEntry?.[1];
-  if (fallbackPrice && fallbackPrice.type === 'fixed') {
-    return fallbackPrice;
+  const normalized = normalizePriceKey(priceKey);
+  if (normalized !== priceKey) {
+    const normPrice = columnPrices[normalized];
+    if (normPrice && normPrice.type === 'fixed') {
+      return normPrice;
+    }
   }
+
+  // Backward compat: compound code → try SUNAT part only (prices stored before compound key migration)
+  if (normalized.includes('__')) {
+    const sunatPart = normalized.split('__')[0];
+    const sunatPrice = columnPrices[sunatPart];
+    if (sunatPrice && sunatPrice.type === 'fixed') {
+      return sunatPrice;
+    }
+  }
+
   return undefined;
 };
 
 const enforceDuplicateSafety = (rows: PriceImportPreviewRow[]): void => {
   const duplicates = new Map<string, number[]>();
   rows.forEach((row, index) => {
-    if (!row.sku || !row.unitCode) {
+    if (!row.sku || !row.priceKey) {
       return;
     }
-    const key = `${row.sku}::${row.unitCode}`;
+    const key = `${row.sku}::${row.priceKey}`;
     const stored = duplicates.get(key) || [];
     stored.push(index);
     duplicates.set(key, stored);
@@ -220,7 +276,7 @@ const enforceDuplicateSafety = (rows: PriceImportPreviewRow[]): void => {
     }
     const rowNumbers = indexes.map(idx => rows[idx].rowNumber).join(', ');
     indexes.forEach(idx => {
-      rows[idx].errors.push(`Este SKU/unidad está repetido en las filas ${rowNumbers}.`);
+      rows[idx].errors.push(`Este SKU/presentación está repetido en las filas ${rowNumbers}.`);
       rows[idx].status = 'error';
     });
   });
@@ -253,11 +309,22 @@ const parseRawRows = (
   }
 
   const headerRow = rawRows[0];
-  if (!headersMatchTemplate(headerRow, context.expectedHeaders)) {
+  const isNewFormat = headersMatchTemplate(headerRow, context.expectedHeaders);
+
+  let legacyHeaders: string[] | null = null;
+  if (!isNewFormat) {
+    const legacyExpected = buildLegacyExpectedHeaders(context.tableColumns);
+    if (headersMatchTemplate(headerRow, legacyExpected)) {
+      legacyHeaders = legacyExpected;
+    }
+  }
+
+  if (!isNewFormat && !legacyHeaders) {
     throw new Error('La estructura del archivo no coincide con las columnas visibles. Descarga una nueva plantilla desde esta pantalla.');
   }
 
-  const headerIndex = buildHeaderIndexMap(context.expectedHeaders);
+  const headers = isNewFormat ? context.expectedHeaders : legacyHeaders!;
+  const headerIndex = buildHeaderIndexMap(headers);
   const nextRows: PriceImportPreviewRow[] = [];
 
   rawRows.slice(1).forEach((rawRow, index) => {
@@ -281,23 +348,43 @@ const parseRawRows = (
       errors.push('El SKU no existe en el catálogo ni tiene precios registrados.');
     }
 
-    const unitCell = String(normalizedValues[headerIndex[UNIT_HEADER]] ?? '').trim().toUpperCase();
-    const allowedUnits = collectAllowedUnits(catalogProduct, existingProduct);
-    const fallbackUnit = unitCell || catalogProduct?.unidad?.toUpperCase() || existingProduct?.activeUnitCode?.toUpperCase() || '';
-    const unitCode = fallbackUnit;
+    let priceKey: string;
+    let presentationLabel: string;
 
-    if (allowedUnits.size > 0 && unitCode && !allowedUnits.has(unitCode)) {
-      errors.push(`La unidad ${unitCode} no es válida para este SKU.`);
-    }
+    if (isNewFormat) {
+      const rawPriceKey = String(normalizedValues[headerIndex[PRICE_KEY_HEADER]] ?? '').trim();
+      priceKey = normalizePriceKey(rawPriceKey);
+      presentationLabel = String(normalizedValues[headerIndex[PRESENTATION_HEADER]] ?? '').trim() || priceKey;
 
-    if (!unitCell && unitCode && allowedUnits.size > 1) {
-      warnings.push(`Se usó la unidad ${unitCode} por defecto.`);
+      if (!priceKey) {
+        errors.push('La columna PRICE_KEY es obligatoria.');
+        priceKey = normalizePriceKey(catalogProduct?.unidad || existingProduct?.activeUnitCode || '');
+      } else {
+        const allowedPriceKeys = collectAllowedPriceKeys(catalogProduct, existingProduct);
+        if (allowedPriceKeys.size > 0 && !allowedPriceKeys.has(priceKey)) {
+          errors.push(`El PRICE_KEY "${priceKey}" no es válido para este SKU.`);
+        }
+      }
+    } else {
+      const unitCell = String(normalizedValues[headerIndex[UNIT_HEADER]] ?? '').trim().toUpperCase();
+      const allowedUnits = collectAllowedUnits(catalogProduct, existingProduct);
+      const fallbackUnit = unitCell || catalogProduct?.unidad?.toUpperCase() || existingProduct?.activeUnitCode?.toUpperCase() || '';
+      priceKey = fallbackUnit;
+      presentationLabel = fallbackUnit;
+
+      if (allowedUnits.size > 0 && priceKey && !allowedUnits.has(priceKey)) {
+        errors.push(`La unidad ${priceKey} no es válida para este SKU.`);
+      }
+
+      if (!unitCell && priceKey && allowedUnits.size > 1) {
+        warnings.push(`Se usó la unidad ${priceKey} por defecto.`);
+      }
     }
 
     const priceValues: Record<string, number | null> = {};
     context.tableColumns.forEach(({ header, columnId }) => {
       const parsedValue = parseNumberCell(normalizedValues[headerIndex[header]]);
-      const existingPrice = getExistingFixedPrice(existingProduct, columnId, unitCode);
+      const existingPrice = getExistingFixedPrice(existingProduct, columnId, priceKey);
       const hasExistingValue = Boolean(existingPrice);
 
       if (parsedValue === null || parsedValue === undefined) {
@@ -325,12 +412,9 @@ const parseRawRows = (
     const validUntil = parsedValidity ?? defaultValidUntil;
     validateValidityRange(validFrom, validUntil, errors);
 
-    const existingBasePrice = getExistingFixedPrice(existingProduct, BASE_COLUMN_ID, unitCode);
-    const existingMinPrice = getExistingFixedPrice(existingProduct, MIN_ALLOWED_COLUMN_ID, unitCode);
+    const existingBasePrice = getExistingFixedPrice(existingProduct, BASE_COLUMN_ID, priceKey);
+    const existingMinPrice = getExistingFixedPrice(existingProduct, MIN_ALLOWED_COLUMN_ID, priceKey);
 
-    // Base de referencia: precio importado > precio existente en storage > ninguno
-    // null (celda vacía con precio existente = borrado) cae al bloque siguiente
-    // para usar el precio existente como referencia de comparación
     const referenceBaseValue = (() => {
       const nextBaseValue = priceValues[BASE_COLUMN_ID];
       if (typeof nextBaseValue === 'number') {
@@ -342,9 +426,6 @@ const parseRawRows = (
       return null;
     })();
 
-    // Mínimo efectivo: importado > existente sin cambio > ninguno
-    // null (celda vacía con precio existente = borrado) significa que el mínimo
-    // quedará eliminado, por lo que no puede violar ninguna restricción
     const effectiveMinValue = (() => {
       const nextMin = priceValues[MIN_ALLOWED_COLUMN_ID];
       if (typeof nextMin === 'number') {
@@ -369,7 +450,9 @@ const parseRawRows = (
       id: `${sku || 'row'}-${rowNumber}`,
       rowNumber,
       sku,
-      unitCode,
+      priceKey,
+      unitCode: priceKey,
+      presentationLabel,
       prices: priceValues,
       validFrom,
       validUntil,
@@ -399,19 +482,8 @@ export const buildTableColumnConfigs = (columns: Column[]): ImportTableColumnCon
 );
 
 export const buildExpectedHeaders = (tableColumns: ImportTableColumnConfig[]): string[] => (
-  [SKU_HEADER, UNIT_HEADER, ...tableColumns.map(column => column.header), VALIDITY_HEADER]
+  [SKU_HEADER, PRODUCT_HEADER, PRESENTATION_HEADER, ...tableColumns.map(column => column.header), VALIDITY_HEADER, PRICE_KEY_HEADER]
 );
-
-export const collectUnitsWithPrices = (product: Product, allowedColumnIds: Set<string>): string[] => {
-  const units = new Set<string>();
-  Object.entries(product.prices || {}).forEach(([columnId, unitPrices]) => {
-    if (!allowedColumnIds.has(columnId)) {
-      return;
-    }
-    Object.keys(unitPrices || {}).forEach(code => units.add(code));
-  });
-  return Array.from(units);
-};
 
 export interface ImportParserContext {
   tableColumns: ImportTableColumnConfig[];
@@ -441,3 +513,17 @@ export const formatDateLabel = (value: string): string => {
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
 };
 
+/**
+ * Builds `!cols` config for a worksheet generated from `buildExpectedHeaders`.
+ * PRICE_KEY is always the last header — it gets `hidden: true` so users don't see
+ * it in Excel while the import engine can still read it.
+ */
+export const buildWorksheetColConfig = (headers: string[]): XLSX.ColInfo[] =>
+  headers.map(header => {
+    if (header === PRICE_KEY_HEADER) return { hidden: true } as XLSX.ColInfo;
+    if (header === SKU_HEADER) return { wch: 12 };
+    if (header === PRODUCT_HEADER) return { wch: 30 };
+    if (header === PRESENTATION_HEADER) return { wch: 25 };
+    if (header === VALIDITY_HEADER) return { wch: 14 };
+    return { wch: 15 };
+  });

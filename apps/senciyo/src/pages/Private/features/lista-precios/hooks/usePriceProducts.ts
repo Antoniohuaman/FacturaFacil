@@ -553,7 +553,7 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
             return;
           }
 
-          const resolvedUnitCode = entry.unitCode?.trim() || existingProduct?.activeUnitCode || getBaseUnitForProduct(catalogProduct, existingProduct?.activeUnitCode);
+          const resolvedUnitCode = (entry.priceKey ?? entry.unitCode)?.trim() || existingProduct?.activeUnitCode || getBaseUnitForProduct(catalogProduct, existingProduct?.activeUnitCode);
 
           if (!resolvedUnitCode) {
             return;
@@ -583,10 +583,16 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
             };
 
             if (price.value === null) {
-              if (!columnPrices[resolvedUnitCode]) {
+              // Backward compat: if compound key not stored directly, try SUNAT-only fallback
+              const keyToDelete = resolvedUnitCode in columnPrices
+                ? resolvedUnitCode
+                : (resolvedUnitCode.includes('__') && resolvedUnitCode.split('__')[0] in columnPrices
+                  ? resolvedUnitCode.split('__')[0]
+                  : null);
+              if (!keyToDelete) {
                 return;
               }
-              delete columnPrices[resolvedUnitCode];
+              delete columnPrices[keyToDelete];
               if (Object.keys(columnPrices).length === 0) {
                 delete targetProduct.prices[price.columnId];
               } else {

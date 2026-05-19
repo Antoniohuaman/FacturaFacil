@@ -175,7 +175,13 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
     const unitCode = unitOverride || resolveActiveUnit(product);
     const unitPrices = product.prices[columnId];
     if (!unitPrices) return undefined;
-    return unitPrices[unitCode];
+    const direct = unitPrices[unitCode];
+    if (direct) return direct;
+    // Backward compat: compound code → try SUNAT part (prices stored before compound key migration)
+    if (unitCode.includes('__')) {
+      return unitPrices[unitCode.split('__')[0]] ?? undefined;
+    }
+    return undefined;
   }, [resolveActiveUnit]);
 
   const handleUnitSelect = useCallback((product: Product, unitCode: string) => {

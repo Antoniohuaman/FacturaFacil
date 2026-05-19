@@ -14,6 +14,7 @@ import {
   TEMPLATE_TITLE,
   buildTableColumnConfigs,
   buildExpectedHeaders,
+  buildWorksheetColConfig,
   parsePriceImportFile
 } from '../utils/importProcessing';
 import { ImportActionControls } from './import-prices/ImportActionControls';
@@ -120,7 +121,34 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       return;
     }
 
-    const worksheet = XLSX.utils.aoa_to_sheet([expectedHeaders]);
+    const aoa: (string | number)[][] = [expectedHeaders];
+    const emptyPriceCells = tableColumns.map(() => '');
+
+    catalogProducts.forEach(catalogProduct => {
+      const sku = catalogProduct.codigo;
+      const productName = catalogProduct.nombre;
+
+      if (catalogProduct.unidad) {
+        const priceKey = catalogProduct.unidad.toUpperCase();
+        const presentationLabel = catalogProduct.unitName || catalogProduct.unidad;
+        aoa.push([sku, productName, presentationLabel, ...emptyPriceCells, '', priceKey]);
+      }
+
+      catalogProduct.unidadesMedidaAdicionales?.forEach(unit => {
+        if (!unit.id || !unit.unidadCodigo) return;
+        const priceKey = `${unit.unidadCodigo.toUpperCase()}__${unit.id}`;
+        const presentationLabel = unit.nombre || unit.unidadCodigo;
+        aoa.push([sku, productName, presentationLabel, ...emptyPriceCells, '', priceKey]);
+      });
+    });
+
+    if (aoa.length <= 1) {
+      setParseError('No hay productos en el catálogo. Crea productos primero.');
+      return;
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    worksheet['!cols'] = buildWorksheetColConfig(expectedHeaders);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, TEMPLATE_TITLE);
     const timestamp = getBusinessTodayISODate();
@@ -195,6 +223,7 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     try {
       const payload: BulkPriceImportEntry[] = readyRows.map(row => ({
         sku: row.sku,
+        priceKey: row.priceKey,
         unitCode: row.unitCode,
         validFrom: row.validFrom,
         validUntil: row.validUntil,

@@ -7,6 +7,7 @@ export interface ImportedFixedPriceValue {
 
 export interface BulkPriceImportEntry {
   sku: string;
+  priceKey: string;
   unitCode?: string;
   validFrom: string;
   validUntil: string;
@@ -37,7 +38,9 @@ export interface PriceImportPreviewRow {
   id: string;
   rowNumber: number;
   sku: string;
+  priceKey: string;
   unitCode: string;
+  presentationLabel: string;
   prices: Record<string, number | null>;
   validFrom: string;
   validUntil: string;

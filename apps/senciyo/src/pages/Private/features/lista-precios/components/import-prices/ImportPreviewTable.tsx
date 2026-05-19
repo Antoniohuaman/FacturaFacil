@@ -50,7 +50,7 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
           <tr>
             <th className="px-3 py-2 text-left font-medium text-gray-500">Fila</th>
             <th className="px-3 py-2 text-left font-medium text-gray-500">SKU</th>
-            <th className="px-3 py-2 text-left font-medium text-gray-500">Unidad</th>
+            <th className="px-3 py-2 text-left font-medium text-gray-500">Presentación</th>
             {tableColumns.map(column => (
               <th key={column.columnId} className="px-3 py-2 text-left font-medium text-gray-500">
                 {column.header}
@@ -72,7 +72,7 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
             <tr key={row.id} className="bg-white dark:bg-gray-900/20">
               <td className="px-3 py-2 text-gray-500">{row.rowNumber}</td>
               <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{row.sku}</td>
-              <td className="px-3 py-2 text-gray-700 dark:text-gray-200">{row.unitCode}</td>
+              <td className="px-3 py-2 text-gray-700 dark:text-gray-200">{row.presentationLabel}</td>
               {tableColumns.map(column => {
                 const cellPrice = row.prices[column.columnId];
                 return (
