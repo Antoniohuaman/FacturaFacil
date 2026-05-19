@@ -287,7 +287,7 @@ export const ProductPricingTable: React.FC<ProductPricingTableProps> = ({
               </tr>
               {expandedRows[product.sku] && (
                 <tr className="border-b border-gray-100 bg-gray-50/70" id={`product-details-${product.sku}`}>
-                  <td colSpan={totalColumns} className="px-6 py-4">
+                  <td colSpan={totalColumns} className="px-4 py-2">
                     <UnitPricesPanel
                       product={product}
                       columns={orderedColumns}
@@ -707,63 +707,52 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-inner">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Unidades y columnas detalladas</p>
-          <p className="text-[11px] text-gray-500">Gestiona cada unidad sin salir de la tabla</p>
-        </div>
-        <span className="text-[11px] text-gray-500">
-          {unitOptions.length} unidad{unitOptions.length !== 1 ? 'es' : ''}
-        </span>
-      </div>
-      <div className="overflow-x-auto -mx-1">
-        <table className="w-full text-xs border-separate border-spacing-y-1">
-          <thead>
-            <tr>
-              <th className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500">Unidad</th>
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs border-separate border-spacing-y-1">
+        <thead>
+          <tr>
+            <th className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-400">Unidad</th>
+            {columns.map(column => (
+              <th
+                key={`unit-panel-${column.id}`}
+                className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-400 min-w-[120px]"
+                title={column.name}
+              >
+                <span className="text-[10px] text-gray-500 font-semibold normal-case">
+                  {column.name}
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {unitOptions.map(option => (
+            <tr key={`${product.sku}-${option.code}`} className="align-top">
+              <td className="align-top px-2 py-1">
+                <div className="flex items-center gap-1.5 text-[12px] text-gray-900 font-semibold">
+                  <span>{option.label || option.code}</span>
+                  {option.isBase && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">Base</span>
+                  )}
+                  {option.code === activeUnitCode && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-[10px]">Actual</span>
+                  )}
+                </div>
+                {option.factor && (
+                  <div className="text-[10px] text-gray-400 mt-0.5">
+                    1 {option.code} = {option.factor} {baseUnitCode}
+                  </div>
+                )}
+              </td>
               {columns.map(column => (
-                <th
-                  key={`unit-panel-${column.id}`}
-                  className="text-left px-2 py-1 text-[11px] uppercase tracking-wide text-gray-500 min-w-[120px]"
-                  title={column.name}
-                >
-                  <span className="text-[10px] text-gray-600 font-semibold normal-case">
-                    {column.name}
-                  </span>
-                </th>
+                <td key={`${product.sku}-${option.code}-${column.id}`} className="align-top px-2 py-1">
+                  {renderUnitPriceCell(column, option.code)}
+                </td>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            {unitOptions.map(option => (
-              <tr key={`${product.sku}-${option.code}`} className="align-top">
-                <td className="align-top px-2 py-2">
-                  <div className="flex items-center gap-2 text-[12px] text-gray-900 font-semibold">
-                    <span>{option.label || option.code}</span>
-                    {option.isBase && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">Base</span>
-                    )}
-                    {option.code === activeUnitCode && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-[10px]">Actual</span>
-                    )}
-                  </div>
-                  {option.factor && (
-                    <div className="text-[10px] text-gray-400 mt-1">
-                      1 {option.code} = {option.factor} {baseUnitCode}
-                    </div>
-                  )}
-                </td>
-                {columns.map(column => (
-                  <td key={`${product.sku}-${option.code}-${column.id}`} className="align-top px-2 py-1">
-                    {renderUnitPriceCell(column, option.code)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
