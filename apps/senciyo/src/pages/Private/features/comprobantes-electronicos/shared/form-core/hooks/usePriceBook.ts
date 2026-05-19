@@ -40,6 +40,10 @@ const normalizeUnitCode = (value?: string): string | undefined => {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
+  const sepIdx = trimmed.indexOf('__');
+  if (sepIdx >= 0) {
+    return `${trimmed.slice(0, sepIdx).toUpperCase()}__${trimmed.slice(sepIdx + 2)}`;
+  }
   return trimmed.toUpperCase();
 };
 
