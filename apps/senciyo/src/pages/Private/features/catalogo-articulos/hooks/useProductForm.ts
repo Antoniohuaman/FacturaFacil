@@ -111,31 +111,6 @@ export const useProductForm = ({
   onClose,
   prefillName
 }: UseProductFormParams) => {
-  const resolveFamilyLabel = useCallback((family: UnitFamily): string => {
-    switch (family) {
-      case 'SERVICIOS':
-        return 'Servicios';
-      case 'TIME':
-        return 'Tiempos';
-      case 'WEIGHT':
-        return 'Pesos';
-      case 'VOLUME':
-        return 'Volúmenes';
-      case 'LENGTH':
-        return 'Longitudes';
-      case 'AREA':
-        return 'Áreas';
-      case 'ENERGY':
-        return 'Energías';
-      case 'QUANTITY':
-        return 'Cantidades';
-      case 'PACKAGING':
-        return 'Empaques';
-      default:
-        return family;
-    }
-  }, []);
-
   const resolveUnitSnapshot = useCallback(
     (code?: string) => {
       const normalized = (code ?? '').trim();
@@ -315,11 +290,6 @@ export const useProductForm = ({
 
   const isUsingFallbackUnits = filteredUnitsForFamily.length === 0 && sortedVisibleUnits.length > 0;
 
-  const remainingUnitsForAdditional = useMemo(() => {
-    // Se permite repetir unidades; se retornan todas las disponibles para la familia
-    return filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
-  }, [filteredUnitsForFamily, sortedVisibleUnits]);
-
   const findUnitByCode = useCallback(
     (code?: string) => {
       if (!code) return undefined;
@@ -340,10 +310,6 @@ export const useProductForm = ({
     (nextFamily: UnitFamily) => {
       if (selectedUnitFamily === nextFamily) return;
 
-      const previousAdditionalCount = formData.unidadesMedidaAdicionales.length;
-      let sanitizedUnits: ProductFormData['unidadesMedidaAdicionales'] = [];
-
-      // Primero cambia la selección de chip.
       setSelectedUnitFamily(nextFamily);
 
       setFormData(prev => {
@@ -364,72 +330,32 @@ export const useProductForm = ({
           nextUnit = (prioritized?.code || '') as Product['unidad'];
         }
 
-        // Limpiamos presentaciones que coinciden con la nueva unidad mínima o que no están dentro de la familia.
-        sanitizedUnits = prev.unidadesMedidaAdicionales.filter(unit => {
-          if (unit.unidadCodigo === nextUnit) return false;
-          if (!unit.unidadCodigo) return false;
-          if (!hasUnitsForFamily) return false;
-          const resolved = availableUnits.find(item => item.code === unit.unidadCodigo);
-          if (!resolved) return true;
-          return resolved.category === nextFamily;
-        });
-
         const snapshot = resolveUnitSnapshot(nextUnit);
         return {
           ...prev,
           unidad: nextUnit,
           unidadSymbol: snapshot.symbol,
-          unidadName: snapshot.name,
-          unidadesMedidaAdicionales: sanitizedUnits
+          unidadName: snapshot.name
         };
       });
 
-      setAdditionalUnitErrors(sanitizedUnits.map(() => ({})));
       setErrors(prev => ({
         ...prev,
         unidad: undefined
       }));
-
-      if (sanitizedUnits.length < previousAdditionalCount) {
-        setUnitInfoMessage(
-          `Se limpiaron presentaciones que no son compatibles con la familia ${resolveFamilyLabel(nextFamily)}.`
-        );
-      }
     },
-    [formData.unidadesMedidaAdicionales, selectedUnitFamily, sortedVisibleUnits, availableUnits, resolveUnitSnapshot, resolveFamilyLabel]
+    [selectedUnitFamily, sortedVisibleUnits, availableUnits, resolveUnitSnapshot]
   );
 
   const handleBaseUnitChange = useCallback(
     (nextUnit: Product['unidad']) => {
-      let removedByBaseChange = false;
       const snapshot = resolveUnitSnapshot(nextUnit);
-      setFormData(prev => {
-        const filteredAdditional = prev.unidadesMedidaAdicionales.filter(unit => unit.unidadCodigo !== nextUnit);
-        if (filteredAdditional.length !== prev.unidadesMedidaAdicionales.length) {
-          removedByBaseChange = true;
-          setAdditionalUnitErrors(previousErrors => {
-            const filteredErrors: AdditionalUnitError[] = [];
-            prev.unidadesMedidaAdicionales.forEach((unit, idx) => {
-              if (unit.unidadCodigo !== nextUnit) {
-                filteredErrors.push(previousErrors[idx] || {});
-              }
-            });
-            return filteredErrors;
-          });
-        }
-
-        return {
-          ...prev,
-          unidad: nextUnit,
-          unidadSymbol: snapshot.symbol,
-          unidadName: snapshot.name,
-          unidadesMedidaAdicionales: filteredAdditional
-        };
-      });
-
-      if (removedByBaseChange) {
-        setUnitInfoMessage('Se limpiaron presentaciones que coincidían con la nueva unidad mínima.');
-      }
+      setFormData(prev => ({
+        ...prev,
+        unidad: nextUnit,
+        unidadSymbol: snapshot.symbol,
+        unidadName: snapshot.name
+      }));
     },
     [resolveUnitSnapshot]
   );
@@ -502,11 +428,8 @@ export const useProductForm = ({
   );
 
   const getAdditionalUnitOptions = useCallback(
-    (): Unit[] => {
-      // Se permiten unidades repetidas entre presentaciones; se devuelven todas las disponibles
-      return filteredUnitsForFamily.length > 0 ? filteredUnitsForFamily : sortedVisibleUnits;
-    },
-    [filteredUnitsForFamily, sortedVisibleUnits]
+    (): Unit[] => sortedVisibleUnits,
+    [sortedVisibleUnits]
   );
 
   useEffect(() => {
@@ -579,16 +502,7 @@ export const useProductForm = ({
           unidadName: unit.unidadName
         })) || [];
       const inferredFamily = resolveFamilyFromCode(productData.unidad);
-      const familyUnits = sortedVisibleUnits.filter(unit => unit.category === inferredFamily);
-      const hasUnitsForFamily = familyUnits.length > 0;
-      const sanitizedUnits = additionalUnits.filter(unit => {
-        if (!unit.unidadCodigo) return false;
-        if (unit.unidadCodigo === productData.unidad) return false;
-        if (!hasUnitsForFamily) return true;
-        const resolved = availableUnits.find(item => item.code === unit.unidadCodigo);
-        if (!resolved) return true;
-        return resolved.category === inferredFamily;
-      });
+      const sanitizedUnits = additionalUnits.filter(unit => !!unit.unidadCodigo);
 
       const enabledIdsFromProduct = productData.disponibleEnTodos
         ? activeEstablecimientoIds
@@ -629,7 +543,7 @@ export const useProductForm = ({
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    }, [activeEstablecimientoIds, defaultTaxLabel, sortedVisibleUnits, uniqueIds, availableUnits, resolveFamilyFromCode, resolveUnitSnapshot]
+    }, [activeEstablecimientoIds, defaultTaxLabel, uniqueIds, availableUnits, resolveFamilyFromCode, resolveUnitSnapshot]
   );
 
   useEffect(() => {
@@ -869,7 +783,6 @@ export const useProductForm = ({
     unitFamilies,
     baseUnitOptions,
     isUsingFallbackUnits,
-    remainingUnitsForAdditional,
     findUnitByCode,
     formatFactorValue,
     handleUnitFamilyChange,

@@ -153,7 +153,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
     setShowCategoryModal,
     baseUnitOptions,
     isUsingFallbackUnits,
-    remainingUnitsForAdditional,
     findUnitByCode,
     formatFactorValue,
     handleUnitFamilyChange,
@@ -497,7 +496,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 removeAdditionalUnit={removeAdditionalUnit}
                 updateAdditionalUnit={updateAdditionalUnit}
                 getAdditionalUnitOptions={getAdditionalUnitOptions}
-                remainingUnitsForAdditional={remainingUnitsForAdditional}
                 findUnitByCode={findUnitByCode}
                 formatFactorValue={formatFactorValue}
                 unitInfoMessage={unitInfoMessage}

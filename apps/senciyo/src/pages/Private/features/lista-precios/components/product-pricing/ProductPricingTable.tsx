@@ -735,7 +735,10 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
             return (
               <tr key={`${product.sku}-${option.code}`} className="align-top">
                 <td className="align-top px-2 py-1">
-                  <div className="flex items-center gap-1.5 text-[12px] text-gray-900 font-semibold">
+                  <div
+                    className="flex items-center gap-1.5 text-[12px] text-gray-900 font-semibold"
+                    title={option.factor ? `1 ${option.label || option.code} = ${option.factor} ${baseUnitLabel}` : undefined}
+                  >
                     <span>{option.label || option.code}</span>
                     {option.isBase && (
                       <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">Base</span>
@@ -744,11 +747,6 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
                       <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-[10px]">Actual</span>
                     )}
                   </div>
-                  {option.factor && (
-                    <div className="text-[10px] text-gray-400 mt-0.5">
-                      1 {option.label || option.code} = {option.factor} {baseUnitLabel}
-                    </div>
-                  )}
                 </td>
                 {columns.map(column => (
                   <td key={`${product.sku}-${option.code}-${column.id}`} className="align-top px-2 py-1">

@@ -18,7 +18,6 @@ interface ProductAdditionalUnitsTableProps {
     value: string
   ) => void;
   getAdditionalUnitOptions: () => Unit[];
-  remainingUnitsForAdditional: Unit[];
   findUnitByCode: (code?: string) => Unit | undefined;
   formatFactorValue: (value?: number) => string;
   unitInfoMessage: string | null;
@@ -44,6 +43,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
 }) => {
   const baseUnit = findUnitByCode(baseUnitCode);
   const baseUnitLabel = baseUnit ? resolveUnitLabelText(baseUnit) : baseUnitCode || '—';
+  const baseUnitNameLabel = baseUnit ? (baseUnit.name || baseUnitCode || '—') : (baseUnitCode || '—');
 
   return (
     <div className="mt-4 space-y-2">
@@ -133,7 +133,7 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
                     <label className="text-[11px] font-medium text-gray-600 mb-1 flex items-center gap-1">
                       <span>Unidad SUNAT</span>
                       <Tooltip
-                        contenido="Unidad de medida SUNAT que se usará en comprobantes y XML."
+                        contenido="Unidad comercial de la presentación para venta y emisión."
                         ubicacion="derecha"
                       >
                         <button
@@ -167,9 +167,9 @@ export const ProductAdditionalUnitsTable: React.FC<ProductAdditionalUnitsTablePr
                   {/* Contiene */}
                   <div>
                     <label className="text-[11px] font-medium text-gray-600 mb-1 flex items-center gap-1">
-                      <span>Contiene</span>
+                      <span>Contiene en {baseUnitNameLabel}</span>
                       <Tooltip
-                        contenido={`Cuántas ${baseUnitLabel} hay en 1 presentación. Ej: 1 Caja x 12 = 12 ${baseUnitLabel}.`}
+                        contenido={`Indica cuántos ${baseUnitNameLabel} contiene esta presentación.`}
                         ubicacion="izquierda"
                       >
                         <button
