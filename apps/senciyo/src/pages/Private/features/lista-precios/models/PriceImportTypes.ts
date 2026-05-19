@@ -21,6 +21,7 @@ export interface BulkPriceImportResult {
   appliedPrices: number;
   skippedRows: number;
   createdProducts: number;
+  rowOutcomes: Record<string, ImportedRowOutcome>;
 }
 
 export type ImportedPriceRecord = {
@@ -32,7 +33,9 @@ export type ImportedPriceRecord = {
   priceObjects: Record<string, FixedPrice>;
 };
 
-export type ImportRowStatus = 'ready' | 'error' | 'applied';
+export type ImportRowStatus = 'ready' | 'error' | 'applied' | 'unchanged' | 'skipped';
+
+export type ImportedRowOutcome = 'applied' | 'unchanged' | 'skipped';
 
 export interface PriceImportPreviewRow {
   id: string;

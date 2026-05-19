@@ -728,10 +728,8 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
         </thead>
         <tbody>
           {unitOptions.map(option => {
-            // Los precios se indexan por código SUNAT; los compuestos son solo para la UI
-            const sunatCode = option.code.includes('__') ? option.code.split('__')[0] : option.code;
-            const isActive = sunatCode === (product.activeUnitCode || baseUnitCode)
-              || option.code === activeUnitCode;
+            const isActive = option.code === activeUnitCode
+              || (option.code.includes('__') && option.code.split('__')[0] === activeUnitCode);
             return (
               <tr key={`${product.sku}-${option.code}`} className="align-top">
                 <td className="align-top px-2 py-1">
@@ -750,7 +748,7 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
                 </td>
                 {columns.map(column => (
                   <td key={`${product.sku}-${option.code}-${column.id}`} className="align-top px-2 py-1">
-                    {renderUnitPriceCell(column, sunatCode)}
+                    {renderUnitPriceCell(column, option.code)}
                   </td>
                 ))}
               </tr>

@@ -1,7 +1,7 @@
 // src/features/lista-precios/hooks/usePriceProducts.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product, PriceForm, FixedPrice, VolumePrice, CatalogProduct, ProductUnitPrices, Price, Column } from '../models/PriceTypes';
-import type { BulkPriceImportEntry, BulkPriceImportResult } from '../models/PriceImportTypes';
+import type { BulkPriceImportEntry, BulkPriceImportResult, ImportedRowOutcome } from '../models/PriceImportTypes';
 import type { FiltrosPrecios } from '../models/filtrosPrecios';
 import { FILTROS_POR_DEFECTO, hayFiltrosActivos } from '../models/filtrosPrecios';
 import { lsKey } from '../utils/tenantHelpers';
@@ -497,17 +497,18 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
   const effectivePrices = useMemo(() => buildEffectivePriceMatrix(catalogMergedProducts, columns, catalogProducts), [catalogMergedProducts, columns, catalogProducts]);
 
   const applyImportedFixedPrices = useCallback(async (entries: BulkPriceImportEntry[]): Promise<BulkPriceImportResult> => {
-    const stats: BulkPriceImportResult = {
+    const emptyResult: BulkPriceImportResult = {
       totalRows: entries.length,
       appliedRows: 0,
       appliedProducts: 0,
       appliedPrices: 0,
       skippedRows: entries.length,
-      createdProducts: 0
+      createdProducts: 0,
+      rowOutcomes: {}
     };
 
     if (entries.length === 0) {
-      return stats;
+      return emptyResult;
     }
 
     setLoading(true);
@@ -516,151 +517,165 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
     try {
       const validColumnIds = new Set(columns.map(column => getCanonicalColumnId(column.id)));
       const appliedProductIds = new Set<string>();
+      const rowOutcomes: Record<string, ImportedRowOutcome> = {};
+      const nextProducts = [...products];
 
-      setProducts(prevProducts => {
-        const nextProducts = [...prevProducts];
+      let appliedRows = 0;
+      let appliedPrices = 0;
+      let createdProducts = 0;
 
-        entries.forEach(entry => {
-          const normalizedSku = entry.sku.trim();
-          if (!normalizedSku) {
-            return;
-          }
+      entries.forEach(entry => {
+        const normalizedSku = entry.sku.trim();
+        const rowKey = `${normalizedSku}::${entry.priceKey}`;
 
-          const sanitizedPrices = entry.prices
-            .map(price => ({
-              columnId: getCanonicalColumnId(price.columnId),
-              value: price.value
-            }))
-            .filter(price => {
-              if (!validColumnIds.has(price.columnId)) {
-                return false;
-              }
-              if (price.value === null) {
-                return true;
-              }
-              return typeof price.value === 'number' && Number.isFinite(price.value) && price.value >= 0;
-            });
+        if (!normalizedSku) {
+          rowOutcomes[rowKey] = 'skipped';
+          return;
+        }
 
-          if (sanitizedPrices.length === 0) {
-            return;
-          }
-
-          const existingIndex = nextProducts.findIndex(product => product.sku === normalizedSku);
-          const existingProduct = existingIndex >= 0 ? nextProducts[existingIndex] : undefined;
-          const catalogProduct = catalogProducts.find(product => product.codigo === normalizedSku);
-
-          if (!existingProduct && !catalogProduct) {
-            return;
-          }
-
-          const resolvedUnitCode = (entry.priceKey ?? entry.unitCode)?.trim() || existingProduct?.activeUnitCode || getBaseUnitForProduct(catalogProduct, existingProduct?.activeUnitCode);
-
-          if (!resolvedUnitCode) {
-            return;
-          }
-
-          let targetProduct: Product;
-          if (existingProduct) {
-            targetProduct = {
-              ...existingProduct,
-              prices: { ...existingProduct.prices }
-            };
-          } else {
-            targetProduct = {
-              sku: normalizedSku,
-              name: catalogProduct?.nombre ?? normalizedSku,
-              prices: {},
-              activeUnitCode: resolvedUnitCode
-            };
-          }
-
-          let appliedForRow = 0;
-
-          sanitizedPrices.forEach(price => {
-            const existingColumnPrices = targetProduct.prices[price.columnId];
-            const columnPrices = {
-              ...(existingColumnPrices || {})
-            };
-
+        const sanitizedPrices = entry.prices
+          .map(price => ({
+            columnId: getCanonicalColumnId(price.columnId),
+            value: price.value
+          }))
+          .filter(price => {
+            if (!validColumnIds.has(price.columnId)) {
+              return false;
+            }
             if (price.value === null) {
-              // Backward compat: if compound key not stored directly, try SUNAT-only fallback
-              const keyToDelete = resolvedUnitCode in columnPrices
-                ? resolvedUnitCode
-                : (resolvedUnitCode.includes('__') && resolvedUnitCode.split('__')[0] in columnPrices
-                  ? resolvedUnitCode.split('__')[0]
-                  : null);
-              if (!keyToDelete) {
-                return;
-              }
-              delete columnPrices[keyToDelete];
-              if (Object.keys(columnPrices).length === 0) {
-                delete targetProduct.prices[price.columnId];
-              } else {
-                targetProduct.prices[price.columnId] = columnPrices;
-              }
-              appliedForRow += 1;
-              return;
+              return true;
             }
-
-            const roundedValue = Math.round((price.value + Number.EPSILON) * 100) / 100;
-            const existingPrice = columnPrices[resolvedUnitCode];
-            if (existingPrice && existingPrice.type === 'fixed' && existingPrice.value === roundedValue && existingPrice.validUntil === entry.validUntil && existingPrice.validFrom === entry.validFrom) {
-              targetProduct.prices[price.columnId] = columnPrices;
-              return;
-            }
-
-            columnPrices[resolvedUnitCode] = {
-              type: 'fixed',
-              value: roundedValue,
-              validFrom: entry.validFrom,
-              validUntil: entry.validUntil
-            } as FixedPrice;
-
-            targetProduct.prices[price.columnId] = columnPrices;
-            appliedForRow += 1;
+            return typeof price.value === 'number' && Number.isFinite(price.value) && price.value >= 0;
           });
 
-          const baseColDef = columns.find(col => col.kind === 'base');
-          const minColDef = columns.find(col => col.kind === 'min-allowed');
-          if (baseColDef && minColDef) {
-            const resultingBase = getFixedPriceValue(targetProduct.prices[baseColDef.id]?.[resolvedUnitCode]);
-            const resultingMin = getFixedPriceValue(targetProduct.prices[minColDef.id]?.[resolvedUnitCode]);
-            if (
-              typeof resultingBase === 'number' &&
-              typeof resultingMin === 'number' &&
-              resultingMin > resultingBase
-            ) {
+        if (sanitizedPrices.length === 0) {
+          rowOutcomes[rowKey] = 'skipped';
+          return;
+        }
+
+        const existingIndex = nextProducts.findIndex(product => product.sku === normalizedSku);
+        const existingProduct = existingIndex >= 0 ? nextProducts[existingIndex] : undefined;
+        const catalogProduct = catalogProducts.find(product => product.codigo === normalizedSku);
+
+        if (!existingProduct && !catalogProduct) {
+          rowOutcomes[rowKey] = 'skipped';
+          return;
+        }
+
+        const resolvedUnitCode = (entry.priceKey ?? entry.unitCode)?.trim() || existingProduct?.activeUnitCode || getBaseUnitForProduct(catalogProduct, existingProduct?.activeUnitCode);
+
+        if (!resolvedUnitCode) {
+          rowOutcomes[rowKey] = 'skipped';
+          return;
+        }
+
+        let targetProduct: Product;
+        if (existingProduct) {
+          targetProduct = {
+            ...existingProduct,
+            prices: { ...existingProduct.prices }
+          };
+        } else {
+          targetProduct = {
+            sku: normalizedSku,
+            name: catalogProduct?.nombre ?? normalizedSku,
+            prices: {},
+            activeUnitCode: resolvedUnitCode
+          };
+        }
+
+        let appliedForRow = 0;
+
+        sanitizedPrices.forEach(price => {
+          const existingColumnPrices = targetProduct.prices[price.columnId];
+          const columnPrices = { ...(existingColumnPrices || {}) };
+
+          if (price.value === null) {
+            const keyToDelete = resolvedUnitCode in columnPrices
+              ? resolvedUnitCode
+              : (resolvedUnitCode.includes('__') && resolvedUnitCode.split('__')[0] in columnPrices
+                ? resolvedUnitCode.split('__')[0]
+                : null);
+            if (!keyToDelete) {
               return;
             }
-          }
-
-          if (appliedForRow === 0) {
+            delete columnPrices[keyToDelete];
+            if (Object.keys(columnPrices).length === 0) {
+              delete targetProduct.prices[price.columnId];
+            } else {
+              targetProduct.prices[price.columnId] = columnPrices;
+            }
+            appliedForRow += 1;
             return;
           }
 
-          stats.appliedRows += 1;
-          stats.appliedPrices += appliedForRow;
-          appliedProductIds.add(targetProduct.sku);
-
-          if (!targetProduct.activeUnitCode) {
-            targetProduct.activeUnitCode = resolvedUnitCode;
+          const roundedValue = Math.round((price.value + Number.EPSILON) * 100) / 100;
+          const existingPrice = columnPrices[resolvedUnitCode];
+          if (existingPrice && existingPrice.type === 'fixed' && existingPrice.value === roundedValue && existingPrice.validUntil === entry.validUntil && existingPrice.validFrom === entry.validFrom) {
+            targetProduct.prices[price.columnId] = columnPrices;
+            return;
           }
 
-          if (existingProduct && existingIndex >= 0) {
-            nextProducts[existingIndex] = targetProduct;
-          } else {
-            nextProducts.push(targetProduct);
-            stats.createdProducts += 1;
-          }
+          columnPrices[resolvedUnitCode] = {
+            type: 'fixed',
+            value: roundedValue,
+            validFrom: entry.validFrom,
+            validUntil: entry.validUntil
+          } as FixedPrice;
+
+          targetProduct.prices[price.columnId] = columnPrices;
+          appliedForRow += 1;
         });
 
-        stats.appliedProducts = appliedProductIds.size;
-        stats.skippedRows = Math.max(0, stats.totalRows - stats.appliedRows);
+        const baseColDef = columns.find(col => col.kind === 'base');
+        const minColDef = columns.find(col => col.kind === 'min-allowed');
+        if (baseColDef && minColDef) {
+          const resultingBase = getFixedPriceValue(targetProduct.prices[baseColDef.id]?.[resolvedUnitCode]);
+          const resultingMin = getFixedPriceValue(targetProduct.prices[minColDef.id]?.[resolvedUnitCode]);
+          if (
+            typeof resultingBase === 'number' &&
+            typeof resultingMin === 'number' &&
+            resultingMin > resultingBase
+          ) {
+            rowOutcomes[rowKey] = 'skipped';
+            return;
+          }
+        }
 
-        return nextProducts;
+        if (appliedForRow === 0) {
+          rowOutcomes[rowKey] = 'unchanged';
+          return;
+        }
+
+        appliedRows += 1;
+        appliedPrices += appliedForRow;
+        appliedProductIds.add(targetProduct.sku);
+        rowOutcomes[rowKey] = 'applied';
+
+        if (!targetProduct.activeUnitCode) {
+          targetProduct.activeUnitCode = resolvedUnitCode;
+        }
+
+        if (existingProduct && existingIndex >= 0) {
+          nextProducts[existingIndex] = targetProduct;
+        } else {
+          nextProducts.push(targetProduct);
+          createdProducts += 1;
+        }
       });
 
-      return stats;
+      const result: BulkPriceImportResult = {
+        totalRows: entries.length,
+        appliedRows,
+        appliedProducts: appliedProductIds.size,
+        appliedPrices,
+        skippedRows: Math.max(0, entries.length - appliedRows),
+        createdProducts,
+        rowOutcomes
+      };
+
+      setProducts(nextProducts);
+      return result;
     } catch (error) {
       console.error('[usePriceProducts] Error applying imported prices:', error);
       setError('Ocurrió un error al aplicar los precios importados');
@@ -670,12 +685,13 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
         appliedProducts: 0,
         appliedPrices: 0,
         skippedRows: entries.length,
-        createdProducts: 0
+        createdProducts: 0,
+        rowOutcomes: {}
       };
     } finally {
       setLoading(false);
     }
-  }, [catalogProducts, columns]);
+  }, [catalogProducts, columns, products]);
 
   return {
     products: catalogMergedProducts,

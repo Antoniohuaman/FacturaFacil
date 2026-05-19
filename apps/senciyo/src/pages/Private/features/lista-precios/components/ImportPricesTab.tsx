@@ -231,7 +231,14 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       }));
 
       const summary = await onApplyImport(payload);
-      setRows(prev => prev.map(row => (row.status === 'ready' ? { ...row, status: 'applied' } : row)));
+      setRows(prev => prev.map(row => {
+        if (row.status !== 'ready') return row;
+        const outcome = summary.rowOutcomes[`${row.sku}::${row.priceKey}`];
+        if (outcome === 'applied') return { ...row, status: 'applied' as const };
+        if (outcome === 'unchanged') return { ...row, status: 'unchanged' as const };
+        if (outcome === 'skipped') return { ...row, status: 'skipped' as const };
+        return row;
+      }));
       setLastResult({ summary, completedAt: formatBusinessDateTimeIso() });
 
       const entornoAnalitica = derivarEntornoAnaliticoEmpresa(session?.currentCompany) ?? 'demo';

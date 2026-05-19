@@ -96,6 +96,16 @@ export const ImportPreviewTable: React.FC<ImportPreviewTableProps> = ({
                     <Info className="w-3 h-3 mr-1" aria-hidden /> Aplicada
                   </span>
                 )}
+                {row.status === 'unchanged' && (
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                    <CheckCircle2 className="w-3 h-3 mr-1" aria-hidden /> Sin cambios
+                  </span>
+                )}
+                {row.status === 'skipped' && (
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
+                    <AlertTriangle className="w-3 h-3 mr-1" aria-hidden /> Omitida
+                  </span>
+                )}
                 {row.status === 'error' && (
                   <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-600">
                     <AlertTriangle className="w-3 h-3 mr-1" aria-hidden /> Revisar

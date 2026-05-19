@@ -185,13 +185,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({
   }, [resolveActiveUnit]);
 
   const handleUnitSelect = useCallback((product: Product, unitCode: string) => {
-    // Los precios en el libro se indexan por código SUNAT; extraer si es código compuesto
-    const effectiveCode = unitCode.includes('__') ? unitCode.split('__')[0] : unitCode;
-    if (resolveActiveUnit(product) === effectiveCode) {
+    if (resolveActiveUnit(product) === unitCode) {
       setUnitMenuOpenSku(null);
       return;
     }
-    onUnitChange(product.sku, effectiveCode);
+    onUnitChange(product.sku, unitCode);
     setUnitMenuOpenSku(null);
   }, [onUnitChange, resolveActiveUnit]);
 
