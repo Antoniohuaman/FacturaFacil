@@ -154,14 +154,23 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [catalogProducts]);
 
+  // Limpiar precios de productos eliminados del catálogo
+  useEffect(() => {
+    const catalogSkuSet = new Set(catalogProducts.map(p => p.codigo));
+    setProducts(prev => {
+      const cleaned = prev.filter(p => catalogSkuSet.has(p.sku));
+      return cleaned.length === prev.length ? prev : cleaned;
+    });
+  }, [catalogProducts]);
+
   /**
-   * Lista combinada: todos los productos del catálogo + los que tienen precios aunque ya no estén en el catálogo
+   * Lista de productos del catálogo activo con sus precios guardados.
+   * Solo se incluyen productos existentes en el catálogo.
    */
   const catalogMergedProducts = useMemo(() => {
-    const catalogSkuSet = new Set(catalogProducts.map(product => product.codigo));
     const productsMap = new Map(products.map(product => [product.sku, product] as const));
 
-    const merged: Product[] = catalogProducts.map((catalogProduct) => {
+    return catalogProducts.map((catalogProduct) => {
       const existing = productsMap.get(catalogProduct.codigo);
       if (existing) {
         return existing.name === catalogProduct.nombre
@@ -175,15 +184,6 @@ export const usePriceProducts = (catalogProducts: CatalogProduct[], columns: Col
         activeUnitCode: getBaseUnitForProduct(catalogProduct)
       };
     });
-
-    // Incluir productos que tienen precios pero ya no existen en el catálogo
-    products.forEach((product) => {
-      if (!catalogSkuSet.has(product.sku)) {
-        merged.push(product);
-      }
-    });
-
-    return merged;
   }, [products, catalogProducts]);
 
   /**

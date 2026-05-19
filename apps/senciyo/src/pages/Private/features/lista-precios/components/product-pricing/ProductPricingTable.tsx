@@ -349,8 +349,7 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({
         aria-expanded={isOpen}
         aria-controls={menuId}
       >
-      <span className="text-[11px] font-bold text-gray-900">{activeUnit}</span>
-      <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{activeUnitLabel}</span>
+      <span className="text-[11px] font-semibold text-gray-900 truncate max-w-[110px]">{activeUnitLabel || activeUnit}</span>
       <ChevronDown size={12} className="text-gray-400" aria-hidden />
       </button>
 
@@ -372,9 +371,8 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({
               id={`${product.sku}-${option.code}`}
             >
               <div>
-                <div className="font-semibold flex items-center gap-1">
-                  <span>{option.code}</span>
-                  <span className="text-[11px] font-normal text-gray-500">{option.label}</span>
+                <div className="font-semibold">
+                  {option.label || option.code}
                 </div>
                 {option.factor && (
                   <div className="text-[11px] text-gray-500 mt-0.5">
@@ -742,7 +740,7 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
               <tr key={`${product.sku}-${option.code}`} className="align-top">
                 <td className="align-top px-2 py-2">
                   <div className="flex items-center gap-2 text-[12px] text-gray-900 font-semibold">
-                    <span>{option.code}</span>
+                    <span>{option.label || option.code}</span>
                     {option.isBase && (
                       <span className="px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 text-[10px]">Base</span>
                     )}
@@ -750,7 +748,6 @@ const UnitPricesPanel: React.FC<UnitPricesPanelProps> = ({
                       <span className="px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-[10px]">Actual</span>
                     )}
                   </div>
-                  <div className="text-[11px] text-gray-500">{option.label}</div>
                   {option.factor && (
                     <div className="text-[10px] text-gray-400 mt-1">
                       1 {option.code} = {option.factor} {baseUnitCode}
