@@ -28,7 +28,7 @@ import { CreditosPagadosTable } from '../components/CreditosPagadosTable';
 import { CreditoPagadoDetailModal } from '../components/CreditoPagadoDetailModal';
 import { useCobranzasDashboard } from '../hooks/useCobranzasDashboard';
 import { useCobranzaColumnsManager, useCuentasPorCobrarColumnsManager } from '../hooks/useCobranzasColumnsManager';
-import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey, CreditoPagadoResumen } from '../models/cobranzas.types';
+import type { CobranzaDocumento, CuentaPorCobrarSummary, CobranzaTabKey, CreditoPagadoResumen, EditarCobranzaInfoInput } from '../models/cobranzas.types';
 import { DEFAULT_COBRANZA_FILTERS } from '../utils/constants';
 import { buildCobranzasExportRows, buildCuentasExportRows, buildCreditosPagadosExportRows } from '../utils/reporting';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
@@ -61,6 +61,8 @@ export const CobranzasDashboard = () => {
     creditosPagados,
     resumen,
     registerCobranza,
+    editarCobranza,
+    anularCobranza,
     cuentas,
     cobranzas,
     paymentMeansOptions,
@@ -118,6 +120,7 @@ export const CobranzasDashboard = () => {
   const [selectedCuenta, setSelectedCuenta] = useState<CuentaPorCobrarSummary | null>(null);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const [showCuentaPicker, setShowCuentaPicker] = useState(false);
+  const [editandoCobranza, setEditandoCobranza] = useState<CobranzaDocumento | null>(null);
   const [detalleCobranza, setDetalleCobranza] = useState<(CobranzaDocumento & { displayAmount?: number; relatedCuenta?: CuentaPorCobrarSummary }) | null>(null);
   const [detalleCreditoPagado, setDetalleCreditoPagado] = useState<CreditoPagadoResumen | null>(null);
   const [historialCuenta, setHistorialCuenta] = useState<CuentaPorCobrarSummary | null>(null);
@@ -167,6 +170,41 @@ export const CobranzasDashboard = () => {
   const handleRegistrarCobranza = (cuenta: CuentaPorCobrarSummary) => {
     setSelectedCuenta(cuenta);
     setShowCobranzaModal(true);
+  };
+
+  const handleEditarCobranza = (cobranza: CobranzaDocumento) => {
+    setDetalleCobranza(null);
+    setEditandoCobranza(cobranza);
+  };
+
+  const handleGuardarEdicion = async (input: EditarCobranzaInfoInput): Promise<boolean> => {
+    if (!editandoCobranza) return false;
+    try {
+      await editarCobranza(editandoCobranza.id, input);
+      setEditandoCobranza(null);
+      success('Cobranza actualizada', `${editandoCobranza.numero} modificada correctamente.`);
+      return true;
+    } catch (editError) {
+      console.error('No se pudo editar la cobranza:', editError);
+      error('Error al editar', editError instanceof Error ? editError.message : 'Intenta nuevamente.');
+      return false;
+    }
+  };
+
+  const handleAnularCobranza = async (cobranzaId: string, motivo: string): Promise<void> => {
+    try {
+      await anularCobranza(cobranzaId, motivo);
+      setDetalleCobranza(null);
+      success('Cobranza anulada', 'La cobranza fue anulada y el comprobante volvió a Cuentas por Cobrar.');
+    } catch (anularError) {
+      console.error('No se pudo anular la cobranza:', anularError);
+      error('Error al anular', anularError instanceof Error ? anularError.message : 'Intenta nuevamente.');
+      throw anularError;
+    }
+  };
+
+  const handleAnularDesdeTabla = (cobranza: CobranzaDocumento) => {
+    setDetalleCobranza(cobranza);
   };
 
   const handleCobranzaComplete = async (payload: PaymentCollectionPayload) => {
@@ -275,6 +313,8 @@ export const CobranzasDashboard = () => {
             { wch: 14 },
             { wch: 14 },
             { wch: 30 },
+            { wch: 40 },
+            { wch: 14 },
           ]
         : [
             { wch: 26 },
@@ -423,6 +463,8 @@ export const CobranzasDashboard = () => {
           onVerDetalle={(cobranza) => setDetalleCobranza(cobranza)}
           onVerComprobante={(cobranza) => handleVerComprobante(cobranza.comprobanteId)}
           visibleColumns={cobranzasColumnsManager.visibleColumns}
+          onEditar={handleEditarCobranza}
+          onAnular={handleAnularDesdeTabla}
         />
       ) : (
         <CreditosPagadosTable
@@ -465,6 +507,8 @@ export const CobranzasDashboard = () => {
         isOpen={Boolean(detalleCobranza)}
         onClose={() => setDetalleCobranza(null)}
         formatMoney={formatMoney}
+        onEditar={handleEditarCobranza}
+        onAnular={handleAnularCobranza}
       />
 
       <HistorialCobranzaModal
@@ -474,7 +518,44 @@ export const CobranzasDashboard = () => {
         onClose={() => setHistorialCuenta(null)}
         formatMoney={formatMoney}
         onVerConstancia={(doc) => setDetalleCobranza(doc)}
+        onEditar={(doc) => { setHistorialCuenta(null); handleEditarCobranza(doc); }}
+        onAnular={(doc) => { setHistorialCuenta(null); setDetalleCobranza(doc); }}
       />
+
+      {editandoCobranza && (() => {
+        const cuentaEdicion = cuentas.find((c) => c.comprobanteId === editandoCobranza.comprobanteId);
+        const tipoCompEdicion = resolveTipoComprobante(cuentaEdicion?.tipoComprobante);
+        const totalsEdicion: PaymentTotals = {
+          subtotal: editandoCobranza.monto,
+          igv: 0,
+          total: editandoCobranza.monto,
+          currency: (editandoCobranza.moneda as Currency) ?? 'PEN',
+        };
+        const clienteEdicion: ClientData = {
+          nombre: cuentaEdicion?.clienteNombre ?? editandoCobranza.clienteNombre,
+          tipoDocumento: ((cuentaEdicion?.clienteDocumento?.length ?? 0) === 11) ? 'RUC' : 'DNI',
+          documento: cuentaEdicion?.clienteDocumento ?? '',
+        };
+        return (
+          <CobranzaModal
+            isOpen
+            onClose={() => setEditandoCobranza(null)}
+            cartItems={[]}
+            totals={totalsEdicion}
+            cliente={clienteEdicion}
+            tipoComprobante={tipoCompEdicion}
+            serie={cuentaEdicion?.comprobanteSerie ?? editandoCobranza.comprobanteSerie}
+            numeroTemporal={cuentaEdicion?.comprobanteNumero ?? editandoCobranza.comprobanteNumero}
+            fechaEmision={cuentaEdicion?.fechaEmision ?? editandoCobranza.fechaCobranza}
+            moneda={cuentaEdicion?.moneda ?? editandoCobranza.moneda}
+            formaPago={cuentaEdicion?.formaPago}
+            onComplete={async () => false}
+            context="cobranzas"
+            editMode={{ cobranza: editandoCobranza }}
+            onGuardarEdicion={handleGuardarEdicion}
+          />
+        );
+      })()}
 
       <SeleccionarCuentaModal
         cuentas={cuentas}

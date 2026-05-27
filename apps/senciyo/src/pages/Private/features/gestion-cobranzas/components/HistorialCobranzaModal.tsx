@@ -10,6 +10,8 @@ interface HistorialCobranzaModalProps {
   onClose: () => void;
   formatMoney: (value: number, currency?: string) => string;
   onVerConstancia?: (cobranza: CobranzaDocumento) => void;
+  onEditar?: (cobranza: CobranzaDocumento) => void;
+  onAnular?: (cobranza: CobranzaDocumento) => void;
 }
 
 const INSTALLMENT_TOLERANCE = 0.01;
@@ -41,7 +43,7 @@ const normalizeInstallmentsForDisplay = (installments: CobranzaInstallmentState[
     };
   });
 
-export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, formatMoney, onVerConstancia }: HistorialCobranzaModalProps) => {
+export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, formatMoney, onVerConstancia, onEditar, onAnular }: HistorialCobranzaModalProps) => {
   if (!isOpen || !cuenta) return null;
 
   const related = cobranzas.filter((item) => item.comprobanteId === cuenta.comprobanteId);
@@ -147,25 +149,60 @@ export const HistorialCobranzaModal = ({ cuenta, cobranzas, isOpen, onClose, for
                     <th className="px-3 py-2 text-left font-semibold">Medio</th>
                     <th className="px-3 py-2 text-left font-semibold">Caja</th>
                     <th className="px-3 py-2 text-right font-semibold">Importe</th>
-                    <th className="px-3 py-2 text-center font-semibold">Constancia</th>
+                    <th className="px-3 py-2 text-center font-semibold">Estado</th>
+                    <th className="px-3 py-2 text-center font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-gray-800 text-slate-700 dark:text-gray-100">
                   {related.map((item) => (
-                    <tr key={item.id}>
+                    <tr key={item.id} className={item.estado === 'anulado' ? 'opacity-60' : ''}>
                       <td className="px-3 py-2 font-semibold">{item.numero}</td>
                       <td className="px-3 py-2">{item.fechaCobranza}</td>
                       <td className="px-3 py-2 capitalize">{resolveCobranzaPaymentMeans(item).summaryLabel}</td>
                       <td className="px-3 py-2">{item.cajaDestino ?? '-'}</td>
                       <td className="px-3 py-2 text-right font-semibold">{formatMoney(item.monto, item.moneda)}</td>
                       <td className="px-3 py-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => onVerConstancia?.(item)}
-                          className="text-xs font-semibold text-blue-600 hover:underline"
-                        >
-                          Ver constancia
-                        </button>
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          item.estado === 'anulado'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {item.estado === 'anulado' ? 'Anulada' : 'Cobrada'}
+                        </span>
+                        {item.estado === 'anulado' && item.motivoAnulacion && (
+                          <p className="text-[10px] text-red-600 mt-0.5 max-w-[120px] truncate" title={item.motivoAnulacion}>
+                            {item.motivoAnulacion}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onVerConstancia?.(item)}
+                            className="text-xs font-semibold text-blue-600 hover:underline"
+                          >
+                            Ver
+                          </button>
+                          {onEditar && item.estado !== 'anulado' && (
+                            <button
+                              type="button"
+                              onClick={() => onEditar(item)}
+                              className="text-xs font-semibold text-indigo-600 hover:underline"
+                            >
+                              Editar
+                            </button>
+                          )}
+                          {onAnular && item.estado !== 'anulado' && (
+                            <button
+                              type="button"
+                              onClick={() => onAnular(item)}
+                              className="text-xs font-semibold text-red-600 hover:underline"
+                            >
+                              Anular
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

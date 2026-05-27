@@ -201,6 +201,8 @@ export const buildCobranzasExportRows = (
       Caja: cobranza.cajaDestino,
       'Cuotas': formatCobranzaCuotasLabel(snapshot),
       Importe: formatMoney(cobranza.displayAmount ?? cobranza.monto, cobranza.moneda),
+      'Motivo anulación': cobranza.motivoAnulacion ?? '',
+      'Fecha anulación': cobranza.fechaAnulacion ?? '',
     } as const;
   });
 };

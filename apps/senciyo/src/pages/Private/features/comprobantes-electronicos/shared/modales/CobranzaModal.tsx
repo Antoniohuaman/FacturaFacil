@@ -22,7 +22,7 @@ import { useCaja } from '../../../control-caja/context/CajaContext';
 import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../../../shared/series/collectionSeries';
 import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '../payments/CreditInstallmentsTable';
-import type { CobranzaInstallmentState } from '../../../gestion-cobranzas/models/cobranzas.types';
+import type { CobranzaAttachment, CobranzaDocumento, CobranzaInstallmentState, EditarCobranzaInfoInput } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { getRate } from '@/shared/currency';
@@ -208,6 +208,8 @@ interface CobranzaModalProps {
   modeIntent?: PaymentCollectionMode;
   installmentsState?: CobranzaInstallmentState[];
   context?: CobranzaModalContextType;
+  editMode?: { cobranza: CobranzaDocumento };
+  onGuardarEdicion?: (input: EditarCobranzaInfoInput) => Promise<boolean>;
 }
 
 type PaymentLineForm = Omit<PaymentLineInput, 'bank' | 'reference'>;
@@ -294,7 +296,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   modeIntent,
   installmentsState,
   context = 'emision',
+  editMode,
+  onGuardarEdicion,
 }) => {
+  const isEditMode = Boolean(editMode);
   const { formatPrice, availableCurrencies } = useCurrency();
   const {
     tourActivo,
@@ -535,7 +540,10 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     () => clampCurrency(allocationDrafts.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0)),
     [allocationDrafts],
   );
-  const amountToApply = useMemo(() => (allowAllocations ? totalAllocationAmount : clampCurrency(totals.total)), [allowAllocations, totalAllocationAmount, totals.total]);
+  const amountToApply = useMemo(() => {
+    if (isEditMode && editMode) return clampCurrency(editMode.cobranza.monto);
+    return allowAllocations ? totalAllocationAmount : clampCurrency(totals.total);
+  }, [isEditMode, editMode, allowAllocations, totalAllocationAmount, totals.total]);
   const amountToApplyInCollection = useMemo(
     () => convertDocumentToCollection(amountToApply),
     [amountToApply, convertDocumentToCollection],
@@ -814,29 +822,72 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const initialMethodOption = resolveInitialMethod();
-    setPaymentLines([
-      {
-        id: 'line-1',
-        method: initialMethodOption?.code ?? '',
-        methodLabel: initialMethodOption?.label ?? '',
-        amount: UNSET_PAYMENT_AMOUNT,
-      },
-    ]);
-    setFechaCobranza(fechaEmision || getBusinessTodayISODate());
-    setCajaDestinoId(defaultCajaDestino?.id ?? null);
-    setNotas('');
-    setBancoDocumento('');
-    setSelectedBankAccountId(null);
-    setBankSelectionTouched(false);
-    setAllocationDrafts([]);
-    setErrorMessage(null);
-    setAttachments([]);
-    setAttachmentsError(null);
-    setCollectionCurrencyCode(documentCurrencyCode);
-    setExchangeRateInput('1');
-    setExchangeRateValue(1);
-  }, [defaultCajaDestino, documentCurrencyCode, fechaEmision, isOpen, resolveInitialMethod, totals.total]);
+    if (isEditMode && editMode) {
+      const existingLines = editMode.cobranza.paymentLines ?? [];
+      if (existingLines.length) {
+        setPaymentLines(
+          existingLines.map((line) => ({
+            id: line.id,
+            method: line.method,
+            methodLabel: line.methodLabel ?? '',
+            amount: line.amount,
+            operationNumber: line.operationNumber,
+          })),
+        );
+      } else {
+        const initialMethodOption = resolveInitialMethod();
+        setPaymentLines([
+          {
+            id: 'line-1',
+            method: initialMethodOption?.code ?? '',
+            methodLabel: initialMethodOption?.label ?? '',
+            amount: editMode.cobranza.monto,
+          },
+        ]);
+      }
+      setFechaCobranza(editMode.cobranza.fechaCobranza || getBusinessTodayISODate());
+      if (editMode.cobranza.cajaDestinoId) {
+        setCajaDestinoId(editMode.cobranza.cajaDestinoId);
+      } else {
+        setCajaDestinoId(defaultCajaDestino?.id ?? null);
+      }
+      setNotas(editMode.cobranza.notas ?? '');
+      setBancoDocumento('');
+      setSelectedBankAccountId(null);
+      setBankSelectionTouched(false);
+      setAllocationDrafts([]);
+      setErrorMessage(null);
+      setAttachments([]);
+      setAttachmentsError(null);
+      setCollectionCurrencyCode((editMode.cobranza.moneda as Currency) ?? documentCurrencyCode);
+      setExchangeRateInput('1');
+      setExchangeRateValue(1);
+    } else {
+      const initialMethodOption = resolveInitialMethod();
+      setPaymentLines([
+        {
+          id: 'line-1',
+          method: initialMethodOption?.code ?? '',
+          methodLabel: initialMethodOption?.label ?? '',
+          amount: UNSET_PAYMENT_AMOUNT,
+        },
+      ]);
+      setFechaCobranza(fechaEmision || getBusinessTodayISODate());
+      setCajaDestinoId(defaultCajaDestino?.id ?? null);
+      setNotas('');
+      setBancoDocumento('');
+      setSelectedBankAccountId(null);
+      setBankSelectionTouched(false);
+      setAllocationDrafts([]);
+      setErrorMessage(null);
+      setAttachments([]);
+      setAttachmentsError(null);
+      setCollectionCurrencyCode(documentCurrencyCode);
+      setExchangeRateInput('1');
+      setExchangeRateValue(1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isEditMode]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -980,6 +1031,29 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     );
   }, [paymentMeansOptionsMap]);
 
+  const validatePaymentForEdit = useCallback(() => {
+    if (!isEditMode || !editMode) return true;
+
+    if (paymentLines.some((l) => !Number.isFinite(l.amount) || l.amount <= 0)) {
+      setErrorMessage('Cada método necesita un monto mayor a 0.');
+      return false;
+    }
+
+    const newTotal = clampCurrency(
+      paymentLines.reduce((sum, l) => sum + (Number(l.amount) || 0), 0),
+    );
+    const editMonto = clampCurrency(editMode.cobranza.monto);
+    if (Math.abs(convertCollectionToDocument(newTotal) - editMonto) > tolerance) {
+      setErrorMessage(
+        `La suma de los medios de pago debe ser igual al importe cobrado (${editMonto.toFixed(2)}).`,
+      );
+      return false;
+    }
+
+    setErrorMessage(null);
+    return true;
+  }, [isEditMode, editMode, paymentLines, convertCollectionToDocument]);
+
   const validatePayment = useCallback(
     (targetMode: PaymentCollectionMode = mode) => {
       if (targetMode === 'credito') {
@@ -1066,6 +1140,58 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
     async (targetMode: PaymentCollectionMode) => {
       setErrorMessage(null);
 
+      // MODO EDICIÓN: path separado
+      if (isEditMode && editMode && onGuardarEdicion) {
+        if (!validatePaymentForEdit()) return;
+
+        const payloadLines = paymentLines.map((line) => ({
+          id: line.id,
+          method: line.method ?? '',
+          methodLabel: line.methodLabel,
+          amount: clampCurrency(convertCollectionToDocument(Number(line.amount) || 0)),
+          operationNumber: line.operationNumber,
+        }));
+
+        const attachmentsPayload: CobranzaAttachment[] | undefined = attachments.length
+          ? attachments.map((file) => ({
+              id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              name: file.name,
+              size: file.size,
+              type: file.type || file.name.split('.').pop() || '',
+              uploadedAt: getBusinessTodayISODate(),
+            }))
+          : editMode.cobranza.attachments;
+
+        const resolvedCajaDestinoId = cajaDestinoId ?? cajaAbierta?.id ?? null;
+        const resolvedCajaNombre = cajas.find((c) => c.id === resolvedCajaDestinoId)?.nombreCaja;
+
+        const editInput: EditarCobranzaInfoInput = {
+          fechaCobranza,
+          moneda: collectionCurrencyCode,
+          paymentLines: payloadLines,
+          notas: notas || undefined,
+          attachments: attachmentsPayload,
+          cajaDestinoId: resolvedCajaDestinoId ?? undefined,
+          cajaDestino: resolvedCajaNombre,
+        };
+
+        try {
+          setSubmitting(true);
+          const result = await Promise.resolve(onGuardarEdicion(editInput));
+          if (!result) {
+            setErrorMessage('No se pudo guardar los cambios. Intenta nuevamente.');
+          }
+        } catch (editErr) {
+          console.error('[CobranzaModal] Error al guardar edición:', editErr);
+          setErrorMessage(
+            editErr instanceof Error ? editErr.message : 'Ocurrió un error al guardar los cambios.',
+          );
+        } finally {
+          setSubmitting(false);
+        }
+        return;
+      }
+
       const enforcedMode: PaymentCollectionMode = targetMode;
 
       if (enforcedMode === 'contado' && !isCajaOpen) {
@@ -1131,17 +1257,18 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
         setSubmitting(false);
       }
     },
-    [amountToApplyInCollection, attachments, buildAllocationPayload, buildPaymentLinesPayload, cajaAbierta, cajaDestinoId, cajas, collectionCurrencyCode, collectionDocumentPreview, collectionExchangeRate, fechaCobranza, isCajaOpen, notas, onComplete, validatePayment],
+    [amountToApplyInCollection, attachments, buildAllocationPayload, buildPaymentLinesPayload, cajaAbierta, cajaDestinoId, cajas, collectionCurrencyCode, collectionDocumentPreview, collectionExchangeRate, convertCollectionToDocument, editMode, fechaCobranza, isCajaOpen, isEditMode, notas, onComplete, onGuardarEdicion, paymentLines, validatePayment, validatePaymentForEdit],
   );
 
-  const cobrarButtonLabel = 'COBRAR';
-  const cobrarDisabled =
-    isProcessing ||
-    submitting ||
-    mode !== 'contado' ||
-    !isCajaOpen ||
-    !collectionDocumentPreview ||
-    !allocationsReady;
+  const cobrarButtonLabel = isEditMode ? 'GUARDAR CAMBIOS' : 'COBRAR';
+  const cobrarDisabled = isEditMode
+    ? isProcessing || submitting
+    : isProcessing ||
+      submitting ||
+      mode !== 'contado' ||
+      !isCajaOpen ||
+      !collectionDocumentPreview ||
+      !allocationsReady;
   const disableBackdropClose = isProcessing || submitting;
 
   const handleCobrar = useCallback(() => {
@@ -1171,8 +1298,12 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
       <div className="relative mx-4 flex max-h-[94vh] w-full max-w-6xl flex-col rounded-xl border border-slate-100 bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
           <div className="leading-none">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Cobranza de {docTypeLabel}</p>
-            <h2 className="text-[16px] font-semibold text-slate-900">{''}</h2>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              {isEditMode ? 'Editar cobranza' : `Cobranza de ${docTypeLabel}`}
+            </p>
+            {isEditMode && editMode && (
+              <h2 className="text-[16px] font-semibold text-slate-900">{editMode.cobranza.numero}</h2>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {mode === 'contado' && (
@@ -1379,16 +1510,28 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                 <section className="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-3">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-sm font-semibold text-slate-800">Documento de cobranza</h4>
-                    {!isCajaOpen && <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Caja cerrada</span>}
+                    {!isEditMode && !isCajaOpen && <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Caja cerrada</span>}
+                    {isEditMode && !isCajaOpen && <span className="rounded-md bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">Caja cerrada · ajuste sin efecto</span>}
                   </div>
                   <div className="mt-2 flex min-h-0 flex-col text-xs text-slate-700">
-                    {cobranzasSeries.length === 0 ? (
+                    {!isEditMode && cobranzasSeries.length === 0 ? (
                       <div className="flex-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                         Configura una serie de cobranza activa antes de registrar pagos.
                       </div>
                     ) : (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,120px)_minmax(0,1fr)_minmax(0,190px)]">
+                          {isEditMode && editMode ? (
+                            <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:col-span-2">
+                              Número de cobranza
+                              <input
+                                value={editMode.cobranza.numero}
+                                readOnly
+                                className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
+                              />
+                            </label>
+                          ) : (
+                            <>
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Serie
                             <select
@@ -1411,6 +1554,8 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                               className="mt-1 w-full rounded-md border border-slate-100 bg-slate-50 px-2 py-1.5 text-sm font-semibold text-slate-800"
                             />
                           </label>
+                            </>
+                          )}
                           <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Caja Destino
                             {cajaAbiertaNombre ? (

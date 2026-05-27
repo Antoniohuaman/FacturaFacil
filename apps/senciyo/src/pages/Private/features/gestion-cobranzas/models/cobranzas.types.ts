@@ -2,9 +2,18 @@ import type {
   Currency,
   PaymentCollectionPayload,
   ComprobanteCreditTerms,
+  CreditInstallmentAllocation,
 } from '../../comprobantes-electronicos/models/comprobante.types';
 
 export type CobranzaTabKey = 'cuentas' | 'cobranzas' | 'creditosPagados';
+
+export interface CobranzaAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  uploadedAt: string;
+}
 export type FormaPagoKey = 'contado' | 'credito';
 export type CobranzaStatus = 'pendiente' | 'parcial' | 'cancelado' | 'anulado' | 'vencido';
 
@@ -69,6 +78,7 @@ export interface CobranzaDocumento {
   clienteNombre: string;
   medioPago: string;
   cajaDestino?: string;
+  cajaDestinoId?: string;
   moneda: Currency;
   monto: number;
   estado: CobranzaStatus;
@@ -82,6 +92,25 @@ export interface CobranzaDocumento {
   };
   installmentApplication?: 'cuota_cancelada' | 'abono_parcial';
   paymentLines?: CobranzaPaymentLineSnapshot[];
+  appliedAllocations?: CreditInstallmentAllocation[];
+  attachments?: CobranzaAttachment[];
+  motivoAnulacion?: string;
+  fechaAnulacion?: string;
+  usuarioAnulacion?: string;
+  origenAnulacion?: 'cobranza' | 'comprobante';
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface EditarCobranzaInfoInput {
+  fechaCobranza?: string;
+  moneda?: Currency;
+  paymentLines?: CobranzaPaymentLineSnapshot[];
+  notas?: string;
+  attachments?: CobranzaAttachment[];
+  cajaDestino?: string;
+  cajaDestinoId?: string;
+  updatedBy?: string;
 }
 
 export interface CobranzaFilters {

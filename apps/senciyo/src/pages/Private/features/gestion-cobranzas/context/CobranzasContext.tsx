@@ -6,6 +6,7 @@ import type {
   CobranzaInstallmentState,
   CobranzaStatus,
   CuentaPorCobrarSummary,
+  EditarCobranzaInfoInput,
   RegistrarCobranzaInput,
 } from '../models/cobranzas.types';
 import { useCaja } from '../../control-caja/context/CajaContext';
@@ -34,9 +35,29 @@ type CobranzasAction =
       type: 'REGISTER_COBRANZA';
       payload: {
         cuentaId: string;
+        cuentaData?: CuentaPorCobrarSummary;
         documento: CobranzaDocumento;
         monto: number;
         cuentaUpdate?: Partial<CuentaPorCobrarSummary>;
+      };
+    }
+  | {
+      type: 'EDIT_COBRANZA';
+      payload: {
+        cobranzaId: string;
+        changes: Partial<CobranzaDocumento>;
+      };
+    }
+  | {
+      type: 'ANULAR_COBRANZA';
+      payload: {
+        cobranzaId: string;
+        cuentaId: string;
+        motivoAnulacion: string;
+        fechaAnulacion: string;
+        usuarioAnulacion: string;
+        cuentaUpdate: Partial<CuentaPorCobrarSummary>;
+        cuentaData?: CuentaPorCobrarSummary;
       };
     };
 
@@ -141,34 +162,83 @@ function cobranzasReducer(state: CobranzasState, action: CobranzasAction): Cobra
     }
 
     case 'REGISTER_COBRANZA': {
-      const updatedCuentas = state.cuentas.map((cuenta) => {
-        if (cuenta.id !== action.payload.cuentaId) {
-          return cuenta;
-        }
+      const cuentaExists = state.cuentas.some((c) => c.id === action.payload.cuentaId);
 
-        if (action.payload.cuentaUpdate) {
+      let updatedCuentas: CuentaPorCobrarSummary[];
+      if (cuentaExists) {
+        updatedCuentas = state.cuentas.map((cuenta) => {
+          if (cuenta.id !== action.payload.cuentaId) {
+            return cuenta;
+          }
+          if (action.payload.cuentaUpdate) {
+            return { ...cuenta, ...action.payload.cuentaUpdate };
+          }
+          const nuevoCobrado = Math.min(cuenta.total, cuenta.cobrado + action.payload.monto);
+          const nuevoSaldo = Math.max(0, cuenta.total - nuevoCobrado);
+          const nextEstado = computeEstadoCuenta(cuenta, nuevoSaldo);
           return {
             ...cuenta,
-            ...action.payload.cuentaUpdate,
+            cobrado: Number(nuevoCobrado.toFixed(2)),
+            saldo: Number(nuevoSaldo.toFixed(2)),
+            estado: nextEstado,
+            vencido: nextEstado === 'vencido',
           };
-        }
-
-        const nuevoCobrado = Math.min(cuenta.total, cuenta.cobrado + action.payload.monto);
-        const nuevoSaldo = Math.max(0, cuenta.total - nuevoCobrado);
-        const nextEstado = computeEstadoCuenta(cuenta, nuevoSaldo);
-
-        return {
-          ...cuenta,
-          cobrado: Number(nuevoCobrado.toFixed(2)),
-          saldo: Number(nuevoSaldo.toFixed(2)),
-          estado: nextEstado,
-          vencido: nextEstado === 'vencido',
-        };
-      });
+        });
+      } else if (action.payload.cuentaData) {
+        const merged = action.payload.cuentaUpdate
+          ? { ...action.payload.cuentaData, ...action.payload.cuentaUpdate }
+          : action.payload.cuentaData;
+        updatedCuentas = [...state.cuentas, merged];
+      } else {
+        updatedCuentas = state.cuentas;
+      }
 
       return {
         cuentas: updatedCuentas,
         cobranzas: [action.payload.documento, ...state.cobranzas],
+      };
+    }
+
+    case 'EDIT_COBRANZA': {
+      return {
+        ...state,
+        cobranzas: state.cobranzas.map((c) =>
+          c.id === action.payload.cobranzaId ? { ...c, ...action.payload.changes } : c,
+        ),
+      };
+    }
+
+    case 'ANULAR_COBRANZA': {
+      const cuentaExists = state.cuentas.some((c) => c.id === action.payload.cuentaId);
+      let updatedCuentas: CuentaPorCobrarSummary[];
+      if (cuentaExists) {
+        updatedCuentas = state.cuentas.map((cuenta) =>
+          cuenta.id === action.payload.cuentaId
+            ? { ...cuenta, ...action.payload.cuentaUpdate }
+            : cuenta,
+        );
+      } else if (action.payload.cuentaData) {
+        updatedCuentas = [
+          ...state.cuentas,
+          { ...action.payload.cuentaData, ...action.payload.cuentaUpdate },
+        ];
+      } else {
+        updatedCuentas = state.cuentas;
+      }
+      return {
+        ...state,
+        cobranzas: state.cobranzas.map((c) =>
+          c.id === action.payload.cobranzaId
+            ? {
+                ...c,
+                estado: 'anulado' as CobranzaStatus,
+                motivoAnulacion: action.payload.motivoAnulacion,
+                fechaAnulacion: action.payload.fechaAnulacion,
+                usuarioAnulacion: action.payload.usuarioAnulacion,
+              }
+            : c,
+        ),
+        cuentas: updatedCuentas,
       };
     }
 
@@ -180,6 +250,8 @@ function cobranzasReducer(state: CobranzasState, action: CobranzasAction): Cobra
 interface CobranzasContextType extends CobranzasState {
   registerCobranza: (input: RegistrarCobranzaInput) => Promise<CobranzaDocumento>;
   upsertCuenta: (cuenta: CuentaPorCobrarSummary) => void;
+  editarCobranza: (cobranzaId: string, input: EditarCobranzaInfoInput) => Promise<void>;
+  anularCobranza: (cobranzaId: string, motivo: string) => Promise<void>;
 }
 
 const CobranzasContext = createContext<CobranzasContextType | undefined>(undefined);
@@ -404,6 +476,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         clienteNombre: input.cuenta.clienteNombre,
         medioPago: paymentMeansSummary.summaryLabel,
         cajaDestino: input.payload.cajaDestino || input.payload.lines[0]?.bank,
+        cajaDestinoId: input.payload.cajaDestinoId,
         moneda: input.cuenta.moneda,
         monto: montoRedondeado,
         estado: estadoDocumento,
@@ -413,6 +486,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         installmentsInfo: documentInstallmentsInfo,
         installmentApplication,
         paymentLines: paymentLinesSnapshot,
+        appliedAllocations: allocations.length > 0 ? allocations : undefined,
       };
 
       const cuentaUpdate: Partial<CuentaPorCobrarSummary> = {
@@ -435,6 +509,7 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
         type: 'REGISTER_COBRANZA',
         payload: {
           cuentaId: input.cuenta.id,
+          cuentaData: input.cuenta,
           documento,
           monto: montoRedondeado,
           cuentaUpdate,
@@ -450,14 +525,245 @@ export function CobranzasProvider({ children }: { children: ReactNode }) {
     [incrementSeriesCorrelative, registrarEnCaja]
   );
 
+  const editarCobranza = useCallback(
+    async (cobranzaId: string, input: EditarCobranzaInfoInput): Promise<void> => {
+      const EDIT_TOLERANCE = 0.01;
+      const cobranza = state.cobranzas.find((c) => c.id === cobranzaId);
+      if (!cobranza) throw new Error('Cobranza no encontrada.');
+      if (cobranza.estado === 'anulado') throw new Error('No se puede editar una cobranza anulada.');
+
+      if (input.paymentLines?.length) {
+        const newTotal = Number(
+          input.paymentLines.reduce((sum, l) => sum + (Number(l.amount) || 0), 0).toFixed(2),
+        );
+        if (Math.abs(newTotal - cobranza.monto) > EDIT_TOLERANCE) {
+          throw new Error(
+            `La suma de los medios de pago (${newTotal.toFixed(2)}) debe ser igual al importe cobrado (${cobranza.monto.toFixed(2)}).`,
+          );
+        }
+      }
+
+      const usuarioId = session?.userId || 'usuario-desconocido';
+      const usuarioNombre = session?.userName || 'Usuario';
+
+      if (input.paymentLines && cajaStatus === 'abierta') {
+        const oldLines = cobranza.paymentLines ?? [];
+        const newLines = input.paymentLines;
+        const linesChanged =
+          oldLines.length !== newLines.length ||
+          oldLines.some((ol) => {
+            const nl = newLines.find((l) => l.id === ol.id);
+            return !nl || nl.method !== ol.method || Math.abs(nl.amount - ol.amount) > EDIT_TOLERANCE;
+          });
+
+        if (linesChanged) {
+          for (const line of oldLines) {
+            if (line.amount > EDIT_TOLERANCE) {
+              try {
+                await agregarMovimiento({
+                  tipo: 'Egreso',
+                  concepto: `Reverso por edición de cobranza ${cobranza.numero}`,
+                  medioPago: mapPaymentMethodToMedioPago(line.method, line.methodLabel),
+                  paymentMeanCode: line.method,
+                  paymentMeanLabel: line.methodLabel,
+                  monto: line.amount,
+                  referencia: cobranza.numero,
+                  usuarioId,
+                  usuarioNombre,
+                  comprobante: cobranza.comprobanteId,
+                });
+              } catch (e) {
+                console.warn('[Cobranzas] No se pudo registrar reverso en caja por edición:', e);
+              }
+            }
+          }
+          for (const line of newLines) {
+            if (line.amount > EDIT_TOLERANCE) {
+              try {
+                await agregarMovimiento({
+                  tipo: 'Ingreso',
+                  concepto: `Ingreso corregido por edición de cobranza ${cobranza.numero}`,
+                  medioPago: mapPaymentMethodToMedioPago(line.method, line.methodLabel),
+                  paymentMeanCode: line.method,
+                  paymentMeanLabel: line.methodLabel,
+                  monto: line.amount,
+                  referencia: cobranza.numero,
+                  usuarioId,
+                  usuarioNombre,
+                  comprobante: cobranza.comprobanteId,
+                });
+              } catch (e) {
+                console.warn('[Cobranzas] No se pudo registrar ingreso corregido en caja:', e);
+              }
+            }
+          }
+        }
+      }
+
+      const newMedioPago = input.paymentLines
+        ? resolveCobranzaPaymentMeans({ paymentLines: input.paymentLines, medioPago: undefined }).summaryLabel
+        : cobranza.medioPago;
+
+      const changes: Partial<CobranzaDocumento> = {
+        ...(input.fechaCobranza !== undefined && { fechaCobranza: input.fechaCobranza }),
+        ...(input.moneda !== undefined && { moneda: input.moneda }),
+        ...(input.paymentLines !== undefined && { paymentLines: input.paymentLines, medioPago: newMedioPago }),
+        ...(input.notas !== undefined && { notas: input.notas }),
+        ...(input.attachments !== undefined && { attachments: input.attachments }),
+        ...(input.cajaDestino !== undefined && { cajaDestino: input.cajaDestino }),
+        ...(input.cajaDestinoId !== undefined && { cajaDestinoId: input.cajaDestinoId }),
+        updatedAt: getBusinessTodayISODate(),
+        updatedBy: input.updatedBy || usuarioNombre,
+      };
+
+      dispatch({ type: 'EDIT_COBRANZA', payload: { cobranzaId, changes } });
+    },
+    [agregarMovimiento, cajaStatus, session, state.cobranzas],
+  );
+
+  const anularCobranza = useCallback(
+    async (cobranzaId: string, motivo: string): Promise<void> => {
+      const trimmedMotivo = motivo.trim();
+      if (trimmedMotivo.length < 10) throw new Error('El motivo debe tener al menos 10 caracteres.');
+
+      const cobranza = state.cobranzas.find((c) => c.id === cobranzaId);
+      if (!cobranza) throw new Error('Cobranza no encontrada.');
+      if (cobranza.estado === 'anulado') throw new Error('Esta cobranza ya fue anulada.');
+
+      const cuenta = state.cuentas.find((c) => c.comprobanteId === cobranza.comprobanteId);
+      // Si no hay cuenta en state (pago contado inmediato nunca persistido), construimos una sintética.
+      const cuentaSintetica: CuentaPorCobrarSummary | undefined = cuenta
+        ? undefined
+        : {
+            id: cobranza.comprobanteId,
+            comprobanteId: cobranza.comprobanteId,
+            comprobanteSerie: cobranza.comprobanteSerie,
+            comprobanteNumero: cobranza.comprobanteNumero,
+            tipoComprobante: '',
+            clienteNombre: cobranza.clienteNombre,
+            clienteDocumento: '',
+            fechaEmision: cobranza.fechaCobranza,
+            formaPago: 'contado',
+            moneda: cobranza.moneda,
+            total: cobranza.monto,
+            cobrado: cobranza.monto,
+            saldo: 0,
+            estado: 'cancelado' as CobranzaStatus,
+            vencido: false,
+          };
+      const cuentaEfectiva = cuenta ?? cuentaSintetica!;
+
+      const usuarioId = session?.userId || 'usuario-desconocido';
+      const usuarioNombre = session?.userName || 'Usuario';
+
+      if (cajaStatus === 'abierta') {
+        const paymentLines = cobranza.paymentLines ?? [];
+        for (const line of paymentLines) {
+          if (line.amount > 0.01) {
+            try {
+              await agregarMovimiento({
+                tipo: 'Egreso',
+                concepto: `Ajuste por anulación de cobranza ${cobranza.numero}`,
+                medioPago: mapPaymentMethodToMedioPago(line.method, line.methodLabel),
+                paymentMeanCode: line.method,
+                paymentMeanLabel: line.methodLabel,
+                monto: line.amount,
+                referencia: cobranza.numero,
+                usuarioId,
+                usuarioNombre,
+                comprobante: cobranza.comprobanteId,
+              });
+            } catch (e) {
+              console.warn('[Cobranzas] No se pudo registrar reverso en caja por anulación:', e);
+            }
+          }
+        }
+      }
+
+      const otrasCobranzasActivas = state.cobranzas.filter(
+        (c) => c.comprobanteId === cobranza.comprobanteId && c.id !== cobranzaId && c.estado !== 'anulado',
+      );
+
+      const nuevoCobrado = Number(
+        otrasCobranzasActivas.reduce((sum, c) => sum + c.monto, 0).toFixed(2),
+      );
+      const nuevoSaldo = Number(Math.max(0, cuentaEfectiva.total - nuevoCobrado).toFixed(2));
+      const nuevoEstado = computeEstadoCuenta(cuentaEfectiva, nuevoSaldo);
+
+      let cuentaUpdate: Partial<CuentaPorCobrarSummary> = {
+        cobrado: nuevoCobrado,
+        saldo: nuevoSaldo,
+        estado: nuevoEstado,
+        vencido: nuevoEstado === 'vencido',
+      };
+
+      if (cuentaEfectiva.creditTerms?.schedule?.length) {
+        const baseInstallments = normalizeCreditTermsToInstallments(cuentaEfectiva.creditTerms);
+        const hasAllocationData = otrasCobranzasActivas.some((c) => c.appliedAllocations?.length);
+
+        let currentInstallments: CobranzaInstallmentState[];
+        if (hasAllocationData) {
+          currentInstallments = baseInstallments;
+          for (const oc of [...otrasCobranzasActivas].sort((a, b) =>
+            a.fechaCobranza.localeCompare(b.fechaCobranza),
+          )) {
+            if (oc.appliedAllocations?.length) {
+              currentInstallments = updateInstallmentsWithAllocations(currentInstallments, oc.appliedAllocations);
+            }
+          }
+        } else {
+          currentInstallments = baseInstallments.map((installment) => {
+            const proportion = cuentaEfectiva.total > 0 ? installment.amountOriginal / cuentaEfectiva.total : 0;
+            const paid = Number(Math.min(installment.amountOriginal, nuevoCobrado * proportion).toFixed(2));
+            const remaining = Number(Math.max(0, installment.amountOriginal - paid).toFixed(2));
+            const INST_TOLERANCE = 0.01;
+            const instStatus: CobranzaInstallmentState['status'] =
+              remaining <= INST_TOLERANCE ? 'CANCELADA' : paid > INST_TOLERANCE ? 'PARCIAL' : 'PENDIENTE';
+            return { ...installment, amountPaid: paid, remaining, status: instStatus };
+          });
+        }
+
+        const stats = computeAccountStateFromInstallments(currentInstallments);
+        const estadoFinal = computeEstadoCuenta(cuentaEfectiva, stats.saldo);
+        cuentaUpdate = {
+          ...cuentaUpdate,
+          installments: currentInstallments,
+          totalInstallments: stats.totalInstallments,
+          pendingInstallmentsCount: stats.pendingInstallmentsCount,
+          partialInstallmentsCount: stats.partialInstallmentsCount,
+          cobrado: stats.cobrado,
+          saldo: stats.saldo,
+          estado: estadoFinal,
+          vencido: estadoFinal === 'vencido',
+        };
+      }
+
+      dispatch({
+        type: 'ANULAR_COBRANZA',
+        payload: {
+          cobranzaId,
+          cuentaId: cuentaEfectiva.id,
+          motivoAnulacion: trimmedMotivo,
+          fechaAnulacion: getBusinessTodayISODate(),
+          usuarioAnulacion: usuarioNombre,
+          cuentaUpdate,
+          cuentaData: cuentaSintetica,
+        },
+      });
+    },
+    [agregarMovimiento, cajaStatus, session, state.cobranzas, state.cuentas],
+  );
+
   const value = useMemo(
     () => ({
       cuentas: state.cuentas,
       cobranzas: state.cobranzas,
       registerCobranza,
       upsertCuenta,
+      editarCobranza,
+      anularCobranza,
     }),
-    [registerCobranza, state.cobranzas, state.cuentas, upsertCuenta]
+    [registerCobranza, state.cobranzas, state.cuentas, upsertCuenta, editarCobranza, anularCobranza]
   );
 
   return <CobranzasContext.Provider value={value}>{children}</CobranzasContext.Provider>;

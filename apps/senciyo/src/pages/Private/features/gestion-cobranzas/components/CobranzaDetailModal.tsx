@@ -1,4 +1,5 @@
-import { Printer, X } from 'lucide-react';
+import { Pencil, Printer, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
 import type { CobranzaDocumento, CuentaPorCobrarSummary } from '../models/cobranzas.types';
 import {
   getCobranzaEstadoDocumentoLabel,
@@ -12,11 +13,19 @@ interface CobranzaDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   formatMoney: (value: number, currency?: string) => string;
+  onEditar?: (cobranza: CobranzaDocumento) => void;
+  onAnular?: (cobranzaId: string, motivo: string) => Promise<void>;
 }
 
-export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: CobranzaDetailModalProps) => {
+export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney, onEditar, onAnular }: CobranzaDetailModalProps) => {
+  const [anulando, setAnulando] = useState(false);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [anulacionError, setAnulacionError] = useState<string | null>(null);
+  const [anulacionProcesando, setAnulacionProcesando] = useState(false);
+
   if (!isOpen || !cobranza) return null;
 
+  const esAnulada = cobranza.estado === 'anulado';
   const estadoLabel = getCobranzaEstadoDocumentoLabel(cobranza);
   const tipoCobroLabel = getCobranzaTipoCobroLabel(cobranza, cobranza.relatedCuenta);
   const paymentMeans = resolveCobranzaPaymentMeans(cobranza);
@@ -41,6 +50,17 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
           .map((line) => `<li>${line.label}: ${formatMoney(line.amount, cobranza.moneda)}</li>`)
           .join('')}</ul>`
       : '';
+    const anulacionSection = cobranza.estado === 'anulado'
+      ? `<div style="margin-top:16px;padding:12px;border:2px solid #ef4444;border-radius:8px;background:#fef2f2;">
+          <p style="font-size:16px;font-weight:700;color:#dc2626;margin:0 0 8px 0;">⚠ COBRANZA ANULADA</p>
+          ${cobranza.fechaAnulacion ? `<p>Fecha de anulación: <strong>${cobranza.fechaAnulacion}</strong></p>` : ''}
+          ${cobranza.motivoAnulacion ? `<p>Motivo: <strong>${cobranza.motivoAnulacion}</strong></p>` : ''}
+          ${cobranza.usuarioAnulacion ? `<p>Anulado por: <strong>${cobranza.usuarioAnulacion}</strong></p>` : ''}
+        </div>`
+      : '';
+    const badgeStyle = cobranza.estado === 'anulado'
+      ? 'background:#fee2e2;color:#991b1b;'
+      : 'background:#d1fae5;color:#065f46;';
     const template = `<!DOCTYPE html>
 <html>
   <head>
@@ -53,11 +73,12 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
       table { width: 100%; border-collapse: collapse; margin-top: 12px; }
       th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
       .summary { margin-top: 20px; padding: 16px; border: 1px solid #cbd5f5; border-radius: 8px; background: #f8fafc; }
-      .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #d1fae5; color: #065f46; font-size: 12px; font-weight: 600; }
+      .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; ${badgeStyle} }
     </style>
   </head>
   <body>
     <h1>Constancia de Cobranza</h1>
+    ${anulacionSection}
     <p>Número: <strong>${cobranza.numero}</strong></p>
     <p>Fecha: <strong>${cobranza.fechaCobranza}</strong></p>
     <div class="summary">
@@ -101,6 +122,71 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
           </button>
         </header>
         <div className="px-5 py-4 space-y-4 text-sm text-slate-700 dark:text-gray-100">
+          {esAnulada && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p className="font-semibold text-red-700 uppercase text-xs tracking-wide">Cobranza anulada</p>
+              {cobranza.fechaAnulacion && (
+                <p className="text-xs text-red-600 mt-1">Fecha: {cobranza.fechaAnulacion}</p>
+              )}
+              {cobranza.motivoAnulacion && (
+                <p className="text-xs text-red-700 mt-0.5">Motivo: {cobranza.motivoAnulacion}</p>
+              )}
+              {cobranza.usuarioAnulacion && (
+                <p className="text-xs text-red-600 mt-0.5">Anulado por: {cobranza.usuarioAnulacion}</p>
+              )}
+            </div>
+          )}
+          {anulando && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
+              <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Confirmar anulación</p>
+              <p className="text-xs text-amber-700">Esta acción no se puede deshacer. El comprobante volverá a Cuentas por Cobrar.</p>
+              <textarea
+                rows={2}
+                placeholder="Motivo de anulación (mínimo 10 caracteres)"
+                value={motivoAnulacion}
+                onChange={(e) => { setMotivoAnulacion(e.target.value); setAnulacionError(null); }}
+                className="w-full rounded-md border border-amber-300 px-2 py-1.5 text-sm text-slate-900 focus:border-amber-500 focus:outline-none resize-none"
+                disabled={anulacionProcesando}
+              />
+              {anulacionError && (
+                <p className="text-xs text-red-600">{anulacionError}</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setAnulando(false); setMotivoAnulacion(''); setAnulacionError(null); }}
+                  disabled={anulacionProcesando}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={anulacionProcesando}
+                  onClick={async () => {
+                    if (motivoAnulacion.trim().length < 10) {
+                      setAnulacionError('El motivo debe tener al menos 10 caracteres.');
+                      return;
+                    }
+                    setAnulacionProcesando(true);
+                    try {
+                      await onAnular!(cobranza.id, motivoAnulacion.trim());
+                      setAnulando(false);
+                      setMotivoAnulacion('');
+                      onClose();
+                    } catch (err) {
+                      setAnulacionError(err instanceof Error ? err.message : 'Error al anular. Intenta nuevamente.');
+                    } finally {
+                      setAnulacionProcesando(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                >
+                  {anulacionProcesando ? 'Anulando...' : 'Confirmar anulación'}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs uppercase text-slate-500 dark:text-gray-400">Comprobante</p>
@@ -152,18 +238,38 @@ export const CobranzaDetailModal = ({ cobranza, isOpen, onClose, formatMoney }: 
             </div>
           )}
         </div>
-        <footer className="px-5 py-4 border-t border-slate-100 dark:border-gray-800 flex justify-between">
-          <button
-            type="button"
-            onClick={handlePrintConstancia}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-600 hover:text-blue-800"
-          >
-            <Printer className="w-4 h-4" /> Imprimir constancia
-          </button>
+        <footer className="px-5 py-4 border-t border-slate-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrintConstancia}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
+            >
+              <Printer className="w-4 h-4" /> Constancia
+            </button>
+            {onEditar && !esAnulada && !anulando && (
+              <button
+                type="button"
+                onClick={() => onEditar(cobranza)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Editar
+              </button>
+            )}
+            {onAnular && !esAnulada && !anulando && (
+              <button
+                type="button"
+                onClick={() => setAnulando(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-red-600 border border-red-200 rounded-md hover:bg-red-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Anular
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
+            className="px-4 py-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900"
           >
             Cerrar
           </button>

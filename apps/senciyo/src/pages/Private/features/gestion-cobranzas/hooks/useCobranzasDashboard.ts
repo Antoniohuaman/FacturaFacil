@@ -117,7 +117,7 @@ type CobranzaWithDisplayAmount = CobranzaDocumento & {
 };
 
 export const useCobranzasDashboard = () => {
-  const { cuentas, cobranzas, registerCobranza } = useCobranzasContext();
+  const { cuentas, cobranzas, registerCobranza, editarCobranza, anularCobranza } = useCobranzasContext();
   const [activeTab, setActiveTab] = useState<CobranzaTabKey>('cuentas');
   const [filters, setFilters] = useState<CobranzaFilters>(DEFAULT_COBRANZA_FILTERS);
   const allPaymentMeans = useMemo<PaymentMeanOption[]>(() => getConfiguredPaymentMeans(), []);
@@ -342,6 +342,8 @@ export const useCobranzasDashboard = () => {
     creditosPagados,
     resumen,
     registerCobranza,
+    editarCobranza,
+    anularCobranza,
     cuentas,
     cobranzas,
     paymentMeansOptions,
