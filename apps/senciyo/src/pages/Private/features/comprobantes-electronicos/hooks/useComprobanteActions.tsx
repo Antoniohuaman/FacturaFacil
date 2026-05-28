@@ -44,6 +44,7 @@ import {
   getBusinessTodayISODate,
 } from '@/shared/time/businessTime';
 import { obtenerEtiquetaTipoComprobante, MOCK_OSE_RESPONSE_DELAY_MS } from '../models/constants';
+import { StockRepository } from '../../gestion-inventario/repositories/stock.repository';
 import { crearInstantaneaDocumentoComercial } from '../models/instantaneaDocumentoComercial';
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
 
@@ -603,11 +604,14 @@ export const useComprobanteActions = () => {
           );
         }
       } catch (stockError) {
-        console.error('Error descontando stock:', stockError);
-        // No lanzar error, el comprobante ya se creó
+        console.error('[Stock] Error descontando stock', {
+          comprobante: numeroComprobante,
+          error: stockError instanceof Error ? stockError.message : stockError,
+        });
+        // El comprobante ya se creó; informar al usuario para ajuste manual posterior.
         toast.warning(
           'Stock no actualizado',
-          'El comprobante se creó pero no se pudo actualizar el stock automáticamente.',
+          `El comprobante ${numeroComprobante} se creó pero el stock no pudo actualizarse. Ajusta manualmente desde Inventario > Movimientos si es necesario.`,
           {
             action: {
               label: 'Entendido',
@@ -616,6 +620,120 @@ export const useComprobanteActions = () => {
           }
         );
       }
+      }
+
+      // ✅ RESTAURAR STOCK PARA NOTA DE CRÉDITO POR DEVOLUCIÓN (códigos SUNAT 06 y 07)
+      if (isNoteCredit) {
+        // Solo los códigos de devolución implican retorno físico de mercadería.
+        const CODIGOS_NC_DEVOLUCION = new Set(['06', '07']);
+        const codigoNC = data.noteCreditData?.codigo ?? '';
+        if (CODIGOS_NC_DEVOLUCION.has(codigoNC)) {
+          try {
+            const EstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
+            const Establecimiento = session?.currentEstablecimiento;
+            // El comprobante afectado nos permite localizar los movimientos originales de salida.
+            const docAfectado = data.noteCreditData?.documentoRelacionado?.numeroCompleto;
+
+            const movimientosOriginales = docAfectado
+              ? StockRepository.getMovements().filter(
+                  (m) => m.documentoReferencia === docAfectado && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
+                )
+              : [];
+
+            for (const item of data.cartItems) {
+              if (item.tipoDetalle === 'libre' || !item.requiresStockControl) continue;
+
+              const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
+              const quantityInUnidadMinima = catalogProduct
+                ? calculateRequiredUnidadMinima({
+                    product: catalogProduct,
+                    quantity: item.quantity,
+                    unitCode: item.presentacionId || item.unidadMedida || item.unit,
+                  })
+                : (Number.isFinite(item.quantity) ? Number(item.quantity) : 0);
+
+              if (quantityInUnidadMinima <= 0) continue;
+
+              const observacionesNC = `Devolución NC ${numeroComprobante}${docAfectado ? ` / Ref: ${docAfectado}` : ''}`;
+
+              // Buscar movimientos de salida del comprobante afectado para este producto.
+              const salidaOriginal = movimientosOriginales.filter((m) => m.productoId === item.id);
+              const totalSalidaOriginal = salidaOriginal.reduce((sum, m) => sum + m.cantidad, 0);
+
+              if (salidaOriginal.length > 0 && totalSalidaOriginal > 0) {
+                // Devolver al almacén original de forma proporcional.
+                let pendiente = quantityInUnidadMinima;
+                for (const mov of salidaOriginal) {
+                  if (pendiente <= 0) break;
+                  const proporcion = mov.cantidad / totalSalidaOriginal;
+                  const cantidadDevolver = Math.min(
+                    pendiente,
+                    Math.round(quantityInUnidadMinima * proporcion * 1000) / 1000
+                  );
+                  if (cantidadDevolver <= 0) continue;
+                  addMovimientoStock(
+                    item.id,
+                    'ENTRADA',
+                    'DEVOLUCION_CLIENTE',
+                    cantidadDevolver,
+                    observacionesNC,
+                    numeroComprobante,
+                    undefined,
+                    EstablecimientoId,
+                    Establecimiento?.codigoEstablecimiento,
+                    Establecimiento?.nombreEstablecimiento,
+                    { almacenId: mov.almacenId, allowNegativeStock: true }
+                  );
+                  pendiente -= cantidadDevolver;
+                }
+                // Resto por redondeo al primer almacén original.
+                if (pendiente > 0.001) {
+                  addMovimientoStock(
+                    item.id,
+                    'ENTRADA',
+                    'DEVOLUCION_CLIENTE',
+                    pendiente,
+                    observacionesNC,
+                    numeroComprobante,
+                    undefined,
+                    EstablecimientoId,
+                    Establecimiento?.codigoEstablecimiento,
+                    Establecimiento?.nombreEstablecimiento,
+                    { almacenId: salidaOriginal[0].almacenId, allowNegativeStock: true }
+                  );
+                }
+              } else if (EstablecimientoId) {
+                // Fallback: sin movimientos originales, devolver al primer almacén FIFO activo.
+                const almacenesOrdered = resolvealmacenesForSaleFIFO({ almacenes, EstablecimientoId });
+                const almacenDestino = almacenesOrdered[0];
+                if (!almacenDestino) continue;
+                addMovimientoStock(
+                  item.id,
+                  'ENTRADA',
+                  'DEVOLUCION_CLIENTE',
+                  quantityInUnidadMinima,
+                  observacionesNC,
+                  numeroComprobante,
+                  undefined,
+                  EstablecimientoId,
+                  Establecimiento?.codigoEstablecimiento,
+                  Establecimiento?.nombreEstablecimiento,
+                  { almacenId: almacenDestino.id, allowNegativeStock: true }
+                );
+              }
+            }
+          } catch (ncStockError) {
+            console.error('[Stock] Error restaurando stock por NC devolución', {
+              comprobante: numeroComprobante,
+              error: ncStockError instanceof Error ? ncStockError.message : ncStockError,
+            });
+            toast.warning(
+              'Stock no restaurado',
+              `La nota de crédito ${numeroComprobante} se creó pero el stock no pudo restaurarse. Ajusta manualmente desde Inventario si es necesario.`,
+              { action: { label: 'Entendido', onClick: () => {} } }
+            );
+          }
+        }
       }
 
       // ✅ AGREGAR COMPROBANTE A LA LISTA GLOBAL

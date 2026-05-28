@@ -316,6 +316,15 @@ export const useInventory = () => {
     setShowMassUpdateModal(true);
   }, []);
 
+  /**
+   * Recarga la lista de movimientos desde el repositorio.
+   * Útil después de operaciones externas (importación masiva, reversiones)
+   * que escriben en StockRepository sin pasar por este hook.
+   */
+  const reloadMovements = useCallback(() => {
+    setMovimientos(StockRepository.getMovements());
+  }, []);
+
   return {
     // Estados
     selectedView,
@@ -349,6 +358,7 @@ export const useInventory = () => {
     handleMassStockUpdate,
     openAdjustmentModal,
     openTransferModal,
-    openMassUpdateModal
+    openMassUpdateModal,
+    reloadMovements,
   };
 };

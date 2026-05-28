@@ -55,6 +55,8 @@ import {
 } from '../../models/instantaneaDocumentoComercial';
 import { esEstadoValidoParaNotaCredito } from '../../models/constants';
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
+import { useInventoryFacade } from '../../../gestion-inventario/api/inventory.facade';
+import { StockRepository } from '../../../gestion-inventario/repositories/stock.repository';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -270,6 +272,9 @@ const InvoiceListDashboard = () => {
   const invoices = state.comprobantes;
   const { cuentas, registerCobranza } = useCobranzasContext();
   const currentCompany = useCurrentCompany();
+
+  // Fachada de inventario para reversiones de stock en anulación
+  const { addMovimiento: addMovimientoVoid } = useInventoryFacade();
 
   // Hook de selección masiva
   const selection = useSelection();
@@ -694,6 +699,49 @@ const InvoiceListDashboard = () => {
     if (!voidReason.trim()) {
       alert('Debe ingresar un motivo de anulación');
       return;
+    }
+
+    // Prevenir doble anulación: si ya está anulado, solo cerrar el modal.
+    if (String(selectedInvoiceForVoid.status ?? '').toLowerCase() === 'anulado') {
+      setShowVoidModal(false);
+      setSelectedInvoiceForVoid(null);
+      setVoidReason('');
+      return;
+    }
+
+    // Restaurar stock: buscar movimientos de SALIDA/VENTA del comprobante y generar ENTRADA inversa.
+    try {
+      const comprobanteId: string = selectedInvoiceForVoid.id ?? '';
+      const todosLosMovimientos = StockRepository.getMovements();
+
+      const movimientosSalida = todosLosMovimientos.filter(
+        (m) => m.documentoReferencia === comprobanteId && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
+      );
+
+      // Idempotencia: si ya existen entradas de reversión para este comprobante, no duplicar.
+      const yaRevertido = todosLosMovimientos.some(
+        (m) => m.documentoReferencia === comprobanteId && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
+      );
+
+      if (!yaRevertido && movimientosSalida.length > 0) {
+        for (const mov of movimientosSalida) {
+          addMovimientoVoid(
+            mov.productoId,
+            'ENTRADA',
+            'DEVOLUCION_CLIENTE',
+            mov.cantidad,
+            `Reversión anulación ${comprobanteId}`,
+            comprobanteId,
+            undefined,
+            mov.EstablecimientoId,
+            mov.EstablecimientoCodigo,
+            mov.EstablecimientoNombre,
+            { almacenId: mov.almacenId, allowNegativeStock: true }
+          );
+        }
+      }
+    } catch (stockErr) {
+      console.error('[Anulación] Error restaurando stock:', stockErr);
     }
 
     try {

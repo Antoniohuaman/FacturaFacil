@@ -13,9 +13,11 @@ import * as XLSX from 'xlsx';
 interface MassUpdateModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Callback invocado después de una operación exitosa (reset o importación). */
+  onSuccess?: () => void;
 }
 
-const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) => {
+const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { allProducts, updateProduct } = useProductStore();
   const { user } = useAuth();
   const { state: configState } = useConfigurationContext();
@@ -129,6 +131,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
     );
 
     setSelectedProducts(new Set());
+    onSuccess?.();
     onClose();
   };
 
@@ -378,6 +381,7 @@ const MassUpdateModal: React.FC<MassUpdateModalProps> = ({ isOpen, onClose }) =>
 
     alert(mensaje);
     setImportData([]);
+    onSuccess?.();
     onClose();
   };
 

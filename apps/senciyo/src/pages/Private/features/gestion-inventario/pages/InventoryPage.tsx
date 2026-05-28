@@ -61,7 +61,8 @@ export const InventoryPage: React.FC = () => {
     handleStockTransfer,
     openAdjustmentModal,
     openTransferModal,
-    openMassUpdateModal
+    openMassUpdateModal,
+    reloadMovements,
   } = useInventory();
   const { request: stockAutoExportRequest, finish: finishStockAutoExport } = useAutoExportRequest('inventario-stock');
   const { request: movementsAutoExportRequest, finish: finishMovementsAutoExport } = useAutoExportRequest('inventario-movimientos');
@@ -101,10 +102,11 @@ export const InventoryPage: React.FC = () => {
       { wch: 10 }, // Cantidad
       { wch: 15 }, // Stock Anterior
       { wch: 15 }, // Stock Nuevo
+      { wch: 25 }, // Almacén
       { wch: 25 }, // Establecimiento
       { wch: 20 }, // Usuario
       { wch: 40 }, // Observaciones
-      { wch: 20 }  // Documento
+      { wch: 20 }, // Documento
     ];
     ws['!cols'] = colWidths;
 
@@ -348,6 +350,7 @@ export const InventoryPage: React.FC = () => {
       <MassUpdateModal
         isOpen={showMassUpdateModal}
         onClose={() => setShowMassUpdateModal(false)}
+        onSuccess={reloadMovements}
       />
 
       <TransferModal

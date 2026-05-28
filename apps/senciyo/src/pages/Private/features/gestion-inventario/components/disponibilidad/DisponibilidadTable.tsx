@@ -293,7 +293,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
     campo: ColumnaDisponibilidad,
     label: string,
     align: 'left' | 'center' | 'right' = 'left',
-    sortable: boolean = true
+    sortable: boolean = true,
+    headerTooltip?: string
   ) => {
     if (!columnasVisibles.includes(campo)) return null;
 
@@ -307,6 +308,16 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
       ? 'sticky left-[100px] z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
       : '';
 
+    const tooltipBadge = headerTooltip ? (
+      <span
+        title={headerTooltip}
+        aria-label={headerTooltip}
+        className="ml-1 cursor-help text-gray-400 dark:text-gray-500 text-[11px] select-none"
+      >
+        ⓘ
+      </span>
+    ) : null;
+
     return (
       <th
         key={campo}
@@ -319,6 +330,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             className="inline-flex items-center gap-1.5 hover:text-[#6F36FF] dark:hover:text-[#8B5CF6] transition-colors duration-150"
           >
             <span>{label}</span>
+            {tooltipBadge}
             {isOrdenado && (
               <svg
                 className={`w-4 h-4 transition-transform ${
@@ -333,7 +345,10 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             )}
           </button>
         ) : (
-          <span>{label}</span>
+          <span className="inline-flex items-center">
+            {label}
+            {tooltipBadge}
+          </span>
         )}
       </th>
     );
@@ -458,7 +473,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             {renderHeader('producto', 'Producto', 'left', true)}
             {renderHeader('unidadMinima', 'Unidad mínima', 'center', false)}
             {renderHeader('real', 'Real', 'right', true)}
-            {renderHeader('reservado', 'Reservado', 'right', true)}
+            {renderHeader('reservado', 'Reservado', 'right', true, 'Stock separado por órdenes de venta. Se activará cuando ese documento esté disponible.')}
             {renderHeader('disponible', 'Disponible', 'right', true)}
             {renderHeader('stockMinimo', 'Stock mínimo', 'right', false)}
             {renderHeader('stockMaximo', 'Stock máximo', 'right', false)}
