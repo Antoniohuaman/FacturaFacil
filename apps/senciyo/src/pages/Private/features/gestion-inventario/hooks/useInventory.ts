@@ -230,8 +230,26 @@ export const useInventory = () => {
         session?.userName || user?.nombre || 'Usuario'
       );
 
+      // Sincronizar stockPorEstablecimiento si el campo ya existe en el producto
+      let finalProduct = result.product;
+      if (finalProduct.stockPorEstablecimiento) {
+        const affectedEstIds = new Set(
+          [almacenOrigen.establecimientoId, almacenDestino.establecimientoId]
+            .filter((id): id is string => Boolean(id))
+        );
+        if (affectedEstIds.size > 0) {
+          const nextStockPorEst = { ...finalProduct.stockPorEstablecimiento };
+          affectedEstIds.forEach(estId => {
+            nextStockPorEst[estId] = almacenesActivos
+              .filter(a => a.establecimientoId === estId)
+              .reduce((sum, a) => sum + (finalProduct.stockPorAlmacen?.[a.id] ?? 0), 0);
+          });
+          finalProduct = { ...finalProduct, stockPorEstablecimiento: nextStockPorEst };
+        }
+      }
+
       // Actualizar producto en el store
-      updateProduct(result.product.id, result.product);
+      updateProduct(finalProduct.id, finalProduct);
 
       // Actualizar lista de movimientos
       setMovimientos(prev => [...result.movements, ...prev]);

@@ -58,6 +58,7 @@ export interface MovimientoStock {
   // Campos para transferencias entre almacenes
   esTransferencia?: boolean;
   transferenciaId?: string; // ID único que vincula origen y destino
+  tipoTransferencia?: 'INTRA_ESTABLECIMIENTO' | 'INTER_ESTABLECIMIENTO';
   almacenOrigenId?: string;
   almacenOrigenNombre?: string;
   almacenDestinoId?: string;

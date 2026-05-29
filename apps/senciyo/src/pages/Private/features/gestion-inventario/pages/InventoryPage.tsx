@@ -83,7 +83,12 @@ export const InventoryPage: React.FC = () => {
       'Establecimiento': mov.EstablecimientoNombre || 'N/A',
       'Usuario': mov.usuario,
       'Observaciones': mov.observaciones || '',
-      'Documento': mov.documentoReferencia || ''
+      'Documento': mov.documentoReferencia || '',
+      'Es transferencia': mov.esTransferencia ? 'Sí' : 'No',
+      'Transferencia ID': mov.transferenciaId || '',
+      'Almacén origen': mov.almacenOrigenNombre || '',
+      'Almacén destino': mov.almacenDestinoNombre || '',
+      'Tipo transferencia': mov.tipoTransferencia || '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -104,6 +109,11 @@ export const InventoryPage: React.FC = () => {
       { wch: 20 }, // Usuario
       { wch: 40 }, // Observaciones
       { wch: 20 }, // Documento
+      { wch: 15 }, // Es transferencia
+      { wch: 22 }, // Transferencia ID
+      { wch: 25 }, // Almacén origen
+      { wch: 25 }, // Almacén destino
+      { wch: 22 }, // Tipo transferencia
     ];
     ws['!cols'] = colWidths;
 

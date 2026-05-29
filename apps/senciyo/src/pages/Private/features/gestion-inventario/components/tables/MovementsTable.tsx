@@ -82,13 +82,21 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
       mov.productoCodigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mov.usuario.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesTipo = filterTipo === 'todos' || mov.tipo === filterTipo;
+    // "Transferencias" filtra por esTransferencia/motivo, no por tipo literal
+    const matchesTipo =
+      filterTipo === 'todos' ||
+      (filterTipo === 'TRANSFERENCIA'
+        ? mov.esTransferencia === true || mov.motivo === 'TRANSFERENCIA_ALMACEN'
+        : mov.tipo === filterTipo);
 
-    // Filtro por almacén
+    // Filtro por almacén: incluye movimientos cuyo almacén de registro,
+    // origen o destino coincida con el filtro activo
     const matchesalmacen =
       !almacenFiltro ||
       almacenFiltro === 'todos' ||
-      mov.almacenId === almacenFiltro;
+      mov.almacenId === almacenFiltro ||
+      mov.almacenOrigenId === almacenFiltro ||
+      mov.almacenDestinoId === almacenFiltro;
 
     return matchesSearch && matchesTipo && matchesalmacen;
   });

@@ -12,6 +12,7 @@ import type {
 } from '../models';
 import { StockRepository } from '../repositories/stock.repository';
 import { evaluateStockAlert } from '../utils/stockAlerts';
+import { generateTransferId } from '../utils/inventory.helpers';
 
 /**
  * Servicio para gestión de inventario
@@ -179,11 +180,17 @@ export class InventoryService {
       throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${stockOrigen}`);
     }
 
-    const transferenciaId = `TRANS-${Date.now()}`;
+    const transferenciaId = generateTransferId();
+
+    const tipoTransferencia = almacenOrigen.establecimientoId === almacenDestino.establecimientoId
+      ? 'INTRA_ESTABLECIMIENTO' as const
+      : 'INTER_ESTABLECIMIENTO' as const;
 
     // Actualizar stocks
     let updatedProduct = this.updateStock(product, data.almacenOrigenId, stockOrigen - data.cantidad);
     updatedProduct = this.updateStock(updatedProduct, data.almacenDestinoId, stockDestino + data.cantidad);
+    // Actualizar campo legacy de stock total
+    updatedProduct = { ...updatedProduct, cantidad: this.getTotalStock(updatedProduct) };
 
     // Crear movimiento de salida (origen)
     const movimientoSalida: MovimientoStock = {
@@ -208,6 +215,7 @@ export class InventoryService {
       EstablecimientoNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: true,
       transferenciaId,
+      tipoTransferencia,
       almacenOrigenId: almacenOrigen.id,
       almacenOrigenNombre: almacenOrigen.nombreAlmacen,
       almacenDestinoId: almacenDestino.id,
@@ -237,6 +245,7 @@ export class InventoryService {
       EstablecimientoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
       esTransferencia: true,
       transferenciaId,
+      tipoTransferencia,
       almacenOrigenId: almacenOrigen.id,
       almacenOrigenNombre: almacenOrigen.nombreAlmacen,
       almacenDestinoId: almacenDestino.id,
