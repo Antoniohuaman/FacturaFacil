@@ -10,7 +10,6 @@ import type {
   MovimientoStock,
   InventoryView,
   FilterPeriod,
-  StockSummary,
   StockAdjustmentData,
   StockTransferData,
   MassStockUpdateData
@@ -145,46 +144,6 @@ export const useInventory = () => {
     }
     return sortByDateDesc(filtered);
   }, [movimientos, filterPeriodo, almacenFiltro]);
-
-  const stockSummary = useMemo<StockSummary>(() => {
-    let totalStock = 0;
-    let valorTotalStock = 0;
-    let productosSinStock = 0;
-    let productosStockBajo = 0;
-    let productosStockCritico = 0;
-
-    allProducts.forEach(product => {
-      if (almacenFiltro && almacenFiltro !== 'todos') {
-        const stock = InventoryService.getStock(product, almacenFiltro);
-        const stockMin = product.stockMinimoPorAlmacen?.[almacenFiltro] || 0;
-        totalStock += stock;
-        valorTotalStock += stock * product.precio;
-        if (stock === 0) {
-          productosSinStock++;
-          if (stockMin > 0) productosStockCritico++;
-        } else if (stock < stockMin * 0.5) {
-          productosStockCritico++;
-        } else if (stock < stockMin) {
-          productosStockBajo++;
-        }
-      } else {
-        const stockTotal = InventoryService.getTotalStock(product);
-        totalStock += stockTotal;
-        valorTotalStock += stockTotal * product.precio;
-        if (stockTotal === 0) productosSinStock++;
-      }
-    });
-
-    return {
-      totalProductos: allProducts.length,
-      totalStock,
-      valorTotalStock,
-      productosSinStock,
-      productosStockBajo,
-      productosStockCritico,
-      ultimaActualizacion: new Date()
-    };
-  }, [allProducts, almacenFiltro]);
 
   const { success, error, warning } = useFeedback();
 
@@ -630,8 +589,6 @@ export const useInventory = () => {
     almacenes: almacenesActivos,
     stockAlerts,
     filteredMovements,
-    stockSummary,
-    allProducts,
     transferencias: todasTransferencias,
     establecimientoActualId: establecimientoId ?? '',
     puedeTransferir,

@@ -9,7 +9,6 @@ import AdjustmentModal from '../components/modals/AdjustmentModal';
 import PanelImportacionStock from '../components/PanelImportacionStock';
 import TransferModal from '../components/modals/TransferModal';
 import TransferenciasPanel from '../components/transferencias/TransferenciasPanel';
-import SummaryCards from '../components/panels/SummaryCards';
 import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
 import { PageHeader } from '@/contasis';
@@ -47,7 +46,6 @@ export const InventoryPage: React.FC = () => {
     almacenes,
     stockAlerts,
     filteredMovements,
-    allProducts,
     transferencias,
     establecimientoActualId,
     puedeTransferir,
@@ -185,16 +183,6 @@ export const InventoryPage: React.FC = () => {
         title="Control de Stock"
       />
 
-      {/* Resumen de estadísticas - SOLO en vista Resumen */}
-      {selectedView === 'resumen' && (
-        <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <SummaryCards
-            products={allProducts}
-            almacenFiltro={almacenFiltro}
-          />
-        </div>
-      )}
-
       {/* Tabs de navegación - REDISEÑADOS CON PRIMARIO #6F36FF */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6">
         <div className="flex space-x-1">
@@ -261,21 +249,6 @@ export const InventoryPage: React.FC = () => {
                 {stockAlerts.length}
               </span>
             )}
-          </button>
-
-          {/* Resumen */}
-          <button
-            onClick={() => setSelectedView('resumen')}
-            className={`group relative flex items-center gap-2 px-4 py-2.5 border-b-2 font-medium text-sm transition-all duration-150 ${
-              selectedView === 'resumen'
-                ? 'border-[#6F36FF] text-[#6F36FF] dark:text-[#8B5CF6] bg-[#6F36FF]/5 dark:bg-[#6F36FF]/10'
-                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <span>Resumen</span>
           </button>
 
           {/* Importar stock */}
@@ -393,13 +366,6 @@ export const InventoryPage: React.FC = () => {
             onReabastecerProducto={openAdjustmentModal}
             onProgramarCompra={openAdjustmentModal}
           />
-        )}
-
-        {selectedView === 'resumen' && (
-          <div className="flex items-center justify-center h-64 text-[#4B5563] dark:text-gray-400">
-            {/* Las SummaryCards ya se muestran arriba para todas las vistas */}
-            <p className="text-sm">Vista de resumen con estadísticas detalladas</p>
-          </div>
         )}
 
         {selectedView === 'importar' && (
