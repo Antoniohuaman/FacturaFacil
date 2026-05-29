@@ -235,6 +235,12 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
 
   const nombreUsuario = user?.nombre || session?.userName || 'Usuario';
 
+  // ── Estado: modo de importación ───────────────────────────────────────────
+  /** 'actualizar': la cantidad del Excel es el stock final deseado.
+   *  'sumar':      la cantidad del Excel se suma al stock actual. */
+  type ModoImportacion = 'actualizar' | 'sumar';
+  const [modoImportacion, setModoImportacion] = useState<ModoImportacion>('actualizar');
+
   // ── Estado: flujo de importación ──────────────────────────────────────────
   type PasoImportacion = 'subir' | 'previsualizar' | 'resultado';
   const [pasoImportacion, setPasoImportacion] = useState<PasoImportacion>('subir');
@@ -272,20 +278,38 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
       ...almacenesPlantilla.map(() => ({ wch: 18 })),
     ];
 
-    const instrucciones: (string | number)[][] = [
-      ['INSTRUCCIONES DE IMPORTACIÓN DE STOCK'],
-      [''],
-      ['1. Edita SOLO las columnas de almacén.'],
-      ['2. Ingresa el stock FINAL deseado para cada producto en cada almacén.'],
-      ['3. El sistema calculará el ajuste automáticamente (no es una suma).'],
-      ['4. Si dejas una celda vacía, ese almacén no se modifica.'],
-      [''],
-      ['Ejemplo:'],
-      ['- Stock actual en 0001 - Almacén: 20 → ingresaste 50 → resultado: stock 50, ajuste +30'],
-      [''],
-      ['Almacenes incluidos en esta plantilla:'],
-      ...almacenesPlantilla.map(w => [`  ${encabezadoAlmacen(w)}`]),
-    ];
+    const esModoSumar = modoImportacion === 'sumar';
+    const instrucciones: (string | number)[][] = esModoSumar
+      ? [
+          ['INSTRUCCIONES — MODO: SUMAR INGRESO DE STOCK'],
+          [''],
+          ['1. Edita SOLO las columnas de almacén.'],
+          ['2. Ingresa la CANTIDAD A SUMAR para cada producto y almacén.'],
+          ['3. El sistema sumará esa cantidad al stock actual.'],
+          ['4. Si dejas una celda vacía, ese almacén no se modifica.'],
+          ['5. No ingreses cantidades negativas en este modo.'],
+          [''],
+          ['Ejemplo:'],
+          ['- Stock actual: 100 | Ingresaste: 20 → resultado: stock 120, ajuste +20'],
+          [''],
+          ['Almacenes incluidos en esta plantilla:'],
+          ...almacenesPlantilla.map(w => [`  ${encabezadoAlmacen(w)}`]),
+        ]
+      : [
+          ['INSTRUCCIONES — MODO: ACTUALIZAR STOCK FINAL'],
+          [''],
+          ['1. Edita SOLO las columnas de almacén.'],
+          ['2. Ingresa el STOCK FINAL deseado para cada producto y almacén.'],
+          ['3. El sistema calculará el ajuste automáticamente (no es una suma).'],
+          ['4. Si dejas una celda vacía, ese almacén no se modifica.'],
+          [''],
+          ['Ejemplo:'],
+          ['- Stock actual: 100 | Ingresaste: 20 → resultado: stock 20, ajuste -80'],
+          [''],
+          ['Almacenes incluidos en esta plantilla:'],
+          ...almacenesPlantilla.map(w => [`  ${encabezadoAlmacen(w)}`]),
+        ];
+
     const hojaInstrucciones = XLSX.utils.aoa_to_sheet(instrucciones);
     hojaInstrucciones['!cols'] = [{ wch: 70 }];
 
@@ -295,7 +319,8 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
 
     const d = new Date();
     const fecha = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    XLSX.writeFile(libro, `Plantilla_Stock_${fecha}.xlsx`);
+    const nombreArchivo = esModoSumar ? `Plantilla_Ingreso_Stock_${fecha}.xlsx` : `Plantilla_Stock_${fecha}.xlsx`;
+    XLSX.writeFile(libro, nombreArchivo);
   };
 
   // ── Carga y parseo del archivo ────────────────────────────────────────────
@@ -384,39 +409,75 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
         entradas = almacenesPlantilla.map(w => [w.id, cantidad]);
       }
 
-      for (const [almacenId, nuevaCantidad] of entradas) {
-        if (nuevaCantidad === null) continue;
+      for (const [almacenId, cantidadArchivo] of entradas) {
+        if (cantidadArchivo === null) continue; // Celda vacía = sin cambio
 
         const almacen = mapaAlmacenes.get(almacenId);
         if (!almacen) continue;
 
         const stockActual = productoActual.stockPorAlmacen?.[almacenId] ?? 0;
-        if (stockActual === nuevaCantidad) { sinCambios++; continue; }
 
-        const diferencia = nuevaCantidad - stockActual;
-        const tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' = diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
+        if (modoImportacion === 'sumar') {
+          // Modo: sumar ingreso — la cantidad se suma al stock actual
+          if (cantidadArchivo < 0) {
+            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: cantidad negativa no permitida en modo "Sumar ingreso"`);
+            continue;
+          }
+          if (cantidadArchivo === 0) { sinCambios++; continue; }
 
-        try {
-          const resultado = InventoryService.registerAdjustment(
-            productoActual, almacen,
-            {
-              productoId: productoActual.id,
-              almacenId,
-              tipo,
-              motivo: 'AJUSTE_INVENTARIO',
-              cantidad: Math.abs(diferencia),
-              observaciones: `Importación masiva: ${stockActual} → ${nuevaCantidad}`,
-              documentoReferencia: loteId,
-            },
-            nombreUsuario
-          );
-          updateProduct(productoActual.id, resultado.product);
-          // Actualizar referencia local para que el siguiente almacén del mismo producto
-          // vea el stock ya actualizado
-          productoActual = resultado.product;
-          movimientos++;
-        } catch (err) {
-          errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: ${err instanceof Error ? err.message : 'Error'}`);
+          const stockFinal = stockActual + cantidadArchivo;
+          try {
+            const resultado = InventoryService.registerAdjustment(
+              productoActual, almacen,
+              {
+                productoId: productoActual.id,
+                almacenId,
+                tipo: 'AJUSTE_POSITIVO',
+                motivo: 'AJUSTE_INVENTARIO',
+                cantidad: cantidadArchivo,
+                observaciones: `Ingreso masivo: ${stockActual} + ${cantidadArchivo} → ${stockFinal}`,
+                documentoReferencia: loteId,
+              },
+              nombreUsuario
+            );
+            updateProduct(productoActual.id, resultado.product);
+            productoActual = resultado.product;
+            movimientos++;
+          } catch (err) {
+            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: ${err instanceof Error ? err.message : 'Error'}`);
+          }
+        } else {
+          // Modo: actualizar stock final — la cantidad reemplaza el stock actual
+          if (cantidadArchivo < 0) {
+            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: El stock final no puede ser negativo.`);
+            continue;
+          }
+          if (stockActual === cantidadArchivo) { sinCambios++; continue; }
+
+          const diferencia = cantidadArchivo - stockActual;
+          const tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' = diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
+          try {
+            const resultado = InventoryService.registerAdjustment(
+              productoActual, almacen,
+              {
+                productoId: productoActual.id,
+                almacenId,
+                tipo,
+                motivo: 'AJUSTE_INVENTARIO',
+                cantidad: Math.abs(diferencia),
+                observaciones: `Importación masiva: ${stockActual} → ${cantidadArchivo}`,
+                documentoReferencia: loteId,
+              },
+              nombreUsuario
+            );
+            updateProduct(productoActual.id, resultado.product);
+            // Actualizar referencia local para que el siguiente almacén del mismo producto
+            // vea el stock ya actualizado
+            productoActual = resultado.product;
+            movimientos++;
+          } catch (err) {
+            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: ${err instanceof Error ? err.message : 'Error'}`);
+          }
         }
       }
     }
@@ -477,8 +538,25 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     setProductosSeleccionados(siguiente);
   };
 
+  // Validación de cantidades negativas — aplica a ambos modos (calculada reactivamente)
+  const erroresValidacionModo: string[] = [];
+  if (resultadoParseo) {
+    for (const fila of resultadoParseo.filas) {
+      let tieneNegativo = false;
+      for (const cantidad of Object.values(fila.cantidadPorAlmacen)) {
+        if (cantidad !== null && cantidad < 0) { tieneNegativo = true; break; }
+      }
+      if (tieneNegativo) {
+        const mensaje = modoImportacion === 'sumar'
+          ? `[${fila.codigo}]: El ingreso de stock no puede ser negativo.`
+          : `[${fila.codigo}]: El stock final no puede ser negativo. Usa 0 si deseas dejarlo sin stock.`;
+        erroresValidacionModo.push(mensaje);
+      }
+    }
+  }
+
   const tieneErroresBloqueantes = resultadoParseo !== null &&
-    (resultadoParseo.erroresPorFila.length > 0 || resultadoParseo.filas.length === 0);
+    (resultadoParseo.erroresPorFila.length > 0 || resultadoParseo.filas.length === 0 || erroresValidacionModo.length > 0);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -487,11 +565,39 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
 
         {/* ═══ IMPORTAR STOCK ═══ */}
         <div>
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Importar stock desde Excel</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Descarga la plantilla con tus productos, completa las cantidades finales por almacén y vuelve a subir el archivo.
-              La cantidad ingresada es el stock final — el sistema calculará el ajuste automáticamente.
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Importar stock desde Excel</h2>
+
+            {/* Selector de modo */}
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800">
+              <button
+                onClick={() => setModoImportacion('actualizar')}
+                title="La cantidad del Excel será el nuevo stock final."
+                className={`px-4 py-2 text-xs font-medium transition-colors ${
+                  modoImportacion === 'actualizar'
+                    ? 'bg-[#6F36FF] text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                Actualizar stock final
+              </button>
+              <button
+                onClick={() => setModoImportacion('sumar')}
+                title="La cantidad del Excel se sumará al stock actual."
+                className={`px-4 py-2 text-xs font-medium border-l border-gray-200 dark:border-gray-700 transition-colors ${
+                  modoImportacion === 'sumar'
+                    ? 'bg-[#6F36FF] text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                Sumar ingreso de stock
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {modoImportacion === 'actualizar'
+                ? 'Reemplaza el stock actual. Ej: stock 100 + Excel 20 → stock final 20.'
+                : 'Suma al stock actual. Ej: stock 100 + Excel 20 → stock final 120.'}
             </p>
           </div>
 
@@ -509,7 +615,9 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Paso 1 — Descargar plantilla</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                      La plantilla incluye todos tus productos con el stock actual por almacén. Solo edita las cantidades finales.
+                      {modoImportacion === 'actualizar'
+                        ? 'La plantilla incluye el stock actual. Ingresa el stock final deseado por almacén.'
+                        : 'La plantilla incluye el stock actual. Ingresa la cantidad a sumar por almacén.'}
                     </p>
                     <button
                       onClick={descargarPlantilla}
@@ -615,6 +723,20 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                 </div>
               )}
 
+              {erroresValidacionModo.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 space-y-1">
+                  <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                    Cantidades inválidas para el modo actual ({erroresValidacionModo.length})
+                  </p>
+                  {erroresValidacionModo.slice(0, 5).map((e, i) => (
+                    <p key={i} className="text-xs text-red-700 dark:text-red-400">{e}</p>
+                  ))}
+                  {erroresValidacionModo.length > 5 && (
+                    <p className="text-xs text-red-500">... y {erroresValidacionModo.length - 5} más</p>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-lg px-4 py-2">
                 <span className="font-medium text-gray-900 dark:text-gray-100">{resultadoParseo.filas.length} productos</span>
                 <span>·</span>
@@ -645,15 +767,40 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                               <td className="px-3 py-1.5 font-mono text-gray-900 dark:text-gray-200">{fila.codigo}</td>
                               <td className="px-3 py-1.5 text-gray-700 dark:text-gray-300 max-w-[160px] truncate">{producto?.nombre ?? '—'}</td>
                               {almacenesPlantilla.map(w => {
-                                const nuevaCantidad = fila.cantidadPorAlmacen[w.id];
-                                const cantidadActual = producto?.stockPorAlmacen?.[w.id] ?? 0;
-                                const hayDiferencia = nuevaCantidad !== null && nuevaCantidad !== undefined && nuevaCantidad !== cantidadActual;
+                                const cantidad = fila.cantidadPorAlmacen[w.id];
+                                const stockActual = producto?.stockPorAlmacen?.[w.id] ?? 0;
+
+                                if (cantidad === null || cantidad === undefined) {
+                                  return <td key={w.id} className="px-3 py-1.5 text-right tabular-nums"><span className="text-gray-400">—</span></td>;
+                                }
+
+                                if (modoImportacion === 'sumar') {
+                                  const esNegativo = cantidad < 0;
+                                  const stockFinal = stockActual + cantidad;
+                                  return (
+                                    <td key={w.id} className="px-3 py-1.5 text-right tabular-nums">
+                                      <div className={`font-medium ${esNegativo ? 'text-red-500' : cantidad > 0 ? 'text-[#6F36FF]' : 'text-gray-400'}`}>
+                                        {esNegativo ? cantidad : `+${cantidad}`}
+                                      </div>
+                                      {!esNegativo && cantidad > 0 && (
+                                        <div className="text-[10px] text-gray-400 dark:text-gray-500">→ {stockFinal}</div>
+                                      )}
+                                    </td>
+                                  );
+                                }
+
+                                // Modo actualizar
+                                if (cantidad < 0) {
+                                  return (
+                                    <td key={w.id} className="px-3 py-1.5 text-right tabular-nums">
+                                      <span className="font-medium text-red-500">{cantidad}</span>
+                                    </td>
+                                  );
+                                }
+                                const hayDiferencia = cantidad !== stockActual;
                                 return (
                                   <td key={w.id} className="px-3 py-1.5 text-right tabular-nums">
-                                    {nuevaCantidad === null || nuevaCantidad === undefined
-                                      ? <span className="text-gray-400">—</span>
-                                      : <span className={hayDiferencia ? 'font-medium text-[#6F36FF]' : 'text-gray-600 dark:text-gray-400'}>{nuevaCantidad}</span>
-                                    }
+                                    <span className={hayDiferencia ? 'font-medium text-[#6F36FF]' : 'text-gray-600 dark:text-gray-400'}>{cantidad}</span>
                                   </td>
                                 );
                               })}
