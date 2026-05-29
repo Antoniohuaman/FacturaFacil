@@ -158,6 +158,27 @@ export const isValidQuantity = (quantity: number): boolean => {
 };
 
 /**
+ * Infiere la fuente legible de un movimiento para pantalla y exportación.
+ * Usa prefijos de documentoReferencia y campos del modelo, no datos hardcodeados.
+ */
+export const inferirFuente = (mov: MovimientoStock): string => {
+  if (mov.documentoReferencia?.startsWith('IMP-')) return 'Importación masiva';
+  if (mov.documentoReferencia?.startsWith('RST-')) return 'Reset de stock';
+  if (mov.esTransferencia) return 'Transferencia';
+  if (mov.motivo === 'VENTA') return 'Venta';
+  if (mov.motivo === 'DEVOLUCION_CLIENTE') {
+    if (mov.observaciones?.includes('Reversión anulación')) return 'Anulación comprobante';
+    if (mov.observaciones?.includes('Devolución NC')) return 'Nota de crédito';
+    return 'Devolución cliente';
+  }
+  if (mov.motivo === 'AJUSTE_INVENTARIO') return 'Ajuste inventario';
+  if (mov.motivo === 'COMPRA') return 'Compra';
+  if (mov.motivo === 'PRODUCCION') return 'Producción';
+  if (mov.motivo === 'MERMA') return 'Merma';
+  return 'Movimiento manual';
+};
+
+/**
  * Infiere entidades Transferencia a partir de movimientos con esTransferencia=true
  * que no tienen una entidad correspondiente en el repositorio.
  * Usado para compatibilidad con transferencias creadas antes del tab Transferencias.

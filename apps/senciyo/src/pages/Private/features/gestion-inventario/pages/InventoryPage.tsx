@@ -18,6 +18,7 @@ import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/t
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
+import { inferirFuente } from '../utils/inventory.helpers';
 
 const formatMovementTimestamp = (value: Date | string): string => {
   const date = value instanceof Date ? value : new Date(value);
@@ -87,25 +88,28 @@ export const InventoryPage: React.FC = () => {
     const baseMovements = movimientosFiltradosVisiblesRef.current.length > 0
       ? movimientosFiltradosVisiblesRef.current
       : filteredMovements;
+
     const data = baseMovements.map(mov => ({
-      'Fecha': formatMovementTimestamp(mov.fecha),
-      'Producto': mov.productoNombre,
-      'Código': mov.productoCodigo,
-      'Tipo': mov.tipo,
-      'Motivo': mov.motivo,
-      'Cantidad': mov.cantidad,
-      'Stock Anterior': mov.cantidadAnterior,
-      'Stock Nuevo': mov.cantidadNueva,
-      'Almacén': mov.almacenNombre || 'N/A',
-      'Establecimiento': mov.EstablecimientoNombre || 'N/A',
-      'Usuario': mov.usuario,
-      'Observaciones': mov.observaciones || '',
-      'Documento': mov.documentoReferencia || '',
-      'Es transferencia': mov.esTransferencia ? 'Sí' : 'No',
-      'Transferencia ID': mov.transferenciaId || '',
-      'Almacén origen': mov.almacenOrigenNombre || '',
-      'Almacén destino': mov.almacenDestinoNombre || '',
-      'Tipo transferencia': mov.tipoTransferencia || '',
+      'Fecha':              formatMovementTimestamp(mov.fecha),
+      'Producto':           mov.productoNombre,
+      'Código Producto':    mov.productoCodigo,
+      'Tipo':               mov.tipo,
+      'Motivo':             mov.motivo,
+      'Fuente':             inferirFuente(mov),
+      'Movimiento':         mov.cantidad,
+      'Saldo Anterior':     mov.cantidadAnterior,
+      'Saldo Final':        mov.cantidadNueva,
+      'Almacén':            mov.almacenNombre || '',
+      'Código Almacén':     mov.almacenCodigo || '',
+      'Establecimiento':    mov.EstablecimientoNombre || '',
+      'Usuario':            mov.usuario,
+      'Documento / Ref.':   mov.documentoReferencia || '',
+      'Observaciones':      mov.observaciones || '',
+      'Es Transferencia':   mov.esTransferencia ? 'Sí' : 'No',
+      'Transferencia ID':   mov.transferenciaId || '',
+      'Tipo Transferencia': mov.tipoTransferencia || '',
+      'Almacén Origen':     mov.almacenOrigenNombre || '',
+      'Almacén Destino':    mov.almacenDestinoNombre || '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -115,22 +119,24 @@ export const InventoryPage: React.FC = () => {
     const colWidths = [
       { wch: 20 }, // Fecha
       { wch: 30 }, // Producto
-      { wch: 15 }, // Código
-      { wch: 18 }, // Tipo
-      { wch: 25 }, // Motivo
-      { wch: 10 }, // Cantidad
-      { wch: 15 }, // Stock Anterior
-      { wch: 15 }, // Stock Nuevo
+      { wch: 15 }, // Código Producto
+      { wch: 16 }, // Tipo
+      { wch: 22 }, // Motivo
+      { wch: 22 }, // Fuente
+      { wch: 12 }, // Movimiento
+      { wch: 14 }, // Saldo Anterior
+      { wch: 12 }, // Saldo Final
       { wch: 25 }, // Almacén
-      { wch: 25 }, // Establecimiento
+      { wch: 14 }, // Código Almacén
+      { wch: 28 }, // Establecimiento
       { wch: 20 }, // Usuario
-      { wch: 40 }, // Observaciones
-      { wch: 20 }, // Documento
-      { wch: 15 }, // Es transferencia
-      { wch: 22 }, // Transferencia ID
-      { wch: 25 }, // Almacén origen
-      { wch: 25 }, // Almacén destino
-      { wch: 22 }, // Tipo transferencia
+      { wch: 24 }, // Documento / Ref.
+      { wch: 45 }, // Observaciones
+      { wch: 15 }, // Es Transferencia
+      { wch: 24 }, // Transferencia ID
+      { wch: 22 }, // Tipo Transferencia
+      { wch: 25 }, // Almacén Origen
+      { wch: 25 }, // Almacén Destino
     ];
     ws['!cols'] = colWidths;
 
