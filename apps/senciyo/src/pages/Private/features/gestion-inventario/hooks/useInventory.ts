@@ -47,7 +47,6 @@ export const useInventory = () => {
   const [filterPeriodo, setFilterPeriodo] = useState<FilterPeriod>('semana');
   const [almacenFiltro, setalmacenFiltro] = useState<string>('todos');
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
-  const [showMassUpdateModal, setShowMassUpdateModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [suggestedQuantity, setSuggestedQuantity] = useState<number>(0);
@@ -310,13 +309,6 @@ export const useInventory = () => {
   }, []);
 
   /**
-   * Abre modal de actualización masiva
-   */
-  const openMassUpdateModal = useCallback(() => {
-    setShowMassUpdateModal(true);
-  }, []);
-
-  /**
    * Recarga la lista de movimientos desde el repositorio.
    * Útil después de operaciones externas (importación masiva, reversiones)
    * que escriben en StockRepository sin pasar por este hook.
@@ -331,7 +323,6 @@ export const useInventory = () => {
     filterPeriodo,
     almacenFiltro,
     showAdjustmentModal,
-    showMassUpdateModal,
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
@@ -349,7 +340,6 @@ export const useInventory = () => {
     setFilterPeriodo,
     setalmacenFiltro,
     setShowAdjustmentModal,
-    setShowMassUpdateModal,
     setShowTransferModal,
 
     // Handlers
@@ -358,7 +348,6 @@ export const useInventory = () => {
     handleMassStockUpdate,
     openAdjustmentModal,
     openTransferModal,
-    openMassUpdateModal,
     reloadMovements,
   };
 };

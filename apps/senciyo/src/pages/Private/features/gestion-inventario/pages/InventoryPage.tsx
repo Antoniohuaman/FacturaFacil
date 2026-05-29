@@ -5,7 +5,7 @@ import { Download } from 'lucide-react';
 import { useInventory } from '../hooks';
 import MovementsTable from '../components/tables/MovementsTable';
 import AdjustmentModal from '../components/modals/AdjustmentModal';
-import MassUpdateModal from '../components/modals/MassUpdateModal';
+import PanelImportacionStock from '../components/PanelImportacionStock';
 import TransferModal from '../components/modals/TransferModal';
 import SummaryCards from '../components/panels/SummaryCards';
 import AlertsPanel from '../components/panels/AlertsPanel';
@@ -37,7 +37,6 @@ export const InventoryPage: React.FC = () => {
     filterPeriodo,
     almacenFiltro,
     showAdjustmentModal,
-    showMassUpdateModal,
     showTransferModal,
     selectedProductId,
     suggestedQuantity,
@@ -53,7 +52,6 @@ export const InventoryPage: React.FC = () => {
     setFilterPeriodo,
     setalmacenFiltro,
     setShowAdjustmentModal,
-    setShowMassUpdateModal,
     setShowTransferModal,
 
     // Handlers
@@ -61,7 +59,6 @@ export const InventoryPage: React.FC = () => {
     handleStockTransfer,
     openAdjustmentModal,
     openTransferModal,
-    openMassUpdateModal,
     reloadMovements,
   } = useInventory();
   const { request: stockAutoExportRequest, finish: finishStockAutoExport } = useAutoExportRequest('inventario-stock');
@@ -232,11 +229,26 @@ export const InventoryPage: React.FC = () => {
             </svg>
             <span>Resumen</span>
           </button>
+
+          {/* Importar stock */}
+          <button
+            onClick={() => setSelectedView('importar')}
+            className={`group relative flex items-center gap-2 px-4 py-2.5 border-b-2 font-medium text-sm transition-all duration-150 ${
+              selectedView === 'importar'
+                ? 'border-[#6F36FF] text-[#6F36FF] dark:text-[#8B5CF6] bg-[#6F36FF]/5 dark:bg-[#6F36FF]/10'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <span>Importar stock</span>
+          </button>
         </div>
       </div>
 
-      {/* Barra de acciones - SOLO en otras vistas, NO en "Situación Actual" */}
-      {selectedView !== 'situacion' && (
+      {/* Barra de acciones — no aplica en Stock Actual ni en Importar stock */}
+      {selectedView !== 'situacion' && selectedView !== 'importar' && (
         <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             {/* Filtro de período */}
@@ -277,13 +289,6 @@ export const InventoryPage: React.FC = () => {
             </button>
 
             <button
-              onClick={openMassUpdateModal}
-              className="inline-flex items-center h-9 px-4 py-2 text-[#6F36FF] dark:text-[#8B5CF6] bg-white dark:bg-gray-800 border border-[#6F36FF]/30 dark:border-[#8B5CF6]/30 hover:bg-[#6F36FF]/5 dark:hover:bg-[#8B5CF6]/10 text-sm font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
-            >
-              Actualización Masiva
-            </button>
-
-            <button
               onClick={openTransferModal}
               className="inline-flex items-center h-9 px-4 py-2 text-[#6F36FF] dark:text-[#8B5CF6] bg-white dark:bg-gray-800 border border-[#6F36FF]/30 dark:border-[#8B5CF6]/30 hover:bg-[#6F36FF]/5 dark:hover:bg-[#8B5CF6]/10 text-sm font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
             >
@@ -301,12 +306,12 @@ export const InventoryPage: React.FC = () => {
       )}
 
       {/* Contenido principal */}
-      <div className={`flex-1 overflow-auto ${selectedView === 'situacion' ? '' : 'p-6'}`}>
+      <div className={`flex-1 overflow-auto ${selectedView === 'situacion' || selectedView === 'importar' ? '' : 'p-6'}`}>
         {selectedView === 'situacion' && (
           <InventarioSituacionPage
             autoExportRequest={stockAutoExportRequest}
             onAutoExportFinished={finishStockAutoExport}
-            onActualizacionMasiva={openMassUpdateModal}
+            onActualizacionMasiva={() => setSelectedView('importar')}
             onTransferir={openTransferModal}
             onAjustar={() => openAdjustmentModal('', 0)}
             onAjustarProducto={openAdjustmentModal}
@@ -334,6 +339,10 @@ export const InventoryPage: React.FC = () => {
             <p className="text-sm">Vista de resumen con estadísticas detalladas</p>
           </div>
         )}
+
+        {selectedView === 'importar' && (
+          <PanelImportacionStock onRecargarMovimientos={reloadMovements} />
+        )}
       </div>
 
       {/* Modales */}
@@ -345,12 +354,6 @@ export const InventoryPage: React.FC = () => {
         preSelectedQuantity={suggestedQuantity}
         prefilledAlmacenId={prefilledAlmacenId}
         mode={adjustmentMode}
-      />
-
-      <MassUpdateModal
-        isOpen={showMassUpdateModal}
-        onClose={() => setShowMassUpdateModal(false)}
-        onSuccess={reloadMovements}
       />
 
       <TransferModal
