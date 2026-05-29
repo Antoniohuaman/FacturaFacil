@@ -279,7 +279,6 @@ export const useInventory = () => {
       // Mostrar notificación de éxito
       success(`${result.movements.length} movimientos registrados`, 'Actualización masiva completada');
 
-      setShowMassUpdateModal(false);
     } catch (err) {
       console.error('Error en actualización masiva:', err);
       error(err instanceof Error ? err.message : 'No se pudo completar la actualización masiva', 'Error');
