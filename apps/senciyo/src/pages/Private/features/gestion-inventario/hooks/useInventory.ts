@@ -15,9 +15,14 @@ import type {
   StockTransferData,
   MassStockUpdateData
 } from '../models';
-import { filterByPeriod, sortByDateDesc } from '../utils/inventory.helpers';
+import type { Transferencia } from '../models/transferencia.types';
+import { filterByPeriod, sortByDateDesc, inferirTransferenciasDesdeMovimientos } from '../utils/inventory.helpers';
 import { InventoryService } from '../services/inventory.service';
 import { StockRepository } from '../repositories/stock.repository';
+import { TransferenciaRepository } from '../repositories/transferencia.repository';
+import { generateTransferId } from '../utils/inventory.helpers';
+import type { Product } from '../../catalogo-articulos/models/types';
+import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
 
@@ -26,23 +31,38 @@ type AdjustmentModalOptions = {
   mode?: 'manual' | 'prefilled';
 };
 
+/** Sincroniza stockPorEstablecimiento para los establecimientos afectados */
+function syncEstablecimientoStock(
+  product: Product,
+  affectedEstIds: string[],
+  almacenes: Almacen[]
+): Product {
+  if (!product.stockPorEstablecimiento) return product;
+  const nextStockPorEst = { ...product.stockPorEstablecimiento };
+  affectedEstIds.forEach(estId => {
+    if (!estId) return;
+    nextStockPorEst[estId] = almacenes
+      .filter(a => a.establecimientoId === estId)
+      .reduce((sum, a) => sum + (product.stockPorAlmacen?.[a.id] ?? 0), 0);
+  });
+  return { ...product, stockPorEstablecimiento: nextStockPorEst };
+}
+
 /**
  * Hook personalizado para gestión de inventario
  * Centraliza toda la lógica de negocio relacionada con stock
  */
 export const useInventory = () => {
   const { user } = useAuth();
-  // Estado de la aplicación
   const { allProducts, updateProduct } = useProductStore();
   const { session } = useUserSession();
   const { state: configState, rolesConfigurados } = useConfigurationContext();
   const establecimientoId = session?.currentEstablecimientoId;
   const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(configState.users, session), [configState.users, session]);
 
-  // Estados locales para movimientos de stock (cargados desde repositorio)
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([]);
+  const [transferencias, setTransferencias] = useState<Transferencia[]>([]);
 
-  // Estados locales del módulo inventario
   const [selectedView, setSelectedView] = useState<InventoryView>('situacion');
   const [filterPeriodo, setFilterPeriodo] = useState<FilterPeriod>('semana');
   const [almacenFiltro, setalmacenFiltro] = useState<string>('todos');
@@ -53,39 +73,37 @@ export const useInventory = () => {
   const [prefilledAlmacenId, setPrefilledAlmacenId] = useState<string | null>(null);
   const [adjustmentMode, setAdjustmentMode] = useState<'manual' | 'prefilled'>('manual');
 
-  // Cargar movimientos desde localStorage al inicio
   useEffect(() => {
-    const loadedMovements = StockRepository.getMovements();
-    setMovimientos(loadedMovements);
+    setMovimientos(StockRepository.getMovements());
+    setTransferencias(TransferenciaRepository.getAll());
   }, []);
 
-  // Obtener almacenes activos
   const almacenesActivos = useMemo(
     () => configState.almacenes.filter(almacen => almacen.estaActivoAlmacen),
     [configState.almacenes]
   );
 
-  /**
-   * Generar alertas de stock por producto y almacén
-   */
+  const usuarioNombre = session?.userName || user?.nombre || 'Usuario';
+
+  /** Transferencias del repositorio + legacy inferidas desde movimientos */
+  const todasTransferencias = useMemo<Transferencia[]>(() => {
+    const idsEnRepositorio = new Set(transferencias.map(t => t.id));
+    const legacy = inferirTransferenciasDesdeMovimientos(movimientos, idsEnRepositorio);
+    return [...transferencias, ...legacy].sort(
+      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    );
+  }, [transferencias, movimientos]);
+
   const stockAlerts = useMemo<StockAlert[]>(() => {
     const alerts = InventoryService.generateAlerts(allProducts, almacenesActivos);
-
-    // Filtrar por almacén si es necesario
     if (almacenFiltro && almacenFiltro !== 'todos') {
       return alerts.filter(alert => alert.almacenId === almacenFiltro);
     }
-
     return alerts;
   }, [allProducts, almacenesActivos, almacenFiltro]);
 
-  /**
-   * Movimientos filtrados por período y almacén
-   */
   const filteredMovements = useMemo<MovimientoStock[]>(() => {
     let filtered = filterByPeriod(movimientos, filterPeriodo);
-
-    // Filtrar por almacén si es necesario
     if (almacenFiltro !== 'todos') {
       filtered = filtered.filter(
         mov => mov.almacenId === almacenFiltro ||
@@ -93,13 +111,9 @@ export const useInventory = () => {
                mov.almacenDestinoId === almacenFiltro
       );
     }
-
     return sortByDateDesc(filtered);
   }, [movimientos, filterPeriodo, almacenFiltro]);
 
-  /**
-   * Resumen del inventario
-   */
   const stockSummary = useMemo<StockSummary>(() => {
     let totalStock = 0;
     let valorTotalStock = 0;
@@ -109,13 +123,10 @@ export const useInventory = () => {
 
     allProducts.forEach(product => {
       if (almacenFiltro && almacenFiltro !== 'todos') {
-        // Stock de un almacén específico
         const stock = InventoryService.getStock(product, almacenFiltro);
         const stockMin = product.stockMinimoPorAlmacen?.[almacenFiltro] || 0;
-
         totalStock += stock;
         valorTotalStock += stock * product.precio;
-
         if (stock === 0) {
           productosSinStock++;
           if (stockMin > 0) productosStockCritico++;
@@ -125,15 +136,10 @@ export const useInventory = () => {
           productosStockBajo++;
         }
       } else {
-        // Stock total de todos los almacenes
         const stockTotal = InventoryService.getTotalStock(product);
         totalStock += stockTotal;
         valorTotalStock += stockTotal * product.precio;
-
-        // Verificar si tiene stock en al menos un almacén
-        if (stockTotal === 0) {
-          productosSinStock++;
-        }
+        if (stockTotal === 0) productosSinStock++;
       }
     });
 
@@ -148,9 +154,6 @@ export const useInventory = () => {
     };
   }, [allProducts, almacenFiltro]);
 
-  /**
-   * Maneja el ajuste de stock
-   */
   const { success, error, warning } = useFeedback();
 
   const handleStockAdjustment = useCallback((data: StockAdjustmentData) => {
@@ -173,34 +176,29 @@ export const useInventory = () => {
         return;
       }
 
-      // Registrar ajuste usando el servicio
       const result = InventoryService.registerAdjustment(
         product,
         almacen,
         data,
-        session?.userName || user?.nombre || 'Usuario'
+        usuarioNombre
       );
 
-      // Actualizar producto en el store
       updateProduct(result.product.id, result.product);
-
-      // Actualizar lista de movimientos
       setMovimientos(prev => [result.movement, ...prev]);
-
-      // Mostrar notificación de éxito
       success(`${data.tipo}: ${data.cantidad} u · Nuevo stock: ${result.movement.cantidadNueva}`, 'Ajuste registrado');
-
       setShowAdjustmentModal(false);
     } catch (err) {
       console.error('Error al registrar ajuste:', err);
       error(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, session?.userName, user?.nombre, success, error, warning, usuarioActual]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual]);
 
   /**
-   * Maneja la transferencia de stock
+   * Crea una nueva transferencia.
+   * Intra-establecimiento: mueve stock inmediatamente → CONFIRMADA.
+   * Inter-establecimiento: crea entidad → PENDIENTE (sin mover stock).
    */
-  const handleStockTransfer = useCallback((data: StockTransferData) => {
+  const handleCreateTransfer = useCallback((data: StockTransferData) => {
     try {
       if (!tienePermiso({
         usuario: usuarioActual,
@@ -213,60 +211,277 @@ export const useInventory = () => {
       }
 
       const product = allProducts.find(p => p.id === data.productoId);
-      const almacenOrigen = almacenesActivos.find(almacen => almacen.id === data.almacenOrigenId);
-      const almacenDestino = almacenesActivos.find(almacen => almacen.id === data.almacenDestinoId);
+      const almacenOrigen = almacenesActivos.find(a => a.id === data.almacenOrigenId);
+      const almacenDestino = almacenesActivos.find(a => a.id === data.almacenDestinoId);
 
       if (!product || !almacenOrigen || !almacenDestino) {
         warning('Producto o almacenes no encontrados', 'Advertencia');
         return;
       }
 
-      // Registrar transferencia usando el servicio
-      const result = InventoryService.registerTransfer(
-        product,
-        almacenOrigen,
-        almacenDestino,
-        data,
-        session?.userName || user?.nombre || 'Usuario'
-      );
+      const esIntra = almacenOrigen.establecimientoId === almacenDestino.establecimientoId;
+      const tipoTransferencia = esIntra ? 'INTRA_ESTABLECIMIENTO' as const : 'INTER_ESTABLECIMIENTO' as const;
 
-      // Sincronizar stockPorEstablecimiento si el campo ya existe en el producto
-      let finalProduct = result.product;
-      if (finalProduct.stockPorEstablecimiento) {
-        const affectedEstIds = new Set(
-          [almacenOrigen.establecimientoId, almacenDestino.establecimientoId]
-            .filter((id): id is string => Boolean(id))
+      if (esIntra) {
+        // Movimiento inmediato
+        const result = InventoryService.registerTransfer(
+          product,
+          almacenOrigen,
+          almacenDestino,
+          data,
+          usuarioNombre
         );
-        if (affectedEstIds.size > 0) {
-          const nextStockPorEst = { ...finalProduct.stockPorEstablecimiento };
-          affectedEstIds.forEach(estId => {
-            nextStockPorEst[estId] = almacenesActivos
-              .filter(a => a.establecimientoId === estId)
-              .reduce((sum, a) => sum + (finalProduct.stockPorAlmacen?.[a.id] ?? 0), 0);
-          });
-          finalProduct = { ...finalProduct, stockPorEstablecimiento: nextStockPorEst };
-        }
+
+        let finalProduct = result.product;
+        finalProduct = syncEstablecimientoStock(
+          finalProduct,
+          [almacenOrigen.establecimientoId, almacenDestino.establecimientoId].filter(Boolean),
+          almacenesActivos
+        );
+
+        updateProduct(finalProduct.id, finalProduct);
+        setMovimientos(prev => [...result.movements, ...prev]);
+
+        const trfId = result.movements[0].transferenciaId ?? generateTransferId();
+        const entidad: Transferencia = {
+          id: trfId,
+          fecha: new Date(),
+          productoId: product.id,
+          productoCodigo: product.codigo,
+          productoNombre: product.nombre,
+          almacenOrigenId: almacenOrigen.id,
+          almacenOrigenNombre: almacenOrigen.nombreAlmacen,
+          establecimientoOrigenId: almacenOrigen.establecimientoId,
+          establecimientoOrigenNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
+          almacenDestinoId: almacenDestino.id,
+          almacenDestinoNombre: almacenDestino.nombreAlmacen,
+          establecimientoDestinoId: almacenDestino.establecimientoId,
+          establecimientoDestinoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
+          cantidad: data.cantidad,
+          tipoTransferencia,
+          estado: 'CONFIRMADA',
+          documentoReferencia: data.documentoReferencia,
+          observaciones: data.observaciones,
+          usuario: usuarioNombre,
+          movimientoSalidaId: result.movements[0].id,
+          movimientoEntradaId: result.movements[1].id,
+        };
+        TransferenciaRepository.upsert(entidad);
+        setTransferencias(prev => [entidad, ...prev]);
+
+        success(
+          `${data.cantidad} u · ${almacenOrigen.nombreAlmacen} → ${almacenDestino.nombreAlmacen}`,
+          'Transferencia confirmada'
+        );
+      } else {
+        // Inter-establecimiento: solo registrar como PENDIENTE
+        const trfId = generateTransferId();
+        const entidad: Transferencia = {
+          id: trfId,
+          fecha: new Date(),
+          productoId: product.id,
+          productoCodigo: product.codigo,
+          productoNombre: product.nombre,
+          almacenOrigenId: almacenOrigen.id,
+          almacenOrigenNombre: almacenOrigen.nombreAlmacen,
+          establecimientoOrigenId: almacenOrigen.establecimientoId,
+          establecimientoOrigenNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
+          almacenDestinoId: almacenDestino.id,
+          almacenDestinoNombre: almacenDestino.nombreAlmacen,
+          establecimientoDestinoId: almacenDestino.establecimientoId,
+          establecimientoDestinoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
+          cantidad: data.cantidad,
+          tipoTransferencia,
+          estado: 'PENDIENTE',
+          documentoReferencia: data.documentoReferencia,
+          observaciones: data.observaciones,
+          usuario: usuarioNombre,
+        };
+        TransferenciaRepository.upsert(entidad);
+        setTransferencias(prev => [entidad, ...prev]);
+        success(
+          `${trfId} creada · Pendiente de despacho`,
+          'Transferencia registrada'
+        );
       }
-
-      // Actualizar producto en el store
-      updateProduct(finalProduct.id, finalProduct);
-
-      // Actualizar lista de movimientos
-      setMovimientos(prev => [...result.movements, ...prev]);
-
-      // Mostrar notificación de éxito
-      success(`${data.cantidad} u · De: ${almacenOrigen.nombreAlmacen} → ${almacenDestino.nombreAlmacen}`, 'Transferencia realizada');
 
       setShowTransferModal(false);
     } catch (err) {
-      console.error('Error al registrar transferencia:', err);
-      error(err instanceof Error ? err.message : 'No se pudo realizar la transferencia', 'Error');
+      console.error('Error al crear transferencia:', err);
+      error(err instanceof Error ? err.message : 'No se pudo crear la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, session?.userName, user?.nombre, success, error, warning, usuarioActual]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual]);
 
-  /**
-   * Maneja actualización masiva de stock
-   */
+  /** Despacha una transferencia inter-establecimiento (PENDIENTE → EN_TRANSITO) */
+  const handleDespacharTransfer = useCallback((transferenciaId: string) => {
+    try {
+      const transferencia = TransferenciaRepository.getById(transferenciaId);
+      if (!transferencia || transferencia.estado !== 'PENDIENTE') {
+        warning('Operación no válida', 'La transferencia no está en estado Pendiente.');
+        return;
+      }
+
+      const product = allProducts.find(p => p.id === transferencia.productoId);
+      const almacenOrigen = almacenesActivos.find(a => a.id === transferencia.almacenOrigenId);
+
+      if (!product || !almacenOrigen) {
+        warning('Producto o almacén no encontrado', 'Advertencia');
+        return;
+      }
+
+      const result = InventoryService.registerTransferSalida(
+        product,
+        almacenOrigen,
+        transferencia,
+        usuarioNombre
+      );
+
+      const finalProduct = syncEstablecimientoStock(
+        result.product,
+        [almacenOrigen.establecimientoId].filter(Boolean),
+        almacenesActivos
+      );
+      updateProduct(finalProduct.id, finalProduct);
+      setMovimientos(prev => [result.movement, ...prev]);
+
+      const updated: Transferencia = {
+        ...transferencia,
+        estado: 'EN_TRANSITO',
+        fechaDespacho: new Date(),
+        movimientoSalidaId: result.movement.id,
+      };
+      TransferenciaRepository.upsert(updated);
+      setTransferencias(prev => prev.map(t => t.id === transferenciaId ? updated : t));
+
+      success(`${transferenciaId} despachada · En tránsito`, 'Transferencia despachada');
+    } catch (err) {
+      console.error('Error al despachar transferencia:', err);
+      error(err instanceof Error ? err.message : 'No se pudo despachar la transferencia', 'Error');
+    }
+  }, [allProducts, almacenesActivos, updateProduct, usuarioNombre, success, error, warning]);
+
+  /** Confirma la recepción de una transferencia (EN_TRANSITO → RECIBIDA) */
+  const handleRecibirTransfer = useCallback((transferenciaId: string) => {
+    try {
+      const transferencia = TransferenciaRepository.getById(transferenciaId);
+      if (!transferencia || transferencia.estado !== 'EN_TRANSITO') {
+        warning('Operación no válida', 'La transferencia no está en tránsito.');
+        return;
+      }
+
+      const product = allProducts.find(p => p.id === transferencia.productoId);
+      const almacenDestino = almacenesActivos.find(a => a.id === transferencia.almacenDestinoId);
+
+      if (!product || !almacenDestino) {
+        warning('Producto o almacén no encontrado', 'Advertencia');
+        return;
+      }
+
+      const result = InventoryService.registerTransferEntrada(
+        product,
+        almacenDestino,
+        transferencia,
+        usuarioNombre
+      );
+
+      const finalProduct = syncEstablecimientoStock(
+        result.product,
+        [almacenDestino.establecimientoId].filter(Boolean),
+        almacenesActivos
+      );
+      updateProduct(finalProduct.id, finalProduct);
+      setMovimientos(prev => [result.movement, ...prev]);
+
+      const updated: Transferencia = {
+        ...transferencia,
+        estado: 'RECIBIDA',
+        fechaRecepcion: new Date(),
+        movimientoEntradaId: result.movement.id,
+      };
+      TransferenciaRepository.upsert(updated);
+      setTransferencias(prev => prev.map(t => t.id === transferenciaId ? updated : t));
+
+      success(`${transferenciaId} recibida`, 'Recepción confirmada');
+    } catch (err) {
+      console.error('Error al recibir transferencia:', err);
+      error(err instanceof Error ? err.message : 'No se pudo confirmar la recepción', 'Error');
+    }
+  }, [allProducts, almacenesActivos, updateProduct, usuarioNombre, success, error, warning]);
+
+  /** Cancela una transferencia PENDIENTE sin mover stock */
+  const handleCancelarTransfer = useCallback((transferenciaId: string) => {
+    try {
+      const transferencia = TransferenciaRepository.getById(transferenciaId);
+      if (!transferencia || transferencia.estado !== 'PENDIENTE') {
+        warning('Operación no válida', 'Solo se pueden cancelar transferencias Pendientes.');
+        return;
+      }
+
+      const updated: Transferencia = { ...transferencia, estado: 'CANCELADA' };
+      TransferenciaRepository.upsert(updated);
+      setTransferencias(prev => prev.map(t => t.id === transferenciaId ? updated : t));
+
+      success(`${transferenciaId} cancelada`, 'Transferencia cancelada');
+    } catch (err) {
+      console.error('Error al cancelar transferencia:', err);
+      error(err instanceof Error ? err.message : 'No se pudo cancelar la transferencia', 'Error');
+    }
+  }, [success, error, warning]);
+
+  /** Anula una transferencia generando movimientos inversos */
+  const handleAnularTransfer = useCallback((transferenciaId: string) => {
+    try {
+      const transferencia = TransferenciaRepository.getById(transferenciaId);
+      if (!transferencia) {
+        warning('Transferencia no encontrada', 'Advertencia');
+        return;
+      }
+      const estadosAnulables = ['CONFIRMADA', 'RECIBIDA', 'EN_TRANSITO'] as const;
+      if (!estadosAnulables.includes(transferencia.estado as typeof estadosAnulables[number])) {
+        warning('Operación no válida', 'Esta transferencia no puede anularse.');
+        return;
+      }
+
+      const product = allProducts.find(p => p.id === transferencia.productoId);
+      const almacenOrigen = almacenesActivos.find(a => a.id === transferencia.almacenOrigenId);
+      const almacenDestino = almacenesActivos.find(a => a.id === transferencia.almacenDestinoId);
+
+      if (!product || !almacenOrigen || !almacenDestino) {
+        warning('Producto o almacenes no encontrados', 'Advertencia');
+        return;
+      }
+
+      const result = InventoryService.registerTransferAnulacion(
+        product,
+        almacenOrigen,
+        almacenDestino,
+        transferencia,
+        usuarioNombre
+      );
+
+      const finalProduct = syncEstablecimientoStock(
+        result.product,
+        [almacenOrigen.establecimientoId, almacenDestino.establecimientoId].filter(Boolean),
+        almacenesActivos
+      );
+      updateProduct(finalProduct.id, finalProduct);
+      setMovimientos(prev => [...result.movements, ...prev]);
+
+      const updated: Transferencia = {
+        ...transferencia,
+        estado: 'ANULADA',
+        fechaAnulacion: new Date(),
+      };
+      TransferenciaRepository.upsert(updated);
+      setTransferencias(prev => prev.map(t => t.id === transferenciaId ? updated : t));
+
+      success(`${transferenciaId} anulada · Stock restituido`, 'Transferencia anulada');
+    } catch (err) {
+      console.error('Error al anular transferencia:', err);
+      error(err instanceof Error ? err.message : 'No se pudo anular la transferencia', 'Error');
+    }
+  }, [allProducts, almacenesActivos, updateProduct, usuarioNombre, success, error, warning]);
+
   const handleMassStockUpdate = useCallback((data: MassStockUpdateData) => {
     try {
       if (!tienePermiso({
@@ -283,29 +498,20 @@ export const useInventory = () => {
         allProducts,
         almacenesActivos,
         data,
-        session?.userName || user?.nombre || 'Usuario'
+        usuarioNombre
       );
 
-      // Actualizar productos en el store
       result.updatedProducts.forEach(product => {
         updateProduct(product.id, product);
       });
-
-      // Actualizar lista de movimientos
       setMovimientos(prev => [...result.movements, ...prev]);
-
-      // Mostrar notificación de éxito
       success(`${result.movements.length} movimientos registrados`, 'Actualización masiva completada');
-
     } catch (err) {
       console.error('Error en actualización masiva:', err);
       error(err instanceof Error ? err.message : 'No se pudo completar la actualización masiva', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, session?.userName, user?.nombre, success, error, warning, usuarioActual]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual]);
 
-  /**
-   * Abre modal de ajuste para un producto específico
-   */
   const openAdjustmentModal = useCallback((
     productId: string,
     suggestedQty: number = 0,
@@ -318,24 +524,15 @@ export const useInventory = () => {
     setShowAdjustmentModal(true);
   }, []);
 
-  /**
-   * Abre modal de transferencia
-   */
   const openTransferModal = useCallback(() => {
     setShowTransferModal(true);
   }, []);
 
-  /**
-   * Recarga la lista de movimientos desde el repositorio.
-   * Útil después de operaciones externas (importación masiva, reversiones)
-   * que escriben en StockRepository sin pasar por este hook.
-   */
   const reloadMovements = useCallback(() => {
     setMovimientos(StockRepository.getMovements());
   }, []);
 
   return {
-    // Estados
     selectedView,
     filterPeriodo,
     almacenFiltro,
@@ -351,17 +548,20 @@ export const useInventory = () => {
     filteredMovements,
     stockSummary,
     allProducts,
+    transferencias: todasTransferencias,
 
-    // Setters
     setSelectedView,
     setFilterPeriodo,
     setalmacenFiltro,
     setShowAdjustmentModal,
     setShowTransferModal,
 
-    // Handlers
     handleStockAdjustment,
-    handleStockTransfer,
+    handleCreateTransfer,
+    handleDespacharTransfer,
+    handleRecibirTransfer,
+    handleCancelarTransfer,
+    handleAnularTransfer,
     handleMassStockUpdate,
     openAdjustmentModal,
     openTransferModal,

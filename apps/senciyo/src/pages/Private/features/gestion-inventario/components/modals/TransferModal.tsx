@@ -56,6 +56,12 @@ const TransferModal: React.FC<TransferModalProps> = ({
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
   const almacenOrigen = almacenes.find(w => w.id === almacenOrigenId);
   const almacenDestino = almacenes.find(w => w.id === almacenDestinoId);
+  const esInterEstablecimiento =
+    almacenOrigenId &&
+    almacenDestinoId &&
+    almacenOrigen &&
+    almacenDestino &&
+    almacenOrigen.establecimientoId !== almacenDestino.establecimientoId;
   const unitLabel = selectedProduct
     ? getUnitDisplayForUI({
         units: configState.units,
@@ -329,6 +335,14 @@ const TransferModal: React.FC<TransferModalProps> = ({
                       className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
                     />
                   </div>
+
+                  {/* Indicador inter-establecimiento */}
+                  {esInterEstablecimiento && (
+                    <div className="flex items-start space-x-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      <span>Transferencia entre establecimientos · Quedará <strong>Pendiente</strong> hasta ser despachada y recibida. Puede requerir guía de remisión.</span>
+                    </div>
+                  )}
 
                   {/* Resumen */}
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">

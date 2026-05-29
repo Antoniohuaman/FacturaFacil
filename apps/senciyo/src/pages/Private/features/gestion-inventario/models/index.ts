@@ -2,3 +2,4 @@
 
 export * from './inventory.types';
 export * from './disponibilidad.types';
+export * from './transferencia.types';

@@ -7,6 +7,7 @@ import MovementsTable from '../components/tables/MovementsTable';
 import AdjustmentModal from '../components/modals/AdjustmentModal';
 import PanelImportacionStock from '../components/PanelImportacionStock';
 import TransferModal from '../components/modals/TransferModal';
+import TransferenciasPanel from '../components/transferencias/TransferenciasPanel';
 import SummaryCards from '../components/panels/SummaryCards';
 import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
@@ -32,7 +33,6 @@ const formatMovementTimestamp = (value: Date | string): string => {
 export const InventoryPage: React.FC = () => {
   useFocusFromQuery();
   const {
-    // Estados
     selectedView,
     filterPeriodo,
     almacenFiltro,
@@ -46,17 +46,20 @@ export const InventoryPage: React.FC = () => {
     stockAlerts,
     filteredMovements,
     allProducts,
+    transferencias,
 
-    // Setters
     setSelectedView,
     setFilterPeriodo,
     setalmacenFiltro,
     setShowAdjustmentModal,
     setShowTransferModal,
 
-    // Handlers
     handleStockAdjustment,
-    handleStockTransfer,
+    handleCreateTransfer,
+    handleDespacharTransfer,
+    handleRecibirTransfer,
+    handleCancelarTransfer,
+    handleAnularTransfer,
     openAdjustmentModal,
     openTransferModal,
     reloadMovements,
@@ -205,6 +208,21 @@ export const InventoryPage: React.FC = () => {
             <span>Movimientos</span>
           </button>
 
+          {/* Transferencias */}
+          <button
+            onClick={() => setSelectedView('transferencias')}
+            className={`group relative flex items-center gap-2 px-4 py-2.5 border-b-2 font-medium text-sm transition-all duration-150 ${
+              selectedView === 'transferencias'
+                ? 'border-[#6F36FF] text-[#6F36FF] dark:text-[#8B5CF6] bg-[#6F36FF]/5 dark:bg-[#6F36FF]/10'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            <span>Transferencias</span>
+          </button>
+
           {/* Alertas */}
           <button
             onClick={() => setSelectedView('alertas')}
@@ -257,8 +275,8 @@ export const InventoryPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Barra de acciones — no aplica en Stock Actual ni en Importar stock */}
-      {selectedView !== 'situacion' && selectedView !== 'importar' && (
+      {/* Barra de acciones — no aplica en Stock Actual, Transferencias ni Importar stock */}
+      {selectedView !== 'situacion' && selectedView !== 'transferencias' && selectedView !== 'importar' && (
         <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             {/* Filtro de período */}
@@ -316,7 +334,7 @@ export const InventoryPage: React.FC = () => {
       )}
 
       {/* Contenido principal */}
-      <div className={`flex-1 overflow-auto ${selectedView === 'situacion' || selectedView === 'importar' ? '' : 'p-6'}`}>
+      <div className={`flex-1 overflow-auto ${selectedView === 'situacion' || selectedView === 'transferencias' || selectedView === 'importar' ? '' : 'p-6'}`}>
         {selectedView === 'situacion' && (
           <InventarioSituacionPage
             autoExportRequest={stockAutoExportRequest}
@@ -332,6 +350,17 @@ export const InventoryPage: React.FC = () => {
           <MovementsTable
             movimientos={filteredMovements}
             almacenFiltro={almacenFiltro}
+          />
+        )}
+
+        {selectedView === 'transferencias' && (
+          <TransferenciasPanel
+            transferencias={transferencias}
+            onNuevaTransferencia={openTransferModal}
+            onDespachar={handleDespacharTransfer}
+            onRecibir={handleRecibirTransfer}
+            onCancelar={handleCancelarTransfer}
+            onAnular={handleAnularTransfer}
           />
         )}
 
@@ -369,7 +398,7 @@ export const InventoryPage: React.FC = () => {
       <TransferModal
         isOpen={showTransferModal}
         onClose={() => setShowTransferModal(false)}
-        onTransfer={handleStockTransfer}
+        onTransfer={handleCreateTransfer}
       />
     </div>
   );

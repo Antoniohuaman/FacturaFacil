@@ -13,6 +13,7 @@ import type {
 import { StockRepository } from '../repositories/stock.repository';
 import { evaluateStockAlert } from '../utils/stockAlerts';
 import { generateTransferId } from '../utils/inventory.helpers';
+import type { Transferencia } from '../models/transferencia.types';
 
 /**
  * Servicio para gestión de inventario
@@ -260,6 +261,244 @@ export class InventoryService {
     StockRepository.addMovements([movimientoSalida, movimientoEntrada]);
 
     return { product: updatedProduct, movements: [movimientoSalida, movimientoEntrada] };
+  }
+
+  /**
+   * Registrar solo la SALIDA de una transferencia inter-establecimiento (despacho)
+   */
+  static registerTransferSalida(
+    product: Product,
+    almacenOrigen: Almacen,
+    transferencia: Pick<Transferencia, 'id' | 'cantidad' | 'tipoTransferencia' | 'almacenDestinoId' | 'almacenDestinoNombre' | 'documentoReferencia' | 'observaciones'>,
+    usuario: string
+  ): { product: Product; movement: MovimientoStock } {
+    const stockOrigen = this.getStock(product, almacenOrigen.id);
+
+    if (stockOrigen < transferencia.cantidad) {
+      throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${stockOrigen}`);
+    }
+
+    const nuevoStock = stockOrigen - transferencia.cantidad;
+    let updatedProduct = this.updateStock(product, almacenOrigen.id, nuevoStock);
+    updatedProduct = { ...updatedProduct, cantidad: this.getTotalStock(updatedProduct) };
+
+    const movement: MovimientoStock = {
+      id: `MOV-${Date.now()}-SALIDA-${Math.random().toString(36).substr(2, 9)}`,
+      productoId: product.id,
+      productoCodigo: product.codigo,
+      productoNombre: product.nombre,
+      tipo: 'SALIDA',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+      cantidad: transferencia.cantidad,
+      cantidadAnterior: stockOrigen,
+      cantidadNueva: nuevoStock,
+      usuario,
+      observaciones: transferencia.observaciones || `Despacho hacia ${transferencia.almacenDestinoNombre}`,
+      documentoReferencia: transferencia.documentoReferencia,
+      fecha: new Date(),
+      almacenId: almacenOrigen.id,
+      almacenCodigo: almacenOrigen.codigoAlmacen,
+      almacenNombre: almacenOrigen.nombreAlmacen,
+      EstablecimientoId: almacenOrigen.establecimientoId,
+      EstablecimientoCodigo: almacenOrigen.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
+      esTransferencia: true,
+      transferenciaId: transferencia.id,
+      tipoTransferencia: transferencia.tipoTransferencia,
+      almacenOrigenId: almacenOrigen.id,
+      almacenOrigenNombre: almacenOrigen.nombreAlmacen,
+      almacenDestinoId: transferencia.almacenDestinoId,
+      almacenDestinoNombre: transferencia.almacenDestinoNombre,
+    };
+
+    StockRepository.addMovement(movement);
+    return { product: updatedProduct, movement };
+  }
+
+  /**
+   * Registrar solo la ENTRADA de una transferencia inter-establecimiento (recepción)
+   */
+  static registerTransferEntrada(
+    product: Product,
+    almacenDestino: Almacen,
+    transferencia: Pick<Transferencia, 'id' | 'cantidad' | 'tipoTransferencia' | 'almacenOrigenId' | 'almacenOrigenNombre' | 'documentoReferencia' | 'observaciones' | 'movimientoSalidaId'>,
+    usuario: string
+  ): { product: Product; movement: MovimientoStock } {
+    const stockDestino = this.getStock(product, almacenDestino.id);
+    const nuevoStock = stockDestino + transferencia.cantidad;
+
+    let updatedProduct = this.updateStock(product, almacenDestino.id, nuevoStock);
+    updatedProduct = { ...updatedProduct, cantidad: this.getTotalStock(updatedProduct) };
+
+    const movement: MovimientoStock = {
+      id: `MOV-${Date.now()}-ENTRADA-${Math.random().toString(36).substr(2, 9)}`,
+      productoId: product.id,
+      productoCodigo: product.codigo,
+      productoNombre: product.nombre,
+      tipo: 'ENTRADA',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+      cantidad: transferencia.cantidad,
+      cantidadAnterior: stockDestino,
+      cantidadNueva: nuevoStock,
+      usuario,
+      observaciones: transferencia.observaciones || `Recepción desde ${transferencia.almacenOrigenNombre}`,
+      documentoReferencia: transferencia.documentoReferencia,
+      fecha: new Date(),
+      almacenId: almacenDestino.id,
+      almacenCodigo: almacenDestino.codigoAlmacen,
+      almacenNombre: almacenDestino.nombreAlmacen,
+      EstablecimientoId: almacenDestino.establecimientoId,
+      EstablecimientoCodigo: almacenDestino.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
+      esTransferencia: true,
+      transferenciaId: transferencia.id,
+      tipoTransferencia: transferencia.tipoTransferencia,
+      almacenOrigenId: transferencia.almacenOrigenId,
+      almacenOrigenNombre: transferencia.almacenOrigenNombre,
+      almacenDestinoId: almacenDestino.id,
+      almacenDestinoNombre: almacenDestino.nombreAlmacen,
+      movimientoRelacionadoId: transferencia.movimientoSalidaId,
+    };
+
+    StockRepository.addMovement(movement);
+    return { product: updatedProduct, movement };
+  }
+
+  /**
+   * Registrar la anulación de una transferencia generando movimientos inversos.
+   * Para EN_TRANSITO: solo revierte la SALIDA.
+   * Para CONFIRMADA/RECIBIDA: revierte ambos movimientos.
+   */
+  static registerTransferAnulacion(
+    product: Product,
+    almacenOrigen: Almacen,
+    almacenDestino: Almacen,
+    transferencia: Pick<Transferencia, 'id' | 'cantidad' | 'tipoTransferencia' | 'estado' | 'movimientoSalidaId' | 'documentoReferencia'>,
+    usuario: string
+  ): { product: Product; movements: MovimientoStock[] } {
+    const { id, cantidad, tipoTransferencia, estado } = transferencia;
+    const nota = `Anulación de ${id}`;
+
+    if (estado === 'EN_TRANSITO') {
+      // Solo restituir stock al origen (reversar la SALIDA)
+      const stockOrigen = this.getStock(product, almacenOrigen.id);
+      const nuevoStockOrigen = stockOrigen + cantidad;
+      let updatedProduct = this.updateStock(product, almacenOrigen.id, nuevoStockOrigen);
+      updatedProduct = { ...updatedProduct, cantidad: this.getTotalStock(updatedProduct) };
+
+      const movEntrada: MovimientoStock = {
+        id: `MOV-${Date.now()}-ANUL-${Math.random().toString(36).substr(2, 9)}`,
+        productoId: product.id,
+        productoCodigo: product.codigo,
+        productoNombre: product.nombre,
+        tipo: 'ENTRADA',
+        motivo: 'TRANSFERENCIA_ALMACEN',
+        cantidad,
+        cantidadAnterior: stockOrigen,
+        cantidadNueva: nuevoStockOrigen,
+        usuario,
+        observaciones: nota,
+        documentoReferencia: transferencia.documentoReferencia,
+        fecha: new Date(),
+        almacenId: almacenOrigen.id,
+        almacenCodigo: almacenOrigen.codigoAlmacen,
+        almacenNombre: almacenOrigen.nombreAlmacen,
+        EstablecimientoId: almacenOrigen.establecimientoId,
+        EstablecimientoCodigo: almacenOrigen.codigoEstablecimientoDesnormalizado || '',
+        EstablecimientoNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
+        esTransferencia: true,
+        transferenciaId: id,
+        tipoTransferencia,
+        almacenOrigenId: almacenDestino.id,
+        almacenOrigenNombre: almacenDestino.nombreAlmacen,
+        almacenDestinoId: almacenOrigen.id,
+        almacenDestinoNombre: almacenOrigen.nombreAlmacen,
+        movimientoRelacionadoId: transferencia.movimientoSalidaId,
+      };
+
+      StockRepository.addMovement(movEntrada);
+      return { product: updatedProduct, movements: [movEntrada] };
+    }
+
+    // CONFIRMADA o RECIBIDA: revertir ambos movimientos
+    const stockDestino = this.getStock(product, almacenDestino.id);
+    if (stockDestino < cantidad) {
+      throw new Error(
+        `No hay stock suficiente en ${almacenDestino.nombreAlmacen} para anular. Disponible: ${stockDestino}, requerido: ${cantidad}.`
+      );
+    }
+
+    const stockOrigen = this.getStock(product, almacenOrigen.id);
+    const nuevoStockDestino = stockDestino - cantidad;
+    const nuevoStockOrigen = stockOrigen + cantidad;
+
+    const movSalida: MovimientoStock = {
+      id: `MOV-${Date.now()}-ANUL-SAL-${Math.random().toString(36).substr(2, 9)}`,
+      productoId: product.id,
+      productoCodigo: product.codigo,
+      productoNombre: product.nombre,
+      tipo: 'SALIDA',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+      cantidad,
+      cantidadAnterior: stockDestino,
+      cantidadNueva: nuevoStockDestino,
+      usuario,
+      observaciones: nota,
+      documentoReferencia: transferencia.documentoReferencia,
+      fecha: new Date(),
+      almacenId: almacenDestino.id,
+      almacenCodigo: almacenDestino.codigoAlmacen,
+      almacenNombre: almacenDestino.nombreAlmacen,
+      EstablecimientoId: almacenDestino.establecimientoId,
+      EstablecimientoCodigo: almacenDestino.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
+      esTransferencia: true,
+      transferenciaId: id,
+      tipoTransferencia,
+      almacenOrigenId: almacenDestino.id,
+      almacenOrigenNombre: almacenDestino.nombreAlmacen,
+      almacenDestinoId: almacenOrigen.id,
+      almacenDestinoNombre: almacenOrigen.nombreAlmacen,
+    };
+
+    const movEntrada: MovimientoStock = {
+      id: `MOV-${Date.now()}-ANUL-ENT-${Math.random().toString(36).substr(2, 9)}`,
+      productoId: product.id,
+      productoCodigo: product.codigo,
+      productoNombre: product.nombre,
+      tipo: 'ENTRADA',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+      cantidad,
+      cantidadAnterior: stockOrigen,
+      cantidadNueva: nuevoStockOrigen,
+      usuario,
+      observaciones: nota,
+      documentoReferencia: transferencia.documentoReferencia,
+      fecha: new Date(),
+      almacenId: almacenOrigen.id,
+      almacenCodigo: almacenOrigen.codigoAlmacen,
+      almacenNombre: almacenOrigen.nombreAlmacen,
+      EstablecimientoId: almacenOrigen.establecimientoId,
+      EstablecimientoCodigo: almacenOrigen.codigoEstablecimientoDesnormalizado || '',
+      EstablecimientoNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
+      esTransferencia: true,
+      transferenciaId: id,
+      tipoTransferencia,
+      almacenOrigenId: almacenDestino.id,
+      almacenOrigenNombre: almacenDestino.nombreAlmacen,
+      almacenDestinoId: almacenOrigen.id,
+      almacenDestinoNombre: almacenOrigen.nombreAlmacen,
+      movimientoRelacionadoId: movSalida.id,
+    };
+
+    movSalida.movimientoRelacionadoId = movEntrada.id;
+
+    let updatedProduct = this.updateStock(product, almacenDestino.id, nuevoStockDestino);
+    updatedProduct = this.updateStock(updatedProduct, almacenOrigen.id, nuevoStockOrigen);
+    updatedProduct = { ...updatedProduct, cantidad: this.getTotalStock(updatedProduct) };
+
+    StockRepository.addMovements([movSalida, movEntrada]);
+    return { product: updatedProduct, movements: [movSalida, movEntrada] };
   }
 
   /**

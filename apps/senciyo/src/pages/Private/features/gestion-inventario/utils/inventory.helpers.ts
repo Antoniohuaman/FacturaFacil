@@ -1,6 +1,7 @@
 // src/features/inventario/utils/inventory.helpers.ts
 
 import type { MovimientoStock, StockAlert, FilterPeriod } from '../models';
+import type { Transferencia } from '../models/transferencia.types';
 
 /**
  * Formatea una fecha para mostrar
@@ -154,6 +155,57 @@ export const generateTransferId = (): string => {
  */
 export const isValidQuantity = (quantity: number): boolean => {
   return !isNaN(quantity) && quantity > 0 && isFinite(quantity);
+};
+
+/**
+ * Infiere entidades Transferencia a partir de movimientos con esTransferencia=true
+ * que no tienen una entidad correspondiente en el repositorio.
+ * Usado para compatibilidad con transferencias creadas antes del tab Transferencias.
+ */
+export const inferirTransferenciasDesdeMovimientos = (
+  movimientos: MovimientoStock[],
+  idsEnRepositorio: Set<string>
+): Transferencia[] => {
+  const grupos = new Map<string, MovimientoStock[]>();
+
+  movimientos
+    .filter(m => m.esTransferencia && m.transferenciaId && !idsEnRepositorio.has(m.transferenciaId))
+    .forEach(m => {
+      const key = m.transferenciaId as string;
+      const grupo = grupos.get(key) ?? [];
+      grupo.push(m);
+      grupos.set(key, grupo);
+    });
+
+  return Array.from(grupos.entries()).map(([id, movs]) => {
+    const salida = movs.find(m => m.tipo === 'SALIDA');
+    const entrada = movs.find(m => m.tipo === 'ENTRADA');
+    const ref = salida ?? entrada ?? movs[0];
+
+    return {
+      id,
+      fecha: ref.fecha,
+      productoId: ref.productoId,
+      productoCodigo: ref.productoCodigo,
+      productoNombre: ref.productoNombre,
+      almacenOrigenId: ref.almacenOrigenId ?? salida?.almacenId ?? '',
+      almacenOrigenNombre: ref.almacenOrigenNombre ?? salida?.almacenNombre ?? '',
+      establecimientoOrigenId: salida?.EstablecimientoId ?? '',
+      establecimientoOrigenNombre: salida?.EstablecimientoNombre ?? '',
+      almacenDestinoId: ref.almacenDestinoId ?? entrada?.almacenId ?? '',
+      almacenDestinoNombre: ref.almacenDestinoNombre ?? entrada?.almacenNombre ?? '',
+      establecimientoDestinoId: entrada?.EstablecimientoId ?? '',
+      establecimientoDestinoNombre: entrada?.EstablecimientoNombre ?? '',
+      cantidad: ref.cantidad,
+      tipoTransferencia: ref.tipoTransferencia ?? 'INTRA_ESTABLECIMIENTO',
+      estado: 'CONFIRMADA' as const,
+      documentoReferencia: ref.documentoReferencia,
+      observaciones: ref.observaciones,
+      usuario: ref.usuario,
+      movimientoSalidaId: salida?.id,
+      movimientoEntradaId: entrada?.id,
+    };
+  });
 };
 
 /**
