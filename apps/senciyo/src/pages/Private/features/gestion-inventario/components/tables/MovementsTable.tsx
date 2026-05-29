@@ -6,12 +6,15 @@ import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 
 interface MovementsTableProps {
   movimientos: MovimientoStock[];
-  almacenFiltro?: string; // Filtro externo por almacén
+  almacenFiltro?: string;
+  /** Notifica al padre los movimientos actualmente visibles (para exportación). */
+  onFilteredDataChange?: (movs: MovimientoStock[]) => void;
 }
 
 const MovementsTable: React.FC<MovementsTableProps> = ({
   movimientos,
-  almacenFiltro
+  almacenFiltro,
+  onFilteredDataChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('todos');
@@ -77,10 +80,20 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
   };
 
   const filteredMovimientos = movimientos.filter(mov => {
+    const termLower = searchTerm.toLowerCase();
     const matchesSearch =
-      mov.productoNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mov.productoCodigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mov.usuario.toLowerCase().includes(searchTerm.toLowerCase());
+      !searchTerm ||
+      mov.productoNombre.toLowerCase().includes(termLower) ||
+      mov.productoCodigo.toLowerCase().includes(termLower) ||
+      mov.usuario.toLowerCase().includes(termLower) ||
+      (mov.documentoReferencia?.toLowerCase().includes(termLower) ?? false) ||
+      (mov.transferenciaId?.toLowerCase().includes(termLower) ?? false) ||
+      (mov.almacenNombre?.toLowerCase().includes(termLower) ?? false) ||
+      (mov.almacenCodigo?.toLowerCase().includes(termLower) ?? false) ||
+      (mov.EstablecimientoNombre?.toLowerCase().includes(termLower) ?? false) ||
+      (mov.observaciones?.toLowerCase().includes(termLower) ?? false) ||
+      mov.motivo.toLowerCase().includes(termLower) ||
+      mov.tipo.toLowerCase().includes(termLower);
 
     // "Transferencias" filtra por esTransferencia/motivo, no por tipo literal
     const matchesTipo =
@@ -100,6 +113,12 @@ const MovementsTable: React.FC<MovementsTableProps> = ({
 
     return matchesSearch && matchesTipo && matchesalmacen;
   });
+
+  // Notifica al padre los movimientos visibles para que el exportador use exactamente esta lista
+  React.useEffect(() => {
+    onFilteredDataChange?.(filteredMovimientos);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredMovimientos]);
 
   // Cálculos de paginación
   const totalItems = filteredMovimientos.length;

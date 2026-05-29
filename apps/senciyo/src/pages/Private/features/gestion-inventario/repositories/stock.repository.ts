@@ -5,6 +5,9 @@ import { lsKey } from '../../../../../shared/tenant';
 
 const STORAGE_KEY_MOVEMENTS = 'facturafacil_stock_movements';
 
+/** Evento emitido cada vez que se agregan movimientos de stock. */
+export const STOCK_MOVEMENTS_CHANGED_EVENT = 'facturafacil:stock-movements-changed';
+
 /**
  * Repositorio para gestionar el almacenamiento de movimientos de stock
  * Utiliza localStorage para persistencia en frontend
@@ -61,6 +64,7 @@ export class StockRepository {
     const movements = this.getMovements();
     movements.push(movement);
     this.saveMovements(movements);
+    window.dispatchEvent(new Event(STOCK_MOVEMENTS_CHANGED_EVENT));
   }
 
   /**
@@ -70,6 +74,7 @@ export class StockRepository {
     const movements = this.getMovements();
     movements.push(...newMovements);
     this.saveMovements(movements);
+    window.dispatchEvent(new Event(STOCK_MOVEMENTS_CHANGED_EVENT));
   }
 
   /**

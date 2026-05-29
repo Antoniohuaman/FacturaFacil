@@ -1,6 +1,7 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
+import type { MovimientoStock } from '../models';
 import { Download } from 'lucide-react';
 import { useInventory } from '../hooks';
 import MovementsTable from '../components/tables/MovementsTable';
@@ -71,11 +72,22 @@ export const InventoryPage: React.FC = () => {
   const movementsAutoExportHandledRef = useRef(false);
   const exportHandlerRef = useRef<() => void>(() => {});
 
+  // Almacena los movimientos visibles en la tabla (respetando filtros de tipo y búsqueda)
+  const movimientosFiltradosVisiblesRef = useRef<MovimientoStock[]>([]);
+  const handleMovimientosFiltradosChange = useCallback((movs: MovimientoStock[]) => {
+    movimientosFiltradosVisiblesRef.current = movs;
+  }, []);
+
   /**
-   * Exporta movimientos a Excel
+   * Exporta movimientos a Excel.
+   * Usa los movimientos visibles en la tabla (respeta filtros de tipo y búsqueda)
+   * si la tabla ya fue montada; de lo contrario usa el período/almacén del hook.
    */
   const handleExportToExcel = () => {
-    const data = filteredMovements.map(mov => ({
+    const baseMovements = movimientosFiltradosVisiblesRef.current.length > 0
+      ? movimientosFiltradosVisiblesRef.current
+      : filteredMovements;
+    const data = baseMovements.map(mov => ({
       'Fecha': formatMovementTimestamp(mov.fecha),
       'Producto': mov.productoNombre,
       'Código': mov.productoCodigo,
@@ -352,6 +364,7 @@ export const InventoryPage: React.FC = () => {
           <MovementsTable
             movimientos={filteredMovements}
             almacenFiltro={almacenFiltro}
+            onFilteredDataChange={handleMovimientosFiltradosChange}
           />
         )}
 

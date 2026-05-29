@@ -711,16 +711,22 @@ const InvoiceListDashboard = () => {
 
     // Restaurar stock: buscar movimientos de SALIDA/VENTA del comprobante y generar ENTRADA inversa.
     try {
-      const comprobanteId: string = selectedInvoiceForVoid.id ?? '';
+      // Preferir el número legible del comprobante (ej: "F001-00001234") como clave de búsqueda,
+      // ya que las ventas guardan documentoReferencia con ese valor. Fallback a .id como compatibilidad.
+      const refComprobante: string =
+        (selectedInvoiceForVoid.instantaneaDocumentoComercial?.identidad?.numeroCompleto as string | undefined) ||
+        (selectedInvoiceForVoid.id as string | undefined) ||
+        '';
+
       const todosLosMovimientos = StockRepository.getMovements();
 
       const movimientosSalida = todosLosMovimientos.filter(
-        (m) => m.documentoReferencia === comprobanteId && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
+        (m) => m.documentoReferencia === refComprobante && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
       );
 
-      // Idempotencia: si ya existen entradas de reversión para este comprobante, no duplicar.
+      // Idempotencia: si ya existen entradas de reversión para este número de comprobante, no duplicar.
       const yaRevertido = todosLosMovimientos.some(
-        (m) => m.documentoReferencia === comprobanteId && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
+        (m) => m.documentoReferencia === refComprobante && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
       );
 
       if (!yaRevertido && movimientosSalida.length > 0) {
@@ -730,8 +736,8 @@ const InvoiceListDashboard = () => {
             'ENTRADA',
             'DEVOLUCION_CLIENTE',
             mov.cantidad,
-            `Reversión anulación ${comprobanteId}`,
-            comprobanteId,
+            `Reversión anulación ${refComprobante}`,
+            refComprobante,
             undefined,
             mov.EstablecimientoId,
             mov.EstablecimientoCodigo,

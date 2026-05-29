@@ -18,7 +18,7 @@ import type {
 import type { Transferencia } from '../models/transferencia.types';
 import { filterByPeriod, sortByDateDesc, inferirTransferenciasDesdeMovimientos } from '../utils/inventory.helpers';
 import { InventoryService } from '../services/inventory.service';
-import { StockRepository } from '../repositories/stock.repository';
+import { StockRepository, STOCK_MOVEMENTS_CHANGED_EVENT } from '../repositories/stock.repository';
 import { TransferenciaRepository } from '../repositories/transferencia.repository';
 import { generateTransferId } from '../utils/inventory.helpers';
 import type { Product } from '../../catalogo-articulos/models/types';
@@ -73,9 +73,18 @@ export const useInventory = () => {
   const [prefilledAlmacenId, setPrefilledAlmacenId] = useState<string | null>(null);
   const [adjustmentMode, setAdjustmentMode] = useState<'manual' | 'prefilled'>('manual');
 
+  // Cargar transferencias una sola vez al montar
   useEffect(() => {
-    setMovimientos(StockRepository.getMovements());
     setTransferencias(TransferenciaRepository.getAll());
+  }, []);
+
+  // Cargar movimientos al montar y re-sincronizar cada vez que cualquier módulo
+  // (ventas, NC, anulaciones, ajustes, transferencias) escriba en StockRepository.
+  useEffect(() => {
+    const recargar = () => setMovimientos(StockRepository.getMovements());
+    recargar();
+    window.addEventListener(STOCK_MOVEMENTS_CHANGED_EVENT, recargar);
+    return () => window.removeEventListener(STOCK_MOVEMENTS_CHANGED_EVENT, recargar);
   }, []);
 
   const almacenesActivos = useMemo(
