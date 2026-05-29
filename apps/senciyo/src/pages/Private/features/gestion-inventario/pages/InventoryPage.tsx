@@ -47,6 +47,8 @@ export const InventoryPage: React.FC = () => {
     filteredMovements,
     allProducts,
     transferencias,
+    establecimientoActualId,
+    puedeTransferir,
 
     setSelectedView,
     setFilterPeriodo,
@@ -361,6 +363,8 @@ export const InventoryPage: React.FC = () => {
             onRecibir={handleRecibirTransfer}
             onCancelar={handleCancelarTransfer}
             onAnular={handleAnularTransfer}
+            currentEstablecimientoId={establecimientoActualId}
+            puedeTransferir={puedeTransferir}
           />
         )}
 

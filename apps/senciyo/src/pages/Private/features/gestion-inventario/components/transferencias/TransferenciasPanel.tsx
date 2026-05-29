@@ -14,6 +14,10 @@ interface TransferenciasPanelProps {
   onRecibir: (id: string) => void;
   onCancelar: (id: string) => void;
   onAnular: (id: string) => void;
+  /** ID del establecimiento activo del usuario */
+  currentEstablecimientoId: string;
+  /** Si el usuario tiene permiso inventario.transferir en el establecimiento activo */
+  puedeTransferir: boolean;
 }
 
 const ESTADO_BADGE: Record<EstadoTransferencia, { label: string; cls: string }> = {
@@ -39,6 +43,8 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
   onRecibir,
   onCancelar,
   onAnular,
+  currentEstablecimientoId,
+  puedeTransferir,
 }) => {
   const [detallId, setDetallId] = useState<string | null>(null);
   const [anularId, setAnularId] = useState<string | null>(null);
@@ -178,6 +184,27 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                   datosPagina.map(t => {
                     const estadoBadge = ESTADO_BADGE[t.estado];
                     const tipoBadge = TIPO_BADGE[t.tipoTransferencia];
+                    const esOrigen = t.establecimientoOrigenId === currentEstablecimientoId;
+                    const esDestino = t.establecimientoDestinoId === currentEstablecimientoId;
+                    const flags = {
+                      puedeDespachar:
+                        puedeTransferir &&
+                        t.estado === 'PENDIENTE' &&
+                        t.tipoTransferencia === 'INTER_ESTABLECIMIENTO' &&
+                        esOrigen,
+                      puedeRecibir:
+                        puedeTransferir &&
+                        t.estado === 'EN_TRANSITO' &&
+                        esDestino,
+                      puedeCancelar:
+                        puedeTransferir &&
+                        t.estado === 'PENDIENTE' &&
+                        esOrigen,
+                      puedeAnular:
+                        puedeTransferir &&
+                        (t.estado === 'CONFIRMADA' || t.estado === 'RECIBIDA' || t.estado === 'EN_TRANSITO') &&
+                        (esOrigen || esDestino),
+                    };
                     return (
                       <tr key={t.id} className="hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/8 transition-colors">
                         {/* Código */}
@@ -234,7 +261,7 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                         {/* Acciones */}
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <div className="flex items-center gap-1">
-                            {/* Ver */}
+                            {/* Ver siempre disponible */}
                             <button
                               onClick={() => setDetallId(t.id)}
                               title="Ver detalle"
@@ -243,8 +270,8 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               <Eye className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* Despachar (PENDIENTE + inter) */}
-                            {t.estado === 'PENDIENTE' && t.tipoTransferencia === 'INTER_ESTABLECIMIENTO' && (
+                            {/* Despachar: solo establecimiento origen, solo inter-establecimiento */}
+                            {flags.puedeDespachar && (
                               <button
                                 onClick={() => onDespachar(t.id)}
                                 title="Despachar"
@@ -254,8 +281,8 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               </button>
                             )}
 
-                            {/* Confirmar recepción (EN_TRANSITO) */}
-                            {t.estado === 'EN_TRANSITO' && (
+                            {/* Recibir: solo establecimiento destino */}
+                            {flags.puedeRecibir && (
                               <button
                                 onClick={() => onRecibir(t.id)}
                                 title="Confirmar recepción"
@@ -265,8 +292,8 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               </button>
                             )}
 
-                            {/* Cancelar (PENDIENTE) */}
-                            {t.estado === 'PENDIENTE' && (
+                            {/* Cancelar: solo establecimiento origen, solo pendiente */}
+                            {flags.puedeCancelar && (
                               <button
                                 onClick={() => onCancelar(t.id)}
                                 title="Cancelar"
@@ -276,8 +303,8 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               </button>
                             )}
 
-                            {/* Anular (CONFIRMADA, RECIBIDA, EN_TRANSITO) */}
-                            {(t.estado === 'CONFIRMADA' || t.estado === 'RECIBIDA' || t.estado === 'EN_TRANSITO') && (
+                            {/* Anular: establecimiento origen o destino con permiso */}
+                            {flags.puedeAnular && (
                               <button
                                 onClick={() => setAnularId(t.id)}
                                 title="Anular"

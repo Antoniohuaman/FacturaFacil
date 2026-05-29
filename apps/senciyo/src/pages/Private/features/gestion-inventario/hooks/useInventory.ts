@@ -85,14 +85,37 @@ export const useInventory = () => {
 
   const usuarioNombre = session?.userName || user?.nombre || 'Usuario';
 
-  /** Transferencias del repositorio + legacy inferidas desde movimientos */
+  /**
+   * Permiso pre-calculado para el establecimiento activo.
+   * Se pasa al panel de transferencias para controlar visibilidad de acciones.
+   */
+  const puedeTransferir = useMemo(
+    () => tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'inventario.transferir',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId,
+    }),
+    [usuarioActual, rolesConfigurados, establecimientoId]
+  );
+
+  /**
+   * Transferencias del repositorio + legacy inferidas desde movimientos,
+   * filtradas al establecimiento activo (origen o destino).
+   * Si no hay establecimiento activo, se devuelve vacío para evitar leakage.
+   */
   const todasTransferencias = useMemo<Transferencia[]>(() => {
     const idsEnRepositorio = new Set(transferencias.map(t => t.id));
     const legacy = inferirTransferenciasDesdeMovimientos(movimientos, idsEnRepositorio);
-    return [...transferencias, ...legacy].sort(
+    const combined = [...transferencias, ...legacy].sort(
       (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
     );
-  }, [transferencias, movimientos]);
+    if (!establecimientoId) return [];
+    return combined.filter(
+      t => t.establecimientoOrigenId === establecimientoId ||
+           t.establecimientoDestinoId === establecimientoId
+    );
+  }, [transferencias, movimientos, establecimientoId]);
 
   const stockAlerts = useMemo<StockAlert[]>(() => {
     const alerts = InventoryService.generateAlerts(allProducts, almacenesActivos);
@@ -219,6 +242,12 @@ export const useInventory = () => {
         return;
       }
 
+      // El almacén origen debe pertenecer al establecimiento activo
+      if (establecimientoId && almacenOrigen.establecimientoId !== establecimientoId) {
+        warning('El almacén origen debe pertenecer al establecimiento activo.', 'Establecimiento incorrecto');
+        return;
+      }
+
       const esIntra = almacenOrigen.establecimientoId === almacenDestino.establecimientoId;
       const tipoTransferencia = esIntra ? 'INTRA_ESTABLECIMIENTO' as const : 'INTER_ESTABLECIMIENTO' as const;
 
@@ -321,6 +350,16 @@ export const useInventory = () => {
         return;
       }
 
+      if (!tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.transferir', rolesDisponibles: rolesConfigurados, establecimientoId })) {
+        warning('No tienes permiso para despachar transferencias.', 'Sin permiso');
+        return;
+      }
+
+      if (transferencia.establecimientoOrigenId !== establecimientoId) {
+        warning('Solo el establecimiento origen puede despachar.', 'Establecimiento incorrecto');
+        return;
+      }
+
       const product = allProducts.find(p => p.id === transferencia.productoId);
       const almacenOrigen = almacenesActivos.find(a => a.id === transferencia.almacenOrigenId);
 
@@ -358,7 +397,7 @@ export const useInventory = () => {
       console.error('Error al despachar transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo despachar la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, usuarioNombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning]);
 
   /** Confirma la recepción de una transferencia (EN_TRANSITO → RECIBIDA) */
   const handleRecibirTransfer = useCallback((transferenciaId: string) => {
@@ -366,6 +405,16 @@ export const useInventory = () => {
       const transferencia = TransferenciaRepository.getById(transferenciaId);
       if (!transferencia || transferencia.estado !== 'EN_TRANSITO') {
         warning('Operación no válida', 'La transferencia no está en tránsito.');
+        return;
+      }
+
+      if (!tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.transferir', rolesDisponibles: rolesConfigurados, establecimientoId })) {
+        warning('No tienes permiso para confirmar recepción.', 'Sin permiso');
+        return;
+      }
+
+      if (transferencia.establecimientoDestinoId !== establecimientoId) {
+        warning('Solo el establecimiento destino puede confirmar la recepción.', 'Establecimiento incorrecto');
         return;
       }
 
@@ -406,7 +455,7 @@ export const useInventory = () => {
       console.error('Error al recibir transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo confirmar la recepción', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, usuarioNombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning]);
 
   /** Cancela una transferencia PENDIENTE sin mover stock */
   const handleCancelarTransfer = useCallback((transferenciaId: string) => {
@@ -414,6 +463,16 @@ export const useInventory = () => {
       const transferencia = TransferenciaRepository.getById(transferenciaId);
       if (!transferencia || transferencia.estado !== 'PENDIENTE') {
         warning('Operación no válida', 'Solo se pueden cancelar transferencias Pendientes.');
+        return;
+      }
+
+      if (!tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.transferir', rolesDisponibles: rolesConfigurados, establecimientoId })) {
+        warning('No tienes permiso para cancelar transferencias.', 'Sin permiso');
+        return;
+      }
+
+      if (transferencia.establecimientoOrigenId !== establecimientoId) {
+        warning('Solo el establecimiento origen puede cancelar una transferencia pendiente.', 'Establecimiento incorrecto');
         return;
       }
 
@@ -426,9 +485,13 @@ export const useInventory = () => {
       console.error('Error al cancelar transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo cancelar la transferencia', 'Error');
     }
-  }, [success, error, warning]);
+  }, [establecimientoId, rolesConfigurados, usuarioActual, success, error, warning]);
 
-  /** Anula una transferencia generando movimientos inversos */
+  /**
+   * Anula una transferencia generando movimientos inversos.
+   * Usa 'inventario.transferir' como guardia de permiso (no existe permiso específico de anulación aún).
+   * El establecimiento activo debe ser origen o destino para poder anular.
+   */
   const handleAnularTransfer = useCallback((transferenciaId: string) => {
     try {
       const transferencia = TransferenciaRepository.getById(transferenciaId);
@@ -439,6 +502,18 @@ export const useInventory = () => {
       const estadosAnulables = ['CONFIRMADA', 'RECIBIDA', 'EN_TRANSITO'] as const;
       if (!estadosAnulables.includes(transferencia.estado as typeof estadosAnulables[number])) {
         warning('Operación no válida', 'Esta transferencia no puede anularse.');
+        return;
+      }
+
+      if (!tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.transferir', rolesDisponibles: rolesConfigurados, establecimientoId })) {
+        warning('No tienes permiso para anular esta transferencia.', 'Sin permiso');
+        return;
+      }
+
+      const esOrigen = transferencia.establecimientoOrigenId === establecimientoId;
+      const esDestino = transferencia.establecimientoDestinoId === establecimientoId;
+      if (!esOrigen && !esDestino) {
+        warning('Solo los establecimientos involucrados pueden anular esta transferencia.', 'Establecimiento incorrecto');
         return;
       }
 
@@ -480,7 +555,7 @@ export const useInventory = () => {
       console.error('Error al anular transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo anular la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, updateProduct, usuarioNombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning]);
 
   const handleMassStockUpdate = useCallback((data: MassStockUpdateData) => {
     try {
@@ -549,6 +624,8 @@ export const useInventory = () => {
     stockSummary,
     allProducts,
     transferencias: todasTransferencias,
+    establecimientoActualId: establecimientoId ?? '',
+    puedeTransferir,
 
     setSelectedView,
     setFilterPeriodo,

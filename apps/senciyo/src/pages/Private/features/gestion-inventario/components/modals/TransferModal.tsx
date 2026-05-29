@@ -1,9 +1,10 @@
 // src/features/inventario/components/modals/TransferModal.tsx
 
 import React, { useState, useEffect } from 'react';
-import { X, ArrowRight, Package, Building2, AlertCircle } from 'lucide-react';
+import { X, ArrowRight, Package, AlertCircle } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useCurrentEstablecimientoId } from '@/contexts/UserSessionContext';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 interface TransferModalProps {
@@ -21,14 +22,17 @@ export interface TransferData {
   observaciones: string;
 }
 
-const TransferModal: React.FC<TransferModalProps> = ({
-  isOpen,
-  onClose,
-  onTransfer
-}) => {
+const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransfer }) => {
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
-  const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
+  const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const almacenesActivos = configState.almacenes.filter(w => w.estaActivoAlmacen);
+  // Origen: solo almacenes del establecimiento activo
+  const almacenesOrigen = currentEstablecimientoId
+    ? almacenesActivos.filter(w => w.establecimientoId === currentEstablecimientoId)
+    : almacenesActivos;
+  // Destino: todos los activos (mismo u otro establecimiento)
+  const almacenes = almacenesActivos;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -39,7 +43,6 @@ const TransferModal: React.FC<TransferModalProps> = ({
   const [observaciones, setObservaciones] = useState('');
   const [showProductList, setShowProductList] = useState(false);
 
-  // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
       setSearchTerm('');
@@ -56,12 +59,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
   const almacenOrigen = almacenes.find(w => w.id === almacenOrigenId);
   const almacenDestino = almacenes.find(w => w.id === almacenDestinoId);
-  const esInterEstablecimiento =
-    almacenOrigenId &&
-    almacenDestinoId &&
-    almacenOrigen &&
-    almacenDestino &&
-    almacenOrigen.establecimientoId !== almacenDestino.establecimientoId;
+
   const unitLabel = selectedProduct
     ? getUnitDisplayForUI({
         units: configState.units,
@@ -71,59 +69,59 @@ const TransferModal: React.FC<TransferModalProps> = ({
       }) || selectedProduct.unidad
     : '';
 
-  // Calcular stock disponible en origen
   const stockDisponibleOrigen = selectedProduct?.stockPorAlmacen?.[almacenOrigenId] ?? 0;
-
-  // Calcular stock actual en destino
   const stockActualDestino = selectedProduct?.stockPorAlmacen?.[almacenDestinoId] ?? 0;
 
-  const filteredProducts = allProducts.filter(p =>
-    (p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.codigo.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    p.tipoExistencia !== 'SERVICIOS' // Los servicios no tienen stock
+  const cantidadNum = Number(cantidad);
+  const stockExcedido = Boolean(cantidad) && cantidadNum > 0 && cantidadNum > stockDisponibleOrigen;
+  const esInterEstablecimiento =
+    Boolean(almacenOrigenId && almacenDestinoId && almacenOrigen && almacenDestino) &&
+    almacenOrigen?.establecimientoId !== almacenDestino?.establecimientoId;
+  const mostrarResumen =
+    Boolean(selectedProductId && almacenOrigenId && almacenDestinoId && almacenOrigenId !== almacenDestinoId) &&
+    cantidadNum > 0 &&
+    !stockExcedido;
+
+  const filteredProducts = allProducts.filter(
+    p =>
+      (p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.codigo.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      p.tipoExistencia !== 'SERVICIOS'
   );
 
   const handleSubmit = () => {
-    // Validaciones
     if (!selectedProductId) {
       alert('Por favor selecciona un producto');
       return;
     }
-
     if (!almacenOrigenId) {
       alert('Por favor selecciona el almacén de origen');
       return;
     }
-
     if (!almacenDestinoId) {
       alert('Por favor selecciona el almacén de destino');
       return;
     }
-
     if (almacenOrigenId === almacenDestinoId) {
       alert('El almacén de origen y destino no pueden ser el mismo');
       return;
     }
-
-    const cantidadNum = Number(cantidad);
     if (!cantidad || cantidadNum <= 0) {
       alert('Por favor ingresa una cantidad válida mayor a 0');
       return;
     }
-
     if (cantidadNum > stockDisponibleOrigen) {
       alert(`No hay suficiente stock en ${almacenOrigen?.nombreAlmacen}. Disponible: ${stockDisponibleOrigen}`);
       return;
     }
 
-    // Ejecutar transferencia
     onTransfer({
       productoId: selectedProductId,
       almacenOrigenId,
       almacenDestinoId,
       cantidad: cantidadNum,
       documentoReferencia,
-      observaciones
+      observaciones,
     });
 
     onClose();
@@ -133,36 +131,29 @@ const TransferModal: React.FC<TransferModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl my-8 flex flex-col" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
-        {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 rounded-t-xl flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <ArrowRight className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Transferencia entre Almacenes
-              </h2>
-              <p className="text-green-100 text-sm">
-                Transfiere stock de un almacén a otro
-              </p>
-            </div>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-xl flex flex-col">
+
+        {/* Header compacto */}
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 rounded-t-xl flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <ArrowRight className="w-4 h-4 text-white" />
+            <h2 className="text-sm font-semibold text-white">Transferencia entre Almacenes</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-white" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Producto Selector */}
+        {/* Contenido compacto */}
+        <div className="p-4 space-y-3">
+
+          {/* Producto */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Producto a transferir <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Producto <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -171,19 +162,16 @@ const TransferModal: React.FC<TransferModalProps> = ({
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
                   setShowProductList(true);
-                  if (!e.target.value) {
-                    setSelectedProductId('');
-                  }
+                  if (!e.target.value) setSelectedProductId('');
                 }}
                 onFocus={() => setShowProductList(true)}
                 placeholder="Buscar por código o nombre..."
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                className="w-full pl-3 pr-9 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
               />
-              <Package className="absolute right-3 top-3 w-5 h-5 text-gray-400" />
+              <Package className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
 
-              {/* Product Dropdown */}
               {showProductList && filteredProducts.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                   {filteredProducts.map((product) => (
                     <button
                       key={product.id}
@@ -192,10 +180,10 @@ const TransferModal: React.FC<TransferModalProps> = ({
                         setSearchTerm('');
                         setShowProductList(false);
                       }}
-                      className="w-full px-4 py-3 text-left hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                      className="w-full px-3 py-2 text-left hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                     >
-                      <div className="font-medium text-gray-900 dark:text-gray-200">{product.nombre}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">Código: {product.codigo} | Stock: Ver en inventario</div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-200">{product.nombre}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{product.codigo}</div>
                     </button>
                   ))}
                 </div>
@@ -203,183 +191,159 @@ const TransferModal: React.FC<TransferModalProps> = ({
             </div>
           </div>
 
-          {/* Transfer Flow */}
-          {selectedProduct && (
-            <div className="space-y-4">
-              {/* Origen */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-xl p-4">
-                <div className="flex items-center space-x-2 mb-3">
-                  <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300 uppercase tracking-wide">
-                    Almacén Origen
-                  </h3>
-                </div>
-
-                <select
-                  value={almacenOrigenId}
-                  onChange={(e) => setalmacenOrigenId(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-blue-300 dark:border-blue-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white mb-3"
-                >
-                  <option value="">Seleccionar almacén de origen...</option>
-                  {almacenes.map((wh) => (
-                    <option key={wh.id} value={wh.id}>
-                      {wh.codigoAlmacen} - {wh.nombreAlmacen} ({wh.nombreEstablecimientoDesnormalizado})
-                    </option>
-                  ))}
-                </select>
-
-                {almacenOrigenId && (
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Stock disponible:</span>
-                      <span className={`text-lg font-bold ${stockDisponibleOrigen > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {stockDisponibleOrigen} {unitLabel}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Arrow */}
-              <div className="flex justify-center">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <ArrowRight className="w-6 h-6 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-
-              {/* Destino */}
-              <div className="bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-xl p-4">
-                <div className="flex items-center space-x-2 mb-3">
-                  <Building2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-300 uppercase tracking-wide">
-                    Almacén Destino
-                  </h3>
-                </div>
-
-                <select
-                  value={almacenDestinoId}
-                  onChange={(e) => setalmacenDestinoId(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-purple-300 dark:border-purple-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white mb-3"
-                  disabled={!almacenOrigenId}
-                >
-                  <option value="">Seleccionar almacén de destino...</option>
-                  {almacenes
-                    .filter(wh => wh.id !== almacenOrigenId)
-                    .map((wh) => (
-                      <option key={wh.id} value={wh.id}>
-                        {wh.codigoAlmacen} - {wh.nombreAlmacen} ({wh.nombreEstablecimientoDesnormalizado})
-                      </option>
-                    ))}
-                </select>
-
-                {almacenDestinoId && (
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Stock actual:</span>
-                      <span className="text-lg font-bold text-gray-900 dark:text-gray-200">
-                        {stockActualDestino} {unitLabel}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Cantidad */}
-              {almacenOrigenId && almacenDestinoId && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Cantidad a transferir <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={cantidad}
-                      onChange={(e) => setCantidad(e.target.value)}
-                      min="1"
-                      max={stockDisponibleOrigen}
-                      placeholder={`Máximo: ${stockDisponibleOrigen}`}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
-                    />
-                    {Number(cantidad) > stockDisponibleOrigen && (
-                      <div className="flex items-center space-x-2 mt-2 text-red-600 dark:text-red-400 text-sm">
-                        <AlertCircle className="w-4 h-4" />
-                        <span>La cantidad excede el stock disponible</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Documento Referencia */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Documento de referencia
-                    </label>
-                    <input
-                      type="text"
-                      value={documentoReferencia}
-                      onChange={(e) => setDocumentoReferencia(e.target.value)}
-                      placeholder="Ej: GUIA-001, ORDEN-123..."
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-
-                  {/* Observaciones */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Observaciones
-                    </label>
-                    <textarea
-                      value={observaciones}
-                      onChange={(e) => setObservaciones(e.target.value)}
-                      rows={3}
-                      placeholder="Notas adicionales sobre esta transferencia..."
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-
-                  {/* Indicador inter-establecimiento */}
-                  {esInterEstablecimiento && (
-                    <div className="flex items-start space-x-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                      <span>Transferencia entre establecimientos · Quedará <strong>Pendiente</strong> hasta ser despachada y recibida. Puede requerir guía de remisión.</span>
-                    </div>
-                  )}
-
-                  {/* Resumen */}
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
-                    <div className="flex items-start space-x-2">
-                      <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 text-sm text-amber-800 dark:text-amber-300">
-                        <p className="font-semibold mb-1">Resumen de la transferencia:</p>
-                        <ul className="space-y-1">
-                          <li>• Se restará <strong>{cantidad || 0}</strong> unidades de <strong>{almacenOrigen?.nombreAlmacen}</strong></li>
-                          <li>• Se sumará <strong>{cantidad || 0}</strong> unidades a <strong>{almacenDestino?.nombreAlmacen}</strong></li>
-                          <li>• Nuevo stock origen: <strong>{stockDisponibleOrigen - Number(cantidad || 0)}</strong> unidades</li>
-                          <li>• Nuevo stock destino: <strong>{stockActualDestino + Number(cantidad || 0)}</strong> unidades</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </>
+          {/* Origen + Destino en 2 columnas */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Origen */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Origen <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={almacenOrigenId}
+                onChange={(e) => setalmacenOrigenId(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Seleccionar...</option>
+                {almacenesOrigen.map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    {wh.codigoAlmacen} - {wh.nombreAlmacen}
+                  </option>
+                ))}
+              </select>
+              {almacenOrigenId && selectedProduct && (
+                <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">
+                  Disponible:{' '}
+                  <span className={`font-semibold ${stockDisponibleOrigen > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {stockDisponibleOrigen} {unitLabel}
+                  </span>
+                </p>
               )}
+            </div>
+
+            {/* Destino */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Destino <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={almacenDestinoId}
+                onChange={(e) => setalmacenDestinoId(e.target.value)}
+                disabled={!almacenOrigenId}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="">Seleccionar...</option>
+                {almacenes.filter(wh => wh.id !== almacenOrigenId).map((wh) => (
+                  <option key={wh.id} value={wh.id}>
+                    {wh.codigoAlmacen} - {wh.nombreAlmacen}
+                    {wh.nombreEstablecimientoDesnormalizado ? ` (${wh.nombreEstablecimientoDesnormalizado})` : ''}
+                  </option>
+                ))}
+              </select>
+              {almacenDestinoId && selectedProduct && (
+                <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">
+                  Actual:{' '}
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {stockActualDestino} {unitLabel}
+                  </span>
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Cantidad + Referencia en 2 columnas */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Cantidad <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value)}
+                min="1"
+                placeholder={almacenOrigenId && selectedProduct ? `Máx. ${stockDisponibleOrigen}` : '0'}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+              />
+              {stockExcedido && (
+                <p className="text-xs mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  Supera el stock disponible
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Referencia
+              </label>
+              <input
+                type="text"
+                value={documentoReferencia}
+                onChange={(e) => setDocumentoReferencia(e.target.value)}
+                placeholder="Guía, orden u otro"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Observaciones compacto */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Observaciones
+            </label>
+            <textarea
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              rows={2}
+              placeholder="Notas adicionales..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white resize-none"
+            />
+          </div>
+
+          {/* Indicador inter-establecimiento compacto */}
+          {esInterEstablecimiento && (
+            <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>Entre establecimientos · Quedará <strong>Pendiente</strong> hasta despacho y recepción. Puede requerir guía.</span>
+            </div>
+          )}
+
+          {/* Resumen compacto en una línea */}
+          {mostrarResumen && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+              <span className="font-medium">{almacenOrigen?.nombreAlmacen}</span>
+              {': '}
+              {stockDisponibleOrigen} → <strong>{stockDisponibleOrigen - cantidadNum}</strong>
+              {'  ·  '}
+              <span className="font-medium">{almacenDestino?.nombreAlmacen}</span>
+              {': '}
+              {stockActualDestino} → <strong>{stockActualDestino + cantidadNum}</strong>
+              {unitLabel && <span className="text-amber-600 dark:text-amber-400"> {unitLabel}</span>}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-gray-50 dark:bg-gray-900 rounded-b-xl flex justify-end space-x-3">
+        {/* Footer compacto */}
+        <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!selectedProductId || !almacenOrigenId || !almacenDestinoId || !cantidad || Number(cantidad) <= 0 || Number(cantidad) > stockDisponibleOrigen}
-            className="px-6 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            disabled={
+              !selectedProductId ||
+              !almacenOrigenId ||
+              !almacenDestinoId ||
+              !cantidad ||
+              cantidadNum <= 0 ||
+              cantidadNum > stockDisponibleOrigen
+            }
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             <ArrowRight className="w-4 h-4" />
-            <span>Transferir Stock</span>
+            Transferir Stock
           </button>
         </div>
       </div>
