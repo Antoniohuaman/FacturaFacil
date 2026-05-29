@@ -216,6 +216,15 @@ export const useInventarioDisponibilidad = () => {
           : undefined;
       const situacion = calcularSituacion(disponible, stockMinimo);
 
+      // Detalle por almacén: solo cuando hay más de uno en scope,
+      // para que la tabla pueda mostrar columnas dinámicas por almacén.
+      const stockPorAlmacen: Record<string, number> | undefined =
+        almacenescope.length > 1
+          ? Object.fromEntries(
+              almacenescope.map(id => [id, InventoryService.getStock(product, id)])
+            )
+          : undefined;
+
       return {
         sku: product.codigo,
         productoId: product.id,
@@ -227,7 +236,8 @@ export const useInventarioDisponibilidad = () => {
         situacion,
         stockMinimo,
         stockMaximo,
-        precio: product.precio
+        precio: product.precio,
+        stockPorAlmacen,
       };
     });
   }, [allProducts, almacenescope, hasSinglealmacen, calcularSituacion, currentEstablecimientoId]);

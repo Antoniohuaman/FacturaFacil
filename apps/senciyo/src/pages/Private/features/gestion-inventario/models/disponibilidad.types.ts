@@ -42,6 +42,13 @@ export interface DisponibilidadItem {
 
   /** Precio del producto */
   precio: number;
+
+  /**
+   * Stock real por almacén individual.
+   * Solo se popula cuando el scope incluye más de un almacén
+   * (modo "Todos los almacenes"), para mostrar columnas dinámicas por almacén.
+   */
+  stockPorAlmacen?: Record<string, number>;
 }
 
 /**

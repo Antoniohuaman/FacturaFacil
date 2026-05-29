@@ -186,56 +186,87 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       return 'Sin almacenes disponibles';
     })();
 
-    const includedCodes = scopealmacenes
-      .map(almacen => almacen.codigoAlmacen || almacen.id)
-      .filter(Boolean)
-      .join(', ');
+    const esModoTodosAlmacenes = !filtros.almacenId && scopealmacenes.length > 1;
 
-    const headers = [
-      'Establecimiento',
-      'Almacén (alcance)',
-      'Almacenes incluidos (códigos)',
-      'Código (SKU)',
-      'Producto',
-      'Unidad mínima',
-      'Real',
-      'Reservado',
-      'Disponible',
-      'Stock mínimo',
-      'Stock máximo',
-      'Estado'
-    ];
+    let headers: string[];
+    let exportRows: Record<string, string | number>[];
 
-    const exportRows = datosExportacion.map(item => ({
-      'Establecimiento': EstablecimientoLabel,
-      'Almacén (alcance)': almacenLabel,
-      'Almacenes incluidos (códigos)': includedCodes || '—',
-      'Código (SKU)': item.sku ?? '',
-      'Producto': item.nombre,
-      'Unidad mínima': item.unidadMinima,
-      'Real': item.real,
-      'Reservado': item.reservado,
-      'Disponible': item.disponible,
-      'Stock mínimo': item.stockMinimo ?? '',
-      'Stock máximo': item.stockMaximo ?? '',
-      'Estado': item.situacion
-    }));
+    if (esModoTodosAlmacenes) {
+      // Exportar con columnas dinámicas por almacén + totales consolidados
+      const warehouseHeaders = scopealmacenes.map(
+        w => `${w.codigoAlmacen} - ${w.nombreAlmacen}`
+      );
+      headers = [
+        'Código (SKU)',
+        'Producto',
+        'Unidad mínima',
+        ...warehouseHeaders,
+        'Real total',
+        'Reservado',
+        'Disponible',
+        'Stock mínimo',
+        'Stock máximo',
+        'Estado',
+      ];
+      exportRows = datosExportacion.map(item => {
+        const baseRow: Record<string, string | number> = {
+          'Código (SKU)': item.sku ?? '',
+          'Producto': item.nombre,
+          'Unidad mínima': item.unidadMinima,
+        };
+        scopealmacenes.forEach(w => {
+          baseRow[`${w.codigoAlmacen} - ${w.nombreAlmacen}`] =
+            item.stockPorAlmacen?.[w.id] ?? 0;
+        });
+        baseRow['Real total'] = item.real;
+        baseRow['Reservado'] = item.reservado;
+        baseRow['Disponible'] = item.disponible;
+        baseRow['Stock mínimo'] = item.stockMinimo ?? '';
+        baseRow['Stock máximo'] = item.stockMaximo ?? '';
+        baseRow['Estado'] = item.situacion;
+        return baseRow;
+      });
+    } else {
+      // Exportar vista de almacén específico (o único almacén)
+      headers = [
+        'Establecimiento',
+        'Almacén',
+        'Código (SKU)',
+        'Producto',
+        'Unidad mínima',
+        'Real',
+        'Reservado',
+        'Disponible',
+        'Stock mínimo',
+        'Stock máximo',
+        'Estado',
+      ];
+      exportRows = datosExportacion.map(item => ({
+        'Establecimiento': EstablecimientoLabel,
+        'Almacén': almacenLabel,
+        'Código (SKU)': item.sku ?? '',
+        'Producto': item.nombre,
+        'Unidad mínima': item.unidadMinima,
+        'Real': item.real,
+        'Reservado': item.reservado,
+        'Disponible': item.disponible,
+        'Stock mínimo': item.stockMinimo ?? '',
+        'Stock máximo': item.stockMaximo ?? '',
+        'Estado': item.situacion,
+      }));
+    }
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows, { header: headers });
-    worksheet['!cols'] = [
-      { wch: 28 },
-      { wch: 28 },
-      { wch: 32 },
-      { wch: 15 },
-      { wch: 30 },
-      { wch: 15 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 14 },
-      { wch: 14 },
-      { wch: 14 }
+    const baseColWidths = [{ wch: 15 }, { wch: 30 }, { wch: 14 }];
+    const warehouseColWidths = esModoTodosAlmacenes
+      ? scopealmacenes.map(() => ({ wch: 16 }))
+      : [];
+    const tailColWidths = [
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     ];
+    worksheet['!cols'] = esModoTodosAlmacenes
+      ? [...baseColWidths, ...warehouseColWidths, ...tailColWidths]
+      : [{ wch: 28 }, { wch: 28 }, { wch: 15 }, { wch: 30 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock Actual');
@@ -298,6 +329,12 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
           editThresholdMessage={thresholdsTooltip}
           onUpdateThreshold={handleThresholdChange}
           selectednombreAlmacen={selectedalmacen?.nombreAlmacen}
+          almacenesParaColumnas={
+            // Mostrar columnas por almacén solo cuando el filtro está en "Todos los almacenes"
+            !filtros.almacenId && almacenesDisponibles.length > 1
+              ? almacenesDisponibles
+              : undefined
+          }
         />
       </div>
 

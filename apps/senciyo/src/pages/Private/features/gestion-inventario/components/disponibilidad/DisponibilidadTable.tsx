@@ -10,6 +10,7 @@ import type {
 } from '../../models/disponibilidad.types';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -38,6 +39,11 @@ interface DisponibilidadTableProps {
   editThresholdMessage?: string;
   onUpdateThreshold?: (payload: ThresholdUpdatePayload) => Promise<void> | void;
   selectednombreAlmacen?: string;
+  /**
+   * Cuando se proporciona, la tabla muestra una columna por cada almacén
+   * con el stock real individual. Solo aplica en modo "Todos los almacenes".
+   */
+  almacenesParaColumnas?: Almacen[];
 }
 
 const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
@@ -50,7 +56,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   canEditThresholds,
   editThresholdMessage,
   onUpdateThreshold,
-  selectednombreAlmacen
+  selectednombreAlmacen,
+  almacenesParaColumnas,
 }) => {
   const { state: configState } = useConfigurationContext();
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
@@ -472,7 +479,20 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             {renderHeader('codigo', 'Código', 'left', true)}
             {renderHeader('producto', 'Producto', 'left', true)}
             {renderHeader('unidadMinima', 'Unidad mínima', 'center', false)}
-            {renderHeader('real', 'Real', 'right', true)}
+            {/* Columnas dinámicas por almacén (solo en modo "Todos los almacenes") */}
+            {almacenesParaColumnas?.map(w => (
+              <th
+                key={`th-${w.id}`}
+                scope="col"
+                title={`${w.codigoAlmacen} - ${w.nombreAlmacen}`}
+                className={`${cellClass} text-right font-semibold text-[#111827] dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border-b-2 border-[#E5E7EB] dark:border-gray-700 sticky top-0 z-10`}
+              >
+                <span className="block max-w-[130px] truncate text-xs">
+                  {w.codigoAlmacen} - {w.nombreAlmacen}
+                </span>
+              </th>
+            ))}
+            {renderHeader('real', almacenesParaColumnas?.length ? 'Real total' : 'Real', 'right', true)}
             {renderHeader('reservado', 'Reservado', 'right', true, 'Stock separado por órdenes de venta. Se activará cuando ese documento esté disponible.')}
             {renderHeader('disponible', 'Disponible', 'right', true)}
             {renderHeader('stockMinimo', 'Stock mínimo', 'right', false)}
@@ -516,6 +536,13 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                   {getUnitDisplayForUI({ units: configState.units, code: item.unidadMinima }) || '—'}
                 </td>
               )}
+
+              {/* Columnas dinámicas por almacén (solo en modo "Todos los almacenes") */}
+              {almacenesParaColumnas?.map(w => (
+                <td key={`td-${w.id}`} className={`${cellClass} text-right tabular-nums text-gray-700 dark:text-gray-300`}>
+                  {(item.stockPorAlmacen?.[w.id] ?? 0).toLocaleString()}
+                </td>
+              ))}
 
               {/* Real */}
               {columnasVisibles.includes('real') && (
