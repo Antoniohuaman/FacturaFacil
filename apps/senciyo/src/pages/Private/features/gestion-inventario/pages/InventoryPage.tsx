@@ -300,14 +300,16 @@ export const InventoryPage: React.FC = () => {
 
             <div className="flex-1" />
 
-            {/* Botones de acción */}
-            <button
-              onClick={handleExportToExcel}
-              className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Exportar Excel
-            </button>
+            {/* Botones de acción — exportar movimientos solo aplica cuando no es el tab Alertas */}
+            {selectedView !== 'alertas' && (
+              <button
+                onClick={handleExportToExcel}
+                className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar Excel
+              </button>
+            )}
 
             <button
               onClick={openTransferModal}
@@ -364,7 +366,6 @@ export const InventoryPage: React.FC = () => {
           <AlertsPanel
             alertas={stockAlerts}
             onReabastecerProducto={openAdjustmentModal}
-            onProgramarCompra={openAdjustmentModal}
           />
         )}
 

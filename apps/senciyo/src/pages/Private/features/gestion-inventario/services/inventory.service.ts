@@ -529,9 +529,11 @@ export class InventoryService {
 
         const estado: EstadoAlerta = evaluation.type === 'OVER'
           ? 'EXCESO'
+          : stockDisponible === 0
+          ? 'SIN_STOCK'
           : evaluation.isCritical
-            ? 'CRITICO'
-            : 'BAJO';
+          ? 'CRITICO'
+          : 'BAJO';
 
         alerts.push({
           productoId: product.id,
@@ -557,10 +559,10 @@ export class InventoryService {
       });
     });
 
-    // Ordenar por prioridad: CRITICO > BAJO > EXCESO
+    // Ordenar por prioridad: SIN_STOCK > CRITICO > BAJO > EXCESO
     return alerts.sort((a, b) => {
-      const prioridad = { CRITICO: 1, BAJO: 2, EXCESO: 3, NORMAL: 4 };
-      return prioridad[a.estado] - prioridad[b.estado];
+      const prioridad: Record<string, number> = { SIN_STOCK: 1, CRITICO: 2, BAJO: 3, EXCESO: 4, NORMAL: 5 };
+      return (prioridad[a.estado] ?? 5) - (prioridad[b.estado] ?? 5);
     });
   }
 

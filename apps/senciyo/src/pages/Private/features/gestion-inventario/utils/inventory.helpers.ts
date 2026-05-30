@@ -30,7 +30,12 @@ export const formatCurrency = (amount: number): string => {
  * Obtiene el color según el estado de la alerta
  */
 export const getAlertColor = (estado: StockAlert['estado']): { bg: string; text: string; border: string } => {
-  const colors = {
+  const colors: Record<StockAlert['estado'], { bg: string; text: string; border: string }> = {
+    SIN_STOCK: {
+      bg: 'bg-red-50 dark:bg-red-900/20',
+      text: 'text-red-700 dark:text-red-400',
+      border: 'border-red-200 dark:border-red-800'
+    },
     CRITICO: {
       bg: 'bg-red-50 dark:bg-red-900/20',
       text: 'text-red-700 dark:text-red-400',
@@ -128,8 +133,8 @@ export const sortByDateDesc = (movimientos: MovimientoStock[]): MovimientoStock[
  * Filtra alertas por prioridad
  */
 export const sortAlertsByPriority = (alertas: StockAlert[]): StockAlert[] => {
-  const priority = { CRITICO: 1, BAJO: 2, EXCESO: 3, NORMAL: 4 };
-  return [...alertas].sort((a, b) => priority[a.estado] - priority[b.estado]);
+  const priority: Record<string, number> = { SIN_STOCK: 1, CRITICO: 2, BAJO: 3, EXCESO: 4, NORMAL: 5 };
+  return [...alertas].sort((a, b) => (priority[a.estado] ?? 5) - (priority[b.estado] ?? 5));
 };
 
 /**

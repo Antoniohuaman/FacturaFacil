@@ -69,7 +69,7 @@ export interface MovimientoStock {
 /**
  * Estados de alerta de stock
  */
-export type EstadoAlerta = 'CRITICO' | 'BAJO' | 'NORMAL' | 'EXCESO';
+export type EstadoAlerta = 'SIN_STOCK' | 'CRITICO' | 'BAJO' | 'NORMAL' | 'EXCESO';
 
 /**
  * Categorías simplificadas para las alertas de stock

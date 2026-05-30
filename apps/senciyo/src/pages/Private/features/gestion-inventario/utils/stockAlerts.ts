@@ -50,6 +50,11 @@ export const getStockAlertType = ({
     return 'OVER';
   }
 
+  // Sin stock siempre alerta, aunque no haya mínimo configurado
+  if (available === 0) {
+    return 'LOW';
+  }
+
   if (typeof min === 'number' && available <= min) {
     return 'LOW';
   }
@@ -70,7 +75,8 @@ export const evaluateStockAlert = (params: StockAlertParams): StockAlertEvaluati
 
   if (type === 'LOW') {
     const missing = typeof min === 'number' ? Math.max(0, min - available) : undefined;
-    const isCritical = min !== undefined ? available <= min * 0.5 : available === 0;
+    // Crítico si disponible es 0 o si está al 50% del mínimo
+    const isCritical = available === 0 || (min !== undefined && available <= min * 0.5);
     return {
       type,
       isCritical,

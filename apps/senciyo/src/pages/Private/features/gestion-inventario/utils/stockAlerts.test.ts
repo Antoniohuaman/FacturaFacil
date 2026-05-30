@@ -1,39 +1,86 @@
+import { describe, it, expect } from 'vitest';
 import { evaluateStockAlert, getStockAlertType } from './stockAlerts';
 
-const assertEqual = (actual: unknown, expected: unknown, message: string) => {
-  if (actual !== expected) {
-    throw new Error(`${message}. Expected ${expected} but received ${actual}`);
-  }
-};
+describe('getStockAlertType', () => {
+  it('disponible below mínimo should flag LOW', () => {
+    expect(getStockAlertType({ disponible: 4, stockMinimo: 5 })).toBe('LOW');
+  });
 
-const assertDefined = (value: unknown, message: string) => {
-  if (typeof value !== 'number') {
-    throw new Error(`${message}. Expected number but received ${value}`);
-  }
-};
+  it('disponible equal to mínimo should flag LOW', () => {
+    expect(getStockAlertType({ disponible: 5, stockMinimo: 5 })).toBe('LOW');
+  });
 
-export const runStockAlertTests = () => {
-  assertEqual(getStockAlertType({ disponible: 4, stockMinimo: 5 }), 'LOW', 'Disponible below mínimo should flag LOW');
-  assertEqual(getStockAlertType({ disponible: 5, stockMinimo: 5 }), 'LOW', 'Disponible equal to mínimo should flag LOW');
-  assertEqual(getStockAlertType({ disponible: 12, stockMaximo: 10 }), 'OVER', 'Disponible above máximo should flag OVER');
-  assertEqual(getStockAlertType({ disponible: 8, stockMinimo: 5, stockMaximo: 10 }), 'OK', 'Disponible within thresholds should be OK');
-  assertEqual(getStockAlertType({ disponible: 8 }), 'OK', 'Without thresholds result should be OK');
+  it('disponible above máximo should flag OVER', () => {
+    expect(getStockAlertType({ disponible: 12, stockMaximo: 10 })).toBe('OVER');
+  });
 
-  const criticalEvaluation = evaluateStockAlert({ disponible: 2, stockMinimo: 6 });
-  assertEqual(criticalEvaluation.type, 'LOW', 'Critical evaluation should be LOW');
-  assertEqual(criticalEvaluation.isCritical, true, 'Critical evaluation should set flag');
-  assertDefined(criticalEvaluation.missing, 'Critical evaluation should expose missing units');
-  assertEqual(criticalEvaluation.missing, 4, 'Critical evaluation missing units mismatch');
+  it('disponible within thresholds should be OK', () => {
+    expect(getStockAlertType({ disponible: 8, stockMinimo: 5, stockMaximo: 10 })).toBe('OK');
+  });
 
-  const overEvaluation = evaluateStockAlert({ disponible: 15, stockMaximo: 10 });
-  assertEqual(overEvaluation.type, 'OVER', 'Over evaluation should be OVER');
-  assertEqual(overEvaluation.isCritical, false, 'Over evaluation is never critical');
-  assertDefined(overEvaluation.excess, 'Over evaluation should expose excess units');
-  assertEqual(overEvaluation.excess, 5, 'Over evaluation excess units mismatch');
+  it('without thresholds and stock > 0 should be OK', () => {
+    expect(getStockAlertType({ disponible: 8 })).toBe('OK');
+  });
 
-  const nonCriticalLow = evaluateStockAlert({ disponible: 9, stockMinimo: 10 });
-  assertEqual(nonCriticalLow.type, 'LOW', 'Should still be LOW');
-  assertEqual(nonCriticalLow.isCritical, false, 'Above half of mínimo should not be critical');
-  assertDefined(nonCriticalLow.missing, 'Non critical low should report missing units');
-  assertEqual(nonCriticalLow.missing, 1, 'Missing units mismatch');
-};
+  it('disponible = 0 without thresholds should flag LOW (sin stock)', () => {
+    expect(getStockAlertType({ disponible: 0 })).toBe('LOW');
+  });
+
+  it('disponible = 0 with mínimo should flag LOW', () => {
+    expect(getStockAlertType({ disponible: 0, stockMinimo: 5 })).toBe('LOW');
+  });
+});
+
+describe('evaluateStockAlert', () => {
+  it('below half of mínimo should be critical with correct missing', () => {
+    const result = evaluateStockAlert({ disponible: 2, stockMinimo: 6 });
+    expect(result.type).toBe('LOW');
+    expect(result.isCritical).toBe(true);
+    expect(result.missing).toBe(4);
+  });
+
+  it('above half of mínimo should not be critical', () => {
+    const result = evaluateStockAlert({ disponible: 9, stockMinimo: 10 });
+    expect(result.type).toBe('LOW');
+    expect(result.isCritical).toBe(false);
+    expect(result.missing).toBe(1);
+  });
+
+  it('OVER should expose excess units and not be critical', () => {
+    const result = evaluateStockAlert({ disponible: 15, stockMaximo: 10 });
+    expect(result.type).toBe('OVER');
+    expect(result.isCritical).toBe(false);
+    expect(result.excess).toBe(5);
+  });
+
+  it('disponible = 0 without mínimo should be LOW and critical', () => {
+    const result = evaluateStockAlert({ disponible: 0 });
+    expect(result.type).toBe('LOW');
+    expect(result.isCritical).toBe(true);
+    expect(result.missing).toBeUndefined();
+  });
+
+  it('disponible = 0 with mínimo should be LOW, critical, and report missing', () => {
+    const result = evaluateStockAlert({ disponible: 0, stockMinimo: 5 });
+    expect(result.type).toBe('LOW');
+    expect(result.isCritical).toBe(true);
+    expect(result.missing).toBe(5);
+  });
+
+  it('stock OK should not be critical', () => {
+    const result = evaluateStockAlert({ disponible: 8, stockMinimo: 5, stockMaximo: 10 });
+    expect(result.type).toBe('OK');
+    expect(result.isCritical).toBe(false);
+  });
+
+  it('null stockMinimo should be treated as unconfigured', () => {
+    const result = evaluateStockAlert({ disponible: 5, stockMinimo: null });
+    expect(result.type).toBe('OK');
+  });
+
+  it('negative disponible should be normalized to 0 and flag LOW', () => {
+    const result = evaluateStockAlert({ disponible: -3 });
+    expect(result.type).toBe('LOW');
+    expect(result.isCritical).toBe(true);
+  });
+});
