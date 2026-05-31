@@ -3,7 +3,7 @@
 /**
  * Situación del stock según disponibilidad
  */
-export type SituacionStock = 'OK' | 'Sin stock' | 'Bajo' | 'Crítico';
+export type SituacionStock = 'OK' | 'Sin stock' | 'Bajo' | 'Crítico' | 'Excedido';
 
 /**
  * Item de disponibilidad de inventario
@@ -97,9 +97,6 @@ export interface VistaGuardada {
 
   /** Nombre de la vista */
   nombre: string;
-
-  /** Filtros aplicados */
-  filtros: Partial<DisponibilidadFilters>;
 
   /** Columnas visibles */
   columnasVisibles: ColumnaDisponibilidad[];

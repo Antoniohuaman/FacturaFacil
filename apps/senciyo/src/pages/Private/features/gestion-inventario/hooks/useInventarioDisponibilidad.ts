@@ -160,11 +160,13 @@ export const useInventarioDisponibilidad = () => {
    */
   const calcularSituacion = useCallback((
     disponible: number,
-    stockMinimo?: number
+    stockMinimo?: number,
+    stockMaximo?: number
   ): SituacionStock => {
     if (disponible === 0) return 'Sin stock';
-    if (stockMinimo && disponible < stockMinimo * 0.5) return 'Crítico';
-    if (stockMinimo && disponible < stockMinimo) return 'Bajo';
+    if (typeof stockMaximo === 'number' && disponible > stockMaximo) return 'Excedido';
+    if (stockMinimo && disponible <= stockMinimo * 0.5) return 'Crítico';
+    if (stockMinimo && disponible <= stockMinimo) return 'Bajo';
     return 'OK';
   }, []);
 
@@ -214,7 +216,7 @@ export const useInventarioDisponibilidad = () => {
         : hasConfiguredMax
           ? stockMaximoAcumulado
           : undefined;
-      const situacion = calcularSituacion(disponible, stockMinimo);
+      const situacion = calcularSituacion(disponible, stockMinimo, stockMaximo);
 
       // Detalle por almacén: solo cuando hay más de uno en scope,
       // para que la tabla pueda mostrar columnas dinámicas por almacén.
@@ -462,10 +464,15 @@ export const useInventarioDisponibilidad = () => {
       throw new Error('El stock máximo debe ser mayor o igual al mínimo');
     }
 
-    const updatedProduct = InventoryService.updateThresholds(product, almacenId, {
-      stockMinimo: field === 'stockMinimo' ? nextMin ?? null : undefined,
-      stockMaximo: field === 'stockMaximo' ? nextMax ?? null : undefined
-    });
+    // Pasar SOLO el campo que se está editando para que updateThresholds
+    // no interprete la clave ausente como "borrar el otro umbral".
+    const updatedProduct = InventoryService.updateThresholds(
+      product,
+      almacenId,
+      field === 'stockMinimo'
+        ? { stockMinimo: nextMin ?? null }
+        : { stockMaximo: nextMax ?? null }
+    );
 
     updateProduct(product.id, {
       stockMinimoPorAlmacen: updatedProduct.stockMinimoPorAlmacen,

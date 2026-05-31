@@ -324,7 +324,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
           columnasVisibles={columnasVisibles}
           ordenamiento={ordenamiento}
           onOrdenamientoChange={cambiarOrdenamiento}
-          onAjustarStock={handleAjustarStock}
+          onAjustarStock={selectedalmacenId ? handleAjustarStock : undefined}
           canEditThresholds={canEditThresholds}
           editThresholdMessage={thresholdsTooltip}
           onUpdateThreshold={handleThresholdChange}
@@ -354,7 +354,6 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
       <DisponibilidadSettings
         isOpen={mostrandoSettings}
         onClose={() => setMostrandoSettings(false)}
-        filtrosActuales={filtros}
       />
     </div>
   );

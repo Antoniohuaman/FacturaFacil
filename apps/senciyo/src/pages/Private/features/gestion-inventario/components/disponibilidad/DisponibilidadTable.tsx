@@ -285,6 +285,12 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             Crítico
           </span>
         );
+      case 'Excedido':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+            Excedido
+          </span>
+        );
       case 'Sin stock':
       default:
         return (
@@ -599,8 +605,9 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 <td className={`${cellClass} text-center`}>
                   <button
                     onClick={() => onAjustarStock?.(item)}
-                    className="inline-flex items-center justify-center w-8 h-8 text-[#4B5563] dark:text-gray-400 hover:text-[#6F36FF] dark:hover:text-[#8B5CF6] hover:bg-[#6F36FF]/8 dark:hover:bg-[#6F36FF]/15 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 focus:ring-offset-1"
-                    title="Ajustar stock (Alt+E)"
+                    disabled={!onAjustarStock}
+                    className="inline-flex items-center justify-center w-8 h-8 text-[#4B5563] dark:text-gray-400 hover:text-[#6F36FF] dark:hover:text-[#8B5CF6] hover:bg-[#6F36FF]/8 dark:hover:bg-[#6F36FF]/15 rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 focus:ring-offset-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#4B5563] dark:disabled:hover:text-gray-400"
+                    title={onAjustarStock ? 'Ajustar stock (Alt+E)' : 'Selecciona un almacén específico para ajustar stock'}
                     aria-label={`Ajustar stock de ${item.nombre}`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

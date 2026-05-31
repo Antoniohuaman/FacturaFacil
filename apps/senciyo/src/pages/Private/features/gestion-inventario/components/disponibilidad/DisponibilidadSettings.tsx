@@ -5,14 +5,12 @@ import { Button } from '@/contasis';
 import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDisponibilidad';
 import type {
   DensidadTabla,
-  ColumnaDisponibilidad,
-  DisponibilidadFilters
+  ColumnaDisponibilidad
 } from '../../models/disponibilidad.types';
 
 interface DisponibilidadSettingsProps {
   isOpen: boolean;
   onClose: () => void;
-  filtrosActuales: DisponibilidadFilters;
 }
 
 const COLUMNAS_INFO: Record<ColumnaDisponibilidad, string> = {
@@ -31,7 +29,6 @@ const COLUMNAS_INFO: Record<ColumnaDisponibilidad, string> = {
 const DisponibilidadSettings: React.FC<DisponibilidadSettingsProps> = ({
   isOpen,
   onClose,
-  filtrosActuales
 }) => {
   const {
     densidad,
@@ -63,7 +60,6 @@ const DisponibilidadSettings: React.FC<DisponibilidadSettingsProps> = ({
 
     guardarVista({
       nombre: nombreNuevaVista.trim(),
-      filtros: filtrosActuales,
       columnasVisibles,
       densidad
     });
@@ -214,7 +210,7 @@ const DisponibilidadSettings: React.FC<DisponibilidadSettingsProps> = ({
                   </button>
                 </div>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                  Se guardarán los filtros actuales, columnas visibles y densidad
+                  Se guardarán las columnas visibles y la densidad actual
                 </p>
               </div>
             )}
