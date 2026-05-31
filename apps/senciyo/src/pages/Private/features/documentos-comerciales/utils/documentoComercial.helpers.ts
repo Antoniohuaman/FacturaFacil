@@ -54,9 +54,34 @@ export const generarCorrelativoSeguro = (
   const maxUsado = correlativosUsados.length > 0 ? Math.max(...correlativosUsados) : 0;
   const baseCorrelativo = serieConfig?.correlativeNumber ?? 0;
   const nextNumber = Math.max(baseCorrelativo, maxUsado) + 1;
-  const minDigits = serieConfig?.configuration?.minimumDigits ?? CORRELATIVO_DIGITOS_DEFAULT;
+  const minDigits = Math.max(
+    CORRELATIVO_DIGITOS_DEFAULT,
+    serieConfig?.configuration?.minimumDigits ?? CORRELATIVO_DIGITOS_DEFAULT,
+  );
 
   return String(nextNumber).padStart(minDigits, '0');
+};
+
+export const formatearNumeroDocumento = (serie: string, correlativo: string): string =>
+  `${serie}-${correlativo}`;
+
+export const formatearNumeroParaBorrador = (serie: string): string =>
+  serie ? `${serie} -` : '—';
+
+export const obtenerSimboloMoneda = (moneda: string): string =>
+  moneda === 'USD' ? '$' : 'S/';
+
+export const formatearFechaCorta = (fechaISO: string | undefined): string => {
+  if (!fechaISO) return '—';
+  return fechaISO;
+};
+
+export const formatearDocumentoCliente = (
+  tipoDocumento: string,
+  numeroDocumento: string,
+): string => {
+  if (!numeroDocumento || numeroDocumento === '00000000' || numeroDocumento === '') return '—';
+  return `${tipoDocumento} ${numeroDocumento}`;
 };
 
 export const inferirTipoDocumentoCliente = (

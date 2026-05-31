@@ -83,6 +83,13 @@ const voucherTypeConfig = {
     prefix: '',
     description: 'Propuesta comercial para clientes - Serie libre'
   },
+  SALE_ORDER: {
+    label: 'Orden de Venta',
+    icon: Building2,
+    color: 'indigo',
+    prefix: '',
+    description: 'Pedido de compra del cliente - Serie libre'
+  },
   COLLECTION: {
     label: 'Recibo de Cobranza',
     icon: NotebookPen,

@@ -6,6 +6,7 @@ export type SeriesVoucherType =
   | 'CREDIT_NOTE'
   | 'SALE_NOTE'
   | 'QUOTE'
+  | 'SALE_ORDER'
   | 'COLLECTION';
 
 export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, string> = {
@@ -14,6 +15,7 @@ export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, str
   CREDIT_NOTE: '07',
   SALE_NOTE: 'NV',
   QUOTE: 'COT',
+  SALE_ORDER: 'OV',
   COLLECTION: 'RC',
 };
 
@@ -65,6 +67,10 @@ export const getVoucherTypeFromSeries = (
 
   if (series.documentType.code === 'RC' || series.documentType.category === 'COLLECTION') {
     return 'COLLECTION';
+  }
+
+  if (series.documentType.code === 'OV' || series.documentType.name.includes('Orden de Venta')) {
+    return 'SALE_ORDER';
   }
 
   if (series.documentType.code === 'NV' || series.documentType.name.includes('Nota de Venta')) {
@@ -179,6 +185,7 @@ export const validateSeriesCodeForVoucherType = (
       return /^C[A-Z0-9]{3}$/.test(normalized);
     case 'SALE_NOTE':
     case 'QUOTE':
+    case 'SALE_ORDER':
       return /^[A-Z0-9]{4}$/.test(normalized);
     default:
       return false;
@@ -255,6 +262,7 @@ export const generateSeriesSuggestion = (
       return generatePrefixedSeriesSuggestion('C', existingSeries, 'C001');
     case 'SALE_NOTE':
     case 'QUOTE':
+    case 'SALE_ORDER':
       return '';
     default:
       return '';

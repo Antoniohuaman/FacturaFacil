@@ -9,20 +9,20 @@ import { useCart } from '../../comprobantes-electronicos/punto-venta/hooks/useCa
 import { useCurrency } from '../../comprobantes-electronicos/shared/form-core/hooks/useCurrency';
 import { usePayment } from '../../comprobantes-electronicos/shared/form-core/hooks/usePayment';
 import { useTenant } from '@/shared/tenant/TenantContext';
+import { useFeedback } from '@/shared/feedback/useFeedback';
 import FormularioHeaderComercial from './FormularioHeaderComercial';
 import { useDocumentoComercialType } from '../hooks/useDocumentoComercialType';
 import { useDocumentoComercialState } from '../hooks/useDocumentoComercialState';
 import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActions';
 import { useDocumentoComercialFieldsConfig } from '../hooks/useDocumentoComercialFieldsConfig';
 import { useDocumentoComercialDrafts } from '../hooks/useDocumentoComercialDrafts';
+import { TIPO_DOCUMENTO_COMERCIAL_LABELS } from '../models/documentoComercial.constants';
 import type {
   TipoDocumentoComercial,
   DocumentoComercial,
   ModoFormularioDocumentoComercial,
   DatosFormularioDocumentoComercial,
 } from '../models/documentoComercial.types';
-
-const TODOS_TIPOS: TipoDocumentoComercial[] = ['cotizacion', 'nota_venta', 'orden_venta'];
 
 interface FormularioDocumentoComercialProps {
   tipoInicial: TipoDocumentoComercial;
@@ -37,6 +37,7 @@ export default function FormularioDocumentoComercial({
 }: FormularioDocumentoComercialProps) {
   const navigate = useNavigate();
   const { activeEstablecimientoId } = useTenant();
+  const feedback = useFeedback();
 
   const estado = useDocumentoComercialState(tipoInicial);
   const tipo = useDocumentoComercialType(tipoInicial);
@@ -52,21 +53,14 @@ export default function FormularioDocumentoComercial({
   const totales = calculateTotals(cartItems);
   const inicialized = useRef(false);
 
-  // Sincronizar tipo con useDocumentoComercialType cuando cambia en estado
-  useEffect(() => {
-    if (estado.tipoDocumento !== tipoInicial) {
-      tipo.setTipoDocumento(estado.tipoDocumento);
-    }
-  }, [estado.tipoDocumento]); // eslint-disable-line react-hooks/exhaustive-deps
+  const labelTipo = TIPO_DOCUMENTO_COMERCIAL_LABELS[estado.tipoDocumento];
 
-  // Sincronizar serie cuando el tipo cambia
   useEffect(() => {
     if (!estado.serieSeleccionada && tipo.seriesFiltradas.length > 0) {
       estado.setSerieSeleccionada(tipo.seriesFiltradas[0]);
     }
   }, [tipo.seriesFiltradas]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cargar documento existente cuando es edición o duplicación
   useEffect(() => {
     if (inicialized.current || !documentoExistente) return;
     inicialized.current = true;
@@ -108,7 +102,6 @@ export default function FormularioDocumentoComercial({
     trazabilidad: documentoExistente?.trazabilidad,
   }), [estado, cartItems, documentoExistente]);
 
-  // Auto-guardado con useBorradorEnProgreso via useDocumentoComercialDrafts
   const { limpiarBorrador } = useDocumentoComercialDrafts({
     tipoDocumento: estado.tipoDocumento,
     serieSeleccionada: estado.serieSeleccionada,
@@ -136,23 +129,39 @@ export default function FormularioDocumentoComercial({
 
   const handleGenerar = useCallback(() => {
     const datos = obtenerDatosFormulario();
+
+    const errorValidacion = actions.validarDatos(datos);
+    if (errorValidacion) {
+      feedback.warning(errorValidacion);
+      return;
+    }
+
     const resultado =
       modo === 'editar' && documentoExistente
         ? actions.actualizarDocumento(documentoExistente.id, datos)
         : actions.generarDocumento(datos);
 
     if (resultado.exito) {
+      const mensajeExito =
+        modo === 'editar'
+          ? `${labelTipo} actualizada exitosamente.`
+          : `${labelTipo} generada exitosamente.`;
+      feedback.success(mensajeExito);
       limpiarBorrador();
       clearCart();
       navigate('/documentos-comerciales', {
         state: { tipo: estado.tipoDocumento, documentoId: resultado.documento?.id },
       });
+    } else {
+      feedback.error(resultado.error ?? 'Error al generar el documento.');
     }
   }, [
     obtenerDatosFormulario,
+    actions,
     modo,
     documentoExistente,
-    actions,
+    labelTipo,
+    feedback,
     limpiarBorrador,
     clearCart,
     navigate,
@@ -163,13 +172,18 @@ export default function FormularioDocumentoComercial({
     const datos = obtenerDatosFormulario();
     const resultado = actions.guardarComoBorrador(datos);
     if (resultado.exito) {
+      feedback.success(`Borrador de ${labelTipo.toLowerCase()} guardado.`);
       limpiarBorrador();
       clearCart();
       navigate('/documentos-comerciales', { state: { tipo: estado.tipoDocumento } });
+    } else {
+      feedback.error('Error al guardar el borrador.');
     }
   }, [
     obtenerDatosFormulario,
     actions,
+    labelTipo,
+    feedback,
     limpiarBorrador,
     clearCart,
     navigate,
@@ -181,16 +195,6 @@ export default function FormularioDocumentoComercial({
     clearCart();
     navigate('/documentos-comerciales');
   }, [limpiarBorrador, clearCart, navigate]);
-
-  const handleTipoChange = useCallback(
-    (nuevoTipo: TipoDocumentoComercial) => {
-      estado.setTipoDocumento(nuevoTipo);
-      tipo.setTipoDocumento(nuevoTipo);
-      const serieDefault = tipo.getSerieDefaultParaTipo(nuevoTipo);
-      estado.setSerieSeleccionada(serieDefault);
-    },
-    [estado, tipo],
-  );
 
   const handleMonedaChange = useCallback(
     (moneda: typeof currentCurrency) => {
@@ -204,13 +208,10 @@ export default function FormularioDocumentoComercial({
   const estaVacio = cartItems.length === 0;
 
   const labelBotonPrimario =
-    modo === 'editar'
-      ? 'Guardar cambios'
-      : `Generar ${modo === 'duplicar' ? 'copia' : estado.tipoDocumento === 'cotizacion' ? 'cotización' : estado.tipoDocumento === 'nota_venta' ? 'nota de venta' : 'orden de venta'}`;
+    modo === 'editar' ? 'Guardar cambios' : `Generar ${labelTipo.toLowerCase()}`;
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-gray-900">
-      {/* Header de página */}
       <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 flex items-center gap-3">
         <FileText size={18} className="text-violet-600 dark:text-violet-400" />
         <div>
@@ -218,23 +219,20 @@ export default function FormularioDocumentoComercial({
             {modo === 'editar'
               ? `Editar ${documentoExistente?.numero ?? 'documento'}`
               : modo === 'duplicar'
-              ? 'Duplicar documento'
-              : `Nueva ${estado.tipoDocumento === 'cotizacion' ? 'cotización' : estado.tipoDocumento === 'nota_venta' ? 'nota de venta' : 'orden de venta'}`}
+              ? `Duplicar ${labelTipo.toLowerCase()}`
+              : `Nueva ${labelTipo.toLowerCase()}`}
           </h1>
           {esSinSerie && (
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              Sin series configuradas para este tipo de documento
+              Sin series configuradas para {labelTipo.toLowerCase()}. Configure una serie en Configuración → Series.
             </p>
           )}
         </div>
       </div>
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-6 space-y-5">
-        {/* Cabecera: tipo, serie, cliente, moneda, etc. */}
+      <div className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
         <FormularioHeaderComercial
           tipoDocumento={estado.tipoDocumento}
-          tiposDisponibles={TODOS_TIPOS}
-          onTipoDocumentoChange={handleTipoChange}
           serieSeleccionada={estado.serieSeleccionada}
           seriesFiltradas={tipo.seriesFiltradas}
           onSerieChange={estado.setSerieSeleccionada}
@@ -252,7 +250,6 @@ export default function FormularioDocumentoComercial({
           onAbrirConfigCampos={estado.abrirConfigCampos}
         />
 
-        {/* Productos y servicios */}
         <ProductsSection
           cartItems={cartItems}
           addProductsFromSelector={addProductsFromSelector}
@@ -269,7 +266,6 @@ export default function FormularioDocumentoComercial({
           mostrarDetalleCompleto={false}
         />
 
-        {/* Observaciones */}
         {fieldsConfig.config.notesSection && (
           <NotesSection
             observaciones={estado.observaciones}
@@ -282,7 +278,6 @@ export default function FormularioDocumentoComercial({
         )}
       </div>
 
-      {/* Botones de acción sticky */}
       <ActionButtonsSection
         onCancelar={handleCancelar}
         onGuardarBorrador={
@@ -296,17 +291,14 @@ export default function FormularioDocumentoComercial({
           label: labelBotonPrimario,
           onClick: handleGenerar,
           icon: <Save size={14} />,
-          disabled: estaVacio || (esSinSerie && modo !== 'editar'),
+          disabled: esSinSerie && modo !== 'editar',
           title:
             esSinSerie && modo !== 'editar'
-              ? 'Configure una serie para este tipo de documento'
-              : estaVacio
-              ? 'Agregue productos o servicios'
+              ? `Configure una serie de ${labelTipo.toLowerCase()} en Configuración → Series`
               : undefined,
         }}
       />
 
-      {/* Modal de configuración de campos */}
       <FieldsConfigModal
         isOpen={estado.showFieldsConfigModal}
         onClose={estado.cerrarConfigCampos}

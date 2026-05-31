@@ -23,6 +23,12 @@ export const TIPO_DOCUMENTO_COMERCIAL_NUEVA: Record<TipoDocumentoComercial, stri
   orden_venta: 'Nueva orden de venta',
 };
 
+export const COLUMNA_NUMERO_LABELS: Record<TipoDocumentoComercial, string> = {
+  cotizacion: 'N° Cotización',
+  nota_venta: 'N° Nota de Venta',
+  orden_venta: 'N° Orden de Venta',
+};
+
 export const TIPO_DOCUMENTO_COMERCIAL_CODIGOS: Record<TipoDocumentoComercial, string[]> = {
   cotizacion: ['COT', 'COTIZACION', 'QUOTATION'],
   nota_venta: ['NV', 'NOTA_VENTA', 'SALES_NOTE'],
@@ -79,7 +85,7 @@ export const STORAGE_KEYS = {
 
 export const BORRADOR_EN_PROGRESO_VERSION = 1;
 export const BORRADOR_EN_PROGRESO_TTL_DIAS = 14;
-export const CORRELATIVO_DIGITOS_DEFAULT = 4;
+export const CORRELATIVO_DIGITOS_DEFAULT = 8;
 
 export const COLUMNAS_DEFAULT_LISTADO = [
   'numero',

@@ -39,8 +39,6 @@ import type { ConfiguracionCamposDocumentoComercial } from '../hooks/useDocument
 
 interface FormularioHeaderComercialProps {
   tipoDocumento: TipoDocumentoComercial;
-  tiposDisponibles: TipoDocumentoComercial[];
-  onTipoDocumentoChange: (tipo: TipoDocumentoComercial) => void;
 
   serieSeleccionada: string;
   seriesFiltradas: string[];
@@ -79,8 +77,6 @@ interface ClienteResultado {
 
 export default function FormularioHeaderComercial({
   tipoDocumento,
-  tiposDisponibles,
-  onTipoDocumentoChange,
   serieSeleccionada,
   seriesFiltradas,
   onSerieChange,
@@ -221,25 +217,12 @@ export default function FormularioHeaderComercial({
       }
     >
       <div className="space-y-4">
-        {/* Selector de tipo de documento */}
-        {tiposDisponibles.length > 1 && (
-          <div className="flex gap-1.5 flex-wrap">
-            {tiposDisponibles.map((tipo) => (
-              <button
-                key={tipo}
-                type="button"
-                onClick={() => onTipoDocumentoChange(tipo)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  tipoDocumento === tipo
-                    ? 'bg-violet-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {TIPO_DOCUMENTO_COMERCIAL_LABELS[tipo]}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Tipo de documento (solo etiqueta, no selector) */}
+        <div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+            {TIPO_DOCUMENTO_COMERCIAL_LABELS[tipoDocumento]}
+          </span>
+        </div>
 
         {/* Serie + Fecha */}
         <div className="grid grid-cols-2 gap-3">
