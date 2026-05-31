@@ -4,6 +4,7 @@ import { Sidebar } from "@/contasis";
 import type { Module } from "@/contasis";
 import { useComprobanteContext } from "../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { useDocumentoContext } from "../../pages/Private/features/Documentos-negociacion/contexts/DocumentosContext";
+import { useDocumentosComercialesContextOpcional } from "../../pages/Private/features/documentos-comerciales/contexts/DocumentosComercialesContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useConfigurationContext } from "../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
 import { useUserSession } from "../../contexts/UserSessionContext";
@@ -24,9 +25,15 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const { state: comprobantesState } = useComprobanteContext();
   const comprobantesCount = comprobantesState.comprobantes.length;
 
-  // Obtener conteo de documentos (cotizaciones + notas de venta)
+  // Obtener conteo de documentos (cotizaciones + notas de venta — módulo anterior)
   const { state: documentoState } = useDocumentoContext();
   const documentosCount = documentoState.documentos.length;
+
+  // Obtener conteo de documentos comerciales (nuevo módulo — solo disponible dentro de sus rutas)
+  const documentosComercialesCtx = useDocumentosComercialesContextOpcional();
+  const documentosComercialesCount = documentosComercialesCtx
+    ? documentosComercialesCtx.state.documentos.filter((d) => !d.esBorrador).length
+    : 0;
 
   // Determinar el módulo activo basado en la ruta
   const [activeModule, setActiveModule] = useState<string>("");
@@ -36,6 +43,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     if (path.startsWith('/comprobantes')) setActiveModule('comprobantes');
     else if (path.startsWith('/punto-venta')) setActiveModule('punto-venta');
     else if (path.startsWith('/documentos-negociacion')) setActiveModule('documentos');
+    else if (path.startsWith('/documentos-comerciales')) setActiveModule('documentos-comerciales');
     else if (path.startsWith('/catalogo')) setActiveModule('productos');
     else if (path.startsWith('/inventario')) setActiveModule('inventario');
     else if (path.startsWith('/lista-precios')) setActiveModule('precios');
@@ -63,6 +71,12 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       title: "Documentos",
       icon: "Receipt",
       badge: documentosCount > 0 ? String(documentosCount) : undefined
+    },
+    {
+      id: "documentos-comerciales",
+      title: "Doc. Comerciales",
+      icon: "FilePen",
+      badge: documentosComercialesCount > 0 ? String(documentosComercialesCount) : undefined
     },
     {
       id: "productos",
@@ -115,6 +129,11 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       'ventas.pos.imprimir',
     ],
     'documentos': [
+      'ventas.documentos.ver',
+      'ventas.documentos.crear',
+      'ventas.documentos.editar',
+    ],
+    'documentos-comerciales': [
       'ventas.documentos.ver',
       'ventas.documentos.crear',
       'ventas.documentos.editar',
@@ -173,6 +192,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       'comprobantes': '/comprobantes',
       'punto-venta': '/punto-venta',
       'documentos': '/documentos-negociacion',
+      'documentos-comerciales': '/documentos-comerciales',
       'productos': '/catalogo',
       'inventario': '/inventario',
       'precios': '/lista-precios',

@@ -33,10 +33,15 @@ import CobranzasDashboard from "../pages/Private/features/gestion-cobranzas/page
 import NotificationsCenterPage from "../pages/Private/features/notifications/pages/NotificationsCenterPage";
 import { AdministrarEmpresas } from "../pages/Private/features/administracion-empresas/paginas/AdministrarEmpresas";
 
-// Documentos de Negociación
+// Documentos de Negociación (módulo anterior — se mantendrá hasta validar el nuevo)
 import DocumentosTabs from "../pages/Private/features/Documentos-negociacion/pages/DocumentosTabs";
 import FormularioCotizacion from "../pages/Private/features/Documentos-negociacion/pages/FormularioCotizacion";
 import FormularioNotaVenta from "../pages/Private/features/Documentos-negociacion/pages/FormularioNotaVenta";
+
+// Documentos Comerciales (nuevo módulo)
+import DocumentosComerciales from "../pages/Private/features/documentos-comerciales/pages/DocumentosComerciales";
+import FormularioDocumentoComercialPage from "../pages/Private/features/documentos-comerciales/pages/FormularioDocumentoComercialPage";
+import DocumentosComercialesLayout from "../pages/Private/features/documentos-comerciales/pages/DocumentosComercialesLayout";
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
@@ -83,12 +88,22 @@ export const privateRoutes: RouteObject[] = [
       { path: "/caja/sesiones", element: conPermisos(<SesionesCajaPage />, ['caja.ver', 'caja.abrir', 'caja.cerrar']) },
       { path: "/cobranzas", element: conPermisos(<CobranzasDashboard />, ['cobranzas.ver', 'cobranzas.registrar']) },
       
-      // Documentos de Negociación
+      // Documentos de Negociación (módulo anterior)
       { path: "/documentos-negociacion", element: conPermisos(<DocumentosTabs />, ['ventas.documentos.ver', 'ventas.documentos.crear']) },
       { path: "/documentos/cotizacion/nueva", element: conPermisos(<FormularioCotizacion />, ['ventas.documentos.crear']) },
       { path: "/documentos/nueva-cotizacion", element: conPermisos(<FormularioCotizacion />, ['ventas.documentos.crear']) },
       { path: "/documentos/nota-venta/nueva", element: conPermisos(<FormularioNotaVenta />, ['ventas.documentos.crear']) },
       { path: "/documentos/nueva-nota-venta", element: conPermisos(<FormularioNotaVenta />, ['ventas.documentos.crear']) },
+
+      // Documentos Comerciales (nuevo módulo) — layout route garantiza el provider para todas las rutas hijas
+      {
+        element: <DocumentosComercialesLayout />,
+        children: [
+          { path: "/documentos-comerciales", element: conPermisos(<DocumentosComerciales />, ['ventas.documentos.ver', 'ventas.documentos.crear']) },
+          { path: "/documentos-comerciales/nuevo/:tipo", element: conPermisos(<FormularioDocumentoComercialPage />, ['ventas.documentos.crear']) },
+          { path: "/documentos-comerciales/editar/:id", element: conPermisos(<FormularioDocumentoComercialPage />, ['ventas.documentos.editar']) },
+        ],
+      },
       
       { path: "/clientes", element: conPermisos(<ClientesPage />, ['clientes.ver', 'clientes.crear', 'clientes.editar']) },
       ...(showClientesTestPage ? [{ path: "/clientes/test-api", element: <ClientesTestPage /> }] : []),
