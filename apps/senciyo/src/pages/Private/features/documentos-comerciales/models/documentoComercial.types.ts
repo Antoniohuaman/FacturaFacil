@@ -103,6 +103,10 @@ export interface DocumentoComercial {
   trazabilidad?: TrazabilidadDocumentoComercial;
 
   establecimientoId?: string;
+
+  motivoAnulacion?: string;
+  fechaAnulacion?: string;
+  usuarioAnulacion?: string;
 }
 
 export interface FiltrosDocumentosComerciales {

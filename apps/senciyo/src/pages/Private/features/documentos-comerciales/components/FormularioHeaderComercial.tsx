@@ -16,6 +16,7 @@ import {
   Truck,
   ShoppingBag,
   FileText,
+  Package,
 } from 'lucide-react';
 import { ConfigurationCard } from '../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -61,8 +62,6 @@ interface FormularioHeaderComercialProps {
 
   fieldsConfig: ConfiguracionCamposDocumentoComercial;
   onAbrirConfigCampos: () => void;
-
-  valoresIniciales?: Partial<CamposOpcionalesDocumentoComercial>;
 }
 
 interface ClienteResultado {
@@ -193,8 +192,9 @@ export default function FormularioHeaderComercial({
     }
   }, [busquedaCliente, onClienteChange]);
 
+  // fechaVencimiento se muestra siempre en la sección principal
   const camposOpcionalesVisibles = Object.entries(fieldsConfig.optionalFields).filter(
-    ([, cfg]) => cfg.visible,
+    ([campo, cfg]) => cfg.visible && campo !== 'fechaVencimiento',
   );
 
   const sinSeries = seriesFiltradas.length === 0;
@@ -224,8 +224,8 @@ export default function FormularioHeaderComercial({
           </span>
         </div>
 
-        {/* Serie + Fecha */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Serie + Fecha emisión + Fecha vencimiento */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
               <Hash size={11} />
@@ -255,12 +255,25 @@ export default function FormularioHeaderComercial({
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
               <Calendar size={11} />
-              Fecha
+              Fecha emisión
             </label>
             <input
               type="date"
               value={fechaEmision}
               onChange={(e) => onFechaEmisionChange(e.target.value)}
+              className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Calendar size={11} />
+              Fecha vencimiento
+            </label>
+            <input
+              type="date"
+              value={camposOpcionales.fechaVencimiento ?? ''}
+              onChange={(e) => onCampoOpcionalChange('fechaVencimiento', e.target.value || undefined)}
               className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
             />
           </div>
@@ -414,27 +427,50 @@ export default function FormularioHeaderComercial({
           </div>
         </div>
 
-        {/* Campos opcionales visibles */}
+        {/* Método de envío + Fecha de envío previsto */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Package size={11} />
+              Método de envío
+            </label>
+            <input
+              type="text"
+              value={camposOpcionales.metodoEnvio ?? ''}
+              onChange={(e) => onCampoOpcionalChange('metodoEnvio', e.target.value || undefined)}
+              placeholder="Ej: Courier, Recojo en tienda..."
+              className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <Truck size={11} />
+              Fecha de envío previsto
+            </label>
+            <input
+              type="date"
+              value={camposOpcionales.fechaEntrega ?? ''}
+              onChange={(e) => onCampoOpcionalChange('fechaEntrega', e.target.value || undefined)}
+              className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Requiere aprobación */}
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={camposOpcionales.requiereAprobacion ?? false}
+            onChange={(e) => onCampoOpcionalChange('requiereAprobacion', e.target.checked || undefined)}
+            className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+          />
+          <span className="text-sm text-gray-700 dark:text-gray-300">Requiere aprobación</span>
+        </label>
+
+        {/* Campos opcionales configurables */}
         {camposOpcionalesVisibles.length > 0 && (
           <div className="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100 dark:border-gray-700">
-            {fieldsConfig.optionalFields.fechaVencimiento.visible && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <Calendar size={11} />
-                  Válido hasta
-                  {fieldsConfig.optionalFields.fechaVencimiento.required && (
-                    <span className="text-red-500">*</span>
-                  )}
-                </label>
-                <input
-                  type="date"
-                  value={camposOpcionales.fechaVencimiento ?? ''}
-                  onChange={(e) => onCampoOpcionalChange('fechaVencimiento', e.target.value || undefined)}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 outline-none"
-                />
-              </div>
-            )}
-
             {fieldsConfig.optionalFields.ordenCompra.visible && (
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">

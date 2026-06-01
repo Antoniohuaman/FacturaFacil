@@ -11,6 +11,7 @@ const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
   'RECEIPT',
   'SALE_NOTE',
   'QUOTE',
+  'SALE_ORDER',
   'COLLECTION',
 ];
 

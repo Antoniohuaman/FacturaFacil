@@ -80,8 +80,10 @@ export const formatearDocumentoCliente = (
   tipoDocumento: string,
   numeroDocumento: string,
 ): string => {
-  if (!numeroDocumento || numeroDocumento === '00000000' || numeroDocumento === '') return '—';
-  return `${tipoDocumento} ${numeroDocumento}`;
+  const numero = (numeroDocumento ?? '').trim();
+  if (!numero || numero === '00000000') return '—';
+  if (!tipoDocumento || tipoDocumento === 'OTRO') return numero;
+  return `${tipoDocumento} ${numero}`;
 };
 
 export const inferirTipoDocumentoCliente = (

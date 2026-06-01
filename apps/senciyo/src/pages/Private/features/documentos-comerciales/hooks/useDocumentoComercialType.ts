@@ -60,10 +60,24 @@ export function useDocumentoComercialType(
 
   const getSerieDefaultParaTipo = useCallback(
     (tipo: TipoDocumentoComercial): string => {
-      const series = getSeriesParaTipo(tipo);
-      return series[0] ?? '';
+      const codigos = TIPO_DOCUMENTO_COMERCIAL_CODIGOS[tipo].map((c) => c.toUpperCase());
+      const categorias = TIPO_DOCUMENTO_COMERCIAL_CATEGORIAS[tipo].map((c) => c.toUpperCase());
+
+      const seriesParaTipo = seriesActivas.filter((s) => {
+        const code = (s.documentType.code ?? '').toUpperCase();
+        const category = (s.documentType.category ?? '').toUpperCase();
+        const name = (s.documentType.name ?? '').toLowerCase();
+        return (
+          codigos.includes(code) ||
+          categorias.includes(category) ||
+          codigos.some((c) => name.includes(c.toLowerCase()))
+        );
+      });
+
+      const serieConDefault = seriesParaTipo.find((s) => s.isDefault);
+      return serieConDefault?.series ?? seriesParaTipo[0]?.series ?? '';
     },
-    [getSeriesParaTipo],
+    [seriesActivas],
   );
 
   const haySeriespara = useCallback(

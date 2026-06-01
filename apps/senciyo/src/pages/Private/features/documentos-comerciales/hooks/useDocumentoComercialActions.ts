@@ -48,7 +48,7 @@ export interface UseDocumentoComercialActionsReturn {
   generarDocumento: (datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
   guardarComoBorrador: (datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
   actualizarDocumento: (id: string, datos: Partial<DatosFormularioDocumentoComercial>) => ResultadoAccionDocumento;
-  anularDocumento: (id: string) => ResultadoAccionDocumento;
+  anularDocumento: (id: string, motivo: string) => ResultadoAccionDocumento;
   duplicarDocumento: (id: string, nuevoTipo?: TipoDocumentoComercial) => ResultadoAccionDocumento;
   eliminarBorrador: (id: string) => ResultadoAccionDocumento;
   validarDatos: (datos: DatosFormularioDocumentoComercial) => string | null;
@@ -199,21 +199,27 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
   );
 
   const anularDocumento = useCallback(
-    (id: string): ResultadoAccionDocumento => {
+    (id: string, motivo: string): ResultadoAccionDocumento => {
       const doc = state.documentos.find((d) => d.id === id);
       if (!doc) return { exito: false, error: 'Documento no encontrado.' };
       if (doc.esBorrador)
         return { exito: false, error: 'No se puede anular un borrador. Use eliminar borrador.' };
+      if (!motivo || motivo.trim() === '')
+        return { exito: false, error: 'El motivo de anulación es obligatorio.' };
 
+      const ahora = obtenerFechaHoraISO();
       const actualizado: DocumentoComercial = {
         ...doc,
         estado: 'Anulada',
-        fechaActualizacion: obtenerFechaHoraISO(),
+        fechaActualizacion: ahora,
+        motivoAnulacion: motivo.trim(),
+        fechaAnulacion: ahora,
+        usuarioAnulacion: session?.userName ?? undefined,
       };
       actualizarEnContext(actualizado);
       return { exito: true, documento: actualizado };
     },
-    [state.documentos, actualizarEnContext],
+    [state.documentos, actualizarEnContext, session],
   );
 
   const duplicarDocumento = useCallback(
