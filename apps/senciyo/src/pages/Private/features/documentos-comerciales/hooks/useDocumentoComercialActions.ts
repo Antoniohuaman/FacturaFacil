@@ -46,6 +46,7 @@ export interface ResultadoAccionDocumento {
 
 export interface UseDocumentoComercialActionsReturn {
   generarDocumento: (datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
+  generarDesdeBorrador: (id: string, datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
   guardarComoBorrador: (datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
   actualizarDocumento: (id: string, datos: Partial<DatosFormularioDocumentoComercial>) => ResultadoAccionDocumento;
   anularDocumento: (id: string, motivo: string) => ResultadoAccionDocumento;
@@ -131,6 +132,61 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       session,
       activeEstablecimientoId,
       agregarDocumento,
+    ],
+  );
+
+  const generarDesdeBorrador = useCallback(
+    (id: string, datos: DatosFormularioDocumentoComercial): ResultadoAccionDocumento => {
+      const errorValidacion = validarDatos(datos);
+      if (errorValidacion) return { exito: false, error: errorValidacion };
+
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (!doc.esBorrador) return { exito: false, error: 'El documento no es un borrador.' };
+
+      const otrosDocs = state.documentos.filter((d) => d.id !== id);
+      const correlativo = generarCorrelativoSeguro(datos.serie, otrosDocs, configState.series);
+      const numero = `${datos.serie}-${correlativo}`;
+      const ahora = obtenerFechaHoraISO();
+
+      const documentoGenerado: DocumentoComercial = {
+        ...doc,
+        tipo: datos.tipo,
+        estado: 'Generada',
+        esBorrador: false,
+        serie: datos.serie,
+        correlativo,
+        numero,
+        fechaEmision: datos.fechaEmision || obtenerFechaHoyISO(),
+        fechaActualizacion: ahora,
+        cliente: datos.cliente,
+        vendedor: session?.userName ?? doc.vendedor,
+        vendedorId: session?.userId ?? doc.vendedorId,
+        moneda: datos.moneda,
+        formaPago: datos.formaPago,
+        totales: calcularTotalesItems(datos.items),
+        items: datos.items,
+        modoItems: datos.modoItems,
+        observaciones: datos.observaciones,
+        notaInterna: datos.notaInterna,
+        camposOpcionales: datos.camposOpcionales,
+        trazabilidad: datos.trazabilidad,
+        establecimientoId: activeEstablecimientoId ?? doc.establecimientoId,
+        motivoAnulacion: undefined,
+        fechaAnulacion: undefined,
+        usuarioAnulacion: undefined,
+      };
+
+      actualizarEnContext(documentoGenerado);
+      return { exito: true, documento: documentoGenerado };
+    },
+    [
+      validarDatos,
+      state.documentos,
+      configState.series,
+      session,
+      activeEstablecimientoId,
+      actualizarEnContext,
     ],
   );
 
@@ -242,11 +298,10 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         fechaEmision: obtenerFechaHoyISO(),
         fechaCreacion: ahora,
         fechaActualizacion: ahora,
-        trazabilidad: {
-          documentoOrigenId: doc.id,
-          documentoOrigenTipo: doc.tipo,
-          documentoOrigenNumero: doc.numero,
-        },
+        trazabilidad: undefined,
+        motivoAnulacion: undefined,
+        fechaAnulacion: undefined,
+        usuarioAnulacion: undefined,
       };
 
       agregarDocumento(duplicado);
@@ -270,6 +325,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
 
   return {
     generarDocumento,
+    generarDesdeBorrador,
     guardarComoBorrador,
     actualizarDocumento,
     anularDocumento,

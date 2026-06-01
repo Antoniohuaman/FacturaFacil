@@ -4,6 +4,7 @@ import type {
   DocumentoComercial,
   ClienteDocumentoComercial,
   TipoDocumentoCliente,
+  CartItem,
 } from '../models/documentoComercial.types';
 import {
   TIPO_DOCUMENTO_COMERCIAL_LABELS,
@@ -122,6 +123,61 @@ export const construirClienteDesdeDni = (data: {
     numeroDocumento: data.dni ?? '',
     tipoDocumento: 'DNI',
   };
+};
+
+export interface DesgloseImpuesto {
+  kind: 'gravado' | 'exonerado' | 'inafecto';
+  igvRate: number;
+  taxableBase: number;
+  taxAmount: number;
+  key: string;
+}
+
+export const calcularDesgloseTributos = (items: CartItem[]): DesgloseImpuesto[] => {
+  const grupos = new Map<string, DesgloseImpuesto>();
+
+  items.forEach((item) => {
+    const bruto = item.price * item.quantity;
+    const descPct = item.descuentoItem ?? 0;
+    const precioNeto = bruto * (1 - descPct / 100);
+    const igvType = item.igvType ?? 'igv18';
+
+    let kind: DesgloseImpuesto['kind'] = 'gravado';
+    let rate = 0.18;
+
+    if (igvType === 'igv18') { kind = 'gravado'; rate = 0.18; }
+    else if (igvType === 'igv10') { kind = 'gravado'; rate = 0.10; }
+    else if (igvType === 'exonerado') { kind = 'exonerado'; rate = 0; }
+    else if (igvType === 'inafecto') { kind = 'inafecto'; rate = 0; }
+
+    const key = kind === 'gravado' ? `gravado_${Math.round(rate * 100)}` : kind;
+    const existing = grupos.get(key);
+
+    if (kind === 'gravado' && rate > 0) {
+      const taxableBase = precioNeto / (1 + rate);
+      const taxAmount = precioNeto - taxableBase;
+      if (existing) {
+        existing.taxableBase += taxableBase;
+        existing.taxAmount += taxAmount;
+      } else {
+        grupos.set(key, { kind, igvRate: rate, taxableBase, taxAmount, key });
+      }
+    } else {
+      if (existing) {
+        existing.taxableBase += precioNeto;
+      } else {
+        grupos.set(key, { kind, igvRate: 0, taxableBase: precioNeto, taxAmount: 0, key });
+      }
+    }
+  });
+
+  return [...grupos.values()]
+    .filter((g) => g.taxableBase > 0.001)
+    .map((g) => ({
+      ...g,
+      taxableBase: Math.round(g.taxableBase * 100) / 100,
+      taxAmount: Math.round(g.taxAmount * 100) / 100,
+    }));
 };
 
 export const obtenerColorEstado = (

@@ -54,6 +54,7 @@ export default function FormularioDocumentoComercial({
   const inicialized = useRef(false);
 
   const labelTipo = TIPO_DOCUMENTO_COMERCIAL_LABELS[estado.tipoDocumento];
+  const esBorradorEdicion = modo === 'editar' && (documentoExistente?.esBorrador ?? false);
 
   useEffect(() => {
     if (!estado.serieSeleccionada && tipo.seriesFiltradas.length > 0) {
@@ -99,8 +100,8 @@ export default function FormularioDocumentoComercial({
     observaciones: estado.observaciones || undefined,
     notaInterna: estado.notaInterna || undefined,
     camposOpcionales: estado.camposOpcionales,
-    trazabilidad: documentoExistente?.trazabilidad,
-  }), [estado, cartItems, documentoExistente]);
+    trazabilidad: undefined,
+  }), [estado, cartItems]);
 
   const { limpiarBorrador } = useDocumentoComercialDrafts({
     tipoDocumento: estado.tipoDocumento,
@@ -129,44 +130,45 @@ export default function FormularioDocumentoComercial({
 
   const handleGenerar = useCallback(() => {
     const datos = obtenerDatosFormulario();
-
     const errorValidacion = actions.validarDatos(datos);
-    if (errorValidacion) {
-      feedback.warning(errorValidacion);
-      return;
-    }
+    if (errorValidacion) { feedback.warning(errorValidacion); return; }
 
-    const resultado =
-      modo === 'editar' && documentoExistente
-        ? actions.actualizarDocumento(documentoExistente.id, datos)
-        : actions.generarDocumento(datos);
+    let resultado;
+    if (esBorradorEdicion && documentoExistente) {
+      resultado = actions.generarDesdeBorrador(documentoExistente.id, datos);
+    } else if (modo === 'editar' && documentoExistente) {
+      resultado = actions.actualizarDocumento(documentoExistente.id, datos);
+    } else {
+      resultado = actions.generarDocumento(datos);
+    }
 
     if (resultado.exito) {
-      const mensajeExito =
-        modo === 'editar'
-          ? `${labelTipo} actualizada exitosamente.`
-          : `${labelTipo} generada exitosamente.`;
-      feedback.success(mensajeExito);
-      limpiarBorrador();
+      const msg = modo === 'editar' && !esBorradorEdicion
+        ? `${labelTipo} actualizada exitosamente.`
+        : `${labelTipo} generada exitosamente.`;
+      feedback.success(msg);
+      if (modo !== 'editar' || esBorradorEdicion) limpiarBorrador();
       clearCart();
-      navigate('/documentos-comerciales', {
-        state: { tipo: estado.tipoDocumento, documentoId: resultado.documento?.id },
-      });
+      navigate('/documentos-comerciales', { state: { tipo: estado.tipoDocumento } });
     } else {
-      feedback.error(resultado.error ?? 'Error al generar el documento.');
+      feedback.error(resultado.error ?? 'Error al procesar el documento.');
     }
   }, [
-    obtenerDatosFormulario,
-    actions,
-    modo,
-    documentoExistente,
-    labelTipo,
-    feedback,
-    limpiarBorrador,
-    clearCart,
-    navigate,
-    estado.tipoDocumento,
+    obtenerDatosFormulario, actions, esBorradorEdicion, documentoExistente,
+    modo, labelTipo, feedback, limpiarBorrador, clearCart, navigate, estado.tipoDocumento,
   ]);
+
+  const handleActualizarBorrador = useCallback(() => {
+    if (!documentoExistente) return;
+    const datos = obtenerDatosFormulario();
+    const resultado = actions.actualizarDocumento(documentoExistente.id, datos);
+    if (resultado.exito) {
+      feedback.success(`Cambios guardados en borrador de ${labelTipo.toLowerCase()}.`);
+      navigate('/documentos-comerciales', { state: { tipo: estado.tipoDocumento } });
+    } else {
+      feedback.error(resultado.error ?? 'Error al guardar cambios.');
+    }
+  }, [documentoExistente, obtenerDatosFormulario, actions, feedback, labelTipo, navigate, estado.tipoDocumento]);
 
   const handleGuardarBorrador = useCallback(() => {
     const datos = obtenerDatosFormulario();
@@ -179,16 +181,7 @@ export default function FormularioDocumentoComercial({
     } else {
       feedback.error('Error al guardar el borrador.');
     }
-  }, [
-    obtenerDatosFormulario,
-    actions,
-    labelTipo,
-    feedback,
-    limpiarBorrador,
-    clearCart,
-    navigate,
-    estado.tipoDocumento,
-  ]);
+  }, [obtenerDatosFormulario, actions, labelTipo, feedback, limpiarBorrador, clearCart, navigate, estado.tipoDocumento]);
 
   const handleCancelar = useCallback(() => {
     limpiarBorrador();
@@ -207,8 +200,17 @@ export default function FormularioDocumentoComercial({
   const esSinSerie = tipo.seriesFiltradas.length === 0;
   const estaVacio = cartItems.length === 0;
 
-  const labelBotonPrimario =
-    modo === 'editar' ? 'Guardar cambios' : `Generar ${labelTipo.toLowerCase()}`;
+  const tituloFormulario = esBorradorEdicion
+    ? `Retomar borrador de ${labelTipo.toLowerCase()}`
+    : modo === 'editar'
+    ? `Editar ${documentoExistente?.numero ?? labelTipo.toLowerCase()}`
+    : modo === 'duplicar'
+    ? `Duplicar ${labelTipo.toLowerCase()}`
+    : `Nueva ${labelTipo.toLowerCase()}`;
+
+  const labelBotonPrimario = modo === 'editar' && !esBorradorEdicion
+    ? 'Guardar cambios'
+    : `Generar ${labelTipo.toLowerCase()}`;
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-gray-900">
@@ -216,11 +218,7 @@ export default function FormularioDocumentoComercial({
         <FileText size={18} className="text-violet-600 dark:text-violet-400" />
         <div>
           <h1 className="text-base font-bold text-gray-900 dark:text-white leading-tight">
-            {modo === 'editar'
-              ? `Editar ${documentoExistente?.numero ?? 'documento'}`
-              : modo === 'duplicar'
-              ? `Duplicar ${labelTipo.toLowerCase()}`
-              : `Nueva ${labelTipo.toLowerCase()}`}
+            {tituloFormulario}
           </h1>
           {esSinSerie && (
             <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -281,7 +279,9 @@ export default function FormularioDocumentoComercial({
       <ActionButtonsSection
         onCancelar={handleCancelar}
         onGuardarBorrador={
-          fieldsConfig.config.actionButtons.guardarBorrador && modo === 'nuevo'
+          esBorradorEdicion
+            ? undefined
+            : fieldsConfig.config.actionButtons.guardarBorrador && modo === 'nuevo'
             ? handleGuardarBorrador
             : undefined
         }
@@ -292,11 +292,19 @@ export default function FormularioDocumentoComercial({
           onClick: handleGenerar,
           icon: <Save size={14} />,
           disabled: esSinSerie && modo !== 'editar',
-          title:
-            esSinSerie && modo !== 'editar'
-              ? `Configure una serie de ${labelTipo.toLowerCase()} en Configuración → Series`
-              : undefined,
+          title: esSinSerie && modo !== 'editar'
+            ? `Configure una serie de ${labelTipo.toLowerCase()} en Configuración → Series`
+            : undefined,
         }}
+        secondaryAction={
+          esBorradorEdicion
+            ? {
+                label: 'Guardar cambios',
+                onClick: handleActualizarBorrador,
+                icon: <Save size={14} />,
+              }
+            : undefined
+        }
       />
 
       <FieldsConfigModal

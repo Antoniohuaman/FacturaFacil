@@ -112,7 +112,7 @@ export default function FormularioHeaderComercial({
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      void fetchClientes({ query: busquedaCliente } as Parameters<typeof fetchClientes>[0]);
+      void fetchClientes({ search: busquedaCliente.trim(), limit: 25, page: 1 } as Parameters<typeof fetchClientes>[0]);
       setMostrarResultados(true);
     }, 250);
     return () => {
@@ -326,22 +326,29 @@ export default function FormularioHeaderComercial({
                     className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
                   />
                 </div>
-                {busquedaCliente.replace(/\D/g, '').length >= 8 && (
-                  <button
-                    type="button"
-                    onClick={() => void handleLookup()}
-                    disabled={cargandoLookup}
-                    className="flex-shrink-0 flex items-center gap-1 px-2.5 py-2 text-xs font-medium bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50"
-                    title="Consultar RUC/DNI"
-                  >
-                    {cargandoLookup ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Building2 size={12} />
-                    )}
-                    <span>Consultar</span>
-                  </button>
-                )}
+                {(() => {
+                  const soloDigitos = busquedaCliente.replace(/\D/g, '');
+                  if (soloDigitos.length < 8) return null;
+                  const esRuc = soloDigitos.length === 11;
+                  const label = esRuc ? 'SUNAT' : 'RENIEC';
+                  const title = esRuc ? 'Consultar RUC en SUNAT' : 'Consultar DNI en RENIEC';
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => void handleLookup()}
+                      disabled={cargandoLookup}
+                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-2 text-xs font-medium bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50"
+                      title={title}
+                    >
+                      {cargandoLookup ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Building2 size={12} />
+                      )}
+                      <span>{label}</span>
+                    </button>
+                  );
+                })()}
               </div>
 
               {errorDocumento && (
