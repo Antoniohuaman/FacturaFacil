@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, FileText } from 'lucide-react';
 import ProductsSection from '../../comprobantes-electronicos/shared/form-core/components/ProductsSection';
@@ -17,6 +17,7 @@ import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActi
 import { useDocumentoComercialFieldsConfig } from '../hooks/useDocumentoComercialFieldsConfig';
 import { useDocumentoComercialDrafts } from '../hooks/useDocumentoComercialDrafts';
 import { TIPO_DOCUMENTO_COMERCIAL_LABELS } from '../models/documentoComercial.constants';
+import { calcularDesgloseTributos } from '../utils/documentoComercial.helpers';
 import type {
   TipoDocumentoComercial,
   DocumentoComercial,
@@ -50,11 +51,26 @@ export default function FormularioDocumentoComercial({
   const { currentCurrency, changeCurrency } = useCurrency();
   const { calculateTotals } = usePayment(currentCurrency);
 
-  const totales = calculateTotals(cartItems);
+  const totales = useMemo(() => {
+    const base = calculateTotals(cartItems);
+    const desglose = calcularDesgloseTributos(cartItems);
+    return {
+      ...base,
+      taxBreakdown: desglose.map((d) => ({
+        key: d.key,
+        kind: d.kind,
+        igvRate: d.igvRate,
+        taxableBase: d.taxableBase,
+        taxAmount: d.taxAmount,
+        totalAmount: Math.round((d.taxableBase + d.taxAmount) * 100) / 100,
+      })),
+    };
+  }, [calculateTotals, cartItems]);
   const inicialized = useRef(false);
 
   const labelTipo = TIPO_DOCUMENTO_COMERCIAL_LABELS[estado.tipoDocumento];
-  const esBorradorEdicion = modo === 'editar' && (documentoExistente?.esBorrador ?? false);
+  const esBorradorEdicion =
+    (modo === 'editar' && (documentoExistente?.esBorrador ?? false)) || modo === 'duplicar';
 
   useEffect(() => {
     if (!estado.serieSeleccionada && tipo.seriesFiltradas.length > 0) {
@@ -72,7 +88,7 @@ export default function FormularioDocumentoComercial({
       fechaEmision: documentoExistente.fechaEmision,
       cliente: documentoExistente.cliente ?? null,
       moneda: documentoExistente.moneda,
-      formaPago: documentoExistente.formaPago ?? 'contado',
+      formaPago: documentoExistente.formaPago ?? '',
       camposOpcionales: documentoExistente.camposOpcionales ?? {},
       observaciones: documentoExistente.observaciones ?? '',
       notaInterna: documentoExistente.notaInterna ?? '',
@@ -186,8 +202,8 @@ export default function FormularioDocumentoComercial({
   const handleCancelar = useCallback(() => {
     limpiarBorrador();
     clearCart();
-    navigate('/documentos-comerciales');
-  }, [limpiarBorrador, clearCart, navigate]);
+    navigate('/documentos-comerciales', { state: { tipo: estado.tipoDocumento } });
+  }, [limpiarBorrador, clearCart, navigate, estado.tipoDocumento]);
 
   const handleMonedaChange = useCallback(
     (moneda: typeof currentCurrency) => {
@@ -200,13 +216,14 @@ export default function FormularioDocumentoComercial({
   const esSinSerie = tipo.seriesFiltradas.length === 0;
   const estaVacio = cartItems.length === 0;
 
-  const tituloFormulario = esBorradorEdicion
-    ? `Retomar borrador de ${labelTipo.toLowerCase()}`
-    : modo === 'editar'
-    ? `Editar ${documentoExistente?.numero ?? labelTipo.toLowerCase()}`
-    : modo === 'duplicar'
-    ? `Duplicar ${labelTipo.toLowerCase()}`
-    : `Nueva ${labelTipo.toLowerCase()}`;
+  const tituloFormulario =
+    modo === 'nuevo'
+      ? `Nueva ${labelTipo.toLowerCase()}`
+      : modo === 'duplicar'
+      ? `Duplicar ${labelTipo.toLowerCase()}`
+      : esBorradorEdicion
+      ? `Retomar borrador de ${labelTipo.toLowerCase()}`
+      : `Editar ${documentoExistente?.numero ?? labelTipo.toLowerCase()}`;
 
   const labelBotonPrimario = modo === 'editar' && !esBorradorEdicion
     ? 'Guardar cambios'
@@ -299,7 +316,7 @@ export default function FormularioDocumentoComercial({
         secondaryAction={
           esBorradorEdicion
             ? {
-                label: 'Guardar cambios',
+                label: modo === 'duplicar' ? 'Guardar borrador' : 'Guardar cambios',
                 onClick: handleActualizarBorrador,
                 icon: <Save size={14} />,
               }

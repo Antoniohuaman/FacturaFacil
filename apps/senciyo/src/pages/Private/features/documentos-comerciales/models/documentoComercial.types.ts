@@ -1,8 +1,15 @@
-import type { CartItem, PaymentTotals } from '../../comprobantes-electronicos/models/comprobante.types';
+import type { CartItem, PaymentTotals, TaxBreakdownRow } from '../../comprobantes-electronicos/models/comprobante.types';
 import type { CurrencyCode } from '@/shared/currency';
 
-export type { CartItem, PaymentTotals };
+export type { CartItem, PaymentTotals, TaxBreakdownRow };
 export type Currency = CurrencyCode;
+
+export interface EventoHistorial {
+  fecha: string;
+  usuario?: string;
+  accion: string;
+  detalle?: string;
+}
 
 export type TipoDocumentoComercial = 'cotizacion' | 'nota_venta' | 'orden_venta';
 
@@ -107,6 +114,8 @@ export interface DocumentoComercial {
   motivoAnulacion?: string;
   fechaAnulacion?: string;
   usuarioAnulacion?: string;
+
+  historial?: EventoHistorial[];
 }
 
 export interface FiltrosDocumentosComerciales {

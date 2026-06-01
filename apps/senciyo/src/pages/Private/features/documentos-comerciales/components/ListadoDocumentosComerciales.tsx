@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, createElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, MoreHorizontal, Edit3, Copy, Ban, Trash2, Eye,
@@ -6,11 +6,13 @@ import {
   Mail, MessageCircle, ClipboardCopy, SlidersHorizontal,
 } from 'lucide-react';
 import { EstadoDocumentoBadge } from './EstadoDocumentoBadge';
+import { DocumentoComercialPrintView } from './DocumentoComercialPrintView';
 import { useDocumentosComercialesContext } from '../contexts/DocumentosComercialesContext';
 import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActions';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import { tryLsKey } from '@/shared/tenant';
+import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
 import type {
   TipoDocumentoComercial,
   DocumentoComercial,
@@ -95,67 +97,6 @@ function guardarColumnasEnStorage(tipo: TipoDocumentoComercial, visibles: Set<st
   } catch { /* silencioso */ }
 }
 
-function generarHtmlImpresion(doc: DocumentoComercial, labelTipo: string, formato: 'a4' | 'ticket'): string {
-  const simbolo = obtenerSimboloMoneda(doc.moneda);
-  const numero = doc.numero ?? formatearNumeroParaBorrador(doc.serie);
-  const desglose = calcularDesgloseTributos(doc.items);
-  const width = formato === 'ticket' ? '80mm' : '210mm';
-
-  const itemsHtml = doc.items.map((item) => `
-    <tr>
-      <td style="padding:3px 4px;">${item.name}${item.unidadMedida ? ` (${item.unidadMedida})` : ''}</td>
-      <td style="padding:3px 4px;text-align:right;">${item.quantity}</td>
-      <td style="padding:3px 4px;text-align:right;">${simbolo}${item.price.toFixed(2)}</td>
-      <td style="padding:3px 4px;text-align:right;">${simbolo}${(item.price * item.quantity).toFixed(2)}</td>
-    </tr>`).join('');
-
-  const desgloseHtml = desglose.map((row) => {
-    if (row.kind === 'gravado') {
-      const pct = Math.round(row.igvRate * 100);
-      return `
-        <div style="display:flex;justify-content:space-between;"><span>Base IGV ${pct}%:</span><span>${simbolo}${row.taxableBase.toFixed(2)}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span>IGV ${pct}%:</span><span>${simbolo}${row.taxAmount.toFixed(2)}</span></div>`;
-    }
-    const label = row.kind === 'exonerado' ? 'Exonerado' : 'Inafecto';
-    return `<div style="display:flex;justify-content:space-between;"><span>${label}:</span><span>${simbolo}${row.taxableBase.toFixed(2)}</span></div>`;
-  }).join('');
-
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${labelTipo} ${numero}</title>
-  <style>
-    @media print { body { margin: 0; } }
-    body { font-family: Arial, sans-serif; font-size: ${formato === 'ticket' ? '11px' : '12px'}; color: #111; max-width: ${width}; margin: 0 auto; padding: ${formato === 'ticket' ? '4mm' : '15mm'}; }
-    h1 { font-size: ${formato === 'ticket' ? '13px' : '18px'}; margin: 0 0 4px; }
-    .meta { color: #555; font-size: ${formato === 'ticket' ? '10px' : '11px'}; margin-bottom: 8px; }
-    table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-    th { text-align: left; font-size: 10px; text-transform: uppercase; color: #555; padding: 4px; border-bottom: 1.5px solid #999; }
-    td { padding: 3px 4px; border-bottom: 1px solid #eee; }
-    .totales { margin-top: 8px; padding-top: 8px; border-top: 1.5px solid #999; font-size: ${formato === 'ticket' ? '10px' : '11px'}; }
-    .total-final { font-weight: bold; font-size: ${formato === 'ticket' ? '13px' : '15px'}; margin-top: 4px; }
-    .sep { border-top: 1px dashed #999; margin: 6px 0; }
-  </style></head><body>
-  <h1>${labelTipo}</h1>
-  <div class="meta">
-    <strong>${numero}</strong> &nbsp;|&nbsp; ${doc.estado}<br>
-    Emisión: ${doc.fechaEmision}${doc.camposOpcionales?.fechaVencimiento ? ` &nbsp;|&nbsp; Vence: ${doc.camposOpcionales.fechaVencimiento}` : ''}<br>
-    Moneda: ${doc.moneda} &nbsp;|&nbsp; Pago: ${doc.formaPago ?? '—'}
-  </div>
-  ${doc.cliente ? `<div class="sep"></div>
-  <div><strong>${doc.cliente.nombre}</strong><br>
-  ${formatearDocumentoCliente(doc.cliente.tipoDocumento, doc.cliente.numeroDocumento)}<br>
-  ${doc.cliente.direccion ? `<span style="color:#555">${doc.cliente.direccion}</span>` : ''}</div>` : ''}
-  <div class="sep"></div>
-  <table>
-    <thead><tr><th>Descripción</th><th style="text-align:right">Cant.</th><th style="text-align:right">P.Unit.</th><th style="text-align:right">Importe</th></tr></thead>
-    <tbody>${itemsHtml}</tbody>
-  </table>
-  <div class="totales">
-    ${desgloseHtml || `<div style="display:flex;justify-content:space-between;"><span>Subtotal:</span><span>${simbolo}${doc.totales.subtotal.toFixed(2)}</span></div>`}
-    <div class="total-final" style="display:flex;justify-content:space-between;"><span>TOTAL:</span><span>${simbolo}${doc.totales.total.toFixed(2)}</span></div>
-  </div>
-  ${doc.observaciones ? `<div class="sep"></div><p style="font-size:10px;color:#555">${doc.observaciones}</p>` : ''}
-  <script>window.addEventListener('load',function(){setTimeout(function(){window.print()},300)})</script>
-  </body></html>`;
-}
 
 export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentosComercialesProps) {
   const navigate = useNavigate();
@@ -174,6 +115,7 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
   const [menuPosicion, setMenuPosicion] = useState<{ top: number; right: number } | null>(null);
   const [compartirExpandido, setCompartirExpandido] = useState(false);
   const [documentoDetalle, setDocumentoDetalle] = useState<DocumentoComercial | null>(null);
+  const [tabDetalle, setTabDetalle] = useState<'detalle' | 'historial'>('detalle');
   const [exportando, setExportando] = useState(false);
   const [mostrarConfigColumnas, setMostrarConfigColumnas] = useState(false);
   const [columnasVisibles, setColumnasVisibles] = useState<Set<string>>(
@@ -293,7 +235,7 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
     if (resultado.exito && resultado.documento) {
       feedback.success('Documento duplicado como borrador.');
       navigate(`/documentos-comerciales/editar/${resultado.documento.id}`, {
-        state: { documento: resultado.documento },
+        state: { documento: resultado.documento, modo: 'duplicar' },
       });
     } else {
       feedback.error(resultado.error ?? 'Error al duplicar el documento.');
@@ -315,12 +257,17 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
     setConfirmandoAccion(null);
   }, [confirmandoAccion, anularDocumento, eliminarBorrador, feedback, labelTipo]);
 
-  const handleImprimir = useCallback((doc: DocumentoComercial, formato: 'a4' | 'ticket') => {
+  const handleImprimir = useCallback(async (doc: DocumentoComercial, formato: 'a4' | 'ticket') => {
     setMenuAbierto(null); setMenuPosicion(null);
-    const ventana = window.open('', '_blank', 'width=700,height=800');
-    if (!ventana) { feedback.error('No se pudo abrir la ventana de impresión.'); return; }
-    ventana.document.write(generarHtmlImpresion(doc, labelTipo, formato));
-    ventana.document.close();
+    try {
+      await imprimirComprobante({
+        formato: formato === 'ticket' ? 'TICKET' : 'A4',
+        titulo: `${labelTipo} ${doc.numero ?? formatearNumeroParaBorrador(doc.serie)}`,
+        render: (contexto) => createElement(DocumentoComercialPrintView, { doc, disenoEfectivo: contexto?.disenoEfectivo }),
+      });
+    } catch {
+      feedback.error('No se pudo imprimir el documento.');
+    }
   }, [labelTipo, feedback]);
 
   const handleCompartirEmail = useCallback((doc: DocumentoComercial) => {
@@ -511,7 +458,7 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
                   return (
                     <tr key={doc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       {columnasVisibles.has('numero') && <td className="px-4 py-3"><span className={`font-mono text-sm ${doc.esBorrador ? 'text-gray-400 dark:text-gray-500' : 'font-semibold text-gray-800 dark:text-gray-100'}`}>{numeroMostrado}</span></td>}
-                      {columnasVisibles.has('cliente') && <td className="px-4 py-3"><span className={`font-medium truncate max-w-[160px] block ${doc.cliente?.nombre ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 text-xs'}`}>{doc.cliente?.nombre ?? 'Sin cliente'}</span></td>}
+                      {columnasVisibles.has('cliente') && <td className="px-4 py-3 max-w-[200px]"><span title={doc.cliente?.nombre ?? ''} className={`font-medium truncate block ${doc.cliente?.nombre ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 text-xs'}`}>{doc.cliente?.nombre ?? 'Sin cliente'}</span></td>}
                       {columnasVisibles.has('docCliente') && <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{docCliente}</td>}
                       {columnasVisibles.has('fechaEmision') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{doc.fechaEmision}</td>}
                       {columnasVisibles.has('fechaVencimiento') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{doc.camposOpcionales?.fechaVencimiento ?? '—'}</td>}
@@ -519,7 +466,7 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
                       {columnasVisibles.has('moneda') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.moneda}</td>}
                       {columnasVisibles.has('total') && <td className="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">{obtenerSimboloMoneda(doc.moneda)} {doc.totales.total.toFixed(2)}</td>}
                       {columnasVisibles.has('estado') && <td className="px-4 py-3"><EstadoDocumentoBadge estado={doc.estado} /></td>}
-                      {columnasVisibles.has('usuario') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 max-w-[100px] truncate">{doc.vendedor ?? '—'}</td>}
+                      {columnasVisibles.has('usuario') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 max-w-[120px]"><span title={doc.vendedor ?? ''} className="truncate block">{doc.vendedor ?? '—'}</span></td>}
                       {columnasVisibles.has('metodoEnvio') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.camposOpcionales?.metodoEnvio ?? '—'}</td>}
                       {columnasVisibles.has('fechaEnvio') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{doc.camposOpcionales?.fechaEntrega ?? '—'}</td>}
                       {columnasVisibles.has('requiereAprobacion') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.camposOpcionales?.requiereAprobacion ? 'Sí' : 'No'}</td>}
@@ -545,13 +492,13 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
           style={{ position: 'fixed', top: menuPosicion.top, right: menuPosicion.right, zIndex: 9999 }}
           className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl min-w-[180px] overflow-hidden"
         >
-          <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setDocumentoDetalle(menuDocActual); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Eye size={14} />Ver detalle</button>
+          <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setTabDetalle('detalle'); setDocumentoDetalle(menuDocActual); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Eye size={14} />Ver detalle</button>
           {puedeEditar(menuDocActual) && <button type="button" onClick={() => handleEditar(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Edit3 size={14} />{menuDocActual.esBorrador ? 'Retomar borrador' : 'Editar'}</button>}
           <button type="button" onClick={() => handleDuplicar(menuDocActual.id)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Copy size={14} />Duplicar</button>
           {!menuDocActual.esBorrador && (
             <>
-              <button type="button" onClick={() => handleImprimir(menuDocActual, 'a4')} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Printer size={14} />Imprimir A4</button>
-              <button type="button" onClick={() => handleImprimir(menuDocActual, 'ticket')} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Printer size={14} />Imprimir Ticket</button>
+              <button type="button" onClick={() => void handleImprimir(menuDocActual, 'a4')} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Printer size={14} />Imprimir A4</button>
+              <button type="button" onClick={() => void handleImprimir(menuDocActual, 'ticket')} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Printer size={14} />Imprimir Ticket</button>
               <button type="button" onClick={() => setCompartirExpandido((v) => !v)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Share2 size={14} />Compartir</button>
               {compartirExpandido && (
                 <>
@@ -593,110 +540,181 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
       {documentoDetalle && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-end" onClick={() => setDocumentoDetalle(null)}>
           <div className="bg-white dark:bg-gray-900 h-full w-full max-w-lg shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider">{TIPO_DOCUMENTO_COMERCIAL_LABELS[documentoDetalle.tipo]}</p>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">{documentoDetalle.esBorrador ? formatearNumeroParaBorrador(documentoDetalle.serie) : documentoDetalle.numero ?? '—'}</h2>
-              </div>
-              <button type="button" onClick={() => setDocumentoDetalle(null)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"><X size={18} /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <EstadoDocumentoBadge estado={documentoDetalle.estado} tamano="md" />
-
-              {documentoDetalle.cliente ? (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Cliente</p>
-                  <p className="font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.cliente.nombre}</p>
-                  <p className="text-sm text-gray-500">{formatearDocumentoCliente(documentoDetalle.cliente.tipoDocumento, documentoDetalle.cliente.numeroDocumento)}</p>
-                  {documentoDetalle.cliente.email && <p className="text-sm text-gray-500">{documentoDetalle.cliente.email}</p>}
-                  {documentoDetalle.cliente.direccion && <p className="text-sm text-gray-500">{documentoDetalle.cliente.direccion}</p>}
-                </div>
-              ) : (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4"><p className="text-xs font-semibold text-gray-500 uppercase mb-1">Cliente</p><p className="text-sm text-gray-400">Sin cliente asignado</p></div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-xs text-gray-500 mb-1">Tipo</p><p className="font-medium text-gray-800 dark:text-gray-100">{TIPO_DOCUMENTO_COMERCIAL_LABELS[documentoDetalle.tipo]}</p></div>
-                <div><p className="text-xs text-gray-500 mb-1">Serie</p><p className="font-mono font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.serie}</p></div>
-                <div><p className="text-xs text-gray-500 mb-1">F. Emisión</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.fechaEmision}</p></div>
-                <div><p className="text-xs text-gray-500 mb-1">F. Vencimiento</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales?.fechaVencimiento ?? '—'}</p></div>
-                <div><p className="text-xs text-gray-500 mb-1">Moneda</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.moneda}</p></div>
-                <div><p className="text-xs text-gray-500 mb-1">Forma de pago</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.formaPago ?? '—'}</p></div>
-                <div><p className="text-xs text-gray-500 mb-1">Usuario</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.vendedor ?? '—'}</p></div>
-                <div><p className="text-xs text-gray-500 mb-1">Total</p><p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{obtenerSimboloMoneda(documentoDetalle.moneda)} {documentoDetalle.totales.total.toFixed(2)}</p></div>
-                {documentoDetalle.camposOpcionales?.metodoEnvio && <div><p className="text-xs text-gray-500 mb-1">Método de envío</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.metodoEnvio}</p></div>}
-                {documentoDetalle.camposOpcionales?.fechaEntrega && <div><p className="text-xs text-gray-500 mb-1">F. Envío previsto</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.fechaEntrega}</p></div>}
-                {documentoDetalle.camposOpcionales?.requiereAprobacion && <div><p className="text-xs text-gray-500 mb-1">Requiere aprobación</p><p className="font-medium text-gray-800 dark:text-gray-100">Sí</p></div>}
-                {documentoDetalle.camposOpcionales?.ordenCompra && <div><p className="text-xs text-gray-500 mb-1">Orden de compra</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.ordenCompra}</p></div>}
-                {documentoDetalle.camposOpcionales?.centroCosto && <div><p className="text-xs text-gray-500 mb-1">Centro de costo</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.centroCosto}</p></div>}
-              </div>
-
-              {documentoDetalle.trazabilidad?.documentoOrigenNumero && (
-                <div><p className="text-xs text-gray-500 mb-1">Doc. relacionado</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
-              )}
-
-              {documentoDetalle.motivoAnulacion && (
-                <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-red-600 uppercase mb-2">Anulación</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Motivo:</strong> {documentoDetalle.motivoAnulacion}</p>
-                  {documentoDetalle.fechaAnulacion && <p className="text-xs text-gray-500 mt-1">Fecha: {documentoDetalle.fechaAnulacion.split('T')[0]}</p>}
-                  {documentoDetalle.usuarioAnulacion && <p className="text-xs text-gray-500">Usuario: {documentoDetalle.usuarioAnulacion}</p>}
-                </div>
-              )}
-
-              {documentoDetalle.items.length > 0 && (
+            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Ítems ({documentoDetalle.items.length})</p>
-                  <div className="space-y-2">
-                    {documentoDetalle.items.map((item) => (
-                      <div key={item.id} className="flex justify-between items-start text-sm bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-800 dark:text-gray-100 truncate">{item.name}</p>
-                          <p className="text-xs text-gray-500">{item.quantity} × {obtenerSimboloMoneda(documentoDetalle.moneda)} {item.price.toFixed(2)}</p>
-                        </div>
-                        <p className="font-semibold text-gray-800 dark:text-gray-100 ml-3 whitespace-nowrap">{obtenerSimboloMoneda(documentoDetalle.moneda)} {(item.price * item.quantity).toFixed(2)}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 space-y-1 border-t border-gray-100 dark:border-gray-700 pt-3">
-                    {calcularDesgloseTributos(documentoDetalle.items).map((row) => {
-                      if (row.kind === 'gravado') {
-                        const pct = Math.round(row.igvRate * 100);
-                        return (
-                          <div key={row.key}>
-                            <div className="flex justify-between text-xs text-gray-500"><span>Base IGV {pct}%</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {row.taxableBase.toFixed(2)}</span></div>
-                            <div className="flex justify-between text-xs text-gray-500"><span>IGV {pct}%</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {row.taxAmount.toFixed(2)}</span></div>
-                          </div>
-                        );
-                      }
-                      const label = row.kind === 'exonerado' ? 'Exonerado' : 'Inafecto';
-                      return <div key={row.key} className="flex justify-between text-xs text-gray-500"><span>{label}</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {row.taxableBase.toFixed(2)}</span></div>;
-                    })}
-                    <div className="flex justify-between font-bold text-sm text-gray-900 dark:text-white pt-1"><span>Total</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {documentoDetalle.totales.total.toFixed(2)}</span></div>
-                  </div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">{TIPO_DOCUMENTO_COMERCIAL_LABELS[documentoDetalle.tipo]}</p>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">{documentoDetalle.esBorrador ? formatearNumeroParaBorrador(documentoDetalle.serie) : documentoDetalle.numero ?? '—'}</h2>
                 </div>
-              )}
-
-              {documentoDetalle.observaciones && (
-                <div><p className="text-xs font-semibold text-gray-500 uppercase mb-1">Observaciones</p><p className="text-sm text-gray-700 dark:text-gray-300">{documentoDetalle.observaciones}</p></div>
-              )}
-
-              <div className="pt-4 flex gap-3 flex-wrap">
-                {puedeEditar(documentoDetalle) && (
-                  <button type="button" onClick={() => { setDocumentoDetalle(null); handleEditar(documentoDetalle); }} className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-violet-300 text-violet-700 dark:text-violet-300 dark:border-violet-600 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors">
-                    <Edit3 size={14} />{documentoDetalle.esBorrador ? 'Retomar' : 'Editar'}
-                  </button>
-                )}
-                <button type="button" onClick={() => { setDocumentoDetalle(null); handleDuplicar(documentoDetalle.id); }} className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <Copy size={14} />Duplicar
+                <button type="button" onClick={() => setDocumentoDetalle(null)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"><X size={18} /></button>
+              </div>
+              {/* Tabs */}
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTabDetalle('detalle')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'detalle' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                >
+                  Detalle
                 </button>
-                {!documentoDetalle.esBorrador && (
-                  <button type="button" onClick={() => { setDocumentoDetalle(null); handleImprimir(documentoDetalle, 'a4'); }} className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <Printer size={14} />Imprimir
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setTabDetalle('historial')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'historial' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                >
+                  Historial
+                </button>
               </div>
             </div>
+
+            {/* Tab: Detalle */}
+            {tabDetalle === 'detalle' && (
+              <div className="p-6 space-y-4">
+                <EstadoDocumentoBadge estado={documentoDetalle.estado} tamano="md" />
+
+                {documentoDetalle.cliente ? (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Cliente</p>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.cliente.nombre}</p>
+                    <p className="text-sm text-gray-500">{formatearDocumentoCliente(documentoDetalle.cliente.tipoDocumento, documentoDetalle.cliente.numeroDocumento)}</p>
+                    {documentoDetalle.cliente.email && <p className="text-sm text-gray-500">{documentoDetalle.cliente.email}</p>}
+                    {documentoDetalle.cliente.direccion && <p className="text-sm text-gray-500">{documentoDetalle.cliente.direccion}</p>}
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4"><p className="text-xs font-semibold text-gray-500 uppercase mb-1">Cliente</p><p className="text-sm text-gray-400">Sin cliente asignado</p></div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><p className="text-xs text-gray-500 mb-1">Tipo</p><p className="font-medium text-gray-800 dark:text-gray-100">{TIPO_DOCUMENTO_COMERCIAL_LABELS[documentoDetalle.tipo]}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Serie</p><p className="font-mono font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.serie}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">F. Emisión</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.fechaEmision}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">F. Vencimiento</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales?.fechaVencimiento ?? '—'}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Moneda</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.moneda}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Forma de pago</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.formaPago ?? '—'}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Usuario</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.vendedor ?? '—'}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Total</p><p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{obtenerSimboloMoneda(documentoDetalle.moneda)} {documentoDetalle.totales.total.toFixed(2)}</p></div>
+                  {documentoDetalle.camposOpcionales?.metodoEnvio && <div><p className="text-xs text-gray-500 mb-1">Método de envío</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.metodoEnvio}</p></div>}
+                  {documentoDetalle.camposOpcionales?.fechaEntrega && <div><p className="text-xs text-gray-500 mb-1">F. Envío previsto</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.fechaEntrega}</p></div>}
+                  {documentoDetalle.camposOpcionales?.requiereAprobacion && <div><p className="text-xs text-gray-500 mb-1">Requiere aprobación</p><p className="font-medium text-gray-800 dark:text-gray-100">Sí</p></div>}
+                  {documentoDetalle.camposOpcionales?.ordenCompra && <div><p className="text-xs text-gray-500 mb-1">Orden de compra</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.ordenCompra}</p></div>}
+                  {documentoDetalle.camposOpcionales?.centroCosto && <div><p className="text-xs text-gray-500 mb-1">Centro de costo</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.centroCosto}</p></div>}
+                </div>
+
+                {documentoDetalle.trazabilidad?.documentoOrigenNumero && (
+                  <div><p className="text-xs text-gray-500 mb-1">Doc. relacionado</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
+                )}
+
+                {documentoDetalle.motivoAnulacion && (
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-red-600 uppercase mb-2">Anulación</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><strong>Motivo:</strong> {documentoDetalle.motivoAnulacion}</p>
+                    {documentoDetalle.fechaAnulacion && <p className="text-xs text-gray-500 mt-1">Fecha: {documentoDetalle.fechaAnulacion.split('T')[0]}</p>}
+                    {documentoDetalle.usuarioAnulacion && <p className="text-xs text-gray-500">Usuario: {documentoDetalle.usuarioAnulacion}</p>}
+                  </div>
+                )}
+
+                {documentoDetalle.items.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Ítems ({documentoDetalle.items.length})</p>
+                    <div className="space-y-2">
+                      {documentoDetalle.items.map((item) => (
+                        <div key={item.id} className="flex justify-between items-start text-sm bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-800 dark:text-gray-100 truncate">{item.name}</p>
+                            <p className="text-xs text-gray-500">{item.quantity} × {obtenerSimboloMoneda(documentoDetalle.moneda)} {item.price.toFixed(2)}{item.unidadMedida ? ` ${item.unidadMedida}` : ''}</p>
+                          </div>
+                          <p className="font-semibold text-gray-800 dark:text-gray-100 ml-3 whitespace-nowrap">{obtenerSimboloMoneda(documentoDetalle.moneda)} {(item.price * item.quantity).toFixed(2)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 space-y-1 border-t border-gray-100 dark:border-gray-700 pt-3">
+                      {calcularDesgloseTributos(documentoDetalle.items).map((row) => {
+                        if (row.kind === 'gravado') {
+                          const pct = Math.round(row.igvRate * 100);
+                          return (
+                            <div key={row.key}>
+                              <div className="flex justify-between text-xs text-gray-500"><span>Base IGV {pct}%</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {row.taxableBase.toFixed(2)}</span></div>
+                              <div className="flex justify-between text-xs text-gray-500"><span>IGV {pct}%</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {row.taxAmount.toFixed(2)}</span></div>
+                            </div>
+                          );
+                        }
+                        const label = row.kind === 'exonerado' ? 'Exonerado' : 'Inafecto';
+                        return <div key={row.key} className="flex justify-between text-xs text-gray-500"><span>{label}</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {row.taxableBase.toFixed(2)}</span></div>;
+                      })}
+                      <div className="flex justify-between font-bold text-sm text-gray-900 dark:text-white pt-1"><span>Total</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {documentoDetalle.totales.total.toFixed(2)}</span></div>
+                    </div>
+                  </div>
+                )}
+
+                {documentoDetalle.observaciones && (
+                  <div><p className="text-xs font-semibold text-gray-500 uppercase mb-1">Observaciones</p><p className="text-sm text-gray-700 dark:text-gray-300">{documentoDetalle.observaciones}</p></div>
+                )}
+
+                <div className="pt-4 flex gap-3 flex-wrap">
+                  {puedeEditar(documentoDetalle) && (
+                    <button type="button" onClick={() => { setDocumentoDetalle(null); handleEditar(documentoDetalle); }} className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-violet-300 text-violet-700 dark:text-violet-300 dark:border-violet-600 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors">
+                      <Edit3 size={14} />{documentoDetalle.esBorrador ? 'Retomar' : 'Editar'}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => { setDocumentoDetalle(null); handleDuplicar(documentoDetalle.id); }} className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <Copy size={14} />Duplicar
+                  </button>
+                  {!documentoDetalle.esBorrador && (
+                    <button type="button" onClick={() => { setDocumentoDetalle(null); void handleImprimir(documentoDetalle, 'a4'); }} className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <Printer size={14} />Imprimir
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Historial */}
+            {tabDetalle === 'historial' && (
+              <div className="p-6">
+                {!documentoDetalle.historial || documentoDetalle.historial.length === 0 ? (
+                  <div className="py-12 flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                      <Search size={18} />
+                    </div>
+                    <p className="text-sm">Aún no hay movimientos en el historial.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {[...documentoDetalle.historial].reverse().map((evento, idx) => {
+                      const fechaFormateada = (() => {
+                        try {
+                          return new Date(evento.fecha).toLocaleString('es-PE', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          });
+                        } catch {
+                          return evento.fecha;
+                        }
+                      })();
+                      return (
+                        <div key={idx} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className="w-2 h-2 rounded-full bg-violet-400 dark:bg-violet-500 mt-1.5 flex-shrink-0" />
+                            {idx < documentoDetalle.historial!.length - 1 && (
+                              <div className="w-px flex-1 bg-gray-200 dark:bg-gray-700 mt-1" />
+                            )}
+                          </div>
+                          <div className="pb-3 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{evento.accion}</p>
+                            {evento.detalle && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{evento.detalle}</p>
+                            )}
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                              {fechaFormateada}{evento.usuario ? ` · ${evento.usuario}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

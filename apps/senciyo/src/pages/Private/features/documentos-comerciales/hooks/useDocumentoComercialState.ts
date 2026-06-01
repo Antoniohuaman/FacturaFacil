@@ -47,7 +47,7 @@ export function useDocumentoComercialState(
   const [fechaEmision, setFechaEmision] = useState<string>(obtenerFechaHoyISO());
   const [cliente, setCliente] = useState<ClienteDocumentoComercial | null>(null);
   const [moneda, setMoneda] = useState<Currency>('PEN');
-  const [formaPago, setFormaPago] = useState<string>('contado');
+  const [formaPago, setFormaPago] = useState<string>('');
   const [camposOpcionales, setCamposOpcionales] = useState<CamposOpcionalesDocumentoComercial>({});
   const [observaciones, setObservaciones] = useState<string>('');
   const [notaInterna, setNotaInterna] = useState<string>('');
@@ -71,7 +71,7 @@ export function useDocumentoComercialState(
       setFechaEmision(obtenerFechaHoyISO());
       setCliente(null);
       setMoneda('PEN');
-      setFormaPago('contado');
+      setFormaPago('');
       setCamposOpcionales({});
       setObservaciones('');
       setNotaInterna('');

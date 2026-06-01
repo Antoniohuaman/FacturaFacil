@@ -8,6 +8,8 @@ import type {
   DatosFormularioDocumentoComercial,
   TipoDocumentoComercial,
   EstadoDocumentoComercial,
+  EventoHistorial,
+  Currency,
 } from '../models/documentoComercial.types';
 import {
   generarIdDocumento,
@@ -15,28 +17,38 @@ import {
   generarCorrelativoSeguro,
   obtenerFechaHoraISO,
   obtenerFechaHoyISO,
+  calcularDesgloseTributos,
 } from '../utils/documentoComercial.helpers';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
 
-const calcularTotalesItems = (items: CartItem[]): PaymentTotals => {
+const calcularTotalesItems = (items: CartItem[], moneda: Currency = 'PEN'): PaymentTotals => {
   if (!items || items.length === 0) {
-    return { subtotal: 0, igv: 0, total: 0, currency: 'PEN' };
+    return { subtotal: 0, igv: 0, total: 0, currency: moneda };
   }
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const subtotal = items.reduce((sum, item) => {
-    const precio = item.price * item.quantity;
-    if (item.igvType === 'igv18') return sum + precio / 1.18;
-    if (item.igvType === 'igv10') return sum + precio / 1.1;
-    return sum + precio;
-  }, 0);
-  const igv = total - subtotal;
+  const desglose = calcularDesgloseTributos(items);
+  const subtotal = desglose.reduce((s, g) => s + g.taxableBase, 0);
+  const igv = desglose.reduce((s, g) => s + g.taxAmount, 0);
+  const total = Math.round((subtotal + igv) * 100) / 100;
+  const taxBreakdown = desglose.map((d) => ({
+    key: d.key,
+    kind: d.kind,
+    igvRate: d.igvRate,
+    taxableBase: d.taxableBase,
+    taxAmount: d.taxAmount,
+    totalAmount: Math.round((d.taxableBase + d.taxAmount) * 100) / 100,
+  }));
   return {
     subtotal: Math.round(subtotal * 100) / 100,
     igv: Math.round(igv * 100) / 100,
-    total: Math.round(total * 100) / 100,
-    currency: 'PEN',
+    total,
+    currency: moneda,
+    taxBreakdown,
   };
 };
+
+function crearEvento(accion: string, usuario?: string, detalle?: string): EventoHistorial {
+  return { fecha: obtenerFechaHoraISO(), usuario, accion, detalle };
+}
 
 export interface ResultadoAccionDocumento {
   exito: boolean;
@@ -112,7 +124,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         vendedorId: session?.userId ?? undefined,
         moneda: datos.moneda,
         formaPago: datos.formaPago,
-        totales: calcularTotalesItems(datos.items),
+        totales: calcularTotalesItems(datos.items, datos.moneda),
         items: datos.items,
         modoItems: datos.modoItems,
         observaciones: datos.observaciones,
@@ -120,6 +132,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         camposOpcionales: datos.camposOpcionales,
         trazabilidad: datos.trazabilidad,
         establecimientoId: activeEstablecimientoId ?? undefined,
+        historial: [crearEvento('Documento generado', session?.userName)],
       };
 
       agregarDocumento(documento);
@@ -149,6 +162,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const numero = `${datos.serie}-${correlativo}`;
       const ahora = obtenerFechaHoraISO();
 
+      const eventoGenerado = crearEvento('Documento generado desde borrador', session?.userName);
       const documentoGenerado: DocumentoComercial = {
         ...doc,
         tipo: datos.tipo,
@@ -164,7 +178,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         vendedorId: session?.userId ?? doc.vendedorId,
         moneda: datos.moneda,
         formaPago: datos.formaPago,
-        totales: calcularTotalesItems(datos.items),
+        totales: calcularTotalesItems(datos.items, datos.moneda),
         items: datos.items,
         modoItems: datos.modoItems,
         observaciones: datos.observaciones,
@@ -175,6 +189,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         motivoAnulacion: undefined,
         fechaAnulacion: undefined,
         usuarioAnulacion: undefined,
+        historial: [...(doc.historial ?? []), eventoGenerado],
       };
 
       actualizarEnContext(documentoGenerado);
@@ -210,7 +225,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         vendedorId: session?.userId ?? undefined,
         moneda: datos.moneda,
         formaPago: datos.formaPago,
-        totales: calcularTotalesItems(datos.items),
+        totales: calcularTotalesItems(datos.items, datos.moneda),
         items: datos.items,
         modoItems: datos.modoItems,
         observaciones: datos.observaciones,
@@ -218,6 +233,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         camposOpcionales: datos.camposOpcionales,
         trazabilidad: datos.trazabilidad,
         establecimientoId: activeEstablecimientoId ?? undefined,
+        historial: [crearEvento('Borrador creado', session?.userName)],
       };
 
       agregarDocumento(borrador);
@@ -236,6 +252,11 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const items = datos.items ?? documentoExistente.items;
       const ahora = obtenerFechaHoraISO();
 
+      const monedaActualizada = datos.moneda ?? documentoExistente.moneda;
+      const eventoActualizado = crearEvento(
+        documentoExistente.esBorrador ? 'Borrador actualizado' : 'Documento actualizado',
+        session?.userName,
+      );
       const documentoActualizado: DocumentoComercial = {
         ...documentoExistente,
         ...datos,
@@ -243,15 +264,16 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         items,
         totales:
           datos.items !== undefined
-            ? calcularTotalesItems(datos.items)
+            ? calcularTotalesItems(datos.items, monedaActualizada)
             : documentoExistente.totales,
         fechaActualizacion: ahora,
+        historial: [...(documentoExistente.historial ?? []), eventoActualizado],
       };
 
       actualizarEnContext(documentoActualizado);
       return { exito: true, documento: documentoActualizado };
     },
-    [state.documentos, actualizarEnContext],
+    [state.documentos, actualizarEnContext, session],
   );
 
   const anularDocumento = useCallback(
@@ -264,6 +286,11 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         return { exito: false, error: 'El motivo de anulación es obligatorio.' };
 
       const ahora = obtenerFechaHoraISO();
+      const eventoAnulacion = crearEvento(
+        'Documento anulado',
+        session?.userName,
+        `Motivo: ${motivo.trim()}`,
+      );
       const actualizado: DocumentoComercial = {
         ...doc,
         estado: 'Anulada',
@@ -271,6 +298,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         motivoAnulacion: motivo.trim(),
         fechaAnulacion: ahora,
         usuarioAnulacion: session?.userName ?? undefined,
+        historial: [...(doc.historial ?? []), eventoAnulacion],
       };
       actualizarEnContext(actualizado);
       return { exito: true, documento: actualizado };
@@ -286,6 +314,11 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const ahora = obtenerFechaHoraISO();
       const tipo = nuevoTipo ?? doc.tipo;
 
+      const origenNumero = doc.numero ?? doc.serie;
+      const eventoDuplicado = crearEvento(
+        `Borrador creado por duplicación de ${origenNumero}`,
+        session?.userName,
+      );
       const duplicado: DocumentoComercial = {
         ...doc,
         id: generarIdBorrador(),
@@ -302,12 +335,13 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         motivoAnulacion: undefined,
         fechaAnulacion: undefined,
         usuarioAnulacion: undefined,
+        historial: [eventoDuplicado],
       };
 
       agregarDocumento(duplicado);
       return { exito: true, documento: duplicado };
     },
-    [state.documentos, agregarDocumento],
+    [state.documentos, agregarDocumento, session],
   );
 
   const eliminarBorrador = useCallback(
