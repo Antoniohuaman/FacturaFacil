@@ -3,7 +3,19 @@ import type {
   CargaReutilizacionDocumentoComercial,
   InstantaneaDocumentoComercial,
 } from '../../comprobantes-electronicos/models/instantaneaDocumentoComercial';
-import type { TipoComprobante } from '../../comprobantes-electronicos/models/comprobante.types';
+import type { TipoComprobante, CartItem } from '../../comprobantes-electronicos/models/comprobante.types';
+import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { getAvailableStockForUnit } from '@/shared/inventory/stockGateway';
+
+/**
+ * Parámetros de contexto de inventario para que los items del comprobante
+ * muestren el stock disponible real en lugar del stock congelado de la OV.
+ */
+export interface OpcionesConversionOV {
+  almacenes: Almacen[];
+  establecimientoId?: string;
+}
 
 /**
  * Determina si la OV debe abrir como Factura o Boleta según el documento del cliente.
@@ -23,6 +35,42 @@ function codigoSunatDocumento(tipoDocumento?: string): string | null {
   if (tipo === 'CE') return '4';
   if (tipo === 'PAS') return '7';
   return null;
+}
+
+/**
+ * Refresca el campo `stock` de un CartItem desde el inventario actual.
+ * Usa la misma fuente y lógica que usa el formulario de comprobantes directos:
+ * `getAvailableStockForUnit` de stockGateway (real − reservado en la unidad del ítem).
+ *
+ * No modifica ítems de entrada libre — éstos no tienen respaldo en catálogo.
+ * Si el producto no se encuentra en el store, mantiene el campo original.
+ */
+function refrescarStockItem(
+  item: CartItem,
+  almacenes: Almacen[],
+  establecimientoId: string | undefined,
+): CartItem {
+  if (item.tipoDetalle === 'libre') return item;
+  if (!item.code) return item;
+
+  const productos = useProductStore.getState().allProducts;
+  const producto = productos.find((p) => p.codigo === item.code);
+  if (!producto) return item;
+
+  const unitCode =
+    (item as { presentacionId?: string }).presentacionId ||
+    item.unidadMedida ||
+    (item as { unit?: string }).unit ||
+    undefined;
+
+  const stockInfo = getAvailableStockForUnit({
+    product: producto,
+    almacenes,
+    EstablecimientoId: establecimientoId,
+    unitCode,
+  });
+
+  return { ...item, stock: stockInfo.availableInUnidadSeleccionada };
 }
 
 /**
@@ -47,7 +95,6 @@ export function validarOVParaConversion(
     return { valido: false, error: 'La Orden de Venta no tiene productos o servicios.' };
   }
 
-  // Verificar que todos los bienes que requieren stock tengan reserva registrada
   for (const item of ov.items) {
     if (item.tipoBienServicio === 'servicio' || item.tipoDetalle === 'libre') continue;
     if (item.requiresStockControl !== true) continue;
@@ -67,24 +114,35 @@ export function validarOVParaConversion(
  * Construye el estado de navegación para abrir el formulario de comprobantes
  * precargado con los datos de la Orden de Venta.
  *
- * El patrón usado es el mismo que usa duplicación/conversión existente:
- * `{ fromConversion: true, conversionData: CargaReutilizacionDocumentoComercial }`
+ * IMPORTANTE — stock en tiempo real:
+ * Recalcula el campo `stock` de cada ítem desde el inventario actual usando
+ * `getAvailableStockForUnit`, que es la misma fuente que usa el comprobante
+ * directo y el POS. El stock congelado en la OV NO se usa como valor visible.
  *
- * La clave `relaciones.idDocumentoFuente = ov.id` y
- * `relaciones.tipoDocumentoFuente = 'orden_venta'` son leídas por
- * `useDuplicateDataLoader` para escribir `conversionSourceId/Type` en
- * sessionStorage, que luego usa `useComprobanteActions` en step 7.
+ * El disponible mostrado = stock real del almacén − stock reservado total.
+ * Esto puede ser menor que la cantidad de la OV (porque la OV ya reservó stock),
+ * pero `createComprobante` puede atenderla porque `allocateSaleAcrossalmacenes`
+ * con `respectReservations: true` asigna desde el disponible actual y la OV
+ * libera su reserva en step 7 post-emisión.
  */
 export function construirCargaConversionDesdeOV(
   ov: DocumentoComercial,
+  opciones?: OpcionesConversionOV,
 ): { state: { fromConversion: true; conversionData: CargaReutilizacionDocumentoComercial } } {
+  const almacenes = opciones?.almacenes ?? [];
+  const establecimientoId = opciones?.establecimientoId;
+
   const tipoComprobante = determinarTipoComprobante(ov.cliente?.tipoDocumento);
   const refOV = ov.numero ?? '';
 
-  // Agregar referencia a la OV en las observaciones
   const observaciones = ov.observaciones
     ? `${ov.observaciones}\nRef. OV: ${refOV}`
     : `Ref. OV: ${refOV}`;
+
+  // Refrescar stock de cada ítem desde inventario actual (misma fuente que comprobante directo)
+  const itemsConStockActual = ov.items.map((item) =>
+    refrescarStockItem(item, almacenes, establecimientoId),
+  );
 
   const instantanea: InstantaneaDocumentoComercial = {
     version: 1,
@@ -143,7 +201,7 @@ export function construirCargaConversionDesdeOV(
       terminosCredito: null,
     },
     detalle: {
-      items: ov.items,
+      items: itemsConStockActual,   // stock en tiempo real, no congelado
       modoDetalle: ov.modoItems === 'libre' ? 'libre' : 'catalogo',
       contieneItemsCatalogo: ov.modoItems !== 'libre',
       contieneItemsLibres: ov.modoItems === 'libre',
@@ -155,7 +213,6 @@ export function construirCargaConversionDesdeOV(
       documentoRelacionadoId: null,
       documentoRelacionadoTipo: null,
       datosNotaCredito: null,
-      // Estos campos son leídos por useDuplicateDataLoader para set sessionStorage
       idDocumentoFuente: ov.id,
       tipoDocumentoFuente: 'orden_venta',
     },

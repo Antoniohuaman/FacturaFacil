@@ -11,6 +11,8 @@ import { DocumentoComercialPrintView } from './DocumentoComercialPrintView';
 import { useDocumentosComercialesContext } from '../contexts/DocumentosComercialesContext';
 import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActions';
 import { useFeedback } from '@/shared/feedback/useFeedback';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useTenant } from '@/shared/tenant/TenantContext';
 import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import { tryLsKey } from '@/shared/tenant';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
@@ -119,6 +121,8 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
   const { state } = useDocumentosComercialesContext();
   const { anularDocumento, duplicarDocumento, eliminarBorrador } = useDocumentoComercialActions();
   const feedback = useFeedback();
+  const { state: configState } = useConfigurationContext();
+  const { activeEstablecimientoId } = useTenant();
 
   const [busqueda, setBusqueda] = useState('');
   const [estadosFiltro, setEstadosFiltro] = useState<EstadoDocumentoComercial[]>([]);
@@ -245,9 +249,14 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
       feedback.error(validacion.error ?? 'No se puede generar el comprobante desde esta orden de venta.');
       return;
     }
-    const { state } = construirCargaConversionDesdeOV(doc);
-    navigate('/comprobantes/emision', { state });
-  }, [navigate, feedback]);
+    // Pasar almacenes y establecimientoId para que se calcule el stock real actual
+    // usando la misma fuente que el comprobante directo (no el stock congelado de la OV)
+    const { state: navState } = construirCargaConversionDesdeOV(doc, {
+      almacenes: configState.almacenes ?? [],
+      establecimientoId: activeEstablecimientoId ?? undefined,
+    });
+    navigate('/comprobantes/emision', { state: navState });
+  }, [navigate, feedback, configState.almacenes, activeEstablecimientoId]);
 
   const handleNuevo = useCallback(() => navigate(`/documentos-comerciales/nuevo/${tipo}`), [navigate, tipo]);
 
