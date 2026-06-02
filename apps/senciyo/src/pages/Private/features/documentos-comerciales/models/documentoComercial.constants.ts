@@ -61,11 +61,9 @@ export const ESTADOS_NOTA_VENTA: EstadoNotaVenta[] = [
 
 export const ESTADOS_ORDEN_VENTA: EstadoOrdenVenta[] = [
   'Borrador',
-  'Generada',
   'Reservada',
-  'Atendida parcial',
-  'Atendida total',
-  'Convertida',
+  'Atendida parcialmente',
+  'Atendida',
   'Anulada',
   'Vencida',
 ];

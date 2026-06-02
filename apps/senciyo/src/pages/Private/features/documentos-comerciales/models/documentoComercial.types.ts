@@ -27,13 +27,23 @@ export type EstadoNotaVenta = 'Borrador' | 'Generada' | 'Convertida' | 'Anulada'
 
 export type EstadoOrdenVenta =
   | 'Borrador'
-  | 'Generada'
+  | 'Generada'              // legacy: documentos anteriores a FASE 1
   | 'Reservada'
-  | 'Atendida parcial'
-  | 'Atendida total'
-  | 'Convertida'
+  | 'Atendida parcial'      // legacy: renombrado a 'Atendida parcialmente'
+  | 'Atendida parcialmente'
+  | 'Atendida total'        // legacy: renombrado a 'Atendida'
+  | 'Atendida'
+  | 'Convertida'            // legacy
   | 'Anulada'
   | 'Vencida';
+
+export interface ReservaStockItem {
+  sku: string;
+  nombre: string;
+  cantidad: number;
+  almacenId: string;
+  almacenNombre?: string;
+}
 
 export type EstadoDocumentoComercial = EstadoCotizacion | EstadoNotaVenta | EstadoOrdenVenta;
 
@@ -116,6 +126,7 @@ export interface DocumentoComercial {
   usuarioAnulacion?: string;
 
   historial?: EventoHistorial[];
+  reservasStock?: ReservaStockItem[];
 }
 
 export interface FiltrosDocumentosComerciales {

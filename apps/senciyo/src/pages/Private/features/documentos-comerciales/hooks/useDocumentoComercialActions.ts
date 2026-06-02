@@ -10,6 +10,7 @@ import type {
   EstadoDocumentoComercial,
   EventoHistorial,
   Currency,
+  ReservaStockItem,
 } from '../models/documentoComercial.types';
 import {
   generarIdDocumento,
@@ -19,6 +20,11 @@ import {
   obtenerFechaHoyISO,
   calcularDesgloseTributos,
 } from '../utils/documentoComercial.helpers';
+import {
+  validarStockParaOrden,
+  reservarStockOrden,
+  liberarReservaOrden,
+} from '../utils/servicioReservaStock';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
 
 const calcularTotalesItems = (items: CartItem[], moneda: Currency = 'PEN'): PaymentTotals => {
@@ -98,6 +104,19 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const errorValidacion = validarDatos(datos);
       if (errorValidacion) return { exito: false, error: errorValidacion };
 
+      // Validación y reserva de stock para Orden de Venta
+      let reservasStock: ReservaStockItem[] | undefined;
+      if (datos.tipo === 'orden_venta') {
+        const validacion = validarStockParaOrden(
+          datos.items,
+          configState.almacenes ?? [],
+          activeEstablecimientoId ?? '',
+        );
+        if (!validacion.valido) {
+          return { exito: false, error: validacion.error };
+        }
+      }
+
       const correlativo = generarCorrelativoSeguro(
         datos.serie,
         state.documentos,
@@ -106,7 +125,25 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const numero = `${datos.serie}-${correlativo}`;
       const ahora = obtenerFechaHoraISO();
 
-      const estadoInicial: EstadoDocumentoComercial = 'Generada';
+      // OV queda en 'Reservada'; otros documentos en 'Generada'
+      const estadoInicial: EstadoDocumentoComercial =
+        datos.tipo === 'orden_venta' ? 'Reservada' : 'Generada';
+
+      // Reservar stock DESPUÉS de asignar correlativo (si pasa validación)
+      if (datos.tipo === 'orden_venta') {
+        reservasStock = reservarStockOrden(
+          datos.items,
+          configState.almacenes ?? [],
+          activeEstablecimientoId ?? '',
+        );
+      }
+
+      const accionHistorial =
+        datos.tipo === 'orden_venta' ? 'Orden de venta reservada' : 'Documento generado';
+      const detalleHistorial =
+        datos.tipo === 'orden_venta' && reservasStock && reservasStock.length > 0
+          ? `Productos reservados: ${reservasStock.map((r) => `${r.nombre} (${r.cantidad})`).join(', ')}`
+          : undefined;
 
       const documento: DocumentoComercial = {
         id: generarIdDocumento(),
@@ -132,7 +169,8 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         camposOpcionales: datos.camposOpcionales,
         trazabilidad: datos.trazabilidad,
         establecimientoId: activeEstablecimientoId ?? undefined,
-        historial: [crearEvento('Documento generado', session?.userName)],
+        reservasStock,
+        historial: [crearEvento(accionHistorial, session?.userName, detalleHistorial)],
       };
 
       agregarDocumento(documento);
@@ -142,6 +180,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       validarDatos,
       state.documentos,
       configState.series,
+      configState.almacenes,
       session,
       activeEstablecimientoId,
       agregarDocumento,
@@ -157,16 +196,49 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       if (!doc) return { exito: false, error: 'Documento no encontrado.' };
       if (!doc.esBorrador) return { exito: false, error: 'El documento no es un borrador.' };
 
+      // Validación de stock para OV antes de asignar correlativo
+      if (datos.tipo === 'orden_venta') {
+        const validacion = validarStockParaOrden(
+          datos.items,
+          configState.almacenes ?? [],
+          activeEstablecimientoId ?? '',
+        );
+        if (!validacion.valido) {
+          return { exito: false, error: validacion.error };
+        }
+      }
+
       const otrosDocs = state.documentos.filter((d) => d.id !== id);
       const correlativo = generarCorrelativoSeguro(datos.serie, otrosDocs, configState.series);
       const numero = `${datos.serie}-${correlativo}`;
       const ahora = obtenerFechaHoraISO();
 
-      const eventoGenerado = crearEvento('Documento generado desde borrador', session?.userName);
+      // Reservar stock DESPUÉS de asignar correlativo
+      let reservasStock: ReservaStockItem[] | undefined;
+      if (datos.tipo === 'orden_venta') {
+        reservasStock = reservarStockOrden(
+          datos.items,
+          configState.almacenes ?? [],
+          activeEstablecimientoId ?? '',
+        );
+      }
+
+      const estadoFinal: EstadoDocumentoComercial =
+        datos.tipo === 'orden_venta' ? 'Reservada' : 'Generada';
+      const accionHistorial =
+        datos.tipo === 'orden_venta'
+          ? 'Orden de venta reservada desde borrador'
+          : 'Documento generado desde borrador';
+      const detalleHistorial =
+        datos.tipo === 'orden_venta' && reservasStock && reservasStock.length > 0
+          ? `Productos reservados: ${reservasStock.map((r) => `${r.nombre} (${r.cantidad})`).join(', ')}`
+          : undefined;
+
+      const eventoGenerado = crearEvento(accionHistorial, session?.userName, detalleHistorial);
       const documentoGenerado: DocumentoComercial = {
         ...doc,
         tipo: datos.tipo,
-        estado: 'Generada',
+        estado: estadoFinal,
         esBorrador: false,
         serie: datos.serie,
         correlativo,
@@ -189,6 +261,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         motivoAnulacion: undefined,
         fechaAnulacion: undefined,
         usuarioAnulacion: undefined,
+        reservasStock,
         historial: [...(doc.historial ?? []), eventoGenerado],
       };
 
@@ -199,6 +272,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       validarDatos,
       state.documentos,
       configState.series,
+      configState.almacenes,
       session,
       activeEstablecimientoId,
       actualizarEnContext,
@@ -286,11 +360,20 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         return { exito: false, error: 'El motivo de anulación es obligatorio.' };
 
       const ahora = obtenerFechaHoraISO();
-      const eventoAnulacion = crearEvento(
-        'Documento anulado',
-        session?.userName,
-        `Motivo: ${motivo.trim()}`,
-      );
+
+      // Liberar reserva de stock si es una OV en estado Reservada
+      let accionHistorial = 'Documento anulado';
+      let detalleHistorial = `Motivo: ${motivo.trim()}`;
+      if (doc.tipo === 'orden_venta' && doc.estado === 'Reservada' && doc.reservasStock?.length) {
+        liberarReservaOrden(doc.reservasStock);
+        accionHistorial = 'Reserva liberada por anulación';
+        const productosLiberados = doc.reservasStock
+          .map((r) => `${r.nombre} (${r.cantidad})`)
+          .join(', ');
+        detalleHistorial = `Motivo: ${motivo.trim()}. Productos liberados: ${productosLiberados}`;
+      }
+
+      const eventoAnulacion = crearEvento(accionHistorial, session?.userName, detalleHistorial);
       const actualizado: DocumentoComercial = {
         ...doc,
         estado: 'Anulada',
@@ -335,6 +418,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         motivoAnulacion: undefined,
         fechaAnulacion: undefined,
         usuarioAnulacion: undefined,
+        reservasStock: undefined, // el borrador duplicado no hereda reservas
         historial: [eventoDuplicado],
       };
 

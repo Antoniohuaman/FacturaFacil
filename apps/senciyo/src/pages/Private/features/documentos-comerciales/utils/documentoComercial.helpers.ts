@@ -189,6 +189,7 @@ export const obtenerColorEstado = (
     case 'Generada':
       return 'blue';
     case 'Aprobada':
+    case 'Atendida':
     case 'Atendida total':
       return 'green';
     case 'Rechazada':
@@ -200,6 +201,7 @@ export const obtenerColorEstado = (
     case 'Vencida':
       return 'orange';
     case 'Reservada':
+    case 'Atendida parcialmente':
     case 'Atendida parcial':
       return 'yellow';
     default:

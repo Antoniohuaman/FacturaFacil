@@ -67,7 +67,12 @@ const COLUMNAS_VISIBLES_DEFAULT = new Set([
 const OPCIONES_REGISTROS = [10, 25, 50];
 
 function puedeEditar(doc: DocumentoComercial): boolean {
-  return doc.esBorrador || ['Generada', 'Aprobada', 'Reservada', 'Atendida parcial'].includes(doc.estado);
+  // OV en Reservada no se puede editar (stock comprometido)
+  if (doc.tipo === 'orden_venta' && doc.estado === 'Reservada') return false;
+  return (
+    doc.esBorrador ||
+    ['Generada', 'Aprobada', 'Reservada', 'Atendida parcial', 'Atendida parcialmente'].includes(doc.estado)
+  );
 }
 
 function puedeAnular(doc: DocumentoComercial): boolean {
@@ -643,6 +648,52 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
                       })}
                       <div className="flex justify-between font-bold text-sm text-gray-900 dark:text-white pt-1"><span>Total</span><span>{obtenerSimboloMoneda(documentoDetalle.moneda)} {documentoDetalle.totales.total.toFixed(2)}</span></div>
                     </div>
+                  </div>
+                )}
+
+                {/* Sección de reserva de stock — solo para Orden de Venta */}
+                {documentoDetalle.tipo === 'orden_venta' && documentoDetalle.items.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Reserva de stock</p>
+                    <div className="space-y-1.5">
+                      {documentoDetalle.items.map((item) => {
+                        const esBien =
+                          item.tipoBienServicio === 'bien' ||
+                          (item.tipoBienServicio !== 'servicio' && item.tipoDetalle !== 'libre' && item.requiresStockControl === true);
+                        const esBienLibre = item.tipoDetalle === 'libre' && item.tipoBienServicio !== 'servicio';
+                        const reserva = documentoDetalle.reservasStock?.find((r) => r.sku === item.code);
+                        const ovReservada = documentoDetalle.estado === 'Reservada';
+                        return (
+                          <div key={item.id} className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 space-y-0.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-gray-800 dark:text-gray-100 truncate flex-1">{item.name}</span>
+                              <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${esBien || esBienLibre ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700'}`}>
+                                {item.tipoBienServicio === 'servicio' ? 'Servicio' : 'Bien'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                              <span>Solicitado: {item.quantity}</span>
+                              {item.tipoBienServicio === 'servicio' ? (
+                                <span className="text-gray-400 italic">No aplica</span>
+                              ) : esBienLibre ? (
+                                <span className="text-gray-400 italic">Ítem libre — sin reserva</span>
+                              ) : reserva ? (
+                                <span className="text-green-600 dark:text-green-400 font-medium">Reservado: {reserva.cantidad} ✓</span>
+                              ) : ovReservada ? (
+                                <span className="text-amber-600 dark:text-amber-400">Sin reserva registrada</span>
+                              ) : (
+                                <span className="text-gray-400">Pendiente</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {documentoDetalle.reservasStock?.[0]?.almacenNombre && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        Almacén: {documentoDetalle.reservasStock[0].almacenNombre}
+                      </p>
+                    )}
                   </div>
                 )}
 
