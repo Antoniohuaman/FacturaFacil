@@ -1268,7 +1268,19 @@ const InvoiceListDashboard = () => {
           canGenerateCreditNote={canGenerateCreditNote}
           onEdit={(invoice) => navigate('/comprobantes/emision', { state: { edit: invoice } })}
           onVoid={handleVoid}
-          onNavigateToDocuments={() => navigate('/documentos')}
+          onNavigateToDocuments={(invoice) => {
+            // OV como documento origen: navegar a Documentos Comerciales con state para abrir el drawer
+            if (
+              (invoice.sourceDocumentType === 'orden_venta' || invoice.relatedDocumentType === 'orden_venta') &&
+              invoice.sourceDocumentId
+            ) {
+              navigate('/documentos-comerciales', {
+                state: { tipo: 'orden_venta', abrirDetalleId: invoice.sourceDocumentId },
+              });
+              return;
+            }
+            // Para otros tipos de documento relacionado, no navegar a ruta inválida
+          }}
           onGenerateCobranza={handleGenerateCobranza}
           canGenerateCobranza={canGenerateCobranza}
           hasDateFilter={Boolean(dateFrom || dateTo)}

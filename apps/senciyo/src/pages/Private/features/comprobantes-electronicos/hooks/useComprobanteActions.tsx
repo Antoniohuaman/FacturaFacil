@@ -765,6 +765,8 @@ export const useComprobanteActions = () => {
         // ✅ VERIFICAR SI VIENE DE CONVERSIÓN PARA AGREGAR CORRELACIÓN
         const conversionSourceId = sessionStorage.getItem('conversionSourceId');
         const conversionSourceType = sessionStorage.getItem('conversionSourceType');
+        // Número visible del documento origen (ej: OV01-00000005); ausente en flujos no-OV
+        const conversionSourceNumber = sessionStorage.getItem('conversionSourceNumber');
         const targetEstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
         const Establecimiento = targetEstablecimientoId
           ? (session?.availableEstablecimientos || []).find((est) => est.id === targetEstablecimientoId) || session?.currentEstablecimiento
@@ -899,8 +901,12 @@ export const useComprobanteActions = () => {
             sourceDocumentType: data.noteCreditData.documentoRelacionado.tipoDocumentoLabelOrigen,
           } : {}),
           ...(!isNoteCredit && conversionSourceId && conversionSourceType ? {
-            relatedDocumentId: conversionSourceId,
+            // relatedDocumentId: número VISIBLE del documento origen (OV01-00000005)
+            // sourceDocumentId: UUID técnico, mismo patrón que Nota de Crédito
+            relatedDocumentId: conversionSourceNumber || conversionSourceId,
             relatedDocumentType: conversionSourceType,
+            sourceDocumentId: conversionSourceId,
+            sourceDocumentType: conversionSourceType,
             convertedFromDocument: true
           } : {})
         };
@@ -973,6 +979,7 @@ export const useComprobanteActions = () => {
             // Limpiar sessionStorage
             sessionStorage.removeItem('conversionSourceId');
             sessionStorage.removeItem('conversionSourceType');
+            sessionStorage.removeItem('conversionSourceNumber');
           }
         } catch (conversionError) {
           console.error('Error actualizando documento origen:', conversionError);

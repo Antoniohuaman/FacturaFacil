@@ -16,13 +16,16 @@ export default function DocumentosComerciales() {
   const location = useLocation();
   const { state: ctxState } = useDocumentosComercialesContext();
 
-  const tipoInicial =
-    (location.state as { tipo?: TipoDocumentoComercial } | null)?.tipo ?? 'cotizacion';
+  type LocationState = { tipo?: TipoDocumentoComercial; abrirDetalleId?: string } | null;
+
+  const locationState = location.state as LocationState;
+  const tipoInicial = locationState?.tipo ?? 'cotizacion';
+  const abrirDetalleId = locationState?.abrirDetalleId;
 
   const [tabActivo, setTabActivo] = useState<TipoDocumentoComercial>(tipoInicial);
 
   useEffect(() => {
-    const tipo = (location.state as { tipo?: TipoDocumentoComercial } | null)?.tipo;
+    const tipo = (location.state as LocationState)?.tipo;
     if (tipo && tipo !== tabActivo) {
       setTabActivo(tipo);
     }
@@ -81,7 +84,7 @@ export default function DocumentosComerciales() {
 
       {/* Contenido del tab activo */}
       <div className="px-6 py-6">
-        <ListadoDocumentosComerciales tipo={tabActivo} />
+        <ListadoDocumentosComerciales tipo={tabActivo} abrirDetalleId={abrirDetalleId} />
       </div>
     </div>
   );

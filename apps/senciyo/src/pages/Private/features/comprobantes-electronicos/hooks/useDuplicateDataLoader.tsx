@@ -147,10 +147,18 @@ export const useDuplicateDataLoader = (handlers: DuplicateDataHandlers) => {
         const sourceDocumentType =
           dataToLoad.instantaneaDocumentoComercial.relaciones.tipoDocumentoFuente
           || dataToLoad.instantaneaDocumentoComercial.relaciones.documentoOrigenTipo;
+        // Número visible del documento origen (ej: OV01-00000005), usado para display en lista
+        const sourceDocumentNumber =
+          dataToLoad.instantaneaDocumentoComercial.identidad.idInterno || null;
 
         if (sourceDocumentId) {
           sessionStorage.setItem('conversionSourceId', sourceDocumentId);
           sessionStorage.setItem('conversionSourceType', sourceDocumentType || '');
+          if (sourceDocumentNumber) {
+            sessionStorage.setItem('conversionSourceNumber', sourceDocumentNumber);
+          } else {
+            sessionStorage.removeItem('conversionSourceNumber');
+          }
         }
       }
 

@@ -44,8 +44,10 @@ function codigoSunatDocumento(tipoDocumento?: string): string | null {
  *
  * No modifica ítems de entrada libre — éstos no tienen respaldo en catálogo.
  * Si el producto no se encuentra en el store, mantiene el campo original.
+ *
+ * Exportada también para reutilizar en duplicación de documentos comerciales.
  */
-function refrescarStockItem(
+export function refrescarStockItem(
   item: CartItem,
   almacenes: Almacen[],
   establecimientoId: string | undefined,

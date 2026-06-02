@@ -45,7 +45,7 @@ interface InvoiceListTableProps {
 	onVoid: (invoice: Comprobante) => void;
 	onGenerateCreditNote?: (invoice: Comprobante) => void;
 	canGenerateCreditNote?: (invoice: Comprobante) => boolean;
-	onNavigateToDocuments: () => void;
+	onNavigateToDocuments: (invoice: Comprobante) => void;
 	onGenerateCobranza?: (invoice: Comprobante) => void;
 	canGenerateCobranza?: (invoice: Comprobante) => boolean;
 	hasDateFilter: boolean;
@@ -370,13 +370,22 @@ interface InvoiceCellProps {
 	onVoid: () => void;
 	onGenerateCreditNote?: () => void;
 	canGenerateCreditNote?: boolean;
-	onNavigateToDocuments: () => void;
+	onNavigateToDocuments: (invoice: Comprobante) => void;
 	onGenerateCobranza?: () => void;
 	canGenerateCobranza?: boolean;
 	openMenuId: string | null;
 	menuPosition: { top: number; left: number } | null;
 	toggleMenu: (invoiceId: string | null, anchor?: DOMRect) => void;
 	renderStatusBadge: (status: string) => ReactNode;
+}
+
+/** Retorna true solo si el valor parece un número de documento legible por el usuario.
+ *  Filtra UUIDs (xxxxxxxx-xxxx-…), ids de borrador (borrador_…) y valores vacíos. */
+function esNumeroDocumentoVisible(id: string | undefined | null): boolean {
+  if (!id) return false;
+  if (id.startsWith('borrador_')) return false;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return !uuidPattern.test(id);
 }
 
 const InvoiceCell = ({
@@ -508,11 +517,11 @@ const InvoiceCell = ({
 						📅 {invoice.date}
 					</div>
 				)}
-				{invoice.relatedDocumentId && (
+				{esNumeroDocumentoVisible(invoice.relatedDocumentId) && (
 					<button
-						onClick={onNavigateToDocuments}
+						onClick={() => onNavigateToDocuments(invoice)}
 						className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 rounded-full w-fit mt-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer transition-colors"
-						title={`Ver ${invoice.relatedDocumentType}: ${invoice.relatedDocumentId}`}
+						title={`Ver ${invoice.relatedDocumentType ?? 'documento'}: ${invoice.relatedDocumentId}`}
 					>
 						<Link className="w-3 h-3 text-blue-600 dark:text-blue-400" />
 						<span className="text-xs text-blue-700 dark:text-blue-300 font-medium">

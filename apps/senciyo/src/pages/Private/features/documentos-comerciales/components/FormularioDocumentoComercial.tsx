@@ -220,7 +220,7 @@ export default function FormularioDocumentoComercial({
     modo === 'nuevo'
       ? `Nueva ${labelTipo.toLowerCase()}`
       : modo === 'duplicar'
-      ? `Duplicar ${labelTipo.toLowerCase()}`
+      ? `Nueva ${labelTipo.toLowerCase()}`
       : esBorradorEdicion
       ? `Retomar borrador de ${labelTipo.toLowerCase()}`
       : `Editar ${documentoExistente?.numero ?? labelTipo.toLowerCase()}`;

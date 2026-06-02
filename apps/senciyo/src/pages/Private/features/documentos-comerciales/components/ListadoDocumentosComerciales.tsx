@@ -19,6 +19,7 @@ import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprob
 import {
   validarOVParaConversion,
   construirCargaConversionDesdeOV,
+  refrescarStockItem,
 } from '../utils/convertirOVaComprobante';
 import type {
   TipoDocumentoComercial,
@@ -41,6 +42,8 @@ import {
 
 interface ListadoDocumentosComercialesProps {
   tipo: TipoDocumentoComercial;
+  /** Si se provee, auto-abre el drawer de detalle para ese documento al montar. */
+  abrirDetalleId?: string;
 }
 
 interface ColumnaDef {
@@ -116,7 +119,7 @@ function guardarColumnasEnStorage(tipo: TipoDocumentoComercial, visibles: Set<st
 }
 
 
-export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentosComercialesProps) {
+export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: ListadoDocumentosComercialesProps) {
   const navigate = useNavigate();
   const { state } = useDocumentosComercialesContext();
   const { anularDocumento, duplicarDocumento, eliminarBorrador } = useDocumentoComercialActions();
@@ -165,6 +168,18 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
     window.addEventListener('scroll', handleScroll, true);
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [menuAbierto]);
+
+  // Auto-abrir drawer cuando se navega desde comprobante con id de OV relacionada
+  const abrirDetalleIdProcesadoRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!abrirDetalleId || abrirDetalleId === abrirDetalleIdProcesadoRef.current) return;
+    const doc = state.documentos.find((d) => d.id === abrirDetalleId);
+    if (doc) {
+      abrirDetalleIdProcesadoRef.current = abrirDetalleId;
+      setTabDetalle('detalle');
+      setDocumentoDetalle(doc);
+    }
+  }, [abrirDetalleId, state.documentos]);
 
   const labelTipo = TIPO_DOCUMENTO_COMERCIAL_LABELS[tipo];
   const estadosDisponibles = ESTADOS_POR_TIPO[tipo];
@@ -270,13 +285,19 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
     const resultado = duplicarDocumento(id);
     if (resultado.exito && resultado.documento) {
       feedback.success('Documento duplicado como borrador.');
+      // Refrescar stock de cada ítem desde inventario actual (no usar stock congelado de la OV original)
+      const almacenesActuales = configState.almacenes ?? [];
+      const itemsConStockActual = resultado.documento.items.map((item) =>
+        refrescarStockItem(item, almacenesActuales, activeEstablecimientoId ?? undefined),
+      );
+      const documentoConStock = { ...resultado.documento, items: itemsConStockActual };
       navigate(`/documentos-comerciales/editar/${resultado.documento.id}`, {
-        state: { documento: resultado.documento, modo: 'duplicar' },
+        state: { documento: documentoConStock, modo: 'duplicar' },
       });
     } else {
       feedback.error(resultado.error ?? 'Error al duplicar el documento.');
     }
-  }, [duplicarDocumento, feedback, navigate]);
+  }, [duplicarDocumento, feedback, navigate, configState.almacenes, activeEstablecimientoId]);
 
   const handleConfirmarAccion = useCallback(() => {
     if (!confirmandoAccion) return;
