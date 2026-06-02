@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, createElement } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FileCheck } from 'lucide-react';
 import {
   Plus, Search, MoreHorizontal, Edit3, Copy, Ban, Trash2, Eye,
   ChevronLeft, ChevronRight, X, Printer, Share2, Download,
@@ -13,6 +14,10 @@ import { useFeedback } from '@/shared/feedback/useFeedback';
 import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import { tryLsKey } from '@/shared/tenant';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
+import {
+  validarOVParaConversion,
+  construirCargaConversionDesdeOV,
+} from '../utils/convertirOVaComprobante';
 import type {
   TipoDocumentoComercial,
   DocumentoComercial,
@@ -76,7 +81,13 @@ function puedeEditar(doc: DocumentoComercial): boolean {
 }
 
 function puedeAnular(doc: DocumentoComercial): boolean {
+  // OV Atendida no puede anularse (ya tiene comprobante emitido)
+  if (doc.tipo === 'orden_venta' && doc.estado === 'Atendida') return false;
   return !doc.esBorrador && doc.estado !== 'Anulada' && doc.estado !== 'Convertida';
+}
+
+function puedeConvertir(doc: DocumentoComercial): boolean {
+  return doc.tipo === 'orden_venta' && doc.estado === 'Reservada' && !doc.esBorrador;
 }
 
 function generarTextoCompartir(doc: DocumentoComercial, labelTipo: string): string {
@@ -226,6 +237,17 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
       return docId;
     });
   }, []);
+
+  const handleGenerarComprobante = useCallback((doc: DocumentoComercial) => {
+    setMenuAbierto(null); setMenuPosicion(null);
+    const validacion = validarOVParaConversion(doc);
+    if (!validacion.valido) {
+      feedback.error(validacion.error ?? 'No se puede generar el comprobante desde esta orden de venta.');
+      return;
+    }
+    const { state } = construirCargaConversionDesdeOV(doc);
+    navigate('/comprobantes/emision', { state });
+  }, [navigate, feedback]);
 
   const handleNuevo = useCallback(() => navigate(`/documentos-comerciales/nuevo/${tipo}`), [navigate, tipo]);
 
@@ -514,6 +536,11 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
               )}
             </>
           )}
+          {puedeConvertir(menuDocActual) && (
+            <button type="button" onClick={() => handleGenerarComprobante(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-left font-medium">
+              <FileCheck size={14} />Generar comprobante
+            </button>
+          )}
           {puedeAnular(menuDocActual) && <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setConfirmandoAccion({ tipo: 'anular', id: menuDocActual.id, numero: menuDocActual.numero, motivo: '' }); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left"><Ban size={14} />Anular</button>}
           {menuDocActual.esBorrador && <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setConfirmandoAccion({ tipo: 'eliminar', id: menuDocActual.id, motivo: '' }); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left"><Trash2 size={14} />Eliminar borrador</button>}
         </div>
@@ -607,6 +634,12 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
 
                 {documentoDetalle.trazabilidad?.documentoOrigenNumero && (
                   <div><p className="text-xs text-gray-500 mb-1">Doc. relacionado</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
+                )}
+                {documentoDetalle.trazabilidad?.documentoDestinoNumero && documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' && (
+                  <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3">
+                    <p className="text-xs font-semibold text-violet-600 uppercase mb-1">Comprobante generado</p>
+                    <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
+                  </div>
                 )}
 
                 {documentoDetalle.motivoAnulacion && (
@@ -702,6 +735,15 @@ export default function ListadoDocumentosComerciales({ tipo }: ListadoDocumentos
                 )}
 
                 <div className="pt-4 flex gap-3 flex-wrap">
+                  {puedeConvertir(documentoDetalle) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDocumentoDetalle(null); handleGenerarComprobante(documentoDetalle); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg shadow-sm transition-all"
+                    >
+                      <FileCheck size={14} />Generar comprobante
+                    </button>
+                  )}
                   {puedeEditar(documentoDetalle) && (
                     <button type="button" onClick={() => { setDocumentoDetalle(null); handleEditar(documentoDetalle); }} className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-violet-300 text-violet-700 dark:text-violet-300 dark:border-violet-600 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors">
                       <Edit3 size={14} />{documentoDetalle.esBorrador ? 'Retomar' : 'Editar'}

@@ -11,6 +11,7 @@ import type {
   TipoComprobante,
 } from '../models/comprobante.types';
 import { lsKey } from '../../../../../shared/tenant';
+import { actualizarOrdenVentaPostEmision } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import { mapPaymentMethodToMedioPago } from '../../../../../shared/payments/paymentMapping';
 // Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
 import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facade';
@@ -936,33 +937,39 @@ export const useComprobanteActions = () => {
           const conversionSourceType = sessionStorage.getItem('conversionSourceType');
           
           if (!isNoteCredit && conversionSourceId && conversionSourceType) {
-            // Obtener documentos del localStorage
-            const documentosLS = localStorage.getItem(lsKey('documentos_negociacion'));
-            if (documentosLS) {
-              const documentos = JSON.parse(documentosLS);
-              
-              // Buscar y actualizar el documento origen
-              const updatedDocumentos = documentos.map((doc: any) => {
-                if (doc.id === conversionSourceId) {
-                  return {
-                    ...doc,
-                    status: 'Convertido',
-                    statusColor: 'green',
-                    relatedDocumentId: numeroComprobante,
-                    relatedDocumentType: tipoComprobanteDisplay,
-                    convertedToInvoice: true,
-                    convertedDate: formatBusinessDateTimeIso(getBusinessNow())
-                  };
-                }
-                return doc;
-              });
-              
-              // Guardar documentos actualizados
-              localStorage.setItem(lsKey('documentos_negociacion'), JSON.stringify(updatedDocumentos));
-              
-              console.log(`✅ Documento ${conversionSourceId} actualizado con relación a ${numeroComprobante}`);
+            // Actualizar documento en documentos_negociacion (fuente legacy)
+            if (conversionSourceType !== 'orden_venta') {
+              const documentosLS = localStorage.getItem(lsKey('documentos_negociacion'));
+              if (documentosLS) {
+                const documentos = JSON.parse(documentosLS);
+                const updatedDocumentos = documentos.map((doc: any) => {
+                  if (doc.id === conversionSourceId) {
+                    return {
+                      ...doc,
+                      status: 'Convertido',
+                      statusColor: 'green',
+                      relatedDocumentId: numeroComprobante,
+                      relatedDocumentType: tipoComprobanteDisplay,
+                      convertedToInvoice: true,
+                      convertedDate: formatBusinessDateTimeIso(getBusinessNow()),
+                    };
+                  }
+                  return doc;
+                });
+                localStorage.setItem(lsKey('documentos_negociacion'), JSON.stringify(updatedDocumentos));
+              }
             }
-            
+
+            // Actualizar Orden de Venta de documentos_comerciales (Fase 2)
+            if (conversionSourceType === 'orden_venta') {
+              actualizarOrdenVentaPostEmision(conversionSourceId, {
+                tipoComprobante: tipoComprobanteDisplay,
+                numeroComprobante,
+                total: data.totals?.total ?? 0,
+                usuario: session?.userName ?? undefined,
+              });
+            }
+
             // Limpiar sessionStorage
             sessionStorage.removeItem('conversionSourceId');
             sessionStorage.removeItem('conversionSourceType');

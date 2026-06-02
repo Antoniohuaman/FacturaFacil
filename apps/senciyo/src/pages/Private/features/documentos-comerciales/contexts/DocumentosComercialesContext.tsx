@@ -60,6 +60,16 @@ export function DocumentosComercialesProvider({ children }: { children: ReactNod
     dispatch({ type: 'ESTABLECER_DOCUMENTOS', payload: documentos });
   }, []);
 
+  // Recarga desde storage cuando otro módulo actualiza los documentos (ej: post-emisión de comprobante)
+  useEffect(() => {
+    const handleExternal = () => {
+      const documentos = cargarDocumentosDesdeStorage();
+      dispatch({ type: 'ESTABLECER_DOCUMENTOS', payload: documentos });
+    };
+    window.addEventListener('documentos_comerciales_changed', handleExternal);
+    return () => window.removeEventListener('documentos_comerciales_changed', handleExternal);
+  }, []);
+
   useEffect(() => {
     guardarDocumentosEnStorage(state.documentos);
   }, [state.documentos]);
