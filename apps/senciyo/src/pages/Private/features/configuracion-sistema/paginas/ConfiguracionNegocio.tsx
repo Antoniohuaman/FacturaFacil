@@ -9,7 +9,8 @@ import {
   Receipt,
   Settings,
   Tag,
-  NotebookPen
+  NotebookPen,
+  FileCode2,
 } from 'lucide-react';
 import { PageHeader, Button } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -22,9 +23,10 @@ import { CategoriesSection } from '../components/negocio/SeccionCategorias';
 import { BankAccountsSection } from '../components/negocio/SeccionCuentasBancarias';
 import { AccountingDashboard } from '../components/negocio/TableroContable';
 import { AccountingAccountsSection } from '../components/negocio/SeccionCuentasContables';
+import { SeccionConfiguracionTributaria } from '../components/negocio/SeccionConfiguracionTributaria';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 
-type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'accounting' | 'preferences';
+type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'accounting' | 'preferences' | 'tributaria';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
@@ -57,7 +59,8 @@ export function BusinessConfiguration() {
     { id: 'taxes' as BusinessSection, label: 'Impuestos', icon: Receipt },
     { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
     { id: 'accounting' as BusinessSection, label: 'Datos contables', icon: NotebookPen },
-    { id: 'preferences' as BusinessSection, label: 'Preferencias', icon: Settings }
+    { id: 'preferences' as BusinessSection, label: 'Preferencias', icon: Settings },
+    { id: 'tributaria' as BusinessSection, label: 'Configuración tributaria', icon: FileCode2 },
   ];
 
   return (
@@ -80,8 +83,8 @@ export function BusinessConfiguration() {
         <div className="max-w-6xl mx-auto p-6 space-y-8">
           {/* Section Navigation */}
           <div className="bg-white rounded-lg border border-gray-200">
-            <div className="border-b border-gray-200">
-              <nav className="flex space-x-8 px-6 py-0 overflow-x-auto">
+            <div className="border-b border-gray-200 overflow-x-hidden">
+              <nav className="flex flex-wrap gap-x-1 px-3 py-0">
                 {sections.map((section) => {
                   const Icon = section.icon;
                   const isActive = activeSection === section.id;
@@ -191,6 +194,11 @@ export function BusinessConfiguration() {
                 ) : (
                   <AccountingAccountsSection onBack={() => setAccountingView('dashboard')} />
                 )
+              )}
+
+              {/* Configuración tributaria */}
+              {activeSection === 'tributaria' && (
+                <SeccionConfiguracionTributaria />
               )}
 
               {/* Preferences Section */}
