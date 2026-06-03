@@ -39,6 +39,8 @@ interface Product {
   codigoSunat?: string;
   unidad?: string; // ✅ Nombre de la unidad del producto
   unitSymbol?: string;
+  sujetoDetraccion?: boolean;
+  codigoDetraccion?: string | null;
 }
 
 interface ProductSelectorProps {
@@ -109,6 +111,8 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       codigoSunat: p.codigoSunat,
       unidad: p.unidad,
       unitSymbol: p.unitSymbol,
+      sujetoDetraccion: p.sujetoDetraccion,
+      codigoDetraccion: p.codigoDetraccion ?? null,
     };
   }, [EstablecimientoId, almacenes]);
 

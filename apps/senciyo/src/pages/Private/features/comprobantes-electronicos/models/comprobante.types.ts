@@ -125,6 +125,8 @@ export interface CartItem {
   unidad?: string; // ✅ Nombre de la unidad del producto (ej: "UNIDAD", "KILOGRAMO")
   unit?: string; // ✅ Alias usado por el POS para mostrar la unidad
   unitSymbol?: string; // ✅ Símbolo comercial snapshot del producto
+  sujetoDetraccion?: boolean;
+  codigoDetraccion?: string | null;
 }
 
 // ===================================================================
@@ -251,6 +253,26 @@ export interface ComprobanteCreditTerms {
   adelanto?: number;
   cuotasPendientes?: number;
   cuotasCanceladas?: number;
+}
+
+export type ResponsableDeposito = 'cliente' | 'empresa';
+
+/** Snapshot de detracción guardado en el comprobante al momento de emisión. */
+export interface DatosDetraccion {
+  codigoCatalogo54: string;
+  /** Snapshot de descripción al momento de emisión (fuente de verdad histórica). */
+  descripcionCatalogo54: string;
+  porcentaje: number;
+  tipoOperacion: string;
+  montoDetraccion: number;
+  montoDetraccionRedondeado: number;
+  montoParaDeposito: number;
+  netoACobrar: number;
+  medioPagoSunatCodigo: string;
+  cuentaBancoNacion: string;
+  responsableDeposito: ResponsableDeposito;
+  monedaCalculo: string;
+  tipoCambio: number | null;
 }
 
 // Tipos para configuración de caja temporal
@@ -506,6 +528,7 @@ export interface PreviewData {
   internalNotes?: string;
   creditTerms?: ComprobanteCreditTerms;
   notaCredito?: DatosNotaCredito;
+  datosDetraccion?: DatosDetraccion;
 }
 
 export interface DetailedTotals extends PaymentTotals {

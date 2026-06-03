@@ -5,6 +5,7 @@ import type {
   CartItem,
   ComprobanteCreditTerms,
   ComprobantePaymentTerms,
+  DatosDetraccion,
   DatosNotaCredito,
   PaymentCollectionPayload,
   Currency,
@@ -85,6 +86,8 @@ interface ComprobanteData {
   creditTerms?: ComprobanteCreditTerms;
   registrarPago?: boolean;
   noteCreditData?: DatosNotaCredito;
+  datosDetraccion?: DatosDetraccion;
+  tipoOperacion?: string;
 }
 
 const buildPaymentModeLabel = (isCreditSale: boolean, creditTerms?: ComprobanteCreditTerms): string => {
@@ -779,6 +782,7 @@ export const useComprobanteActions = () => {
           horaEmision: formatBusinessDateTimeIso(businessNow),
           moneda: resolvedCurrency as Currency,
           tipoCambio: data.exchangeRate ?? null,
+          tipoOperacion: data.tipoOperacion ?? null,
           origen:
             data.source === 'emision'
               ? 'emision_tradicional'
@@ -822,6 +826,7 @@ export const useComprobanteActions = () => {
             formaPagoDescripcion: paymentMethodLabel,
             detallesPago: data.paymentDetails ?? null,
             terminosCredito: data.creditTerms ?? null,
+            datosDetraccion: data.datosDetraccion ?? null,
           },
           items: data.cartItems,
           totales: {

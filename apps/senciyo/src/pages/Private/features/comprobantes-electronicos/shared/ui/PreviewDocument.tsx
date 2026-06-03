@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars -- variables temporales; limpieza diferida */
 import React from 'react';
 import type { PreviewData } from '../../models/comprobante.types';
+import { PAYMENT_MEANS_CATALOG } from '@/shared/payments/paymentMeans';
 import { useVoucherDesignConfigReader } from '../../../configuracion-sistema/hooks/useConfiguracionDisenoComprobante';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { formatMoney } from '@/shared/currency';
@@ -35,7 +36,12 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
     observations,
     creditTerms,
     notaCredito,
+    datosDetraccion,
   } = data;
+
+  const medioPagoDetraccionLabel = datosDetraccion
+    ? (PAYMENT_MEANS_CATALOG.find((m) => m.code === datosDetraccion.medioPagoSunatCodigo)?.sunatName ?? datosDetraccion.medioPagoSunatCodigo)
+    : null;
 
   const documentTitle = (() => {
     if (documentType === 'nota_credito') return 'NOTA DE CRÉDITO ELECTRÓNICA';
@@ -479,6 +485,47 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
                 <span>Total cuotas: {creditTerms.schedule.length}</span>
                 <span>Vencimiento global: {creditTerms.fechaVencimientoGlobal}</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Detracción SPOT — cuando aplica */}
+        {datosDetraccion && (
+          <div className="mb-5 rounded border border-gray-200 p-3">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-500 mb-2">
+              Operación sujeta al Sistema de Pago de Obligaciones Tributarias con el Gobierno Central
+            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-700">
+              <span className="text-gray-500">Código / Concepto</span>
+              <span className="text-right font-medium">
+                {datosDetraccion.codigoCatalogo54} — {datosDetraccion.descripcionCatalogo54}
+              </span>
+              <span className="text-gray-500">Porcentaje</span>
+              <span className="text-right font-medium">{datosDetraccion.porcentaje}%</span>
+              <span className="text-gray-500">Monto detracción</span>
+              <span className="text-right font-medium">S/ {datosDetraccion.montoParaDeposito.toFixed(2)}</span>
+              {datosDetraccion.cuentaBancoNacion && (
+                <>
+                  <span className="text-gray-500">Cta. Banco de la Nación</span>
+                  <span className="text-right font-medium">{datosDetraccion.cuentaBancoNacion}</span>
+                </>
+              )}
+              {medioPagoDetraccionLabel && (
+                <>
+                  <span className="text-gray-500">Medio de pago</span>
+                  <span className="text-right font-medium">
+                    {datosDetraccion.medioPagoSunatCodigo} — {medioPagoDetraccionLabel}
+                  </span>
+                </>
+              )}
+              <span className="text-gray-500">Responsable del depósito</span>
+              <span className="text-right font-medium capitalize">{datosDetraccion.responsableDeposito}</span>
+              <span className="text-gray-700 font-semibold border-t border-gray-100 pt-1 mt-0.5">
+                {datosDetraccion.responsableDeposito === 'cliente' ? 'Neto a cobrar' : 'Monto a cobrar'}
+              </span>
+              <span className="text-right font-bold border-t border-gray-100 pt-1 mt-0.5">
+                S/ {datosDetraccion.netoACobrar.toFixed(2)}
+              </span>
             </div>
           </div>
         )}

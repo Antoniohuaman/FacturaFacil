@@ -96,6 +96,13 @@ interface ProductsSectionProps {
   selectedEstablecimientoId?: string;
   preferredPriceColumnId?: string;
   mostrarDetalleCompleto?: boolean;
+  infoDetraccion?: {
+    porcentaje: number;
+    montoParaDeposito: number;
+    netoACobrar: number;
+    responsableDeposito: 'cliente' | 'empresa';
+  } | null;
+  idsConflictoDetraccion?: string[];
 }
 
 type ModoProductos = 'catalogo' | 'libre';
@@ -215,7 +222,13 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   preferredPriceColumnId,
   selectedEstablecimientoId,
   mostrarDetalleCompleto = false,
+  infoDetraccion = null,
+  idsConflictoDetraccion = [],
 }) => {
+  const conjuntoConflictoDetraccion = useMemo(
+    () => new Set(idsConflictoDetraccion),
+    [idsConflictoDetraccion],
+  );
   const { baseCurrency, documentCurrency, formatPrice, convertPrice } = useCurrency();
   const documentDecimals = documentCurrency.decimalPlaces ?? 2;
 
@@ -1043,6 +1056,11 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           <td className="px-3 py-2.5 sticky left-0 bg-white">
             <div>
               <div className="font-medium text-gray-900 text-xs">{item.name}</div>
+              {conjuntoConflictoDetraccion.has(item.id) && (
+                <p className="text-[10px] text-red-500 mt-0.5 leading-tight">
+                  Código de detracción en conflicto
+                </p>
+              )}
             </div>
           </td>
         );
@@ -1832,6 +1850,24 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
                 totalFallback={totals.total ?? 0}
               />
 
+              {infoDetraccion && (
+                <div className="space-y-1 border-t border-dashed border-gray-200 pt-2 mt-1">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Detracción ({infoDetraccion.porcentaje}%)</span>
+                    <span className="text-gray-700 font-medium">
+                      {formatPrice(infoDetraccion.montoParaDeposito, 'PEN')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">
+                      {infoDetraccion.responsableDeposito === 'cliente' ? 'Neto a cobrar' : 'Monto a cobrar'}
+                    </span>
+                    <span className="text-gray-800 font-semibold">
+                      {formatPrice(infoDetraccion.netoACobrar, 'PEN')}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className="pt-2.5 mt-2.5 border-t-2 border-dashed border-gray-300">
                 <div className="rounded-md border border-gray-200 bg-white px-3 py-2">
                   <div className="flex items-baseline justify-between gap-3">

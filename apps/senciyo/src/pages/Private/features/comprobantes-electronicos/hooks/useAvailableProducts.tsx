@@ -129,6 +129,8 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         unitSymbol: unitLabel || undefined,
         requiresStockControl,
         isFavorite: Boolean(product.isFavorite),
+        sujetoDetraccion: product.sujetoDetraccion,
+        codigoDetraccion: product.codigoDetraccion ?? null,
         // Datos adicionales del catálogo
         catalogData: {
           impuesto: product.impuesto,

@@ -3,6 +3,7 @@ import type {
   ComprobanteCreditTerms,
   ContextoOrigenNotaCredito,
   Currency,
+  DatosDetraccion,
   DatosNotaCredito,
   PaymentCollectionPayload,
   PaymentTotals,
@@ -37,6 +38,8 @@ export interface IdentidadDocumentoComercial {
   tipoDocumento: TipoDocumentoComercial;
   tipoComprobante: TipoComprobante | null;
   codigoSunat: string | null;
+  /** Tipo de operación Cat.51: '0101' venta interna, '1001'-'1004' detracción. */
+  tipoOperacion: string | null;
   serie: string | null;
   correlativo: string | null;
   numeroCompleto: string | null;
@@ -91,6 +94,7 @@ export interface CamposComercialesDocumentoComercial {
   formaPagoDescripcion: string | null;
   detallesPago: PaymentCollectionPayload | null;
   terminosCredito: ComprobanteCreditTerms | null;
+  datosDetraccion: DatosDetraccion | null;
 }
 
 export interface DetalleDocumentoComercial {
@@ -164,6 +168,7 @@ export interface OpcionesCrearInstantaneaDocumentoComercial {
   origen: OrigenDocumentoComercial;
   idDocumento: string | null;
   idInterno?: string | null;
+  tipoOperacion?: string | null;
   empresa?: Partial<EmpresaDocumentoComercial>;
   establecimiento?: Partial<EstablecimientoDocumentoComercial>;
   vendedor?: Partial<VendedorDocumentoComercial>;
@@ -342,6 +347,7 @@ const combinarInstantaneaDocumentoComercial = (
       tipoDocumento: principal.identidad.tipoDocumento ?? respaldo.identidad.tipoDocumento,
       tipoComprobante: principal.identidad.tipoComprobante ?? respaldo.identidad.tipoComprobante,
       codigoSunat: combinarTexto(principal.identidad.codigoSunat, respaldo.identidad.codigoSunat),
+      tipoOperacion: combinarTexto(principal.identidad.tipoOperacion, respaldo.identidad.tipoOperacion),
       serie: combinarTexto(principal.identidad.serie, respaldo.identidad.serie),
       correlativo: combinarTexto(principal.identidad.correlativo, respaldo.identidad.correlativo),
       numeroCompleto: combinarTexto(principal.identidad.numeroCompleto, respaldo.identidad.numeroCompleto),
@@ -391,6 +397,7 @@ const combinarInstantaneaDocumentoComercial = (
       formaPagoDescripcion: combinarTexto(principal.camposComerciales.formaPagoDescripcion, respaldo.camposComerciales.formaPagoDescripcion),
       detallesPago: principal.camposComerciales.detallesPago ?? respaldo.camposComerciales.detallesPago,
       terminosCredito: principal.camposComerciales.terminosCredito ?? respaldo.camposComerciales.terminosCredito,
+      datosDetraccion: principal.camposComerciales.datosDetraccion ?? respaldo.camposComerciales.datosDetraccion ?? null,
     },
     detalle: {
       items,
@@ -443,6 +450,7 @@ export const crearInstantaneaDocumentoComercial = (
       tipoDocumento: opciones.tipoDocumento,
       tipoComprobante: opciones.tipoComprobante,
       codigoSunat: resolverCodigoSunat(opciones.tipoComprobante),
+      tipoOperacion: opciones.tipoOperacion ?? null,
       serie: identidadNumero.serie,
       correlativo: identidadNumero.correlativo,
       numeroCompleto: identidadNumero.numeroCompleto,
@@ -492,6 +500,7 @@ export const crearInstantaneaDocumentoComercial = (
       formaPagoDescripcion: opciones.camposComerciales?.formaPagoDescripcion ?? null,
       detallesPago: opciones.camposComerciales?.detallesPago ?? null,
       terminosCredito: opciones.camposComerciales?.terminosCredito ?? null,
+      datosDetraccion: opciones.camposComerciales?.datosDetraccion ?? null,
     },
     detalle: {
       items,

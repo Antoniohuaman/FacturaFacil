@@ -52,6 +52,7 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { buildCompanyData } from '@/shared/company/companyDataAdapter';
 import type {
   ClientData,
+  DatosDetraccion,
   DraftAction,
   PaymentCollectionMode,
   PaymentCollectionPayload,
@@ -65,7 +66,16 @@ import type {
   TipoComprobante,
   DatosNotaCredito,
   TipoComprobanteBase,
+  ResponsableDeposito,
 } from '../models/comprobante.types';
+import {
+  evaluarDetraccion,
+  cargarConfiguracionDetraccion,
+  guardarConfiguracionDetraccion,
+} from '@/shared/catalogos-sunat';
+import type { ConfiguracionDetraccionEmpresa, ResultadoEvaluacionDetraccion } from '@/shared/catalogos-sunat';
+import { PAYMENT_MEANS_CATALOG } from '@/shared/payments/paymentMeans';
+import { ModalConfiguracionDetraccion } from '../../configuracion-sistema/components/negocio/ModalConfiguracionDetraccion';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { clientesClient } from '../../gestion-clientes/api';
 import {
@@ -368,6 +378,16 @@ const EmisionTradicional = () => {
     setDatosNotaCredito(noteCreditState.datosNotaCredito);
   }, [noteCreditState]);
 
+  // ─── Estado de detracción ───────────────────────────────────────────
+  const [configuracionDetraccion, setConfiguracionDetraccion] = useState<ConfiguracionDetraccionEmpresa>(
+    () => cargarConfiguracionDetraccion(),
+  );
+  const [medioPagoDetraccion, setMedioPagoDetraccion] = useState<string>(
+    () => cargarConfiguracionDetraccion().medioPagoSunatPorDefecto || '001',
+  );
+  const [responsableDeposito, setResponsableDeposito] = useState<ResponsableDeposito>('cliente');
+  const [modalCuentaBNAbierto, setModalCuentaBNAbierto] = useState(false);
+
   // Inicializar y bloquear la moneda desde el documento origen en flujo NC.
   // Ref para ejecutar solo una vez por instancia del formulario.
   const monedaOrigenInicializada = useRef(false);
@@ -621,6 +641,52 @@ const EmisionTradicional = () => {
     setAppliedGlobalDiscount(null);
   }, []);
 
+  // ─── Evaluación de detracción ───────────────────────────────────────
+  const evaluacionDetraccion = useMemo<ResultadoEvaluacionDetraccion>(() => {
+    const totalEnPen =
+      currentCurrency === 'PEN'
+        ? totals.total
+        : totals.total * (currencyInfo?.rate ?? 0);
+
+    return evaluarDetraccion({
+      tipoComprobante,
+      items: cartItemsForDocument,
+      totalEnPen,
+      moneda: currentCurrency,
+      tipoCambio: currencyInfo?.rate ?? null,
+      redondearMonto: configuracionDetraccion.redondearMonto,
+    });
+  }, [
+    tipoComprobante,
+    cartItemsForDocument,
+    totals.total,
+    currentCurrency,
+    currencyInfo?.rate,
+    configuracionDetraccion.redondearMonto,
+  ]);
+
+  const totalParaCredito = useMemo(() => {
+    if (!evaluacionDetraccion.aplica || responsableDeposito !== 'cliente') return totals.total;
+    return Math.max(0, totals.total - evaluacionDetraccion.montoDetraccionRedondeado);
+  }, [evaluacionDetraccion, responsableDeposito, totals.total]);
+
+  const totalesParaCobranza = useMemo<PaymentTotals>(() => {
+    if (!evaluacionDetraccion.aplica || responsableDeposito !== 'cliente') return totals;
+    return {
+      ...totals,
+      total: Math.max(0, totals.total - evaluacionDetraccion.montoDetraccionRedondeado),
+    };
+  }, [evaluacionDetraccion, responsableDeposito, totals]);
+
+  const handleConfiguracionDetraccionActualizada = useCallback(
+    (config: ConfiguracionDetraccionEmpresa) => {
+      guardarConfiguracionDetraccion(config);
+      setConfiguracionDetraccion(config);
+      setMedioPagoDetraccion(config.medioPagoSunatPorDefecto || '001');
+    },
+    [],
+  );
+
   const {
     paymentMethod: selectedPaymentMethod,
     isCreditMethod,
@@ -631,15 +697,15 @@ const EmisionTradicional = () => {
     restoreDefaults: restoreCreditTemplates,
   } = useCreditTermsConfigurator({
     paymentMethodId: formaPago,
-    total: totals.total,
+    total: totalParaCredito,
     issueDate: fechaEmision,
   });
 
   const esCreditoManual = formaPago === FORMA_PAGO_CREDITO_MANUAL;
 
   const cuotasManualNormalizadas = useMemo(
-    () => normalizarCuotasManual(cuotasManual, totals.total, fechaEmision),
-    [cuotasManual, fechaEmision, totals.total],
+    () => normalizarCuotasManual(cuotasManual, totalParaCredito, fechaEmision),
+    [cuotasManual, fechaEmision, totalParaCredito],
   );
 
   const totalCuotasManual = useMemo(
@@ -647,7 +713,7 @@ const EmisionTradicional = () => {
     [cuotasManualNormalizadas],
   );
 
-  const faltaManualCruda = totals.total - totalCuotasManual;
+  const faltaManualCruda = totalParaCredito - totalCuotasManual;
   const faltaManual = Math.max(0, faltaManualCruda);
   const fechasManualValidas = useMemo(
     () => validarFechasManual(cuotasManualNormalizadas, fechaEmision),
@@ -662,11 +728,11 @@ const EmisionTradicional = () => {
     && Math.abs(faltaManualCruda) <= TOLERANCIA_CREDITO_MANUAL
     && fechasManualValidas
     && importesManualCompletos
-    && totals.total > 0;
+    && totalParaCredito > 0;
 
   const creditTermsManual = useMemo(
-    () => construirCreditTermsManual(cuotasManualNormalizadas, totals.total, fechaEmision),
-    [cuotasManualNormalizadas, fechaEmision, totals.total],
+    () => construirCreditTermsManual(cuotasManualNormalizadas, totalParaCredito, fechaEmision),
+    [cuotasManualNormalizadas, fechaEmision, totalParaCredito],
   );
 
   const creditTermsForView = esCreditoManual ? creditTermsManual : creditTerms;
@@ -1151,6 +1217,14 @@ const EmisionTradicional = () => {
 
   const paymentMethodLabel = esCreditoManual ? 'CRÉDITO' : getPaymentMethodLabel(formaPago);
 
+  const detraccionPendiente = useMemo(
+    () =>
+      evaluacionDetraccion.errores.length > 0 ||
+      (evaluacionDetraccion.aplica && !configuracionDetraccion.cuentaBancoNacion.trim()) ||
+      (evaluacionDetraccion.aplica && !medioPagoDetraccion),
+    [evaluacionDetraccion, configuracionDetraccion.cuentaBancoNacion, medioPagoDetraccion],
+  );
+
   const printPreviewData = useMemo<PreviewData>(() => {
     const resolvedClient: ClientData = draftClientData ?? {
       nombre: 'Cliente',
@@ -1179,18 +1253,43 @@ const EmisionTradicional = () => {
       internalNotes: notaInterna,
       creditTerms: creditTermsForSubmit,
       notaCredito: datosNotaCredito ?? undefined,
+      datosDetraccion: evaluacionDetraccion.aplica
+        ? {
+            codigoCatalogo54: evaluacionDetraccion.codigoDetraccion!,
+            descripcionCatalogo54: evaluacionDetraccion.descripcionDetraccion ?? '',
+            porcentaje: evaluacionDetraccion.porcentaje!,
+            tipoOperacion: evaluacionDetraccion.tipoOperacion,
+            montoDetraccion: evaluacionDetraccion.montoDetraccion,
+            montoDetraccionRedondeado: evaluacionDetraccion.montoDetraccionRedondeado,
+            montoParaDeposito: evaluacionDetraccion.montoParaDeposito,
+            netoACobrar:
+              responsableDeposito === 'cliente'
+                ? evaluacionDetraccion.netoACobrar
+                : evaluacionDetraccion.totalComprobante,
+            medioPagoSunatCodigo: medioPagoDetraccion,
+            cuentaBancoNacion: configuracionDetraccion.cuentaBancoNacion,
+            responsableDeposito,
+            monedaCalculo: 'PEN',
+            tipoCambio: currentCurrency !== 'PEN' ? (currencyInfo?.rate ?? null) : null,
+          }
+        : undefined,
     };
   }, [
+    configuracionDetraccion.cuentaBancoNacion,
     creditTermsForSubmit,
     currentCurrency,
+    currencyInfo?.rate,
     datosNotaCredito,
     draftClientData,
+    evaluacionDetraccion,
     fechaEmision,
     lastComprobante,
+    medioPagoDetraccion,
     notaInterna,
     observaciones,
     optionalFields,
     paymentMethodLabel,
+    responsableDeposito,
     serieSeleccionada,
     tipoComprobante,
     cartItemsForDocument,
@@ -1340,6 +1439,23 @@ const EmisionTradicional = () => {
       return false;
     }
 
+    // Validar errores de detracción
+    if (evaluacionDetraccion.errores.length > 0) {
+      evaluacionDetraccion.errores.forEach((msg) => error('Detracción — acción requerida', msg));
+      return false;
+    }
+    if (evaluacionDetraccion.aplica) {
+      if (!configuracionDetraccion.cuentaBancoNacion.trim()) {
+        setModalCuentaBNAbierto(true);
+        error('Cuenta BN requerida', 'Configura la cuenta Banco de la Nación para continuar.');
+        return false;
+      }
+      if (!medioPagoDetraccion) {
+        error('Medio de pago requerido', 'Selecciona el medio de pago de detracción.');
+        return false;
+      }
+    }
+
     if (isCreditSale) {
       if (esCreditoManual) {
         if (!validarCreditoManual()) {
@@ -1380,6 +1496,28 @@ const EmisionTradicional = () => {
     setIsProcessing(true);
 
     try {
+      const datosDetraccionParaComprobante: DatosDetraccion | undefined =
+        evaluacionDetraccion.aplica
+          ? {
+              codigoCatalogo54: evaluacionDetraccion.codigoDetraccion!,
+              descripcionCatalogo54: evaluacionDetraccion.descripcionDetraccion ?? '',
+              porcentaje: evaluacionDetraccion.porcentaje!,
+              tipoOperacion: evaluacionDetraccion.tipoOperacion,
+              montoDetraccion: evaluacionDetraccion.montoDetraccion,
+              montoDetraccionRedondeado: evaluacionDetraccion.montoDetraccionRedondeado,
+              montoParaDeposito: evaluacionDetraccion.montoParaDeposito,
+              netoACobrar:
+                responsableDeposito === 'cliente'
+                  ? evaluacionDetraccion.netoACobrar
+                  : evaluacionDetraccion.totalComprobante,
+              medioPagoSunatCodigo: medioPagoDetraccion,
+              cuentaBancoNacion: configuracionDetraccion.cuentaBancoNacion,
+              responsableDeposito,
+              monedaCalculo: 'PEN',
+              tipoCambio: currentCurrency !== 'PEN' ? (currencyInfo?.rate ?? null) : null,
+            }
+          : undefined;
+
       const success = await createComprobante({
         tipoComprobante,
         serieSeleccionada,
@@ -1408,6 +1546,8 @@ const EmisionTradicional = () => {
         creditTerms: isCreditSale ? creditTermsForSubmit : undefined,
         registrarPago: Boolean(isRegisteringCobro && paymentPayload?.lines.length),
         noteCreditData: tipoComprobante === 'nota_credito' ? (datosNotaCredito ?? undefined) : undefined,
+        datosDetraccion: datosDetraccionParaComprobante,
+        tipoOperacion: evaluacionDetraccion.aplica ? evaluacionDetraccion.tipoOperacion : undefined,
       });
 
       if (success) {
@@ -1542,6 +1682,9 @@ const EmisionTradicional = () => {
     setShowSuccessModal(false);
     setShowPostIssueOptionsModal(false);
     setPendingReceivableHighlightId(undefined);
+    setResponsableDeposito('cliente');
+    const configActual = cargarConfiguracionDetraccion();
+    setMedioPagoDetraccion(configActual.medioPagoSunatPorDefecto || '001');
     setProductSelectorKey(prev => prev + 1); // ✅ Incrementar para remontar ProductSelector
   };
 
@@ -1641,7 +1784,78 @@ const EmisionTradicional = () => {
                   }}
                 />
 
-                {/* Products Section - Sin cambios */}
+                {/* Detracción — errores o campos, integrado al formulario */}
+                {evaluacionDetraccion.errores.length > 0 && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 space-y-0.5">
+                    {evaluacionDetraccion.errores.map((msg, i) => (
+                      <p key={i} className="text-sm text-red-700">{msg}</p>
+                    ))}
+                  </div>
+                )}
+                {evaluacionDetraccion.aplica && (
+                  <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      {/* Chip */}
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 ring-1 ring-inset ring-teal-600/20">
+                        <svg className="h-3 w-3 fill-teal-500" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd"/></svg>
+                        Detracción aplicada
+                      </span>
+
+                      {/* Medio de pago detracción */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs text-gray-500 whitespace-nowrap">Medio de pago detracción</label>
+                        <select
+                          value={medioPagoDetraccion}
+                          onChange={(e) => setMedioPagoDetraccion(e.target.value)}
+                          className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                        >
+                          {PAYMENT_MEANS_CATALOG.filter((m) => ['001','002','003'].includes(m.code)).map((m) => (
+                            <option key={m.code} value={m.code}>{m.code} - {m.sunatName}</option>
+                          ))}
+                          {PAYMENT_MEANS_CATALOG.filter((m) => !['001','002','003'].includes(m.code)).map((m) => (
+                            <option key={m.code} value={m.code}>{m.code} - {m.sunatName}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Responsable del depósito */}
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-xs text-gray-500 whitespace-nowrap">Responsable del depósito</label>
+                        <select
+                          value={responsableDeposito}
+                          onChange={(e) => setResponsableDeposito(e.target.value as ResponsableDeposito)}
+                          className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
+                        >
+                          <option value="cliente">Cliente</option>
+                          <option value="empresa">Empresa</option>
+                        </select>
+                      </div>
+
+                      {/* Cuenta BN */}
+                      {configuracionDetraccion.cuentaBancoNacion.trim() ? (
+                        <span className="text-xs text-gray-500">
+                          Cta. BN: {configuracionDetraccion.cuentaBancoNacion}
+                          <button
+                            type="button"
+                            onClick={() => setModalCuentaBNAbierto(true)}
+                            className="ml-1 text-blue-500 hover:underline"
+                          >
+                            (cambiar)
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setModalCuentaBNAbierto(true)}
+                          className="text-xs text-amber-600 underline hover:text-amber-700"
+                        >
+                          Configurar cuenta Banco de la Nación
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <ProductsSection
                   cartItems={cartItems}
                   addProductsFromSelector={addProductsFromSelector}
@@ -1662,6 +1876,15 @@ const EmisionTradicional = () => {
                   selectedEstablecimientoId={currentEstablecimientoId}
                   preferredPriceColumnId={preferredPriceColumnId}
                   mostrarDetalleCompleto={isNoteCreditFlow}
+                  idsConflictoDetraccion={evaluacionDetraccion.idsItemsEnConflicto}
+                  infoDetraccion={evaluacionDetraccion.aplica ? {
+                    porcentaje: evaluacionDetraccion.porcentaje!,
+                    montoParaDeposito: evaluacionDetraccion.montoParaDeposito,
+                    netoACobrar: responsableDeposito === 'cliente'
+                      ? evaluacionDetraccion.netoACobrar
+                      : evaluacionDetraccion.totalComprobante,
+                    responsableDeposito,
+                  } : null}
                 />
 
                 {shouldShowCreditSchedule && (
@@ -1669,7 +1892,7 @@ const EmisionTradicional = () => {
                     <CreditScheduleSummaryCard
                       creditTerms={creditTermsForView}
                       currency={currentCurrency}
-                      total={totals.total}
+                      total={totalParaCredito}
                       onConfigure={handleOpenCreditScheduleModal}
                       errors={esCreditoManual ? undefined : creditTemplateErrors}
                       paymentMethodName={esCreditoManual ? 'Crédito' : selectedPaymentMethod?.name}
@@ -1727,8 +1950,10 @@ const EmisionTradicional = () => {
                     primaryAction={fieldsConfig.actionButtons.crearComprobante ? {
                       label: issueButtonLabel,
                       onClick: handleIssue,
-                      disabled: isProcessing || !hasDocumentItems || noteCreditRequiredFieldsPending,
-                      title: isCreditPaymentSelection
+                      disabled: isProcessing || !hasDocumentItems || noteCreditRequiredFieldsPending || detraccionPendiente,
+                      title: detraccionPendiente
+                        ? 'Resuelve los requisitos de detracción antes de emitir'
+                        : isCreditPaymentSelection
                         ? 'Emitir y generar la cuenta por cobrar'
                         : isNoteCreditFlow && noteCreditRequiredFieldsPending
                           ? 'Completa el código y motivo de la Nota de Crédito para emitir'
@@ -1802,7 +2027,7 @@ const EmisionTradicional = () => {
           isOpen={showCobranzaModal}
           onClose={() => setShowCobranzaModal(false)}
           cartItems={cartItems}
-          totals={totals}
+          totals={totalesParaCobranza}
           cliente={draftClientData}
           tipoComprobante={tipoComprobante}
           serie={serieSeleccionada}
@@ -1921,6 +2146,13 @@ const EmisionTradicional = () => {
           onToggleOptionalField={toggleOptionalField}
           onToggleOptionalFieldRequired={toggleOptionalFieldRequired}
           onResetToDefaults={resetFieldsConfig}
+        />
+
+        {/* Modal de cuenta Banco de la Nación para detracción */}
+        <ModalConfiguracionDetraccion
+          abierto={modalCuentaBNAbierto}
+          onCerrar={() => setModalCuentaBNAbierto(false)}
+          onGuardado={handleConfiguracionDetraccionActualizada}
         />
       </div>
       </div>

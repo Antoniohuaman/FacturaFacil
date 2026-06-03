@@ -13,6 +13,21 @@ export type {
 
 export { ETIQUETAS_CATALOGO, ORDEN_CATALOGOS } from './tipos-catalogos-tributarios';
 
+export type {
+  ItemEvaluableDetraccion,
+  EntradaEvaluacionDetraccion,
+  ResultadoEvaluacionDetraccion,
+} from './calculo-detraccion';
+
+export {
+  obtenerUmbralDetraccionPorCodigo,
+  resolverTipoOperacionDetraccion,
+  resolverCodigoDetraccion,
+  calcularMontoDetraccion,
+  validarReglasDetraccion,
+  evaluarDetraccion,
+} from './calculo-detraccion';
+
 export {
   CATALOGO_51_TIPOS_OPERACION,
   CATALOGO_54_DETRACCIONES,

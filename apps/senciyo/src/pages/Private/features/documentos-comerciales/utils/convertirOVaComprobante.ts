@@ -152,6 +152,7 @@ export function construirCargaConversionDesdeOV(
       tipoDocumento: 'documento_comercial',
       tipoComprobante,
       codigoSunat: tipoComprobante === 'factura' ? '01' : '03',
+      tipoOperacion: null,
       serie: null,
       correlativo: null,
       numeroCompleto: null,
@@ -201,6 +202,7 @@ export function construirCargaConversionDesdeOV(
       formaPagoDescripcion: ov.formaPago ?? null,
       detallesPago: null,
       terminosCredito: null,
+      datosDetraccion: null,
     },
     detalle: {
       items: itemsConStockActual,   // stock en tiempo real, no congelado
