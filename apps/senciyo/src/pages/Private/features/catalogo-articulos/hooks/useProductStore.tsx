@@ -604,6 +604,8 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     isFavorite: input.isFavorite ?? existing?.isFavorite ?? false,
     peso: toOptionalNumber(input.peso, existing?.peso),
     tipoExistencia: input.tipoExistencia ?? existing?.tipoExistencia ?? 'MERCADERIAS',
+    sujetoDetraccion: input.sujetoDetraccion ?? existing?.sujetoDetraccion ?? false,
+    codigoDetraccion: input.codigoDetraccion ?? existing?.codigoDetraccion ?? null,
     cantidad: toOptionalNumber(input.cantidad, existing?.cantidad),
     stockPorEstablecimiento: input.stockPorEstablecimiento ?? existing?.stockPorEstablecimiento,
     stockPorAlmacen: input.stockPorAlmacen ?? existing?.stockPorAlmacen,
@@ -657,7 +659,9 @@ function mapFormDataToInput(data: ProductFormData): ProductInput {
     marca: data.marca,
     modelo: data.modelo,
     peso: toOptionalNumber(data.peso),
-    tipoExistencia: data.tipoExistencia ?? 'MERCADERIAS'
+    tipoExistencia: data.tipoExistencia ?? 'MERCADERIAS',
+    sujetoDetraccion: data.sujetoDetraccion ?? false,
+    codigoDetraccion: data.codigoDetraccion ?? null,
   };
 }
 

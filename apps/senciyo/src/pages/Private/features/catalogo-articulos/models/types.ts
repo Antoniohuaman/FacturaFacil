@@ -38,6 +38,10 @@ export interface Product {
   isFavorite?: boolean;
   peso?: number;
   tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
+  /** Indica si el producto/servicio puede estar sujeto a detracción SUNAT. */
+  sujetoDetraccion?: boolean;
+  /** Código del Catálogo 54 SUNAT (ej. "037", "027"). Fuente de verdad: shared/catalogos-sunat. */
+  codigoDetraccion?: string | null;
   // Compatibilidad con módulos de inventario/ventas (no usada en UI de catálogo)
   cantidad?: number; // Stock general opcional
   stockPorEstablecimiento?: Record<string, number>; // Stock por establecimiento (compat)
@@ -135,6 +139,8 @@ export interface ProductFormData {
   modelo?: string;
   peso?: number;
   tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
+  sujetoDetraccion?: boolean;
+  codigoDetraccion?: string | null;
 }
 
 export interface TableColumn {

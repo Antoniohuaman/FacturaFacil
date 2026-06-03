@@ -3,6 +3,7 @@
 import * as XLSX from 'xlsx';
 import type { Product, ProductFormData } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
+import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
 
 // ====================================================================
 // TIPOS Y CONSTANTES
@@ -75,7 +76,8 @@ export const COMPLETE_IMPORT_COLUMNS: ExcelColumn[] = [
   { key: 'precioCompra', label: 'Precio de compra', required: false, example: '80.00', type: 'number' },
   { key: 'porcentajeGanancia', label: 'Porcentaje de ganancia (%)', required: false, example: '25', type: 'number' },
   { key: 'descuentoProducto', label: 'Descuento (%)', required: false, example: '10', type: 'number' },
-  { key: 'tipoExistencia', label: 'Tipo de existencia', required: false, example: 'MERCADERIAS', type: 'select' }
+  { key: 'tipoExistencia', label: 'Tipo de existencia', required: false, example: 'MERCADERIAS', type: 'select' },
+  { key: 'codigoDetraccion', label: 'Código detracción', required: false, example: '037', type: 'text' }
 ];
 
 // ====================================================================
@@ -152,12 +154,43 @@ export function generateExcelTemplate(
     ['  - SUMINISTROS'],
     ['  - REPUESTOS'],
     ['  - EMBALAJES'],
-    ['  - OTROS']
+    ['  - OTROS'],
+    ...(tipo === 'completa' ? [
+      [''],
+      ['Código detracción (opcional):'],
+      ['  - Vacío: el producto no está sujeto a detracción.'],
+      ['  - Con valor: el producto puede estar sujeto a detracción.'],
+      ['  - Use el código del Catálogo 54 SUNAT (ej: 037, 027, 004).'],
+      ['  - Consulte la hoja "Catálogo" para ver los códigos disponibles.'],
+    ] : [])
   ];
 
   const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
-  wsInstructions['!cols'] = [{ wch: 50 }];
+  wsInstructions['!cols'] = [{ wch: 60 }];
   XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instrucciones');
+
+  // Hoja de catálogo Cat.54 solo en importación completa
+  if (tipo === 'completa') {
+    const catalogoData: (string | number)[][] = [
+      ['Catálogo 54 SUNAT - Códigos de detracción'],
+      [''],
+      ['Código', 'Descripción', 'Porcentaje', 'Clasificación', 'Tipo operación'],
+      ...CATALOGO_54_DETRACCIONES.filter((i) => i.activo).map((i) => [
+        i.codigo,
+        i.descripcion,
+        i.tipoPorcentaje === 'fijo' && i.porcentajeNormativo !== null
+          ? `${i.porcentajeNormativo}%`
+          : i.tipoPorcentaje === 'condicional'
+            ? 'Condicional'
+            : 'Pendiente',
+        i.clasificacion,
+        i.tipoOperacionRelacionado,
+      ])
+    ];
+    const wsCatalogo = XLSX.utils.aoa_to_sheet(catalogoData);
+    wsCatalogo['!cols'] = [{ wch: 10 }, { wch: 55 }, { wch: 15 }, { wch: 25 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, wsCatalogo, 'Catálogo');
+  }
 
   // Descargar archivo
   const fileName = `plantilla_productos_${tipo}_${new Date().getTime()}.xlsx`;
@@ -412,6 +445,29 @@ function parseRow(
     rowErrors.push('Categoría no existe');
   }
 
+  // Código detracción (Cat.54 SUNAT)
+  const codigoDetraccionRaw = String(row['Código detracción'] ?? '').trim();
+  let sujetoDetraccion = false;
+  let codigoDetraccion: string | null = null;
+
+  if (codigoDetraccionRaw) {
+    const codigoEnCatalogo = CATALOGO_54_DETRACCIONES.find(
+      (i) => i.codigo === codigoDetraccionRaw && i.activo
+    );
+    if (!codigoEnCatalogo) {
+      errores.push({
+        fila,
+        columna: 'Código detracción',
+        mensaje: `Código "${codigoDetraccionRaw}" no existe en el Catálogo 54 SUNAT`,
+        valorRecibido: codigoDetraccionRaw
+      });
+      rowErrors.push(`Código detracción "${codigoDetraccionRaw}" inválido`);
+    } else {
+      sujetoDetraccion = true;
+      codigoDetraccion = codigoDetraccionRaw;
+    }
+  }
+
   // Parsear valores numéricos
   const parseNumber = (value: unknown, defaultValue = 0): number => {
     if (value === null || value === undefined || value === '') return defaultValue;
@@ -440,7 +496,9 @@ function parseRow(
     marca: String(row['Marca'] || '').trim(),
     modelo: String(row['Modelo'] || '').trim(),
     peso: parseNumber(row['Peso (KG)'], 0),
-    tipoExistencia: (String(row['Tipo de existencia'] || '').trim() || 'MERCADERIAS') as ProductFormData['tipoExistencia']
+    tipoExistencia: (String(row['Tipo de existencia'] || '').trim() || 'MERCADERIAS') as ProductFormData['tipoExistencia'],
+    sujetoDetraccion,
+    codigoDetraccion,
   };
 }
 

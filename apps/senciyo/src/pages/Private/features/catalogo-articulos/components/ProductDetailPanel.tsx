@@ -4,6 +4,7 @@ import type { Product } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
   style: 'currency',
@@ -236,12 +237,26 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({
     { label: 'Código SUNAT', value: product.codigoSunat }
   ]);
 
+  const valorDetraccion = useMemo((): string | undefined => {
+    if (!product.sujetoDetraccion || !product.codigoDetraccion) return undefined;
+    const item = CATALOGO_54_DETRACCIONES.find((i) => i.codigo === product.codigoDetraccion);
+    if (!item) return 'Código de detracción no vigente o no encontrado';
+    const pct =
+      item.tipoPorcentaje === 'fijo' && item.porcentajeNormativo !== null
+        ? `${item.porcentajeNormativo}%`
+        : item.tipoPorcentaje === 'condicional'
+          ? 'Condicional'
+          : 'Pendiente';
+    return `${item.codigo} - ${item.descripcion} - ${pct}`;
+  }, [product.sujetoDetraccion, product.codigoDetraccion]);
+
   const classificationSection = renderInfoSection('Clasificación', [
     { label: 'Categoría', value: product.categoria },
     { label: 'Marca', value: product.marca },
     { label: 'Modelo', value: product.modelo },
     { label: 'Tipo de existencia', value: normalizeSentence(product.tipoExistencia) },
-    { label: 'Impuesto', value: product.impuesto }
+    { label: 'Impuesto', value: product.impuesto },
+    { label: 'Detracción', value: valorDetraccion },
   ]);
 
   const pricingSection = renderInfoSection('Precios y descuentos', [

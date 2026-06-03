@@ -30,6 +30,7 @@ import {
   ProductSunatCodeField
 } from './product-modal/ProductCodesSection';
 import { ProductActions } from './product-modal/ProductActions';
+import { SeccionInformacionTributariaProducto } from './product-modal/SeccionInformacionTributariaProducto';
 import { useProductStore, type ProductInput } from '../hooks/useProductStore';
 import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
 import { useProductForm } from '../hooks/useProductForm';
@@ -624,6 +625,13 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Opciones tributarias */}
+              <SeccionInformacionTributariaProducto
+                formData={formData}
+                setFormData={setFormData}
+                error={errors.codigoDetraccion}
+              />
             </div>
           </div>
         </form>

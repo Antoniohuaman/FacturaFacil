@@ -40,6 +40,7 @@ const AVAILABLE_COLUMNS: ExportColumn[] = [
   { key: 'modelo', label: 'Modelo', type: 'text' },
   { key: 'peso', label: 'Peso (KG)', type: 'number' },
   { key: 'tipoExistencia', label: 'Tipo de Existencia', type: 'text' },
+  { key: 'codigoDetraccion', label: 'Código detracción', type: 'text' },
   { key: 'fechaCreacion', label: 'Fecha de Creación', type: 'date' },
   { key: 'fechaActualizacion', label: 'Última Actualización', type: 'date' }
 ];

@@ -11,6 +11,7 @@ import {
   isBarcodeValueValid,
   normalizeBarcodeValue
 } from '../utils/formatters';
+import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
 type UnitFamily = Unit['category'];
 
 export type ProductType = 'BIEN' | 'SERVICIO';
@@ -93,7 +94,9 @@ const buildDefaultFormData = (
   marca: '',
   modelo: '',
   peso: 0,
-  tipoExistencia: 'MERCADERIAS'
+  tipoExistencia: 'MERCADERIAS',
+  sujetoDetraccion: false,
+  codigoDetraccion: null,
 });
 
 export const useProductForm = ({
@@ -532,7 +535,9 @@ export const useProductForm = ({
         marca: productData.marca || '',
         modelo: productData.modelo || '',
         peso: productData.peso || 0,
-        tipoExistencia: productData.tipoExistencia || 'MERCADERIAS'
+        tipoExistencia: productData.tipoExistencia || 'MERCADERIAS',
+        sujetoDetraccion: productData.sujetoDetraccion ?? false,
+        codigoDetraccion: productData.codigoDetraccion ?? null,
       });
 
       setImagePreview(productData.imagen || '');
@@ -648,6 +653,19 @@ export const useProductForm = ({
       !formData.tipoExistencia
     ) {
       newErrors.tipoExistencia = 'El tipo de existencia es requerido';
+    }
+
+    if (formData.sujetoDetraccion) {
+      if (!formData.codigoDetraccion) {
+        newErrors.codigoDetraccion = 'El código de detracción es requerido';
+      } else {
+        const codigoExiste = CATALOGO_54_DETRACCIONES.some(
+          (i) => i.codigo === formData.codigoDetraccion && i.activo
+        );
+        if (!codigoExiste) {
+          newErrors.codigoDetraccion = 'El código de detracción no existe en el Catálogo 54';
+        }
+      }
     }
 
     const seenComposites = new Set<string>();
