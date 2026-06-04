@@ -22,8 +22,10 @@ import {
   Building2,
   Eye,
   X,
-  Loader2
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
+import { PAYMENT_MEANS_CATALOG } from '@/shared/payments/paymentMeans';
 import { ConfigurationCard } from './ConfigurationCard';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { PaymentMethod as ConfigurationPaymentMethod } from '../../../../configuracion-sistema/modelos/PaymentMethod';
@@ -195,6 +197,16 @@ interface CompactDocumentFormProps {
 
   // Valores iniciales para rehidratar campos opcionales
   valoresIniciales?: ValoresInicialesCompactDocumentForm;
+
+  // Detracción — integrado al formulario, solo visible cuando aplica
+  detraccionAplica?: boolean;
+  erroresDetraccion?: string[];
+  medioPagoDetraccion?: string;
+  onMedioPagoDetraccionChange?: (codigo: string) => void;
+  responsableDeposito?: 'cliente' | 'empresa';
+  onResponsableDepositoChange?: (resp: 'cliente' | 'empresa') => void;
+  hayCuentaBN?: boolean;
+  onAbrirConfigCuentaBN?: () => void;
 }
 
 const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
@@ -226,6 +238,14 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
   readOnlyMoneda = false,
   tiposHabilitados = ['factura', 'boleta'],
   valoresIniciales,
+  detraccionAplica = false,
+  erroresDetraccion = [],
+  medioPagoDetraccion = '001',
+  onMedioPagoDetraccionChange,
+  responsableDeposito = 'cliente',
+  onResponsableDepositoChange,
+  hayCuentaBN = true,
+  onAbrirConfigCuentaBN,
 }) => {
   const { resolveProfileId } = usePriceProfilesCatalog();
   const { clientes, fetchClientes } = useClientes();
@@ -793,6 +813,13 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 </button>
               </Tooltip>
             )}
+            {/* Etiqueta discreta cuando aplica detracción */}
+            {detraccionAplica && (
+              <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-teal-700 ring-1 ring-inset ring-teal-600/20">
+                Operación sujeta a detracción
+              </span>
+            )}
+
             {accionContextual}
           </div>
         }
@@ -1184,6 +1211,52 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Fila 4: Detracción — solo cuando aplica */}
+              {detraccionAplica && (
+                <>
+                  <div className="col-span-6">
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="medio-pago-detraccion">
+                      <CreditCard className="w-3.5 h-3.5 mr-1 text-teal-600" />
+                      Medio de pago detracción
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="medio-pago-detraccion"
+                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                        value={medioPagoDetraccion}
+                        onChange={(e) => onMedioPagoDetraccionChange?.(e.target.value)}
+                      >
+                        {PAYMENT_MEANS_CATALOG.map((m) => (
+                          <option key={m.code} value={m.code}>
+                            {m.code} - {m.sunatName}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="col-span-6">
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="responsable-deposito">
+                      <User className="w-3.5 h-3.5 mr-1 text-teal-600" />
+                      Responsable del depósito
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="responsable-deposito"
+                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                        value={responsableDeposito}
+                        onChange={(e) => onResponsableDepositoChange?.(e.target.value as 'cliente' | 'empresa')}
+                      >
+                        <option value="cliente">Cliente</option>
+                        <option value="empresa">Empresa</option>
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1272,6 +1345,32 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Errores de detracción — dentro del formulario */}
+        {erroresDetraccion.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+            {erroresDetraccion.map((msg, i) => (
+              <p key={i} className="flex items-start gap-1.5 text-[11px] text-red-600">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                {msg}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Aviso de cuenta BN faltante — solo cuando aplica detracción y no hay cuenta */}
+        {detraccionAplica && !hayCuentaBN && onAbrirConfigCuentaBN && (
+          <div className="mt-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onAbrirConfigCuentaBN}
+              className="flex items-center gap-1.5 text-[11px] text-amber-600 hover:text-amber-700 hover:underline"
+            >
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Configurar cuenta Banco de la Nación para detracción
+            </button>
+          </div>
+        )}
       </ConfigurationCard>
 
       <CreditPaymentMethodModal

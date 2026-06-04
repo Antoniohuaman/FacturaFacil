@@ -74,7 +74,6 @@ import {
   guardarConfiguracionDetraccion,
 } from '@/shared/catalogos-sunat';
 import type { ConfiguracionDetraccionEmpresa, ResultadoEvaluacionDetraccion } from '@/shared/catalogos-sunat';
-import { PAYMENT_MEANS_CATALOG } from '@/shared/payments/paymentMeans';
 import { ModalConfiguracionDetraccion } from '../../configuracion-sistema/components/negocio/ModalConfiguracionDetraccion';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { clientesClient } from '../../gestion-clientes/api';
@@ -1782,79 +1781,15 @@ const EmisionTradicional = () => {
                     guiaRemision: typeof optionalFields.guiaRemision === 'string' ? optionalFields.guiaRemision : undefined,
                     centroCosto: typeof optionalFields.centroCosto === 'string' ? optionalFields.centroCosto : undefined,
                   }}
+                  detraccionAplica={evaluacionDetraccion.aplica}
+                  erroresDetraccion={evaluacionDetraccion.errores}
+                  medioPagoDetraccion={medioPagoDetraccion}
+                  onMedioPagoDetraccionChange={setMedioPagoDetraccion}
+                  responsableDeposito={responsableDeposito}
+                  onResponsableDepositoChange={setResponsableDeposito}
+                  hayCuentaBN={Boolean(configuracionDetraccion.cuentaBancoNacion.trim())}
+                  onAbrirConfigCuentaBN={() => setModalCuentaBNAbierto(true)}
                 />
-
-                {/* Detracción — errores o campos, integrado al formulario */}
-                {evaluacionDetraccion.errores.length > 0 && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 space-y-0.5">
-                    {evaluacionDetraccion.errores.map((msg, i) => (
-                      <p key={i} className="text-sm text-red-700">{msg}</p>
-                    ))}
-                  </div>
-                )}
-                {evaluacionDetraccion.aplica && (
-                  <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                      {/* Chip */}
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 ring-1 ring-inset ring-teal-600/20">
-                        <svg className="h-3 w-3 fill-teal-500" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd"/></svg>
-                        Detracción aplicada
-                      </span>
-
-                      {/* Medio de pago detracción */}
-                      <div className="flex items-center gap-1.5">
-                        <label className="text-xs text-gray-500 whitespace-nowrap">Medio de pago detracción</label>
-                        <select
-                          value={medioPagoDetraccion}
-                          onChange={(e) => setMedioPagoDetraccion(e.target.value)}
-                          className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                        >
-                          {PAYMENT_MEANS_CATALOG.filter((m) => ['001','002','003'].includes(m.code)).map((m) => (
-                            <option key={m.code} value={m.code}>{m.code} - {m.sunatName}</option>
-                          ))}
-                          {PAYMENT_MEANS_CATALOG.filter((m) => !['001','002','003'].includes(m.code)).map((m) => (
-                            <option key={m.code} value={m.code}>{m.code} - {m.sunatName}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Responsable del depósito */}
-                      <div className="flex items-center gap-1.5">
-                        <label className="text-xs text-gray-500 whitespace-nowrap">Responsable del depósito</label>
-                        <select
-                          value={responsableDeposito}
-                          onChange={(e) => setResponsableDeposito(e.target.value as ResponsableDeposito)}
-                          className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-                        >
-                          <option value="cliente">Cliente</option>
-                          <option value="empresa">Empresa</option>
-                        </select>
-                      </div>
-
-                      {/* Cuenta BN */}
-                      {configuracionDetraccion.cuentaBancoNacion.trim() ? (
-                        <span className="text-xs text-gray-500">
-                          Cta. BN: {configuracionDetraccion.cuentaBancoNacion}
-                          <button
-                            type="button"
-                            onClick={() => setModalCuentaBNAbierto(true)}
-                            className="ml-1 text-blue-500 hover:underline"
-                          >
-                            (cambiar)
-                          </button>
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setModalCuentaBNAbierto(true)}
-                          className="text-xs text-amber-600 underline hover:text-amber-700"
-                        >
-                          Configurar cuenta Banco de la Nación
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 <ProductsSection
                   cartItems={cartItems}
