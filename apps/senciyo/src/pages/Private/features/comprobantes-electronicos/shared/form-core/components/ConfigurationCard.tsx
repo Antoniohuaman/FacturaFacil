@@ -20,6 +20,8 @@ interface ConfigurationCardProps {
   actions?: ReactNode;
   contentClassName?: string; // permite ajustar padding interno por caso de uso
   compactLabel?: string;
+  /** Contenido extra renderizado inline junto al compactLabel (ej. chip de detracción). */
+  labelSuffix?: ReactNode;
   headerPaddingClassName?: string;
   titleClassName?: string;
   iconWrapperClassName?: string;
@@ -39,6 +41,7 @@ export function ConfigurationCard({
   actions,
   contentClassName,
   compactLabel,
+  labelSuffix,
   headerPaddingClassName,
   titleClassName,
   iconWrapperClassName,
@@ -76,11 +79,12 @@ export function ConfigurationCard({
           <div className="flex items-center space-x-3">
             {Icon && (
               isCompactHeader && compactLabel ? (
-                <div className="inline-flex items-center gap-2 px-0 py-0 max-w-[200px]">
+                <div className="inline-flex items-center gap-2 px-0 py-0">
                   <Icon className="w-4 h-4 text-sky-600" />
-                  <span className="text-[15px] font-semibold text-slate-700 leading-tight truncate">
+                  <span className="text-[15px] font-semibold text-slate-700 leading-tight whitespace-nowrap">
                     {compactLabel}
                   </span>
+                  {labelSuffix}
                 </div>
               ) : (
                 <div className={baseIconWrapperClass}>

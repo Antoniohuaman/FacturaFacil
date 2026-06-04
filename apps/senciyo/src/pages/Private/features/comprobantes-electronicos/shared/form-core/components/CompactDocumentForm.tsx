@@ -732,6 +732,11 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
         icon={FileText}
         compactLabel="Nuevo comprobante"
         contentClassName="p-3"
+        labelSuffix={detraccionAplica ? (
+          <span className="inline-flex items-center rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-inset ring-teal-600/20 whitespace-nowrap">
+            Operación sujeta a detracción
+          </span>
+        ) : undefined}
         actions={
           <div className="flex items-center gap-2">
             {/* Pill buttons para tipo de comprobante (estado) */}
@@ -813,22 +818,15 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 </button>
               </Tooltip>
             )}
-            {/* Etiqueta discreta cuando aplica detracción */}
-            {detraccionAplica && (
-              <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-teal-700 ring-1 ring-inset ring-teal-600/20">
-                Operación sujeta a detracción
-              </span>
-            )}
-
             {accionContextual}
           </div>
         }
       >
-        {/* ========== GRID OPTIMIZADO: Proporciones ~42/34/24 ========== */}
-        <div className="grid grid-cols-12 gap-2 text-[13px]">
+        {/* 2 columnas: izquierda amplia (cliente), derecha con campos del comprobante */}
+        <div className="grid grid-cols-12 gap-3 text-[13px]">
 
-          {/* COLUMNA 1: Cliente/Dirección/Email/Envío (~42% → xl:col-span-5) */}
-          <div className="col-span-12 xl:col-span-5 space-y-2">
+          {/* COLUMNA IZQUIERDA: Cliente → Dirección → Email → Envío → [aviso BN] */}
+          <div className="col-span-12 xl:col-span-7 space-y-2">
             {/* Cliente (reducido ~10-12%, lupa compacta) */}
             <div data-tour="primera-venta-cliente">
               <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="cliente-buscar">
@@ -995,135 +993,188 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 />
               </div>
             )}
+
+            {/* Aviso cuenta BN — solo si aplica detracción y falta cuenta */}
+            {detraccionAplica && !hayCuentaBN && onAbrirConfigCuentaBN && (
+              <div>
+                <button
+                  type="button"
+                  onClick={onAbrirConfigCuentaBN}
+                  className="flex items-center gap-1.5 text-[11px] text-amber-600 hover:text-amber-700 hover:underline"
+                >
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  Configurar cuenta Banco de la Nación para detracción
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* COLUMNA 2: Serie → Emisión → Forma → Moneda → Vencimiento (~34% → xl:col-span-4) */}
-          <div className="col-span-12 xl:col-span-4 xl:border-s xl:border-slate-200/60 xl:ps-3">
-            <div className="grid grid-cols-12 gap-x-2 gap-y-2 items-end">
-              {/* Fila 1: Serie + Fecha Emisión */}
-              <div className="col-span-6">
-                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="serie">
-                  <Hash className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Serie<span className="ml-0.5 text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  {seriesFiltradas.length > 0 ? (
-                    <>
-                      <select
-                        id="serie"
-                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white appearance-none cursor-pointer text-[13px]"
-                        value={serieSeleccionada}
-                        onChange={e => setSerieSeleccionada(e.target.value)}
-                      >
-                        {seriesFiltradas.map(serie => (
-                          <option key={serie} value={serie}>{serie}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </>
-                  ) : (
-                    <div className="w-full h-9 px-3 flex items-center border border-amber-300 rounded-xl bg-amber-50 text-[12px] font-medium text-amber-700">
-                      ⚠️ Sin series
+          {/* COLUMNA DERECHA: campos del comprobante organizados en filas de 2 */}
+          <div className="col-span-12 xl:col-span-5 xl:border-s xl:border-slate-200/60 xl:ps-3">
+            <div className="space-y-2">
+
+              {/* Fila: Serie + Fecha Emisión */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="serie">
+                    <Hash className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    Serie<span className="ml-0.5 text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    {seriesFiltradas.length > 0 ? (
+                      <>
+                        <select
+                          id="serie"
+                          className="h-9 w-full px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white appearance-none cursor-pointer text-[13px]"
+                          value={serieSeleccionada}
+                          onChange={e => setSerieSeleccionada(e.target.value)}
+                        >
+                          {seriesFiltradas.map(serie => (
+                            <option key={serie} value={serie}>{serie}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </>
+                    ) : (
+                      <div className="w-full h-9 px-3 flex items-center border border-amber-300 rounded-xl bg-amber-50 text-[12px] font-medium text-amber-700">
+                        ⚠️ Sin series
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-emision">
+                    <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                    Fecha Emisión<span className="ml-0.5 text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={localFechaEmision}
+                    onChange={(e) => {
+                      setLocalFechaEmision(e.target.value);
+                      onFechaEmisionChange?.(e.target.value);
+                      onOptionalFieldsChangeRef.current?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
+                    }}
+                    id="fecha-emision"
+                    className="h-9 w-full px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
+                  />
+                </div>
+              </div>
+
+              {/* Fila: Forma de Pago + Moneda */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="forma-pago">
+                    <Tooltip contenido="Crédito habilita cuotas.">
+                      <span className="inline-flex items-center">
+                        <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                        Forma de Pago
+                      </span>
+                    </Tooltip>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="forma-pago"
+                      className="h-9 w-full px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                      value={resolvedFormaPago || CREATE_CREDIT_OPTION}
+                      onChange={handleFormaPagoChange}
+                    >
+                      {paymentMethods.length > 0 ? (
+                        <>
+                          <option value={MANUAL_CREDIT_OPTION}>Crédito</option>
+                          {paymentMethods
+                            .filter(pm => pm.isActive)
+                            .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
+                            .map(pm => (
+                              <option key={pm.id} value={pm.id}>{normalizePaymentMethodLabel(pm.name)}</option>
+                            ))}
+                          <option value={CREATE_CREDIT_OPTION}>+ Crear crédito (cuotas)</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value={MANUAL_CREDIT_OPTION}>Crédito</option>
+                          <option value="contado">Contado (por defecto)</option>
+                          <option value={CREATE_CREDIT_OPTION}>+ Crear crédito (cuotas)</option>
+                        </>
+                      )}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="moneda">
+                    <DollarSign className="w-3.5 h-3.5 mr-1 text-green-600" />
+                    Moneda
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="moneda"
+                      className="h-9 w-full px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
+                      value={moneda}
+                      onChange={(e) => setMoneda?.(e.target.value as Currency)}
+                      disabled={readOnlyMoneda}
+                      title={readOnlyMoneda ? 'La moneda debe coincidir con la del comprobante que modifica' : undefined}
+                    >
+                      {selectableCurrencies.map((option) => (
+                        <option key={option.code} value={option.code}>{option.code} - {option.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                  {showExchangeRateBanner && selectedCurrencyDescriptor && (
+                    <div className="mt-1.5 rounded-xl border border-blue-100 bg-blue-50 px-2.5 py-1.5 text-[11px] text-blue-900">
+                      <p className="font-semibold">TC: 1 {selectedCurrencyDescriptor.code} = {(selectedCurrencyDescriptor.rate ?? 1).toFixed(4)} {baseCurrencyDescriptor?.code ?? baseCurrencyCode}</p>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="col-span-6">
-                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-emision">
-                  <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                  Fecha de Emisión<span className="ml-0.5 text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={localFechaEmision}
-                  onChange={(e) => {
-                    setLocalFechaEmision(e.target.value);
-                    onFechaEmisionChange?.(e.target.value);
-                    onOptionalFieldsChangeRef.current?.({ fechaEmision: e.target.value, fechaVencimiento: localFechaVencimiento, direccion: localDireccion, direccionEnvio: localDireccionEnvio, correo: localCorreo, ordenCompra: localOrdenCompra, guiaRemision: localGuiaRemision, centroCosto: localCentroCosto });
-                  }}
-                  id="fecha-emision"
-                  className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
-                />
-              </div>
-              
-              {/* Fila 2: Forma de Pago + Moneda (perfectamente alineados) */}
-              <div className="col-span-6">
-                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="forma-pago">
-                  <Tooltip contenido="Crédito habilita cuotas.">
-                    <span className="inline-flex items-center">
-                      <CreditCard className="w-3.5 h-3.5 mr-1 text-purple-600" />
-                      Forma de Pago
-                    </span>
-                  </Tooltip>
-                </label>
-                <div className="relative">
-                  <select
-                    id="forma-pago"
-                    className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
-                    value={resolvedFormaPago || CREATE_CREDIT_OPTION}
-                    onChange={handleFormaPagoChange}
-                  >
-                    {paymentMethods.length > 0 ? (
-                      <>
-                        <option value={MANUAL_CREDIT_OPTION}>Crédito</option>
-                        {paymentMethods
-                          .filter(pm => pm.isActive)
-                          .sort((a, b) => (a.display?.displayOrder || 999) - (b.display?.displayOrder || 999))
-                          .map(pm => (
-                            <option key={pm.id} value={pm.id}>{normalizePaymentMethodLabel(pm.name)}</option>
-                          ))}
-                        <option value={CREATE_CREDIT_OPTION}>+ Crear crédito (cuotas)</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value={MANUAL_CREDIT_OPTION}>Crédito</option>
-                        <option value="contado">Contado (por defecto)</option>
-                        <option value={CREATE_CREDIT_OPTION}>+ Crear crédito (cuotas)</option>
-                      </>
-                    )}
-                  </select>
-                  <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                  {/* link intentionally removed from compact form */}
-              </div>
-              <div className="col-span-6">
-                <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="moneda">
-                  <DollarSign className="w-3.5 h-3.5 mr-1 text-green-600" />
-                  Moneda
-                </label>
-                <div className="relative">
-                  <select
-                    id="moneda"
-                    className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
-                    value={moneda}
-                    onChange={(e) => setMoneda?.(e.target.value as Currency)}
-                    disabled={readOnlyMoneda}
-                    title={readOnlyMoneda ? 'La moneda debe coincidir con la del comprobante que modifica' : undefined}
-                  >
-                    {selectableCurrencies.map((option) => (
-                      <option key={option.code} value={option.code}>
-                        {option.code} - {option.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
-                {showExchangeRateBanner && selectedCurrencyDescriptor && (
-                  <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-blue-900">
-                    <p className="font-semibold text-blue-900">Tipo de cambio (solo lectura)</p>
-                    <p className="mt-1">
-                      1 {selectedCurrencyDescriptor.code} ={' '}
-                      {(selectedCurrencyDescriptor.rate ?? 1).toFixed(4)}{' '}
-                      {baseCurrencyDescriptor?.code ?? baseCurrencyCode}
-                    </p>
-                    <p className="text-[11px] text-blue-700">Actualiza el tipo de cambio en Configuración → Monedas.</p>
-                  </div>
-                )}
-              </div>
 
-              {/* Fila 3: Fecha Vencimiento / Datos Nota de Crédito */}
-              {isCreditMethod === true ? (
-                <div className="col-span-6">
+              {/* Fila: Medio de pago detracción + Responsable — solo cuando aplica */}
+              {detraccionAplica && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="medio-pago-detraccion">
+                      <CreditCard className="w-3.5 h-3.5 mr-1 text-teal-600" />
+                      Medio pago detracción
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="medio-pago-detraccion"
+                        className="h-9 w-full px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                        value={medioPagoDetraccion}
+                        onChange={(e) => onMedioPagoDetraccionChange?.(e.target.value)}
+                      >
+                        {PAYMENT_MEANS_CATALOG.map((m) => (
+                          <option key={m.code} value={m.code}>{m.code} - {m.sunatName}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="responsable-deposito">
+                      <User className="w-3.5 h-3.5 mr-1 text-teal-600" />
+                      Responsable depósito
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="responsable-deposito"
+                        className="h-9 w-full px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                        value={responsableDeposito}
+                        onChange={(e) => onResponsableDepositoChange?.(e.target.value as 'cliente' | 'empresa')}
+                      >
+                        <option value="cliente">Cliente</option>
+                        <option value="empresa">Empresa</option>
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fecha de Vencimiento — solo cuando crédito */}
+              {isCreditMethod === true && !isNoteCreditFlow && (
+                <div>
                   <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="fecha-vencimiento">
                     <Calendar className="w-3.5 h-3.5 mr-1 text-violet-600" />
                     Fecha de Vencimiento
@@ -1135,55 +1186,42 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                     value={localFechaVencimiento}
                     onChange={(e) => { setLocalFechaVencimiento(e.target.value); onOptionalFieldsChangeRef.current?.({ fechaVencimiento: e.target.value }); }}
                     id="fecha-vencimiento"
-                    className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
+                    className="h-9 w-full px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                   />
-                </div>
-              ) : isNoteCreditFlow ? (
-                <div className="col-span-6">
-                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="codigo-nota-credito">
-                    <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                    Cod. Nota de Crédito<span className="ml-0.5 text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="codigo-nota-credito"
-                      value={datosNotaCredito?.codigo ?? ''}
-                      onChange={(event) => {
-                        const documentoRelacionado = datosNotaCredito?.documentoRelacionado;
-                        if (!documentoRelacionado) {
-                          return;
-                        }
-
-                        onDatosNotaCreditoChange?.({
-                          codigo: event.target.value,
-                          motivo: datosNotaCredito?.motivo ?? '',
-                          documentoRelacionado,
-                        });
-                      }}
-                      className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
-                    >
-                      <option value="">Selecciona un código</option>
-                      {CODIGOS_NOTA_CREDITO_SUNAT.map((item) => (
-                        <option key={item.codigo} value={item.codigo}>
-                          {item.codigo} - {item.descripcionCorta}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-              ) : (
-                <div className="col-span-6" aria-hidden="true">
-                  <div className="h-9"></div>
                 </div>
               )}
 
-              <div className="col-span-6">
-                {isNoteCreditFlow ? (
-                  <>
+              {/* Código + Motivo NC — solo en flujo NC */}
+              {isNoteCreditFlow && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="codigo-nota-credito">
+                      <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                      Cod. NC<span className="ml-0.5 text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="codigo-nota-credito"
+                        value={datosNotaCredito?.codigo ?? ''}
+                        onChange={(event) => {
+                          const documentoRelacionado = datosNotaCredito?.documentoRelacionado;
+                          if (!documentoRelacionado) return;
+                          onDatosNotaCreditoChange?.({ codigo: event.target.value, motivo: datosNotaCredito?.motivo ?? '', documentoRelacionado });
+                        }}
+                        className="h-9 w-full px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
+                      >
+                        <option value="">Selecciona un código</option>
+                        {CODIGOS_NOTA_CREDITO_SUNAT.map((item) => (
+                          <option key={item.codigo} value={item.codigo}>{item.codigo} - {item.descripcionCorta}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
                     <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="motivo-nota-credito">
                       <FileText className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                      Motivo emisión NC<span className="ml-0.5 text-red-500">*</span>
+                      Motivo NC<span className="ml-0.5 text-red-500">*</span>
                     </label>
                     <input
                       id="motivo-nota-credito"
@@ -1191,162 +1229,102 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                       value={datosNotaCredito?.motivo ?? ''}
                       onChange={(event) => {
                         const documentoRelacionado = datosNotaCredito?.documentoRelacionado;
-                        if (!documentoRelacionado) {
-                          return;
-                        }
-
-                        onDatosNotaCreditoChange?.({
-                          codigo: datosNotaCredito?.codigo ?? '',
-                          motivo: event.target.value,
-                          documentoRelacionado,
-                        });
+                        if (!documentoRelacionado) return;
+                        onDatosNotaCreditoChange?.({ codigo: datosNotaCredito?.codigo ?? '', motivo: event.target.value, documentoRelacionado });
                       }}
-                      className="h-9 w-full max-w-[240px] px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
+                      className="h-9 w-full px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
                       placeholder="Describe el sustento"
                     />
-                  </>
-                ) : (
-                  <div aria-hidden="true">
-                    <div className="h-9"></div>
                   </div>
-                )}
-              </div>
-
-              {/* Fila 4: Detracción — solo cuando aplica */}
-              {detraccionAplica && (
-                <>
-                  <div className="col-span-6">
-                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="medio-pago-detraccion">
-                      <CreditCard className="w-3.5 h-3.5 mr-1 text-teal-600" />
-                      Medio de pago detracción
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="medio-pago-detraccion"
-                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
-                        value={medioPagoDetraccion}
-                        onChange={(e) => onMedioPagoDetraccionChange?.(e.target.value)}
-                      >
-                        {PAYMENT_MEANS_CATALOG.map((m) => (
-                          <option key={m.code} value={m.code}>
-                            {m.code} - {m.sunatName}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="col-span-6">
-                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="responsable-deposito">
-                      <User className="w-3.5 h-3.5 mr-1 text-teal-600" />
-                      Responsable del depósito
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="responsable-deposito"
-                        className="h-9 w-full max-w-[240px] px-3 pr-8 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white text-[13px] appearance-none"
-                        value={responsableDeposito}
-                        onChange={(e) => onResponsableDepositoChange?.(e.target.value as 'cliente' | 'empresa')}
-                      >
-                        <option value="cliente">Cliente</option>
-                        <option value="empresa">Empresa</option>
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* COLUMNA 3: Vendedor → OC → (Guía + Centro en misma fila) (~24% → xl:col-span-3) */}
-          <div className="col-span-12 xl:col-span-3 xl:border-s xl:border-slate-200/60 xl:ps-3">
-            <div className="space-y-2">
-              {/* Vendedor (select simple 1 línea, 36px) */}
-              {config.optionalFields.vendedor.visible && (
-                <div>
-                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="vendedor">
-                    <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                    Vendedor
-                    {config.optionalFields.vendedor.required && <span className="ml-0.5 text-red-500">*</span>}
-                  </label>
-                  <select 
-                    id="vendedor" 
-                    className="h-9 w-full rounded-xl border border-slate-300 px-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
-                  >
-                    <option>Javier Masías Loza — ID: 001</option>
-                  </select>
                 </div>
               )}
 
-              {/* Orden de Compra (full-width) */}
-              {config.optionalFields.ordenCompra.visible && (
-                <div>
-                  <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="orden-compra">
-                    <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                    Orden de Compra
-                    {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
-                  </label>
-                  <input
-                    type="text"
-                    required={config.optionalFields.ordenCompra.required}
-                    value={localOrdenCompra}
-                    onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChangeRef.current?.({ ordenCompra: e.target.value }); }}
-                    id="orden-compra"
-                    className="h-9 w-full rounded-xl border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
-                    placeholder="Ej: OC01-0000236"
-                  />
+              {/* Fila: N° Guía + Centro */}
+              {(config.optionalFields.guiaRemision.visible || config.optionalFields.centroCosto.visible) && (
+                <div className={config.optionalFields.guiaRemision.visible && config.optionalFields.centroCosto.visible ? 'grid grid-cols-2 gap-2' : ''}>
+                  {config.optionalFields.guiaRemision.visible && (
+                    <div>
+                      <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="guia-remision">
+                        <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                        N° Guía
+                        {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        required={config.optionalFields.guiaRemision.required}
+                        value={localGuiaRemision}
+                        onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChangeRef.current?.({ guiaRemision: e.target.value }); }}
+                        id="guia-remision"
+                        className="h-9 w-full px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
+                        placeholder="T001-000256"
+                      />
+                    </div>
+                  )}
+                  {config.optionalFields.centroCosto.visible && (
+                    <div>
+                      <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="centro-costo">
+                        <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                        Centro
+                        {config.optionalFields.centroCosto.required && <span className="ml-0.5 text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        required={config.optionalFields.centroCosto.required}
+                        value={localCentroCosto}
+                        onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChangeRef.current?.({ centroCosto: e.target.value }); }}
+                        id="centro-costo"
+                        className="h-9 w-full px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
+                        placeholder="CC-001"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Fila compartida: Guía + Centro (col-span-6 cada uno) */}
-              <div className="grid grid-cols-12 gap-x-2 gap-y-2 items-end">
-                {/* Guía de Remisión */}
-                {config.optionalFields.guiaRemision.visible && (
-                  <div className="col-span-12 md:col-span-6">
-                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="guia-remision">
-                      <Truck className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                      N° Guía
-                      {config.optionalFields.guiaRemision.required && <span className="ml-0.5 text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      required={config.optionalFields.guiaRemision.required}
-                      value={localGuiaRemision}
-                      onChange={(e) => { setLocalGuiaRemision(e.target.value); onOptionalFieldsChangeRef.current?.({ guiaRemision: e.target.value }); }}
-                      id="guia-remision"
-                      className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
-                      placeholder="T001-000256"
-                    />
-                  </div>
-                )}
+              {/* Fila: Vendedor + Orden de Compra */}
+              {(config.optionalFields.vendedor.visible || config.optionalFields.ordenCompra.visible) && (
+                <div className={config.optionalFields.vendedor.visible && config.optionalFields.ordenCompra.visible ? 'grid grid-cols-2 gap-2' : ''}>
+                  {config.optionalFields.vendedor.visible && (
+                    <div>
+                      <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="vendedor">
+                        <User className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                        Vendedor
+                        {config.optionalFields.vendedor.required && <span className="ml-0.5 text-red-500">*</span>}
+                      </label>
+                      <select
+                        id="vendedor"
+                        className="h-9 w-full px-3 rounded-xl border border-slate-300 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                      >
+                        <option>Javier Masías Loza — ID: 001</option>
+                      </select>
+                    </div>
+                  )}
+                  {config.optionalFields.ordenCompra.visible && (
+                    <div>
+                      <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="orden-compra">
+                        <FileIcon className="w-3.5 h-3.5 mr-1 text-violet-600" />
+                        Orden de Compra
+                        {config.optionalFields.ordenCompra.required && <span className="ml-0.5 text-red-500">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        required={config.optionalFields.ordenCompra.required}
+                        value={localOrdenCompra}
+                        onChange={(e) => { setLocalOrdenCompra(e.target.value); onOptionalFieldsChangeRef.current?.({ ordenCompra: e.target.value }); }}
+                        id="orden-compra"
+                        className="h-9 w-full px-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all text-[13px]"
+                        placeholder="Ej: OC01-0000236"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
-                {/* Centro de Costo */}
-                {config.optionalFields.centroCosto.visible && (
-                  <div className="col-span-12 md:col-span-6">
-                    <label className="flex items-center text-[11px] font-medium text-slate-600 mb-0.5" htmlFor="centro-costo">
-                      <Building2 className="w-3.5 h-3.5 mr-1 text-violet-600" />
-                      Centro
-                      {config.optionalFields.centroCosto.required && <span className="ml-0.5 text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      required={config.optionalFields.centroCosto.required}
-                      value={localCentroCosto}
-                      onChange={(e) => { setLocalCentroCosto(e.target.value); onOptionalFieldsChangeRef.current?.({ centroCosto: e.target.value }); }}
-                      id="centro-costo"
-                      className="h-9 w-full rounded-xl border border-slate-300 px-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-[13px]"
-                      placeholder="CC-001"
-                    />
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Errores de detracción — dentro del formulario */}
+        {/* Errores de detracción — al pie del formulario */}
         {erroresDetraccion.length > 0 && (
           <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
             {erroresDetraccion.map((msg, i) => (
@@ -1355,20 +1333,6 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
                 {msg}
               </p>
             ))}
-          </div>
-        )}
-
-        {/* Aviso de cuenta BN faltante — solo cuando aplica detracción y no hay cuenta */}
-        {detraccionAplica && !hayCuentaBN && onAbrirConfigCuentaBN && (
-          <div className="mt-2 pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onAbrirConfigCuentaBN}
-              className="flex items-center gap-1.5 text-[11px] text-amber-600 hover:text-amber-700 hover:underline"
-            >
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              Configurar cuenta Banco de la Nación para detracción
-            </button>
           </div>
         )}
       </ConfigurationCard>
