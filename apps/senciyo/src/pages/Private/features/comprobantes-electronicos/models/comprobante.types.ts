@@ -273,6 +273,12 @@ export interface DatosDetraccion {
   responsableDeposito: ResponsableDeposito;
   monedaCalculo: string;
   tipoCambio: number | null;
+  /** Texto de leyenda Cat.52 snapshot (ej. "Operación sujeta a detracción"). */
+  leyendaTexto?: string;
+  /** Descripción Cat.59 snapshot del medio de pago SUNAT. */
+  medioPagoSunatDescripcion?: string;
+  /** Forma de pago del comprobante — necesario para el nodo FormaPago del XML. */
+  formaPagoComprobante?: 'contado' | 'credito';
 }
 
 // Tipos para configuración de caja temporal

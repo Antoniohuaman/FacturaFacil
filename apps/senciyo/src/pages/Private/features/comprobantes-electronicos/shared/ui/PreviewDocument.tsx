@@ -489,43 +489,69 @@ export const PreviewDocument: React.FC<PreviewDocumentProps> = ({ data, qrUrl, d
           </div>
         )}
 
-        {/* Detracción SPOT — cuando aplica */}
+        {/* Información de la detracción SPOT */}
         {datosDetraccion && (
-          <div className="mb-5 rounded border border-gray-200 p-3">
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-500 mb-2">
-              Operación sujeta al Sistema de Pago de Obligaciones Tributarias con el Gobierno Central
+          <div className="mb-5 rounded border border-amber-300 bg-amber-50/50 p-3">
+            {/* Título */}
+            <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800 mb-0.5">
+              Información de la detracción
             </p>
+            {/* Leyenda normativa */}
+            <p className="text-[9px] text-gray-500 leading-snug mb-2">
+              {datosDetraccion.leyendaTexto ||
+                'Operación sujeta al Sistema de Pago de Obligaciones Tributarias con el Gobierno Central.'}
+            </p>
+
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-700">
-              <span className="text-gray-500">Código / Concepto</span>
+              {/* Bien o servicio */}
+              <span className="text-gray-500">Bien o servicio</span>
               <span className="text-right font-medium">
                 {datosDetraccion.codigoCatalogo54} — {datosDetraccion.descripcionCatalogo54}
               </span>
-              <span className="text-gray-500">Porcentaje</span>
-              <span className="text-right font-medium">{datosDetraccion.porcentaje}%</span>
-              <span className="text-gray-500">Monto detracción</span>
-              <span className="text-right font-medium">S/ {datosDetraccion.montoParaDeposito.toFixed(2)}</span>
+
+              {/* Medio de pago */}
+              <span className="text-gray-500">Medio de pago</span>
+              <span className="text-right font-medium">
+                {datosDetraccion.medioPagoSunatCodigo}
+                {' — '}
+                {datosDetraccion.medioPagoSunatDescripcion ||
+                  medioPagoDetraccionLabel ||
+                  datosDetraccion.medioPagoSunatCodigo}
+              </span>
+
+              {/* Nro. Cta. Banco de la Nación */}
               {datosDetraccion.cuentaBancoNacion && (
                 <>
-                  <span className="text-gray-500">Cta. Banco de la Nación</span>
+                  <span className="text-gray-500">Nro. Cta. Banco de la Nación</span>
                   <span className="text-right font-medium">{datosDetraccion.cuentaBancoNacion}</span>
                 </>
               )}
-              {medioPagoDetraccionLabel && (
+
+              {/* Porcentaje */}
+              <span className="text-gray-500">Porcentaje de detracción</span>
+              <span className="text-right font-medium">{datosDetraccion.porcentaje.toFixed(2)}%</span>
+
+              {/* Monto redondeado */}
+              <span className="text-gray-500">Monto detracción redondeado</span>
+              <span className="text-right font-medium">S/ {datosDetraccion.montoDetraccionRedondeado.toFixed(2)}</span>
+
+              {/* Monto real */}
+              <span className="text-gray-500">Monto detracción real</span>
+              <span className="text-right font-medium">S/ {datosDetraccion.montoDetraccion.toFixed(2)}</span>
+
+              {/* Financiamiento — solo cuando es crédito (campo nuevo) o hay cuotas (snapshots viejos) */}
+              {(datosDetraccion.formaPagoComprobante === 'credito' || Boolean(creditTerms?.schedule.length)) && (
                 <>
-                  <span className="text-gray-500">Medio de pago</span>
-                  <span className="text-right font-medium">
-                    {datosDetraccion.medioPagoSunatCodigo} — {medioPagoDetraccionLabel}
+                  <span className="text-gray-700 font-semibold border-t border-amber-200 pt-1 mt-0.5">
+                    {datosDetraccion.responsableDeposito === 'cliente'
+                      ? 'Monto neto pendiente de pago'
+                      : 'Monto financiado'}
+                  </span>
+                  <span className="text-right font-bold border-t border-amber-200 pt-1 mt-0.5">
+                    S/ {datosDetraccion.netoACobrar.toFixed(2)}
                   </span>
                 </>
               )}
-              <span className="text-gray-500">Responsable del depósito</span>
-              <span className="text-right font-medium capitalize">{datosDetraccion.responsableDeposito}</span>
-              <span className="text-gray-700 font-semibold border-t border-gray-100 pt-1 mt-0.5">
-                {datosDetraccion.responsableDeposito === 'cliente' ? 'Neto a cobrar' : 'Monto a cobrar'}
-              </span>
-              <span className="text-right font-bold border-t border-gray-100 pt-1 mt-0.5">
-                S/ {datosDetraccion.netoACobrar.toFixed(2)}
-              </span>
             </div>
           </div>
         )}

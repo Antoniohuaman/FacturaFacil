@@ -123,6 +123,24 @@ import type { MotivoAbandonoVenta } from '@/shared/analitica/eventosAnalitica';
 const cloneCreditTemplates = (items: CreditInstallmentDefinition[]): CreditInstallmentDefinition[] =>
   items.map((item) => ({ ...item }));
 
+/**
+ * Resuelve el monto base que se cobrará o financiará, considerando la detracción.
+ *
+ * - Sin detracción → totalDocumento íntegro.
+ * - Detracción + responsable Cliente → totalDocumento − montoParaDeposito (el cliente ya depositó).
+ * - Detracción + responsable Empresa → totalDocumento íntegro (la empresa absorbe el depósito).
+ *
+ * Se usa en: cronograma de crédito, modal de cobranza contado, cuotas manuales.
+ */
+function resolverMontoBaseCobranza(
+  totalDocumento: number,
+  evaluacion: ResultadoEvaluacionDetraccion,
+  responsableDeposito: ResponsableDeposito,
+): number {
+  if (!evaluacion.aplica || responsableDeposito !== 'cliente') return totalDocumento;
+  return Math.max(0, totalDocumento - evaluacion.montoDetraccionRedondeado);
+}
+
 const CREDIT_SCHEDULE_TOLERANCE = 0.01;
 const TOLERANCIA_CREDITO_MANUAL = 0.01;
 const LLAVE_PRIMERA_VENTA_COMPLETADA_SESION_BASE = 'analitica_primera_venta_completada';
@@ -664,18 +682,15 @@ const EmisionTradicional = () => {
     configuracionDetraccion.redondearMonto,
   ]);
 
-  const totalParaCredito = useMemo(() => {
-    if (!evaluacionDetraccion.aplica || responsableDeposito !== 'cliente') return totals.total;
-    return Math.max(0, totals.total - evaluacionDetraccion.montoDetraccionRedondeado);
-  }, [evaluacionDetraccion, responsableDeposito, totals.total]);
+  const totalParaCredito = useMemo(
+    () => resolverMontoBaseCobranza(totals.total, evaluacionDetraccion, responsableDeposito),
+    [evaluacionDetraccion, responsableDeposito, totals.total],
+  );
 
-  const totalesParaCobranza = useMemo<PaymentTotals>(() => {
-    if (!evaluacionDetraccion.aplica || responsableDeposito !== 'cliente') return totals;
-    return {
-      ...totals,
-      total: Math.max(0, totals.total - evaluacionDetraccion.montoDetraccionRedondeado),
-    };
-  }, [evaluacionDetraccion, responsableDeposito, totals]);
+  const totalesParaCobranza = useMemo<PaymentTotals>(
+    () => ({ ...totals, total: resolverMontoBaseCobranza(totals.total, evaluacionDetraccion, responsableDeposito) }),
+    [evaluacionDetraccion, responsableDeposito, totals],
+  );
 
   const handleConfiguracionDetraccionActualizada = useCallback(
     (config: ConfiguracionDetraccionEmpresa) => {
