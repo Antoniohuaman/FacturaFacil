@@ -51,6 +51,12 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
 
   const badge = ESTADO_NI_BADGE[nota.estado] ?? ESTADO_NI_BADGE['Borrador'];
   const desgloseTributario = useMemo(() => calcularDesgloseTributario(nota.lineas), [nota.lineas]);
+  const gravadas = desgloseTributario.filter(g => g.rate > 0);
+  const noGravadas = desgloseTributario.filter(g => g.rate === 0);
+  const baseGravadaTotal = parseFloat(gravadas.reduce((s, g) => s + g.base, 0).toFixed(2));
+  const hayAlmacenesDistintos = nota.lineas.some(
+    l => l.almacenId && l.almacenId !== nota.almacenDestinoId,
+  );
 
   const handleAnular = () => {
     if (!motivoAnulacion.trim()) return;
@@ -150,10 +156,26 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                     <dt className="text-gray-500 dark:text-gray-400 text-xs">Fecha ingreso almacén</dt>
                     <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{fmtFecha(nota.fechaIngresoAlmacen)}</dd>
                   </div>
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400 text-xs">Almacén destino</dt>
-                    <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{nota.almacenDestinoNombre || '—'}</dd>
-                  </div>
+                  {hayAlmacenesDistintos ? (
+                    <div className="col-span-2">
+                      <dt className="text-gray-500 dark:text-gray-400 text-xs mb-1.5">Almacenes destino</dt>
+                      <dd className="flex flex-wrap gap-1.5">
+                        {[...new Set(nota.lineas.filter(l => l.almacenId).map(l => l.almacenId!))].map(id => {
+                          const nombre = nota.lineas.find(l => l.almacenId === id)?.almacenNombre ?? id;
+                          return (
+                            <span key={id} title={nombre} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-700">
+                              {nombre}
+                            </span>
+                          );
+                        })}
+                      </dd>
+                    </div>
+                  ) : (
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400 text-xs">Almacén destino</dt>
+                      <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{nota.almacenDestinoNombre || '—'}</dd>
+                    </div>
+                  )}
                   <div>
                     <dt className="text-gray-500 dark:text-gray-400 text-xs">Moneda</dt>
                     <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{nota.moneda}</dd>
@@ -227,6 +249,9 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                         <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Producto</th>
                         <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cant.</th>
                         <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Unid.</th>
+                        {hayAlmacenesDistintos && (
+                          <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Almacén</th>
+                        )}
                         <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Imp.</th>
                         <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Costo</th>
                         <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total</th>
@@ -241,6 +266,11 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                           </td>
                           <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{l.cantidad}</td>
                           <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{l.unidad}</td>
+                          {hayAlmacenesDistintos && (
+                            <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-[100px] truncate" title={l.almacenNombre}>
+                              {l.almacenNombre ?? nota.almacenDestinoNombre}
+                            </td>
+                          )}
                           <td className="px-3 py-2">
                             {l.impuesto ? (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300">
@@ -259,19 +289,23 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                 {/* Totales */}
                 <div className="flex justify-end mt-3">
                   <div className="space-y-1 min-w-[240px] text-[12px]">
-                    {desgloseTributario.map(g => (
-                      <React.Fragment key={g.key}>
-                        <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
-                          <span>{g.labelIgv ? `${g.labelBase} (${g.labelIgv})` : g.labelBase}</span>
-                          <span>{nota.moneda} {g.base.toFixed(2)}</span>
-                        </div>
-                        {g.igv > 0 && (
-                          <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
-                            <span>{g.labelIgv}</span>
-                            <span>{nota.moneda} {g.igv.toFixed(2)}</span>
-                          </div>
-                        )}
-                      </React.Fragment>
+                    {gravadas.length > 0 && (
+                      <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
+                        <span>Op. gravadas</span>
+                        <span>{nota.moneda} {baseGravadaTotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {gravadas.map(g => g.igv > 0 && (
+                      <div key={g.key} className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
+                        <span>{g.labelIgv}</span>
+                        <span>{nota.moneda} {g.igv.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    {noGravadas.map(g => (
+                      <div key={g.key} className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
+                        <span>{g.labelBase}</span>
+                        <span>{nota.moneda} {g.base.toFixed(2)}</span>
+                      </div>
                     ))}
                     {nota.descuentos > 0 && (
                       <div className="flex justify-between gap-6 text-red-500">
@@ -296,7 +330,7 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                       <span className="text-sm font-semibold text-red-700 dark:text-red-400">Confirmar anulación</span>
                     </div>
                     <p className="text-xs text-red-600 dark:text-red-400 mb-3">
-                      Esta acción revertirá el stock de {nota.lineas.length} producto(s) en el almacén destino.
+                      Esta acción revertirá el stock de {nota.lineas.length} producto(s) en {hayAlmacenesDistintos ? 'sus almacenes de destino' : `el almacén ${nota.almacenDestinoNombre}`}.
                     </p>
                     <input
                       type="text"

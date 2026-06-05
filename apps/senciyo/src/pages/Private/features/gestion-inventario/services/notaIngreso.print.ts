@@ -39,6 +39,15 @@ export function imprimirNotaIngreso(nota: NotaIngreso): void {
     ? `${DOC_ORIGEN_LABEL[nota.documentoOrigen] ?? nota.documentoOrigen}: ${nota.numeroDocumentoOrigen ?? ''}`
     : '—';
 
+  const hayAlmacenesDistintos = nota.lineas.some(
+    l => l.almacenId && l.almacenId !== nota.almacenDestinoId,
+  );
+  const colCount = hayAlmacenesDistintos ? 9 : 8;
+  const almacenIdsUnicos = [...new Set(nota.lineas.filter(l => l.almacenId).map(l => l.almacenId!))];
+  const almacenesTexto = almacenIdsUnicos.length > 0
+    ? almacenIdsUnicos.map(id => nota.lineas.find(l => l.almacenId === id)?.almacenNombre ?? nota.almacenDestinoNombre).join(', ')
+    : nota.almacenDestinoNombre;
+
   const lineasHtml = nota.lineas
     .map(
       (l, i) => `
@@ -47,6 +56,7 @@ export function imprimirNotaIngreso(nota: NotaIngreso): void {
         <td>${escHtml(l.productoNombre)}</td>
         <td class="num">${l.cantidad}</td>
         <td>${escHtml(l.unidad)}</td>
+        ${hayAlmacenesDistintos ? `<td>${escHtml(l.almacenNombre ?? nota.almacenDestinoNombre)}</td>` : ''}
         <td>${escHtml(l.impuesto ?? '—')}</td>
         <td class="num">${fmt2(l.costoUnitario)}</td>
         <td class="num">${fmt2(l.subtotal)}</td>
@@ -56,13 +66,19 @@ export function imprimirNotaIngreso(nota: NotaIngreso): void {
     .join('');
 
   const desgloseGrupos = calcularDesgloseTributario(nota.lineas);
+  const gravadas = desgloseGrupos.filter(g => g.rate > 0);
+  const noGravadas = desgloseGrupos.filter(g => g.rate === 0);
+  const baseGravadaTotal = gravadas.reduce((s, g) => s + g.base, 0);
   const totalesHtml = `
-    ${desgloseGrupos.map(g => `
-      <tr><td colspan="7" class="tot-label">${escHtml(g.labelIgv ? `${g.labelBase} (${g.labelIgv})` : g.labelBase)}</td><td class="num">${fmt2(g.base)}</td></tr>
-      ${g.igv > 0 ? `<tr><td colspan="7" class="tot-label">${escHtml(g.labelIgv ?? '')}</td><td class="num">${fmt2(g.igv)}</td></tr>` : ''}
-    `).join('')}
+    ${gravadas.length > 0 ? `<tr><td colspan="${colCount - 1}" class="tot-label">Op. gravadas</td><td class="num">${fmt2(baseGravadaTotal)}</td></tr>` : ''}
+    ${gravadas.filter(g => g.igv > 0).map(g =>
+      `<tr><td colspan="${colCount - 1}" class="tot-label">${escHtml(g.labelIgv ?? '')}</td><td class="num">${fmt2(g.igv)}</td></tr>`
+    ).join('')}
+    ${noGravadas.map(g =>
+      `<tr><td colspan="${colCount - 1}" class="tot-label">${escHtml(g.labelBase)}</td><td class="num">${fmt2(g.base)}</td></tr>`
+    ).join('')}
     <tr class="total-row">
-      <td colspan="7" class="tot-label bold">TOTAL ${nota.moneda}</td>
+      <td colspan="${colCount - 1}" class="tot-label bold">TOTAL ${nota.moneda}</td>
       <td class="num bold">${fmt2(nota.total)}</td>
     </tr>`;
 
@@ -122,7 +138,7 @@ ${nota.estado === 'Anulada' ? '<div class="anulado-banner">⚠ NOTA DE INGRESO A
 
 <div class="grid">
   <div class="field"><span class="label">Fecha documento:</span><span class="value">${fmtFecha(nota.fechaDocumento)}</span></div>
-  <div class="field"><span class="label">Almacén destino:</span><span class="value">${escHtml(nota.almacenDestinoNombre)}</span></div>
+  <div class="field"><span class="label">Almacén(es) destino:</span><span class="value">${escHtml(almacenesTexto)}</span></div>
   <div class="field"><span class="label">Fecha ingreso alm.:</span><span class="value">${fmtFecha(nota.fechaIngresoAlmacen)}</span></div>
   <div class="field"><span class="label">Moneda:</span><span class="value">${nota.moneda}</span></div>
   ${nota.proveedorNombre ? `
@@ -141,6 +157,7 @@ ${nota.estado === 'Anulada' ? '<div class="anulado-banner">⚠ NOTA DE INGRESO A
       <th>Descripción</th>
       <th class="num">Cant.</th>
       <th>Unidad</th>
+      ${hayAlmacenesDistintos ? '<th>Almacén</th>' : ''}
       <th>Impuesto</th>
       <th class="num">Costo unit.</th>
       <th class="num">Subtotal</th>

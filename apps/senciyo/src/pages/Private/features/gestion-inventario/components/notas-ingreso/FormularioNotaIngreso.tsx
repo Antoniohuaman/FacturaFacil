@@ -16,6 +16,8 @@ import {
   Trash2,
   MapPin,
   FileText,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import ActionButtonsSection from '../../../comprobantes-electronicos/shared/form-core/components/ActionButtonsSection';
@@ -234,9 +236,20 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   const [fechaDocumento, setFechaDocumento] = useState(notaInicial?.fechaDocumento ?? hoy());
   const [fechaIngreso, setFechaIngreso] = useState(notaInicial?.fechaIngresoAlmacen ?? hoy());
   const [tipoIngreso, setTipoIngreso] = useState<TipoIngreso>(notaInicial?.tipoIngreso ?? '02');
-  const [almacenDestinoId, setAlmacenDestinoId] = useState(
-    notaInicial?.almacenDestinoId ?? (almacenesActivos[0]?.id ?? ''),
-  );
+  const [almacenesSeleccionados, setAlmacenesSeleccionados] = useState<string[]>(() => {
+    const activos = configState.almacenes.filter(a => a.estaActivoAlmacen);
+    if (notaInicial) {
+      const idsEnLineas = [...new Set(
+        notaInicial.lineas
+          .map(l => l.almacenId)
+          .filter((id): id is string => Boolean(id)),
+      )];
+      if (idsEnLineas.length > 0) return idsEnLineas;
+      return notaInicial.almacenDestinoId ? [notaInicial.almacenDestinoId] : [];
+    }
+    return activos.length === 1 ? [activos[0].id] : [];
+  });
+
   const [moneda, setMoneda] = useState<'PEN' | 'USD'>(notaInicial?.moneda ?? 'PEN');
   const [documentoOrigen, setDocumentoOrigen] = useState(notaInicial?.documentoOrigen ?? '');
   const [numeroDocOrigen, setNumeroDocOrigen] = useState(
@@ -245,9 +258,51 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   const [guiaRemision, setGuiaRemision] = useState(notaInicial?.guiaRemision ?? '');
   const [observaciones, setObservaciones] = useState(notaInicial?.observaciones ?? '');
 
-  const [lineas, setLineas] = useState<LineaNotaIngreso[]>(
-    notaInicial?.lineas.length ? notaInicial.lineas : [],
-  );
+  const [lineas, setLineas] = useState<LineaNotaIngreso[]>(() => {
+    if (!notaInicial?.lineas.length) return [];
+    // Migrate existing lines without almacenId to inherit from header
+    return notaInicial.lineas.map(l => ({
+      ...l,
+      almacenId: l.almacenId ?? notaInicial.almacenDestinoId,
+      almacenNombre: l.almacenNombre ?? notaInicial.almacenDestinoNombre,
+    }));
+  });
+
+  const [dropdownAlmacen, setDropdownAlmacen] = useState(false);
+  const dropdownAlmacenRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownAlmacen) return;
+    const handler = (e: MouseEvent) => {
+      if (!dropdownAlmacenRef.current?.contains(e.target as Node)) {
+        setDropdownAlmacen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dropdownAlmacen]);
+
+  const toggleAlmacen = async (almacenId: string) => {
+    if (!almacenesSeleccionados.includes(almacenId)) {
+      setAlmacenesSeleccionados(prev => [...prev, almacenId]);
+      return;
+    }
+    if (almacenesSeleccionados.length <= 1) return;
+    const lineasAfectadas = lineas.filter(l => l.almacenId === almacenId);
+    if (lineasAfectadas.length > 0) {
+      const almacen = almacenesActivos.find(a => a.id === almacenId);
+      const ok = await feedback.openConfirm({
+        title: 'Quitar almacén',
+        message: `${lineasAfectadas.length} línea(s) de productos están asignadas a "${almacen?.nombreAlmacen ?? almacenId}". ¿Eliminar esas líneas?`,
+        confirmText: 'Quitar líneas',
+        cancelText: 'Cancelar',
+        icon: 'warning',
+      });
+      if (!ok) return;
+      setLineas(prev => prev.filter(l => l.almacenId !== almacenId));
+    }
+    setAlmacenesSeleccionados(prev => prev.filter(id => id !== almacenId));
+  };
 
   const [guardando, setGuardando] = useState(false);
   const [generando, setGenerando] = useState(false);
@@ -277,16 +332,29 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   }, [lineas]);
 
   const desgloseTributario = useMemo(() => calcularDesgloseTributario(lineas), [lineas]);
+  const gravadas = desgloseTributario.filter(g => g.rate > 0);
+  const noGravadas = desgloseTributario.filter(g => g.rate === 0);
+  const baseGravadaTotal = parseFloat(gravadas.reduce((s, g) => s + g.base, 0).toFixed(2));
 
-  // --- Stock actual por almacén destino (informativo, no modifica stock) ---
+  // --- Stock actual por almacén de cada línea (informativo) ---
   const getStockActual = useCallback(
-    (productoId: string): number => {
-      if (!almacenDestinoId) return 0;
+    (productoId: string, lineaAlmacenId: string): number => {
+      if (!lineaAlmacenId) return 0;
       const product = allProducts.find(p => String(p.id) === productoId);
-      return product?.stockPorAlmacen?.[almacenDestinoId] ?? 0;
+      return product?.stockPorAlmacen?.[lineaAlmacenId] ?? 0;
     },
-    [allProducts, almacenDestinoId],
+    [allProducts],
   );
+
+  const handleAlmacenLinea = (id: string, newAlmacenId: string) => {
+    const almacen = almacenesActivos.find(a => a.id === newAlmacenId);
+    if (!almacen) return;
+    setLineas(prev =>
+      prev.map(l =>
+        l.id === id ? { ...l, almacenId: almacen.id, almacenNombre: almacen.nombreAlmacen } : l,
+      ),
+    );
+  };
 
   // --- ProductSelector callback ---
   const handleAgregarProductos = useCallback(
@@ -297,28 +365,38 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
         feedback.warning('Las notas de ingreso solo aceptan bienes físicos. Se omitieron servicios.');
       }
       if (!bienes.length) return;
-      setLineas(prev => [
-        ...prev,
-        ...bienes.map(({ product, quantity }) =>
-          calcularLinea({
-            id: `linea-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            productoId: String(product.id),
-            productoCodigo: product.code ?? product.codigo ?? '',
-            productoNombre: product.name ?? product.nombre ?? '',
-            tipoBienServicio: 'bien',
-            unidad: product.unidad ?? 'NIU',
-            unidadCodigo: product.unidad ?? 'NIU',
-            impuesto: product.impuesto ?? undefined,
-            cantidad: quantity,
-            costoUnitario: product.precioCompra ?? 0,
-            subtotal: 0,
-            igv: 0,
-            total: 0,
-          }),
-        ),
-      ]);
+      if (almacenesSeleccionados.length === 0) {
+        feedback.warning('Seleccione al menos un almacén destino antes de agregar productos.');
+        return;
+      }
+      const nuevasLineas: LineaNotaIngreso[] = [];
+      for (const { product, quantity } of bienes) {
+        for (const aId of almacenesSeleccionados) {
+          const almacen = almacenesActivos.find(a => a.id === aId);
+          nuevasLineas.push(
+            calcularLinea({
+              id: `linea-${Date.now()}-${aId}-${Math.random().toString(36).slice(2, 7)}`,
+              productoId: String(product.id),
+              productoCodigo: product.code ?? product.codigo ?? '',
+              productoNombre: product.name ?? product.nombre ?? '',
+              tipoBienServicio: 'bien',
+              unidad: product.unidad ?? 'NIU',
+              unidadCodigo: product.unidad ?? 'NIU',
+              impuesto: product.impuesto ?? undefined,
+              almacenId: aId,
+              almacenNombre: almacen?.nombreAlmacen ?? '',
+              cantidad: quantity,
+              costoUnitario: product.precioCompra ?? 0,
+              subtotal: 0,
+              igv: 0,
+              total: 0,
+            }),
+          );
+        }
+      }
+      setLineas(prev => [...prev, ...nuevasLineas]);
     },
-    [feedback],
+    [feedback, almacenesSeleccionados, almacenesActivos],
   );
 
   const handleCantidad = (id: string, val: string) => {
@@ -337,7 +415,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
 
   const buildNota = (estado: 'Borrador' | 'Generada'): NotaIngreso => {
     const ahora = new Date().toISOString();
-    const almacen = almacenesActivos.find(a => a.id === almacenDestinoId);
+    const almacenPrimario = almacenesActivos.find(a => a.id === almacenesSeleccionados[0]);
     return {
       id: notaInicial?.id ?? `NI-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       tipoDocumento: 'nota_ingreso',
@@ -349,9 +427,9 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
       fechaDocumento,
       fechaIngresoAlmacen: fechaIngreso,
       tipoIngreso,
-      almacenDestinoId,
-      almacenDestinoNombre: almacen?.nombreAlmacen ?? '',
-      almacenDestinoCodigo: almacen?.codigoAlmacen ?? '',
+      almacenDestinoId: almacenesSeleccionados[0] ?? '',
+      almacenDestinoNombre: almacenPrimario?.nombreAlmacen ?? '',
+      almacenDestinoCodigo: almacenPrimario?.codigoAlmacen ?? '',
       proveedorId: proveedor?.id,
       proveedorNombre: proveedor?.nombre || undefined,
       tipoDocumentoProveedor: proveedor?.tipoDocumento || undefined,
@@ -381,11 +459,12 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     if (!serieSeleccionada)
       return 'Configure una serie de Nota de Ingreso en Configuración → Series.';
     if (!fechaDocumento) return 'La fecha del documento es obligatoria.';
-    if (!almacenDestinoId) return 'Seleccione un almacén de destino.';
+    if (almacenesSeleccionados.length === 0) return 'Seleccione al menos un almacén destino.';
     if (requiereProveedor && !proveedor?.nombre?.trim())
       return 'Este tipo de ingreso requiere especificar el proveedor.';
     if (!lineas.length) return 'Agregue al menos un producto del catálogo.';
     if (lineas.some(l => l.cantidad <= 0)) return 'Todas las cantidades deben ser mayores a 0.';
+    if (lineas.some(l => !l.almacenId)) return 'Todas las líneas deben tener un almacén asignado.';
     return null;
   };
 
@@ -498,7 +577,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
               </div>
             </div>
 
-            {/* Tipo ingreso + Almacén + Moneda */}
+            {/* Tipo ingreso | Moneda | Tipo doc. origen */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -520,25 +599,6 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
 
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <MapPin size={11} />
-                  Almacén destino
-                </label>
-                <select
-                  value={almacenDestinoId}
-                  onChange={e => setAlmacenDestinoId(e.target.value)}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                >
-                  <option value="">— Seleccione —</option>
-                  {almacenesActivos.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.codigoAlmacen} — {a.nombreAlmacen}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
                   <DollarSign size={11} />
                   Moneda
                 </label>
@@ -551,12 +611,117 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                   <option value="USD">$ USD</option>
                 </select>
               </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  Tipo doc. origen
+                </label>
+                <select
+                  value={documentoOrigen}
+                  onChange={e => setDocumentoOrigen(e.target.value)}
+                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                >
+                  <option value="">— Sin referencia —</option>
+                  <option value="01">Factura</option>
+                  <option value="03">Boleta de Venta</option>
+                  <option value="52">Liquidación de compra</option>
+                  <option value="91">Comprobante de operaciones - Ley N° 29972</option>
+                </select>
+              </div>
             </div>
 
-            {/* Proveedor (2 cols) + Tipo doc origen (1 col) — same row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Proveedor — exact same pattern as FormularioHeaderComercial */}
-              <div className="sm:col-span-2 flex flex-col gap-1">
+            {/* Almacén(es) destino | Proveedor */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Almacén(es) destino — compact multiselect */}
+              <div ref={dropdownAlmacenRef} className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <MapPin size={11} />
+                  Almacén(es) destino
+                </label>
+                {almacenesActivos.length === 0 ? (
+                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-2.5 py-2">
+                    Sin almacenes activos configurados
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setDropdownAlmacen(o => !o)}
+                      className="w-full flex items-center gap-1.5 min-h-[38px] px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 text-left"
+                    >
+                      <div className="flex-1 flex flex-wrap gap-1 min-w-0">
+                        {almacenesSeleccionados.length === 0 ? (
+                          <span className="text-gray-400 dark:text-gray-500 text-xs py-0.5">— Seleccione almacén(es) —</span>
+                        ) : (
+                          <>
+                            {almacenesSeleccionados.slice(0, 2).map(aId => {
+                              const a = almacenesActivos.find(x => x.id === aId);
+                              if (!a) return null;
+                              return (
+                                <span key={aId} className="inline-flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-[11px] font-medium bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                                  <span className="max-w-[100px] truncate">{a.codigoAlmacen} — {a.nombreAlmacen}</span>
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); void toggleAlmacen(aId); }}
+                                    className="ml-0.5 hover:text-violet-900 dark:hover:text-violet-100 flex-shrink-0"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                </span>
+                              );
+                            })}
+                            {almacenesSeleccionados.length > 2 && (
+                              <span
+                                title={almacenesSeleccionados.slice(2).map(id => {
+                                  const a = almacenesActivos.find(x => x.id === id);
+                                  return a ? `${a.codigoAlmacen} — ${a.nombreAlmacen}` : id;
+                                }).join('\n')}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-default"
+                              >
+                                +{almacenesSeleccionados.length - 2}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <ChevronDown size={13} className={`flex-shrink-0 text-gray-400 transition-transform duration-150 ${dropdownAlmacen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {dropdownAlmacen && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        {almacenesActivos.map(a => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onMouseDown={() => void toggleAlmacen(a.id)}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-left transition-colors"
+                          >
+                            <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-colors ${
+                              almacenesSeleccionados.includes(a.id)
+                                ? 'bg-violet-600 border-violet-600'
+                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+                            }`}>
+                              {almacenesSeleccionados.includes(a.id) && <Check size={10} className="text-white" />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{a.nombreAlmacen}</div>
+                              <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{a.codigoAlmacen}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {almacenesSeleccionados.length === 0 && almacenesActivos.length > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Seleccione al menos un almacén para poder agregar productos.
+                  </p>
+                )}
+              </div>
+
+              {/* Proveedor */}
+              <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
                   <User size={11} />
                   Proveedor{requiereProveedor ? ' *' : ''}
@@ -650,28 +815,10 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                   </div>
                 )}
               </div>
-
-              {/* Tipo documento origen */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Tipo doc. origen
-                </label>
-                <select
-                  value={documentoOrigen}
-                  onChange={e => setDocumentoOrigen(e.target.value)}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                >
-                  <option value="">— Sin referencia —</option>
-                  <option value="01">Factura</option>
-                  <option value="03">Boleta de Venta</option>
-                  <option value="52">Liquidación de compra</option>
-                  <option value="91">Comprobante de operaciones - Ley N° 29972</option>
-                </select>
-              </div>
             </div>
 
             {/* N° doc origen + Guía remisión */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
                   N° documento origen
@@ -696,7 +843,6 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                   className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
                 />
               </div>
-              <div />
             </div>
           </div>
         </ConfigurationCard>
@@ -723,6 +869,9 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                       </th>
                       <th className="text-left px-3 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 w-20">
                         Unidad
+                      </th>
+                      <th className="text-left px-3 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 w-28">
+                        Almacén
                       </th>
                       <th className="text-right px-3 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 w-20">
                         Stock
@@ -774,8 +923,23 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                         <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">
                           {linea.unidad}
                         </td>
+                        <td className="px-2 py-2">
+                          <select
+                            value={linea.almacenId ?? ''}
+                            onChange={e => handleAlmacenLinea(linea.id, e.target.value)}
+                            className="text-xs border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none min-w-[80px]"
+                          >
+                            {almacenesActivos
+                              .filter(a => almacenesSeleccionados.includes(a.id))
+                              .map(a => (
+                                <option key={a.id} value={a.id} title={a.nombreAlmacen}>
+                                  {a.codigoAlmacen}
+                                </option>
+                              ))}
+                          </select>
+                        </td>
                         <td className="px-3 py-2 text-right text-[12px] font-mono text-slate-500 dark:text-slate-400">
-                          {getStockActual(linea.productoId)}
+                          {getStockActual(linea.productoId, linea.almacenId ?? almacenesSeleccionados[0] ?? '')}
                         </td>
                         <td className="px-3 py-2">
                           {linea.impuesto ? (
@@ -822,19 +986,23 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
             {lineas.length > 0 && (
               <div className="flex justify-end">
                 <div className="space-y-1 min-w-[280px] text-[13px]">
-                  {desgloseTributario.map(g => (
-                    <React.Fragment key={g.key}>
-                      <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
-                        <span>{g.labelIgv ? `${g.labelBase} (${g.labelIgv})` : g.labelBase}</span>
-                        <span>{moneda} {g.base.toFixed(2)}</span>
-                      </div>
-                      {g.igv > 0 && (
-                        <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
-                          <span>{g.labelIgv}</span>
-                          <span>{moneda} {g.igv.toFixed(2)}</span>
-                        </div>
-                      )}
-                    </React.Fragment>
+                  {gravadas.length > 0 && (
+                    <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
+                      <span>Op. gravadas</span>
+                      <span>{moneda} {baseGravadaTotal.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {gravadas.map(g => g.igv > 0 && (
+                    <div key={g.key} className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
+                      <span>{g.labelIgv}</span>
+                      <span>{moneda} {g.igv.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {noGravadas.map(g => (
+                    <div key={g.key} className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
+                      <span>{g.labelBase}</span>
+                      <span>{moneda} {g.base.toFixed(2)}</span>
+                    </div>
                   ))}
                   <div className="flex justify-between gap-8 font-semibold border-t border-slate-200 dark:border-slate-600 pt-1">
                     <span className="text-slate-900 dark:text-white">Total {moneda}</span>

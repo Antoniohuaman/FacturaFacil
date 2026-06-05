@@ -51,7 +51,7 @@ export const generarNIEnInventario = (
   nota: NotaIngreso,
   notasExistentes: NotaIngreso[],
   productsMap: Map<string, Product>,
-  almacen: Almacen,
+  almacenesMap: Map<string, Almacen>,
   usuario: string,
 ): ResultadoGenerarNI => {
   if (nota.estado === 'Generada') {
@@ -77,6 +77,9 @@ export const generarNIEnInventario = (
 
     const producto = productsMap.get(linea.productoId);
     if (!producto) continue;
+
+    const almacen = almacenesMap.get(linea.almacenId ?? nota.almacenDestinoId);
+    if (!almacen) continue;
 
     const data: StockAdjustmentData = {
       productoId: linea.productoId,
@@ -130,7 +133,7 @@ export interface ResultadoAnularNI {
 export const anularNIEnInventario = (
   nota: NotaIngreso,
   productsMap: Map<string, Product>,
-  almacen: Almacen,
+  almacenesMap: Map<string, Almacen>,
   motivo: string,
   usuario: string,
 ): ResultadoAnularNI => {
@@ -138,15 +141,17 @@ export const anularNIEnInventario = (
     throw new Error('Solo se pueden anular Notas de Ingreso en estado Generada.');
   }
 
-  // Validar que el stock no quede negativo por la reversión
+  // Validar que el stock no quede negativo por la reversión (por almacén de cada línea)
   for (const linea of nota.lineas) {
     if (linea.tipoBienServicio === 'servicio') continue;
     const producto = productsMap.get(linea.productoId);
     if (!producto) continue;
+    const almacen = almacenesMap.get(linea.almacenId ?? nota.almacenDestinoId);
+    if (!almacen) continue;
     const stockActual = InventoryService.getStock(producto, almacen.id);
     if (stockActual < linea.cantidad) {
       throw new Error(
-        `No se puede anular: el producto "${linea.productoNombre}" tiene stock actual (${stockActual}) menor a la cantidad ingresada (${linea.cantidad}).`,
+        `No se puede anular: el producto "${linea.productoNombre}" tiene stock actual (${stockActual}) en "${almacen.nombreAlmacen}", menor a la cantidad ingresada (${linea.cantidad}).`,
       );
     }
   }
@@ -160,6 +165,9 @@ export const anularNIEnInventario = (
     if (linea.tipoBienServicio === 'servicio') continue;
     const producto = productsMap.get(linea.productoId);
     if (!producto) continue;
+
+    const almacen = almacenesMap.get(linea.almacenId ?? nota.almacenDestinoId);
+    if (!almacen) continue;
 
     const data: StockAdjustmentData = {
       productoId: linea.productoId,

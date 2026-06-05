@@ -68,8 +68,8 @@ export const useNotasIngreso = () => {
         return false;
       }
 
-      const almacen = configState.almacenes.find(a => a.id === nota.almacenDestinoId);
-      if (!almacen) {
+      const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
+      if (!almacenesMap.has(nota.almacenDestinoId)) {
         feedback.error('Almacén de destino no encontrado. Verifique la configuración.');
         return false;
       }
@@ -85,7 +85,7 @@ export const useNotasIngreso = () => {
           nota,
           notasActuales,
           productsMap,
-          almacen,
+          almacenesMap,
           usuarioNombre,
         );
 
@@ -120,8 +120,8 @@ export const useNotasIngreso = () => {
         return false;
       }
 
-      const almacen = configState.almacenes.find(a => a.id === nota.almacenDestinoId);
-      if (!almacen) {
+      const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
+      if (!almacenesMap.has(nota.almacenDestinoId)) {
         feedback.error('Almacén de destino no encontrado.');
         return false;
       }
@@ -131,7 +131,7 @@ export const useNotasIngreso = () => {
         const { notaActualizada, productosActualizados } = anularNIEnInventario(
           nota,
           productsMap,
-          almacen,
+          almacenesMap,
           motivoAnulacion,
           usuarioNombre,
         );

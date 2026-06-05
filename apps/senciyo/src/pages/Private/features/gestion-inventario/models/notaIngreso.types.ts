@@ -34,6 +34,9 @@ export interface LineaNotaIngreso {
   unidad: string;
   unidadCodigo: string;
   impuesto?: string;
+  // Almacén destino de esta línea; si no especificado hereda el almacén de cabecera
+  almacenId?: string;
+  almacenNombre?: string;
   cantidad: number;
   costoUnitario: number;
   subtotal: number;

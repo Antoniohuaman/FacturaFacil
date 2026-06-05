@@ -64,15 +64,20 @@ const NotasIngresoPanel: React.FC = () => {
   ].filter(Boolean).length;
 
   const almacenesEnNotas = useMemo(() => {
-    const seen = new Set<string>();
-    const result: { id: string; nombre: string }[] = [];
+    const seen = new Map<string, string>(); // id → nombre
     for (const n of notas) {
-      if (!seen.has(n.almacenDestinoId)) {
-        seen.add(n.almacenDestinoId);
-        result.push({ id: n.almacenDestinoId, nombre: n.almacenDestinoNombre });
+      if (n.almacenDestinoId && !seen.has(n.almacenDestinoId)) {
+        seen.set(n.almacenDestinoId, n.almacenDestinoNombre);
+      }
+      for (const l of n.lineas) {
+        if (l.almacenId && !seen.has(l.almacenId)) {
+          seen.set(l.almacenId, l.almacenNombre ?? l.almacenId);
+        }
       }
     }
-    return result.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    return [...seen.entries()]
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [notas]);
 
   const notasFiltradas = useMemo(() => {
@@ -94,7 +99,11 @@ const NotasIngresoPanel: React.FC = () => {
       lista = lista.filter(n => (n.proveedorNombre ?? '').toLowerCase().includes(q));
     }
     if (filtroAlmacen) {
-      lista = lista.filter(n => n.almacenDestinoId === filtroAlmacen);
+      lista = lista.filter(
+        n =>
+          n.almacenDestinoId === filtroAlmacen ||
+          n.lineas.some(l => l.almacenId === filtroAlmacen),
+      );
     }
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
@@ -148,23 +157,29 @@ const NotasIngresoPanel: React.FC = () => {
       return;
     }
     try {
-      const rows = notasFiltradas.map(n => ({
-        numero: n.numero ?? '—',
-        fechaDocumento: fmtFecha(n.fechaDocumento),
-        fechaIngreso: fmtFecha(n.fechaIngresoAlmacen),
-        tipoIngreso: `${n.tipoIngreso} — ${TIPO_INGRESO_LABEL[n.tipoIngreso] ?? n.tipoIngreso}`,
-        proveedor: n.proveedorNombre ?? '—',
-        documentoProveedor: n.numeroDocumentoProveedor ?? '—',
-        almacen: n.almacenDestinoNombre,
-        moneda: n.moneda,
-        total: n.total,
-        estado: n.estado,
-        docOrigen: n.documentoOrigen
-          ? `${DOC_ORIGEN_LABEL[n.documentoOrigen] ?? n.documentoOrigen}${n.numeroDocumentoOrigen ? `: ${n.numeroDocumentoOrigen}` : ''}`
-          : '—',
-        guiaRemision: n.guiaRemision ?? '—',
-        observaciones: n.observaciones ?? '',
-      }));
+      const rows = notasFiltradas.map(n => {
+        const idsUnicos = [...new Set(n.lineas.filter(l => l.almacenId).map(l => l.almacenId!))];
+        const almacenesDestino = idsUnicos.length > 0
+          ? idsUnicos.map(id => n.lineas.find(l => l.almacenId === id)?.almacenNombre ?? id).join(', ')
+          : n.almacenDestinoNombre;
+        return {
+          numero: n.numero ?? '—',
+          fechaDocumento: fmtFecha(n.fechaDocumento),
+          fechaIngreso: fmtFecha(n.fechaIngresoAlmacen),
+          tipoIngreso: `${n.tipoIngreso} — ${TIPO_INGRESO_LABEL[n.tipoIngreso] ?? n.tipoIngreso}`,
+          proveedor: n.proveedorNombre ?? '—',
+          documentoProveedor: n.numeroDocumentoProveedor ?? '—',
+          almacenesDestino,
+          moneda: n.moneda,
+          total: n.total,
+          estado: n.estado,
+          docOrigen: n.documentoOrigen
+            ? `${DOC_ORIGEN_LABEL[n.documentoOrigen] ?? n.documentoOrigen}${n.numeroDocumentoOrigen ? `: ${n.numeroDocumentoOrigen}` : ''}`
+            : '—',
+          guiaRemision: n.guiaRemision ?? '—',
+          observaciones: n.observaciones ?? '',
+        };
+      });
       await exportDatasetToExcel({
         rows,
         columns: [
@@ -174,7 +189,7 @@ const NotasIngresoPanel: React.FC = () => {
           { header: 'Tipo de ingreso', key: 'tipoIngreso', width: 36 },
           { header: 'Proveedor', key: 'proveedor', width: 30 },
           { header: 'RUC / DNI', key: 'documentoProveedor', width: 15 },
-          { header: 'Almacén', key: 'almacen', width: 25 },
+          { header: 'Almacenes destino', key: 'almacenesDestino', width: 35 },
           { header: 'Moneda', key: 'moneda', width: 10 },
           { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
           { header: 'Estado', key: 'estado', width: 12 },
@@ -389,8 +404,13 @@ const NotasIngresoPanel: React.FC = () => {
                       <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs font-mono">
                         {nota.numeroDocumentoProveedor ?? <span className="text-gray-300 dark:text-gray-600">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">
-                        {nota.almacenDestinoNombre}
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[160px] truncate">
+                        {(() => {
+                          const ids = [...new Set(nota.lineas.filter(l => l.almacenId).map(l => l.almacenId!))];
+                          if (ids.length <= 1) return nota.almacenDestinoNombre || '—';
+                          const nombres = ids.map(id => nota.lineas.find(l => l.almacenId === id)?.almacenNombre ?? id);
+                          return <span title={nombres.join(', ')}>{nombres[0]} +{ids.length - 1}</span>;
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white text-xs">
                         {nota.moneda} {nota.total.toFixed(2)}
