@@ -1,17 +1,20 @@
 // src/features/gestion-inventario/components/notas-ingreso/NotasIngresoPanel.tsx
 
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Eye, Package } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Copy, Printer } from 'lucide-react';
 import { useNotasIngreso } from '../../hooks/useNotasIngreso';
 import { TIPO_INGRESO_LABEL, ESTADO_NI_BADGE } from '../../models/notaIngreso.constants';
 import type { NotaIngreso, EstadoNotaIngreso } from '../../models/notaIngreso.types';
 import FormularioNotaIngreso from './FormularioNotaIngreso';
 import DetalleNotaIngreso from './DetalleNotaIngreso';
+import { imprimirNotaIngreso } from '../../services/notaIngreso.print';
+import { useFeedback } from '../../../../../../shared/feedback';
 
 const PAGE_SIZE = 15;
 
 const NotasIngresoPanel: React.FC = () => {
-  const { notas } = useNotasIngreso();
+  const { notas, eliminarNI, duplicarNI } = useNotasIngreso();
+  const feedback = useFeedback();
 
   const [vista, setVista] = useState<'lista' | 'nuevo' | 'editar'>('lista');
   const [notaEditando, setNotaEditando] = useState<NotaIngreso | undefined>();
@@ -47,34 +50,27 @@ const NotasIngresoPanel: React.FC = () => {
     paginaActual * PAGE_SIZE,
   );
 
-  const handleBusquedaChange = (v: string) => {
-    setBusqueda(v);
-    setPaginaActual(1);
+  const handleBusquedaChange = (v: string) => { setBusqueda(v); setPaginaActual(1); };
+  const handleFiltroEstado = (v: EstadoNotaIngreso | 'todos') => { setFiltroEstado(v); setPaginaActual(1); };
+
+  const handleNuevo = () => { setNotaEditando(undefined); setVista('nuevo'); };
+  const handleEditar = (nota: NotaIngreso) => { setNotaEditando(nota); setVista('editar'); };
+  const handleGuardado = () => { setVista('lista'); setNotaEditando(undefined); };
+  const handleCancelar = () => { setVista('lista'); setNotaEditando(undefined); };
+
+  const handleEliminar = async (nota: NotaIngreso) => {
+    const ok = await feedback.openConfirm({
+      title: 'Eliminar borrador',
+      message: `¿Eliminar el borrador ${nota.serie}? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      icon: 'danger',
+    });
+    if (ok) eliminarNI(nota.id);
   };
 
-  const handleFiltroEstado = (v: EstadoNotaIngreso | 'todos') => {
-    setFiltroEstado(v);
-    setPaginaActual(1);
-  };
-
-  const handleNuevo = () => {
-    setNotaEditando(undefined);
-    setVista('nuevo');
-  };
-
-  const handleEditar = (nota: NotaIngreso) => {
-    setNotaEditando(nota);
-    setVista('editar');
-  };
-
-  const handleGuardado = () => {
-    setVista('lista');
-    setNotaEditando(undefined);
-  };
-
-  const handleCancelar = () => {
-    setVista('lista');
-    setNotaEditando(undefined);
+  const handleDuplicar = (nota: NotaIngreso) => {
+    duplicarNI(nota.id);
   };
 
   const formatFecha = (iso: string) => {
@@ -102,7 +98,6 @@ const NotasIngresoPanel: React.FC = () => {
       {/* Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          {/* Búsqueda */}
           <div className="relative flex-1 min-w-[180px] max-w-xs">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
             <input
@@ -114,7 +109,6 @@ const NotasIngresoPanel: React.FC = () => {
             />
           </div>
 
-          {/* Filtro estado */}
           <select
             value={filtroEstado}
             onChange={e => handleFiltroEstado(e.target.value as EstadoNotaIngreso | 'todos')}
@@ -142,15 +136,12 @@ const NotasIngresoPanel: React.FC = () => {
       <div className="flex-1 overflow-auto p-6">
         {notasPagina.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400 dark:text-gray-500">
-            <Package className="w-12 h-12 mb-3 opacity-30" />
+            <Search className="w-12 h-12 mb-3 opacity-30" />
             <p className="text-sm font-medium">
               {notas.length === 0 ? 'No hay notas de ingreso registradas' : 'Sin resultados para los filtros aplicados'}
             </p>
             {notas.length === 0 && (
-              <button
-                onClick={handleNuevo}
-                className="mt-4 text-sm text-[#6F36FF] dark:text-[#8B5CF6] hover:underline"
-              >
+              <button onClick={handleNuevo} className="mt-4 text-sm text-[#6F36FF] dark:text-[#8B5CF6] hover:underline">
                 Crear primera Nota de Ingreso
               </button>
             )}
@@ -203,22 +194,47 @@ const NotasIngresoPanel: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setNotaDetalle(nota)}
+                        <div className="flex items-center gap-0.5">
+                          {/* Ver detalle — all states */}
+                          <ActionBtn
                             title="Ver detalle"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#6F36FF] hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/10"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
+                            onClick={() => setNotaDetalle(nota)}
+                            icon={<Eye className="w-3.5 h-3.5" />}
+                          />
+
+                          {/* Borrador: Editar */}
                           {nota.estado === 'Borrador' && (
-                            <button
-                              onClick={() => handleEditar(nota)}
+                            <ActionBtn
                               title="Editar borrador"
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-[#6F36FF] hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/10 text-xs font-medium"
-                            >
-                              Editar
-                            </button>
+                              onClick={() => handleEditar(nota)}
+                              icon={<Pencil className="w-3.5 h-3.5" />}
+                            />
+                          )}
+
+                          {/* Generada + Anulada: Imprimir */}
+                          {(nota.estado === 'Generada' || nota.estado === 'Anulada') && (
+                            <ActionBtn
+                              title="Imprimir"
+                              onClick={() => imprimirNotaIngreso(nota)}
+                              icon={<Printer className="w-3.5 h-3.5" />}
+                            />
+                          )}
+
+                          {/* All states: Duplicar */}
+                          <ActionBtn
+                            title="Duplicar como borrador"
+                            onClick={() => handleDuplicar(nota)}
+                            icon={<Copy className="w-3.5 h-3.5" />}
+                          />
+
+                          {/* Borrador: Eliminar */}
+                          {nota.estado === 'Borrador' && (
+                            <ActionBtn
+                              title="Eliminar borrador"
+                              onClick={() => void handleEliminar(nota)}
+                              icon={<Trash2 className="w-3.5 h-3.5" />}
+                              danger
+                            />
                           )}
                         </div>
                       </td>
@@ -256,19 +272,38 @@ const NotasIngresoPanel: React.FC = () => {
         )}
       </div>
 
-      {/* Modal detalle */}
+      {/* Drawer de detalle */}
       {notaDetalle && (
         <DetalleNotaIngreso
           nota={notaDetalle}
           onClose={() => setNotaDetalle(null)}
-          onRefresh={() => {
-            // La recarga ya la maneja el evento NOTAS_INGRESO_CHANGED_EVENT en el hook
-            setNotaDetalle(null);
-          }}
+          onRefresh={() => setNotaDetalle(null)}
+          onDuplicar={() => setNotaDetalle(null)}
         />
       )}
     </div>
   );
 };
+
+// ── Small helper component ──────────────────────────────────────────────────
+interface ActionBtnProps {
+  title: string;
+  onClick: () => void;
+  icon: React.ReactNode;
+  danger?: boolean;
+}
+const ActionBtn: React.FC<ActionBtnProps> = ({ title, onClick, icon, danger }) => (
+  <button
+    onClick={onClick}
+    title={title}
+    className={`p-1.5 rounded-lg transition-colors ${
+      danger
+        ? 'text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+        : 'text-gray-400 hover:text-[#6F36FF] dark:hover:text-[#8B5CF6] hover:bg-[#6F36FF]/5 dark:hover:bg-[#6F36FF]/10'
+    }`}
+  >
+    {icon}
+  </button>
+);
 
 export default NotasIngresoPanel;

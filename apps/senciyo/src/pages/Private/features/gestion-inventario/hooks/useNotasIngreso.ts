@@ -8,6 +8,7 @@ import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
 import {
   cargarNotasIngreso,
+  guardarNotasIngreso,
   agregarOActualizarNI,
   NOTAS_INGRESO_CHANGED_EVENT,
 } from '../repositories/notaIngreso.repository';
@@ -152,11 +153,69 @@ export const useNotasIngreso = () => {
     [allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
   );
 
+  const eliminarNI = useCallback(
+    (notaId: string): boolean => {
+      const notasActuales = cargarNotasIngreso();
+      const nota = notasActuales.find(n => n.id === notaId);
+      if (!nota) {
+        feedback.error('Nota no encontrada.');
+        return false;
+      }
+      if (nota.estado !== 'Borrador') {
+        feedback.error('Solo se pueden eliminar borradores. Las notas generadas deben anularse.');
+        return false;
+      }
+      guardarNotasIngreso(notasActuales.filter(n => n.id !== notaId));
+      feedback.success('Borrador eliminado.');
+      return true;
+    },
+    [feedback],
+  );
+
+  const duplicarNI = useCallback(
+    (notaId: string): NotaIngreso | null => {
+      const notasActuales = cargarNotasIngreso();
+      const nota = notasActuales.find(n => n.id === notaId);
+      if (!nota) {
+        feedback.error('Nota no encontrada.');
+        return null;
+      }
+      const ahora = new Date().toISOString();
+      const hoy = ahora.split('T')[0];
+      const duplicada: NotaIngreso = {
+        ...nota,
+        id: `NI-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        estado: 'Borrador',
+        esBorrador: true,
+        correlativo: undefined,
+        numero: undefined,
+        fechaDocumento: hoy,
+        fechaIngresoAlmacen: hoy,
+        fechaCreacion: ahora,
+        fechaActualizacion: ahora,
+        motivoAnulacion: undefined,
+        fechaAnulacion: undefined,
+        usuarioAnulacion: undefined,
+        historial: [{ fecha: ahora, usuario: usuarioNombre, accion: 'Duplicada', detalle: nota.numero ?? nota.serie }],
+        lineas: nota.lineas.map(l => ({
+          ...l,
+          id: `linea-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        })),
+      };
+      agregarOActualizarNI(duplicada);
+      feedback.success('Nota duplicada como borrador.');
+      return duplicada;
+    },
+    [usuarioNombre, feedback],
+  );
+
   return {
     notas,
     usuarioNombre,
     guardarBorrador,
     generarNI,
     anularNI,
+    eliminarNI,
+    duplicarNI,
   };
 };

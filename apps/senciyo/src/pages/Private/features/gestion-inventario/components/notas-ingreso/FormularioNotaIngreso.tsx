@@ -22,6 +22,7 @@ import ActionButtonsSection from '../../../comprobantes-electronicos/shared/form
 import ProductSelector from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useTenant } from '@/shared/tenant/TenantContext';
+import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsultaDocumentos';
 import {
@@ -89,6 +90,7 @@ interface Props {
 const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGuardado }) => {
   const { state: configState } = useConfigurationContext();
   const { activeEstablecimientoId } = useTenant();
+  const { allProducts } = useProductStore();
   const { clientes, fetchClientes } = useClientes();
   const { guardarBorrador, generarNI, usuarioNombre } = useNotasIngreso();
   const feedback = useFeedback();
@@ -282,6 +284,16 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
       total: parseFloat((baseGravada + igvTotal + noGravado).toFixed(2)),
     };
   }, [lineas]);
+
+  // --- Stock actual por almacén destino (informativo, no modifica stock) ---
+  const getStockActual = useCallback(
+    (productoId: string): number => {
+      if (!almacenDestinoId) return 0;
+      const product = allProducts.find(p => String(p.id) === productoId);
+      return product?.stockPorAlmacen?.[almacenDestinoId] ?? 0;
+    },
+    [allProducts, almacenDestinoId],
+  );
 
   // --- ProductSelector callback ---
   const handleAgregarProductos = useCallback(
@@ -548,110 +560,108 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
               </div>
             </div>
 
-            {/* Proveedor — exact same pattern as FormularioHeaderComercial */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <User size={11} />
-                Proveedor{requiereProveedor ? ' *' : ''}
-              </label>
+            {/* Proveedor (2 cols) + Tipo doc origen (1 col) — same row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Proveedor — exact same pattern as FormularioHeaderComercial */}
+              <div className="sm:col-span-2 flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <User size={11} />
+                  Proveedor{requiereProveedor ? ' *' : ''}
+                </label>
 
-              {proveedor ? (
-                <div className="flex items-start justify-between gap-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
-                      {proveedor.nombre}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {proveedor.tipoDocumento !== 'OTRO'
-                        ? `${proveedor.tipoDocumento}: ${proveedor.numeroDocumento}`
-                        : proveedor.numeroDocumento}
-                      {proveedor.direccion && (
-                        <span className="ml-2 text-gray-400">• {proveedor.direccion}</span>
+                {proveedor ? (
+                  <div className="flex items-center justify-between gap-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg px-2.5 py-2">
+                    <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
+                        {proveedor.nombre}
+                      </span>
+                      {proveedor.tipoDocumento !== 'OTRO' && proveedor.numeroDocumento && (
+                        <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {proveedor.tipoDocumento}: {proveedor.numeroDocumento}
+                        </span>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={limpiarProveedor}
+                      className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                    >
+                      <X size={13} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={limpiarProveedor}
-                    className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 mt-0.5"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="flex items-center gap-1.5">
-                    <div className="relative flex-1">
-                      <Search
-                        size={14}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                      />
-                      <input
-                        ref={inputProveedorRef}
-                        type="text"
-                        placeholder="Buscar proveedor, RUC o DNI..."
-                        value={busquedaProveedor}
-                        onChange={e => setBusquedaProveedor(e.target.value)}
-                        onFocus={() => busquedaProveedor.length >= 2 && setMostrarResultados(true)}
-                        onBlur={() => setTimeout(() => setMostrarResultados(false), 200)}
-                        className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                      />
+                ) : (
+                  <div className="relative">
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative flex-1">
+                        <Search
+                          size={13}
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                        />
+                        <input
+                          ref={inputProveedorRef}
+                          type="text"
+                          placeholder="Buscar proveedor, RUC o DNI..."
+                          value={busquedaProveedor}
+                          onChange={e => setBusquedaProveedor(e.target.value)}
+                          onFocus={() => busquedaProveedor.length >= 2 && setMostrarResultados(true)}
+                          onBlur={() => setTimeout(() => setMostrarResultados(false), 200)}
+                          className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                        />
+                      </div>
+                      {mostrarBotonLookup && (
+                        <button
+                          type="button"
+                          onClick={() => void handleLookup()}
+                          disabled={cargandoLookup}
+                          title={numDigits === 11 ? 'Consultar RUC en SUNAT' : 'Consultar DNI en RENIEC'}
+                          className="flex-shrink-0 flex items-center gap-1 px-2.5 py-2 text-xs font-medium bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          {cargandoLookup ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Building2 size={12} />
+                          )}
+                          <span>{numDigits === 11 ? 'SUNAT' : 'RENIEC'}</span>
+                        </button>
+                      )}
                     </div>
-                    {mostrarBotonLookup && (
-                      <button
-                        type="button"
-                        onClick={() => void handleLookup()}
-                        disabled={cargandoLookup}
-                        title={numDigits === 11 ? 'Consultar RUC en SUNAT' : 'Consultar DNI en RENIEC'}
-                        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-2 text-xs font-medium bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50"
-                      >
-                        {cargandoLookup ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Building2 size={12} />
-                        )}
-                        <span>{numDigits === 11 ? 'SUNAT' : 'RENIEC'}</span>
-                      </button>
+
+                    {errorDocumento && (
+                      <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errorDocumento}</p>
+                    )}
+
+                    {mostrarResultados && clientes.length > 0 && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        {(clientes as Cliente[]).slice(0, 8).map((c, idx) => {
+                          const { tipo, numero } = extraerDocumentoCliente(c);
+                          return (
+                            <button
+                              key={c.id ?? idx}
+                              type="button"
+                              onMouseDown={() => seleccionarProveedor(c)}
+                              className="w-full text-left px-3 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0"
+                            >
+                              <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                                {c.name}
+                              </div>
+                              {numero && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {tipo !== 'OTRO' ? `${tipo}: ${numero}` : numero}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
+                )}
+              </div>
 
-                  {errorDocumento && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">{errorDocumento}</p>
-                  )}
-
-                  {mostrarResultados && clientes.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
-                      {(clientes as Cliente[]).slice(0, 8).map((c, idx) => {
-                        const { tipo, numero } = extraerDocumentoCliente(c);
-                        return (
-                          <button
-                            key={c.id ?? idx}
-                            type="button"
-                            onMouseDown={() => seleccionarProveedor(c)}
-                            className="w-full text-left px-3 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0"
-                          >
-                            <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                              {c.name}
-                            </div>
-                            {numero && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {tipo !== 'OTRO' ? `${tipo}: ${numero}` : numero}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Referencias opcionales */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Tipo documento origen */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Tipo documento origen
+                  Tipo doc. origen
                 </label>
                 <select
                   value={documentoOrigen}
@@ -665,6 +675,10 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                   <option value="91">Comprobante de operaciones - Ley N° 29972</option>
                 </select>
               </div>
+            </div>
+
+            {/* N° doc origen + Guía remisión */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
                   N° documento origen
@@ -689,6 +703,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                   className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
                 />
               </div>
+              <div />
             </div>
           </div>
         </ConfigurationCard>
@@ -715,6 +730,9 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                       </th>
                       <th className="text-left px-3 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 w-20">
                         Unidad
+                      </th>
+                      <th className="text-right px-3 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 w-20">
+                        Stock
                       </th>
                       <th className="text-left px-3 py-2.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 w-28">
                         Impuesto
@@ -762,6 +780,9 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                         </td>
                         <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">
                           {linea.unidad}
+                        </td>
+                        <td className="px-3 py-2 text-right text-[12px] font-mono text-slate-500 dark:text-slate-400">
+                          {getStockActual(linea.productoId)}
                         </td>
                         <td className="px-3 py-2">
                           {linea.impuesto ? (
