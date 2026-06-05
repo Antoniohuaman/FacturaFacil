@@ -172,43 +172,6 @@ export const useNotasIngreso = () => {
     [feedback],
   );
 
-  const duplicarNI = useCallback(
-    (notaId: string): NotaIngreso | null => {
-      const notasActuales = cargarNotasIngreso();
-      const nota = notasActuales.find(n => n.id === notaId);
-      if (!nota) {
-        feedback.error('Nota no encontrada.');
-        return null;
-      }
-      const ahora = new Date().toISOString();
-      const hoy = ahora.split('T')[0];
-      const duplicada: NotaIngreso = {
-        ...nota,
-        id: `NI-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        estado: 'Borrador',
-        esBorrador: true,
-        correlativo: undefined,
-        numero: undefined,
-        fechaDocumento: hoy,
-        fechaIngresoAlmacen: hoy,
-        fechaCreacion: ahora,
-        fechaActualizacion: ahora,
-        motivoAnulacion: undefined,
-        fechaAnulacion: undefined,
-        usuarioAnulacion: undefined,
-        historial: [{ fecha: ahora, usuario: usuarioNombre, accion: 'Duplicada', detalle: nota.numero ?? nota.serie }],
-        lineas: nota.lineas.map(l => ({
-          ...l,
-          id: `linea-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        })),
-      };
-      agregarOActualizarNI(duplicada);
-      feedback.success('Nota duplicada como borrador.');
-      return duplicada;
-    },
-    [usuarioNombre, feedback],
-  );
-
   return {
     notas,
     usuarioNombre,
@@ -216,6 +179,5 @@ export const useNotasIngreso = () => {
     generarNI,
     anularNI,
     eliminarNI,
-    duplicarNI,
   };
 };

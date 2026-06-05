@@ -1,11 +1,12 @@
 // src/features/gestion-inventario/components/notas-ingreso/DetalleNotaIngreso.tsx
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, Printer, Copy, AlertTriangle, Clock, Package } from 'lucide-react';
 import type { NotaIngreso } from '../../models/notaIngreso.types';
 import { TIPO_INGRESO_LABEL, ESTADO_NI_BADGE } from '../../models/notaIngreso.constants';
 import { useNotasIngreso } from '../../hooks/useNotasIngreso';
 import { imprimirNotaIngreso } from '../../services/notaIngreso.print';
+import { calcularDesgloseTributario, prepararDuplicado } from '../../services/notaIngreso.service';
 
 type Tab = 'general' | 'historial';
 
@@ -42,13 +43,14 @@ const DOC_ORIGEN_LABEL: Record<string, string> = {
 };
 
 const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDuplicar }) => {
-  const { anularNI, duplicarNI } = useNotasIngreso();
+  const { anularNI } = useNotasIngreso();
   const [tab, setTab] = useState<Tab>('general');
   const [mostrarAnulacion, setMostrarAnulacion] = useState(false);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [anulando, setAnulando] = useState(false);
 
   const badge = ESTADO_NI_BADGE[nota.estado] ?? ESTADO_NI_BADGE['Borrador'];
+  const desgloseTributario = useMemo(() => calcularDesgloseTributario(nota.lineas), [nota.lineas]);
 
   const handleAnular = () => {
     if (!motivoAnulacion.trim()) return;
@@ -59,17 +61,12 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
   };
 
   const handleDuplicar = () => {
-    const nueva = duplicarNI(nota.id);
-    if (nueva && onDuplicar) onDuplicar(nueva);
+    const duplicada = prepararDuplicado(nota);
+    if (onDuplicar) onDuplicar(duplicada);
   };
 
   const puedeImprimir = nota.estado === 'Generada' || nota.estado === 'Anulada';
   const puedeAnular = nota.estado === 'Generada';
-
-  // Totals helper — recompute from lines when available
-  const baseImponible = nota.baseImponible;
-  const igv = nota.impuesto;
-  const noGravados = nota.noGravados;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end overflow-hidden">
@@ -261,25 +258,21 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
 
                 {/* Totales */}
                 <div className="flex justify-end mt-3">
-                  <div className="space-y-1 min-w-[220px] text-[12px]">
-                    {baseImponible > 0 && (
-                      <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
-                        <span>Op. gravadas</span>
-                        <span>{nota.moneda} {baseImponible.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {igv > 0 && (
-                      <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
-                        <span>IGV</span>
-                        <span>{nota.moneda} {igv.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {noGravados > 0 && (
-                      <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
-                        <span>Op. exoneradas / inafectas</span>
-                        <span>{nota.moneda} {noGravados.toFixed(2)}</span>
-                      </div>
-                    )}
+                  <div className="space-y-1 min-w-[240px] text-[12px]">
+                    {desgloseTributario.map(g => (
+                      <React.Fragment key={g.key}>
+                        <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
+                          <span>{g.labelIgv ? `${g.labelBase} (${g.labelIgv})` : g.labelBase}</span>
+                          <span>{nota.moneda} {g.base.toFixed(2)}</span>
+                        </div>
+                        {g.igv > 0 && (
+                          <div className="flex justify-between gap-6 text-gray-500 dark:text-gray-400">
+                            <span>{g.labelIgv}</span>
+                            <span>{nota.moneda} {g.igv.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    ))}
                     {nota.descuentos > 0 && (
                       <div className="flex justify-between gap-6 text-red-500">
                         <span>Descuentos</span>
@@ -406,7 +399,7 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
                 <AlertTriangle size={12} />
-                Anular NI
+                Anular nota de ingreso
               </button>
             )}
           </div>

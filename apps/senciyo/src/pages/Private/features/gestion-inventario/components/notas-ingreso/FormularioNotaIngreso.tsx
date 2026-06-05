@@ -37,19 +37,10 @@ import type {
 import { useNotasIngreso } from '../../hooks/useNotasIngreso';
 import { useFeedback } from '../../../../../../shared/feedback';
 import type { Cliente } from '../../../gestion-clientes/models/cliente.types';
-
-// PURCHASE MODEL: igv = subtotal × rate  (not price / (1+rate) which is the SALES model)
-const resolveIgvRate = (impuesto?: string): number => {
-  if (!impuesto) return 0.18;
-  const lower = impuesto.toLowerCase();
-  if (lower.includes('exonerado') || lower.includes('inafecto') || lower.includes('gratuita')) return 0;
-  const m = impuesto.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (m) {
-    const pct = parseFloat(m[1]);
-    return Number.isFinite(pct) ? pct / 100 : 0.18;
-  }
-  return 0.18;
-};
+import {
+  resolveIgvRate,
+  calcularDesgloseTributario,
+} from '../../services/notaIngreso.service';
 
 const calcularLinea = (l: LineaNotaIngreso): LineaNotaIngreso => {
   const rate = resolveIgvRate(l.impuesto);
@@ -285,6 +276,8 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     };
   }, [lineas]);
 
+  const desgloseTributario = useMemo(() => calcularDesgloseTributario(lineas), [lineas]);
+
   // --- Stock actual por almacén destino (informativo, no modifica stock) ---
   const getStockActual = useCallback(
     (productoId: string): number => {
@@ -301,7 +294,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     (prods: { product: any; quantity: number }[]) => {
       const bienes = prods.filter(p => p.product.tipoExistencia !== 'SERVICIOS');
       if (bienes.length < prods.length) {
-        feedback.warning('Se omitieron servicios. NI solo acepta bienes físicos.');
+        feedback.warning('Las notas de ingreso solo aceptan bienes físicos. Se omitieron servicios.');
       }
       if (!bienes.length) return;
       setLineas(prev => [
@@ -433,7 +426,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
           </h1>
           {seriesNI.length === 0 && (
             <p className="text-xs text-amber-600 dark:text-amber-400 truncate">
-              Sin series NI configuradas — ir a Configuración → Series
+              Sin series de Nota de Ingreso configuradas — ir a Configuración → Series
             </p>
           )}
         </div>
@@ -828,31 +821,21 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
             {/* Totals breakdown */}
             {lineas.length > 0 && (
               <div className="flex justify-end">
-                <div className="space-y-1 min-w-[260px] text-[13px]">
-                  {totales.baseImponible > 0 && (
-                    <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
-                      <span>Op. gravadas</span>
-                      <span>
-                        {moneda} {totales.baseImponible.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {totales.igv > 0 && (
-                    <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
-                      <span>IGV</span>
-                      <span>
-                        {moneda} {totales.igv.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  {totales.noGravados > 0 && (
-                    <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
-                      <span>Op. exoneradas / inafectas</span>
-                      <span>
-                        {moneda} {totales.noGravados.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
+                <div className="space-y-1 min-w-[280px] text-[13px]">
+                  {desgloseTributario.map(g => (
+                    <React.Fragment key={g.key}>
+                      <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
+                        <span>{g.labelIgv ? `${g.labelBase} (${g.labelIgv})` : g.labelBase}</span>
+                        <span>{moneda} {g.base.toFixed(2)}</span>
+                      </div>
+                      {g.igv > 0 && (
+                        <div className="flex justify-between gap-8 text-slate-600 dark:text-slate-400">
+                          <span>{g.labelIgv}</span>
+                          <span>{moneda} {g.igv.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  ))}
                   <div className="flex justify-between gap-8 font-semibold border-t border-slate-200 dark:border-slate-600 pt-1">
                     <span className="text-slate-900 dark:text-white">Total {moneda}</span>
                     <span className="text-violet-600 dark:text-violet-400">
@@ -889,13 +872,13 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
         onGuardarBorrador={handleGuardarBorrador}
         isCartEmpty={lineas.length === 0}
         primaryAction={{
-          label: generando ? 'Generando...' : 'Generar NI',
+          label: generando ? 'Generando...' : 'Generar nota de ingreso',
           onClick: handleGenerarNI,
           icon: <Save size={14} />,
           disabled: seriesNI.length === 0 || generando || guardando,
           title:
             seriesNI.length === 0
-              ? 'Configure una serie NI en Configuración → Series'
+              ? 'Configure una serie de Nota de Ingreso en Configuración → Series'
               : undefined,
         }}
       />

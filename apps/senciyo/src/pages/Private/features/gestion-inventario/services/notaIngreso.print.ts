@@ -3,6 +3,7 @@
 
 import { TIPO_INGRESO_LABEL } from '../models/notaIngreso.constants';
 import type { NotaIngreso } from '../models/notaIngreso.types';
+import { calcularDesgloseTributario } from './notaIngreso.service';
 
 const escHtml = (s?: string): string =>
   (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -54,10 +55,12 @@ export function imprimirNotaIngreso(nota: NotaIngreso): void {
     )
     .join('');
 
+  const desgloseGrupos = calcularDesgloseTributario(nota.lineas);
   const totalesHtml = `
-    ${nota.baseImponible > 0 ? `<tr><td colspan="7" class="tot-label">Op. gravadas</td><td class="num">${fmt2(nota.baseImponible)}</td></tr>` : ''}
-    ${nota.impuesto > 0 ? `<tr><td colspan="7" class="tot-label">IGV</td><td class="num">${fmt2(nota.impuesto)}</td></tr>` : ''}
-    ${nota.noGravados > 0 ? `<tr><td colspan="7" class="tot-label">Op. exoneradas / inafectas</td><td class="num">${fmt2(nota.noGravados)}</td></tr>` : ''}
+    ${desgloseGrupos.map(g => `
+      <tr><td colspan="7" class="tot-label">${escHtml(g.labelIgv ? `${g.labelBase} (${g.labelIgv})` : g.labelBase)}</td><td class="num">${fmt2(g.base)}</td></tr>
+      ${g.igv > 0 ? `<tr><td colspan="7" class="tot-label">${escHtml(g.labelIgv ?? '')}</td><td class="num">${fmt2(g.igv)}</td></tr>` : ''}
+    `).join('')}
     <tr class="total-row">
       <td colspan="7" class="tot-label bold">TOTAL ${nota.moneda}</td>
       <td class="num bold">${fmt2(nota.total)}</td>

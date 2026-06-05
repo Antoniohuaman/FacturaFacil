@@ -5,7 +5,7 @@ import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { MovimientoStock, StockAdjustmentData } from '../models';
 import { InventoryService } from './inventory.service';
 import { CORRELATIVO_DIGITOS_NI } from '../models/notaIngreso.constants';
-import type { NotaIngreso, TipoIngreso } from '../models/notaIngreso.types';
+import type { NotaIngreso, TipoIngreso, LineaNotaIngreso } from '../models/notaIngreso.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
 
 const TIPO_INGRESO_A_MOTIVO: Record<TipoIngreso, MovimientoMotivo> = {
@@ -202,4 +202,80 @@ export const anularNIEnInventario = (
   };
 
   return { notaActualizada, productosActualizados, movimientos };
+};
+
+// ─── Pure helpers — no side effects, no storage access ──────────────────────
+
+export const resolveIgvRate = (impuesto?: string): number => {
+  if (!impuesto) return 0.18;
+  const lower = impuesto.toLowerCase();
+  if (lower.includes('exonerado') || lower.includes('inafecto') || lower.includes('gratuita'))
+    return 0;
+  const m = impuesto.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (m) {
+    const pct = parseFloat(m[1]);
+    return Number.isFinite(pct) ? pct / 100 : 0.18;
+  }
+  return 0.18;
+};
+
+export interface GrupoImpuesto {
+  key: string;
+  labelBase: string;
+  labelIgv?: string;
+  rate: number;
+  base: number;
+  igv: number;
+}
+
+export const calcularDesgloseTributario = (lineas: LineaNotaIngreso[]): GrupoImpuesto[] => {
+  const grupos = new Map<string, GrupoImpuesto>();
+  for (const l of lineas) {
+    const rate = resolveIgvRate(l.impuesto);
+    let key: string;
+    let labelBase: string;
+    let labelIgv: string | undefined;
+    if (rate > 0) {
+      const pct = Math.round(rate * 100);
+      key = `igv_${rate}`;
+      labelBase = 'Op. gravadas';
+      labelIgv = `IGV ${pct}%`;
+    } else {
+      const lower = (l.impuesto ?? '').toLowerCase();
+      if (lower.includes('exonerado')) { key = 'exonerado'; labelBase = 'Op. exoneradas'; }
+      else if (lower.includes('inafecto')) { key = 'inafecto'; labelBase = 'Op. inafectas'; }
+      else if (lower.includes('gratuita')) { key = 'gratuita'; labelBase = 'Op. gratuitas'; }
+      else { key = 'no_gravado'; labelBase = 'Op. no gravadas'; }
+    }
+    const existing = grupos.get(key) ?? { key, labelBase, labelIgv, rate, base: 0, igv: 0 };
+    existing.base = parseFloat((existing.base + l.subtotal).toFixed(2));
+    existing.igv = parseFloat((existing.igv + l.igv).toFixed(2));
+    grupos.set(key, existing);
+  }
+  return Array.from(grupos.values()).sort((a, b) => b.rate - a.rate);
+};
+
+export const prepararDuplicado = (original: NotaIngreso): NotaIngreso => {
+  const ahora = new Date().toISOString();
+  const hoy = ahora.split('T')[0];
+  return {
+    ...original,
+    id: `NI-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    estado: 'Borrador',
+    esBorrador: true,
+    correlativo: undefined,
+    numero: undefined,
+    fechaDocumento: hoy,
+    fechaIngresoAlmacen: hoy,
+    fechaCreacion: ahora,
+    fechaActualizacion: ahora,
+    motivoAnulacion: undefined,
+    fechaAnulacion: undefined,
+    usuarioAnulacion: undefined,
+    historial: [],
+    lineas: original.lineas.map((l, i) => ({
+      ...l,
+      id: `linea-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+    })),
+  };
 };

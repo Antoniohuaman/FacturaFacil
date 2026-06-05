@@ -1,19 +1,39 @@
 // src/features/gestion-inventario/components/notas-ingreso/NotasIngresoPanel.tsx
 
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Eye, Pencil, Trash2, Copy, Printer } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Copy, Printer, SlidersHorizontal, Download } from 'lucide-react';
 import { useNotasIngreso } from '../../hooks/useNotasIngreso';
-import { TIPO_INGRESO_LABEL, ESTADO_NI_BADGE } from '../../models/notaIngreso.constants';
-import type { NotaIngreso, EstadoNotaIngreso } from '../../models/notaIngreso.types';
+import {
+  TIPO_INGRESO_LABEL,
+  ESTADO_NI_BADGE,
+  TIPOS_INGRESO,
+} from '../../models/notaIngreso.constants';
+import type { NotaIngreso, EstadoNotaIngreso, TipoIngreso } from '../../models/notaIngreso.types';
 import FormularioNotaIngreso from './FormularioNotaIngreso';
 import DetalleNotaIngreso from './DetalleNotaIngreso';
 import { imprimirNotaIngreso } from '../../services/notaIngreso.print';
+import { prepararDuplicado } from '../../services/notaIngreso.service';
 import { useFeedback } from '../../../../../../shared/feedback';
+import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 
 const PAGE_SIZE = 15;
 
+const DOC_ORIGEN_LABEL: Record<string, string> = {
+  '01': 'Factura', '03': 'Boleta de Venta', '52': 'Liq. de compra', '91': 'Comp. de operaciones',
+};
+
+const fmtFecha = (iso: string): string => {
+  try {
+    return new Date(iso).toLocaleDateString('es-PE', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+};
+
 const NotasIngresoPanel: React.FC = () => {
-  const { notas, eliminarNI, duplicarNI } = useNotasIngreso();
+  const { notas, eliminarNI } = useNotasIngreso();
   const feedback = useFeedback();
 
   const [vista, setVista] = useState<'lista' | 'nuevo' | 'editar'>('lista');
@@ -22,12 +42,59 @@ const NotasIngresoPanel: React.FC = () => {
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoNotaIngreso | 'todos'>('todos');
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
+  const [filtroTipoIngreso, setFiltroTipoIngreso] = useState<TipoIngreso | ''>('');
+  const [filtroProveedor, setFiltroProveedor] = useState('');
+  const [filtroAlmacen, setFiltroAlmacen] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
+
+  const resetearFiltrosAvanzados = () => {
+    setFiltroFechaDesde('');
+    setFiltroFechaHasta('');
+    setFiltroTipoIngreso('');
+    setFiltroProveedor('');
+    setFiltroAlmacen('');
+    setPaginaActual(1);
+  };
+
+  const filtrosAdicActivos = [
+    filtroFechaDesde, filtroFechaHasta, filtroTipoIngreso, filtroProveedor, filtroAlmacen,
+  ].filter(Boolean).length;
+
+  const almacenesEnNotas = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { id: string; nombre: string }[] = [];
+    for (const n of notas) {
+      if (!seen.has(n.almacenDestinoId)) {
+        seen.add(n.almacenDestinoId);
+        result.push({ id: n.almacenDestinoId, nombre: n.almacenDestinoNombre });
+      }
+    }
+    return result.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [notas]);
 
   const notasFiltradas = useMemo(() => {
     let lista = notas;
     if (filtroEstado !== 'todos') {
       lista = lista.filter(n => n.estado === filtroEstado);
+    }
+    if (filtroFechaDesde) {
+      lista = lista.filter(n => n.fechaDocumento >= filtroFechaDesde);
+    }
+    if (filtroFechaHasta) {
+      lista = lista.filter(n => n.fechaDocumento <= filtroFechaHasta);
+    }
+    if (filtroTipoIngreso) {
+      lista = lista.filter(n => n.tipoIngreso === filtroTipoIngreso);
+    }
+    if (filtroProveedor.trim()) {
+      const q = filtroProveedor.trim().toLowerCase();
+      lista = lista.filter(n => (n.proveedorNombre ?? '').toLowerCase().includes(q));
+    }
+    if (filtroAlmacen) {
+      lista = lista.filter(n => n.almacenDestinoId === filtroAlmacen);
     }
     if (busqueda.trim()) {
       const q = busqueda.toLowerCase();
@@ -42,7 +109,7 @@ const NotasIngresoPanel: React.FC = () => {
     return lista.sort(
       (a, b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime(),
     );
-  }, [notas, filtroEstado, busqueda]);
+  }, [notas, filtroEstado, filtroFechaDesde, filtroFechaHasta, filtroTipoIngreso, filtroProveedor, filtroAlmacen, busqueda]);
 
   const totalPaginas = Math.max(1, Math.ceil(notasFiltradas.length / PAGE_SIZE));
   const notasPagina = notasFiltradas.slice(
@@ -70,16 +137,56 @@ const NotasIngresoPanel: React.FC = () => {
   };
 
   const handleDuplicar = (nota: NotaIngreso) => {
-    duplicarNI(nota.id);
+    const duplicada = prepararDuplicado(nota);
+    setNotaEditando(duplicada);
+    setVista('nuevo');
   };
 
-  const formatFecha = (iso: string) => {
+  const handleExportar = async () => {
+    if (!notasFiltradas.length) {
+      feedback.warning('No hay datos para exportar con los filtros actuales.');
+      return;
+    }
     try {
-      return new Date(iso).toLocaleDateString('es-PE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
+      const rows = notasFiltradas.map(n => ({
+        numero: n.numero ?? '—',
+        fechaDocumento: fmtFecha(n.fechaDocumento),
+        fechaIngreso: fmtFecha(n.fechaIngresoAlmacen),
+        tipoIngreso: `${n.tipoIngreso} — ${TIPO_INGRESO_LABEL[n.tipoIngreso] ?? n.tipoIngreso}`,
+        proveedor: n.proveedorNombre ?? '—',
+        documentoProveedor: n.numeroDocumentoProveedor ?? '—',
+        almacen: n.almacenDestinoNombre,
+        moneda: n.moneda,
+        total: n.total,
+        estado: n.estado,
+        docOrigen: n.documentoOrigen
+          ? `${DOC_ORIGEN_LABEL[n.documentoOrigen] ?? n.documentoOrigen}${n.numeroDocumentoOrigen ? `: ${n.numeroDocumentoOrigen}` : ''}`
+          : '—',
+        guiaRemision: n.guiaRemision ?? '—',
+        observaciones: n.observaciones ?? '',
+      }));
+      await exportDatasetToExcel({
+        rows,
+        columns: [
+          { header: 'Número', key: 'numero', width: 20 },
+          { header: 'Fecha documento', key: 'fechaDocumento', width: 16 },
+          { header: 'Fecha ingreso almacén', key: 'fechaIngreso', width: 22 },
+          { header: 'Tipo de ingreso', key: 'tipoIngreso', width: 36 },
+          { header: 'Proveedor', key: 'proveedor', width: 30 },
+          { header: 'RUC / DNI', key: 'documentoProveedor', width: 15 },
+          { header: 'Almacén', key: 'almacen', width: 25 },
+          { header: 'Moneda', key: 'moneda', width: 10 },
+          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+          { header: 'Estado', key: 'estado', width: 12 },
+          { header: 'Doc. origen', key: 'docOrigen', width: 30 },
+          { header: 'Guía de remisión', key: 'guiaRemision', width: 20 },
+          { header: 'Observaciones', key: 'observaciones', width: 40 },
+        ],
+        filename: `notas-ingreso-${new Date().toISOString().split('T')[0]}`,
+        worksheetName: 'Notas de Ingreso',
       });
     } catch {
-      return iso;
+      feedback.error('Error al exportar. Intente nuevamente.');
     }
   };
 
@@ -120,6 +227,34 @@ const NotasIngresoPanel: React.FC = () => {
             <option value="Anulada">Anulada</option>
           </select>
 
+          {/* Advanced filters toggle */}
+          <button
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className={`relative h-9 px-3 text-sm border rounded-lg flex items-center gap-1.5 transition-colors ${
+              mostrarFiltros || filtrosAdicActivos > 0
+                ? 'border-[#6F36FF] bg-[#6F36FF]/5 text-[#6F36FF] dark:border-[#8B5CF6] dark:bg-[#8B5CF6]/10 dark:text-[#8B5CF6]'
+                : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline">Filtros</span>
+            {filtrosAdicActivos > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#6F36FF] dark:bg-[#8B5CF6] text-white text-[10px] flex items-center justify-center font-bold">
+                {filtrosAdicActivos}
+              </span>
+            )}
+          </button>
+
+          {/* Export to Excel */}
+          <button
+            onClick={() => void handleExportar()}
+            title="Exportar a Excel"
+            className="h-9 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-1.5 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Excel</span>
+          </button>
+
           <div className="flex-1" />
 
           <button
@@ -127,10 +262,82 @@ const NotasIngresoPanel: React.FC = () => {
             className="inline-flex items-center gap-2 h-9 px-4 text-sm font-semibold text-white bg-[#6F36FF] rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Nueva NI
+            Nueva nota de ingreso
           </button>
         </div>
       </div>
+
+      {/* Advanced filter panel */}
+      {mostrarFiltros && (
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Fecha desde</label>
+              <input
+                type="date"
+                value={filtroFechaDesde}
+                onChange={e => { setFiltroFechaDesde(e.target.value); setPaginaActual(1); }}
+                className="h-9 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Fecha hasta</label>
+              <input
+                type="date"
+                value={filtroFechaHasta}
+                onChange={e => { setFiltroFechaHasta(e.target.value); setPaginaActual(1); }}
+                className="h-9 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Tipo de ingreso</label>
+              <select
+                value={filtroTipoIngreso}
+                onChange={e => { setFiltroTipoIngreso(e.target.value as TipoIngreso | ''); setPaginaActual(1); }}
+                className="h-9 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+              >
+                <option value="">Todos los tipos</option>
+                {TIPOS_INGRESO.map(t => (
+                  <option key={t.codigo} value={t.codigo}>{t.codigo} — {t.descripcion}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Proveedor</label>
+              <input
+                type="text"
+                value={filtroProveedor}
+                onChange={e => { setFiltroProveedor(e.target.value); setPaginaActual(1); }}
+                placeholder="Buscar proveedor..."
+                className="h-9 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Almacén</label>
+              <select
+                value={filtroAlmacen}
+                onChange={e => { setFiltroAlmacen(e.target.value); setPaginaActual(1); }}
+                className="h-9 px-3 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+              >
+                <option value="">Todos los almacenes</option>
+                {almacenesEnNotas.map(a => (
+                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {filtrosAdicActivos > 0 && (
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={resetearFiltrosAvanzados}
+                className="text-xs text-[#6F36FF] dark:text-[#8B5CF6] hover:underline"
+              >
+                Limpiar filtros avanzados
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="flex-1 overflow-auto p-6">
@@ -142,7 +349,7 @@ const NotasIngresoPanel: React.FC = () => {
             </p>
             {notas.length === 0 && (
               <button onClick={handleNuevo} className="mt-4 text-sm text-[#6F36FF] dark:text-[#8B5CF6] hover:underline">
-                Crear primera Nota de Ingreso
+                Crear primera nota de ingreso
               </button>
             )}
           </div>
@@ -171,7 +378,7 @@ const NotasIngresoPanel: React.FC = () => {
                         {nota.numero ?? <span className="text-gray-400 italic">borrador</span>}
                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">
-                        {formatFecha(nota.fechaDocumento)}
+                        {fmtFecha(nota.fechaDocumento)}
                       </td>
                       <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs max-w-[160px] truncate">
                         {nota.tipoIngreso} — {TIPO_INGRESO_LABEL[nota.tipoIngreso]}
@@ -220,9 +427,9 @@ const NotasIngresoPanel: React.FC = () => {
                             />
                           )}
 
-                          {/* All states: Duplicar */}
+                          {/* All states: Duplicar — opens pre-filled form, no auto-save */}
                           <ActionBtn
-                            title="Duplicar como borrador"
+                            title="Duplicar como nueva nota de ingreso"
                             onClick={() => handleDuplicar(nota)}
                             icon={<Copy className="w-3.5 h-3.5" />}
                           />
@@ -278,7 +485,11 @@ const NotasIngresoPanel: React.FC = () => {
           nota={notaDetalle}
           onClose={() => setNotaDetalle(null)}
           onRefresh={() => setNotaDetalle(null)}
-          onDuplicar={() => setNotaDetalle(null)}
+          onDuplicar={(notaDuplicada) => {
+            setNotaDetalle(null);
+            setNotaEditando(notaDuplicada);
+            setVista('nuevo');
+          }}
         />
       )}
     </div>
