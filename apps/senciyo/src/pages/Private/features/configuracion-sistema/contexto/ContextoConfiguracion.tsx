@@ -1297,6 +1297,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const seriesHydratedRef = useRef(false);
   const seriesRepairMigratedRef = useRef(false);
   const seriesDefaultsMigratedRef = useRef(false);
+  const stockEntrySeriesMigratedRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
     if (action.type === 'SET_CURRENCIES') {
       currencyManager.setCurrencies(action.payload);
@@ -1533,6 +1534,36 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
     dispatch({ type: 'SET_SERIES', payload: [...state.series, ...missingCreditNoteDefaults] });
     seriesDefaultsMigratedRef.current = true;
+  }, [dispatch, state.Establecimientos, state.company, state.series]);
+
+  useEffect(() => {
+    if (stockEntrySeriesMigratedRef.current) return;
+    if (!seriesHydratedRef.current) return;
+    if (!state.Establecimientos.length) return;
+
+    const allNewSeries: Series[] = [];
+    for (const est of state.Establecimientos) {
+      const hasNISeries = state.series.some(
+        s => s.EstablecimientoId === est.id && s.documentType?.code === 'NI',
+      );
+      if (!hasNISeries) {
+        const missing = buildMissingDefaultSeries({
+          EstablecimientoId: est.id,
+          environmentType: obtenerEntornoTecnicoEmisionEmpresa(state.company) ?? 'TESTING',
+          existingSeries: state.series,
+          isMainEstablecimiento: est.isMainEstablecimiento,
+        });
+        allNewSeries.push(...missing.filter(s => s.documentType?.code === 'NI'));
+      }
+    }
+
+    if (!allNewSeries.length) {
+      stockEntrySeriesMigratedRef.current = true;
+      return;
+    }
+
+    dispatch({ type: 'SET_SERIES', payload: [...state.series, ...allNewSeries] });
+    stockEntrySeriesMigratedRef.current = true;
   }, [dispatch, state.Establecimientos, state.company, state.series]);
 
   useEffect(() => {

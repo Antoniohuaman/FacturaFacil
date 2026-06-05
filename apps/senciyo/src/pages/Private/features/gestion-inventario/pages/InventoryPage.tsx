@@ -11,6 +11,7 @@ import TransferModal from '../components/modals/TransferModal';
 import TransferenciasPanel from '../components/transferencias/TransferenciasPanel';
 import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
+import NotasIngresoPanel from '../components/notas-ingreso/NotasIngresoPanel';
 import { PageHeader } from '@/contasis';
 import * as XLSX from 'xlsx';
 import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
@@ -265,11 +266,26 @@ export const InventoryPage: React.FC = () => {
             </svg>
             <span>Importar stock</span>
           </button>
+
+          {/* Notas de Ingreso */}
+          <button
+            onClick={() => setSelectedView('notas-ingreso')}
+            className={`group relative flex items-center gap-2 px-4 py-2.5 border-b-2 font-medium text-sm transition-all duration-150 ${
+              selectedView === 'notas-ingreso'
+                ? 'border-[#6F36FF] text-[#6F36FF] dark:text-[#8B5CF6] bg-[#6F36FF]/5 dark:bg-[#6F36FF]/10'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Notas de Ingreso</span>
+          </button>
         </div>
       </div>
 
-      {/* Barra de acciones — no aplica en Stock Actual, Transferencias ni Importar stock */}
-      {selectedView !== 'situacion' && selectedView !== 'transferencias' && selectedView !== 'importar' && (
+      {/* Barra de acciones — no aplica en Stock Actual, Transferencias, Importar stock ni Notas de Ingreso */}
+      {selectedView !== 'situacion' && selectedView !== 'transferencias' && selectedView !== 'importar' && selectedView !== 'notas-ingreso' && (
         <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             {/* Filtro de período */}
@@ -329,7 +345,7 @@ export const InventoryPage: React.FC = () => {
       )}
 
       {/* Contenido principal */}
-      <div className={`flex-1 overflow-auto ${selectedView === 'situacion' || selectedView === 'transferencias' || selectedView === 'importar' ? '' : 'p-6'}`}>
+      <div className={`flex-1 overflow-auto ${selectedView === 'situacion' || selectedView === 'transferencias' || selectedView === 'importar' || selectedView === 'notas-ingreso' ? '' : 'p-6'}`}>
         {selectedView === 'situacion' && (
           <InventarioSituacionPage
             autoExportRequest={stockAutoExportRequest}
@@ -371,6 +387,10 @@ export const InventoryPage: React.FC = () => {
 
         {selectedView === 'importar' && (
           <PanelImportacionStock onRecargarMovimientos={reloadMovements} />
+        )}
+
+        {selectedView === 'notas-ingreso' && (
+          <NotasIngresoPanel />
         )}
       </div>
 

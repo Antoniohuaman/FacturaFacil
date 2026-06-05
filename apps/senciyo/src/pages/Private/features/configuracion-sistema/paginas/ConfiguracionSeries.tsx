@@ -96,6 +96,13 @@ const voucherTypeConfig = {
     color: 'cyan',
     prefix: 'C',
     description: 'Documenta pagos registrados - Debe empezar con "C"'
+  },
+  STOCK_ENTRY: {
+    label: 'Nota de Ingreso',
+    icon: FileText,
+    color: 'teal',
+    prefix: 'NI',
+    description: 'Documento interno de inventario - Registra entradas al almacén'
   }
 };
 

@@ -334,6 +334,33 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
     },
     isActive: true,
   },
+  // Nota de Ingreso (documento interno de inventario)
+  {
+    id: 'NI',
+    code: 'NI',
+    name: 'Nota de Ingreso',
+    shortName: 'NI',
+    category: 'OTHER',
+    properties: {
+      affectsTaxes: false,
+      requiresCustomerRuc: false,
+      requiresCustomerName: false,
+      allowsCredit: false,
+      requiresPaymentMethod: false,
+      canBeVoided: true,
+      canHaveCreditNote: false,
+      canHaveDebitNote: false,
+      isElectronic: false,
+      requiresSignature: false,
+    },
+    seriesConfiguration: {
+      defaultPrefix: 'NI',
+      seriesLength: 4,
+      correlativeLength: 8,
+      allowedPrefixes: ['NI'],
+    },
+    isActive: true,
+  },
 ] as const;
 
 export const SERIES_STATUS = [

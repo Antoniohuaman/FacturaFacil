@@ -7,7 +7,8 @@ export type SeriesVoucherType =
   | 'SALE_NOTE'
   | 'QUOTE'
   | 'SALE_ORDER'
-  | 'COLLECTION';
+  | 'COLLECTION'
+  | 'STOCK_ENTRY';
 
 export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, string> = {
   INVOICE: '01',
@@ -17,6 +18,7 @@ export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, str
   QUOTE: 'COT',
   SALE_ORDER: 'OV',
   COLLECTION: 'RC',
+  STOCK_ENTRY: 'NI',
 };
 
 export const CREDIT_NOTE_DEFAULT_SERIES_CODES = ['FNC1', 'BNC1'] as const;
@@ -79,6 +81,10 @@ export const getVoucherTypeFromSeries = (
 
   if (series.documentType.code === 'COT' || series.documentType.name.includes('Cotización')) {
     return 'QUOTE';
+  }
+
+  if (series.documentType.code === 'NI' || series.documentType.name.includes('Nota de Ingreso')) {
+    return 'STOCK_ENTRY';
   }
 
   return normalizedSeries.startsWith('B') ? 'RECEIPT' : 'INVOICE';
@@ -186,6 +192,7 @@ export const validateSeriesCodeForVoucherType = (
     case 'SALE_NOTE':
     case 'QUOTE':
     case 'SALE_ORDER':
+    case 'STOCK_ENTRY':
       return /^[A-Z0-9]{4}$/.test(normalized);
     default:
       return false;
@@ -263,6 +270,7 @@ export const generateSeriesSuggestion = (
     case 'SALE_NOTE':
     case 'QUOTE':
     case 'SALE_ORDER':
+    case 'STOCK_ENTRY':
       return '';
     default:
       return '';

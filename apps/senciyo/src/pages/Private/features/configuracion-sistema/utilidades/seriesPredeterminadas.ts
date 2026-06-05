@@ -13,6 +13,7 @@ const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
   'QUOTE',
   'SALE_ORDER',
   'COLLECTION',
+  'STOCK_ENTRY',
 ];
 
 const buildSeriesSeed = ({
