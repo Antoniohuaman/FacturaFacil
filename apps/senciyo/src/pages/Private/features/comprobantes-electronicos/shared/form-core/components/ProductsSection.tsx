@@ -1057,9 +1057,19 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
               <div className="font-medium text-gray-900 text-xs">{item.name}</div>
               {hayEscenarioDetraccion && item.sujetoDetraccion && item.codigoDetraccion && (() => {
                 const cat = CATALOGO_54_DETRACCIONES.find((c) => c.codigo === item.codigoDetraccion);
+                const pct = cat
+                  ? cat.tipoPorcentaje === 'fijo' && cat.porcentajeNormativo !== null
+                    ? `${cat.porcentajeNormativo}%`
+                    : cat.tipoPorcentaje === 'condicional'
+                      ? 'Cond.'
+                      : 'Pend.'
+                  : null;
                 return (
                   <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
-                    Detracción: {item.codigoDetraccion}{cat ? ` - ${cat.descripcion}` : ''}
+                    {'Detracción: '}
+                    <span className="font-semibold">{item.codigoDetraccion}</span>
+                    {cat ? ` - ${cat.descripcion}` : ''}
+                    {pct && <span className="font-semibold"> · {pct}</span>}
                   </p>
                 );
               })()}
