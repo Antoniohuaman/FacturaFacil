@@ -60,6 +60,14 @@ export interface CodigoDetraccionTributaria extends CatalogoTributarioBase {
   tipoPorcentaje: 'fijo' | 'variable' | 'condicional' | 'pendiente';
   /** Nota explicativa para tipos condicional, variable o pendiente. */
   notaPorcentaje?: string;
+  /**
+   * Afectaciones IGV con las que este código de detracción es compatible.
+   * Fuente normativa: R.S. N.° 183-2004/SUNAT y normas modificatorias.
+   * 'gravado': aplica a operaciones gravadas con IGV.
+   * 'exonerado': aplica a operaciones exoneradas del IGV.
+   * Lista vacía: sin afectación confirmada (no mostrar en selector).
+   */
+  afectacionesCompatibles: ('gravado' | 'exonerado')[];
   implementacion: 'implementado' | 'pendiente';
 }
 

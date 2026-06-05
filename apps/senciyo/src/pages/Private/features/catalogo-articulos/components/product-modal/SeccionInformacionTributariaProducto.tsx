@@ -3,14 +3,22 @@ import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 import { Switch } from '@/contasis';
 import { Tooltip } from '@/shared/ui';
-import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
-import type { CodigoDetraccionTributaria } from '@/shared/catalogos-sunat';
+import {
+  CATALOGO_54_DETRACCIONES,
+  obtenerCodigosDetraccionCompatiblesConImpuesto,
+  validarCoherenciaCompleta,
+} from '@/shared/catalogos-sunat';
+import type { CodigoDetraccionTributaria, TipoProductoDetraccion } from '@/shared/catalogos-sunat';
 import type { ProductFormData } from '../../models/types';
 
 interface SeccionInformacionTributariaProductoProps {
   formData: ProductFormData;
   setFormData: Dispatch<SetStateAction<ProductFormData>>;
   error?: string;
+  /** Tipo de producto del formulario — filtra los códigos de detracción mostrados. */
+  productType?: TipoProductoDetraccion;
+  /** Impuesto del producto (ej. 'IGV (18.00%)') — filtra por coherencia con el código. */
+  impuesto?: string;
 }
 
 function etiquetaPorcentaje(item: CodigoDetraccionTributaria): string {
@@ -26,12 +34,12 @@ function etiquetaOpcion(item: CodigoDetraccionTributaria): string {
   return `${item.codigo} - ${item.descripcion} - ${etiquetaPorcentaje(item)}`;
 }
 
-const codigosActivos = CATALOGO_54_DETRACCIONES.filter((i) => i.activo);
-
 export function SeccionInformacionTributariaProducto({
   formData,
   setFormData,
   error,
+  productType = 'BIEN',
+  impuesto = '',
 }: SeccionInformacionTributariaProductoProps) {
   const tieneDetraccion = formData.sujetoDetraccion ?? false;
 
@@ -100,18 +108,39 @@ export function SeccionInformacionTributariaProducto({
     }
   }, []);
 
+  // Limpiar código seleccionado si cambia productType o impuesto y el código ya no es compatible
+  useEffect(() => {
+    if (!formData.sujetoDetraccion || !formData.codigoDetraccion) return;
+    const coherencia = validarCoherenciaCompleta({
+      codigoCat54: formData.codigoDetraccion,
+      tipoProducto: productType,
+      impuesto,
+    });
+    if (!coherencia.valido && coherencia.esBloqueo) {
+      setFormData((prev) => ({ ...prev, codigoDetraccion: null }));
+      setTextoInput('');
+      setComboboxAbierto(false);
+    }
+  }, [productType, impuesto, formData.sujetoDetraccion, formData.codigoDetraccion, setFormData]);
+
+  // Códigos compatibles con tipo de producto + impuesto (activos + habilitados + tipo + igv coherente)
+  const codigosCompatibles = useMemo(
+    () => obtenerCodigosDetraccionCompatiblesConImpuesto(productType, impuesto),
+    [productType, impuesto],
+  );
+
   const codigosFiltrados = useMemo(() => {
     const termino = textoInput.toLowerCase().trim();
-    if (!termino || modoSeleccionado) return codigosActivos;
-    return codigosActivos.filter(
+    if (!termino || modoSeleccionado) return codigosCompatibles;
+    return codigosCompatibles.filter(
       (item) =>
         item.codigo.includes(termino) ||
         item.descripcion.toLowerCase().includes(termino) ||
         item.clasificacion.toLowerCase().includes(termino) ||
         item.tipoPorcentaje.toLowerCase().includes(termino) ||
-        (item.porcentajeNormativo !== null && String(item.porcentajeNormativo).includes(termino))
+        (item.porcentajeNormativo !== null && String(item.porcentajeNormativo).includes(termino)),
     );
-  }, [textoInput, modoSeleccionado]);
+  }, [textoInput, modoSeleccionado, codigosCompatibles]);
 
   const seleccionarCodigo = (item: CodigoDetraccionTributaria) => {
     setFormData((prev) => ({ ...prev, codigoDetraccion: item.codigo }));
@@ -159,28 +188,34 @@ export function SeccionInformacionTributariaProducto({
         {/* Campo de código (solo cuando el switch está activo) */}
         {tieneDetraccion && (
           <div ref={contenedorInputRef} className="flex-1 min-w-52">
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Seleccionar o buscar código de detracción"
-              value={textoInput}
-              onChange={(e) => handleCambioInput(e.target.value)}
-              onFocus={() => {
-                actualizarRect();
-                if (detalle) setTextoInput('');
-                setComboboxAbierto(true);
-              }}
-              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                error
-                  ? 'border-red-400 bg-white'
-                  : modoSeleccionado
-                    ? 'border-gray-300 bg-gray-50 text-gray-900 cursor-pointer'
-                    : 'border-gray-300 bg-white text-gray-600'
-              }`}
-            />
+            {codigosCompatibles.length === 0 ? (
+              <p className="text-xs text-amber-600 py-1">
+                No hay códigos de detracción habilitados para esta afectación.
+              </p>
+            ) : (
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Seleccionar o buscar código de detracción"
+                value={textoInput}
+                onChange={(e) => handleCambioInput(e.target.value)}
+                onFocus={() => {
+                  actualizarRect();
+                  if (detalle) setTextoInput('');
+                  setComboboxAbierto(true);
+                }}
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                  error
+                    ? 'border-red-400 bg-white'
+                    : modoSeleccionado
+                      ? 'border-gray-300 bg-gray-50 text-gray-900 cursor-pointer'
+                      : 'border-gray-300 bg-white text-gray-600'
+                }`}
+              />
+            )}
 
             {/* Dropdown via portal — evita clipping del overflow del modal */}
-            {comboboxAbierto && rectInput &&
+            {comboboxAbierto && rectInput && codigosCompatibles.length > 0 &&
               createPortal(
                 <div
                   ref={dropdownPortalRef}
@@ -194,7 +229,7 @@ export function SeccionInformacionTributariaProducto({
                   className="max-h-44 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg"
                 >
                   {codigosFiltrados.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-gray-400">Sin resultados</div>
+                    <div className="px-3 py-2 text-xs text-gray-400">Sin resultados para esta búsqueda</div>
                   ) : (
                     codigosFiltrados.map((item) => (
                       <button

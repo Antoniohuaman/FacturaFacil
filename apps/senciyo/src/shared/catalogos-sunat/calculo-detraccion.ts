@@ -54,6 +54,15 @@ export interface ResultadoEvaluacionDetraccion {
 
 // ─── Funciones públicas ──────────────────────────────────────────────
 
+/**
+ * Indica si un código Cat.54 está habilitado para emisión automática.
+ * Los códigos bloqueados (002, 099) y condicionales sin tasa resuelta (004)
+ * no pueden usarse en emisión directa.
+ */
+export function esCodigoHabilitadoParaEmision(codigoCat54: string): boolean {
+  return !CODIGOS_BLOQUEADOS.has(codigoCat54) && !CODIGOS_CONDICIONALES.has(codigoCat54);
+}
+
 /** Umbral aplicable para un código Cat.54. */
 export function obtenerUmbralDetraccionPorCodigo(codigoCat54: string): number {
   return CODIGOS_UMBRAL_TRANSPORTE.has(codigoCat54)

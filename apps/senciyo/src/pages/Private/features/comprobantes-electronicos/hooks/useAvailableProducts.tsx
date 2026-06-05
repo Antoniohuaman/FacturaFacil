@@ -131,6 +131,7 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         isFavorite: Boolean(product.isFavorite),
         sujetoDetraccion: product.sujetoDetraccion,
         codigoDetraccion: product.codigoDetraccion ?? null,
+        tipoProducto: product.tipoExistencia === 'SERVICIOS' ? ('SERVICIO' as const) : ('BIEN' as const),
         // Datos adicionales del catálogo
         catalogData: {
           impuesto: product.impuesto,

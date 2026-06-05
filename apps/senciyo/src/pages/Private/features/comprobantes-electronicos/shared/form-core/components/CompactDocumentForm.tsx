@@ -997,14 +997,16 @@ const CompactDocumentForm: React.FC<CompactDocumentFormProps> = ({
             {/* Aviso cuenta BN — solo si aplica detracción y falta cuenta */}
             {detraccionAplica && !hayCuentaBN && onAbrirConfigCuentaBN && (
               <div>
-                <button
-                  type="button"
-                  onClick={onAbrirConfigCuentaBN}
-                  className="flex items-center gap-1.5 text-[11px] text-amber-600 hover:text-amber-700 hover:underline"
-                >
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  Configurar cuenta Banco de la Nación para detracción
-                </button>
+                <Tooltip contenido="Esta cuenta se usará en comprobantes con detracción y se guardará en Configuración tributaria.">
+                  <button
+                    type="button"
+                    onClick={onAbrirConfigCuentaBN}
+                    className="flex items-center gap-1.5 text-[11px] text-amber-600 hover:text-amber-700 hover:underline"
+                  >
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    Falta cuenta Banco de la Nación. Configurar ahora
+                  </button>
+                </Tooltip>
               </div>
             )}
           </div>

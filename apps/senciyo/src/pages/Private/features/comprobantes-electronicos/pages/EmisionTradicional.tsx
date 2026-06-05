@@ -72,8 +72,14 @@ import {
   evaluarDetraccion,
   cargarConfiguracionDetraccion,
   guardarConfiguracionDetraccion,
+  validarCoherenciaCodigoConTipoProducto,
+  validarCoherenciaCodigoConIgvType,
 } from '@/shared/catalogos-sunat';
-import type { ConfiguracionDetraccionEmpresa, ResultadoEvaluacionDetraccion } from '@/shared/catalogos-sunat';
+import type {
+  ConfiguracionDetraccionEmpresa,
+  ResultadoEvaluacionDetraccion,
+  IgvTypeDetraccion,
+} from '@/shared/catalogos-sunat';
 import { ModalConfiguracionDetraccion } from '../../configuracion-sistema/components/negocio/ModalConfiguracionDetraccion';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
 import { clientesClient } from '../../gestion-clientes/api';
@@ -1468,6 +1474,36 @@ const EmisionTradicional = () => {
         error('Medio de pago requerido', 'Selecciona el medio de pago de detracción.');
         return false;
       }
+
+      // Validación defensiva: detectar productos con código de detracción incoherente
+      for (const item of cartItemsForDocument) {
+        if (!item.sujetoDetraccion || !item.codigoDetraccion) continue;
+
+        if (item.tipoProducto) {
+          const vTipo = validarCoherenciaCodigoConTipoProducto(item.codigoDetraccion, item.tipoProducto);
+          if (!vTipo.valido && vTipo.esBloqueo) {
+            error(
+              'Configuración de detracción incoherente',
+              `El producto "${item.name}" tiene una configuración de detracción incoherente. Revisa el tipo de producto y código de detracción antes de emitir.`,
+            );
+            return false;
+          }
+        }
+
+        if (item.igvType) {
+          const vIgv = validarCoherenciaCodigoConIgvType(
+            item.codigoDetraccion,
+            item.igvType as IgvTypeDetraccion,
+          );
+          if (!vIgv.valido && vIgv.esBloqueo) {
+            error(
+              'Configuración de detracción incoherente',
+              `El producto "${item.name}" tiene una configuración de detracción incoherente. Revisa el impuesto y código de detracción antes de emitir.`,
+            );
+            return false;
+          }
+        }
+      }
     }
 
     if (isCreditSale) {
@@ -1827,6 +1863,7 @@ const EmisionTradicional = () => {
                   preferredPriceColumnId={preferredPriceColumnId}
                   mostrarDetalleCompleto={isNoteCreditFlow}
                   idsConflictoDetraccion={evaluacionDetraccion.idsItemsEnConflicto}
+                  hayEscenarioDetraccion={evaluacionDetraccion.aplica || evaluacionDetraccion.idsItemsEnConflicto.length > 0}
                   infoDetraccion={evaluacionDetraccion.aplica ? {
                     porcentaje: evaluacionDetraccion.porcentaje!,
                     montoParaDeposito: evaluacionDetraccion.montoParaDeposito,

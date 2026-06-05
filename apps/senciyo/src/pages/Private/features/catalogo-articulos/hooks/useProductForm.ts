@@ -11,7 +11,7 @@ import {
   isBarcodeValueValid,
   normalizeBarcodeValue
 } from '../utils/formatters';
-import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
+import { CATALOGO_54_DETRACCIONES, validarCoherenciaCompleta } from '@/shared/catalogos-sunat';
 type UnitFamily = Unit['category'];
 
 export type ProductType = 'BIEN' | 'SERVICIO';
@@ -664,6 +664,16 @@ export const useProductForm = ({
         );
         if (!codigoExiste) {
           newErrors.codigoDetraccion = 'El código de detracción no existe en el Catálogo 54';
+        } else {
+          // Validar coherencia: tipo de producto + impuesto vs código de detracción
+          const coherencia = validarCoherenciaCompleta({
+            codigoCat54: formData.codigoDetraccion,
+            tipoProducto: productType,
+            impuesto: formData.impuesto ?? '',
+          });
+          if (!coherencia.valido && coherencia.esBloqueo) {
+            newErrors.codigoDetraccion = coherencia.mensaje ?? 'Código de detracción incoherente con el tipo de producto o impuesto.';
+          }
         }
       }
     }
@@ -714,7 +724,8 @@ export const useProductForm = ({
     formData,
     isFieldRequired,
     isFieldVisible,
-    product
+    product,
+    productType,
   ]);
 
   const handleSubmit = useCallback(

@@ -26,7 +26,28 @@ export {
   calcularMontoDetraccion,
   validarReglasDetraccion,
   evaluarDetraccion,
+  esCodigoHabilitadoParaEmision,
 } from './calculo-detraccion';
+
+export type {
+  TipoProductoDetraccion,
+  AfectacionIgv,
+  ResultadoValidacionDetraccion,
+  ParamsValidacionDetraccion,
+  IgvTypeDetraccion,
+} from './validaciones-detraccion';
+
+export {
+  resolverAfectacionDesdeImpuesto,
+  clasificacionesCompatiblesPorTipoProducto,
+  obtenerCodigosDetraccionCompatibles,
+  obtenerCodigosDetraccionCompatiblesConImpuesto,
+  esCodigoCompatibleConTipoProducto,
+  validarCoherenciaCodigoConImpuesto,
+  validarCoherenciaCodigoConIgvType,
+  validarCoherenciaCodigoConTipoProducto,
+  validarCoherenciaCompleta,
+} from './validaciones-detraccion';
 
 export {
   CATALOGO_51_TIPOS_OPERACION,

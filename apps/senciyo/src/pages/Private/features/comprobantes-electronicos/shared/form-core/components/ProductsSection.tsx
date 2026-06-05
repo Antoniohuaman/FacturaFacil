@@ -21,6 +21,7 @@ import AdjustmentModal from '../../../../gestion-inventario/components/modals/Ad
 import { registrarAjusteDeStock } from '../../../../../../../shared/inventory/accionesStock';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
 import TablaVentaLibre from './TablaVentaLibre';
 import type { IdColumnaLibre, OpcionImpuestoLibre, OpcionUnidadLibre } from './TablaVentaLibre';
 import type { Tax } from '../../../../configuracion-sistema/modelos/Tax';
@@ -103,6 +104,8 @@ interface ProductsSectionProps {
     responsableDeposito: 'cliente' | 'empresa';
   } | null;
   idsConflictoDetraccion?: string[];
+  /** true cuando el comprobante está en escenario de detracción: aplica o tiene conflicto de códigos. */
+  hayEscenarioDetraccion?: boolean;
 }
 
 type ModoProductos = 'catalogo' | 'libre';
@@ -223,12 +226,8 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
   selectedEstablecimientoId,
   mostrarDetalleCompleto = false,
   infoDetraccion = null,
-  idsConflictoDetraccion = [],
+  hayEscenarioDetraccion = false,
 }) => {
-  const conjuntoConflictoDetraccion = useMemo(
-    () => new Set(idsConflictoDetraccion),
-    [idsConflictoDetraccion],
-  );
   const { baseCurrency, documentCurrency, formatPrice, convertPrice } = useCurrency();
   const documentDecimals = documentCurrency.decimalPlaces ?? 2;
 
@@ -1056,11 +1055,14 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
           <td className="px-3 py-2.5 sticky left-0 bg-white">
             <div>
               <div className="font-medium text-gray-900 text-xs">{item.name}</div>
-              {conjuntoConflictoDetraccion.has(item.id) && (
-                <p className="text-[10px] text-red-500 mt-0.5 leading-tight">
-                  Código de detracción en conflicto
-                </p>
-              )}
+              {hayEscenarioDetraccion && item.sujetoDetraccion && item.codigoDetraccion && (() => {
+                const cat = CATALOGO_54_DETRACCIONES.find((c) => c.codigo === item.codigoDetraccion);
+                return (
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
+                    Detracción: {item.codigoDetraccion}{cat ? ` - ${cat.descripcion}` : ''}
+                  </p>
+                );
+              })()}
             </div>
           </td>
         );

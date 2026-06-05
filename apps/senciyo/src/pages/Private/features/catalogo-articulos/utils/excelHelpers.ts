@@ -3,7 +3,12 @@
 import * as XLSX from 'xlsx';
 import type { Product, ProductFormData } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
-import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
+import {
+  CATALOGO_54_DETRACCIONES,
+  esCodigoHabilitadoParaEmision,
+  validarCoherenciaCompleta,
+} from '@/shared/catalogos-sunat';
+import type { TipoProductoDetraccion } from '@/shared/catalogos-sunat';
 
 // ====================================================================
 // TIPOS Y CONSTANTES
@@ -462,9 +467,34 @@ function parseRow(
         valorRecibido: codigoDetraccionRaw
       });
       rowErrors.push(`Código detracción "${codigoDetraccionRaw}" inválido`);
+    } else if (!esCodigoHabilitadoParaEmision(codigoDetraccionRaw)) {
+      errores.push({
+        fila,
+        columna: 'Código detracción',
+        mensaje: `Código de detracción ${codigoDetraccionRaw} no está habilitado para emisión automática (requiere validación especial).`,
+        valorRecibido: codigoDetraccionRaw
+      });
+      rowErrors.push(`Código detracción "${codigoDetraccionRaw}" no habilitado para emisión`);
     } else {
-      sujetoDetraccion = true;
-      codigoDetraccion = codigoDetraccionRaw;
+      // Validar coherencia tipo de producto + impuesto + código
+      const coherencia = validarCoherenciaCompleta({
+        codigoCat54: codigoDetraccionRaw,
+        tipoProducto: tipoProducto as TipoProductoDetraccion,
+        impuesto: impuestoValue,
+      });
+      if (!coherencia.valido) {
+        errores.push({
+          fila,
+          columna: 'Código detracción',
+          mensaje: coherencia.mensaje ?? 'Código de detracción incoherente con el tipo de producto o impuesto.',
+          valorRecibido: codigoDetraccionRaw
+        });
+        rowErrors.push(`Código detracción incoherente: ${coherencia.mensaje}`);
+        // No asignar código incoherente: deja sin detracción para no propagar error
+      } else {
+        sujetoDetraccion = true;
+        codigoDetraccion = codigoDetraccionRaw;
+      }
     }
   }
 
