@@ -309,7 +309,7 @@ export const InventoryPage: React.FC = () => {
               <option value="todos">Todos los almacenes</option>
               {almacenes.map(wh => (
                 <option key={wh.id} value={wh.id}>
-                  {wh.codigoAlmacen} - {wh.nombreAlmacen}
+                  {wh.nombreAlmacen}
                 </option>
               ))}
             </select>

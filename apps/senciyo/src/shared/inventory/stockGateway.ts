@@ -226,9 +226,9 @@ const comparealmacenesStable = (a: Almacen, b: Almacen): number => {
 };
 
 /**
- * Devuelve la lista ordenada FIFO de almacenes activos del establecimiento:
- * 1) almacén principal (esAlmacenPrincipal) si existe
- * 2) resto de almacenes activos en orden estable
+ * Devuelve la lista ordenada FIFO de almacenes activos del establecimiento
+ * por prioridad de salida (prioridadSalida ASC, 1 = mayor prioridad).
+ * Si prioridadSalida no está definido, el almacén principal va primero.
  */
 export const resolvealmacenesForSaleFIFO = (
   options: almacenFIFOResolutionOptions
@@ -246,9 +246,12 @@ export const resolvealmacenesForSaleFIFO = (
     return [];
   }
 
-  const mains = matches.filter(wh => Boolean(wh.esAlmacenPrincipal)).sort(comparealmacenesStable);
-  const rest = matches.filter(wh => !wh.esAlmacenPrincipal).sort(comparealmacenesStable);
-  return [...mains, ...rest];
+  return matches.sort((a, b) => {
+    const pa = a.prioridadSalida !== undefined ? a.prioridadSalida : (a.esAlmacenPrincipal ? 1 : 999);
+    const pb = b.prioridadSalida !== undefined ? b.prioridadSalida : (b.esAlmacenPrincipal ? 1 : 999);
+    if (pa !== pb) return pa - pb;
+    return comparealmacenesStable(a, b);
+  });
 };
 
 export interface almacenDiscountAllocation {

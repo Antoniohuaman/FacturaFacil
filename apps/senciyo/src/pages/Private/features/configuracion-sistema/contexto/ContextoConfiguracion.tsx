@@ -281,7 +281,7 @@ export const construirConfiguracionInicialEmpresa = ({
   const almacen: Almacen = {
     id: almacenId,
     codigoAlmacen: '0001',
-    nombreAlmacen: 'Almacén',
+    nombreAlmacen: 'Almacén 1',
     establecimientoId: establecimiento.id,
     nombreEstablecimientoDesnormalizado: establecimiento.nombreEstablecimiento,
     codigoEstablecimientoDesnormalizado: establecimiento.codigoEstablecimiento,
@@ -289,6 +289,7 @@ export const construirConfiguracionInicialEmpresa = ({
     ubicacionAlmacen: establecimiento.direccionEstablecimiento || undefined,
     estaActivoAlmacen: true,
     esAlmacenPrincipal: true,
+    prioridadSalida: 1,
     configuracionInventarioAlmacen: {
       permiteStockNegativoAlmacen: false,
       controlEstrictoStock: false,
@@ -647,6 +648,17 @@ const reviveAlmacen = (raw: Almacen | (Partial<Almacen> & Record<string, unknown
       ?? (legacy.tieneMovimientosInventario as boolean | undefined)
       ?? (legacy.hasMovements as boolean | undefined)
       ?? false,
+    prioridadSalida:
+      (raw as Almacen).prioridadSalida
+      ?? (legacy.prioridadSalida as number | undefined)
+      ?? (
+        (raw as Almacen).esAlmacenPrincipal === true ||
+        (legacy.esAlmacenPrincipal as boolean | undefined) === true ||
+        (legacy.isMainalmacen as boolean | undefined) === true ||
+        (legacy.isMainWarehouse as boolean | undefined) === true
+          ? 1
+          : undefined
+      ),
   };
 };
 
@@ -1298,6 +1310,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const seriesRepairMigratedRef = useRef(false);
   const seriesDefaultsMigratedRef = useRef(false);
   const stockEntrySeriesMigratedRef = useRef(false);
+  const almacenNombresNormalizadosRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
     if (action.type === 'SET_CURRENCIES') {
       currencyManager.setCurrencies(action.payload);
@@ -1565,6 +1578,34 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     dispatch({ type: 'SET_SERIES', payload: [...state.series, ...allNewSeries] });
     stockEntrySeriesMigratedRef.current = true;
   }, [dispatch, state.Establecimientos, state.company, state.series]);
+
+  // Normaliza nombres de almacenes generados automáticamente en versiones anteriores:
+  // "Almacén" → "Almacén 1" | "Almacén 0002" → "Almacén 2"
+  useEffect(() => {
+    if (almacenNombresNormalizadosRef.current) return;
+    if (!state.almacenes.length) return;
+
+    const normalizados = state.almacenes.map(almacen => {
+      if (almacen.nombreAlmacen === 'Almacén') {
+        const hermanosOrdenados = [...state.almacenes]
+          .filter(a => a.establecimientoId === almacen.establecimientoId)
+          .sort((a, b) => new Date(a.creadoElAlmacen).getTime() - new Date(b.creadoElAlmacen).getTime());
+        const pos = hermanosOrdenados.findIndex(a => a.id === almacen.id);
+        return { ...almacen, nombreAlmacen: `Almacén ${pos >= 0 ? pos + 1 : 1}` };
+      }
+      const legacyMatch = almacen.nombreAlmacen.match(/^Almacén (\d{4})$/);
+      if (legacyMatch) {
+        return { ...almacen, nombreAlmacen: `Almacén ${parseInt(legacyMatch[1], 10)}` };
+      }
+      return almacen;
+    });
+
+    almacenNombresNormalizadosRef.current = true;
+
+    if (normalizados.some((a, i) => a.nombreAlmacen !== state.almacenes[i].nombreAlmacen)) {
+      dispatch({ type: 'SET_ALMACENES', payload: normalizados });
+    }
+  }, [dispatch, state.almacenes]);
 
   useEffect(() => {
     if (!tenantId) return;

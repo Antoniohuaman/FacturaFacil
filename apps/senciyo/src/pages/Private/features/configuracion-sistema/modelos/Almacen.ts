@@ -23,6 +23,7 @@ export interface Almacen {
   ubicacionAlmacen?: string;
   estaActivoAlmacen: boolean;
   esAlmacenPrincipal: boolean;
+  prioridadSalida?: number;
   configuracionInventarioAlmacen: ConfiguracionInventarioAlmacen;
   creadoElAlmacen: Date;
   actualizadoElAlmacen: Date;
@@ -45,5 +46,6 @@ export interface AlmacenFormData {
   ubicacionAlmacen?: string;
   estaActivoAlmacen: boolean;
   esAlmacenPrincipal: boolean;
+  prioridadSalida?: number;
   configuracionInventarioAlmacen: ConfiguracionInventarioAlmacen;
 }

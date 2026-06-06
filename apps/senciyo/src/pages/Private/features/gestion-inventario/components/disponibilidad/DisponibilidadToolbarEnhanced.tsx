@@ -119,7 +119,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               )}
               {almacenesDisponibles.map((alm) => (
                 <option key={alm.id} value={alm.id}>
-                  {alm.codigoAlmacen} - {alm.nombreAlmacen}
+                  {alm.nombreAlmacen}
                 </option>
               ))}
             </select>

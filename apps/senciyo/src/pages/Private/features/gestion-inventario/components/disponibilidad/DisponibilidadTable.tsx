@@ -494,7 +494,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 className={`${cellClass} text-right font-semibold text-[#111827] dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border-b-2 border-[#E5E7EB] dark:border-gray-700 sticky top-0 z-10`}
               >
                 <span className="block max-w-[130px] truncate text-xs">
-                  {w.codigoAlmacen} - {w.nombreAlmacen}
+                  {w.nombreAlmacen}
                 </span>
               </th>
             ))}
