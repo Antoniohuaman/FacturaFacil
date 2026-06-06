@@ -514,211 +514,20 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
       {/* Main content */}
       <div className="flex-1 overflow-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
         {/* === Datos del documento === */}
-        <ConfigurationCard title="Datos del documento" icon={FileText} defaultExpanded>
-          <div className="space-y-4">
+        <ConfigurationCard
+          title="Datos del documento"
+          icon={FileText}
+          defaultExpanded
+          actions={
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
               Nota de Ingreso
             </span>
+          }
+        >
+          <div className="grid grid-cols-12 gap-x-6 gap-y-4">
 
-            {/* Serie + Fecha doc + Fecha ingreso */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <Hash size={11} />
-                  Serie
-                </label>
-                {seriesNI.length === 0 ? (
-                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-2 py-2">
-                    Sin series configuradas
-                  </div>
-                ) : seriesNI.length === 1 ? (
-                  <div className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-gray-50 dark:bg-gray-700/50 font-mono text-gray-800 dark:text-gray-100">
-                    {seriesNI[0]}
-                  </div>
-                ) : (
-                  <select
-                    value={serieSeleccionada}
-                    onChange={e => setSerieSeleccionada(e.target.value)}
-                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                  >
-                    {seriesNI.map(s => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <Calendar size={11} />
-                  Fecha documento
-                </label>
-                <input
-                  type="date"
-                  value={fechaDocumento}
-                  onChange={e => setFechaDocumento(e.target.value)}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <Calendar size={11} />
-                  Fecha ingreso almacén
-                </label>
-                <input
-                  type="date"
-                  value={fechaIngreso}
-                  onChange={e => setFechaIngreso(e.target.value)}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Tipo ingreso | Moneda | Tipo doc. origen */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <Layers size={11} />
-                  Tipo de ingreso
-                </label>
-                <select
-                  value={tipoIngreso}
-                  onChange={e => setTipoIngreso(e.target.value as TipoIngreso)}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                >
-                  {TIPOS_INGRESO.map(t => (
-                    <option key={t.codigo} value={t.codigo}>
-                      {t.codigo} — {t.descripcion}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <DollarSign size={11} />
-                  Moneda
-                </label>
-                <select
-                  value={moneda}
-                  onChange={e => setMoneda(e.target.value as 'PEN' | 'USD')}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                >
-                  <option value="PEN">S/ PEN</option>
-                  <option value="USD">$ USD</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Tipo doc. origen
-                </label>
-                <select
-                  value={documentoOrigen}
-                  onChange={e => setDocumentoOrigen(e.target.value)}
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                >
-                  <option value="">— Sin referencia —</option>
-                  <option value="01">Factura</option>
-                  <option value="03">Boleta de Venta</option>
-                  <option value="52">Liquidación de compra</option>
-                  <option value="91">Comprobante de operaciones - Ley N° 29972</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Almacén(es) destino | Proveedor */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Almacén(es) destino — compact multiselect */}
-              <div ref={dropdownAlmacenRef} className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <MapPin size={11} />
-                  Almacén(es) destino
-                </label>
-                {almacenesActivos.length === 0 ? (
-                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-2.5 py-2">
-                    Sin almacenes activos configurados
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setDropdownAlmacen(o => !o)}
-                      className="w-full flex items-center gap-1.5 min-h-[38px] px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 text-left"
-                    >
-                      <div className="flex-1 flex flex-wrap gap-1 min-w-0">
-                        {almacenesSeleccionados.length === 0 ? (
-                          <span className="text-gray-400 dark:text-gray-500 text-xs py-0.5">— Seleccione almacén(es) —</span>
-                        ) : (
-                          <>
-                            {almacenesSeleccionados.slice(0, 2).map(aId => {
-                              const a = almacenesActivos.find(x => x.id === aId);
-                              if (!a) return null;
-                              return (
-                                <span key={aId} className="inline-flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-[11px] font-medium bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
-                                  <span className="max-w-[100px] truncate">{a.codigoAlmacen} — {a.nombreAlmacen}</span>
-                                  <button
-                                    type="button"
-                                    onClick={e => { e.stopPropagation(); void toggleAlmacen(aId); }}
-                                    className="ml-0.5 hover:text-violet-900 dark:hover:text-violet-100 flex-shrink-0"
-                                  >
-                                    <X size={10} />
-                                  </button>
-                                </span>
-                              );
-                            })}
-                            {almacenesSeleccionados.length > 2 && (
-                              <span
-                                title={almacenesSeleccionados.slice(2).map(id => {
-                                  const a = almacenesActivos.find(x => x.id === id);
-                                  return a ? `${a.codigoAlmacen} — ${a.nombreAlmacen}` : id;
-                                }).join('\n')}
-                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-default"
-                              >
-                                +{almacenesSeleccionados.length - 2}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      <ChevronDown size={13} className={`flex-shrink-0 text-gray-400 transition-transform duration-150 ${dropdownAlmacen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {dropdownAlmacen && (
-                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
-                        {almacenesActivos.map(a => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onMouseDown={() => void toggleAlmacen(a.id)}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-left transition-colors"
-                          >
-                            <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-colors ${
-                              almacenesSeleccionados.includes(a.id)
-                                ? 'bg-violet-600 border-violet-600'
-                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
-                            }`}>
-                              {almacenesSeleccionados.includes(a.id) && <Check size={10} className="text-white" />}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{a.nombreAlmacen}</div>
-                              <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{a.codigoAlmacen}</div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {almacenesSeleccionados.length === 0 && almacenesActivos.length > 0 && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Seleccione al menos un almacén para poder agregar productos.
-                  </p>
-                )}
-              </div>
+            {/* ── Columna izquierda ≈ 65% ─────────────────────────── */}
+            <div className="col-span-12 lg:col-span-8 space-y-3">
 
               {/* Proveedor */}
               <div className="flex flex-col gap-1">
@@ -815,35 +624,238 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                   </div>
                 )}
               </div>
+
+              {/* Almacén(es) destino — compact multiselect */}
+              <div ref={dropdownAlmacenRef} className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <MapPin size={11} />
+                  Almacén(es) destino
+                </label>
+                {almacenesActivos.length === 0 ? (
+                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-2.5 py-2">
+                    Sin almacenes activos configurados
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setDropdownAlmacen(o => !o)}
+                      className="w-full flex items-center gap-1.5 min-h-[38px] px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 text-left"
+                    >
+                      <div className="flex-1 flex flex-wrap gap-1 min-w-0">
+                        {almacenesSeleccionados.length === 0 ? (
+                          <span className="text-gray-400 dark:text-gray-500 text-xs py-0.5">— Seleccione almacén(es) —</span>
+                        ) : (
+                          <>
+                            {almacenesSeleccionados.slice(0, 3).map(aId => {
+                              const a = almacenesActivos.find(x => x.id === aId);
+                              if (!a) return null;
+                              return (
+                                <span key={aId} className="inline-flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded text-[11px] font-medium bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                                  <span className="max-w-[130px] truncate" title={`${a.codigoAlmacen} — ${a.nombreAlmacen}`}>{a.codigoAlmacen} — {a.nombreAlmacen}</span>
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); void toggleAlmacen(aId); }}
+                                    className="ml-0.5 hover:text-violet-900 dark:hover:text-violet-100 flex-shrink-0"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                </span>
+                              );
+                            })}
+                            {almacenesSeleccionados.length > 3 && (
+                              <span
+                                title={almacenesSeleccionados.slice(3).map(id => {
+                                  const a = almacenesActivos.find(x => x.id === id);
+                                  return a ? `${a.codigoAlmacen} — ${a.nombreAlmacen}` : id;
+                                }).join('\n')}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-default"
+                              >
+                                +{almacenesSeleccionados.length - 3}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <ChevronDown size={13} className={`flex-shrink-0 text-gray-400 transition-transform duration-150 ${dropdownAlmacen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {dropdownAlmacen && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        {almacenesActivos.map(a => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onMouseDown={() => void toggleAlmacen(a.id)}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-left transition-colors"
+                          >
+                            <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-colors ${
+                              almacenesSeleccionados.includes(a.id)
+                                ? 'bg-violet-600 border-violet-600'
+                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+                            }`}>
+                              {almacenesSeleccionados.includes(a.id) && <Check size={10} className="text-white" />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm text-gray-800 dark:text-gray-100 truncate">{a.nombreAlmacen}</div>
+                              <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{a.codigoAlmacen}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {almacenesSeleccionados.length === 0 && almacenesActivos.length > 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Seleccione al menos un almacén para poder agregar productos.
+                  </p>
+                )}
+              </div>
+
+              {/* N° documento origen | Guía de remisión */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    N° documento origen
+                  </label>
+                  <input
+                    type="text"
+                    value={numeroDocOrigen}
+                    onChange={e => setNumeroDocOrigen(e.target.value)}
+                    placeholder="Ej: F001-00001234"
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Guía de remisión
+                  </label>
+                  <input
+                    type="text"
+                    value={guiaRemision}
+                    onChange={e => setGuiaRemision(e.target.value)}
+                    placeholder="Ej: T001-00000001"
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* N° doc origen + Guía remisión */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* ── Columna derecha ≈ 35% ──────────────────────────── */}
+            <div className="col-span-12 lg:col-span-4 space-y-3 lg:border-l lg:border-gray-200 lg:dark:border-gray-700 lg:pl-4">
+
+              {/* Serie */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  N° documento origen
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <Hash size={11} />
+                  Serie
                 </label>
-                <input
-                  type="text"
-                  value={numeroDocOrigen}
-                  onChange={e => setNumeroDocOrigen(e.target.value)}
-                  placeholder="Ej: F001-00001234"
-                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                />
+                {seriesNI.length === 0 ? (
+                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-2 py-2">
+                    Sin series configuradas
+                  </div>
+                ) : seriesNI.length === 1 ? (
+                  <div className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-gray-50 dark:bg-gray-700/50 font-mono text-gray-800 dark:text-gray-100">
+                    {seriesNI[0]}
+                  </div>
+                ) : (
+                  <select
+                    value={serieSeleccionada}
+                    onChange={e => setSerieSeleccionada(e.target.value)}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  >
+                    {seriesNI.map(s => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
+
+              {/* Fecha documento | Fecha ingreso almacén */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <Calendar size={11} />
+                    Fecha doc.
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaDocumento}
+                    onChange={e => setFechaDocumento(e.target.value)}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <Calendar size={11} />
+                    Fecha ingreso
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaIngreso}
+                    onChange={e => setFechaIngreso(e.target.value)}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Tipo de ingreso */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Guía de remisión
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <Layers size={11} />
+                  Tipo de ingreso
                 </label>
-                <input
-                  type="text"
-                  value={guiaRemision}
-                  onChange={e => setGuiaRemision(e.target.value)}
-                  placeholder="Ej: T001-00000001"
+                <select
+                  value={tipoIngreso}
+                  onChange={e => setTipoIngreso(e.target.value as TipoIngreso)}
                   className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                />
+                >
+                  {TIPOS_INGRESO.map(t => (
+                    <option key={t.codigo} value={t.codigo}>
+                      {t.codigo} — {t.descripcion}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Moneda | Tipo doc. origen */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <DollarSign size={11} />
+                    Moneda
+                  </label>
+                  <select
+                    value={moneda}
+                    onChange={e => setMoneda(e.target.value as 'PEN' | 'USD')}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  >
+                    <option value="PEN">S/ PEN</option>
+                    <option value="USD">$ USD</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Tipo doc. origen
+                  </label>
+                  <select
+                    value={documentoOrigen}
+                    onChange={e => setDocumentoOrigen(e.target.value)}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  >
+                    <option value="">— Sin ref. —</option>
+                    <option value="01">Factura</option>
+                    <option value="03">Boleta de Venta</option>
+                    <option value="52">Liq. de compra</option>
+                    <option value="91">Comp. operaciones</option>
+                  </select>
+                </div>
               </div>
             </div>
+
           </div>
         </ConfigurationCard>
 
