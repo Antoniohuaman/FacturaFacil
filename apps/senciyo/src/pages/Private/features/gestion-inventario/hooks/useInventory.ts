@@ -174,8 +174,11 @@ export const useInventory = () => {
         usuarioNombre
       );
 
-      updateProduct(result.product.id, result.product);
-      setMovimientos(prev => [result.movement, ...prev]);
+      const finalProduct = InventoryService.recalcularTotalesStock(result.product, almacenesActivos);
+      updateProduct(finalProduct.id, finalProduct);
+      // No llamar setMovimientos aquí: StockRepository.addMovement ya disparó
+      // STOCK_MOVEMENTS_CHANGED_EVENT, el listener del useEffect lo recarga.
+      // Llamarlo aquí duplicaría el movimiento en el estado local.
       success(`${data.tipo}: ${data.cantidad} u · Nuevo stock: ${result.movement.cantidadNueva}`, 'Ajuste registrado');
       setShowAdjustmentModal(false);
     } catch (err) {

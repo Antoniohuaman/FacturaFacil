@@ -80,6 +80,11 @@ export const generarNIEnInventario = (
 
     const almacen = almacenesMap.get(linea.almacenId ?? nota.almacenDestinoId);
     if (!almacen) continue;
+    if (!almacen.estaActivoAlmacen) {
+      throw new Error(
+        `No se puede generar la Nota de Ingreso: el almacén "${almacen.nombreAlmacen}" está inactivo. Actívalo desde Configuración → Almacenes antes de registrar entradas.`
+      );
+    }
 
     const data: StockAdjustmentData = {
       productoId: linea.productoId,
@@ -98,8 +103,10 @@ export const generarNIEnInventario = (
       usuario,
     );
 
-    productsMap.set(linea.productoId, productoActualizado);
-    productosActualizados.push(productoActualizado);
+    const almacenesArray = Array.from(almacenesMap.values());
+    const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
+    productsMap.set(linea.productoId, productoFinal);
+    productosActualizados.push(productoFinal);
     movimientos.push(movement);
   }
 
@@ -186,8 +193,10 @@ export const anularNIEnInventario = (
       usuario,
     );
 
-    productsMap.set(linea.productoId, productoActualizado);
-    productosActualizados.push(productoActualizado);
+    const almacenesArray = Array.from(almacenesMap.values());
+    const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
+    productsMap.set(linea.productoId, productoFinal);
+    productosActualizados.push(productoFinal);
     movimientos.push(movement);
   }
 

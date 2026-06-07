@@ -21,6 +21,9 @@ const toNumber = (value: unknown): number => {
 
 const clampZero = (value: number): number => (value < 0 ? 0 : value);
 
+export const computeAvailable = (stock: number, reserved: number): number =>
+  stock <= reserved ? 0 : stock - reserved;
+
 const buildalmacenMap = (almacenes?: Almacen[]) => {
   const map = new Map<string, Almacen>();
   almacenes?.forEach(almacen => {
@@ -109,7 +112,7 @@ export const summarizeProductStock = (
       const stock = clampZero(toNumber(stockValue));
       const reservedRaw = respectReservations ? reservedMap[almacenId] : 0;
       const reserved = clampZero(toNumber(reservedRaw));
-      const available = stock <= reserved ? 0 : stock - reserved;
+      const available = computeAvailable(stock, reserved);
       const meta = almacenMap.get(almacenId);
 
       breakdown.push({
@@ -291,7 +294,7 @@ export const allocateSaleAcrossalmacenes = (
     if (remaining <= 0) break;
     const stock = toNumber(stockMap[almacen.id]);
     const reserved = toNumber(reservedMap[almacen.id]);
-    const available = stock <= reserved ? 0 : stock - reserved;
+    const available = computeAvailable(stock, reserved);
     if (available <= 0) {
       continue;
     }
@@ -374,12 +377,9 @@ export const projectAvailableAfterMovement = (
     if (record.almacenId !== targetalmacenId) {
       return record;
     }
-    const nextAvailable = clampZero(record.available - movementCantidadUnidadMinima);
-    const delta = record.available - nextAvailable;
     return {
       ...record,
-      available: nextAvailable,
-      stock: clampZero(record.stock - delta),
+      available: clampZero(record.available - movementCantidadUnidadMinima),
     };
   });
 

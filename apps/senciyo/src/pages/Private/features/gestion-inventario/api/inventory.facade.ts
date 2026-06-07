@@ -14,7 +14,7 @@ import { resolvealmacenForSale } from '../../../../../shared/inventory/stockGate
  */
 export function useInventoryFacade() {
   const { state: { almacenes } } = useConfigurationContext();
-  const { allProducts, updateProduct } = useProductStore();
+  const { updateProduct } = useProductStore();
   const { session } = useUserSession();
 
   /**
@@ -37,7 +37,12 @@ export function useInventoryFacade() {
       allowNegativeStock?: boolean;
     }
   ) => {
-    const product = allProducts.find(p => p.id === productId);
+    // Leer desde getState() y no desde el closure de React:
+    // addMovimiento se llama en loop (un almacén por iteración) y Zustand
+    // actualiza el store síncronamente, pero el closure de allProducts no
+    // refleja esas actualizaciones hasta el próximo render. getState()
+    // siempre devuelve el estado real y actual del store.
+    const product = useProductStore.getState().allProducts.find(p => p.id === productId);
     if (!product) {
       console.warn('[InventoryFacade] Producto no encontrado para movimiento', { productId });
       return;

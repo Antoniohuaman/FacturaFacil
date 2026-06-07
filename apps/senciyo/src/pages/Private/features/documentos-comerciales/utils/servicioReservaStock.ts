@@ -5,6 +5,8 @@ import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore'
 import {
   summarizeProductStock,
   resolvealmacenForSale,
+  resolvealmacenesForSaleFIFO,
+  allocateSaleAcrossalmacenes,
 } from '@/shared/inventory/stockGateway';
 
 const toNum = (v: unknown): number => {
@@ -117,40 +119,46 @@ export function reservarStockOrden(
   almacenes: Almacen[],
   establecimientoId: string,
 ): ReservaStockItem[] {
-  const store = useProductStore.getState();
-  const almacenPrincipal = resolvealmacenForSale({
+  const almacenesOrdered = resolvealmacenesForSaleFIFO({
     almacenes,
     EstablecimientoId: establecimientoId,
   });
-  const almacenId = almacenPrincipal?.id ?? establecimientoId ?? 'general';
+  const almacenMap = new Map(almacenesOrdered.map(a => [a.id, a]));
   const reservas: ReservaStockItem[] = [];
 
   for (const item of items) {
     if (!debeControlarStock(item)) continue;
 
-    // Buscar por SKU (mismo criterio que la validación)
-    const producto = store.allProducts.find((p) => p.codigo === item.code);
-    if (!producto) continue; // no debería ocurrir: la validación ya verificó esto
+    // Leer estado fresco del catálogo para ver reservas previas del mismo lote
+    const producto = useProductStore.getState().allProducts.find((p) => p.codigo === item.code);
+    if (!producto) continue;
 
-    const reservadoActual = toNum(
-      (producto.stockReservadoPorAlmacen ?? {})[almacenId],
-    );
-    const nuevoReservado = reservadoActual + item.quantity;
-
-    store.updateProduct(producto.id, {
-      stockReservadoPorAlmacen: {
-        ...(producto.stockReservadoPorAlmacen ?? {}),
-        [almacenId]: nuevoReservado,
-      },
+    const allocations = allocateSaleAcrossalmacenes({
+      product: producto,
+      almacenesOrdered,
+      qtyUnidadMinima: item.quantity,
+      respectReservations: true,
     });
 
-    reservas.push({
-      sku: producto.codigo,
-      nombre: item.name,
-      cantidad: item.quantity,
-      almacenId,
-      almacenNombre: almacenPrincipal?.nombreAlmacen,
-    });
+    for (const alloc of allocations) {
+      // Leer estado fresco antes de cada actualización para no pisar reservas anteriores
+      const productoCurrent =
+        useProductStore.getState().allProducts.find((p) => p.codigo === item.code) ?? producto;
+      const reservadoActual = toNum((productoCurrent.stockReservadoPorAlmacen ?? {})[alloc.almacenId]);
+      useProductStore.getState().updateProduct(productoCurrent.id, {
+        stockReservadoPorAlmacen: {
+          ...(productoCurrent.stockReservadoPorAlmacen ?? {}),
+          [alloc.almacenId]: reservadoActual + alloc.qtyUnidadMinima,
+        },
+      });
+      reservas.push({
+        sku: producto.codigo,
+        nombre: item.name,
+        cantidad: alloc.qtyUnidadMinima,
+        almacenId: alloc.almacenId,
+        almacenNombre: almacenMap.get(alloc.almacenId)?.nombreAlmacen,
+      });
+    }
   }
 
   return reservas;

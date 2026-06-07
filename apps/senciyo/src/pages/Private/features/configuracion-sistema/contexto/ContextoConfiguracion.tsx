@@ -795,7 +795,7 @@ const persistSeries = (storageKey: StorageKey, series: Series[]) => {
 };
 
 const PREFERENCIAS_VENTAS_PREDETERMINADAS: SalesPreferences = {
-  allowNegativeStock: true,
+  allowNegativeStock: false,
   pricesIncludeTax: true,
 };
 

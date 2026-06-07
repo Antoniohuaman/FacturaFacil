@@ -79,8 +79,9 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   // Handler para ajustar stock (abre modal de ajuste)
   const handleAjustarStock = useCallback((item: DisponibilidadItem) => {
     if (onAjustarProducto) {
-      // Integra con modal existente
-      onAjustarProducto(item.productoId, item.disponible, {
+      // Integra con modal existente. Se pasa 0 para cantidad porque el usuario
+      // debe ingresar el delta manualmente; el stock actual se muestra como referencia.
+      onAjustarProducto(item.productoId, 0, {
         almacenId: selectedalmacenId,
         mode: 'prefilled'
       });

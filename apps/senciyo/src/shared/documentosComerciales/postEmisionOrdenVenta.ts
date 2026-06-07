@@ -35,7 +35,7 @@ const obtenerFechaHoraISO = (): string => new Date().toISOString();
 /**
  * Libera el stock reservado por la OV directamente en el store de productos (Zustand).
  */
-function liberarReservasDeOV(reservasStock: Array<{ sku: string; cantidad: number; almacenId: string }>): void {
+export function liberarReservasDeOV(reservasStock: Array<{ sku: string; cantidad: number; almacenId: string }>): void {
   const store = useProductStore.getState();
   for (const reserva of reservasStock) {
     const producto = store.allProducts.find((p) => p.codigo === reserva.sku);
@@ -48,6 +48,28 @@ function liberarReservasDeOV(reservasStock: Array<{ sku: string; cantidad: numbe
         [reserva.almacenId]: nuevoReservado,
       },
     });
+  }
+}
+
+/**
+ * Lee las reservas de stock de una OV desde localStorage.
+ * Al emitir un comprobante desde OV, se usan estas reservas para descontar
+ * exactamente los almacenes comprometidos (no recalcular FIFO desde cero).
+ */
+export function obtenerReservasDeOV(
+  ovId: string
+): Array<{ sku: string; cantidad: number; almacenId: string; almacenNombre?: string }> {
+  try {
+    const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documentos: any[] = JSON.parse(raw);
+    const ov = documentos.find((d) => d.id === ovId);
+    if (!ov || ov.tipo !== 'orden_venta') return [];
+    return Array.isArray(ov.reservasStock) ? ov.reservasStock : [];
+  } catch {
+    return [];
   }
 }
 

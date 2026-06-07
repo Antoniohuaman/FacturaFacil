@@ -12,7 +12,7 @@ import type {
   TipoComprobante,
 } from '../models/comprobante.types';
 import { lsKey } from '../../../../../shared/tenant';
-import { actualizarOrdenVentaPostEmision } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
+import { actualizarOrdenVentaPostEmision, obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import { mapPaymentMethodToMedioPago } from '../../../../../shared/payments/paymentMapping';
 // Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
 import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facade';
@@ -491,14 +491,27 @@ export const useComprobanteActions = () => {
       // ✅ DESCONTAR STOCK DE LOS PRODUCTOS VENDIDOS
       if (!isNoteCredit) {
       try {
-        // Obtener datos del establecimiento desde la sesión o datos recibidos
         const EstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
         const Establecimiento = session?.currentEstablecimiento;
-
         const allowNegativeStock = allowNegativeStockConfig;
 
         if (!EstablecimientoId) {
           throw new Error('No se pudo resolver el establecimiento para descontar stock.');
+        }
+
+        // Comprobante desde OV: leer las reservas comprometidas y usarlas como
+        // fuente de allocations exactas (no recalcular FIFO para no descontar
+        // de almacenes distintos a los reservados por esa OV).
+        const srcId = sessionStorage.getItem('conversionSourceId');
+        const srcType = sessionStorage.getItem('conversionSourceType');
+        const esDesdeOV = srcType === 'orden_venta' && Boolean(srcId);
+        const ovReservas = esDesdeOV ? obtenerReservasDeOV(srcId!) : [];
+
+        // Indexar reservas de OV por SKU para lookup O(1) en el loop de items.
+        const reservasPorSku = new Map<string, Array<{ almacenId: string; cantidad: number }>>();
+        for (const r of ovReservas) {
+          if (!reservasPorSku.has(r.sku)) reservasPorSku.set(r.sku, []);
+          reservasPorSku.get(r.sku)!.push({ almacenId: r.almacenId, cantidad: r.cantidad });
         }
 
         const almacenesOrdered = resolvealmacenesForSaleFIFO({ almacenes, EstablecimientoId });
@@ -539,8 +552,23 @@ export const useComprobanteActions = () => {
 
           const observaciones = `Venta en ${data.tipoComprobante} ${numeroComprobante}`;
 
-          // Si no tenemos snapshot del producto en catálogo, no podemos distribuir por almacén.
-          // Mantener comportamiento simple: aplicar al primer almacén FIFO.
+          // Comprobante desde OV: consumir exactamente los almacenes y cantidades reservados.
+          // No re-ejecutar FIFO para no descontar de almacenes distintos al comprometido.
+          const itemReservas = reservasPorSku.get(item.code || '');
+          if (esDesdeOV && itemReservas && itemReservas.length > 0) {
+            for (const res of itemReservas) {
+              if (res.cantidad <= 0) continue;
+              pendingMovements.push({
+                productId: item.id,
+                qtyUnidadMinima: res.cantidad,
+                almacenId: res.almacenId,
+                observaciones,
+              });
+            }
+            continue;
+          }
+
+          // Venta directa: distribución FIFO progresiva por prioridad de almacén.
           if (!catalogProduct) {
             pendingMovements.push({
               productId: item.id,

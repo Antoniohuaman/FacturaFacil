@@ -440,8 +440,9 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
               },
               nombreUsuario
             );
-            updateProduct(productoActual.id, resultado.product);
-            productoActual = resultado.product;
+            const productoFinalS = InventoryService.recalcularTotalesStock(resultado.product, almacenesActivos);
+            updateProduct(productoActual.id, productoFinalS);
+            productoActual = productoFinalS;
             movimientos++;
           } catch (err) {
             errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: ${err instanceof Error ? err.message : 'Error'}`);
@@ -470,10 +471,11 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
               },
               nombreUsuario
             );
-            updateProduct(productoActual.id, resultado.product);
+            const productoFinalA = InventoryService.recalcularTotalesStock(resultado.product, almacenesActivos);
+            updateProduct(productoActual.id, productoFinalA);
             // Actualizar referencia local para que el siguiente almacén del mismo producto
             // vea el stock ya actualizado
-            productoActual = resultado.product;
+            productoActual = productoFinalA;
             movimientos++;
           } catch (err) {
             errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: ${err instanceof Error ? err.message : 'Error'}`);

@@ -105,6 +105,31 @@ export class InventoryService {
   }
 
   /**
+   * Recalcula los campos derivados cantidad y stockPorEstablecimiento a partir
+   * de stockPorAlmacen.  Debe llamarse después de toda operación que modifique
+   * stockPorAlmacen mediante registerAdjustment (ajustes, NI, importación).
+   * registerTransfer ya lo hace internamente.
+   */
+  static recalcularTotalesStock(product: Product, almacenes: Almacen[]): Product {
+    const cantidad = this.getTotalStock(product);
+    const estMap: Record<string, number> = {};
+    for (const almacen of almacenes) {
+      if (!almacen.establecimientoId) continue;
+      estMap[almacen.establecimientoId] =
+        (estMap[almacen.establecimientoId] ?? 0) +
+        (product.stockPorAlmacen?.[almacen.id] ?? 0);
+    }
+    const hasEstData = Object.keys(estMap).length > 0;
+    return {
+      ...product,
+      cantidad,
+      ...(hasEstData
+        ? { stockPorEstablecimiento: { ...(product.stockPorEstablecimiento ?? {}), ...estMap } }
+        : {}),
+    };
+  }
+
+  /**
    * Registrar ajuste de stock
    */
   static registerAdjustment(
@@ -176,9 +201,12 @@ export class InventoryService {
     const stockOrigen = this.getStock(product, data.almacenOrigenId);
     const stockDestino = this.getStock(product, data.almacenDestinoId);
 
-    // Validar stock disponible
-    if (stockOrigen < data.cantidad) {
-      throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${stockOrigen}`);
+    // Validar stock disponible (real − reservado)
+    const reservedOrigen = this.getReservedStock(product, data.almacenOrigenId);
+    const disponible = Math.max(0, stockOrigen - reservedOrigen);
+    if (disponible < data.cantidad) {
+      const detalle = reservedOrigen > 0 ? ` (${stockOrigen} real − ${reservedOrigen} reservado)` : '';
+      throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${disponible}${detalle}.`);
     }
 
     const transferenciaId = generateTransferId();
@@ -274,8 +302,11 @@ export class InventoryService {
   ): { product: Product; movement: MovimientoStock } {
     const stockOrigen = this.getStock(product, almacenOrigen.id);
 
-    if (stockOrigen < transferencia.cantidad) {
-      throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${stockOrigen}`);
+    const reservedOrigen = this.getReservedStock(product, almacenOrigen.id);
+    const disponible = Math.max(0, stockOrigen - reservedOrigen);
+    if (disponible < transferencia.cantidad) {
+      const detalle = reservedOrigen > 0 ? ` (${stockOrigen} real − ${reservedOrigen} reservado)` : '';
+      throw new Error(`Stock insuficiente en ${almacenOrigen.nombreAlmacen}. Disponible: ${disponible}${detalle}.`);
     }
 
     const nuevoStock = stockOrigen - transferencia.cantidad;

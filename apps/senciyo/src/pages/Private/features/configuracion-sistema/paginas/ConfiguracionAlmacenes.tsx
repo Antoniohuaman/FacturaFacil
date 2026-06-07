@@ -26,6 +26,8 @@ import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import type { Almacen } from '../modelos/Almacen';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { StockRepository } from '../../gestion-inventario/repositories/stock.repository';
 
 interface Toast {
   id: string;
@@ -74,6 +76,7 @@ export function ConfiguracionAlmacenes() {
   const navigate = useNavigate();
   const { state, dispatch, rolesConfigurados } = useConfigurationContext();
   const { session } = useUserSession();
+  const { allProducts } = useProductStore();
   const { Establecimientos, almacenes } = state;
   const establecimientoId = session?.currentEstablecimientoId;
 
@@ -375,13 +378,30 @@ export function ConfiguracionAlmacenes() {
   const handleDelete = () => {
     if (!deleteConfirmation.almacenId || !validarPermisoGestionAlmacenes()) return;
 
+    const almacenId = deleteConfirmation.almacenId;
+
     if (deleteConfirmation.tieneMovimientosInventario) {
       showToast('error', 'No se puede eliminar: el almacén tiene movimientos. Deshabilitalo en su lugar.');
       setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
       return;
     }
 
-    const updatedAlmacenes = almacenes.filter(a => a.id !== deleteConfirmation.almacenId);
+    const hasStock = allProducts.some(p => (p.stockPorAlmacen?.[almacenId] ?? 0) > 0);
+    const hasReservas = allProducts.some(p => (p.stockReservadoPorAlmacen?.[almacenId] ?? 0) > 0);
+    const hasMovimientos = StockRepository.getMovementsByalmacen(almacenId).length > 0;
+
+    if (hasStock || hasReservas || hasMovimientos) {
+      const motivo = hasStock
+        ? 'tiene stock registrado'
+        : hasReservas
+          ? 'tiene stock reservado'
+          : 'tiene movimientos de inventario asociados';
+      showToast('error', `No se puede eliminar este almacén porque ${motivo}. Puedes inactivarlo para evitar su uso en nuevas operaciones.`);
+      setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });
+      return;
+    }
+
+    const updatedAlmacenes = almacenes.filter(a => a.id !== almacenId);
     dispatch({ type: 'SET_ALMACENES', payload: updatedAlmacenes });
     showToast('success', 'Almacén eliminado');
     setDeleteConfirmation({ isOpen: false, almacenId: null, nombreAlmacen: '', tieneMovimientosInventario: false });

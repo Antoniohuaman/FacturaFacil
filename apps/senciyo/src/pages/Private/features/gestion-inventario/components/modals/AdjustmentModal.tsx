@@ -1,6 +1,6 @@
 // src/features/inventario/components/modals/AdjustmentModal.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { MovimientoTipo, MovimientoMotivo } from '../../models';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -49,8 +49,13 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   const [tipo, setTipo] = useState<MovimientoTipo>('ENTRADA');
   const [motivo, setMotivo] = useState<MovimientoMotivo>('COMPRA');
   const [cantidad, setCantidad] = useState(
-    typeof preSelectedQuantity === 'number' ? String(preSelectedQuantity) : ''
+    typeof preSelectedQuantity === 'number' && preSelectedQuantity > 0
+      ? String(preSelectedQuantity)
+      : ''
   );
+
+  // Ref para prevenir doble envío en el mismo evento de click
+  const submittingRef = useRef(false);
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
   const [showObservaciones, setShowObservaciones] = useState(false);
@@ -61,6 +66,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   // Actualizar cuando cambian los props
   React.useEffect(() => {
     if (!isOpen) {
+      submittingRef.current = false;
       return;
     }
 
@@ -137,6 +143,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   };
 
   const handleSubmit = () => {
+    if (submittingRef.current) return;
     if (!selectedProductId || !cantidad || Number(cantidad) <= 0) {
       alert('Por favor completa todos los campos requeridos');
       return;
@@ -147,6 +154,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
       return;
     }
 
+    submittingRef.current = true;
     onAdjust({
       productoId: selectedProductId,
       almacenId: selectedalmacenId,
