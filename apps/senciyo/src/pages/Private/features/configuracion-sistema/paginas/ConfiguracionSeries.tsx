@@ -103,6 +103,13 @@ const voucherTypeConfig = {
     color: 'teal',
     prefix: 'NI',
     description: 'Documento interno de inventario - Registra entradas al almacén'
+  },
+  STOCK_EXIT: {
+    label: 'Nota de Salida',
+    icon: FileText,
+    color: 'orange',
+    prefix: 'NS',
+    description: 'Documento interno de inventario - Registra salidas del almacén'
   }
 };
 

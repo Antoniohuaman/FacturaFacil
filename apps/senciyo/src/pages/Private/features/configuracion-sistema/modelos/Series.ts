@@ -361,6 +361,33 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
     },
     isActive: true,
   },
+  // Nota de Salida (documento interno de inventario)
+  {
+    id: 'NS',
+    code: 'NS',
+    name: 'Nota de Salida',
+    shortName: 'NS',
+    category: 'OTHER',
+    properties: {
+      affectsTaxes: false,
+      requiresCustomerRuc: false,
+      requiresCustomerName: false,
+      allowsCredit: false,
+      requiresPaymentMethod: false,
+      canBeVoided: true,
+      canHaveCreditNote: false,
+      canHaveDebitNote: false,
+      isElectronic: false,
+      requiresSignature: false,
+    },
+    seriesConfiguration: {
+      defaultPrefix: 'NS',
+      seriesLength: 4,
+      correlativeLength: 8,
+      allowedPrefixes: ['NS'],
+    },
+    isActive: true,
+  },
 ] as const;
 
 export const SERIES_STATUS = [

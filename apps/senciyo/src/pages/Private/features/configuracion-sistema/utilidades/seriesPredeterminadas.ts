@@ -14,6 +14,7 @@ const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
   'SALE_ORDER',
   'COLLECTION',
   'STOCK_ENTRY',
+  'STOCK_EXIT',
 ];
 
 const buildSeriesSeed = ({

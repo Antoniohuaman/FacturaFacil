@@ -142,7 +142,7 @@ export interface PaginationConfig {
 /**
  * Vista de inventario
  */
-export type InventoryView = 'situacion' | 'movimientos' | 'transferencias' | 'alertas' | 'importar' | 'notas-ingreso';
+export type InventoryView = 'situacion' | 'movimientos' | 'transferencias' | 'alertas' | 'importar' | 'notas-ingreso' | 'notas-salida';
 
 /**
  * Período de filtro
