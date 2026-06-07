@@ -36,13 +36,16 @@ const obtenerFechaHoraISO = (): string => new Date().toISOString();
  * Libera el stock reservado por la OV directamente en el store de productos (Zustand).
  */
 export function liberarReservasDeOV(reservasStock: Array<{ sku: string; cantidad: number; almacenId: string }>): void {
-  const store = useProductStore.getState();
+  // getState() se llama en cada iteración para obtener el producto actualizado:
+  // liberarReservasDeOV itera un almacén por vez y Zustand actualiza el store
+  // síncronamente, pero un snapshot capturado antes del bucle no refleja esas
+  // actualizaciones. Sin esto, la segunda iteración sobreescribiría la primera.
   for (const reserva of reservasStock) {
-    const producto = store.allProducts.find((p) => p.codigo === reserva.sku);
+    const producto = useProductStore.getState().allProducts.find((p) => p.codigo === reserva.sku);
     if (!producto) continue;
     const reservadoActual = toNum((producto.stockReservadoPorAlmacen ?? {})[reserva.almacenId]);
     const nuevoReservado = Math.max(0, reservadoActual - reserva.cantidad);
-    store.updateProduct(producto.id, {
+    useProductStore.getState().updateProduct(producto.id, {
       stockReservadoPorAlmacen: {
         ...(producto.stockReservadoPorAlmacen ?? {}),
         [reserva.almacenId]: nuevoReservado,

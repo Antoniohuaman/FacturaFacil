@@ -170,10 +170,11 @@ export function reservarStockOrden(
  * Nunca permite stock reservado negativo.
  */
 export function liberarReservaOrden(reservas: ReservaStockItem[]): void {
-  const store = useProductStore.getState();
-
+  // getState() se llama en cada iteración para obtener el producto actualizado:
+  // mismo patrón que reservarStockOrden. Sin esto, iteraciones sucesivas sobre
+  // distintos almacenes del mismo producto sobreescriben las anteriores.
   for (const reserva of reservas) {
-    const producto = store.allProducts.find((p) => p.codigo === reserva.sku);
+    const producto = useProductStore.getState().allProducts.find((p) => p.codigo === reserva.sku);
     if (!producto) continue;
 
     const reservadoActual = toNum(
@@ -181,7 +182,7 @@ export function liberarReservaOrden(reservas: ReservaStockItem[]): void {
     );
     const nuevoReservado = Math.max(0, reservadoActual - reserva.cantidad);
 
-    store.updateProduct(producto.id, {
+    useProductStore.getState().updateProduct(producto.id, {
       stockReservadoPorAlmacen: {
         ...(producto.stockReservadoPorAlmacen ?? {}),
         [reserva.almacenId]: nuevoReservado,
