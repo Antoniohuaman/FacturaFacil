@@ -180,6 +180,18 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                     <dt className="text-gray-500 dark:text-gray-400 text-xs">Moneda</dt>
                     <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{nota.moneda}</dd>
                   </div>
+                  {nota.formaPago && (
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400 text-xs">Forma de pago</dt>
+                      <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{nota.formaPago}</dd>
+                    </div>
+                  )}
+                  {nota.encargadoAlmacen && (
+                    <div>
+                      <dt className="text-gray-500 dark:text-gray-400 text-xs">Encargado de almacén</dt>
+                      <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{nota.encargadoAlmacen}</dd>
+                    </div>
+                  )}
                 </dl>
               </section>
 
@@ -206,7 +218,7 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
               )}
 
               {/* Referencias */}
-              {(nota.documentoOrigen || nota.guiaRemision || nota.observaciones) && (
+              {(nota.documentoOrigen || nota.guiaRemision || nota.observaciones || nota.direccionEnvio) && (
                 <section>
                   <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">
                     Referencias
@@ -225,6 +237,12 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
                       <div>
                         <dt className="text-gray-500 dark:text-gray-400 text-xs">Guía de remisión</dt>
                         <dd className="font-medium text-gray-900 dark:text-white mt-0.5">{nota.guiaRemision}</dd>
+                      </div>
+                    )}
+                    {nota.direccionEnvio && (
+                      <div className="col-span-2">
+                        <dt className="text-gray-500 dark:text-gray-400 text-xs">Dirección de envío</dt>
+                        <dd className="text-gray-700 dark:text-gray-300 mt-0.5">{nota.direccionEnvio}</dd>
                       </div>
                     )}
                     {nota.observaciones && (

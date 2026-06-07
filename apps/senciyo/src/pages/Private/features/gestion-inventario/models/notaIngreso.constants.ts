@@ -50,6 +50,14 @@ export const STORAGE_KEY_NOTAS_INGRESO = 'notas_ingreso_v1';
 
 export const CORRELATIVO_DIGITOS_NI = 8;
 
+export const FORMAS_PAGO_NI: Array<{ value: string; label: string }> = [
+  { value: 'Contado', label: 'Contado' },
+  { value: 'Credito', label: 'Crédito' },
+  { value: 'Transferencia', label: 'Transferencia bancaria' },
+  { value: 'Cheque', label: 'Cheque' },
+  { value: 'Efectivo', label: 'Efectivo' },
+];
+
 export const ESTADO_NI_BADGE: Record<string, { label: string; cls: string }> = {
   Borrador: {
     label: 'Borrador',

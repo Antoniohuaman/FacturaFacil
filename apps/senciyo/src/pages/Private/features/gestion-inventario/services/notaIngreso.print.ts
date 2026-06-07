@@ -147,6 +147,14 @@ ${nota.estado === 'Anulada' ? '<div class="anulado-banner">⚠ NOTA DE INGRESO A
   ` : '<div></div><div></div>'}
   <div class="field"><span class="label">Doc. referencia:</span><span class="value">${escHtml(docOrigenLabel)}</span></div>
   ${nota.guiaRemision ? `<div class="field"><span class="label">Guía remisión:</span><span class="value">${escHtml(nota.guiaRemision)}</span></div>` : '<div></div>'}
+  ${(nota.direccionProveedor || nota.direccionEnvio) ? `
+  ${nota.direccionProveedor ? `<div class="field"><span class="label">Dirección:</span><span class="value">${escHtml(nota.direccionProveedor)}</span></div>` : '<div></div>'}
+  ${nota.direccionEnvio ? `<div class="field"><span class="label">Dir. de envío:</span><span class="value">${escHtml(nota.direccionEnvio)}</span></div>` : '<div></div>'}
+  ` : ''}
+  ${(nota.formaPago || nota.encargadoAlmacen) ? `
+  ${nota.formaPago ? `<div class="field"><span class="label">Forma de pago:</span><span class="value">${escHtml(nota.formaPago)}</span></div>` : '<div></div>'}
+  ${nota.encargadoAlmacen ? `<div class="field"><span class="label">Encargado almacén:</span><span class="value">${escHtml(nota.encargadoAlmacen)}</span></div>` : '<div></div>'}
+  ` : ''}
 </div>
 
 <div class="section-title">Productos</div>

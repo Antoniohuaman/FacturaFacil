@@ -67,6 +67,7 @@ export interface NotaIngreso {
   tipoDocumentoProveedor?: string;
   numeroDocumentoProveedor?: string;
   direccionProveedor?: string;
+  direccionEnvio?: string;
 
   moneda: 'PEN' | 'USD';
   formaPago?: string;

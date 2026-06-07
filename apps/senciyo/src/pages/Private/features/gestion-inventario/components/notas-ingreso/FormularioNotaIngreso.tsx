@@ -18,6 +18,8 @@ import {
   FileText,
   ChevronDown,
   Check,
+  CreditCard,
+  Truck,
 } from 'lucide-react';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import ActionButtonsSection from '../../../comprobantes-electronicos/shared/form-core/components/ActionButtonsSection';
@@ -30,6 +32,7 @@ import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsulta
 import {
   TIPOS_INGRESO,
   TIPOS_INGRESO_CON_PROVEEDOR,
+  FORMAS_PAGO_NI,
 } from '../../models/notaIngreso.constants';
 import type {
   NotaIngreso,
@@ -169,14 +172,16 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   const seleccionarProveedor = useCallback(
     (c: Cliente) => {
       const { tipo, numero } = extraerDocumentoCliente(c);
+      const provDir =
+        c.direccion ?? (c.address && c.address !== 'Sin dirección' ? c.address : undefined);
       setProveedor({
         id: c.id,
         nombre: c.name,
         tipoDocumento: tipo,
         numeroDocumento: numero,
-        direccion:
-          c.direccion ?? (c.address && c.address !== 'Sin dirección' ? c.address : undefined),
+        direccion: provDir,
       });
+      setDireccion(provDir ?? '');
       setBusquedaProveedor('');
       setMostrarResultados(false);
       setErrorDocumento(null);
@@ -186,6 +191,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
 
   const limpiarProveedor = useCallback(() => {
     setProveedor(null);
+    setDireccion('');
     setBusquedaProveedor('');
     setErrorDocumento(null);
     setTimeout(() => inputProveedorRef.current?.focus(), 0);
@@ -206,6 +212,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
             numeroDocumento: num,
             direccion: r.data.direccion,
           });
+          setDireccion(r.data.direccion ?? '');
           setBusquedaProveedor('');
           setMostrarResultados(false);
         } else {
@@ -257,6 +264,12 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   );
   const [guiaRemision, setGuiaRemision] = useState(notaInicial?.guiaRemision ?? '');
   const [observaciones, setObservaciones] = useState(notaInicial?.observaciones ?? '');
+  const [direccion, setDireccion] = useState(notaInicial?.direccionProveedor ?? '');
+  const [direccionEnvio, setDireccionEnvio] = useState(notaInicial?.direccionEnvio ?? '');
+  const [formaPago, setFormaPago] = useState(notaInicial?.formaPago ?? '');
+  const [encargadoAlmacen, setEncargadoAlmacen] = useState(
+    notaInicial?.encargadoAlmacen ?? usuarioNombre,
+  );
 
   const [lineas, setLineas] = useState<LineaNotaIngreso[]>(() => {
     if (!notaInicial?.lineas.length) return [];
@@ -434,8 +447,11 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
       proveedorNombre: proveedor?.nombre || undefined,
       tipoDocumentoProveedor: proveedor?.tipoDocumento || undefined,
       numeroDocumentoProveedor: proveedor?.numeroDocumento || undefined,
-      direccionProveedor: proveedor?.direccion,
+      direccionProveedor: direccion || undefined,
+      direccionEnvio: direccionEnvio || undefined,
       moneda,
+      formaPago: formaPago || undefined,
+      encargadoAlmacen: encargadoAlmacen || undefined,
       documentoOrigen: documentoOrigen || undefined,
       numeroDocumentoOrigen: numeroDocOrigen || undefined,
       guiaRemision: guiaRemision || undefined,
@@ -623,6 +639,36 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Dirección */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <MapPin size={11} />
+                  Dirección
+                </label>
+                <input
+                  type="text"
+                  value={direccion}
+                  onChange={e => setDireccion(e.target.value)}
+                  placeholder="Dirección del proveedor"
+                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                />
+              </div>
+
+              {/* Dirección de envío */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <Truck size={11} />
+                  Dirección de envío
+                </label>
+                <input
+                  type="text"
+                  value={direccionEnvio}
+                  onChange={e => setDireccionEnvio(e.target.value)}
+                  placeholder="Dirección de envío (opcional)"
+                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                />
               </div>
 
               {/* Almacén(es) destino — compact multiselect */}
@@ -821,7 +867,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                 </select>
               </div>
 
-              {/* Moneda | Tipo doc. origen */}
+              {/* Moneda | Forma de pago */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -838,6 +884,26 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <CreditCard size={11} />
+                    Forma de pago
+                  </label>
+                  <select
+                    value={formaPago}
+                    onChange={e => setFormaPago(e.target.value)}
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  >
+                    <option value="">— Sin especif. —</option>
+                    {FORMAS_PAGO_NI.map(fp => (
+                      <option key={fp.value} value={fp.value}>{fp.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tipo doc. origen | Encargado de almacén */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
                     Tipo doc. origen
                   </label>
@@ -852,6 +918,19 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                     <option value="52">Liq. de compra</option>
                     <option value="91">Comp. operaciones</option>
                   </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <User size={11} />
+                    Encargado de almacén
+                  </label>
+                  <input
+                    type="text"
+                    value={encargadoAlmacen}
+                    onChange={e => setEncargadoAlmacen(e.target.value)}
+                    placeholder="Nombre del encargado"
+                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                  />
                 </div>
               </div>
             </div>
