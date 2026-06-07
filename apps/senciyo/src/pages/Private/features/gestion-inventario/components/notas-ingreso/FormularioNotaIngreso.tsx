@@ -88,7 +88,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   const { activeEstablecimientoId } = useTenant();
   const { allProducts } = useProductStore();
   const { clientes, fetchClientes } = useClientes();
-  const { guardarBorrador, generarNI, usuarioNombre } = useNotasIngreso();
+  const { guardarBorrador, generarNI, usuarioNombre, usuarioId } = useNotasIngreso();
   const feedback = useFeedback();
 
   const almacenesActivos = useMemo(
@@ -267,10 +267,6 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   const [direccion, setDireccion] = useState(notaInicial?.direccionProveedor ?? '');
   const [direccionEnvio, setDireccionEnvio] = useState(notaInicial?.direccionEnvio ?? '');
   const [formaPago, setFormaPago] = useState(notaInicial?.formaPago ?? '');
-  const [encargadoAlmacen, setEncargadoAlmacen] = useState(
-    notaInicial?.encargadoAlmacen ?? usuarioNombre,
-  );
-
   const [lineas, setLineas] = useState<LineaNotaIngreso[]>(() => {
     if (!notaInicial?.lineas.length) return [];
     // Migrate existing lines without almacenId to inherit from header
@@ -319,6 +315,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
 
   const [guardando, setGuardando] = useState(false);
   const [generando, setGenerando] = useState(false);
+  const [lineasConCostoInvalido, setLineasConCostoInvalido] = useState<Set<string>>(new Set<string>());
 
   const requiereProveedor = TIPOS_INGRESO_CON_PROVEEDOR.includes(tipoIngreso);
 
@@ -422,6 +419,14 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     setLineas(prev =>
       prev.map(l => (l.id === id ? calcularLinea({ ...l, costoUnitario: costo }) : l)),
     );
+    if (costo > 0) {
+      setLineasConCostoInvalido(prev => {
+        if (!prev.has(id)) return prev;
+        const s = new Set<string>(prev);
+        s.delete(id);
+        return s;
+      });
+    }
   };
 
   const eliminarLinea = (id: string) => setLineas(prev => prev.filter(l => l.id !== id));
@@ -451,7 +456,8 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
       direccionEnvio: direccionEnvio || undefined,
       moneda,
       formaPago: formaPago || undefined,
-      encargadoAlmacen: encargadoAlmacen || undefined,
+      encargadoAlmacenId: usuarioId || undefined,
+      encargadoAlmacen: usuarioNombre || undefined,
       documentoOrigen: documentoOrigen || undefined,
       numeroDocumentoOrigen: numeroDocOrigen || undefined,
       guiaRemision: guiaRemision || undefined,
@@ -481,6 +487,8 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     if (!lineas.length) return 'Agregue al menos un producto del catálogo.';
     if (lineas.some(l => l.cantidad <= 0)) return 'Todas las cantidades deben ser mayores a 0.';
     if (lineas.some(l => !l.almacenId)) return 'Todas las líneas deben tener un almacén asignado.';
+    if (lineas.some(l => l.costoUnitario <= 0))
+      return 'Ingrese el costo unitario de todos los productos antes de generar la nota de ingreso.';
     return null;
   };
 
@@ -496,12 +504,14 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     const err = validarParaGenerar();
     if (err) {
       feedback.error(err);
+      const invalidas = lineas.filter(l => l.costoUnitario <= 0).map(l => l.id);
+      if (invalidas.length > 0) setLineasConCostoInvalido(new Set<string>(invalidas));
       return;
     }
     if (generando) return;
     setGenerando(true);
     const nota = buildNota('Borrador');
-    guardarBorrador(nota);
+    guardarBorrador(nota, { silencioso: true });
     const ok = generarNI(nota.id);
     setGenerando(false);
     if (ok) onGuardado();
@@ -924,13 +934,9 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                     <User size={11} />
                     Encargado de almacén
                   </label>
-                  <input
-                    type="text"
-                    value={encargadoAlmacen}
-                    onChange={e => setEncargadoAlmacen(e.target.value)}
-                    placeholder="Nombre del encargado"
-                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
-                  />
+                  <div className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-gray-50 dark:bg-gray-700/50 text-gray-800 dark:text-gray-100 truncate">
+                    {usuarioNombre}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1048,7 +1054,11 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
                             step="0.01"
                             value={linea.costoUnitario}
                             onChange={e => handleCosto(linea.id, e.target.value)}
-                            className="w-24 text-right text-sm border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                            className={`w-24 text-right text-sm border rounded px-2 py-1 outline-none focus:ring-1 ${
+                              lineasConCostoInvalido.has(linea.id)
+                                ? 'border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 focus:ring-red-400 focus:border-red-400'
+                                : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-violet-500 focus:border-violet-500'
+                            }`}
                           />
                         </td>
                         <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">

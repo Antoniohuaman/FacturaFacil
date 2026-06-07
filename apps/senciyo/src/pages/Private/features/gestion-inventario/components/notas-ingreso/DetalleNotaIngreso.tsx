@@ -1,12 +1,13 @@
 // src/features/gestion-inventario/components/notas-ingreso/DetalleNotaIngreso.tsx
 
 import React, { useMemo, useState } from 'react';
-import { X, Printer, Copy, AlertTriangle, Clock, Package } from 'lucide-react';
+import { X, Printer, Copy, AlertTriangle, Clock, Package, FileDown, Mail } from 'lucide-react';
 import type { NotaIngreso } from '../../models/notaIngreso.types';
 import { TIPO_INGRESO_LABEL, ESTADO_NI_BADGE } from '../../models/notaIngreso.constants';
 import { useNotasIngreso } from '../../hooks/useNotasIngreso';
 import { imprimirNotaIngreso } from '../../services/notaIngreso.print';
 import { calcularDesgloseTributario, prepararDuplicado } from '../../services/notaIngreso.service';
+import { useFeedback } from '../../../../../../shared/feedback';
 
 type Tab = 'general' | 'historial';
 
@@ -15,6 +16,7 @@ interface Props {
   onClose: () => void;
   onRefresh: () => void;
   onDuplicar?: (nota: NotaIngreso) => void;
+  iniciarAnulacion?: boolean;
 }
 
 const fmtFecha = (iso: string): string => {
@@ -42,10 +44,11 @@ const DOC_ORIGEN_LABEL: Record<string, string> = {
   '01': 'Factura', '03': 'Boleta', '52': 'Liq. compra', '91': 'Comp. operaciones',
 };
 
-const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDuplicar }) => {
+const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDuplicar, iniciarAnulacion }) => {
   const { anularNI } = useNotasIngreso();
+  const feedback = useFeedback();
   const [tab, setTab] = useState<Tab>('general');
-  const [mostrarAnulacion, setMostrarAnulacion] = useState(false);
+  const [mostrarAnulacion, setMostrarAnulacion] = useState(iniciarAnulacion ?? false);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [anulando, setAnulando] = useState(false);
 
@@ -108,12 +111,32 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+            {puedeImprimir && (
+              <>
+                <button
+                  onClick={() => imprimirNotaIngreso(nota)}
+                  title="Descargar PDF"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                >
+                  <FileDown size={15} />
+                </button>
+                <button
+                  onClick={() => feedback.warning('Envío por correo próximamente disponible.')}
+                  title="Enviar por correo"
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                >
+                  <Mail size={15} />
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}

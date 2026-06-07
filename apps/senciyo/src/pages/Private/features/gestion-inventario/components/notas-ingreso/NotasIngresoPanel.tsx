@@ -1,7 +1,7 @@
 // src/features/gestion-inventario/components/notas-ingreso/NotasIngresoPanel.tsx
 
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Eye, Pencil, Trash2, Copy, Printer, SlidersHorizontal, Download } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, Trash2, Copy, Printer, SlidersHorizontal, Download, Ban } from 'lucide-react';
 import { useNotasIngreso } from '../../hooks/useNotasIngreso';
 import {
   TIPO_INGRESO_LABEL,
@@ -39,6 +39,7 @@ const NotasIngresoPanel: React.FC = () => {
   const [vista, setVista] = useState<'lista' | 'nuevo' | 'editar'>('lista');
   const [notaEditando, setNotaEditando] = useState<NotaIngreso | undefined>();
   const [notaDetalle, setNotaDetalle] = useState<NotaIngreso | null>(null);
+  const [anulacionDirecta, setAnulacionDirecta] = useState(false);
 
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState<EstadoNotaIngreso | 'todos'>('todos');
@@ -131,6 +132,7 @@ const NotasIngresoPanel: React.FC = () => {
 
   const handleNuevo = () => { setNotaEditando(undefined); setVista('nuevo'); };
   const handleEditar = (nota: NotaIngreso) => { setNotaEditando(nota); setVista('editar'); };
+  const handleAnularDesdeListar = (nota: NotaIngreso) => { setAnulacionDirecta(true); setNotaDetalle(nota); };
   const handleGuardado = () => { setVista('lista'); setNotaEditando(undefined); };
   const handleCancelar = () => { setVista('lista'); setNotaEditando(undefined); };
 
@@ -454,6 +456,16 @@ const NotasIngresoPanel: React.FC = () => {
                             icon={<Copy className="w-3.5 h-3.5" />}
                           />
 
+                          {/* Generada: Anular */}
+                          {nota.estado === 'Generada' && (
+                            <ActionBtn
+                              title="Anular nota de ingreso"
+                              onClick={() => handleAnularDesdeListar(nota)}
+                              icon={<Ban className="w-3.5 h-3.5" />}
+                              danger
+                            />
+                          )}
+
                           {/* Borrador: Eliminar */}
                           {nota.estado === 'Borrador' && (
                             <ActionBtn
@@ -503,10 +515,12 @@ const NotasIngresoPanel: React.FC = () => {
       {notaDetalle && (
         <DetalleNotaIngreso
           nota={notaDetalle}
-          onClose={() => setNotaDetalle(null)}
-          onRefresh={() => setNotaDetalle(null)}
+          iniciarAnulacion={anulacionDirecta}
+          onClose={() => { setNotaDetalle(null); setAnulacionDirecta(false); }}
+          onRefresh={() => { setNotaDetalle(null); setAnulacionDirecta(false); }}
           onDuplicar={(notaDuplicada) => {
             setNotaDetalle(null);
+            setAnulacionDirecta(false);
             setNotaEditando(notaDuplicada);
             setVista('nuevo');
           }}

@@ -61,6 +61,7 @@ export interface NotaIngreso {
   almacenDestinoNombre: string;
   almacenDestinoCodigo: string;
   encargadoAlmacen?: string;
+  encargadoAlmacenId?: string;
 
   proveedorId?: string | number;
   proveedorNombre?: string;

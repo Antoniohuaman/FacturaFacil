@@ -26,6 +26,7 @@ export const useNotasIngreso = () => {
   const feedback = useFeedback();
 
   const usuarioNombre = session?.userName ?? user?.nombre ?? 'Usuario';
+  const usuarioId = session?.userId ?? '';
 
   const [notas, setNotas] = useState<NotaIngreso[]>(() => cargarNotasIngreso());
 
@@ -36,7 +37,7 @@ export const useNotasIngreso = () => {
   }, []);
 
   const guardarBorrador = useCallback(
-    (nota: NotaIngreso): boolean => {
+    (nota: NotaIngreso, opciones?: { silencioso?: boolean }): boolean => {
       try {
         const ahora = new Date().toISOString();
         const borrador: NotaIngreso = {
@@ -44,15 +45,19 @@ export const useNotasIngreso = () => {
           estado: 'Borrador',
           esBorrador: true,
           fechaActualizacion: ahora,
-          historial: nota.historial.length > 0
-            ? nota.historial
-            : [{ fecha: ahora, usuario: usuarioNombre, accion: 'Borrador guardado' }],
+          historial: !opciones?.silencioso && nota.historial.length === 0
+            ? [{ fecha: ahora, usuario: usuarioNombre, accion: 'Borrador guardado' }]
+            : nota.historial,
         };
         agregarOActualizarNI(borrador);
-        feedback.success('Borrador guardado correctamente.');
+        if (!opciones?.silencioso) {
+          feedback.success('Borrador guardado correctamente.');
+        }
         return true;
       } catch {
-        feedback.error('No se pudo guardar el borrador.');
+        if (!opciones?.silencioso) {
+          feedback.error('No se pudo guardar el borrador.');
+        }
         return false;
       }
     },
@@ -175,6 +180,7 @@ export const useNotasIngreso = () => {
   return {
     notas,
     usuarioNombre,
+    usuarioId,
     guardarBorrador,
     generarNI,
     anularNI,
