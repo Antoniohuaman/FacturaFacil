@@ -1,8 +1,8 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { MovimientoStock } from '../models';
-import { Download } from 'lucide-react';
+import { Download, Settings } from 'lucide-react';
 import { useInventory } from '../hooks';
 import MovementsTable from '../components/tables/MovementsTable';
 import AdjustmentModal from '../components/modals/AdjustmentModal';
@@ -13,7 +13,10 @@ import AlertsPanel from '../components/panels/AlertsPanel';
 import InventarioSituacionPage from '../components/disponibilidad/InventarioSituacionPage';
 import NotasIngresoPanel from '../components/notas-ingreso/NotasIngresoPanel';
 import NotasSalidaPanel from '../components/notas-salida/NotasSalidaPanel';
+import CintilloControlStock from '../components/CintilloControlStock';
+import ModalConfiguracionInventario from '../../configuracion-sistema/components/negocio/ModalConfiguracionInventario';
 import { PageHeader } from '@/contasis';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import * as XLSX from 'xlsx';
 import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
@@ -35,6 +38,9 @@ const formatMovementTimestamp = (value: Date | string): string => {
  */
 export const InventoryPage: React.FC = () => {
   useFocusFromQuery();
+  const { state: configState } = useConfigurationContext();
+  const controlStockActivo = configState.salesPreferences.controlStockActivo ?? false;
+  const [modalInventarioOpen, setModalInventarioOpen] = useState(false);
   const {
     selectedView,
     filterPeriodo,
@@ -181,8 +187,37 @@ export const InventoryPage: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <PageHeader 
-        title="Control de Stock"
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2">
+            <h1 className="text-h3 font-poppins text-primary truncate">Inventario</h1>
+            {controlStockActivo ? (
+              <>
+                <span
+                  title="Control de inventario activo"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 text-xs font-medium text-green-700 dark:text-green-400"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 flex-shrink-0" />
+                  Activo
+                </span>
+                <button
+                  title="Editar configuración de inventario"
+                  onClick={() => setModalInventarioOpen(true)}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <span
+                title="Control de inventario inactivo"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400"
+              >
+                Inactivo
+              </span>
+            )}
+          </div>
+        }
       />
 
       {/* Tabs de navegación - REDISEÑADOS CON PRIMARIO #6F36FF */}
@@ -300,6 +335,13 @@ export const InventoryPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Banner: control de inventario inactivo */}
+      {!controlStockActivo && (
+        <CintilloControlStock
+          onConfigurar={() => setModalInventarioOpen(true)}
+        />
+      )}
+
       {/* Barra de acciones — no aplica en Stock Actual, Transferencias, Importar stock, Notas de Ingreso ni Notas de Salida */}
       {selectedView !== 'situacion' && selectedView !== 'transferencias' && selectedView !== 'importar' && selectedView !== 'notas-ingreso' && selectedView !== 'notas-salida' && (
         <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 px-6 py-3">
@@ -413,6 +455,12 @@ export const InventoryPage: React.FC = () => {
           <NotasSalidaPanel />
         )}
       </div>
+
+      {/* Modal configuración de inventario */}
+      <ModalConfiguracionInventario
+        isOpen={modalInventarioOpen}
+        onClose={() => setModalInventarioOpen(false)}
+      />
 
       {/* Modales */}
       <AdjustmentModal

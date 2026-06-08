@@ -205,18 +205,6 @@ export function BusinessConfiguration() {
               {activeSection === 'preferences' && (
                 <SalesPreferencesSection
                   preferences={salesPreferences}
-                  onUpdate={async (preferences) => {
-                    if (!validarPermisoNegocio()) {
-                      return;
-                    }
-                    dispatch({
-                      type: 'SET_SALES_PREFERENCES',
-                      payload: {
-                        ...salesPreferences,
-                        ...preferences,
-                      },
-                    });
-                  }}
                 />
               )}
             </div>

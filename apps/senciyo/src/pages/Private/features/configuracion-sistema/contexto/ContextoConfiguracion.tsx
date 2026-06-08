@@ -62,6 +62,8 @@ export interface Category {
   fechaCreacion: Date;
 }
 
+export type StockDescuentoDocumento = 'automatico' | 'nota_salida';
+
 export type SalesPreferences = {
   allowNegativeStock: boolean;
   /**
@@ -69,6 +71,14 @@ export type SalesPreferences = {
    * No depende del impuesto por defecto ni de su tasa (puede ser 0%).
    */
   pricesIncludeTax: boolean;
+  /** Switch maestro: si el control de inventario está activo. */
+  controlStockActivo?: boolean;
+  /** Cómo se descuenta el stock al emitir una Factura o Boleta. */
+  stockDescuentoFacturaYBoleta?: StockDescuentoDocumento;
+  /** Cómo se descuenta el stock al generar una Nota de Venta. */
+  stockDescuentoNotaVenta?: StockDescuentoDocumento;
+  /** Cómo se descuenta el stock al emitir una Guía de Remisión. */
+  stockDescuentoGuiaRemision?: StockDescuentoDocumento;
 };
 
 interface ConfigurationState {
@@ -797,6 +807,10 @@ const persistSeries = (storageKey: StorageKey, series: Series[]) => {
 const PREFERENCIAS_VENTAS_PREDETERMINADAS: SalesPreferences = {
   allowNegativeStock: false,
   pricesIncludeTax: true,
+  controlStockActivo: false,
+  stockDescuentoFacturaYBoleta: 'automatico',
+  stockDescuentoNotaVenta: 'automatico',
+  stockDescuentoGuiaRemision: 'automatico',
 };
 
 const loadTenantConfigFromStorage = (storageKey: StorageKey): PersistedTenantConfig | null => {
@@ -826,10 +840,29 @@ const loadTenantConfigFromStorage = (storageKey: StorageKey): PersistedTenantCon
   }
 };
 
+const migrateSalesPreferences = (stored: SalesPreferences): SalesPreferences => {
+  if (
+    stored.controlStockActivo !== undefined &&
+    stored.stockDescuentoFacturaYBoleta !== undefined &&
+    stored.stockDescuentoNotaVenta !== undefined &&
+    stored.stockDescuentoGuiaRemision !== undefined
+  ) {
+    return stored;
+  }
+  return {
+    ...stored,
+    // Empresas existentes: control activo (ya operaban con stock controlado)
+    controlStockActivo: stored.controlStockActivo ?? true,
+    stockDescuentoFacturaYBoleta: stored.stockDescuentoFacturaYBoleta ?? 'automatico',
+    stockDescuentoNotaVenta: stored.stockDescuentoNotaVenta ?? 'automatico',
+    stockDescuentoGuiaRemision: stored.stockDescuentoGuiaRemision ?? 'automatico',
+  };
+};
+
 const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferences => {
   const tenantConfig = loadTenantConfigFromStorage(storageKey);
   if (tenantConfig) {
-    return tenantConfig.salesPreferences;
+    return migrateSalesPreferences(tenantConfig.salesPreferences);
   }
 
   // Legacy (baseKey global): solo lectura por migración.
@@ -848,7 +881,7 @@ const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferenc
             typeof sales.pricesIncludeTax === 'boolean'
               ? sales.pricesIncludeTax
               : PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax;
-          return { allowNegativeStock, pricesIncludeTax };
+          return migrateSalesPreferences({ allowNegativeStock, pricesIncludeTax });
         }
       }
     } catch {
@@ -2026,7 +2059,11 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.rolesPersonalizados.length > 0 ||
       state.units.length > 0 ||
       state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
-      state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax;
+      state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax ||
+      state.salesPreferences.controlStockActivo !== PREFERENCIAS_VENTAS_PREDETERMINADAS.controlStockActivo ||
+      state.salesPreferences.stockDescuentoFacturaYBoleta !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoFacturaYBoleta ||
+      state.salesPreferences.stockDescuentoNotaVenta !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoNotaVenta ||
+      state.salesPreferences.stockDescuentoGuiaRemision !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoGuiaRemision;
 
     if (!hasMeaningfulConfig) {
       return;
