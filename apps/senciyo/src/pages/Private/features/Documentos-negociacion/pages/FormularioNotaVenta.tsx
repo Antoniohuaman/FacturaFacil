@@ -47,7 +47,7 @@ const FormularioNotaVenta = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Hooks del sistema de comprobantes (solo para UI)
-  const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart();
+  const { cartItems, removeFromCart, updateCartItem, addProductsFromSelector, clearCart } = useCart('sin_control');
   const { calculateTotals } = usePayment();
   const { currentCurrency, changeCurrency, availableCurrencies, baseCurrency } = useCurrency();
   const {
@@ -429,6 +429,7 @@ const FormularioNotaVenta = () => {
         );
       } else {
         addDocumento(notaVentaData);
+
         // Dismiss loading toast
         feedback.dismiss(loadingId);
         // Show success

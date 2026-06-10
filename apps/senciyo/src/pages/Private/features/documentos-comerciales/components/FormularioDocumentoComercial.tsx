@@ -47,7 +47,7 @@ export default function FormularioDocumentoComercial({
 
   const { cartItems, addProductsFromSelector, updateCartItem, removeFromCart,
     agregarItemLibre, actualizarItemCarrito, eliminarItemCarrito,
-    clearCart, setCartItemsFromDraft } = useCart();
+    clearCart, setCartItemsFromDraft } = useCart('sin_control');
   const { currentCurrency, changeCurrency } = useCurrency();
   const { calculateTotals } = usePayment(currentCurrency);
 

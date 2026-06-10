@@ -1,6 +1,7 @@
 // src/features/gestion-inventario/components/notas-salida/NotasSalidaPanel.tsx
 
 import React, { useState, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Plus, Eye, Pencil, Trash2, Copy, Printer, SlidersHorizontal, Download, Ban, PackageCheck } from 'lucide-react';
 import { useNotasSalida } from '../../hooks/useNotasSalida';
 import {
@@ -8,7 +9,7 @@ import {
   ESTADO_NS_BADGE,
   TIPOS_SALIDA,
 } from '../../models/notaSalida.constants';
-import type { NotaSalida, EstadoNotaSalida, TipoSalida } from '../../models/notaSalida.types';
+import type { NotaSalida, EstadoNotaSalida, TipoSalida, ComprobanteOrigenNS } from '../../models/notaSalida.types';
 import FormularioNotaSalida from './FormularioNotaSalida';
 import DetalleNotaSalida from './DetalleNotaSalida';
 import { imprimirNotaSalida } from '../../services/notaSalida.print';
@@ -17,6 +18,37 @@ import { useFeedback } from '../../../../../../shared/feedback';
 import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 
 const PAGE_SIZE = 15;
+
+function buildNotaSalidaDesdeComprobante(from: ComprobanteOrigenNS): Partial<NotaSalida> {
+  return {
+    id: `ns_prev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    tipoDocumento: 'nota_salida',
+    estado: 'Borrador',
+    esBorrador: true,
+    fechaDocumento: new Date().toISOString().split('T')[0],
+    tipoSalida: '01',
+    moneda: (from.currency as 'PEN' | 'USD') ?? 'PEN',
+    clienteNombre: from.client,
+    tipoDocumentoCliente: from.clientDocType,
+    numeroDocumentoCliente: from.clientDoc,
+    direccionFacturacion: from.address,
+    documentoOrigen: from.type,
+    numeroDocumentoOrigen: from.id,
+    comprobanteOrigenId: from.id,
+    origen: 'Comprobante',
+    lineas: from.lineas,
+    baseImponible: 0,
+    impuesto: 0,
+    total: 0,
+    historial: [],
+    usuario: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    almacenOrigenId: '',
+    almacenOrigenNombre: '',
+    serie: '',
+  };
+}
 
 const fmtFecha = (iso: string): string => {
   try {
@@ -31,9 +63,17 @@ const fmtFecha = (iso: string): string => {
 const NotasSalidaPanel: React.FC = () => {
   const { notas, eliminarNS, marcarComoEntregada } = useNotasSalida();
   const feedback = useFeedback();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [vista, setVista] = useState<'lista' | 'nuevo' | 'editar'>('lista');
-  const [notaEditando, setNotaEditando] = useState<NotaSalida | undefined>();
+  const fromComprobante = (location.state as { fromComprobante?: ComprobanteOrigenNS } | null)?.fromComprobante;
+
+  const [vista, setVista] = useState<'lista' | 'nuevo' | 'editar'>(
+    fromComprobante ? 'nuevo' : 'lista'
+  );
+  const [notaEditando, setNotaEditando] = useState<Partial<NotaSalida> | undefined>(
+    fromComprobante ? buildNotaSalidaDesdeComprobante(fromComprobante) : undefined
+  );
   const [notaDetalle, setNotaDetalle] = useState<NotaSalida | null>(null);
   const [anulacionDirecta, setAnulacionDirecta] = useState(false);
 
@@ -120,8 +160,16 @@ const NotasSalidaPanel: React.FC = () => {
   const handleNuevo = () => { setNotaEditando(undefined); setVista('nuevo'); };
   const handleEditar = (nota: NotaSalida) => { setNotaEditando(nota); setVista('editar'); };
   const handleAnularDesdeListar = (nota: NotaSalida) => { setAnulacionDirecta(true); setNotaDetalle(nota); };
-  const handleGuardado = () => { setVista('lista'); setNotaEditando(undefined); };
-  const handleCancelar = () => { setVista('lista'); setNotaEditando(undefined); };
+  const handleGuardado = () => {
+    setVista('lista');
+    setNotaEditando(undefined);
+    if (fromComprobante) navigate('/comprobantes');
+  };
+  const handleCancelar = () => {
+    setVista('lista');
+    setNotaEditando(undefined);
+    if (fromComprobante) navigate('/comprobantes');
+  };
 
   const handleEliminar = async (nota: NotaSalida) => {
     const ok = await feedback.openConfirm({

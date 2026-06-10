@@ -137,6 +137,8 @@ export const useComprobanteActions = () => {
   const { allProducts: catalogProducts } = useProductStore();
   const { state: { almacenes, salesPreferences, users }, rolesConfigurados } = useConfigurationContext();
   const allowNegativeStockConfig = Boolean(salesPreferences?.allowNegativeStock);
+  const controlStockActivo = salesPreferences?.controlStockActivo ?? false;
+  const stockDescuentoFacturaYBoleta = salesPreferences?.stockDescuentoFacturaYBoleta ?? 'automatico';
   const usuarioActual = obtenerUsuarioDesdeSesion(users, session);
 
   const catalogLookup = useMemo(() => {
@@ -297,6 +299,42 @@ export const useComprobanteActions = () => {
       // Validar datos
       if (!validateComprobanteData(data)) {
         return false;
+      }
+
+      // Pre-validar stock antes de cualquier efecto secundario.
+      // Solo aplica a Factura/Boleta en modo automático con control activo.
+      // Las conversiones desde OV se omiten: sus reservas ya garantizan el stock.
+      if (data.tipoComprobante !== 'nota_credito' && controlStockActivo && stockDescuentoFacturaYBoleta === 'automatico') {
+        const estIdPrecheck = data.EstablecimientoId || session?.currentEstablecimientoId;
+        const esOV = sessionStorage.getItem('conversionSourceType') === 'orden_venta' && Boolean(sessionStorage.getItem('conversionSourceId'));
+        if (estIdPrecheck && !esOV) {
+          const almacenesPrecheck = resolvealmacenesForSaleFIFO({ almacenes, EstablecimientoId: estIdPrecheck });
+          for (const item of data.cartItems) {
+            if (item.tipoDetalle === 'libre' || !item.requiresStockControl) continue;
+            const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
+            if (!catalogProduct) continue;
+            const qtyMin = calculateRequiredUnidadMinima({
+              product: catalogProduct,
+              quantity: item.quantity,
+              unitCode: item.presentacionId || item.unidadMedida || item.unit,
+            });
+            if (qtyMin <= 0) continue;
+            const allocs = allocateSaleAcrossalmacenes({
+              product: catalogProduct,
+              almacenesOrdered: almacenesPrecheck,
+              qtyUnidadMinima: qtyMin,
+              respectReservations: true,
+            });
+            const allocated = allocs.reduce((s, a) => s + a.qtyUnidadMinima, 0);
+            if (allocated < qtyMin) {
+              toast.error(
+                'Stock insuficiente',
+                `Stock insuficiente para emitir el comprobante. Revisa el inventario disponible del producto "${catalogProduct.nombre || item.name}".`,
+              );
+              return false;
+            }
+          }
+        }
       }
 
       // Simular loading
@@ -489,7 +527,10 @@ export const useComprobanteActions = () => {
       }
 
       // ✅ DESCONTAR STOCK DE LOS PRODUCTOS VENDIDOS
-      if (!isNoteCredit) {
+      // Solo cuando el control de inventario está activo y el modo es automático.
+      // Modo 'nota_salida': el comprobante se emite sin afectar stock; el despacho se registrará después.
+      // Control inactivo: venta comercial sin gobernanza de inventario.
+      if (!isNoteCredit && controlStockActivo && stockDescuentoFacturaYBoleta === 'automatico') {
       try {
         const EstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
         const Establecimiento = session?.currentEstablecimiento;
@@ -589,10 +630,9 @@ export const useComprobanteActions = () => {
           const allocatedTotal = allocations.reduce((sum, seg) => sum + seg.qtyUnidadMinima, 0);
           const remaining = quantityInUnidadMinima - allocatedTotal;
 
-          if (!allowNegativeStock && remaining > 0) {
+          if (remaining > 0) {
             throw new Error(
-              `Stock insuficiente para ${catalogProduct.nombre || item.name || 'producto'} en el establecimiento. ` +
-              `Solicitado: ${quantityInUnidadMinima}. Disponible: ${allocatedTotal}.`
+              `Stock insuficiente para emitir el comprobante. Revisa el inventario disponible del producto "${catalogProduct.nombre || item.name || 'producto'}".`
             );
           }
 
@@ -605,15 +645,6 @@ export const useComprobanteActions = () => {
               observaciones,
             });
           });
-
-          if (allowNegativeStock && remaining > 0) {
-            pendingMovements.push({
-              productId: item.id,
-              qtyUnidadMinima: remaining,
-              almacenId: almacenesOrdered[0].id,
-              observaciones,
-            });
-          }
         }
 
         // Aplicación atómica: si no se permite negativo y algo falla, no se registran parciales.
@@ -941,6 +972,13 @@ export const useComprobanteActions = () => {
             sourceDocumentId: conversionSourceId,
             sourceDocumentType: conversionSourceType,
             convertedFromDocument: true
+          } : {}),
+          ...(!isNoteCredit ? {
+            modoDescuentoStock: !controlStockActivo
+              ? 'sin_control' as const
+              : stockDescuentoFacturaYBoleta === 'nota_salida'
+                ? 'nota_salida' as const
+                : 'automatico' as const,
           } : {})
         };
 
@@ -1100,7 +1138,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, dispatch, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig, rolesConfigurados, usuarioActual]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, dispatch, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig, controlStockActivo, stockDescuentoFacturaYBoleta, rolesConfigurados, usuarioActual]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

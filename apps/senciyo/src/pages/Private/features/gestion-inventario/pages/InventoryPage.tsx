@@ -1,6 +1,7 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import type { MovimientoStock } from '../models';
 import { Download, Settings } from 'lucide-react';
 import { useInventory } from '../hooks';
@@ -38,6 +39,7 @@ const formatMovementTimestamp = (value: Date | string): string => {
  */
 export const InventoryPage: React.FC = () => {
   useFocusFromQuery();
+  const location = useLocation();
   const { state: configState } = useConfigurationContext();
   const controlStockActivo = configState.salesPreferences.controlStockActivo ?? false;
   const [modalInventarioOpen, setModalInventarioOpen] = useState(false);
@@ -74,6 +76,15 @@ export const InventoryPage: React.FC = () => {
     openTransferModal,
     reloadMovements,
   } = useInventory();
+
+  useEffect(() => {
+    if ((location.state as { tab?: string } | null)?.tab === 'notas-salida') {
+      setSelectedView('notas-salida');
+    }
+  // Solo al montar — el tab inicial se lee una sola vez del router state
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { request: stockAutoExportRequest, finish: finishStockAutoExport } = useAutoExportRequest('inventario-stock');
   const { request: movementsAutoExportRequest, finish: finishMovementsAutoExport } = useAutoExportRequest('inventario-movimientos');
   const movementsAutoExportHandledRef = useRef(false);

@@ -73,7 +73,7 @@ function extraerDocumentoCliente(c: Cliente): { tipo: string; numero: string } {
 }
 
 interface Props {
-  notaInicial?: NotaSalida;
+  notaInicial?: Partial<NotaSalida>;
   onCancelar: () => void;
   onGuardado: () => void;
 }
@@ -372,9 +372,10 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
       moneda,
       formaPago: formaPago || undefined,
       metodoEnvio: metodoEnvio || undefined,
-      documentoOrigen: undefined,
+      documentoOrigen: notaInicial?.documentoOrigen,
       numeroDocumentoOrigen: numeroDocOrigen || undefined,
-      origen: 'Manual',
+      origen: notaInicial?.origen ?? 'Manual',
+      comprobanteOrigenId: notaInicial?.comprobanteOrigenId,
       lineas,
       baseImponible: totales.baseImponible,
       impuesto: totales.igv,

@@ -48,6 +48,10 @@ export interface Comprobante {
   creditTerms?: ComprobanteCreditTerms;
   noteCreditData?: DatosNotaCredito;
   instantaneaDocumentoComercial?: InstantaneaDocumentoComercial;
+  modoDescuentoStock?: 'automatico' | 'nota_salida' | 'sin_control';
+  notaSalidaId?: string;
+  notaSalidaGenerada?: boolean;
+  fechaGeneracionNotaSalida?: string;
 }
 
 interface ComprobanteState {
@@ -58,7 +62,8 @@ type ComprobanteAction =
   | { type: 'ADD_COMPROBANTE'; payload: Comprobante }
   | { type: 'SET_COMPROBANTES'; payload: Comprobante[] }
   | { type: 'UPDATE_COMPROBANTE'; payload: Comprobante }
-  | { type: 'DELETE_COMPROBANTE'; payload: string };
+  | { type: 'DELETE_COMPROBANTE'; payload: string }
+  | { type: 'NS_LINK_COMPROBANTE'; payload: { comprobanteId: string; notaSalidaId: string; fechaGeneracionNotaSalida: string } };
 
 // ============================================
 // DATOS INICIALES
@@ -104,6 +109,16 @@ function comprobanteReducer(
         comprobantes: state.comprobantes.filter(comp => comp.id !== action.payload)
       };
 
+    case 'NS_LINK_COMPROBANTE':
+      return {
+        ...state,
+        comprobantes: state.comprobantes.map(comp =>
+          comp.id === action.payload.comprobanteId
+            ? { ...comp, notaSalidaGenerada: true, notaSalidaId: action.payload.notaSalidaId, fechaGeneracionNotaSalida: action.payload.fechaGeneracionNotaSalida }
+            : comp
+        )
+      };
+
     default:
       return state;
   }
@@ -138,6 +153,19 @@ export function ComprobanteProvider({ children }: ComprobanteProviderProps) {
   useEffect(() => {
     dispatch({ type: 'SET_COMPROBANTES', payload: INITIAL_COMPROBANTES });
   }, [tenantId]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { comprobanteId, notaSalidaId, fechaGeneracionNotaSalida } = (e as CustomEvent<{
+        comprobanteId: string;
+        notaSalidaId: string;
+        fechaGeneracionNotaSalida: string;
+      }>).detail;
+      dispatch({ type: 'NS_LINK_COMPROBANTE', payload: { comprobanteId, notaSalidaId, fechaGeneracionNotaSalida } });
+    };
+    window.addEventListener('facturafacil:comprobante-ns-generada', handler);
+    return () => window.removeEventListener('facturafacil:comprobante-ns-generada', handler);
+  }, [dispatch]);
 
   // Helper function para agregar un comprobante
   const addComprobante = (comprobante: Comprobante) => {

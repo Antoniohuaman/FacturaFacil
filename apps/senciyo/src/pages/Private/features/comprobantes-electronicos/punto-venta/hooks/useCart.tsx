@@ -127,7 +127,7 @@ const formatQuantityDisplay = (value: number): string => {
   return Number(value.toFixed(4)).toString();
 };
 
-export const useCart = (): UseCartReturn => {
+export const useCart = (modoDescuentoOverride?: 'automatico' | 'nota_salida' | 'sin_control'): UseCartReturn => {
   // ===================================================================
   // CONFIGURACIÓN Y ESTADO
   // ===================================================================
@@ -137,6 +137,9 @@ export const useCart = (): UseCartReturn => {
       ? salesPreferences.allowNegativeStock
       : false;
   }, [salesPreferences]);
+
+  const controlStockActivo = salesPreferences?.controlStockActivo ?? false;
+  const stockDescuentoFacturaYBoleta = salesPreferences?.stockDescuentoFacturaYBoleta ?? 'automatico';
   
   const defaultIgvFromConfiguration: IgvConfig | null = useMemo(() => {
     if (!taxes || taxes.length === 0) {
@@ -207,6 +210,11 @@ export const useCart = (): UseCartReturn => {
   }, [catalogLookup]);
 
   const validateStockAvailability = useCallback((product: Product, nextQuantity: number): boolean => {
+    // Si el llamador pasa un modo explícito, lo usamos; si no, derivamos del config global (Factura/Boleta).
+    const modo = modoDescuentoOverride ?? (controlStockActivo ? stockDescuentoFacturaYBoleta : 'sin_control');
+    if (modo === 'sin_control' || modo === 'nota_salida') {
+      return true;
+    }
     if (!product.requiresStockControl) {
       return true;
     }
@@ -251,7 +259,7 @@ export const useCart = (): UseCartReturn => {
     }
 
     return true;
-  }, [allowNegativeStock, EstablecimientoId, findCatalogProduct, almacenes, units]);
+  }, [modoDescuentoOverride, controlStockActivo, stockDescuentoFacturaYBoleta, allowNegativeStock, EstablecimientoId, findCatalogProduct, almacenes, units]);
 
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;

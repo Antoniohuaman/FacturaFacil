@@ -98,6 +98,16 @@ export const useNotasSalida = () => {
 
         agregarOActualizarNS(notaActualizada);
 
+        if (notaActualizada.comprobanteOrigenId) {
+          window.dispatchEvent(new CustomEvent('facturafacil:comprobante-ns-generada', {
+            detail: {
+              comprobanteId: notaActualizada.comprobanteOrigenId,
+              notaSalidaId: notaActualizada.id,
+              fechaGeneracionNotaSalida: notaActualizada.updatedAt,
+            },
+          }));
+        }
+
         for (const prod of productosActualizados) {
           updateProduct(prod.id, prod);
         }

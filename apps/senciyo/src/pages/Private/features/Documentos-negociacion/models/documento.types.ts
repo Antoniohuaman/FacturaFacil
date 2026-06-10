@@ -38,6 +38,7 @@ export interface Documento {
   internalNote?: string;
   validUntil?: string; // Para cotizaciones
   items?: any[]; // Productos del documento
+  modoDescuentoStock?: 'automatico' | 'nota_salida' | 'sin_control';
   convertedToInvoice?: boolean; // Si ya se convirtió a factura
   convertedDate?: string;
   relatedDocumentId?: string; // ID del documento relacionado (comprobante generado)

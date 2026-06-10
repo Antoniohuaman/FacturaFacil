@@ -90,7 +90,8 @@ export interface NotaSalida {
 
   documentoOrigen?: string;
   numeroDocumentoOrigen?: string;
-  origen?: 'Manual';
+  origen?: 'Manual' | 'Comprobante';
+  comprobanteOrigenId?: string;
 
   lineas: LineaNotaSalida[];
 
@@ -109,4 +110,15 @@ export interface NotaSalida {
   usuario: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ComprobanteOrigenNS {
+  id: string;
+  type: string;
+  client: string;
+  clientDoc: string;
+  clientDocType?: string;
+  address?: string;
+  currency?: string;
+  lineas: LineaNotaSalida[];
 }

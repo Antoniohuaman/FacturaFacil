@@ -57,6 +57,7 @@ import { esEstadoValidoParaNotaCredito } from '../../models/constants';
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
 import { useInventoryFacade } from '../../../gestion-inventario/api/inventory.facade';
 import { StockRepository } from '../../../gestion-inventario/repositories/stock.repository';
+import type { LineaNotaSalida } from '../../../gestion-inventario/models/notaSalida.types';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -265,6 +266,35 @@ const mapInvoiceToExportRow = (invoice: Comprobante): ComprobanteExportRow => {
     relatedDocumentType: invoice.relatedDocumentType ?? ''
   };
 };
+
+function esElegibleParaNotaSalida(c: Comprobante): boolean {
+  if (c.modoDescuentoStock !== 'nota_salida') return false;
+  if ((c.status as string) === 'Anulado') return false;
+  const t = (c.type ?? '').toLowerCase();
+  if (t.includes('nota') && (t.includes('cr') || t.includes('déb') || t.includes('deb'))) return false;
+  return true;
+}
+
+function buildLineasNSDesdeCartItems(items: CartItem[]): LineaNotaSalida[] {
+  return items
+    .filter(item => item.tipoBienServicio === 'bien' || item.tipoProducto === 'BIEN')
+    .map((item, i) => ({
+      id: `ns_linea_${i}_${item.id}`,
+      productoId: item.id,
+      productoCodigo: item.code,
+      productoNombre: item.name,
+      tipoBienServicio: 'bien' as const,
+      unidad: item.unidad ?? item.unit ?? 'UNIDAD',
+      unidadCodigo: item.unidadMedidaCodigo ?? 'NIU',
+      cantidad: item.quantity,
+      pvUnitario: item.price,
+      subtotal: item.subtotal ?? Number((item.price * item.quantity).toFixed(2)),
+      igv: item.igv ?? 0,
+      total: item.total ?? Number((item.price * item.quantity).toFixed(2)),
+      almacenId: undefined,
+      almacenNombre: undefined,
+    }));
+}
 
 const InvoiceListDashboard = () => {
   // ✅ Obtener comprobantes del contexto global
@@ -681,6 +711,29 @@ const InvoiceListDashboard = () => {
           datosNotaCredito,
           contextoOrigen,
         }),
+      },
+    });
+  }, [navigate]);
+
+  const canGenerarNotaSalida = useCallback((c: Comprobante): boolean =>
+    esElegibleParaNotaSalida(c) && !c.notaSalidaGenerada && !c.notaSalidaId,
+  []);
+
+  const handleGenerarNotaSalida = useCallback((comprobante: Comprobante) => {
+    const items = comprobante.items ?? comprobante.cartItems ?? comprobante.productos ?? [];
+    navigate('/inventario', {
+      state: {
+        tab: 'notas-salida',
+        fromComprobante: {
+          id: comprobante.id,
+          type: comprobante.type,
+          client: comprobante.client,
+          clientDoc: comprobante.clientDoc,
+          clientDocType: comprobante.clientDocType,
+          address: comprobante.address,
+          currency: comprobante.currency,
+          lineas: buildLineasNSDesdeCartItems(items),
+        },
       },
     });
   }, [navigate]);
@@ -1283,6 +1336,8 @@ const InvoiceListDashboard = () => {
           }}
           onGenerateCobranza={handleGenerateCobranza}
           canGenerateCobranza={canGenerateCobranza}
+          onGenerarNotaSalida={handleGenerarNotaSalida}
+          canGenerarNotaSalida={canGenerarNotaSalida}
           hasDateFilter={Boolean(dateFrom || dateTo)}
         />
 

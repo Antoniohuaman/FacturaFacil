@@ -13,6 +13,7 @@ import {
 	FileText,
 	Link,
 	MoreHorizontal,
+	PackageMinus,
 	Printer,
 	Search,
 	Send,
@@ -48,6 +49,8 @@ interface InvoiceListTableProps {
 	onNavigateToDocuments: (invoice: Comprobante) => void;
 	onGenerateCobranza?: (invoice: Comprobante) => void;
 	canGenerateCobranza?: (invoice: Comprobante) => boolean;
+	onGenerarNotaSalida?: (invoice: Comprobante) => void;
+	canGenerarNotaSalida?: (invoice: Comprobante) => boolean;
 	hasDateFilter: boolean;
 }
 
@@ -106,6 +109,8 @@ export const InvoiceListTable = ({
 	onNavigateToDocuments,
 	onGenerateCobranza,
 	canGenerateCobranza,
+	onGenerarNotaSalida,
+	canGenerarNotaSalida,
 	hasDateFilter
 }: InvoiceListTableProps) => {
 	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -339,6 +344,8 @@ export const InvoiceListTable = ({
 											canGenerateCreditNote={canGenerateCreditNote?.(invoice) ?? false}
 											onGenerateCobranza={() => onGenerateCobranza?.(invoice)}
 											canGenerateCobranza={canGenerateCobranza?.(invoice) ?? false}
+											onGenerarNotaSalida={() => onGenerarNotaSalida?.(invoice)}
+											canGenerarNotaSalida={canGenerarNotaSalida?.(invoice) ?? false}
 											onNavigateToDocuments={onNavigateToDocuments}
 											openMenuId={openMenuId}
 											menuPosition={menuPosition}
@@ -373,6 +380,8 @@ interface InvoiceCellProps {
 	onNavigateToDocuments: (invoice: Comprobante) => void;
 	onGenerateCobranza?: () => void;
 	canGenerateCobranza?: boolean;
+	onGenerarNotaSalida?: () => void;
+	canGenerarNotaSalida?: boolean;
 	openMenuId: string | null;
 	menuPosition: { top: number; left: number } | null;
 	toggleMenu: (invoiceId: string | null, anchor?: DOMRect) => void;
@@ -405,6 +414,8 @@ const InvoiceCell = ({
 	onNavigateToDocuments,
 	onGenerateCobranza,
 	canGenerateCobranza,
+	onGenerarNotaSalida,
+	canGenerarNotaSalida,
 	openMenuId,
 	menuPosition,
 	toggleMenu,
@@ -419,6 +430,7 @@ const InvoiceCell = ({
 	if (column.key === 'actions') {
 		const showGenerateCobranza = Boolean(onGenerateCobranza && canGenerateCobranza);
 		const showGenerateCreditNote = Boolean(onGenerateCreditNote && canGenerateCreditNote);
+		const showGenerarNotaSalida = Boolean(onGenerarNotaSalida && canGenerarNotaSalida);
 		return (
 			<td
 				className={`px-4 ${rowPadding} whitespace-nowrap ${widthClass} ${
@@ -479,6 +491,16 @@ const InvoiceCell = ({
 												onClick={() => {
 													toggleMenu(null);
 													onGenerateCreditNote?.();
+												}}
+											/>
+										)}
+										{showGenerarNotaSalida && (
+											<MenuButton
+												label="Generar Nota de Salida"
+												icon={<PackageMinus className="w-4 h-4 flex-shrink-0" />}
+												onClick={() => {
+													toggleMenu(null);
+													onGenerarNotaSalida?.();
 												}}
 											/>
 										)}
