@@ -1,4 +1,4 @@
-import { X, XCircle } from 'lucide-react';
+import { AlertTriangle, X, XCircle } from 'lucide-react';
 
 interface VoidInvoiceModalProps {
   isOpen: boolean;
@@ -7,6 +7,7 @@ interface VoidInvoiceModalProps {
   onReasonChange: (value: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
+  warningMessage?: string;
 }
 
 export const VoidInvoiceModal = ({
@@ -15,7 +16,8 @@ export const VoidInvoiceModal = ({
   reason,
   onReasonChange,
   onCancel,
-  onConfirm
+  onConfirm,
+  warningMessage,
 }: VoidInvoiceModalProps) => {
   if (!isOpen) {
     return null;
@@ -36,6 +38,13 @@ export const VoidInvoiceModal = ({
             ¿Está seguro que desea anular el comprobante <strong>{invoiceId}</strong>?
           </p>
         </div>
+
+        {warningMessage && (
+          <div className="mb-4 flex items-start gap-2.5 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+            <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">{warningMessage}</p>
+          </div>
+        )}
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

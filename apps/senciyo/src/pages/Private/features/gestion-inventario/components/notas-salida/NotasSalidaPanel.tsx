@@ -13,7 +13,7 @@ import type { NotaSalida, EstadoNotaSalida, TipoSalida, ComprobanteOrigenNS } fr
 import FormularioNotaSalida from './FormularioNotaSalida';
 import DetalleNotaSalida from './DetalleNotaSalida';
 import { imprimirNotaSalida } from '../../services/notaSalida.print';
-import { prepararDuplicadoNS } from '../../services/notaSalida.service';
+import { prepararDuplicadoNS, formatDocumentoOrigenNS } from '../../services/notaSalida.service';
 import { useFeedback } from '../../../../../../shared/feedback';
 import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 
@@ -35,6 +35,7 @@ function buildNotaSalidaDesdeComprobante(from: ComprobanteOrigenNS): Partial<Not
     documentoOrigen: from.type,
     numeroDocumentoOrigen: from.id,
     comprobanteOrigenId: from.id,
+    ordenVentaOrigenId: from.ordenVentaOrigenId,
     origen: 'Comprobante',
     lineas: from.lineas,
     baseImponible: 0,
@@ -214,9 +215,9 @@ const NotasSalidaPanel: React.FC = () => {
         cliente: n.clienteNombre ?? '—',
         documentoCliente: n.numeroDocumentoCliente ?? '—',
         almacenOrigen: n.almacenOrigenNombre,
+        documentoOrigen: formatDocumentoOrigenNS(n),
         moneda: n.moneda,
         total: n.total,
-        origen: n.origen ?? 'Manual',
         observaciones: n.observaciones ?? '',
         fechaCreacion: fmtFecha(n.createdAt),
       }));
@@ -231,9 +232,9 @@ const NotasSalidaPanel: React.FC = () => {
           { header: 'Cliente', key: 'cliente', width: 30 },
           { header: 'RUC / DNI', key: 'documentoCliente', width: 15 },
           { header: 'Almacén origen', key: 'almacenOrigen', width: 28 },
+          { header: 'Documento origen', key: 'documentoOrigen', width: 28 },
           { header: 'Moneda', key: 'moneda', width: 10 },
           { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
-          { header: 'Origen', key: 'origen', width: 12 },
           { header: 'Observaciones', key: 'observaciones', width: 40 },
           { header: 'Fecha creación', key: 'fechaCreacion', width: 16 },
         ],
@@ -418,6 +419,7 @@ const NotasSalidaPanel: React.FC = () => {
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Cliente</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">RUC / DNI</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Almacén origen</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Documento origen</th>
                   <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Total</th>
                   <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Estado</th>
                   <th className="px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400">Acciones</th>
@@ -445,6 +447,9 @@ const NotasSalidaPanel: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[160px] truncate">
                         {nota.almacenOrigenNombre || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[160px] truncate">
+                        {formatDocumentoOrigenNS(nota)}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white text-xs">
                         {nota.moneda} {nota.total.toFixed(2)}

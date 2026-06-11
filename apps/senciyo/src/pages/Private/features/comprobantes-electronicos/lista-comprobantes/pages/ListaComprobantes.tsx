@@ -58,6 +58,10 @@ import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analit
 import { useInventoryFacade } from '../../../gestion-inventario/api/inventory.facade';
 import { StockRepository } from '../../../gestion-inventario/repositories/stock.repository';
 import type { LineaNotaSalida } from '../../../gestion-inventario/models/notaSalida.types';
+import { useNotasSalida } from '../../../gestion-inventario/hooks/useNotasSalida';
+import { cargarNotasSalida } from '../../../gestion-inventario/repositories/notaSalida.repository';
+import { useFeedback } from '@/shared/feedback';
+import { obtenerReservasDeOV, liberarReservasDeOV } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -305,6 +309,8 @@ const InvoiceListDashboard = () => {
 
   // Fachada de inventario para reversiones de stock en anulación
   const { addMovimiento: addMovimientoVoid } = useInventoryFacade();
+  const feedback = useFeedback();
+  const { anularNS } = useNotasSalida();
 
   // Hook de selección masiva
   const selection = useSelection();
@@ -357,6 +363,7 @@ const InvoiceListDashboard = () => {
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [selectedInvoiceForVoid, setSelectedInvoiceForVoid] = useState<any>(null);
   const [voidReason, setVoidReason] = useState('');
+  const [voidWarningMessage, setVoidWarningMessage] = useState('');
   const [selectedCuentaCobranza, setSelectedCuentaCobranza] = useState<CuentaPorCobrarSummary | null>(null);
   const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const { request: autoExportRequest, finish: finishAutoExport } = useAutoExportRequest('comprobantes-general');
@@ -715,9 +722,11 @@ const InvoiceListDashboard = () => {
     });
   }, [navigate]);
 
-  const canGenerarNotaSalida = useCallback((c: Comprobante): boolean =>
-    esElegibleParaNotaSalida(c) && !c.notaSalidaGenerada && !c.notaSalidaId,
-  []);
+  const canGenerarNotaSalida = useCallback((c: Comprobante): boolean => {
+    if (!esElegibleParaNotaSalida(c)) return false;
+    if (c.notaSalidaGenerada && c.notaSalidaId) return false;
+    return !cargarNotasSalida().some(n => n.comprobanteOrigenId === c.id && n.estado !== 'Anulada');
+  }, []);
 
   const handleGenerarNotaSalida = useCallback((comprobante: Comprobante) => {
     const items = comprobante.items ?? comprobante.cartItems ?? comprobante.productos ?? [];
@@ -732,6 +741,7 @@ const InvoiceListDashboard = () => {
           clientDocType: comprobante.clientDocType,
           address: comprobante.address,
           currency: comprobante.currency,
+          ordenVentaOrigenId: comprobante.sourceDocumentType === 'orden_venta' ? comprobante.sourceDocumentId : undefined,
           lineas: buildLineasNSDesdeCartItems(items),
         },
       },
@@ -742,15 +752,26 @@ const InvoiceListDashboard = () => {
   const handleVoid = (invoice: any) => {
     setSelectedInvoiceForVoid(invoice);
     setVoidReason('');
+    const comp = invoice as Comprobante;
+    const modo = comp.modoDescuentoStock;
+    if (modo === 'automatico') {
+      setVoidWarningMessage('Este comprobante tiene descuento automático de stock. Al anularlo, el stock será restituido automáticamente.');
+    } else if (modo === 'nota_salida') {
+      if (comp.notaSalidaGenerada && comp.notaSalidaId) {
+        setVoidWarningMessage('Este comprobante tiene una Nota de Salida generada. Al anularlo, la Nota de Salida también será anulada y el stock restituido.');
+      } else {
+        setVoidWarningMessage('Este comprobante está configurado para generar una Nota de Salida que aún no fue generada. Al anularlo, no habrá cambios de stock.');
+      }
+    } else {
+      setVoidWarningMessage('');
+    }
     setShowVoidModal(true);
   };
 
   const confirmVoid = () => {
-    if (!selectedInvoiceForVoid) {
-      return;
-    }
+    if (!selectedInvoiceForVoid) return;
     if (!voidReason.trim()) {
-      alert('Debe ingresar un motivo de anulación');
+      feedback.error('Debe ingresar un motivo de anulación');
       return;
     }
 
@@ -762,45 +783,70 @@ const InvoiceListDashboard = () => {
       return;
     }
 
-    // Restaurar stock: buscar movimientos de SALIDA/VENTA del comprobante y generar ENTRADA inversa.
-    try {
-      // Preferir el número legible del comprobante (ej: "F001-00001234") como clave de búsqueda,
-      // ya que las ventas guardan documentoReferencia con ese valor. Fallback a .id como compatibilidad.
-      const refComprobante: string =
-        (selectedInvoiceForVoid.instantaneaDocumentoComercial?.identidad?.numeroCompleto as string | undefined) ||
-        (selectedInvoiceForVoid.id as string | undefined) ||
-        '';
+    const comprobante = selectedInvoiceForVoid as Comprobante;
+    const modo = comprobante.modoDescuentoStock;
 
-      const todosLosMovimientos = StockRepository.getMovements();
+    // Escenario B: nota_salida con NS generada → anular NS (revierte stock y desvincula comprobante)
+    if (modo === 'nota_salida' && comprobante.notaSalidaId && comprobante.notaSalidaGenerada) {
+      try {
+        anularNS(comprobante.notaSalidaId, voidReason);
+      } catch (nsErr) {
+        console.error('[Anulación] Error anulando NS vinculada:', nsErr);
+      }
+    }
 
-      const movimientosSalida = todosLosMovimientos.filter(
-        (m) => m.documentoReferencia === refComprobante && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
-      );
-
-      // Idempotencia: si ya existen entradas de reversión para este número de comprobante, no duplicar.
-      const yaRevertido = todosLosMovimientos.some(
-        (m) => m.documentoReferencia === refComprobante && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
-      );
-
-      if (!yaRevertido && movimientosSalida.length > 0) {
-        for (const mov of movimientosSalida) {
-          addMovimientoVoid(
-            mov.productoId,
-            'ENTRADA',
-            'DEVOLUCION_CLIENTE',
-            mov.cantidad,
-            `Reversión anulación ${refComprobante}`,
-            refComprobante,
-            undefined,
-            mov.EstablecimientoId,
-            mov.EstablecimientoCodigo,
-            mov.EstablecimientoNombre,
-            { almacenId: mov.almacenId, allowNegativeStock: true }
-          );
+    // Escenario B': nota_salida sin NS + origen OV → liberar reserva retenida
+    if (modo === 'nota_salida' && !(comprobante.notaSalidaId && comprobante.notaSalidaGenerada)) {
+      if (comprobante.sourceDocumentType === 'orden_venta' && comprobante.sourceDocumentId) {
+        try {
+          const reservas = obtenerReservasDeOV(comprobante.sourceDocumentId);
+          if (reservas.length > 0) liberarReservasDeOV(reservas);
+        } catch (ovErr) {
+          console.error('[Anulación] Error liberando reserva OV:', ovErr);
         }
       }
-    } catch (stockErr) {
-      console.error('[Anulación] Error restaurando stock:', stockErr);
+    }
+
+    // Escenario A: automatico (o sin modo → compat) → revertir stock vía movimientos legacy
+    if (modo !== 'nota_salida') {
+      try {
+        // Preferir el número legible del comprobante como clave; fallback a .id
+        const refComprobante: string =
+          (selectedInvoiceForVoid.instantaneaDocumentoComercial?.identidad?.numeroCompleto as string | undefined) ||
+          (selectedInvoiceForVoid.id as string | undefined) ||
+          '';
+
+        const todosLosMovimientos = StockRepository.getMovements();
+
+        const movimientosSalida = todosLosMovimientos.filter(
+          (m) => m.documentoReferencia === refComprobante && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
+        );
+
+        // Idempotencia: si ya existen entradas de reversión, no duplicar.
+        const yaRevertido = todosLosMovimientos.some(
+          (m) => m.documentoReferencia === refComprobante && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
+        );
+
+        if (!yaRevertido && movimientosSalida.length > 0) {
+          for (const mov of movimientosSalida) {
+            addMovimientoVoid(
+              mov.productoId,
+              'ENTRADA',
+              'DEVOLUCION_CLIENTE',
+              mov.cantidad,
+              `Reversión anulación ${refComprobante}`,
+              refComprobante,
+              undefined,
+              mov.EstablecimientoId,
+              mov.EstablecimientoCodigo,
+              mov.EstablecimientoNombre,
+              { almacenId: mov.almacenId, allowNegativeStock: true }
+            );
+          }
+        }
+      } catch (stockErr) {
+        console.error('[Anulación] Error restaurando stock:', stockErr);
+      }
     }
 
     try {
@@ -830,7 +876,7 @@ const InvoiceListDashboard = () => {
       console.warn('No se pudo marcar la venta como anulada en indicadores locales', error);
     }
 
-    alert(`Comprobante ${selectedInvoiceForVoid.id} anulado. Motivo: ${voidReason}`);
+    feedback.success(`Comprobante ${selectedInvoiceForVoid.id} anulado correctamente.`);
 
     setShowVoidModal(false);
     setSelectedInvoiceForVoid(null);
@@ -1481,6 +1527,7 @@ const InvoiceListDashboard = () => {
             setVoidReason('');
           }}
           onConfirm={confirmVoid}
+          warningMessage={voidWarningMessage}
         />
       </div>
     </>

@@ -92,6 +92,7 @@ export interface NotaSalida {
   numeroDocumentoOrigen?: string;
   origen?: 'Manual' | 'Comprobante';
   comprobanteOrigenId?: string;
+  ordenVentaOrigenId?: string;
 
   lineas: LineaNotaSalida[];
 
@@ -121,4 +122,5 @@ export interface ComprobanteOrigenNS {
   address?: string;
   currency?: string;
   lineas: LineaNotaSalida[];
+  ordenVentaOrigenId?: string;
 }

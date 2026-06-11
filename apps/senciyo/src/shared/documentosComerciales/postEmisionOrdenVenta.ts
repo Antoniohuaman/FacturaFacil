@@ -23,6 +23,7 @@ export interface InfoComprobanteEmitido {
   numeroComprobante: string;
   total: number;
   usuario?: string;
+  modoDescuentoStock?: 'automatico' | 'nota_salida' | 'sin_control';
 }
 
 const toNum = (v: unknown): number => {
@@ -101,8 +102,17 @@ export function actualizarOrdenVentaPostEmision(
 
     const ahora = obtenerFechaHoraISO();
 
-    // Liberar reserva de stock
-    if (Array.isArray(ov.reservasStock) && ov.reservasStock.length > 0) {
+    const productosReservados = Array.isArray(ov.reservasStock)
+      ? ov.reservasStock.map((r: { nombre: string; cantidad: number }) => `${r.nombre} (${r.cantidad})`).join(', ')
+      : '';
+
+    // En modo nota_salida, la reserva se mantiene hasta que se genere la Nota de Salida.
+    // Solo liberamos la reserva en modo automático o sin_control.
+    if (
+      info.modoDescuentoStock !== 'nota_salida' &&
+      Array.isArray(ov.reservasStock) &&
+      ov.reservasStock.length > 0
+    ) {
       liberarReservasDeOV(ov.reservasStock);
     }
 
@@ -114,16 +124,22 @@ export function actualizarOrdenVentaPostEmision(
       detalle: `${info.tipoComprobante} ${info.numeroComprobante} — Total: ${info.total.toFixed(2)}`,
     };
 
-    const productosReservados = Array.isArray(ov.reservasStock)
-      ? ov.reservasStock.map((r: { nombre: string; cantidad: number }) => `${r.nombre} (${r.cantidad})`).join(', ')
-      : '';
-
-    const eventoReserva = {
-      fecha: ahora,
-      usuario: info.usuario,
-      accion: 'Reserva consumida por emisión de comprobante',
-      detalle: productosReservados ? `Productos: ${productosReservados}` : undefined,
-    };
+    const eventoReserva =
+      info.modoDescuentoStock === 'nota_salida'
+        ? {
+            fecha: ahora,
+            usuario: info.usuario,
+            accion: 'Reserva pendiente de despacho',
+            detalle: productosReservados
+              ? `Reserva mantenida hasta emisión de Nota de Salida. Productos: ${productosReservados}`
+              : 'Reserva mantenida hasta emisión de Nota de Salida.',
+          }
+        : {
+            fecha: ahora,
+            usuario: info.usuario,
+            accion: 'Reserva consumida por emisión de comprobante',
+            detalle: productosReservados ? `Productos: ${productosReservados}` : undefined,
+          };
 
     // Actualizar la OV
     documentos[idx] = {

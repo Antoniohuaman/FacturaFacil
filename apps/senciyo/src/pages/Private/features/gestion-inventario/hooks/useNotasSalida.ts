@@ -17,6 +17,7 @@ import {
   anularNSEnInventario,
   marcarNSComoEntregada,
 } from '../services/notaSalida.service';
+import { liberarReservasDeOV, obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import type { NotaSalida } from '../models/notaSalida.types';
 
 export const useNotasSalida = () => {
@@ -108,6 +109,14 @@ export const useNotasSalida = () => {
           }));
         }
 
+        // Liberar reserva de OV si esta NS fue generada desde un comprobante convertido desde OV
+        if (notaActualizada.ordenVentaOrigenId) {
+          const reservas = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
+          if (reservas.length > 0) {
+            liberarReservasDeOV(reservas);
+          }
+        }
+
         for (const prod of productosActualizados) {
           updateProduct(prod.id, prod);
         }
@@ -150,6 +159,12 @@ export const useNotasSalida = () => {
         );
 
         agregarOActualizarNS(notaActualizada);
+
+        if (nota.comprobanteOrigenId) {
+          window.dispatchEvent(new CustomEvent('facturafacil:comprobante-ns-anulada', {
+            detail: { comprobanteId: nota.comprobanteOrigenId },
+          }));
+        }
 
         for (const prod of productosActualizados) {
           updateProduct(prod.id, prod);

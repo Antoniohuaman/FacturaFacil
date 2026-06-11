@@ -63,7 +63,8 @@ type ComprobanteAction =
   | { type: 'SET_COMPROBANTES'; payload: Comprobante[] }
   | { type: 'UPDATE_COMPROBANTE'; payload: Comprobante }
   | { type: 'DELETE_COMPROBANTE'; payload: string }
-  | { type: 'NS_LINK_COMPROBANTE'; payload: { comprobanteId: string; notaSalidaId: string; fechaGeneracionNotaSalida: string } };
+  | { type: 'NS_LINK_COMPROBANTE'; payload: { comprobanteId: string; notaSalidaId: string; fechaGeneracionNotaSalida: string } }
+  | { type: 'NS_UNLINK_COMPROBANTE'; payload: { comprobanteId: string } };
 
 // ============================================
 // DATOS INICIALES
@@ -119,6 +120,16 @@ function comprobanteReducer(
         )
       };
 
+    case 'NS_UNLINK_COMPROBANTE':
+      return {
+        ...state,
+        comprobantes: state.comprobantes.map(comp =>
+          comp.id === action.payload.comprobanteId
+            ? { ...comp, notaSalidaGenerada: false, notaSalidaId: undefined, fechaGeneracionNotaSalida: undefined }
+            : comp
+        )
+      };
+
     default:
       return state;
   }
@@ -155,7 +166,7 @@ export function ComprobanteProvider({ children }: ComprobanteProviderProps) {
   }, [tenantId]);
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const handlerLink = (e: Event) => {
       const { comprobanteId, notaSalidaId, fechaGeneracionNotaSalida } = (e as CustomEvent<{
         comprobanteId: string;
         notaSalidaId: string;
@@ -163,8 +174,16 @@ export function ComprobanteProvider({ children }: ComprobanteProviderProps) {
       }>).detail;
       dispatch({ type: 'NS_LINK_COMPROBANTE', payload: { comprobanteId, notaSalidaId, fechaGeneracionNotaSalida } });
     };
-    window.addEventListener('facturafacil:comprobante-ns-generada', handler);
-    return () => window.removeEventListener('facturafacil:comprobante-ns-generada', handler);
+    const handlerUnlink = (e: Event) => {
+      const { comprobanteId } = (e as CustomEvent<{ comprobanteId: string }>).detail;
+      dispatch({ type: 'NS_UNLINK_COMPROBANTE', payload: { comprobanteId } });
+    };
+    window.addEventListener('facturafacil:comprobante-ns-generada', handlerLink);
+    window.addEventListener('facturafacil:comprobante-ns-anulada', handlerUnlink);
+    return () => {
+      window.removeEventListener('facturafacil:comprobante-ns-generada', handlerLink);
+      window.removeEventListener('facturafacil:comprobante-ns-anulada', handlerUnlink);
+    };
   }, [dispatch]);
 
   // Helper function para agregar un comprobante

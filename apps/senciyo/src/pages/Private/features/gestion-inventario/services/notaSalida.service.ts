@@ -56,6 +56,26 @@ export const generarCorrelativoNS = (
   return String(siguiente).padStart(CORRELATIVO_DIGITOS_NS, '0');
 };
 
+// ─── Formato documento origen ─────────────────────────────────────────────
+
+/**
+ * Devuelve el texto visible para la columna "Documento origen" de una NS.
+ * Ejemplos: "Manual", "Boleta B001-00000012", "Factura F001-00000008"
+ */
+export function formatDocumentoOrigenNS(
+  nota: Pick<NotaSalida, 'origen' | 'documentoOrigen' | 'numeroDocumentoOrigen'>,
+): string {
+  if (nota.origen !== 'Comprobante' || !nota.documentoOrigen) return 'Manual';
+  const t = nota.documentoOrigen.toLowerCase();
+  let tipoCorto: string;
+  if (t.includes('boleta')) tipoCorto = 'Boleta';
+  else if (t.includes('factura')) tipoCorto = 'Factura';
+  else tipoCorto = nota.documentoOrigen.split(' ')[0] ?? nota.documentoOrigen;
+  return nota.numeroDocumentoOrigen
+    ? `${tipoCorto} ${nota.numeroDocumentoOrigen}`
+    : tipoCorto;
+}
+
 // ─── Pure helpers ─────────────────────────────────────────────────────────
 
 export const resolveIgvRateNS = (impuesto?: string): number => {
@@ -210,7 +230,6 @@ export const generarNSEnInventario = (
     esBorrador: false,
     correlativo,
     numero,
-    origen: 'Manual',
     updatedAt: ahora,
     historial: [
       ...nota.historial,

@@ -1044,6 +1044,7 @@ export const useComprobanteActions = () => {
                 numeroComprobante,
                 total: data.totals?.total ?? 0,
                 usuario: session?.userName ?? undefined,
+                modoDescuentoStock: nuevoComprobante.modoDescuentoStock,
               });
             }
 
