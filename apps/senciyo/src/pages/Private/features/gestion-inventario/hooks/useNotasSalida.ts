@@ -17,7 +17,7 @@ import {
   anularNSEnInventario,
   marcarNSComoEntregada,
 } from '../services/notaSalida.service';
-import { liberarReservasDeOV, obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
+import { liberarReservasDeOV, obtenerReservasDeOV, atenderOrdenVentaPostNS } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import type { NotaSalida } from '../models/notaSalida.types';
 
 export const useNotasSalida = () => {
@@ -109,16 +109,24 @@ export const useNotasSalida = () => {
           }));
         }
 
-        // Liberar reserva de OV si esta NS fue generada desde un comprobante convertido desde OV
+        // productosActualizados es un snapshot anterior a liberarReservasDeOV; si liberamos
+        // primero, updateProduct sobreescribe stockReservadoPorAlmacen con el valor del snapshot.
+        // El stock real debe aplicarse antes de que la liberación escriba el reservado = 0.
+        for (const prod of productosActualizados) {
+          updateProduct(prod.id, prod);
+        }
+
+        // Liberar reserva y marcar OV como Atendida cuando la NS viene de un comprobante
+        // que a su vez fue generado desde una OV en modo nota_salida.
         if (notaActualizada.ordenVentaOrigenId) {
           const reservas = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
           if (reservas.length > 0) {
             liberarReservasDeOV(reservas);
           }
-        }
-
-        for (const prod of productosActualizados) {
-          updateProduct(prod.id, prod);
+          atenderOrdenVentaPostNS(notaActualizada.ordenVentaOrigenId, {
+            numeroNS: notaActualizada.numero ?? notaActualizada.id,
+            usuario: usuarioNombre,
+          });
         }
 
         feedback.success(`Nota de Salida ${notaActualizada.numero ?? ''} generada correctamente.`);

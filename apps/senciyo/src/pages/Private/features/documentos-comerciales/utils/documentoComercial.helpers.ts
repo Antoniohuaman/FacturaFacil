@@ -204,6 +204,8 @@ export const obtenerColorEstado = (
     case 'Atendida parcialmente':
     case 'Atendida parcial':
       return 'yellow';
+    case 'Pendiente de salida':
+      return 'orange';
     default:
       return 'gray';
   }

@@ -141,10 +141,19 @@ export function actualizarOrdenVentaPostEmision(
             detalle: productosReservados ? `Productos: ${productosReservados}` : undefined,
           };
 
-    // Actualizar la OV
+    // Actualizar la OV.
+    // Modo nota_salida con bienes reservados: la mercadería aún no salió físicamente;
+    // la OV queda 'Pendiente de salida' hasta que se genere la Nota de Salida.
+    const nuevoEstado =
+      info.modoDescuentoStock === 'nota_salida' &&
+      Array.isArray(ov.reservasStock) &&
+      ov.reservasStock.length > 0
+        ? 'Pendiente de salida'
+        : 'Atendida';
+
     documentos[idx] = {
       ...ov,
-      estado: 'Atendida',
+      estado: nuevoEstado,
       fechaActualizacion: ahora,
       trazabilidad: {
         ...(ov.trazabilidad ?? {}),
@@ -167,5 +176,56 @@ export function actualizarOrdenVentaPostEmision(
     }
   } catch (err) {
     console.error('[postEmisionOrdenVenta] Error actualizando OV:', err);
+  }
+}
+
+/**
+ * Marca la Orden de Venta como 'Atendida' en localStorage después de que se generó
+ * la Nota de Salida desde el comprobante asociado.
+ *
+ * Solo actúa si la OV está en estado 'Pendiente de salida'; cualquier otro estado
+ * se ignora silenciosamente (protección contra dobles llamadas).
+ */
+export function atenderOrdenVentaPostNS(
+  ovId: string,
+  info: { numeroNS: string; usuario?: string },
+): void {
+  try {
+    const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documentos: any[] = JSON.parse(raw);
+    const idx = documentos.findIndex((d) => d.id === ovId);
+    if (idx < 0) return;
+
+    const ov = documentos[idx];
+    if (ov.tipo !== 'orden_venta' || ov.estado !== 'Pendiente de salida') return;
+
+    const ahora = obtenerFechaHoraISO();
+
+    documentos[idx] = {
+      ...ov,
+      estado: 'Atendida',
+      fechaActualizacion: ahora,
+      historial: [
+        ...(Array.isArray(ov.historial) ? ov.historial : []),
+        {
+          fecha: ahora,
+          usuario: info.usuario,
+          accion: 'Nota de Salida generada — Orden atendida',
+          detalle: `Nota de Salida ${info.numeroNS} emitida. Reserva liberada y stock descontado.`,
+        },
+      ],
+    };
+
+    localStorage.setItem(key, JSON.stringify(documentos));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(EVENTO_RECARGA));
+    }
+  } catch (err) {
+    console.error('[postEmisionOrdenVenta] Error actualizando OV post Nota de Salida:', err);
   }
 }

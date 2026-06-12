@@ -62,6 +62,7 @@ export const ESTADOS_NOTA_VENTA: EstadoNotaVenta[] = [
 export const ESTADOS_ORDEN_VENTA: EstadoOrdenVenta[] = [
   'Borrador',
   'Reservada',
+  'Pendiente de salida',
   'Atendida parcialmente',
   'Atendida',
   'Anulada',

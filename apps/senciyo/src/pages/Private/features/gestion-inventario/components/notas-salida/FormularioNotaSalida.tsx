@@ -376,6 +376,7 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
       numeroDocumentoOrigen: numeroDocOrigen || undefined,
       origen: notaInicial?.origen ?? 'Manual',
       comprobanteOrigenId: notaInicial?.comprobanteOrigenId,
+      ordenVentaOrigenId: notaInicial?.ordenVentaOrigenId,
       lineas,
       baseImponible: totales.baseImponible,
       impuesto: totales.igv,

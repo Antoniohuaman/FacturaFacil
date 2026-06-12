@@ -29,6 +29,7 @@ export type EstadoOrdenVenta =
   | 'Borrador'
   | 'Generada'              // legacy: documentos anteriores a FASE 1
   | 'Reservada'
+  | 'Pendiente de salida'   // comprobante emitido en modo nota_salida; reserva vigente hasta NS
   | 'Atendida parcial'      // legacy: renombrado a 'Atendida parcialmente'
   | 'Atendida parcialmente'
   | 'Atendida total'        // legacy: renombrado a 'Atendida'
