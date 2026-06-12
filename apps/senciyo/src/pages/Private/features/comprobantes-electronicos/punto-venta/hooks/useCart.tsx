@@ -469,10 +469,10 @@ export const useCart = (modoDescuentoOverride?: 'automatico' | 'nota_salida' | '
     const normalized: CartItem[] = items.map((item): CartItem => {
       const tipoDetalleNormalizado: CartItem['tipoDetalle'] = item.tipoDetalle === 'libre' ? 'libre' : 'catalogo';
       const rawQuantity = Number.isFinite(item.quantity) ? item.quantity : SYSTEM_CONFIG.MIN_CART_QUANTITY;
-      const quantity = Math.min(
-        SYSTEM_CONFIG.MAX_CART_QUANTITY,
-        Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, rawQuantity)
-      );
+      // No upper clamp here: loading from a saved document must preserve the exact stored
+      // quantity. Quantities are validated when originally entered; clamping here would
+      // silently truncate values > MAX_CART_QUANTITY when converting OV → Comprobante.
+      const quantity = Math.max(SYSTEM_CONFIG.MIN_CART_QUANTITY, rawQuantity);
       const price = Number.isFinite(item.price) ? item.price : 0;
       const igvPercent = inferIgvPercent(item);
       const subtotal = Number.isFinite(item.subtotal)

@@ -85,6 +85,9 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       if (!datos.serie || datos.serie.trim() === '') {
         return 'Debe seleccionar una serie para generar el documento.';
       }
+      if (datos.tipo === 'orden_venta' && !datos.cliente) {
+        return 'Selecciona un cliente para guardar la orden de venta.';
+      }
       if (!datos.items || datos.items.length === 0) {
         return 'Debe agregar al menos un producto o servicio.';
       }

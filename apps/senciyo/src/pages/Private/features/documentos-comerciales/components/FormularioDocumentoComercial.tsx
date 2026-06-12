@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, FileText } from 'lucide-react';
 import ProductsSection from '../../comprobantes-electronicos/shared/form-core/components/ProductsSection';
@@ -23,6 +23,7 @@ import type {
   DocumentoComercial,
   ModoFormularioDocumentoComercial,
   DatosFormularioDocumentoComercial,
+  ClienteDocumentoComercial,
 } from '../models/documentoComercial.types';
 
 interface FormularioDocumentoComercialProps {
@@ -67,6 +68,13 @@ export default function FormularioDocumentoComercial({
     };
   }, [calculateTotals, cartItems]);
   const inicialized = useRef(false);
+
+  const [errorCliente, setErrorCliente] = useState<string | null>(null);
+
+  const handleClienteChange = useCallback((c: ClienteDocumentoComercial | null) => {
+    estado.setCliente(c);
+    if (c) setErrorCliente(null);
+  }, [estado]);
 
   const labelTipo = TIPO_DOCUMENTO_COMERCIAL_LABELS[estado.tipoDocumento];
   const esBorradorEdicion =
@@ -147,7 +155,14 @@ export default function FormularioDocumentoComercial({
   const handleGenerar = useCallback(() => {
     const datos = obtenerDatosFormulario();
     const errorValidacion = actions.validarDatos(datos);
-    if (errorValidacion) { feedback.warning(errorValidacion); return; }
+    if (errorValidacion) {
+      feedback.warning(errorValidacion);
+      if (datos.tipo === 'orden_venta' && !datos.cliente) {
+        setErrorCliente(errorValidacion);
+      }
+      return;
+    }
+    setErrorCliente(null);
 
     let resultado;
     if (esBorradorEdicion && documentoExistente) {
@@ -172,6 +187,7 @@ export default function FormularioDocumentoComercial({
   }, [
     obtenerDatosFormulario, actions, esBorradorEdicion, documentoExistente,
     modo, labelTipo, feedback, limpiarBorrador, clearCart, navigate, estado.tipoDocumento,
+    setErrorCliente,
   ]);
 
   const handleActualizarBorrador = useCallback(() => {
@@ -258,7 +274,8 @@ export default function FormularioDocumentoComercial({
           formaPago={estado.formaPago}
           onFormaPagoChange={estado.setFormaPago}
           cliente={estado.cliente}
-          onClienteChange={estado.setCliente}
+          onClienteChange={handleClienteChange}
+          errorCliente={errorCliente}
           camposOpcionales={estado.camposOpcionales}
           onCampoOpcionalChange={estado.setCampoOpcional}
           fieldsConfig={fieldsConfig.config}
