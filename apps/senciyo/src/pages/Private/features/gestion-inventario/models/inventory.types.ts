@@ -172,6 +172,8 @@ export interface StockTransferData {
   cantidad: number;
   observaciones?: string;
   documentoReferencia?: string;
+  /** BRECHA-01: cuando el producto no está disponible en el establecimiento destino y el usuario confirmó habilitarlo */
+  habilitarProductoEnDestino?: boolean;
 }
 
 /**

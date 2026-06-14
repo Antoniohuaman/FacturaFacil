@@ -1,11 +1,12 @@
 // src/features/inventario/components/modals/TransferModal.tsx
 
 import React, { useState, useEffect } from 'react';
-import { X, ArrowRight, Package, AlertCircle } from 'lucide-react';
+import { X, ArrowRight, Package, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCurrentEstablecimientoId } from '@/contexts/UserSessionContext';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { isProductEnabledForEstablecimiento } from '../../../catalogo-articulos/models/types';
 
 interface TransferModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export interface TransferData {
   cantidad: number;
   documentoReferencia: string;
   observaciones: string;
+  habilitarProductoEnDestino?: boolean;
 }
 
 const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransfer }) => {
@@ -42,7 +44,10 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
   const [documentoReferencia, setDocumentoReferencia] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [showProductList, setShowProductList] = useState(false);
+  // BRECHA-01: confirmación explícita del usuario para habilitar producto en destino
+  const [habilitacionConfirmada, setHabilitacionConfirmada] = useState(false);
 
+  // Reset completo al cerrar
   useEffect(() => {
     if (!isOpen) {
       setSearchTerm('');
@@ -53,8 +58,14 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
       setDocumentoReferencia('');
       setObservaciones('');
       setShowProductList(false);
+      setHabilitacionConfirmada(false);
     }
   }, [isOpen]);
+
+  // Resetear confirmación cuando cambia producto o destino
+  useEffect(() => {
+    setHabilitacionConfirmada(false);
+  }, [selectedProductId, almacenDestinoId]);
 
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
   const almacenOrigen = almacenes.find(w => w.id === almacenOrigenId);
@@ -69,7 +80,11 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
       }) || selectedProduct.unidad
     : '';
 
-  const stockDisponibleOrigen = selectedProduct?.stockPorAlmacen?.[almacenOrigenId] ?? 0;
+  // BRECHA-02: stock disponible = real − reservado (no solo real)
+  const stockRealOrigen = selectedProduct?.stockPorAlmacen?.[almacenOrigenId] ?? 0;
+  const stockReservadoOrigen = selectedProduct?.stockReservadoPorAlmacen?.[almacenOrigenId] ?? 0;
+  const stockDisponibleOrigen = Math.max(0, stockRealOrigen - stockReservadoOrigen);
+
   const stockActualDestino = selectedProduct?.stockPorAlmacen?.[almacenDestinoId] ?? 0;
 
   const cantidadNum = Number(cantidad);
@@ -77,6 +92,14 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
   const esInterEstablecimiento =
     Boolean(almacenOrigenId && almacenDestinoId && almacenOrigen && almacenDestino) &&
     almacenOrigen?.establecimientoId !== almacenDestino?.establecimientoId;
+
+  // BRECHA-01: detectar si el producto no está habilitado en el establecimiento destino
+  const productoNoDisponibleEnDestino =
+    esInterEstablecimiento &&
+    !!selectedProduct &&
+    !!almacenDestino?.establecimientoId &&
+    !isProductEnabledForEstablecimiento(selectedProduct, almacenDestino.establecimientoId);
+
   const mostrarResumen =
     Boolean(selectedProductId && almacenOrigenId && almacenDestinoId && almacenOrigenId !== almacenDestinoId) &&
     cantidadNum > 0 &&
@@ -90,28 +113,16 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
   );
 
   const handleSubmit = () => {
-    if (!selectedProductId) {
-      alert('Por favor selecciona un producto');
-      return;
-    }
-    if (!almacenOrigenId) {
-      alert('Por favor selecciona el almacén de origen');
-      return;
-    }
-    if (!almacenDestinoId) {
-      alert('Por favor selecciona el almacén de destino');
-      return;
-    }
-    if (almacenOrigenId === almacenDestinoId) {
-      alert('El almacén de origen y destino no pueden ser el mismo');
-      return;
-    }
-    if (!cantidad || cantidadNum <= 0) {
-      alert('Por favor ingresa una cantidad válida mayor a 0');
-      return;
-    }
-    if (cantidadNum > stockDisponibleOrigen) {
-      alert(`No hay suficiente stock en ${almacenOrigen?.nombreAlmacen}. Disponible: ${stockDisponibleOrigen}`);
+    if (
+      !selectedProductId ||
+      !almacenOrigenId ||
+      !almacenDestinoId ||
+      almacenOrigenId === almacenDestinoId ||
+      !cantidad ||
+      cantidadNum <= 0 ||
+      cantidadNum > stockDisponibleOrigen ||
+      (productoNoDisponibleEnDestino && !habilitacionConfirmada)
+    ) {
       return;
     }
 
@@ -122,6 +133,7 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
       cantidad: cantidadNum,
       documentoReferencia,
       observaciones,
+      habilitarProductoEnDestino: productoNoDisponibleEnDestino && habilitacionConfirmada,
     });
 
     onClose();
@@ -216,6 +228,9 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
                   <span className={`font-semibold ${stockDisponibleOrigen > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {stockDisponibleOrigen} {unitLabel}
                   </span>
+                  {stockReservadoOrigen > 0 && (
+                    <span className="text-gray-400 dark:text-gray-500"> ({stockRealOrigen} − {stockReservadoOrigen} reservado)</span>
+                  )}
                 </p>
               )}
             </div>
@@ -267,7 +282,7 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
               {stockExcedido && (
                 <p className="text-xs mt-1 text-red-600 dark:text-red-400 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                  Supera el stock disponible
+                  Supera el stock disponible ({stockDisponibleOrigen} {unitLabel})
                 </p>
               )}
             </div>
@@ -299,13 +314,37 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
             />
           </div>
 
-          {/* Indicador inter-establecimiento compacto */}
-          {esInterEstablecimiento && (
+          {/* BRECHA-01: advertencia cuando el producto no está habilitado en el establecimiento destino */}
+          {productoNoDisponibleEnDestino && almacenDestino ? (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300">
+              <div className="flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p>
+                    Este producto no está disponible en{' '}
+                    <strong>{almacenDestino.nombreEstablecimientoDesnormalizado || 'el establecimiento destino'}</strong>.
+                    {' '}Al confirmar, se habilitará automáticamente en ese establecimiento y quedará{' '}
+                    <strong>Pendiente</strong> hasta despacho y recepción.
+                  </p>
+                  <label className="flex items-center gap-1.5 mt-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={habilitacionConfirmada}
+                      onChange={e => setHabilitacionConfirmada(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-amber-600"
+                    />
+                    <span className="font-medium">Confirmar habilitación del producto en el establecimiento destino</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          ) : esInterEstablecimiento ? (
+            /* Banner informativo para inter-establecimiento sin problema de disponibilidad */
             <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
               <span>Entre establecimientos · Quedará <strong>Pendiente</strong> hasta despacho y recepción. Puede requerir guía.</span>
             </div>
-          )}
+          ) : null}
 
           {/* Resumen compacto en una línea */}
           {mostrarResumen && (
@@ -338,7 +377,8 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
               !almacenDestinoId ||
               !cantidad ||
               cantidadNum <= 0 ||
-              cantidadNum > stockDisponibleOrigen
+              cantidadNum > stockDisponibleOrigen ||
+              (productoNoDisponibleEnDestino && !habilitacionConfirmada)
             }
             className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >

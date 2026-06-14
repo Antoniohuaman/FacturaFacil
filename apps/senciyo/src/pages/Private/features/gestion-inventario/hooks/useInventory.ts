@@ -36,8 +36,8 @@ function syncEstablecimientoStock(
   affectedEstIds: string[],
   almacenes: Almacen[]
 ): Product {
-  if (!product.stockPorEstablecimiento) return product;
-  const nextStockPorEst = { ...product.stockPorEstablecimiento };
+  // BRECHA-03: inicializar el mapa si es null/undefined en lugar de saltar silenciosamente
+  const nextStockPorEst = { ...(product.stockPorEstablecimiento ?? {}) };
   affectedEstIds.forEach(estId => {
     if (!estId) return;
     nextStockPorEst[estId] = almacenes
@@ -275,6 +275,25 @@ export const useInventory = () => {
         );
       } else {
         // Inter-establecimiento: solo registrar como PENDIENTE
+
+        // BRECHA-01: si el usuario confirmó habilitar el producto en el establecimiento destino
+        if (data.habilitarProductoEnDestino && !product.disponibleEnTodos && almacenDestino.establecimientoId) {
+          const destEstId = almacenDestino.establecimientoId;
+          const idsActuales = product.establecimientoIds ?? [];
+          if (!idsActuales.includes(destEstId)) {
+            const productHabilitado: Product = {
+              ...product,
+              establecimientoIds: [...idsActuales, destEstId],
+              stockPorEstablecimiento: {
+                ...(product.stockPorEstablecimiento ?? {}),
+                [destEstId]: product.stockPorEstablecimiento?.[destEstId] ?? 0,
+              },
+              fechaActualizacion: new Date(),
+            };
+            updateProduct(productHabilitado.id, productHabilitado);
+          }
+        }
+
         const trfId = generateTransferId();
         const entidad: Transferencia = {
           id: trfId,
