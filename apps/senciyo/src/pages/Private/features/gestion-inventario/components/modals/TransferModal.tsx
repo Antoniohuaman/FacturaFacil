@@ -1,6 +1,6 @@
 // src/features/inventario/components/modals/TransferModal.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, ArrowRight, Package, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -29,12 +29,20 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
   const { state: configState } = useConfigurationContext();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
   const almacenesActivos = configState.almacenes.filter(w => w.estaActivoAlmacen);
+
   // Origen: solo almacenes del establecimiento activo
   const almacenesOrigen = currentEstablecimientoId
     ? almacenesActivos.filter(w => w.establecimientoId === currentEstablecimientoId)
     : almacenesActivos;
-  // Destino: todos los activos (mismo u otro establecimiento)
-  const almacenes = almacenesActivos;
+
+  // ¿Hay almacenes de más de un establecimiento? → controla visibilidad del selector
+  const hayMultiplesEstablecimientos = useMemo(() => {
+    const ids = new Set(almacenesActivos.map(a => a.establecimientoId ?? '').filter(id => id !== ''));
+    return ids.size > 1;
+  }, [almacenesActivos]);
+
+  // Selector compacto de tipo de transferencia
+  const [tipoSelector, setTipoSelector] = useState<'INTRA' | 'INTER'>('INTRA');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -46,6 +54,20 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
   const [showProductList, setShowProductList] = useState(false);
   // BRECHA-01: confirmación explícita del usuario para habilitar producto en destino
   const [habilitacionConfirmada, setHabilitacionConfirmada] = useState(false);
+
+  // Almacenes destino filtrados por el tipo seleccionado
+  const almacenesDestino = useMemo(() => {
+    if (tipoSelector === 'INTRA') {
+      const base = currentEstablecimientoId
+        ? almacenesActivos.filter(w => w.establecimientoId === currentEstablecimientoId)
+        : almacenesActivos;
+      return base.filter(w => w.id !== almacenOrigenId);
+    }
+    // INTER: solo almacenes de otros establecimientos
+    return almacenesActivos.filter(w =>
+      currentEstablecimientoId ? w.establecimientoId !== currentEstablecimientoId : true
+    );
+  }, [tipoSelector, almacenesActivos, currentEstablecimientoId, almacenOrigenId]);
 
   // Reset completo al cerrar
   useEffect(() => {
@@ -59,6 +81,7 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
       setObservaciones('');
       setShowProductList(false);
       setHabilitacionConfirmada(false);
+      setTipoSelector('INTRA');
     }
   }, [isOpen]);
 
@@ -67,9 +90,25 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
     setHabilitacionConfirmada(false);
   }, [selectedProductId, almacenDestinoId]);
 
+  // Cambiar tipo y limpiar destino (la selección anterior puede ser inválida para el nuevo tipo)
+  const handleChangeTipo = (tipo: 'INTRA' | 'INTER') => {
+    if (tipo === tipoSelector) return;
+    setTipoSelector(tipo);
+    setalmacenDestinoId('');
+    setHabilitacionConfirmada(false);
+  };
+
+  // Cambiar origen y limpiar destino si en modo INTRA el destino coincide con el nuevo origen
+  const handleChangeOrigen = (value: string) => {
+    setalmacenOrigenId(value);
+    if (tipoSelector === 'INTRA' && almacenDestinoId === value) {
+      setalmacenDestinoId('');
+    }
+  };
+
   const selectedProduct = allProducts.find(p => p.id === selectedProductId);
-  const almacenOrigen = almacenes.find(w => w.id === almacenOrigenId);
-  const almacenDestino = almacenes.find(w => w.id === almacenDestinoId);
+  const almacenOrigen = almacenesActivos.find(w => w.id === almacenOrigenId);
+  const almacenDestino = almacenesActivos.find(w => w.id === almacenDestinoId);
 
   const unitLabel = selectedProduct
     ? getUnitDisplayForUI({
@@ -89,9 +128,9 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
 
   const cantidadNum = Number(cantidad);
   const stockExcedido = Boolean(cantidad) && cantidadNum > 0 && cantidadNum > stockDisponibleOrigen;
-  const esInterEstablecimiento =
-    Boolean(almacenOrigenId && almacenDestinoId && almacenOrigen && almacenDestino) &&
-    almacenOrigen?.establecimientoId !== almacenDestino?.establecimientoId;
+
+  // El tipo efectivo lo determina el selector compacto (el filtro de almacenes lo garantiza)
+  const esInterEstablecimiento = tipoSelector === 'INTER';
 
   // BRECHA-01: detectar si el producto no está habilitado en el establecimiento destino
   const productoNoDisponibleEnDestino =
@@ -145,15 +184,44 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
     <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-xl flex flex-col">
 
-        {/* Header compacto */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 rounded-t-xl flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <ArrowRight className="w-4 h-4 text-white" />
-            <h2 className="text-sm font-semibold text-white">Transferencia entre Almacenes</h2>
+        {/* Header con selector compacto de tipo */}
+        <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 rounded-t-xl flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <ArrowRight className="w-4 h-4 text-white flex-shrink-0" />
+            <h2 className="text-sm font-semibold text-white truncate">Transferencia entre Almacenes</h2>
           </div>
+
+          {/* Selector compacto: solo visible cuando hay más de un establecimiento */}
+          {hayMultiplesEstablecimientos && (
+            <div className="flex items-center bg-white/15 rounded-lg p-0.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => handleChangeTipo('INTRA')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+                  tipoSelector === 'INTRA'
+                    ? 'bg-white text-green-700 shadow-sm'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                Mismo estab.
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChangeTipo('INTER')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${
+                  tipoSelector === 'INTER'
+                    ? 'bg-white text-green-700 shadow-sm'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                Entre estab.
+              </button>
+            </div>
+          )}
+
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
           >
             <X className="w-4 h-4 text-white" />
           </button>
@@ -212,7 +280,7 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
               </label>
               <select
                 value={almacenOrigenId}
-                onChange={(e) => setalmacenOrigenId(e.target.value)}
+                onChange={(e) => handleChangeOrigen(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
               >
                 <option value="">Seleccionar...</option>
@@ -247,10 +315,12 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white dark:bg-gray-700 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">Seleccionar...</option>
-                {almacenes.filter(wh => wh.id !== almacenOrigenId).map((wh) => (
+                {almacenesDestino.map((wh) => (
                   <option key={wh.id} value={wh.id}>
                     {wh.codigoAlmacen} - {wh.nombreAlmacen}
-                    {wh.nombreEstablecimientoDesnormalizado ? ` (${wh.nombreEstablecimientoDesnormalizado})` : ''}
+                    {esInterEstablecimiento && wh.nombreEstablecimientoDesnormalizado
+                      ? ` (${wh.nombreEstablecimientoDesnormalizado})`
+                      : ''}
                   </option>
                 ))}
               </select>
@@ -383,7 +453,7 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
             className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             <ArrowRight className="w-4 h-4" />
-            Transferir Stock
+            {esInterEstablecimiento ? 'Crear transferencia' : 'Transferir stock'}
           </button>
         </div>
       </div>
