@@ -24,6 +24,8 @@ import {
   validarStockParaOrden,
   reservarStockOrden,
   liberarReservaOrden,
+  descontarStockParaDocumento,
+  revertirDescuentoStockDocumento,
 } from '../utils/servicioReservaStock';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
 
@@ -71,6 +73,8 @@ export interface UseDocumentoComercialActionsReturn {
   duplicarDocumento: (id: string, nuevoTipo?: TipoDocumentoComercial) => ResultadoAccionDocumento;
   eliminarBorrador: (id: string) => ResultadoAccionDocumento;
   validarDatos: (datos: DatosFormularioDocumentoComercial) => string | null;
+  /** Modo de descuento de stock aplicable a una NV según la configuración actual. */
+  getModoDescuentoNV: () => 'automatico' | 'nota_salida' | null;
 }
 
 export function useDocumentoComercialActions(): UseDocumentoComercialActionsReturn {
@@ -107,8 +111,13 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const errorValidacion = validarDatos(datos);
       if (errorValidacion) return { exito: false, error: errorValidacion };
 
-      // Validación y reserva de stock para Orden de Venta
+      const controlStockActivo = configState.salesPreferences?.controlStockActivo ?? false;
+      const stockDescuentoNotaVenta = configState.salesPreferences?.stockDescuentoNotaVenta ?? 'automatico';
+
+      // Validación y reserva/descuento de stock según tipo de documento
       let reservasStock: ReservaStockItem[] | undefined;
+      let modoDescuentoStock: 'automatico' | 'nota_salida' | undefined;
+
       if (datos.tipo === 'orden_venta') {
         const validacion = validarStockParaOrden(
           datos.items,
@@ -117,6 +126,20 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         );
         if (!validacion.valido) {
           return { exito: false, error: validacion.error };
+        }
+      }
+
+      if (datos.tipo === 'nota_venta' && controlStockActivo) {
+        modoDescuentoStock = stockDescuentoNotaVenta;
+        if (stockDescuentoNotaVenta === 'automatico') {
+          const validacion = validarStockParaOrden(
+            datos.items,
+            configState.almacenes ?? [],
+            activeEstablecimientoId ?? '',
+          );
+          if (!validacion.valido) {
+            return { exito: false, error: validacion.error };
+          }
         }
       }
 
@@ -132,7 +155,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const estadoInicial: EstadoDocumentoComercial =
         datos.tipo === 'orden_venta' ? 'Reservada' : 'Generada';
 
-      // Reservar stock DESPUÉS de asignar correlativo (si pasa validación)
+      // Reservar stock OV (DESPUÉS de asignar correlativo)
       if (datos.tipo === 'orden_venta') {
         reservasStock = reservarStockOrden(
           datos.items,
@@ -141,12 +164,33 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         );
       }
 
-      const accionHistorial =
-        datos.tipo === 'orden_venta' ? 'Orden de venta reservada' : 'Documento generado';
-      const detalleHistorial =
-        datos.tipo === 'orden_venta' && reservasStock && reservasStock.length > 0
+      // Descontar stock NV automático (DESPUÉS de asignar correlativo)
+      if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'automatico') {
+        reservasStock = descontarStockParaDocumento(
+          datos.items,
+          configState.almacenes ?? [],
+          activeEstablecimientoId ?? '',
+        );
+      }
+
+      let accionHistorial: string;
+      let detalleHistorial: string | undefined;
+
+      if (datos.tipo === 'orden_venta') {
+        accionHistorial = 'Orden de venta reservada';
+        detalleHistorial = reservasStock?.length
           ? `Productos reservados: ${reservasStock.map((r) => `${r.nombre} (${r.cantidad})`).join(', ')}`
           : undefined;
+      } else if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'automatico' && reservasStock?.length) {
+        accionHistorial = 'Documento generado — stock descontado automáticamente';
+        detalleHistorial = `Productos descontados: ${reservasStock.map((r) => `${r.nombre} (${r.cantidad})`).join(', ')}`;
+      } else if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'nota_salida') {
+        accionHistorial = 'Documento generado — pendiente de Nota de Salida';
+        detalleHistorial = undefined;
+      } else {
+        accionHistorial = 'Documento generado';
+        detalleHistorial = undefined;
+      }
 
       const documento: DocumentoComercial = {
         id: generarIdDocumento(),
@@ -173,6 +217,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         trazabilidad: datos.trazabilidad,
         establecimientoId: activeEstablecimientoId ?? undefined,
         reservasStock,
+        modoDescuentoStock,
         historial: [crearEvento(accionHistorial, session?.userName, detalleHistorial)],
       };
 
@@ -184,6 +229,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       state.documentos,
       configState.series,
       configState.almacenes,
+      configState.salesPreferences,
       session,
       activeEstablecimientoId,
       agregarDocumento,
@@ -199,7 +245,10 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       if (!doc) return { exito: false, error: 'Documento no encontrado.' };
       if (!doc.esBorrador) return { exito: false, error: 'El documento no es un borrador.' };
 
-      // Validación de stock para OV antes de asignar correlativo
+      const controlStockActivo = configState.salesPreferences?.controlStockActivo ?? false;
+      const stockDescuentoNotaVenta = configState.salesPreferences?.stockDescuentoNotaVenta ?? 'automatico';
+
+      // Validación de stock para OV y NV automática antes de asignar correlativo
       if (datos.tipo === 'orden_venta') {
         const validacion = validarStockParaOrden(
           datos.items,
@@ -211,13 +260,29 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         }
       }
 
+      let modoDescuentoStock: 'automatico' | 'nota_salida' | undefined;
+      if (datos.tipo === 'nota_venta' && controlStockActivo) {
+        modoDescuentoStock = stockDescuentoNotaVenta;
+        if (stockDescuentoNotaVenta === 'automatico') {
+          const validacion = validarStockParaOrden(
+            datos.items,
+            configState.almacenes ?? [],
+            activeEstablecimientoId ?? '',
+          );
+          if (!validacion.valido) {
+            return { exito: false, error: validacion.error };
+          }
+        }
+      }
+
       const otrosDocs = state.documentos.filter((d) => d.id !== id);
       const correlativo = generarCorrelativoSeguro(datos.serie, otrosDocs, configState.series);
       const numero = `${datos.serie}-${correlativo}`;
       const ahora = obtenerFechaHoraISO();
 
-      // Reservar stock DESPUÉS de asignar correlativo
       let reservasStock: ReservaStockItem[] | undefined;
+
+      // Reservar stock OV (DESPUÉS de asignar correlativo)
       if (datos.tipo === 'orden_venta') {
         reservasStock = reservarStockOrden(
           datos.items,
@@ -226,16 +291,36 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         );
       }
 
-      const estadoFinal: EstadoDocumentoComercial =
-        datos.tipo === 'orden_venta' ? 'Reservada' : 'Generada';
-      const accionHistorial =
-        datos.tipo === 'orden_venta'
-          ? 'Orden de venta reservada desde borrador'
-          : 'Documento generado desde borrador';
-      const detalleHistorial =
-        datos.tipo === 'orden_venta' && reservasStock && reservasStock.length > 0
+      // Descontar stock NV automático (DESPUÉS de asignar correlativo)
+      if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'automatico') {
+        reservasStock = descontarStockParaDocumento(
+          datos.items,
+          configState.almacenes ?? [],
+          activeEstablecimientoId ?? '',
+        );
+      }
+
+      let accionHistorial: string;
+      let detalleHistorial: string | undefined;
+
+      if (datos.tipo === 'orden_venta') {
+        accionHistorial = 'Orden de venta reservada desde borrador';
+        detalleHistorial = reservasStock?.length
           ? `Productos reservados: ${reservasStock.map((r) => `${r.nombre} (${r.cantidad})`).join(', ')}`
           : undefined;
+      } else if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'automatico' && reservasStock?.length) {
+        accionHistorial = 'Documento generado desde borrador — stock descontado automáticamente';
+        detalleHistorial = `Productos descontados: ${reservasStock.map((r) => `${r.nombre} (${r.cantidad})`).join(', ')}`;
+      } else if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'nota_salida') {
+        accionHistorial = 'Documento generado desde borrador — pendiente de Nota de Salida';
+        detalleHistorial = undefined;
+      } else {
+        accionHistorial = 'Documento generado desde borrador';
+        detalleHistorial = undefined;
+      }
+
+      const estadoFinal: EstadoDocumentoComercial =
+        datos.tipo === 'orden_venta' ? 'Reservada' : 'Generada';
 
       const eventoGenerado = crearEvento(accionHistorial, session?.userName, detalleHistorial);
       const documentoGenerado: DocumentoComercial = {
@@ -265,6 +350,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         fechaAnulacion: undefined,
         usuarioAnulacion: undefined,
         reservasStock,
+        modoDescuentoStock,
         historial: [...(doc.historial ?? []), eventoGenerado],
       };
 
@@ -276,6 +362,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       state.documentos,
       configState.series,
       configState.almacenes,
+      configState.salesPreferences,
       session,
       activeEstablecimientoId,
       actualizarEnContext,
@@ -364,9 +451,10 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
 
       const ahora = obtenerFechaHoraISO();
 
-      // Liberar reserva de stock si es una OV en estado Reservada
+      // Liberar reserva/descuento de stock según tipo de documento
       let accionHistorial = 'Documento anulado';
       let detalleHistorial = `Motivo: ${motivo.trim()}`;
+
       if (doc.tipo === 'orden_venta' && doc.estado === 'Reservada' && doc.reservasStock?.length) {
         liberarReservaOrden(doc.reservasStock);
         accionHistorial = 'Reserva liberada por anulación';
@@ -374,6 +462,15 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
           .map((r) => `${r.nombre} (${r.cantidad})`)
           .join(', ');
         detalleHistorial = `Motivo: ${motivo.trim()}. Productos liberados: ${productosLiberados}`;
+      }
+
+      if (doc.tipo === 'nota_venta' && doc.modoDescuentoStock === 'automatico' && doc.reservasStock?.length) {
+        revertirDescuentoStockDocumento(doc.reservasStock);
+        accionHistorial = 'Descuento de stock revertido por anulación';
+        const productosRevertidos = doc.reservasStock
+          .map((r) => `${r.nombre} (${r.cantidad})`)
+          .join(', ');
+        detalleHistorial = `Motivo: ${motivo.trim()}. Stock repuesto: ${productosRevertidos}`;
       }
 
       const eventoAnulacion = crearEvento(accionHistorial, session?.userName, detalleHistorial);
@@ -444,6 +541,12 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     [state.documentos, eliminarDocumento],
   );
 
+  const getModoDescuentoNV = useCallback((): 'automatico' | 'nota_salida' | null => {
+    const controlActivo = configState.salesPreferences?.controlStockActivo ?? false;
+    if (!controlActivo) return null;
+    return configState.salesPreferences?.stockDescuentoNotaVenta ?? 'automatico';
+  }, [configState.salesPreferences]);
+
   return {
     generarDocumento,
     generarDesdeBorrador,
@@ -453,5 +556,6 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     duplicarDocumento,
     eliminarBorrador,
     validarDatos,
+    getModoDescuentoNV,
   };
 }

@@ -128,6 +128,15 @@ export interface DocumentoComercial {
 
   historial?: EventoHistorial[];
   reservasStock?: ReservaStockItem[];
+
+  /** Modo en que se gestiona el stock al generar (aplica a NV). */
+  modoDescuentoStock?: 'automatico' | 'nota_salida';
+  /** ID de la Nota de Salida activa asociada a este documento. */
+  notaSalidaId?: string;
+  /** true si existe una Nota de Salida generada (no anulada) vinculada. */
+  notaSalidaGenerada?: boolean;
+  /** Fecha en que se generó la Nota de Salida vinculada. */
+  notaSalidaFechaGeneracion?: string;
 }
 
 export interface FiltrosDocumentosComerciales {

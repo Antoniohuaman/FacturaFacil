@@ -165,6 +165,83 @@ export function reservarStockOrden(
 }
 
 /**
+ * Descuenta stock real para documentos comerciales en modo automático (ej: Nota de Venta).
+ * Usa FIFO para determinar qué almacén descontar.
+ * Decrece stockPorAlmacen. No toca stockReservadoPorAlmacen.
+ * Retorna el detalle de lo descontado para poder revertirlo al anular el documento.
+ *
+ * Solo se llama si validarStockParaOrden retornó { valido: true }.
+ */
+export function descontarStockParaDocumento(
+  items: CartItem[],
+  almacenes: Almacen[],
+  establecimientoId: string,
+): ReservaStockItem[] {
+  const almacenesOrdered = resolvealmacenesForSaleFIFO({
+    almacenes,
+    EstablecimientoId: establecimientoId,
+  });
+  const almacenMap = new Map(almacenesOrdered.map((a) => [a.id, a]));
+  const descuentos: ReservaStockItem[] = [];
+
+  for (const item of items) {
+    if (!debeControlarStock(item)) continue;
+
+    const producto = useProductStore.getState().allProducts.find((p) => p.codigo === item.code);
+    if (!producto) continue;
+
+    const allocations = allocateSaleAcrossalmacenes({
+      product: producto,
+      almacenesOrdered,
+      qtyUnidadMinima: item.quantity,
+      respectReservations: true,
+    });
+
+    for (const alloc of allocations) {
+      // Leer estado fresco antes de cada actualización para no pisar descuentos anteriores
+      const productoCurrent =
+        useProductStore.getState().allProducts.find((p) => p.codigo === item.code) ?? producto;
+      const stockActual = toNum((productoCurrent.stockPorAlmacen ?? {})[alloc.almacenId]);
+      const nuevoStock = Math.max(0, stockActual - alloc.qtyUnidadMinima);
+      useProductStore.getState().updateProduct(productoCurrent.id, {
+        stockPorAlmacen: {
+          ...(productoCurrent.stockPorAlmacen ?? {}),
+          [alloc.almacenId]: nuevoStock,
+        },
+      });
+      descuentos.push({
+        sku: producto.codigo,
+        nombre: item.name,
+        cantidad: alloc.qtyUnidadMinima,
+        almacenId: alloc.almacenId,
+        almacenNombre: almacenMap.get(alloc.almacenId)?.nombreAlmacen,
+      });
+    }
+  }
+
+  return descuentos;
+}
+
+/**
+ * Revierte un descuento de stock realizado por descontarStockParaDocumento.
+ * Incrementa stockPorAlmacen de vuelta a su valor anterior.
+ * Se llama al anular un documento comercial con modoDescuentoStock 'automatico'.
+ */
+export function revertirDescuentoStockDocumento(descuentos: ReservaStockItem[]): void {
+  for (const descuento of descuentos) {
+    const producto = useProductStore.getState().allProducts.find((p) => p.codigo === descuento.sku);
+    if (!producto) continue;
+    const stockActual = toNum((producto.stockPorAlmacen ?? {})[descuento.almacenId]);
+    useProductStore.getState().updateProduct(producto.id, {
+      stockPorAlmacen: {
+        ...(producto.stockPorAlmacen ?? {}),
+        [descuento.almacenId]: stockActual + descuento.cantidad,
+      },
+    });
+  }
+}
+
+/**
  * Libera la reserva de stock al anular una Orden de Venta.
  * Disminuye stockReservadoPorAlmacen sin tocar el stock real.
  * Nunca permite stock reservado negativo.

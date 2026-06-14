@@ -9,7 +9,7 @@ import {
   ESTADO_NS_BADGE,
   TIPOS_SALIDA,
 } from '../../models/notaSalida.constants';
-import type { NotaSalida, EstadoNotaSalida, TipoSalida, ComprobanteOrigenNS } from '../../models/notaSalida.types';
+import type { NotaSalida, EstadoNotaSalida, TipoSalida, ComprobanteOrigenNS, DocumentoComercialOrigenNS } from '../../models/notaSalida.types';
 import FormularioNotaSalida from './FormularioNotaSalida';
 import DetalleNotaSalida from './DetalleNotaSalida';
 import { imprimirNotaSalida } from '../../services/notaSalida.print';
@@ -51,6 +51,39 @@ function buildNotaSalidaDesdeComprobante(from: ComprobanteOrigenNS): Partial<Not
   };
 }
 
+function buildNotaSalidaDesdeDocumentoComercial(from: DocumentoComercialOrigenNS): Partial<NotaSalida> {
+  const esDesdeOV = from.tipo === 'orden_venta';
+  return {
+    id: `ns_prev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    tipoDocumento: 'nota_salida',
+    estado: 'Borrador',
+    esBorrador: true,
+    fechaDocumento: new Date().toISOString().split('T')[0],
+    tipoSalida: '01',
+    moneda: (from.moneda as 'PEN' | 'USD') ?? 'PEN',
+    clienteNombre: from.clienteNombre,
+    tipoDocumentoCliente: from.clienteDocTipo,
+    numeroDocumentoCliente: from.clienteDoc,
+    direccionFacturacion: from.clienteDireccion,
+    documentoOrigen: esDesdeOV ? 'Orden de Venta' : 'Nota de Venta',
+    numeroDocumentoOrigen: from.numero,
+    origen: esDesdeOV ? 'OrdenVenta' : 'NotaVenta',
+    ordenVentaOrigenId: esDesdeOV ? from.id : undefined,
+    notaVentaOrigenId: !esDesdeOV ? from.id : undefined,
+    lineas: from.lineas,
+    baseImponible: 0,
+    impuesto: 0,
+    total: 0,
+    historial: [],
+    usuario: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    almacenOrigenId: '',
+    almacenOrigenNombre: '',
+    serie: '',
+  };
+}
+
 const fmtFecha = (iso: string): string => {
   try {
     return new Date(iso).toLocaleDateString('es-PE', {
@@ -68,13 +101,18 @@ const NotasSalidaPanel: React.FC = () => {
   const location = useLocation();
 
   const fromComprobante = (location.state as { fromComprobante?: ComprobanteOrigenNS } | null)?.fromComprobante;
+  const fromOrdenVenta = (location.state as { fromOrdenVenta?: DocumentoComercialOrigenNS } | null)?.fromOrdenVenta;
+  const fromNotaVenta = (location.state as { fromNotaVenta?: DocumentoComercialOrigenNS } | null)?.fromNotaVenta;
+  const fromDocumentoComercial = fromOrdenVenta ?? fromNotaVenta;
 
   const [vista, setVista] = useState<'lista' | 'nuevo' | 'editar'>(
-    fromComprobante ? 'nuevo' : 'lista'
+    fromComprobante || fromDocumentoComercial ? 'nuevo' : 'lista'
   );
-  const [notaEditando, setNotaEditando] = useState<Partial<NotaSalida> | undefined>(
-    fromComprobante ? buildNotaSalidaDesdeComprobante(fromComprobante) : undefined
-  );
+  const [notaEditando, setNotaEditando] = useState<Partial<NotaSalida> | undefined>(() => {
+    if (fromComprobante) return buildNotaSalidaDesdeComprobante(fromComprobante);
+    if (fromDocumentoComercial) return buildNotaSalidaDesdeDocumentoComercial(fromDocumentoComercial);
+    return undefined;
+  });
   const [notaDetalle, setNotaDetalle] = useState<NotaSalida | null>(null);
   const [anulacionDirecta, setAnulacionDirecta] = useState(false);
 
@@ -164,12 +202,24 @@ const NotasSalidaPanel: React.FC = () => {
   const handleGuardado = () => {
     setVista('lista');
     setNotaEditando(undefined);
-    if (fromComprobante) navigate('/comprobantes');
+    if (fromComprobante) {
+      navigate('/comprobantes');
+    } else if (fromDocumentoComercial) {
+      navigate('/documentos-comerciales', {
+        state: { tipo: fromDocumentoComercial.tipo },
+      });
+    }
   };
   const handleCancelar = () => {
     setVista('lista');
     setNotaEditando(undefined);
-    if (fromComprobante) navigate('/comprobantes');
+    if (fromComprobante) {
+      navigate('/comprobantes');
+    } else if (fromDocumentoComercial) {
+      navigate('/documentos-comerciales', {
+        state: { tipo: fromDocumentoComercial.tipo },
+      });
+    }
   };
 
   const handleEliminar = async (nota: NotaSalida) => {

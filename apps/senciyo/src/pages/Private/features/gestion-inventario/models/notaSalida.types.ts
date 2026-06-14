@@ -90,9 +90,10 @@ export interface NotaSalida {
 
   documentoOrigen?: string;
   numeroDocumentoOrigen?: string;
-  origen?: 'Manual' | 'Comprobante';
+  origen?: 'Manual' | 'Comprobante' | 'NotaVenta' | 'OrdenVenta';
   comprobanteOrigenId?: string;
   ordenVentaOrigenId?: string;
+  notaVentaOrigenId?: string;
 
   lineas: LineaNotaSalida[];
 
@@ -123,4 +124,17 @@ export interface ComprobanteOrigenNS {
   currency?: string;
   lineas: LineaNotaSalida[];
   ordenVentaOrigenId?: string;
+}
+
+/** Datos del documento comercial (NV u OV) que origina una Nota de Salida directa. */
+export interface DocumentoComercialOrigenNS {
+  id: string;
+  numero: string;
+  tipo: 'nota_venta' | 'orden_venta';
+  clienteNombre?: string;
+  clienteDoc?: string;
+  clienteDocTipo?: string;
+  clienteDireccion?: string;
+  moneda?: string;
+  lineas: LineaNotaSalida[];
 }

@@ -17,7 +17,15 @@ import {
   anularNSEnInventario,
   marcarNSComoEntregada,
 } from '../services/notaSalida.service';
-import { liberarReservasDeOV, obtenerReservasDeOV, atenderOrdenVentaPostNS } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
+import {
+  liberarReservasDeOV,
+  obtenerReservasDeOV,
+  atenderOrdenVentaPostNS,
+  atenderOrdenVentaPostNSDirecta,
+  restaurarOVPostAnulacionNSDirecta,
+  vincularDocumentoComercialNS,
+  desvincularDocumentoComercialNS,
+} from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import type { NotaSalida } from '../models/notaSalida.types';
 
 export const useNotasSalida = () => {
@@ -116,17 +124,42 @@ export const useNotasSalida = () => {
           updateProduct(prod.id, prod);
         }
 
-        // Liberar reserva y marcar OV como Atendida cuando la NS viene de un comprobante
-        // que a su vez fue generado desde una OV en modo nota_salida.
         if (notaActualizada.ordenVentaOrigenId) {
+          // Liberar la reserva de stock de la OV en ambos flujos (comprobante o directo)
           const reservas = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
           if (reservas.length > 0) {
             liberarReservasDeOV(reservas);
           }
-          atenderOrdenVentaPostNS(notaActualizada.ordenVentaOrigenId, {
-            numeroNS: notaActualizada.numero ?? notaActualizada.id,
-            usuario: usuarioNombre,
-          });
+
+          if (notaActualizada.origen === 'OrdenVenta') {
+            // NS generada directamente desde OV (sin pasar por comprobante):
+            // la OV estaba en 'Reservada', pasa a 'Atendida'.
+            atenderOrdenVentaPostNSDirecta(notaActualizada.ordenVentaOrigenId, {
+              numeroNS: notaActualizada.numero ?? notaActualizada.id,
+              usuario: usuarioNombre,
+            });
+            vincularDocumentoComercialNS(
+              notaActualizada.ordenVentaOrigenId,
+              notaActualizada.id,
+              notaActualizada.updatedAt,
+            );
+          } else {
+            // NS generada desde comprobante que proviene de OV:
+            // la OV estaba en 'Pendiente de salida', pasa a 'Atendida'.
+            atenderOrdenVentaPostNS(notaActualizada.ordenVentaOrigenId, {
+              numeroNS: notaActualizada.numero ?? notaActualizada.id,
+              usuario: usuarioNombre,
+            });
+          }
+        }
+
+        // Vincular NS a la Nota de Venta origen si corresponde
+        if (notaActualizada.notaVentaOrigenId) {
+          vincularDocumentoComercialNS(
+            notaActualizada.notaVentaOrigenId,
+            notaActualizada.id,
+            notaActualizada.updatedAt,
+          );
         }
 
         feedback.success(`Nota de Salida ${notaActualizada.numero ?? ''} generada correctamente.`);
@@ -176,6 +209,19 @@ export const useNotasSalida = () => {
 
         for (const prod of productosActualizados) {
           updateProduct(prod.id, prod);
+        }
+
+        // NS directa desde OV: restaurar OV a 'Reservada' y reponer reserva de stock
+        if (nota.origen === 'OrdenVenta' && nota.ordenVentaOrigenId) {
+          restaurarOVPostAnulacionNSDirecta(nota.ordenVentaOrigenId, {
+            numeroNS: nota.numero ?? nota.id,
+            usuario: usuarioNombre,
+          });
+        }
+
+        // NS desde NV: desvincular NS de la NV origen
+        if (nota.notaVentaOrigenId) {
+          desvincularDocumentoComercialNS(nota.notaVentaOrigenId);
         }
 
         feedback.success(`Nota de Salida ${nota.numero ?? nota.id} anulada. Stock repuesto.`);

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, createElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileCheck } from 'lucide-react';
+import { FileCheck, PackageMinus } from 'lucide-react';
 import {
   Plus, Search, MoreHorizontal, Edit3, Copy, Ban, Trash2, Eye,
   ChevronLeft, ChevronRight, X, Printer, Share2, Download,
@@ -12,6 +12,10 @@ import { useDocumentosComercialesContext } from '../contexts/DocumentosComercial
 import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActions';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import type { SalesPreferences } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useNotasSalida } from '../../gestion-inventario/hooks/useNotasSalida';
+import type { LineaNotaSalida, DocumentoComercialOrigenNS } from '../../gestion-inventario/models/notaSalida.types';
+import type { CartItem } from '../../comprobantes-electronicos/models/comprobante.types';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import { tryLsKey } from '@/shared/tenant';
@@ -76,6 +80,51 @@ const COLUMNAS_VISIBLES_DEFAULT = new Set([
 
 const OPCIONES_REGISTROS = [10, 25, 50];
 
+function buildLineasNSDesdeCartItems(items: CartItem[]): LineaNotaSalida[] {
+  return items
+    .filter((item) => item.tipoBienServicio !== 'servicio' && item.tipoDetalle !== 'libre')
+    .map((item, idx) => {
+      const cantidad = item.quantity;
+      const pvUnitario = item.price;
+      const subtotal = item.subtotal ?? pvUnitario * cantidad;
+      const igv = item.igv ?? 0;
+      const total = item.total ?? subtotal + igv;
+      return {
+        id: `ln_${item.code}_${idx}`,
+        productoId: item.id,
+        productoCodigo: item.code,
+        productoNombre: item.name,
+        tipoBienServicio: item.tipoBienServicio ?? 'bien',
+        unidad: item.unidadMedida ?? 'NIU',
+        unidadCodigo: item.unidadMedidaCodigo ?? 'NIU',
+        impuesto: item.impuesto ?? item.impuestoId,
+        cantidad,
+        pvUnitario,
+        subtotal,
+        igv,
+        total,
+      };
+    });
+}
+
+function puedeGenerarNS(
+  doc: DocumentoComercial,
+  salesPreferences: SalesPreferences | undefined,
+  controlStockActivo: boolean,
+): boolean {
+  if (doc.esBorrador || doc.estado === 'Anulada') return false;
+  if (doc.notaSalidaGenerada) return false;
+  if (doc.tipo === 'orden_venta') {
+    return doc.estado === 'Reservada';
+  }
+  if (doc.tipo === 'nota_venta') {
+    if (!controlStockActivo) return false;
+    if ((salesPreferences?.stockDescuentoNotaVenta ?? 'automatico') !== 'nota_salida') return false;
+    return doc.estado === 'Generada';
+  }
+  return false;
+}
+
 function puedeEditar(doc: DocumentoComercial): boolean {
   // OV en Reservada no se puede editar (stock comprometido)
   if (doc.tipo === 'orden_venta' && doc.estado === 'Reservada') return false;
@@ -123,9 +172,12 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
   const navigate = useNavigate();
   const { state } = useDocumentosComercialesContext();
   const { anularDocumento, duplicarDocumento, eliminarBorrador } = useDocumentoComercialActions();
+  const { anularNS } = useNotasSalida();
   const feedback = useFeedback();
   const { state: configState } = useConfigurationContext();
   const { activeEstablecimientoId } = useTenant();
+
+  const controlStockActivo = configState.salesPreferences?.controlStockActivo ?? false;
 
   const [busqueda, setBusqueda] = useState('');
   const [estadosFiltro, setEstadosFiltro] = useState<EstadoDocumentoComercial[]>([]);
@@ -273,6 +325,24 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     navigate('/comprobantes/emision', { state: navState });
   }, [navigate, feedback, configState.almacenes, activeEstablecimientoId]);
 
+  const handleGenerarNS = useCallback((doc: DocumentoComercial) => {
+    setMenuAbierto(null); setMenuPosicion(null);
+    const lineas = buildLineasNSDesdeCartItems(doc.items);
+    const from: DocumentoComercialOrigenNS = {
+      id: doc.id,
+      numero: doc.numero ?? doc.serie,
+      tipo: doc.tipo as 'nota_venta' | 'orden_venta',
+      clienteNombre: doc.cliente?.nombre,
+      clienteDoc: doc.cliente?.numeroDocumento,
+      clienteDocTipo: doc.cliente?.tipoDocumento,
+      clienteDireccion: doc.cliente?.direccion,
+      moneda: doc.moneda,
+      lineas,
+    };
+    const stateKey = doc.tipo === 'orden_venta' ? 'fromOrdenVenta' : 'fromNotaVenta';
+    navigate('/inventario', { state: { tab: 'notas-salida', [stateKey]: from } });
+  }, [navigate]);
+
   const handleNuevo = useCallback(() => navigate(`/documentos-comerciales/nuevo/${tipo}`), [navigate, tipo]);
 
   const handleEditar = useCallback((doc: DocumentoComercial) => {
@@ -303,6 +373,17 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     if (!confirmandoAccion) return;
     if (confirmandoAccion.tipo === 'anular') {
       if (!confirmandoAccion.motivo.trim()) { feedback.warning('El motivo de anulación es obligatorio.'); return; }
+
+      // Cascade: anular la NS vinculada antes de anular la NV
+      const doc = state.documentos.find((d) => d.id === confirmandoAccion.id);
+      if (doc?.tipo === 'nota_venta' && doc.notaSalidaGenerada && doc.notaSalidaId) {
+        const okNS = anularNS(doc.notaSalidaId, `Anulado por anulación de ${doc.numero ?? doc.id}`);
+        if (!okNS) {
+          feedback.error('No se pudo anular la Nota de Salida vinculada. Intente nuevamente.');
+          return;
+        }
+      }
+
       const r = anularDocumento(confirmandoAccion.id, confirmandoAccion.motivo);
       if (r.exito) feedback.success(`${labelTipo} anulada exitosamente.`);
       else feedback.error(r.error ?? 'Error al anular.');
@@ -312,7 +393,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
       else feedback.error(r.error ?? 'Error al eliminar.');
     }
     setConfirmandoAccion(null);
-  }, [confirmandoAccion, anularDocumento, eliminarBorrador, feedback, labelTipo]);
+  }, [confirmandoAccion, anularDocumento, anularNS, eliminarBorrador, feedback, labelTipo, state.documentos]);
 
   const handleImprimir = useCallback(async (doc: DocumentoComercial, formato: 'a4' | 'ticket') => {
     setMenuAbierto(null); setMenuPosicion(null);
@@ -571,6 +652,11 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
               <FileCheck size={14} />Generar comprobante
             </button>
           )}
+          {puedeGenerarNS(menuDocActual, configState.salesPreferences, controlStockActivo) && (
+            <button type="button" onClick={() => handleGenerarNS(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-left font-medium">
+              <PackageMinus size={14} />Generar nota de salida
+            </button>
+          )}
           {puedeAnular(menuDocActual) && <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setConfirmandoAccion({ tipo: 'anular', id: menuDocActual.id, numero: menuDocActual.numero, motivo: '' }); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left"><Ban size={14} />Anular</button>}
           {menuDocActual.esBorrador && <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setConfirmandoAccion({ tipo: 'eliminar', id: menuDocActual.id, motivo: '' }); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-left"><Trash2 size={14} />Eliminar borrador</button>}
         </div>
@@ -772,6 +858,15 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg shadow-sm transition-all"
                     >
                       <FileCheck size={14} />Generar comprobante
+                    </button>
+                  )}
+                  {puedeGenerarNS(documentoDetalle, configState.salesPreferences, controlStockActivo) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDocumentoDetalle(null); handleGenerarNS(documentoDetalle); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg shadow-sm transition-all"
+                    >
+                      <PackageMinus size={14} />Generar nota de salida
                     </button>
                   )}
                   {puedeEditar(documentoDetalle) && (
