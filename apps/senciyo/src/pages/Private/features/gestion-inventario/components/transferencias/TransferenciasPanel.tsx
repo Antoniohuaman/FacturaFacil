@@ -1,11 +1,15 @@
 // src/features/gestion-inventario/components/transferencias/TransferenciasPanel.tsx
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Eye, Truck, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Plus, Eye, Truck, CheckCircle, XCircle, Ban, Download } from 'lucide-react';
 import type { Transferencia, EstadoTransferencia } from '../../models/transferencia.types';
 import DetalleTransferencia from './DetalleTransferencia';
 import ConfirmacionAnulacion from './ConfirmacionAnulacion';
-import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
+import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { formatBusinessDateTimeForTicket, getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 interface TransferenciasPanelProps {
   transferencias: Transferencia[];
@@ -24,7 +28,7 @@ const ESTADO_BADGE: Record<EstadoTransferencia, { label: string; cls: string }> 
   PENDIENTE:   { label: 'Pendiente',   cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700' },
   EN_TRANSITO: { label: 'En tránsito', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-700' },
   CONFIRMADA:  { label: 'Confirmada',  cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-700' },
-  RECIBIDA:    { label: 'Recibida',    cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-700' },
+  RECIBIDA:    { label: 'Recibida',    cls: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 border border-teal-200 dark:border-teal-700' },
   CANCELADA:   { label: 'Cancelada',   cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600' },
   ANULADA:     { label: 'Anulada',     cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-700' },
 };
@@ -53,6 +57,23 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
   const POR_PAGINA = 15;
+
+  const { allProducts } = useProductStore();
+  const { state: configState } = useConfigurationContext();
+
+  // Mapa productoId → unidad display para mostrar junto a la cantidad
+  const unidadPorProducto = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of allProducts) {
+      map[p.id] = getUnitDisplayForUI({
+        units: configState.units,
+        code: p.unidad,
+        fallbackSymbol: p.unitSymbol,
+        fallbackName: p.unitName,
+      }) || p.unidad || '';
+    }
+    return map;
+  }, [allProducts, configState.units]);
 
   const datosFiltrados = useMemo(() => {
     const termino = busqueda.toLowerCase().trim();
@@ -89,6 +110,51 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
       onAnular(anularId);
       setAnularId(null);
     }
+  };
+
+  // Exportar a Excel los resultados filtrados (todas las páginas)
+  const handleExportarExcel = () => {
+    const formatFecha = (d?: Date): string => {
+      if (!d) return '—';
+      try {
+        return formatBusinessDateTimeForTicket(d instanceof Date ? d : new Date(d as unknown as string));
+      } catch {
+        return '—';
+      }
+    };
+
+    const data = datosFiltrados.map(t => ({
+      'Código':                t.id,
+      'Fecha creación':        formatFecha(t.fecha),
+      'Producto':              t.productoNombre,
+      'Código producto':       t.productoCodigo,
+      'Cantidad':              t.cantidad,
+      'Unidad':                unidadPorProducto[t.productoId] || '—',
+      'Tipo':                  t.tipoTransferencia === 'INTRA_ESTABLECIMIENTO' ? 'Mismo establecimiento' : 'Entre establecimientos',
+      'Estado':                ESTADO_BADGE[t.estado].label,
+      'Estab. origen':         t.establecimientoOrigenNombre || '—',
+      'Almacén origen':        t.almacenOrigenNombre,
+      'Estab. destino':        t.establecimientoDestinoNombre || '—',
+      'Almacén destino':       t.almacenDestinoNombre,
+      'Usuario':               t.usuario,
+      'Referencia':            t.documentoReferencia || '—',
+      'Observaciones':         t.observaciones || '—',
+      'Fecha despacho':        formatFecha(t.fechaDespacho),
+      'Fecha recepción':       formatFecha(t.fechaRecepcion),
+      'Fecha anulación':       formatFecha(t.fechaAnulacion),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Transferencias');
+
+    ws['!cols'] = [
+      { wch: 22 }, { wch: 20 }, { wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
+      { wch: 22 }, { wch: 12 }, { wch: 28 }, { wch: 25 }, { wch: 28 }, { wch: 25 },
+      { wch: 20 }, { wch: 20 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+    ];
+
+    XLSX.writeFile(wb, `transferencias-inventario-${getBusinessTodayISODate()}.xlsx`);
   };
 
   return (
@@ -138,6 +204,18 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
 
           <div className="flex-1" />
 
+          {/* Exportar Excel */}
+          <button
+            onClick={handleExportarExcel}
+            disabled={datosFiltrados.length === 0}
+            title="Exportar transferencias filtradas a Excel"
+            className="inline-flex items-center h-9 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-[#E5E7EB] dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4 mr-1.5" />
+            Excel
+          </button>
+
+          {/* Nueva transferencia */}
           <button
             onClick={onNuevaTransferencia}
             className="inline-flex items-center h-9 px-4 text-sm font-medium text-white bg-[#6F36FF] hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 rounded-lg transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
@@ -184,6 +262,7 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                   datosPagina.map(t => {
                     const estadoBadge = ESTADO_BADGE[t.estado];
                     const tipoBadge = TIPO_BADGE[t.tipoTransferencia];
+                    const unidad = unidadPorProducto[t.productoId] || '';
                     const esOrigen = t.establecimientoOrigenId === currentEstablecimientoId;
                     const esDestino = t.establecimientoDestinoId === currentEstablecimientoId;
                     const flags = {
@@ -234,9 +313,10 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                             <p className="text-xs text-gray-400 truncate" title={t.establecimientoDestinoNombre}>{t.establecimientoDestinoNombre}</p>
                           )}
                         </td>
-                        {/* Cantidad */}
-                        <td className="px-3 py-2.5 whitespace-nowrap text-sm font-bold text-[#111827] dark:text-gray-100 tabular-nums">
-                          {t.cantidad}
+                        {/* Cantidad con unidad */}
+                        <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">
+                          <span className="text-sm font-bold text-[#111827] dark:text-gray-100">{t.cantidad}</span>
+                          {unidad && <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{unidad}</span>}
                         </td>
                         {/* Tipo */}
                         <td className="px-3 py-2.5 whitespace-nowrap">
@@ -261,7 +341,7 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                         {/* Acciones */}
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <div className="flex items-center gap-1">
-                            {/* Ver siempre disponible */}
+                            {/* Ver */}
                             <button
                               onClick={() => setDetallId(t.id)}
                               title="Ver detalle"
@@ -270,7 +350,7 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               <Eye className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* Despachar: solo establecimiento origen, solo inter-establecimiento */}
+                            {/* Despachar */}
                             {flags.puedeDespachar && (
                               <button
                                 onClick={() => onDespachar(t.id)}
@@ -281,7 +361,7 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               </button>
                             )}
 
-                            {/* Recibir: solo establecimiento destino */}
+                            {/* Recibir */}
                             {flags.puedeRecibir && (
                               <button
                                 onClick={() => onRecibir(t.id)}
@@ -292,7 +372,7 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               </button>
                             )}
 
-                            {/* Cancelar: solo establecimiento origen, solo pendiente */}
+                            {/* Cancelar */}
                             {flags.puedeCancelar && (
                               <button
                                 onClick={() => onCancelar(t.id)}
@@ -303,14 +383,14 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
                               </button>
                             )}
 
-                            {/* Anular: establecimiento origen o destino con permiso */}
+                            {/* Anular — acción destructiva, ícono Ban */}
                             {flags.puedeAnular && (
                               <button
                                 onClick={() => setAnularId(t.id)}
-                                title="Anular"
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-all"
+                                title="Anular transferencia"
+                                className="p-1.5 text-red-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-all"
                               >
-                                <RotateCcw className="w-3.5 h-3.5" />
+                                <Ban className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
