@@ -41,6 +41,7 @@ import {
   resolveIgvRateNS,
   calcularDesgloseTributarioNS,
 } from '../../services/notaSalida.service';
+import { obtenerReservasDeOV } from '../../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 
 const calcularLinea = (l: LineaNotaSalida): LineaNotaSalida => {
   const rate = resolveIgvRateNS(l.impuesto);
@@ -237,14 +238,38 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
     [almacenesActivos, almacenOrigenId],
   );
 
-  // ── Stock actual por producto/almacén ─────────────────────────────────────
-  const getStockActual = useCallback(
+  // ── Vínculo con Orden de Venta ────────────────────────────────────────────
+  // esNSVinculadaAOV solo es true cuando el vínculo viene del campo interno
+  // ordenVentaOrigenId, no del campo visual N° documento origen (solo texto).
+  const esNSVinculadaAOV = Boolean(notaInicial?.ordenVentaOrigenId);
+
+  const reservasOV = useMemo((): Array<{ sku: string; cantidad: number; almacenId: string }> => {
+    if (!esNSVinculadaAOV || !notaInicial?.ordenVentaOrigenId) return [];
+    return obtenerReservasDeOV(notaInicial.ordenVentaOrigenId);
+  }, [esNSVinculadaAOV, notaInicial?.ordenVentaOrigenId]);
+
+  // ── Stock permitido por producto/almacén ──────────────────────────────────
+  // NS manual:      disponible libre = real − reservadoTotal
+  // NS vinculada OV: reserva propia pendiente = min(reserva original OV, reservadoTotal actual)
+  //   El min() asegura que los despachos parciales previos (que redujeron stockReservado) se reflejen.
+  const getStockPermitido = useCallback(
     (productoId: string, almId: string): number => {
       if (!almId) return 0;
       const product = allProducts.find(p => String(p.id) === productoId);
-      return product?.stockPorAlmacen?.[almId] ?? 0;
+      if (!product) return 0;
+      const reservadoTotal = Math.max(0, product.stockReservadoPorAlmacen?.[almId] ?? 0);
+      if (esNSVinculadaAOV) {
+        const ovOriginal = reservasOV
+          .filter(r => r.sku === product.codigo && r.almacenId === almId)
+          .reduce((s, r) => s + r.cantidad, 0);
+        if (ovOriginal > 0) {
+          return Math.min(ovOriginal, reservadoTotal);
+        }
+      }
+      const real = product.stockPorAlmacen?.[almId] ?? 0;
+      return Math.max(0, real - reservadoTotal);
     },
-    [allProducts],
+    [allProducts, esNSVinculadaAOV, reservasOV],
   );
 
   // ── Líneas con stock insuficiente (validación visual en tiempo real) ───────
@@ -254,11 +279,11 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
       if (l.tipoBienServicio !== 'bien') continue;
       const almId = l.almacenId ?? almacenOrigenId;
       if (!almId) continue;
-      const stock = getStockActual(l.productoId, almId);
-      if (l.cantidad > stock) invalidas.add(l.id);
+      const permitido = getStockPermitido(l.productoId, almId);
+      if (l.cantidad > permitido) invalidas.add(l.id);
     }
     return invalidas;
-  }, [lineas, almacenOrigenId, getStockActual]);
+  }, [lineas, almacenOrigenId, getStockPermitido]);
 
   // ── Totales ───────────────────────────────────────────────────────────────
   const totales = useMemo(() => {
@@ -300,26 +325,41 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
         feedback.warning('Seleccione un almacén de origen antes de agregar productos.');
         return;
       }
-      const nuevasLineas: LineaNotaSalida[] = bienes.map(({ product, quantity }) =>
-        calcularLinea({
-          id: `linea-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          productoId: String(product.id),
-          productoCodigo: product.code ?? product.codigo ?? '',
-          productoNombre: product.name ?? product.nombre ?? '',
-          tipoBienServicio: 'bien',
-          unidad: product.unidad ?? 'NIU',
-          unidadCodigo: product.unidad ?? 'NIU',
-          impuesto: product.impuesto ?? undefined,
-          almacenId: almacenOrigenId,
-          almacenNombre: almacenOrigen?.nombreAlmacen ?? '',
-          cantidad: quantity,
-          pvUnitario: product.precioVenta ?? product.precio ?? 0,
-          subtotal: 0,
-          igv: 0,
-          total: 0,
-        }),
-      );
-      setLineas(prev => [...prev, ...nuevasLineas]);
+      setLineas(prev => {
+        let result = [...prev];
+        for (const { product, quantity } of bienes) {
+          const productoId = String(product.id);
+          const unidad = product.unidad ?? 'NIU';
+          const idx = result.findIndex(
+            l => l.productoId === productoId && l.almacenId === almacenOrigenId && l.unidad === unidad,
+          );
+          if (idx >= 0) {
+            result[idx] = calcularLinea({ ...result[idx], cantidad: result[idx].cantidad + quantity });
+          } else {
+            result = [
+              ...result,
+              calcularLinea({
+                id: `linea-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                productoId,
+                productoCodigo: product.code ?? product.codigo ?? '',
+                productoNombre: product.name ?? product.nombre ?? '',
+                tipoBienServicio: 'bien',
+                unidad,
+                unidadCodigo: unidad,
+                impuesto: product.impuesto ?? undefined,
+                almacenId: almacenOrigenId,
+                almacenNombre: almacenOrigen?.nombreAlmacen ?? '',
+                cantidad: quantity,
+                pvUnitario: product.precioVenta ?? product.precio ?? 0,
+                subtotal: 0,
+                igv: 0,
+                total: 0,
+              }),
+            ];
+          }
+        }
+        return result;
+      });
     },
     [feedback, almacenOrigenId, almacenOrigen],
   );
@@ -789,7 +829,7 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {lineas.map(linea => {
-                      const stockActual = getStockActual(linea.productoId, linea.almacenId ?? almacenOrigenId);
+                      const stockPermitido = getStockPermitido(linea.productoId, linea.almacenId ?? almacenOrigenId);
                       const sinStock = lineasConStockInsuficiente.has(linea.id);
                       return (
                         <tr key={linea.id} className={`transition-colors ${sinStock ? 'bg-red-50/60 dark:bg-red-900/10' : 'hover:bg-slate-50/70 dark:hover:bg-gray-700/30'}`}>
@@ -817,7 +857,7 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
                           </td>
                           <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">{linea.unidad}</td>
                           <td className={`px-3 py-2 text-right text-[12px] font-mono ${sinStock ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>
-                            {stockActual}
+                            {stockPermitido}
                             {sinStock && <span className="ml-1 text-[10px]">↓</span>}
                           </td>
                           <td className="px-3 py-2">

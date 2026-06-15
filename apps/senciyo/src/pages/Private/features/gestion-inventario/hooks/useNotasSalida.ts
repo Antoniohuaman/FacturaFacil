@@ -39,6 +39,7 @@ export const useNotasSalida = () => {
   const usuarioId = session?.userId ?? '';
 
   const [notas, setNotas] = useState<NotaSalida[]>(() => cargarNotasSalida());
+  const [procesando, setProcesando] = useState(false);
 
   useEffect(() => {
     const recargar = () => setNotas(cargarNotasSalida());
@@ -77,25 +78,27 @@ export const useNotasSalida = () => {
 
   const generarNS = useCallback(
     (notaId: string): boolean => {
-      const notasActuales = cargarNotasSalida();
-      const nota = notasActuales.find(n => n.id === notaId);
-      if (!nota) {
-        feedback.error('Nota de Salida no encontrada.');
-        return false;
-      }
-
-      const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
-      if (!almacenesMap.has(nota.almacenOrigenId)) {
-        feedback.error('Almacén de origen no encontrado. Verifique la configuración.');
-        return false;
-      }
-
-      if (nota.lineas.every(l => l.tipoBienServicio === 'servicio')) {
-        feedback.error('La Nota de Salida no puede contener solo servicios.');
-        return false;
-      }
-
+      if (procesando) return false;
+      setProcesando(true);
       try {
+        const notasActuales = cargarNotasSalida();
+        const nota = notasActuales.find(n => n.id === notaId);
+        if (!nota) {
+          feedback.error('Nota de Salida no encontrada.');
+          return false;
+        }
+
+        const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
+        if (!almacenesMap.has(nota.almacenOrigenId)) {
+          feedback.error('Almacén de origen no encontrado. Verifique la configuración.');
+          return false;
+        }
+
+        if (nota.lineas.every(l => l.tipoBienServicio === 'servicio')) {
+          feedback.error('La Nota de Salida no puede contener solo servicios.');
+          return false;
+        }
+
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
         const { notaActualizada, productosActualizados } = generarNSEnInventario(
           nota,
@@ -125,10 +128,27 @@ export const useNotasSalida = () => {
         }
 
         if (notaActualizada.ordenVentaOrigenId) {
-          // Liberar la reserva de stock de la OV en ambos flujos (comprobante o directo)
-          const reservas = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
-          if (reservas.length > 0) {
-            liberarReservasDeOV(reservas);
+          // Liberar solo la cantidad realmente despachada en esta NS (soporte salida parcial).
+          // No liberar toda la reserva OV de una vez: si la NS es parcial, la reserva pendiente
+          // debe quedar activa para futuros despachos.
+          const reservasOV = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
+          if (reservasOV.length > 0) {
+            const aLiberar: Array<{ sku: string; cantidad: number; almacenId: string }> = [];
+            for (const linea of notaActualizada.lineas.filter(l => l.tipoBienServicio === 'bien')) {
+              const almId = linea.almacenId ?? notaActualizada.almacenOrigenId;
+              const prod = productsMap.get(linea.productoId);
+              if (!prod?.codigo) continue;
+              const maxLiberable = reservasOV
+                .filter(r => r.sku === prod.codigo && r.almacenId === almId)
+                .reduce((s, r) => s + r.cantidad, 0);
+              const cantLiberar = Math.min(linea.cantidad, maxLiberable);
+              if (cantLiberar > 0) {
+                aLiberar.push({ sku: prod.codigo, cantidad: cantLiberar, almacenId: almId });
+              }
+            }
+            if (aLiberar.length > 0) {
+              liberarReservasDeOV(aLiberar);
+            }
           }
 
           if (notaActualizada.origen === 'OrdenVenta') {
@@ -168,28 +188,31 @@ export const useNotasSalida = () => {
         const msg = err instanceof Error ? err.message : 'Error al generar la Nota de Salida.';
         feedback.error(msg);
         return false;
+      } finally {
+        setProcesando(false);
       }
     },
-    [allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
   );
 
   const anularNS = useCallback(
     (notaId: string, motivoAnulacion: string): boolean => {
-      const notasActuales = cargarNotasSalida();
-      const nota = notasActuales.find(n => n.id === notaId);
-      if (!nota) {
-        feedback.error('Nota de Salida no encontrada.');
-        return false;
-      }
-
-      if (!motivoAnulacion.trim()) {
-        feedback.error('Debe especificar el motivo de anulación.');
-        return false;
-      }
-
-      const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
-
+      if (procesando) return false;
+      setProcesando(true);
       try {
+        const notasActuales = cargarNotasSalida();
+        const nota = notasActuales.find(n => n.id === notaId);
+        if (!nota) {
+          feedback.error('Nota de Salida no encontrada.');
+          return false;
+        }
+
+        if (!motivoAnulacion.trim()) {
+          feedback.error('Debe especificar el motivo de anulación.');
+          return false;
+        }
+
+        const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
         const { notaActualizada, productosActualizados } = anularNSEnInventario(
           nota,
@@ -230,9 +253,11 @@ export const useNotasSalida = () => {
         const msg = err instanceof Error ? err.message : 'Error al anular la Nota de Salida.';
         feedback.error(msg);
         return false;
+      } finally {
+        setProcesando(false);
       }
     },
-    [allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
   );
 
   const marcarComoEntregada = useCallback(
@@ -280,6 +305,7 @@ export const useNotasSalida = () => {
     notas,
     usuarioNombre,
     usuarioId,
+    procesando,
     guardarBorrador,
     generarNS,
     anularNS,

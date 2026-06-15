@@ -170,6 +170,8 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
           datos.items,
           configState.almacenes ?? [],
           activeEstablecimientoId ?? '',
+          numero,
+          session?.userName ?? 'Usuario',
         );
       }
 
@@ -297,6 +299,8 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
           datos.items,
           configState.almacenes ?? [],
           activeEstablecimientoId ?? '',
+          numero,
+          session?.userName ?? 'Usuario',
         );
       }
 
@@ -465,7 +469,12 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       }
 
       if (doc.tipo === 'nota_venta' && doc.modoDescuentoStock === 'automatico' && doc.reservasStock?.length) {
-        revertirDescuentoStockDocumento(doc.reservasStock);
+        revertirDescuentoStockDocumento(
+          doc.reservasStock,
+          configState.almacenes ?? [],
+          doc.numero ?? doc.id,
+          session?.userName ?? 'Usuario',
+        );
         accionHistorial = 'Descuento de stock revertido por anulación';
         const productosRevertidos = doc.reservasStock
           .map((r) => `${r.nombre} (${r.cantidad})`)
@@ -486,7 +495,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       actualizarEnContext(actualizado);
       return { exito: true, documento: actualizado };
     },
-    [state.documentos, actualizarEnContext, session],
+    [state.documentos, actualizarEnContext, session, configState.almacenes],
   );
 
   const duplicarDocumento = useCallback(

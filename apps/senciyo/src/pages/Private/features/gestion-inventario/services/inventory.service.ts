@@ -138,6 +138,10 @@ export class InventoryService {
     data: StockAdjustmentData,
     usuario: string
   ): { product: Product; movement: MovimientoStock } {
+    if (!Number.isFinite(data.cantidad) || data.cantidad <= 0) {
+      throw new Error('La cantidad del movimiento debe ser mayor a cero.');
+    }
+
     const stockActual = this.getStock(product, data.almacenId);
     let nuevoStock = stockActual;
 

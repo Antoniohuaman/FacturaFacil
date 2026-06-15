@@ -29,6 +29,7 @@ export const useNotasIngreso = () => {
   const usuarioId = session?.userId ?? '';
 
   const [notas, setNotas] = useState<NotaIngreso[]>(() => cargarNotasIngreso());
+  const [procesando, setProcesando] = useState(false);
 
   useEffect(() => {
     const recargar = () => setNotas(cargarNotasIngreso());
@@ -66,25 +67,27 @@ export const useNotasIngreso = () => {
 
   const generarNI = useCallback(
     (notaId: string): boolean => {
-      const notasActuales = cargarNotasIngreso();
-      const nota = notasActuales.find(n => n.id === notaId);
-      if (!nota) {
-        feedback.error('Nota de Ingreso no encontrada.');
-        return false;
-      }
-
-      const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
-      if (!almacenesMap.has(nota.almacenDestinoId)) {
-        feedback.error('Almacén de destino no encontrado. Verifique la configuración.');
-        return false;
-      }
-
-      if (nota.lineas.every(l => l.tipoBienServicio === 'servicio')) {
-        feedback.error('La Nota de Ingreso no puede contener solo servicios.');
-        return false;
-      }
-
+      if (procesando) return false;
+      setProcesando(true);
       try {
+        const notasActuales = cargarNotasIngreso();
+        const nota = notasActuales.find(n => n.id === notaId);
+        if (!nota) {
+          feedback.error('Nota de Ingreso no encontrada.');
+          return false;
+        }
+
+        const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
+        if (!almacenesMap.has(nota.almacenDestinoId)) {
+          feedback.error('Almacén de destino no encontrado. Verifique la configuración.');
+          return false;
+        }
+
+        if (nota.lineas.every(l => l.tipoBienServicio === 'servicio')) {
+          feedback.error('La Nota de Ingreso no puede contener solo servicios.');
+          return false;
+        }
+
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
         const { notaActualizada, productosActualizados } = generarNIEnInventario(
           nota,
@@ -106,32 +109,36 @@ export const useNotasIngreso = () => {
         const msg = err instanceof Error ? err.message : 'Error al generar la Nota de Ingreso.';
         feedback.error(msg);
         return false;
+      } finally {
+        setProcesando(false);
       }
     },
-    [allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
   );
 
   const anularNI = useCallback(
     (notaId: string, motivoAnulacion: string): boolean => {
-      const notasActuales = cargarNotasIngreso();
-      const nota = notasActuales.find(n => n.id === notaId);
-      if (!nota) {
-        feedback.error('Nota de Ingreso no encontrada.');
-        return false;
-      }
-
-      if (!motivoAnulacion.trim()) {
-        feedback.error('Debe especificar el motivo de anulación.');
-        return false;
-      }
-
-      const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
-      if (!almacenesMap.has(nota.almacenDestinoId)) {
-        feedback.error('Almacén de destino no encontrado.');
-        return false;
-      }
-
+      if (procesando) return false;
+      setProcesando(true);
       try {
+        const notasActuales = cargarNotasIngreso();
+        const nota = notasActuales.find(n => n.id === notaId);
+        if (!nota) {
+          feedback.error('Nota de Ingreso no encontrada.');
+          return false;
+        }
+
+        if (!motivoAnulacion.trim()) {
+          feedback.error('Debe especificar el motivo de anulación.');
+          return false;
+        }
+
+        const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
+        if (!almacenesMap.has(nota.almacenDestinoId)) {
+          feedback.error('Almacén de destino no encontrado.');
+          return false;
+        }
+
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
         const { notaActualizada, productosActualizados } = anularNIEnInventario(
           nota,
@@ -153,9 +160,11 @@ export const useNotasIngreso = () => {
         const msg = err instanceof Error ? err.message : 'Error al anular la Nota de Ingreso.';
         feedback.error(msg);
         return false;
+      } finally {
+        setProcesando(false);
       }
     },
-    [allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
   );
 
   const eliminarNI = useCallback(
@@ -181,6 +190,7 @@ export const useNotasIngreso = () => {
     notas,
     usuarioNombre,
     usuarioId,
+    procesando,
     guardarBorrador,
     generarNI,
     anularNI,

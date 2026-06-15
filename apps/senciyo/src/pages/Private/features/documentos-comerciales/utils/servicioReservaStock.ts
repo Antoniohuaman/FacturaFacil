@@ -2,6 +2,7 @@ import type { CartItem } from '../models/documentoComercial.types';
 import type { ReservaStockItem } from '../models/documentoComercial.types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { InventoryService } from '../../gestion-inventario/services/inventory.service';
 import {
   summarizeProductStock,
   resolvealmacenForSale,
@@ -167,7 +168,9 @@ export function reservarStockOrden(
 /**
  * Descuenta stock real para documentos comerciales en modo automático (ej: Nota de Venta).
  * Usa FIFO para determinar qué almacén descontar.
- * Decrece stockPorAlmacen. No toca stockReservadoPorAlmacen.
+ * Decrece stockPorAlmacen, recalcula stockPorEstablecimiento/cantidad y genera movimiento
+ * Kardex de salida cuando se proporcionan documentoReferencia y usuario.
+ * No toca stockReservadoPorAlmacen.
  * Retorna el detalle de lo descontado para poder revertirlo al anular el documento.
  *
  * Solo se llama si validarStockParaOrden retornó { valido: true }.
@@ -176,6 +179,8 @@ export function descontarStockParaDocumento(
   items: CartItem[],
   almacenes: Almacen[],
   establecimientoId: string,
+  documentoReferencia?: string,
+  usuario?: string,
 ): ReservaStockItem[] {
   const almacenesOrdered = resolvealmacenesForSaleFIFO({
     almacenes,
@@ -201,14 +206,39 @@ export function descontarStockParaDocumento(
       // Leer estado fresco antes de cada actualización para no pisar descuentos anteriores
       const productoCurrent =
         useProductStore.getState().allProducts.find((p) => p.codigo === item.code) ?? producto;
-      const stockActual = toNum((productoCurrent.stockPorAlmacen ?? {})[alloc.almacenId]);
-      const nuevoStock = Math.max(0, stockActual - alloc.qtyUnidadMinima);
-      useProductStore.getState().updateProduct(productoCurrent.id, {
-        stockPorAlmacen: {
-          ...(productoCurrent.stockPorAlmacen ?? {}),
-          [alloc.almacenId]: nuevoStock,
-        },
-      });
+      const almacenObj = almacenMap.get(alloc.almacenId);
+
+      if (almacenObj && documentoReferencia && usuario) {
+        // Usar registerAdjustment: descuenta stock + registra movimiento Kardex en un paso
+        const { product: productoActualizado } = InventoryService.registerAdjustment(
+          productoCurrent,
+          almacenObj,
+          {
+            productoId: productoCurrent.id,
+            almacenId: alloc.almacenId,
+            tipo: 'SALIDA',
+            motivo: 'VENTA',
+            cantidad: alloc.qtyUnidadMinima,
+            observaciones: `Nota de Venta ${documentoReferencia}`,
+            documentoReferencia,
+          },
+          usuario,
+        );
+        // Recalcular stockPorEstablecimiento y cantidad
+        const productoConTotales = InventoryService.recalcularTotalesStock(productoActualizado, almacenes);
+        useProductStore.getState().updateProduct(productoCurrent.id, productoConTotales);
+      } else {
+        // Sin parámetros de Kardex: solo actualizar stockPorAlmacen directamente
+        const stockActual = toNum((productoCurrent.stockPorAlmacen ?? {})[alloc.almacenId]);
+        const nuevoStock = Math.max(0, stockActual - alloc.qtyUnidadMinima);
+        useProductStore.getState().updateProduct(productoCurrent.id, {
+          stockPorAlmacen: {
+            ...(productoCurrent.stockPorAlmacen ?? {}),
+            [alloc.almacenId]: nuevoStock,
+          },
+        });
+      }
+
       descuentos.push({
         sku: producto.codigo,
         nombre: item.name,
@@ -225,19 +255,51 @@ export function descontarStockParaDocumento(
 /**
  * Revierte un descuento de stock realizado por descontarStockParaDocumento.
  * Incrementa stockPorAlmacen de vuelta a su valor anterior.
+ * Genera movimiento Kardex inverso de AJUSTE_POSITIVO cuando se proporcionan
+ * almacenes, documentoReferencia y usuario.
  * Se llama al anular un documento comercial con modoDescuentoStock 'automatico'.
  */
-export function revertirDescuentoStockDocumento(descuentos: ReservaStockItem[]): void {
+export function revertirDescuentoStockDocumento(
+  descuentos: ReservaStockItem[],
+  almacenes?: Almacen[],
+  documentoReferencia?: string,
+  usuario?: string,
+): void {
   for (const descuento of descuentos) {
     const producto = useProductStore.getState().allProducts.find((p) => p.codigo === descuento.sku);
     if (!producto) continue;
-    const stockActual = toNum((producto.stockPorAlmacen ?? {})[descuento.almacenId]);
-    useProductStore.getState().updateProduct(producto.id, {
-      stockPorAlmacen: {
-        ...(producto.stockPorAlmacen ?? {}),
-        [descuento.almacenId]: stockActual + descuento.cantidad,
-      },
-    });
+
+    const almacenObj = almacenes?.find((a) => a.id === descuento.almacenId);
+
+    if (almacenObj && documentoReferencia && usuario) {
+      // Usar registerAdjustment: repone stock + registra movimiento Kardex inverso
+      const { product: productoActualizado } = InventoryService.registerAdjustment(
+        producto,
+        almacenObj,
+        {
+          productoId: producto.id,
+          almacenId: descuento.almacenId,
+          tipo: 'AJUSTE_POSITIVO',
+          motivo: 'VENTA',
+          cantidad: descuento.cantidad,
+          observaciones: `Anulación Nota de Venta ${documentoReferencia}`,
+          documentoReferencia,
+        },
+        usuario,
+      );
+      // Recalcular stockPorEstablecimiento y cantidad
+      const productoConTotales = InventoryService.recalcularTotalesStock(productoActualizado, almacenes ?? []);
+      useProductStore.getState().updateProduct(producto.id, productoConTotales);
+    } else {
+      // Sin parámetros de Kardex: solo actualizar stockPorAlmacen directamente
+      const stockActual = toNum((producto.stockPorAlmacen ?? {})[descuento.almacenId]);
+      useProductStore.getState().updateProduct(producto.id, {
+        stockPorAlmacen: {
+          ...(producto.stockPorAlmacen ?? {}),
+          [descuento.almacenId]: stockActual + descuento.cantidad,
+        },
+      });
+    }
   }
 }
 

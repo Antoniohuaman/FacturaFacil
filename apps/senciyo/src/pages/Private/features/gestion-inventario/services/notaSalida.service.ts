@@ -7,6 +7,7 @@ import { InventoryService } from './inventory.service';
 import { CORRELATIVO_DIGITOS_NS } from '../models/notaSalida.constants';
 import type { NotaSalida, TipoSalida, LineaNotaSalida } from '../models/notaSalida.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
+import { obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 
 // ─── Mapeo de tipo de salida a motivo Kardex ───────────────────────────────
 
@@ -166,19 +167,68 @@ export const generarNSEnInventario = (
   }
 
   // ── Validación de stock suficiente (TRANSACCIONAL: si falla una línea, abortar todo) ──
+  // NS manual:       valida disponible libre = real − reservadoTotal.
+  // NS vinculada OV: valida contra reservaPropiaPendiente = min(reservaOriginalOV, reservadoTotal).
+  //   min() asegura que despachos parciales previos que redujeron reservadoTotal se reflejen.
+  //   filter+reduce suma todas las entradas de reserva para ese producto+almacén (no solo la primera).
   const lineasBienes = nota.lineas.filter(l => l.tipoBienServicio === 'bien');
+  const esNSVinculadaAOV = Boolean(nota.ordenVentaOrigenId);
+  const reservasOV = esNSVinculadaAOV && nota.ordenVentaOrigenId
+    ? obtenerReservasDeOV(nota.ordenVentaOrigenId)
+    : [];
+
   for (const linea of lineasBienes) {
     const producto = productsMap.get(linea.productoId);
     if (!producto) continue;
     const almacenLinea = almacenesMap.get(linea.almacenId ?? nota.almacenOrigenId);
     if (!almacenLinea) continue;
-    const stockActual = InventoryService.getStock(producto, almacenLinea.id);
-    if (stockActual < linea.cantidad) {
-      throw new Error(
-        `No hay stock suficiente en el almacén seleccionado para generar la nota de salida. ` +
-        `El producto "${linea.productoNombre}" tiene stock ${stockActual} en "${almacenLinea.nombreAlmacen}" ` +
-        `y se necesitan ${linea.cantidad}.`,
-      );
+
+    const stockReal = InventoryService.getStock(producto, almacenLinea.id);
+    const stockReservadoTotal = InventoryService.getReservedStock(producto, almacenLinea.id);
+
+    if (esNSVinculadaAOV) {
+      const ovOriginal = reservasOV
+        .filter(r => r.sku === producto.codigo && r.almacenId === almacenLinea.id)
+        .reduce((s, r) => s + r.cantidad, 0);
+
+      if (ovOriginal > 0) {
+        // Reserva propia pendiente = reserva original de esta OV, acotada al reservado actual
+        const reservaPropiaPendiente = Math.min(ovOriginal, stockReservadoTotal);
+        if (linea.cantidad > reservaPropiaPendiente) {
+          throw new Error(
+            `La cantidad solicitada (${linea.cantidad}) excede la reserva pendiente de la Orden de Venta ` +
+            `para "${linea.productoNombre}" en "${almacenLinea.nombreAlmacen}" ` +
+            `(reserva pendiente: ${reservaPropiaPendiente}).`,
+          );
+        }
+        if (linea.cantidad > stockReal) {
+          throw new Error(
+            `No hay stock físico suficiente para "${linea.productoNombre}" en "${almacenLinea.nombreAlmacen}" ` +
+            `(real: ${stockReal}, solicitado: ${linea.cantidad}).`,
+          );
+        }
+      } else {
+        // Sin reserva OV para este producto/almacén: usar disponible libre como fallback
+        const stockDisponible = Math.max(0, stockReal - stockReservadoTotal);
+        if (linea.cantidad > stockDisponible) {
+          throw new Error(
+            `No hay stock disponible suficiente para "${linea.productoNombre}" en "${almacenLinea.nombreAlmacen}" ` +
+            `(disponible: ${stockDisponible}, solicitado: ${linea.cantidad}).`,
+          );
+        }
+      }
+    } else {
+      const stockDisponible = Math.max(0, stockReal - stockReservadoTotal);
+      if (linea.cantidad > stockDisponible) {
+        const detalle = stockReservadoTotal > 0
+          ? ` (${stockReal} real − ${stockReservadoTotal} reservado = ${stockDisponible} disponible)`
+          : ` (stock disponible: ${stockDisponible})`;
+        throw new Error(
+          `No hay stock disponible suficiente. Existen unidades reservadas para otros documentos. ` +
+          `El producto "${linea.productoNombre}"${detalle} en "${almacenLinea.nombreAlmacen}" ` +
+          `y se necesitan ${linea.cantidad}.`,
+        );
+      }
     }
   }
 

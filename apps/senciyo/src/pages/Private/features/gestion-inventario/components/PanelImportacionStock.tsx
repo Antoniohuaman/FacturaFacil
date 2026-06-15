@@ -43,6 +43,7 @@ type ResultadoImportacion = {
 type ResultadoReset = {
   loteId: string;
   movimientos: number;
+  erroresReserva?: string[];
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -453,6 +454,15 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
             errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: El stock final no puede ser negativo.`);
             continue;
           }
+          // H-03: Bloquear si el nuevo stock sería menor al reservado activo
+          const stockReservado = productoActual.stockReservadoPorAlmacen?.[almacenId] ?? 0;
+          if (cantidadArchivo < stockReservado) {
+            errores.push(
+              `${fila.codigo} [${almacen.codigoAlmacen}]: No se puede actualizar el stock a ${cantidadArchivo} ` +
+              `porque hay ${stockReservado} unidades reservadas. El stock final debe ser mayor o igual a ${stockReservado}.`
+            );
+            continue;
+          }
           if (stockActual === cantidadArchivo) { sinCambios++; continue; }
 
           const diferencia = cantidadArchivo - stockActual;
@@ -495,20 +505,41 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     : almacenesActivos.filter(w => almacenesSeleccionados.includes(w.id));
 
   const confirmarReset = () => {
+    // H-03: Bloquear si existe stock reservado en algún producto+almacén seleccionado
+    const productosConReserva: string[] = [];
+    for (const almacen of almacenesParaReset) {
+      for (const idProducto of Array.from(productosSeleccionados)) {
+        const prod = allProducts.find(p => p.id === idProducto);
+        if (!prod) continue;
+        const reservado = prod.stockReservadoPorAlmacen?.[almacen.id] ?? 0;
+        if (reservado > 0) {
+          const entrada = `${prod.nombre} [${almacen.codigoAlmacen}]: ${reservado} reservado(s)`;
+          if (!productosConReserva.includes(entrada)) productosConReserva.push(entrada);
+        }
+      }
+    }
+
+    if (productosConReserva.length > 0) {
+      setResultadoReset({ loteId: generarIdLote('RST'), movimientos: 0, erroresReserva: productosConReserva });
+      setPasoReset('resultado');
+      return;
+    }
+
     const loteId = generarIdLote('RST');
     let movimientos = 0;
 
     almacenesParaReset.forEach(almacen => {
       productosSeleccionados.forEach(idProducto => {
-        const producto = allProducts.find(p => p.id === idProducto);
-        if (!producto) return;
-        const stockActual = producto.stockPorAlmacen?.[almacen.id] ?? 0;
+        // H-08: Leer producto fresco para evitar snapshot stale en reset multi-almacén
+        const productoFresco = useProductStore.getState().allProducts.find(p => p.id === idProducto);
+        if (!productoFresco) return;
+        const stockActual = productoFresco.stockPorAlmacen?.[almacen.id] ?? 0;
         if (stockActual <= 0) return;
 
         const resultado = InventoryService.registerAdjustment(
-          producto, almacen,
+          productoFresco, almacen,
           {
-            productoId: producto.id,
+            productoId: productoFresco.id,
             almacenId: almacen.id,
             tipo: 'AJUSTE_NEGATIVO',
             motivo: 'AJUSTE_INVENTARIO',
@@ -518,7 +549,9 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
           },
           nombreUsuario
         );
-        updateProduct(producto.id, resultado.product);
+        // H-04: Recalcular stockPorEstablecimiento y cantidad después del reset
+        const productoFinal = InventoryService.recalcularTotalesStock(resultado.product, almacenesActivos);
+        updateProduct(productoFresco.id, productoFinal);
         movimientos++;
       });
     });
@@ -1044,13 +1077,32 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
 
             {pasoReset === 'resultado' && resultadoReset && (
               <div className="space-y-3">
-                <div className={`rounded-lg p-4 ${resultadoReset.movimientos > 0 ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700' : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700'}`}>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                    {resultadoReset.movimientos > 0 ? '✅ Reseteo completado' : 'Sin cambios — stock ya era 0'}
-                  </p>
-                  <p className="text-xs text-gray-700 dark:text-gray-300">Movimientos: <strong>{resultadoReset.movimientos}</strong></p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Lote: {resultadoReset.loteId}</p>
-                </div>
+                {resultadoReset.erroresReserva && resultadoReset.erroresReserva.length > 0 ? (
+                  <div className="rounded-lg p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700">
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">
+                      ⛔ No se puede resetear — existen reservas activas
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-400 mb-2">
+                      No se puede resetear este stock porque existen unidades reservadas por órdenes de venta activas.
+                    </p>
+                    <div className="space-y-0.5 max-h-32 overflow-auto">
+                      {resultadoReset.erroresReserva.slice(0, 10).map((e, i) => (
+                        <p key={i} className="text-xs text-red-600 dark:text-red-400">• {e}</p>
+                      ))}
+                      {resultadoReset.erroresReserva.length > 10 && (
+                        <p className="text-xs text-red-500">... y {resultadoReset.erroresReserva.length - 10} más</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`rounded-lg p-4 ${resultadoReset.movimientos > 0 ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700' : 'bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700'}`}>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                      {resultadoReset.movimientos > 0 ? '✅ Reseteo completado' : 'Sin cambios — stock ya era 0'}
+                    </p>
+                    <p className="text-xs text-gray-700 dark:text-gray-300">Movimientos: <strong>{resultadoReset.movimientos}</strong></p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Lote: {resultadoReset.loteId}</p>
+                  </div>
+                )}
                 <div className="flex justify-end">
                   <button
                     onClick={() => {
@@ -1062,7 +1114,7 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                     }}
                     className="px-4 py-2 text-xs text-orange-600 dark:text-orange-400 border border-orange-300 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-colors"
                   >
-                    Nuevo reseteo
+                    {resultadoReset.erroresReserva?.length ? 'Volver' : 'Nuevo reseteo'}
                   </button>
                 </div>
               </div>
