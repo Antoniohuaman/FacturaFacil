@@ -205,7 +205,7 @@ export const InventoryPage: React.FC = () => {
             {controlStockActivo ? (
               <>
                 <span
-                  title="Control de inventario activo"
+                  title="Inventario activo"
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 text-xs font-medium text-green-700 dark:text-green-400"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 flex-shrink-0" />
@@ -221,7 +221,7 @@ export const InventoryPage: React.FC = () => {
               </>
             ) : (
               <span
-                title="Control de inventario inactivo"
+                title="Inventario inactivo"
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400"
               >
                 Inactivo

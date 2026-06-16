@@ -85,7 +85,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     },
     {
       id: "inventario",
-      title: "Control Stock",
+      title: "Inventario",
       icon: "Boxes"
     },
     {

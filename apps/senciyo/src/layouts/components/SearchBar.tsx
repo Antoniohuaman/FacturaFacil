@@ -1272,7 +1272,7 @@ const SearchBarContent = ({
     { id: 'ir-dashboard', nombre: 'Dashboard Principal', categoria: 'navegacion' },
     { id: 'ir-ventas', nombre: 'Módulo de Ventas', categoria: 'navegacion' },
     { id: 'ir-compras', nombre: 'Módulo de Compras', categoria: 'navegacion' },
-    { id: 'ir-inventario', nombre: 'Gestión de Inventario', categoria: 'navegacion' },
+    { id: 'ir-inventario', nombre: 'Inventario', categoria: 'navegacion' },
     { id: 'ir-reportes', nombre: 'Centro de Reportes', categoria: 'navegacion' },
     { id: 'ir-configuracion-avanzada', nombre: 'Configuración Avanzada', categoria: 'navegacion' }
   ];

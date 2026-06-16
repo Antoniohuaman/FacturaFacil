@@ -180,7 +180,7 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
         controlStockActivo: false,
       },
     });
-    feedback.info('Control de inventario desactivado.');
+    feedback.info('Inventario desactivado.');
     onClose();
   };
 
@@ -221,7 +221,7 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
                 <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-amber-900">
-                    ¿Desactivar el control de inventario?
+                    ¿Desactivar el inventario?
                   </p>
                   <p className="mt-1 text-xs text-amber-700 leading-relaxed">
                     Al desactivar, tus documentos dejarán de descontar stock según estas reglas. El stock registrado, movimientos y Kardex histórico se conservarán.

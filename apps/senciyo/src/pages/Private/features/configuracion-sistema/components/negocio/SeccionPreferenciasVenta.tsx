@@ -64,13 +64,13 @@ export function SalesPreferencesSection({
 
   return (
     <>
-      <TarjetaConfiguracion title="Control de stock" icon={Package}>
+      <TarjetaConfiguracion title="Inventario" icon={Package}>
         {controlActivo ? (
           <div className="space-y-4">
             {/* Estado activo */}
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <span className="text-sm font-medium text-green-700">Control de stock: Activo</span>
+              <span className="text-sm font-medium text-green-700">Inventario: Activo</span>
             </div>
 
             {/* Resumen por documento */}
@@ -105,7 +105,7 @@ export function SalesPreferencesSection({
             {/* Estado inactivo */}
             <div className="flex items-center gap-2">
               <CircleDashed className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span className="text-sm font-medium text-gray-500">Control de stock: Inactivo</span>
+              <span className="text-sm font-medium text-gray-500">Inventario: Inactivo</span>
             </div>
 
             <p className="text-sm text-gray-500 leading-relaxed">
