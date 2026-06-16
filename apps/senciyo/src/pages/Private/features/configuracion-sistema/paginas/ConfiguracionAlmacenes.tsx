@@ -28,6 +28,7 @@ import type { Almacen } from '../modelos/Almacen';
 import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { StockRepository } from '../../gestion-inventario/repositories/stock.repository';
+import { useCrearAlmacen } from '../hooks/useCrearAlmacen';
 
 interface Toast {
   id: string;
@@ -77,6 +78,7 @@ export function ConfiguracionAlmacenes() {
   const { state, dispatch, rolesConfigurados } = useConfigurationContext();
   const { session } = useUserSession();
   const { allProducts } = useProductStore();
+  const { crearAlmacen } = useCrearAlmacen();
   const { Establecimientos, almacenes } = state;
   const establecimientoId = session?.currentEstablecimientoId;
 
@@ -177,22 +179,6 @@ export function ConfiguracionAlmacenes() {
     }, 5000);
   };
 
-  const generateUniqueId = () => `alm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  const calcularSiguienteNumero = (estId: string): number => {
-    const existentes = almacenes.filter(a => a.establecimientoId === estId);
-    if (existentes.length === 0) return 1;
-    const nums = existentes
-      .map(a => { const m = a.codigoAlmacen.match(/\d+/); return m ? parseInt(m[0], 10) : 0; })
-      .filter(n => n > 0);
-    return nums.length > 0 ? Math.max(...nums) + 1 : 1;
-  };
-
-  const generarSiguienteCodigo = (estId: string): string =>
-    String(calcularSiguienteNumero(estId)).padStart(4, '0');
-
-  const generarSiguienteNombre = (estId: string): string =>
-    `Almacén ${calcularSiguienteNumero(estId)}`;
 
   const rebalanciarPrioridades = (
     todos: Almacen[],
@@ -258,35 +244,10 @@ export function ConfiguracionAlmacenes() {
       return;
     }
 
-    const selectedEst = Establecimientos.find(e => e.id === estId);
-    const codigo = generarSiguienteCodigo(estId);
-    const nombre = generarSiguienteNombre(estId);
-    const prioridad = almacenes.filter(a => a.establecimientoId === estId && a.estaActivoAlmacen).length + 1;
-
-    const nuevoAlmacen: Almacen = {
-      id: generateUniqueId(),
-      codigoAlmacen: codigo,
-      nombreAlmacen: nombre,
-      establecimientoId: estId,
-      nombreEstablecimientoDesnormalizado: selectedEst?.nombreEstablecimiento,
-      codigoEstablecimientoDesnormalizado: selectedEst?.codigoEstablecimiento,
-      estaActivoAlmacen: true,
-      esAlmacenPrincipal: prioridad === 1,
-      prioridadSalida: prioridad,
-      configuracionInventarioAlmacen: {
-        permiteStockNegativoAlmacen: false,
-        controlEstrictoStock: false,
-        requiereAprobacionMovimientos: false,
-      },
-      creadoElAlmacen: new Date(),
-      actualizadoElAlmacen: new Date(),
-      tieneMovimientosInventario: false,
-    };
-
-    dispatch({ type: 'SET_ALMACENES', payload: [...almacenes, nuevoAlmacen] });
+    const nuevoAlmacen = crearAlmacen(estId);
     if (viewMode !== 'list') setViewMode('list');
-    setEditingInline({ id: nuevoAlmacen.id, campo: 'nombre', valor: nombre });
-    showToast('success', `Almacén ${codigo} creado`);
+    setEditingInline({ id: nuevoAlmacen.id, campo: 'nombre', valor: nuevoAlmacen.nombreAlmacen });
+    showToast('success', `Almacén ${nuevoAlmacen.codigoAlmacen} creado`);
   };
 
   const handleEdit = (almacen: Almacen) => {

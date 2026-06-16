@@ -2,6 +2,8 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useCrearAlmacen } from '../../../configuracion-sistema/hooks/useCrearAlmacen';
+import { useFeedback } from '@/shared/feedback/useFeedback';
 import type { DisponibilidadFilters } from '../../models/disponibilidad.types';
 import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
 
@@ -31,6 +33,8 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   onAjustar
 }) => {
   const { state: configState } = useConfigurationContext();
+  const { crearAlmacen } = useCrearAlmacen();
+  const feedback = useFeedback();
   const [isActionsOpen, setIsActionsOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
 
@@ -113,8 +117,18 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
             <select
               id="almacen-filter"
               value={filtros.almacenId}
-              onChange={(e) => onFiltrosChange({ almacenId: e.target.value })}
-              disabled={almacenesDisponibles.length <= 1}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '__crear_almacen__') {
+                  if (!filtros.establecimientoId) return;
+                  const nuevo = crearAlmacen(filtros.establecimientoId);
+                  onFiltrosChange({ almacenId: nuevo.id });
+                  feedback.success(`${nuevo.nombreAlmacen} creado. Puedes editarlo desde Configuración → Almacenes.`);
+                  return;
+                }
+                onFiltrosChange({ almacenId: val });
+              }}
+              disabled={!filtros.establecimientoId}
               className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px]"
               aria-label="Filtrar por almacén"
             >
@@ -126,6 +140,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
                   {alm.nombreAlmacen}
                 </option>
               ))}
+              <option value="__crear_almacen__">+ Crear almacén</option>
             </select>
           </div>
 
