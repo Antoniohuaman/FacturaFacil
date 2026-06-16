@@ -468,10 +468,10 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
           />
         </svg>
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
-          No hay productos para mostrar
+          No hay productos en inventario
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Ajusta los filtros para ver los datos de inventario
+          Agrega productos al catálogo o ajusta los filtros para ver el stock.
         </p>
       </div>
     );

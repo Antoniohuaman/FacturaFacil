@@ -266,10 +266,14 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     const encabezadosAlmacen = almacenesPlantilla.map(encabezadoAlmacen);
     const encabezados = ['CODIGO', 'PRODUCTO', 'UNIDAD', ...encabezadosAlmacen];
 
+    const esModoSumar = modoImportacion === 'sumar';
+
     const filasDatos = [...productos]
       .sort((a, b) => a.codigo.localeCompare(b.codigo))
       .map(p => {
-        const stocks = almacenesPlantilla.map(w => p.stockPorAlmacen?.[w.id] ?? 0);
+        const stocks = esModoSumar
+          ? almacenesPlantilla.map(() => '')
+          : almacenesPlantilla.map(w => p.stockPorAlmacen?.[w.id] ?? 0);
         return [p.codigo, p.nombre, p.unidad || '', ...stocks];
       });
 
@@ -278,8 +282,6 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
       { wch: 15 }, { wch: 35 }, { wch: 10 },
       ...almacenesPlantilla.map(() => ({ wch: 18 })),
     ];
-
-    const esModoSumar = modoImportacion === 'sumar';
     const instrucciones: (string | number)[][] = esModoSumar
       ? [
           ['INSTRUCCIONES — MODO: SUMAR INGRESO DE STOCK'],
@@ -652,7 +654,7 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                       {modoImportacion === 'actualizar'
                         ? 'La plantilla incluye el stock actual. Ingresa el stock final deseado por almacén.'
-                        : 'La plantilla incluye el stock actual. Ingresa la cantidad a sumar por almacén.'}
+                        : 'Celdas vacías por defecto. Ingresa solo la cantidad a sumar en cada almacén.'}
                     </p>
                     <button
                       onClick={descargarPlantilla}
@@ -665,7 +667,11 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                     </button>
                     {almacenesPlantilla.length > 0 && (
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                        {allProducts.length} productos · {almacenesPlantilla.length} almacén(es): {almacenesPlantilla.map(w => w.codigoAlmacen).join(', ')}
+                        {allProducts.length === 1 ? '1 producto' : `${allProducts.length} productos`}
+                        {' · '}
+                        {almacenesPlantilla.length === 1
+                          ? almacenesPlantilla[0].nombreAlmacen
+                          : `${almacenesPlantilla.length} almacenes`}
                       </p>
                     )}
                   </div>

@@ -66,6 +66,10 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   // Nombres para chips de filtros activos
   const almacenNombre = almacenesDisponibles.find(a => a.id === filtros.almacenId)?.nombreAlmacen;
 
+  // Solo se considera filtro "real" de almacén cuando el usuario eligió uno de varios.
+  // Si solo existe 1 almacén, la selección es automática y no debe mostrarse como chip.
+  const esAlmacenFiltroRealUsuario = Boolean(filtros.almacenId) && almacenesDisponibles.length > 1;
+
   // Limpiar todos los filtros
   const limpiarFiltros = () => {
     onFiltrosChange({
@@ -76,7 +80,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
   };
 
   const hayFiltrosActivos = Boolean(
-    filtros.almacenId || filtros.filtroSku || filtros.soloConDisponible
+    esAlmacenFiltroRealUsuario || filtros.filtroSku || filtros.soloConDisponible
   );
 
   return (
@@ -110,7 +114,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
               id="almacen-filter"
               value={filtros.almacenId}
               onChange={(e) => onFiltrosChange({ almacenId: e.target.value })}
-              disabled={almacenesDisponibles.length === 0}
+              disabled={almacenesDisponibles.length <= 1}
               className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 focus:ring-2 focus:ring-[#6F36FF]/35 focus:border-[#6F36FF] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px]"
               aria-label="Filtrar por almacén"
             >
@@ -315,7 +319,7 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
         <div className="px-4 pb-2 flex flex-wrap items-center gap-2">
           <span className="text-xs text-[#4B5563] dark:text-gray-400 font-medium">Filtros:</span>
 
-          {almacenNombre && (
+          {esAlmacenFiltroRealUsuario && almacenNombre && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-[#6F36FF]/8 dark:bg-[#6F36FF]/15 text-[#6F36FF] dark:text-[#8B5CF6] border border-[#6F36FF]/20 dark:border-[#6F36FF]/30 rounded-md">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />

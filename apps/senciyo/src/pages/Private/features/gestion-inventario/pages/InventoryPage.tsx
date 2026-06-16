@@ -353,8 +353,8 @@ export const InventoryPage: React.FC = () => {
         />
       )}
 
-      {/* Barra de acciones — no aplica en Stock Actual, Transferencias, Importar stock, Notas de Ingreso ni Notas de Salida */}
-      {selectedView !== 'situacion' && selectedView !== 'transferencias' && selectedView !== 'importar' && selectedView !== 'notas-ingreso' && selectedView !== 'notas-salida' && (
+      {/* Barra de acciones — solo aplica en Movimientos */}
+      {selectedView === 'movimientos' && (
         <div className="bg-white dark:bg-gray-800 border-b border-[#E5E7EB] dark:border-gray-700 px-6 py-3">
           <div className="flex flex-wrap items-center gap-3">
             {/* Filtro de período */}
@@ -385,16 +385,13 @@ export const InventoryPage: React.FC = () => {
 
             <div className="flex-1" />
 
-            {/* Botones de acción — exportar movimientos solo aplica cuando no es el tab Alertas */}
-            {selectedView !== 'alertas' && (
-              <button
-                onClick={handleExportToExcel}
-                className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Exportar Excel
-              </button>
-            )}
+            <button
+              onClick={handleExportToExcel}
+              className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Exportar Excel
+            </button>
 
             <button
               onClick={openTransferModal}
