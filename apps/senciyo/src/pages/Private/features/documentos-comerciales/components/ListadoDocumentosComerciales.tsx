@@ -810,7 +810,8 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                           item.tipoBienServicio === 'bien' ||
                           (item.tipoBienServicio !== 'servicio' && item.tipoDetalle !== 'libre' && item.requiresStockControl === true);
                         const esBienLibre = item.tipoDetalle === 'libre' && item.tipoBienServicio !== 'servicio';
-                        const reserva = documentoDetalle.reservasStock?.find((r) => r.sku === item.code);
+                        const reservasItem = documentoDetalle.reservasStock?.filter((r) => r.sku === item.code) ?? [];
+                        const cantidadReservada = reservasItem.reduce((s, r) => s + r.cantidad, 0);
                         const ovReservada = documentoDetalle.estado === 'Reservada';
                         return (
                           <div key={item.id} className="text-xs bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 space-y-0.5">
@@ -826,23 +827,34 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                                 <span className="text-gray-400 italic">No aplica</span>
                               ) : esBienLibre ? (
                                 <span className="text-gray-400 italic">Ítem libre — sin reserva</span>
-                              ) : reserva ? (
-                                <span className="text-green-600 dark:text-green-400 font-medium">Reservado: {reserva.cantidad} ✓</span>
+                              ) : cantidadReservada > 0 ? (
+                                <span className="text-green-600 dark:text-green-400 font-medium">Reservado: {cantidadReservada} ✓</span>
                               ) : ovReservada ? (
                                 <span className="text-amber-600 dark:text-amber-400">Sin reserva registrada</span>
                               ) : (
                                 <span className="text-gray-400">Pendiente</span>
                               )}
                             </div>
+                            {cantidadReservada > 0 && reservasItem.length > 0 && (
+                              <div className="text-gray-400 dark:text-gray-500 pl-1 pt-0.5">
+                                {reservasItem.length === 1 ? (
+                                  reservasItem[0].almacenNombre ? (
+                                    <span>{reservasItem[0].almacenNombre}</span>
+                                  ) : null
+                                ) : (
+                                  reservasItem.map((r) => (
+                                    <div key={r.almacenId} className="flex justify-between">
+                                      <span>{r.almacenNombre ?? r.almacenId}</span>
+                                      <span>{r.cantidad}</span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
-                    {documentoDetalle.reservasStock?.[0]?.almacenNombre && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        Almacén: {documentoDetalle.reservasStock[0].almacenNombre}
-                      </p>
-                    )}
                   </div>
                 )}
 

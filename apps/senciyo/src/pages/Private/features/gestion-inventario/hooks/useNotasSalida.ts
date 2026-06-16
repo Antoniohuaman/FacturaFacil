@@ -6,6 +6,7 @@ import { useAuth } from '../../autenticacion/hooks';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
+import { useTenant } from '@/shared/tenant/TenantContext';
 import {
   cargarNotasSalida,
   guardarNotasSalida,
@@ -33,6 +34,7 @@ export const useNotasSalida = () => {
   const { allProducts, updateProduct } = useProductStore();
   const { session } = useUserSession();
   const { state: configState } = useConfigurationContext();
+  const { activeEstablecimientoId } = useTenant();
   const feedback = useFeedback();
 
   const usuarioNombre = session?.userName ?? user?.nombre ?? 'Usuario';
@@ -89,8 +91,9 @@ export const useNotasSalida = () => {
         }
 
         const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
-        if (!almacenesMap.has(nota.almacenOrigenId)) {
-          feedback.error('Almacén de origen no encontrado. Verifique la configuración.');
+        const hayAlmacenesActivos = configState.almacenes.some(a => a.estaActivoAlmacen !== false);
+        if (!hayAlmacenesActivos) {
+          feedback.error('No hay almacenes activos configurados. Verifique la configuración.');
           return false;
         }
 
@@ -106,6 +109,7 @@ export const useNotasSalida = () => {
           productsMap,
           almacenesMap,
           usuarioNombre,
+          activeEstablecimientoId ?? '',
         );
 
         agregarOActualizarNS(notaActualizada);
@@ -136,6 +140,7 @@ export const useNotasSalida = () => {
             const aLiberar: Array<{ sku: string; cantidad: number; almacenId: string }> = [];
             for (const linea of notaActualizada.lineas.filter(l => l.tipoBienServicio === 'bien')) {
               const almId = linea.almacenId ?? notaActualizada.almacenOrigenId;
+              if (!almId) continue;
               const prod = productsMap.get(linea.productoId);
               if (!prod?.codigo) continue;
               const maxLiberable = reservasOV
@@ -192,7 +197,7 @@ export const useNotasSalida = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback, activeEstablecimientoId],
   );
 
   const anularNS = useCallback(

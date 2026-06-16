@@ -42,6 +42,7 @@ import {
   calcularDesgloseTributarioNS,
 } from '../../services/notaSalida.service';
 import { obtenerReservasDeOV } from '../../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
+import { summarizeProductStock } from '@/shared/inventory/stockGateway';
 
 const calcularLinea = (l: LineaNotaSalida): LineaNotaSalida => {
   const rate = resolveIgvRateNS(l.impuesto);
@@ -86,11 +87,6 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
   const { clientes, fetchClientes } = useClientes();
   const { guardarBorrador, generarNS, usuarioNombre, usuarioId } = useNotasSalida();
   const feedback = useFeedback();
-
-  const almacenesActivos = useMemo(
-    () => configState.almacenes.filter(a => a.estaActivoAlmacen),
-    [configState.almacenes],
-  );
 
   const seriesNS = useMemo(
     () =>
@@ -214,10 +210,6 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
   const [fechaDocumento, setFechaDocumento] = useState(notaInicial?.fechaDocumento ?? hoy());
   const [fechaEntregaPrevista, setFechaEntregaPrevista] = useState(notaInicial?.fechaEntregaPrevista ?? '');
   const [tipoSalida, setTipoSalida] = useState<TipoSalida>(notaInicial?.tipoSalida ?? '01');
-  const [almacenOrigenId, setAlmacenOrigenId] = useState<string>(() => {
-    if (notaInicial?.almacenOrigenId) return notaInicial.almacenOrigenId;
-    return almacenesActivos.length === 1 ? almacenesActivos[0].id : '';
-  });
   const [moneda, setMoneda] = useState<'PEN' | 'USD'>(notaInicial?.moneda ?? 'PEN');
   const [formaPago, setFormaPago] = useState(notaInicial?.formaPago ?? '');
   const [metodoEnvio, setMetodoEnvio] = useState(notaInicial?.metodoEnvio ?? '');
@@ -233,11 +225,6 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
 
   const requiereCliente = TIPOS_SALIDA_CON_CLIENTE.includes(tipoSalida);
 
-  const almacenOrigen = useMemo(
-    () => almacenesActivos.find(a => a.id === almacenOrigenId),
-    [almacenesActivos, almacenOrigenId],
-  );
-
   // ── Vínculo con Orden de Venta ────────────────────────────────────────────
   // esNSVinculadaAOV solo es true cuando el vínculo viene del campo interno
   // ordenVentaOrigenId, no del campo visual N° documento origen (solo texto).
@@ -248,28 +235,30 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
     return obtenerReservasDeOV(notaInicial.ordenVentaOrigenId);
   }, [esNSVinculadaAOV, notaInicial?.ordenVentaOrigenId]);
 
-  // ── Stock permitido por producto/almacén ──────────────────────────────────
-  // NS manual:      disponible libre = real − reservadoTotal
-  // NS vinculada OV: reserva propia pendiente = min(reserva original OV, reservadoTotal actual)
-  //   El min() asegura que los despachos parciales previos (que redujeron stockReservado) se reflejen.
+  // ── Stock permitido por producto (total establecimiento) ──────────────────
+  // NS manual:       disponible libre total = Σ(real − reservado) por almacén del establecimiento.
+  // NS vinculada OV: reserva pendiente propia = Σ min(ovOriginal, reservadoActual) por almacén OV.
   const getStockPermitido = useCallback(
-    (productoId: string, almId: string): number => {
-      if (!almId) return 0;
+    (productoId: string): number => {
       const product = allProducts.find(p => String(p.id) === productoId);
       if (!product) return 0;
-      const reservadoTotal = Math.max(0, product.stockReservadoPorAlmacen?.[almId] ?? 0);
       if (esNSVinculadaAOV) {
-        const ovOriginal = reservasOV
-          .filter(r => r.sku === product.codigo && r.almacenId === almId)
-          .reduce((s, r) => s + r.cantidad, 0);
-        if (ovOriginal > 0) {
-          return Math.min(ovOriginal, reservadoTotal);
+        const ovReservasProd = reservasOV.filter(r => r.sku === product.codigo);
+        if (ovReservasProd.length > 0) {
+          return ovReservasProd.reduce((sum, r) => {
+            const reservadoAlmacen = Math.max(0, product.stockReservadoPorAlmacen?.[r.almacenId] ?? 0);
+            return sum + Math.min(r.cantidad, reservadoAlmacen);
+          }, 0);
         }
       }
-      const real = product.stockPorAlmacen?.[almId] ?? 0;
-      return Math.max(0, real - reservadoTotal);
+      const summary = summarizeProductStock({
+        product,
+        almacenes: configState.almacenes,
+        EstablecimientoId: activeEstablecimientoId ?? undefined,
+      });
+      return summary.totalAvailable;
     },
-    [allProducts, esNSVinculadaAOV, reservasOV],
+    [allProducts, esNSVinculadaAOV, reservasOV, configState.almacenes, activeEstablecimientoId],
   );
 
   // ── Líneas con stock insuficiente (validación visual en tiempo real) ───────
@@ -277,13 +266,11 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
     const invalidas = new Set<string>();
     for (const l of lineas) {
       if (l.tipoBienServicio !== 'bien') continue;
-      const almId = l.almacenId ?? almacenOrigenId;
-      if (!almId) continue;
-      const permitido = getStockPermitido(l.productoId, almId);
+      const permitido = getStockPermitido(l.productoId);
       if (l.cantidad > permitido) invalidas.add(l.id);
     }
     return invalidas;
-  }, [lineas, almacenOrigenId, getStockPermitido]);
+  }, [lineas, getStockPermitido]);
 
   // ── Totales ───────────────────────────────────────────────────────────────
   const totales = useMemo(() => {
@@ -321,17 +308,13 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
         feedback.warning('Las notas de salida solo aceptan bienes físicos. Se omitieron servicios.');
       }
       if (!bienes.length) return;
-      if (!almacenOrigenId) {
-        feedback.warning('Seleccione un almacén de origen antes de agregar productos.');
-        return;
-      }
       setLineas(prev => {
         let result = [...prev];
         for (const { product, quantity } of bienes) {
           const productoId = String(product.id);
           const unidad = product.unidad ?? 'NIU';
           const idx = result.findIndex(
-            l => l.productoId === productoId && l.almacenId === almacenOrigenId && l.unidad === unidad,
+            l => l.productoId === productoId && l.unidad === unidad,
           );
           if (idx >= 0) {
             result[idx] = calcularLinea({ ...result[idx], cantidad: result[idx].cantidad + quantity });
@@ -347,8 +330,6 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
                 unidad,
                 unidadCodigo: unidad,
                 impuesto: product.impuesto ?? undefined,
-                almacenId: almacenOrigenId,
-                almacenNombre: almacenOrigen?.nombreAlmacen ?? '',
                 cantidad: quantity,
                 pvUnitario: product.precioVenta ?? product.precio ?? 0,
                 subtotal: 0,
@@ -361,7 +342,7 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
         return result;
       });
     },
-    [feedback, almacenOrigenId, almacenOrigen],
+    [feedback],
   );
 
   const handleCantidad = (id: string, val: string) => {
@@ -376,14 +357,6 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
 
   const eliminarLinea = (id: string) => setLineas(prev => prev.filter(l => l.id !== id));
 
-  const handleAlmacenOrigen = (newAlmacenId: string) => {
-    setAlmacenOrigenId(newAlmacenId);
-    const almacen = almacenesActivos.find(a => a.id === newAlmacenId);
-    setLineas(prev =>
-      prev.map(l => ({ ...l, almacenId: newAlmacenId, almacenNombre: almacen?.nombreAlmacen ?? '' })),
-    );
-  };
-
   const buildNota = (estado: 'Borrador' | 'Generada'): NotaSalida => {
     const ahora = new Date().toISOString();
     return {
@@ -397,9 +370,9 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
       fechaDocumento,
       fechaEntregaPrevista: fechaEntregaPrevista || undefined,
       tipoSalida,
-      almacenOrigenId,
-      almacenOrigenNombre: almacenOrigen?.nombreAlmacen ?? '',
-      almacenOrigenCodigo: almacenOrigen?.codigoAlmacen ?? undefined,
+      almacenOrigenId: undefined,
+      almacenOrigenNombre: undefined,
+      almacenOrigenCodigo: undefined,
       encargadoAlmacenId: usuarioId || undefined,
       encargadoAlmacen: usuarioNombre || undefined,
       clienteId: cliente?.id,
@@ -433,13 +406,12 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
     if (!serieSeleccionada)
       return 'Configure una serie de Nota de Salida en Configuración → Series.';
     if (!fechaDocumento) return 'La fecha del documento es obligatoria.';
-    if (!almacenOrigenId) return 'Seleccione el almacén de origen.';
     if (requiereCliente && !cliente?.nombre?.trim())
       return 'Este tipo de salida requiere especificar el cliente.';
     if (!lineas.length) return 'Agregue al menos un producto del catálogo.';
     if (lineas.some(l => l.cantidad <= 0)) return 'Todas las cantidades deben ser mayores a 0.';
     if (lineasConStockInsuficiente.size > 0)
-      return 'No hay stock suficiente en el almacén seleccionado para generar la nota de salida.';
+      return 'No hay stock disponible suficiente para generar la nota de salida.';
     return null;
   };
 
@@ -610,32 +582,6 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
                   placeholder="Dirección de entrega (opcional)"
                   className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 outline-none"
                 />
-              </div>
-
-              {/* Almacén origen */}
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <MapPin size={11} />
-                  Almacén de origen *
-                </label>
-                {almacenesActivos.length === 0 ? (
-                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-2.5 py-2">
-                    Sin almacenes activos configurados
-                  </div>
-                ) : (
-                  <select
-                    value={almacenOrigenId}
-                    onChange={e => handleAlmacenOrigen(e.target.value)}
-                    className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-orange-500 focus:border-orange-500 outline-none"
-                  >
-                    <option value="">— Seleccione almacén —</option>
-                    {almacenesActivos.map(a => (
-                      <option key={a.id} value={a.id}>
-                        {a.codigoAlmacen} — {a.nombreAlmacen}
-                      </option>
-                    ))}
-                  </select>
-                )}
               </div>
 
               {/* Documento origen / Método de envío */}
@@ -829,7 +775,7 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {lineas.map(linea => {
-                      const stockPermitido = getStockPermitido(linea.productoId, linea.almacenId ?? almacenOrigenId);
+                      const stockPermitido = getStockPermitido(linea.productoId);
                       const sinStock = lineasConStockInsuficiente.has(linea.id);
                       return (
                         <tr key={linea.id} className={`transition-colors ${sinStock ? 'bg-red-50/60 dark:bg-red-900/10' : 'hover:bg-slate-50/70 dark:hover:bg-gray-700/30'}`}>
@@ -895,7 +841,7 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
             {lineasConStockInsuficiente.size > 0 && (
               <div className="flex items-start gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-xs text-red-700 dark:text-red-400">
                 <span className="font-semibold">Stock insuficiente:</span>
-                <span>Las líneas marcadas en rojo no tienen stock suficiente en el almacén de origen.</span>
+                <span>Las líneas marcadas en rojo no tienen stock disponible suficiente en el establecimiento.</span>
               </div>
             )}
 

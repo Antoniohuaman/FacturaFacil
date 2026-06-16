@@ -143,7 +143,7 @@ const NotasSalidaPanel: React.FC = () => {
     const seen = new Map<string, string>();
     for (const n of notas) {
       if (n.almacenOrigenId && !seen.has(n.almacenOrigenId)) {
-        seen.set(n.almacenOrigenId, n.almacenOrigenNombre);
+        seen.set(n.almacenOrigenId, n.almacenOrigenNombre ?? '');
       }
     }
     return [...seen.entries()]

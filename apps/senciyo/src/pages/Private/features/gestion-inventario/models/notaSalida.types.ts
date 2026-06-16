@@ -69,8 +69,8 @@ export interface NotaSalida {
   fechaEntregaPrevista?: string;
   tipoSalida: TipoSalida;
 
-  almacenOrigenId: string;
-  almacenOrigenNombre: string;
+  almacenOrigenId?: string;
+  almacenOrigenNombre?: string;
   almacenOrigenCodigo?: string;
   encargadoAlmacen?: string;
   encargadoAlmacenId?: string;
