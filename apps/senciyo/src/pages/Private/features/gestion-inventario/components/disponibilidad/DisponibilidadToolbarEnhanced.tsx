@@ -94,21 +94,15 @@ const DisponibilidadToolbarEnhanced: React.FC<DisponibilidadToolbarEnhancedProps
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Filtros principales */}
           <div className="flex items-center gap-2">
-            <select
-              id="establecimiento-filter"
-              value={filtros.establecimientoId}
-              disabled
-              className="h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 transition-all duration-150 min-w-[220px] opacity-90 cursor-not-allowed"
-              aria-label="Filtrar por establecimiento"
+            <span
+              title="Establecimiento activo. Puedes cambiarlo desde el encabezado superior."
+              className="inline-flex items-center h-9 px-3 text-sm border border-[#E5E7EB] dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111827] dark:text-gray-100 min-w-[220px] select-none cursor-default"
+              aria-label="Establecimiento activo"
             >
-              {establecimientoSeleccionado ? (
-                <option value={establecimientoSeleccionado.id}>
-                  {establecimientoSeleccionado.codigoEstablecimiento} - {establecimientoSeleccionado.nombreEstablecimiento}
-                </option>
-              ) : (
-                <option value={filtros.establecimientoId}>Establecimiento</option>
-              )}
-            </select>
+              {establecimientoSeleccionado
+                ? `${establecimientoSeleccionado.codigoEstablecimiento} - ${establecimientoSeleccionado.nombreEstablecimiento}`
+                : 'Establecimiento'}
+            </span>
 
             <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
