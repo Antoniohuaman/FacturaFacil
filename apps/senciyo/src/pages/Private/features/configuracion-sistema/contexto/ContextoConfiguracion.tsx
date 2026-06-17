@@ -62,7 +62,7 @@ export interface Category {
   fechaCreacion: Date;
 }
 
-export type StockDescuentoDocumento = 'automatico' | 'nota_salida';
+export type StockDescuentoDocumento = 'automatico' | 'nota_salida' | 'sin_control';
 
 export type SalesPreferences = {
   allowNegativeStock: boolean;
@@ -809,7 +809,7 @@ const PREFERENCIAS_VENTAS_PREDETERMINADAS: SalesPreferences = {
   pricesIncludeTax: true,
   controlStockActivo: false,
   stockDescuentoFacturaYBoleta: 'automatico',
-  stockDescuentoNotaVenta: 'automatico',
+  stockDescuentoNotaVenta: 'sin_control',
   stockDescuentoGuiaRemision: 'automatico',
 };
 
@@ -854,7 +854,7 @@ const migrateSalesPreferences = (stored: SalesPreferences): SalesPreferences => 
     // Empresas existentes: control activo (ya operaban con stock controlado)
     controlStockActivo: stored.controlStockActivo ?? true,
     stockDescuentoFacturaYBoleta: stored.stockDescuentoFacturaYBoleta ?? 'automatico',
-    stockDescuentoNotaVenta: stored.stockDescuentoNotaVenta ?? 'automatico',
+    stockDescuentoNotaVenta: stored.stockDescuentoNotaVenta ?? 'sin_control',
     stockDescuentoGuiaRemision: stored.stockDescuentoGuiaRemision ?? 'automatico',
   };
 };

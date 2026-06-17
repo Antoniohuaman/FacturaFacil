@@ -75,7 +75,7 @@ export interface UseDocumentoComercialActionsReturn {
   eliminarBorrador: (id: string) => ResultadoAccionDocumento;
   validarDatos: (datos: DatosFormularioDocumentoComercial) => string | null;
   /** Modo de descuento de stock aplicable a una NV según la configuración actual. */
-  getModoDescuentoNV: () => 'automatico' | 'nota_salida' | null;
+  getModoDescuentoNV: () => 'automatico' | 'nota_salida' | 'sin_control' | null;
 }
 
 export function useDocumentoComercialActions(): UseDocumentoComercialActionsReturn {
@@ -117,7 +117,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
 
       // Validación y reserva/descuento de stock según tipo de documento
       let reservasStock: ReservaStockItem[] | undefined;
-      let modoDescuentoStock: 'automatico' | 'nota_salida' | undefined;
+      let modoDescuentoStock: 'automatico' | 'nota_salida' | 'sin_control' | undefined;
 
       if (datos.tipo === 'orden_venta') {
         const validacion = validarStockParaOrden(
@@ -263,7 +263,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         }
       }
 
-      let modoDescuentoStock: 'automatico' | 'nota_salida' | undefined;
+      let modoDescuentoStock: 'automatico' | 'nota_salida' | 'sin_control' | undefined;
       if (datos.tipo === 'nota_venta' && controlStockActivo) {
         modoDescuentoStock = stockDescuentoNotaVenta;
         if (stockDescuentoNotaVenta === 'automatico') {
@@ -561,7 +561,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     [state.documentos, eliminarDocumento],
   );
 
-  const getModoDescuentoNV = useCallback((): 'automatico' | 'nota_salida' | null => {
+  const getModoDescuentoNV = useCallback((): 'automatico' | 'nota_salida' | 'sin_control' | null => {
     const controlActivo = configState.salesPreferences?.controlStockActivo ?? false;
     if (!controlActivo) return null;
     return configState.salesPreferences?.stockDescuentoNotaVenta ?? 'automatico';

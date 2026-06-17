@@ -14,6 +14,7 @@ interface SalesPreferencesSectionProps {
 const LABEL_DESCUENTO: Record<string, string> = {
   automatico: 'Automático',
   nota_salida: 'Mediante Nota de Salida',
+  sin_control: 'No afecta stock',
 };
 
 type FilaResumen = {

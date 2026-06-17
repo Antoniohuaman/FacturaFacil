@@ -132,7 +132,7 @@ export interface DocumentoComercial {
   despachado?: Array<{ sku: string; cantidad: number; almacenId: string }>;
 
   /** Modo en que se gestiona el stock al generar (aplica a NV). */
-  modoDescuentoStock?: 'automatico' | 'nota_salida';
+  modoDescuentoStock?: 'automatico' | 'nota_salida' | 'sin_control';
   /** ID de la Nota de Salida activa asociada a este documento. */
   notaSalidaId?: string;
   /** true si existe una Nota de Salida generada (no anulada) vinculada. */

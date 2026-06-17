@@ -296,6 +296,19 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
                                   />
                                   <span className="text-gray-700 text-xs">Mediante Nota de Salida</span>
                                 </label>
+                                {campo === 'stockDescuentoNotaVenta' && (
+                                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input
+                                      type="radio"
+                                      name={campo}
+                                      value="sin_control"
+                                      checked={valor === 'sin_control'}
+                                      onChange={() => setValorPorCampo(campo, 'sin_control')}
+                                      className="w-3.5 h-3.5 accent-blue-600"
+                                    />
+                                    <span className="text-gray-700 text-xs">No afecta stock</span>
+                                  </label>
+                                )}
                               </div>
                             </td>
                           </tr>
