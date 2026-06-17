@@ -66,20 +66,26 @@ export const generarCorrelativoNS = (
 
 /**
  * Devuelve el texto visible para la columna "Documento origen" de una NS.
- * Ejemplos: "Manual", "Boleta B001-00000012", "Factura F001-00000008"
+ * Ejemplos: "Manual", "Boleta B001-00000012", "Factura F001-00000008",
+ *           "OV01-00000005", "NV01-00000003"
  */
 export function formatDocumentoOrigenNS(
   nota: Pick<NotaSalida, 'origen' | 'documentoOrigen' | 'numeroDocumentoOrigen'>,
 ): string {
-  if (nota.origen !== 'Comprobante' || !nota.documentoOrigen) return 'Manual';
-  const t = nota.documentoOrigen.toLowerCase();
-  let tipoCorto: string;
-  if (t.includes('boleta')) tipoCorto = 'Boleta';
-  else if (t.includes('factura')) tipoCorto = 'Factura';
-  else tipoCorto = nota.documentoOrigen.split(' ')[0] ?? nota.documentoOrigen;
-  return nota.numeroDocumentoOrigen
-    ? `${tipoCorto} ${nota.numeroDocumentoOrigen}`
-    : tipoCorto;
+  if (!nota.origen || nota.origen === 'Manual') return 'Manual';
+  if (!nota.documentoOrigen) return 'Manual';
+  if (nota.origen === 'Comprobante') {
+    const t = nota.documentoOrigen.toLowerCase();
+    let tipoCorto: string;
+    if (t.includes('boleta')) tipoCorto = 'Boleta';
+    else if (t.includes('factura')) tipoCorto = 'Factura';
+    else tipoCorto = nota.documentoOrigen.split(' ')[0] ?? nota.documentoOrigen;
+    return nota.numeroDocumentoOrigen
+      ? `${tipoCorto} ${nota.numeroDocumentoOrigen}`
+      : tipoCorto;
+  }
+  // OrdenVenta / NotaVenta: mostrar el número de documento; si no hay número, el tipo
+  return nota.numeroDocumentoOrigen ?? nota.documentoOrigen;
 }
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────

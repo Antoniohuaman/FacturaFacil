@@ -328,6 +328,11 @@ const DetalleNotaSalida: React.FC<Props> = ({ nota, iniciarAnulacion = false, on
                             {l.productoCodigo && (
                               <div className="text-[10px] text-gray-500 font-mono">{l.productoCodigo}</div>
                             )}
+                            {l.almacenNombre && (
+                              <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate max-w-[160px]" title={l.almacenNombre}>
+                                {l.almacenNombre}
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">
                             {l.cantidad} {l.unidad}
