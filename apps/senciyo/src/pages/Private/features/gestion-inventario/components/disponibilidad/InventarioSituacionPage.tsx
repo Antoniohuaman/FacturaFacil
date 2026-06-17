@@ -69,7 +69,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
   const { state: configState } = useConfigurationContext();
 
   // Preferencias de UI
-  const { densidad, columnasVisibles, itemsPorPagina } = usePreferenciasDisponibilidad();
+  const { densidad, columnasVisibles, mostrarColumnasPorAlmacen, itemsPorPagina } = usePreferenciasDisponibilidad();
 
   // Estado local para panel de configuración
   const [mostrandoSettings, setMostrandoSettings] = useState(false);
@@ -330,6 +330,7 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
           editThresholdMessage={thresholdsTooltip}
           onUpdateThreshold={handleThresholdChange}
           selectednombreAlmacen={selectedalmacen?.nombreAlmacen}
+          mostrarColumnasPorAlmacen={mostrarColumnasPorAlmacen}
           almacenesParaColumnas={
             // Mostrar columnas por almacén solo cuando el filtro está en "Todos los almacenes"
             !filtros.almacenId && almacenesDisponibles.length > 1

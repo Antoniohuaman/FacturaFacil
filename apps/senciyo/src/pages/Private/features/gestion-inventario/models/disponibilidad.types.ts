@@ -89,26 +89,6 @@ export type ColumnaDisponibilidad =
   | 'acciones';
 
 /**
- * Vista guardada por el usuario
- */
-export interface VistaGuardada {
-  /** ID único de la vista */
-  id: string;
-
-  /** Nombre de la vista */
-  nombre: string;
-
-  /** Columnas visibles */
-  columnasVisibles: ColumnaDisponibilidad[];
-
-  /** Densidad de la tabla */
-  densidad: DensidadTabla;
-
-  /** Fecha de creación */
-  fechaCreacion: Date;
-}
-
-/**
  * Preferencias de usuario para la vista de disponibilidad
  */
 export interface PreferenciasDisponibilidad {
@@ -118,11 +98,8 @@ export interface PreferenciasDisponibilidad {
   /** Columnas visibles */
   columnasVisibles: ColumnaDisponibilidad[];
 
-  /** Vistas guardadas */
-  vistasGuardadas: VistaGuardada[];
-
-  /** Vista activa (si hay alguna seleccionada) */
-  vistaActivaId?: string;
+  /** Mostrar columnas individuales por almacén (solo en modo "Todos los almacenes") */
+  mostrarColumnasPorAlmacen: boolean;
 
   /** Número de items por página */
   itemsPorPagina: number;

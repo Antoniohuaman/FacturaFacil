@@ -4,15 +4,11 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   PreferenciasDisponibilidad,
-  VistaGuardada,
   DensidadTabla,
   ColumnaDisponibilidad
 } from '../models/disponibilidad.types';
 import { lsKey } from '../../../../../shared/tenant';
 
-/**
- * Columnas por defecto visibles en la tabla
- */
 const TODAS_LAS_COLUMNAS: ColumnaDisponibilidad[] = [
   'codigo',
   'producto',
@@ -37,13 +33,10 @@ const COLUMNAS_VISIBLES_POR_DEFECTO: ColumnaDisponibilidad[] = [
   'acciones'
 ];
 
-/**
- * Preferencias iniciales
- */
 const PREFERENCIAS_INICIALES: PreferenciasDisponibilidad = {
   densidad: 'compacta',
   columnasVisibles: COLUMNAS_VISIBLES_POR_DEFECTO,
-  vistasGuardadas: [],
+  mostrarColumnasPorAlmacen: true,
   itemsPorPagina: 25
 };
 
@@ -99,49 +92,33 @@ const resolveTenantStorageKey = (base: string): string | null => {
 };
 
 interface PreferenciasDisponibilidadState extends PreferenciasDisponibilidad {
-  // Acciones para densidad
   cambiarDensidad: (densidad: DensidadTabla) => void;
 
-  // Acciones para columnas
   toggleColumna: (columna: ColumnaDisponibilidad) => void;
   mostrarTodasColumnas: () => void;
   ocultarTodasColumnasOpcionales: () => void;
 
-  // Acciones para vistas guardadas
-  guardarVista: (vista: Omit<VistaGuardada, 'id' | 'fechaCreacion'>) => void;
-  eliminarVista: (vistaId: string) => void;
-  activarVista: (vistaId: string) => void;
-  desactivarVista: () => void;
-  aplicarVista: (vista: VistaGuardada) => void;
+  toggleColumnasPorAlmacen: () => void;
 
-  // Acciones para items por página
   cambiarItemsPorPagina: (items: number) => void;
 
-  // Reset
   resetearPreferencias: () => void;
 }
 
-/**
- * Store de preferencias de disponibilidad
- * Persiste en localStorage automáticamente
- */
 export const usePreferenciasDisponibilidad = create<PreferenciasDisponibilidadState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...PREFERENCIAS_INICIALES,
 
-      // Cambiar densidad de la tabla
       cambiarDensidad: (densidad) => {
         set({ densidad });
       },
 
-      // Toggle visibilidad de columna
       toggleColumna: (columna) => {
         set((state) => {
           const columnas = state.columnasVisibles;
           const existe = columnas.includes(columna);
 
-          // No permitir ocultar todas las columnas
           if (existe && columnas.length === 1) {
             return state;
           }
@@ -154,75 +131,27 @@ export const usePreferenciasDisponibilidad = create<PreferenciasDisponibilidadSt
         });
       },
 
-      // Mostrar todas las columnas
       mostrarTodasColumnas: () => {
-        set({ columnasVisibles: TODAS_LAS_COLUMNAS });
+        set({ columnasVisibles: TODAS_LAS_COLUMNAS, mostrarColumnasPorAlmacen: true });
       },
 
-      // Ocultar columnas opcionales (mantener solo código, producto, disponible, acciones)
       ocultarTodasColumnasOpcionales: () => {
         set({
-          columnasVisibles: ['codigo', 'producto', 'unidadMinima', 'disponible', 'acciones']
+          columnasVisibles: ['codigo', 'producto', 'unidadMinima', 'disponible', 'acciones'],
+          mostrarColumnasPorAlmacen: false
         });
       },
 
-      // Guardar nueva vista
-      guardarVista: (vista) => {
-        const nuevaVista: VistaGuardada = {
-          ...vista,
-          id: `vista-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-          fechaCreacion: new Date()
-        };
-
-        set((state) => ({
-          vistasGuardadas: [...state.vistasGuardadas, nuevaVista]
-        }));
-
-        return nuevaVista.id;
+      toggleColumnasPorAlmacen: () => {
+        set((state) => ({ mostrarColumnasPorAlmacen: !state.mostrarColumnasPorAlmacen }));
       },
 
-      // Eliminar vista guardada
-      eliminarVista: (vistaId) => {
-        set((state) => ({
-          vistasGuardadas: state.vistasGuardadas.filter(v => v.id !== vistaId),
-          vistaActivaId: state.vistaActivaId === vistaId ? undefined : state.vistaActivaId
-        }));
-      },
-
-      // Activar vista
-      activarVista: (vistaId) => {
-        const vista = get().vistasGuardadas.find(v => v.id === vistaId);
-        if (vista) {
-          set({ vistaActivaId: vistaId });
-          get().aplicarVista(vista);
-        }
-      },
-
-      // Desactivar vista
-      desactivarVista: () => {
-        set({ vistaActivaId: undefined });
-      },
-
-      // Aplicar configuración de una vista
-      aplicarVista: (vista) => {
-        set({
-          columnasVisibles: vista.columnasVisibles,
-          densidad: vista.densidad
-        });
-      },
-
-      // Cambiar items por página
       cambiarItemsPorPagina: (items) => {
         set({ itemsPorPagina: items });
       },
 
-      // Resetear a preferencias por defecto
       resetearPreferencias: () => {
-        set({
-          ...PREFERENCIAS_INICIALES,
-          vistasGuardadas: get().vistasGuardadas, // Mantener vistas guardadas
-          vistaActivaId: undefined
-        });
+        set({ ...PREFERENCIAS_INICIALES });
       }
     }),
     {

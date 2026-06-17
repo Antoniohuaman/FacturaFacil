@@ -44,6 +44,8 @@ interface DisponibilidadTableProps {
    * con el stock real individual. Solo aplica en modo "Todos los almacenes".
    */
   almacenesParaColumnas?: Almacen[];
+  /** Controla si se renderizan las columnas individuales por almacén. */
+  mostrarColumnasPorAlmacen: boolean;
 }
 
 const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
@@ -58,6 +60,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   onUpdateThreshold,
   selectednombreAlmacen,
   almacenesParaColumnas,
+  mostrarColumnasPorAlmacen,
 }) => {
   const { state: configState } = useConfigurationContext();
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
@@ -485,8 +488,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             {renderHeader('codigo', 'Código', 'left', true)}
             {renderHeader('producto', 'Producto', 'left', true)}
             {renderHeader('unidadMinima', 'Unidad mínima', 'center', false)}
-            {/* Columnas dinámicas por almacén (solo en modo "Todos los almacenes") */}
-            {almacenesParaColumnas?.map(w => (
+            {/* Columnas dinámicas por almacén (solo en modo "Todos los almacenes" y si está habilitado) */}
+            {mostrarColumnasPorAlmacen && almacenesParaColumnas?.map(w => (
               <th
                 key={`th-${w.id}`}
                 scope="col"
@@ -543,8 +546,8 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
                 </td>
               )}
 
-              {/* Columnas dinámicas por almacén (solo en modo "Todos los almacenes") */}
-              {almacenesParaColumnas?.map(w => (
+              {/* Columnas dinámicas por almacén (solo en modo "Todos los almacenes" y si está habilitado) */}
+              {mostrarColumnasPorAlmacen && almacenesParaColumnas?.map(w => (
                 <td key={`td-${w.id}`} className={`${cellClass} text-right tabular-nums text-gray-700 dark:text-gray-300`}>
                   {(item.stockPorAlmacen?.[w.id] ?? 0).toLocaleString()}
                 </td>
