@@ -8,6 +8,7 @@ import {
   resolvealmacenForSale,
   resolvealmacenesForSaleFIFO,
   allocateSaleAcrossalmacenes,
+  calculateRequiredUnidadMinima,
 } from '@/shared/inventory/stockGateway';
 
 const toNum = (v: unknown): number => {
@@ -96,10 +97,15 @@ export function validarStockParaOrden(
       EstablecimientoId: establecimientoId,
     });
 
-    if (resumen.totalAvailable < item.quantity) {
+    const qtyEnUnidadMinima = calculateRequiredUnidadMinima({
+      product: producto,
+      quantity: item.quantity,
+      unitCode: item.presentacionId || item.unidadMedida || item.unit,
+    });
+    if (resumen.totalAvailable < qtyEnUnidadMinima) {
       return {
         valido: false,
-        error: `No se puede generar la orden de venta. El producto "${item.name}" no tiene stock disponible suficiente en el almacén "${labelAlmacen}" (disponible: ${resumen.totalAvailable}, solicitado: ${item.quantity}).`,
+        error: `No se puede generar la orden de venta. El producto "${item.name}" no tiene stock disponible suficiente en el almacén "${labelAlmacen}" (disponible: ${resumen.totalAvailable}, solicitado: ${qtyEnUnidadMinima}).`,
       };
     }
   }
@@ -134,10 +140,15 @@ export function reservarStockOrden(
     const producto = useProductStore.getState().allProducts.find((p) => p.codigo === item.code);
     if (!producto) continue;
 
+    const qtyEnUnidadMinima = calculateRequiredUnidadMinima({
+      product: producto,
+      quantity: item.quantity,
+      unitCode: item.presentacionId || item.unidadMedida || item.unit,
+    });
     const allocations = allocateSaleAcrossalmacenes({
       product: producto,
       almacenesOrdered,
-      qtyUnidadMinima: item.quantity,
+      qtyUnidadMinima: qtyEnUnidadMinima,
       respectReservations: true,
     });
 
@@ -195,10 +206,15 @@ export function descontarStockParaDocumento(
     const producto = useProductStore.getState().allProducts.find((p) => p.codigo === item.code);
     if (!producto) continue;
 
+    const qtyEnUnidadMinima = calculateRequiredUnidadMinima({
+      product: producto,
+      quantity: item.quantity,
+      unitCode: item.presentacionId || item.unidadMedida || item.unit,
+    });
     const allocations = allocateSaleAcrossalmacenes({
       product: producto,
       almacenesOrdered,
-      qtyUnidadMinima: item.quantity,
+      qtyUnidadMinima: qtyEnUnidadMinima,
       respectReservations: true,
     });
 

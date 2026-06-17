@@ -44,6 +44,9 @@ import {
   calcularDesgloseTributos,
 } from '../utils/documentoComercial.helpers';
 import { calcularReservasPendientes } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { calculateRequiredUnidadMinima } from '@/shared/inventory/stockGateway';
+import { resolveUnidadMinima } from '@/shared/inventory/unitConversion';
 
 interface ListadoDocumentosComercialesProps {
   tipo: TipoDocumentoComercial;
@@ -82,12 +85,20 @@ const COLUMNAS_VISIBLES_DEFAULT = new Set([
 const OPCIONES_REGISTROS = [10, 25, 50];
 
 function buildLineasNSDesdeCartItems(items: CartItem[]): LineaNotaSalida[] {
+  const allProducts = useProductStore.getState().allProducts;
   return items
     .filter((item) => item.tipoBienServicio !== 'servicio' && item.tipoDetalle !== 'libre')
     .map((item, idx) => {
-      const cantidad = item.quantity;
+      const producto = allProducts.find((p) => p.codigo === item.code);
+      const cantidad = producto
+        ? calculateRequiredUnidadMinima({
+            product: producto,
+            quantity: item.quantity,
+            unitCode: item.presentacionId || item.unidadMedida || item.unit,
+          })
+        : (Number.isFinite(item.quantity) ? Number(item.quantity) : 0);
       const pvUnitario = item.price;
-      const subtotal = item.subtotal ?? pvUnitario * cantidad;
+      const subtotal = item.subtotal ?? pvUnitario * item.quantity;
       const igv = item.igv ?? 0;
       const total = item.total ?? subtotal + igv;
       return {
@@ -343,8 +354,19 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
       for (const p of pendientes) {
         pendientePorSku.set(p.sku, (pendientePorSku.get(p.sku) ?? 0) + p.cantidad);
       }
+      const ovProducts = useProductStore.getState().allProducts;
       itemsParaLineas = doc.items
-        .map(item => ({ ...item, quantity: pendientePorSku.get(item.code) ?? 0 }))
+        .map(item => {
+          const prod = ovProducts.find(p => p.codigo === item.code);
+          const unidadMin = prod ? resolveUnidadMinima(prod) : (item.unidadMedida ?? 'NIU');
+          return {
+            ...item,
+            quantity: pendientePorSku.get(item.code) ?? 0,
+            presentacionId: undefined,
+            unidadMedida: unidadMin,
+            unit: unidadMin,
+          };
+        })
         .filter(item => item.quantity > 0);
     }
     const lineas = buildLineasNSDesdeCartItems(itemsParaLineas);
