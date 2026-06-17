@@ -27,6 +27,7 @@ import {
   descontarStockParaDocumento,
   revertirDescuentoStockDocumento,
 } from '../utils/servicioReservaStock';
+import { calcularReservasPendientes } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
 
 const calcularTotalesItems = (items: CartItem[], moneda: Currency = 'PEN'): PaymentTotals => {
@@ -459,10 +460,20 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       let accionHistorial = 'Documento anulado';
       let detalleHistorial = `Motivo: ${motivo.trim()}`;
 
-      if (doc.tipo === 'orden_venta' && doc.estado === 'Reservada' && doc.reservasStock?.length) {
-        liberarReservaOrden(doc.reservasStock);
+      if (
+        doc.tipo === 'orden_venta' &&
+        (doc.estado === 'Reservada' || doc.estado === 'Pendiente de salida' || doc.estado === 'Atendida parcialmente') &&
+        doc.reservasStock?.length
+      ) {
+        // Para OVs con despacho parcial, liberar solo la reserva pendiente (original - despachado)
+        const aLiberar: ReservaStockItem[] = doc.despachado?.length
+          ? calcularReservasPendientes(doc.reservasStock, doc.despachado)
+          : doc.reservasStock;
+        if (aLiberar.length > 0) {
+          liberarReservaOrden(aLiberar);
+        }
         accionHistorial = 'Reserva liberada por anulación';
-        const productosLiberados = doc.reservasStock
+        const productosLiberados = aLiberar
           .map((r) => `${r.nombre} (${r.cantidad})`)
           .join(', ');
         detalleHistorial = `Motivo: ${motivo.trim()}. Productos liberados: ${productosLiberados}`;

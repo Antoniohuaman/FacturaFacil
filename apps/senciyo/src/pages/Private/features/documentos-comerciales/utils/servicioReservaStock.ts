@@ -208,36 +208,37 @@ export function descontarStockParaDocumento(
         useProductStore.getState().allProducts.find((p) => p.codigo === item.code) ?? producto;
       const almacenObj = almacenMap.get(alloc.almacenId);
 
-      if (almacenObj && documentoReferencia && usuario) {
-        // Usar registerAdjustment: descuenta stock + registra movimiento Kardex en un paso
-        const { product: productoActualizado } = InventoryService.registerAdjustment(
-          productoCurrent,
-          almacenObj,
-          {
-            productoId: productoCurrent.id,
-            almacenId: alloc.almacenId,
-            tipo: 'SALIDA',
-            motivo: 'VENTA',
-            cantidad: alloc.qtyUnidadMinima,
-            observaciones: `Nota de Venta ${documentoReferencia}`,
-            documentoReferencia,
-          },
-          usuario,
+      if (!almacenObj) {
+        throw new Error(
+          `No se encontró el almacén "${alloc.almacenId}" al descontar stock para el documento.`,
         );
-        // Recalcular stockPorEstablecimiento y cantidad
-        const productoConTotales = InventoryService.recalcularTotalesStock(productoActualizado, almacenes);
-        useProductStore.getState().updateProduct(productoCurrent.id, productoConTotales);
-      } else {
-        // Sin parámetros de Kardex: solo actualizar stockPorAlmacen directamente
-        const stockActual = toNum((productoCurrent.stockPorAlmacen ?? {})[alloc.almacenId]);
-        const nuevoStock = Math.max(0, stockActual - alloc.qtyUnidadMinima);
-        useProductStore.getState().updateProduct(productoCurrent.id, {
-          stockPorAlmacen: {
-            ...(productoCurrent.stockPorAlmacen ?? {}),
-            [alloc.almacenId]: nuevoStock,
-          },
-        });
       }
+      if (!documentoReferencia) {
+        throw new Error(
+          'Se requiere el número de documento para registrar el movimiento de inventario.',
+        );
+      }
+      if (!usuario) {
+        throw new Error(
+          'Se requiere el usuario para registrar el movimiento de inventario.',
+        );
+      }
+      const { product: productoActualizado } = InventoryService.registerAdjustment(
+        productoCurrent,
+        almacenObj,
+        {
+          productoId: productoCurrent.id,
+          almacenId: alloc.almacenId,
+          tipo: 'SALIDA',
+          motivo: 'VENTA',
+          cantidad: alloc.qtyUnidadMinima,
+          observaciones: `Nota de Venta ${documentoReferencia}`,
+          documentoReferencia,
+        },
+        usuario,
+      );
+      const productoConTotales = InventoryService.recalcularTotalesStock(productoActualizado, almacenes);
+      useProductStore.getState().updateProduct(productoCurrent.id, productoConTotales);
 
       descuentos.push({
         sku: producto.codigo,

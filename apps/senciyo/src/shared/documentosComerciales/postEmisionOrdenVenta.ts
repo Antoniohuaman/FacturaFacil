@@ -13,6 +13,7 @@
  */
 
 import { useProductStore } from '../../pages/Private/features/catalogo-articulos/hooks/useProductStore';
+import type { ReservaStockItem } from '../../pages/Private/features/documentos-comerciales/models/documentoComercial.types';
 import { tryLsKey } from '../tenant';
 
 const STORAGE_KEY_DOCUMENTOS = 'documentos_comerciales_v1';
@@ -32,6 +33,60 @@ const toNum = (v: unknown): number => {
 };
 
 const obtenerFechaHoraISO = (): string => new Date().toISOString();
+
+type DespachoBasico = { sku: string; cantidad: number; almacenId: string };
+
+function sumarDespachos(anterior: DespachoBasico[], nuevo: DespachoBasico[]): DespachoBasico[] {
+  const map = new Map<string, DespachoBasico>();
+  for (const item of [...anterior, ...nuevo]) {
+    const k = `${item.sku}__${item.almacenId}`;
+    const ex = map.get(k);
+    map.set(k, ex ? { ...ex, cantidad: ex.cantidad + item.cantidad } : { ...item });
+  }
+  return Array.from(map.values());
+}
+
+function restarDespachos(anterior: DespachoBasico[], aRestar: DespachoBasico[]): DespachoBasico[] {
+  const map = new Map<string, number>();
+  for (const item of anterior) {
+    const k = `${item.sku}__${item.almacenId}`;
+    map.set(k, (map.get(k) ?? 0) + item.cantidad);
+  }
+  for (const item of aRestar) {
+    const k = `${item.sku}__${item.almacenId}`;
+    map.set(k, Math.max(0, (map.get(k) ?? 0) - item.cantidad));
+  }
+  const seen = new Set<string>();
+  return anterior.reduce<DespachoBasico[]>((acc, item) => {
+    const k = `${item.sku}__${item.almacenId}`;
+    if (!seen.has(k)) {
+      seen.add(k);
+      const qty = map.get(k) ?? 0;
+      if (qty > 0) acc.push({ ...item, cantidad: qty });
+    }
+    return acc;
+  }, []);
+}
+
+/**
+ * Calcula las reservas de stock pendientes de despacho de una OV.
+ * Resta las cantidades ya despachadas (`despachado`) de las reservas originales (`original`).
+ * Filtra ítems con cantidad resultante ≤ 0.
+ */
+export function calcularReservasPendientes(
+  original: ReservaStockItem[],
+  despachado: DespachoBasico[],
+): ReservaStockItem[] {
+  if (!despachado.length) return original;
+  const map = new Map<string, number>();
+  for (const d of despachado) {
+    const k = `${d.sku}__${d.almacenId}`;
+    map.set(k, (map.get(k) ?? 0) + d.cantidad);
+  }
+  return original
+    .map(r => ({ ...r, cantidad: Math.max(0, r.cantidad - (map.get(`${r.sku}__${r.almacenId}`) ?? 0)) }))
+    .filter(r => r.cantidad > 0);
+}
 
 /**
  * Libera el stock reservado por la OV directamente en el store de productos (Zustand).
@@ -56,9 +111,9 @@ export function liberarReservasDeOV(reservasStock: Array<{ sku: string; cantidad
 }
 
 /**
- * Lee las reservas de stock de una OV desde localStorage.
- * Al emitir un comprobante desde OV, se usan estas reservas para descontar
- * exactamente los almacenes comprometidos (no recalcular FIFO desde cero).
+ * Lee las reservas PENDIENTES de despacho de una OV desde localStorage.
+ * Descuenta las cantidades ya despachadas (campo `despachado`) de las reservas originales,
+ * de modo que el resultado siempre refleja lo que queda por salir.
  */
 export function obtenerReservasDeOV(
   ovId: string
@@ -71,7 +126,9 @@ export function obtenerReservasDeOV(
     const documentos: any[] = JSON.parse(raw);
     const ov = documentos.find((d) => d.id === ovId);
     if (!ov || ov.tipo !== 'orden_venta') return [];
-    return Array.isArray(ov.reservasStock) ? ov.reservasStock : [];
+    const original: ReservaStockItem[] = Array.isArray(ov.reservasStock) ? ov.reservasStock : [];
+    const despachado: DespachoBasico[] = Array.isArray(ov.despachado) ? ov.despachado : [];
+    return despachado.length ? calcularReservasPendientes(original, despachado) : original;
   } catch {
     return [];
   }
@@ -160,15 +217,16 @@ export function desvincularDocumentoComercialNS(docId: string): void {
 }
 
 /**
- * Marca la Orden de Venta como 'Atendida' cuando se generó una Nota de Salida
- * DIRECTAMENTE desde ella (sin pasar por un comprobante).
+ * Marca la Orden de Venta como 'Atendida' o 'Atendida parcialmente' según cuánto
+ * se despachó en la Nota de Salida generada DIRECTAMENTE desde ella.
  *
- * Solo actúa si la OV está en estado 'Reservada'.
- * Diferente de atenderOrdenVentaPostNS que actúa sobre estado 'Pendiente de salida'.
+ * Acepta OV en estado 'Reservada' (primera NS) o 'Atendida parcialmente' (NSs subsiguientes).
+ * Acumula los despachos en `despachado` para que futuras NSs y anulaciones calculen
+ * correctamente las cantidades pendientes.
  */
 export function atenderOrdenVentaPostNSDirecta(
   ovId: string,
-  info: { numeroNS: string; usuario?: string },
+  info: { numeroNS: string; usuario?: string; aLiberar: DespachoBasico[] },
 ): void {
   try {
     const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
@@ -179,18 +237,27 @@ export function atenderOrdenVentaPostNSDirecta(
     const idx = documentos.findIndex((d) => d.id === ovId);
     if (idx < 0) return;
     const ov = documentos[idx];
-    if (ov.tipo !== 'orden_venta' || ov.estado !== 'Reservada') return;
+    if (ov.tipo !== 'orden_venta') return;
+    if (ov.estado !== 'Reservada' && ov.estado !== 'Atendida parcialmente') return;
+    const reservasOriginales: ReservaStockItem[] = Array.isArray(ov.reservasStock) ? ov.reservasStock : [];
+    const despachadoPrevio: DespachoBasico[] = Array.isArray(ov.despachado) ? ov.despachado : [];
+    const nuevoDespachado = sumarDespachos(despachadoPrevio, info.aLiberar);
+    const pendientes = calcularReservasPendientes(reservasOriginales, nuevoDespachado);
+    const nuevoEstado = pendientes.length > 0 ? 'Atendida parcialmente' : 'Atendida';
     const ahora = obtenerFechaHoraISO();
     documentos[idx] = {
       ...ov,
-      estado: 'Atendida',
+      estado: nuevoEstado,
+      despachado: nuevoDespachado,
       fechaActualizacion: ahora,
       historial: [
         ...(Array.isArray(ov.historial) ? ov.historial : []),
         {
           fecha: ahora,
           usuario: info.usuario,
-          accion: 'Nota de Salida directa generada — Orden atendida',
+          accion: nuevoEstado === 'Atendida parcialmente'
+            ? 'Nota de Salida directa generada — Orden atendida parcialmente'
+            : 'Nota de Salida directa generada — Orden atendida',
           detalle: `Nota de Salida ${info.numeroNS} emitida. Stock descontado y reserva liberada.`,
         },
       ],
@@ -205,14 +272,17 @@ export function atenderOrdenVentaPostNSDirecta(
 }
 
 /**
- * Restaura la Orden de Venta a estado 'Reservada' después de que su Nota de Salida
- * directa fue anulada. Restaura también el stockReservadoPorAlmacen.
+ * Restaura la Orden de Venta al estado correcto después de que una Nota de Salida directa
+ * fue anulada. Restaura únicamente las cantidades que esa NS despachó.
  *
- * Solo actúa si la OV está en estado 'Atendida' (estado que adquirió al generar la NS directa).
+ * - Si ningún despacho queda acumulado → 'Reservada' (NS era la única)
+ * - Si aún hay despacho acumulado → 'Atendida parcialmente'
+ *
+ * Acepta OV en estado 'Atendida' o 'Atendida parcialmente'.
  */
 export function restaurarOVPostAnulacionNSDirecta(
   ovId: string,
-  info: { numeroNS: string; usuario?: string },
+  info: { numeroNS: string; usuario?: string; aRestaurar: DespachoBasico[] },
 ): void {
   try {
     const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
@@ -223,26 +293,38 @@ export function restaurarOVPostAnulacionNSDirecta(
     const idx = documentos.findIndex((d) => d.id === ovId);
     if (idx < 0) return;
     const ov = documentos[idx];
-    if (ov.tipo !== 'orden_venta' || ov.estado !== 'Atendida') return;
-    const ahora = obtenerFechaHoraISO();
-    // Restaurar stockReservadoPorAlmacen antes de guardar en localStorage
-    if (Array.isArray(ov.reservasStock) && ov.reservasStock.length > 0) {
-      restaurarReservasDeOV(ov.reservasStock);
+    if (ov.tipo !== 'orden_venta') return;
+    if (ov.estado !== 'Atendida' && ov.estado !== 'Atendida parcialmente') return;
+    // Restaurar únicamente lo que esta NS descontó, no la reserva original completa
+    if (info.aRestaurar.length > 0) {
+      restaurarReservasDeOV(info.aRestaurar);
     }
+    const despachadoPrevio: DespachoBasico[] = Array.isArray(ov.despachado) ? ov.despachado : [];
+    const nuevoDespachado = restarDespachos(despachadoPrevio, info.aRestaurar);
+    const reservasOriginales: ReservaStockItem[] = Array.isArray(ov.reservasStock) ? ov.reservasStock : [];
+    const pendientes = calcularReservasPendientes(reservasOriginales, nuevoDespachado);
+    const totalDespachado = nuevoDespachado.reduce((s, d) => s + d.cantidad, 0);
+    const nuevoEstado = totalDespachado === 0
+      ? 'Reservada'
+      : pendientes.length > 0 ? 'Atendida parcialmente' : 'Atendida';
+    const ahora = obtenerFechaHoraISO();
     documentos[idx] = {
       ...ov,
-      estado: 'Reservada',
+      estado: nuevoEstado,
+      despachado: nuevoDespachado.length > 0 ? nuevoDespachado : undefined,
       notaSalidaId: undefined,
-      notaSalidaGenerada: false,
-      notaSalidaFechaGeneracion: undefined,
+      notaSalidaGenerada: nuevoEstado !== 'Reservada',
+      notaSalidaFechaGeneracion: nuevoEstado === 'Reservada' ? undefined : ov.notaSalidaFechaGeneracion,
       fechaActualizacion: ahora,
       historial: [
         ...(Array.isArray(ov.historial) ? ov.historial : []),
         {
           fecha: ahora,
           usuario: info.usuario,
-          accion: 'Reserva restaurada por anulación de Nota de Salida directa',
-          detalle: `Nota de Salida ${info.numeroNS} anulada. Stock repuesto. Reserva de stock restaurada.`,
+          accion: nuevoEstado === 'Reservada'
+            ? 'Reserva restaurada por anulación de Nota de Salida directa'
+            : 'Reserva parcialmente restaurada por anulación de Nota de Salida',
+          detalle: `Nota de Salida ${info.numeroNS} anulada. Stock repuesto.`,
         },
       ],
     };
@@ -358,15 +440,15 @@ export function actualizarOrdenVentaPostEmision(
 }
 
 /**
- * Marca la Orden de Venta como 'Atendida' en localStorage después de que se generó
- * la Nota de Salida desde el comprobante asociado.
+ * Marca la Orden de Venta como 'Atendida' o 'Atendida parcialmente' después de que
+ * se generó una Nota de Salida desde el comprobante asociado a ella.
  *
- * Solo actúa si la OV está en estado 'Pendiente de salida'; cualquier otro estado
- * se ignora silenciosamente (protección contra dobles llamadas).
+ * Acepta OV en estado 'Pendiente de salida' (primera NS) o 'Atendida parcialmente'
+ * (NSs subsiguientes). Acumula los despachos igual que atenderOrdenVentaPostNSDirecta.
  */
 export function atenderOrdenVentaPostNS(
   ovId: string,
-  info: { numeroNS: string; usuario?: string },
+  info: { numeroNS: string; usuario?: string; aLiberar: DespachoBasico[] },
 ): void {
   try {
     const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
@@ -379,20 +461,29 @@ export function atenderOrdenVentaPostNS(
     if (idx < 0) return;
 
     const ov = documentos[idx];
-    if (ov.tipo !== 'orden_venta' || ov.estado !== 'Pendiente de salida') return;
+    if (ov.tipo !== 'orden_venta') return;
+    if (ov.estado !== 'Pendiente de salida' && ov.estado !== 'Atendida parcialmente') return;
 
+    const reservasOriginales: ReservaStockItem[] = Array.isArray(ov.reservasStock) ? ov.reservasStock : [];
+    const despachadoPrevio: DespachoBasico[] = Array.isArray(ov.despachado) ? ov.despachado : [];
+    const nuevoDespachado = sumarDespachos(despachadoPrevio, info.aLiberar);
+    const pendientes = calcularReservasPendientes(reservasOriginales, nuevoDespachado);
+    const nuevoEstado = pendientes.length > 0 ? 'Atendida parcialmente' : 'Atendida';
     const ahora = obtenerFechaHoraISO();
 
     documentos[idx] = {
       ...ov,
-      estado: 'Atendida',
+      estado: nuevoEstado,
+      despachado: nuevoDespachado,
       fechaActualizacion: ahora,
       historial: [
         ...(Array.isArray(ov.historial) ? ov.historial : []),
         {
           fecha: ahora,
           usuario: info.usuario,
-          accion: 'Nota de Salida generada — Orden atendida',
+          accion: nuevoEstado === 'Atendida parcialmente'
+            ? 'Nota de Salida generada — Orden atendida parcialmente'
+            : 'Nota de Salida generada — Orden atendida',
           detalle: `Nota de Salida ${info.numeroNS} emitida. Reserva liberada y stock descontado.`,
         },
       ],

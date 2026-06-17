@@ -170,7 +170,9 @@ export const generarNSEnInventario = (
     EstablecimientoId: establecimientoId,
   });
   if (!almacenesOrdenados.length) {
-    almacenesOrdenados = almacenesArray.filter(a => a.estaActivoAlmacen !== false);
+    almacenesOrdenados = almacenesArray.filter(
+      a => a.estaActivoAlmacen !== false && a.establecimientoId === establecimientoId,
+    );
   }
 
   const lineasBienes = nota.lineas.filter(l => l.tipoBienServicio === 'bien');

@@ -43,6 +43,7 @@ import {
   formatearDocumentoCliente,
   calcularDesgloseTributos,
 } from '../utils/documentoComercial.helpers';
+import { calcularReservasPendientes } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 
 interface ListadoDocumentosComercialesProps {
   tipo: TipoDocumentoComercial;
@@ -113,10 +114,17 @@ function puedeGenerarNS(
   controlStockActivo: boolean,
 ): boolean {
   if (doc.esBorrador || doc.estado === 'Anulada') return false;
-  if (doc.notaSalidaGenerada) return false;
   if (doc.tipo === 'orden_venta') {
-    return doc.estado === 'Reservada';
+    if (doc.estado === 'Reservada') return true;
+    if (doc.estado === 'Atendida parcialmente') {
+      // Solo si queda saldo pendiente (descarta el caso donde despachado cubre todo pero el estado no se actualizó)
+      const pendiente = calcularReservasPendientes(doc.reservasStock ?? [], doc.despachado ?? []);
+      return pendiente.length > 0;
+    }
+    return false;
   }
+  // Nota de Venta: verificar también que no exista ya una NS generada
+  if (doc.notaSalidaGenerada) return false;
   if (doc.tipo === 'nota_venta') {
     if (!controlStockActivo) return false;
     if ((salesPreferences?.stockDescuentoNotaVenta ?? 'automatico') !== 'nota_salida') return false;
@@ -327,7 +335,19 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
 
   const handleGenerarNS = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
-    const lineas = buildLineasNSDesdeCartItems(doc.items);
+    // Para OV parcialmente atendida, prellenar solo con cantidades pendientes (no las originales)
+    let itemsParaLineas = doc.items;
+    if (doc.tipo === 'orden_venta' && doc.estado === 'Atendida parcialmente' && doc.reservasStock?.length) {
+      const pendientes = calcularReservasPendientes(doc.reservasStock, doc.despachado ?? []);
+      const pendientePorSku = new Map<string, number>();
+      for (const p of pendientes) {
+        pendientePorSku.set(p.sku, (pendientePorSku.get(p.sku) ?? 0) + p.cantidad);
+      }
+      itemsParaLineas = doc.items
+        .map(item => ({ ...item, quantity: pendientePorSku.get(item.code) ?? 0 }))
+        .filter(item => item.quantity > 0);
+    }
+    const lineas = buildLineasNSDesdeCartItems(itemsParaLineas);
     const from: DocumentoComercialOrigenNS = {
       id: doc.id,
       numero: doc.numero ?? doc.serie,

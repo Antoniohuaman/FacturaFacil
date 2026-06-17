@@ -128,6 +128,8 @@ export interface DocumentoComercial {
 
   historial?: EventoHistorial[];
   reservasStock?: ReservaStockItem[];
+  /** Cantidades acumuladas despachadas vía Notas de Salida. Presente solo en OVs con salida parcial. */
+  despachado?: Array<{ sku: string; cantidad: number; almacenId: string }>;
 
   /** Modo en que se gestiona el stock al generar (aplica a NV). */
   modoDescuentoStock?: 'automatico' | 'nota_salida';

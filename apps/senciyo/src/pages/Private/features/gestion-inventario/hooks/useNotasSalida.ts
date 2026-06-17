@@ -136,8 +136,9 @@ export const useNotasSalida = () => {
           // No liberar toda la reserva OV de una vez: si la NS es parcial, la reserva pendiente
           // debe quedar activa para futuros despachos.
           const reservasOV = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
+          // aLiberar se declara aquí para ser accesible en el bloque de estado OV.
+          const aLiberar: Array<{ sku: string; cantidad: number; almacenId: string }> = [];
           if (reservasOV.length > 0) {
-            const aLiberar: Array<{ sku: string; cantidad: number; almacenId: string }> = [];
             for (const linea of notaActualizada.lineas.filter(l => l.tipoBienServicio === 'bien')) {
               const almId = linea.almacenId ?? notaActualizada.almacenOrigenId;
               if (!almId) continue;
@@ -157,11 +158,12 @@ export const useNotasSalida = () => {
           }
 
           if (notaActualizada.origen === 'OrdenVenta') {
-            // NS generada directamente desde OV (sin pasar por comprobante):
-            // la OV estaba en 'Reservada', pasa a 'Atendida'.
+            // NS generada directamente desde OV (sin pasar por comprobante).
+            // aLiberar determina si fue despacho total o parcial.
             atenderOrdenVentaPostNSDirecta(notaActualizada.ordenVentaOrigenId, {
               numeroNS: notaActualizada.numero ?? notaActualizada.id,
               usuario: usuarioNombre,
+              aLiberar,
             });
             vincularDocumentoComercialNS(
               notaActualizada.ordenVentaOrigenId,
@@ -169,11 +171,11 @@ export const useNotasSalida = () => {
               notaActualizada.updatedAt,
             );
           } else {
-            // NS generada desde comprobante que proviene de OV:
-            // la OV estaba en 'Pendiente de salida', pasa a 'Atendida'.
+            // NS generada desde comprobante que proviene de OV.
             atenderOrdenVentaPostNS(notaActualizada.ordenVentaOrigenId, {
               numeroNS: notaActualizada.numero ?? notaActualizada.id,
               usuario: usuarioNombre,
+              aLiberar,
             });
           }
         }
@@ -239,11 +241,19 @@ export const useNotasSalida = () => {
           updateProduct(prod.id, prod);
         }
 
-        // NS directa desde OV: restaurar OV a 'Reservada' y reponer reserva de stock
+        // NS directa desde OV: restaurar OV y reponer solo la reserva que esta NS descontó
         if (nota.origen === 'OrdenVenta' && nota.ordenVentaOrigenId) {
+          const aRestaurar = nota.lineas
+            .filter(l => l.tipoBienServicio === 'bien' && l.almacenId)
+            .map(l => ({
+              sku: l.productoCodigo,
+              cantidad: l.cantidad,
+              almacenId: l.almacenId as string,
+            }));
           restaurarOVPostAnulacionNSDirecta(nota.ordenVentaOrigenId, {
             numeroNS: nota.numero ?? nota.id,
             usuario: usuarioNombre,
+            aRestaurar,
           });
         }
 
