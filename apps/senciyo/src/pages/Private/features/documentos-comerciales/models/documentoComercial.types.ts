@@ -126,6 +126,14 @@ export interface DocumentoComercial {
   fechaAnulacion?: string;
   usuarioAnulacion?: string;
 
+  motivoRechazo?: string;
+  fechaRechazo?: string;
+  usuarioRechazo?: string;
+
+  motivoCierrePerdido?: string;
+  fechaCierrePerdido?: string;
+  usuarioCierrePerdido?: string;
+
   historial?: EventoHistorial[];
   reservasStock?: ReservaStockItem[];
   /** Cantidades acumuladas despachadas vía Notas de Salida. Presente solo en OVs con salida parcial. */

@@ -12,7 +12,7 @@ import type {
   TipoComprobante,
 } from '../models/comprobante.types';
 import { lsKey } from '../../../../../shared/tenant';
-import { actualizarOrdenVentaPostEmision, obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
+import { actualizarOrdenVentaPostEmision, actualizarCotizacionPostEmision, obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import { mapPaymentMethodToMedioPago } from '../../../../../shared/payments/paymentMapping';
 // Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
 import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facade';
@@ -1037,7 +1037,7 @@ export const useComprobanteActions = () => {
               }
             }
 
-            // Actualizar Orden de Venta de documentos_comerciales (Fase 2)
+            // Actualizar documento origen de documentos_comerciales (Fase 2)
             if (conversionSourceType === 'orden_venta') {
               actualizarOrdenVentaPostEmision(conversionSourceId, {
                 tipoComprobante: tipoComprobanteDisplay,
@@ -1045,6 +1045,14 @@ export const useComprobanteActions = () => {
                 total: data.totals?.total ?? 0,
                 usuario: session?.userName ?? undefined,
                 modoDescuentoStock: nuevoComprobante.modoDescuentoStock,
+              });
+            }
+            if (conversionSourceType === 'cotizacion') {
+              actualizarCotizacionPostEmision(conversionSourceId, {
+                tipoComprobante: tipoComprobanteDisplay,
+                numeroComprobante,
+                total: data.totals?.total ?? 0,
+                usuario: session?.userName ?? undefined,
               });
             }
 

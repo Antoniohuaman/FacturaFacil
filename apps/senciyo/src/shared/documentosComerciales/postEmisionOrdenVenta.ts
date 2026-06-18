@@ -440,6 +440,61 @@ export function actualizarOrdenVentaPostEmision(
 }
 
 /**
+ * Marca la Cotización como 'Convertida' después de que se emitió un comprobante desde ella.
+ * No afecta stock (las cotizaciones no reservan).
+ */
+export function actualizarCotizacionPostEmision(
+  cotizacionId: string,
+  info: Omit<InfoComprobanteEmitido, 'modoDescuentoStock'>,
+): void {
+  try {
+    const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documentos: any[] = JSON.parse(raw);
+    const idx = documentos.findIndex((d) => d.id === cotizacionId);
+    if (idx < 0) return;
+
+    const cot = documentos[idx];
+    if (cot.tipo !== 'cotizacion') return;
+    if (cot.estado !== 'Generada' && cot.estado !== 'Aprobada') return;
+
+    const ahora = obtenerFechaHoraISO();
+
+    documentos[idx] = {
+      ...cot,
+      estado: 'Convertida',
+      fechaActualizacion: ahora,
+      trazabilidad: {
+        ...(cot.trazabilidad ?? {}),
+        documentoDestinoId: info.numeroComprobante,
+        documentoDestinoTipo: 'comprobante',
+        documentoDestinoNumero: info.numeroComprobante,
+      },
+      historial: [
+        ...(Array.isArray(cot.historial) ? cot.historial : []),
+        {
+          fecha: ahora,
+          usuario: info.usuario,
+          accion: 'Comprobante generado desde cotización',
+          detalle: `${info.tipoComprobante} ${info.numeroComprobante} — Total: ${info.total.toFixed(2)}`,
+        },
+      ],
+    };
+
+    localStorage.setItem(key, JSON.stringify(documentos));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(EVENTO_RECARGA));
+    }
+  } catch (err) {
+    console.error('[postEmisionOrdenVenta] Error actualizando Cotización post emisión:', err);
+  }
+}
+
+/**
  * Marca la Orden de Venta como 'Atendida' o 'Atendida parcialmente' después de que
  * se generó una Nota de Salida desde el comprobante asociado a ella.
  *

@@ -157,7 +157,7 @@ export default function FormularioDocumentoComercial({
     const errorValidacion = actions.validarDatos(datos);
     if (errorValidacion) {
       feedback.warning(errorValidacion);
-      if (datos.tipo === 'orden_venta' && !datos.cliente) {
+      if ((datos.tipo === 'orden_venta' || datos.tipo === 'cotizacion') && !datos.cliente) {
         setErrorCliente(errorValidacion);
       }
       return;

@@ -76,6 +76,141 @@ export function refrescarStockItem(
 }
 
 /**
+ * Valida que la cotización esté en condiciones de ser convertida a comprobante.
+ */
+export function validarCotizacionParaConversion(
+  cotizacion: DocumentoComercial,
+): { valido: boolean; error?: string } {
+  if (cotizacion.tipo !== 'cotizacion') {
+    return { valido: false, error: 'Solo se pueden convertir cotizaciones.' };
+  }
+  const requiereAprobacion = cotizacion.camposOpcionales?.requiereAprobacion ?? false;
+  if (requiereAprobacion && cotizacion.estado !== 'Aprobada') {
+    return {
+      valido: false,
+      error: 'Esta cotización requiere aprobación antes de poder generar el comprobante.',
+    };
+  }
+  if (!requiereAprobacion && cotizacion.estado !== 'Generada' && cotizacion.estado !== 'Aprobada') {
+    return {
+      valido: false,
+      error: 'Solo se pueden convertir cotizaciones en estado Generada o Aprobada.',
+    };
+  }
+  if (!cotizacion.numero) {
+    return { valido: false, error: 'La cotización no tiene número asignado.' };
+  }
+  if (!cotizacion.cliente) {
+    return { valido: false, error: 'La cotización requiere un cliente para generar el comprobante.' };
+  }
+  if (!cotizacion.items.length) {
+    return { valido: false, error: 'La cotización no tiene productos o servicios.' };
+  }
+  return { valido: true };
+}
+
+/**
+ * Construye el estado de navegación para abrir el formulario de comprobantes
+ * precargado con los datos de la Cotización.
+ */
+export function construirCargaConversionDesdeCotizacion(
+  cotizacion: DocumentoComercial,
+): { state: { fromConversion: true; conversionData: CargaReutilizacionDocumentoComercial } } {
+  const tipoComprobante = determinarTipoComprobante(cotizacion.cliente?.tipoDocumento);
+  const refCot = cotizacion.numero ?? '';
+
+  const observaciones = cotizacion.observaciones
+    ? `${cotizacion.observaciones}\nRef. Cotización: ${refCot}`
+    : `Ref. Cotización: ${refCot}`;
+
+  const instantanea: InstantaneaDocumentoComercial = {
+    version: 1,
+    identidad: {
+      tipoDocumento: 'documento_comercial',
+      tipoComprobante,
+      codigoSunat: tipoComprobante === 'factura' ? '01' : '03',
+      tipoOperacion: null,
+      serie: null,
+      correlativo: null,
+      numeroCompleto: null,
+      fechaEmision: cotizacion.fechaEmision,
+      horaEmision: null,
+      moneda: cotizacion.moneda,
+      tipoCambio: cotizacion.tipoCambio ?? null,
+      origen: 'conversion',
+      idDocumento: cotizacion.id,
+      idInterno: cotizacion.numero ?? null,
+    },
+    empresa: {
+      idEmpresa: null,
+      nombreComercial: null,
+      razonSocial: null,
+      ruc: null,
+    },
+    establecimiento: {
+      idEstablecimiento: cotizacion.establecimientoId ?? null,
+      codigoEstablecimiento: null,
+      nombreEstablecimiento: null,
+    },
+    vendedor: {
+      idUsuario: cotizacion.vendedorId ?? null,
+      nombreUsuario: cotizacion.vendedor ?? null,
+    },
+    cliente: {
+      idCliente: cotizacion.cliente ? String(cotizacion.cliente.clienteId ?? '') || null : null,
+      nombre: cotizacion.cliente?.nombre ?? '',
+      tipoDocumento: cotizacion.cliente?.tipoDocumento ?? null,
+      numeroDocumento: cotizacion.cliente?.numeroDocumento ?? null,
+      codigoSunatDocumento: codigoSunatDocumento(cotizacion.cliente?.tipoDocumento),
+      email: cotizacion.cliente?.email ?? null,
+      telefono: null,
+      direccion: cotizacion.cliente?.direccion ?? null,
+      priceProfileId: cotizacion.cliente?.priceProfileId ?? null,
+    },
+    camposComerciales: {
+      direccionEnvio: cotizacion.camposOpcionales?.direccionEnvio ?? null,
+      ordenCompra: cotizacion.camposOpcionales?.ordenCompra ?? null,
+      guiaRemision: cotizacion.camposOpcionales?.guiaRemision ?? null,
+      centroCosto: cotizacion.camposOpcionales?.centroCosto ?? null,
+      observaciones,
+      notaInterna: cotizacion.notaInterna ?? null,
+      fechaVencimiento: cotizacion.camposOpcionales?.fechaVencimiento ?? null,
+      formaPagoId: null,
+      formaPagoDescripcion: cotizacion.formaPago ?? null,
+      detallesPago: null,
+      terminosCredito: null,
+      datosDetraccion: null,
+    },
+    detalle: {
+      items: cotizacion.items,
+      modoDetalle: cotizacion.modoItems === 'libre' ? 'libre' : 'catalogo',
+      contieneItemsCatalogo: cotizacion.modoItems !== 'libre',
+      contieneItemsLibres: cotizacion.modoItems === 'libre',
+    },
+    totales: cotizacion.totales,
+    relaciones: {
+      documentoOrigenId: cotizacion.id,
+      documentoOrigenTipo: 'cotizacion',
+      documentoRelacionadoId: null,
+      documentoRelacionadoTipo: null,
+      datosNotaCredito: null,
+      idDocumentoFuente: cotizacion.id,
+      tipoDocumentoFuente: 'cotizacion',
+    },
+  };
+
+  return {
+    state: {
+      fromConversion: true,
+      conversionData: {
+        instantaneaDocumentoComercial: instantanea,
+        datosNotaCredito: null,
+      },
+    },
+  };
+}
+
+/**
  * Valida que la OV esté en condiciones de ser convertida a comprobante.
  */
 export function validarOVParaConversion(

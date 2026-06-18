@@ -76,6 +76,11 @@ export interface UseDocumentoComercialActionsReturn {
   validarDatos: (datos: DatosFormularioDocumentoComercial) => string | null;
   /** Modo de descuento de stock aplicable a una NV según la configuración actual. */
   getModoDescuentoNV: () => 'automatico' | 'nota_salida' | 'sin_control' | null;
+  aprobarCotizacion: (id: string) => ResultadoAccionDocumento;
+  rechazarCotizacion: (id: string, motivo: string) => ResultadoAccionDocumento;
+  cerrarCotizacionComoPerdida: (id: string, motivo: string) => ResultadoAccionDocumento;
+  convertirCotizacionANV: (id: string) => ResultadoAccionDocumento;
+  evaluarVencimientosCotizaciones: () => void;
 }
 
 export function useDocumentoComercialActions(): UseDocumentoComercialActionsReturn {
@@ -90,8 +95,8 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       if (!datos.serie || datos.serie.trim() === '') {
         return 'Debe seleccionar una serie para generar el documento.';
       }
-      if (datos.tipo === 'orden_venta' && !datos.cliente) {
-        return 'Selecciona un cliente para guardar la orden de venta.';
+      if ((datos.tipo === 'orden_venta' || datos.tipo === 'cotizacion') && !datos.cliente) {
+        return 'Selecciona un cliente para generar el documento.';
       }
       if (!datos.items || datos.items.length === 0) {
         return 'Debe agregar al menos un producto o servicio.';
@@ -567,6 +572,186 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     return configState.salesPreferences?.stockDescuentoNotaVenta ?? 'automatico';
   }, [configState.salesPreferences]);
 
+  const aprobarCotizacion = useCallback(
+    (id: string): ResultadoAccionDocumento => {
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo se pueden aprobar cotizaciones.' };
+      if (doc.estado !== 'Generada') return { exito: false, error: 'Solo se pueden aprobar cotizaciones en estado Generada.' };
+      if (!doc.cliente) return { exito: false, error: 'La cotización requiere un cliente para ser aprobada.' };
+      if (!doc.items?.length) return { exito: false, error: 'La cotización debe tener al menos un producto o servicio.' };
+      const hayItemInvalido = doc.items.some((item) => item.price <= 0 || item.quantity <= 0);
+      if (hayItemInvalido) return { exito: false, error: 'Todos los ítems deben tener precio y cantidad válidos.' };
+
+      const ahora = obtenerFechaHoraISO();
+      const actualizado: DocumentoComercial = {
+        ...doc,
+        estado: 'Aprobada',
+        fechaActualizacion: ahora,
+        historial: [...(doc.historial ?? []), crearEvento('Cotización aprobada', session?.userName)],
+      };
+      actualizarEnContext(actualizado);
+      return { exito: true, documento: actualizado };
+    },
+    [state.documentos, actualizarEnContext, session],
+  );
+
+  const rechazarCotizacion = useCallback(
+    (id: string, motivo: string): ResultadoAccionDocumento => {
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo se pueden rechazar cotizaciones.' };
+      if (doc.estado !== 'Generada') return { exito: false, error: 'Solo se pueden rechazar cotizaciones en estado Generada.' };
+      if (!motivo?.trim()) return { exito: false, error: 'El motivo de rechazo es obligatorio.' };
+
+      const ahora = obtenerFechaHoraISO();
+      const actualizado: DocumentoComercial = {
+        ...doc,
+        estado: 'Rechazada',
+        fechaActualizacion: ahora,
+        motivoRechazo: motivo.trim(),
+        fechaRechazo: ahora,
+        usuarioRechazo: session?.userName ?? undefined,
+        historial: [
+          ...(doc.historial ?? []),
+          crearEvento('Cotización rechazada', session?.userName, `Motivo: ${motivo.trim()}`),
+        ],
+      };
+      actualizarEnContext(actualizado);
+      return { exito: true, documento: actualizado };
+    },
+    [state.documentos, actualizarEnContext, session],
+  );
+
+  const cerrarCotizacionComoPerdida = useCallback(
+    (id: string, motivo: string): ResultadoAccionDocumento => {
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo aplica a cotizaciones.' };
+      if (doc.estado !== 'Generada' && doc.estado !== 'Aprobada') {
+        return { exito: false, error: 'Solo se puede cerrar como perdida una cotización Generada o Aprobada.' };
+      }
+      if (!motivo?.trim()) return { exito: false, error: 'El motivo de cierre es obligatorio.' };
+
+      const ahora = obtenerFechaHoraISO();
+      const actualizado: DocumentoComercial = {
+        ...doc,
+        estado: 'Cerrada perdida',
+        fechaActualizacion: ahora,
+        motivoCierrePerdido: motivo.trim(),
+        fechaCierrePerdido: ahora,
+        usuarioCierrePerdido: session?.userName ?? undefined,
+        historial: [
+          ...(doc.historial ?? []),
+          crearEvento('Cotización cerrada como perdida', session?.userName, `Motivo: ${motivo.trim()}`),
+        ],
+      };
+      actualizarEnContext(actualizado);
+      return { exito: true, documento: actualizado };
+    },
+    [state.documentos, actualizarEnContext, session],
+  );
+
+  const convertirCotizacionANV = useCallback(
+    (id: string): ResultadoAccionDocumento => {
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo se pueden convertir cotizaciones.' };
+      if (!doc.cliente) return { exito: false, error: 'La cotización requiere un cliente para convertirse.' };
+      if (!doc.items?.length) return { exito: false, error: 'La cotización debe tener al menos un producto o servicio.' };
+
+      const ahora = obtenerFechaHoraISO();
+      const nvId = generarIdBorrador();
+
+      const nv: DocumentoComercial = {
+        ...doc,
+        id: nvId,
+        tipo: 'nota_venta',
+        estado: 'Borrador',
+        esBorrador: true,
+        serie: '',
+        correlativo: undefined,
+        numero: undefined,
+        fechaEmision: obtenerFechaHoyISO(),
+        fechaCreacion: ahora,
+        fechaActualizacion: ahora,
+        motivoAnulacion: undefined,
+        fechaAnulacion: undefined,
+        usuarioAnulacion: undefined,
+        motivoRechazo: undefined,
+        fechaRechazo: undefined,
+        usuarioRechazo: undefined,
+        motivoCierrePerdido: undefined,
+        fechaCierrePerdido: undefined,
+        usuarioCierrePerdido: undefined,
+        reservasStock: undefined,
+        modoDescuentoStock: undefined,
+        notaSalidaId: undefined,
+        notaSalidaGenerada: undefined,
+        notaSalidaFechaGeneracion: undefined,
+        trazabilidad: {
+          documentoOrigenId: doc.id,
+          documentoOrigenTipo: 'cotizacion',
+          documentoOrigenNumero: doc.numero ?? doc.serie,
+        },
+        historial: [
+          crearEvento(
+            `Nota de Venta creada desde cotización ${doc.numero ?? doc.serie}`,
+            session?.userName,
+          ),
+        ],
+      };
+
+      const cotActualizada: DocumentoComercial = {
+        ...doc,
+        estado: 'Convertida',
+        fechaActualizacion: ahora,
+        trazabilidad: {
+          ...(doc.trazabilidad ?? {}),
+          documentoDestinoId: nvId,
+          documentoDestinoTipo: 'nota_venta',
+        },
+        historial: [
+          ...(doc.historial ?? []),
+          crearEvento('Cotización convertida a Nota de Venta', session?.userName),
+        ],
+      };
+
+      agregarDocumento(nv);
+      actualizarEnContext(cotActualizada);
+      return { exito: true, documento: nv };
+    },
+    [state.documentos, agregarDocumento, actualizarEnContext, session],
+  );
+
+  const evaluarVencimientosCotizaciones = useCallback((): void => {
+    const hoy = obtenerFechaHoyISO();
+    const ahora = obtenerFechaHoraISO();
+    const vencidas = state.documentos.filter(
+      (d) =>
+        d.tipo === 'cotizacion' &&
+        !d.esBorrador &&
+        (d.estado === 'Generada' || d.estado === 'Aprobada') &&
+        d.camposOpcionales?.fechaVencimiento != null &&
+        d.camposOpcionales.fechaVencimiento < hoy,
+    );
+    vencidas.forEach((doc) => {
+      actualizarEnContext({
+        ...doc,
+        estado: 'Vencida',
+        fechaActualizacion: ahora,
+        historial: [
+          ...(doc.historial ?? []),
+          crearEvento(
+            'Vencimiento automático',
+            undefined,
+            `Fecha de vencimiento: ${doc.camposOpcionales?.fechaVencimiento}`,
+          ),
+        ],
+      });
+    });
+  }, [state.documentos, actualizarEnContext]);
+
   return {
     generarDocumento,
     generarDesdeBorrador,
@@ -577,5 +762,10 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     eliminarBorrador,
     validarDatos,
     getModoDescuentoNV,
+    aprobarCotizacion,
+    rechazarCotizacion,
+    cerrarCotizacionComoPerdida,
+    convertirCotizacionANV,
+    evaluarVencimientosCotizaciones,
   };
 }
