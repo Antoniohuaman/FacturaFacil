@@ -440,6 +440,66 @@ export function actualizarOrdenVentaPostEmision(
 }
 
 /**
+ * Restaura el estado de la cotización cuando el comprobante generado desde ella es anulado.
+ * Revierte el estado 'Convertida' al estado anterior (Aprobada o Generada) y registra en historial.
+ */
+export function restaurarCotizacionPostAnulacion(
+  cotizacionId: string,
+  info: { motivoAnulacionComprobante?: string; usuario?: string; numeroComprobante?: string },
+): void {
+  try {
+    const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documentos: any[] = JSON.parse(raw);
+    const idx = documentos.findIndex((d) => d.id === cotizacionId);
+    if (idx < 0) return;
+
+    const cot = documentos[idx];
+    if (cot.tipo !== 'cotizacion') return;
+    if (cot.estado !== 'Convertida') return;
+
+    const estadoRestaurado = cot.camposOpcionales?.requiereAprobacion ? 'Aprobada' : 'Generada';
+    const ahora = obtenerFechaHoraISO();
+
+    documentos[idx] = {
+      ...cot,
+      estado: estadoRestaurado,
+      fechaActualizacion: ahora,
+      trazabilidad: {
+        ...(cot.trazabilidad ?? {}),
+        documentoDestinoId: undefined,
+        documentoDestinoTipo: undefined,
+        documentoDestinoNumero: undefined,
+      },
+      historial: [
+        ...(Array.isArray(cot.historial) ? cot.historial : []),
+        {
+          fecha: ahora,
+          usuario: info.usuario,
+          accion: `Estado restaurado por anulación de comprobante`,
+          detalle: [
+            info.numeroComprobante ? `Comprobante ${info.numeroComprobante} anulado.` : 'Comprobante anulado.',
+            info.motivoAnulacionComprobante ? `Motivo: ${info.motivoAnulacionComprobante}` : null,
+            `Estado restaurado a: ${estadoRestaurado}.`,
+          ].filter(Boolean).join(' '),
+        },
+      ],
+    };
+
+    localStorage.setItem(key, JSON.stringify(documentos));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(EVENTO_RECARGA));
+    }
+  } catch (err) {
+    console.error('[postEmisionOrdenVenta] Error restaurando cotización post anulación:', err);
+  }
+}
+
+/**
  * Marca la Cotización como 'Convertida' después de que se emitió un comprobante desde ella.
  * No afecta stock (las cotizaciones no reservan).
  */

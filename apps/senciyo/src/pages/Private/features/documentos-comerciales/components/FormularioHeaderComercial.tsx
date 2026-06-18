@@ -164,20 +164,24 @@ export default function FormularioHeaderComercial({
   const seleccionarClienteDeApi = useCallback(
     (c: Cliente) => {
       const { tipo, numero } = extraerInfoDocumentoCliente(c);
+      const direccion = c.direccion || (c.address && c.address !== 'Sin dirección' ? c.address : undefined);
       onClienteChange({
         clienteId: c.id,
         nombre: c.name,
         numeroDocumento: numero,
         tipoDocumento: tipo,
-        direccion: c.direccion || (c.address && c.address !== 'Sin dirección' ? c.address : undefined),
+        direccion,
         email: c.email,
         priceProfileId: c.listaPrecio,
       });
+      if (direccion && !camposOpcionales.direccionEnvio) {
+        onCampoOpcionalChange('direccionEnvio', direccion);
+      }
       setBusquedaCliente('');
       setMostrarResultados(false);
       setErrorDocumento(null);
     },
-    [onClienteChange],
+    [onClienteChange, camposOpcionales.direccionEnvio, onCampoOpcionalChange],
   );
 
   const limpiarCliente = useCallback(() => {

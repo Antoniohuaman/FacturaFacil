@@ -1,7 +1,7 @@
-import type { CartItem, PaymentTotals, TaxBreakdownRow } from '../../comprobantes-electronicos/models/comprobante.types';
+import type { CartItem, PaymentTotals, TaxBreakdownRow, ComprobanteCreditTerms } from '../../comprobantes-electronicos/models/comprobante.types';
 import type { CurrencyCode } from '@/shared/currency';
 
-export type { CartItem, PaymentTotals, TaxBreakdownRow };
+export type { CartItem, PaymentTotals, TaxBreakdownRow, ComprobanteCreditTerms };
 export type Currency = CurrencyCode;
 
 export interface EventoHistorial {
@@ -9,6 +9,8 @@ export interface EventoHistorial {
   usuario?: string;
   accion: string;
   detalle?: string;
+  /** Distingue eventos automáticos del sistema ('sistema') de comentarios manuales ('comentario'). Sin valor equivale a 'sistema'. */
+  tipo?: 'sistema' | 'comentario';
 }
 
 export type TipoDocumentoComercial = 'cotizacion' | 'nota_venta' | 'orden_venta';
@@ -134,6 +136,8 @@ export interface DocumentoComercial {
   fechaCierrePerdido?: string;
   usuarioCierrePerdido?: string;
 
+  creditTerms?: ComprobanteCreditTerms;
+
   historial?: EventoHistorial[];
   reservasStock?: ReservaStockItem[];
   /** Cantidades acumuladas despachadas vía Notas de Salida. Presente solo en OVs con salida parcial. */
@@ -165,6 +169,7 @@ export interface DatosFormularioDocumentoComercial {
   cliente?: ClienteDocumentoComercial;
   moneda: Currency;
   formaPago?: string;
+  creditTerms?: ComprobanteCreditTerms;
   items: CartItem[];
   modoItems: 'catalogo' | 'libre';
   observaciones?: string;

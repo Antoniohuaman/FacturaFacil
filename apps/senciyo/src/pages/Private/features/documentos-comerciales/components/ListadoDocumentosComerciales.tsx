@@ -223,7 +223,9 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     rechazarCotizacion,
     cerrarCotizacionComoPerdida,
     convertirCotizacionANV,
+    convertirCotizacionAOV,
     evaluarVencimientosCotizaciones,
+    agregarComentario,
   } = useDocumentoComercialActions();
   const { anularNS } = useNotasSalida();
   const feedback = useFeedback();
@@ -243,12 +245,13 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
   const [menuPosicion, setMenuPosicion] = useState<{ top: number; right: number } | null>(null);
   const [compartirExpandido, setCompartirExpandido] = useState(false);
   const [documentoDetalle, setDocumentoDetalle] = useState<DocumentoComercial | null>(null);
-  const [tabDetalle, setTabDetalle] = useState<'detalle' | 'historial'>('detalle');
   const [exportando, setExportando] = useState(false);
   const [mostrarConfigColumnas, setMostrarConfigColumnas] = useState(false);
   const [columnasVisibles, setColumnasVisibles] = useState<Set<string>>(
     () => leerColumnasDeStorage(tipo),
   );
+  const [tabDetalle, setTabDetalle] = useState<'detalle' | 'historial' | 'seguimiento'>('detalle');
+  const [nuevoComentario, setNuevoComentario] = useState('');
   const [confirmandoAccion, setConfirmandoAccion] = useState<{
     tipo: 'anular' | 'eliminar' | 'rechazar' | 'cerrar_perdida';
     id: string;
@@ -414,6 +417,19 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     navigate('/comprobantes/emision', { state: navState });
   }, [feedback, navigate]);
 
+  const handleConvertirCotAOV = useCallback((doc: DocumentoComercial) => {
+    setMenuAbierto(null); setMenuPosicion(null);
+    const r = convertirCotizacionAOV(doc.id);
+    if (r.exito && r.documento) {
+      feedback.success('Orden de Venta creada como borrador.');
+      navigate(`/documentos-comerciales/editar/${r.documento.id}`, {
+        state: { documento: r.documento, modo: 'duplicar' },
+      });
+    } else {
+      feedback.error(r.error ?? 'Error al convertir la cotización a Orden de Venta.');
+    }
+  }, [convertirCotizacionAOV, feedback, navigate]);
+
   const handleGenerarNS = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
     // Para OV parcialmente atendida, prellenar solo con cantidades pendientes (no las originales)
@@ -454,6 +470,18 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     const stateKey = doc.tipo === 'orden_venta' ? 'fromOrdenVenta' : 'fromNotaVenta';
     navigate('/inventario', { state: { tab: 'notas-salida', [stateKey]: from } });
   }, [navigate]);
+
+  const handleGuardarComentario = useCallback(() => {
+    if (!documentoDetalle || !nuevoComentario.trim()) return;
+    const r = agregarComentario(documentoDetalle.id, nuevoComentario.trim());
+    if (r.exito && r.documento) {
+      setDocumentoDetalle(r.documento);
+      setNuevoComentario('');
+      feedback.success('Comentario registrado.');
+    } else {
+      feedback.error(r.error ?? 'Error al guardar el comentario.');
+    }
+  }, [documentoDetalle, nuevoComentario, agregarComentario, feedback]);
 
   const handleNuevo = useCallback(() => navigate(`/documentos-comerciales/nuevo/${tipo}`), [navigate, tipo]);
 
@@ -541,13 +569,14 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     window.open(`https://wa.me/?text=${encodeURIComponent(generarTextoCompartir(doc, labelTipo))}`, '_blank');
   }, [labelTipo]);
 
-  const handleCopiarTexto = useCallback(async (doc: DocumentoComercial) => {
+  const handleCopiarEnlace = useCallback(async (doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
     try {
-      await navigator.clipboard.writeText(generarTextoCompartir(doc, labelTipo));
-      feedback.success('Información copiada al portapapeles.');
-    } catch { feedback.error('No se pudo copiar al portapapeles.'); }
-  }, [labelTipo, feedback]);
+      const url = `${window.location.origin}/documentos-comerciales/editar/${doc.id}`;
+      await navigator.clipboard.writeText(url);
+      feedback.success('Enlace copiado al portapapeles.');
+    } catch { feedback.error('No se pudo copiar el enlace.'); }
+  }, [feedback]);
 
   const handleExportarExcel = useCallback(async () => {
     if (documentosFiltrados.length === 0) { feedback.warning('No hay documentos para exportar.'); return; }
@@ -768,7 +797,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                 <>
                   <button type="button" onClick={() => handleCompartirEmail(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 pl-7 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><Mail size={13} />Por correo</button>
                   <button type="button" onClick={() => handleCompartirWhatsApp(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 pl-7 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><MessageCircle size={13} />WhatsApp</button>
-                  <button type="button" onClick={() => void handleCopiarTexto(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 pl-7 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><ClipboardCopy size={13} />Copiar texto</button>
+                  <button type="button" onClick={() => void handleCopiarEnlace(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 pl-7 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"><ClipboardCopy size={13} />Copiar enlace</button>
                 </>
               )}
             </>
@@ -792,6 +821,9 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
             <>
               <button type="button" onClick={() => handleConvertirCotANV(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left font-medium">
                 <ArrowRightCircle size={14} />Generar Nota de Venta
+              </button>
+              <button type="button" onClick={() => handleConvertirCotAOV(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 text-left font-medium">
+                <ArrowRightCircle size={14} />Generar Orden de Venta
               </button>
               <button type="button" onClick={() => handleConvertirCotAComprobante(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-left font-medium">
                 <FileCheck size={14} />Generar comprobante
@@ -862,6 +894,13 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'historial' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
                 >
                   Historial
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTabDetalle('seguimiento')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'seguimiento' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                >
+                  Seguimiento
                 </button>
               </div>
             </div>
@@ -1055,6 +1094,13 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                       >
                         <ArrowRightCircle size={14} />Generar Nota de Venta
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => { setDocumentoDetalle(null); handleConvertirCotAOV(documentoDetalle); }}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold border border-cyan-300 text-cyan-700 dark:text-cyan-300 dark:border-cyan-600 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors"
+                      >
+                        <ArrowRightCircle size={14} />Generar Orden de Venta
+                      </button>
                     </>
                   )}
                   {puedeConvertir(documentoDetalle) && (
@@ -1122,37 +1168,89 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {[...documentoDetalle.historial].reverse().map((evento, idx) => {
-                      const fechaFormateada = (() => {
-                        try {
-                          return new Date(evento.fecha).toLocaleString('es-PE', {
-                            day: '2-digit', month: '2-digit', year: 'numeric',
-                            hour: '2-digit', minute: '2-digit',
-                          });
-                        } catch {
-                          return evento.fecha;
-                        }
-                      })();
-                      return (
-                        <div key={idx} className="flex gap-3">
-                          <div className="flex flex-col items-center">
-                            <div className="w-2 h-2 rounded-full bg-violet-400 dark:bg-violet-500 mt-1.5 flex-shrink-0" />
-                            {idx < documentoDetalle.historial!.length - 1 && (
+                    {[...documentoDetalle.historial].reverse()
+                      .filter((e) => e.tipo !== 'comentario')
+                      .map((evento, idx) => {
+                        const fechaFormateada = (() => {
+                          try {
+                            return new Date(evento.fecha).toLocaleString('es-PE', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            });
+                          } catch {
+                            return evento.fecha;
+                          }
+                        })();
+                        return (
+                          <div key={idx} className="flex gap-3">
+                            <div className="flex flex-col items-center">
+                              <div className="w-2 h-2 rounded-full bg-violet-400 dark:bg-violet-500 mt-1.5 flex-shrink-0" />
                               <div className="w-px flex-1 bg-gray-200 dark:bg-gray-700 mt-1" />
-                            )}
+                            </div>
+                            <div className="pb-3 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{evento.accion}</p>
+                              {evento.detalle && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{evento.detalle}</p>
+                              )}
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                {fechaFormateada}{evento.usuario ? ` · ${evento.usuario}` : ''}
+                              </p>
+                            </div>
                           </div>
-                          <div className="pb-3 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{evento.accion}</p>
-                            {evento.detalle && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{evento.detalle}</p>
-                            )}
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab: Seguimiento */}
+            {tabDetalle === 'seguimiento' && (
+              <div className="p-6 space-y-4">
+                <div className="space-y-3">
+                  <textarea
+                    value={nuevoComentario}
+                    onChange={(e) => setNuevoComentario(e.target.value)}
+                    placeholder="Escribe un comentario de seguimiento..."
+                    rows={3}
+                    className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 outline-none resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGuardarComentario}
+                    disabled={!nuevoComentario.trim()}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MessageCircle size={14} />Agregar comentario
+                  </button>
+                </div>
+
+                {documentoDetalle.historial?.filter((e) => e.tipo === 'comentario').length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Sin comentarios de seguimiento.</p>
+                ) : (
+                  <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    {[...documentoDetalle.historial!].reverse()
+                      .filter((e) => e.tipo === 'comentario')
+                      .map((evento, idx) => {
+                        const fechaFormateada = (() => {
+                          try {
+                            return new Date(evento.fecha).toLocaleString('es-PE', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            });
+                          } catch {
+                            return evento.fecha;
+                          }
+                        })();
+                        return (
+                          <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-3">
+                            <p className="text-sm text-gray-800 dark:text-gray-100">{evento.accion}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                               {fechaFormateada}{evento.usuario ? ` · ${evento.usuario}` : ''}
                             </p>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 )}
               </div>

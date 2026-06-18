@@ -8,6 +8,10 @@ import FieldsConfigModal from '../../comprobantes-electronicos/shared/form-core/
 import { useCart } from '../../comprobantes-electronicos/punto-venta/hooks/useCart';
 import { useCurrency } from '../../comprobantes-electronicos/shared/form-core/hooks/useCurrency';
 import { usePayment } from '../../comprobantes-electronicos/shared/form-core/hooks/usePayment';
+import { useCreditTermsConfigurator } from '../../comprobantes-electronicos/hooks/useCreditTermsConfigurator';
+import { CreditScheduleModal } from '../../comprobantes-electronicos/shared/payments/CreditScheduleModal';
+import { CreditScheduleSummaryCard } from '../../comprobantes-electronicos/shared/payments/CreditScheduleSummaryCard';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import FormularioHeaderComercial from './FormularioHeaderComercial';
@@ -40,6 +44,7 @@ export default function FormularioDocumentoComercial({
   const navigate = useNavigate();
   const { activeEstablecimientoId } = useTenant();
   const feedback = useFeedback();
+  const { state: configState } = useConfigurationContext();
 
   const estado = useDocumentoComercialState(tipoInicial);
   const tipo = useDocumentoComercialType(tipoInicial);
@@ -70,6 +75,15 @@ export default function FormularioDocumentoComercial({
   const inicialized = useRef(false);
 
   const [errorCliente, setErrorCliente] = useState<string | null>(null);
+  const [creditScheduleModalOpen, setCreditScheduleModalOpen] = useState(false);
+
+  const paymentMethodId = useMemo(() => {
+    if (!estado.formaPago) return undefined;
+    return configState.paymentMethods.find((m) => m.name === estado.formaPago)?.id ?? undefined;
+  }, [estado.formaPago, configState.paymentMethods]);
+
+  const { isCreditMethod, templates, setTemplates, creditTerms, errors: creditErrors, restoreDefaults } =
+    useCreditTermsConfigurator({ paymentMethodId, total: totales.total, issueDate: estado.fechaEmision });
 
   const handleClienteChange = useCallback((c: ClienteDocumentoComercial | null) => {
     estado.setCliente(c);
@@ -119,13 +133,14 @@ export default function FormularioDocumentoComercial({
     cliente: estado.cliente ?? undefined,
     moneda: estado.moneda,
     formaPago: estado.formaPago,
+    creditTerms: isCreditMethod ? creditTerms : undefined,
     items: cartItems,
     modoItems: estado.modoProductos,
     observaciones: estado.observaciones || undefined,
     notaInterna: estado.notaInterna || undefined,
     camposOpcionales: estado.camposOpcionales,
     trazabilidad: undefined,
-  }), [estado, cartItems]);
+  }), [estado, cartItems, isCreditMethod, creditTerms]);
 
   const { limpiarBorrador } = useDocumentoComercialDrafts({
     tipoDocumento: estado.tipoDocumento,
@@ -232,6 +247,14 @@ export default function FormularioDocumentoComercial({
   const esSinSerie = tipo.seriesFiltradas.length === 0;
   const estaVacio = cartItems.length === 0;
 
+  const generarDeshabilitado = useMemo(() => {
+    if (esSinSerie && modo !== 'editar') return true;
+    if (estado.tipoDocumento === 'cotizacion' && modo !== 'editar') {
+      return !estado.cliente || cartItems.length === 0;
+    }
+    return false;
+  }, [esSinSerie, modo, estado.tipoDocumento, estado.cliente, cartItems.length]);
+
   const tituloFormulario =
     modo === 'nuevo'
       ? `Nueva ${labelTipo.toLowerCase()}`
@@ -282,6 +305,16 @@ export default function FormularioDocumentoComercial({
           onAbrirConfigCampos={estado.abrirConfigCampos}
         />
 
+        {isCreditMethod && (
+          <CreditScheduleSummaryCard
+            creditTerms={creditTerms}
+            currency={estado.moneda}
+            total={totales.total}
+            onConfigure={() => setCreditScheduleModalOpen(true)}
+            errors={creditErrors}
+          />
+        )}
+
         <ProductsSection
           cartItems={cartItems}
           addProductsFromSelector={addProductsFromSelector}
@@ -325,9 +358,13 @@ export default function FormularioDocumentoComercial({
           label: labelBotonPrimario,
           onClick: handleGenerar,
           icon: <Save size={14} />,
-          disabled: esSinSerie && modo !== 'editar',
+          disabled: generarDeshabilitado,
           title: esSinSerie && modo !== 'editar'
             ? `Configure una serie de ${labelTipo.toLowerCase()} en Configuración → Series`
+            : estado.tipoDocumento === 'cotizacion' && !estado.cliente
+            ? 'Seleccione un cliente para generar la cotización'
+            : estado.tipoDocumento === 'cotizacion' && cartItems.length === 0
+            ? 'Agregue al menos un producto o servicio'
             : undefined,
         }}
         secondaryAction={
@@ -350,6 +387,16 @@ export default function FormularioDocumentoComercial({
         onToggleOptionalField={fieldsConfig.toggleOptionalField}
         onToggleOptionalFieldRequired={fieldsConfig.toggleOptionalFieldRequired}
         onResetToDefaults={fieldsConfig.resetToDefaults}
+      />
+
+      <CreditScheduleModal
+        isOpen={creditScheduleModalOpen}
+        templates={templates}
+        onChange={setTemplates}
+        onSave={() => setCreditScheduleModalOpen(false)}
+        onCancel={() => { restoreDefaults(); setCreditScheduleModalOpen(false); }}
+        onRestoreDefaults={restoreDefaults}
+        errors={creditErrors}
       />
     </div>
   );

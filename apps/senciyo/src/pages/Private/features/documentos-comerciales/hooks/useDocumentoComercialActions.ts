@@ -80,7 +80,9 @@ export interface UseDocumentoComercialActionsReturn {
   rechazarCotizacion: (id: string, motivo: string) => ResultadoAccionDocumento;
   cerrarCotizacionComoPerdida: (id: string, motivo: string) => ResultadoAccionDocumento;
   convertirCotizacionANV: (id: string) => ResultadoAccionDocumento;
+  convertirCotizacionAOV: (id: string) => ResultadoAccionDocumento;
   evaluarVencimientosCotizaciones: () => void;
+  agregarComentario: (id: string, comentario: string) => ResultadoAccionDocumento;
 }
 
 export function useDocumentoComercialActions(): UseDocumentoComercialActionsReturn {
@@ -216,6 +218,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         vendedorId: session?.userId ?? undefined,
         moneda: datos.moneda,
         formaPago: datos.formaPago,
+        creditTerms: datos.creditTerms,
         totales: calcularTotalesItems(datos.items, datos.moneda),
         items: datos.items,
         modoItems: datos.modoItems,
@@ -348,6 +351,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         vendedorId: session?.userId ?? doc.vendedorId,
         moneda: datos.moneda,
         formaPago: datos.formaPago,
+        creditTerms: datos.creditTerms,
         totales: calcularTotalesItems(datos.items, datos.moneda),
         items: datos.items,
         modoItems: datos.modoItems,
@@ -399,6 +403,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         vendedorId: session?.userId ?? undefined,
         moneda: datos.moneda,
         formaPago: datos.formaPago,
+        creditTerms: datos.creditTerms,
         totales: calcularTotalesItems(datos.items, datos.moneda),
         items: datos.items,
         modoItems: datos.modoItems,
@@ -724,6 +729,102 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     [state.documentos, agregarDocumento, actualizarEnContext, session],
   );
 
+  const convertirCotizacionAOV = useCallback(
+    (id: string): ResultadoAccionDocumento => {
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo se pueden convertir cotizaciones.' };
+      if (!doc.cliente) return { exito: false, error: 'La cotización requiere un cliente para convertirse.' };
+      if (!doc.items?.length) return { exito: false, error: 'La cotización debe tener al menos un producto o servicio.' };
+
+      const ahora = obtenerFechaHoraISO();
+      const ovId = generarIdBorrador();
+
+      const ov: DocumentoComercial = {
+        ...doc,
+        id: ovId,
+        tipo: 'orden_venta',
+        estado: 'Borrador',
+        esBorrador: true,
+        serie: '',
+        correlativo: undefined,
+        numero: undefined,
+        fechaEmision: obtenerFechaHoyISO(),
+        fechaCreacion: ahora,
+        fechaActualizacion: ahora,
+        motivoAnulacion: undefined,
+        fechaAnulacion: undefined,
+        usuarioAnulacion: undefined,
+        motivoRechazo: undefined,
+        fechaRechazo: undefined,
+        usuarioRechazo: undefined,
+        motivoCierrePerdido: undefined,
+        fechaCierrePerdido: undefined,
+        usuarioCierrePerdido: undefined,
+        reservasStock: undefined,
+        modoDescuentoStock: undefined,
+        notaSalidaId: undefined,
+        notaSalidaGenerada: undefined,
+        notaSalidaFechaGeneracion: undefined,
+        trazabilidad: {
+          documentoOrigenId: doc.id,
+          documentoOrigenTipo: 'cotizacion',
+          documentoOrigenNumero: doc.numero ?? doc.serie,
+        },
+        historial: [
+          crearEvento(
+            `Orden de Venta creada desde cotización ${doc.numero ?? doc.serie}`,
+            session?.userName,
+          ),
+        ],
+      };
+
+      const cotActualizada: DocumentoComercial = {
+        ...doc,
+        estado: 'Convertida',
+        fechaActualizacion: ahora,
+        trazabilidad: {
+          ...(doc.trazabilidad ?? {}),
+          documentoDestinoId: ovId,
+          documentoDestinoTipo: 'orden_venta',
+        },
+        historial: [
+          ...(doc.historial ?? []),
+          crearEvento('Cotización convertida a Orden de Venta', session?.userName),
+        ],
+      };
+
+      agregarDocumento(ov);
+      actualizarEnContext(cotActualizada);
+      return { exito: true, documento: ov };
+    },
+    [state.documentos, agregarDocumento, actualizarEnContext, session],
+  );
+
+  const agregarComentario = useCallback(
+    (id: string, comentario: string): ResultadoAccionDocumento => {
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (!comentario.trim()) return { exito: false, error: 'El comentario no puede estar vacío.' };
+
+      const ahora = obtenerFechaHoraISO();
+      const evento: EventoHistorial = {
+        fecha: ahora,
+        usuario: session?.userName,
+        accion: comentario.trim(),
+        tipo: 'comentario',
+      };
+      const actualizado: DocumentoComercial = {
+        ...doc,
+        fechaActualizacion: ahora,
+        historial: [...(doc.historial ?? []), evento],
+      };
+      actualizarEnContext(actualizado);
+      return { exito: true, documento: actualizado };
+    },
+    [state.documentos, actualizarEnContext, session],
+  );
+
   const evaluarVencimientosCotizaciones = useCallback((): void => {
     const hoy = obtenerFechaHoyISO();
     const ahora = obtenerFechaHoraISO();
@@ -766,6 +867,8 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     rechazarCotizacion,
     cerrarCotizacionComoPerdida,
     convertirCotizacionANV,
+    convertirCotizacionAOV,
     evaluarVencimientosCotizaciones,
+    agregarComentario,
   };
 }

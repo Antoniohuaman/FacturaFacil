@@ -178,7 +178,7 @@ export function construirCargaConversionDesdeCotizacion(
       formaPagoId: null,
       formaPagoDescripcion: cotizacion.formaPago ?? null,
       detallesPago: null,
-      terminosCredito: null,
+      terminosCredito: cotizacion.creditTerms ?? null,
       datosDetraccion: null,
     },
     detalle: {

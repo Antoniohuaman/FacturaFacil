@@ -61,7 +61,7 @@ import type { LineaNotaSalida } from '../../../gestion-inventario/models/notaSal
 import { useNotasSalida } from '../../../gestion-inventario/hooks/useNotasSalida';
 import { cargarNotasSalida } from '../../../gestion-inventario/repositories/notaSalida.repository';
 import { useFeedback } from '@/shared/feedback';
-import { obtenerReservasDeOV, liberarReservasDeOV } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { obtenerReservasDeOV, liberarReservasDeOV, restaurarCotizacionPostAnulacion } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -754,17 +754,27 @@ const InvoiceListDashboard = () => {
     setVoidReason('');
     const comp = invoice as Comprobante;
     const modo = comp.modoDescuentoStock;
+    const mensajes: string[] = [];
+
     if (modo === 'automatico') {
-      setVoidWarningMessage('Este comprobante tiene descuento automático de stock. Al anularlo, el stock será restituido automáticamente.');
+      mensajes.push('Este comprobante tiene descuento automático de stock. Al anularlo, el stock será restituido automáticamente.');
     } else if (modo === 'nota_salida') {
       if (comp.notaSalidaGenerada && comp.notaSalidaId) {
-        setVoidWarningMessage('Este comprobante tiene una Nota de Salida generada. Al anularlo, la Nota de Salida también será anulada y el stock restituido.');
+        mensajes.push('Este comprobante tiene una Nota de Salida generada. Al anularlo, la Nota de Salida también será anulada y el stock restituido.');
       } else {
-        setVoidWarningMessage('Este comprobante está configurado para generar una Nota de Salida que aún no fue generada. Al anularlo, no habrá cambios de stock.');
+        mensajes.push('Este comprobante está configurado para generar una Nota de Salida que aún no fue generada. Al anularlo, no habrá cambios de stock.');
       }
-    } else {
-      setVoidWarningMessage('');
     }
+
+    const esDesdeCotizacion =
+      comp.sourceDocumentType === 'cotizacion' ||
+      comp.instantaneaDocumentoComercial?.relaciones?.tipoDocumentoFuente === 'cotizacion';
+
+    if (esDesdeCotizacion) {
+      mensajes.push('Este comprobante fue generado desde una cotización. Al anularlo, la cotización asociada dejará de estar como convertida y volverá a estar disponible para generar un nuevo documento.');
+    }
+
+    setVoidWarningMessage(mensajes.join('\n\n'));
     setShowVoidModal(true);
   };
 
@@ -874,6 +884,26 @@ const InvoiceListDashboard = () => {
       devLocalIndicadoresStore.marcarVentaAnulada(selectedInvoiceForVoid.id);
     } catch (error) {
       console.warn('No se pudo marcar la venta como anulada en indicadores locales', error);
+    }
+
+    // Restaurar cotización si este comprobante fue generado desde una
+    try {
+      const cotizacionId =
+        comprobante.sourceDocumentType === 'cotizacion'
+          ? comprobante.sourceDocumentId
+          : comprobante.instantaneaDocumentoComercial?.relaciones?.tipoDocumentoFuente === 'cotizacion'
+          ? (comprobante.instantaneaDocumentoComercial.relaciones.idDocumentoFuente ?? undefined)
+          : undefined;
+
+      if (cotizacionId) {
+        restaurarCotizacionPostAnulacion(cotizacionId, {
+          motivoAnulacionComprobante: voidReason || undefined,
+          usuario: undefined,
+          numeroComprobante: String(selectedInvoiceForVoid.id ?? ''),
+        });
+      }
+    } catch {
+      // restauración no crítica: no bloquea el flujo de anulación
     }
 
     feedback.success(`Comprobante ${selectedInvoiceForVoid.id} anulado correctamente.`);
