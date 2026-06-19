@@ -19,10 +19,14 @@ export default function FormularioDocumentoComercialPage() {
   const locationState = location.state as {
     documento?: DocumentoComercial;
     modo?: ModoFormularioDocumentoComercial;
+    prefillFrom?: DocumentoComercial;
+    cotizacionOrigenId?: string;
   } | null;
 
   const documentoExistente = locationState?.documento;
   const modoExplicito = locationState?.modo;
+  const prefillFrom = locationState?.prefillFrom;
+  const cotizacionOrigenId = locationState?.cotizacionOrigenId;
 
   const modo: ModoFormularioDocumentoComercial = modoExplicito ?? (documentoExistente ? 'editar' : 'nuevo');
   const tipoDesdeDoc = documentoExistente?.tipo;
@@ -35,6 +39,8 @@ export default function FormularioDocumentoComercialPage() {
       tipoInicial={tipoFinal}
       modo={modo}
       documentoExistente={documentoExistente}
+      prefillFrom={prefillFrom}
+      cotizacionOrigenId={cotizacionOrigenId}
     />
   );
 }

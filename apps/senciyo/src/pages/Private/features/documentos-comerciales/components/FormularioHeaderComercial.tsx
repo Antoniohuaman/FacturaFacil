@@ -174,14 +174,14 @@ export default function FormularioHeaderComercial({
         email: c.email,
         priceProfileId: c.listaPrecio,
       });
-      if (direccion && !camposOpcionales.direccionEnvio) {
-        onCampoOpcionalChange('direccionEnvio', direccion);
+      if (direccion && !camposOpcionales.direccion) {
+        onCampoOpcionalChange('direccion', direccion);
       }
       setBusquedaCliente('');
       setMostrarResultados(false);
       setErrorDocumento(null);
     },
-    [onClienteChange, camposOpcionales.direccionEnvio, onCampoOpcionalChange],
+    [onClienteChange, camposOpcionales.direccion, onCampoOpcionalChange],
   );
 
   const limpiarCliente = useCallback(() => {
@@ -338,9 +338,6 @@ export default function FormularioHeaderComercial({
                     {cliente.tipoDocumento !== 'OTRO' && cliente.tipoDocumento
                       ? `${cliente.tipoDocumento}: ${cliente.numeroDocumento}`
                       : cliente.numeroDocumento || '—'}
-                    {cliente.direccion && (
-                      <span className="ml-2 text-gray-400 truncate">• {cliente.direccion}</span>
-                    )}
                   </div>
                 </div>
                 <button

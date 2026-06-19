@@ -46,6 +46,7 @@ export const ESTADOS_COTIZACION: EstadoCotizacion[] = [
   'Generada',
   'Aprobada',
   'Rechazada',
+  'No aprobada',
   'Cerrada perdida',
   'Convertida',
   'Anulada',

@@ -196,6 +196,8 @@ export const obtenerColorEstado = (
     case 'Anulada':
     case 'Cerrada perdida':
       return 'red';
+    case 'No aprobada':
+      return 'orange';
     case 'Convertida':
       return 'purple';
     case 'Vencida':

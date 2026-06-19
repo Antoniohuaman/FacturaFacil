@@ -21,7 +21,7 @@ import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActi
 import { useDocumentoComercialFieldsConfig } from '../hooks/useDocumentoComercialFieldsConfig';
 import { useDocumentoComercialDrafts } from '../hooks/useDocumentoComercialDrafts';
 import { TIPO_DOCUMENTO_COMERCIAL_LABELS } from '../models/documentoComercial.constants';
-import { calcularDesgloseTributos } from '../utils/documentoComercial.helpers';
+import { calcularDesgloseTributos, obtenerFechaHoyISO } from '../utils/documentoComercial.helpers';
 import type {
   TipoDocumentoComercial,
   DocumentoComercial,
@@ -34,12 +34,18 @@ interface FormularioDocumentoComercialProps {
   tipoInicial: TipoDocumentoComercial;
   modo?: ModoFormularioDocumentoComercial;
   documentoExistente?: DocumentoComercial;
+  /** Datos de un documento existente para pre-llenar el formulario sin crear borrador. */
+  prefillFrom?: DocumentoComercial;
+  /** ID de la cotización origen cuando se convierte a NV u OV. */
+  cotizacionOrigenId?: string;
 }
 
 export default function FormularioDocumentoComercial({
   tipoInicial,
   modo = 'nuevo',
   documentoExistente,
+  prefillFrom,
+  cotizacionOrigenId,
 }: FormularioDocumentoComercialProps) {
   const navigate = useNavigate();
   const { activeEstablecimientoId } = useTenant();
@@ -94,35 +100,46 @@ export default function FormularioDocumentoComercial({
   const esBorradorEdicion =
     (modo === 'editar' && (documentoExistente?.esBorrador ?? false)) || modo === 'duplicar';
 
+  // Selección automática de la serie por defecto cuando cargan las series disponibles
   useEffect(() => {
     if (!estado.serieSeleccionada && tipo.seriesFiltradas.length > 0) {
-      estado.setSerieSeleccionada(tipo.seriesFiltradas[0]);
+      const defaultSerie = tipo.getSerieDefaultParaTipo(tipoInicial);
+      estado.setSerieSeleccionada(defaultSerie || tipo.seriesFiltradas[0]);
     }
   }, [tipo.seriesFiltradas]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Inicialización del formulario desde documento existente o desde prefill (conversión/duplicar)
   useEffect(() => {
-    if (inicialized.current || !documentoExistente) return;
+    const source = documentoExistente ?? prefillFrom;
+    if (inicialized.current || !source) return;
     inicialized.current = true;
 
+    // Al editar: mantener la serie original. Al convertir a otro tipo: usar la serie por defecto del destino.
+    const serieInicial = documentoExistente
+      ? source.serie
+      : source.tipo === tipoInicial
+        ? source.serie
+        : '';
+
     estado.aplicarValoresIniciales({
-      tipoDocumento: documentoExistente.tipo,
-      serieSeleccionada: documentoExistente.serie,
-      fechaEmision: documentoExistente.fechaEmision,
-      cliente: documentoExistente.cliente ?? null,
-      moneda: documentoExistente.moneda,
-      formaPago: documentoExistente.formaPago ?? '',
-      camposOpcionales: documentoExistente.camposOpcionales ?? {},
-      observaciones: documentoExistente.observaciones ?? '',
-      notaInterna: documentoExistente.notaInterna ?? '',
-      modoProductos: documentoExistente.modoItems,
+      tipoDocumento: tipoInicial,
+      serieSeleccionada: serieInicial,
+      fechaEmision: documentoExistente ? source.fechaEmision : obtenerFechaHoyISO(),
+      cliente: source.cliente ?? null,
+      moneda: source.moneda,
+      formaPago: source.formaPago ?? '',
+      camposOpcionales: source.camposOpcionales ?? {},
+      observaciones: source.observaciones ?? '',
+      notaInterna: source.notaInterna ?? '',
+      modoProductos: source.modoItems,
     });
 
-    if (documentoExistente.items && documentoExistente.items.length > 0) {
-      setCartItemsFromDraft(documentoExistente.items);
+    if (source.items && source.items.length > 0) {
+      setCartItemsFromDraft(source.items);
     }
 
-    if (documentoExistente.moneda !== currentCurrency) {
-      changeCurrency(documentoExistente.moneda);
+    if (source.moneda !== currentCurrency) {
+      changeCurrency(source.moneda);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -189,6 +206,14 @@ export default function FormularioDocumentoComercial({
     }
 
     if (resultado.exito) {
+      if (cotizacionOrigenId && resultado.documento) {
+        actions.vincularDocumentoConCotizacion(
+          cotizacionOrigenId,
+          resultado.documento.id,
+          resultado.documento.numero ?? '',
+          resultado.documento.tipo,
+        );
+      }
       const msg = modo === 'editar' && !esBorradorEdicion
         ? `${labelTipo} actualizada exitosamente.`
         : `${labelTipo} generada exitosamente.`;
@@ -202,7 +227,7 @@ export default function FormularioDocumentoComercial({
   }, [
     obtenerDatosFormulario, actions, esBorradorEdicion, documentoExistente,
     modo, labelTipo, feedback, limpiarBorrador, clearCart, navigate, estado.tipoDocumento,
-    setErrorCliente,
+    setErrorCliente, cotizacionOrigenId,
   ]);
 
   const handleActualizarBorrador = useCallback(() => {

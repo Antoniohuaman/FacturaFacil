@@ -19,7 +19,8 @@ export type EstadoCotizacion =
   | 'Borrador'
   | 'Generada'
   | 'Aprobada'
-  | 'Rechazada'
+  | 'Rechazada'       // legacy
+  | 'No aprobada'
   | 'Cerrada perdida'
   | 'Convertida'
   | 'Anulada'

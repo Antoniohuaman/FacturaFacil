@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, createElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileCheck, PackageMinus, ThumbsUp, ThumbsDown, TrendingDown, ArrowRightCircle } from 'lucide-react';
+import { FileCheck, PackageMinus, ThumbsUp, ThumbsDown, TrendingDown, ArrowRightCircle, ExternalLink } from 'lucide-react';
 import {
   Plus, Search, MoreHorizontal, Edit3, Copy, Ban, Trash2, Eye,
   ChevronLeft, ChevronRight, X, Printer, Share2, Download,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { EstadoDocumentoBadge } from './EstadoDocumentoBadge';
 import { DocumentoComercialPrintView } from './DocumentoComercialPrintView';
+import { CreditScheduleSummaryCard } from '../../comprobantes-electronicos/shared/payments/CreditScheduleSummaryCard';
 import { useDocumentosComercialesContext } from '../contexts/DocumentosComercialesContext';
 import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActions';
 import { useFeedback } from '@/shared/feedback/useFeedback';
@@ -162,7 +163,7 @@ function puedeAnular(doc: DocumentoComercial): boolean {
   // OV Atendida no puede anularse (ya tiene comprobante emitido)
   if (doc.tipo === 'orden_venta' && doc.estado === 'Atendida') return false;
   if (doc.tipo === 'cotizacion') {
-    const terminales = ['Anulada', 'Convertida', 'Rechazada', 'Cerrada perdida', 'Vencida'];
+    const terminales = ['Anulada', 'Convertida', 'Rechazada', 'No aprobada', 'Cerrada perdida', 'Vencida'];
     return !doc.esBorrador && !terminales.includes(doc.estado);
   }
   return !doc.esBorrador && doc.estado !== 'Anulada' && doc.estado !== 'Convertida';
@@ -173,11 +174,21 @@ function puedeConvertir(doc: DocumentoComercial): boolean {
 }
 
 function puedeAprobar(doc: DocumentoComercial): boolean {
-  return doc.tipo === 'cotizacion' && doc.estado === 'Generada' && !doc.esBorrador;
+  return (
+    doc.tipo === 'cotizacion' &&
+    doc.estado === 'Generada' &&
+    !doc.esBorrador &&
+    doc.camposOpcionales?.requiereAprobacion === true
+  );
 }
 
-function puedeRechazar(doc: DocumentoComercial): boolean {
-  return doc.tipo === 'cotizacion' && doc.estado === 'Generada' && !doc.esBorrador;
+function puedeNoAprobar(doc: DocumentoComercial): boolean {
+  return (
+    doc.tipo === 'cotizacion' &&
+    doc.estado === 'Generada' &&
+    !doc.esBorrador &&
+    doc.camposOpcionales?.requiereAprobacion === true
+  );
 }
 
 function puedeCerrarPerdida(doc: DocumentoComercial): boolean {
@@ -217,13 +228,10 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
   const { state } = useDocumentosComercialesContext();
   const {
     anularDocumento,
-    duplicarDocumento,
     eliminarBorrador,
     aprobarCotizacion,
     rechazarCotizacion,
     cerrarCotizacionComoPerdida,
-    convertirCotizacionANV,
-    convertirCotizacionAOV,
     evaluarVencimientosCotizaciones,
     agregarComentario,
   } = useDocumentoComercialActions();
@@ -253,7 +261,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
   const [tabDetalle, setTabDetalle] = useState<'detalle' | 'historial' | 'seguimiento'>('detalle');
   const [nuevoComentario, setNuevoComentario] = useState('');
   const [confirmandoAccion, setConfirmandoAccion] = useState<{
-    tipo: 'anular' | 'eliminar' | 'rechazar' | 'cerrar_perdida';
+    tipo: 'anular' | 'eliminar' | 'no_aprobar' | 'cerrar_perdida' | 'aprobar';
     id: string;
     numero?: string;
     motivo: string;
@@ -388,23 +396,22 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
 
   const handleAprobar = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
-    const r = aprobarCotizacion(doc.id);
-    if (r.exito) feedback.success('Cotización aprobada correctamente.');
-    else feedback.error(r.error ?? 'Error al aprobar la cotización.');
-  }, [aprobarCotizacion, feedback]);
+    setConfirmandoAccion({ tipo: 'aprobar', id: doc.id, numero: doc.numero, motivo: '' });
+  }, []);
 
   const handleConvertirCotANV = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
-    const r = convertirCotizacionANV(doc.id);
-    if (r.exito && r.documento) {
-      feedback.success('Nota de Venta creada como borrador.');
-      navigate(`/documentos-comerciales/editar/${r.documento.id}`, {
-        state: { documento: r.documento, modo: 'duplicar' },
-      });
-    } else {
-      feedback.error(r.error ?? 'Error al convertir la cotización.');
-    }
-  }, [convertirCotizacionANV, feedback, navigate]);
+    const almacenesActuales = configState.almacenes ?? [];
+    const itemsConStockActual = doc.items.map((item) =>
+      refrescarStockItem(item, almacenesActuales, activeEstablecimientoId ?? undefined),
+    );
+    navigate('/documentos-comerciales/nuevo/nota_venta', {
+      state: {
+        prefillFrom: { ...doc, items: itemsConStockActual },
+        cotizacionOrigenId: doc.id,
+      },
+    });
+  }, [navigate, configState.almacenes, activeEstablecimientoId]);
 
   const handleConvertirCotAComprobante = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
@@ -419,16 +426,17 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
 
   const handleConvertirCotAOV = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
-    const r = convertirCotizacionAOV(doc.id);
-    if (r.exito && r.documento) {
-      feedback.success('Orden de Venta creada como borrador.');
-      navigate(`/documentos-comerciales/editar/${r.documento.id}`, {
-        state: { documento: r.documento, modo: 'duplicar' },
-      });
-    } else {
-      feedback.error(r.error ?? 'Error al convertir la cotización a Orden de Venta.');
-    }
-  }, [convertirCotizacionAOV, feedback, navigate]);
+    const almacenesActuales = configState.almacenes ?? [];
+    const itemsConStockActual = doc.items.map((item) =>
+      refrescarStockItem(item, almacenesActuales, activeEstablecimientoId ?? undefined),
+    );
+    navigate('/documentos-comerciales/nuevo/orden_venta', {
+      state: {
+        prefillFrom: { ...doc, items: itemsConStockActual },
+        cotizacionOrigenId: doc.id,
+      },
+    });
+  }, [navigate, configState.almacenes, activeEstablecimientoId]);
 
   const handleGenerarNS = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
@@ -492,22 +500,16 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
 
   const handleDuplicar = useCallback((id: string) => {
     setMenuAbierto(null); setMenuPosicion(null);
-    const resultado = duplicarDocumento(id);
-    if (resultado.exito && resultado.documento) {
-      feedback.success('Documento duplicado como borrador.');
-      // Refrescar stock de cada ítem desde inventario actual (no usar stock congelado de la OV original)
-      const almacenesActuales = configState.almacenes ?? [];
-      const itemsConStockActual = resultado.documento.items.map((item) =>
-        refrescarStockItem(item, almacenesActuales, activeEstablecimientoId ?? undefined),
-      );
-      const documentoConStock = { ...resultado.documento, items: itemsConStockActual };
-      navigate(`/documentos-comerciales/editar/${resultado.documento.id}`, {
-        state: { documento: documentoConStock, modo: 'duplicar' },
-      });
-    } else {
-      feedback.error(resultado.error ?? 'Error al duplicar el documento.');
-    }
-  }, [duplicarDocumento, feedback, navigate, configState.almacenes, activeEstablecimientoId]);
+    const doc = state.documentos.find((d) => d.id === id);
+    if (!doc) { feedback.error('Documento no encontrado.'); return; }
+    const almacenesActuales = configState.almacenes ?? [];
+    const itemsConStockActual = doc.items.map((item) =>
+      refrescarStockItem(item, almacenesActuales, activeEstablecimientoId ?? undefined),
+    );
+    navigate(`/documentos-comerciales/nuevo/${doc.tipo}`, {
+      state: { prefillFrom: { ...doc, items: itemsConStockActual } },
+    });
+  }, [state.documentos, feedback, navigate, configState.almacenes, activeEstablecimientoId]);
 
   const handleConfirmarAccion = useCallback(() => {
     if (!confirmandoAccion) return;
@@ -527,11 +529,14 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
       const r = anularDocumento(confirmandoAccion.id, confirmandoAccion.motivo);
       if (r.exito) feedback.success(`${labelTipo} anulada exitosamente.`);
       else feedback.error(r.error ?? 'Error al anular.');
-    } else if (confirmandoAccion.tipo === 'rechazar') {
-      if (!confirmandoAccion.motivo.trim()) { feedback.warning('El motivo de rechazo es obligatorio.'); return; }
-      const r = rechazarCotizacion(confirmandoAccion.id, confirmandoAccion.motivo);
-      if (r.exito) feedback.success('Cotización rechazada.');
-      else feedback.error(r.error ?? 'Error al rechazar la cotización.');
+    } else if (confirmandoAccion.tipo === 'no_aprobar') {
+      const r = rechazarCotizacion(confirmandoAccion.id, confirmandoAccion.motivo || undefined);
+      if (r.exito) feedback.success('Cotización marcada como no aprobada.');
+      else feedback.error(r.error ?? 'Error al procesar la cotización.');
+    } else if (confirmandoAccion.tipo === 'aprobar') {
+      const r = aprobarCotizacion(confirmandoAccion.id, confirmandoAccion.motivo || undefined);
+      if (r.exito) feedback.success('Cotización aprobada correctamente.');
+      else feedback.error(r.error ?? 'Error al aprobar la cotización.');
     } else if (confirmandoAccion.tipo === 'cerrar_perdida') {
       if (!confirmandoAccion.motivo.trim()) { feedback.warning('El motivo de cierre es obligatorio.'); return; }
       const r = cerrarCotizacionComoPerdida(confirmandoAccion.id, confirmandoAccion.motivo);
@@ -543,7 +548,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
       else feedback.error(r.error ?? 'Error al eliminar.');
     }
     setConfirmandoAccion(null);
-  }, [confirmandoAccion, anularDocumento, anularNS, eliminarBorrador, rechazarCotizacion, cerrarCotizacionComoPerdida, feedback, labelTipo, state.documentos]);
+  }, [confirmandoAccion, anularDocumento, anularNS, eliminarBorrador, rechazarCotizacion, aprobarCotizacion, cerrarCotizacionComoPerdida, feedback, labelTipo, state.documentos]);
 
   const handleImprimir = useCallback(async (doc: DocumentoComercial, formato: 'a4' | 'ticket') => {
     setMenuAbierto(null); setMenuPosicion(null);
@@ -738,7 +743,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                   {columnasVisibles.has('metodoEnvio') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Método envío</th>}
                   {columnasVisibles.has('fechaEnvio') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">F. Envío</th>}
                   {columnasVisibles.has('requiereAprobacion') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Aprobación</th>}
-                  {columnasVisibles.has('docRelacionado') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Doc. origen</th>}
+                  {columnasVisibles.has('docRelacionado') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Doc. relacionado</th>}
                   <th className="w-10 px-4 py-3" />
                 </tr>
               </thead>
@@ -763,7 +768,13 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                       {columnasVisibles.has('metodoEnvio') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.camposOpcionales?.metodoEnvio ?? '—'}</td>}
                       {columnasVisibles.has('fechaEnvio') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{doc.camposOpcionales?.fechaEntrega ?? '—'}</td>}
                       {columnasVisibles.has('requiereAprobacion') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.camposOpcionales?.requiereAprobacion ? 'Sí' : 'No'}</td>}
-                      {columnasVisibles.has('docRelacionado') && <td className="px-4 py-3 text-xs font-mono text-gray-500 dark:text-gray-400">{doc.trazabilidad?.documentoOrigenNumero ?? '—'}</td>}
+                      {columnasVisibles.has('docRelacionado') && (
+                        <td className="px-4 py-3 text-xs font-mono text-gray-500 dark:text-gray-400">
+                          {doc.tipo === 'cotizacion'
+                            ? (doc.trazabilidad?.documentoDestinoNumero ?? '—')
+                            : (doc.trazabilidad?.documentoOrigenNumero ?? '—')}
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <button type="button" onClick={(e) => handleAbrirMenu(e, doc.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-400">
                           <MoreHorizontal size={16} />
@@ -807,9 +818,9 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
               <ThumbsUp size={14} />Aprobar
             </button>
           )}
-          {puedeRechazar(menuDocActual) && (
-            <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setConfirmandoAccion({ tipo: 'rechazar', id: menuDocActual.id, numero: menuDocActual.numero, motivo: '' }); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-left font-medium">
-              <ThumbsDown size={14} />Rechazar
+          {puedeNoAprobar(menuDocActual) && (
+            <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setConfirmandoAccion({ tipo: 'no_aprobar', id: menuDocActual.id, numero: menuDocActual.numero, motivo: '' }); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-left font-medium">
+              <ThumbsDown size={14} />No aprobar
             </button>
           )}
           {puedeCerrarPerdida(menuDocActual) && (
@@ -936,12 +947,57 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                   {documentoDetalle.camposOpcionales?.requiereAprobacion && <div><p className="text-xs text-gray-500 mb-1">Requiere aprobación</p><p className="font-medium text-gray-800 dark:text-gray-100">Sí</p></div>}
                   {documentoDetalle.camposOpcionales?.ordenCompra && <div><p className="text-xs text-gray-500 mb-1">Orden de compra</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.ordenCompra}</p></div>}
                   {documentoDetalle.camposOpcionales?.centroCosto && <div><p className="text-xs text-gray-500 mb-1">Centro de costo</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.centroCosto}</p></div>}
+                  {documentoDetalle.camposOpcionales?.guiaRemision && <div><p className="text-xs text-gray-500 mb-1">Guía de remisión</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.guiaRemision}</p></div>}
                 </div>
 
-                {documentoDetalle.trazabilidad?.documentoOrigenNumero && (
+                {/* Tabla de financiamiento (crédito/cuotas) */}
+                {documentoDetalle.creditTerms && (
+                  <CreditScheduleSummaryCard
+                    creditTerms={documentoDetalle.creditTerms}
+                    currency={documentoDetalle.moneda}
+                    total={documentoDetalle.totales.total}
+                  />
+                )}
+
+                {/* Cotización: documento generado (NV, OV o Comprobante) */}
+                {documentoDetalle.tipo === 'cotizacion' && documentoDetalle.trazabilidad?.documentoDestinoNumero && (
+                  documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' ? (
+                    <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-violet-600 uppercase mb-1">Comprobante generado</p>
+                      <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-indigo-600 uppercase mb-1">Documento generado</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
+                        {documentoDetalle.trazabilidad.documentoDestinoId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDocumentoDetalle(null);
+                              navigate('/documentos-comerciales', {
+                                state: {
+                                  tipo: documentoDetalle.trazabilidad!.documentoDestinoTipo as TipoDocumentoComercial,
+                                  abrirDetalleId: documentoDetalle.trazabilidad!.documentoDestinoId,
+                                },
+                              });
+                            }}
+                            className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap flex-shrink-0"
+                          >
+                            Ver <ExternalLink size={11} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                )}
+                {/* NV / OV: documento origen */}
+                {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoOrigenNumero && (
                   <div><p className="text-xs text-gray-500 mb-1">Doc. relacionado</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
                 )}
-                {documentoDetalle.trazabilidad?.documentoDestinoNumero && documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' && (
+                {/* NV / OV: comprobante generado */}
+                {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoDestinoNumero && documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' && (
                   <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3">
                     <p className="text-xs font-semibold text-violet-600 uppercase mb-1">Comprobante generado</p>
                     <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
@@ -1078,6 +1134,15 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                       <ThumbsUp size={14} />Aprobar cotización
                     </button>
                   )}
+                  {puedeNoAprobar(documentoDetalle) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDocumentoDetalle(null); setConfirmandoAccion({ tipo: 'no_aprobar', id: documentoDetalle.id, numero: documentoDetalle.numero, motivo: '' }); }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-orange-300 text-orange-600 dark:text-orange-400 dark:border-orange-600 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                    >
+                      <ThumbsDown size={14} />No aprobar
+                    </button>
+                  )}
                   {puedeConvertirCotizacion(documentoDetalle) && (
                     <>
                       <button
@@ -1119,15 +1184,6 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg shadow-sm transition-all"
                     >
                       <PackageMinus size={14} />Generar nota de salida
-                    </button>
-                  )}
-                  {puedeRechazar(documentoDetalle) && (
-                    <button
-                      type="button"
-                      onClick={() => { setDocumentoDetalle(null); setConfirmandoAccion({ tipo: 'rechazar', id: documentoDetalle.id, numero: documentoDetalle.numero, motivo: '' }); }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-orange-300 text-orange-600 dark:text-orange-400 dark:border-orange-600 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
-                    >
-                      <ThumbsDown size={14} />Rechazar
                     </button>
                   )}
                   {puedeCerrarPerdida(documentoDetalle) && (
@@ -1265,27 +1321,37 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4">
             <h3 className="font-bold text-gray-900 dark:text-white">
               {confirmandoAccion.tipo === 'anular' ? 'Anular documento'
-                : confirmandoAccion.tipo === 'rechazar' ? 'Rechazar cotización'
+                : confirmandoAccion.tipo === 'no_aprobar' ? 'No aprobar cotización'
+                : confirmandoAccion.tipo === 'aprobar' ? 'Aprobar cotización'
                 : confirmandoAccion.tipo === 'cerrar_perdida' ? 'Cerrar como perdida'
                 : 'Eliminar borrador'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">
               {confirmandoAccion.tipo === 'anular'
                 ? `¿Está seguro que desea anular ${confirmandoAccion.numero ?? 'este documento'}?`
-                : confirmandoAccion.tipo === 'rechazar'
-                ? `¿Está seguro que desea rechazar ${confirmandoAccion.numero ?? 'esta cotización'}?`
+                : confirmandoAccion.tipo === 'no_aprobar'
+                ? `¿Está seguro que desea marcar ${confirmandoAccion.numero ?? 'esta cotización'} como no aprobada?`
+                : confirmandoAccion.tipo === 'aprobar'
+                ? `¿Está seguro que desea aprobar ${confirmandoAccion.numero ?? 'esta cotización'}?`
                 : confirmandoAccion.tipo === 'cerrar_perdida'
                 ? `¿Está seguro que desea cerrar ${confirmandoAccion.numero ?? 'esta cotización'} como perdida?`
                 : '¿Está seguro que desea eliminar este borrador? Se perderán todos los datos.'}
             </p>
-            {(confirmandoAccion.tipo === 'anular' || confirmandoAccion.tipo === 'rechazar' || confirmandoAccion.tipo === 'cerrar_perdida') && (
+            {(confirmandoAccion.tipo === 'anular' || confirmandoAccion.tipo === 'cerrar_perdida') && (
               <div>
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">
-                  {confirmandoAccion.tipo === 'anular' ? 'Motivo de anulación'
-                    : confirmandoAccion.tipo === 'rechazar' ? 'Motivo de rechazo'
-                    : 'Motivo de cierre'} <span className="text-red-500">*</span>
+                  {confirmandoAccion.tipo === 'anular' ? 'Motivo de anulación' : 'Motivo de cierre'}{' '}
+                  <span className="text-red-500">*</span>
                 </label>
                 <textarea value={confirmandoAccion.motivo} onChange={(e) => setConfirmandoAccion((prev) => prev ? { ...prev, motivo: e.target.value } : null)} placeholder="Ingrese el motivo..." rows={3} className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 outline-none resize-none" />
+              </div>
+            )}
+            {(confirmandoAccion.tipo === 'no_aprobar' || confirmandoAccion.tipo === 'aprobar') && (
+              <div>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
+                  Comentario (opcional)
+                </label>
+                <textarea value={confirmandoAccion.motivo} onChange={(e) => setConfirmandoAccion((prev) => prev ? { ...prev, motivo: e.target.value } : null)} placeholder="Puede agregar un comentario..." rows={2} className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 outline-none resize-none" />
               </div>
             )}
             <div className="flex gap-3 justify-end">
@@ -1294,17 +1360,19 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                 type="button"
                 onClick={handleConfirmarAccion}
                 disabled={
-                  (confirmandoAccion.tipo === 'anular' || confirmandoAccion.tipo === 'rechazar' || confirmandoAccion.tipo === 'cerrar_perdida')
+                  (confirmandoAccion.tipo === 'anular' || confirmandoAccion.tipo === 'cerrar_perdida')
                   && !confirmandoAccion.motivo.trim()
                 }
                 className={`px-4 py-2 text-sm font-semibold text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
-                  confirmandoAccion.tipo === 'rechazar' ? 'bg-orange-600 hover:bg-orange-700'
+                  confirmandoAccion.tipo === 'no_aprobar' ? 'bg-orange-600 hover:bg-orange-700'
+                  : confirmandoAccion.tipo === 'aprobar' ? 'bg-green-600 hover:bg-green-700'
                   : confirmandoAccion.tipo === 'cerrar_perdida' ? 'bg-gray-600 hover:bg-gray-700'
                   : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
                 {confirmandoAccion.tipo === 'anular' ? 'Anular'
-                  : confirmandoAccion.tipo === 'rechazar' ? 'Rechazar'
+                  : confirmandoAccion.tipo === 'no_aprobar' ? 'No aprobar'
+                  : confirmandoAccion.tipo === 'aprobar' ? 'Aprobar'
                   : confirmandoAccion.tipo === 'cerrar_perdida' ? 'Cerrar como perdida'
                   : 'Eliminar'}
               </button>
