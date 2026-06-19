@@ -520,6 +520,41 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         historial: [...(doc.historial ?? []), eventoAnulacion],
       };
       actualizarEnContext(actualizado);
+
+      // Cascade: si este doc fue generado desde una cotización, restaurarla
+      const cotizacionVinculada = state.documentos.find(
+        (d) =>
+          d.tipo === 'cotizacion' &&
+          d.estado === 'Convertida' &&
+          d.trazabilidad?.documentoDestinoId === id,
+      );
+      if (cotizacionVinculada) {
+        const estadoAnterior: EstadoDocumentoComercial =
+          cotizacionVinculada.camposOpcionales?.requiereAprobacion === true
+            ? 'Aprobada'
+            : 'Generada';
+        const labelAnulado = doc.tipo === 'nota_venta' ? 'Nota de Venta' : 'Orden de Venta';
+        actualizarEnContext({
+          ...cotizacionVinculada,
+          estado: estadoAnterior,
+          fechaActualizacion: ahora,
+          trazabilidad: {
+            ...cotizacionVinculada.trazabilidad,
+            documentoDestinoId: undefined,
+            documentoDestinoTipo: undefined,
+            documentoDestinoNumero: undefined,
+          },
+          historial: [
+            ...(cotizacionVinculada.historial ?? []),
+            crearEvento(
+              `Cotización reabierta por anulación de ${labelAnulado}`,
+              session?.userName,
+              `${labelAnulado} ${doc.numero ?? doc.serie} anulada. Estado restaurado: ${estadoAnterior}. Motivo: ${motivo.trim()}`,
+            ),
+          ],
+        });
+      }
+
       return { exito: true, documento: actualizado };
     },
     [state.documentos, actualizarEnContext, session, configState.almacenes],

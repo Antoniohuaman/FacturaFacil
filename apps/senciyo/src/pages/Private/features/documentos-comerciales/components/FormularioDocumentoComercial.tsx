@@ -123,7 +123,7 @@ export default function FormularioDocumentoComercial({
 
     estado.aplicarValoresIniciales({
       tipoDocumento: tipoInicial,
-      serieSeleccionada: serieInicial,
+      ...(serieInicial ? { serieSeleccionada: serieInicial } : {}),
       fechaEmision: documentoExistente ? source.fechaEmision : obtenerFechaHoyISO(),
       cliente: source.cliente ?? null,
       moneda: source.moneda,
@@ -162,7 +162,7 @@ export default function FormularioDocumentoComercial({
   const { limpiarBorrador } = useDocumentoComercialDrafts({
     tipoDocumento: estado.tipoDocumento,
     serieSeleccionada: estado.serieSeleccionada,
-    habilitado: modo === 'nuevo',
+    habilitado: modo === 'nuevo' && !prefillFrom && !cotizacionOrigenId,
     extraerEstado: obtenerDatosFormulario,
     aplicarEstado: (datos) => {
       estado.aplicarValoresIniciales({

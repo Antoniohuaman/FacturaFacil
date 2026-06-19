@@ -267,6 +267,21 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     motivo: string;
   } | null>(null);
 
+  const cotizacionVinculadaAlAnular = useMemo(
+    () => {
+      if (!confirmandoAccion || confirmandoAccion.tipo !== 'anular') return null;
+      return (
+        state.documentos.find(
+          (d) =>
+            d.tipo === 'cotizacion' &&
+            d.estado === 'Convertida' &&
+            d.trazabilidad?.documentoDestinoId === confirmandoAccion.id,
+        ) ?? null
+      );
+    },
+    [confirmandoAccion, state.documentos],
+  );
+
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -605,7 +620,9 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
         metodoEnvio: doc.camposOpcionales?.metodoEnvio ?? '—',
         fechaEnvio: doc.camposOpcionales?.fechaEntrega ?? '—',
         requiereAprobacion: doc.camposOpcionales?.requiereAprobacion ? 'Sí' : 'No',
-        docRelacionado: doc.trazabilidad?.documentoOrigenNumero ?? '—',
+        docRelacionado: doc.tipo === 'cotizacion'
+          ? (doc.trazabilidad?.documentoDestinoNumero ?? '—')
+          : (doc.trazabilidad?.documentoOrigenNumero ?? '—'),
       }));
 
       const mapaColumnas: Record<string, { header: string; key: string; width?: number }> = {
@@ -1337,6 +1354,15 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                 ? `¿Está seguro que desea cerrar ${confirmandoAccion.numero ?? 'esta cotización'} como perdida?`
                 : '¿Está seguro que desea eliminar este borrador? Se perderán todos los datos.'}
             </p>
+            {confirmandoAccion.tipo === 'anular' && cotizacionVinculadaAlAnular && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  Este documento fue generado desde la cotización{' '}
+                  <strong>{cotizacionVinculadaAlAnular.numero ?? cotizacionVinculadaAlAnular.serie}</strong>.
+                  Al anularlo, la cotización dejará de estar como convertida y volverá a estar disponible para generar un nuevo documento.
+                </p>
+              </div>
+            )}
             {(confirmandoAccion.tipo === 'anular' || confirmandoAccion.tipo === 'cerrar_perdida') && (
               <div>
                 <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">
