@@ -12,6 +12,7 @@
     "build": "npm run build:senciyo && npm run build:pm",
     "lint": "npm run lint:senciyo && npm run lint:pm",
     "dev:senciyo": "npm run dev -w senciyo",
+    "dev:senciyo:wrangler": "npm run build:senciyo && wrangler pages dev apps/senciyo/dist --compatibility-date 2026-03-07 --ip 127.0.0.1 --port 8789 --local-protocol http",
     "build:senciyo": "npm run build -w senciyo",
     "lint:senciyo": "npm run lint -w senciyo",
     "dev:pm": "npm run dev -w portal-pm",

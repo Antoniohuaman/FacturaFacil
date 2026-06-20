@@ -11,10 +11,15 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,       // usa siempre 5173
-    strictPort: true, // si 5173 está ocupado, Vite falla (no cambia a 5174)
-    open: true        // opcional: abre el navegador
-    // host: true      // opcional: si quieres exponer en red local
+    port: 5173,
+    strictPort: true,
+    open: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8789',
+        changeOrigin: false,
+      },
+    },
   },
   preview: {
     port: 5175,

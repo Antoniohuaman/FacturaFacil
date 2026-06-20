@@ -1,6 +1,13 @@
-# Variables runtime para `npm run dev:pm:cf`
+# Variables runtime para `npm run dev:senciyo:wrangler` y `npm run dev:pm:cf`
 # Copia este archivo como `/.dev.vars` y completa los valores reales.
 # No commitees `/.dev.vars`.
+
+# ── SenciYo: consulta DNI/RUC (functions/api/documentos/*) ──────────────────
+# Token del proveedor API Perú — obtenlo en https://apiperu.dev
+# Requerido para que RENIEC y SUNAT funcionen en localhost.
+APIPERU_TOKEN=
+# URL base del proveedor. Opcional: por defecto usa https://apiperu.dev/api
+APIPERU_BASE_URL=
 
 # Auth/server-side del Portal PM
 PM_PORTAL_SUPABASE_URL=
