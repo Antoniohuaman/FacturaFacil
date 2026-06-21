@@ -27,6 +27,12 @@ export interface InfoComprobanteEmitido {
   modoDescuentoStock?: 'automatico' | 'nota_salida' | 'sin_control';
 }
 
+export interface DadosComerciaisSyncComprobante {
+  items?: unknown[];
+  moneda?: string;
+  formaPago?: string;
+}
+
 const toNum = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -441,7 +447,7 @@ export function actualizarOrdenVentaPostEmision(
 
 /**
  * Restaura el estado de la cotización cuando el comprobante generado desde ella es anulado.
- * Revierte el estado 'Convertida' al estado anterior (Aprobada o Generada) y registra en historial.
+ * Revierte el estado 'Convertida' al estado anterior (Aprobada o Vigente) y registra en historial.
  */
 export function restaurarCotizacionPostAnulacion(
   cotizacionId: string,
@@ -461,7 +467,8 @@ export function restaurarCotizacionPostAnulacion(
     if (cot.tipo !== 'cotizacion') return;
     if (cot.estado !== 'Convertida') return;
 
-    const estadoRestaurado = cot.camposOpcionales?.requiereAprobacion ? 'Aprobada' : 'Generada';
+    // Solo Aceptada puede convertir, por tanto siempre se restaura a Aceptada.
+    const estadoRestaurado = 'Aceptada';
     const ahora = obtenerFechaHoraISO();
 
     documentos[idx] = {
@@ -506,6 +513,7 @@ export function restaurarCotizacionPostAnulacion(
 export function actualizarCotizacionPostEmision(
   cotizacionId: string,
   info: Omit<InfoComprobanteEmitido, 'modoDescuentoStock'>,
+  dadosComerciais?: DadosComerciaisSyncComprobante,
 ): void {
   try {
     const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
@@ -519,13 +527,35 @@ export function actualizarCotizacionPostEmision(
 
     const cot = documentos[idx];
     if (cot.tipo !== 'cotizacion') return;
-    if (cot.estado !== 'Generada' && cot.estado !== 'Aprobada') return;
+    // Solo Aceptada puede convertirse (Regla 5). 'Generada' solo para compat legacy.
+    if (cot.estado !== 'Aceptada' && cot.estado !== 'Generada') return;
 
     const ahora = obtenerFechaHoraISO();
+
+    const historialEventos = [
+      ...(Array.isArray(cot.historial) ? cot.historial : []),
+      {
+        fecha: ahora,
+        usuario: info.usuario,
+        accion: 'Comprobante generado desde cotización',
+        detalle: `${info.tipoComprobante} ${info.numeroComprobante} — Total: ${info.total.toFixed(2)}`,
+      },
+    ];
+    if (dadosComerciais) {
+      historialEventos.push({
+        fecha: ahora,
+        usuario: info.usuario,
+        accion: 'Datos comerciales actualizados en conversión',
+        detalle: `Cambios confirmados al emitir ${info.tipoComprobante}`,
+      });
+    }
 
     documentos[idx] = {
       ...cot,
       estado: 'Convertida',
+      ...(dadosComerciais?.items !== undefined ? { items: dadosComerciais.items } : {}),
+      ...(dadosComerciais?.moneda !== undefined ? { moneda: dadosComerciais.moneda } : {}),
+      ...(dadosComerciais?.formaPago !== undefined ? { formaPago: dadosComerciais.formaPago } : {}),
       fechaActualizacion: ahora,
       trazabilidad: {
         ...(cot.trazabilidad ?? {}),
@@ -533,15 +563,7 @@ export function actualizarCotizacionPostEmision(
         documentoDestinoTipo: 'comprobante',
         documentoDestinoNumero: info.numeroComprobante,
       },
-      historial: [
-        ...(Array.isArray(cot.historial) ? cot.historial : []),
-        {
-          fecha: ahora,
-          usuario: info.usuario,
-          accion: 'Comprobante generado desde cotización',
-          detalle: `${info.tipoComprobante} ${info.numeroComprobante} — Total: ${info.total.toFixed(2)}`,
-        },
-      ],
+      historial: historialEventos,
     };
 
     localStorage.setItem(key, JSON.stringify(documentos));

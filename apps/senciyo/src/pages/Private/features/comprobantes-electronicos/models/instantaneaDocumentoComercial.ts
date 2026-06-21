@@ -135,6 +135,14 @@ export interface CargaReutilizacionDocumentoComercial {
    * Presente solo en flujo de Nota de Crédito; undefined en duplicación y conversión.
    */
   contextoOrigen?: ContextoOrigenNotaCredito;
+  /**
+   * Metadatos de la cotización origen para control de cambios comerciales durante conversión.
+   * Presente solo cuando el origen es una cotización; undefined en OV, duplicación y NC.
+   */
+  metadataCotizacion?: {
+    requiereAprobacion: boolean;
+    fueAprobada: boolean;
+  };
 }
 
 export interface DatosRehidratacionDocumentoComercial {

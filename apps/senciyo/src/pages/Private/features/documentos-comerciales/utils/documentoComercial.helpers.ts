@@ -180,19 +180,33 @@ export const calcularDesgloseTributos = (items: CartItem[]): DesgloseImpuesto[] 
     }));
 };
 
+/** Mapea estados legacy a su equivalente actual para display. */
+export const normalizarEstadoCotizacionParaDisplay = (
+  estado: EstadoDocumentoComercial,
+): EstadoDocumentoComercial => {
+  if (estado === 'Generada') return 'Vigente';
+  if (estado === 'Rechazada') return 'No aprobada';
+  return estado;
+};
+
 export const obtenerColorEstado = (
   estado: EstadoDocumentoComercial,
 ): string => {
   switch (estado) {
     case 'Borrador':
       return 'gray';
-    case 'Generada':
+    case 'Vigente':
+    case 'Generada': // legacy
       return 'blue';
+    case 'Pendiente aprobación':
+      return 'yellow';
     case 'Aprobada':
     case 'Atendida':
     case 'Atendida total':
       return 'green';
-    case 'Rechazada':
+    case 'Aceptada':
+      return 'emerald';
+    case 'Rechazada': // legacy
     case 'Anulada':
     case 'Cerrada perdida':
       return 'red';

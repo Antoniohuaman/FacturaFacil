@@ -17,14 +17,17 @@ export type TipoDocumentoComercial = 'cotizacion' | 'nota_venta' | 'orden_venta'
 
 export type EstadoCotizacion =
   | 'Borrador'
-  | 'Generada'
+  | 'Vigente'               // reemplaza 'Generada' para nuevas cotizaciones
+  | 'Pendiente aprobación'  // cotización generada con requiereAprobacion=true
   | 'Aprobada'
-  | 'Rechazada'       // legacy
   | 'No aprobada'
+  | 'Aceptada'              // cliente aceptó la propuesta
   | 'Cerrada perdida'
   | 'Convertida'
   | 'Anulada'
-  | 'Vencida';
+  | 'Vencida'
+  | 'Generada'              // legacy: datos guardados antes de FASE 2
+  | 'Rechazada';            // legacy: reemplazado por 'No aprobada'
 
 export type EstadoNotaVenta = 'Borrador' | 'Generada' | 'Convertida' | 'Anulada';
 

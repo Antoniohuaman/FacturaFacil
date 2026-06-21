@@ -23,6 +23,7 @@ import {
   type CargaReutilizacionDocumentoComercial,
   esCargaReutilizacionDocumentoComercial,
 } from '../models/instantaneaDocumentoComercial';
+import { tieneCambiosComerciales } from '@/shared/documentosComerciales/comparadorComercial';
 
 // ✅ Importar side-preview (condicional por flag)
 import { SidePreviewPane, useSidePreviewPane } from '../shared/side-preview';
@@ -232,6 +233,25 @@ const EmisionTradicional = () => {
     const state = location.state as any;
     return Boolean(state?.duplicate || (state?.fromConversion === true && state?.conversionData));
   }, [location.state]);
+
+  // Captura el origen de cotización una sola vez al montar, antes de que useDuplicateDataLoader
+  // limpie location.state. No depende del state posterior: usa función inicializadora de useState.
+  const [cotizacionConversionOrigen] = useState<CargaReutilizacionDocumentoComercial | null>(() => {
+    const state = location.state as Record<string, unknown> | null;
+    if (
+      state?.fromConversion === true &&
+      esCargaReutilizacionDocumentoComercial(state?.conversionData) &&
+      (state.conversionData as CargaReutilizacionDocumentoComercial)
+        .instantaneaDocumentoComercial.relaciones.tipoDocumentoFuente === 'cotizacion'
+    ) {
+      return state.conversionData as CargaReutilizacionDocumentoComercial;
+    }
+    return null;
+  });
+  const [modalCambiosComprobante, setModalCambiosComprobante] = useState<
+    'sin_aprobacion' | 'con_aprobacion' | null
+  >(null);
+  const saltarVerificacionComprobanteRef = useRef(false);
 
   const tipoFromQuery = useMemo<TipoComprobante | null>(() => {
     const tipo = new URLSearchParams(location.search).get('tipo');
@@ -1430,6 +1450,41 @@ const EmisionTradicional = () => {
   };
 
   const handleIssue = async () => {
+    // Task 2: verificación de cambios comerciales en comprobante generado desde cotización.
+    if (cotizacionConversionOrigen && !saltarVerificacionComprobanteRef.current) {
+      const inst = cotizacionConversionOrigen.instantaneaDocumentoComercial;
+      const snapshotOriginal = {
+        clienteNumeroDocumento: inst.cliente.numeroDocumento ?? null,
+        moneda: inst.identidad.moneda ?? 'PEN',
+        formaPago: inst.camposComerciales.formaPagoDescripcion ?? null,
+        items: inst.detalle.items.map((i) => ({
+          code: i.code ?? null,
+          name: i.name ?? null,
+          quantity: i.quantity ?? 0,
+          price: i.price ?? 0,
+        })),
+      };
+      const snapshotActual = {
+        clienteNumeroDocumento: clienteSeleccionadoGlobal?.dni ?? null,
+        moneda: currentCurrency,
+        formaPago: formaPago ?? null,
+        items: cartItemsForDocument.map((i) => ({
+          code: i.code ?? null,
+          name: i.name ?? null,
+          quantity: i.quantity ?? 0,
+          price: i.price ?? 0,
+        })),
+      };
+      if (tieneCambiosComerciales(snapshotOriginal, snapshotActual)) {
+        const conAprobacion =
+          cotizacionConversionOrigen.metadataCotizacion?.requiereAprobacion === true &&
+          cotizacionConversionOrigen.metadataCotizacion?.fueAprobada === true;
+        setModalCambiosComprobante(conAprobacion ? 'con_aprobacion' : 'sin_aprobacion');
+        return;
+      }
+    }
+    saltarVerificacionComprobanteRef.current = false;
+
     if (tipoComprobante === 'nota_credito') {
       await handleCrearComprobante(undefined, { suppressSuccessModal: false });
       return;
@@ -1440,6 +1495,41 @@ const EmisionTradicional = () => {
       return;
     }
     await handleOpenCobranzaModal();
+  };
+
+  const handleConfirmarEmision = async () => {
+    setModalCambiosComprobante(null);
+    if (cotizacionConversionOrigen) {
+      const syncData = {
+        items: cartItemsForDocument,
+        moneda: currentCurrency,
+        formaPago: formaPago || undefined,
+      };
+      sessionStorage.setItem('conversionCotizacionComercialSync', JSON.stringify(syncData));
+    }
+    saltarVerificacionComprobanteRef.current = true;
+    await handleIssue();
+  };
+
+  const handleRevertirCambiosComprobante = () => {
+    if (!cotizacionConversionOrigen) return;
+    const inst = cotizacionConversionOrigen.instantaneaDocumentoComercial;
+    clearCart();
+    setCartItemsFromDraft(inst.detalle.items);
+    setClienteSeleccionadoGlobal({
+      clienteId: inst.cliente.idCliente ?? undefined,
+      nombre: inst.cliente.nombre,
+      dni: inst.cliente.numeroDocumento ?? '',
+      direccion: inst.cliente.direccion ?? '',
+      email: inst.cliente.email ?? undefined,
+      tipoDocumento: (inst.cliente.tipoDocumento as SaleDocumentType | undefined) ?? undefined,
+      priceProfileId: inst.cliente.priceProfileId ?? undefined,
+    });
+    if (inst.identidad.moneda) {
+      changeCurrency(inst.identidad.moneda);
+    }
+    setFormaPago(inst.camposComerciales.formaPagoDescripcion ?? '');
+    setModalCambiosComprobante(null);
   };
 
   const handleCrearComprobante = async (
@@ -1920,7 +2010,19 @@ const EmisionTradicional = () => {
                       setShowDraftModal(false);
                       setShowObservacionesPanel(false);
                       setProductSelectorKey(prev => prev + 1);
-                      goToComprobantes();
+                      // Task 1: si el comprobante viene de una cotización, regresar a ella
+                      const cotizOrigen = sessionStorage.getItem('conversionSourceId');
+                      const cotizOrigenTipo = sessionStorage.getItem('conversionSourceType');
+                      if (cotizOrigenTipo === 'cotizacion' && cotizOrigen) {
+                        sessionStorage.removeItem('conversionSourceId');
+                        sessionStorage.removeItem('conversionSourceType');
+                        sessionStorage.removeItem('conversionSourceNumber');
+                        navigate('/documentos-comerciales', {
+                          state: { tipo: 'cotizacion', abrirDetalleId: cotizOrigen },
+                        });
+                      } else {
+                        goToComprobantes();
+                      }
                     }}
                     onGuardarBorrador={fieldsConfig.actionButtons.guardarBorrador ? () => setShowDraftModal(true) : undefined}
                     secondaryAction={
@@ -2141,6 +2243,93 @@ const EmisionTradicional = () => {
           onCerrar={() => setModalCuentaBNAbierto(false)}
           onGuardado={handleConfiguracionDetraccionActualizada}
         />
+
+        {/* Modal de control de cambios comerciales en comprobante generado desde cotización */}
+        {modalCambiosComprobante && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+              {modalCambiosComprobante === 'sin_aprobacion' ? (
+                <>
+                  <div className="flex items-start gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500 flex-shrink-0 mt-0.5" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    <div>
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                        Datos modificados respecto a la cotización
+                      </h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        Cambiaste información comercial (cliente, productos, precios, moneda o forma de pago)
+                        que proviene de la cotización. Al confirmar, estos cambios también quedarán
+                        reflejados en la cotización de origen.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalCambiosComprobante(null)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Volver y revisar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { void handleConfirmarEmision(); }}
+                      className="px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors"
+                    >
+                      Confirmar y emitir
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    <div>
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                        No se pueden modificar datos de la cotización aprobada
+                      </h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        Esta cotización fue aprobada internamente. No puedes modificar datos
+                        comerciales (cliente, productos, precios, moneda o forma de pago)
+                        durante la conversión.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalCambiosComprobante(null);
+                        const cotizOrigen = sessionStorage.getItem('conversionSourceId');
+                        sessionStorage.removeItem('conversionSourceId');
+                        sessionStorage.removeItem('conversionSourceType');
+                        sessionStorage.removeItem('conversionSourceNumber');
+                        limpiarBorradorEnProgreso();
+                        clearCart();
+                        resetForm();
+                        setClienteSeleccionadoGlobal(null);
+                        setOptionalFields({});
+                        navigate('/documentos-comerciales', {
+                          state: { tipo: 'cotizacion', abrirDetalleId: cotizOrigen },
+                        });
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Volver a la cotización
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRevertirCambiosComprobante}
+                      className="px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors"
+                    >
+                      Continuar sin modificar
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       </div>
 

@@ -2,6 +2,22 @@ import { tryLsKey } from '@/shared/tenant';
 import { STORAGE_KEYS } from '../models/documentoComercial.constants';
 import type { DocumentoComercial } from '../models/documentoComercial.types';
 
+function normalizarDocumentoCargado(doc: DocumentoComercial): DocumentoComercial {
+  if (doc.tipo !== 'cotizacion') return doc;
+  if (doc.estado === 'Generada') {
+    return {
+      ...doc,
+      estado: doc.camposOpcionales?.requiereAprobacion === true
+        ? 'Pendiente aprobación'
+        : 'Vigente',
+    };
+  }
+  if (doc.estado === 'Rechazada') {
+    return { ...doc, estado: 'No aprobada' };
+  }
+  return doc;
+}
+
 const obtenerClave = (): string => {
   const clave = tryLsKey(STORAGE_KEYS.DOCUMENTOS);
   return clave ?? STORAGE_KEYS.DOCUMENTOS;
@@ -14,7 +30,7 @@ export const cargarDocumentosDesdeStorage = (): DocumentoComercial[] => {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed as DocumentoComercial[];
+    return (parsed as DocumentoComercial[]).map(normalizarDocumentoCargado);
   } catch {
     return [];
   }

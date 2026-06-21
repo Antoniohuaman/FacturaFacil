@@ -30,6 +30,20 @@ import {
 import { calcularReservasPendientes } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
 
+/**
+ * Calcula el estado resultante de una cotización no-borrador basándose en
+ * camposOpcionales actuales. Centraliza las reglas de re-evaluación al editar.
+ * No devuelve nunca 'Aceptada' — editar siempre invalida la aceptación.
+ */
+function calcularEstadoResultanteCotizacion(
+  camposOpcionales: DocumentoComercial['camposOpcionales'],
+): EstadoDocumentoComercial {
+  const hoy = obtenerFechaHoyISO();
+  const fechaVenc = camposOpcionales?.fechaVencimiento;
+  if (fechaVenc != null && fechaVenc < hoy) return 'Vencida';
+  return camposOpcionales?.requiereAprobacion ? 'Pendiente aprobación' : 'Vigente';
+}
+
 const calcularTotalesItems = (items: CartItem[], moneda: Currency = 'PEN'): PaymentTotals => {
   if (!items || items.length === 0) {
     return { subtotal: 0, igv: 0, total: 0, currency: moneda };
@@ -80,15 +94,27 @@ export interface UseDocumentoComercialActionsReturn {
   rechazarCotizacion: (id: string, motivo?: string) => ResultadoAccionDocumento;
   cerrarCotizacionComoPerdida: (id: string, motivo: string) => ResultadoAccionDocumento;
   /** Marca la cotización como Convertida y registra el documento destino en su trazabilidad.
-   *  Debe llamarse después de que el nuevo documento haya sido generado. */
+   *  Acepta `dadosComerciais` para sincronizar en un único update cuando el usuario confirmó
+   *  cambios comerciales durante la conversión (evita problemas de estado obsoleto). */
   vincularDocumentoConCotizacion: (
     cotizacionId: string,
     docDestinoId: string,
     docDestinoNumero: string,
     docDestinoTipo: TipoDocumentoComercial,
+    dadosComerciais?: {
+      items: CartItem[];
+      cliente?: DocumentoComercial['cliente'];
+      moneda: Currency;
+      formaPago?: string;
+      totales?: PaymentTotals;
+    },
   ) => ResultadoAccionDocumento;
   evaluarVencimientosCotizaciones: () => void;
   agregarComentario: (id: string, comentario: string) => ResultadoAccionDocumento;
+  marcarComoAceptada: (id: string) => ResultadoAccionDocumento;
+  /** Sincroniza datos comerciales (cliente, ítems, totales, observaciones) de una NV/OV
+   *  a la cotización origen cuando el documento relacionado es editado. */
+  sincronizarCotizacionDesdeDocumento: (docId: string) => void;
 }
 
 export function useDocumentoComercialActions(): UseDocumentoComercialActionsReturn {
@@ -165,9 +191,17 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const numero = `${datos.serie}-${correlativo}`;
       const ahora = obtenerFechaHoraISO();
 
-      // OV queda en 'Reservada'; otros documentos en 'Generada'
-      const estadoInicial: EstadoDocumentoComercial =
-        datos.tipo === 'orden_venta' ? 'Reservada' : 'Generada';
+      // OV → Reservada; cotización con aprobación → Pendiente aprobación; resto → Generada/Vigente
+      let estadoInicial: EstadoDocumentoComercial;
+      if (datos.tipo === 'orden_venta') {
+        estadoInicial = 'Reservada';
+      } else if (datos.tipo === 'cotizacion') {
+        estadoInicial = datos.camposOpcionales?.requiereAprobacion === true
+          ? 'Pendiente aprobación'
+          : 'Vigente';
+      } else {
+        estadoInicial = 'Generada';
+      }
 
       // Reservar stock OV (DESPUÉS de asignar correlativo)
       if (datos.tipo === 'orden_venta') {
@@ -338,8 +372,16 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         detalleHistorial = undefined;
       }
 
-      const estadoFinal: EstadoDocumentoComercial =
-        datos.tipo === 'orden_venta' ? 'Reservada' : 'Generada';
+      let estadoFinal: EstadoDocumentoComercial;
+      if (datos.tipo === 'orden_venta') {
+        estadoFinal = 'Reservada';
+      } else if (datos.tipo === 'cotizacion') {
+        estadoFinal = datos.camposOpcionales?.requiereAprobacion === true
+          ? 'Pendiente aprobación'
+          : 'Vigente';
+      } else {
+        estadoFinal = 'Generada';
+      }
 
       const eventoGenerado = crearEvento(accionHistorial, session?.userName, detalleHistorial);
       const documentoGenerado: DocumentoComercial = {
@@ -436,23 +478,40 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
 
       const items = datos.items ?? documentoExistente.items;
       const ahora = obtenerFechaHoraISO();
-
       const monedaActualizada = datos.moneda ?? documentoExistente.moneda;
-      const eventoActualizado = crearEvento(
-        documentoExistente.esBorrador ? 'Borrador actualizado' : 'Documento actualizado',
-        session?.userName,
-      );
+
+      // Re-evaluación centralizada del estado para cotizaciones no-borrador.
+      // Los estados reevaluables son todos los editables activos.
+      let nuevoEstado: EstadoDocumentoComercial = documentoExistente.estado;
+      let accionHistorial = documentoExistente.esBorrador ? 'Borrador actualizado' : 'Documento actualizado';
+
+      if (documentoExistente.tipo === 'cotizacion' && !documentoExistente.esBorrador) {
+        const estadosReevaluables: string[] = ['Vigente', 'Pendiente aprobación', 'Aceptada', 'Vencida'];
+        if (estadosReevaluables.includes(documentoExistente.estado)) {
+          const camposResultantes = datos.camposOpcionales ?? documentoExistente.camposOpcionales;
+          nuevoEstado = calcularEstadoResultanteCotizacion(camposResultantes);
+          if (documentoExistente.estado === 'Aceptada') {
+            accionHistorial = 'Cotización editada — aceptación invalidada';
+          } else if (documentoExistente.estado === 'Vencida' && nuevoEstado !== 'Vencida') {
+            accionHistorial = 'Cotización renovada — vencimiento actualizado';
+          } else if (documentoExistente.estado === 'Pendiente aprobación' && nuevoEstado === 'Vigente') {
+            accionHistorial = 'Cotización editada — aprobación ya no requerida';
+          }
+        }
+      }
+
       const documentoActualizado: DocumentoComercial = {
         ...documentoExistente,
         ...datos,
         id,
+        estado: nuevoEstado,
         items,
         totales:
           datos.items !== undefined
             ? calcularTotalesItems(datos.items, monedaActualizada)
             : documentoExistente.totales,
         fechaActualizacion: ahora,
-        historial: [...(documentoExistente.historial ?? []), eventoActualizado],
+        historial: [...(documentoExistente.historial ?? []), crearEvento(accionHistorial, session?.userName)],
       };
 
       actualizarEnContext(documentoActualizado);
@@ -521,7 +580,8 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       };
       actualizarEnContext(actualizado);
 
-      // Cascade: si este doc fue generado desde una cotización, restaurarla
+      // Cascade: si este doc fue generado desde una cotización, restaurarla.
+      // Solo Aceptada puede convertir (Regla 5), por tanto se restaura siempre a Aceptada.
       const cotizacionVinculada = state.documentos.find(
         (d) =>
           d.tipo === 'cotizacion' &&
@@ -529,10 +589,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
           d.trazabilidad?.documentoDestinoId === id,
       );
       if (cotizacionVinculada) {
-        const estadoAnterior: EstadoDocumentoComercial =
-          cotizacionVinculada.camposOpcionales?.requiereAprobacion === true
-            ? 'Aprobada'
-            : 'Generada';
+        const estadoAnterior: EstadoDocumentoComercial = 'Aceptada';
         const labelAnulado = doc.tipo === 'nota_venta' ? 'Nota de Venta' : 'Orden de Venta';
         actualizarEnContext({
           ...cotizacionVinculada,
@@ -623,7 +680,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const doc = state.documentos.find((d) => d.id === id);
       if (!doc) return { exito: false, error: 'Documento no encontrado.' };
       if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo se pueden aprobar cotizaciones.' };
-      if (doc.estado !== 'Generada') return { exito: false, error: 'Solo se pueden aprobar cotizaciones en estado Generada.' };
+      if (doc.estado !== 'Pendiente aprobación') return { exito: false, error: 'Solo se pueden aprobar cotizaciones en estado Pendiente aprobación.' };
       if (!doc.cliente) return { exito: false, error: 'La cotización requiere un cliente para ser aprobada.' };
       if (!doc.items?.length) return { exito: false, error: 'La cotización debe tener al menos un producto o servicio.' };
       const hayItemInvalido = doc.items.some((item) => item.price <= 0 || item.quantity <= 0);
@@ -651,7 +708,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const doc = state.documentos.find((d) => d.id === id);
       if (!doc) return { exito: false, error: 'Documento no encontrado.' };
       if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo se pueden rechazar cotizaciones.' };
-      if (doc.estado !== 'Generada') return { exito: false, error: 'Solo se puede aplicar a cotizaciones en estado Generada.' };
+      if (doc.estado !== 'Pendiente aprobación') return { exito: false, error: 'Solo se puede aplicar a cotizaciones en estado Pendiente aprobación.' };
 
       const ahora = obtenerFechaHoraISO();
       const motivoTrimmed = motivo?.trim();
@@ -678,8 +735,9 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       const doc = state.documentos.find((d) => d.id === id);
       if (!doc) return { exito: false, error: 'Documento no encontrado.' };
       if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo aplica a cotizaciones.' };
-      if (doc.estado !== 'Generada' && doc.estado !== 'Aprobada') {
-        return { exito: false, error: 'Solo se puede cerrar como perdida una cotización Generada o Aprobada.' };
+      const estadosCierrePerdida: string[] = ['Vigente', 'Aprobada', 'Aceptada'];
+      if (!estadosCierrePerdida.includes(doc.estado)) {
+        return { exito: false, error: 'Solo se puede cerrar como perdida una cotización Vigente, Aprobada o Aceptada.' };
       }
       if (!motivo?.trim()) return { exito: false, error: 'El motivo de cierre es obligatorio.' };
 
@@ -708,6 +766,13 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       docDestinoId: string,
       docDestinoNumero: string,
       docDestinoTipo: TipoDocumentoComercial,
+      dadosComerciais?: {
+        items: CartItem[];
+        cliente?: DocumentoComercial['cliente'];
+        moneda: Currency;
+        formaPago?: string;
+        totales?: PaymentTotals;
+      },
     ): ResultadoAccionDocumento => {
       const doc = state.documentos.find((d) => d.id === cotizacionId);
       if (!doc) return { exito: false, error: 'Cotización no encontrada.' };
@@ -715,9 +780,35 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
 
       const labelDestino = docDestinoTipo === 'nota_venta' ? 'Nota de Venta' : 'Orden de Venta';
       const ahora = obtenerFechaHoraISO();
+
+      const historialEventos: EventoHistorial[] = [
+        ...(doc.historial ?? []),
+        crearEvento(
+          `Cotización convertida a ${labelDestino}`,
+          session?.userName,
+          `${labelDestino}: ${docDestinoNumero}`,
+        ),
+      ];
+      if (dadosComerciais) {
+        historialEventos.push(
+          crearEvento(
+            'Datos comerciales actualizados en conversión',
+            session?.userName,
+            `Cambios confirmados al generar ${labelDestino}`,
+          ),
+        );
+      }
+
       const actualizado: DocumentoComercial = {
         ...doc,
         estado: 'Convertida',
+        ...(dadosComerciais ? {
+          items: dadosComerciais.items,
+          ...(dadosComerciais.cliente !== undefined && { cliente: dadosComerciais.cliente }),
+          moneda: dadosComerciais.moneda,
+          ...(dadosComerciais.formaPago !== undefined && { formaPago: dadosComerciais.formaPago }),
+          ...(dadosComerciais.totales ? { totales: dadosComerciais.totales } : {}),
+        } : {}),
         fechaActualizacion: ahora,
         trazabilidad: {
           ...(doc.trazabilidad ?? {}),
@@ -725,14 +816,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
           documentoDestinoTipo: docDestinoTipo,
           documentoDestinoNumero: docDestinoNumero,
         },
-        historial: [
-          ...(doc.historial ?? []),
-          crearEvento(
-            `Cotización convertida a ${labelDestino}`,
-            session?.userName,
-            `${labelDestino}: ${docDestinoNumero}`,
-          ),
-        ],
+        historial: historialEventos,
       };
       actualizarEnContext(actualizado);
       return { exito: true, documento: actualizado };
@@ -767,11 +851,12 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
   const evaluarVencimientosCotizaciones = useCallback((): void => {
     const hoy = obtenerFechaHoyISO();
     const ahora = obtenerFechaHoraISO();
+    const estadosVencibles: string[] = ['Vigente', 'Aprobada', 'Pendiente aprobación', 'Aceptada'];
     const vencidas = state.documentos.filter(
       (d) =>
         d.tipo === 'cotizacion' &&
         !d.esBorrador &&
-        (d.estado === 'Generada' || d.estado === 'Aprobada') &&
+        estadosVencibles.includes(d.estado) &&
         d.camposOpcionales?.fechaVencimiento != null &&
         d.camposOpcionales.fechaVencimiento < hoy,
     );
@@ -792,6 +877,71 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     });
   }, [state.documentos, actualizarEnContext]);
 
+  const marcarComoAceptada = useCallback(
+    (id: string): ResultadoAccionDocumento => {
+      const doc = state.documentos.find((d) => d.id === id);
+      if (!doc) return { exito: false, error: 'Documento no encontrado.' };
+      if (doc.tipo !== 'cotizacion') return { exito: false, error: 'Solo aplica a cotizaciones.' };
+      const estadosPermitidos: string[] = ['Vigente', 'Aprobada'];
+      if (!estadosPermitidos.includes(doc.estado)) {
+        return { exito: false, error: 'Solo se puede aceptar una cotización Vigente o Aprobada.' };
+      }
+      // Regla 6: si requiere aprobación, debe estar Aprobada antes de aceptar.
+      if (doc.camposOpcionales?.requiereAprobacion && doc.estado !== 'Aprobada') {
+        return {
+          exito: false,
+          error: 'Esta cotización requiere aprobación interna previa. Apruébela primero.',
+        };
+      }
+      const ahora = obtenerFechaHoraISO();
+      const actualizado: DocumentoComercial = {
+        ...doc,
+        estado: 'Aceptada',
+        fechaActualizacion: ahora,
+        historial: [
+          ...(doc.historial ?? []),
+          crearEvento('Cotización aceptada por el cliente', session?.userName),
+        ],
+      };
+      actualizarEnContext(actualizado);
+      return { exito: true, documento: actualizado };
+    },
+    [state.documentos, actualizarEnContext, session],
+  );
+
+  const sincronizarCotizacionDesdeDocumento = useCallback(
+    (docId: string): void => {
+      const doc = state.documentos.find((d) => d.id === docId);
+      if (!doc) return;
+      const cotizacionId = doc.trazabilidad?.documentoOrigenId;
+      if (!cotizacionId) return;
+      const cotizacion = state.documentos.find(
+        (d) => d.id === cotizacionId && d.tipo === 'cotizacion' && d.estado === 'Convertida',
+      );
+      if (!cotizacion) return;
+      const ahora = obtenerFechaHoraISO();
+      actualizarEnContext({
+        ...cotizacion,
+        cliente: doc.cliente,
+        items: doc.items,
+        totales: doc.totales,
+        observaciones: doc.observaciones,
+        formaPago: doc.formaPago,
+        moneda: doc.moneda,
+        fechaActualizacion: ahora,
+        historial: [
+          ...(cotizacion.historial ?? []),
+          crearEvento(
+            'Datos comerciales sincronizados desde documento relacionado',
+            session?.userName,
+            `Sincronizado desde: ${doc.numero ?? doc.id}`,
+          ),
+        ],
+      });
+    },
+    [state.documentos, actualizarEnContext, session],
+  );
+
   return {
     generarDocumento,
     generarDesdeBorrador,
@@ -808,5 +958,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     vincularDocumentoConCotizacion,
     evaluarVencimientosCotizaciones,
     agregarComentario,
+    marcarComoAceptada,
+    sincronizarCotizacionDesdeDocumento,
   };
 }

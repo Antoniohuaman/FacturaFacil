@@ -43,14 +43,15 @@ export const TIPO_DOCUMENTO_COMERCIAL_CATEGORIAS: Record<TipoDocumentoComercial,
 
 export const ESTADOS_COTIZACION: EstadoCotizacion[] = [
   'Borrador',
-  'Generada',
+  'Pendiente aprobación',
   'Aprobada',
-  'Rechazada',
   'No aprobada',
+  'Vigente',
+  'Aceptada',
   'Cerrada perdida',
+  'Vencida',
   'Convertida',
   'Anulada',
-  'Vencida',
 ];
 
 export const ESTADOS_NOTA_VENTA: EstadoNotaVenta[] = [

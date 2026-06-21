@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, createElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileCheck, PackageMinus, ThumbsUp, ThumbsDown, TrendingDown, ArrowRightCircle, ExternalLink } from 'lucide-react';
+import { FileCheck, PackageMinus, ThumbsUp, ThumbsDown, TrendingDown, ArrowRightCircle, ExternalLink, CheckCircle } from 'lucide-react';
 import {
   Plus, Search, MoreHorizontal, Edit3, Copy, Ban, Trash2, Eye,
   ChevronLeft, ChevronRight, X, Printer, Share2, Download,
@@ -149,7 +149,9 @@ function puedeGenerarNS(
 
 function puedeEditar(doc: DocumentoComercial): boolean {
   if (doc.tipo === 'cotizacion') {
-    return doc.esBorrador || doc.estado === 'Generada';
+    // Vigente, Pendiente aprobación, Aceptada (invalida aceptación), Vencida (re-evalúa al guardar)
+    const editables: string[] = ['Vigente', 'Pendiente aprobación', 'Aceptada', 'Vencida'];
+    return doc.esBorrador || editables.includes(doc.estado);
   }
   // OV en Reservada no se puede editar (stock comprometido)
   if (doc.tipo === 'orden_venta' && doc.estado === 'Reservada') return false;
@@ -163,10 +165,19 @@ function puedeAnular(doc: DocumentoComercial): boolean {
   // OV Atendida no puede anularse (ya tiene comprobante emitido)
   if (doc.tipo === 'orden_venta' && doc.estado === 'Atendida') return false;
   if (doc.tipo === 'cotizacion') {
-    const terminales = ['Anulada', 'Convertida', 'Rechazada', 'No aprobada', 'Cerrada perdida', 'Vencida'];
+    // Vencida ya NO es terminal — se puede anular para cerrar el ciclo
+    const terminales: string[] = ['Anulada', 'Convertida', 'Rechazada', 'No aprobada', 'Cerrada perdida'];
     return !doc.esBorrador && !terminales.includes(doc.estado);
   }
   return !doc.esBorrador && doc.estado !== 'Anulada' && doc.estado !== 'Convertida';
+}
+
+function puedeMarcarAceptada(doc: DocumentoComercial): boolean {
+  return (
+    doc.tipo === 'cotizacion' &&
+    (doc.estado === 'Vigente' || doc.estado === 'Aprobada') &&
+    !doc.esBorrador
+  );
 }
 
 function puedeConvertir(doc: DocumentoComercial): boolean {
@@ -176,27 +187,27 @@ function puedeConvertir(doc: DocumentoComercial): boolean {
 function puedeAprobar(doc: DocumentoComercial): boolean {
   return (
     doc.tipo === 'cotizacion' &&
-    doc.estado === 'Generada' &&
-    !doc.esBorrador &&
-    doc.camposOpcionales?.requiereAprobacion === true
+    doc.estado === 'Pendiente aprobación' &&
+    !doc.esBorrador
   );
 }
 
 function puedeNoAprobar(doc: DocumentoComercial): boolean {
   return (
     doc.tipo === 'cotizacion' &&
-    doc.estado === 'Generada' &&
-    !doc.esBorrador &&
-    doc.camposOpcionales?.requiereAprobacion === true
+    doc.estado === 'Pendiente aprobación' &&
+    !doc.esBorrador
   );
 }
 
 function puedeCerrarPerdida(doc: DocumentoComercial): boolean {
-  return doc.tipo === 'cotizacion' && (doc.estado === 'Generada' || doc.estado === 'Aprobada') && !doc.esBorrador;
+  const estadosValidos = ['Vigente', 'Aprobada', 'Aceptada'];
+  return doc.tipo === 'cotizacion' && estadosValidos.includes(doc.estado) && !doc.esBorrador;
 }
 
 function puedeConvertirCotizacion(doc: DocumentoComercial): boolean {
-  return doc.tipo === 'cotizacion' && (doc.estado === 'Generada' || doc.estado === 'Aprobada') && !doc.esBorrador;
+  // Solo Aceptada puede convertirse (Regla 5). El flujo obliga Vigente/Aprobada → Aceptada → Convertir.
+  return doc.tipo === 'cotizacion' && doc.estado === 'Aceptada' && !doc.esBorrador;
 }
 
 function generarTextoCompartir(doc: DocumentoComercial, labelTipo: string): string {
@@ -234,6 +245,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     cerrarCotizacionComoPerdida,
     evaluarVencimientosCotizaciones,
     agregarComentario,
+    marcarComoAceptada,
   } = useDocumentoComercialActions();
   const { anularNS } = useNotasSalida();
   const feedback = useFeedback();
@@ -413,6 +425,13 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     setMenuAbierto(null); setMenuPosicion(null);
     setConfirmandoAccion({ tipo: 'aprobar', id: doc.id, numero: doc.numero, motivo: '' });
   }, []);
+
+  const handleMarcarComoAceptada = useCallback((doc: DocumentoComercial) => {
+    setMenuAbierto(null); setMenuPosicion(null);
+    const r = marcarComoAceptada(doc.id);
+    if (r.exito) feedback.success('Cotización marcada como aceptada por el cliente.');
+    else feedback.error(r.error ?? 'Error al marcar como aceptada.');
+  }, [marcarComoAceptada, feedback]);
 
   const handleConvertirCotANV = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
@@ -840,6 +859,11 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
               <ThumbsDown size={14} />No aprobar
             </button>
           )}
+          {puedeMarcarAceptada(menuDocActual) && (
+            <button type="button" onClick={() => handleMarcarComoAceptada(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-left font-medium">
+              <CheckCircle size={14} />Marcar como aceptada
+            </button>
+          )}
           {puedeCerrarPerdida(menuDocActual) && (
             <button type="button" onClick={() => { setMenuAbierto(null); setMenuPosicion(null); setConfirmandoAccion({ tipo: 'cerrar_perdida', id: menuDocActual.id, numero: menuDocActual.numero, motivo: '' }); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 text-left font-medium">
               <TrendingDown size={14} />Cerrar como perdida
@@ -936,7 +960,12 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
             {/* Tab: Detalle */}
             {tabDetalle === 'detalle' && (
               <div className="p-6 space-y-4">
-                <EstadoDocumentoBadge estado={documentoDetalle.estado} tamano="md" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <EstadoDocumentoBadge estado={documentoDetalle.estado} tamano="md" />
+                  {documentoDetalle.estado === 'Aceptada' && (
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400">Aceptada por el cliente</span>
+                  )}
+                </div>
 
                 {documentoDetalle.cliente ? (
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
@@ -1158,6 +1187,15 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                       className="flex-1 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium border border-orange-300 text-orange-600 dark:text-orange-400 dark:border-orange-600 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
                     >
                       <ThumbsDown size={14} />No aprobar
+                    </button>
+                  )}
+                  {puedeMarcarAceptada(documentoDetalle) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDocumentoDetalle(null); handleMarcarComoAceptada(documentoDetalle); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg shadow-sm transition-all"
+                    >
+                      <CheckCircle size={14} />Marcar como aceptada
                     </button>
                   )}
                   {puedeConvertirCotizacion(documentoDetalle) && (

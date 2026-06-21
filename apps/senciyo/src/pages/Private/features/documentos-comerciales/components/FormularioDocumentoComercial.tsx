@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, FileText } from 'lucide-react';
+import { Save, FileText, AlertTriangle } from 'lucide-react';
 import ProductsSection from '../../comprobantes-electronicos/shared/form-core/components/ProductsSection';
 import NotesSection from '../../comprobantes-electronicos/shared/form-core/components/NotesSection';
 import ActionButtonsSection from '../../comprobantes-electronicos/shared/form-core/components/ActionButtonsSection';
@@ -22,6 +22,7 @@ import { useDocumentoComercialFieldsConfig } from '../hooks/useDocumentoComercia
 import { useDocumentoComercialDrafts } from '../hooks/useDocumentoComercialDrafts';
 import { TIPO_DOCUMENTO_COMERCIAL_LABELS } from '../models/documentoComercial.constants';
 import { calcularDesgloseTributos, obtenerFechaHoyISO } from '../utils/documentoComercial.helpers';
+import { tieneCambiosComerciales } from '@/shared/documentosComerciales/comparadorComercial';
 import type {
   TipoDocumentoComercial,
   DocumentoComercial,
@@ -82,6 +83,10 @@ export default function FormularioDocumentoComercial({
 
   const [errorCliente, setErrorCliente] = useState<string | null>(null);
   const [creditScheduleModalOpen, setCreditScheduleModalOpen] = useState(false);
+  const [modalCambiosCotizacion, setModalCambiosCotizacion] = useState<
+    'sin_aprobacion' | 'con_aprobacion' | null
+  >(null);
+  const saltarVerificacionCambiosRef = useRef(false);
 
   const paymentMethodId = useMemo(() => {
     if (!estado.formaPago) return undefined;
@@ -196,6 +201,44 @@ export default function FormularioDocumentoComercial({
     }
     setErrorCliente(null);
 
+    // Verificación de cambios comerciales en flujo de conversión desde cotización (NV/OV).
+    // Solo aplica al crear el documento destino (modo !== 'editar'); nunca al editar.
+    if (!saltarVerificacionCambiosRef.current && cotizacionOrigenId && prefillFrom && modo !== 'editar') {
+      const snapshotOriginal = {
+        clienteNumeroDocumento: prefillFrom.cliente?.numeroDocumento ?? null,
+        moneda: prefillFrom.moneda,
+        formaPago: prefillFrom.formaPago ?? null,
+        items: prefillFrom.items.map((i) => ({
+          code: i.code ?? null,
+          name: i.name ?? null,
+          quantity: i.quantity ?? 0,
+          price: i.price ?? 0,
+        })),
+      };
+      const snapshotActual = {
+        clienteNumeroDocumento: estado.cliente?.numeroDocumento ?? null,
+        moneda: currentCurrency,
+        formaPago: estado.formaPago ?? null,
+        items: cartItems.map((i) => ({
+          code: i.code ?? null,
+          name: i.name ?? null,
+          quantity: i.quantity ?? 0,
+          price: i.price ?? 0,
+        })),
+      };
+      if (tieneCambiosComerciales(snapshotOriginal, snapshotActual)) {
+        const requiereAprobacion = prefillFrom.camposOpcionales?.requiereAprobacion ?? false;
+        const fueAprobada =
+          prefillFrom.historial?.some((e) => e.accion === 'Cotización aprobada') ?? false;
+        setModalCambiosCotizacion(
+          requiereAprobacion && fueAprobada ? 'con_aprobacion' : 'sin_aprobacion',
+        );
+        return;
+      }
+    }
+    const confirmoConCambios = saltarVerificacionCambiosRef.current && cotizacionOrigenId !== null && prefillFrom !== null;
+    saltarVerificacionCambiosRef.current = false;
+
     let resultado;
     if (esBorradorEdicion && documentoExistente) {
       resultado = actions.generarDesdeBorrador(documentoExistente.id, datos);
@@ -212,7 +255,22 @@ export default function FormularioDocumentoComercial({
           resultado.documento.id,
           resultado.documento.numero ?? '',
           resultado.documento.tipo,
+          confirmoConCambios ? {
+            items: datos.items,
+            cliente: datos.cliente,
+            moneda: datos.moneda,
+            formaPago: datos.formaPago || undefined,
+          } : undefined,
         );
+      }
+      // Regla 7: al editar una NV/OV generada desde cotización, sincronizar datos comerciales
+      if (
+        modo === 'editar' &&
+        !esBorradorEdicion &&
+        documentoExistente?.tipo !== 'cotizacion' &&
+        documentoExistente?.trazabilidad?.documentoOrigenId
+      ) {
+        actions.sincronizarCotizacionDesdeDocumento(documentoExistente.id);
       }
       const msg = modo === 'editar' && !esBorradorEdicion
         ? `${labelTipo} actualizada exitosamente.`
@@ -227,8 +285,32 @@ export default function FormularioDocumentoComercial({
   }, [
     obtenerDatosFormulario, actions, esBorradorEdicion, documentoExistente,
     modo, labelTipo, feedback, limpiarBorrador, clearCart, navigate, estado.tipoDocumento,
-    setErrorCliente, cotizacionOrigenId,
+    estado.cliente, estado.formaPago, setErrorCliente, cotizacionOrigenId,
+    prefillFrom, currentCurrency, cartItems,
   ]);
+
+  const handleConfirmarGuardar = useCallback(() => {
+    setModalCambiosCotizacion(null);
+    saltarVerificacionCambiosRef.current = true;
+    handleGenerar();
+  }, [handleGenerar]);
+
+  const handleRevertirCambios = useCallback(() => {
+    if (!prefillFrom) return;
+    estado.aplicarValoresIniciales({
+      tipoDocumento: tipoInicial,
+      cliente: prefillFrom.cliente ?? null,
+      moneda: prefillFrom.moneda,
+      formaPago: prefillFrom.formaPago ?? '',
+      observaciones: prefillFrom.observaciones ?? '',
+      notaInterna: prefillFrom.notaInterna ?? '',
+      camposOpcionales: prefillFrom.camposOpcionales ?? {},
+      modoProductos: prefillFrom.modoItems,
+    });
+    setCartItemsFromDraft(prefillFrom.items);
+    changeCurrency(prefillFrom.moneda);
+    setModalCambiosCotizacion(null);
+  }, [prefillFrom, tipoInicial, estado, setCartItemsFromDraft, changeCurrency]);
 
   const handleActualizarBorrador = useCallback(() => {
     if (!documentoExistente) return;
@@ -258,8 +340,15 @@ export default function FormularioDocumentoComercial({
   const handleCancelar = useCallback(() => {
     limpiarBorrador();
     clearCart();
-    navigate('/documentos-comerciales', { state: { tipo: estado.tipoDocumento } });
-  }, [limpiarBorrador, clearCart, navigate, estado.tipoDocumento]);
+    if (cotizacionOrigenId) {
+      // Regla 8: cancelar conversión devuelve al listado de cotizaciones con drawer abierto
+      navigate('/documentos-comerciales', {
+        state: { tipo: 'cotizacion', abrirDetalleId: cotizacionOrigenId },
+      });
+    } else {
+      navigate('/documentos-comerciales', { state: { tipo: estado.tipoDocumento } });
+    }
+  }, [limpiarBorrador, clearCart, navigate, estado.tipoDocumento, cotizacionOrigenId]);
 
   const handleMonedaChange = useCallback(
     (moneda: typeof currentCurrency) => {
@@ -310,6 +399,23 @@ export default function FormularioDocumentoComercial({
       </div>
 
       <div className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+        {/* Regla 3: advertencia al editar cotización Aceptada — la edición invalida la aceptación */}
+        {modo === 'editar' &&
+          documentoExistente?.tipo === 'cotizacion' &&
+          documentoExistente?.estado === 'Aceptada' && (
+          <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3">
+            <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                Editando una cotización aceptada
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                Al guardar los cambios, la aceptación quedará invalidada y la cotización
+                volverá al estado Vigente o Pendiente aprobación según la configuración actual.
+              </p>
+            </div>
+          </div>
+        )}
         <FormularioHeaderComercial
           tipoDocumento={estado.tipoDocumento}
           serieSeleccionada={estado.serieSeleccionada}
@@ -423,6 +529,79 @@ export default function FormularioDocumentoComercial({
         onRestoreDefaults={restoreDefaults}
         errors={creditErrors}
       />
+
+      {/* Modal de control de cambios comerciales en conversión desde cotización */}
+      {modalCambiosCotizacion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            {modalCambiosCotizacion === 'sin_aprobacion' ? (
+              <>
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                      Datos modificados respecto a la cotización
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                      Cambiaste información comercial (cliente, productos, precios, moneda o forma de pago)
+                      que proviene de la cotización. Al confirmar, estos cambios también quedarán
+                      reflejados en la cotización de origen.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalCambiosCotizacion(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Volver y revisar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmarGuardar}
+                    className="px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors"
+                  >
+                    Confirmar y guardar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                      No se pueden modificar datos de la cotización aprobada
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                      Esta cotización fue aprobada internamente. No puedes modificar datos
+                      comerciales (cliente, productos, precios, moneda o forma de pago)
+                      durante la conversión.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelar}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Volver a la cotización
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRevertirCambios}
+                    className="px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors"
+                  >
+                    Continuar sin modificar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

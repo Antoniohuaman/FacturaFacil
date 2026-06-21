@@ -84,17 +84,12 @@ export function validarCotizacionParaConversion(
   if (cotizacion.tipo !== 'cotizacion') {
     return { valido: false, error: 'Solo se pueden convertir cotizaciones.' };
   }
-  const requiereAprobacion = cotizacion.camposOpcionales?.requiereAprobacion ?? false;
-  if (requiereAprobacion && cotizacion.estado !== 'Aprobada') {
+  // Solo Aceptada puede convertirse (Regla 5). 'Generada' solo para compat legacy.
+  const estadosPermitidos = ['Aceptada', 'Generada'];
+  if (!estadosPermitidos.includes(cotizacion.estado)) {
     return {
       valido: false,
-      error: 'Esta cotización requiere aprobación antes de poder generar el comprobante.',
-    };
-  }
-  if (!requiereAprobacion && cotizacion.estado !== 'Generada' && cotizacion.estado !== 'Aprobada') {
-    return {
-      valido: false,
-      error: 'Solo se pueden convertir cotizaciones en estado Generada o Aprobada.',
+      error: 'Solo se pueden convertir cotizaciones en estado Aceptada.',
     };
   }
   if (!cotizacion.numero) {
@@ -118,6 +113,8 @@ export function construirCargaConversionDesdeCotizacion(
 ): { state: { fromConversion: true; conversionData: CargaReutilizacionDocumentoComercial } } {
   const tipoComprobante = determinarTipoComprobante(cotizacion.cliente?.tipoDocumento);
   const refCot = cotizacion.numero ?? '';
+  const fueAprobada =
+    cotizacion.historial?.some((e) => e.accion === 'Cotización aprobada') ?? false;
 
   const observaciones = cotizacion.observaciones
     ? `${cotizacion.observaciones}\nRef. Cotización: ${refCot}`
@@ -205,6 +202,10 @@ export function construirCargaConversionDesdeCotizacion(
       conversionData: {
         instantaneaDocumentoComercial: instantanea,
         datosNotaCredito: null,
+        metadataCotizacion: {
+          requiereAprobacion: cotizacion.camposOpcionales?.requiereAprobacion ?? false,
+          fueAprobada,
+        },
       },
     },
   };
