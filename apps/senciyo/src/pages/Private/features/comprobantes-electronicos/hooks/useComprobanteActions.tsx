@@ -12,7 +12,7 @@ import type {
   TipoComprobante,
 } from '../models/comprobante.types';
 import { lsKey } from '../../../../../shared/tenant';
-import { actualizarOrdenVentaPostEmision, actualizarCotizacionPostEmision, obtenerReservasDeOV, type DadosComerciaisSyncComprobante } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
+import { actualizarOrdenVentaPostEmision, actualizarCotizacionPostEmision, actualizarNVPostEmision, obtenerReservasDeOV, type DadosComerciaisSyncComprobante } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import { mapPaymentMethodToMedioPago } from '../../../../../shared/payments/paymentMapping';
 // Reemplazamos el uso de addMovimiento desde el store del catálogo por la fachada de inventario
 import { useInventoryFacade } from '../../gestion-inventario/api/inventory.facade';
@@ -976,9 +976,11 @@ export const useComprobanteActions = () => {
           ...(!isNoteCredit ? {
             modoDescuentoStock: !controlStockActivo
               ? 'sin_control' as const
-              : stockDescuentoFacturaYBoleta === 'nota_salida'
-                ? 'nota_salida' as const
-                : 'automatico' as const,
+              : sessionStorage.getItem('conversionSourceType') === 'nota_venta'
+                ? 'sin_control' as const
+                : stockDescuentoFacturaYBoleta === 'nota_salida'
+                  ? 'nota_salida' as const
+                  : 'automatico' as const,
           } : {})
         };
 
@@ -1060,6 +1062,14 @@ export const useComprobanteActions = () => {
                 total: data.totals?.total ?? 0,
                 usuario: session?.userName ?? undefined,
               }, dadosComerciaisSync);
+            }
+            if (conversionSourceType === 'nota_venta') {
+              actualizarNVPostEmision(conversionSourceId, {
+                tipoComprobante: tipoComprobanteDisplay,
+                numeroComprobante,
+                total: data.totals?.total ?? 0,
+                usuario: session?.userName ?? undefined,
+              });
             }
 
             // Limpiar sessionStorage

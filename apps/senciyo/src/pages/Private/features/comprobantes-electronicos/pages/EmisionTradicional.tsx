@@ -2013,12 +2013,12 @@ const EmisionTradicional = () => {
                       // Task 1: si el comprobante viene de una cotización, regresar a ella
                       const cotizOrigen = sessionStorage.getItem('conversionSourceId');
                       const cotizOrigenTipo = sessionStorage.getItem('conversionSourceType');
-                      if (cotizOrigenTipo === 'cotizacion' && cotizOrigen) {
+                      if ((cotizOrigenTipo === 'cotizacion' || cotizOrigenTipo === 'nota_venta') && cotizOrigen) {
                         sessionStorage.removeItem('conversionSourceId');
                         sessionStorage.removeItem('conversionSourceType');
                         sessionStorage.removeItem('conversionSourceNumber');
                         navigate('/documentos-comerciales', {
-                          state: { tipo: 'cotizacion', abrirDetalleId: cotizOrigen },
+                          state: { tipo: cotizOrigenTipo, abrirDetalleId: cotizOrigen },
                         });
                       } else {
                         goToComprobantes();

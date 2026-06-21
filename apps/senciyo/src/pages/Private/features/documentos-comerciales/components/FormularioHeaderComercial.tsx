@@ -516,16 +516,17 @@ export default function FormularioHeaderComercial({
             </div>
           </div>
 
-          {/* Requiere aprobación */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={camposOpcionales.requiereAprobacion ?? false}
-              onChange={(e) => onCampoOpcionalChange('requiereAprobacion', e.target.checked || undefined)}
-              className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Requiere aprobación</span>
-          </label>
+          {tipoDocumento === 'cotizacion' && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={camposOpcionales.requiereAprobacion ?? false}
+                onChange={(e) => onCampoOpcionalChange('requiereAprobacion', e.target.checked || undefined)}
+                className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Requiere aprobación</span>
+            </label>
+          )}
 
           {/* Campos opcionales configurables */}
           {camposOpcionalesVisibles.length > 0 && (

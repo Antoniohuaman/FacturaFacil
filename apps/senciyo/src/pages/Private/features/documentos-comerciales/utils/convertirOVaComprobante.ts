@@ -368,3 +368,133 @@ export function construirCargaConversionDesdeOV(
     },
   };
 }
+
+/**
+ * Valida que la Nota de Venta esté en condiciones de ser convertida a comprobante.
+ */
+export function validarNVParaConversion(
+  nv: DocumentoComercial,
+): { valido: boolean; error?: string } {
+  if (nv.tipo !== 'nota_venta') {
+    return { valido: false, error: 'Solo se pueden convertir Notas de Venta.' };
+  }
+  if (nv.esBorrador) {
+    return { valido: false, error: 'La Nota de Venta está en borrador y no puede convertirse.' };
+  }
+  if (nv.estado !== 'Generada') {
+    return { valido: false, error: 'Solo se pueden convertir Notas de Venta en estado Generada.' };
+  }
+  if (!nv.numero) {
+    return { valido: false, error: 'La Nota de Venta no tiene número asignado.' };
+  }
+  if (!nv.cliente) {
+    return { valido: false, error: 'La Nota de Venta requiere un cliente para generar el comprobante.' };
+  }
+  if (!nv.items.length) {
+    return { valido: false, error: 'La Nota de Venta no tiene productos o servicios.' };
+  }
+  return { valido: true };
+}
+
+/**
+ * Construye el estado de navegación para abrir el formulario de comprobantes
+ * precargado con los datos de la Nota de Venta.
+ * No refresca stock: la NV ya gestionó su propio efecto de inventario al generarse.
+ * El comprobante se crea con modoDescuentoStock 'sin_control' para evitar doble deducción.
+ */
+export function construirCargaConversionDesdeNV(
+  nv: DocumentoComercial,
+): { state: { fromConversion: true; conversionData: CargaReutilizacionDocumentoComercial } } {
+  const tipoComprobante = determinarTipoComprobante(nv.cliente?.tipoDocumento);
+  const refNV = nv.numero ?? '';
+
+  const observaciones = nv.observaciones
+    ? `${nv.observaciones}\nRef. NV: ${refNV}`
+    : `Ref. NV: ${refNV}`;
+
+  const instantanea: InstantaneaDocumentoComercial = {
+    version: 1,
+    identidad: {
+      tipoDocumento: 'documento_comercial',
+      tipoComprobante,
+      codigoSunat: tipoComprobante === 'factura' ? '01' : '03',
+      tipoOperacion: null,
+      serie: null,
+      correlativo: null,
+      numeroCompleto: null,
+      fechaEmision: nv.fechaEmision,
+      horaEmision: null,
+      moneda: nv.moneda,
+      tipoCambio: nv.tipoCambio ?? null,
+      origen: 'conversion',
+      idDocumento: nv.id,
+      idInterno: nv.numero ?? null,
+    },
+    empresa: {
+      idEmpresa: null,
+      nombreComercial: null,
+      razonSocial: null,
+      ruc: null,
+    },
+    establecimiento: {
+      idEstablecimiento: nv.establecimientoId ?? null,
+      codigoEstablecimiento: null,
+      nombreEstablecimiento: null,
+    },
+    vendedor: {
+      idUsuario: nv.vendedorId ?? null,
+      nombreUsuario: nv.vendedor ?? null,
+    },
+    cliente: {
+      idCliente: nv.cliente ? String(nv.cliente.clienteId ?? '') || null : null,
+      nombre: nv.cliente?.nombre ?? '',
+      tipoDocumento: nv.cliente?.tipoDocumento ?? null,
+      numeroDocumento: nv.cliente?.numeroDocumento ?? null,
+      codigoSunatDocumento: codigoSunatDocumento(nv.cliente?.tipoDocumento),
+      email: nv.cliente?.email ?? null,
+      telefono: null,
+      direccion: nv.cliente?.direccion ?? null,
+      priceProfileId: nv.cliente?.priceProfileId ?? null,
+    },
+    camposComerciales: {
+      direccionEnvio: nv.camposOpcionales?.direccionEnvio ?? null,
+      ordenCompra: nv.camposOpcionales?.ordenCompra ?? null,
+      guiaRemision: nv.camposOpcionales?.guiaRemision ?? null,
+      centroCosto: nv.camposOpcionales?.centroCosto ?? null,
+      observaciones,
+      notaInterna: nv.notaInterna ?? null,
+      fechaVencimiento: nv.camposOpcionales?.fechaVencimiento ?? null,
+      formaPagoId: null,
+      formaPagoDescripcion: nv.formaPago ?? null,
+      detallesPago: null,
+      terminosCredito: nv.creditTerms ?? null,
+      datosDetraccion: null,
+    },
+    detalle: {
+      items: nv.items,
+      modoDetalle: nv.modoItems === 'libre' ? 'libre' : 'catalogo',
+      contieneItemsCatalogo: nv.modoItems !== 'libre',
+      contieneItemsLibres: nv.modoItems === 'libre',
+    },
+    totales: nv.totales,
+    relaciones: {
+      documentoOrigenId: nv.id,
+      documentoOrigenTipo: 'nota_venta',
+      documentoRelacionadoId: null,
+      documentoRelacionadoTipo: null,
+      datosNotaCredito: null,
+      idDocumentoFuente: nv.id,
+      tipoDocumentoFuente: 'nota_venta',
+    },
+  };
+
+  return {
+    state: {
+      fromConversion: true,
+      conversionData: {
+        instantaneaDocumentoComercial: instantanea,
+        datosNotaCredito: null,
+      },
+    },
+  };
+}

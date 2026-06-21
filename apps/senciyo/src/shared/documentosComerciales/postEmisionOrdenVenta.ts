@@ -635,3 +635,117 @@ export function atenderOrdenVentaPostNS(
     console.error('[postEmisionOrdenVenta] Error actualizando OV post Nota de Salida:', err);
   }
 }
+
+/**
+ * Marca la Nota de Venta como 'Convertida' después de que se emitió un comprobante desde ella.
+ */
+export function actualizarNVPostEmision(
+  nvId: string,
+  info: Omit<InfoComprobanteEmitido, 'modoDescuentoStock'>,
+): void {
+  try {
+    const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documentos: any[] = JSON.parse(raw);
+    const idx = documentos.findIndex((d) => d.id === nvId);
+    if (idx < 0) return;
+
+    const nv = documentos[idx];
+    if (nv.tipo !== 'nota_venta') return;
+    if (nv.estado !== 'Generada') return;
+
+    const ahora = obtenerFechaHoraISO();
+
+    documentos[idx] = {
+      ...nv,
+      estado: 'Convertida',
+      fechaActualizacion: ahora,
+      trazabilidad: {
+        ...(nv.trazabilidad ?? {}),
+        documentoDestinoId: info.numeroComprobante,
+        documentoDestinoTipo: 'comprobante',
+        documentoDestinoNumero: info.numeroComprobante,
+      },
+      historial: [
+        ...(Array.isArray(nv.historial) ? nv.historial : []),
+        {
+          fecha: ahora,
+          usuario: info.usuario,
+          accion: 'Comprobante generado desde nota de venta',
+          detalle: `${info.tipoComprobante} ${info.numeroComprobante} — Total: ${info.total.toFixed(2)}`,
+        },
+      ],
+    };
+
+    localStorage.setItem(key, JSON.stringify(documentos));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(EVENTO_RECARGA));
+    }
+  } catch (err) {
+    console.error('[postEmisionOrdenVenta] Error actualizando NV post emisión:', err);
+  }
+}
+
+/**
+ * Restaura el estado de la Nota de Venta cuando el comprobante generado desde ella es anulado.
+ * Revierte el estado 'Convertida' a 'Generada' y registra en historial.
+ */
+export function restaurarNVPostAnulacionComprobante(
+  nvId: string,
+  info: { motivoAnulacionComprobante?: string; usuario?: string; numeroComprobante?: string },
+): void {
+  try {
+    const key = tryLsKey(STORAGE_KEY_DOCUMENTOS) ?? STORAGE_KEY_DOCUMENTOS;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const documentos: any[] = JSON.parse(raw);
+    const idx = documentos.findIndex((d) => d.id === nvId);
+    if (idx < 0) return;
+
+    const nv = documentos[idx];
+    if (nv.tipo !== 'nota_venta') return;
+    if (nv.estado !== 'Convertida') return;
+
+    const estadoRestaurado = 'Generada';
+    const ahora = obtenerFechaHoraISO();
+
+    documentos[idx] = {
+      ...nv,
+      estado: estadoRestaurado,
+      fechaActualizacion: ahora,
+      trazabilidad: {
+        ...(nv.trazabilidad ?? {}),
+        documentoDestinoId: undefined,
+        documentoDestinoTipo: undefined,
+        documentoDestinoNumero: undefined,
+      },
+      historial: [
+        ...(Array.isArray(nv.historial) ? nv.historial : []),
+        {
+          fecha: ahora,
+          usuario: info.usuario,
+          accion: 'Estado restaurado por anulación de comprobante',
+          detalle: [
+            info.numeroComprobante ? `Comprobante ${info.numeroComprobante} anulado.` : 'Comprobante anulado.',
+            info.motivoAnulacionComprobante ? `Motivo: ${info.motivoAnulacionComprobante}` : null,
+            `Estado restaurado a: ${estadoRestaurado}.`,
+          ].filter(Boolean).join(' '),
+        },
+      ],
+    };
+
+    localStorage.setItem(key, JSON.stringify(documentos));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(EVENTO_RECARGA));
+    }
+  } catch (err) {
+    console.error('[postEmisionOrdenVenta] Error restaurando NV post anulación:', err);
+  }
+}

@@ -61,7 +61,7 @@ import type { LineaNotaSalida } from '../../../gestion-inventario/models/notaSal
 import { useNotasSalida } from '../../../gestion-inventario/hooks/useNotasSalida';
 import { cargarNotasSalida } from '../../../gestion-inventario/repositories/notaSalida.repository';
 import { useFeedback } from '@/shared/feedback';
-import { obtenerReservasDeOV, liberarReservasDeOV, restaurarCotizacionPostAnulacion } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { obtenerReservasDeOV, liberarReservasDeOV, restaurarCotizacionPostAnulacion, restaurarNVPostAnulacionComprobante } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -897,6 +897,26 @@ const InvoiceListDashboard = () => {
 
       if (cotizacionId) {
         restaurarCotizacionPostAnulacion(cotizacionId, {
+          motivoAnulacionComprobante: voidReason || undefined,
+          usuario: undefined,
+          numeroComprobante: String(selectedInvoiceForVoid.id ?? ''),
+        });
+      }
+    } catch {
+      // restauración no crítica: no bloquea el flujo de anulación
+    }
+
+    // Restaurar NV si este comprobante fue generado desde una
+    try {
+      const nvId =
+        comprobante.sourceDocumentType === 'nota_venta'
+          ? comprobante.sourceDocumentId
+          : comprobante.instantaneaDocumentoComercial?.relaciones?.tipoDocumentoFuente === 'nota_venta'
+          ? (comprobante.instantaneaDocumentoComercial.relaciones.idDocumentoFuente ?? undefined)
+          : undefined;
+
+      if (nvId) {
+        restaurarNVPostAnulacionComprobante(nvId, {
           motivoAnulacionComprobante: voidReason || undefined,
           usuario: undefined,
           numeroComprobante: String(selectedInvoiceForVoid.id ?? ''),

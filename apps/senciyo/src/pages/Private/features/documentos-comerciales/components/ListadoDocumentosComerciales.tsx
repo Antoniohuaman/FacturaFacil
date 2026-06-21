@@ -27,6 +27,8 @@ import {
   refrescarStockItem,
   validarCotizacionParaConversion,
   construirCargaConversionDesdeCotizacion,
+  validarNVParaConversion,
+  construirCargaConversionDesdeNV,
 } from '../utils/convertirOVaComprobante';
 import type {
   TipoDocumentoComercial,
@@ -45,6 +47,7 @@ import {
   obtenerSimboloMoneda,
   formatearDocumentoCliente,
   calcularDesgloseTributos,
+  normalizarEstadoParaDisplay,
 } from '../utils/documentoComercial.helpers';
 import { calcularReservasPendientes } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
@@ -210,6 +213,10 @@ function puedeConvertirCotizacion(doc: DocumentoComercial): boolean {
   return doc.tipo === 'cotizacion' && doc.estado === 'Aceptada' && !doc.esBorrador;
 }
 
+function puedeConvertirNV(doc: DocumentoComercial): boolean {
+  return doc.tipo === 'nota_venta' && doc.estado === 'Generada' && !doc.esBorrador;
+}
+
 function generarTextoCompartir(doc: DocumentoComercial, labelTipo: string): string {
   const numero = doc.numero ?? formatearNumeroParaBorrador(doc.serie);
   const cliente = doc.cliente?.nombre ?? 'Sin cliente';
@@ -221,8 +228,9 @@ function leerColumnasDeStorage(tipo: TipoDocumentoComercial): Set<string> {
   try {
     const clave = tryLsKey(`documentos_comerciales_columnas_${tipo}`) ?? `documentos_comerciales_columnas_${tipo}`;
     const raw = localStorage.getItem(clave);
-    if (!raw) return new Set(COLUMNAS_VISIBLES_DEFAULT);
-    return new Set(JSON.parse(raw) as string[]);
+    const base: Set<string> = raw ? new Set(JSON.parse(raw) as string[]) : new Set(COLUMNAS_VISIBLES_DEFAULT);
+    if (tipo !== 'cotizacion') base.delete('requiereAprobacion');
+    return base;
   } catch { return new Set(COLUMNAS_VISIBLES_DEFAULT); }
 }
 
@@ -233,6 +241,9 @@ function guardarColumnasEnStorage(tipo: TipoDocumentoComercial, visibles: Set<st
   } catch { /* silencioso */ }
 }
 
+function resolverDocumentoRelacionadoNumero(doc: DocumentoComercial): string {
+  return doc.trazabilidad?.documentoDestinoNumero ?? '—';
+}
 
 export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: ListadoDocumentosComercialesProps) {
   const navigate = useNavigate();
@@ -349,8 +360,10 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
   }, [tipo]);
 
   const columnasDef = useMemo<ColumnaDef[]>(
-    () => COLUMNAS_DEFAULT.map((c) => ({ ...c, visible: columnasVisibles.has(c.id) })),
-    [columnasVisibles],
+    () => COLUMNAS_DEFAULT
+      .filter((c) => tipo === 'cotizacion' || c.id !== 'requiereAprobacion')
+      .map((c) => ({ ...c, visible: columnasVisibles.has(c.id) })),
+    [columnasVisibles, tipo],
   );
 
   const documentosFiltrados = useMemo(() => {
@@ -420,6 +433,17 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     });
     navigate('/comprobantes/emision', { state: navState });
   }, [navigate, feedback, configState.almacenes, activeEstablecimientoId]);
+
+  const handleGenerarComprobanteDesdeNV = useCallback((doc: DocumentoComercial) => {
+    setMenuAbierto(null); setMenuPosicion(null);
+    const validacion = validarNVParaConversion(doc);
+    if (!validacion.valido) {
+      feedback.error(validacion.error ?? 'No se puede generar el comprobante desde esta nota de venta.');
+      return;
+    }
+    const { state: navState } = construirCargaConversionDesdeNV(doc);
+    navigate('/comprobantes/emision', { state: navState });
+  }, [navigate, feedback]);
 
   const handleAprobar = useCallback((doc: DocumentoComercial) => {
     setMenuAbierto(null); setMenuPosicion(null);
@@ -634,14 +658,12 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
         subtotal: doc.totales.subtotal,
         igv: doc.totales.igv,
         total: doc.totales.total,
-        estado: doc.estado,
+        estado: normalizarEstadoParaDisplay(doc.estado, doc.tipo),
         usuario: doc.vendedor ?? '—',
         metodoEnvio: doc.camposOpcionales?.metodoEnvio ?? '—',
         fechaEnvio: doc.camposOpcionales?.fechaEntrega ?? '—',
         requiereAprobacion: doc.camposOpcionales?.requiereAprobacion ? 'Sí' : 'No',
-        docRelacionado: doc.tipo === 'cotizacion'
-          ? (doc.trazabilidad?.documentoDestinoNumero ?? '—')
-          : (doc.trazabilidad?.documentoOrigenNumero ?? '—'),
+        docRelacionado: resolverDocumentoRelacionadoNumero(doc),
       }));
 
       const mapaColumnas: Record<string, { header: string; key: string; width?: number }> = {
@@ -778,7 +800,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                   {columnasVisibles.has('usuario') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuario</th>}
                   {columnasVisibles.has('metodoEnvio') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Método envío</th>}
                   {columnasVisibles.has('fechaEnvio') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">F. Envío</th>}
-                  {columnasVisibles.has('requiereAprobacion') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Aprobación</th>}
+                  {tipo === 'cotizacion' && columnasVisibles.has('requiereAprobacion') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Aprobación</th>}
                   {columnasVisibles.has('docRelacionado') && <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Doc. relacionado</th>}
                   <th className="w-10 px-4 py-3" />
                 </tr>
@@ -799,16 +821,14 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                       {columnasVisibles.has('formaPago') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.formaPago ?? '—'}</td>}
                       {columnasVisibles.has('moneda') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.moneda}</td>}
                       {columnasVisibles.has('total') && <td className="px-4 py-3 text-right font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">{obtenerSimboloMoneda(doc.moneda)} {doc.totales.total.toFixed(2)}</td>}
-                      {columnasVisibles.has('estado') && <td className="px-4 py-3"><EstadoDocumentoBadge estado={doc.estado} /></td>}
+                      {columnasVisibles.has('estado') && <td className="px-4 py-3"><EstadoDocumentoBadge estado={doc.estado} tipo={doc.tipo} /></td>}
                       {columnasVisibles.has('usuario') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 max-w-[120px]"><span title={doc.vendedor ?? ''} className="truncate block">{doc.vendedor ?? '—'}</span></td>}
                       {columnasVisibles.has('metodoEnvio') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.camposOpcionales?.metodoEnvio ?? '—'}</td>}
                       {columnasVisibles.has('fechaEnvio') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{doc.camposOpcionales?.fechaEntrega ?? '—'}</td>}
-                      {columnasVisibles.has('requiereAprobacion') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.camposOpcionales?.requiereAprobacion ? 'Sí' : 'No'}</td>}
+                      {tipo === 'cotizacion' && columnasVisibles.has('requiereAprobacion') && <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{doc.camposOpcionales?.requiereAprobacion ? 'Sí' : 'No'}</td>}
                       {columnasVisibles.has('docRelacionado') && (
                         <td className="px-4 py-3 text-xs font-mono text-gray-500 dark:text-gray-400">
-                          {doc.tipo === 'cotizacion'
-                            ? (doc.trazabilidad?.documentoDestinoNumero ?? '—')
-                            : (doc.trazabilidad?.documentoOrigenNumero ?? '—')}
+                          {resolverDocumentoRelacionadoNumero(doc)}
                         </td>
                       )}
                       <td className="px-4 py-3">
@@ -887,6 +907,11 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
               <FileCheck size={14} />Generar comprobante
             </button>
           )}
+          {puedeConvertirNV(menuDocActual) && (
+            <button type="button" onClick={() => handleGenerarComprobanteDesdeNV(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/20 text-left font-medium">
+              <FileCheck size={14} />Generar comprobante
+            </button>
+          )}
           {puedeGenerarNS(menuDocActual, configState.salesPreferences, controlStockActivo) && (
             <button type="button" onClick={() => handleGenerarNS(menuDocActual)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-left font-medium">
               <PackageMinus size={14} />Generar nota de salida
@@ -961,7 +986,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
             {tabDetalle === 'detalle' && (
               <div className="p-6 space-y-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <EstadoDocumentoBadge estado={documentoDetalle.estado} tamano="md" />
+                  <EstadoDocumentoBadge estado={documentoDetalle.estado} tipo={documentoDetalle.tipo} tamano="md" />
                   {documentoDetalle.estado === 'Aceptada' && (
                     <span className="text-xs text-emerald-600 dark:text-emerald-400">Aceptada por el cliente</span>
                   )}
@@ -990,7 +1015,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                   <div><p className="text-xs text-gray-500 mb-1">Total</p><p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{obtenerSimboloMoneda(documentoDetalle.moneda)} {documentoDetalle.totales.total.toFixed(2)}</p></div>
                   {documentoDetalle.camposOpcionales?.metodoEnvio && <div><p className="text-xs text-gray-500 mb-1">Método de envío</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.metodoEnvio}</p></div>}
                   {documentoDetalle.camposOpcionales?.fechaEntrega && <div><p className="text-xs text-gray-500 mb-1">F. Envío previsto</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.fechaEntrega}</p></div>}
-                  {documentoDetalle.camposOpcionales?.requiereAprobacion && <div><p className="text-xs text-gray-500 mb-1">Requiere aprobación</p><p className="font-medium text-gray-800 dark:text-gray-100">Sí</p></div>}
+                  {documentoDetalle.tipo === 'cotizacion' && documentoDetalle.camposOpcionales?.requiereAprobacion && <div><p className="text-xs text-gray-500 mb-1">Requiere aprobación</p><p className="font-medium text-gray-800 dark:text-gray-100">Sí</p></div>}
                   {documentoDetalle.camposOpcionales?.ordenCompra && <div><p className="text-xs text-gray-500 mb-1">Orden de compra</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.ordenCompra}</p></div>}
                   {documentoDetalle.camposOpcionales?.centroCosto && <div><p className="text-xs text-gray-500 mb-1">Centro de costo</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.centroCosto}</p></div>}
                   {documentoDetalle.camposOpcionales?.guiaRemision && <div><p className="text-xs text-gray-500 mb-1">Guía de remisión</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.guiaRemision}</p></div>}
@@ -1040,7 +1065,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                 )}
                 {/* NV / OV: documento origen */}
                 {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoOrigenNumero && (
-                  <div><p className="text-xs text-gray-500 mb-1">Doc. relacionado</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
+                  <div><p className="text-xs text-gray-500 mb-1">Doc. origen</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
                 )}
                 {/* NV / OV: comprobante generado */}
                 {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoDestinoNumero && documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' && (
@@ -1227,6 +1252,15 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                     <button
                       type="button"
                       onClick={() => { setDocumentoDetalle(null); handleGenerarComprobante(documentoDetalle); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg shadow-sm transition-all"
+                    >
+                      <FileCheck size={14} />Generar comprobante
+                    </button>
+                  )}
+                  {puedeConvertirNV(documentoDetalle) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDocumentoDetalle(null); handleGenerarComprobanteDesdeNV(documentoDetalle); }}
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg shadow-sm transition-all"
                     >
                       <FileCheck size={14} />Generar comprobante

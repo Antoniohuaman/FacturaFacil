@@ -189,6 +189,21 @@ export const normalizarEstadoCotizacionParaDisplay = (
   return estado;
 };
 
+/**
+ * Normaliza el estado de un documento para display respetando reglas por tipo.
+ * Solo cotización transforma Generada→Vigente y Rechazada→No aprobada.
+ * NV y OV muestran su estado real sin transformaciones.
+ */
+export const normalizarEstadoParaDisplay = (
+  estado: EstadoDocumentoComercial,
+  tipo?: TipoDocumentoComercial,
+): EstadoDocumentoComercial => {
+  if (tipo !== 'cotizacion') return estado;
+  if (estado === 'Generada') return 'Vigente';
+  if (estado === 'Rechazada') return 'No aprobada';
+  return estado;
+};
+
 export const obtenerColorEstado = (
   estado: EstadoDocumentoComercial,
 ): string => {

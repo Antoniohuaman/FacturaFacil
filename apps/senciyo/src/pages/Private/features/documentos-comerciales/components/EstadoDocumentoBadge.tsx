@@ -1,8 +1,9 @@
-import type { EstadoDocumentoComercial } from '../models/documentoComercial.types';
-import { obtenerColorEstado, normalizarEstadoCotizacionParaDisplay } from '../utils/documentoComercial.helpers';
+import type { EstadoDocumentoComercial, TipoDocumentoComercial } from '../models/documentoComercial.types';
+import { obtenerColorEstado, normalizarEstadoParaDisplay } from '../utils/documentoComercial.helpers';
 
 interface EstadoDocumentoBadgeProps {
   estado: EstadoDocumentoComercial;
+  tipo?: TipoDocumentoComercial;
   tamano?: 'sm' | 'md';
 }
 
@@ -19,9 +20,10 @@ const estilosPorColor: Record<string, string> = {
 
 export function EstadoDocumentoBadge({
   estado,
+  tipo,
   tamano = 'sm',
 }: EstadoDocumentoBadgeProps) {
-  const estadoDisplay = normalizarEstadoCotizacionParaDisplay(estado);
+  const estadoDisplay = normalizarEstadoParaDisplay(estado, tipo);
   const color = obtenerColorEstado(estadoDisplay);
   const estiloColor = estilosPorColor[color] ?? estilosPorColor.gray;
   const estiloTamano =
