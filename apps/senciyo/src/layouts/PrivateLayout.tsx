@@ -5,7 +5,6 @@ import SideNav from "./components/SideNav";
 import { AppShellProvider, useModoAmpliado } from "../contexts/ContextoAppShell";
 import { ConfigurationProvider } from "../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
 import { ComprobanteProvider } from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
-import { DocumentoProvider } from "../pages/Private/features/Documentos-negociacion/contexts/DocumentosContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { UserSessionProvider } from "../contexts/UserSessionContext";
 import { SessionInitializer } from "../contexts/SessionInitializer";
@@ -78,14 +77,12 @@ export default function AppShell() {
                 <FieldsConfigurationProvider>
                   <ComprobanteProvider>
                     <CobranzasProvider>
-                      <DocumentoProvider>
-                        <AppShellProvider>
-                          <AppShellInner />
-                          <CajaGlobalOverlays />
-                          <TourGlobalOverlays />
-                          <MicroSplashIngreso activa={activa} motivo={motivo ?? undefined} />
-                        </AppShellProvider>
-                      </DocumentoProvider>
+                      <AppShellProvider>
+                        <AppShellInner />
+                        <CajaGlobalOverlays />
+                        <TourGlobalOverlays />
+                        <MicroSplashIngreso activa={activa} motivo={motivo ?? undefined} />
+                      </AppShellProvider>
                     </CobranzasProvider>
                   </ComprobanteProvider>
                 </FieldsConfigurationProvider>

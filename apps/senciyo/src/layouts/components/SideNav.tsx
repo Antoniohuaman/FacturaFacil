@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "@/contasis";
 import type { Module } from "@/contasis";
 import { useComprobanteContext } from "../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
-import { useDocumentoContext } from "../../pages/Private/features/Documentos-negociacion/contexts/DocumentosContext";
 import { useDocumentosComercialesContextOpcional } from "../../pages/Private/features/documentos-comerciales/contexts/DocumentosComercialesContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useConfigurationContext } from "../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
@@ -25,10 +24,6 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
   const { state: comprobantesState } = useComprobanteContext();
   const comprobantesCount = comprobantesState.comprobantes.length;
 
-  // Obtener conteo de documentos (cotizaciones + notas de venta — módulo anterior)
-  const { state: documentoState } = useDocumentoContext();
-  const documentosCount = documentoState.documentos.length;
-
   // Obtener conteo de documentos comerciales (nuevo módulo — solo disponible dentro de sus rutas)
   const documentosComercialesCtx = useDocumentosComercialesContextOpcional();
   const documentosComercialesCount = documentosComercialesCtx
@@ -42,7 +37,6 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     const path = location.pathname;
     if (path.startsWith('/comprobantes')) setActiveModule('comprobantes');
     else if (path.startsWith('/punto-venta')) setActiveModule('punto-venta');
-    else if (path.startsWith('/documentos-negociacion')) setActiveModule('documentos');
     else if (path.startsWith('/documentos-comerciales')) setActiveModule('documentos-comerciales');
     else if (path.startsWith('/catalogo')) setActiveModule('productos');
     else if (path.startsWith('/inventario')) setActiveModule('inventario');
@@ -65,12 +59,6 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       id: "punto-venta",
       title: "Punto de Venta",
       icon: "ShoppingCart"
-    },
-    {
-      id: "documentos",
-      title: "Documentos",
-      icon: "Receipt",
-      badge: documentosCount > 0 ? String(documentosCount) : undefined
     },
     {
       id: "documentos-comerciales",
@@ -127,11 +115,6 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       'ventas.pos.ver',
       'ventas.pos.vender',
       'ventas.pos.imprimir',
-    ],
-    'documentos': [
-      'ventas.documentos.ver',
-      'ventas.documentos.crear',
-      'ventas.documentos.editar',
     ],
     'documentos-comerciales': [
       'ventas.documentos.ver',
@@ -191,7 +174,6 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     const routeMap: Record<string, string> = {
       'comprobantes': '/comprobantes',
       'punto-venta': '/punto-venta',
-      'documentos': '/documentos-negociacion',
       'documentos-comerciales': '/documentos-comerciales',
       'productos': '/catalogo',
       'inventario': '/inventario',
