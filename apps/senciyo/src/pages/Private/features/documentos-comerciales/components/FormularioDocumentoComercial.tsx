@@ -29,6 +29,7 @@ import type {
   ModoFormularioDocumentoComercial,
   DatosFormularioDocumentoComercial,
   ClienteDocumentoComercial,
+  ComprobanteCreditTerms,
 } from '../models/documentoComercial.types';
 
 interface FormularioDocumentoComercialProps {
@@ -81,6 +82,10 @@ export default function FormularioDocumentoComercial({
   }, [calculateTotals, cartItems]);
   const inicialized = useRef(false);
 
+  const [externalCreditTerms, setExternalCreditTerms] = useState<ComprobanteCreditTerms | undefined>(
+    prefillFrom?.creditTerms,
+  );
+
   const [errorCliente, setErrorCliente] = useState<string | null>(null);
   const [creditScheduleModalOpen, setCreditScheduleModalOpen] = useState(false);
   const [modalCambiosCotizacion, setModalCambiosCotizacion] = useState<
@@ -94,7 +99,7 @@ export default function FormularioDocumentoComercial({
   }, [estado.formaPago, configState.paymentMethods]);
 
   const { isCreditMethod, templates, setTemplates, creditTerms, errors: creditErrors, restoreDefaults } =
-    useCreditTermsConfigurator({ paymentMethodId, total: totales.total, issueDate: estado.fechaEmision });
+    useCreditTermsConfigurator({ paymentMethodId, total: totales.total, issueDate: estado.fechaEmision, initialCreditTerms: externalCreditTerms });
 
   const handleClienteChange = useCallback((c: ClienteDocumentoComercial | null) => {
     estado.setCliente(c);
@@ -184,6 +189,9 @@ export default function FormularioDocumentoComercial({
       });
       if (datos.items.length > 0) {
         setCartItemsFromDraft(datos.items);
+      }
+      if (datos.creditTerms) {
+        setExternalCreditTerms(datos.creditTerms);
       }
     },
     debePersistir: (datos) => datos.items.length > 0 || !!datos.cliente,
