@@ -8,8 +8,8 @@ import { TIPO_DOCUMENTO_COMERCIAL_PLURAL } from '../models/documentoComercial.co
 
 const TABS: { tipo: TipoDocumentoComercial; icono: React.ComponentType<{ size?: number; className?: string }> }[] = [
   { tipo: 'cotizacion', icono: FileText },
-  { tipo: 'nota_venta', icono: ClipboardList },
   { tipo: 'orden_venta', icono: ShoppingCart },
+  { tipo: 'nota_venta', icono: ClipboardList },
 ];
 
 export default function DocumentosComerciales() {
