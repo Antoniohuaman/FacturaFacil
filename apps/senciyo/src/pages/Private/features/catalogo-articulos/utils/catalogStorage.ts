@@ -200,3 +200,32 @@ function deserializeCategory(item: CategoryLike): Category {
     fechaCreacion
   } as Category;
 }
+
+/**
+ * Persiste la colección completa de productos en una sola escritura.
+ * Retorna un resultado tipado. A diferencia de saveProductsToStorage,
+ * nunca silencia errores de cuota ni otros fallos de escritura.
+ */
+export function persistirProductosCompleto(
+  products: Product[],
+): { exito: true } | { exito: false; error: string } {
+  if (typeof window === 'undefined') {
+    return { exito: false, error: 'Almacenamiento no disponible en este entorno.' };
+  }
+  const storageKey = tryLsKey(PRODUCT_STORAGE_KEY);
+  if (!storageKey) {
+    return { exito: false, error: 'No se pudo obtener la clave de almacenamiento de productos.' };
+  }
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(products));
+  } catch (causa) {
+    if (causa instanceof DOMException && causa.name === 'QuotaExceededError') {
+      return { exito: false, error: 'No hay espacio disponible para guardar los productos.' };
+    }
+    return {
+      exito: false,
+      error: `Error al guardar los productos: ${causa instanceof Error ? causa.message : 'error desconocido'}.`,
+    };
+  }
+  return { exito: true };
+}

@@ -106,7 +106,7 @@ export const guardarDocumentosEnStorage = (documentos: DocumentoComercial[]): vo
 /**
  * Carga un único documento comercial por ID desde localStorage.
  * Devuelve undefined si no existe, si el JSON está corrupto, o si no puede leerse.
- * El catch silencioso es aceptable: es un guard de UI que falla de forma segura.
+ * Para guards críticos que necesitan distinguir el motivo del fallo, usar cargarDocumentoPorIdSeguro.
  */
 export function cargarDocumentoPorId(id: string): DocumentoComercial | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -119,6 +119,47 @@ export function cargarDocumentoPorId(id: string): DocumentoComercial | undefined
   } catch {
     return undefined;
   }
+}
+
+export type ResultadoCargaOVGuard =
+  | { encontrado: true; documento: DocumentoComercial }
+  | { encontrado: false; razon: 'no_existe' | 'storage_no_disponible' | 'json_corrupto' | 'formato_invalido' | 'error_lectura'; mensaje: string };
+
+/**
+ * Carga un documento por ID con resultado tipado que diferencia el motivo exacto del fallo.
+ * Usar en guards críticos donde importa distinguir "no existe" de "error de lectura" o JSON inválido.
+ */
+export function cargarDocumentoPorIdSeguro(id: string): ResultadoCargaOVGuard {
+  if (typeof window === 'undefined') {
+    return { encontrado: false, razon: 'storage_no_disponible', mensaje: 'El almacenamiento no está disponible en este entorno.' };
+  }
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(obtenerClave());
+  } catch (causa) {
+    return {
+      encontrado: false,
+      razon: 'error_lectura',
+      mensaje: `No se pudo acceder al almacenamiento: ${causa instanceof Error ? causa.message : 'error desconocido'}.`,
+    };
+  }
+  if (raw === null) {
+    return { encontrado: false, razon: 'storage_no_disponible', mensaje: 'El almacenamiento de documentos no está inicializado.' };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { encontrado: false, razon: 'json_corrupto', mensaje: 'El almacenamiento de documentos tiene un formato JSON inválido.' };
+  }
+  if (!Array.isArray(parsed)) {
+    return { encontrado: false, razon: 'formato_invalido', mensaje: 'El almacenamiento de documentos no es un array válido.' };
+  }
+  const doc = (parsed as DocumentoComercial[]).find(d => d.id === id);
+  if (!doc) {
+    return { encontrado: false, razon: 'no_existe', mensaje: `El documento "${id}" no existe en el almacenamiento.` };
+  }
+  return { encontrado: true, documento: normalizarDocumentoCargado(doc) };
 }
 
 const obtenerClaveCompatibilidadLegacy = (): string | null => {

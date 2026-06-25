@@ -32,6 +32,32 @@ export const guardarNotasSalida = (notas: NotaSalida[]): void => {
   }
 };
 
+/**
+ * Persiste la colección completa de NS en una sola escritura con resultado tipado.
+ * A diferencia de guardarNotasSalida, nunca silencia errores.
+ * El evento de cambio solo se despacha si la escritura tiene éxito.
+ */
+export function persistirNotasSalidaCompleto(
+  notas: NotaSalida[],
+): { exito: true } | { exito: false; error: string } {
+  if (typeof window === 'undefined') {
+    return { exito: false, error: 'Almacenamiento no disponible en este entorno.' };
+  }
+  try {
+    window.localStorage.setItem(obtenerClave(), JSON.stringify(notas));
+  } catch (causa) {
+    if (causa instanceof DOMException && causa.name === 'QuotaExceededError') {
+      return { exito: false, error: 'No hay espacio disponible para restaurar las Notas de Salida.' };
+    }
+    return {
+      exito: false,
+      error: `Error al restaurar las Notas de Salida: ${causa instanceof Error ? causa.message : 'error desconocido'}.`,
+    };
+  }
+  window.dispatchEvent(new Event(NOTAS_SALIDA_CHANGED_EVENT));
+  return { exito: true };
+}
+
 export const agregarOActualizarNS = (nota: NotaSalida): void => {
   const notas = cargarNotasSalida();
   const idx = notas.findIndex(n => n.id === nota.id);

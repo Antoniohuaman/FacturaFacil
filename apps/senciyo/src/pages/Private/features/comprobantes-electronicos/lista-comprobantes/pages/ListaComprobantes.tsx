@@ -57,12 +57,14 @@ import { esEstadoValidoParaNotaCredito } from '../../models/constants';
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
 import { useInventoryFacade } from '../../../gestion-inventario/api/inventory.facade';
 import { StockRepository } from '../../../gestion-inventario/repositories/stock.repository';
-import type { LineaNotaSalida } from '../../../gestion-inventario/models/notaSalida.types';
+import type { LineaNotaSalida, NotaSalida } from '../../../gestion-inventario/models/notaSalida.types';
 import { useNotasSalida } from '../../../gestion-inventario/hooks/useNotasSalida';
-import { cargarNotasSalida, obtenerNSActivasPorDocumento } from '../../../gestion-inventario/repositories/notaSalida.repository';
+import { cargarNotasSalida, obtenerNSActivasPorDocumento, persistirNotasSalidaCompleto } from '../../../gestion-inventario/repositories/notaSalida.repository';
 import { useFeedback } from '@/shared/feedback';
-import { obtenerReservasDeOV, liberarReservasDeOV, restaurarReservasDeOV, restaurarCotizacionPostAnulacion, restaurarNVPostAnulacionComprobante, restaurarOVPostAnulacionComprobante } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
-import { cargarDocumentoPorId } from '../../../documentos-comerciales/utils/documentoComercial.storage';
+import { restaurarCotizacionPostAnulacion, restaurarNVPostAnulacionComprobante, restaurarOVPostAnulacionComprobante } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
+import { persistirProductosCompleto } from '../../../catalogo-articulos/utils/catalogStorage';
+import { cargarDocumentoPorId, cargarDocumentoPorIdSeguro, cargarDocumentosDesdeStorage, persistirDocumentos } from '../../../documentos-comerciales/utils/documentoComercial.storage';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -128,6 +130,96 @@ const resolveFormaPagoAnalitica = (invoice: Comprobante): 'contado' | 'credito' 
 
   return undefined;
 };
+
+type ResultadoRollbackAnulacion =
+  | { exito: true }
+  | { exito: false; error: string };
+
+function clonarProductoParaSnapshot(
+  p: ReturnType<typeof useProductStore.getState>['allProducts'][number],
+) {
+  return {
+    ...p,
+    stockPorAlmacen: p.stockPorAlmacen ? { ...p.stockPorAlmacen } : undefined,
+    stockPorEstablecimiento: p.stockPorEstablecimiento ? { ...p.stockPorEstablecimiento } : undefined,
+    stockReservadoPorAlmacen: p.stockReservadoPorAlmacen ? { ...p.stockReservadoPorAlmacen } : undefined,
+    stockReservadoOVPorEstablecimiento: p.stockReservadoOVPorEstablecimiento
+      ? { ...p.stockReservadoOVPorEstablecimiento }
+      : undefined,
+    stockMinimoPorAlmacen: p.stockMinimoPorAlmacen ? { ...p.stockMinimoPorAlmacen } : undefined,
+    stockMaximoPorAlmacen: p.stockMaximoPorAlmacen ? { ...p.stockMaximoPorAlmacen } : undefined,
+  };
+}
+
+function revertirSnapshotsAnulacion(
+  snapshotKardex: ReturnType<typeof StockRepository.getMovements> | undefined,
+  snapshotProductos: ReturnType<typeof useProductStore.getState>['allProducts'] | undefined,
+  snapshotDocs: ReturnType<typeof cargarDocumentosDesdeStorage> | undefined,
+): ResultadoRollbackAnulacion {
+  if (snapshotKardex !== undefined) {
+    try {
+      StockRepository.saveMovements(snapshotKardex);
+    } catch (e) {
+      return {
+        exito: false,
+        error: `No se pudo restaurar el Kardex: ${e instanceof Error ? e.message : 'error desconocido'}.`,
+      };
+    }
+  }
+
+  if (snapshotProductos !== undefined) {
+    const resultado = persistirProductosCompleto(snapshotProductos);
+    if (!resultado.exito) {
+      return { exito: false, error: `No se pudo restaurar el stock de productos: ${resultado.error}` };
+    }
+    useProductStore.getState().rehydrateFromStorage();
+  }
+
+  if (snapshotDocs !== undefined) {
+    const resultado = persistirDocumentos(snapshotDocs);
+    if (!resultado.exito) {
+      return { exito: false, error: `No se pudo restaurar los documentos comerciales: ${resultado.error}` };
+    }
+  }
+
+  return { exito: true };
+}
+
+function revertirSnapshotsAnulacionConNS(
+  snapshotNSList: NotaSalida[],
+  snapshotKardex: ReturnType<typeof StockRepository.getMovements>,
+  snapshotTodosLosProductos: ReturnType<typeof useProductStore.getState>['allProducts'],
+  snapshotDocs: ReturnType<typeof cargarDocumentosDesdeStorage> | undefined,
+): ResultadoRollbackAnulacion {
+  const resultNS = persistirNotasSalidaCompleto(snapshotNSList);
+  if (!resultNS.exito) {
+    return { exito: false, error: `No se pudo restaurar la Nota de Salida: ${resultNS.error}` };
+  }
+
+  try {
+    StockRepository.saveMovements(snapshotKardex);
+  } catch (e) {
+    return {
+      exito: false,
+      error: `No se pudo restaurar el Kardex: ${e instanceof Error ? e.message : 'error desconocido'}.`,
+    };
+  }
+
+  const resultProductos = persistirProductosCompleto(snapshotTodosLosProductos);
+  if (!resultProductos.exito) {
+    return { exito: false, error: `No se pudo restaurar el stock de productos: ${resultProductos.error}` };
+  }
+  useProductStore.getState().rehydrateFromStorage();
+
+  if (snapshotDocs !== undefined) {
+    const resultDocs = persistirDocumentos(snapshotDocs);
+    if (!resultDocs.exito) {
+      return { exito: false, error: `No se pudo restaurar los documentos comerciales: ${resultDocs.error}` };
+    }
+  }
+
+  return { exito: true };
+}
 
 const canGenerateCreditNote = (invoice: Comprobante): boolean => {
   const tipo = resolveTipoComprobante(invoice.type);
@@ -827,7 +919,7 @@ const InvoiceListDashboard = () => {
       }
     }
 
-    // Resolver ID de la OV relacionada (si existe) y pre-validar su estado.
+    // Resolver ID de la OV relacionada (si existe), pre-validar su estado y tomar snapshot.
     // Este guard se ejecuta ANTES de cualquier mutación para fallar limpiamente.
     const ovIdRestaurar =
       comprobante.sourceDocumentType === 'orden_venta'
@@ -836,65 +928,98 @@ const InvoiceListDashboard = () => {
         ? (comprobante.instantaneaDocumentoComercial.relaciones.idDocumentoFuente ?? undefined)
         : undefined;
 
+    // Snapshot para rollback si restaurarOVPostAnulacionComprobante falla.
+    let snapshotDocsParaRollback: ReturnType<typeof cargarDocumentosDesdeStorage> | undefined;
+
     if (ovIdRestaurar) {
-      const ovPreValidar = cargarDocumentoPorId(ovIdRestaurar);
-      if (!ovPreValidar) {
-        feedback.error(`No se puede anular: la Orden de Venta "${ovIdRestaurar}" no se encontró.`);
+      const carga = cargarDocumentoPorIdSeguro(ovIdRestaurar);
+      if (!carga.encontrado) {
+        feedback.error(
+          carga.razon === 'no_existe'
+            ? `No se puede anular: la Orden de Venta "${ovIdRestaurar}" no se encontró.`
+            : `No se puede anular: no se pudo leer la Orden de Venta. ${carga.mensaje}`,
+        );
         return;
       }
-      if (ovPreValidar.estado !== 'Atendida' && ovPreValidar.estado !== 'Pendiente de salida') {
-        feedback.error(`No se puede anular: la Orden de Venta está en estado "${ovPreValidar.estado}", se esperaba "Atendida" o "Pendiente de salida".`);
+      if (carga.documento.estado !== 'Atendida' && carga.documento.estado !== 'Pendiente de salida') {
+        feedback.error(`No se puede anular: la Orden de Venta está en estado "${carga.documento.estado}", se esperaba "Atendida" o "Pendiente de salida".`);
         return;
       }
+      snapshotDocsParaRollback = cargarDocumentosDesdeStorage();
     }
 
-    // Escenario B: nota_salida con NS generada → anular NS (revierte stock y desvincula comprobante)
+    // Snapshots NS: capturados antes de anularNS para permitir rollback si falla la restauración de la OV.
+    let snapshotNSList: NotaSalida[] | undefined;
+    let snapshotKardexNS: ReturnType<typeof StockRepository.getMovements> | undefined;
+    let snapshotTodosProductosNS: ReturnType<typeof useProductStore.getState>['allProducts'] | undefined;
+
+    // Fase 1c — Escenario B: nota_salida con NS activa → anular NS primero.
     if (modo === 'nota_salida' && comprobante.notaSalidaId && comprobante.notaSalidaGenerada) {
-      try {
-        anularNS(comprobante.notaSalidaId, voidReason);
-      } catch (nsErr) {
-        console.error('[Anulación] Error anulando NS vinculada:', nsErr);
-      }
-    }
-
-    // Escenario B': nota_salida sin NS + origen OV → liberar reserva retenida.
-    // Guardamos las reservas liberadas para compensación si la restauración de OV falla.
-    let reservasBLiberadas: Array<{ sku: string; cantidad: number; almacenId?: string; establecimientoId?: string }> = [];
-    if (modo === 'nota_salida' && !(comprobante.notaSalidaId && comprobante.notaSalidaGenerada)) {
-      if (comprobante.sourceDocumentType === 'orden_venta' && comprobante.sourceDocumentId) {
-        try {
-          const reservas = obtenerReservasDeOV(comprobante.sourceDocumentId);
-          if (reservas.length > 0) {
-            reservasBLiberadas = reservas;
-            liberarReservasDeOV(reservas);
-          }
-        } catch (ovErr) {
-          console.error('[Anulación] Error liberando reserva OV:', ovErr);
+      const snapNSList = cargarNotasSalida();
+      const snapKardexNS = StockRepository.getMovements();
+      const snapTodosProductosNS = useProductStore.getState().allProducts.map(clonarProductoParaSnapshot);
+      snapshotNSList = snapNSList;
+      snapshotKardexNS = snapKardexNS;
+      snapshotTodosProductosNS = snapTodosProductosNS;
+      const aplicarRollbackNS = (mensajeOriginal: string): void => {
+        const rollback = revertirSnapshotsAnulacionConNS(
+          snapNSList,
+          snapKardexNS,
+          snapTodosProductosNS,
+          snapshotDocsParaRollback,
+        );
+        if (!rollback.exito) {
+          feedback.error(
+            `Error crítico: ${mensajeOriginal}. El rollback también falló: ${rollback.error}. El estado puede estar inconsistente. Recargue la página.`,
+          );
+        } else {
+          feedback.error(`${mensajeOriginal}. La operación fue revertida y no se realizaron cambios.`);
         }
+      };
+
+      try {
+        const anulacionNSExitosa = anularNS(comprobante.notaSalidaId, voidReason);
+        if (!anulacionNSExitosa) {
+          aplicarRollbackNS('No se pudo anular la Nota de Salida');
+          return;
+        }
+      } catch (nsErr) {
+        aplicarRollbackNS(
+          nsErr instanceof Error
+            ? `No se pudo anular la Nota de Salida: ${nsErr.message}`
+            : 'No se pudo anular la Nota de Salida',
+        );
+        return;
       }
     }
 
-    // Escenario A: automatico (o sin modo → compat) → revertir stock vía movimientos legacy
+    // Nota: para nota_salida sin NS activa, la reserva de la OV se mantiene intacta.
+    // Al anular el Comprobante, la OV vuelve a Reservada sin liberar ni tocar la reserva.
+
+    // Fase 2 — Escenario A (automatico): reponer stock real con snapshot exacto para rollback.
+    let snapshotKardex: ReturnType<typeof StockRepository.getMovements> | undefined;
+    let snapshotProductos: ReturnType<typeof useProductStore.getState>['allProducts'] | undefined;
+
     if (modo !== 'nota_salida') {
-      try {
-        // Preferir el número legible del comprobante como clave; fallback a .id
-        const refComprobante: string =
-          (selectedInvoiceForVoid.instantaneaDocumentoComercial?.identidad?.numeroCompleto as string | undefined) ||
-          (selectedInvoiceForVoid.id as string | undefined) ||
-          '';
+      const refComprobante: string =
+        (selectedInvoiceForVoid.instantaneaDocumentoComercial?.identidad?.numeroCompleto as string | undefined) ||
+        (selectedInvoiceForVoid.id as string | undefined) ||
+        '';
 
-        const todosLosMovimientos = StockRepository.getMovements();
+      const todosLosMovimientos = StockRepository.getMovements();
+      const movimientosSalida = todosLosMovimientos.filter(
+        (m) => m.documentoReferencia === refComprobante && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
+      );
+      const yaRevertido = todosLosMovimientos.some(
+        (m) => m.documentoReferencia === refComprobante && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
+      );
 
-        const movimientosSalida = todosLosMovimientos.filter(
-          (m) => m.documentoReferencia === refComprobante && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
-        );
+      if (!yaRevertido && movimientosSalida.length > 0) {
+        // Snapshot exacto antes de cualquier mutación: copia completa y profunda de todos los productos.
+        snapshotKardex = [...todosLosMovimientos];
+        snapshotProductos = useProductStore.getState().allProducts.map(clonarProductoParaSnapshot);
 
-        // Idempotencia: si ya existen entradas de reversión, no duplicar.
-        const yaRevertido = todosLosMovimientos.some(
-          (m) => m.documentoReferencia === refComprobante && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
-        );
-
-        if (!yaRevertido && movimientosSalida.length > 0) {
+        try {
           for (const mov of movimientosSalida) {
             addMovimientoVoid(
               mov.productoId,
@@ -910,14 +1035,25 @@ const InvoiceListDashboard = () => {
               { almacenId: mov.almacenId, allowNegativeStock: true }
             );
           }
+        } catch (stockErr) {
+          const msgStock = stockErr instanceof Error
+            ? `No se pudo reponer el stock: ${stockErr.message}`
+            : 'No se pudo reponer el stock. Inténtelo de nuevo.';
+          // OV no ha sido tocada en este punto: solo revertir Kardex y productos.
+          const rollback = revertirSnapshotsAnulacion(snapshotKardex, snapshotProductos, undefined);
+          if (!rollback.exito) {
+            feedback.error(
+              `Error crítico: el stock no pudo reponerse y el rollback también falló (${rollback.error}). El Kardex o el stock puede estar inconsistente. Recargue la página.`,
+            );
+          } else {
+            feedback.error(msgStock);
+          }
+          return;
         }
-      } catch (stockErr) {
-        console.error('[Anulación] Error restaurando stock:', stockErr);
       }
     }
 
-    // Restaurar OV ANTES del dispatch del Comprobante: si falla aquí el Comprobante
-    // no queda marcado como Anulado en el estado de React, evitando estado parcial.
+    // Fase 3 — Restaurar OV. Si falla, revertir exactamente el stock ya repuesto.
     if (ovIdRestaurar) {
       try {
         restaurarOVPostAnulacionComprobante(ovIdRestaurar, {
@@ -925,29 +1061,27 @@ const InvoiceListDashboard = () => {
           usuario: undefined,
           numeroComprobante: String(selectedInvoiceForVoid.id ?? ''),
         });
-      } catch (err) {
-        // Compensar Escenario B' si se liberó la reserva de la OV antes del fallo.
-        if (reservasBLiberadas.length > 0) {
-          try { restaurarReservasDeOV(reservasBLiberadas); } catch { /* best-effort */ }
+      } catch (errRestaurar) {
+        const msgOV = errRestaurar instanceof Error
+          ? `No se pudo restaurar la Orden de Venta: ${errRestaurar.message}`
+          : 'No se pudo restaurar la Orden de Venta. Revise el estado manualmente.';
+        const rollback =
+          snapshotNSList !== undefined && snapshotKardexNS !== undefined && snapshotTodosProductosNS !== undefined
+            ? revertirSnapshotsAnulacionConNS(snapshotNSList, snapshotKardexNS, snapshotTodosProductosNS, snapshotDocsParaRollback)
+            : revertirSnapshotsAnulacion(snapshotKardex, snapshotProductos, snapshotDocsParaRollback);
+        if (!rollback.exito) {
+          feedback.error(
+            `Error crítico al revertir la operación: ${rollback.error}. El estado puede estar inconsistente. Recargue la página.`,
+          );
+        } else {
+          feedback.error(msgOV);
         }
-        feedback.error(
-          err instanceof Error
-            ? `No se pudo restaurar la Orden de Venta: ${err.message}`
-            : 'No se pudo restaurar la Orden de Venta. Revise el estado manualmente.',
-        );
         return;
       }
     }
 
+    // Fase 4 — Analytics: antes del dispatch para que no queden operaciones persistentes después.
     try {
-      dispatch({
-        type: 'UPDATE_COMPROBANTE',
-        payload: {
-          ...selectedInvoiceForVoid,
-          status: 'Anulado',
-          statusColor: 'red'
-        }
-      });
       const formaPagoAnalitica = resolveFormaPagoAnalitica(selectedInvoiceForVoid);
       const origenVentaAnalitica = resolveOrigenVentaAnalitica(selectedInvoiceForVoid);
       registrarComprobanteEstadoActualizado({
@@ -956,8 +1090,8 @@ const InvoiceListDashboard = () => {
         ...(formaPagoAnalitica ? { formaPago: formaPagoAnalitica } : {}),
         ...(origenVentaAnalitica ? { origenVenta: origenVentaAnalitica } : {}),
       });
-    } catch (error) {
-      console.error('No se pudo actualizar el comprobante en memoria', error);
+    } catch {
+      // No crítico: un fallo de analytics no debe revertir la operación de negocio ya confirmada.
     }
 
     try {
@@ -966,7 +1100,6 @@ const InvoiceListDashboard = () => {
       console.warn('No se pudo marcar la venta como anulada en indicadores locales', error);
     }
 
-    // Restaurar cotización si este comprobante fue generado desde una
     try {
       const cotizacionId =
         comprobante.sourceDocumentType === 'cotizacion'
@@ -986,7 +1119,6 @@ const InvoiceListDashboard = () => {
       // restauración no crítica: no bloquea el flujo de anulación
     }
 
-    // Restaurar NV si este comprobante fue generado desde una
     try {
       const nvId =
         comprobante.sourceDocumentType === 'nota_venta'
@@ -1006,8 +1138,17 @@ const InvoiceListDashboard = () => {
       // restauración no crítica: no bloquea el flujo de anulación
     }
 
-    feedback.success(`Comprobante ${selectedInvoiceForVoid.id} anulado correctamente.`);
+    // Fase final — dispatch solo cuando todas las operaciones persistentes están confirmadas.
+    dispatch({
+      type: 'UPDATE_COMPROBANTE',
+      payload: {
+        ...selectedInvoiceForVoid,
+        status: 'Anulado',
+        statusColor: 'red'
+      }
+    });
 
+    feedback.success(`Comprobante ${selectedInvoiceForVoid.id} anulado correctamente.`);
     setShowVoidModal(false);
     setSelectedInvoiceForVoid(null);
     setVoidReason('');
@@ -1198,7 +1339,7 @@ const InvoiceListDashboard = () => {
   }).length;
 
   // Ref para debounce
-  const debounceTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const debounceTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Filtro por columna con debounce (300ms)
   const handleColumnFilterChange = (columnKey: string, value: string) => {
