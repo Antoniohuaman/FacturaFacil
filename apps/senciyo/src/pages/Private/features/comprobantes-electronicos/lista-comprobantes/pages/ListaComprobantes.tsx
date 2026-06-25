@@ -59,9 +59,10 @@ import { useInventoryFacade } from '../../../gestion-inventario/api/inventory.fa
 import { StockRepository } from '../../../gestion-inventario/repositories/stock.repository';
 import type { LineaNotaSalida } from '../../../gestion-inventario/models/notaSalida.types';
 import { useNotasSalida } from '../../../gestion-inventario/hooks/useNotasSalida';
-import { cargarNotasSalida } from '../../../gestion-inventario/repositories/notaSalida.repository';
+import { cargarNotasSalida, obtenerNSActivasPorDocumento } from '../../../gestion-inventario/repositories/notaSalida.repository';
 import { useFeedback } from '@/shared/feedback';
-import { obtenerReservasDeOV, liberarReservasDeOV, restaurarCotizacionPostAnulacion, restaurarNVPostAnulacionComprobante } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { obtenerReservasDeOV, liberarReservasDeOV, restaurarReservasDeOV, restaurarCotizacionPostAnulacion, restaurarNVPostAnulacionComprobante, restaurarOVPostAnulacionComprobante } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { cargarDocumentoPorId } from '../../../documentos-comerciales/utils/documentoComercial.storage';
 
 // Wrapper para compatibilidad con código existente
 function parseInvoiceDate(dateStr?: string): Date {
@@ -796,6 +797,57 @@ const InvoiceListDashboard = () => {
     const comprobante = selectedInvoiceForVoid as Comprobante;
     const modo = comprobante.modoDescuentoStock;
 
+    // Guard: si el comprobante proviene de OV, verificar que no haya NS activas.
+    // Si las hay, se debe anular primero la NS antes de anular el comprobante.
+    const ovIdGuard =
+      comprobante.sourceDocumentType === 'orden_venta'
+        ? comprobante.sourceDocumentId
+        : comprobante.instantaneaDocumentoComercial?.relaciones?.tipoDocumentoFuente === 'orden_venta'
+        ? (comprobante.instantaneaDocumentoComercial.relaciones.idDocumentoFuente ?? undefined)
+        : undefined;
+
+    if (ovIdGuard) {
+      const ovActual = cargarDocumentoPorId(ovIdGuard);
+      try {
+        const nsActivas = obtenerNSActivasPorDocumento({
+          comprobanteOrigenId: String(selectedInvoiceForVoid.id ?? '') || undefined,
+          ordenVentaOrigenId: ovIdGuard,
+          notaSalidaIds: ovActual?.notaSalidaIds,
+          notaSalidaIdLegacy: ovActual?.notaSalidaId,
+        });
+        if (nsActivas.length > 0) {
+          feedback.error(
+            'No se puede anular el comprobante porque tiene una Nota de Salida vigente. Anule primero la Nota de Salida.',
+          );
+          return;
+        }
+      } catch {
+        feedback.error('No se pudo verificar el estado de las Notas de Salida. Inténtalo de nuevo.');
+        return;
+      }
+    }
+
+    // Resolver ID de la OV relacionada (si existe) y pre-validar su estado.
+    // Este guard se ejecuta ANTES de cualquier mutación para fallar limpiamente.
+    const ovIdRestaurar =
+      comprobante.sourceDocumentType === 'orden_venta'
+        ? comprobante.sourceDocumentId
+        : comprobante.instantaneaDocumentoComercial?.relaciones?.tipoDocumentoFuente === 'orden_venta'
+        ? (comprobante.instantaneaDocumentoComercial.relaciones.idDocumentoFuente ?? undefined)
+        : undefined;
+
+    if (ovIdRestaurar) {
+      const ovPreValidar = cargarDocumentoPorId(ovIdRestaurar);
+      if (!ovPreValidar) {
+        feedback.error(`No se puede anular: la Orden de Venta "${ovIdRestaurar}" no se encontró.`);
+        return;
+      }
+      if (ovPreValidar.estado !== 'Atendida' && ovPreValidar.estado !== 'Pendiente de salida') {
+        feedback.error(`No se puede anular: la Orden de Venta está en estado "${ovPreValidar.estado}", se esperaba "Atendida" o "Pendiente de salida".`);
+        return;
+      }
+    }
+
     // Escenario B: nota_salida con NS generada → anular NS (revierte stock y desvincula comprobante)
     if (modo === 'nota_salida' && comprobante.notaSalidaId && comprobante.notaSalidaGenerada) {
       try {
@@ -805,12 +857,17 @@ const InvoiceListDashboard = () => {
       }
     }
 
-    // Escenario B': nota_salida sin NS + origen OV → liberar reserva retenida
+    // Escenario B': nota_salida sin NS + origen OV → liberar reserva retenida.
+    // Guardamos las reservas liberadas para compensación si la restauración de OV falla.
+    let reservasBLiberadas: Array<{ sku: string; cantidad: number; almacenId?: string; establecimientoId?: string }> = [];
     if (modo === 'nota_salida' && !(comprobante.notaSalidaId && comprobante.notaSalidaGenerada)) {
       if (comprobante.sourceDocumentType === 'orden_venta' && comprobante.sourceDocumentId) {
         try {
           const reservas = obtenerReservasDeOV(comprobante.sourceDocumentId);
-          if (reservas.length > 0) liberarReservasDeOV(reservas);
+          if (reservas.length > 0) {
+            reservasBLiberadas = reservas;
+            liberarReservasDeOV(reservas);
+          }
         } catch (ovErr) {
           console.error('[Anulación] Error liberando reserva OV:', ovErr);
         }
@@ -856,6 +913,29 @@ const InvoiceListDashboard = () => {
         }
       } catch (stockErr) {
         console.error('[Anulación] Error restaurando stock:', stockErr);
+      }
+    }
+
+    // Restaurar OV ANTES del dispatch del Comprobante: si falla aquí el Comprobante
+    // no queda marcado como Anulado en el estado de React, evitando estado parcial.
+    if (ovIdRestaurar) {
+      try {
+        restaurarOVPostAnulacionComprobante(ovIdRestaurar, {
+          modoDescuentoStock: comprobante.modoDescuentoStock,
+          usuario: undefined,
+          numeroComprobante: String(selectedInvoiceForVoid.id ?? ''),
+        });
+      } catch (err) {
+        // Compensar Escenario B' si se liberó la reserva de la OV antes del fallo.
+        if (reservasBLiberadas.length > 0) {
+          try { restaurarReservasDeOV(reservasBLiberadas); } catch { /* best-effort */ }
+        }
+        feedback.error(
+          err instanceof Error
+            ? `No se pudo restaurar la Orden de Venta: ${err.message}`
+            : 'No se pudo restaurar la Orden de Venta. Revise el estado manualmente.',
+        );
+        return;
       }
     }
 

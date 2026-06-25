@@ -48,8 +48,11 @@ export interface ReservaStockItem {
   sku: string;
   nombre: string;
   cantidad: number;
-  almacenId: string;
+  /** ID del almacén. Presente en reservas legacy (NV, OVs antiguas con FIFO por almacén). */
+  almacenId?: string;
   almacenNombre?: string;
+  /** ID del establecimiento. Fuente de verdad para reservas globales de OV (nuevas). */
+  establecimientoId?: string;
 }
 
 export type EstadoDocumentoComercial = EstadoCotizacion | EstadoNotaVenta | EstadoOrdenVenta;
@@ -149,8 +152,10 @@ export interface DocumentoComercial {
 
   /** Modo en que se gestiona el stock al generar (aplica a NV). */
   modoDescuentoStock?: 'automatico' | 'nota_salida' | 'sin_control';
-  /** ID de la Nota de Salida activa asociada a este documento. */
+  /** ID de la Nota de Salida activa asociada a este documento (legacy — primera NS). */
   notaSalidaId?: string;
+  /** IDs de todas las Notas de Salida generadas (no anuladas) vinculadas (múltiples despachos). */
+  notaSalidaIds?: string[];
   /** true si existe una Nota de Salida generada (no anulada) vinculada. */
   notaSalidaGenerada?: boolean;
   /** Fecha en que se generó la Nota de Salida vinculada. */

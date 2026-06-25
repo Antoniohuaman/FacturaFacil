@@ -143,6 +143,12 @@ export const summarizeProductStock = (
     }
   }
 
+  // Reserva global de OV por establecimiento (no se refleja en breakdown por almacén,
+  // solo se suma al total para que totalAvailable refleje la reducción correcta).
+  const ovEstablecimientoReserved = respectReservations && EstablecimientoId && product?.stockReservadoOVPorEstablecimiento
+    ? clampZero(toNumber(product.stockReservadoOVPorEstablecimiento[EstablecimientoId]))
+    : 0;
+
   const totals = breakdown.reduce(
     (acc, record) => {
       acc.stock += record.stock;
@@ -153,11 +159,14 @@ export const summarizeProductStock = (
     { stock: 0, reserved: 0, available: 0 }
   );
 
+  const totalReserved = totals.reserved + ovEstablecimientoReserved;
+  const totalAvailable = totals.stock <= totalReserved ? 0 : totals.stock - totalReserved;
+
   return {
     unidadMinima,
     totalStock: totals.stock,
-    totalReserved: totals.reserved,
-    totalAvailable: totals.available,
+    totalReserved,
+    totalAvailable,
     breakdown,
   };
 };

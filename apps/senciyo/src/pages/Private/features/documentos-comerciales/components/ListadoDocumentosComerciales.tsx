@@ -156,17 +156,21 @@ function puedeEditar(doc: DocumentoComercial): boolean {
     const editables: string[] = ['Vigente', 'Pendiente aprobación', 'Aceptada', 'Vencida'];
     return doc.esBorrador || editables.includes(doc.estado);
   }
-  // OV en Reservada no se puede editar (stock comprometido)
-  if (doc.tipo === 'orden_venta' && doc.estado === 'Reservada') return false;
-  return (
-    doc.esBorrador ||
-    ['Generada', 'Aprobada', 'Reservada', 'Atendida parcial', 'Atendida parcialmente'].includes(doc.estado)
-  );
+  // OVs generadas (no-borrador) no pueden editarse: reserva ya está comprometida en el catálogo
+  if (doc.tipo === 'orden_venta' && !doc.esBorrador) return false;
+  return doc.esBorrador || ['Generada', 'Aprobada'].includes(doc.estado);
 }
 
 function puedeAnular(doc: DocumentoComercial): boolean {
-  // OV Atendida no puede anularse (ya tiene comprobante emitido)
-  if (doc.tipo === 'orden_venta' && doc.estado === 'Atendida') return false;
+  if (doc.tipo === 'orden_venta') {
+    // Atendida ya tiene comprobante emitido: no se puede anular
+    if (doc.estado === 'Atendida') return false;
+    // Pendiente de salida tiene comprobante activo: anular primero el comprobante
+    if (doc.estado === 'Pendiente de salida') return false;
+    // Atendida parcialmente con NS activa: anular primero la NS
+    if (doc.estado === 'Atendida parcialmente' && doc.notaSalidaGenerada) return false;
+    return !doc.esBorrador && doc.estado !== 'Anulada';
+  }
   if (doc.tipo === 'cotizacion') {
     // Vencida ya NO es terminal — se puede anular para cerrar el ciclo
     const terminales: string[] = ['Anulada', 'Convertida', 'Rechazada', 'No aprobada', 'Cerrada perdida'];

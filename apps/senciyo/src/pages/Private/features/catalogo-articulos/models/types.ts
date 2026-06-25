@@ -46,7 +46,9 @@ export interface Product {
   cantidad?: number; // Stock general opcional
   stockPorEstablecimiento?: Record<string, number>; // Stock por establecimiento (compat)
   stockPorAlmacen?: Record<string, number>; // Stock por almacén (compat)
-  stockReservadoPorAlmacen?: Record<string, number>; // Stock reservado por almacén (compat)
+  stockReservadoPorAlmacen?: Record<string, number>; // Stock reservado por almacén (NV automático y otros)
+  /** Reserva global de Órdenes de Venta por establecimiento. Fuente de verdad para OVs; no involucra FIFO. */
+  stockReservadoOVPorEstablecimiento?: Record<string, number>;
   stockMinimoPorAlmacen?: Record<string, number>; // Umbral mínimo por almacén (compat)
   stockMaximoPorAlmacen?: Record<string, number>; // Umbral máximo por almacén (compat)
   fechaCreacion: Date;

@@ -26,6 +26,7 @@ import {
   restaurarOVPostAnulacionNSDirecta,
   vincularDocumentoComercialNS,
   desvincularDocumentoComercialNS,
+  construirRestauracionReservaDesdeOV,
 } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import type { NotaSalida } from '../models/notaSalida.types';
 
@@ -137,19 +138,45 @@ export const useNotasSalida = () => {
           // debe quedar activa para futuros despachos.
           const reservasOV = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
           // aLiberar se declara aquí para ser accesible en el bloque de estado OV.
-          const aLiberar: Array<{ sku: string; cantidad: number; almacenId: string }> = [];
+          const aLiberar: Array<{ sku: string; cantidad: number; almacenId?: string; establecimientoId?: string }> = [];
           if (reservasOV.length > 0) {
+            // Calcular despacho total por SKU en esta NS (lineas ya expandidas por almacén)
+            const despachoPorSku = new Map<string, number>();
             for (const linea of notaActualizada.lineas.filter(l => l.tipoBienServicio === 'bien')) {
-              const almId = linea.almacenId ?? notaActualizada.almacenOrigenId;
-              if (!almId) continue;
               const prod = productsMap.get(linea.productoId);
               if (!prod?.codigo) continue;
-              const maxLiberable = reservasOV
-                .filter(r => r.sku === prod.codigo && r.almacenId === almId)
-                .reduce((s, r) => s + r.cantidad, 0);
-              const cantLiberar = Math.min(linea.cantidad, maxLiberable);
-              if (cantLiberar > 0) {
-                aLiberar.push({ sku: prod.codigo, cantidad: cantLiberar, almacenId: almId });
+              despachoPorSku.set(prod.codigo, (despachoPorSku.get(prod.codigo) ?? 0) + linea.cantidad);
+            }
+
+            for (const linea of notaActualizada.lineas.filter(l => l.tipoBienServicio === 'bien')) {
+              const prod = productsMap.get(linea.productoId);
+              if (!prod?.codigo) continue;
+
+              // Buscar si la OV usó reserva nueva (establecimientoId) o legacy (almacenId)
+              const reservaGlobal = reservasOV.find(r => r.sku === prod.codigo && r.establecimientoId);
+              if (reservaGlobal?.establecimientoId) {
+                // Nueva arquitectura: liberar proporcionalmente por SKU (una sola vez por SKU)
+                const totalDespachado = despachoPorSku.get(prod.codigo) ?? 0;
+                if (totalDespachado > 0 && !aLiberar.some(a => a.sku === prod.codigo && a.establecimientoId)) {
+                  const maxLiberable = reservasOV
+                    .filter(r => r.sku === prod.codigo && r.establecimientoId)
+                    .reduce((s, r) => s + r.cantidad, 0);
+                  const cantLiberar = Math.min(totalDespachado, maxLiberable);
+                  if (cantLiberar > 0) {
+                    aLiberar.push({ sku: prod.codigo, cantidad: cantLiberar, establecimientoId: reservaGlobal.establecimientoId });
+                  }
+                }
+              } else {
+                // Legacy: liberar por almacén
+                const almId = linea.almacenId ?? notaActualizada.almacenOrigenId;
+                if (!almId) continue;
+                const maxLiberable = reservasOV
+                  .filter(r => r.sku === prod.codigo && r.almacenId === almId)
+                  .reduce((s, r) => s + r.cantidad, 0);
+                const cantLiberar = Math.min(linea.cantidad, maxLiberable);
+                if (cantLiberar > 0) {
+                  aLiberar.push({ sku: prod.codigo, cantidad: cantLiberar, almacenId: almId });
+                }
               }
             }
             if (aLiberar.length > 0) {
@@ -241,15 +268,22 @@ export const useNotasSalida = () => {
           updateProduct(prod.id, prod);
         }
 
-        // NS directa desde OV: restaurar OV y reponer solo la reserva que esta NS descontó
-        if (nota.origen === 'OrdenVenta' && nota.ordenVentaOrigenId) {
-          const aRestaurar = nota.lineas
-            .filter(l => l.tipoBienServicio === 'bien' && l.almacenId)
+        // NS directa desde OV: restaurar OV y reponer solo la reserva que esta NS descontó.
+        // NS desde comprobante que a su vez proviene de OV: mismo tratamiento.
+        // Usamos construirRestauracionReservaDesdeOV para obtener la reserva con el
+        // establecimientoId/almacenId correcto de la OV (no el almacén físico de la NS),
+        // garantizando que restaurarReservasDeOV aplique al campo correcto de Zustand.
+        if (nota.ordenVentaOrigenId) {
+          const reservasOV = obtenerReservasDeOV(nota.ordenVentaOrigenId);
+          const lineasAnuladas = nota.lineas
+            .filter(l => l.tipoBienServicio === 'bien')
             .map(l => ({
               sku: l.productoCodigo,
               cantidad: l.cantidad,
-              almacenId: l.almacenId as string,
+              // almacenId físico necesario para el matching de reservas legacy (sku+almacenId).
+              almacenId: l.almacenId ?? nota.almacenOrigenId,
             }));
+          const aRestaurar = construirRestauracionReservaDesdeOV(reservasOV, lineasAnuladas);
           restaurarOVPostAnulacionNSDirecta(nota.ordenVentaOrigenId, {
             numeroNS: nota.numero ?? nota.id,
             usuario: usuarioNombre,
@@ -259,7 +293,7 @@ export const useNotasSalida = () => {
 
         // NS desde NV: desvincular NS de la NV origen
         if (nota.notaVentaOrigenId) {
-          desvincularDocumentoComercialNS(nota.notaVentaOrigenId);
+          desvincularDocumentoComercialNS(nota.notaVentaOrigenId, nota.id);
         }
 
         feedback.success(`Nota de Salida ${nota.numero ?? nota.id} anulada. Stock repuesto.`);

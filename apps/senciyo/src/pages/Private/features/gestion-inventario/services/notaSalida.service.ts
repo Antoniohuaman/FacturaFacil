@@ -198,10 +198,20 @@ export const generarNSEnInventario = (
     if (esNSVinculadaAOV) {
       const ovReservasProd = reservasOV.filter(r => r.sku === producto.codigo);
       if (ovReservasProd.length > 0) {
-        // Suma la reserva pendiente propia de la OV a través de todos los almacenes que reservó
+        // Suma la reserva pendiente de la OV para este producto.
+        // Nueva arquitectura: reserva global por establecimiento (sin almacenId).
+        // Legacy: reserva por almacén (con almacenId).
         const totalOvPendiente = ovReservasProd.reduce((sum, r) => {
-          const reservadoAlmacen = InventoryService.getReservedStock(producto, r.almacenId);
-          return sum + Math.min(r.cantidad, reservadoAlmacen);
+          if (r.establecimientoId) {
+            // Reserva global: la cantidad en la reserva ES la pendiente (ya calculada por calcularReservasPendientes)
+            return sum + r.cantidad;
+          }
+          if (r.almacenId) {
+            // Reserva legacy por almacén
+            const reservadoAlmacen = InventoryService.getReservedStock(producto, r.almacenId);
+            return sum + Math.min(r.cantidad, reservadoAlmacen);
+          }
+          return sum;
         }, 0);
         if (linea.cantidad > totalOvPendiente) {
           throw new Error(
@@ -289,11 +299,16 @@ export const generarNSEnInventario = (
 
     if (esNSVinculadaAOV) {
       const ovReservasProd = reservasOV.filter(r => r.sku === producto.codigo);
-      if (ovReservasProd.length > 0) {
-        // Asignación guiada por la distribución de la OV (FIFO entre almacenes que reservó la OV)
+      // Legacy OV reservations have almacenId; new global reservations do not.
+      // Only use per-almacén guided allocation if legacy reservations exist for this product.
+      const ovReservasLegacy = ovReservasProd.filter(r => r.almacenId !== undefined && r.almacenId !== null);
+      if (ovReservasLegacy.length > 0) {
+        // Legacy: asignación guiada por la distribución de la OV (FIFO entre almacenes que reservó)
         const ovPorAlmacen = new Map<string, number>();
-        for (const r of ovReservasProd) {
-          ovPorAlmacen.set(r.almacenId, (ovPorAlmacen.get(r.almacenId) ?? 0) + r.cantidad);
+        for (const r of ovReservasLegacy) {
+          if (r.almacenId) {
+            ovPorAlmacen.set(r.almacenId, (ovPorAlmacen.get(r.almacenId) ?? 0) + r.cantidad);
+          }
         }
         let remaining = linea.cantidad;
         for (const almacen of almacenesOrdenados) {
@@ -308,7 +323,8 @@ export const generarNSEnInventario = (
           remaining -= take;
         }
       } else {
-        // Sin reserva OV para este producto → FIFO normal
+        // Nueva arquitectura (global OV reservation) o sin reserva: FIFO normal por almacén
+        // La reserva global ya fue validada arriba; la salida física usa FIFO estándar.
         const fifo = allocateSaleAcrossalmacenes({
           product: producto,
           almacenesOrdered: almacenesOrdenados,
@@ -410,6 +426,54 @@ export interface ResultadoAnularNS {
   movimientos: MovimientoStock[];
 }
 
+// ─── Tipo interno para el plan de anulación ───────────────────────────────
+
+interface PlanAjusteNS {
+  producto: Product;
+  linea: LineaNotaSalida;
+  almacenLinea: Almacen;
+  cantidadEnUnidadMinima: number;
+}
+
+/**
+ * Fase 1 de anulación: valida TODAS las líneas sin efectos secundarios.
+ * Lanza si cualquier línea no puede resolverse (almacén o producto faltante).
+ * Garantiza que registerAdjustment no se llame parcialmente.
+ */
+function prepararPlanAnulacionNS(
+  nota: NotaSalida,
+  productsMap: Map<string, Product>,
+  almacenesMap: Map<string, Almacen>,
+): PlanAjusteNS[] {
+  const plan: PlanAjusteNS[] = [];
+  for (const linea of nota.lineas) {
+    if (linea.tipoBienServicio === 'servicio') continue;
+    const producto = productsMap.get(linea.productoId);
+    if (!producto) {
+      throw new Error(
+        `Producto "${linea.productoNombre ?? linea.productoId}" no encontrado en el catálogo. ` +
+        `No se puede anular la Nota de Salida.`,
+      );
+    }
+    const resolvedAlmId = linea.almacenId ?? nota.almacenOrigenId;
+    if (!resolvedAlmId) {
+      throw new Error(
+        `No se puede anular la línea "${linea.productoNombre}": sin almacén asignado. ` +
+        `Corrija la Nota de Salida antes de anularla.`,
+      );
+    }
+    const almacenLinea = almacenesMap.get(resolvedAlmId);
+    if (!almacenLinea) {
+      throw new Error(
+        `Almacén "${resolvedAlmId}" no encontrado para "${linea.productoNombre}". ` +
+        `Verifique la configuración de almacenes.`,
+      );
+    }
+    plan.push({ producto, linea, almacenLinea, cantidadEnUnidadMinima: linea.cantidad });
+  }
+  return plan;
+}
+
 export const anularNSEnInventario = (
   nota: NotaSalida,
   productsMap: Map<string, Product>,
@@ -425,43 +489,72 @@ export const anularNSEnInventario = (
     );
   }
 
+  // Fase 1: validar todas las líneas ANTES de aplicar cualquier ajuste.
+  // Si cualquier línea falla, se lanza el error sin haber modificado stock.
+  const plan = prepararPlanAnulacionNS(nota, productsMap, almacenesMap);
+
   const ahora = new Date().toISOString();
   const productosActualizados: Product[] = [];
   const movimientos: MovimientoStock[] = [];
   const motivoMovimiento = mapTipoSalidaAMotivo(nota.tipoSalida);
+  const almacenesArray = Array.from(almacenesMap.values());
 
-  for (const linea of nota.lineas) {
-    if (linea.tipoBienServicio === 'servicio') continue;
-    const producto = productsMap.get(linea.productoId);
-    if (!producto) continue;
-
-    const resolvedAlmId = linea.almacenId ?? nota.almacenOrigenId;
-    if (!resolvedAlmId) continue;
-    const almacenLinea = almacenesMap.get(resolvedAlmId);
-    if (!almacenLinea) continue;
-
-    const data: StockAdjustmentData = {
-      productoId: linea.productoId,
-      almacenId: almacenLinea.id,
-      tipo: 'AJUSTE_POSITIVO',
-      motivo: motivoMovimiento,
-      cantidad: linea.cantidad,
-      observaciones: `Anulación NS ${nota.numero ?? ''} - ${motivo}`.trim(),
-      documentoReferencia: nota.numero ?? nota.id,
-    };
-
-    const { product: productoActualizado, movement } = InventoryService.registerAdjustment(
-      producto,
-      almacenLinea,
-      data,
-      usuario,
-    );
-
-    const almacenesArray = Array.from(almacenesMap.values());
-    const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
-    productsMap.set(linea.productoId, productoFinal);
-    productosActualizados.push(productoFinal);
-    movimientos.push(movement);
+  // Fase 2: aplicar ajustes con compensación en caso de fallo parcial.
+  const ajustesAplicados: PlanAjusteNS[] = [];
+  try {
+    for (const ajuste of plan) {
+      const prodActual = productsMap.get(ajuste.linea.productoId) ?? ajuste.producto;
+      const data: StockAdjustmentData = {
+        productoId: ajuste.linea.productoId,
+        almacenId: ajuste.almacenLinea.id,
+        tipo: 'AJUSTE_POSITIVO',
+        motivo: motivoMovimiento,
+        cantidad: ajuste.cantidadEnUnidadMinima,
+        observaciones: `Anulación NS ${nota.numero ?? ''} - ${motivo}`.trim(),
+        documentoReferencia: nota.numero ?? nota.id,
+      };
+      const { product: productoActualizado, movement } = InventoryService.registerAdjustment(
+        prodActual,
+        ajuste.almacenLinea,
+        data,
+        usuario,
+      );
+      const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
+      productsMap.set(ajuste.linea.productoId, productoFinal);
+      productosActualizados.push(productoFinal);
+      movimientos.push(movement);
+      ajustesAplicados.push(ajuste);
+    }
+  } catch (err) {
+    // Rollback en orden inverso: revertir los ajustes ya aplicados
+    for (const ajuste of [...ajustesAplicados].reverse()) {
+      const dataRollback: StockAdjustmentData = {
+        productoId: ajuste.linea.productoId,
+        almacenId: ajuste.almacenLinea.id,
+        tipo: 'SALIDA',
+        motivo: motivoMovimiento,
+        cantidad: ajuste.cantidadEnUnidadMinima,
+        observaciones: `Rollback anulación NS ${nota.numero ?? ''}`.trim(),
+        documentoReferencia: nota.numero ?? nota.id,
+      };
+      try {
+        const prodActual = productsMap.get(ajuste.linea.productoId) ?? ajuste.producto;
+        const { product: productoRollback } = InventoryService.registerAdjustment(
+          prodActual,
+          ajuste.almacenLinea,
+          dataRollback,
+          usuario,
+        );
+        const productoFinalRollback = InventoryService.recalcularTotalesStock(productoRollback, almacenesArray);
+        productsMap.set(ajuste.linea.productoId, productoFinalRollback);
+      } catch {
+        throw new Error(
+          `Error crítico al anular: el stock puede estar inconsistente para ` +
+          `"${ajuste.linea.productoNombre}". Contacte a soporte.`,
+        );
+      }
+    }
+    throw err;
   }
 
   const notaActualizada: NotaSalida = {

@@ -6,6 +6,7 @@ import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore'
 import { isProductEnabledForEstablecimiento } from '../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { InventoryService } from '../services/inventory.service';
+import { summarizeProductStock } from '@/shared/inventory/stockGateway';
 import { useCurrentEstablecimientoId } from '../../../../../contexts/UserSessionContext';
 import type {
   DisponibilidadItem,
@@ -176,19 +177,25 @@ export const useInventarioDisponibilidad = () => {
   const datosDisponibilidad = useMemo<DisponibilidadItem[]>(() => {
     if (!almacenescope.length) return [];
 
+    const almacenesEnScope = almacenesActivos.filter(a => almacenescope.includes(a.id));
+
+    // La reserva global de OV pertenece al establecimiento, no a un almacén físico concreto.
+    // Al ver un único almacén no se le atribuye esa reserva: sería una falsa restricción.
+    const establecimientoParaGlobalOV = filtros.almacenId
+      ? undefined
+      : (currentEstablecimientoId ?? undefined);
+
     return allProducts
       .filter(product => isProductEnabledForEstablecimiento(product, currentEstablecimientoId))
       .map(product => {
-      let real = 0;
-      let rawReservado = 0;
-
-      almacenescope.forEach(almacenId => {
-        real += InventoryService.getStock(product, almacenId);
-        rawReservado += InventoryService.getReservedStock(product, almacenId);
+      const resumen = summarizeProductStock({
+        product,
+        almacenes: almacenesEnScope,
+        EstablecimientoId: establecimientoParaGlobalOV,
       });
-
-      const reservado = Math.min(rawReservado, Math.max(real, 0));
-      const disponible = Math.max(0, real - reservado);
+      const real = resumen.totalStock;
+      const reservado = resumen.totalReserved;
+      const disponible = resumen.totalAvailable;
 
       const stockMinValues = almacenescope.map(almacenId => {
         const valor = product.stockMinimoPorAlmacen?.[almacenId];
@@ -242,7 +249,7 @@ export const useInventarioDisponibilidad = () => {
         stockPorAlmacen,
       };
     });
-  }, [allProducts, almacenescope, hasSinglealmacen, calcularSituacion, currentEstablecimientoId]);
+  }, [allProducts, almacenescope, almacenesActivos, hasSinglealmacen, calcularSituacion, currentEstablecimientoId, filtros.almacenId]);
 
   /**
    * Aplicar filtros de búsqueda y disponibilidad

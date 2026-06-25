@@ -47,3 +47,35 @@ export const eliminarNSDelStorage = (notaId: string): void => {
   const notas = cargarNotasSalida();
   guardarNotasSalida(notas.filter(n => n.id !== notaId));
 };
+
+export interface NsDocumentoRef {
+  comprobanteOrigenId?: string;
+  ordenVentaOrigenId?: string;
+  notaSalidaIds?: string[];
+  notaSalidaIdLegacy?: string;
+}
+
+export function cargarNotasSalidaSeguro(): NotaSalida[] {
+  if (typeof window === 'undefined') {
+    throw new Error('Almacenamiento no disponible en este entorno.');
+  }
+  const raw = window.localStorage.getItem(obtenerClave());
+  if (raw === null) return [];
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) {
+    throw new Error('Datos de Notas de Salida con formato inválido en el almacenamiento.');
+  }
+  return parsed as NotaSalida[];
+}
+
+export function obtenerNSActivasPorDocumento(ref: NsDocumentoRef): NotaSalida[] {
+  const allNS = cargarNotasSalidaSeguro();
+  return allNS.filter(n => {
+    if (n.estado === 'Anulada') return false;
+    if (ref.comprobanteOrigenId && n.comprobanteOrigenId === ref.comprobanteOrigenId) return true;
+    if (ref.ordenVentaOrigenId && n.ordenVentaOrigenId === ref.ordenVentaOrigenId) return true;
+    if (ref.notaSalidaIds?.includes(n.id)) return true;
+    if (ref.notaSalidaIdLegacy && n.id === ref.notaSalidaIdLegacy) return true;
+    return false;
+  });
+}

@@ -230,14 +230,18 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
   // ordenVentaOrigenId, no del campo visual N° documento origen (solo texto).
   const esNSVinculadaAOV = Boolean(notaInicial?.ordenVentaOrigenId);
 
-  const reservasOV = useMemo((): Array<{ sku: string; cantidad: number; almacenId: string }> => {
-    if (!esNSVinculadaAOV || !notaInicial?.ordenVentaOrigenId) return [];
-    return obtenerReservasDeOV(notaInicial.ordenVentaOrigenId);
-  }, [esNSVinculadaAOV, notaInicial?.ordenVentaOrigenId]);
+  const reservasOV = useMemo(
+    (): Array<{ sku: string; cantidad: number; almacenId?: string; establecimientoId?: string; almacenNombre?: string }> => {
+      if (!esNSVinculadaAOV || !notaInicial?.ordenVentaOrigenId) return [];
+      return obtenerReservasDeOV(notaInicial.ordenVentaOrigenId);
+    },
+    [esNSVinculadaAOV, notaInicial?.ordenVentaOrigenId],
+  );
 
   // ── Stock permitido por producto (total establecimiento) ──────────────────
   // NS manual:       disponible libre total = Σ(real − reservado) por almacén del establecimiento.
-  // NS vinculada OV: reserva pendiente propia = Σ min(ovOriginal, reservadoActual) por almacén OV.
+  // NS vinculada OV (legacy): reserva pendiente propia = Σ min(ovOriginal, reservadoActual) por almacén OV.
+  // NS vinculada OV (nueva):  reserva pendiente global = cantidad en el item de reserva.
   const getStockPermitido = useCallback(
     (productoId: string): number => {
       const product = allProducts.find(p => String(p.id) === productoId);
@@ -246,8 +250,16 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
         const ovReservasProd = reservasOV.filter(r => r.sku === product.codigo);
         if (ovReservasProd.length > 0) {
           return ovReservasProd.reduce((sum, r) => {
-            const reservadoAlmacen = Math.max(0, product.stockReservadoPorAlmacen?.[r.almacenId] ?? 0);
-            return sum + Math.min(r.cantidad, reservadoAlmacen);
+            if (r.establecimientoId) {
+              // Nueva arquitectura: la cantidad en la reserva es la pendiente real
+              return sum + r.cantidad;
+            }
+            if (r.almacenId) {
+              // Legacy: validar contra reservadoPorAlmacen
+              const reservadoAlmacen = Math.max(0, product.stockReservadoPorAlmacen?.[r.almacenId] ?? 0);
+              return sum + Math.min(r.cantidad, reservadoAlmacen);
+            }
+            return sum;
           }, 0);
         }
       }

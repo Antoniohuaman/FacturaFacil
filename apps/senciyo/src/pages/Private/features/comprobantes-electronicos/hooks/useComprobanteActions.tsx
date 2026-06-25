@@ -547,8 +547,10 @@ export const useComprobanteActions = () => {
         const ovReservas = esDesdeOV ? obtenerReservasDeOV(srcId!) : [];
 
         // Indexar reservas de OV por SKU para lookup O(1) en el loop de items.
+        // Solo indexar reservas legacy que tienen almacenId (nueva arquitectura usa FIFO en su lugar).
         const reservasPorSku = new Map<string, Array<{ almacenId: string; cantidad: number }>>();
         for (const r of ovReservas) {
+          if (!r.almacenId) continue; // Nueva arquitectura: sin almacenId → descuento vía FIFO normal
           if (!reservasPorSku.has(r.sku)) reservasPorSku.set(r.sku, []);
           reservasPorSku.get(r.sku)!.push({ almacenId: r.almacenId, cantidad: r.cantidad });
         }

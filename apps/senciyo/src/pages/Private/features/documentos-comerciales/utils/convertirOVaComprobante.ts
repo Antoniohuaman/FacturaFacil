@@ -337,7 +337,7 @@ export function construirCargaConversionDesdeOV(
       formaPagoId: null,
       formaPagoDescripcion: ov.formaPago ?? null,
       detallesPago: null,
-      terminosCredito: null,
+      terminosCredito: ov.creditTerms ?? null,
       datosDetraccion: null,
     },
     detalle: {

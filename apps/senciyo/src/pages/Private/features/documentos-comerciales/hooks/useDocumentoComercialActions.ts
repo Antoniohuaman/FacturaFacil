@@ -27,7 +27,9 @@ import {
   descontarStockParaDocumento,
   revertirDescuentoStockDocumento,
 } from '../utils/servicioReservaStock';
-import { calcularReservasPendientes } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { calcularReservasPendientes, EVENTO_RECARGA } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
+import { persistirDocumentos } from '../utils/documentoComercial.storage';
+import { obtenerNSActivasPorDocumento } from '../../gestion-inventario/repositories/notaSalida.repository';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
 
 /**
@@ -71,6 +73,26 @@ const calcularTotalesItems = (items: CartItem[], moneda: Currency = 'PEN'): Paym
 
 function crearEvento(accion: string, usuario?: string, detalle?: string): EventoHistorial {
   return { fecha: obtenerFechaHoraISO(), usuario, accion, detalle };
+}
+
+function persistirOVConRollback(
+  listaNueva: DocumentoComercial[],
+  documento: DocumentoComercial,
+  reservasStock: ReservaStockItem[] | undefined,
+  actualizarFn: (doc: DocumentoComercial) => void,
+): ResultadoAccionDocumento {
+  const resultado = persistirDocumentos(listaNueva);
+  if (!resultado.exito) {
+    if (reservasStock?.length) {
+      liberarReservaOrden(reservasStock);
+    }
+    return { exito: false, error: resultado.error };
+  }
+  actualizarFn(documento);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(EVENTO_RECARGA));
+  }
+  return { exito: true, documento };
 }
 
 export interface ResultadoAccionDocumento {
@@ -272,6 +294,17 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         historial: [crearEvento(accionHistorial, session?.userName, detalleHistorial)],
       };
 
+      // OV: flujo transaccional — persistir antes de actualizar UI.
+      // Si la persistencia falla, revertir la reserva en Zustand para evitar reserva huérfana.
+      if (datos.tipo === 'orden_venta') {
+        return persistirOVConRollback(
+          [documento, ...state.documentos],
+          documento,
+          reservasStock,
+          agregarDocumento,
+        );
+      }
+
       agregarDocumento(documento);
       return { exito: true, documento };
     },
@@ -416,6 +449,17 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         historial: [...(doc.historial ?? []), eventoGenerado],
       };
 
+      // OV desde borrador: flujo transaccional — persistir antes de actualizar UI.
+      // Si la persistencia falla, revertir la reserva en Zustand para evitar reserva huérfana.
+      if (datos.tipo === 'orden_venta') {
+        return persistirOVConRollback(
+          state.documentos.map((d) => (d.id === id ? documentoGenerado : d)),
+          documentoGenerado,
+          reservasStock,
+          actualizarEnContext,
+        );
+      }
+
       actualizarEnContext(documentoGenerado);
       return { exito: true, documento: documentoGenerado };
     },
@@ -476,6 +520,11 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         return { exito: false, error: 'Documento no encontrado.' };
       }
 
+      // OVs generadas no pueden editarse: la reserva ya está comprometida en el catálogo
+      if (documentoExistente.tipo === 'orden_venta' && !documentoExistente.esBorrador) {
+        return { exito: false, error: 'Las Órdenes de Venta generadas no pueden editarse. Anule y cree una nueva.' };
+      }
+
       const items = datos.items ?? documentoExistente.items;
       const ahora = obtenerFechaHoraISO();
       const monedaActualizada = datos.moneda ?? documentoExistente.moneda;
@@ -528,6 +577,30 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         return { exito: false, error: 'No se puede anular un borrador. Use eliminar borrador.' };
       if (!motivo || motivo.trim() === '')
         return { exito: false, error: 'El motivo de anulación es obligatorio.' };
+
+      // Guards de negocio para Órdenes de Venta
+      if (doc.tipo === 'orden_venta') {
+        if (doc.estado === 'Pendiente de salida') {
+          return { exito: false, error: 'No se puede anular una OV con Comprobante activo. Anule primero el Comprobante.' };
+        }
+        if (doc.estado === 'Atendida parcialmente') {
+          try {
+            const nsActivas = obtenerNSActivasPorDocumento({
+              ordenVentaOrigenId: doc.id,
+              notaSalidaIds: doc.notaSalidaIds,
+              notaSalidaIdLegacy: doc.notaSalidaId,
+            });
+            if (nsActivas.length > 0) {
+              return { exito: false, error: 'No se puede anular una OV con Notas de Salida activas. Anule primero las Notas de Salida.' };
+            }
+          } catch {
+            return { exito: false, error: 'No se pudo verificar el estado de las Notas de Salida. Inténtalo de nuevo.' };
+          }
+        }
+        if (doc.estado === 'Atendida') {
+          return { exito: false, error: 'No se puede anular una OV ya atendida.' };
+        }
+      }
 
       const ahora = obtenerFechaHoraISO();
 
