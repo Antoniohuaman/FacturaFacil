@@ -266,7 +266,7 @@ export const useComprobanteActions = () => {
 
   // Crear comprobante
   const createComprobante = useCallback(async (data: ComprobanteData): Promise<boolean> => {
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
       const permisoEmision = data.source === 'pos'
