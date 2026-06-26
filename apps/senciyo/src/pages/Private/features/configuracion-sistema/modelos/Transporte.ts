@@ -1,26 +1,28 @@
+import type { TipoDocumentoConductorGRE } from '../datos/catalogosGRE';
+
 export type EstadoConductor = 'ACTIVO' | 'INACTIVO';
 export type EstadoVehiculo = 'ACTIVO' | 'INACTIVO';
 export type EstadoTransportista = 'HABILITADO' | 'INACTIVO';
 
-export type TipoDocumentoConductor = 'DNI' | 'CE' | 'PASAPORTE' | 'RUC';
-
-export const TIPOS_DOCUMENTO_CONDUCTOR: Array<{ value: TipoDocumentoConductor; label: string }> = [
-  { value: 'DNI', label: 'DNI' },
-  { value: 'CE', label: 'Carné de Extranjería' },
-  { value: 'PASAPORTE', label: 'Pasaporte' },
-  { value: 'RUC', label: 'RUC' },
-];
+// Tipo estable derivado del catálogo central en catalogosGRE.ts
+export type TipoDocumentoConductor = TipoDocumentoConductorGRE;
 
 export interface Conductor {
   id: string;
   empresaId: string;
+  numeroLicencia: string;
   tipoDocumento: TipoDocumentoConductor;
   numeroDocumento: string;
   nombres: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
-  numeroLicencia: string;
   estado: EstadoConductor;
+  // Campos opcionales preparados para enriquecimiento por API
+  categoriaLicencia?: string;
+  fechaExpedicion?: string;
+  fechaVencimiento?: string;
+  estadoLicencia?: string;
+  restricciones?: string;
   creadoEl: Date;
   actualizadoEl: Date;
 }
@@ -32,12 +34,22 @@ export interface Vehiculo {
   id: string;
   empresaId: string;
   placa: string;
-  marca: string;
-  configuracionVehicular: string;
-  numeroCertificado: string;
+  estado: EstadoVehiculo;
+  // Relación con conductores — se almacenan IDs estables
+  conductoresIds?: string[];
+  // Datos del vehículo (opcionales, preparados para enriquecimiento por API)
+  marca?: string;
+  modelo?: string;
+  configuracionVehicular?: string;
+  numeroCertificado?: string;
+  numeroTUCE?: string;
+  numeroSerie?: string;
+  vin?: string;
+  numeroMotor?: string;
+  color?: string;
+  // Autorización especial
   codigoEntidadAutorizadora?: string;
   numeroAutorizacion?: string;
-  estado: EstadoVehiculo;
   creadoEl: Date;
   actualizadoEl: Date;
 }
@@ -50,7 +62,10 @@ export interface DatosTransportista {
   empresaId: string;
   numeroRegistroMTC: string;
   estado: EstadoTransportista;
+  // Autorización especial del transportista
+  codigoEntidadAutorizadora?: string;
+  numeroAutorizacion?: string;
   actualizadoEl: Date;
 }
 
-export type UpdateDatosTransportistaInput = Pick<DatosTransportista, 'numeroRegistroMTC' | 'estado'>;
+export type UpdateDatosTransportistaInput = Omit<DatosTransportista, 'id' | 'empresaId' | 'actualizadoEl'>;

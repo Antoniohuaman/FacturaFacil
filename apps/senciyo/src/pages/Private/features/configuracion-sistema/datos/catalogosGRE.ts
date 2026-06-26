@@ -1,5 +1,6 @@
 // Catálogos SUNAT de solo lectura para Guías de Remisión Electrónica.
 // Fuente autoritativa única — no duplicar en componentes.
+// Incluye también catálogos auxiliares para la configuración de transporte.
 
 export type EstadoCatalogo = 'Vigente' | 'No vigente';
 export type RegulacionBienNormalizado = 'SPOT' | 'IVAP';
@@ -151,4 +152,55 @@ export const ENTIDADES_AUTORIZADORAS_D37: readonly EntidadAutorizadora[] = [
   { codigo: '10', abreviatura: 'MML', entidad: 'Municipalidad Metropolitana de Lima', estado: 'Vigente' },
   { codigo: '11', abreviatura: 'MINSA', entidad: 'Ministerio de Salud', estado: 'Vigente' },
   { codigo: '12', abreviatura: 'GR', entidad: 'Gobierno Regional', estado: 'Vigente' },
+] as const;
+
+// ─────────────────────────────────────────────────────────────
+// 4. TIPOS DE DOCUMENTO DE IDENTIDAD PARA CONDUCTORES (GRE)
+//    Fuente única para todo el módulo de transporte.
+// ─────────────────────────────────────────────────────────────
+
+export interface TipoDocumentoIdentidadGRE {
+  codigo: string;
+  value: string;
+  label: string;
+}
+
+export const TIPOS_DOCUMENTO_CONDUCTOR_GRE: readonly TipoDocumentoIdentidadGRE[] = [
+  { codigo: '1', value: 'DNI', label: 'DNI' },
+  { codigo: '4', value: 'CE', label: 'Carné de Extranjería' },
+  { codigo: '7', value: 'PASAPORTE', label: 'Pasaporte' },
+] as const;
+
+export type TipoDocumentoConductorGRE =
+  (typeof TIPOS_DOCUMENTO_CONDUCTOR_GRE)[number]['value'];
+
+// ─────────────────────────────────────────────────────────────
+// 5. CONFIGURACIONES VEHICULARES (MTC/SUNAT GRE)
+// ─────────────────────────────────────────────────────────────
+
+export interface ConfiguracionVehicular {
+  codigo: string;
+  descripcion: string;
+}
+
+export const CONFIGURACIONES_VEHICULARES: readonly ConfiguracionVehicular[] = [
+  { codigo: 'B2', descripcion: 'Bus 2 ejes' },
+  { codigo: 'B3-1', descripcion: 'Bus 3 ejes' },
+  { codigo: 'B4-1', descripcion: 'Bus 4 ejes' },
+  { codigo: 'C2', descripcion: 'Camión 2 ejes' },
+  { codigo: 'C3', descripcion: 'Camión 3 ejes' },
+  { codigo: 'C4', descripcion: 'Camión 4 ejes' },
+  { codigo: 'T2S1', descripcion: 'Tracto-camión 2 ejes + semiremolque 1 eje' },
+  { codigo: 'T2S2', descripcion: 'Tracto-camión 2 ejes + semiremolque 2 ejes' },
+  { codigo: 'T2S3', descripcion: 'Tracto-camión 2 ejes + semiremolque 3 ejes' },
+  { codigo: 'T3S1', descripcion: 'Tracto-camión 3 ejes + semiremolque 1 eje' },
+  { codigo: 'T3S2', descripcion: 'Tracto-camión 3 ejes + semiremolque 2 ejes' },
+  { codigo: 'T3S3', descripcion: 'Tracto-camión 3 ejes + semiremolque 3 ejes' },
+  { codigo: 'C2R2', descripcion: 'Camión 2 ejes + remolque 2 ejes' },
+  { codigo: 'C2R3', descripcion: 'Camión 2 ejes + remolque 3 ejes' },
+  { codigo: 'C3R2', descripcion: 'Camión 3 ejes + remolque 2 ejes' },
+  { codigo: 'C3R3', descripcion: 'Camión 3 ejes + remolque 3 ejes' },
+  { codigo: 'T3Se2', descripcion: 'Tracto-camión 3 ejes + semiremolque esp. 2 ejes' },
+  { codigo: 'T3Se3', descripcion: 'Tracto-camión 3 ejes + semiremolque esp. 3 ejes' },
+  { codigo: 'OM', descripcion: 'Otro medio' },
 ] as const;

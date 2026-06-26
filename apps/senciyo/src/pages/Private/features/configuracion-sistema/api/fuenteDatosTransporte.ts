@@ -23,6 +23,7 @@ export interface IConductoresDataSource {
   create(empresaId: string, input: CreateConductorInput): Promise<Conductor>;
   update(empresaId: string, id: string, input: UpdateConductorInput): Promise<Conductor>;
   toggleEstado(empresaId: string, id: string): Promise<Conductor>;
+  delete(empresaId: string, id: string): Promise<void>;
 }
 
 export interface IVehiculosDataSource {
@@ -31,6 +32,7 @@ export interface IVehiculosDataSource {
   create(empresaId: string, input: CreateVehiculoInput): Promise<Vehiculo>;
   update(empresaId: string, id: string, input: UpdateVehiculoInput): Promise<Vehiculo>;
   toggleEstado(empresaId: string, id: string): Promise<Vehiculo>;
+  delete(empresaId: string, id: string): Promise<void>;
 }
 
 export interface IDatosTransportistaDataSource {
@@ -113,6 +115,10 @@ export class LocalStorageConductoresDataSource implements IConductoresDataSource
       estado: item.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO',
     });
   }
+
+  async delete(empresaId: string, id: string): Promise<void> {
+    this.persist(empresaId, this.load(empresaId).filter((c) => c.id !== id));
+  }
 }
 
 // ─── LocalStorage: Vehículos ────────────────────────────────
@@ -180,6 +186,10 @@ export class LocalStorageVehiculosDataSource implements IVehiculosDataSource {
     return this.update(empresaId, id, {
       estado: item.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO',
     });
+  }
+
+  async delete(empresaId: string, id: string): Promise<void> {
+    this.persist(empresaId, this.load(empresaId).filter((v) => v.id !== id));
   }
 }
 

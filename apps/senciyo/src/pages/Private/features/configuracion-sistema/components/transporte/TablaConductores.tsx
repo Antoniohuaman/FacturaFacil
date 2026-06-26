@@ -1,20 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Pencil, UserCheck, UserX, Users } from 'lucide-react';
+import { Plus, Search, Pencil, UserCheck, UserX, Users, Eye, Trash2 } from 'lucide-react';
 import { Button } from '@/contasis';
 import { useNotifications } from '../compartido/SistemaNotificaciones.contexto';
-import type { Conductor } from '../../modelos/Transporte';
-import type { IConductoresDataSource } from '../../api/fuenteDatosTransporte';
+import { ModalConfirmacion } from '../compartido/ModalConfirmacion';
+import type { Conductor, Vehiculo } from '../../modelos/Transporte';
+import type { IConductoresDataSource, IVehiculosDataSource } from '../../api/fuenteDatosTransporte';
 import { ModalFormularioConductor } from './ModalFormularioConductor';
+import { ModalDetalleConductor } from './ModalDetalleConductor';
+import { nombreCompletoConductor, formatearPlaca } from './helpersTransporte';
 import type { CreateConductorInput } from '../../modelos/Transporte';
 
 interface TablaConductoresProps {
   empresaId: string;
   datasource: IConductoresDataSource;
+  vehiculosDataSource: IVehiculosDataSource;
 }
 
 type ModoModal = 'crear' | 'editar';
 
-export function TablaConductores({ empresaId, datasource }: TablaConductoresProps) {
+export function TablaConductores({ empresaId, datasource, vehiculosDataSource }: TablaConductoresProps) {
   const { showSuccess, showError } = useNotifications();
   const [conductores, setConductores] = useState<Conductor[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -23,6 +27,14 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoModal, setModoModal] = useState<ModoModal>('crear');
   const [conductorSeleccionado, setConductorSeleccionado] = useState<Conductor | undefined>();
+  const [conductorDetalle, setConductorDetalle] = useState<Conductor | undefined>();
+  const [detalleAbierto, setDetalleAbierto] = useState(false);
+
+  // Estado para eliminación
+  const [conductorParaEliminar, setConductorParaEliminar] = useState<Conductor | undefined>();
+  const [vehiculosQueBloquean, setVehiculosQueBloquean] = useState<Vehiculo[]>([]);
+  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -49,6 +61,11 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
     );
   }, [conductores, busqueda]);
 
+  const abrirDetalle = (c: Conductor) => {
+    setConductorDetalle(c);
+    setDetalleAbierto(true);
+  };
+
   const abrirCrear = () => {
     setConductorSeleccionado(undefined);
     setModoModal('crear');
@@ -67,7 +84,7 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
       if (modoModal === 'crear') {
         const nuevo = await datasource.create(empresaId, datos);
         setConductores((prev) => [...prev, nuevo]);
-        showSuccess('Conductor registrado', `${nuevo.nombres} ${nuevo.apellidoPaterno} fue agregado correctamente.`);
+        showSuccess('Conductor registrado', `${nombreCompletoConductor(nuevo)} fue agregado correctamente.`);
       } else if (conductorSeleccionado) {
         const actualizado = await datasource.update(empresaId, conductorSeleccionado.id, datos);
         setConductores((prev) => prev.map((c) => (c.id === actualizado.id ? actualizado : c)));
@@ -88,12 +105,75 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
       setConductores((prev) => prev.map((c) => (c.id === actualizado.id ? actualizado : c)));
       showSuccess(
         nuevoEstado === 'ACTIVO' ? 'Conductor activado' : 'Conductor inactivado',
-        `${conductor.nombres} ${conductor.apellidoPaterno} fue ${nuevoEstado === 'ACTIVO' ? 'activado' : 'inactivado'}.`,
+        `${nombreCompletoConductor(conductor)} fue ${nuevoEstado === 'ACTIVO' ? 'activado' : 'inactivado'}.`,
       );
     } catch {
       showError('Error', 'No se pudo cambiar el estado del conductor.');
     }
   };
+
+  const iniciarEliminacion = async (c: Conductor) => {
+    const vehiculos = await vehiculosDataSource.list(empresaId);
+    const asignados = vehiculos.filter((v) => (v.conductoresIds ?? []).includes(c.id));
+    setConductorParaEliminar(c);
+    setVehiculosQueBloquean(asignados);
+    setModalEliminarAbierto(true);
+  };
+
+  const cerrarModalEliminar = () => {
+    setModalEliminarAbierto(false);
+    setConductorParaEliminar(undefined);
+    setVehiculosQueBloquean([]);
+  };
+
+  const confirmarEliminacion = async () => {
+    if (!conductorParaEliminar) return;
+    // Re-verificar en el momento de confirmar
+    const vehiculos = await vehiculosDataSource.list(empresaId);
+    const asignados = vehiculos.filter((v) => (v.conductoresIds ?? []).includes(conductorParaEliminar.id));
+    if (asignados.length > 0) {
+      setVehiculosQueBloquean(asignados);
+      return;
+    }
+    setEliminando(true);
+    try {
+      await datasource.delete(empresaId, conductorParaEliminar.id);
+      setConductores((prev) => prev.filter((c) => c.id !== conductorParaEliminar.id));
+      showSuccess('Conductor eliminado', `${nombreCompletoConductor(conductorParaEliminar)} fue eliminado correctamente.`);
+      cerrarModalEliminar();
+    } catch {
+      showError('Error al eliminar', 'No se pudo eliminar el conductor.');
+    } finally {
+      setEliminando(false);
+    }
+  };
+
+  const descripcionModalEliminar = conductorParaEliminar && vehiculosQueBloquean.length > 0 ? (
+    <div className="text-left">
+      <p className="mb-2">
+        <strong>{nombreCompletoConductor(conductorParaEliminar)}</strong> está asignado a{' '}
+        {vehiculosQueBloquean.length === 1 ? 'el siguiente vehículo' : 'los siguientes vehículos'}:
+      </p>
+      <ul className="mb-2 space-y-1">
+        {vehiculosQueBloquean.map((v) => (
+          <li key={v.id} className="font-mono font-medium text-gray-800">
+            {formatearPlaca(v.placa)}
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-gray-500">
+        Desvincula el conductor desde la edición del vehículo antes de eliminarlo.
+      </p>
+    </div>
+  ) : conductorParaEliminar ? (
+    <div>
+      <p>
+        ¿Deseas eliminar a{' '}
+        <strong>{nombreCompletoConductor(conductorParaEliminar)}</strong>?
+      </p>
+      <p className="mt-1 text-xs text-gray-500">Esta acción no se puede deshacer.</p>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-4">
@@ -117,7 +197,6 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
       {cargando ? (
         <div className="py-10 text-center text-sm text-gray-400">Cargando conductores…</div>
       ) : conductores.length === 0 ? (
-        /* Estado vacío */
         <div className="py-12 flex flex-col items-center gap-3 text-center">
           <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
             <Users className="w-6 h-6 text-gray-400" />
@@ -145,8 +224,10 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Conductor</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs hidden sm:table-cell">Documento</th>
-                  <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs hidden md:table-cell">Licencia</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs hidden sm:table-cell">Tipo y N.° de documento</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs hidden md:table-cell">N.° de licencia</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs hidden lg:table-cell">Categoría</th>
+                  <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs hidden xl:table-cell">Fecha de vencimiento</th>
                   <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Estado</th>
                   <th className="text-right px-3 py-2.5 font-medium text-gray-600 text-xs">Acciones</th>
                 </tr>
@@ -154,7 +235,7 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
               <tbody>
                 {conductoresFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-400">
+                    <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-400">
                       No se encontraron conductores con los filtros aplicados.
                     </td>
                   </tr>
@@ -163,7 +244,7 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
                     <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2.5">
                         <p className="font-medium text-gray-800 text-xs">
-                          {c.apellidoPaterno} {c.apellidoMaterno}, {c.nombres}
+                          {nombreCompletoConductor(c)}
                         </p>
                       </td>
                       <td className="px-3 py-2.5 hidden sm:table-cell">
@@ -172,6 +253,16 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
                       </td>
                       <td className="px-3 py-2.5 hidden md:table-cell">
                         <span className="text-xs font-mono text-gray-700">{c.numeroLicencia}</span>
+                      </td>
+                      <td className="px-3 py-2.5 hidden lg:table-cell">
+                        <span className="text-xs text-gray-700">{c.categoriaLicencia ?? '—'}</span>
+                      </td>
+                      <td className="px-3 py-2.5 hidden xl:table-cell">
+                        <span className="text-xs text-gray-700">
+                          {c.fechaVencimiento
+                            ? c.fechaVencimiento.split('-').reverse().join('/')
+                            : '—'}
+                        </span>
                       </td>
                       <td className="px-3 py-2.5">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
@@ -182,6 +273,13 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => abrirDetalle(c)}
+                            title="Ver detalle del conductor"
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             onClick={() => abrirEditar(c)}
                             title="Editar conductor"
@@ -204,6 +302,13 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
                               <UserCheck className="w-3.5 h-3.5" />
                             )}
                           </button>
+                          <button
+                            onClick={() => iniciarEliminacion(c)}
+                            title="Eliminar conductor"
+                            className="p-1.5 text-gray-400 hover:text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -223,6 +328,24 @@ export function TablaConductores({ empresaId, datasource }: TablaConductoresProp
         onClose={() => setModalAbierto(false)}
         onSubmit={manejarEnvio}
         cargando={guardando}
+      />
+
+      <ModalDetalleConductor
+        isOpen={detalleAbierto}
+        conductor={conductorDetalle}
+        onClose={() => setDetalleAbierto(false)}
+      />
+
+      <ModalConfirmacion
+        isOpen={modalEliminarAbierto}
+        titulo={vehiculosQueBloquean.length > 0 ? 'No se puede eliminar' : 'Eliminar conductor'}
+        descripcion={descripcionModalEliminar}
+        textoCancelar={vehiculosQueBloquean.length > 0 ? 'Entendido' : 'Cancelar'}
+        textoConfirmar="Eliminar"
+        variante={vehiculosQueBloquean.length > 0 ? 'info' : 'danger'}
+        cargando={eliminando}
+        onConfirmar={vehiculosQueBloquean.length > 0 ? undefined : confirmarEliminacion}
+        onCancelar={cerrarModalEliminar}
       />
     </div>
   );

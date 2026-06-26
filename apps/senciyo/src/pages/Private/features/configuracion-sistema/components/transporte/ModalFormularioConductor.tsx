@@ -1,29 +1,44 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 import { Button } from '@/contasis';
 import type { Conductor, CreateConductorInput, EstadoConductor, TipoDocumentoConductor } from '../../modelos/Transporte';
-import { TIPOS_DOCUMENTO_CONDUCTOR } from '../../modelos/Transporte';
+import { TIPOS_DOCUMENTO_CONDUCTOR_GRE } from '../../datos/catalogosGRE';
 
 interface FormState {
+  numeroLicencia: string;
   tipoDocumento: TipoDocumentoConductor;
   numeroDocumento: string;
-  nombres: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
-  numeroLicencia: string;
+  nombres: string;
   estado: EstadoConductor;
+  // Campos opcionales
+  categoriaLicencia: string;
+  fechaExpedicion: string;
+  fechaVencimiento: string;
+  estadoLicencia: string;
+  restricciones: string;
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
+const CAMPOS_REQUERIDOS: ReadonlyArray<keyof FormState> = [
+  'numeroLicencia', 'tipoDocumento', 'numeroDocumento', 'apellidoPaterno', 'nombres',
+];
+
 const FORM_VACIO: FormState = {
+  numeroLicencia: '',
   tipoDocumento: 'DNI',
   numeroDocumento: '',
-  nombres: '',
   apellidoPaterno: '',
   apellidoMaterno: '',
-  numeroLicencia: '',
+  nombres: '',
   estado: 'ACTIVO',
+  categoriaLicencia: '',
+  fechaExpedicion: '',
+  fechaVencimiento: '',
+  estadoLicencia: '',
+  restricciones: '',
 };
 
 interface ModalFormularioConductorProps {
@@ -39,27 +54,35 @@ interface ModalFormularioConductorProps {
 function validar(form: FormState, conductoresExistentes: Conductor[], conductorId?: string): FormErrors {
   const e: FormErrors = {};
 
+  if (!form.numeroLicencia.trim()) {
+    e.numeroLicencia = 'El número de licencia es obligatorio';
+  } else {
+    const dup = conductoresExistentes.some(
+      (c) =>
+        c.id !== conductorId &&
+        c.numeroLicencia.toUpperCase() === form.numeroLicencia.trim().toUpperCase(),
+    );
+    if (dup) e.numeroLicencia = 'Ya existe un conductor registrado con esta licencia';
+  }
+
   if (!form.tipoDocumento) e.tipoDocumento = 'Selecciona el tipo de documento';
 
   if (!form.numeroDocumento.trim()) {
     e.numeroDocumento = 'El número de documento es obligatorio';
   } else if (form.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.numeroDocumento)) {
     e.numeroDocumento = 'El DNI debe tener 8 dígitos';
-  } else if (form.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.numeroDocumento)) {
-    e.numeroDocumento = 'El RUC debe tener 11 dígitos';
   } else {
-    const duplicado = conductoresExistentes.some(
+    const dup = conductoresExistentes.some(
       (c) =>
         c.id !== conductorId &&
         c.tipoDocumento === form.tipoDocumento &&
         c.numeroDocumento === form.numeroDocumento.trim(),
     );
-    if (duplicado) e.numeroDocumento = 'Ya existe un conductor con este documento';
+    if (dup) e.numeroDocumento = 'Ya existe un conductor con este documento';
   }
 
-  if (!form.nombres.trim()) e.nombres = 'Los nombres son obligatorios';
   if (!form.apellidoPaterno.trim()) e.apellidoPaterno = 'El apellido paterno es obligatorio';
-  if (!form.numeroLicencia.trim()) e.numeroLicencia = 'El número de licencia es obligatorio';
+  if (!form.nombres.trim()) e.nombres = 'Los nombres son obligatorios';
 
   return e;
 }
@@ -76,32 +99,41 @@ export function ModalFormularioConductor({
   const [form, setForm] = useState<FormState>(FORM_VACIO);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tocados, setTocados] = useState<Set<keyof FormState>>(new Set());
+  const [opcionalAbierto, setOpcionalAbierto] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     if (conductor) {
       setForm({
+        numeroLicencia: conductor.numeroLicencia,
         tipoDocumento: conductor.tipoDocumento,
         numeroDocumento: conductor.numeroDocumento,
-        nombres: conductor.nombres,
         apellidoPaterno: conductor.apellidoPaterno,
         apellidoMaterno: conductor.apellidoMaterno,
-        numeroLicencia: conductor.numeroLicencia,
+        nombres: conductor.nombres,
         estado: conductor.estado,
+        categoriaLicencia: conductor.categoriaLicencia ?? '',
+        fechaExpedicion: conductor.fechaExpedicion ?? '',
+        fechaVencimiento: conductor.fechaVencimiento ?? '',
+        estadoLicencia: conductor.estadoLicencia ?? '',
+        restricciones: conductor.restricciones ?? '',
       });
     } else {
       setForm(FORM_VACIO);
     }
     setErrors({});
     setTocados(new Set());
+    setOpcionalAbierto(false);
   }, [isOpen, conductor]);
 
   const set = (campo: keyof FormState, valor: string) => {
     const next = { ...form, [campo]: valor };
     setForm(next);
     setTocados((prev) => new Set(prev).add(campo));
-    const err = validar(next, conductoresExistentes, conductor?.id);
-    setErrors((prev) => ({ ...prev, [campo]: err[campo] }));
+    if (CAMPOS_REQUERIDOS.includes(campo)) {
+      const err = validar(next, conductoresExistentes, conductor?.id);
+      setErrors((prev) => ({ ...prev, [campo]: err[campo] }));
+    }
   };
 
   const manejarEnvio = async (e: React.FormEvent) => {
@@ -113,17 +145,22 @@ export function ModalFormularioConductor({
       return;
     }
     await onSubmit({
+      numeroLicencia: form.numeroLicencia.trim().toUpperCase(),
       tipoDocumento: form.tipoDocumento,
       numeroDocumento: form.numeroDocumento.trim(),
       nombres: form.nombres.trim(),
       apellidoPaterno: form.apellidoPaterno.trim(),
       apellidoMaterno: form.apellidoMaterno.trim(),
-      numeroLicencia: form.numeroLicencia.trim(),
       estado: form.estado,
+      categoriaLicencia: form.categoriaLicencia.trim() || undefined,
+      fechaExpedicion: form.fechaExpedicion || undefined,
+      fechaVencimiento: form.fechaVencimiento || undefined,
+      estadoLicencia: form.estadoLicencia.trim() || undefined,
+      restricciones: form.restricciones.trim() || undefined,
     });
   };
 
-  const campo = (id: keyof FormState) =>
+  const estiloInput = (id: keyof FormState) =>
     tocados.has(id) && errors[id]
       ? 'border-red-500 focus:ring-red-500'
       : 'border-gray-300 focus:ring-blue-500';
@@ -153,7 +190,25 @@ export function ModalFormularioConductor({
         </div>
 
         <form onSubmit={manejarEnvio} className="p-6 space-y-4">
-          {/* Tipo y número de documento */}
+          {/* 1. Número de licencia */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              N.° de licencia de conducir *
+            </label>
+            <input
+              type="text"
+              value={form.numeroLicencia}
+              onChange={(e) => set('numeroLicencia', e.target.value.toUpperCase().replace(/\s/g, ''))}
+              disabled={cargando}
+              placeholder="Q12345678"
+              className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 font-mono ${estiloInput('numeroLicencia')}`}
+            />
+            {tocados.has('numeroLicencia') && errors.numeroLicencia && (
+              <p className="text-xs text-red-600 mt-1">{errors.numeroLicencia}</p>
+            )}
+          </div>
+
+          {/* 2. Tipo y número de documento */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de documento *</label>
@@ -161,9 +216,9 @@ export function ModalFormularioConductor({
                 value={form.tipoDocumento}
                 onChange={(e) => set('tipoDocumento', e.target.value)}
                 disabled={cargando}
-                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 bg-white disabled:opacity-50 ${campo('tipoDocumento')}`}
+                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 bg-white disabled:opacity-50 ${estiloInput('tipoDocumento')}`}
               >
-                {TIPOS_DOCUMENTO_CONDUCTOR.map((t) => (
+                {TIPOS_DOCUMENTO_CONDUCTOR_GRE.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
@@ -172,15 +227,15 @@ export function ModalFormularioConductor({
               )}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Número de documento *</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">N.° de documento *</label>
               <input
                 type="text"
                 value={form.numeroDocumento}
                 onChange={(e) => set('numeroDocumento', e.target.value.replace(/\s/g, ''))}
                 disabled={cargando}
-                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${campo('numeroDocumento')}`}
                 placeholder={form.tipoDocumento === 'DNI' ? '12345678' : ''}
-                maxLength={form.tipoDocumento === 'DNI' ? 8 : form.tipoDocumento === 'RUC' ? 11 : 20}
+                maxLength={form.tipoDocumento === 'DNI' ? 8 : 20}
+                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${estiloInput('numeroDocumento')}`}
               />
               {tocados.has('numeroDocumento') && errors.numeroDocumento && (
                 <p className="text-xs text-red-600 mt-1">{errors.numeroDocumento}</p>
@@ -188,23 +243,7 @@ export function ModalFormularioConductor({
             </div>
           </div>
 
-          {/* Nombres */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Nombres *</label>
-            <input
-              type="text"
-              value={form.nombres}
-              onChange={(e) => set('nombres', e.target.value)}
-              disabled={cargando}
-              className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${campo('nombres')}`}
-              placeholder="Nombres del conductor"
-            />
-            {tocados.has('nombres') && errors.nombres && (
-              <p className="text-xs text-red-600 mt-1">{errors.nombres}</p>
-            )}
-          </div>
-
-          {/* Apellidos */}
+          {/* 3–4. Apellidos y nombres */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Apellido paterno *</label>
@@ -213,8 +252,8 @@ export function ModalFormularioConductor({
                 value={form.apellidoPaterno}
                 onChange={(e) => set('apellidoPaterno', e.target.value)}
                 disabled={cargando}
-                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${campo('apellidoPaterno')}`}
                 placeholder="Apellido paterno"
+                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${estiloInput('apellidoPaterno')}`}
               />
               {tocados.has('apellidoPaterno') && errors.apellidoPaterno && (
                 <p className="text-xs text-red-600 mt-1">{errors.apellidoPaterno}</p>
@@ -227,40 +266,117 @@ export function ModalFormularioConductor({
                 value={form.apellidoMaterno}
                 onChange={(e) => set('apellidoMaterno', e.target.value)}
                 disabled={cargando}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 placeholder="Apellido materno"
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
               />
             </div>
           </div>
 
-          {/* Licencia y estado */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">N.° de licencia de conducir *</label>
-              <input
-                type="text"
-                value={form.numeroLicencia}
-                onChange={(e) => set('numeroLicencia', e.target.value.toUpperCase().replace(/\s/g, ''))}
-                disabled={cargando}
-                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 font-mono ${campo('numeroLicencia')}`}
-                placeholder="Q12345678"
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Nombres *</label>
+            <input
+              type="text"
+              value={form.nombres}
+              onChange={(e) => set('nombres', e.target.value)}
+              disabled={cargando}
+              placeholder="Nombres del conductor"
+              className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${estiloInput('nombres')}`}
+            />
+            {tocados.has('nombres') && errors.nombres && (
+              <p className="text-xs text-red-600 mt-1">{errors.nombres}</p>
+            )}
+          </div>
+
+          {/* Estado */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+            <select
+              value={form.estado}
+              onChange={(e) => set('estado', e.target.value)}
+              disabled={cargando}
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
+            >
+              <option value="ACTIVO">Activo</option>
+              <option value="INACTIVO">Inactivo</option>
+            </select>
+          </div>
+
+          {/* Sección opcional colapsada */}
+          <div className="border-t border-gray-100 pt-3">
+            <button
+              type="button"
+              onClick={() => setOpcionalAbierto((p) => !p)}
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 w-full"
+            >
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${opcionalAbierto ? 'rotate-180' : ''}`}
               />
-              {tocados.has('numeroLicencia') && errors.numeroLicencia && (
-                <p className="text-xs text-red-600 mt-1">{errors.numeroLicencia}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
-              <select
-                value={form.estado}
-                onChange={(e) => set('estado', e.target.value)}
-                disabled={cargando}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
-              >
-                <option value="ACTIVO">Activo</option>
-                <option value="INACTIVO">Inactivo</option>
-              </select>
-            </div>
+              {opcionalAbierto ? 'Ocultar campos opcionales' : '+ Más campos opcionales'}
+            </button>
+
+            {opcionalAbierto && (
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Categoría de licencia</label>
+                    <input
+                      type="text"
+                      value={form.categoriaLicencia}
+                      onChange={(e) => set('categoriaLicencia', e.target.value.toUpperCase())}
+                      disabled={cargando}
+                      placeholder="A-IIb, A-IIIb…"
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Estado oficial</label>
+                    <input
+                      type="text"
+                      value={form.estadoLicencia}
+                      onChange={(e) => set('estadoLicencia', e.target.value)}
+                      disabled={cargando}
+                      placeholder="Vigente, Suspendida…"
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Fecha de expedición</label>
+                    <input
+                      type="date"
+                      value={form.fechaExpedicion}
+                      onChange={(e) => set('fechaExpedicion', e.target.value)}
+                      disabled={cargando}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Fecha de vencimiento</label>
+                    <input
+                      type="date"
+                      value={form.fechaVencimiento}
+                      onChange={(e) => set('fechaVencimiento', e.target.value)}
+                      disabled={cargando}
+                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Restricciones</label>
+                  <input
+                    type="text"
+                    value={form.restricciones}
+                    onChange={(e) => set('restricciones', e.target.value)}
+                    disabled={cargando}
+                    placeholder="Restricciones de la licencia"
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Acciones */}

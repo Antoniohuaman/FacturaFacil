@@ -44,7 +44,7 @@ function ConfiguracionTransporteContent() {
             </Button>
           }
         />
-        <div className="max-w-5xl mx-auto p-6">
+        <div className="w-full px-4 sm:px-6 py-6">
           <p className="text-sm text-gray-500">Configura los datos de empresa antes de gestionar el transporte.</p>
         </div>
       </div>
@@ -62,7 +62,7 @@ function ConfiguracionTransporteContent() {
         }
       />
 
-      <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
+      <div className="w-full px-4 sm:px-6 py-4 sm:py-6 space-y-6">
         <TarjetaConfiguracion
           title="Transporte"
           description="Configura los datos del transportista, conductores y vehículos que participan en los traslados de mercancía."
@@ -101,12 +101,14 @@ function ConfiguracionTransporteContent() {
             <TablaConductores
               empresaId={empresaId}
               datasource={conductoresDataSource}
+              vehiculosDataSource={vehiculosDataSource}
             />
           )}
           {tabActivo === 'vehiculos' && (
             <TablaVehiculos
               empresaId={empresaId}
               datasource={vehiculosDataSource}
+              conductoresDataSource={conductoresDataSource}
             />
           )}
           {tabActivo === 'catalogos' && <SeccionCatalogosGRE />}

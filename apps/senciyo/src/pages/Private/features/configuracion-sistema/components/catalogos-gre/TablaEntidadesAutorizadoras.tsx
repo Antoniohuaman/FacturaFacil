@@ -23,8 +23,8 @@ export function TablaEntidadesAutorizadoras() {
   return (
     <div className="space-y-4">
       {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+        <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -37,7 +37,7 @@ export function TablaEntidadesAutorizadoras() {
         <select
           value={filtroEstado}
           onChange={(e) => setFiltroEstado(e.target.value as EstadoCatalogo | '')}
-          className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          className="shrink-0 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         >
           <option value="">Todos los estados</option>
           <option value="Vigente">Vigente</option>
