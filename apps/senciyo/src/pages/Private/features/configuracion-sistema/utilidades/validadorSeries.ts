@@ -36,6 +36,10 @@ export function generateNextSeries(documentType: string, existingSeries: string[
       return generateSeriesSuggestion('CREDIT_NOTE', existingSeries);
     case 'RC': // Recibo de Cobranza
       return generateSeriesSuggestion('COLLECTION', existingSeries);
+    case '09': // GRE Remitente
+      return generateSeriesSuggestion('GRE_REMITENTE', existingSeries);
+    case '31': // GRE Transportista
+      return generateSeriesSuggestion('GRE_TRANSPORTISTA', existingSeries);
     default:
       return generateSeriesSuggestion('INVOICE', existingSeries);
   }

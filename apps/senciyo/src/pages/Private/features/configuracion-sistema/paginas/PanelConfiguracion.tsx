@@ -14,7 +14,9 @@ import {
   Settings,
   TrendingUp,
   Shield,
-  Banknote
+  Banknote,
+  Truck,
+  KeyRound
 } from 'lucide-react';
 import { PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -161,6 +163,28 @@ export function ConfigurationDashboard() {
       completionPercentage: 0,
       priority: 'low',
       estimatedTime: '6 min'
+    },
+    {
+      id: 'conexion-sunat',
+      title: 'Conexión SUNAT',
+      description: 'Credenciales SOL y OAuth 2.0 para los servicios electrónicos de SUNAT',
+      icon: KeyRound,
+      path: '/configuracion/conexion-sunat',
+      status: 'pending',
+      completionPercentage: 0,
+      priority: 'medium',
+      estimatedTime: '3 min'
+    },
+    {
+      id: 'transporte',
+      title: 'Configuración de Transporte',
+      description: 'Datos del transportista, conductores y vehículos para guías de remisión',
+      icon: Truck,
+      path: '/configuracion/transporte',
+      status: 'pending',
+      completionPercentage: 0,
+      priority: 'low',
+      estimatedTime: '5 min'
     }
   ];
 

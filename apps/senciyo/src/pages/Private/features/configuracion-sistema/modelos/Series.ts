@@ -388,6 +388,60 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
     },
     isActive: true,
   },
+  // Guía de Remisión Electrónica Remitente
+  {
+    id: '09',
+    code: '09',
+    name: 'Guía de Remisión Electrónica Remitente',
+    shortName: 'GRR',
+    category: 'GUIDE',
+    properties: {
+      affectsTaxes: false,
+      requiresCustomerRuc: false,
+      requiresCustomerName: true,
+      allowsCredit: false,
+      requiresPaymentMethod: false,
+      canBeVoided: false,
+      canHaveCreditNote: false,
+      canHaveDebitNote: false,
+      isElectronic: true,
+      requiresSignature: false,
+    },
+    seriesConfiguration: {
+      defaultPrefix: 'T',
+      seriesLength: 3,
+      correlativeLength: 8,
+      allowedPrefixes: ['T'],
+    },
+    isActive: true,
+  },
+  // Guía de Remisión Electrónica Transportista
+  {
+    id: '31',
+    code: '31',
+    name: 'Guía de Remisión Electrónica Transportista',
+    shortName: 'GRT',
+    category: 'GUIDE',
+    properties: {
+      affectsTaxes: false,
+      requiresCustomerRuc: false,
+      requiresCustomerName: true,
+      allowsCredit: false,
+      requiresPaymentMethod: false,
+      canBeVoided: false,
+      canHaveCreditNote: false,
+      canHaveDebitNote: false,
+      isElectronic: true,
+      requiresSignature: false,
+    },
+    seriesConfiguration: {
+      defaultPrefix: 'V',
+      seriesLength: 3,
+      correlativeLength: 8,
+      allowedPrefixes: ['V'],
+    },
+    isActive: true,
+  },
 ] as const;
 
 export const SERIES_STATUS = [

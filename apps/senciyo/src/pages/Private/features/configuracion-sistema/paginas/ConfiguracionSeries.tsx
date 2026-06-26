@@ -16,7 +16,8 @@ import {
   MessageSquare,
   FileText,
   Building2,
-  NotebookPen
+  NotebookPen,
+  Truck
 } from 'lucide-react';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
@@ -110,6 +111,20 @@ const voucherTypeConfig = {
     color: 'orange',
     prefix: 'NS',
     description: 'Documento interno de inventario - Registra salidas del almacén'
+  },
+  GRE_REMITENTE: {
+    label: 'GRE Remitente',
+    icon: Truck,
+    color: 'teal',
+    prefix: 'T',
+    description: 'Guía de Remisión Electrónica Remitente (código 09)'
+  },
+  GRE_TRANSPORTISTA: {
+    label: 'GRE Transportista',
+    icon: Truck,
+    color: 'indigo',
+    prefix: 'V',
+    description: 'Guía de Remisión Electrónica Transportista (código 31)'
   }
 };
 

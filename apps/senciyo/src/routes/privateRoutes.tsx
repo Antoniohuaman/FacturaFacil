@@ -26,6 +26,8 @@ import { BusinessConfiguration } from "../pages/Private/features/configuracion-s
 import { VoucherDesignConfigurationNew } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionDisenoComprobante";
 import { CajasConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionCajas";
 import { CajaFormPage } from "../pages/Private/features/configuracion-sistema/paginas/PaginaFormularioCaja";
+import { ConfiguracionConexionSunat } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionConexionSunat";
+import { ConfiguracionTransporte } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionTransporte";
 import CatalogoArticulosMain from "../pages/Private/features/catalogo-articulos/pages/CatalogoArticulosMain";
 import { ListaPrecios } from "../pages/Private/features/lista-precios/components/ListaPrecios";
 import { InventoryPage } from "../pages/Private/features/gestion-inventario/pages/InventoryPage";
@@ -111,6 +113,8 @@ export const privateRoutes: RouteObject[] = [
       { path: "/configuracion/cajas", element: conPermisos(<CajasConfiguration />, ['config.cajas.gestionar']) },
       { path: "/configuracion/cajas/new", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
       { path: "/configuracion/cajas/:id", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
+      { path: "/configuracion/conexion-sunat", element: conPermisos(<ConfiguracionConexionSunat />, ['config.conexion-sunat.gestionar']) },
+      { path: "/configuracion/transporte", element: conPermisos(<ConfiguracionTransporte />, ['config.transporte.gestionar']) },
       { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },
       { path: "/sin-permiso", element: <SinPermiso /> },
     ],

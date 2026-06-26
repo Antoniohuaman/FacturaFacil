@@ -318,6 +318,20 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     modulo: 'configuracion',
   },
   {
+    id: 'config.conexion-sunat.gestionar',
+    nombre: 'Gestionar conexión SUNAT',
+    descripcion: 'Configurar credenciales SOL y OAuth 2.0 para servicios electrónicos SUNAT.',
+    modulo: 'configuracion',
+    rutas: ['/configuracion/conexion-sunat'],
+  },
+  {
+    id: 'config.transporte.gestionar',
+    nombre: 'Gestionar configuración de transporte',
+    descripcion: 'Gestionar datos del transportista, conductores y vehículos para guías de remisión.',
+    modulo: 'configuracion',
+    rutas: ['/configuracion/transporte'],
+  },
+  {
     id: 'notificaciones.ver',
     nombre: 'Ver notificaciones',
     descripcion: 'Acceder al centro de notificaciones.',

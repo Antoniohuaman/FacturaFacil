@@ -2,13 +2,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 // src/features/configuration/components/series/SeriesForm.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { X, FileText, Receipt, Clipboard, MessageSquare, Hash, CheckCircle, Info, NotebookPen } from 'lucide-react';
+import { X, FileText, Receipt, Clipboard, MessageSquare, Hash, CheckCircle, Info, NotebookPen, Truck } from 'lucide-react';
 import { Input, Button, RadioButton, Select } from '@/contasis';
 import type { Series } from '../../modelos/Series';
 import type { Establecimiento } from '../../modelos/Establecimiento';
 import { InterruptorConfiguracion as SettingsToggle } from '../comunes/InterruptorConfiguracion';
 
-type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION';
+type VoucherType = 'INVOICE' | 'RECEIPT' | 'SALE_NOTE' | 'QUOTE' | 'COLLECTION' | 'GRE_REMITENTE' | 'GRE_TRANSPORTISTA';
 
 interface SeriesFormData {
   type: VoucherType;
@@ -74,6 +74,24 @@ const voucherTypeConfig = {
     description: 'Pagos registrados en caja',
     rules: 'Debe comenzar con "C" seguido de 3 caracteres',
     examples: ['C001', 'C123', 'CABC']
+  },
+  GRE_REMITENTE: {
+    label: 'GRE Remitente',
+    icon: Truck,
+    color: 'teal',
+    prefix: 'T',
+    description: 'Guía de Remisión Electrónica Remitente (código 09)',
+    rules: 'Debe comenzar con "T" seguido de 3 caracteres (ej: T001)',
+    examples: ['T001', 'T002', 'T010']
+  },
+  GRE_TRANSPORTISTA: {
+    label: 'GRE Transportista',
+    icon: Truck,
+    color: 'indigo',
+    prefix: 'V',
+    description: 'Guía de Remisión Electrónica Transportista (código 31)',
+    rules: 'Debe comenzar con "V" seguido de 3 caracteres (ej: V001)',
+    examples: ['V001', 'V002', 'V010']
   }
 };
 
@@ -102,35 +120,48 @@ export function SeriesForm({
     const config = voucherTypeConfig[type];
 
     if (!config.prefix) {
-      // For SALE_NOTE and QUOTE, suggest a pattern
-      const patterns = {
+      const patterns: Partial<Record<VoucherType, string[]>> = {
         SALE_NOTE: ['NV01', 'NOTA', 'SN01'],
-        QUOTE: ['COT1', 'PRES', 'QT01']
+        QUOTE: ['COT1', 'PRES', 'QT01'],
       };
-      const suggestions = patterns[type as keyof typeof patterns];
-
-      // Find first available suggestion
-      for (const suggestion of suggestions) {
-        if (!existingSeries.some(s => s.series === suggestion)) {
-          return suggestion;
+      const suggestions = patterns[type];
+      if (suggestions) {
+        for (const suggestion of suggestions) {
+          if (!existingSeries.some(s => s.series === suggestion)) {
+            return suggestion;
+          }
         }
       }
       return '';
     }
 
-    // For INVOICE and RECEIPT, find next available number
+    const greCodeMap: Partial<Record<VoucherType, string>> = {
+      GRE_REMITENTE: '09',
+      GRE_TRANSPORTISTA: '31',
+    };
+    const greCode = greCodeMap[type];
+
     const existingNumbers = existingSeries
-      .filter(s => s.documentType.category === type && s.series.startsWith(config.prefix))
-      .map(s => parseInt(s.series.substring(1)) || 0);
+      .filter(s => {
+        if (greCode) return s.documentType.code === greCode && s.series.startsWith(config.prefix);
+        return s.documentType.category === type && s.series.startsWith(config.prefix);
+      })
+      .map(s => parseInt(s.series.substring(config.prefix.length)) || 0);
 
     const nextNumber = Math.max(0, ...existingNumbers) + 1;
     return `${config.prefix}${nextNumber.toString().padStart(3, '0')}`;
   }, [existingSeries]);
 
+  const resolveVoucherTypeFromSeries = (s: Series): VoucherType => {
+    if (s.documentType.code === '09') return 'GRE_REMITENTE';
+    if (s.documentType.code === '31') return 'GRE_TRANSPORTISTA';
+    return s.documentType.category as VoucherType;
+  };
+
   useEffect(() => {
     if (series) {
       setFormData({
-        type: series.documentType.category as VoucherType,
+        type: resolveVoucherTypeFromSeries(series),
         series: series.series,
         EstablecimientoId: series.EstablecimientoId,
         initialNumber: series.configuration.startNumber,

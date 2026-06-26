@@ -9,7 +9,9 @@ export type SeriesVoucherType =
   | 'SALE_ORDER'
   | 'COLLECTION'
   | 'STOCK_ENTRY'
-  | 'STOCK_EXIT';
+  | 'STOCK_EXIT'
+  | 'GRE_REMITENTE'
+  | 'GRE_TRANSPORTISTA';
 
 export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, string> = {
   INVOICE: '01',
@@ -21,6 +23,8 @@ export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, str
   COLLECTION: 'RC',
   STOCK_ENTRY: 'NI',
   STOCK_EXIT: 'NS',
+  GRE_REMITENTE: '09',
+  GRE_TRANSPORTISTA: '31',
 };
 
 export const CREDIT_NOTE_DEFAULT_SERIES_CODES = ['FNC1', 'BNC1'] as const;
@@ -91,6 +95,14 @@ export const getVoucherTypeFromSeries = (
 
   if (series.documentType.code === 'NS' || series.documentType.name.includes('Nota de Salida')) {
     return 'STOCK_EXIT';
+  }
+
+  if (series.documentType.code === '09') {
+    return 'GRE_REMITENTE';
+  }
+
+  if (series.documentType.code === '31') {
+    return 'GRE_TRANSPORTISTA';
   }
 
   return normalizedSeries.startsWith('B') ? 'RECEIPT' : 'INVOICE';
@@ -201,6 +213,10 @@ export const validateSeriesCodeForVoucherType = (
     case 'STOCK_ENTRY':
     case 'STOCK_EXIT':
       return /^[A-Z0-9]{4}$/.test(normalized);
+    case 'GRE_REMITENTE':
+      return /^T[A-Z0-9]{3}$/.test(normalized);
+    case 'GRE_TRANSPORTISTA':
+      return /^V[A-Z0-9]{3}$/.test(normalized);
     default:
       return false;
   }
@@ -280,6 +296,10 @@ export const generateSeriesSuggestion = (
     case 'STOCK_ENTRY':
     case 'STOCK_EXIT':
       return '';
+    case 'GRE_REMITENTE':
+      return generatePrefixedSeriesSuggestion('T', existingSeries, 'T001');
+    case 'GRE_TRANSPORTISTA':
+      return generatePrefixedSeriesSuggestion('V', existingSeries, 'V001');
     default:
       return '';
   }
