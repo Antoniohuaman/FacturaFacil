@@ -43,15 +43,14 @@ const OPCIONES_MODALIDAD = (['02', '01'] as const).map((codigo) => ({
     MODALIDADES_TRANSPORTE.find((m) => m.codigo === codigo)?.descripcion ?? codigo,
 }));
 
-// ─── Indicadores opcionales del transporte privado ──────────
+// ─── Indicadores opcionales (sin esM1oL — tiene comportamiento especial) ─
 
-type CampoIndicador = 'transbordo' | 'retornoVehiculoVacio' | 'retornoEnvases' | 'esM1oL';
+type CampoIndicador = 'transbordo' | 'retornoVehiculoVacio' | 'retornoEnvases';
 
 const INDICADORES: ReadonlyArray<{ campo: CampoIndicador; label: string }> = [
   { campo: 'transbordo', label: 'Transbordo programado' },
   { campo: 'retornoVehiculoVacio', label: 'Retorno vacío' },
   { campo: 'retornoEnvases', label: 'Retorno envases' },
-  { campo: 'esM1oL', label: 'Vehículo M1/L' },
 ];
 
 // ─── Panel de Vehículos ─────────────────────────────────────
@@ -387,6 +386,120 @@ function PanelConductores({
   );
 }
 
+// ─── Bloque compacto para modo M1/L ────────────────────────
+
+interface BloquePlacaM1LProps {
+  placa: string | undefined;
+  todos: Vehiculo[];
+  conductores: Conductor[];
+  onChange: (placa: string | undefined) => void;
+  onCrear: (datos: CreateVehiculoInput) => Promise<void>;
+}
+
+function BloquePlacaM1L({ placa, todos, conductores, onChange, onCrear }: BloquePlacaM1LProps) {
+  const [dropdownAbierto, setDropdownAbierto] = useState(false);
+  const [modalNuevo, setModalNuevo] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleSubmitNuevo = async (datos: CreateVehiculoInput) => {
+    setGuardando(true);
+    try {
+      await onCrear(datos);
+      setModalNuevo(false);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!dropdownAbierto) return;
+    const fn = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
+        setDropdownAbierto(false);
+    };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, [dropdownAbierto]);
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-amber-100 dark:border-amber-900/30">
+      <span
+        className="text-xs font-medium text-amber-700 dark:text-amber-400"
+        title="Vehículos de categoría M1 (automóviles) o L (motocicletas). Solo se requiere la placa; no aplica conductor."
+      >
+        Categoría M1/L — placa del vehículo
+      </span>
+
+      {placa ? (
+        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-800/60 rounded-lg text-xs">
+          <span className="font-mono font-semibold text-gray-900 dark:text-white">
+            {formatearPlaca(placa)}
+          </span>
+          <button
+            type="button"
+            title="Quitar placa"
+            onClick={() => onChange(undefined)}
+            className="p-0.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setDropdownAbierto((p) => !p)}
+              className="flex items-center gap-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              Seleccionar placa <ChevronDown className="h-3 w-3" />
+            </button>
+            {dropdownAbierto && (
+              <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg min-w-[160px] max-h-40 overflow-y-auto">
+                {todos.length > 0 ? (
+                  todos.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => {
+                        onChange(v.placa);
+                        setDropdownAbierto(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-gray-900 dark:text-white hover:bg-violet-50 dark:hover:bg-violet-900/20 font-mono"
+                    >
+                      {formatearPlaca(v.placa)}
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-2 text-xs text-gray-400">Sin vehículos registrados.</p>
+                )}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setModalNuevo(true)}
+            className="flex items-center gap-1 text-xs px-2 py-1 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-700 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Nuevo
+          </button>
+        </div>
+      )}
+
+      <ModalFormularioVehiculo
+        isOpen={modalNuevo}
+        modo="crear"
+        vehiculosExistentes={todos}
+        conductores={conductores}
+        onClose={() => setModalNuevo(false)}
+        onSubmit={handleSubmitNuevo}
+        cargando={guardando}
+      />
+    </div>
+  );
+}
+
 // ─── Transporte Privado ─────────────────────────────────────
 
 interface SeccionTransportePrivadoProps {
@@ -412,11 +525,30 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
   const set = <K extends keyof TransportePrivado>(campo: K, valor: TransportePrivado[K]) =>
     onChange({ ...transporte, [campo]: valor });
 
+  const esM1oL = !!transporte.esM1oL;
+
+  const toggleM1oL = (checked: boolean) => {
+    onChange({
+      ...transporte,
+      esM1oL: checked,
+      // Al desactivar M1/L: limpia la placa M1/L
+      ...(!checked ? { placaVehiculoM1L: undefined } : {}),
+    });
+  };
+
   const crearVehiculo = async (datos: CreateVehiculoInput) => {
     if (!tenantId) return;
     const nuevo = await vehiculosDataSource.create(tenantId, datos);
     setVehiculos((prev) => [...prev, nuevo]);
     onChange({ ...transporte, vehiculosIds: [...transporte.vehiculosIds, nuevo.id] });
+  };
+
+  const crearVehiculoM1L = async (datos: CreateVehiculoInput) => {
+    if (!tenantId) return;
+    const nuevo = await vehiculosDataSource.create(tenantId, datos);
+    setVehiculos((prev) => [...prev, nuevo]);
+    // En modo M1/L: guarda la placa, no el ID
+    onChange({ ...transporte, placaVehiculoM1L: nuevo.placa });
   };
 
   const crearConductor = async (datos: CreateConductorInput) => {
@@ -428,7 +560,7 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
 
   return (
     <div className="space-y-4">
-      {/* Fila superior compacta: fecha + indicadores */}
+      {/* Fila superior compacta: fecha + indicadores normales + checkbox M1/L */}
       <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
         <div className="shrink-0">
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -455,25 +587,50 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
               </span>
             </label>
           ))}
+          {/* Checkbox M1/L — comportamiento especial: cambia el bloque de vehículos/conductores */}
+          <label
+            className="flex items-center gap-1.5 cursor-pointer"
+            title="Vehículos de categoría M1 (automóviles y similares) o L (motocicletas y similares). Solo se requiere la placa del vehículo."
+          >
+            <input
+              type="checkbox"
+              checked={esM1oL}
+              onChange={(e) => toggleM1oL(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+            />
+            <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Vehículo M1/L
+            </span>
+          </label>
         </div>
       </div>
 
-      {/* Dos paneles: vehículos y conductores */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-        <PanelVehiculos
-          vehiculosIds={transporte.vehiculosIds}
+      {/* Bloque condicional: modo M1/L o paneles normales */}
+      {esM1oL ? (
+        <BloquePlacaM1L
+          placa={transporte.placaVehiculoM1L}
           todos={vehiculos}
           conductores={conductores}
-          onChange={(ids) => set('vehiculosIds', ids)}
-          onCrear={crearVehiculo}
+          onChange={(placa) => set('placaVehiculoM1L', placa)}
+          onCrear={crearVehiculoM1L}
         />
-        <PanelConductores
-          conductoresIds={transporte.conductoresIds}
-          todos={conductores}
-          onChange={(ids) => set('conductoresIds', ids)}
-          onCrear={crearConductor}
-        />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <PanelVehiculos
+            vehiculosIds={transporte.vehiculosIds}
+            todos={vehiculos}
+            conductores={conductores}
+            onChange={(ids) => set('vehiculosIds', ids)}
+            onCrear={crearVehiculo}
+          />
+          <PanelConductores
+            conductoresIds={transporte.conductoresIds}
+            todos={conductores}
+            onChange={(ids) => set('conductoresIds', ids)}
+            onCrear={crearConductor}
+          />
+        </div>
+      )}
     </div>
   );
 }

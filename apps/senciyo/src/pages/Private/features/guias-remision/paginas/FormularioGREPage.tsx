@@ -186,6 +186,22 @@ function VistaPrevia({ guia, onCerrar }: { guia: GuiaRemision; onCerrar: () => v
           </div>
         )}
 
+        {/* Traslado M1/L */}
+        {guia.modalidadTransporte === '02' && guia.transportePrivado?.esM1oL && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/40 rounded-lg">
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
+              Vehículo M1/L
+            </span>
+            {guia.transportePrivado.placaVehiculoM1L ? (
+              <span className="font-mono text-xs font-semibold text-gray-900 dark:text-white">
+                {guia.transportePrivado.placaVehiculoM1L}
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400">— placa no asignada —</span>
+            )}
+          </div>
+        )}
+
         {/* Observaciones */}
         {guia.observaciones && (
           <div>

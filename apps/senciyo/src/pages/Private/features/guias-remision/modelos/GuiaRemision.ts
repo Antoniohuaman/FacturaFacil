@@ -53,6 +53,7 @@ export interface TransportePrivado {
   retornoVehiculoVacio?: boolean;
   retornoEnvases?: boolean;
   esM1oL?: boolean;
+  placaVehiculoM1L?: string;
 }
 
 export interface TransportePublico {
