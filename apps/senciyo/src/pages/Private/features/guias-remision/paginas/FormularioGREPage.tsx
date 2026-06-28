@@ -374,13 +374,6 @@ export default function FormularioGREPage() {
           onMotivoTrasladoChange={(m) =>
             setGuia((prev) => ({ ...prev, motivoTraslado: m as GuiaRemision['motivoTraslado'] }))
           }
-          modalidadTransporte={guia.modalidadTransporte}
-          onModalidadChange={(m) =>
-            setGuia((prev) => ({
-              ...prev,
-              modalidadTransporte: m as GuiaRemision['modalidadTransporte'],
-            }))
-          }
           destinatario={destinatarioActual}
           onDestinatarioChange={setDestinatario}
           errorDestinatario={errorDestinatario}
@@ -430,6 +423,12 @@ export default function FormularioGREPage() {
         {/* 5. Datos de transporte */}
         <SeccionTransporte
           modalidadTransporte={guia.modalidadTransporte}
+          onModalidadChange={(m) =>
+            setGuia((prev) => ({
+              ...prev,
+              modalidadTransporte: m as GuiaRemision['modalidadTransporte'],
+            }))
+          }
           transportePrivado={guia.transportePrivado}
           onTransportePrivadoChange={(t: TransportePrivado) =>
             setGuia((prev) => ({ ...prev, transportePrivado: t }))

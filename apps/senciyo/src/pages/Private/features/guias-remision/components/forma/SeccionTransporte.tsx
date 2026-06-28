@@ -13,7 +13,10 @@ import type {
 } from '../../../configuracion-sistema/modelos/Transporte';
 import { ModalFormularioVehiculo } from '../../../configuracion-sistema/components/transporte/ModalFormularioVehiculo';
 import { ModalFormularioConductor } from '../../../configuracion-sistema/components/transporte/ModalFormularioConductor';
-import { ENTIDADES_AUTORIZADORAS_D37 } from '../../../configuracion-sistema/datos/catalogosGRE';
+import {
+  ENTIDADES_AUTORIZADORAS_D37,
+  MODALIDADES_TRANSPORTE,
+} from '../../../configuracion-sistema/datos/catalogosGRE';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import {
   nombreCompletoConductor,
@@ -30,6 +33,15 @@ function abreviaturaEntidad(codigo: string): string {
 function nombreEntidad(codigo: string): string {
   return ENTIDADES_AUTORIZADORAS_D37.find((e) => e.codigo === codigo)?.entidad ?? codigo;
 }
+
+// ─── Selector de modalidad ──────────────────────────────────
+
+// Orden de presentación: privado (02) primero, público (01) segundo
+const OPCIONES_MODALIDAD = (['02', '01'] as const).map((codigo) => ({
+  codigo,
+  descripcion:
+    MODALIDADES_TRANSPORTE.find((m) => m.codigo === codigo)?.descripcion ?? codigo,
+}));
 
 // ─── Indicadores opcionales del transporte privado ──────────
 
@@ -560,6 +572,7 @@ const TRANSPORTE_PUBLICO_VACIO: TransportePublico = {
 
 interface SeccionTransporteProps {
   modalidadTransporte: string;
+  onModalidadChange: (codigo: string) => void;
   transportePrivado?: TransportePrivado;
   onTransportePrivadoChange: (t: TransportePrivado) => void;
   transportePublico?: TransportePublico;
@@ -568,6 +581,7 @@ interface SeccionTransporteProps {
 
 export default function SeccionTransporte({
   modalidadTransporte,
+  onModalidadChange,
   transportePrivado,
   onTransportePrivadoChange,
   transportePublico,
@@ -577,17 +591,38 @@ export default function SeccionTransporte({
 
   return (
     <ConfigurationCard title="Datos de transporte" icon={Truck}>
-      {esPrivado ? (
-        <SeccionTransportePrivado
-          transporte={transportePrivado ?? TRANSPORTE_PRIVADO_VACIO}
-          onChange={onTransportePrivadoChange}
-        />
-      ) : (
-        <SeccionTransportePublico
-          transporte={transportePublico ?? TRANSPORTE_PUBLICO_VACIO}
-          onChange={onTransportePublicoChange}
-        />
-      )}
+      <div className="space-y-4">
+        {/* Selector segmentado de modalidad */}
+        <div className="flex bg-gray-100 dark:bg-gray-700/60 rounded-lg p-0.5 self-start w-fit">
+          {OPCIONES_MODALIDAD.map(({ codigo, descripcion }) => (
+            <button
+              key={codigo}
+              type="button"
+              onClick={() => onModalidadChange(codigo)}
+              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${
+                modalidadTransporte === codigo
+                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              {descripcion}
+            </button>
+          ))}
+        </div>
+
+        {/* Contenido según modalidad */}
+        {esPrivado ? (
+          <SeccionTransportePrivado
+            transporte={transportePrivado ?? TRANSPORTE_PRIVADO_VACIO}
+            onChange={onTransportePrivadoChange}
+          />
+        ) : (
+          <SeccionTransportePublico
+            transporte={transportePublico ?? TRANSPORTE_PUBLICO_VACIO}
+            onChange={onTransportePublicoChange}
+          />
+        )}
+      </div>
     </ConfigurationCard>
   );
 }

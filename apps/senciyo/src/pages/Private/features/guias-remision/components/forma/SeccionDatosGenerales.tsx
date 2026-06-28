@@ -4,10 +4,7 @@ import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/for
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsultaDocumentos';
 import type { Cliente, DocumentType } from '../../../gestion-clientes/models/cliente.types';
-import {
-  MOTIVOS_TRASLADO,
-  MODALIDADES_TRANSPORTE,
-} from '../../../configuracion-sistema/datos/catalogosGRE';
+import { MOTIVOS_TRASLADO } from '../../../configuracion-sistema/datos/catalogosGRE';
 import type {
   TipoGRE,
   CodigoMotivoTraslado,
@@ -37,8 +34,6 @@ interface SeccionDatosGeneralesProps {
   onFechaEmisionChange: (fecha: string) => void;
   motivoTraslado: string;
   onMotivoTrasladoChange: (codigo: string) => void;
-  modalidadTransporte: string;
-  onModalidadChange: (codigo: string) => void;
   destinatario: DatosDestinatario | null;
   onDestinatarioChange: (datos: DatosDestinatario | null) => void;
   errorDestinatario?: string | null;
@@ -64,8 +59,6 @@ export default function SeccionDatosGenerales({
   onFechaEmisionChange,
   motivoTraslado,
   onMotivoTrasladoChange,
-  modalidadTransporte,
-  onModalidadChange,
   destinatario,
   onDestinatarioChange,
   errorDestinatario,
@@ -273,7 +266,7 @@ export default function SeccionDatosGenerales({
           )}
         </div>
 
-        {/* Fila compacta: Serie · Fecha · Motivo · Modalidad */}
+        {/* Fila compacta: Serie · Fecha · Motivo */}
         <div className="flex flex-wrap gap-3">
           {/* Serie — campo corto (4 chars) */}
           <div className="w-24 shrink-0">
@@ -333,21 +326,7 @@ export default function SeccionDatosGenerales({
             </select>
           </div>
 
-          {/* Modalidad — ancho fijo medio */}
-          <div className="w-44 shrink-0">
-            <label className={LABEL_CLS}>Modalidad</label>
-            <select
-              value={modalidadTransporte}
-              onChange={(e) => onModalidadChange(e.target.value)}
-              className={INPUT_CLS}
-            >
-              {MODALIDADES_TRANSPORTE.map((m) => (
-                <option key={m.codigo} value={m.codigo}>
-                  {m.descripcion}
-                </option>
-              ))}
-            </select>
-          </div>
+
         </div>
       </div>
     </ConfigurationCard>
