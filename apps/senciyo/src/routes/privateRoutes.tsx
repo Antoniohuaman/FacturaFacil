@@ -40,6 +40,11 @@ import DocumentosComerciales from "../pages/Private/features/documentos-comercia
 import FormularioDocumentoComercialPage from "../pages/Private/features/documentos-comerciales/pages/FormularioDocumentoComercialPage";
 import DocumentosComercialesLayout from "../pages/Private/features/documentos-comerciales/pages/DocumentosComercialesLayout";
 
+// Guías de Remisión
+import GuiasRemision from "../pages/Private/features/guias-remision/paginas/GuiasRemision";
+import FormularioGREPage from "../pages/Private/features/guias-remision/paginas/FormularioGREPage";
+import GuiasRemisionLayout from "../pages/Private/features/guias-remision/paginas/GuiasRemisionLayout";
+
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
 import { PermisoGuard } from "./PermisoGuard";
@@ -92,6 +97,16 @@ export const privateRoutes: RouteObject[] = [
           { path: "/documentos-comerciales", element: conPermisos(<DocumentosComerciales />, ['ventas.documentos.ver', 'ventas.documentos.crear']) },
           { path: "/documentos-comerciales/nuevo/:tipo", element: conPermisos(<FormularioDocumentoComercialPage />, ['ventas.documentos.crear']) },
           { path: "/documentos-comerciales/editar/:id", element: conPermisos(<FormularioDocumentoComercialPage />, ['ventas.documentos.editar']) },
+        ],
+      },
+
+      // Guías de Remisión — layout route garantiza el provider GRE para todas las rutas hijas
+      {
+        element: <GuiasRemisionLayout />,
+        children: [
+          { path: "/guias-remision", element: conPermisos(<GuiasRemision />, ['ventas.gre.ver']) },
+          { path: "/guias-remision/nuevo/:tipoParam", element: conPermisos(<FormularioGREPage />, ['ventas.gre.emitir']) },
+          { path: "/guias-remision/editar/:id", element: conPermisos(<FormularioGREPage />, ['ventas.gre.emitir']) },
         ],
       },
       

@@ -85,6 +85,20 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     modulo: 'ventas',
   },
   {
+    id: 'ventas.gre.ver',
+    nombre: 'Ver guías de remisión',
+    descripcion: 'Acceder al listado y detalle de guías de remisión electrónica.',
+    modulo: 'ventas',
+    rutas: ['/guias-remision'],
+  },
+  {
+    id: 'ventas.gre.emitir',
+    nombre: 'Crear y emitir GRE',
+    descripcion: 'Crear, editar y emitir guías de remisión electrónica (remitente y transportista).',
+    modulo: 'ventas',
+    rutas: ['/guias-remision/nuevo/:tipoParam', '/guias-remision/editar/:id'],
+  },
+  {
     id: 'clientes.ver',
     nombre: 'Ver clientes',
     descripcion: 'Acceder al listado y detalle de clientes.',

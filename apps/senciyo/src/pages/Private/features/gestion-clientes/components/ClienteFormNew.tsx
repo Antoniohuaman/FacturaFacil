@@ -21,6 +21,11 @@ import {
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 import { usePriceProfilesCatalog } from '../../lista-precios/hooks/usePriceProfilesCatalog';
 import { normalizarNombres } from '../utils/names';
+import type {
+  DireccionClienteUI as DireccionUI,
+  DireccionesClientePayload as DireccionesPersistidasPayload,
+} from '../utils/direccionesCliente';
+import { leerDireccionesPorClaves } from '../utils/direccionesCliente';
 
 type ClienteFormProps = {
   formData: ClienteFormData;
@@ -35,22 +40,6 @@ type ClienteFormProps = {
 const PRIMARY_COLOR = '#1478D4';
 
 type IdentificadorPestanaCliente = 'datosPrincipales' | 'direcciones' | 'contactos' | 'configuracionComercial' | 'datosSunat';
-
-type DireccionUI = {
-  id: string;
-  pais: string;
-  departamento: string;
-  provincia: string;
-  distrito: string;
-  ubigeo: string;
-  direccion: string;
-  referenciaDireccion: string;
-};
-
-type DireccionesPersistidasPayload = {
-  direcciones: DireccionUI[];
-  principalId: string | null;
-};
 
 type ContactoCorreoUI = {
   id: string;
@@ -130,54 +119,6 @@ const buildContactosCargosStorageKeys = (keys: string[]): string[] => {
     return [`${CONTACTOS_STORAGE_PREFIX}:global${CONTACTOS_CARGOS_STORAGE_SUFFIX}`];
   }
   return keys.map((key) => `${key}${CONTACTOS_CARGOS_STORAGE_SUFFIX}`);
-};
-
-const esDireccionPersistidaValida = (item: unknown): item is DireccionUI => {
-  if (!item || typeof item !== 'object') {
-    return false;
-  }
-
-  const candidate = item as Record<string, unknown>;
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.pais === 'string' &&
-    typeof candidate.departamento === 'string' &&
-    typeof candidate.provincia === 'string' &&
-    typeof candidate.distrito === 'string' &&
-    typeof candidate.ubigeo === 'string' &&
-    typeof candidate.direccion === 'string' &&
-    typeof candidate.referenciaDireccion === 'string'
-  );
-};
-
-const leerDireccionesPersistidas = (keys: string[]): DireccionesPersistidasPayload | null => {
-  if (typeof window === 'undefined' || keys.length === 0) {
-    return null;
-  }
-
-  for (const key of keys) {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      continue;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as Partial<DireccionesPersistidasPayload>;
-      const direcciones = Array.isArray(parsed?.direcciones)
-        ? parsed.direcciones.filter(esDireccionPersistidaValida)
-        : [];
-      if (direcciones.length === 0) {
-        continue;
-      }
-
-      const principalId = typeof parsed?.principalId === 'string' ? parsed.principalId : null;
-      return { direcciones, principalId };
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
 };
 
 const esContactoCorreoPersistidoValido = (value: unknown): value is ContactoCorreoUI => {
@@ -822,7 +763,7 @@ const ClienteFormNew: React.FC<ClienteFormProps> = ({
 
     direccionesScopeRef.current = direccionesStorageScope;
 
-    const persistidas = leerDireccionesPersistidas(direccionesStorageKeys);
+    const persistidas = leerDireccionesPorClaves(direccionesStorageKeys);
     if (persistidas && persistidas.direcciones.length > 0) {
       setDireccionesUI(persistidas.direcciones);
 

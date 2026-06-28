@@ -204,3 +204,52 @@ export const CONFIGURACIONES_VEHICULARES: readonly ConfiguracionVehicular[] = [
   { codigo: 'T3Se3', descripcion: 'Tracto-camión 3 ejes + semiremolque esp. 3 ejes' },
   { codigo: 'OM', descripcion: 'Otro medio' },
 ] as const;
+
+// ─────────────────────────────────────────────────────────────
+// 6. MOTIVOS DE TRASLADO — Catálogo SUNAT
+// ─────────────────────────────────────────────────────────────
+
+export interface MotivoTraslado {
+  codigo: string;
+  descripcion: string;
+  aplicacion: AplicacionDocumentoRelacionado;
+  estado: EstadoCatalogo;
+}
+
+export const MOTIVOS_TRASLADO: readonly MotivoTraslado[] = [
+  { codigo: '01', descripcion: 'Venta', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '02', descripcion: 'Compra', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '03', descripcion: 'Venta con entrega a terceros', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '04', descripcion: 'Traslado entre establecimientos de la misma empresa', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '05', descripcion: 'Consignación', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '06', descripcion: 'Devolución', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '07', descripcion: 'Recojo de bienes transformados', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '08', descripcion: 'Importación', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '09', descripcion: 'Exportación', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '13', descripcion: 'Otros', aplicacion: 'Ambas', estado: 'Vigente' },
+  { codigo: '14', descripcion: 'Venta sujeta a confirmación del comprador', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '17', descripcion: 'Traslado de bienes para transformación', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '18', descripcion: 'Traslado emisor itinerante CP', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '19', descripcion: 'Traslado a zona primaria', aplicacion: 'Remitente', estado: 'Vigente' },
+  { codigo: '20', descripcion: 'Traslado por subcontrata', aplicacion: 'Transportista', estado: 'Vigente' },
+  { codigo: '21', descripcion: 'Transbordo programado', aplicacion: 'Transportista', estado: 'Vigente' },
+  { codigo: '22', descripcion: 'Traslado por contrato de servicios de almacenamiento', aplicacion: 'Transportista', estado: 'Vigente' },
+] as const;
+
+// ─────────────────────────────────────────────────────────────
+// 7. MODALIDADES DE TRANSPORTE
+// ─────────────────────────────────────────────────────────────
+
+export interface ModalidadTransporte {
+  codigo: string;
+  descripcion: string;
+  estado: EstadoCatalogo;
+}
+
+export const MODALIDADES_TRANSPORTE: readonly ModalidadTransporte[] = [
+  { codigo: '01', descripcion: 'Transporte público', estado: 'Vigente' },
+  { codigo: '02', descripcion: 'Transporte privado', estado: 'Vigente' },
+] as const;
+
+export type CodigoMotivoTraslado = (typeof MOTIVOS_TRASLADO)[number]['codigo'];
+export type CodigoModalidadTransporte = (typeof MODALIDADES_TRANSPORTE)[number]['codigo'];

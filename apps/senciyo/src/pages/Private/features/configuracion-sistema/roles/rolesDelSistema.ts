@@ -20,6 +20,8 @@ const permisosVendedor: IdPermiso[] = [
   'ventas.documentos.crear',
   'ventas.documentos.ver',
   'ventas.documentos.editar',
+  'ventas.gre.ver',
+  'ventas.gre.emitir',
   'clientes.ver',
   'clientes.crear',
   'clientes.editar',

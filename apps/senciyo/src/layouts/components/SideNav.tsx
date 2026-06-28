@@ -4,6 +4,7 @@ import { Sidebar } from "@/contasis";
 import type { Module } from "@/contasis";
 import { useComprobanteContext } from "../../pages/Private/features/comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { useDocumentosComercialesContextOpcional } from "../../pages/Private/features/documentos-comerciales/contexts/DocumentosComercialesContext";
+import { useGuiasRemisionOpcional } from "../../pages/Private/features/guias-remision/contexto/ContextoGuiasRemision";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useConfigurationContext } from "../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion";
 import { useUserSession } from "../../contexts/UserSessionContext";
@@ -30,6 +31,12 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     ? documentosComercialesCtx.state.documentos.filter((d) => !d.esBorrador).length
     : 0;
 
+  // Obtener conteo de guías de remisión (solo disponible dentro de sus rutas)
+  const guiasRemisionCtx = useGuiasRemisionOpcional();
+  const guiasRemisionCount = guiasRemisionCtx
+    ? guiasRemisionCtx.state.guias.filter((g) => !g.esBorrador).length
+    : 0;
+
   // Determinar el módulo activo basado en la ruta
   const [activeModule, setActiveModule] = useState<string>("");
 
@@ -38,6 +45,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     if (path.startsWith('/comprobantes')) setActiveModule('comprobantes');
     else if (path.startsWith('/punto-venta')) setActiveModule('punto-venta');
     else if (path.startsWith('/documentos-comerciales')) setActiveModule('documentos-comerciales');
+    else if (path.startsWith('/guias-remision')) setActiveModule('guias-remision');
     else if (path.startsWith('/catalogo')) setActiveModule('productos');
     else if (path.startsWith('/inventario')) setActiveModule('inventario');
     else if (path.startsWith('/lista-precios')) setActiveModule('precios');
@@ -65,6 +73,12 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       title: "Doc. Comerciales",
       icon: "FilePen",
       badge: documentosComercialesCount > 0 ? String(documentosComercialesCount) : undefined
+    },
+    {
+      id: "guias-remision",
+      title: "Guías de Remisión",
+      icon: "Truck",
+      badge: guiasRemisionCount > 0 ? String(guiasRemisionCount) : undefined
     },
     {
       id: "productos",
@@ -121,6 +135,10 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       'ventas.documentos.crear',
       'ventas.documentos.editar',
     ],
+    'guias-remision': [
+      'ventas.gre.ver',
+      'ventas.gre.emitir',
+    ],
     'productos': [
       'catalogo.ver',
       'catalogo.crear',
@@ -175,6 +193,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       'comprobantes': '/comprobantes',
       'punto-venta': '/punto-venta',
       'documentos-comerciales': '/documentos-comerciales',
+      'guias-remision': '/guias-remision',
       'productos': '/catalogo',
       'inventario': '/inventario',
       'precios': '/lista-precios',
