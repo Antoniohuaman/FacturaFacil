@@ -65,7 +65,11 @@ export interface TransportePublico {
   vehiculosIds: string[];
   conductoresIds: string[];
   fechaEntregaBienes?: string;
+  transbordo?: boolean;
   retornoEnvases?: boolean;
+  registrarVehiculosConductores?: boolean;
+  esM1oL?: boolean;
+  placaVehiculoM1L?: string;
 }
 
 export interface GuiaRemision {

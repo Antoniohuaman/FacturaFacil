@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Truck, Plus, X, ChevronDown } from 'lucide-react';
+import { Truck, Plus, X, ChevronDown, HelpCircle } from 'lucide-react';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import {
   conductoresDataSource,
@@ -48,9 +48,9 @@ const OPCIONES_MODALIDAD = (['02', '01'] as const).map((codigo) => ({
 type CampoIndicador = 'transbordo' | 'retornoVehiculoVacio' | 'retornoEnvases';
 
 const INDICADORES: ReadonlyArray<{ campo: CampoIndicador; label: string }> = [
-  { campo: 'transbordo', label: 'Transbordo programado' },
-  { campo: 'retornoVehiculoVacio', label: 'Retorno vacío' },
-  { campo: 'retornoEnvases', label: 'Retorno envases' },
+  { campo: 'transbordo', label: 'Realiza transbordo programado' },
+  { campo: 'retornoVehiculoVacio', label: 'Retorno de vehículo vacío' },
+  { campo: 'retornoEnvases', label: 'Retorno con envases o embalajes vacíos' },
 ];
 
 // ─── Panel de Vehículos ─────────────────────────────────────
@@ -199,7 +199,7 @@ function PanelVehiculos({
                     onClick={() => hacerPrincipal(v.id)}
                     className="shrink-0 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
                   >
-                    Secundario
+                    Secundario {idx}
                   </button>
                 )}
                 {/* Placa */}
@@ -276,6 +276,9 @@ function PanelConductores({
 
   const quitar = (id: string) => onChange(conductoresIds.filter((x) => x !== id));
 
+  const hacerPrincipal = (id: string) =>
+    onChange([id, ...conductoresIds.filter((x) => x !== id)]);
+
   const handleSubmitNuevo = async (datos: CreateConductorInput) => {
     setGuardando(true);
     try {
@@ -348,29 +351,46 @@ function PanelConductores({
         </p>
       ) : (
         <ul className="space-y-1">
-          {seleccionados.map((c) => (
-            <li
-              key={c.id}
-              className="flex items-center gap-2 text-xs bg-gray-50 dark:bg-gray-800/60 rounded-lg px-2.5 py-1.5 min-w-0"
-            >
-              <div className="flex-1 min-w-0 truncate">
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {nombreCompletoConductor(c)}
-                </span>
-                <span className="text-gray-500 dark:text-gray-400 ml-1.5">
-                  · {c.tipoDocumento} {c.numeroDocumento} · Lic. {c.numeroLicencia}
-                </span>
-              </div>
-              <button
-                type="button"
-                title="Quitar de esta guía"
-                onClick={() => quitar(c.id)}
-                className="shrink-0 p-0.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+          {seleccionados.map((c, idx) => {
+            const esPrincipal = idx === 0;
+            return (
+              <li
+                key={c.id}
+                className="flex items-center gap-2 text-xs bg-gray-50 dark:bg-gray-800/60 rounded-lg px-2.5 py-1.5 min-w-0"
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </li>
-          ))}
+                {esPrincipal ? (
+                  <span className="shrink-0 text-[10px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/30 px-1.5 py-0.5 rounded">
+                    Principal
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    title="Establecer como principal"
+                    onClick={() => hacerPrincipal(c.id)}
+                    className="shrink-0 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded hover:bg-violet-100 dark:hover:bg-violet-900/30 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
+                  >
+                    Secundario {idx}
+                  </button>
+                )}
+                <div className="flex-1 min-w-0 truncate">
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {nombreCompletoConductor(c)}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-400 ml-1.5">
+                    · {c.tipoDocumento} {c.numeroDocumento} · Lic. {c.numeroLicencia}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  title="Quitar de esta guía"
+                  onClick={() => quitar(c.id)}
+                  className="shrink-0 p-0.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -428,7 +448,7 @@ function BloquePlacaM1L({ placa, todos, conductores, onChange, onCrear }: Bloque
         className="text-xs font-medium text-amber-700 dark:text-amber-400"
         title="Vehículos de categoría M1 (automóviles) o L (motocicletas). Solo se requiere la placa; no aplica conductor."
       >
-        Categoría M1/L — placa del vehículo
+        Vehículo categoría M1 o L — placa
       </span>
 
       {placa ? (
@@ -533,8 +553,9 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
     onChange({
       ...transporte,
       esM1oL: checked,
-      // Al desactivar M1/L: limpia la placa M1/L
-      ...(!checked ? { placaVehiculoM1L: undefined } : {}),
+      ...(!checked
+        ? { placaVehiculoM1L: undefined }
+        : { retornoVehiculoVacio: undefined, retornoEnvases: undefined, vehiculosIds: [], conductoresIds: [] }),
     });
   };
 
@@ -566,7 +587,7 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
       <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
         <div className="shrink-0">
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-            Fecha inicio de traslado
+            Fecha de inicio de traslado
           </label>
           <input
             type="date"
@@ -592,19 +613,21 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pb-1">
-          {INDICADORES.map(({ campo, label }) => (
-            <label key={campo} className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={!!transporte[campo]}
-                onChange={(e) => set(campo, e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-              />
-              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                {label}
-              </span>
-            </label>
-          ))}
+          {(esM1oL ? INDICADORES.filter((i) => i.campo === 'transbordo') : INDICADORES).map(
+            ({ campo, label }) => (
+              <label key={campo} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!transporte[campo]}
+                  onChange={(e) => set(campo, e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                />
+                <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                  {label}
+                </span>
+              </label>
+            ),
+          )}
           {/* Checkbox M1/L — comportamiento especial: cambia el bloque de vehículos/conductores */}
           <label
             className="flex items-center gap-1.5 cursor-pointer"
@@ -617,7 +640,7 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
               className="h-3.5 w-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
             />
             <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Vehículo M1/L
+              Vehículo categoría M1 o L
             </span>
           </label>
         </div>
@@ -661,8 +684,66 @@ interface SeccionTransportePublicoProps {
 }
 
 function SeccionTransportePublico({ transporte, onChange }: SeccionTransportePublicoProps) {
+  const { tenantId } = useTenant();
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
+  const [conductores, setConductores] = useState<Conductor[]>([]);
+  const [errorFecha, setErrorFecha] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    void vehiculosDataSource
+      .list(tenantId)
+      .then((v) => setVehiculos(v.filter((x) => x.estado === 'ACTIVO')));
+    void conductoresDataSource
+      .list(tenantId)
+      .then((c) => setConductores(c.filter((x) => x.estado === 'ACTIVO')));
+  }, [tenantId]);
+
   const set = <K extends keyof TransportePublico>(campo: K, valor: TransportePublico[K]) =>
     onChange({ ...transporte, [campo]: valor });
+
+  const hoy = new Date().toISOString().split('T')[0];
+
+  const crearVehiculo = async (datos: CreateVehiculoInput) => {
+    if (!tenantId) return;
+    const nuevo = await vehiculosDataSource.create(tenantId, datos);
+    setVehiculos((prev) => [...prev, nuevo]);
+    onChange({ ...transporte, vehiculosIds: [...transporte.vehiculosIds, nuevo.id] });
+  };
+
+  const crearConductor = async (datos: CreateConductorInput) => {
+    if (!tenantId) return;
+    const nuevo = await conductoresDataSource.create(tenantId, datos);
+    setConductores((prev) => [...prev, nuevo]);
+    onChange({ ...transporte, conductoresIds: [...transporte.conductoresIds, nuevo.id] });
+  };
+
+  const toggleM1oL = (checked: boolean) => {
+    onChange({
+      ...transporte,
+      esM1oL: checked,
+      placaVehiculoM1L: checked ? transporte.placaVehiculoM1L : undefined,
+      ...(checked
+        ? {
+            transportistaNombre: '',
+            transportistaNumeroDocumento: '',
+            registroMTC: undefined,
+            transbordo: transporte.transbordo,
+            retornoEnvases: undefined,
+            registrarVehiculosConductores: false,
+            vehiculosIds: [],
+            conductoresIds: [],
+          }
+        : {}),
+    });
+  };
+
+  const crearVehiculoM1L = async (datos: CreateVehiculoInput) => {
+    if (!tenantId) return;
+    const nuevo = await vehiculosDataSource.create(tenantId, datos);
+    setVehiculos((prev) => [...prev, nuevo]);
+    onChange({ ...transporte, placaVehiculoM1L: nuevo.placa });
+  };
 
   const INPUT_CLS =
     'w-full h-9 px-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none';
@@ -670,59 +751,209 @@ function SeccionTransportePublico({ transporte, onChange }: SeccionTransportePub
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div>
-          <label className={LABEL_CLS}>RUC transportista</label>
-          <input
-            type="text"
-            value={transporte.transportistaNumeroDocumento}
-            onChange={(e) => set('transportistaNumeroDocumento', e.target.value)}
-            placeholder="20XXXXXXXXX"
-            maxLength={11}
-            className={INPUT_CLS}
+      {transporte.esM1oL ? (
+        <>
+          {/* M1/L: fecha entrega, transbordo, M1/L y placa */}
+          <div className="shrink-0">
+            <label className={LABEL_CLS}>Fecha de entrega de bienes al transportista</label>
+            <input
+              type="date"
+              value={transporte.fechaEntregaBienes ?? ''}
+              min={hoy}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val && val < hoy) {
+                  setErrorFecha('La fecha no puede ser anterior a hoy.');
+                } else {
+                  setErrorFecha(null);
+                  set('fechaEntregaBienes', val);
+                }
+              }}
+              className={`h-9 px-2 text-sm border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none ${
+                errorFecha
+                  ? 'border-red-400 dark:border-red-500'
+                  : 'border-gray-200 dark:border-gray-600'
+              }`}
+            />
+            {errorFecha && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errorFecha}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!transporte.transbordo}
+                onChange={(e) => set('transbordo', e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Realiza transbordo programado
+              </span>
+            </label>
+            <label
+              className="flex items-center gap-1.5 cursor-pointer"
+              title="Vehículos de categoría M1 (automóviles y similares) o L (motocicletas y similares). Solo se requiere la placa del vehículo."
+            >
+              <input
+                type="checkbox"
+                checked={!!transporte.esM1oL}
+                onChange={(e) => toggleM1oL(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Vehículo categoría M1 o L
+              </span>
+            </label>
+          </div>
+          <BloquePlacaM1L
+            placa={transporte.placaVehiculoM1L}
+            todos={vehiculos}
+            conductores={conductores}
+            onChange={(placa) => set('placaVehiculoM1L', placa)}
+            onCrear={crearVehiculoM1L}
           />
-        </div>
-        <div>
-          <label className={LABEL_CLS}>Razón social</label>
-          <input
-            type="text"
-            value={transporte.transportistaNombre}
-            onChange={(e) => set('transportistaNombre', e.target.value)}
-            placeholder="Nombre del transportista"
-            className={INPUT_CLS}
-          />
-        </div>
-        <div>
-          <label className={LABEL_CLS}>Registro MTC</label>
-          <input
-            type="text"
-            value={transporte.registroMTC ?? ''}
-            onChange={(e) => set('registroMTC', e.target.value)}
-            placeholder="N° registro MTC"
-            className={INPUT_CLS}
-          />
-        </div>
-        <div>
-          <label className={LABEL_CLS}>Fecha de entrega de bienes</label>
-          <input
-            type="date"
-            value={transporte.fechaEntregaBienes ?? ''}
-            onChange={(e) => set('fechaEntregaBienes', e.target.value)}
-            className={INPUT_CLS}
-          />
-        </div>
-      </div>
-      <label className="flex items-center gap-1.5 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={!!transporte.retornoEnvases}
-          onChange={(e) => set('retornoEnvases', e.target.checked)}
-          className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600"
-        />
-        <span className="text-xs text-gray-700 dark:text-gray-300">
-          Retorno con envases o embalajes vacíos
-        </span>
-      </label>
+        </>
+      ) : (
+        <>
+          {/* Normal: datos del transportista + fecha + checkboxes + paneles */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div>
+              <label className={LABEL_CLS}>RUC transportista</label>
+              <input
+                type="text"
+                value={transporte.transportistaNumeroDocumento}
+                onChange={(e) => set('transportistaNumeroDocumento', e.target.value)}
+                placeholder="20XXXXXXXXX"
+                maxLength={11}
+                className={INPUT_CLS}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLS}>Razón social</label>
+              <input
+                type="text"
+                value={transporte.transportistaNombre}
+                onChange={(e) => set('transportistaNombre', e.target.value)}
+                placeholder="Nombre del transportista"
+                className={INPUT_CLS}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLS}>Registro MTC</label>
+              <input
+                type="text"
+                value={transporte.registroMTC ?? ''}
+                onChange={(e) => set('registroMTC', e.target.value)}
+                placeholder="N° registro MTC"
+                className={INPUT_CLS}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLS}>Fecha de entrega de bienes al transportista</label>
+              <input
+                type="date"
+                value={transporte.fechaEntregaBienes ?? ''}
+                min={hoy}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val && val < hoy) {
+                    setErrorFecha('La fecha no puede ser anterior a hoy.');
+                  } else {
+                    setErrorFecha(null);
+                    set('fechaEntregaBienes', val);
+                  }
+                }}
+                className={`w-full h-9 px-2 text-sm border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none ${
+                  errorFecha
+                    ? 'border-red-400 dark:border-red-500'
+                    : 'border-gray-200 dark:border-gray-600'
+                }`}
+              />
+              {errorFecha && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errorFecha}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!transporte.transbordo}
+                onChange={(e) => set('transbordo', e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Realiza transbordo programado
+              </span>
+            </label>
+            <label
+              className="flex items-center gap-1.5 cursor-pointer"
+              title="Vehículos de categoría M1 (automóviles y similares) o L (motocicletas y similares). Solo se requiere la placa del vehículo."
+            >
+              <input
+                type="checkbox"
+                checked={!!transporte.esM1oL}
+                onChange={(e) => toggleM1oL(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Vehículo categoría M1 o L
+              </span>
+            </label>
+            <label
+              className="flex items-center gap-1.5 cursor-pointer"
+              title="Marcar si existe acuerdo con el transportista para registrar los vehículos y conductores asignados a esta guía de remisión."
+            >
+              <input
+                type="checkbox"
+                checked={!!transporte.registrarVehiculosConductores}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  onChange({
+                    ...transporte,
+                    registrarVehiculosConductores: checked,
+                    ...(!checked ? { vehiculosIds: [], conductoresIds: [] } : {}),
+                  });
+                }}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300">
+                Registrar vehículos y conductores del transportista
+              </span>
+              <HelpCircle className="h-3 w-3 text-gray-400 shrink-0" />
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!transporte.retornoEnvases}
+                onChange={(e) => set('retornoEnvases', e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Retorno con envases o embalajes vacíos
+              </span>
+            </label>
+          </div>
+          {transporte.registrarVehiculosConductores && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <PanelVehiculos
+                vehiculosIds={transporte.vehiculosIds}
+                todos={vehiculos}
+                conductores={conductores}
+                onChange={(ids) => set('vehiculosIds', ids)}
+                onCrear={crearVehiculo}
+              />
+              <PanelConductores
+                conductoresIds={transporte.conductoresIds}
+                todos={conductores}
+                onChange={(ids) => set('conductoresIds', ids)}
+                onCrear={crearConductor}
+              />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

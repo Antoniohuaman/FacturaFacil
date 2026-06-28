@@ -17,7 +17,10 @@ import type {
   UnidadPeso,
 } from '../modelos/GuiaRemision';
 import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS } from '../modelos/GuiaRemision';
-import { MOTIVOS_TRASLADO } from '../../configuracion-sistema/datos/catalogosGRE';
+import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37 } from '../../configuracion-sistema/datos/catalogosGRE';
+import { vehiculosDataSource, conductoresDataSource } from '../../configuracion-sistema/api/fuenteDatosTransporte';
+import type { Vehiculo, Conductor } from '../../configuracion-sistema/modelos/Transporte';
+import { formatearPlaca, nombreCompletoConductor } from '../../configuracion-sistema/components/transporte/helpersTransporte';
 import SeccionDatosGenerales from '../components/forma/SeccionDatosGenerales';
 import SeccionDocumentosRelacionados from '../components/forma/SeccionDocumentosRelacionados';
 import SeccionBienes from '../components/forma/SeccionBienes';
@@ -46,6 +49,16 @@ interface DatosDestinatario {
 
 function VistaPrevia({ guia, onCerrar }: { guia: GuiaRemision; onCerrar: () => void }) {
   const motivo = MOTIVOS_TRASLADO.find((m) => m.codigo === guia.motivoTraslado);
+  const { tenantId } = useTenant();
+  const [vehiculosPrevia, setVehiculosPrevia] = useState<Vehiculo[]>([]);
+  const [conductoresPrevia, setConductoresPrevia] = useState<Conductor[]>([]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    void vehiculosDataSource.list(tenantId).then(setVehiculosPrevia);
+    void conductoresDataSource.list(tenantId).then(setConductoresPrevia);
+  }, [tenantId]);
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-violet-200 dark:border-violet-700 shadow-sm overflow-hidden">
       {/* Encabezado del documento */}
@@ -186,20 +199,283 @@ function VistaPrevia({ guia, onCerrar }: { guia: GuiaRemision; onCerrar: () => v
           </div>
         )}
 
-        {/* Traslado M1/L */}
-        {guia.modalidadTransporte === '02' && guia.transportePrivado?.esM1oL && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/40 rounded-lg">
-            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-              Vehículo M1/L
-            </span>
-            {guia.transportePrivado.placaVehiculoM1L ? (
-              <span className="font-mono text-xs font-semibold text-gray-900 dark:text-white">
-                {guia.transportePrivado.placaVehiculoM1L}
-              </span>
-            ) : (
-              <span className="text-xs text-gray-400">— placa no asignada —</span>
+        {/* ─── Transporte privado ─── */}
+        {guia.modalidadTransporte === '02' && guia.transportePrivado && (
+          <>
+            <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos del traslado</p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-xs px-2 py-0.5 rounded bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300">
+                  Transporte privado
+                </span>
+                {guia.transportePrivado.esM1oL && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 font-medium text-amber-700 dark:text-amber-400">
+                    Vehículo categoría M1 o L
+                  </span>
+                )}
+              </div>
+              {guia.transportePrivado.esM1oL && guia.transportePrivado.placaVehiculoM1L && (
+                <p className="text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Placa: </span>
+                  <span className="font-mono font-semibold text-gray-900 dark:text-white">
+                    {guia.transportePrivado.placaVehiculoM1L}
+                  </span>
+                </p>
+              )}
+              {guia.transportePrivado.fechaInicioTraslado && (
+                <p className="text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Fecha de inicio de traslado: </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {guia.transportePrivado.fechaInicioTraslado}
+                  </span>
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-500 dark:text-gray-400 truncate">Realiza transbordo programado</span>
+                  <span className={`font-medium shrink-0 ${guia.transportePrivado.transbordo ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {guia.transportePrivado.transbordo ? 'Sí' : 'No'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-500 dark:text-gray-400 truncate">Vehículo categoría M1 o L</span>
+                  <span className={`font-medium shrink-0 ${guia.transportePrivado.esM1oL ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {guia.transportePrivado.esM1oL ? 'Sí' : 'No'}
+                  </span>
+                </div>
+                {!guia.transportePrivado.esM1oL && (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500 dark:text-gray-400 truncate">Retorno de vehículo vacío</span>
+                      <span className={`font-medium shrink-0 ${guia.transportePrivado.retornoVehiculoVacio ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                        {guia.transportePrivado.retornoVehiculoVacio ? 'Sí' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500 dark:text-gray-400 truncate">Retorno con envases o embalajes vacíos</span>
+                      <span className={`font-medium shrink-0 ${guia.transportePrivado.retornoEnvases ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                        {guia.transportePrivado.retornoEnvases ? 'Sí' : 'No'}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            {!guia.transportePrivado.esM1oL && guia.transportePrivado.vehiculosIds.length > 0 && (
+              <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos de los vehículos</p>
+                <ul className="space-y-1.5">
+                  {guia.transportePrivado.vehiculosIds.map((vid, idx) => {
+                    const v = vehiculosPrevia.find((x) => x.id === vid);
+                    if (!v) return null;
+                    const ent = ENTIDADES_AUTORIZADORAS_D37.find(
+                      (e) => e.codigo === v.codigoEntidadAutorizadora,
+                    );
+                    return (
+                      <li key={vid} className="flex items-start gap-2 text-xs">
+                        <span className="shrink-0 text-[10px] font-medium text-gray-400 w-[76px] pt-px">
+                          {idx === 0 ? 'Principal' : `Secundario ${idx}`}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-mono font-semibold text-gray-900 dark:text-white">
+                            {formatearPlaca(v.placa)}
+                          </span>
+                          {ent && (
+                            <span className="text-gray-500 dark:text-gray-400 ml-2">
+                              · {ent.entidad}{v.numeroAutorizacion ? ` – Aut. ${v.numeroAutorizacion}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
-          </div>
+            {!guia.transportePrivado.esM1oL && guia.transportePrivado.conductoresIds.length > 0 && (
+              <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos de los conductores</p>
+                <ul className="space-y-1.5">
+                  {guia.transportePrivado.conductoresIds.map((cid, idx) => {
+                    const c = conductoresPrevia.find((x) => x.id === cid);
+                    if (!c) return null;
+                    return (
+                      <li key={cid} className="flex items-start gap-2 text-xs">
+                        <span className="shrink-0 text-[10px] font-medium text-gray-400 w-[76px] pt-px">
+                          {idx === 0 ? 'Principal' : `Secundario ${idx}`}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {nombreCompletoConductor(c)}
+                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 ml-1.5">
+                            · {c.tipoDocumento} {c.numeroDocumento} · Lic. {c.numeroLicencia}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ─── Transporte público ─── */}
+        {guia.modalidadTransporte === '01' && guia.transportePublico && (
+          <>
+            <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos del traslado</p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-xs px-2 py-0.5 rounded bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300">
+                  Transporte público
+                </span>
+                {guia.transportePublico.esM1oL && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 font-medium text-amber-700 dark:text-amber-400">
+                    Vehículo categoría M1 o L
+                  </span>
+                )}
+              </div>
+              {guia.transportePublico.esM1oL && guia.transportePublico.placaVehiculoM1L && (
+                <p className="text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Placa: </span>
+                  <span className="font-mono font-semibold text-gray-900 dark:text-white">
+                    {guia.transportePublico.placaVehiculoM1L}
+                  </span>
+                </p>
+              )}
+              {guia.transportePublico.fechaEntregaBienes && (
+                <p className="text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Fecha de entrega de bienes al transportista: </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {guia.transportePublico.fechaEntregaBienes}
+                  </span>
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-500 dark:text-gray-400 truncate">Realiza transbordo programado</span>
+                  <span className={`font-medium shrink-0 ${guia.transportePublico.transbordo ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {guia.transportePublico.transbordo ? 'Sí' : 'No'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-500 dark:text-gray-400 truncate">Vehículo categoría M1 o L</span>
+                  <span className={`font-medium shrink-0 ${guia.transportePublico.esM1oL ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                    {guia.transportePublico.esM1oL ? 'Sí' : 'No'}
+                  </span>
+                </div>
+                {!guia.transportePublico.esM1oL && (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500 dark:text-gray-400 truncate">Registrar vehículos y conductores</span>
+                      <span className={`font-medium shrink-0 ${guia.transportePublico.registrarVehiculosConductores ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                        {guia.transportePublico.registrarVehiculosConductores ? 'Sí' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-gray-500 dark:text-gray-400 truncate">Retorno con envases o embalajes vacíos</span>
+                      <span className={`font-medium shrink-0 ${guia.transportePublico.retornoEnvases ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                        {guia.transportePublico.retornoEnvases ? 'Sí' : 'No'}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            {(guia.transportePublico.transportistaNombre ||
+              guia.transportePublico.transportistaNumeroDocumento ||
+              guia.transportePublico.registroMTC) && (
+              <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-1.5 text-sm">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos del transportista</p>
+                {guia.transportePublico.transportistaNumeroDocumento && (
+                  <p className="text-xs">
+                    <span className="text-gray-500 dark:text-gray-400">RUC: </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {guia.transportePublico.transportistaNumeroDocumento}
+                    </span>
+                  </p>
+                )}
+                {guia.transportePublico.transportistaNombre && (
+                  <p className="text-xs">
+                    <span className="text-gray-500 dark:text-gray-400">Razón social: </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {guia.transportePublico.transportistaNombre}
+                    </span>
+                  </p>
+                )}
+                {guia.transportePublico.registroMTC && (
+                  <p className="text-xs">
+                    <span className="text-gray-500 dark:text-gray-400">Registro MTC: </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {guia.transportePublico.registroMTC}
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
+            {!guia.transportePublico.esM1oL &&
+              guia.transportePublico.registrarVehiculosConductores &&
+              guia.transportePublico.vehiculosIds.length > 0 && (
+              <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos de los vehículos</p>
+                <ul className="space-y-1.5">
+                  {guia.transportePublico.vehiculosIds.map((vid, idx) => {
+                    const v = vehiculosPrevia.find((x) => x.id === vid);
+                    if (!v) return null;
+                    const ent = ENTIDADES_AUTORIZADORAS_D37.find(
+                      (e) => e.codigo === v.codigoEntidadAutorizadora,
+                    );
+                    return (
+                      <li key={vid} className="flex items-start gap-2 text-xs">
+                        <span className="shrink-0 text-[10px] font-medium text-gray-400 w-[76px] pt-px">
+                          {idx === 0 ? 'Principal' : `Secundario ${idx}`}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-mono font-semibold text-gray-900 dark:text-white">
+                            {formatearPlaca(v.placa)}
+                          </span>
+                          {ent && (
+                            <span className="text-gray-500 dark:text-gray-400 ml-2">
+                              · {ent.entidad}{v.numeroAutorizacion ? ` – Aut. ${v.numeroAutorizacion}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            {!guia.transportePublico.esM1oL &&
+              guia.transportePublico.registrarVehiculosConductores &&
+              guia.transportePublico.conductoresIds.length > 0 && (
+              <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos de los conductores</p>
+                <ul className="space-y-1.5">
+                  {guia.transportePublico.conductoresIds.map((cid, idx) => {
+                    const c = conductoresPrevia.find((x) => x.id === cid);
+                    if (!c) return null;
+                    return (
+                      <li key={cid} className="flex items-start gap-2 text-xs">
+                        <span className="shrink-0 text-[10px] font-medium text-gray-400 w-[76px] pt-px">
+                          {idx === 0 ? 'Principal' : `Secundario ${idx}`}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {nombreCompletoConductor(c)}
+                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 ml-1.5">
+                            · {c.tipoDocumento} {c.numeroDocumento} · Lic. {c.numeroLicencia}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </>
         )}
 
         {/* Observaciones */}
