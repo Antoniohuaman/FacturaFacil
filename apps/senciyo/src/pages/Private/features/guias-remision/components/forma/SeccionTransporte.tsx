@@ -511,6 +511,8 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
   const { tenantId } = useTenant();
   const [conductores, setConductores] = useState<Conductor[]>([]);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
+  const [errorFecha, setErrorFecha] = useState<string | null>(null);
+  const hoy = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     if (!tenantId) return;
@@ -559,7 +561,7 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Fila superior compacta: fecha + indicadores normales + checkbox M1/L */}
       <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
         <div className="shrink-0">
@@ -569,9 +571,25 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
           <input
             type="date"
             value={transporte.fechaInicioTraslado}
-            onChange={(e) => set('fechaInicioTraslado', e.target.value)}
-            className="h-9 px-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none"
+            min={hoy}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val && val < hoy) {
+                setErrorFecha('La fecha de inicio no puede ser anterior a hoy.');
+              } else {
+                setErrorFecha(null);
+                set('fechaInicioTraslado', val);
+              }
+            }}
+            className={`h-9 px-2 text-sm border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none ${
+              errorFecha
+                ? 'border-red-400 dark:border-red-500'
+                : 'border-gray-200 dark:border-gray-600'
+            }`}
           />
+          {errorFecha && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errorFecha}</p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pb-1">
           {INDICADORES.map(({ campo, label }) => (
@@ -746,40 +764,44 @@ export default function SeccionTransporte({
 }: SeccionTransporteProps) {
   const esPrivado = modalidadTransporte === '02';
 
-  return (
-    <ConfigurationCard title="Datos de transporte" icon={Truck}>
-      <div className="space-y-4">
-        {/* Selector segmentado de modalidad */}
-        <div className="flex bg-gray-100 dark:bg-gray-700/60 rounded-lg p-0.5 self-start w-fit">
-          {OPCIONES_MODALIDAD.map(({ codigo, descripcion }) => (
-            <button
-              key={codigo}
-              type="button"
-              onClick={() => onModalidadChange(codigo)}
-              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${
-                modalidadTransporte === codigo
-                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-            >
-              {descripcion}
-            </button>
-          ))}
-        </div>
+  const selectorModalidad = (
+    <div className="flex bg-gray-100 rounded-lg p-0.5 shrink-0">
+      {OPCIONES_MODALIDAD.map(({ codigo, descripcion }) => (
+        <button
+          key={codigo}
+          type="button"
+          onClick={() => onModalidadChange(codigo)}
+          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+            modalidadTransporte === codigo
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          {descripcion}
+        </button>
+      ))}
+    </div>
+  );
 
-        {/* Contenido según modalidad */}
-        {esPrivado ? (
-          <SeccionTransportePrivado
-            transporte={transportePrivado ?? TRANSPORTE_PRIVADO_VACIO}
-            onChange={onTransportePrivadoChange}
-          />
-        ) : (
-          <SeccionTransportePublico
-            transporte={transportePublico ?? TRANSPORTE_PUBLICO_VACIO}
-            onChange={onTransportePublicoChange}
-          />
-        )}
-      </div>
+  return (
+    <ConfigurationCard
+      title="Datos de transporte"
+      icon={Truck}
+      headerPaddingClassName="px-4 py-2"
+      contentClassName="px-4 py-3"
+      actions={selectorModalidad}
+    >
+      {esPrivado ? (
+        <SeccionTransportePrivado
+          transporte={transportePrivado ?? TRANSPORTE_PRIVADO_VACIO}
+          onChange={onTransportePrivadoChange}
+        />
+      ) : (
+        <SeccionTransportePublico
+          transporte={transportePublico ?? TRANSPORTE_PUBLICO_VACIO}
+          onChange={onTransportePublicoChange}
+        />
+      )}
     </ConfigurationCard>
   );
 }
