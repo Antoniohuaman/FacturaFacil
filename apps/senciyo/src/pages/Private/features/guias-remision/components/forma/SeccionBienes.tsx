@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { CheckSquare, Package, Plus, Search, Square, Trash2, X } from 'lucide-react';
+import { CheckSquare, Package, Search, Square, Trash2, X } from 'lucide-react';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -10,7 +10,7 @@ import { BIEN_GRE_VACIO } from '../../modelos/GuiaRemision';
 
 // ── Column system ──────────────────────────────────────────────────────────
 type GREColumnId =
-  | 'descripcion'
+  | 'producto'
   | 'codigo'
   | 'cantidad'
   | 'unidad'
@@ -34,7 +34,7 @@ interface GREColumnConfig {
 }
 
 const DEFAULT_GRE_COLUMNS: GREColumnConfig[] = [
-  { id: 'descripcion',         label: 'Descripción',  isFixed: true,  isVisible: true,  align: 'left',   minWidth: '180px', order: 1   },
+  { id: 'producto',            label: 'Producto',     isFixed: true,  isVisible: true,  align: 'left',   minWidth: '200px', order: 1   },
   { id: 'codigo',              label: 'Código',        isFixed: true,  isVisible: true,  align: 'left',   width: '90px',     order: 2   },
   { id: 'cantidad',            label: 'Cant.',         isFixed: true,  isVisible: true,  align: 'center', width: '88px',     order: 3   },
   { id: 'unidad',              label: 'Unidad',        isFixed: true,  isVisible: true,  align: 'left',   width: '115px',    order: 4   },
@@ -48,7 +48,6 @@ const DEFAULT_GRE_COLUMNS: GREColumnConfig[] = [
 
 const GRE_STORAGE_KEY = 'gre_bienes_columns_config';
 
-// Subconjunto vigente calculado una vez al cargar el módulo
 const BNES_VIGENTES = BIENES_NORMALIZADOS.filter((b) => b.estado === 'Vigente');
 
 // ── Cell styles ────────────────────────────────────────────────────────────
@@ -222,10 +221,6 @@ export default function SeccionBienes({
     setMostrarDropdown(false);
   }, [seleccionados, allProducts, bienes, onChange, buildBienDesdeProducto]);
 
-  const agregarManual = useCallback(() => {
-    onChange([...bienes, BIEN_GRE_VACIO()]);
-  }, [bienes, onChange]);
-
   const actualizar = useCallback(
     <K extends keyof BienGRE>(id: string, campo: K, valor: BienGRE[K]) => {
       onChange(bienes.map((b) => (b.id === id ? { ...b, [campo]: valor } : b)));
@@ -268,7 +263,8 @@ export default function SeccionBienes({
             ? {
                 ...b,
                 codigoSubpartidaNacional: subpartida || undefined,
-                codigoProductoSunat: bn?.codigoProductoSunat ?? (subpartida ? b.codigoProductoSunat : undefined),
+                codigoProductoSunat:
+                  bn?.codigoProductoSunat ?? (subpartida ? b.codigoProductoSunat : undefined),
               }
             : b,
         ),
@@ -284,19 +280,24 @@ export default function SeccionBienes({
       : undefined;
 
     switch (colId) {
-      case 'descripcion':
+      case 'producto':
         return (
-          <td key={`${bien.id}-desc`} className="px-2 py-2 sticky left-0 bg-white dark:bg-gray-900 z-10">
-            {catalogProduct && (
-              <span className="block text-[10px] text-violet-600 dark:text-violet-400 font-medium truncate mb-0.5 max-w-[200px]">
+          <td
+            key={`${bien.id}-prod`}
+            className="px-2 py-2 sticky left-0 bg-white dark:bg-gray-900 z-10"
+          >
+            {catalogProduct ? (
+              <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate mb-0.5 leading-tight">
                 {catalogProduct.nombre}
-              </span>
+              </div>
+            ) : (
+              <div className="text-[10px] text-gray-400 italic mb-0.5">Sin producto</div>
             )}
             <input
               type="text"
               value={bien.descripcion}
               onChange={(e) => actualizar(bien.id, 'descripcion', e.target.value)}
-              placeholder="Descripción del bien"
+              placeholder="Descripción para SUNAT"
               className={CELL}
             />
           </td>
@@ -478,6 +479,17 @@ export default function SeccionBienes({
     }
   }
 
+  // ── + Columnas action (va en el header de la card) ─────────────────────
+  const columnasAction = (
+    <button
+      type="button"
+      onClick={() => setShowColumnConfig((v) => !v)}
+      className="inline-flex h-7 items-center justify-center rounded-md px-2 text-[12px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none transition-colors"
+    >
+      + Columnas
+    </button>
+  );
+
   const totalCols = visibleColumns.length;
 
   // ══════════════════════════════════════════════════════════════════════
@@ -486,173 +498,8 @@ export default function SeccionBienes({
       title="Bienes a transportar"
       icon={Package}
       badge={bienes.length > 0 ? bienes.length : undefined}
+      actions={columnasAction}
     >
-      {/* ── Área de búsqueda — gradiente idéntico a Comprobantes ── */}
-      <div className="mb-3 p-2.5 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/10 dark:to-purple-900/10 rounded-lg border border-violet-100 dark:border-violet-800/30">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Input con icono */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Buscar producto por nombre, código o descripción..."
-              value={busqueda}
-              onChange={(e) => {
-                setBusqueda(e.target.value);
-                setMostrarDropdown(e.target.value.length > 0);
-              }}
-              onFocus={() => {
-                if (busqueda.length > 0) setMostrarDropdown(true);
-              }}
-              onBlur={() => setTimeout(() => setMostrarDropdown(false), 200)}
-              className="w-full h-9 pl-9 pr-9 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:focus:ring-violet-900/30 transition-all placeholder:text-gray-400"
-            />
-            {busqueda && (
-              <button
-                type="button"
-                onClick={() => {
-                  setBusqueda('');
-                  setMostrarDropdown(false);
-                  setSeleccionados(new Set());
-                  inputRef.current?.focus();
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Toggle selección múltiple */}
-          <button
-            type="button"
-            onClick={() => {
-              setModoMultiple((v) => !v);
-              setSeleccionados(new Set());
-            }}
-            className={`h-9 px-3 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 ${
-              modoMultiple
-                ? 'bg-violet-600 text-white border-violet-600 hover:bg-violet-700'
-                : 'bg-white dark:bg-gray-800 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20'
-            }`}
-          >
-            {modoMultiple ? `Selec. (${seleccionados.size})` : 'Múltiple'}
-          </button>
-
-          {/* Confirmar selección múltiple */}
-          {modoMultiple && seleccionados.size > 0 && (
-            <button
-              type="button"
-              onClick={agregarSeleccionados}
-              className="h-9 px-3 text-xs font-medium rounded-lg bg-violet-600 text-white border border-violet-600 hover:bg-violet-700 transition-colors whitespace-nowrap shrink-0"
-            >
-              + Agregar {seleccionados.size} {seleccionados.size === 1 ? 'bien' : 'bienes'}
-            </button>
-          )}
-
-          {/* Agregar manual */}
-          <button
-            type="button"
-            onClick={agregarManual}
-            className="h-9 px-2.5 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Manual
-          </button>
-
-          {/* Personalizar columnas */}
-          <button
-            type="button"
-            onClick={() => setShowColumnConfig((v) => !v)}
-            className="h-9 px-2 text-[12px] font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
-          >
-            + Columnas
-          </button>
-        </div>
-
-        {/* Dropdown de resultados */}
-        {mostrarDropdown && productosFiltrados.length > 0 && (
-          <div className="relative mt-1.5">
-            <div className="absolute z-40 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-              {productosFiltrados.map((p) => {
-                const isSelected = seleccionados.has(p.id);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onMouseDown={(e) => {
-                      if (modoMultiple) {
-                        e.preventDefault();
-                        setSeleccionados((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(p.id)) next.delete(p.id);
-                          else next.add(p.id);
-                          return next;
-                        });
-                      } else {
-                        agregarDesdeProducto(p);
-                      }
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors ${
-                      isSelected
-                        ? 'bg-violet-50 dark:bg-violet-900/20'
-                        : 'hover:bg-violet-50 dark:hover:bg-violet-900/20'
-                    }`}
-                  >
-                    {/* Checkbox (solo en modo múltiple) */}
-                    {modoMultiple ? (
-                      <div
-                        className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${
-                          isSelected
-                            ? 'bg-violet-600 border-violet-600'
-                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-                        }`}
-                      >
-                        {isSelected && (
-                          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none">
-                            <path
-                              d="M2 6l3 3 5-5"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                    ) : (
-                      <Package className="h-4 w-4 text-gray-400 shrink-0" />
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white block truncate">
-                        {p.nombre}
-                      </span>
-                      {p.codigo && (
-                        <span className="text-xs text-gray-400 font-mono">{p.codigo}</span>
-                      )}
-                      {p.aplicaBienNormalizadoGRE && (
-                        <span className="ml-2 text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
-                          GRE
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-400 shrink-0">{p.unidad ?? 'NIU'}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {mostrarDropdown && busqueda.length > 0 && productosFiltrados.length === 0 && (
-          <div className="mt-1.5 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-500 dark:text-gray-400">
-            Sin resultados para &ldquo;{busqueda}&rdquo;
-          </div>
-        )}
-      </div>
-
       {/* ── Panel de personalización de columnas ── */}
       {showColumnConfig && (
         <div className="mb-3 p-4 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/10 dark:to-purple-900/10 rounded-lg border border-violet-200 dark:border-violet-700 shadow-sm">
@@ -735,6 +582,152 @@ export default function SeccionBienes({
         </div>
       )}
 
+      {/* ── Área de búsqueda ── */}
+      <div className="mb-3 p-2.5 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/10 dark:to-purple-900/10 rounded-lg border border-violet-100 dark:border-violet-800/30">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Input de búsqueda */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Buscar producto por nombre, código o descripción..."
+              value={busqueda}
+              onChange={(e) => {
+                setBusqueda(e.target.value);
+                setMostrarDropdown(e.target.value.length > 0);
+              }}
+              onFocus={() => {
+                if (busqueda.length > 0) setMostrarDropdown(true);
+              }}
+              onBlur={() => setTimeout(() => setMostrarDropdown(false), 200)}
+              className="w-full h-9 pl-9 pr-9 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:focus:ring-violet-900/30 transition-all placeholder:text-gray-400"
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBusqueda('');
+                  setMostrarDropdown(false);
+                  setSeleccionados(new Set());
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Toggle selección múltiple */}
+          <button
+            type="button"
+            onClick={() => {
+              setModoMultiple((v) => !v);
+              setSeleccionados(new Set());
+            }}
+            className={`h-9 px-3 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 ${
+              modoMultiple
+                ? 'bg-violet-600 text-white border-violet-600 hover:bg-violet-700'
+                : 'bg-white dark:bg-gray-800 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-700 hover:bg-violet-50 dark:hover:bg-violet-900/20'
+            }`}
+          >
+            {modoMultiple ? `Selec. (${seleccionados.size})` : 'Selección múltiple'}
+          </button>
+
+          {/* Confirmar selección múltiple */}
+          {modoMultiple && seleccionados.size > 0 && (
+            <button
+              type="button"
+              onClick={agregarSeleccionados}
+              className="h-9 px-3 text-xs font-medium rounded-lg bg-violet-600 text-white border border-violet-600 hover:bg-violet-700 transition-colors whitespace-nowrap shrink-0"
+            >
+              + Agregar {seleccionados.size} {seleccionados.size === 1 ? 'bien' : 'bienes'}
+            </button>
+          )}
+        </div>
+
+        {/* Dropdown de resultados */}
+        {mostrarDropdown && productosFiltrados.length > 0 && (
+          <div className="relative mt-1.5">
+            <div className="absolute z-40 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {productosFiltrados.map((p) => {
+                const isSelected = seleccionados.has(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onMouseDown={(e) => {
+                      if (modoMultiple) {
+                        e.preventDefault();
+                        setSeleccionados((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(p.id)) next.delete(p.id);
+                          else next.add(p.id);
+                          return next;
+                        });
+                      } else {
+                        agregarDesdeProducto(p);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors ${
+                      isSelected
+                        ? 'bg-violet-50 dark:bg-violet-900/20'
+                        : 'hover:bg-violet-50 dark:hover:bg-violet-900/20'
+                    }`}
+                  >
+                    {modoMultiple ? (
+                      <div
+                        className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                          isSelected
+                            ? 'bg-violet-600 border-violet-600'
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                            <path
+                              d="M2 6l3 3 5-5"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                    ) : (
+                      <Package className="h-4 w-4 text-gray-400 shrink-0" />
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white block truncate">
+                        {p.nombre}
+                      </span>
+                      {p.codigo && (
+                        <span className="text-xs text-gray-400 font-mono">{p.codigo}</span>
+                      )}
+                      {p.aplicaBienNormalizadoGRE && (
+                        <span className="ml-2 text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
+                          GRE
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">{p.unidad ?? 'NIU'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {mostrarDropdown && busqueda.length > 0 && productosFiltrados.length === 0 && (
+          <div className="mt-1.5 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-500 dark:text-gray-400">
+            Sin resultados para &ldquo;{busqueda}&rdquo;
+          </div>
+        )}
+      </div>
+
       {/* ── Tabla compacta ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
@@ -763,16 +756,9 @@ export default function SeccionBienes({
                 <tr>
                   <td colSpan={totalCols} className="px-4 py-10 text-center">
                     <Package className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-                      Sin bienes. Busca en el catálogo o agrega uno manualmente.
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      Sin bienes. Busca productos en el catálogo usando el buscador de arriba.
                     </p>
-                    <button
-                      type="button"
-                      onClick={agregarManual}
-                      className="text-xs text-violet-600 dark:text-violet-400 hover:underline font-medium"
-                    >
-                      + Agregar bien manualmente
-                    </button>
                   </td>
                 </tr>
               ) : (
