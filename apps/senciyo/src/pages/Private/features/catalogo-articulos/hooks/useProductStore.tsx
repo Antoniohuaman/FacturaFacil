@@ -606,6 +606,8 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     tipoExistencia: input.tipoExistencia ?? existing?.tipoExistencia ?? 'MERCADERIAS',
     sujetoDetraccion: input.sujetoDetraccion ?? existing?.sujetoDetraccion ?? false,
     codigoDetraccion: input.codigoDetraccion ?? existing?.codigoDetraccion ?? null,
+    aplicaBienNormalizadoGRE: input.aplicaBienNormalizadoGRE ?? existing?.aplicaBienNormalizadoGRE ?? false,
+    subpartidaNacionalGRE: input.subpartidaNacionalGRE ?? existing?.subpartidaNacionalGRE,
     cantidad: toOptionalNumber(input.cantidad, existing?.cantidad),
     stockPorEstablecimiento: input.stockPorEstablecimiento ?? existing?.stockPorEstablecimiento,
     stockPorAlmacen: input.stockPorAlmacen ?? existing?.stockPorAlmacen,
@@ -662,6 +664,8 @@ function mapFormDataToInput(data: ProductFormData): ProductInput {
     tipoExistencia: data.tipoExistencia ?? 'MERCADERIAS',
     sujetoDetraccion: data.sujetoDetraccion ?? false,
     codigoDetraccion: data.codigoDetraccion ?? null,
+    aplicaBienNormalizadoGRE: data.aplicaBienNormalizadoGRE ?? false,
+    subpartidaNacionalGRE: data.aplicaBienNormalizadoGRE ? (data.subpartidaNacionalGRE || undefined) : undefined,
   };
 }
 

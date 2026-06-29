@@ -6,6 +6,7 @@ import type { ColumnKey } from './columnConfig';
 import type { ProductTableColumnState } from '../../hooks/useProductColumnsManager';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { BIENES_NORMALIZADOS } from '../../../configuracion-sistema/datos/catalogosGRE';
 
 const getEstablecimientoShortName = (name: string, maxLength = 18) => {
   const trimmed = name.trim().replace(/\s+/g, ' ');
@@ -461,6 +462,42 @@ export const ProductTableRow: React.FC<ProductTableRowProps> = ({
             )}
           </td>
         );
+      case 'bienNormalizadoGRE':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.aplicaBienNormalizadoGRE ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                Sí
+              </span>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'subpartidaGRE':
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {row.subpartidaNacionalGRE ? (
+              <div className="text-sm font-mono text-gray-900">{row.subpartidaNacionalGRE}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      case 'codigoProductoSunatGRE': {
+        const bienGRE = row.subpartidaNacionalGRE
+          ? BIENES_NORMALIZADOS.find((b) => b.subpartidaNacional === row.subpartidaNacionalGRE)
+          : undefined;
+        return (
+          <td className="px-6 py-4 whitespace-nowrap">
+            {bienGRE ? (
+              <div className="text-sm font-mono text-gray-900">{bienGRE.codigoProductoSunat}</div>
+            ) : (
+              <span className="text-sm text-gray-400">-</span>
+            )}
+          </td>
+        );
+      }
       case 'descuentoProducto':
         return (
           <td className="px-6 py-4 whitespace-nowrap">

@@ -72,6 +72,10 @@ export default function SeccionBienes({
 
   const agregarDesdeProducto = useCallback(
     (prod: Product) => {
+      const bnGRE =
+        prod.aplicaBienNormalizadoGRE && prod.subpartidaNacionalGRE
+          ? BNES_VIGENTES.find((b) => b.subpartidaNacional === prod.subpartidaNacionalGRE)
+          : undefined;
       onChange([
         ...bienes,
         {
@@ -80,6 +84,11 @@ export default function SeccionBienes({
           descripcion: prod.descripcion ?? prod.nombre,
           unidad: prod.unidad ?? 'NIU',
           codigoBien: prod.codigo ?? '',
+          ...(bnGRE && {
+            normalizado: true,
+            codigoSubpartidaNacional: bnGRE.subpartidaNacional,
+            codigoProductoSunat: bnGRE.codigoProductoSunat,
+          }),
         },
       ]);
       setBusqueda('');

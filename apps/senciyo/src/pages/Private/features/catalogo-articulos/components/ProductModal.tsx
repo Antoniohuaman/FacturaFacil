@@ -631,6 +631,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 formData={formData}
                 setFormData={setFormData}
                 error={errors.codigoDetraccion}
+                errorGRE={errors.subpartidaNacionalGRE}
                 productType={productType}
                 impuesto={formData.impuesto ?? ''}
               />

@@ -156,6 +156,24 @@ const renderHeaderCell = (
           Código SUNAT
         </th>
       );
+    case 'bienNormalizadoGRE':
+      return (
+        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Bien GRE
+        </th>
+      );
+    case 'subpartidaGRE':
+      return (
+        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Subpartida GRE
+        </th>
+      );
+    case 'codigoProductoSunatGRE':
+      return (
+        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Cód. Prod. SUNAT GRE
+        </th>
+      );
     case 'descuentoProducto':
       return (
         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

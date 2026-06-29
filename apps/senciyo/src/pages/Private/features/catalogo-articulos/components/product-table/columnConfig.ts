@@ -20,7 +20,10 @@ export type ColumnKey =
   | 'peso'
   | 'tipoExistencia'
   | 'fechaCreacion'
-  | 'fechaActualizacion';
+  | 'fechaActualizacion'
+  | 'bienNormalizadoGRE'
+  | 'subpartidaGRE'
+  | 'codigoProductoSunatGRE';
 
 export interface ColumnConfig {
   key: ColumnKey;
@@ -47,6 +50,9 @@ export const AVAILABLE_COLUMNS: ColumnConfig[] = [
   { key: 'codigoBarras', label: 'Código Barras', defaultVisible: false, filterable: true, group: 'codigos' },
   { key: 'codigoFabrica', label: 'Código Fábrica', defaultVisible: false, filterable: true, group: 'codigos' },
   { key: 'codigoSunat', label: 'Código SUNAT', defaultVisible: false, filterable: true, group: 'codigos' },
+  { key: 'bienNormalizadoGRE', label: 'Bien GRE', defaultVisible: false, filterable: false, group: 'codigos' },
+  { key: 'subpartidaGRE', label: 'Subpartida GRE', defaultVisible: false, filterable: false, group: 'codigos' },
+  { key: 'codigoProductoSunatGRE', label: 'Cód. Prod. SUNAT GRE', defaultVisible: false, filterable: false, group: 'codigos' },
   { key: 'precioCompra', label: 'Precio Compra', defaultVisible: false, filterable: false, group: 'financieras' },
   { key: 'porcentajeGanancia', label: '% Ganancia', defaultVisible: false, filterable: false, group: 'financieras' },
   { key: 'descuentoProducto', label: '% Descuento', defaultVisible: false, filterable: false, group: 'financieras' },

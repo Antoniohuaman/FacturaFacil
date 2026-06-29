@@ -97,6 +97,8 @@ const buildDefaultFormData = (
   tipoExistencia: 'MERCADERIAS',
   sujetoDetraccion: false,
   codigoDetraccion: null,
+  aplicaBienNormalizadoGRE: false,
+  subpartidaNacionalGRE: '',
 });
 
 export const useProductForm = ({
@@ -538,6 +540,8 @@ export const useProductForm = ({
         tipoExistencia: productData.tipoExistencia || 'MERCADERIAS',
         sujetoDetraccion: productData.sujetoDetraccion ?? false,
         codigoDetraccion: productData.codigoDetraccion ?? null,
+        aplicaBienNormalizadoGRE: productData.aplicaBienNormalizadoGRE ?? false,
+        subpartidaNacionalGRE: productData.subpartidaNacionalGRE || '',
       });
 
       setImagePreview(productData.imagen || '');
@@ -653,6 +657,10 @@ export const useProductForm = ({
       !formData.tipoExistencia
     ) {
       newErrors.tipoExistencia = 'El tipo de existencia es requerido';
+    }
+
+    if (formData.aplicaBienNormalizadoGRE && !formData.subpartidaNacionalGRE) {
+      newErrors.subpartidaNacionalGRE = 'Selecciona una subpartida para el bien normalizado GRE';
     }
 
     if (formData.sujetoDetraccion) {

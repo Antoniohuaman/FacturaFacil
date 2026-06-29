@@ -10,11 +10,24 @@ import {
 } from '@/shared/catalogos-sunat';
 import type { CodigoDetraccionTributaria, TipoProductoDetraccion } from '@/shared/catalogos-sunat';
 import type { ProductFormData } from '../../models/types';
+import {
+  BIENES_NORMALIZADOS,
+  type BienNormalizado,
+} from '../../../configuracion-sistema/datos/catalogosGRE';
+
+// Subconjunto vigente calculado una sola vez
+const BNES_VIGENTES = BIENES_NORMALIZADOS.filter((b) => b.estado === 'Vigente');
+
+function etiquetaGRE(b: BienNormalizado): string {
+  return `${b.subpartidaNacional} — ${b.descripcion} · Cód. prod. SUNAT: ${b.codigoProductoSunat} · ${b.regulacion}`;
+}
 
 interface SeccionInformacionTributariaProductoProps {
   formData: ProductFormData;
   setFormData: Dispatch<SetStateAction<ProductFormData>>;
   error?: string;
+  /** Error de validación para el bien normalizado GRE. */
+  errorGRE?: string;
   /** Tipo de producto del formulario — filtra los códigos de detracción mostrados. */
   productType?: TipoProductoDetraccion;
   /** Impuesto del producto (ej. 'IGV (18.00%)') — filtra por coherencia con el código. */
@@ -38,10 +51,12 @@ export function SeccionInformacionTributariaProducto({
   formData,
   setFormData,
   error,
+  errorGRE,
   productType = 'BIEN',
   impuesto = '',
 }: SeccionInformacionTributariaProductoProps) {
   const tieneDetraccion = formData.sujetoDetraccion ?? false;
+  const tieneGRE = formData.aplicaBienNormalizadoGRE ?? false;
 
   const [textoInput, setTextoInput] = useState('');
   const [comboboxAbierto, setComboboxAbierto] = useState(false);
@@ -51,6 +66,15 @@ export function SeccionInformacionTributariaProducto({
   const contenedorInputRef = useRef<HTMLDivElement>(null);
   const dropdownPortalRef = useRef<HTMLDivElement | null>(null);
 
+  // ── Estado GRE ──
+  const [textoGRE, setTextoGRE] = useState('');
+  const [comboboxGREAbierto, setComboboxGREAbierto] = useState(false);
+  const [rectInputGRE, setRectInputGRE] = useState<DOMRect | null>(null);
+
+  const inputGRERef = useRef<HTMLInputElement>(null);
+  const contenedorGRERef = useRef<HTMLDivElement>(null);
+  const dropdownGREPortalRef = useRef<HTMLDivElement | null>(null);
+
   const detalle = formData.codigoDetraccion
     ? CATALOGO_54_DETRACCIONES.find((i) => i.codigo === formData.codigoDetraccion)
     : undefined;
@@ -58,9 +82,19 @@ export function SeccionInformacionTributariaProducto({
   // Valor visual confirmado cuando hay código seleccionado y el dropdown está cerrado
   const modoSeleccionado = !comboboxAbierto && !!detalle;
 
+  // ── Bien normalizado GRE seleccionado ──
+  const bienGRESeleccionado = formData.subpartidaNacionalGRE
+    ? BNES_VIGENTES.find((b) => b.subpartidaNacional === formData.subpartidaNacionalGRE)
+    : undefined;
+  const modoGRESeleccionado = !comboboxGREAbierto && !!bienGRESeleccionado;
+
   useEffect(() => {
     setTextoInput(detalle ? etiquetaOpcion(detalle) : '');
   }, [detalle]);
+
+  useEffect(() => {
+    setTextoGRE(bienGRESeleccionado ? etiquetaGRE(bienGRESeleccionado) : '');
+  }, [bienGRESeleccionado]);
 
   useEffect(() => {
     const handleClickFuera = (e: MouseEvent) => {
@@ -102,9 +136,54 @@ export function SeccionInformacionTributariaProducto({
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [comboboxAbierto, detalle]);
 
+  useEffect(() => {
+    const handleClickFueraGRE = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        !(contenedorGRERef.current?.contains(target) ?? false) &&
+        !(dropdownGREPortalRef.current?.contains(target) ?? false)
+      ) {
+        setComboboxGREAbierto(false);
+        setTextoGRE(bienGRESeleccionado ? etiquetaGRE(bienGRESeleccionado) : '');
+      }
+    };
+    document.addEventListener('mousedown', handleClickFueraGRE);
+    return () => document.removeEventListener('mousedown', handleClickFueraGRE);
+  }, [bienGRESeleccionado]);
+
+  useEffect(() => {
+    if (!comboboxGREAbierto) return;
+    const handleEscGRE = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setComboboxGREAbierto(false);
+        setTextoGRE(bienGRESeleccionado ? etiquetaGRE(bienGRESeleccionado) : '');
+      }
+    };
+    document.addEventListener('keydown', handleEscGRE);
+    return () => document.removeEventListener('keydown', handleEscGRE);
+  }, [comboboxGREAbierto, bienGRESeleccionado]);
+
+  useEffect(() => {
+    if (!comboboxGREAbierto) return;
+    const handleScrollGRE = (e: Event) => {
+      if (!(dropdownGREPortalRef.current?.contains(e.target as Node) ?? false)) {
+        setComboboxGREAbierto(false);
+        setTextoGRE(bienGRESeleccionado ? etiquetaGRE(bienGRESeleccionado) : '');
+      }
+    };
+    window.addEventListener('scroll', handleScrollGRE, true);
+    return () => window.removeEventListener('scroll', handleScrollGRE, true);
+  }, [comboboxGREAbierto, bienGRESeleccionado]);
+
   const actualizarRect = useCallback(() => {
     if (inputRef.current) {
       setRectInput(inputRef.current.getBoundingClientRect());
+    }
+  }, []);
+
+  const actualizarRectGRE = useCallback(() => {
+    if (inputGRERef.current) {
+      setRectInputGRE(inputGRERef.current.getBoundingClientRect());
     }
   }, []);
 
@@ -153,6 +232,33 @@ export function SeccionInformacionTributariaProducto({
     setComboboxAbierto(true);
     if (detalle && valor !== etiquetaOpcion(detalle)) {
       setFormData((prev) => ({ ...prev, codigoDetraccion: null }));
+    }
+  };
+
+  // ── Handlers GRE ──
+  const gresFiltrados = useMemo(() => {
+    const termino = textoGRE.toLowerCase().trim();
+    if (!termino || modoGRESeleccionado) return BNES_VIGENTES;
+    return BNES_VIGENTES.filter(
+      (b) =>
+        b.subpartidaNacional.includes(termino) ||
+        b.descripcion.toLowerCase().includes(termino) ||
+        b.codigoProductoSunat.includes(termino) ||
+        b.regulacion.toLowerCase().includes(termino),
+    );
+  }, [textoGRE, modoGRESeleccionado]);
+
+  const seleccionarBienGRE = (b: BienNormalizado) => {
+    setFormData((prev) => ({ ...prev, subpartidaNacionalGRE: b.subpartidaNacional }));
+    setTextoGRE(etiquetaGRE(b));
+    setComboboxGREAbierto(false);
+  };
+
+  const handleCambioGRE = (valor: string) => {
+    setTextoGRE(valor);
+    setComboboxGREAbierto(true);
+    if (bienGRESeleccionado && valor !== etiquetaGRE(bienGRESeleccionado)) {
+      setFormData((prev) => ({ ...prev, subpartidaNacionalGRE: '' }));
     }
   };
 
@@ -271,6 +377,106 @@ export function SeccionInformacionTributariaProducto({
 
       {error && tieneDetraccion && (
         <p className="text-xs text-red-500">{error}</p>
+      )}
+
+      {/* Switch: Bien normalizado GRE */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-sm text-gray-700">Bien normalizado GRE</span>
+          <Tooltip
+            contenido="Activa si este producto aplica como bien normalizado en Guías de Remisión (SPOT/IVAP). Al seleccionarlo en una GRE, la subpartida y el código de producto SUNAT se autocompletan."
+            ubicacion="arriba"
+          >
+            <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+          </Tooltip>
+          <span className="text-xs text-gray-400">{tieneGRE ? 'Sí' : 'No'}</span>
+          <Switch
+            checked={tieneGRE}
+            onChange={(checked) => {
+              setFormData((prev) => ({
+                ...prev,
+                aplicaBienNormalizadoGRE: checked,
+                subpartidaNacionalGRE: checked ? prev.subpartidaNacionalGRE : '',
+              }));
+              if (!checked) {
+                setTextoGRE('');
+                setComboboxGREAbierto(false);
+              }
+            }}
+          />
+        </div>
+
+        {/* Selector de subpartida — solo cuando el switch está activo */}
+        {tieneGRE && (
+          <div ref={contenedorGRERef} className="flex-1 min-w-52">
+            <input
+              ref={inputGRERef}
+              type="text"
+              placeholder="Buscar subpartida, descripción o código SUNAT"
+              value={textoGRE}
+              onChange={(e) => handleCambioGRE(e.target.value)}
+              onFocus={() => {
+                actualizarRectGRE();
+                if (bienGRESeleccionado) setTextoGRE('');
+                setComboboxGREAbierto(true);
+              }}
+              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-colors ${
+                errorGRE
+                  ? 'border-red-400 bg-white'
+                  : modoGRESeleccionado
+                    ? 'border-gray-300 bg-gray-50 text-gray-900 cursor-pointer'
+                    : 'border-gray-300 bg-white text-gray-600'
+              }`}
+            />
+
+            {comboboxGREAbierto && rectInputGRE &&
+              createPortal(
+                <div
+                  ref={dropdownGREPortalRef}
+                  style={{
+                    position: 'fixed',
+                    top: rectInputGRE.bottom + 4,
+                    left: rectInputGRE.left,
+                    width: rectInputGRE.width,
+                    zIndex: 9999,
+                  }}
+                  className="max-h-52 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg"
+                >
+                  {gresFiltrados.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-400">Sin resultados</div>
+                  ) : (
+                    gresFiltrados.map((b) => (
+                      <button
+                        key={b.subpartidaNacional}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          seleccionarBienGRE(b);
+                        }}
+                        className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-violet-50 transition-colors border-b border-gray-100 last:border-0"
+                      >
+                        <span className="font-mono text-xs font-semibold text-gray-900 shrink-0 w-24 pt-0.5">
+                          {b.subpartidaNacional}
+                        </span>
+                        <span className="text-xs text-gray-700 flex-1 min-w-0">
+                          <span className="block truncate">{b.descripcion}</span>
+                          <span className="text-gray-400">
+                            Cód. prod. SUNAT: {b.codigoProductoSunat} · {b.regulacion}
+                          </span>
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>,
+                document.body,
+              )
+            }
+          </div>
+        )}
+      </div>
+
+      {errorGRE && tieneGRE && (
+        <p className="text-xs text-red-500">{errorGRE}</p>
       )}
     </div>
   );

@@ -162,6 +162,8 @@ function deserializeProduct(item: ProductLike): Product {
     isFavorite: Boolean(item.isFavorite),
     peso: typeof item.peso === 'number' ? item.peso : undefined,
     tipoExistencia: (item.tipoExistencia as Product['tipoExistencia']) ?? 'MERCADERIAS',
+    aplicaBienNormalizadoGRE: item.aplicaBienNormalizadoGRE === true ? true : undefined,
+    subpartidaNacionalGRE: item.subpartidaNacionalGRE ? String(item.subpartidaNacionalGRE) : undefined,
     cantidad: typeof item.cantidad === 'number' ? item.cantidad : undefined,
     stockPorEstablecimiento: item.stockPorEstablecimiento as Product['stockPorEstablecimiento'],
     stockPorAlmacen: item.stockPorAlmacen as Product['stockPorAlmacen'],

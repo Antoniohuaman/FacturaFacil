@@ -42,6 +42,10 @@ export interface Product {
   sujetoDetraccion?: boolean;
   /** Código del Catálogo 54 SUNAT (ej. "037", "027"). Fuente de verdad: shared/catalogos-sunat. */
   codigoDetraccion?: string | null;
+  /** Indica si el producto aplica como bien normalizado para Guías de Remisión Electrónica (SPOT/IVAP). */
+  aplicaBienNormalizadoGRE?: boolean;
+  /** Subpartida nacional de referencia en BIENES_NORMALIZADOS. Solo válido cuando aplicaBienNormalizadoGRE = true. */
+  subpartidaNacionalGRE?: string;
   // Compatibilidad con módulos de inventario/ventas (no usada en UI de catálogo)
   cantidad?: number; // Stock general opcional
   stockPorEstablecimiento?: Record<string, number>; // Stock por establecimiento (compat)
@@ -143,6 +147,8 @@ export interface ProductFormData {
   tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
   sujetoDetraccion?: boolean;
   codigoDetraccion?: string | null;
+  aplicaBienNormalizadoGRE?: boolean;
+  subpartidaNacionalGRE?: string;
 }
 
 export interface TableColumn {
