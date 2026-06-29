@@ -1,8 +1,11 @@
 import type { GuiaRemision } from '../modelos/GuiaRemision';
+import { obtenerReglaFlujoGRE } from './reglasFlujoGRE';
 
 export interface ErroresValidacionGRE {
   serie?: string;
   destinatario?: string;
+  comprador?: string;
+  especificacion?: string;
   bienes?: string;
   pesoTotal?: string;
   puntoPartida?: string;
@@ -12,13 +15,22 @@ export interface ErroresValidacionGRE {
 
 export function validarGREParaEmitir(guia: GuiaRemision): ErroresValidacionGRE {
   const errores: ErroresValidacionGRE = {};
+  const regla = obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado);
 
   if (!guia.serie.trim()) {
     errores.serie = 'La serie es obligatoria.';
   }
 
-  if (!guia.destinatarioNombre.trim()) {
-    errores.destinatario = 'El destinatario es obligatorio.';
+  if (regla.actorPrincipal.obligatorio && !guia.destinatarioNombre.trim()) {
+    errores.destinatario = `El ${regla.actorPrincipal.label} es obligatorio.`;
+  }
+
+  if (regla.actorSecundario !== null && regla.actorSecundario.obligatorio && !guia.compradorNombre?.trim()) {
+    errores.comprador = `El ${regla.actorSecundario.label} es obligatorio.`;
+  }
+
+  if (regla.requiereEspecificacion && !guia.especificacionMotivo?.trim()) {
+    errores.especificacion = 'Debe especificar el motivo de traslado.';
   }
 
   if (guia.bienes.length === 0) {
@@ -33,12 +45,12 @@ export function validarGREParaEmitir(guia: GuiaRemision): ErroresValidacionGRE {
     errores.puntoPartida = 'El punto de partida es obligatorio.';
   }
 
-  if (!guia.puntoLlegada.direccion.trim()) {
+  if (regla.puntoLlegadaObligatorio && !guia.puntoLlegada.direccion.trim()) {
     errores.puntoLlegada = 'El punto de llegada es obligatorio.';
   }
 
-  errores.transporte = validarTransporte(guia);
-  if (!errores.transporte) delete errores.transporte;
+  const errorTransporte = validarTransporte(guia);
+  if (errorTransporte) errores.transporte = errorTransporte;
 
   return errores;
 }

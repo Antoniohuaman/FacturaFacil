@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Save, X, Send } from 'lucide-react';
 import { useGuiasRemision } from '../contexto/ContextoGuiasRemision';
@@ -15,7 +15,7 @@ import type {
 } from '../modelos/GuiaRemision';
 import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS } from '../modelos/GuiaRemision';
 import { validarGREParaEmitir, hayErrores } from '../logica/validacionGRE';
-import type { ErroresValidacionGRE } from '../logica/validacionGRE';
+import { obtenerReglaFlujoGRE } from '../logica/reglasFlujoGRE';
 import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
 import ModalEmisionExitosaGRE from '../components/modales/ModalEmisionExitosaGRE';
 import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37 } from '../../configuracion-sistema/datos/catalogosGRE';
@@ -43,6 +43,12 @@ interface DatosDestinatario {
   provincia?: string;
   distrito?: string;
   ubigeo?: string;
+}
+
+interface DatosComprador {
+  nombre: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
 }
 
 // ─── Vista previa en formato documento ─────────────────────
@@ -508,13 +514,23 @@ export default function FormularioGREPage() {
   const [guia, setGuia] = useState<GuiaRemision>(() => GUIA_REMISION_BORRADOR(tipo));
   const [cargando, setCargando] = useState(modoEdicion);
   const [guardando, setGuardando] = useState(false);
-  const [errorDestinatario, setErrorDestinatario] = useState<string | null>(null);
+  const [intentoEmitir, setIntentoEmitir] = useState(false);
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
-  const [erroresEmision, setErroresEmision] = useState<ErroresValidacionGRE>({});
   const [modalExito, setModalExito] = useState<{ open: boolean; guia: GuiaRemision | null }>({
     open: false,
     guia: null,
   });
+
+  const regla = useMemo(
+    () => obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado),
+    [guia.tipo, guia.motivoTraslado],
+  );
+
+  const erroresMinimos = useMemo(() => validarGREParaEmitir(guia), [guia]);
+  const puedeEmitir = !hayErrores(erroresMinimos);
+  const tooltipEmitir = !puedeEmitir
+    ? `Faltan requisitos: ${Object.values(erroresMinimos).join(' · ')}`
+    : undefined;
 
   useEffect(() => {
     if (!modoEdicion || !id || !tenantId) return;
@@ -555,8 +571,11 @@ export default function FormularioGREPage() {
     }
   }, [seriesDisponibles.join(','), guia.serie]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    setIntentoEmitir(false);
+  }, [guia.motivoTraslado]);
+
   const setDestinatario = useCallback((datos: DatosDestinatario | null) => {
-    setErrorDestinatario(null);
     setGuia((prev) => ({
       ...prev,
       destinatarioClienteId: datos?.clienteId,
@@ -584,6 +603,23 @@ export default function FormularioGREPage() {
         ubigeo: guia.destinatarioUbigeo,
       }
     : null;
+
+  const compradorActual: DatosComprador | null = guia.compradorNombre
+    ? {
+        nombre: guia.compradorNombre,
+        tipoDocumento: guia.compradorTipoDocumento ?? 'RUC',
+        numeroDocumento: guia.compradorNumeroDocumento ?? '',
+      }
+    : null;
+
+  const setComprador = useCallback((datos: DatosComprador | null) => {
+    setGuia((prev) => ({
+      ...prev,
+      compradorNombre: datos?.nombre || undefined,
+      compradorTipoDocumento: datos?.tipoDocumento || undefined,
+      compradorNumeroDocumento: datos?.numeroDocumento || undefined,
+    }));
+  }, []);
 
   const guardarBorrador = useCallback(async () => {
     if (!guia.serie) return;
@@ -613,15 +649,8 @@ export default function FormularioGREPage() {
   }, [guia, modoEdicion, actualizarGuia, agregarGuia, navigate]);
 
   const emitir = useCallback(async () => {
-    const errores = validarGREParaEmitir(guia);
-    if (hayErrores(errores)) {
-      setErroresEmision(errores);
-      setErrorDestinatario(errores.destinatario ?? null);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    setErroresEmision({});
-    setErrorDestinatario(null);
+    setIntentoEmitir(true);
+    if (hayErrores(validarGREParaEmitir(guia))) return;
     if (!tenantId) return;
     setGuardando(true);
     try {
@@ -704,24 +733,6 @@ export default function FormularioGREPage() {
         </div>
       </div>
 
-      {/* Banner de errores de emisión */}
-      {hayErrores(erroresEmision) && (
-        <div className="px-6 pt-4">
-          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 space-y-1">
-            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
-              Corrija los siguientes errores antes de emitir:
-            </p>
-            <ul className="list-disc list-inside space-y-0.5">
-              {Object.values(erroresEmision).map((msg, i) => (
-                <li key={i} className="text-xs text-red-600 dark:text-red-400">
-                  {msg}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
       {/* Contenido del formulario */}
       <div className="flex-1 px-6 py-5 space-y-4">
         {/* Vista previa inline — dentro del área de contenido, sin invadir el sidebar */}
@@ -743,11 +754,18 @@ export default function FormularioGREPage() {
           }
           destinatario={destinatarioActual}
           onDestinatarioChange={setDestinatario}
-          errorDestinatario={errorDestinatario}
+          errorDestinatario={intentoEmitir ? (erroresMinimos.destinatario ?? null) : null}
           documentosRelacionados={guia.documentosRelacionados}
           onDocumentosRelacionadosChange={(docs) =>
             setGuia((prev) => ({ ...prev, documentosRelacionados: docs }))
           }
+          regla={regla}
+          comprador={compradorActual}
+          onCompradorChange={setComprador}
+          errorComprador={intentoEmitir ? (erroresMinimos.comprador ?? null) : null}
+          especificacionMotivo={guia.especificacionMotivo}
+          onEspecificacionChange={(v) => setGuia((prev) => ({ ...prev, especificacionMotivo: v }))}
+          errorEspecificacion={intentoEmitir ? (erroresMinimos.especificacion ?? null) : null}
         />
 
         {/* 2. Bienes a transportar */}
@@ -873,15 +891,18 @@ export default function FormularioGREPage() {
           </button>
 
           {/* Emitir GRE */}
-          <button
-            type="button"
-            onClick={() => void emitir()}
-            disabled={guardando}
-            className="flex items-center gap-2 px-4 py-2 h-9 text-white bg-violet-600 hover:bg-violet-700 rounded-xl font-medium transition-all text-[13px] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-          >
-            <Send className="h-4 w-4" />
-            {guardando ? 'Procesando…' : 'Emitir GRE'}
-          </button>
+          <div onMouseDown={() => setIntentoEmitir(true)}>
+            <button
+              type="button"
+              onClick={() => void emitir()}
+              disabled={guardando || !puedeEmitir}
+              title={tooltipEmitir}
+              className="flex items-center gap-2 px-4 py-2 h-9 text-white bg-violet-600 hover:bg-violet-700 rounded-xl font-medium transition-all text-[13px] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              <Send className="h-4 w-4" />
+              {guardando ? 'Procesando…' : 'Emitir GRE'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

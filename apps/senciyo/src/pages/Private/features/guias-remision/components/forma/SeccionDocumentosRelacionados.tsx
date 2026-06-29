@@ -7,6 +7,7 @@ import { DOCUMENTO_RELACIONADO_VACIO } from '../../modelos/GuiaRemision';
 interface SeccionDocumentosRelacionadosProps {
   documentos: DocumentoRelacionadoGRE[];
   onChange: (documentos: DocumentoRelacionadoGRE[]) => void;
+  documentosRecomendados?: string[];
 }
 
 const CELL_CLS =
@@ -15,6 +16,7 @@ const CELL_CLS =
 export default function SeccionDocumentosRelacionados({
   documentos,
   onChange,
+  documentosRecomendados,
 }: SeccionDocumentosRelacionadosProps) {
   const agregar = useCallback(() => {
     onChange([...documentos, DOCUMENTO_RELACIONADO_VACIO()]);
@@ -59,7 +61,19 @@ export default function SeccionDocumentosRelacionados({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <FileText className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            title={
+              documentosRecomendados?.length
+                ? `Documentos sugeridos para este motivo: ${documentosRecomendados
+                    .map((c) => {
+                      const cat = DOCUMENTOS_RELACIONADOS_GRE.find((d) => d.codigo === c);
+                      return cat ? `${c} – ${cat.documento}` : c;
+                    })
+                    .join(', ')}`
+                : undefined
+            }
+          >
             Documentos relacionados
           </span>
           {documentos.length > 0 && (

@@ -118,6 +118,14 @@ export interface GuiaRemision {
   transportePrivado?: TransportePrivado;
   transportePublico?: TransportePublico;
 
+  // Actor secundario: comprador (motivo '03' — Venta con entrega a terceros)
+  compradorNombre?: string;
+  compradorNumeroDocumento?: string;
+  compradorTipoDocumento?: string;
+
+  // Campo libre para motivo '13' — Otros
+  especificacionMotivo?: string;
+
   observaciones?: string;
   historial?: EventoGRE[];
 

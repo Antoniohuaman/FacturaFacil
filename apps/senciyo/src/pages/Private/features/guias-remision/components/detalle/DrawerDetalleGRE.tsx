@@ -23,6 +23,7 @@ import {
   puedeEditarGRE,
   puedeEliminarBorradorGRE,
 } from '../../logica/estadosGRE';
+import { obtenerReglaFlujoGRE } from '../../logica/reglasFlujoGRE';
 
 type TabDrawer = 'general' | 'bienes' | 'transporte' | 'documentos' | 'historial';
 
@@ -238,9 +239,10 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
 }
 
 function TabGeneral({ guia, motivo }: { guia: GuiaRemision; motivo?: string }) {
+  const regla = obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado);
   return (
     <>
-      <Seccion titulo="Destinatario">
+      <Seccion titulo={regla.actorPrincipal.label}>
         <Campo label="Nombre / Razón social">{guia.destinatarioNombre || '—'}</Campo>
         <div className="grid grid-cols-2 gap-3">
           <Campo label="Tipo documento">{guia.destinatarioTipoDocumento}</Campo>
@@ -257,6 +259,24 @@ function TabGeneral({ guia, motivo }: { guia: GuiaRemision; motivo?: string }) {
           </Campo>
         )}
       </Seccion>
+
+      {regla.actorSecundario !== null && guia.compradorNombre && (
+        <Seccion titulo={regla.actorSecundario.label}>
+          <Campo label="Nombre / Razón social">{guia.compradorNombre}</Campo>
+          {(guia.compradorTipoDocumento || guia.compradorNumeroDocumento) && (
+            <div className="grid grid-cols-2 gap-3">
+              <Campo label="Tipo documento">{guia.compradorTipoDocumento || '—'}</Campo>
+              <Campo label="Número">{guia.compradorNumeroDocumento || '—'}</Campo>
+            </div>
+          )}
+        </Seccion>
+      )}
+
+      {regla.requiereEspecificacion && guia.especificacionMotivo && (
+        <Seccion titulo="Especificación del motivo">
+          <p className="text-sm text-gray-700 dark:text-gray-300">{guia.especificacionMotivo}</p>
+        </Seccion>
+      )}
 
       <Seccion titulo="Datos generales">
         <div className="grid grid-cols-2 gap-3">

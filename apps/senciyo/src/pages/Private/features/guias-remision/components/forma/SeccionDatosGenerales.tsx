@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Search, Loader2, X, User, Hash, Calendar, ChevronDown } from 'lucide-react';
+import { Search, Loader2, X, User, Hash, Calendar, ChevronDown, AlertCircle } from 'lucide-react';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsultaDocumentos';
@@ -11,6 +11,7 @@ import type {
   CodigoModalidadTransporte,
   DocumentoRelacionadoGRE,
 } from '../../modelos/GuiaRemision';
+import type { ReglaFlujoGRE } from '../../logica/reglasFlujoGRE';
 import SeccionDocumentosRelacionados from './SeccionDocumentosRelacionados';
 
 export type { TipoGRE, CodigoMotivoTraslado, CodigoModalidadTransporte };
@@ -27,6 +28,12 @@ interface DatosDestinatario {
   ubigeo?: string;
 }
 
+interface DatosComprador {
+  nombre: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
+}
+
 interface SeccionDatosGeneralesProps {
   tipo: TipoGRE;
   serie: string;
@@ -41,12 +48,13 @@ interface SeccionDatosGeneralesProps {
   errorDestinatario?: string | null;
   documentosRelacionados: DocumentoRelacionadoGRE[];
   onDocumentosRelacionadosChange: (docs: DocumentoRelacionadoGRE[]) => void;
-}
-
-function etiquetaDestinatario(tipo: TipoGRE, motivo: string): string {
-  if (motivo === '02') return 'Proveedor';
-  if (tipo === 'transportista') return 'Destinatario';
-  return 'Destinatario';
+  regla: ReglaFlujoGRE;
+  comprador?: DatosComprador | null;
+  onCompradorChange?: (datos: DatosComprador | null) => void;
+  errorComprador?: string | null;
+  especificacionMotivo?: string;
+  onEspecificacionChange?: (valor: string) => void;
+  errorEspecificacion?: string | null;
 }
 
 const INPUT_CLS =
@@ -68,6 +76,13 @@ export default function SeccionDatosGenerales({
   errorDestinatario,
   documentosRelacionados,
   onDocumentosRelacionadosChange,
+  regla,
+  comprador,
+  onCompradorChange,
+  errorComprador,
+  especificacionMotivo,
+  onEspecificacionChange,
+  errorEspecificacion,
 }: SeccionDatosGeneralesProps) {
   const { clientes, createCliente } = useClientes();
   const [busqueda, setBusqueda] = useState('');
@@ -80,8 +95,6 @@ export default function SeccionDatosGenerales({
       m.estado === 'Vigente' &&
       (tipo === 'remitente' ? m.aplicacion !== 'Transportista' : m.aplicacion !== 'Remitente'),
   );
-
-  const etiqueta = etiquetaDestinatario(tipo, motivoTraslado);
 
   const clientesFiltrados = clientes
     .filter((c) => {
@@ -186,14 +199,17 @@ export default function SeccionDatosGenerales({
       {/* Grid de dos columnas — patrón Datos del comprobante */}
       <div className="grid grid-cols-12 gap-4">
 
-        {/* ── Columna izquierda: Destinatario + Documentos relacionados ── */}
+        {/* ── Columna izquierda: Actores + Documentos relacionados ── */}
         <div className="col-span-12 xl:col-span-7 space-y-3">
 
-          {/* Destinatario */}
+          {/* Actor principal (destinatario/proveedor/etc) */}
           <div>
             <label className={LABEL_CLS}>
               <User className="inline h-3 w-3 mr-1" />
-              {etiqueta}
+              {regla.actorPrincipal.label}
+              {!regla.actorPrincipal.obligatorio && (
+                <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
+              )}
             </label>
 
             {destinatario ? (
@@ -213,7 +229,6 @@ export default function SeccionDatosGenerales({
               </div>
             ) : (
               <div className="relative">
-                {/* Pill: input + botón SUNAT / RENIEC */}
                 <div className={`flex h-9 w-full rounded-lg border overflow-hidden transition-colors ${
                   errorDestinatario
                     ? 'border-red-400 dark:border-red-500'
@@ -285,15 +300,126 @@ export default function SeccionDatosGenerales({
             )}
 
             {errorDestinatario && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errorDestinatario}</p>
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                {errorDestinatario}
+              </p>
             )}
           </div>
+
+          {/* Actor secundario (comprador) — solo visible cuando la regla lo indica.
+              Se usan inputs controlados ligados a comprador?.campo (nunca dentro de
+              una rama donde TypeScript hubiera narrowed comprador a never). */}
+          {regla.actorSecundario !== null && onCompradorChange && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className={`${LABEL_CLS} mb-0`}>
+                  <User className="inline h-3 w-3 mr-1" />
+                  {regla.actorSecundario.label}
+                  {!regla.actorSecundario.obligatorio && (
+                    <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
+                  )}
+                </label>
+                {comprador && (
+                  <button
+                    type="button"
+                    onClick={() => onCompradorChange(null)}
+                    className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-3">
+                  <select
+                    value={comprador?.tipoDocumento ?? 'RUC'}
+                    onChange={(e) =>
+                      onCompradorChange({
+                        nombre: comprador?.nombre ?? '',
+                        tipoDocumento: e.target.value,
+                        numeroDocumento: comprador?.numeroDocumento ?? '',
+                      })
+                    }
+                    className={INPUT_CLS}
+                  >
+                    <option value="RUC">RUC</option>
+                    <option value="DNI">DNI</option>
+                    <option value="CE">CE</option>
+                    <option value="OTRO">Otro</option>
+                  </select>
+                </div>
+                <div className="col-span-4">
+                  <input
+                    type="text"
+                    value={comprador?.numeroDocumento ?? ''}
+                    placeholder="N° documento"
+                    className={INPUT_CLS}
+                    onChange={(e) =>
+                      onCompradorChange({
+                        nombre: comprador?.nombre ?? '',
+                        tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
+                        numeroDocumento: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-span-5">
+                  <input
+                    type="text"
+                    value={comprador?.nombre ?? ''}
+                    placeholder="Nombre / Razón social"
+                    className={INPUT_CLS}
+                    onChange={(e) =>
+                      onCompradorChange({
+                        nombre: e.target.value,
+                        tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
+                        numeroDocumento: comprador?.numeroDocumento ?? '',
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              {errorComprador && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  {errorComprador}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Campo especificación — solo visible para motivo '13' y similares */}
+          {regla.requiereEspecificacion && onEspecificacionChange && (
+            <div>
+              <label className={LABEL_CLS}>Especifique el motivo de traslado</label>
+              <textarea
+                value={especificacionMotivo ?? ''}
+                onChange={(e) => onEspecificacionChange(e.target.value)}
+                rows={2}
+                placeholder="Describa el motivo del traslado…"
+                className={`w-full px-2 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none ${
+                  errorEspecificacion
+                    ? 'border-red-400 dark:border-red-500'
+                    : 'border-gray-200 dark:border-gray-600'
+                }`}
+              />
+              {errorEspecificacion && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  {errorEspecificacion}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Documentos relacionados — subbloque dentro de columna izquierda */}
           <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
             <SeccionDocumentosRelacionados
               documentos={documentosRelacionados}
               onChange={onDocumentosRelacionadosChange}
+              documentosRecomendados={regla.documentosRecomendados}
             />
           </div>
         </div>
@@ -348,10 +474,13 @@ export default function SeccionDatosGenerales({
 
           {/* Motivo de traslado — ancho completo de la columna derecha */}
           <div>
-            <label className={LABEL_CLS}>Motivo de traslado</label>
+            <label className={LABEL_CLS} title={regla.ayudaMotivo ?? undefined}>
+              Motivo de traslado
+            </label>
             <select
               value={motivoTraslado}
               onChange={(e) => onMotivoTrasladoChange(e.target.value)}
+              title={regla.ayudaMotivo ?? undefined}
               className={INPUT_CLS}
             >
               {motivosFiltrados.map((m) => (
