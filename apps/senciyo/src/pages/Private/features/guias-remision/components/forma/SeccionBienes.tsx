@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
-import { CheckSquare, Package, Search, Square, Trash2, X } from 'lucide-react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { CheckSquare, HelpCircle, Package, Search, Square, Trash2, X } from 'lucide-react';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import { useProductStore, type ProductInput } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -50,7 +50,7 @@ interface GREColumnConfig {
 
 const DEFAULT_GRE_COLUMNS: GREColumnConfig[] = [
   // Fijas inicio
-  { id: 'producto',            label: 'Producto',        isFixed: true,  isVisible: true,  align: 'left',   minWidth: '200px', order: 1   },
+  { id: 'producto',            label: 'Producto',        isFixed: true,  isVisible: true,  align: 'left',   width: '240px', minWidth: '160px', order: 1   },
   { id: 'codigo',              label: 'Código',           isFixed: true,  isVisible: true,  align: 'left',   width: '90px',     order: 2   },
   { id: 'cantidad',            label: 'Cant.',            isFixed: true,  isVisible: true,  align: 'center', width: '88px',     order: 3   },
   { id: 'unidad',              label: 'Unidad',           isFixed: true,  isVisible: true,  align: 'left',   width: '115px',    order: 4   },
@@ -141,6 +141,13 @@ export default function SeccionBienes({
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // ── Peso state ──────────────────────────────────────────────────────────
+  // Inicia en modo manual si el padre ya tiene un peso guardado, para no sobreescribirlo.
+  const [pesoEsManual, setPesoEsManual] = useState(() => pesoTotal !== undefined);
+  const [pesoDraft, setPesoDraft] = useState<string | null>(null);
+  const onPesoTotalChangeRef = useRef(onPesoTotalChange);
+  useEffect(() => { onPesoTotalChangeRef.current = onPesoTotalChange; });
+
   // ── Column config state ─────────────────────────────────────────────────
   const [columnConfig, setColumnConfig] = useState<GREColumnConfig[]>(loadColumnConfig);
   const [showColumnConfig, setShowColumnConfig] = useState(false);
@@ -198,6 +205,27 @@ export default function SeccionBienes({
     [columnConfig],
   );
 
+  // Suma de pesoLineaKg de todos los ítems; base del auto-cálculo
+  const pesoCalculadoKg = useMemo(
+    () => bienes.reduce((sum, b) => sum + (b.pesoLineaKg ?? 0), 0),
+    [bienes],
+  );
+
+  // Valor de pesoTotal (siempre en kg) convertido a la unidad actual para mostrar en el input
+  const pesoParaMostrar = useMemo(() => {
+    if (pesoTotal === undefined) return '';
+    if (unidadPeso === 'KGM') return String(parseFloat(pesoTotal.toFixed(3)));
+    return String(parseFloat((pesoTotal / 1000).toFixed(3)));
+  }, [pesoTotal, unidadPeso]);
+
+  // Auto-actualiza pesoTotal cuando cambian los pesos de línea, salvo que el usuario lo editó manualmente
+  useEffect(() => {
+    if (pesoEsManual) return;
+    if (pesoCalculadoKg > 0) {
+      onPesoTotalChangeRef.current(parseFloat(pesoCalculadoKg.toFixed(3)));
+    }
+  }, [pesoCalculadoKg, pesoEsManual]);
+
   // ── Column management ──────────────────────────────────────────────────
   const toggleColumn = useCallback((id: GREColumnId) => {
     setColumnConfig((prev) => {
@@ -236,6 +264,7 @@ export default function SeccionBienes({
         descripcion: prod.descripcion ?? prod.nombre,
         unidad: prod.unidad ?? 'NIU',
         codigoBien: prod.codigo ?? '',
+        pesoLineaKg: typeof prod.peso === 'number' ? prod.peso : undefined,
         ...(bnGRE && {
           normalizado: true,
           codigoSubpartidaNacional: bnGRE.subpartidaNacional,
@@ -274,6 +303,25 @@ export default function SeccionBienes({
       onChange(bienes.map((b) => (b.id === id ? { ...b, [campo]: valor } : b)));
     },
     [bienes, onChange],
+  );
+
+  // Actualiza cantidad y recalcula pesoLineaKg desde el peso unitario del catálogo
+  const actualizarCantidad = useCallback(
+    (id: string, nuevaCantidad: number) => {
+      onChange(
+        bienes.map((b) => {
+          if (b.id !== id) return b;
+          const prod = (allProducts as Product[]).find((p) => p.id === b.productoId);
+          const pesoUnitario = prod?.peso;
+          const pesoLineaKg =
+            typeof pesoUnitario === 'number'
+              ? parseFloat((nuevaCantidad * pesoUnitario).toFixed(3))
+              : b.pesoLineaKg;
+          return { ...b, cantidad: nuevaCantidad, pesoLineaKg };
+        }),
+      );
+    },
+    [bienes, onChange, allProducts],
   );
 
   const eliminar = useCallback(
@@ -336,6 +384,23 @@ export default function SeccionBienes({
     [addProduct, bienes, buildBienDesdeProducto, onChange],
   );
 
+  // Convierte el valor tipado por el usuario (en la unidad activa) a kg y lo persiste
+  const handlePesoTotalChange = useCallback(
+    (valorEnUnidad: string) => {
+      if (!valorEnUnidad.trim()) {
+        onPesoTotalChange(undefined);
+        setPesoEsManual(false);
+        return;
+      }
+      const parsed = parseFloat(valorEnUnidad);
+      if (isNaN(parsed) || parsed < 0) return;
+      const enKg = unidadPeso === 'KGM' ? parsed : parseFloat((parsed * 1000).toFixed(3));
+      onPesoTotalChange(enKg);
+      setPesoEsManual(true);
+    },
+    [onPesoTotalChange, unidadPeso],
+  );
+
   // ── Cell renderer ──────────────────────────────────────────────────────
   function renderCell(colId: GREColumnId, bien: BienGRE) {
     const catalogProduct = bien.productoId
@@ -350,7 +415,10 @@ export default function SeccionBienes({
             className="px-2 py-2 sticky left-0 bg-white dark:bg-gray-900 z-10"
           >
             {catalogProduct ? (
-              <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">
+              <div
+                className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight"
+                title={catalogProduct.nombre}
+              >
                 {catalogProduct.nombre}
               </div>
             ) : (
@@ -383,7 +451,7 @@ export default function SeccionBienes({
             <div className="flex items-center justify-center gap-0.5">
               <button
                 type="button"
-                onClick={() => actualizar(bien.id, 'cantidad', Math.max(0, bien.cantidad - 1))}
+                onClick={() => actualizarCantidad(bien.id, Math.max(0, bien.cantidad - 1))}
                 className="w-5 h-7 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-base font-bold rounded hover:bg-gray-100 dark:hover:bg-gray-700 shrink-0"
               >
                 −
@@ -393,13 +461,13 @@ export default function SeccionBienes({
                 value={bien.cantidad}
                 min={0}
                 step="any"
-                onChange={(e) => actualizar(bien.id, 'cantidad', parseFloat(e.target.value) || 0)}
+                onChange={(e) => actualizarCantidad(bien.id, parseFloat(e.target.value) || 0)}
                 className={`${CELL} text-center`}
                 style={{ width: '44px' }}
               />
               <button
                 type="button"
-                onClick={() => actualizar(bien.id, 'cantidad', bien.cantidad + 1)}
+                onClick={() => actualizarCantidad(bien.id, bien.cantidad + 1)}
                 className="w-5 h-7 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-base font-bold rounded hover:bg-gray-100 dark:hover:bg-gray-700 shrink-0"
               >
                 +
@@ -533,10 +601,22 @@ export default function SeccionBienes({
 
       case 'peso':
         return (
-          <td key={`${bien.id}-peso`} className="px-2 py-2 text-right">
-            <span className="text-xs text-gray-700 dark:text-gray-300">
-              {catalogProduct?.peso != null ? String(catalogProduct.peso) : '—'}
-            </span>
+          <td key={`${bien.id}-peso`} className="px-2 py-2">
+            <input
+              type="number"
+              value={bien.pesoLineaKg ?? ''}
+              min={0}
+              step="any"
+              onChange={(e) =>
+                actualizar(
+                  bien.id,
+                  'pesoLineaKg',
+                  e.target.value ? parseFloat(e.target.value) : undefined,
+                )
+              }
+              placeholder="0.000"
+              className={`${CELL} text-right`}
+            />
           </td>
         );
 
@@ -915,7 +995,7 @@ export default function SeccionBienes({
         {/* ── Tabla compacta ── */}
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-xs table-fixed">
               <thead className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border-b-2 border-violet-200 dark:border-violet-700 sticky top-0">
                 <tr>
                   {visibleColumns.map((col) => (
@@ -963,20 +1043,55 @@ export default function SeccionBienes({
         {/* ── Peso bruto total y unidad de peso ── */}
         <div className="flex flex-wrap items-end gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              Peso bruto total
-            </label>
-            <input
-              type="number"
-              value={pesoTotal ?? ''}
-              min={0}
-              step="any"
-              onChange={(e) =>
-                onPesoTotalChange(e.target.value ? parseFloat(e.target.value) : undefined)
-              }
-              placeholder="0.00"
-              className="h-9 w-32 px-2 text-sm text-right border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none"
-            />
+            <div className="flex items-center gap-1 mb-1">
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                Peso bruto total
+              </label>
+              <span
+                title={
+                  pesoCalculadoKg > 0
+                    ? `Se calcula automáticamente como suma de Peso (kg) × cantidad de cada ítem (${pesoCalculadoKg.toFixed(3)} kg). Edita manualmente si necesitas un valor distinto. No modifica el catálogo de productos.`
+                    : 'Ingresa el peso bruto total. Si configuras el peso en los productos del catálogo, se calculará automáticamente.'
+                }
+                className="inline-flex items-center text-gray-400 cursor-help"
+              >
+                <HelpCircle className="h-3 w-3" />
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={pesoDraft !== null ? pesoDraft : pesoParaMostrar}
+                min={0}
+                step="any"
+                onChange={(e) => setPesoDraft(e.target.value)}
+                onBlur={() => {
+                  if (pesoDraft !== null) {
+                    handlePesoTotalChange(pesoDraft);
+                    setPesoDraft(null);
+                  }
+                }}
+                placeholder="0.000"
+                className="h-9 w-32 px-2 text-sm text-right border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none"
+              />
+              {!pesoEsManual && pesoCalculadoKg > 0 && (
+                <span className="text-[11px] text-violet-500 dark:text-violet-400 font-medium">
+                  auto
+                </span>
+              )}
+              {pesoEsManual && pesoCalculadoKg > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPesoEsManual(false);
+                    onPesoTotalChange(parseFloat(pesoCalculadoKg.toFixed(3)));
+                  }}
+                  className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline font-medium"
+                >
+                  Recalcular
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">

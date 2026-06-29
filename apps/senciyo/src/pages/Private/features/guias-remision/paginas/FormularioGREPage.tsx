@@ -187,7 +187,10 @@ function VistaPrevia({ guia, onCerrar }: { guia: GuiaRemision; onCerrar: () => v
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-right">
                 Peso bruto total:{' '}
                 <span className="font-medium text-gray-700 dark:text-gray-300 tabular-nums">
-                  {guia.pesoTotal} {guia.unidadPeso}
+                  {guia.unidadPeso === 'KGM'
+                    ? parseFloat(guia.pesoTotal!.toFixed(3))
+                    : parseFloat((guia.pesoTotal! / 1000).toFixed(3))}{' '}
+                  {guia.unidadPeso}
                 </span>
               </p>
             )}

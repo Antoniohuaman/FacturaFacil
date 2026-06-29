@@ -25,6 +25,8 @@ export interface BienGRE {
   codigoProductoSunat?: string;
   codigoSubpartidaNacional?: string;
   codigoGTIN?: string;
+  /** Peso total de la línea en kg (cantidad × peso unitario del catálogo). Editable en la GRE; no modifica el producto maestro. */
+  pesoLineaKg?: number;
 }
 
 export interface DocumentoRelacionadoGRE {
