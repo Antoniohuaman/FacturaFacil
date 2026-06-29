@@ -22,7 +22,26 @@ export default function SeccionDocumentosRelacionados({
 
   const actualizar = useCallback(
     (id: string, campo: keyof DocumentoRelacionadoGRE, valor: string) => {
-      onChange(documentos.map((d) => (d.id === id ? { ...d, [campo]: valor } : d)));
+      onChange(
+        documentos.map((d) => {
+          if (d.id !== id) return d;
+          if (campo === 'serieDocumento') {
+            return {
+              ...d,
+              serieDocumento: valor,
+              numeroDocumento: valor ? `${valor}-${d.numeroCorrelativo ?? ''}` : (d.numeroCorrelativo ?? ''),
+            };
+          }
+          if (campo === 'numeroCorrelativo') {
+            return {
+              ...d,
+              numeroCorrelativo: valor,
+              numeroDocumento: d.serieDocumento ? `${d.serieDocumento}-${valor}` : valor,
+            };
+          }
+          return { ...d, [campo]: valor };
+        }),
+      );
     },
     [documentos, onChange],
   );
@@ -80,7 +99,7 @@ export default function SeccionDocumentosRelacionados({
               </div>
 
               {/* Tipo documento */}
-              <div className="col-span-5">
+              <div className={doc.origen === 'EXTERNO' ? 'col-span-3' : 'col-span-5'}>
                 <select
                   value={doc.tipoDocumentoCodigo}
                   onChange={(e) => actualizar(doc.id, 'tipoDocumentoCodigo', e.target.value)}
@@ -94,16 +113,50 @@ export default function SeccionDocumentosRelacionados({
                 </select>
               </div>
 
-              {/* N° Documento */}
-              <div className="col-span-4">
+              {/* Serie — solo EXTERNO */}
+              {doc.origen === 'EXTERNO' && (
+                <div className="col-span-2">
+                  <input
+                    type="text"
+                    value={doc.serieDocumento ?? ''}
+                    onChange={(e) => actualizar(doc.id, 'serieDocumento', e.target.value.toUpperCase())}
+                    placeholder="Serie"
+                    maxLength={4}
+                    className={`${CELL_CLS} uppercase`}
+                  />
+                </div>
+              )}
+
+              {/* N° Correlativo (EXTERNO) · N° Documento (INTERNO) */}
+              <div className={doc.origen === 'EXTERNO' ? 'col-span-2' : 'col-span-4'}>
                 <input
                   type="text"
-                  value={doc.numeroDocumento}
-                  onChange={(e) => actualizar(doc.id, 'numeroDocumento', e.target.value)}
-                  placeholder="N° documento"
+                  value={doc.origen === 'EXTERNO' ? (doc.numeroCorrelativo ?? '') : doc.numeroDocumento}
+                  onChange={(e) =>
+                    actualizar(
+                      doc.id,
+                      doc.origen === 'EXTERNO' ? 'numeroCorrelativo' : 'numeroDocumento',
+                      e.target.value,
+                    )
+                  }
+                  placeholder={doc.origen === 'EXTERNO' ? 'Correlativo' : 'N° documento'}
                   className={CELL_CLS}
                 />
               </div>
+
+              {/* RUC emisor — solo EXTERNO */}
+              {doc.origen === 'EXTERNO' && (
+                <div className="col-span-2">
+                  <input
+                    type="text"
+                    value={doc.rucEmisorExterno ?? ''}
+                    onChange={(e) => actualizar(doc.id, 'rucEmisorExterno', e.target.value)}
+                    placeholder="RUC emisor"
+                    maxLength={11}
+                    className={CELL_CLS}
+                  />
+                </div>
+              )}
 
               {/* Eliminar */}
               <div className="col-span-1 flex justify-end">

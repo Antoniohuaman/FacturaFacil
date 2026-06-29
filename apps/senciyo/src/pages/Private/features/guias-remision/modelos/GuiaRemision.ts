@@ -32,6 +32,8 @@ export interface DocumentoRelacionadoGRE {
   origen: 'INTERNO' | 'EXTERNO';
   documentoInternoId?: string;
   tipoDocumentoCodigo: string;
+  serieDocumento?: string;
+  numeroCorrelativo?: string;
   numeroDocumento: string;
   rucEmisorExterno?: string;
   fechaEmision?: string;

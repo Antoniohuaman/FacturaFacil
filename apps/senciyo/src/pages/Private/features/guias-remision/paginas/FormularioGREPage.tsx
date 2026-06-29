@@ -1,20 +1,16 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Save, X, Send, FileText } from 'lucide-react';
+import { Eye, EyeOff, Save, X, Send } from 'lucide-react';
 import { useGuiasRemision } from '../contexto/ContextoGuiasRemision';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { guiasRemisionDataSource } from '../api/fuenteDatosGRE';
-import { ConfigurationCard } from '../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import type {
   GuiaRemision,
   TipoGRE,
-  BienGRE,
-  DocumentoRelacionadoGRE,
   PuntoTraslado,
   TransportePrivado,
   TransportePublico,
-  UnidadPeso,
 } from '../modelos/GuiaRemision';
 import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS } from '../modelos/GuiaRemision';
 import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37 } from '../../configuracion-sistema/datos/catalogosGRE';
@@ -22,7 +18,6 @@ import { vehiculosDataSource, conductoresDataSource } from '../../configuracion-
 import type { Vehiculo, Conductor } from '../../configuracion-sistema/modelos/Transporte';
 import { formatearPlaca, nombreCompletoConductor } from '../../configuracion-sistema/components/transporte/helpersTransporte';
 import SeccionDatosGenerales from '../components/forma/SeccionDatosGenerales';
-import SeccionDocumentosRelacionados from '../components/forma/SeccionDocumentosRelacionados';
 import SeccionBienes from '../components/forma/SeccionBienes';
 import SeccionPuntosTraslado from '../components/forma/SeccionPuntosTraslado';
 import SeccionTransporte from '../components/forma/SeccionTransporte';
@@ -625,25 +620,49 @@ export default function FormularioGREPage() {
     );
   }
 
-  const totalDocBienes =
-    guia.documentosRelacionados.length + guia.bienes.length || undefined;
-
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-gray-900">
-      {/* Cabecera — sticky para que siempre sea visible al desplazarse */}
+      {/* Cabecera sticky */}
       <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => navigate('/guias-remision')}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            Guías de Remisión
-          </button>
-          <span className="text-gray-300 dark:text-gray-600">/</span>
-          <h1 className="text-sm font-semibold text-gray-900 dark:text-white">
-            {modoEdicion ? 'Editar' : 'Nueva'} {TIPO_GRE_LABELS[tipo]}
-          </h1>
+        <div className="flex items-center justify-between gap-4">
+          {/* Izquierda: breadcrumb + título + chip de serie */}
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate('/guias-remision')}
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shrink-0"
+            >
+              Guías de Remisión
+            </button>
+            <span className="text-gray-300 dark:text-gray-600">/</span>
+            <h1 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+              {modoEdicion ? 'Editar' : 'Nueva'} {TIPO_GRE_LABELS[tipo]}
+            </h1>
+            {guia.serie && (
+              <span className="shrink-0 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded-full tabular-nums">
+                {guia.serie}
+              </span>
+            )}
+          </div>
+          {/* Derecha: selector GRE Remitente / GRE Transportista (solo creación) */}
+          {!modoEdicion && (
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 shrink-0">
+              {(['remitente', 'transportista'] as TipoGRE[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => tipo !== t && navigate(`/guias-remision/nuevo/${t}`)}
+                  className={`px-3 py-1 rounded-md text-[13px] font-medium transition-all ${
+                    tipo === t
+                      ? 'bg-white dark:bg-slate-700 text-violet-700 dark:text-violet-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {TIPO_GRE_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -669,34 +688,21 @@ export default function FormularioGREPage() {
           destinatario={destinatarioActual}
           onDestinatarioChange={setDestinatario}
           errorDestinatario={errorDestinatario}
+          documentosRelacionados={guia.documentosRelacionados}
+          onDocumentosRelacionadosChange={(docs) =>
+            setGuia((prev) => ({ ...prev, documentosRelacionados: docs }))
+          }
         />
 
-        {/* 2 + 3. Documentos y bienes — tarjeta unificada */}
-        <ConfigurationCard
-          title="Documentos y bienes a transportar"
-          icon={FileText}
-          badge={totalDocBienes}
-        >
-          <div className="space-y-5">
-            <SeccionDocumentosRelacionados
-              documentos={guia.documentosRelacionados}
-              onChange={(docs: DocumentoRelacionadoGRE[]) =>
-                setGuia((prev) => ({ ...prev, documentosRelacionados: docs }))
-              }
-            />
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <SeccionBienes
-              bienes={guia.bienes}
-              onChange={(bienes: BienGRE[]) => setGuia((prev) => ({ ...prev, bienes }))}
-              pesoTotal={guia.pesoTotal}
-              unidadPeso={guia.unidadPeso}
-              onPesoTotalChange={(peso) => setGuia((prev) => ({ ...prev, pesoTotal: peso }))}
-              onUnidadPesoChange={(unidad: UnidadPeso) =>
-                setGuia((prev) => ({ ...prev, unidadPeso: unidad }))
-              }
-            />
-          </div>
-        </ConfigurationCard>
+        {/* 2. Bienes a transportar */}
+        <SeccionBienes
+          bienes={guia.bienes}
+          onChange={(bienes) => setGuia((prev) => ({ ...prev, bienes }))}
+          pesoTotal={guia.pesoTotal}
+          unidadPeso={guia.unidadPeso}
+          onPesoTotalChange={(peso) => setGuia((prev) => ({ ...prev, pesoTotal: peso }))}
+          onUnidadPesoChange={(unidad) => setGuia((prev) => ({ ...prev, unidadPeso: unidad }))}
+        />
 
         {/* 4. Puntos de traslado */}
         <SeccionPuntosTraslado
