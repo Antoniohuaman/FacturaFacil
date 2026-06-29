@@ -11,8 +11,13 @@ import type {
   PuntoTraslado,
   TransportePrivado,
   TransportePublico,
+  EventoGRE,
 } from '../modelos/GuiaRemision';
 import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS } from '../modelos/GuiaRemision';
+import { validarGREParaEmitir, hayErrores } from '../logica/validacionGRE';
+import type { ErroresValidacionGRE } from '../logica/validacionGRE';
+import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
+import ModalEmisionExitosaGRE from '../components/modales/ModalEmisionExitosaGRE';
 import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37 } from '../../configuracion-sistema/datos/catalogosGRE';
 import { vehiculosDataSource, conductoresDataSource } from '../../configuracion-sistema/api/fuenteDatosTransporte';
 import type { Vehiculo, Conductor } from '../../configuracion-sistema/modelos/Transporte';
@@ -493,7 +498,7 @@ function VistaPrevia({ guia, onCerrar }: { guia: GuiaRemision; onCerrar: () => v
 export default function FormularioGREPage() {
   const { tipoParam, id } = useParams<{ tipoParam?: string; id?: string }>();
   const navigate = useNavigate();
-  const { tenantId, activeEstablecimientoId } = useTenant();
+  const { tenantId, activeEstablecimientoId, activeWorkspace } = useTenant();
   const { state: configState } = useConfigurationContext();
   const { agregarGuia, actualizarGuia } = useGuiasRemision();
 
@@ -505,6 +510,11 @@ export default function FormularioGREPage() {
   const [guardando, setGuardando] = useState(false);
   const [errorDestinatario, setErrorDestinatario] = useState<string | null>(null);
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
+  const [erroresEmision, setErroresEmision] = useState<ErroresValidacionGRE>({});
+  const [modalExito, setModalExito] = useState<{ open: boolean; guia: GuiaRemision | null }>({
+    open: false,
+    guia: null,
+  });
 
   useEffect(() => {
     if (!modoEdicion || !id || !tenantId) return;
@@ -579,7 +589,18 @@ export default function FormularioGREPage() {
     if (!guia.serie) return;
     setGuardando(true);
     try {
-      const borrador: GuiaRemision = { ...guia, esBorrador: true, estado: 'Borrador' };
+      const evento: EventoGRE = {
+        id: crypto.randomUUID(),
+        tipo: modoEdicion ? 'edicion' : 'creacion',
+        descripcion: modoEdicion ? 'Borrador editado' : 'Borrador creado',
+        fecha: new Date().toISOString(),
+      };
+      const borrador: GuiaRemision = {
+        ...guia,
+        esBorrador: true,
+        estado: 'Borrador',
+        historial: [...(guia.historial ?? []), evento],
+      };
       if (modoEdicion) {
         await actualizarGuia(borrador);
       } else {
@@ -592,28 +613,42 @@ export default function FormularioGREPage() {
   }, [guia, modoEdicion, actualizarGuia, agregarGuia, navigate]);
 
   const emitir = useCallback(async () => {
-    if (!guia.destinatarioNombre) {
-      setErrorDestinatario('El destinatario es obligatorio');
+    const errores = validarGREParaEmitir(guia);
+    if (hayErrores(errores)) {
+      setErroresEmision(errores);
+      setErrorDestinatario(errores.destinatario ?? null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
+    setErroresEmision({});
+    setErrorDestinatario(null);
+    if (!tenantId) return;
     setGuardando(true);
     try {
+      const correlativo = await guiasRemisionDataSource.nextCorrelativo(tenantId, guia.serie);
+      const evento: EventoGRE = {
+        id: crypto.randomUUID(),
+        tipo: 'emision',
+        descripcion: 'GRE emitida',
+        fecha: new Date().toISOString(),
+      };
       const emitida: GuiaRemision = {
         ...guia,
         esBorrador: false,
         estado: 'Pendiente',
-        correlativo: String(Date.now()).slice(-8),
+        correlativo,
+        historial: [...(guia.historial ?? []), evento],
       };
       if (modoEdicion) {
         await actualizarGuia(emitida);
       } else {
         await agregarGuia(emitida);
       }
-      navigate('/guias-remision');
+      setModalExito({ open: true, guia: emitida });
     } finally {
       setGuardando(false);
     }
-  }, [guia, modoEdicion, actualizarGuia, agregarGuia, navigate]);
+  }, [guia, modoEdicion, actualizarGuia, agregarGuia, tenantId]);
 
   if (cargando) {
     return (
@@ -668,6 +703,24 @@ export default function FormularioGREPage() {
           )}
         </div>
       </div>
+
+      {/* Banner de errores de emisión */}
+      {hayErrores(erroresEmision) && (
+        <div className="px-6 pt-4">
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 space-y-1">
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+              Corrija los siguientes errores antes de emitir:
+            </p>
+            <ul className="list-disc list-inside space-y-0.5">
+              {Object.values(erroresEmision).map((msg, i) => (
+                <li key={i} className="text-xs text-red-600 dark:text-red-400">
+                  {msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Contenido del formulario */}
       <div className="flex-1 px-6 py-5 space-y-4">
@@ -754,6 +807,30 @@ export default function FormularioGREPage() {
           />
         </div>
       </div>
+
+      {/* Modal de emisión exitosa */}
+      <ModalEmisionExitosaGRE
+        open={modalExito.open}
+        guia={modalExito.guia}
+        onNuevaGRE={(t) => {
+          setModalExito({ open: false, guia: null });
+          setGuia(GUIA_REMISION_BORRADOR(t));
+          navigate(`/guias-remision/nuevo/${t}`);
+        }}
+        onVerDetalle={(g) => {
+          setModalExito({ open: false, guia: null });
+          navigate(`/guias-remision/${g.id}`);
+        }}
+        onImprimir={(g) => {
+          if (tenantId) {
+            void imprimirGuiaGRE(g, tenantId, activeWorkspace ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal } : undefined);
+          }
+        }}
+        onIrAlListado={() => {
+          setModalExito({ open: false, guia: null });
+          navigate('/guias-remision');
+        }}
+      />
 
       {/* Barra de acciones — sticky dentro del scroll container del layout */}
       <div className="sticky bottom-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-t border-slate-200 dark:border-gray-700 shadow-[0_-1px_6px_rgba(0,0,0,0.06)] px-6 py-3">

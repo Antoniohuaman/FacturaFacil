@@ -6,6 +6,7 @@ export interface IGuiasRemisionDataSource {
   getById(empresaId: string, id: string): Promise<GuiaRemision | null>;
   save(empresaId: string, guia: GuiaRemision): Promise<GuiaRemision>;
   delete(empresaId: string, id: string): Promise<void>;
+  nextCorrelativo(empresaId: string, serie: string): Promise<string>;
 }
 
 const coerceDateGRE = (value: unknown): Date => {
@@ -63,6 +64,18 @@ class LocalStorageGuiasRemisionDataSource implements IGuiasRemisionDataSource {
 
   async delete(empresaId: string, id: string): Promise<void> {
     this.persist(empresaId, this.load(empresaId).filter((g) => g.id !== id));
+  }
+
+  async nextCorrelativo(empresaId: string, serie: string): Promise<string> {
+    const guias = this.load(empresaId);
+    const emitidas = guias.filter(
+      (g) => g.serie === serie && !g.esBorrador && g.correlativo,
+    );
+    const max = emitidas.reduce((acc, g) => {
+      const n = parseInt(g.correlativo ?? '0', 10);
+      return Number.isNaN(n) ? acc : Math.max(acc, n);
+    }, 0);
+    return String(max + 1).padStart(8, '0');
   }
 }
 

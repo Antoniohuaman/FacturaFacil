@@ -76,6 +76,13 @@ export interface TransportePublico {
   placaVehiculoM1L?: string;
 }
 
+export interface EventoGRE {
+  id: string;
+  tipo: 'creacion' | 'edicion' | 'emision' | 'anulacion' | 'impresion' | 'eliminacion_borrador';
+  descripcion: string;
+  fecha: string; // ISO string — serializa limpio a JSON
+}
+
 export interface GuiaRemision {
   id: string;
   tipo: TipoGRE;
@@ -112,6 +119,7 @@ export interface GuiaRemision {
   transportePublico?: TransportePublico;
 
   observaciones?: string;
+  historial?: EventoGRE[];
 
   creadoEl: Date;
   actualizadoEl: Date;

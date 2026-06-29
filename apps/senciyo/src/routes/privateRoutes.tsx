@@ -107,6 +107,7 @@ export const privateRoutes: RouteObject[] = [
           { path: "/guias-remision", element: conPermisos(<GuiasRemision />, ['ventas.gre.ver']) },
           { path: "/guias-remision/nuevo/:tipoParam", element: conPermisos(<FormularioGREPage />, ['ventas.gre.emitir']) },
           { path: "/guias-remision/editar/:id", element: conPermisos(<FormularioGREPage />, ['ventas.gre.emitir']) },
+          { path: "/guias-remision/:id", element: conPermisos(<GuiasRemision />, ['ventas.gre.ver']) },
         ],
       },
       
