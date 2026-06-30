@@ -1,6 +1,7 @@
 import { CheckCircle2, FileText, Printer, List, Plus } from 'lucide-react';
 import type { GuiaRemision, TipoGRE } from '../../modelos/GuiaRemision';
 import { TIPO_GRE_LABELS } from '../../modelos/GuiaRemision';
+import { getEstadoGRELabel, getEstadoGREBadgeClass } from '../../logica/estadosGRE';
 
 interface Props {
   open: boolean;
@@ -61,8 +62,8 @@ export default function ModalEmisionExitosaGRE({
           </div>
           <div className="flex justify-between text-gray-700 dark:text-gray-300">
             <span className="text-gray-500 dark:text-gray-400">Estado</span>
-            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
-              {guia.estado}
+            <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${getEstadoGREBadgeClass(guia.estado)}`}>
+              {getEstadoGRELabel(guia.estado)}
             </span>
           </div>
         </div>

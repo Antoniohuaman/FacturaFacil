@@ -387,6 +387,16 @@ function TabBienes({ guia }: { guia: GuiaRemision }) {
                   {b.codigoProductoSunat && (
                     <p className="text-gray-400 dark:text-gray-500 font-mono text-[10px] mt-0.5">{b.codigoProductoSunat}</p>
                   )}
+                  {b.codigoSubpartidaNacional && (
+                    <p className="text-gray-400 dark:text-gray-500 font-mono text-[10px] mt-0.5">
+                      Subpartida: {b.codigoSubpartidaNacional}
+                    </p>
+                  )}
+                  {b.codigoGTIN && (
+                    <p className="text-gray-400 dark:text-gray-500 font-mono text-[10px] mt-0.5">
+                      GTIN: {b.codigoGTIN}
+                    </p>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 text-right tabular-nums text-gray-900 dark:text-white">
                   {b.cantidad}
