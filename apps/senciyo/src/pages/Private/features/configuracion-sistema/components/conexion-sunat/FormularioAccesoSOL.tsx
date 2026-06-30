@@ -15,22 +15,9 @@ interface FormState {
   claveSOL: string;
 }
 
-interface FormErrors {
-  usuarioSOL?: string;
-  claveSOL?: string;
-}
-
-function validar(form: FormState): FormErrors {
-  const e: FormErrors = {};
-  if (!form.usuarioSOL.trim()) e.usuarioSOL = 'El usuario SOL es obligatorio.';
-  if (!form.claveSOL.trim()) e.claveSOL = 'La clave SOL es obligatoria.';
-  return e;
-}
-
 export function FormularioAccesoSOL({ empresaId, datasource }: FormularioAccesoSOLProps) {
   const { showSuccess, showError } = useNotifications();
   const [form, setForm] = useState<FormState>({ usuarioSOL: '', claveSOL: '' });
-  const [errores, setErrores] = useState<FormErrors>({});
   const [mostrarClave, setMostrarClave] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -59,19 +46,11 @@ export function FormularioAccesoSOL({ empresaId, datasource }: FormularioAccesoS
   }, [datasource, empresaId]);
 
   const set = (campo: keyof FormState, valor: string) => {
-    const next = { ...form, [campo]: valor };
-    setForm(next);
-    const err = validar(next);
-    setErrores((prev) => ({ ...prev, [campo]: err[campo] }));
+    setForm((prev) => ({ ...prev, [campo]: valor }));
   };
 
   const manejarGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
-    const err = validar(form);
-    if (Object.keys(err).length > 0) {
-      setErrores(err);
-      return;
-    }
     setGuardando(true);
     try {
       const input: AccesoSOL = {
@@ -105,7 +84,7 @@ export function FormularioAccesoSOL({ empresaId, datasource }: FormularioAccesoS
       {/* Usuario SOL */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Usuario SOL *
+          Usuario SOL
         </label>
         <input
           type="text"
@@ -115,19 +94,14 @@ export function FormularioAccesoSOL({ empresaId, datasource }: FormularioAccesoS
           autoComplete="off"
           spellCheck={false}
           placeholder="Usuario de acceso SUNAT"
-          className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${
-            errores.usuarioSOL ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-          }`}
+          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         />
-        {errores.usuarioSOL && (
-          <p className="text-xs text-red-600 mt-1">{errores.usuarioSOL}</p>
-        )}
       </div>
 
       {/* Clave SOL */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Clave SOL *
+          Clave SOL
         </label>
         <div className="relative">
           <input
@@ -137,9 +111,7 @@ export function FormularioAccesoSOL({ empresaId, datasource }: FormularioAccesoS
             disabled={guardando}
             autoComplete="new-password"
             placeholder="Clave de acceso SUNAT"
-            className={`w-full text-sm border rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 disabled:opacity-50 ${
-              errores.claveSOL ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-            }`}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="button"
@@ -151,9 +123,6 @@ export function FormularioAccesoSOL({ empresaId, datasource }: FormularioAccesoS
             {mostrarClave ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
-        {errores.claveSOL && (
-          <p className="text-xs text-red-600 mt-1">{errores.claveSOL}</p>
-        )}
       </div>
 
       {actualizadoEl && (

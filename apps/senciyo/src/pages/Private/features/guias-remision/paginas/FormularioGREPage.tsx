@@ -5,6 +5,9 @@ import { useGuiasRemision } from '../contexto/ContextoGuiasRemision';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { guiasRemisionDataSource } from '../api/fuenteDatosGRE';
+import { useEstadoConfiguracionGRE } from '../logica/useEstadoConfiguracionGRE';
+import BannerConfiguracionGRE from '../components/compartido/BannerConfiguracionGRE';
+import ModalConfiguracionGRE from '../components/modales/ModalConfiguracionGRE';
 import type {
   GuiaRemision,
   TipoGRE,
@@ -53,7 +56,7 @@ interface DatosComprador {
 
 // ─── Vista previa en formato documento ─────────────────────
 
-function VistaPrevia({ guia, onCerrar }: { guia: GuiaRemision; onCerrar: () => void }) {
+function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: GuiaRemision; onCerrar: () => void; autorizacionEspecialEmisor?: { entidadNombre: string; numeroAutorizacion: string } }) {
   const motivo = MOTIVOS_TRASLADO.find((m) => m.codigo === guia.motivoTraslado);
   const { tenantId } = useTenant();
   const [vehiculosPrevia, setVehiculosPrevia] = useState<Vehiculo[]>([]);
@@ -87,6 +90,14 @@ function VistaPrevia({ guia, onCerrar }: { guia: GuiaRemision; onCerrar: () => v
       </div>
 
       <div className="px-6 py-4 space-y-4 text-sm">
+        {/* Autorización especial del emisor */}
+        {autorizacionEspecialEmisor && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 dark:bg-violet-900/10 border border-violet-200 dark:border-violet-700 rounded-lg text-xs text-violet-800 dark:text-violet-300">
+            <span className="font-medium">Autorización especial del emisor:</span>
+            <span>{autorizacionEspecialEmisor.entidadNombre} — N.° {autorizacionEspecialEmisor.numeroAutorizacion}</span>
+          </div>
+        )}
+
         {/* Metadatos */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
@@ -511,6 +522,9 @@ export default function FormularioGREPage() {
   const tipo: TipoGRE = esTipoValido(tipoParam) ? tipoParam : 'remitente';
   const modoEdicion = Boolean(id);
 
+  const { credencialesCompletas, puedeEmitirPorConfiguracion, faltantesCredenciales, autorizacionEspecialEmisor, refrescar } = useEstadoConfiguracionGRE();
+  const [modalConfigOpen, setModalConfigOpen] = useState(false);
+
   const [guia, setGuia] = useState<GuiaRemision>(() => GUIA_REMISION_BORRADOR(tipo));
   const [cargando, setCargando] = useState(modoEdicion);
   const [guardando, setGuardando] = useState(false);
@@ -527,10 +541,12 @@ export default function FormularioGREPage() {
   );
 
   const erroresMinimos = useMemo(() => validarGREParaEmitir(guia), [guia]);
-  const puedeEmitir = !hayErrores(erroresMinimos);
-  const tooltipEmitir = !puedeEmitir
-    ? `Faltan requisitos: ${Object.values(erroresMinimos).join(' · ')}`
-    : undefined;
+  const puedeEmitir = !hayErrores(erroresMinimos) && puedeEmitirPorConfiguracion;
+  const tooltipEmitir = !puedeEmitirPorConfiguracion
+    ? `Credenciales SUNAT incompletas: ${faltantesCredenciales.join(', ')}`
+    : !hayErrores(erroresMinimos)
+      ? undefined
+      : `Faltan requisitos: ${Object.values(erroresMinimos).join(' · ')}`;
 
   useEffect(() => {
     if (!modoEdicion || !id || !tenantId) return;
@@ -556,6 +572,12 @@ export default function FormularioGREPage() {
     .map((s) => s.series);
 
   useEffect(() => {
+    if (modoEdicion) return;
+    // Si la serie actual no pertenece al tipo actual, limpiarla para re-seleccionar
+    if (guia.serie && !seriesDisponibles.includes(guia.serie)) {
+      setGuia((prev) => ({ ...prev, serie: '' }));
+      return;
+    }
     if (guia.serie || seriesDisponibles.length === 0) return;
     const porDefecto = configState.series.find(
       (s) =>
@@ -569,7 +591,7 @@ export default function FormularioGREPage() {
     } else if (seriesDisponibles[0]) {
       setGuia((prev) => ({ ...prev, serie: seriesDisponibles[0] }));
     }
-  }, [seriesDisponibles.join(','), guia.serie]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seriesDisponibles.join(','), guia.serie, modoEdicion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setIntentoEmitir(false);
@@ -735,9 +757,18 @@ export default function FormularioGREPage() {
 
       {/* Contenido del formulario */}
       <div className="flex-1 px-6 py-5 space-y-4">
+        {/* Banner de credenciales SUNAT */}
+        {!credencialesCompletas && (
+          <BannerConfiguracionGRE onConfigurar={() => setModalConfigOpen(true)} />
+        )}
+
         {/* Vista previa inline — dentro del área de contenido, sin invadir el sidebar */}
         {mostrarVistaPrevia && (
-          <VistaPrevia guia={guia} onCerrar={() => setMostrarVistaPrevia(false)} />
+          <VistaPrevia
+            guia={guia}
+            onCerrar={() => setMostrarVistaPrevia(false)}
+            autorizacionEspecialEmisor={autorizacionEspecialEmisor}
+          />
         )}
 
         {/* 1. Datos de la guía */}
@@ -841,13 +872,20 @@ export default function FormularioGREPage() {
         }}
         onImprimir={(g) => {
           if (tenantId) {
-            void imprimirGuiaGRE(g, tenantId, activeWorkspace ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal } : undefined);
+            void imprimirGuiaGRE(g, tenantId, activeWorkspace ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal, autorizacionEspecialEmisor } : undefined);
           }
         }}
         onIrAlListado={() => {
           setModalExito({ open: false, guia: null });
           navigate('/guias-remision');
         }}
+      />
+
+      {/* Modal de configuración de credenciales GRE */}
+      <ModalConfiguracionGRE
+        open={modalConfigOpen}
+        onCerrar={() => setModalConfigOpen(false)}
+        onGuardado={() => { refrescar(); }}
       />
 
       {/* Barra de acciones — sticky dentro del scroll container del layout */}

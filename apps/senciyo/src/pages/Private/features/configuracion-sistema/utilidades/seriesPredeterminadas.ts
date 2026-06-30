@@ -15,6 +15,8 @@ const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
   'COLLECTION',
   'STOCK_ENTRY',
   'STOCK_EXIT',
+  'GRE_REMITENTE',
+  'GRE_TRANSPORTISTA',
 ];
 
 const buildSeriesSeed = ({
@@ -81,6 +83,9 @@ const generateInitialSeriesCode = (documentType: DocumentType): string => {
   // Mantener FE01 / BE01 como estándar normativo actual
   if (documentType.code === "01") return "FE01";
   if (documentType.code === "03") return "BE01";
+  // T001 / V001 según SUNAT para GRE Remitente / Transportista
+  if (documentType.code === "09") return "T001";
+  if (documentType.code === "31") return "V001";
 
   const prefix =
     documentType.seriesConfiguration.defaultPrefix ||

@@ -15,22 +15,9 @@ interface FormState {
   clientSecret: string;
 }
 
-interface FormErrors {
-  clientId?: string;
-  clientSecret?: string;
-}
-
-function validar(form: FormState): FormErrors {
-  const e: FormErrors = {};
-  if (!form.clientId.trim()) e.clientId = 'El Client ID es obligatorio.';
-  if (!form.clientSecret.trim()) e.clientSecret = 'El Client Secret es obligatorio.';
-  return e;
-}
-
 export function FormularioCredencialesGRE({ empresaId, datasource }: FormularioCredencialesGREProps) {
   const { showSuccess, showError } = useNotifications();
   const [form, setForm] = useState<FormState>({ clientId: '', clientSecret: '' });
-  const [errores, setErrores] = useState<FormErrors>({});
   const [mostrarSecret, setMostrarSecret] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -59,19 +46,11 @@ export function FormularioCredencialesGRE({ empresaId, datasource }: FormularioC
   }, [datasource, empresaId]);
 
   const set = (campo: keyof FormState, valor: string) => {
-    const next = { ...form, [campo]: valor };
-    setForm(next);
-    const err = validar(next);
-    setErrores((prev) => ({ ...prev, [campo]: err[campo] }));
+    setForm((prev) => ({ ...prev, [campo]: valor }));
   };
 
   const manejarGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
-    const err = validar(form);
-    if (Object.keys(err).length > 0) {
-      setErrores(err);
-      return;
-    }
     setGuardando(true);
     try {
       const input: CredencialesGRE = {
@@ -105,7 +84,7 @@ export function FormularioCredencialesGRE({ empresaId, datasource }: FormularioC
       {/* Client ID */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Client ID *
+          Client ID
         </label>
         <input
           type="text"
@@ -115,19 +94,14 @@ export function FormularioCredencialesGRE({ empresaId, datasource }: FormularioC
           autoComplete="off"
           spellCheck={false}
           placeholder="Identificador de cliente OAuth 2.0"
-          className={`w-full text-sm border rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 disabled:opacity-50 ${
-            errores.clientId ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-          }`}
+          className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         />
-        {errores.clientId && (
-          <p className="text-xs text-red-600 mt-1">{errores.clientId}</p>
-        )}
       </div>
 
       {/* Client Secret */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Client Secret *
+          Client Secret
         </label>
         <div className="relative">
           <input
@@ -137,9 +111,7 @@ export function FormularioCredencialesGRE({ empresaId, datasource }: FormularioC
             disabled={guardando}
             autoComplete="new-password"
             placeholder="Clave secreta OAuth 2.0"
-            className={`w-full text-sm border rounded-lg px-3 py-2 pr-10 font-mono focus:outline-none focus:ring-2 disabled:opacity-50 ${
-              errores.clientSecret ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-            }`}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 pr-10 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="button"
@@ -151,9 +123,6 @@ export function FormularioCredencialesGRE({ empresaId, datasource }: FormularioC
             {mostrarSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
-        {errores.clientSecret && (
-          <p className="text-xs text-red-600 mt-1">{errores.clientSecret}</p>
-        )}
       </div>
 
       {actualizadoEl && (

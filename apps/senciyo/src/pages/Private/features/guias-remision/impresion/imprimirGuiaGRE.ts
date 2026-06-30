@@ -4,11 +4,11 @@ import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37, DOCUMENTOS_RELACIONADOS_
 import { vehiculosDataSource, conductoresDataSource } from '../../configuracion-sistema/api/fuenteDatosTransporte';
 import { formatearPlaca, nombreCompletoConductor } from '../../configuracion-sistema/components/transporte/helpersTransporte';
 import { getEstadoGRELabel } from '../logica/estadosGRE';
-
 export interface EmpresaGRE {
   razonSocial?: string;
   ruc?: string;
   direccion?: string;
+  autorizacionEspecialEmisor?: { entidadNombre: string; numeroAutorizacion: string };
 }
 
 export async function imprimirGuiaGRE(
@@ -124,6 +124,7 @@ export async function imprimirGuiaGRE(
         <div class="empresa-nombre">${escHtml(empresa.razonSocial)}</div>
         ${empresa.ruc ? `<div class="empresa-ruc">RUC ${escHtml(empresa.ruc)}</div>` : ''}
         ${empresa.direccion ? `<div class="empresa-dir">${escHtml(empresa.direccion)}</div>` : ''}
+        ${empresa.autorizacionEspecialEmisor ? `<div class="empresa-aut"><strong>Autorización especial del emisor:</strong> ${escHtml(empresa.autorizacionEspecialEmisor.entidadNombre)} — N.° ${escHtml(empresa.autorizacionEspecialEmisor.numeroAutorizacion)}</div>` : ''}
       </div>`
     : '';
 
@@ -137,6 +138,7 @@ export async function imprimirGuiaGRE(
   .empresa-header { border-bottom: 2px solid #4c1d95; padding-bottom: 8px; margin-bottom: 12px; }
   .empresa-nombre { font-size: 15px; font-weight: bold; color: #4c1d95; }
   .empresa-ruc, .empresa-dir { font-size: 11px; color: #555; margin-top: 2px; }
+  .empresa-aut { font-size: 11px; color: #4c1d95; margin-top: 4px; }
   h1 { font-size: 16px; margin: 0 0 4px; }
   h2 { font-size: 13px; margin: 14px 0 4px; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
   p { margin: 2px 0; }

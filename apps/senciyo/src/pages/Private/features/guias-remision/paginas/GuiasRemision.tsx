@@ -9,6 +9,8 @@ import DrawerFiltrosGRE from '../components/lista/DrawerFiltrosGRE';
 import PanelColumnasGRE from '../components/lista/PanelColumnasGRE';
 import ModalAnularGRE from '../components/modales/ModalAnularGRE';
 import ModalEliminarBorradorGRE from '../components/modales/ModalEliminarBorradorGRE';
+import ModalConfiguracionGRE from '../components/modales/ModalConfiguracionGRE';
+import BannerConfiguracionGRE from '../components/compartido/BannerConfiguracionGRE';
 import type { GuiaRemision, EventoGRE } from '../modelos/GuiaRemision';
 import { GUIA_REMISION_BORRADOR } from '../modelos/GuiaRemision';
 import { imprimirGuiaGRE, type EmpresaGRE } from '../impresion/imprimirGuiaGRE';
@@ -16,6 +18,7 @@ import type { FiltrosAvanzadosGRE } from '../logica/filtrosGRE';
 import { FILTROS_GRE_VACIO, aplicarFiltrosGRE, contarFiltrosActivosGRE } from '../logica/filtrosGRE';
 import { cargarColumnasGRE, persistirColumnasGRE } from '../logica/columnasGRE';
 import type { ColumnaGREConfig } from '../logica/columnasGRE';
+import { useEstadoConfiguracionGRE } from '../logica/useEstadoConfiguracionGRE';
 
 type Tab = 'listado' | 'borradores';
 
@@ -24,6 +27,9 @@ export default function GuiasRemision() {
   const { id: idParam } = useParams<{ id?: string }>();
   const { tenantId, activeWorkspace } = useTenant();
   const { state, actualizarGuia, eliminarGuia, agregarGuia } = useGuiasRemision();
+
+  const { credencialesCompletas, autorizacionEspecialEmisor, refrescar } = useEstadoConfiguracionGRE();
+  const [modalConfigOpen, setModalConfigOpen] = useState(false);
 
   const [tabActivo, setTabActivo] = useState<Tab>('listado');
   const [guiaDetalle, setGuiaDetalle] = useState<GuiaRemision | null>(null);
@@ -159,7 +165,7 @@ export default function GuiasRemision() {
   };
 
   const empresaImpresion: EmpresaGRE | undefined = activeWorkspace
-    ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal }
+    ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal, autorizacionEspecialEmisor }
     : undefined;
 
   const handleImprimir = (guia: GuiaRemision) => {
@@ -201,6 +207,13 @@ export default function GuiasRemision() {
           </div>
         </div>
       </div>
+
+      {/* Banner de configuración — solo si faltan credenciales SUNAT */}
+      {!credencialesCompletas && (
+        <div className="px-6 pt-4">
+          <BannerConfiguracionGRE onConfigurar={() => setModalConfigOpen(true)} />
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6">
@@ -357,6 +370,13 @@ export default function GuiasRemision() {
         onConfirmar={() => void handleConfirmarEliminar()}
         onCancelar={() => setModalEliminar({ open: false, guia: null, cargando: false })}
         cargando={modalEliminar.cargando}
+      />
+
+      {/* Modal de configuración de credenciales GRE */}
+      <ModalConfiguracionGRE
+        open={modalConfigOpen}
+        onCerrar={() => setModalConfigOpen(false)}
+        onGuardado={() => { refrescar(); }}
       />
     </div>
   );
