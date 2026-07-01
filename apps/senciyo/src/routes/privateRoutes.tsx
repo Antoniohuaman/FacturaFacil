@@ -42,6 +42,7 @@ import DocumentosComercialesLayout from "../pages/Private/features/documentos-co
 
 // Compras
 import PaginaCompras from "../pages/Private/features/compras/paginas/PaginaCompras";
+import ComprasLayout from "../pages/Private/features/compras/paginas/ComprasLayout";
 
 // Guías de Remisión
 import GuiasRemision from "../pages/Private/features/guias-remision/paginas/GuiasRemision";
@@ -134,7 +135,13 @@ export const privateRoutes: RouteObject[] = [
       { path: "/configuracion/cajas/:id", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
       { path: "/configuracion/conexion-sunat", element: conPermisos(<ConfiguracionConexionSunat />, ['config.conexion-sunat.gestionar']) },
       { path: "/configuracion/transporte", element: conPermisos(<ConfiguracionTransporte />, ['config.transporte.gestionar']) },
-      { path: "/compras", element: conPermisos(<PaginaCompras />, ['compras.ordenes.ver']) },
+      // Compras — layout route garantiza el provider para todas las rutas hijas
+      {
+        element: <ComprasLayout />,
+        children: [
+          { path: "/compras", element: conPermisos(<PaginaCompras />, ['compras.ordenes.ver']) },
+        ],
+      },
       { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },
       { path: "/sin-permiso", element: <SinPermiso /> },
     ],
