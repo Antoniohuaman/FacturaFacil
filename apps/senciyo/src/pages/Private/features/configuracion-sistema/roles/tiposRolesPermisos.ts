@@ -10,7 +10,8 @@ export type ModuloPermiso =
   | 'precios'
   | 'indicadores'
   | 'configuracion'
-  | 'notificaciones';
+  | 'notificaciones'
+  | 'compras';
 
 export interface PermisoCatalogo {
   id: IdPermiso;

@@ -40,6 +40,9 @@ import DocumentosComerciales from "../pages/Private/features/documentos-comercia
 import FormularioDocumentoComercialPage from "../pages/Private/features/documentos-comerciales/pages/FormularioDocumentoComercialPage";
 import DocumentosComercialesLayout from "../pages/Private/features/documentos-comerciales/pages/DocumentosComercialesLayout";
 
+// Compras
+import PaginaCompras from "../pages/Private/features/compras/paginas/PaginaCompras";
+
 // Guías de Remisión
 import GuiasRemision from "../pages/Private/features/guias-remision/paginas/GuiasRemision";
 import FormularioGREPage from "../pages/Private/features/guias-remision/paginas/FormularioGREPage";
@@ -131,6 +134,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "/configuracion/cajas/:id", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
       { path: "/configuracion/conexion-sunat", element: conPermisos(<ConfiguracionConexionSunat />, ['config.conexion-sunat.gestionar']) },
       { path: "/configuracion/transporte", element: conPermisos(<ConfiguracionTransporte />, ['config.transporte.gestionar']) },
+      { path: "/compras", element: conPermisos(<PaginaCompras />, ['compras.ordenes.ver']) },
       { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },
       { path: "/sin-permiso", element: <SinPermiso /> },
     ],

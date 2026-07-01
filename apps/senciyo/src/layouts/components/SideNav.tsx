@@ -53,6 +53,7 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     else if (path.startsWith('/cobranzas')) setActiveModule('cobranzas');
     else if (path.startsWith('/clientes')) setActiveModule('clientes');
     else if (path.startsWith('/indicadores')) setActiveModule('indicadores');
+    else if (path.startsWith('/compras')) setActiveModule('compras');
     else setActiveModule('');
   }, [location.pathname]);
 
@@ -114,6 +115,11 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       id: "indicadores",
       title: "Indicadores",
       icon: "BarChart3"
+    },
+    {
+      id: "compras",
+      title: "Compras",
+      icon: "ShoppingBag"
     }
   ];
 
@@ -173,6 +179,12 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
     'indicadores': [
       'indicadores.ver',
     ],
+    'compras': [
+      'compras.ordenes.ver',
+      'compras.comprobantes.ver',
+      'compras.cuentas_por_pagar.ver',
+      'compras.pagos.ver',
+    ],
   };
 
   const modulesDisponibles = modules.filter((module) => {
@@ -200,7 +212,8 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       'caja': '/control-caja',
       'cobranzas': '/cobranzas',
       'clientes': '/clientes',
-      'indicadores': '/indicadores'
+      'indicadores': '/indicadores',
+      'compras': '/compras'
     };
 
     const route = routeMap[moduleId];

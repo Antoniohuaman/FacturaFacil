@@ -352,6 +352,79 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     modulo: 'notificaciones',
     rutas: ['/notificaciones'],
   },
+  {
+    id: 'compras.ordenes.ver',
+    nombre: 'Ver órdenes de compra',
+    descripcion: 'Acceder al listado y detalle de órdenes de compra.',
+    modulo: 'compras',
+    rutas: ['/compras'],
+  },
+  {
+    id: 'compras.ordenes.crear',
+    nombre: 'Crear órdenes de compra',
+    descripcion: 'Registrar nuevas órdenes de compra.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.ordenes.editar',
+    nombre: 'Editar órdenes de compra',
+    descripcion: 'Editar órdenes de compra en borrador.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.ordenes.aprobar',
+    nombre: 'Aprobar órdenes de compra',
+    descripcion: 'Aprobar o rechazar órdenes de compra pendientes.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.ordenes.anular',
+    nombre: 'Anular órdenes de compra',
+    descripcion: 'Anular órdenes de compra registradas.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.comprobantes.ver',
+    nombre: 'Ver comprobantes de compra',
+    descripcion: 'Acceder al listado y detalle de comprobantes de compra.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.comprobantes.registrar',
+    nombre: 'Registrar comprobantes de compra',
+    descripcion: 'Registrar comprobantes emitidos por proveedores.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.comprobantes.anular',
+    nombre: 'Anular comprobantes de compra',
+    descripcion: 'Anular comprobantes de compra registrados.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.cuentas_por_pagar.ver',
+    nombre: 'Ver cuentas por pagar',
+    descripcion: 'Acceder al listado de cuentas por pagar a proveedores.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.pagos.ver',
+    nombre: 'Ver pagos a proveedores',
+    descripcion: 'Acceder al historial de pagos a proveedores.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.pagos.registrar',
+    nombre: 'Registrar pagos a proveedores',
+    descripcion: 'Registrar pagos a cuentas por pagar.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.pagos.anular',
+    nombre: 'Anular pagos a proveedores',
+    descripcion: 'Anular pagos registrados a proveedores.',
+    modulo: 'compras',
+  },
 ];
 
 export const MAPA_PERMISOS_POR_ID: Record<IdPermiso, PermisoCatalogo> =
