@@ -1,3 +1,5 @@
+import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
+
 export type ClasificacionLineaCompra =
   | 'producto'
   | 'servicio'
@@ -5,7 +7,8 @@ export type ClasificacionLineaCompra =
   | 'suministro'
   | 'activo_fijo';
 
-export type TipoAfectacionCompra = 'gravado' | 'exonerado' | 'inafecto';
+/** 'sin_configurar': el producto no tiene impuesto propio definido en Productos; bloquea el registro. */
+export type TipoAfectacionCompra = 'gravado' | 'exonerado' | 'inafecto' | 'sin_configurar';
 
 export const CLASIFICACION_LINEA_LABELS: Record<ClasificacionLineaCompra, string> = {
   producto: 'Producto',
@@ -23,6 +26,21 @@ export interface LineaCompra {
   codigoProducto?: string;
   nombreProducto: string;
   descripcion?: string;
+  alias?: string;
+  categoria?: string;
+  marca?: string;
+  modelo?: string;
+  tipoExistencia?: string;
+  codigoBarras?: string;
+  codigoFabrica?: string;
+  codigoSunat?: string;
+  peso?: number;
+  /** Costo de compra de referencia registrado en el producto (dato del catálogo, no editable desde la línea). */
+  precioCompraReferencia?: number;
+  /** Imagen del producto de catálogo, informativa (ver Producto en Configuración). */
+  imagen?: string;
+  /** Stock disponible al momento de agregar la línea, solo informativo (no bloquea el registro). */
+  stockReferencia?: number;
 
   // Clasificación funcional
   clasificacion: ClasificacionLineaCompra;
@@ -32,6 +50,8 @@ export interface LineaCompra {
   // Unidad de medida
   unidadMedida: string;
   unidadMedidaCodigo: string;
+  /** Unidad base + presentaciones válidas del producto (ver getProductUnitOptions). Vacío si el producto no tiene unidad configurada. */
+  unidadesDisponibles: ProductUnitOption[];
 
   // Cantidades separadas (prevención de doble ingreso)
   cantidadSolicitada: number;
@@ -40,7 +60,7 @@ export interface LineaCompra {
   cantidadIngresadaInventario: number;
   /** Derivado: cantidadSolicitada - cantidadRecibida */
   cantidadPendienteRecepcion: number;
-  /** Derivado: cantidadRecibida - cantidadFacturada */
+  /** Derivado: cantidadSolicitada - cantidadFacturada (ver aplicarFacturacionALineasOC) */
   cantidadPendienteFacturacion: number;
   /** Derivado: cantidadFacturada - cantidadIngresadaInventario */
   cantidadPendienteInventario: number;

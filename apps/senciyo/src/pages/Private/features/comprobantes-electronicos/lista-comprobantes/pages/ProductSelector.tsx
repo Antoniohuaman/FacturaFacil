@@ -6,6 +6,7 @@ import ProductModal from '../../../catalogo-articulos/components/ProductModal';
 import {
   isProductEnabledForEstablecimiento,
   type Product as CatalogProduct,
+  type AdditionalUnitMeasure,
 } from '../../../catalogo-articulos/models/types';
 import { usePriceBook } from '../../shared/form-core/hooks/usePriceBook';
 import { useCurrentEstablecimientoId, useUserSession } from '../../../../../../contexts/UserSessionContext';
@@ -14,7 +15,7 @@ import { getAvailableStockForUnit } from '../../../../../../shared/inventory/sto
 import { registrarProductoCreadoExitoso } from '../../../../../../shared/analitica/analitica';
 import { derivarEntornoAnaliticoEmpresa } from '@/shared/empresas/entornoEmpresa';
 
-interface Product {
+export interface Product {
   id: string;
   code: string;
   name: string;
@@ -39,6 +40,9 @@ interface Product {
   codigoSunat?: string;
   unidad?: string; // ✅ Nombre de la unidad del producto
   unitSymbol?: string;
+  unitName?: string;
+  /** Unidades alternativas/presentaciones del producto (ver catalogo-articulos/models/types). */
+  unidadesMedidaAdicionales?: AdditionalUnitMeasure[];
   sujetoDetraccion?: boolean;
   codigoDetraccion?: string | null;
 }
@@ -111,6 +115,8 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       codigoSunat: p.codigoSunat,
       unidad: p.unidad,
       unitSymbol: p.unitSymbol,
+      unitName: p.unitName,
+      unidadesMedidaAdicionales: p.unidadesMedidaAdicionales,
       sujetoDetraccion: p.sujetoDetraccion,
       codigoDetraccion: p.codigoDetraccion ?? null,
     };

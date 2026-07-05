@@ -35,6 +35,7 @@ export interface CuentaPorPagar {
   // Origen
   comprobanteCompraId: string;
   comprobanteCompraNumero: string;
+  tipoComprobanteOrigen: string;
 
   // Proveedor
   proveedorId: string;

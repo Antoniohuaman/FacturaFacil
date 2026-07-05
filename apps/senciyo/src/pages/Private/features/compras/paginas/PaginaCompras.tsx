@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, FileText, Receipt, CreditCard, Wallet } from 'lucide-react';
 import { useCompras } from '../contexto/ContextoCompras';
 import { useUserSession } from '@/contexts/UserSessionContext';
@@ -11,12 +12,11 @@ import FormularioComprobanteCompra from '../componentes/formularios/FormularioCo
 import PanelDetalleOrdenCompra from '../componentes/detalle/PanelDetalleOrdenCompra';
 import PanelDetalleComprobanteCompra from '../componentes/detalle/PanelDetalleComprobanteCompra';
 import PanelDetalleCuentaPorPagar from '../componentes/detalle/PanelDetalleCuentaPorPagar';
+import PanelDetallePagoCompra from '../componentes/detalle/PanelDetallePagoCompra';
 import ModalAprobarRechazarOC from '../componentes/modales/ModalAprobarRechazarOC';
 import ModalAnularCompra from '../componentes/modales/ModalAnularCompra';
-import ModalRegistrarPagoCompra from '../componentes/modales/ModalRegistrarPagoCompra';
 import type { OrdenCompra } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
-import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
 import {
   MOTIVOS_ANULACION_OC,
@@ -32,7 +32,8 @@ type Vista =
   | { tipo: 'nuevo_cc'; ocOrigen?: OrdenCompra }
   | { tipo: 'detalle_oc'; ocId: string }
   | { tipo: 'detalle_cc'; ccId: string }
-  | { tipo: 'detalle_cxp'; cxpId: string };
+  | { tipo: 'detalle_cxp'; cxpId: string }
+  | { tipo: 'detalle_pago'; pagoId: string };
 
 const TABS: { id: TabActivo; label: string; icon: typeof FileText }[] = [
   { id: 'ordenes', label: 'Órdenes de Compra', icon: FileText },
@@ -51,14 +52,16 @@ export default function PaginaCompras() {
     anularPagoCompra,
   } = useCompras();
   const { session } = useUserSession();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const tabDesdeNavegacion = (location.state as { tab?: TabActivo } | null)?.tab;
 
-  const [tabActivo, setTabActivo] = useState<TabActivo>('ordenes');
+  const [tabActivo, setTabActivo] = useState<TabActivo>(tabDesdeNavegacion ?? 'ordenes');
   const [vista, setVista] = useState<Vista>({ tipo: 'lista' });
   const [ocParaAprobar, setOcParaAprobar] = useState<OrdenCompra | null>(null);
   const [ocParaAnular, setOcParaAnular] = useState<OrdenCompra | null>(null);
   const [ccParaAnular, setCcParaAnular] = useState<ComprobanteCompra | null>(null);
   const [pagoParaAnular, setPagoParaAnular] = useState<PagoCompra | null>(null);
-  const [cxpParaPago, setCxpParaPago] = useState<CuentaPorPagar | null>(null);
 
   const usuarioNombre = session?.userName ?? '';
 
@@ -100,6 +103,11 @@ export default function PaginaCompras() {
   const cxpDetalle =
     vista.tipo === 'detalle_cxp'
       ? (state.cuentasPorPagar.find((c) => c.id === vista.cxpId) ?? null)
+      : null;
+
+  const pagoDetalle =
+    vista.tipo === 'detalle_pago'
+      ? (state.pagos.find((p) => p.id === vista.pagoId) ?? null)
       : null;
 
   const cxpPendientes = state.cuentasPorPagar.filter(
@@ -187,14 +195,15 @@ export default function PaginaCompras() {
           <TablaCuentasPorPagar
             cuentas={state.cuentasPorPagar}
             onVer={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
-            onRegistrarPago={(cxp) => setCxpParaPago(cxp)}
+            onRegistrarPago={(cxp) => navigate(`/compras/pagos/nuevo?cuentaPorPagarId=${cxp.id}`)}
           />
         )}
 
         {tabActivo === 'pagos' && (
           <TablaPagosCompra
             pagos={state.pagos}
-            onVer={() => {}}
+            cuentasPorPagar={state.cuentasPorPagar}
+            onVer={(pago) => setVista({ tipo: 'detalle_pago', pagoId: pago.id })}
             onAnular={(pago) => setPagoParaAnular(pago)}
           />
         )}
@@ -215,11 +224,17 @@ export default function PaginaCompras() {
       {cxpDetalle && (
         <PanelDetalleCuentaPorPagar
           cxp={cxpDetalle}
+          pagos={state.pagos}
           onCerrar={() => setVista({ tipo: 'lista' })}
-          onRegistrarPago={(cxp) => {
-            setVista({ tipo: 'lista' });
-            setCxpParaPago(cxp);
-          }}
+          onRegistrarPago={(cxp) => navigate(`/compras/pagos/nuevo?cuentaPorPagarId=${cxp.id}`)}
+        />
+      )}
+
+      {pagoDetalle && (
+        <PanelDetallePagoCompra
+          pago={pagoDetalle}
+          cuentasPorPagar={state.cuentasPorPagar}
+          onCerrar={() => setVista({ tipo: 'lista' })}
         />
       )}
 
@@ -281,17 +296,6 @@ export default function PaginaCompras() {
           }
         }}
         onCerrar={() => setPagoParaAnular(null)}
-      />
-
-      {/* Modal: Registrar Pago */}
-      <ModalRegistrarPagoCompra
-        cxp={cxpParaPago}
-        abierto={cxpParaPago !== null}
-        onExito={() => {
-          setCxpParaPago(null);
-          setTabActivo('pagos');
-        }}
-        onCerrar={() => setCxpParaPago(null)}
       />
     </div>
   );

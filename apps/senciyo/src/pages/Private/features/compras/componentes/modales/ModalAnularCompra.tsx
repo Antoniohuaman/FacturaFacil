@@ -41,8 +41,8 @@ export default function ModalAnularCompra({
       await onConfirmar(motivoFinal);
       setMotivoSeleccionado('');
       setMotivoPersonalizado('');
-    } catch {
-      setError('Ocurrió un error al anular. Inténtalo nuevamente.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ocurrió un error al anular. Inténtalo nuevamente.');
     } finally {
       setProcesando(false);
     }

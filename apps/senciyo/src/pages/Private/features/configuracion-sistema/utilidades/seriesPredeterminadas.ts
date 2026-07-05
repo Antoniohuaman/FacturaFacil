@@ -17,6 +17,8 @@ const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
   'STOCK_EXIT',
   'GRE_REMITENTE',
   'GRE_TRANSPORTISTA',
+  'PURCHASE_ORDER',
+  'PAYMENT_PURCHASE',
 ];
 
 const buildSeriesSeed = ({

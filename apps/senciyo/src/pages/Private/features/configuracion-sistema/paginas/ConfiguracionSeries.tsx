@@ -125,6 +125,20 @@ const voucherTypeConfig = {
     color: 'indigo',
     prefix: 'V',
     description: 'Guía de Remisión Electrónica Transportista (código 31)'
+  },
+  PURCHASE_ORDER: {
+    label: 'Orden de Compra',
+    icon: FileText,
+    color: 'orange',
+    prefix: 'OC',
+    description: 'Documento interno de compras - Pedido al proveedor'
+  },
+  PAYMENT_PURCHASE: {
+    label: 'Pago de Compra',
+    icon: NotebookPen,
+    color: 'teal',
+    prefix: 'PG',
+    description: 'Documento interno de compras - Registro de pago al proveedor'
   }
 };
 

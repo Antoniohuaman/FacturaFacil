@@ -1,6 +1,8 @@
 import type { OrdenCompra } from '../modelos/OrdenCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from './tiposServiciosCompras';
+import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
+import { validarFechaVencimientoCredito, validarLineasCompra, resolverImpuestoProducto } from '../logica/reglasCompras';
 
 export function validarOrdenCompraBasica(oc: Partial<OrdenCompra>): ErrorValidacion[] {
   const errores: ErrorValidacion[] = [];
@@ -13,70 +15,90 @@ export function validarOrdenCompraBasica(oc: Partial<OrdenCompra>): ErrorValidac
   }
   if (!oc.formaPago) {
     errores.push({ campo: 'formaPago', mensaje: 'La forma de pago es obligatoria.' });
+  } else {
+    errores.push(...validarFechaVencimientoCredito(oc.formaPago, oc.fechaEmision, oc.fechaVencimiento));
   }
   if (!oc.lineas || oc.lineas.length === 0) {
     errores.push({ campo: 'lineas', mensaje: 'Se requiere al menos una línea.' });
   }
-  oc.lineas?.forEach((linea, i) => {
-    if (linea.cantidadSolicitada <= 0) {
-      errores.push({
-        campo: `lineas[${i}].cantidadSolicitada`,
-        mensaje: 'La cantidad solicitada debe ser mayor a 0.',
-      });
-    }
-    if (linea.costoUnitario < 0) {
-      errores.push({
-        campo: `lineas[${i}].costoUnitario`,
-        mensaje: 'El costo unitario no puede ser negativo.',
-      });
-    }
-  });
+  if (oc.lineas) {
+    errores.push(...validarLineasCompra(oc.lineas));
+  }
 
   return errores;
 }
 
-export function puedeAprobarOC(oc: OrdenCompra): boolean {
-  return oc.requiereAprobacion && oc.estadoAprobacion === 'pendiente';
+export interface ProductDataLineaCompra {
+  productoId: string;
+  codigoProducto?: string;
+  nombre: string;
+  precioCompra?: number;
+  unidadMedida?: string;
+  unidadMedidaCodigo?: string;
+  unidadesDisponibles: ProductUnitOption[];
+  imagen?: string;
+  stockReferencia?: number;
+  alias?: string;
+  descripcion?: string;
+  categoria?: string;
+  marca?: string;
+  modelo?: string;
+  tipoExistencia?: string;
+  codigoBarras?: string;
+  codigoFabrica?: string;
+  codigoSunat?: string;
+  peso?: number;
+  /** Etiqueta de impuesto propia del producto (ej. "IGV (18.00%)"), tal como la define Productos. */
+  impuestoProducto?: string;
+  esServicio: boolean;
 }
 
-export function puedeRechazarOC(oc: OrdenCompra): boolean {
-  return oc.requiereAprobacion && oc.estadoAprobacion === 'pendiente';
-}
+/**
+ * Construye una línea de compra a partir de un producto real del catálogo.
+ * Toda línea de Compras se origina en un producto: unidad, impuesto/afectación
+ * y clasificación se toman del producto, nunca se inventan aquí.
+ */
+export function crearLineaCompraDesdeProducto(
+  id: string,
+  productData: ProductDataLineaCompra,
+  cantidad: number,
+): LineaCompra {
+  const { tipoAfectacion, tasaIgv } = resolverImpuestoProducto(productData.impuestoProducto);
 
-export function puedeGenerarCCDesdeOC(oc: OrdenCompra): boolean {
-  return (
-    oc.estadoDocumento === 'registrado' &&
-    (oc.estadoAprobacion === 'aprobada' || oc.estadoAprobacion === 'no_requiere')
-  );
-}
-
-export function puedeAnularOC(oc: OrdenCompra): boolean {
-  return oc.estadoDocumento !== 'anulado' && oc.estadoDocumento !== 'cerrado';
-}
-
-export function puedeCerrarOC(oc: OrdenCompra): boolean {
-  return oc.estadoDocumento === 'registrado';
-}
-
-export function crearLineaCompraVacia(id: string): LineaCompra {
   return {
     id,
-    nombreProducto: '',
-    clasificacion: 'producto',
-    afectaInventario: true,
-    unidadMedida: 'Unidad',
-    unidadMedidaCodigo: 'NIU',
-    cantidadSolicitada: 1,
+    productoId: productData.productoId,
+    codigoProducto: productData.codigoProducto ?? '',
+    nombreProducto: productData.nombre,
+    imagen: productData.imagen,
+    stockReferencia: productData.stockReferencia,
+    alias: productData.alias,
+    descripcion: productData.descripcion,
+    categoria: productData.categoria,
+    marca: productData.marca,
+    modelo: productData.modelo,
+    tipoExistencia: productData.tipoExistencia,
+    codigoBarras: productData.codigoBarras,
+    codigoFabrica: productData.codigoFabrica,
+    codigoSunat: productData.codigoSunat,
+    peso: productData.peso,
+    precioCompraReferencia: productData.precioCompra,
+    clasificacion: productData.esServicio ? 'servicio' : 'producto',
+    afectaInventario: false,
+    unidadMedida: productData.unidadMedida ?? '',
+    unidadMedidaCodigo: productData.unidadMedidaCodigo ?? productData.unidadMedida ?? '',
+    unidadesDisponibles: productData.unidadesDisponibles,
+    cantidadSolicitada: cantidad,
     cantidadRecibida: 0,
     cantidadFacturada: 0,
     cantidadIngresadaInventario: 0,
-    cantidadPendienteRecepcion: 1,
+    cantidadPendienteRecepcion: cantidad,
     cantidadPendienteFacturacion: 0,
     cantidadPendienteInventario: 0,
-    costoUnitario: 0,
+    costoUnitario: productData.precioCompra ?? 0,
     subtotal: 0,
-    tipoAfectacion: 'gravado',
-    tasaIgv: 0.18,
+    tipoAfectacion,
+    tasaIgv,
     igv: 0,
     total: 0,
   };

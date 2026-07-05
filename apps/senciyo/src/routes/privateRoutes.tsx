@@ -42,6 +42,7 @@ import DocumentosComercialesLayout from "../pages/Private/features/documentos-co
 
 // Compras
 import PaginaCompras from "../pages/Private/features/compras/paginas/PaginaCompras";
+import PaginaRegistrarPagoCompra from "../pages/Private/features/compras/paginas/PaginaRegistrarPagoCompra";
 import ComprasLayout from "../pages/Private/features/compras/paginas/ComprasLayout";
 
 // Guías de Remisión
@@ -140,6 +141,7 @@ export const privateRoutes: RouteObject[] = [
         element: <ComprasLayout />,
         children: [
           { path: "/compras", element: conPermisos(<PaginaCompras />, ['compras.ordenes.ver']) },
+          { path: "/compras/pagos/nuevo", element: conPermisos(<PaginaRegistrarPagoCompra />, ['compras.ordenes.ver']) },
         ],
       },
       { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },

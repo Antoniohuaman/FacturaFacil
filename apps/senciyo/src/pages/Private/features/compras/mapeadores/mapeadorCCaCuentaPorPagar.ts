@@ -1,47 +1,26 @@
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { CuotaCuentaPorPagar } from '../modelos/CuentaPorPagar';
 
-export interface DatosCxPDesdeCC {
-  comprobanteCompraId: string;
-  comprobanteCompraNumero: string;
-  proveedorId: string;
-  proveedorNombre: string;
-  proveedorNumeroDocumento: string;
-  moneda: ComprobanteCompra['moneda'];
-  tipoCambio?: number;
-  total: number;
-  formaPago: ComprobanteCompra['formaPago'];
-  fechaEmision: string;
-  fechaVencimiento?: string;
-  cuotasSugeridas?: CuotaCuentaPorPagar[];
+/**
+ * Resuelve la fecha de vencimiento de la CxP generada por un comprobante de
+ * compra. Todo comprobante genera CxP (contado o crédito, ver Etapa 2.1): si
+ * no trae fecha de vencimiento propia (caso típico de contado), se usa la
+ * fecha de emisión del documento del proveedor como vencimiento.
+ */
+export function resolverFechaVencimientoCxP(cc: ComprobanteCompra): string {
+  return cc.fechaVencimiento || cc.fechaEmisionProveedor;
 }
 
-export function extraerDatosCCParaCxP(cc: ComprobanteCompra): DatosCxPDesdeCC {
-  return {
-    comprobanteCompraId: cc.id,
-    comprobanteCompraNumero: `${cc.serieProveedor}-${cc.numeroProveedor}`,
-    proveedorId: cc.proveedorId,
-    proveedorNombre: cc.proveedorNombre,
-    proveedorNumeroDocumento: cc.proveedorNumeroDocumento,
-    moneda: cc.moneda,
-    tipoCambio: cc.tipoCambio,
-    total: cc.totales.total,
-    formaPago: cc.formaPago,
-    fechaEmision: cc.fechaRegistro,
-    fechaVencimiento: cc.fechaVencimiento,
-    cuotasSugeridas: generarCuotasDesdeCC(cc),
-  };
-}
-
+/**
+ * Genera el cronograma de cuotas de la CxP a partir del comprobante de compra.
+ * Fase 1 solo soporta una cuota única (el total a la fecha de vencimiento);
+ * el fraccionamiento en múltiples cuotas queda para una fase posterior.
+ */
 export function generarCuotasDesdeCC(cc: ComprobanteCompra): CuotaCuentaPorPagar[] {
-  if (cc.formaPago === 'contado' || !cc.fechaVencimiento) {
-    return [];
-  }
-
   const cuotaUnica: CuotaCuentaPorPagar = {
     id: `${cc.id}_cuota_1`,
     numeroCuota: 1,
-    fechaVencimiento: cc.fechaVencimiento,
+    fechaVencimiento: resolverFechaVencimientoCxP(cc),
     montoCuota: cc.totales.total,
     montoPagado: 0,
     saldoPendiente: cc.totales.total,

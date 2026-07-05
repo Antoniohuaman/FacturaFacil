@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Eye, CreditCard, Search, Banknote } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { MoreHorizontal, Eye, CreditCard, Search, Banknote } from 'lucide-react';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import {
   ESTADO_PAGO_CXP_LABELS,
@@ -16,6 +16,12 @@ interface TablaCuentasPorPagarProps {
   cuentas: CuentaPorPagar[];
   onVer: (cxp: CuentaPorPagar) => void;
   onRegistrarPago: (cxp: CuentaPorPagar) => void;
+}
+
+interface PosMenu {
+  id: string;
+  x: number;
+  y: number;
 }
 
 function Badge({
@@ -36,17 +42,65 @@ function Badge({
   );
 }
 
+function MenuItem({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: typeof Eye;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+        danger
+          ? 'text-red-600 hover:bg-red-50'
+          : 'text-gray-700 hover:bg-gray-50'
+      }`}
+    >
+      <Icon size={14} />
+      {label}
+    </button>
+  );
+}
+
 export default function TablaCuentasPorPagar({
   cuentas,
   onVer,
   onRegistrarPago,
 }: TablaCuentasPorPagarProps) {
   const [filtros, setFiltros] = useState<FiltrosCxP>({ busqueda: '' });
+  const [menu, setMenu] = useState<PosMenu | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const filtradas = filtrarCuentasPorPagar(cuentas, filtros);
 
   const totalPendiente = filtradas
     .filter((c) => c.estadoPago !== 'pagada' && c.estadoPago !== 'anulada')
     .reduce((s, c) => s + c.saldoPendiente, 0);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenu(null);
+      }
+    }
+    if (menu) {
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+    }
+  }, [menu]);
+
+  function abrirMenu(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenu({ id, x: rect.left, y: rect.bottom });
+  }
+
+  const cxpActiva = menu ? cuentas.find((c) => c.id === menu.id) ?? null : null;
 
   return (
     <div className="space-y-4">
@@ -131,12 +185,16 @@ export default function TablaCuentasPorPagar({
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Saldo</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Vencimiento</th>
-                <th className="px-4 py-3" />
+                <th className="w-10 px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtradas.map((cxp) => (
-                <tr key={cxp.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={cxp.id}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => onVer(cxp)}
+                >
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900 truncate max-w-[160px]">
                       {cxp.proveedorNombre}
@@ -145,6 +203,7 @@ export default function TablaCuentasPorPagar({
                   </td>
                   <td className="px-4 py-3 font-mono text-gray-700">
                     {cxp.comprobanteCompraNumero}
+                    <div className="text-xs text-gray-400 font-sans">{cxp.tipoComprobanteOrigen}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">
                     {cxp.fechaVencimiento ?? <span className="text-gray-400">—</span>}
@@ -163,6 +222,9 @@ export default function TablaCuentasPorPagar({
                       labels={ESTADO_PAGO_CXP_LABELS}
                       clases={BADGE_ESTADO_PAGO_CXP}
                     />
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {cxp.formaPago === 'contado' ? 'Contado' : 'Crédito'}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {cxp.fechaVencimiento ? (
@@ -175,30 +237,44 @@ export default function TablaCuentasPorPagar({
                       <span className="text-xs text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 justify-end">
-                      <button
-                        onClick={() => onVer(cxp)}
-                        title="Ver detalle"
-                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      {puedeRegistrarPago(cxp) && (
-                        <button
-                          onClick={() => onRegistrarPago(cxp)}
-                          title="Registrar pago"
-                          className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        >
-                          <CreditCard size={16} />
-                        </button>
-                      )}
-                    </div>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => abrirMenu(e, cxp.id)}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Menú contextual */}
+      {menu && cxpActiva && (
+        <div
+          ref={menuRef}
+          className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-200 py-1 w-48 overflow-hidden"
+          style={{
+            top: Math.min(menu.y + 4, window.innerHeight - 120),
+            left: Math.min(menu.x, window.innerWidth - 200),
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MenuItem
+            icon={Eye}
+            label="Ver detalle"
+            onClick={() => { onVer(cxpActiva); setMenu(null); }}
+          />
+          {puedeRegistrarPago(cxpActiva) && (
+            <MenuItem
+              icon={CreditCard}
+              label="Registrar pago"
+              onClick={() => { onRegistrarPago(cxpActiva); setMenu(null); }}
+            />
+          )}
         </div>
       )}
 

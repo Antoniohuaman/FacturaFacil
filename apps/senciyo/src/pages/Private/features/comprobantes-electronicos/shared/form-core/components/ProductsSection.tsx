@@ -14,13 +14,14 @@ import { useCurrency } from '../hooks/useCurrency';
 import { TaxBreakdownSummary } from '../../ui/TaxBreakdownSummary';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '@/contexts/UserSessionContext';
-import { Tooltip } from '@/shared/ui';
+import { Tooltip, TablaLineasDocumento, BadgeStock, BadgeImpuesto } from '@/shared/ui';
 import type { Almacen } from '../../../../configuracion-sistema/modelos/Almacen';
 import type { StockAdjustmentData } from '../../../../gestion-inventario/models';
 import AdjustmentModal from '../../../../gestion-inventario/components/modals/AdjustmentModal';
 import { registrarAjusteDeStock } from '../../../../../../../shared/inventory/accionesStock';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
+import { getProductUnitOptions } from '@/shared/units/productUnitOptions';
 import { CATALOGO_54_DETRACCIONES } from '@/shared/catalogos-sunat';
 import TablaVentaLibre from './TablaVentaLibre';
 import type { IdColumnaLibre, OpcionImpuestoLibre, OpcionUnidadLibre } from './TablaVentaLibre';
@@ -42,22 +43,10 @@ const buildCatalogUnitOptions = (
   const product = products.find((p) => p.codigo === sku);
   if (!product) return [];
 
-  const options: UnitOption[] = [];
-
-  if (product.unidad) {
-    const code = product.unidad;
-    options.push({ code, label: getUnitLabelForSku(sku, code), isBase: true });
-  }
-
-  const presentationUnits = product?.unidadesMedidaAdicionales ?? [];
-  presentationUnits.forEach((u) => {
-    if (!u?.unidadCodigo) return;
-    // Código compuesto para distinguir presentaciones con el mismo código SUNAT
-    const code = u.id ? `${u.unidadCodigo}__${u.id}` : u.unidadCodigo;
-    options.push({ code, label: getUnitLabelForSku(sku, code) });
-  });
-
-  return options;
+  return getProductUnitOptions(product).map((option) => ({
+    ...option,
+    label: getUnitLabelForSku(sku, option.code) || option.label,
+  }));
 };
 
 const mergeUnitOptions = (
@@ -1182,13 +1171,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       case 'stock':
         return (
           <td className="px-3 py-4 text-center">
-            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-              item.stock > 20 ? 'bg-green-100 text-green-800' :
-              item.stock > 5 ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
-              {item.stock}
-            </span>
+            <BadgeStock stock={item.stock} />
           </td>
         );
 
@@ -1251,10 +1234,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         })();
         return (
           <td className="px-4 py-4 text-center text-sm">
-            <div className="inline-flex flex-col items-center px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full min-w-[120px] leading-tight">
-              <span>{igvLabel}</span>
-              {shouldShowSubtitle && <span className="text-[10px] text-gray-500">{subtitle}</span>}
-            </div>
+            <BadgeImpuesto etiqueta={igvLabel} subtitulo={shouldShowSubtitle ? subtitle : undefined} />
           </td>
         );
       }
@@ -1742,47 +1722,15 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         className="rounded-lg border border-gray-200"
       >
         {modoProductosActual === 'catalogo' || mostrarDetalleMixto ? (
-          <div className="overflow-x-auto">
-            <div className="overflow-y-auto" style={{ maxHeight: PRODUCTS_TABLE_MAX_HEIGHT }}>
-              <table className="w-full text-sm">
-                <thead className="bg-gradient-to-r from-violet-50 to-purple-50 border-b-2 border-violet-200">
-                  <tr>
-                    {visibleColumns.map(col => (
-                      <th
-                        key={col.id}
-                        className={`px-3 py-2.5 text-[11px] font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap ${
-                          col.align === 'center' ? 'text-center' :
-                          col.align === 'right' ? 'text-right' :
-                          'text-left'
-                        }`}
-                        style={{
-                          width: col.width,
-                          minWidth: col.minWidth
-                        }}
-                      >
-                        {col.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {itemsCatalogo.map(item => (
-                    <tr
-                      key={item.id}
-                      className={`border-b border-gray-100 hover:bg-violet-50/30 transition-colors duration-150 ${
-                        item.id === lastAddedProductId ? 'bg-blue-50' : ''
-                      }`}
-                    >
-                      {visibleColumns.map(col => (
-                        <React.Fragment key={`${item.id}-${col.id}`}>
-                          {renderCell(col.id, item)}
-                        </React.Fragment>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div>
+            <TablaLineasDocumento
+              columnas={visibleColumns}
+              filas={itemsCatalogo}
+              obtenerIdFila={(item) => item.id}
+              renderCelda={renderCell}
+              claseFila={(item) => (item.id === lastAddedProductId ? 'bg-blue-50' : '')}
+              maxHeight={PRODUCTS_TABLE_MAX_HEIGHT}
+            />
             {mostrarDetalleMixto && (
               <div className="border-t border-gray-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
                 Este documento reutilizado contiene items de catalogo y venta libre. Se muestran ambos bloques para preservar el detalle completo.
