@@ -59,6 +59,11 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
 
   const modules: Module[] = [
     {
+      id: "indicadores",
+      title: "Indicadores",
+      icon: "BarChart3"
+    },
+    {
       id: "comprobantes",
       title: "Comprobantes",
       icon: "FileText",
@@ -82,19 +87,9 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       badge: guiasRemisionCount > 0 ? String(guiasRemisionCount) : undefined
     },
     {
-      id: "productos",
-      title: "Productos",
-      icon: "Package"
-    },
-    {
-      id: "inventario",
-      title: "Inventario",
-      icon: "Boxes"
-    },
-    {
-      id: "precios",
-      title: "Precios",
-      icon: "DollarSign"
+      id: "cobranzas",
+      title: "Cobranzas",
+      icon: "Coins"
     },
     {
       id: "caja",
@@ -102,9 +97,14 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       icon: "Wallet"
     },
     {
-      id: "cobranzas",
-      title: "Cobranzas",
-      icon: "Coins"
+      id: "compras",
+      title: "Compras",
+      icon: "ShoppingBag"
+    },
+    {
+      id: "inventario",
+      title: "Inventario",
+      icon: "Boxes"
     },
     {
       id: "clientes",
@@ -112,14 +112,14 @@ export default function SideNav({ collapsed = false }: SideNavProps) {
       icon: "Users"
     },
     {
-      id: "indicadores",
-      title: "Indicadores",
-      icon: "BarChart3"
+      id: "productos",
+      title: "Productos",
+      icon: "Package"
     },
     {
-      id: "compras",
-      title: "Compras",
-      icon: "ShoppingBag"
+      id: "precios",
+      title: "Precios",
+      icon: "DollarSign"
     }
   ];
 
