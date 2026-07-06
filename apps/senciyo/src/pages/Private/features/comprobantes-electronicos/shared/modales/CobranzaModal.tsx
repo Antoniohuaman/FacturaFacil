@@ -21,7 +21,7 @@ import { useBankAccounts } from '../../../configuracion-sistema/hooks/useCuentas
 import { useCaja } from '../../../control-caja/context/CajaContext';
 import { useCurrentEstablecimientoId } from '../../../../../../contexts/UserSessionContext';
 import { filterCollectionSeries, getNextCollectionDocument } from '../../../../../../shared/series/collectionSeries';
-import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '../payments/CreditInstallmentsTable';
+import { CreditInstallmentsTable, type CreditInstallmentAllocationInput } from '@/shared/payments/CreditInstallmentsTable';
 import type { CobranzaAttachment, CobranzaDocumento, CobranzaInstallmentState, EditarCobranzaInfoInput } from '../../../gestion-cobranzas/models/cobranzas.types';
 import { normalizeCreditTermsToInstallments, updateInstallmentsWithAllocations } from '../../../gestion-cobranzas/utils/installments';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';

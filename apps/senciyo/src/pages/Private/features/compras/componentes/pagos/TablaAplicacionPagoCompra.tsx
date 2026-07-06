@@ -11,10 +11,12 @@ interface TablaAplicacionPagoCompraProps {
 }
 
 /**
- * "Documento a pagar": Fase 1 solo soporta una Cuenta por Pagar y su cuota
- * real (generarCuotasDesdeCC produce siempre 1 cuota). Si la CxP no trae
- * cuotas (dato heredado), se arma una única fila con los campos reales de la
- * propia CxP — nunca se inventan cuotas ni se soporta pago múltiple aquí.
+ * "Documento a pagar": el pago se aplica siempre sobre el total de una única
+ * Cuenta por Pagar. Cuando el CC es a crédito con cronograma real, la CxP
+ * trae varias cuotas reales (generarCuotasDesdeCC) que se muestran de solo
+ * lectura; el importe se distribuye automáticamente entre ellas en orden de
+ * vencimiento (sincronizarCuotas). Si la CxP no trae cuotas (dato heredado),
+ * se arma una única fila con los campos reales de la propia CxP.
  */
 export default function TablaAplicacionPagoCompra({
   cxp,

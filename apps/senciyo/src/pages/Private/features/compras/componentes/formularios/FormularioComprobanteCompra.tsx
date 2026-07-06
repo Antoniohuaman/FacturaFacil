@@ -21,6 +21,11 @@ import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import BuscadorProveedor, { type ProveedorSeleccionado } from '../BuscadorProveedor';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import SelectorModalidadInventario from './SelectorModalidadInventario';
+import { listarTiposOperacion } from '@/shared/catalogos-sunat';
+import { useCreditTermsConfigurator } from '@/shared/payments/useCreditTermsConfigurator';
+import { CreditScheduleModal } from '@/shared/payments/CreditScheduleModal';
+import { CreditScheduleSummaryCard } from '@/shared/payments/CreditScheduleSummaryCard';
+import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
 import { useLineasCompra } from '../items/useLineasCompra';
 import SeccionProductosCompra from '../items/SeccionProductosCompra';
 import type { ModalidadInventarioCC } from '../../modelos/ComprobanteCompra';
@@ -29,6 +34,7 @@ import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import type { MonedaCompra } from '../../modelos/tiposBaseCompras';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { AdjuntoCompra } from '../../modelos/AdjuntoCompra';
+import { obtenerErrorDeCampo, type ErrorCampoDocumento } from '../../modelos/ErroresValidacion';
 
 interface FormularioComprobanteCompraProps {
   ocOrigen?: OrdenCompra;
@@ -41,6 +47,7 @@ const CAMPOS_CC_DEFAULT: CampoConfigurableDocumento[] = [
   { id: 'presupuesto', label: 'Presupuesto', visible: false, grupo: 'Presupuesto' },
 ];
 const STORAGE_KEY_CAMPOS_CC = 'compras_cc_campos_config';
+const NUEVO_CREDITO_VALUE = '__nuevo_credito__';
 
 export default function FormularioComprobanteCompra({
   ocOrigen,
@@ -48,7 +55,7 @@ export default function FormularioComprobanteCompra({
   onCancelar,
 }: FormularioComprobanteCompraProps) {
   const { registrarComprobanteCompra, refrescarProveedores } = useCompras();
-  const { state: config } = useConfigurationContext();
+  const { state: config, dispatch } = useConfigurationContext();
   const { session } = useUserSession();
   const { createCliente } = useClientes();
   const { campos: camposConfigurables, esVisible, guardar: guardarCamposConfigurables } =
@@ -72,7 +79,12 @@ export default function FormularioComprobanteCompra({
       ? { id: ocOrigen.proveedorId, nombre: ocOrigen.proveedorNombre, tipoDocumento: ocOrigen.proveedorTipoDocumento, numeroDocumento: ocOrigen.proveedorNumeroDocumento }
       : null,
   );
-  const [direccionProveedor, setDireccionProveedor] = useState('');
+  const [direccionFacturacion, setDireccionFacturacion] = useState(
+    datosDesdeOC?.proveedorDireccionFacturacion ?? '',
+  );
+  const [direccionEntrega, setDireccionEntrega] = useState(
+    datosDesdeOC?.proveedorDireccionEntrega ?? '',
+  );
   const [tipoComprobante, setTipoComprobante] = useState('01');
   const [serieProveedor, setSerieProveedor] = useState('');
   const [numeroProveedor, setNumeroProveedor] = useState('');
@@ -80,11 +92,32 @@ export default function FormularioComprobanteCompra({
     new Date().toISOString().slice(0, 10),
   );
   const [fechaVencimiento, setFechaVencimiento] = useState('');
+  const [tipoOperacion, setTipoOperacion] = useState('');
   const [moneda, setMoneda] = useState<MonedaCompra>(ocOrigen?.moneda ?? monedaDefault);
   const [tipoCambio, setTipoCambio] = useState(datosDesdeOC?.tipoCambio?.toString() ?? '');
-  const [formaPago, setFormaPago] = useState<'contado' | 'credito'>(
-    ocOrigen?.formaPago ?? 'contado',
-  );
+
+  // Forma de pago: se consume el catálogo real de Configuración de Negocio
+  // (config.paymentMethods), nunca un enum local. formaPago 'contado'/'credito'
+  // se deriva del code del método elegido para no romper el dominio existente
+  // de Compras (CuentaPorPagar.formaPago, reglasCompras.ts).
+  const metodosPagoActivos = config.paymentMethods.filter((m) => m.isActive);
+  const [formaPagoMetodoId, setFormaPagoMetodoId] = useState(() => {
+    const preferido = metodosPagoActivos.find((m) =>
+      ocOrigen?.formaPago === 'credito' ? m.code === 'CREDITO' : m.code === 'CONTADO',
+    );
+    return preferido?.id ?? metodosPagoActivos[0]?.id ?? '';
+  });
+  const metodoPagoSeleccionado = metodosPagoActivos.find((m) => m.id === formaPagoMetodoId);
+  const formaPago: 'contado' | 'credito' = metodoPagoSeleccionado?.code === 'CREDITO' ? 'credito' : 'contado';
+  const [creditScheduleModalOpen, setCreditScheduleModalOpen] = useState(false);
+  const [creditModalAbierto, setCreditModalAbierto] = useState(false);
+  function handleFormaPagoChange(value: string) {
+    if (value === NUEVO_CREDITO_VALUE) {
+      setCreditModalAbierto(true);
+      return;
+    }
+    setFormaPagoMetodoId(value);
+  }
   const [modalidadInventario, setModalidadInventario] = useState<ModalidadInventarioCC>(
     datosDesdeOC?.modalidadInventarioSugerida ?? 'con_nota_ingreso',
   );
@@ -94,7 +127,7 @@ export default function FormularioComprobanteCompra({
   const [observaciones, setObservaciones] = useState(datosDesdeOC?.observaciones ?? '');
   const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>([]);
   const [enviando, setEnviando] = useState(false);
-  const [errores, setErrores] = useState<string[]>([]);
+  const [errores, setErrores] = useState<ErrorCampoDocumento[]>([]);
 
   const lineasCompra = useLineasCompra(datosDesdeOC?.lineas ?? []);
   const lineas = lineasCompra.lineas;
@@ -103,20 +136,56 @@ export default function FormularioComprobanteCompra({
   const documentoAfectaInventario = modalidadInventario !== 'no_afecta_inventario';
   const almacenSeleccionado = almacenesActivos.find((a) => a.id === almacenId);
   const tipoComprobanteLabel = TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === tipoComprobante)?.nombre;
+  const tiposOperacionActivos = listarTiposOperacion().filter((t) => t.activo && t.visible);
+
+  // Cuotas de crédito: reutiliza el mismo configurador/modal que Documentos
+  // Comerciales (useCreditTermsConfigurator + CreditScheduleModal), nunca un
+  // cronograma propio. Se valida suma de cuotas = total y fechas mediante
+  // los `errors` que ya calcula el hook.
+  const {
+    isCreditMethod,
+    templates: creditTemplates,
+    setTemplates: setCreditTemplates,
+    creditTerms,
+    errors: creditErrors,
+    restoreDefaults: restoreCreditDefaults,
+  } = useCreditTermsConfigurator({
+    paymentMethodId: formaPagoMetodoId,
+    total: totalesCalculados.total,
+    issueDate: fechaEmisionProveedor,
+  });
 
   async function handleSubmit() {
-    const nuevosErrores: string[] = [];
-    if (!proveedor) nuevosErrores.push('Selecciona un proveedor.');
-    if (!serieProveedor.trim()) nuevosErrores.push('Ingresa la serie del comprobante del proveedor.');
-    if (!numeroProveedor.trim()) nuevosErrores.push('Ingresa el número del comprobante del proveedor.');
-    if (lineas.length === 0) nuevosErrores.push('Agrega al menos una línea.');
-    if (lineas.some((l) => !l.productoId)) nuevosErrores.push('Todos los ítems deben provenir de un producto real del catálogo.');
-    if (lineas.some((l) => !l.unidadMedida)) nuevosErrores.push('El producto no tiene unidad de medida configurada.');
-    if (lineas.some((l) => l.tipoAfectacion === 'sin_configurar')) nuevosErrores.push('El producto no tiene impuesto configurado.');
-    if (lineas.some((l) => l.cantidadSolicitada <= 0)) nuevosErrores.push('La cantidad debe ser mayor a cero.');
-    if (lineas.some((l) => l.costoUnitario < 0)) nuevosErrores.push('El costo unitario no puede ser negativo.');
+    const nuevosErrores: ErrorCampoDocumento[] = [];
+    if (!proveedor) {
+      nuevosErrores.push({ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor.' });
+    }
+    if (!serieProveedor.trim()) {
+      nuevosErrores.push({ campo: 'serieProveedor', codigo: 'SERIE_PROVEEDOR_REQUERIDA', mensaje: 'Ingresa la serie del comprobante del proveedor.' });
+    }
+    if (!numeroProveedor.trim()) {
+      nuevosErrores.push({ campo: 'numeroProveedor', codigo: 'NUMERO_PROVEEDOR_REQUERIDO', mensaje: 'Ingresa el número del comprobante del proveedor.' });
+    }
+    if (lineas.length === 0) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'LINEAS_REQUERIDAS', mensaje: 'Agrega al menos una línea.' });
+    }
+    if (lineas.some((l) => !l.productoId)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'PRODUCTO_INVALIDO', mensaje: 'Todos los ítems deben provenir de un producto real del catálogo.' });
+    }
+    if (lineas.some((l) => !l.unidadMedida)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'UNIDAD_NO_CONFIGURADA', mensaje: 'El producto no tiene unidad de medida configurada.' });
+    }
+    if (lineas.some((l) => l.tipoAfectacion === 'sin_configurar')) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'IMPUESTO_NO_CONFIGURADO', mensaje: 'El producto no tiene impuesto configurado.' });
+    }
+    if (lineas.some((l) => l.cantidadSolicitada <= 0)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'CANTIDAD_INVALIDA', mensaje: 'La cantidad debe ser mayor a cero.' });
+    }
+    if (lineas.some((l) => l.costoUnitario < 0)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'COSTO_INVALIDO', mensaje: 'El costo unitario no puede ser negativo.' });
+    }
     if (documentoAfectaInventario && !almacenSeleccionado) {
-      nuevosErrores.push('Selecciona el almacén de destino para el ingreso a inventario.');
+      nuevosErrores.push({ campo: 'almacenId', codigo: 'ALMACEN_REQUERIDO', mensaje: 'Selecciona el almacén de destino para el ingreso a inventario.' });
     }
 
     if (nuevosErrores.length > 0) {
@@ -147,12 +216,15 @@ export default function FormularioComprobanteCompra({
           proveedorTipoDocumento: proveedor!.tipoDocumento,
           proveedorNumeroDocumento: proveedor!.numeroDocumento,
           proveedorNombre: proveedor!.nombre,
-          direccionProveedor: direccionProveedor || undefined,
+          proveedorDireccionFacturacion: direccionFacturacion || undefined,
+          proveedorDireccionEntrega: direccionEntrega || undefined,
+          tipoOperacion: tipoOperacion || undefined,
           compradorId: session?.userId,
           compradorNombre: session?.userName,
           moneda,
           tipoCambio: tipoCambio ? parseFloat(tipoCambio) : undefined,
           formaPago,
+          creditTerms: isCreditMethod ? creditTerms : undefined,
           modalidadInventario,
           centroCosto: centroCosto || undefined,
           presupuesto: presupuesto || undefined,
@@ -180,7 +252,11 @@ export default function FormularioComprobanteCompra({
 
       onExito(comprobante, cuentaPorPagar);
     } catch (e) {
-      setErrores([e instanceof Error ? e.message : 'Error al registrar el comprobante.']);
+      setErrores([{
+        campo: 'general',
+        codigo: 'ERROR_REGISTRO',
+        mensaje: e instanceof Error ? e.message : 'Error al registrar el comprobante.',
+      }]);
     } finally {
       setEnviando(false);
     }
@@ -213,7 +289,7 @@ export default function FormularioComprobanteCompra({
         {errores.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 space-y-1">
             {errores.map((e, i) => (
-              <p key={i} className="text-sm text-red-700">• {e}</p>
+              <p key={i} className="text-sm text-red-700">• {e.mensaje}</p>
             ))}
           </div>
         )}
@@ -241,20 +317,32 @@ export default function FormularioComprobanteCompra({
                     proveedor={proveedor}
                     onSeleccionar={(p) => {
                       setProveedor(p);
-                      setDireccionProveedor(p?.direccion ?? '');
+                      setDireccionFacturacion(p?.direccion ?? '');
+                      setDireccionEntrega(p?.direccion ?? '');
                     }}
                     deshabilitado={!!ocOrigen}
-                    error={errores.some((e) => e.includes('proveedor')) ? 'Selecciona un proveedor' : null}
+                    error={obtenerErrorDeCampo(errores, 'proveedorId')?.mensaje ?? null}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Dirección del proveedor</label>
+                  <label className="text-sm font-medium text-gray-700">Dirección de facturación</label>
                   <input
                     type="text"
-                    value={direccionProveedor}
-                    onChange={(e) => setDireccionProveedor(e.target.value)}
-                    placeholder="Dirección del proveedor..."
+                    value={direccionFacturacion}
+                    onChange={(e) => setDireccionFacturacion(e.target.value)}
+                    placeholder="Selecciona un proveedor para autocompletar..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Dirección de entrega</label>
+                  <input
+                    type="text"
+                    value={direccionEntrega}
+                    onChange={(e) => setDireccionEntrega(e.target.value)}
+                    placeholder="Selecciona un proveedor para autocompletar..."
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                 </div>
@@ -278,7 +366,7 @@ export default function FormularioComprobanteCompra({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Serie proveedor</label>
+                    <label className="text-sm font-medium text-gray-700">Serie</label>
                     <input
                       type="text"
                       value={serieProveedor}
@@ -291,7 +379,7 @@ export default function FormularioComprobanteCompra({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Número proveedor</label>
+                    <label className="text-sm font-medium text-gray-700">Número</label>
                     <input
                       type="text"
                       value={numeroProveedor}
@@ -301,7 +389,7 @@ export default function FormularioComprobanteCompra({
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">F. emisión (proveedor)</label>
+                    <label className="text-sm font-medium text-gray-700">Fecha de emisión</label>
                     <input
                       type="date"
                       value={fechaEmisionProveedor}
@@ -337,6 +425,29 @@ export default function FormularioComprobanteCompra({
                   </div>
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Tipo de operación</label>
+                  <select
+                    value={tipoOperacion}
+                    onChange={(e) => setTipoOperacion(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">Sin especificar</option>
+                    {tiposOperacionActivos.map((t) => (
+                      <option key={t.codigo} value={t.codigo}>
+                        {t.codigo} - {t.descripcion}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Base imponible de compra</label>
+                  <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600 font-mono">
+                    {totalesCalculados.subtotal.toFixed(2)} {moneda}
+                  </div>
+                </div>
+
                 {moneda !== monedaBase && (
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Tipo de cambio</label>
@@ -356,12 +467,17 @@ export default function FormularioComprobanteCompra({
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Forma de pago</label>
                     <select
-                      value={formaPago}
-                      onChange={(e) => setFormaPago(e.target.value as 'contado' | 'credito')}
+                      value={formaPagoMetodoId}
+                      onChange={(e) => handleFormaPagoChange(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
-                      <option value="contado">Contado</option>
-                      <option value="credito">Crédito</option>
+                      {!formaPagoMetodoId && <option value="">Seleccionar</option>}
+                      {metodosPagoActivos.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                      <option value={NUEVO_CREDITO_VALUE}>+ Crear crédito</option>
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -371,6 +487,17 @@ export default function FormularioComprobanteCompra({
                     </div>
                   </div>
                 </div>
+
+                {isCreditMethod && (
+                  <CreditScheduleSummaryCard
+                    creditTerms={creditTerms}
+                    currency={moneda}
+                    total={totalesCalculados.total}
+                    onConfigure={() => setCreditScheduleModalOpen(true)}
+                    errors={creditErrors}
+                    paymentMethodName={metodoPagoSeleccionado?.name}
+                  />
+                )}
 
                 <SelectorModalidadInventario
                   modalidad={modalidadInventario}
@@ -457,6 +584,28 @@ export default function FormularioComprobanteCompra({
           setModalCamposAbierto(false);
         }}
         onCerrar={() => setModalCamposAbierto(false)}
+      />
+
+      <CreditScheduleModal
+        isOpen={creditScheduleModalOpen}
+        templates={creditTemplates}
+        onChange={setCreditTemplates}
+        onSave={() => setCreditScheduleModalOpen(false)}
+        onCancel={() => { restoreCreditDefaults(); setCreditScheduleModalOpen(false); }}
+        onRestoreDefaults={restoreCreditDefaults}
+        errors={creditErrors}
+        paymentMethodName={metodoPagoSeleccionado?.name}
+      />
+
+      <CreditPaymentMethodModal
+        open={creditModalAbierto}
+        onClose={() => setCreditModalAbierto(false)}
+        paymentMethods={config.paymentMethods}
+        onUpdatePaymentMethods={(methods) => dispatch({ type: 'SET_PAYMENT_METHODS', payload: methods })}
+        onCreated={(method) => {
+          setFormaPagoMetodoId(method.id);
+          setCreditModalAbierto(false);
+        }}
       />
     </div>
   );

@@ -1,6 +1,5 @@
 import { ensureBusinessDateIso, shiftBusinessDate, toBusinessDate } from '@/shared/time/businessTime';
-import type { CreditInstallment } from '../../../../../../shared/payments/paymentTerms';
-import type { ComprobanteCreditTerms } from '../../models/comprobante.types';
+import type { CreditInstallment, CreditScheduleTerms } from './paymentTerms';
 
 const MILISEGUNDOS_DIA = 1000 * 60 * 60 * 24;
 const redondearDos = (value: number): number => Math.round(value * 100) / 100;
@@ -135,7 +134,7 @@ export const construirCreditTermsManual = (
   cuotas: CreditInstallment[],
   total: number,
   fechaEmision: string,
-): ComprobanteCreditTerms | undefined => {
+): CreditScheduleTerms | undefined => {
   if (!cuotas.length) {
     return undefined;
   }

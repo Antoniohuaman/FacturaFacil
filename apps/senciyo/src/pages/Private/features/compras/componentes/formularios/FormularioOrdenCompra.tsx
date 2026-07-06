@@ -20,9 +20,16 @@ import BuscadorProveedor, { type ProveedorSeleccionado } from '../BuscadorProvee
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { useLineasCompra } from '../items/useLineasCompra';
 import SeccionProductosCompra from '../items/SeccionProductosCompra';
+import { useCreditTermsConfigurator } from '@/shared/payments/useCreditTermsConfigurator';
+import { CreditScheduleModal } from '@/shared/payments/CreditScheduleModal';
+import { CreditScheduleSummaryCard } from '@/shared/payments/CreditScheduleSummaryCard';
+import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
 import type { MonedaCompra } from '../../modelos/tiposBaseCompras';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { AdjuntoCompra } from '../../modelos/AdjuntoCompra';
+import { obtenerErrorDeCampo, type ErrorCampoDocumento } from '../../modelos/ErroresValidacion';
+
+const NUEVO_CREDITO_VALUE = '__nuevo_credito__';
 
 interface FormularioOrdenCompraProps {
   ocBase?: Partial<OrdenCompra>;
@@ -44,7 +51,7 @@ export default function FormularioOrdenCompra({
   onCancelar,
 }: FormularioOrdenCompraProps) {
   const { registrarOrdenCompra, refrescarProveedores } = useCompras();
-  const { state: config } = useConfigurationContext();
+  const { state: config, dispatch } = useConfigurationContext();
   const { session } = useUserSession();
   const { createCliente } = useClientes();
   const { campos: camposConfigurables, esVisible, guardar: guardarCamposConfigurables } =
@@ -82,9 +89,29 @@ export default function FormularioOrdenCompra({
   );
   const [moneda, setMoneda] = useState<MonedaCompra>(ocBase?.moneda ?? monedaDefault);
   const [tipoCambio, setTipoCambio] = useState(ocBase?.tipoCambio?.toString() ?? '');
-  const [formaPago, setFormaPago] = useState<'contado' | 'credito'>(
-    ocBase?.formaPago ?? 'contado',
-  );
+
+  // Forma de pago: mismo patrón que Comprobante de Compra — se consume el
+  // catálogo real de Configuración de Negocio, nunca un enum local.
+  const metodosPagoActivos = config.paymentMethods.filter((m) => m.isActive);
+  const [formaPagoMetodoId, setFormaPagoMetodoId] = useState(() => {
+    if (ocBase?.formaPagoMetodoId) return ocBase.formaPagoMetodoId;
+    const preferido = metodosPagoActivos.find((m) =>
+      ocBase?.formaPago === 'credito' ? m.code === 'CREDITO' : m.code === 'CONTADO',
+    );
+    return preferido?.id ?? metodosPagoActivos[0]?.id ?? '';
+  });
+  const metodoPagoSeleccionado = metodosPagoActivos.find((m) => m.id === formaPagoMetodoId);
+  const formaPago: 'contado' | 'credito' = metodoPagoSeleccionado?.code === 'CREDITO' ? 'credito' : 'contado';
+  const [creditScheduleModalOpen, setCreditScheduleModalOpen] = useState(false);
+  const [creditModalAbierto, setCreditModalAbierto] = useState(false);
+  function handleFormaPagoChange(value: string) {
+    if (value === NUEVO_CREDITO_VALUE) {
+      setCreditModalAbierto(true);
+      return;
+    }
+    setFormaPagoMetodoId(value);
+  }
+
   const [requiereAprobacion, setRequiereAprobacion] = useState(
     ocBase?.requiereAprobacion ?? false,
   );
@@ -93,24 +120,55 @@ export default function FormularioOrdenCompra({
   const [observaciones, setObservaciones] = useState(ocBase?.observaciones ?? '');
   const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>(ocBase?.adjuntos ?? []);
   const [enviando, setEnviando] = useState(false);
-  const [errores, setErrores] = useState<string[]>([]);
+  const [errores, setErrores] = useState<ErrorCampoDocumento[]>([]);
 
   const lineasCompra = useLineasCompra(ocBase?.lineas ?? []);
   const lineas = lineasCompra.lineas;
 
   const totalesCalculados = calcularTotalesLineas(lineas);
 
+  const {
+    isCreditMethod,
+    templates: creditTemplates,
+    setTemplates: setCreditTemplates,
+    creditTerms,
+    errors: creditErrors,
+    restoreDefaults: restoreCreditDefaults,
+  } = useCreditTermsConfigurator({
+    paymentMethodId: formaPagoMetodoId,
+    total: totalesCalculados.total,
+    issueDate: fechaEmision,
+    initialCreditTerms: ocBase?.creditTerms,
+  });
+
   async function handleSubmit() {
-    const nuevosErrores: string[] = [];
-    if (!proveedor) nuevosErrores.push('Selecciona un proveedor.');
-    if (!serieId && seriesOC.length > 0) nuevosErrores.push('Selecciona una serie OC.');
-    if (seriesOC.length === 0) nuevosErrores.push('No hay series OC configuradas. Ve a Configuración → Series.');
-    if (lineas.length === 0) nuevosErrores.push('Agrega al menos una línea.');
-    if (lineas.some((l) => !l.productoId)) nuevosErrores.push('Todos los ítems deben provenir de un producto real del catálogo.');
-    if (lineas.some((l) => !l.unidadMedida)) nuevosErrores.push('El producto no tiene unidad de medida configurada.');
-    if (lineas.some((l) => l.tipoAfectacion === 'sin_configurar')) nuevosErrores.push('El producto no tiene impuesto configurado.');
-    if (lineas.some((l) => l.cantidadSolicitada <= 0)) nuevosErrores.push('La cantidad debe ser mayor a cero.');
-    if (lineas.some((l) => l.costoUnitario < 0)) nuevosErrores.push('El costo unitario no puede ser negativo.');
+    const nuevosErrores: ErrorCampoDocumento[] = [];
+    if (!proveedor) {
+      nuevosErrores.push({ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor.' });
+    }
+    if (seriesOC.length === 0) {
+      nuevosErrores.push({ campo: 'serie', codigo: 'SERIES_NO_CONFIGURADAS', mensaje: 'No hay series OC configuradas. Ve a Configuración → Series.' });
+    } else if (!serieId) {
+      nuevosErrores.push({ campo: 'serie', codigo: 'SERIE_REQUERIDA', mensaje: 'Selecciona una serie OC.' });
+    }
+    if (lineas.length === 0) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'LINEAS_REQUERIDAS', mensaje: 'Agrega al menos una línea.' });
+    }
+    if (lineas.some((l) => !l.productoId)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'PRODUCTO_INVALIDO', mensaje: 'Todos los ítems deben provenir de un producto real del catálogo.' });
+    }
+    if (lineas.some((l) => !l.unidadMedida)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'UNIDAD_NO_CONFIGURADA', mensaje: 'El producto no tiene unidad de medida configurada.' });
+    }
+    if (lineas.some((l) => l.tipoAfectacion === 'sin_configurar')) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'IMPUESTO_NO_CONFIGURADO', mensaje: 'El producto no tiene impuesto configurado.' });
+    }
+    if (lineas.some((l) => l.cantidadSolicitada <= 0)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'CANTIDAD_INVALIDA', mensaje: 'La cantidad debe ser mayor a cero.' });
+    }
+    if (lineas.some((l) => l.costoUnitario < 0)) {
+      nuevosErrores.push({ campo: 'lineas', codigo: 'COSTO_INVALIDO', mensaje: 'El costo unitario no puede ser negativo.' });
+    }
 
     if (nuevosErrores.length > 0) {
       setErrores(nuevosErrores);
@@ -138,6 +196,8 @@ export default function FormularioOrdenCompra({
           moneda,
           tipoCambio: tipoCambio ? parseFloat(tipoCambio) : undefined,
           formaPago,
+          formaPagoMetodoId: formaPagoMetodoId || undefined,
+          creditTerms: isCreditMethod ? creditTerms : undefined,
           requiereAprobacion,
           centroCosto: centroCosto || undefined,
           presupuesto: presupuesto || undefined,
@@ -163,7 +223,11 @@ export default function FormularioOrdenCompra({
       }
       onExito(oc);
     } catch (e) {
-      setErrores([e instanceof Error ? e.message : 'Error al registrar la orden.']);
+      setErrores([{
+        campo: 'general',
+        codigo: 'ERROR_REGISTRO',
+        mensaje: e instanceof Error ? e.message : 'Error al registrar la orden.',
+      }]);
     } finally {
       setEnviando(false);
     }
@@ -198,7 +262,7 @@ export default function FormularioOrdenCompra({
         {errores.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 space-y-1">
             {errores.map((e, i) => (
-              <p key={i} className="text-sm text-red-700">• {e}</p>
+              <p key={i} className="text-sm text-red-700">• {e.mensaje}</p>
             ))}
           </div>
         )}
@@ -225,7 +289,7 @@ export default function FormularioOrdenCompra({
                   <BuscadorProveedor
                     proveedor={proveedor}
                     onSeleccionar={handleSeleccionarProveedor}
-                    error={errores.some((e) => e.includes('proveedor')) ? 'Selecciona un proveedor' : null}
+                    error={obtenerErrorDeCampo(errores, 'proveedorId')?.mensaje ?? null}
                   />
                 </div>
 
@@ -311,12 +375,17 @@ export default function FormularioOrdenCompra({
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Forma de pago</label>
                     <select
-                      value={formaPago}
-                      onChange={(e) => setFormaPago(e.target.value as 'contado' | 'credito')}
+                      value={formaPagoMetodoId}
+                      onChange={(e) => handleFormaPagoChange(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
-                      <option value="contado">Contado</option>
-                      <option value="credito">Crédito</option>
+                      {!formaPagoMetodoId && <option value="">Seleccionar</option>}
+                      {metodosPagoActivos.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                      <option value={NUEVO_CREDITO_VALUE}>+ Crear crédito</option>
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -329,6 +398,17 @@ export default function FormularioOrdenCompra({
                     />
                   </div>
                 </div>
+
+                {isCreditMethod && (
+                  <CreditScheduleSummaryCard
+                    creditTerms={creditTerms}
+                    currency={moneda}
+                    total={totalesCalculados.total}
+                    onConfigure={() => setCreditScheduleModalOpen(true)}
+                    errors={creditErrors}
+                    paymentMethodName={metodoPagoSeleccionado?.name}
+                  />
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -444,6 +524,28 @@ export default function FormularioOrdenCompra({
           setModalCamposAbierto(false);
         }}
         onCerrar={() => setModalCamposAbierto(false)}
+      />
+
+      <CreditScheduleModal
+        isOpen={creditScheduleModalOpen}
+        templates={creditTemplates}
+        onChange={setCreditTemplates}
+        onSave={() => setCreditScheduleModalOpen(false)}
+        onCancel={() => { restoreCreditDefaults(); setCreditScheduleModalOpen(false); }}
+        onRestoreDefaults={restoreCreditDefaults}
+        errors={creditErrors}
+        paymentMethodName={metodoPagoSeleccionado?.name}
+      />
+
+      <CreditPaymentMethodModal
+        open={creditModalAbierto}
+        onClose={() => setCreditModalAbierto(false)}
+        paymentMethods={config.paymentMethods}
+        onUpdatePaymentMethods={(methods) => dispatch({ type: 'SET_PAYMENT_METHODS', payload: methods })}
+        onCreated={(method) => {
+          setFormaPagoMetodoId(method.id);
+          setCreditModalAbierto(false);
+        }}
       />
     </div>
   );

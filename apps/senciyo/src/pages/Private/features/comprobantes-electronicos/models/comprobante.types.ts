@@ -1,6 +1,7 @@
 import type {
   CreditInstallment,
   CreditInstallmentStatus,
+  CreditScheduleTerms,
   PaymentTermsPayload,
 } from '../../../../../shared/payments/paymentTerms';
 import type { CurrencyCode } from '@/shared/currency';
@@ -244,16 +245,7 @@ export interface PaymentCollectionPayload {
 
 export type ComprobantePaymentTerms = PaymentTermsPayload;
 export type ComprobanteCreditInstallment = CreditInstallment;
-
-export interface ComprobanteCreditTerms {
-  schedule: ComprobanteCreditInstallment[];
-  fechaVencimientoGlobal: string;
-  totalPorcentaje?: number;
-  saldoPendiente?: number;
-  adelanto?: number;
-  cuotasPendientes?: number;
-  cuotasCanceladas?: number;
-}
+export type ComprobanteCreditTerms = CreditScheduleTerms;
 
 export type ResponsableDeposito = 'cliente' | 'empresa';
 

@@ -17,10 +17,12 @@ import {
   ShoppingBag,
   FileText,
   Package,
+  Phone,
 } from 'lucide-react';
 import { ConfigurationCard } from '../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useClientes } from '../../gestion-clientes/hooks/useClientes';
+import { obtenerContactosCliente } from '../../gestion-clientes/utils/contactosCliente';
 import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsultaDocumentos';
 import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
 import type { Cliente } from '../../gestion-clientes/models/cliente.types';
@@ -237,6 +239,15 @@ export default function FormularioHeaderComercial({
   const camposOpcionalesVisibles = Object.entries(fieldsConfig.optionalFields).filter(
     ([campo, cfg]) => cfg.visible && campo !== 'fechaVencimiento',
   );
+
+  // Contacto: se toma de la entidad real de contactos del cliente (pestaña
+  // "Contactos" de Gestión de Clientes — nombre, cargo, correos, teléfonos),
+  // no de un email/teléfono aislado.
+  const clienteCompleto = cliente?.clienteId
+    ? clientes.find((c) => String(c.id) === String(cliente.clienteId))
+    : undefined;
+  const contactosCliente = clienteCompleto ? obtenerContactosCliente(clienteCompleto).contactos : [];
+  const contactoSeleccionado = contactosCliente.find((c) => c.id === camposOpcionales.contactoId);
 
   const sinSeries = seriesFiltradas.length === 0;
 
@@ -475,13 +486,7 @@ export default function FormularioHeaderComercial({
                     {mp.name}
                   </option>
                 ))}
-                {metodosPago.length === 0 && (
-                  <>
-                    <option value="Contado">Contado</option>
-                    <option value="Crédito">Crédito</option>
-                  </>
-                )}
-                <option value={NUEVO_CREDITO_VALUE}>+ Crear crédito (cuotas)</option>
+                <option value={NUEVO_CREDITO_VALUE}>+ Crear crédito</option>
               </select>
             </div>
           </div>
@@ -515,6 +520,46 @@ export default function FormularioHeaderComercial({
               />
             </div>
           </div>
+
+          {cliente && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Phone size={11} />
+                Contacto
+              </label>
+              {contactosCliente.length === 0 ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  Este cliente no tiene contactos registrados. Agrégalos desde Gestión de Clientes.
+                </p>
+              ) : (
+                <select
+                  value={camposOpcionales.contactoId ?? ''}
+                  onChange={(e) => {
+                    const contacto = contactosCliente.find((c) => c.id === e.target.value);
+                    onCampoOpcionalChange('contactoId', contacto?.id);
+                    onCampoOpcionalChange('contactoNombre', contacto?.nombre);
+                    onCampoOpcionalChange('contactoCargo', contacto?.cargo || undefined);
+                    onCampoOpcionalChange('contactoCorreo', contacto?.correos[0]?.valor);
+                    onCampoOpcionalChange('contactoTelefono', contacto?.telefonos[0]?.numero);
+                  }}
+                  className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                >
+                  <option value="">Sin contacto</option>
+                  {contactosCliente.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre || 'Sin nombre'}
+                      {c.cargo ? ` — ${c.cargo}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {contactoSeleccionado && (contactoSeleccionado.correos[0]?.valor || contactoSeleccionado.telefonos[0]?.numero) && (
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  {[contactoSeleccionado.correos[0]?.valor, contactoSeleccionado.telefonos[0]?.numero].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+          )}
 
           {tipoDocumento === 'cotizacion' && (
             <label className="flex items-center gap-2 cursor-pointer">

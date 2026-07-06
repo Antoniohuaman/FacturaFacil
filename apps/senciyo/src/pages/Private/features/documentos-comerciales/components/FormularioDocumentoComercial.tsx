@@ -8,9 +8,9 @@ import FieldsConfigModal from '../../comprobantes-electronicos/shared/form-core/
 import { useCart } from '../../comprobantes-electronicos/punto-venta/hooks/useCart';
 import { useCurrency } from '../../comprobantes-electronicos/shared/form-core/hooks/useCurrency';
 import { usePayment } from '../../comprobantes-electronicos/shared/form-core/hooks/usePayment';
-import { useCreditTermsConfigurator } from '../../comprobantes-electronicos/hooks/useCreditTermsConfigurator';
-import { CreditScheduleModal } from '../../comprobantes-electronicos/shared/payments/CreditScheduleModal';
-import { CreditScheduleSummaryCard } from '../../comprobantes-electronicos/shared/payments/CreditScheduleSummaryCard';
+import { useCreditTermsConfigurator } from '@/shared/payments/useCreditTermsConfigurator';
+import { CreditScheduleModal } from '@/shared/payments/CreditScheduleModal';
+import { CreditScheduleSummaryCard } from '@/shared/payments/CreditScheduleSummaryCard';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { useFeedback } from '@/shared/feedback/useFeedback';

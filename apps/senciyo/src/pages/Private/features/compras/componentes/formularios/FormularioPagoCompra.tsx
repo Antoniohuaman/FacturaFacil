@@ -191,11 +191,14 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
                 )}
 
                 <div className="pt-2 border-t border-gray-100 space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Concepto</label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Concepto <span className="text-gray-400 font-normal">(opcional)</span>
+                  </label>
                   <input
                     type="text"
                     value={f.concepto}
                     onChange={(e) => f.setConcepto(e.target.value)}
+                    placeholder="Ingresa un concepto..."
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                 </div>

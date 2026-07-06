@@ -9,6 +9,7 @@ import type {
 import type { AdjuntoCompra } from './AdjuntoCompra';
 import type { TrazabilidadCompra } from './TrazabilidadCompra';
 import type { EventoHistorialCompras } from './EventoHistorialCompras';
+import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
 
 export type EstadoDocumentoCC = 'borrador' | 'registrado' | 'anulado';
 export type EstadoPagoCC = 'pendiente' | 'parcial' | 'pagado';
@@ -68,7 +69,11 @@ export interface ComprobanteCompra {
   proveedorTipoDocumento: string;
   proveedorNumeroDocumento: string;
   proveedorNombre: string;
-  direccionProveedor?: string;
+  proveedorDireccionFacturacion?: string;
+  proveedorDireccionEntrega?: string;
+
+  // Tributario
+  tipoOperacion?: string;
 
   // Comprador (usuario que registra)
   compradorId?: string;
@@ -79,6 +84,8 @@ export interface ComprobanteCompra {
   tipoCambio?: number;
   formaPago: 'contado' | 'credito';
   condicionesPago?: string;
+  /** Cronograma de cuotas específico de este comprobante cuando formaPago es 'credito'. */
+  creditTerms?: CreditScheduleTerms;
 
   // Modalidad de afectación de inventario
   modalidadInventario: ModalidadInventarioCC;

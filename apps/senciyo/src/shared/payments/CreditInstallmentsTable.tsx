@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from 'react';
 import { CheckSquare, Square, Trash2 } from 'lucide-react';
-import type { CreditInstallment } from '../../../../../../shared/payments/paymentTerms';
-import type { Currency } from '../../models/comprobante.types';
-import { useCurrency } from '../form-core/hooks/useCurrency';
+import type { CreditInstallment } from './paymentTerms';
+import type { CurrencyCode } from '@/shared/currency';
+import { formatMoney } from '@/shared/currency';
 import { obtenerFechaMinimaPrimeraCuota, sanitizarImporteTexto } from './creditoManualTransaccion';
 
 export type CreditInstallmentAllocationInput = {
@@ -14,7 +14,7 @@ type TableMode = 'readonly' | 'allocation' | 'manual';
 
 interface CreditInstallmentsTableProps {
   installments: CreditInstallment[];
-  currency: Currency;
+  currency: CurrencyCode;
   mode?: TableMode;
   context?: 'emision' | 'cxc';
   manualReadOnly?: boolean;
@@ -69,7 +69,10 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   compact = true,
   emptyState = 'No hay cuotas registradas para esta venta.',
 }) => {
-  const { formatPrice } = useCurrency();
+  const formatPrice = useCallback(
+    (price: number, moneda?: CurrencyCode) => formatMoney(price, moneda ?? currency, { showSymbol: true }),
+    [currency],
+  );
 
   const allocationMap = useMemo(() => {
     const map = new Map<number, number>();

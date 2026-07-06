@@ -494,6 +494,7 @@ type RawTenantConfig = {
   cajas: PersistedCaja[];
   units?: Unit[];
   rolesPersonalizados?: RolPersonalizado[];
+  paymentMethods?: PaymentMethod[];
   salesPreferences: SalesPreferences;
 };
 
@@ -505,6 +506,7 @@ type PersistedTenantConfig = {
   cajas: Caja[];
   units: Unit[];
   rolesPersonalizados: RolPersonalizado[];
+  paymentMethods: PaymentMethod[];
   salesPreferences: SalesPreferences;
 };
 
@@ -565,6 +567,12 @@ const reviveUnit = (unit: Unit): Unit => ({
   ...unit,
   createdAt: reviveDate(unit.createdAt) ?? new Date(),
   updatedAt: reviveDate(unit.updatedAt) ?? new Date(),
+});
+
+const revivePaymentMethod = (method: PaymentMethod): PaymentMethod => ({
+  ...method,
+  createdAt: reviveDate(method.createdAt) ?? new Date(),
+  updatedAt: reviveDate(method.updatedAt) ?? new Date(),
 });
 
 const reviveAlmacen = (raw: Almacen | (Partial<Almacen> & Record<string, unknown>)): Almacen => {
@@ -718,6 +726,7 @@ const reviveTenantConfig = (config: RawTenantConfig): PersistedTenantConfig => (
   cajas: config.cajas.map(reviveCaja),
   units: Array.isArray(config.units) ? config.units.map(reviveUnit) : [],
   rolesPersonalizados: Array.isArray(config.rolesPersonalizados) ? config.rolesPersonalizados : [],
+  paymentMethods: Array.isArray(config.paymentMethods) ? config.paymentMethods.map(revivePaymentMethod) : [],
 });
 
 const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
@@ -736,6 +745,10 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
     !('rolesPersonalizados' in value)
     || Array.isArray((value as RawTenantConfig).rolesPersonalizados);
 
+  const hasPaymentMethods =
+    !('paymentMethods' in value)
+    || Array.isArray((value as RawTenantConfig).paymentMethods);
+
   const prefs = value.salesPreferences;
   const hasPrefs =
     isRecord(prefs) &&
@@ -745,7 +758,7 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
   const company = value.company;
   const hasCompany = company === null || isRecord(company);
 
-  return hasArrays && hasPrefs && hasCompany && hasUnits && hasRolesPersonalizados;
+  return hasArrays && hasPrefs && hasCompany && hasUnits && hasRolesPersonalizados && hasPaymentMethods;
 };
 
 const reviveSeries = (series: Series): Series => ({
@@ -1047,6 +1060,7 @@ export async function inicializarEmpresaEnAlmacenamiento({
     cajas: [caja],
     units,
     rolesPersonalizados: [],
+    paymentMethods: [],
     salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
   };
 
@@ -1336,6 +1350,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const tenantHydratedRef = useRef(false);
   const usersHydratedRef = useRef(false);
   const unitsHydratedRef = useRef(false);
+  const paymentMethodsHydratedRef = useRef(false);
   const instalacionBaseRef = useRef(false);
   const sincronizacionWorkspaceRef = useRef(false);
 
@@ -1476,6 +1491,10 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       if (persisted.units.length) {
         dispatch({ type: 'SET_UNITS', payload: persisted.units });
         unitsHydratedRef.current = true;
+      }
+      if (persisted.paymentMethods.length) {
+        dispatch({ type: 'SET_PAYMENT_METHODS', payload: persisted.paymentMethods });
+        paymentMethodsHydratedRef.current = true;
       }
     }
 
@@ -2058,6 +2077,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.cajas.length > 0 ||
       state.rolesPersonalizados.length > 0 ||
       state.units.length > 0 ||
+      state.paymentMethods.length > 0 ||
       state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
       state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax ||
       state.salesPreferences.controlStockActivo !== PREFERENCIAS_VENTAS_PREDETERMINADAS.controlStockActivo ||
@@ -2077,6 +2097,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       cajas: state.cajas,
       units: state.units,
       rolesPersonalizados: state.rolesPersonalizados,
+      paymentMethods: state.paymentMethods,
       salesPreferences: state.salesPreferences,
     };
 
@@ -2086,6 +2107,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     state.company,
     state.Establecimientos,
     state.rolesPersonalizados,
+    state.paymentMethods,
     state.salesPreferences,
     state.almacenes,
     state.units,
@@ -2095,52 +2117,54 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
   // Initialize with mock data for development
   useEffect(() => {
-    // 8 FORMAS DE PAGO PREDETERMINADAS DEL SISTEMA
-    // Estas son MAESTRAS y existen independientemente de la empresa
-    dispatch({
-      type: 'SET_PAYMENT_METHODS',
-      payload: [
-        // CONTADO - Efectivo (mantener)
-        {
-          id: 'pm-efectivo',
-          code: 'CONTADO',
-          name: 'Contado',
-          type: 'CASH',
-          sunatCode: '001',
-          sunatDescription: 'Pago al contado - Efectivo',
-          configuration: {
-            requiresReference: false,
-            allowsPartialPayments: false,
-            requiresValidation: false,
-            hasCommission: false,
-            requiresCustomerData: false,
-            allowsCashBack: true,
-            requiresSignature: false,
+    // Forma de pago "Contado" predeterminada del sistema: solo se siembra si
+    // no había nada persistido para este tenant (igual que unitsHydratedRef),
+    // para no pisar las condiciones de crédito que el usuario ya configuró.
+    if (!paymentMethodsHydratedRef.current) {
+      dispatch({
+        type: 'SET_PAYMENT_METHODS',
+        payload: [
+          {
+            id: 'pm-efectivo',
+            code: 'CONTADO',
+            name: 'Contado',
+            type: 'CASH',
+            sunatCode: '001',
+            sunatDescription: 'Pago al contado - Efectivo',
+            configuration: {
+              requiresReference: false,
+              allowsPartialPayments: false,
+              requiresValidation: false,
+              hasCommission: false,
+              requiresCustomerData: false,
+              allowsCashBack: true,
+              requiresSignature: false,
+            },
+            financial: {
+              affectsCashFlow: true,
+              settlementPeriod: 'IMMEDIATE',
+            },
+            display: {
+              icon: 'Banknote',
+              color: '#10B981',
+              displayOrder: 1,
+              isVisible: true,
+              showInPos: true,
+              showInInvoicing: true,
+            },
+            validation: {
+              documentTypes: [],
+              customerTypes: ['INDIVIDUAL', 'BUSINESS'],
+              allowedCurrencies: ['PEN', 'USD'],
+            },
+            isDefault: true,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
-          financial: {
-            affectsCashFlow: true,
-            settlementPeriod: 'IMMEDIATE',
-          },
-          display: {
-            icon: 'Banknote',
-            color: '#10B981',
-            displayOrder: 1,
-            isVisible: true,
-            showInPos: true,
-            showInInvoicing: true,
-          },
-          validation: {
-            documentTypes: [],
-            customerTypes: ['INDIVIDUAL', 'BUSINESS'],
-            allowedCurrencies: ['PEN', 'USD'],
-          },
-          isDefault: true,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ]
-    });
+        ],
+      });
+    }
 
     // Initialize SUNAT units - Carga todas las unidades de medida del catálogo SUNAT
     if (!unitsHydratedRef.current) {

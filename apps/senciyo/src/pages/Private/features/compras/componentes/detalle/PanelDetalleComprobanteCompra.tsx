@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Receipt, Package, Clock, Paperclip } from 'lucide-react';
+import { Receipt, Clock, Link2 } from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { listarTiposOperacion } from '@/shared/catalogos-sunat';
+import { CreditInstallmentsTable } from '@/shared/payments/CreditInstallmentsTable';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { CLASIFICACION_LINEA_LABELS } from '../../modelos/LineaCompra';
 import type { ComprobanteCompra } from '../../modelos/ComprobanteCompra';
@@ -15,14 +17,27 @@ import {
   BADGE_ESTADO_DOCUMENTO_CC,
   BADGE_ESTADO_PAGO_CC,
   BADGE_ESTADO_INVENTARIO_CC,
+  BADGE_ESTADO_PAGO_CXP,
+  BADGE_ESTADO_DOCUMENTO_PAGO,
 } from '../../constantes/estadosCompras';
+import type { OrdenCompra } from '../../modelos/OrdenCompra';
+import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
+import { ESTADO_PAGO_CXP_LABELS } from '../../modelos/CuentaPorPagar';
+import type { PagoCompra } from '../../modelos/PagoCompra';
+import { ESTADO_DOCUMENTO_PAGO_LABELS } from '../../modelos/PagoCompra';
 
 interface PanelDetalleComprobanteCompraProps {
   cc: ComprobanteCompra | null;
+  ordenes: OrdenCompra[];
+  cuentasPorPagar: CuentaPorPagar[];
+  pagos: PagoCompra[];
   onCerrar: () => void;
+  onVerOrdenCompra?: (oc: OrdenCompra) => void;
+  onVerCuentaPorPagar?: (cxp: CuentaPorPagar) => void;
+  onVerPago?: (pago: PagoCompra) => void;
 }
 
-type TabCC = 'general' | 'items' | 'adjuntos' | 'historial';
+type TabCC = 'general' | 'historial' | 'relacionados';
 
 function BadgeEstado({
   estado,
@@ -62,20 +77,32 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
 
 export default function PanelDetalleComprobanteCompra({
   cc,
+  ordenes,
+  cuentasPorPagar,
+  pagos,
   onCerrar,
+  onVerOrdenCompra,
+  onVerCuentaPorPagar,
+  onVerPago,
 }: PanelDetalleComprobanteCompraProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabCC>('general');
 
   const igvDefault = config.taxes.find((t) => t.isDefault && t.isActive);
   const igvLabel = igvDefault ? `IGV (${igvDefault.rate}%):` : 'IGV:';
+  const tiposOperacion = listarTiposOperacion();
 
   const TABS: { id: TabCC; label: string; icon: typeof Receipt }[] = [
     { id: 'general', label: 'General', icon: Receipt },
-    { id: 'items', label: `Ítems (${cc?.lineas.length ?? 0})`, icon: Package },
-    { id: 'adjuntos', label: `Adjuntos (${cc?.adjuntos.length ?? 0})`, icon: Paperclip },
+    { id: 'relacionados', label: 'Documentos relacionados', icon: Link2 },
     { id: 'historial', label: 'Historial', icon: Clock },
   ];
+
+  const ocOrigen = cc ? ordenes.find((o) => o.id === cc.ordenCompraOrigenId) : undefined;
+  const cxp = cc ? cuentasPorPagar.find((c) => c.comprobanteCompraId === cc.id) : undefined;
+  const pagosDelComprobante = cc
+    ? pagos.filter((p) => p.comprobantesCompraAplicados.includes(cc.id))
+    : [];
 
   const titulo = cc ? (
     <div className="flex items-center gap-2">
@@ -100,7 +127,7 @@ export default function PanelDetalleComprobanteCompra({
       alCerrar={onCerrar}
       titulo={titulo}
       subtitulo={subtitulo}
-      tamano="md"
+      tamano="lg"
     >
       {cc && (
         <div className="flex flex-col h-full">
@@ -129,33 +156,53 @@ export default function PanelDetalleComprobanteCompra({
           <div className="flex-1 overflow-y-auto p-4 space-y-5">
             {tabActivo === 'general' && (
               <>
-                <Seccion titulo="Documento">
-                  <Campo label="Tipo" valor={cc.tipoComprobanteProveedor} />
-                  <Campo label="Serie / N.°" valor={`${cc.serieProveedor}-${cc.numeroProveedor}`} />
-                  <Campo label="Fecha emisión proveedor" valor={cc.fechaEmisionProveedor} />
-                  <Campo label="Fecha registro" valor={cc.fechaRegistro} />
-                  {cc.fechaVencimiento && <Campo label="Vencimiento" valor={cc.fechaVencimiento} />}
-                  <Campo
-                    label="Modalidad inventario"
-                    valor={MODALIDAD_INVENTARIO_CC_LABELS[cc.modalidadInventario]}
-                  />
-                </Seccion>
-
                 <Seccion titulo="Proveedor">
                   <Campo label="Nombre" valor={cc.proveedorNombre} />
                   <Campo
                     label="Documento"
                     valor={`${cc.proveedorTipoDocumento === '6' ? 'RUC' : 'DOC'} ${cc.proveedorNumeroDocumento}`}
                   />
-                  {cc.direccionProveedor && (
-                    <Campo label="Dirección" valor={cc.direccionProveedor} />
-                  )}
                 </Seccion>
 
-                <Seccion titulo="Condiciones">
+                <Seccion titulo="Datos del comprobante">
+                  <Campo label="Tipo de comprobante" valor={cc.tipoComprobanteProveedor} />
+                  <Campo label="Serie / N.°" valor={`${cc.serieProveedor}-${cc.numeroProveedor}`} />
+                  <Campo label="Fecha de emisión" valor={cc.fechaEmisionProveedor} />
+                  <Campo label="Fecha registro" valor={cc.fechaRegistro} />
+                  {cc.fechaVencimiento && <Campo label="Vencimiento" valor={cc.fechaVencimiento} />}
                   <Campo label="Comprador" valor={cc.compradorNombre} />
                   <Campo label="Moneda" valor={cc.moneda} />
                   {cc.tipoCambio && <Campo label="Tipo de cambio" valor={cc.tipoCambio.toFixed(3)} />}
+                  {cc.centroCosto && <Campo label="Centro de costo" valor={cc.centroCosto} />}
+                  {cc.presupuesto && <Campo label="Presupuesto" valor={cc.presupuesto} />}
+                </Seccion>
+
+                {(cc.proveedorDireccionFacturacion || cc.proveedorDireccionEntrega) && (
+                  <Seccion titulo="Direcciones">
+                    {cc.proveedorDireccionFacturacion && (
+                      <Campo label="Dirección de facturación" valor={cc.proveedorDireccionFacturacion} />
+                    )}
+                    {cc.proveedorDireccionEntrega && (
+                      <Campo label="Dirección de entrega" valor={cc.proveedorDireccionEntrega} />
+                    )}
+                  </Seccion>
+                )}
+
+                {cc.tipoOperacion && (
+                  <Seccion titulo="Tipo de operación">
+                    <Campo
+                      label="Tipo de operación"
+                      valor={
+                        (() => {
+                          const tipo = tiposOperacion.find((t) => t.codigo === cc.tipoOperacion);
+                          return tipo ? `${tipo.codigo} - ${tipo.descripcion}` : cc.tipoOperacion;
+                        })()
+                      }
+                    />
+                  </Seccion>
+                )}
+
+                <Seccion titulo="Forma de pago">
                   <Campo
                     label="Forma de pago"
                     valor={cc.formaPago === 'contado' ? 'Contado' : 'Crédito'}
@@ -163,15 +210,78 @@ export default function PanelDetalleComprobanteCompra({
                   {cc.condicionesPago && (
                     <Campo label="Condiciones" valor={cc.condicionesPago} />
                   )}
-                  {cc.centroCosto && <Campo label="Centro de costo" valor={cc.centroCosto} />}
-                  {cc.presupuesto && <Campo label="Presupuesto" valor={cc.presupuesto} />}
                 </Seccion>
 
-                <Seccion titulo="Totales">
+                {cc.formaPago === 'credito' && cc.creditTerms && cc.creditTerms.schedule.length > 0 && (
+                  <Seccion titulo="Condición y cuotas de crédito">
+                    <div className="py-2">
+                      <CreditInstallmentsTable
+                        installments={cc.creditTerms.schedule}
+                        currency={cc.moneda}
+                        mode="readonly"
+                        compact
+                      />
+                    </div>
+                  </Seccion>
+                )}
+
+                <Seccion titulo="Base imponible">
                   <Campo
-                    label="Subtotal gravado"
+                    label="Base imponible de compra"
                     valor={`${cc.totales.subtotal.toFixed(2)} ${cc.moneda}`}
                   />
+                </Seccion>
+
+                <div>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    Ítems ({cc.lineas.length})
+                  </h3>
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Descripción</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Clasificación</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Almacén</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Cant.</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Costo</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {cc.lineas.map((linea) => (
+                          <tr key={linea.id}>
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-gray-900">{linea.nombreProducto}</div>
+                              <div className="text-xs text-gray-400">
+                                {linea.unidadMedida}
+                                {linea.codigoProducto && ` · ${linea.codigoProducto}`}
+                                {(linea.descuentoUnitario ?? 0) > 0 && ` · desc. ${linea.descuentoUnitario!.toFixed(2)}`}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {CLASIFICACION_LINEA_LABELS[linea.clasificacion]}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {linea.afectaInventario ? (linea.almacenDestinoNombre ?? '—') : 'No aplica'}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-gray-700">
+                              {linea.cantidadFacturada || linea.cantidadSolicitada}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-gray-700">
+                              {linea.costoUnitario.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono font-medium text-gray-900">
+                              {linea.total.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <Seccion titulo="Totales">
                   {cc.totales.subtotalExonerado > 0 && (
                     <Campo
                       label="Subtotal exonerado"
@@ -207,11 +317,25 @@ export default function PanelDetalleComprobanteCompra({
                   />
                 </Seccion>
 
+                <Seccion titulo="Afectación de inventario">
+                  <Campo
+                    label="Modalidad inventario"
+                    valor={MODALIDAD_INVENTARIO_CC_LABELS[cc.modalidadInventario]}
+                  />
+                </Seccion>
+
                 {cc.observaciones && (
                   <Seccion titulo="Observaciones">
                     <p className="text-sm text-gray-700 py-2">{cc.observaciones}</p>
                   </Seccion>
                 )}
+
+                <div>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    Adjuntos ({cc.adjuntos.length})
+                  </h3>
+                  <AdjuntosCompra adjuntos={cc.adjuntos} tiposPermitidos={[]} />
+                </div>
 
                 {cc.estadoDocumento === 'anulado' && cc.motivoAnulacion && (
                   <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
@@ -221,74 +345,80 @@ export default function PanelDetalleComprobanteCompra({
               </>
             )}
 
-            {tabActivo === 'items' && (
+            {tabActivo === 'relacionados' && (
               <>
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Descripción</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Clasificación</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Almacén</th>
-                        <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Cant.</th>
-                        <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Costo</th>
-                        <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {cc.lineas.map((linea) => (
-                        <tr key={linea.id}>
-                          <td className="px-3 py-2">
-                            <div className="font-medium text-gray-900">{linea.nombreProducto}</div>
-                            <div className="text-xs text-gray-400">
-                              {linea.unidadMedida}
-                              {linea.codigoProducto && ` · ${linea.codigoProducto}`}
-                              {(linea.descuentoUnitario ?? 0) > 0 && ` · desc. ${linea.descuentoUnitario!.toFixed(2)}`}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {CLASIFICACION_LINEA_LABELS[linea.clasificacion]}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {linea.afectaInventario ? (linea.almacenDestinoNombre ?? '—') : 'No aplica'}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-700">
-                            {linea.cantidadFacturada || linea.cantidadSolicitada}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-700">
-                            {linea.costoUnitario.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono font-medium text-gray-900">
-                            {linea.total.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex justify-end">
-                  <div className="space-y-1 text-sm min-w-44">
-                    <div className="flex justify-between text-gray-600">
-                      <span>Subtotal:</span>
-                      <span className="font-mono">{cc.totales.subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>{igvLabel}</span>
-                      <span className="font-mono">{cc.totales.igv.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold text-gray-900 border-t border-gray-200 pt-1">
-                      <span>Total:</span>
-                      <span className="font-mono">
-                        {cc.totales.total.toFixed(2)} {cc.moneda}
+                <Seccion titulo="Orden de compra origen">
+                  {ocOrigen ? (
+                    <button
+                      type="button"
+                      onClick={() => onVerOrdenCompra?.(ocOrigen)}
+                      disabled={!onVerOrdenCompra}
+                      className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                    >
+                      <span className="text-sm text-gray-900 font-mono">{ocOrigen.numero}</span>
+                      <span className="text-sm text-gray-500">
+                        {ocOrigen.totales.total.toFixed(2)} {ocOrigen.moneda}
                       </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+                    </button>
+                  ) : (
+                    <p className="text-sm text-gray-400 py-2">Este comprobante no proviene de una orden de compra.</p>
+                  )}
+                </Seccion>
 
-            {tabActivo === 'adjuntos' && (
-              <AdjuntosCompra adjuntos={cc.adjuntos} tiposPermitidos={[]} />
+                <Seccion titulo="Cuenta por pagar">
+                  {cxp ? (
+                    <button
+                      type="button"
+                      onClick={() => onVerCuentaPorPagar?.(cxp)}
+                      disabled={!onVerCuentaPorPagar}
+                      className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                    >
+                      <span className="text-sm text-gray-900">
+                        Saldo {cxp.saldoPendiente.toFixed(2)} {cxp.moneda}
+                      </span>
+                      <BadgeEstado estado={cxp.estadoPago} labels={ESTADO_PAGO_CXP_LABELS} clases={BADGE_ESTADO_PAGO_CXP} />
+                    </button>
+                  ) : (
+                    <p className="text-sm text-gray-400 py-2">No se encontró una cuenta por pagar asociada.</p>
+                  )}
+                </Seccion>
+
+                <Seccion titulo={`Pagos (${pagosDelComprobante.length})`}>
+                  {pagosDelComprobante.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-2">Aún no se registró ningún pago.</p>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {pagosDelComprobante.map((pago) => (
+                        <button
+                          key={pago.id}
+                          type="button"
+                          onClick={() => onVerPago?.(pago)}
+                          disabled={!onVerPago}
+                          className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                        >
+                          <span className="text-sm text-gray-900 font-mono">{pago.numeroPago}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500">
+                              {pago.montoTotalPagado.toFixed(2)} {pago.moneda}
+                            </span>
+                            <BadgeEstado
+                              estado={pago.estadoDocumento}
+                              labels={ESTADO_DOCUMENTO_PAGO_LABELS}
+                              clases={BADGE_ESTADO_DOCUMENTO_PAGO}
+                            />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Seccion>
+
+                {cc.notasIngresoRelacionadas && cc.notasIngresoRelacionadas.length > 0 && (
+                  <Seccion titulo="Notas de ingreso">
+                    <Campo label="Notas de ingreso vinculadas" valor={cc.notasIngresoRelacionadas.length} />
+                  </Seccion>
+                )}
+              </>
             )}
 
             {tabActivo === 'historial' && (

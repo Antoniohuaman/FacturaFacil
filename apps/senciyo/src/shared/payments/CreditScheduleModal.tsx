@@ -1,7 +1,7 @@
 import { X, RefreshCcw } from 'lucide-react';
 import React from 'react';
-import { CreditScheduleEditor } from '../../../configuracion-sistema/components/negocio/EditorCronogramaCredito';
-import type { CreditInstallmentDefinition } from '../../../../../../shared/payments/paymentTerms';
+import { CreditScheduleEditor } from '../../pages/Private/features/configuracion-sistema/components/negocio/EditorCronogramaCredito';
+import type { CreditInstallmentDefinition } from './paymentTerms';
 
 interface CreditScheduleModalProps {
   isOpen: boolean;

@@ -39,6 +39,17 @@ export interface CreditSchedule {
   fechaVencimientoGlobal: string;
 }
 
+/** Cronograma de crédito ya resuelto/guardado en un documento (no una plantilla). */
+export interface CreditScheduleTerms {
+  schedule: CreditInstallment[];
+  fechaVencimientoGlobal: string;
+  totalPorcentaje?: number;
+  saldoPendiente?: number;
+  adelanto?: number;
+  cuotasPendientes?: number;
+  cuotasCanceladas?: number;
+}
+
 export interface PaymentTermsPayload {
   condition: PaymentCondition;
   installments?: CreditInstallment[];

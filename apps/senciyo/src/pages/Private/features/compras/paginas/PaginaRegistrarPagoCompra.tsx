@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
+import { Breadcrumb, PageHeader } from '@/contasis';
 import { useCompras } from '../contexto/ContextoCompras';
 import { puedeRegistrarPago } from '../logica/reglasCompras';
 import FormularioPagoCompra from '../componentes/formularios/FormularioPagoCompra';
+import BuscadorDocumentoOrigenPago from '../componentes/pagos/BuscadorDocumentoOrigenPago';
 
 function EstadoNoDisponible({ mensaje, onVolver }: { mensaje: string; onVolver: () => void }) {
   return (
@@ -26,19 +29,38 @@ export default function PaginaRegistrarPagoCompra() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cuentaPorPagarId = searchParams.get('cuentaPorPagarId');
+  const [cxpSeleccionadaId, setCxpSeleccionadaId] = useState<string | null>(null);
 
   const volverACuentasPorPagar = () => navigate('/compras', { state: { tab: 'cuentas_por_pagar' } });
+  const volverAPagos = () => navigate('/compras', { state: { tab: 'pagos' } });
 
-  if (!cuentaPorPagarId) {
+  const idEfectivo = cuentaPorPagarId ?? cxpSeleccionadaId;
+
+  if (!idEfectivo) {
     return (
-      <EstadoNoDisponible
-        mensaje="No se indicó qué cuenta por pagar registrar. Vuelve a Cuentas por Pagar y elige un documento pendiente."
-        onVolver={volverACuentasPorPagar}
-      />
+      <div className="min-h-screen bg-gray-50 pb-24">
+        <PageHeader
+          breadcrumb={
+            <Breadcrumb items={[{ label: 'Compras', onClick: volverAPagos }, { label: 'Nuevo pago' }]} />
+          }
+          title={
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900 leading-tight">Nuevo pago</h1>
+              <p className="text-xs text-gray-500">Selecciona el documento pendiente que vas a pagar</p>
+            </div>
+          }
+        />
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+          <BuscadorDocumentoOrigenPago
+            cuentasPorPagar={state.cuentasPorPagar}
+            onSeleccionar={(cxp) => setCxpSeleccionadaId(cxp.id)}
+          />
+        </div>
+      </div>
     );
   }
 
-  const cxp = state.cuentasPorPagar.find((c) => c.id === cuentaPorPagarId);
+  const cxp = state.cuentasPorPagar.find((c) => c.id === idEfectivo);
 
   if (!cxp) {
     return (
@@ -61,8 +83,8 @@ export default function PaginaRegistrarPagoCompra() {
   return (
     <FormularioPagoCompra
       cxp={cxp}
-      onExito={() => navigate('/compras', { state: { tab: 'pagos' } })}
-      onCancelar={volverACuentasPorPagar}
+      onExito={volverAPagos}
+      onCancelar={cuentaPorPagarId ? volverACuentasPorPagar : volverAPagos}
     />
   );
 }

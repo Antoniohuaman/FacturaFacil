@@ -89,6 +89,7 @@ export interface CamposOpcionalesDocumentoComercial {
   metodoEnvio?: string;
   fechaEntrega?: string;
   condicionEntrega?: string;
+  contactoId?: string;
   contactoNombre?: string;
   contactoCargo?: string;
   contactoTelefono?: string;

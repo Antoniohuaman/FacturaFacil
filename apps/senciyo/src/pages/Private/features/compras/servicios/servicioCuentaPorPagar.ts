@@ -48,27 +48,35 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
 }
 
 /**
- * Sincroniza la cuota única (Fase 1 no soporta fraccionamiento en varias
- * cuotas) con el total pagado/saldo de la CxP tras aplicar o revertir un pago.
+ * Sincroniza las cuotas de la CxP con el total pagado/saldo tras aplicar o
+ * revertir un pago. El pago se registra siempre sobre el total de la CxP (no
+ * por cuota individual); el monto pagado se distribuye entre las cuotas en
+ * orden de número de cuota (la más antigua primero), recalculando siempre
+ * desde el total pagado acumulado — por eso es idempotente sin importar
+ * cuántas veces se aplique o revierta un pago. Con una sola cuota (el caso
+ * más común) el resultado es idéntico al de antes de soportar cuotas reales.
  */
-function sincronizarCuotaUnica(
+function sincronizarCuotas(
   cuotas: CuotaCuentaPorPagar[] | undefined,
   totalPagado: number,
-  saldoPendiente: number,
-  estadoPago: CuentaPorPagar['estadoPago'],
 ): CuotaCuentaPorPagar[] | undefined {
   if (!cuotas || cuotas.length === 0) return cuotas;
 
-  const [cuota] = cuotas;
-  return [
-    {
-      ...cuota,
-      montoPagado: Math.min(totalPagado, cuota.montoCuota),
-      saldoPendiente: Math.max(0, saldoPendiente),
-      estadoPago: estadoPago === 'pagada' ? 'pagada' : estadoPago === 'parcial' ? 'parcial' : 'pendiente',
-      estadoVencimiento: calcularEstadoVencimiento(cuota.fechaVencimiento),
-    },
-  ];
+  let restante = Math.max(0, totalPagado);
+  return [...cuotas]
+    .sort((a, b) => a.numeroCuota - b.numeroCuota)
+    .map((cuota) => {
+      const pagoEnCuota = round2(Math.min(restante, cuota.montoCuota));
+      restante = round2(restante - pagoEnCuota);
+      const saldo = round2(Math.max(0, cuota.montoCuota - pagoEnCuota));
+      return {
+        ...cuota,
+        montoPagado: pagoEnCuota,
+        saldoPendiente: saldo,
+        estadoPago: saldo <= TOLERANCIA_DECIMAL ? 'pagada' : pagoEnCuota > 0 ? 'parcial' : 'pendiente',
+        estadoVencimiento: calcularEstadoVencimiento(cuota.fechaVencimiento),
+      };
+    });
 }
 
 /** Deriva el estadoPago de una CxP a partir de su total y lo efectivamente pagado. */
@@ -97,7 +105,7 @@ export function aplicarPagoACuentaPorPagar(
     totalPagado: nuevoTotalPagado,
     saldoPendiente: nuevoSaldo,
     estadoPago: nuevoEstadoPago,
-    cuotas: sincronizarCuotaUnica(cxp.cuotas, nuevoTotalPagado, nuevoSaldo, nuevoEstadoPago),
+    cuotas: sincronizarCuotas(cxp.cuotas, nuevoTotalPagado),
     pagosRelacionados: [...cxp.pagosRelacionados, pagoId],
     historial: [
       ...cxp.historial,
@@ -122,7 +130,7 @@ export function revertirPagoDeCuentaPorPagar(
     totalPagado: nuevoTotalPagado,
     saldoPendiente: nuevoSaldo,
     estadoPago: nuevoEstadoPago,
-    cuotas: sincronizarCuotaUnica(cxp.cuotas, nuevoTotalPagado, nuevoSaldo, nuevoEstadoPago),
+    cuotas: sincronizarCuotas(cxp.cuotas, nuevoTotalPagado),
     pagosRelacionados: cxp.pagosRelacionados.filter((id) => id !== pagoId),
     historial: [
       ...cxp.historial,

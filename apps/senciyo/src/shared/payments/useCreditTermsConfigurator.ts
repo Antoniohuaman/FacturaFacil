@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
-import type { CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
+import { useConfigurationContext } from '../../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
+import type { CreditInstallmentDefinition, CreditScheduleTerms } from './paymentTerms';
 import {
   buildCreditScheduleFromTemplate,
   validateCreditScheduleTemplate,
-} from '../../../../../shared/payments/paymentTerms';
-import type { ComprobanteCreditTerms } from '../models/comprobante.types';
+} from './paymentTerms';
 
 // Extrae las plantillas de cuota (diasCredito, porcentaje) de un cronograma existente.
-function creditTermsToTemplates(creditTerms: ComprobanteCreditTerms): CreditInstallmentDefinition[] {
+function creditTermsToTemplates(creditTerms: CreditScheduleTerms): CreditInstallmentDefinition[] {
   return creditTerms.schedule
     .filter((c) => c.porcentaje > 0)
     .map(({ diasCredito, porcentaje }) => ({ diasCredito, porcentaje }));
@@ -19,7 +18,7 @@ interface UseCreditTermsConfiguratorParams {
   total: number;
   issueDate?: string;
   /** Términos de crédito de una cotización o borrador para hidratar el configurador en lugar del template por defecto del método. */
-  initialCreditTerms?: ComprobanteCreditTerms;
+  initialCreditTerms?: CreditScheduleTerms;
 }
 
 export const useCreditTermsConfigurator = ({
@@ -41,7 +40,7 @@ export const useCreditTermsConfigurator = ({
   const lastMethodIdRef = useRef<string | null>(paymentMethod?.id ?? null);
 
   // Reflejo síncrono de initialCreditTerms accesible en el efecto sin añadirlo a deps.
-  const pendingExternalRef = useRef<ComprobanteCreditTerms | null>(initialCreditTerms ?? null);
+  const pendingExternalRef = useRef<CreditScheduleTerms | null>(initialCreditTerms ?? null);
   pendingExternalRef.current = initialCreditTerms ?? null;
 
   // Controla si ya se aplicaron los términos externos para este método.
@@ -92,7 +91,7 @@ export const useCreditTermsConfigurator = ({
     return validateCreditScheduleTemplate(templates);
   }, [isCreditMethod, templates]);
 
-  const creditTerms: ComprobanteCreditTerms | undefined = useMemo(() => {
+  const creditTerms: CreditScheduleTerms | undefined = useMemo(() => {
     if (!isCreditMethod || !schedule) {
       return undefined;
     }

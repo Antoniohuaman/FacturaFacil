@@ -3,6 +3,7 @@ import type { TotalesCompra, MonedaCompra } from './tiposBaseCompras';
 import type { AdjuntoCompra } from './AdjuntoCompra';
 import type { TrazabilidadCompra } from './TrazabilidadCompra';
 import type { EventoHistorialCompras } from './EventoHistorialCompras';
+import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
 
 export type EstadoDocumentoOC = 'borrador' | 'registrado' | 'cerrado' | 'anulado';
 export type EstadoAprobacionOC = 'no_requiere' | 'pendiente' | 'aprobada' | 'rechazada';
@@ -76,7 +77,11 @@ export interface OrdenCompra {
   moneda: MonedaCompra;
   tipoCambio?: number;
   formaPago: 'contado' | 'credito';
+  /** Identificador de la forma de pago real seleccionada en Configuración. */
+  formaPagoMetodoId?: string;
   condicionesPago?: string;
+  /** Cronograma de cuotas cuando formaPago es 'credito'. */
+  creditTerms?: CreditScheduleTerms;
 
   // Aprobación básica
   requiereAprobacion: boolean;

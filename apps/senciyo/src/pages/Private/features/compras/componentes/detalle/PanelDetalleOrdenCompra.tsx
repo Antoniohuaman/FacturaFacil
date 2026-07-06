@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { FileText, Package, Clock, Paperclip } from 'lucide-react';
+import { FileText, Clock, Link2 } from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { CreditInstallmentsTable } from '@/shared/payments/CreditInstallmentsTable';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { CLASIFICACION_LINEA_LABELS } from '../../modelos/LineaCompra';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
@@ -19,13 +20,16 @@ import {
   BADGE_ESTADO_FACTURACION_OC,
   BADGE_ESTADO_INVENTARIO_OC,
 } from '../../constantes/estadosCompras';
+import type { ComprobanteCompra } from '../../modelos/ComprobanteCompra';
 
 interface PanelDetalleOrdenCompraProps {
   oc: OrdenCompra | null;
+  comprobantes: ComprobanteCompra[];
   onCerrar: () => void;
+  onVerComprobante?: (cc: ComprobanteCompra) => void;
 }
 
-type TabOC = 'general' | 'items' | 'adjuntos' | 'historial';
+type TabOC = 'general' | 'historial' | 'relacionados';
 
 function BadgeEstado({
   estado,
@@ -63,7 +67,12 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
   );
 }
 
-export default function PanelDetalleOrdenCompra({ oc, onCerrar }: PanelDetalleOrdenCompraProps) {
+export default function PanelDetalleOrdenCompra({
+  oc,
+  comprobantes,
+  onCerrar,
+  onVerComprobante,
+}: PanelDetalleOrdenCompraProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabOC>('general');
 
@@ -72,10 +81,11 @@ export default function PanelDetalleOrdenCompra({ oc, onCerrar }: PanelDetalleOr
 
   const TABS: { id: TabOC; label: string; icon: typeof FileText }[] = [
     { id: 'general', label: 'General', icon: FileText },
-    { id: 'items', label: `Ítems (${oc?.lineas.length ?? 0})`, icon: Package },
-    { id: 'adjuntos', label: `Adjuntos (${oc?.adjuntos?.length ?? 0})`, icon: Paperclip },
+    { id: 'relacionados', label: 'Documentos relacionados', icon: Link2 },
     { id: 'historial', label: 'Historial', icon: Clock },
   ];
+
+  const comprobantesGenerados = oc ? comprobantes.filter((c) => c.ordenCompraOrigenId === oc.id) : [];
 
   const titulo = oc ? (
     <div className="flex items-center gap-2">
@@ -102,7 +112,7 @@ export default function PanelDetalleOrdenCompra({ oc, onCerrar }: PanelDetalleOr
       alCerrar={onCerrar}
       titulo={titulo}
       subtitulo={subtitulo}
-      tamano="md"
+      tamano="lg"
     >
       {oc && (
         <div className="flex flex-col h-full">
@@ -145,25 +155,93 @@ export default function PanelDetalleOrdenCompra({ oc, onCerrar }: PanelDetalleOr
                   )}
                 </Seccion>
 
-                <Seccion titulo="Condiciones">
+                <Seccion titulo="Datos y condiciones de la orden">
                   <Campo label="Comprador" valor={oc.compradorNombre} />
                   <Campo label="Fecha emisión" valor={oc.fechaEmision} />
                   {oc.fechaVencimiento && <Campo label="Vencimiento" valor={oc.fechaVencimiento} />}
-                  {oc.fechaEntregaEsperada && (
-                    <Campo label="Entrega esperada" valor={oc.fechaEntregaEsperada} />
-                  )}
                   <Campo label="Moneda" valor={oc.moneda} />
                   {oc.tipoCambio && <Campo label="Tipo de cambio" valor={oc.tipoCambio.toFixed(3)} />}
-                  <Campo
-                    label="Forma de pago"
-                    valor={oc.formaPago === 'contado' ? 'Contado' : 'Crédito'}
-                  />
                   {oc.condicionesPago && (
                     <Campo label="Condiciones" valor={oc.condicionesPago} />
                   )}
                   {oc.centroCosto && <Campo label="Centro de costo" valor={oc.centroCosto} />}
                   {oc.presupuesto && <Campo label="Presupuesto" valor={oc.presupuesto} />}
                 </Seccion>
+
+                <Seccion titulo="Forma de pago">
+                  <Campo
+                    label="Forma de pago"
+                    valor={oc.formaPago === 'contado' ? 'Contado' : 'Crédito'}
+                  />
+                </Seccion>
+
+                {oc.formaPago === 'credito' && oc.creditTerms && oc.creditTerms.schedule.length > 0 && (
+                  <Seccion titulo="Cronograma de crédito">
+                    <div className="py-2">
+                      <CreditInstallmentsTable
+                        installments={oc.creditTerms.schedule}
+                        currency={oc.moneda}
+                        mode="readonly"
+                        compact
+                      />
+                    </div>
+                  </Seccion>
+                )}
+
+                {oc.fechaEntregaEsperada && (
+                  <Seccion titulo="Datos de entrega">
+                    <Campo label="Entrega esperada" valor={oc.fechaEntregaEsperada} />
+                  </Seccion>
+                )}
+
+                <div>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    Ítems ({oc.lineas.length})
+                  </h3>
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Descripción</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Clasificación</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Almacén</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Cant.</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Costo</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {oc.lineas.map((linea) => (
+                          <tr key={linea.id}>
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-gray-900">{linea.nombreProducto}</div>
+                              <div className="text-xs text-gray-400">
+                                {linea.unidadMedida}
+                                {linea.codigoProducto && ` · ${linea.codigoProducto}`}
+                                {(linea.descuentoUnitario ?? 0) > 0 && ` · desc. ${linea.descuentoUnitario!.toFixed(2)}`}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {CLASIFICACION_LINEA_LABELS[linea.clasificacion]}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {linea.afectaInventario ? (linea.almacenDestinoNombre ?? '—') : 'No aplica'}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-gray-700">
+                              {linea.cantidadSolicitada}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono text-gray-700">
+                              {linea.costoUnitario.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono font-medium text-gray-900">
+                              {linea.total.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
 
                 <Seccion titulo="Totales">
                   <Campo
@@ -205,6 +283,26 @@ export default function PanelDetalleOrdenCompra({ oc, onCerrar }: PanelDetalleOr
                   </Seccion>
                 )}
 
+                <div>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                    Adjuntos ({oc.adjuntos?.length ?? 0})
+                  </h3>
+                  <AdjuntosCompra adjuntos={oc.adjuntos ?? []} tiposPermitidos={[]} />
+                </div>
+
+                <Seccion titulo="Estados operativos">
+                  <Campo label="Documento" valor={ESTADO_DOCUMENTO_OC_LABELS[oc.estadoDocumento]} />
+                  {oc.requiereAprobacion && (
+                    <Campo label="Aprobación" valor={ESTADO_APROBACION_OC_LABELS[oc.estadoAprobacion]} />
+                  )}
+                  {oc.aprobadoPor && <Campo label="Aprobado por" valor={oc.aprobadoPor} />}
+                  {oc.rechazadoPor && <Campo label="Rechazado por" valor={oc.rechazadoPor} />}
+                  {oc.motivoRechazo && <Campo label="Motivo de rechazo" valor={oc.motivoRechazo} />}
+                  <Campo label="Recepción" valor={ESTADO_RECEPCION_OC_LABELS[oc.estadoRecepcion]} />
+                  <Campo label="Facturación" valor={ESTADO_FACTURACION_OC_LABELS[oc.estadoFacturacion]} />
+                  <Campo label="Inventario" valor={ESTADO_INVENTARIO_OC_LABELS[oc.estadoInventario]} />
+                </Seccion>
+
                 {oc.estadoDocumento === 'anulado' && oc.motivoAnulacion && (
                   <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
                     <strong>Motivo de anulación:</strong> {oc.motivoAnulacion}
@@ -213,72 +311,39 @@ export default function PanelDetalleOrdenCompra({ oc, onCerrar }: PanelDetalleOr
               </>
             )}
 
-            {tabActivo === 'items' && (
+            {tabActivo === 'relacionados' && (
               <>
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Descripción</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Clasificación</th>
-                        <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Almacén</th>
-                        <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Cant.</th>
-                        <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Costo</th>
-                        <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {oc.lineas.map((linea) => (
-                        <tr key={linea.id}>
-                          <td className="px-3 py-2">
-                            <div className="font-medium text-gray-900">{linea.nombreProducto}</div>
-                            <div className="text-xs text-gray-400">
-                              {linea.unidadMedida}
-                              {linea.codigoProducto && ` · ${linea.codigoProducto}`}
-                              {(linea.descuentoUnitario ?? 0) > 0 && ` · desc. ${linea.descuentoUnitario!.toFixed(2)}`}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {CLASIFICACION_LINEA_LABELS[linea.clasificacion]}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {linea.afectaInventario ? (linea.almacenDestinoNombre ?? '—') : 'No aplica'}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-700">
-                            {linea.cantidadSolicitada}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-700">
-                            {linea.costoUnitario.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-mono font-medium text-gray-900">
-                            {linea.total.toFixed(2)}
-                          </td>
-                        </tr>
+                <Seccion titulo="Comprobantes de compra generados">
+                  {comprobantesGenerados.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-2">Aún no se generó ningún comprobante desde esta orden.</p>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {comprobantesGenerados.map((cc) => (
+                        <button
+                          key={cc.id}
+                          type="button"
+                          onClick={() => onVerComprobante?.(cc)}
+                          disabled={!onVerComprobante}
+                          className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                        >
+                          <span className="text-sm text-gray-900 font-mono">
+                            {cc.serieProveedor}-{cc.numeroProveedor}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {cc.totales.total.toFixed(2)} {cc.moneda}
+                          </span>
+                        </button>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex justify-end">
-                  <div className="space-y-1 text-sm min-w-40">
-                    <div className="flex justify-between text-gray-600">
-                      <span>Subtotal:</span>
-                      <span className="font-mono">{oc.totales.subtotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600">
-                      <span>{igvLabel}</span>
-                      <span className="font-mono">{oc.totales.igv.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold text-gray-900 border-t border-gray-200 pt-1">
-                      <span>Total:</span>
-                      <span className="font-mono">{oc.totales.total.toFixed(2)} {oc.moneda}</span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+                  )}
+                </Seccion>
 
-            {tabActivo === 'adjuntos' && (
-              <AdjuntosCompra adjuntos={oc.adjuntos ?? []} tiposPermitidos={[]} />
+                {oc.notasIngresoRelacionadas && oc.notasIngresoRelacionadas.length > 0 && (
+                  <Seccion titulo="Notas de ingreso">
+                    <Campo label="Notas de ingreso vinculadas" valor={oc.notasIngresoRelacionadas.length} />
+                  </Seccion>
+                )}
+              </>
             )}
 
             {tabActivo === 'historial' && (

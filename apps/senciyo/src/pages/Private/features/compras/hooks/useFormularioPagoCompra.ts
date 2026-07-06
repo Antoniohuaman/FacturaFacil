@@ -74,7 +74,7 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
   const [documentoSustentoTipo, setDocumentoSustentoTipo] = useState('');
   const [documentoSustentoSerie, setDocumentoSustentoSerie] = useState('');
   const [documentoSustentoNumero, setDocumentoSustentoNumero] = useState('');
-  const [concepto, setConcepto] = useState(`Pago de ${cxp.proveedorNombre} — ${cxp.comprobanteCompraNumero}`);
+  const [concepto, setConcepto] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>([]);
   const [enviando, setEnviando] = useState(false);

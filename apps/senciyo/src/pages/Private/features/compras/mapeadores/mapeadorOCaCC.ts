@@ -7,9 +7,13 @@ export interface DatosCCDesdeOC {
   proveedorTipoDocumento: string;
   proveedorNumeroDocumento: string;
   proveedorNombre: string;
+  proveedorDireccionFacturacion?: string;
+  proveedorDireccionEntrega?: string;
   moneda: OrdenCompra['moneda'];
   tipoCambio?: number;
   formaPago: OrdenCompra['formaPago'];
+  formaPagoMetodoId?: string;
+  creditTerms?: OrdenCompra['creditTerms'];
   condicionesPago?: string;
   modalidadInventarioSugerida: ModalidadInventarioCC;
   lineas: OrdenCompra['lineas'];
@@ -25,9 +29,13 @@ export function extraerDatosOCParaCC(oc: OrdenCompra): DatosCCDesdeOC {
     proveedorTipoDocumento: oc.proveedorTipoDocumento,
     proveedorNumeroDocumento: oc.proveedorNumeroDocumento,
     proveedorNombre: oc.proveedorNombre,
+    proveedorDireccionFacturacion: oc.proveedorDireccionFacturacion,
+    proveedorDireccionEntrega: oc.proveedorDireccionEntrega,
     moneda: oc.moneda,
     tipoCambio: oc.tipoCambio,
     formaPago: oc.formaPago,
+    formaPagoMetodoId: oc.formaPagoMetodoId,
+    creditTerms: oc.creditTerms,
     condicionesPago: oc.condicionesPago,
     modalidadInventarioSugerida: sugerirModalidadInventario(oc),
     lineas: oc.lineas.map((linea) => ({

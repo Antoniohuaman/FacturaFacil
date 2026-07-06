@@ -6,9 +6,10 @@ import {
   ChevronLeft, ChevronRight, X, Printer, Share2, Download,
   Mail, MessageCircle, ClipboardCopy, SlidersHorizontal,
 } from 'lucide-react';
+import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { EstadoDocumentoBadge } from './EstadoDocumentoBadge';
 import { DocumentoComercialPrintView } from './DocumentoComercialPrintView';
-import { CreditScheduleSummaryCard } from '../../comprobantes-electronicos/shared/payments/CreditScheduleSummaryCard';
+import { CreditScheduleSummaryCard } from '@/shared/payments/CreditScheduleSummaryCard';
 import { useDocumentosComercialesContext } from '../contexts/DocumentosComercialesContext';
 import { useDocumentoComercialActions } from '../hooks/useDocumentoComercialActions';
 import { useFeedback } from '@/shared/feedback/useFeedback';
@@ -285,7 +286,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
   const [columnasVisibles, setColumnasVisibles] = useState<Set<string>>(
     () => leerColumnasDeStorage(tipo),
   );
-  const [tabDetalle, setTabDetalle] = useState<'detalle' | 'historial' | 'seguimiento'>('detalle');
+  const [tabDetalle, setTabDetalle] = useState<'detalle' | 'historial' | 'relacionados'>('detalle');
   const [nuevoComentario, setNuevoComentario] = useState('');
   const [confirmandoAccion, setConfirmandoAccion] = useState<{
     tipo: 'anular' | 'eliminar' | 'no_aprobar' | 'cerrar_perdida' | 'aprobar';
@@ -816,7 +817,11 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                     : doc.numero ?? (doc.serie && doc.correlativo ? formatearNumeroDocumento(doc.serie, doc.correlativo) : '—');
                   const docCliente = formatearDocumentoCliente(doc.cliente?.tipoDocumento ?? '', doc.cliente?.numeroDocumento ?? '');
                   return (
-                    <tr key={doc.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <tr
+                      key={doc.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                      onClick={() => { setTabDetalle('detalle'); setDocumentoDetalle(doc); }}
+                    >
                       {columnasVisibles.has('numero') && <td className="px-4 py-3"><span className={`font-mono text-sm ${doc.esBorrador ? 'text-gray-400 dark:text-gray-500' : 'font-semibold text-gray-800 dark:text-gray-100'}`}>{numeroMostrado}</span></td>}
                       {columnasVisibles.has('cliente') && <td className="px-4 py-3 max-w-[200px]"><span title={doc.cliente?.nombre ?? ''} className={`font-medium truncate block ${doc.cliente?.nombre ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 text-xs'}`}>{doc.cliente?.nombre ?? 'Sin cliente'}</span></td>}
                       {columnasVisibles.has('docCliente') && <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{docCliente}</td>}
@@ -835,7 +840,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                           {resolverDocumentoRelacionadoNumero(doc)}
                         </td>
                       )}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <button type="button" onClick={(e) => handleAbrirMenu(e, doc.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-400">
                           <MoreHorizontal size={16} />
                         </button>
@@ -949,44 +954,48 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
       </div>
 
       {/* Drawer de detalle */}
-      {documentoDetalle && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-end" onClick={() => setDocumentoDetalle(null)}>
-          <div className="bg-white dark:bg-gray-900 h-full w-full max-w-lg shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">{TIPO_DOCUMENTO_COMERCIAL_LABELS[documentoDetalle.tipo]}</p>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">{documentoDetalle.esBorrador ? formatearNumeroParaBorrador(documentoDetalle.serie) : documentoDetalle.numero ?? '—'}</h2>
-                </div>
-                <button type="button" onClick={() => setDocumentoDetalle(null)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"><X size={18} /></button>
-              </div>
-              {/* Tabs */}
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => setTabDetalle('detalle')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'detalle' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-                >
-                  Detalle
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTabDetalle('historial')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'historial' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-                >
-                  Historial
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTabDetalle('seguimiento')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'seguimiento' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-                >
-                  Seguimiento
-                </button>
-              </div>
+      <Drawer
+        abierto={documentoDetalle !== null}
+        alCerrar={() => setDocumentoDetalle(null)}
+        titulo={documentoDetalle ? (
+          <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+            {documentoDetalle.esBorrador ? formatearNumeroParaBorrador(documentoDetalle.serie) : documentoDetalle.numero ?? '—'}
+          </span>
+        ) : null}
+        subtitulo={documentoDetalle ? (
+          <span className="text-xs text-gray-500 uppercase tracking-wider">{TIPO_DOCUMENTO_COMERCIAL_LABELS[documentoDetalle.tipo]}</span>
+        ) : null}
+        tamano="lg"
+      >
+        {documentoDetalle && (
+          <div className="flex flex-col h-full">
+            {/* Tabs */}
+            <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 px-4 pt-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTabDetalle('detalle')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'detalle' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                General
+              </button>
+              <button
+                type="button"
+                onClick={() => setTabDetalle('relacionados')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'relacionados' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                Documentos relacionados
+              </button>
+              <button
+                type="button"
+                onClick={() => setTabDetalle('historial')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${tabDetalle === 'historial' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                Historial
+              </button>
             </div>
+            <div className="flex-1 overflow-y-auto">
 
-            {/* Tab: Detalle */}
+            {/* Tab: General */}
             {tabDetalle === 'detalle' && (
               <div className="p-6 space-y-4">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1019,6 +1028,20 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                   <div><p className="text-xs text-gray-500 mb-1">Total</p><p className="font-bold text-gray-800 dark:text-gray-100 text-lg">{obtenerSimboloMoneda(documentoDetalle.moneda)} {documentoDetalle.totales.total.toFixed(2)}</p></div>
                   {documentoDetalle.camposOpcionales?.metodoEnvio && <div><p className="text-xs text-gray-500 mb-1">Método de envío</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.metodoEnvio}</p></div>}
                   {documentoDetalle.camposOpcionales?.fechaEntrega && <div><p className="text-xs text-gray-500 mb-1">F. Envío previsto</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.fechaEntrega}</p></div>}
+                  {documentoDetalle.camposOpcionales?.contactoNombre && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Contacto</p>
+                      <p className="font-medium text-gray-800 dark:text-gray-100">
+                        {documentoDetalle.camposOpcionales.contactoNombre}
+                        {documentoDetalle.camposOpcionales.contactoCargo ? ` — ${documentoDetalle.camposOpcionales.contactoCargo}` : ''}
+                      </p>
+                      {(documentoDetalle.camposOpcionales.contactoCorreo || documentoDetalle.camposOpcionales.contactoTelefono) && (
+                        <p className="text-xs text-gray-500">
+                          {[documentoDetalle.camposOpcionales.contactoCorreo, documentoDetalle.camposOpcionales.contactoTelefono].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {documentoDetalle.tipo === 'cotizacion' && documentoDetalle.camposOpcionales?.requiereAprobacion && <div><p className="text-xs text-gray-500 mb-1">Requiere aprobación</p><p className="font-medium text-gray-800 dark:text-gray-100">Sí</p></div>}
                   {documentoDetalle.camposOpcionales?.ordenCompra && <div><p className="text-xs text-gray-500 mb-1">Orden de compra</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.ordenCompra}</p></div>}
                   {documentoDetalle.camposOpcionales?.centroCosto && <div><p className="text-xs text-gray-500 mb-1">Centro de costo</p><p className="font-medium text-gray-800 dark:text-gray-100">{documentoDetalle.camposOpcionales.centroCosto}</p></div>}
@@ -1032,51 +1055,6 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                     currency={documentoDetalle.moneda}
                     total={documentoDetalle.totales.total}
                   />
-                )}
-
-                {/* Cotización: documento generado (NV, OV o Comprobante) */}
-                {documentoDetalle.tipo === 'cotizacion' && documentoDetalle.trazabilidad?.documentoDestinoNumero && (
-                  documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' ? (
-                    <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3">
-                      <p className="text-xs font-semibold text-violet-600 uppercase mb-1">Comprobante generado</p>
-                      <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
-                    </div>
-                  ) : (
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
-                      <p className="text-xs font-semibold text-indigo-600 uppercase mb-1">Documento generado</p>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
-                        {documentoDetalle.trazabilidad.documentoDestinoId && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDocumentoDetalle(null);
-                              navigate('/documentos-comerciales', {
-                                state: {
-                                  tipo: documentoDetalle.trazabilidad!.documentoDestinoTipo as TipoDocumentoComercial,
-                                  abrirDetalleId: documentoDetalle.trazabilidad!.documentoDestinoId,
-                                },
-                              });
-                            }}
-                            className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap flex-shrink-0"
-                          >
-                            Ver <ExternalLink size={11} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                )}
-                {/* NV / OV: documento origen */}
-                {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoOrigenNumero && (
-                  <div><p className="text-xs text-gray-500 mb-1">Doc. origen</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
-                )}
-                {/* NV / OV: comprobante generado */}
-                {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoDestinoNumero && documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' && (
-                  <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3">
-                    <p className="text-xs font-semibold text-violet-600 uppercase mb-1">Comprobante generado</p>
-                    <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
-                  </div>
                 )}
 
                 {documentoDetalle.motivoAnulacion && (
@@ -1305,18 +1283,113 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
               </div>
             )}
 
+            {/* Tab: Documentos relacionados */}
+            {tabDetalle === 'relacionados' && (
+              <div className="p-6 space-y-4">
+                {documentoDetalle.tipo === 'cotizacion' && documentoDetalle.trazabilidad?.documentoDestinoNumero ? (
+                  documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' ? (
+                    <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-violet-600 uppercase mb-1">Comprobante generado</p>
+                      <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-indigo-600 uppercase mb-1">Documento generado</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
+                        {documentoDetalle.trazabilidad.documentoDestinoId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDocumentoDetalle(null);
+                              navigate('/documentos-comerciales', {
+                                state: {
+                                  tipo: documentoDetalle.trazabilidad!.documentoDestinoTipo as TipoDocumentoComercial,
+                                  abrirDetalleId: documentoDetalle.trazabilidad!.documentoDestinoId,
+                                },
+                              });
+                            }}
+                            className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap flex-shrink-0"
+                          >
+                            Ver <ExternalLink size={11} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                ) : null}
+                {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoOrigenNumero && (
+                  <div><p className="text-xs text-gray-500 mb-1">Doc. origen</p><p className="text-sm font-mono text-gray-700 dark:text-gray-300">{documentoDetalle.trazabilidad.documentoOrigenNumero}</p></div>
+                )}
+                {documentoDetalle.tipo !== 'cotizacion' && documentoDetalle.trazabilidad?.documentoDestinoNumero && documentoDetalle.trazabilidad.documentoDestinoTipo === 'comprobante' && (
+                  <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3">
+                    <p className="text-xs font-semibold text-violet-600 uppercase mb-1">Comprobante generado</p>
+                    <p className="text-sm font-mono font-semibold text-gray-800 dark:text-gray-100">{documentoDetalle.trazabilidad.documentoDestinoNumero}</p>
+                  </div>
+                )}
+                {!documentoDetalle.trazabilidad?.documentoOrigenNumero && !documentoDetalle.trazabilidad?.documentoDestinoNumero && (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">Este documento no tiene documentos relacionados.</p>
+                )}
+              </div>
+            )}
+
             {/* Tab: Historial */}
             {tabDetalle === 'historial' && (
-              <div className="p-6">
-                {!documentoDetalle.historial || documentoDetalle.historial.length === 0 ? (
-                  <div className="py-12 flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
+              <div className="p-6 space-y-4">
+                <div className="space-y-3">
+                  <textarea
+                    value={nuevoComentario}
+                    onChange={(e) => setNuevoComentario(e.target.value)}
+                    placeholder="Escribe un comentario de seguimiento..."
+                    rows={3}
+                    className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 outline-none resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGuardarComentario}
+                    disabled={!nuevoComentario.trim()}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MessageCircle size={14} />Agregar comentario
+                  </button>
+                </div>
+
+                {documentoDetalle.historial?.filter((e) => e.tipo === 'comentario').length ? (
+                  <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    {[...documentoDetalle.historial!].reverse()
+                      .filter((e) => e.tipo === 'comentario')
+                      .map((evento, idx) => {
+                        const fechaFormateada = (() => {
+                          try {
+                            return new Date(evento.fecha).toLocaleString('es-PE', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            });
+                          } catch {
+                            return evento.fecha;
+                          }
+                        })();
+                        return (
+                          <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-3">
+                            <p className="text-sm text-gray-800 dark:text-gray-100">{evento.accion}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              {fechaFormateada}{evento.usuario ? ` · ${evento.usuario}` : ''}
+                            </p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : null}
+
+                {!documentoDetalle.historial || documentoDetalle.historial.filter((e) => e.tipo !== 'comentario').length === 0 ? (
+                  <div className="py-12 flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700">
                     <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                       <Search size={18} />
                     </div>
                     <p className="text-sm">Aún no hay movimientos en el historial.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
                     {[...documentoDetalle.historial].reverse()
                       .filter((e) => e.tipo !== 'comentario')
                       .map((evento, idx) => {
@@ -1352,61 +1425,10 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
                 )}
               </div>
             )}
-
-            {/* Tab: Seguimiento */}
-            {tabDetalle === 'seguimiento' && (
-              <div className="p-6 space-y-4">
-                <div className="space-y-3">
-                  <textarea
-                    value={nuevoComentario}
-                    onChange={(e) => setNuevoComentario(e.target.value)}
-                    placeholder="Escribe un comentario de seguimiento..."
-                    rows={3}
-                    className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-violet-500 outline-none resize-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleGuardarComentario}
-                    disabled={!nuevoComentario.trim()}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <MessageCircle size={14} />Agregar comentario
-                  </button>
-                </div>
-
-                {documentoDetalle.historial?.filter((e) => e.tipo === 'comentario').length === 0 ? (
-                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">Sin comentarios de seguimiento.</p>
-                ) : (
-                  <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
-                    {[...documentoDetalle.historial!].reverse()
-                      .filter((e) => e.tipo === 'comentario')
-                      .map((evento, idx) => {
-                        const fechaFormateada = (() => {
-                          try {
-                            return new Date(evento.fecha).toLocaleString('es-PE', {
-                              day: '2-digit', month: '2-digit', year: 'numeric',
-                              hour: '2-digit', minute: '2-digit',
-                            });
-                          } catch {
-                            return evento.fecha;
-                          }
-                        })();
-                        return (
-                          <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-3">
-                            <p className="text-sm text-gray-800 dark:text-gray-100">{evento.accion}</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              {fechaFormateada}{evento.usuario ? ` · ${evento.usuario}` : ''}
-                            </p>
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Drawer>
 
       {/* Modal de confirmación con motivo de anulación */}
       {confirmandoAccion && (

@@ -116,7 +116,7 @@ export default function PanelDetalleCuentaPorPagar({
       titulo={titulo}
       subtitulo={subtitulo}
       pie={pie}
-      tamano="sm"
+      tamano="lg"
     >
       {cxp && (
         <div className="flex flex-col h-full">

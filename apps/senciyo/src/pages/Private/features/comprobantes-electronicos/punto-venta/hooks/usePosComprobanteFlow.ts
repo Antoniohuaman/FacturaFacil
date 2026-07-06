@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useComprobanteState } from '../../hooks/useComprobanteState';
 import { useComprobanteActions } from '../../hooks/useComprobanteActions';
 import { useAvailableProducts } from '../../hooks/useAvailableProducts';
-import { useCreditTermsConfigurator } from '../../hooks/useCreditTermsConfigurator';
+import { useCreditTermsConfigurator } from '@/shared/payments/useCreditTermsConfigurator';
 import { useCurrency } from '../../shared/form-core/hooks/useCurrency';
 import { useDocumentType } from '../../shared/form-core/hooks/useDocumentType';
 import { onlyDigits } from '../../../../features/gestion-clientes/utils/documents';

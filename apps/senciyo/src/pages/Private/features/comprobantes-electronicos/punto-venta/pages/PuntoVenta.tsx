@@ -24,7 +24,7 @@ import { ToastContainer } from '../../shared/ui/Toast/ToastContainer';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { SuccessModal } from '../../shared/modales/SuccessModal';
 import { CobranzaModal } from '../../shared/modales/CobranzaModal';
-import { CreditScheduleModal } from '../../shared/payments/CreditScheduleModal';
+import { CreditScheduleModal } from '@/shared/payments/CreditScheduleModal';
 
 import { Maximize2, Minimize2, ShoppingCart, X } from 'lucide-react';
 import { PreviewTicket } from '../../shared/ui/PreviewTicket';

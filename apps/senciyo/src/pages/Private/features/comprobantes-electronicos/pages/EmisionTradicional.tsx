@@ -100,9 +100,9 @@ import {
   validateComprobanteReadyForCobranza,
 } from '../shared/core/comprobanteValidation';
 import { CobranzaModal } from '../shared/modales/CobranzaModal';
-import { useCreditTermsConfigurator } from '../hooks/useCreditTermsConfigurator';
-import { CreditScheduleSummaryCard } from '../shared/payments/CreditScheduleSummaryCard';
-import { CreditScheduleModal } from '../shared/payments/CreditScheduleModal';
+import { useCreditTermsConfigurator } from '@/shared/payments/useCreditTermsConfigurator';
+import { CreditScheduleSummaryCard } from '@/shared/payments/CreditScheduleSummaryCard';
+import { CreditScheduleModal } from '@/shared/payments/CreditScheduleModal';
 import type { CreditInstallment, CreditInstallmentDefinition } from '../../../../../shared/payments/paymentTerms';
 import { calculateCurrencyAwareTotals } from '../shared/core/currencyTotals';
 import { BloqueoCajaCerrada } from '../shared/ui/BloqueoCajaCerrada';
@@ -119,7 +119,7 @@ import {
   normalizarCuotasManual,
   sumarImportes,
   validarFechasManual,
-} from '../shared/payments/creditoManualTransaccion';
+} from '@/shared/payments/creditoManualTransaccion';
 import {
   registrarFlujoVentaAbandonado,
   registrarPrimeraVentaCompletada,

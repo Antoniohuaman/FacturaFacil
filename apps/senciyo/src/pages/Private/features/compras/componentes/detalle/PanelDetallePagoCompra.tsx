@@ -90,7 +90,7 @@ export default function PanelDetallePagoCompra({ pago, cuentasPorPagar, onCerrar
   ) : null;
 
   return (
-    <Drawer abierto={pago !== null} alCerrar={onCerrar} titulo={titulo} subtitulo={subtitulo} tamano="sm">
+    <Drawer abierto={pago !== null} alCerrar={onCerrar} titulo={titulo} subtitulo={subtitulo} tamano="lg">
       {pago && (
         <div className="flex flex-col h-full">
           {/* Tabs */}

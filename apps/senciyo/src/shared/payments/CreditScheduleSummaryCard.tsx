@@ -1,8 +1,8 @@
 import { Calendar, Edit3 } from 'lucide-react';
-import type { ComprobanteCreditTerms, Currency } from '../../models/comprobante.types';
-import { useCurrency } from '../form-core/hooks/useCurrency';
+import type { CreditScheduleTerms, CreditInstallment } from './paymentTerms';
+import type { CurrencyCode } from '@/shared/currency';
+import { formatMoney } from '@/shared/currency';
 import { CreditInstallmentsTable } from './CreditInstallmentsTable';
-import type { CreditInstallment } from '../../../../../../shared/payments/paymentTerms';
 
 interface CreditoManualConfig {
   cuotas: CreditInstallment[];
@@ -18,7 +18,7 @@ interface CreditoManualConfig {
 }
 
 interface CreditScheduleSummaryCardProps {
-  creditTerms?: ComprobanteCreditTerms;
+  creditTerms?: CreditScheduleTerms;
   currency?: string;
   total: number;
   onConfigure?: () => void;
@@ -38,12 +38,12 @@ export const CreditScheduleSummaryCard = ({
   context = 'cxc',
   creditoManual,
 }: CreditScheduleSummaryCardProps) => {
-  const { formatPrice } = useCurrency();
+  const resolvedCurrency: CurrencyCode = currency ?? 'PEN';
+  const formatPrice = (price: number, moneda?: CurrencyCode) => formatMoney(price, moneda ?? resolvedCurrency, { showSymbol: true });
   const esManual = Boolean(creditoManual);
   const cuotas = creditoManual?.cuotas ?? creditTerms?.schedule ?? [];
   const totalCuotas = cuotas.length;
   const resumenLabel = esManual ? 'Crédito' : (paymentMethodName || 'Pago a crédito');
-  const resolvedCurrency = (currency as Currency | undefined) ?? 'PEN';
   const orderedDays = cuotas.map((cuota) => cuota.diasCredito).filter((day) => typeof day === 'number');
   const daysLabel = orderedDays.length ? `Crédito ${orderedDays.join('-')} días` : resumenLabel;
   const headline = esManual
@@ -120,7 +120,7 @@ export const CreditScheduleSummaryCard = ({
         <div className="mt-3 space-y-3">
           <CreditInstallmentsTable
             installments={cuotas}
-            currency={resolvedCurrency as Currency}
+            currency={resolvedCurrency}
             mode={esManual ? 'manual' : 'readonly'}
             context={context}
             manualReadOnly={Boolean(creditoManual && !creditoManual.estaEditando)}

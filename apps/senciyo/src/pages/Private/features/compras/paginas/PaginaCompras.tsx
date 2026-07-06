@@ -196,6 +196,7 @@ export default function PaginaCompras() {
             cuentas={state.cuentasPorPagar}
             onVer={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
             onRegistrarPago={(cxp) => navigate(`/compras/pagos/nuevo?cuentaPorPagarId=${cxp.id}`)}
+            onNuevoPago={() => navigate('/compras/pagos/nuevo')}
           />
         )}
 
@@ -211,13 +212,24 @@ export default function PaginaCompras() {
 
       {/* Paneles de detalle */}
       {ocDetalle && (
-        <PanelDetalleOrdenCompra oc={ocDetalle} onCerrar={() => setVista({ tipo: 'lista' })} />
+        <PanelDetalleOrdenCompra
+          oc={ocDetalle}
+          comprobantes={state.comprobantes}
+          onCerrar={() => setVista({ tipo: 'lista' })}
+          onVerComprobante={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
+        />
       )}
 
       {ccDetalle && (
         <PanelDetalleComprobanteCompra
           cc={ccDetalle}
+          ordenes={state.ordenes}
+          cuentasPorPagar={state.cuentasPorPagar}
+          pagos={state.pagos}
           onCerrar={() => setVista({ tipo: 'lista' })}
+          onVerOrdenCompra={(oc) => setVista({ tipo: 'detalle_oc', ocId: oc.id })}
+          onVerCuentaPorPagar={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
+          onVerPago={(pago) => setVista({ tipo: 'detalle_pago', pagoId: pago.id })}
         />
       )}
 

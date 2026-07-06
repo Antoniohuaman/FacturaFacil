@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MoreHorizontal, Eye, CreditCard, Search, Banknote } from 'lucide-react';
+import { MoreHorizontal, Eye, CreditCard, Search, Banknote, Plus } from 'lucide-react';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import {
   ESTADO_PAGO_CXP_LABELS,
@@ -16,6 +16,7 @@ interface TablaCuentasPorPagarProps {
   cuentas: CuentaPorPagar[];
   onVer: (cxp: CuentaPorPagar) => void;
   onRegistrarPago: (cxp: CuentaPorPagar) => void;
+  onNuevoPago: () => void;
 }
 
 interface PosMenu {
@@ -72,6 +73,7 @@ export default function TablaCuentasPorPagar({
   cuentas,
   onVer,
   onRegistrarPago,
+  onNuevoPago,
 }: TablaCuentasPorPagarProps) {
   const [filtros, setFiltros] = useState<FiltrosCxP>({ busqueda: '' });
   const [menu, setMenu] = useState<PosMenu | null>(null);
@@ -146,6 +148,13 @@ export default function TablaCuentasPorPagar({
           <option value="por_vencer">Por vencer</option>
           <option value="vencida">Vencida</option>
         </select>
+        <button
+          onClick={onNuevoPago}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Plus size={16} />
+          Nuevo pago
+        </button>
       </div>
 
       {/* Resumen */}
