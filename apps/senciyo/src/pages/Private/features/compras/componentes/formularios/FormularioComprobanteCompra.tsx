@@ -13,6 +13,7 @@ import {
 import { useCompras } from '../../contexto/ContextoCompras';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '@/contexts/UserSessionContext';
+import { useFeedback } from '@/shared/feedback';
 import { calcularTotalesLineas } from '../../logica/reglasCompras';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
 import { TIPOS_DOCUMENTO_PROVEEDOR } from '../../constantes/tiposDocumentoProveedor';
@@ -57,6 +58,7 @@ export default function FormularioComprobanteCompra({
   const { registrarComprobanteCompra, refrescarProveedores } = useCompras();
   const { state: config, dispatch } = useConfigurationContext();
   const { session } = useUserSession();
+  const feedback = useFeedback();
   const { createCliente } = useClientes();
   const { campos: camposConfigurables, esVisible, guardar: guardarCamposConfigurables } =
     useConfiguracionCampos(CAMPOS_CC_DEFAULT, STORAGE_KEY_CAMPOS_CC);
@@ -252,11 +254,9 @@ export default function FormularioComprobanteCompra({
 
       onExito(comprobante, cuentaPorPagar);
     } catch (e) {
-      setErrores([{
-        campo: 'general',
-        codigo: 'ERROR_REGISTRO',
-        mensaje: e instanceof Error ? e.message : 'Error al registrar el comprobante.',
-      }]);
+      const mensaje = e instanceof Error ? e.message : 'Error al registrar el comprobante.';
+      setErrores([{ campo: 'general', codigo: 'ERROR_REGISTRO', mensaje }]);
+      feedback.error(mensaje);
     } finally {
       setEnviando(false);
     }

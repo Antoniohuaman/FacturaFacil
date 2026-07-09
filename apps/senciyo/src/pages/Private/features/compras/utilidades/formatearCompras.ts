@@ -1,14 +1,11 @@
-export function formatearNumeroCompra(serie: string, correlativo: string | number): string {
+/** Sin correlativo (borrador aún no registrado) usa la misma convención visual que GRE: `${serie}-[pendiente]`. */
+export function formatearNumeroCompra(serie: string, correlativo: string | number | undefined): string {
+  if (!correlativo) return `${serie}-[pendiente]`;
   const corr =
     typeof correlativo === 'number'
       ? String(correlativo).padStart(8, '0')
       : correlativo;
   return `${serie}-${corr}`;
-}
-
-export function formatearMonedaCompra(monto: number, moneda: string): string {
-  const simbolos: Record<string, string> = { PEN: 'S/', USD: 'US$', EUR: '€' };
-  return `${simbolos[moneda] ?? moneda} ${monto.toFixed(2)}`;
 }
 
 export function formatearFechaCompra(isoDate: string): string {

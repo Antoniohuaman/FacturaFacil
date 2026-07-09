@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, Trash2, FileText, Image as ImageIcon } from 'lucide-react';
+import { Upload, Trash2, Download, FileText, Image as ImageIcon } from 'lucide-react';
 import type { AdjuntoCompra, TipoAdjuntoCompra } from '../../modelos/AdjuntoCompra';
 import { TIPO_ADJUNTO_COMPRA_LABELS } from '../../modelos/AdjuntoCompra';
 
@@ -34,6 +34,8 @@ interface AdjuntosCompraProps {
   /** Si se omite, el componente se muestra en modo solo lectura (para paneles de detalle). */
   onAgregar?: (adjunto: AdjuntoCompra) => void;
   onEliminar?: (id: string) => void;
+  /** Si es false, el botón eliminar se muestra deshabilitado con motivo (nunca se oculta en silencio). Default true. */
+  permiteEliminar?: boolean;
 }
 
 /**
@@ -48,6 +50,7 @@ export default function AdjuntosCompra({
   cargadoPor,
   onAgregar,
   onEliminar,
+  permiteEliminar = true,
 }: AdjuntosCompraProps) {
   const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoAdjuntoCompra>(
     tiposPermitidos[0] ?? 'otro',
@@ -159,12 +162,33 @@ export default function AdjuntosCompra({
                   {a.tamanio ? ` · ${formatearTamanio(a.tamanio)}` : ''} · {a.fechaCarga.slice(0, 10)}
                 </p>
               </div>
+              {a.urlLocal ? (
+                <a
+                  href={a.urlLocal}
+                  download={a.nombreArchivo}
+                  className="text-gray-400 hover:text-blue-500 transition-colors p-1"
+                  aria-label="Descargar adjunto"
+                  title="Descargar adjunto"
+                >
+                  <Download size={14} />
+                </a>
+              ) : (
+                <span className="text-gray-300 p-1" title="Archivo no disponible para descarga">
+                  <Download size={14} />
+                </span>
+              )}
               {onEliminar && (
                 <button
                   type="button"
-                  onClick={() => onEliminar(a.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                  onClick={() => permiteEliminar && onEliminar(a.id)}
+                  disabled={!permiteEliminar}
+                  className={`p-1 transition-colors ${
+                    permiteEliminar
+                      ? 'text-gray-400 hover:text-red-500'
+                      : 'text-gray-300 cursor-not-allowed'
+                  }`}
                   aria-label="Eliminar adjunto"
+                  title={permiteEliminar ? 'Eliminar adjunto' : 'No se puede eliminar en este estado'}
                 >
                   <Trash2 size={14} />
                 </button>

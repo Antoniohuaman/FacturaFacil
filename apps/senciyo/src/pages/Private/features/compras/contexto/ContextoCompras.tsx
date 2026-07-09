@@ -57,12 +57,15 @@ import {
   motivoBloqueoAnulacionCC,
   motivoBloqueoAnulacionPago,
   puedeGenerarCCDesdeOC,
+  puedeEditarOC,
+  puedeEliminarBorradorOC,
   recalcularEstadoPagoComprobante,
   validarTipoCambioRequerido,
   validarCantidadesFacturablesDesdeOC,
   aplicarFacturacionALineasOC,
 } from '../logica/reglasCompras';
 import { calcularEstadoFacturacion } from '../utilidades/calcularEstadosCompra';
+import { eliminarOCDelStorage } from '../repositorios/repositorioOrdenesCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 
 // ---------------------------------------------------------------------------
@@ -95,6 +98,7 @@ type AccionCompras =
   | { type: 'ESTABLECER_ORDENES'; payload: OrdenCompra[] }
   | { type: 'AGREGAR_ORDEN'; payload: OrdenCompra }
   | { type: 'ACTUALIZAR_ORDEN'; payload: OrdenCompra }
+  | { type: 'ELIMINAR_ORDEN'; payload: string }
   | { type: 'ESTABLECER_COMPROBANTES'; payload: ComprobanteCompra[] }
   | { type: 'AGREGAR_COMPROBANTE'; payload: ComprobanteCompra }
   | { type: 'ACTUALIZAR_COMPROBANTE'; payload: ComprobanteCompra }
@@ -122,6 +126,8 @@ function reducerCompras(estado: EstadoCompras, accion: AccionCompras): EstadoCom
         ...estado,
         ordenes: estado.ordenes.map((o) => (o.id === accion.payload.id ? accion.payload : o)),
       };
+    case 'ELIMINAR_ORDEN':
+      return { ...estado, ordenes: estado.ordenes.filter((o) => o.id !== accion.payload) };
     case 'ESTABLECER_COMPROBANTES':
       return { ...estado, comprobantes: accion.payload };
     case 'AGREGAR_COMPROBANTE':
@@ -236,8 +242,61 @@ interface ContextoComprasTipo {
   ): Promise<OrdenCompra>;
 
   anularOrdenCompra(id: string, motivo: string, anuladoPor?: string): Promise<void>;
-  aprobarOrdenCompra(id: string, aprobadoPor: string): Promise<void>;
+  aprobarOrdenCompra(id: string, aprobadoPor: string, motivo?: string): Promise<void>;
   rechazarOrdenCompra(id: string, motivo: string, rechazadoPor: string): Promise<void>;
+
+  /**
+   * Guarda una OC nueva como Borrador: solo exige los mínimos técnicos
+   * (proveedor + moneda), no consume correlativo/número definitivo, no
+   * dispara aprobación ni derivados.
+   */
+  guardarBorradorOC(
+    datos: Omit<
+      OrdenCompra,
+      | 'id'
+      | 'tipoDocumento'
+      | 'correlativo'
+      | 'numero'
+      | 'estadoDocumento'
+      | 'estadoAprobacion'
+      | 'estadoRecepcion'
+      | 'estadoFacturacion'
+      | 'estadoInventario'
+      | 'historial'
+      | 'fechaCreacion'
+      | 'fechaActualizacion'
+    > & { serie: string },
+    usuarioId?: string,
+    usuarioNombre?: string,
+  ): Promise<OrdenCompra>;
+
+  /** Sobreescribe una OC que sigue en estadoDocumento==='borrador'. */
+  actualizarOrdenCompraBorrador(
+    id: string,
+    datos: Partial<OrdenCompra>,
+    usuarioNombre?: string,
+  ): Promise<OrdenCompra>;
+
+  /** Promueve un borrador existente a Registrada: fusiona los últimos datos editados y asigna correlativo/número real, todo en un solo paso atómico. */
+  registrarOrdenCompraDesdeBorrador(
+    id: string,
+    datosActualizados?: Partial<OrdenCompra>,
+    usuarioNombre?: string,
+  ): Promise<OrdenCompra>;
+
+  eliminarOrdenCompraBorrador(id: string): Promise<void>;
+
+  /**
+   * Actualiza una OC que ya NO está en Borrador (Registrada o No Aprobada),
+   * en el mismo id, sin tocar serie/correlativo/número/fecha de registro.
+   * Recalcula estadoAprobacion como en el alta (permite "editar y volver a
+   * registrar" una No Aprobada, que reingresa a la cola de aprobación).
+   */
+  actualizarOrdenCompra(
+    id: string,
+    datos: Partial<OrdenCompra>,
+    usuarioNombre?: string,
+  ): Promise<OrdenCompra>;
 
   registrarComprobanteCompra(
     datos: Omit<
@@ -386,7 +445,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   );
 
   const aprobarOrdenCompra = useCallback(
-    async (id: string, aprobadoPor: string): Promise<void> => {
+    async (id: string, aprobadoPor: string, motivo?: string): Promise<void> => {
       const oc = state.ordenes.find((o) => o.id === id);
       if (!oc) throw new Error(`Orden de compra ${id} no encontrada.`);
 
@@ -398,7 +457,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         fechaAprobacion: ts,
         historial: [
           ...oc.historial,
-          { fecha: ts, usuario: aprobadoPor, accion: 'Orden aprobada', detalle: '' },
+          { fecha: ts, usuario: aprobadoPor, accion: 'Orden aprobada', detalle: motivo || '' },
         ],
         fechaActualizacion: ts,
       };
@@ -417,13 +476,13 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       const ts = ahora();
       const actualizada: OrdenCompra = {
         ...oc,
-        estadoAprobacion: 'rechazada',
+        estadoAprobacion: 'no_aprobada',
         rechazadoPor,
         fechaRechazo: ts,
         motivoRechazo: motivo,
         historial: [
           ...oc.historial,
-          { fecha: ts, usuario: rechazadoPor, accion: 'Orden rechazada', detalle: motivo },
+          { fecha: ts, usuario: rechazadoPor, accion: 'Orden no aprobada', detalle: motivo },
         ],
         fechaActualizacion: ts,
       };
@@ -432,6 +491,197 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
     },
     [state.ordenes],
+  );
+
+  const guardarBorradorOC = useCallback(
+    async (
+      datos: Omit<
+        OrdenCompra,
+        | 'id'
+        | 'tipoDocumento'
+        | 'correlativo'
+        | 'numero'
+        | 'estadoDocumento'
+        | 'estadoAprobacion'
+        | 'estadoRecepcion'
+        | 'estadoFacturacion'
+        | 'estadoInventario'
+        | 'historial'
+        | 'fechaCreacion'
+        | 'fechaActualizacion'
+      > & { serie: string },
+      usuarioId?: string,
+      usuarioNombre?: string,
+    ): Promise<OrdenCompra> => {
+      if (!datos.proveedorId) throw new Error('Selecciona un proveedor para guardar el borrador.');
+      if (!datos.moneda) throw new Error('Selecciona una moneda para guardar el borrador.');
+
+      const id = generarId();
+      const ts = ahora();
+
+      const oc: OrdenCompra = {
+        ...datos,
+        id,
+        tipoDocumento: 'orden_compra',
+        correlativo: '',
+        numero: '',
+        estadoDocumento: 'borrador',
+        estadoAprobacion: datos.requiereAprobacion ? 'pendiente' : 'no_requiere',
+        estadoRecepcion: 'pendiente',
+        estadoFacturacion: 'pendiente',
+        estadoInventario: 'pendiente',
+        historial: [
+          { fecha: ts, usuario: usuarioNombre, accion: 'Borrador guardado', detalle: '' },
+        ],
+        creadoPor: usuarioId,
+        fechaCreacion: ts,
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarOC(oc);
+      dispatch({ type: 'AGREGAR_ORDEN', payload: oc });
+      return oc;
+    },
+    [],
+  );
+
+  const actualizarOrdenCompraBorrador = useCallback(
+    async (
+      id: string,
+      datos: Partial<OrdenCompra>,
+      usuarioNombre?: string,
+    ): Promise<OrdenCompra> => {
+      const oc = state.ordenes.find((o) => o.id === id);
+      if (!oc) throw new Error(`Orden de compra ${id} no encontrada.`);
+      if (!puedeEditarOC(oc) || oc.estadoDocumento !== 'borrador') {
+        throw new Error('Solo se puede actualizar una orden de compra que sigue en Borrador.');
+      }
+
+      const ts = ahora();
+      const actualizada: OrdenCompra = {
+        ...oc,
+        ...datos,
+        id: oc.id,
+        estadoDocumento: 'borrador',
+        historial: [
+          ...oc.historial,
+          { fecha: ts, usuario: usuarioNombre, accion: 'Borrador actualizado', detalle: '' },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarOC(actualizada);
+      dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
+      return actualizada;
+    },
+    [state.ordenes],
+  );
+
+  const registrarOrdenCompraDesdeBorrador = useCallback(
+    async (
+      id: string,
+      datosActualizados?: Partial<OrdenCompra>,
+      usuarioNombre?: string,
+    ): Promise<OrdenCompra> => {
+      const existente = state.ordenes.find((o) => o.id === id);
+      if (!existente) throw new Error(`Orden de compra ${id} no encontrada.`);
+      if (existente.estadoDocumento !== 'borrador') {
+        throw new Error('Esta orden de compra ya fue registrada.');
+      }
+
+      // Se fusiona en un solo paso (sin encadenar con actualizarOrdenCompraBorrador)
+      // para no depender de que el state ya refleje una actualización previa.
+      const oc: OrdenCompra = { ...existente, ...datosActualizados, id: existente.id };
+
+      lanzarSiHayErrores(validarOrdenCompraBasica(oc));
+      lanzarSiHayErrores(validarTipoCambioRequerido(oc.moneda, monedaBase, oc.tipoCambio));
+
+      const ts = ahora();
+      const correlativo = siguienteCorrelativoOC(state.ordenes, oc.serie);
+      const numero = `${oc.serie}-${correlativo}`;
+
+      const actualizada: OrdenCompra = {
+        ...oc,
+        correlativo,
+        numero,
+        estadoDocumento: 'registrado',
+        historial: [
+          ...oc.historial,
+          { fecha: ts, usuario: usuarioNombre, accion: 'Orden de compra registrada', detalle: `Número: ${numero}` },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarOC(actualizada);
+      dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
+      return actualizada;
+    },
+    [state.ordenes, monedaBase],
+  );
+
+  const eliminarOrdenCompraBorrador = useCallback(
+    async (id: string): Promise<void> => {
+      const oc = state.ordenes.find((o) => o.id === id);
+      if (!oc) throw new Error(`Orden de compra ${id} no encontrada.`);
+      if (!puedeEliminarBorradorOC(oc)) {
+        throw new Error('Solo se puede eliminar una orden de compra en Borrador.');
+      }
+
+      eliminarOCDelStorage(id);
+      dispatch({ type: 'ELIMINAR_ORDEN', payload: id });
+    },
+    [state.ordenes],
+  );
+
+  const actualizarOrdenCompra = useCallback(
+    async (
+      id: string,
+      datos: Partial<OrdenCompra>,
+      usuarioNombre?: string,
+    ): Promise<OrdenCompra> => {
+      const existente = state.ordenes.find((o) => o.id === id);
+      if (!existente) throw new Error(`Orden de compra ${id} no encontrada.`);
+      if (existente.estadoDocumento === 'borrador' || !puedeEditarOC(existente)) {
+        throw new Error('Esta orden de compra no se puede editar en su estado actual.');
+      }
+
+      const oc: OrdenCompra = {
+        ...existente,
+        ...datos,
+        id: existente.id,
+        correlativo: existente.correlativo,
+        numero: existente.numero,
+        fechaCreacion: existente.fechaCreacion,
+      };
+
+      lanzarSiHayErrores(validarOrdenCompraBasica(oc));
+      lanzarSiHayErrores(validarTipoCambioRequerido(oc.moneda, monedaBase, oc.tipoCambio));
+
+      const ts = ahora();
+      // Editar y volver a registrar: se recalcula estadoAprobacion igual que
+      // en el alta (una OC "No Aprobada" vuelve a la cola de aprobación si
+      // requiereAprobacion sigue activo; se limpia el ciclo de aprobación
+      // anterior porque es una resubmisión nueva).
+      const actualizada: OrdenCompra = {
+        ...oc,
+        estadoAprobacion: oc.requiereAprobacion ? 'pendiente' : 'no_requiere',
+        aprobadoPor: undefined,
+        fechaAprobacion: undefined,
+        rechazadoPor: undefined,
+        fechaRechazo: undefined,
+        motivoRechazo: undefined,
+        historial: [
+          ...oc.historial,
+          { fecha: ts, usuario: usuarioNombre, accion: 'Orden de compra actualizada', detalle: '' },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarOC(actualizada);
+      dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
+      return actualizada;
+    },
+    [state.ordenes, monedaBase],
   );
 
   // -------------------------------------------------------------------------
@@ -851,6 +1101,11 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         anularOrdenCompra,
         aprobarOrdenCompra,
         rechazarOrdenCompra,
+        guardarBorradorOC,
+        actualizarOrdenCompraBorrador,
+        registrarOrdenCompraDesdeBorrador,
+        eliminarOrdenCompraBorrador,
+        actualizarOrdenCompra,
         registrarComprobanteCompra,
         anularComprobanteCompra,
         registrarPagoCompra,

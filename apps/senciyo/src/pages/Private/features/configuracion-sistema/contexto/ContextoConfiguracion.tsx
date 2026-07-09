@@ -62,6 +62,13 @@ export interface Category {
   fechaCreacion: Date;
 }
 
+/** Catálogo configurable de métodos de envío (tenant-scoped), creable desde Compras. */
+export interface ShippingMethod {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
 export type StockDescuentoDocumento = 'automatico' | 'nota_salida' | 'sin_control';
 
 export type SalesPreferences = {
@@ -94,6 +101,7 @@ interface ConfigurationState {
   categories: Category[];
   cajas: Caja[];
   rolesPersonalizados: RolPersonalizado[];
+  shippingMethods: ShippingMethod[];
   salesPreferences: SalesPreferences;
   isLoading: boolean;
   error: string | null;
@@ -495,6 +503,7 @@ type RawTenantConfig = {
   units?: Unit[];
   rolesPersonalizados?: RolPersonalizado[];
   paymentMethods?: PaymentMethod[];
+  shippingMethods?: ShippingMethod[];
   salesPreferences: SalesPreferences;
 };
 
@@ -507,6 +516,7 @@ type PersistedTenantConfig = {
   units: Unit[];
   rolesPersonalizados: RolPersonalizado[];
   paymentMethods: PaymentMethod[];
+  shippingMethods: ShippingMethod[];
   salesPreferences: SalesPreferences;
 };
 
@@ -727,6 +737,7 @@ const reviveTenantConfig = (config: RawTenantConfig): PersistedTenantConfig => (
   units: Array.isArray(config.units) ? config.units.map(reviveUnit) : [],
   rolesPersonalizados: Array.isArray(config.rolesPersonalizados) ? config.rolesPersonalizados : [],
   paymentMethods: Array.isArray(config.paymentMethods) ? config.paymentMethods.map(revivePaymentMethod) : [],
+  shippingMethods: Array.isArray(config.shippingMethods) ? config.shippingMethods : [],
 });
 
 const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
@@ -749,6 +760,10 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
     !('paymentMethods' in value)
     || Array.isArray((value as RawTenantConfig).paymentMethods);
 
+  const hasShippingMethods =
+    !('shippingMethods' in value)
+    || Array.isArray((value as RawTenantConfig).shippingMethods);
+
   const prefs = value.salesPreferences;
   const hasPrefs =
     isRecord(prefs) &&
@@ -758,7 +773,7 @@ const isRawTenantConfig = (value: unknown): value is RawTenantConfig => {
   const company = value.company;
   const hasCompany = company === null || isRecord(company);
 
-  return hasArrays && hasPrefs && hasCompany && hasUnits && hasRolesPersonalizados && hasPaymentMethods;
+  return hasArrays && hasPrefs && hasCompany && hasUnits && hasRolesPersonalizados && hasPaymentMethods && hasShippingMethods;
 };
 
 const reviveSeries = (series: Series): Series => ({
@@ -1061,6 +1076,7 @@ export async function inicializarEmpresaEnAlmacenamiento({
     units,
     rolesPersonalizados: [],
     paymentMethods: [],
+    shippingMethods: [],
     salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
   };
 
@@ -1101,6 +1117,7 @@ type ConfigurationAction =
   | { type: 'UPDATE_SERIES'; payload: Series }
   | { type: 'DELETE_SERIES'; payload: string }
   | { type: 'SET_PAYMENT_METHODS'; payload: PaymentMethod[] }
+  | { type: 'SET_SHIPPING_METHODS'; payload: ShippingMethod[] }
   | { type: 'SET_CURRENCIES'; payload: Currency[] }
   | { type: 'SET_UNITS'; payload: Unit[] }
   | { type: 'SET_TAXES'; payload: Tax[] }
@@ -1125,6 +1142,7 @@ const initialState: ConfigurationState = {
   categories: [],
   cajas: [],
   rolesPersonalizados: [],
+  shippingMethods: [],
   salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
   isLoading: false,
   error: null,
@@ -1238,7 +1256,10 @@ function configurationReducer(
     
     case 'SET_PAYMENT_METHODS':
       return { ...state, paymentMethods: action.payload };
-    
+
+    case 'SET_SHIPPING_METHODS':
+      return { ...state, shippingMethods: action.payload };
+
     case 'SET_CURRENCIES':
       return { ...state, currencies: action.payload };
     
@@ -1351,6 +1372,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const usersHydratedRef = useRef(false);
   const unitsHydratedRef = useRef(false);
   const paymentMethodsHydratedRef = useRef(false);
+  const shippingMethodsHydratedRef = useRef(false);
   const instalacionBaseRef = useRef(false);
   const sincronizacionWorkspaceRef = useRef(false);
 
@@ -1495,6 +1517,10 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       if (persisted.paymentMethods.length) {
         dispatch({ type: 'SET_PAYMENT_METHODS', payload: persisted.paymentMethods });
         paymentMethodsHydratedRef.current = true;
+      }
+      if (persisted.shippingMethods.length) {
+        dispatch({ type: 'SET_SHIPPING_METHODS', payload: persisted.shippingMethods });
+        shippingMethodsHydratedRef.current = true;
       }
     }
 
@@ -2078,6 +2104,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.rolesPersonalizados.length > 0 ||
       state.units.length > 0 ||
       state.paymentMethods.length > 0 ||
+      state.shippingMethods.length > 0 ||
       state.salesPreferences.allowNegativeStock !== PREFERENCIAS_VENTAS_PREDETERMINADAS.allowNegativeStock ||
       state.salesPreferences.pricesIncludeTax !== PREFERENCIAS_VENTAS_PREDETERMINADAS.pricesIncludeTax ||
       state.salesPreferences.controlStockActivo !== PREFERENCIAS_VENTAS_PREDETERMINADAS.controlStockActivo ||
@@ -2098,6 +2125,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       units: state.units,
       rolesPersonalizados: state.rolesPersonalizados,
       paymentMethods: state.paymentMethods,
+      shippingMethods: state.shippingMethods,
       salesPreferences: state.salesPreferences,
     };
 
@@ -2108,6 +2136,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     state.Establecimientos,
     state.rolesPersonalizados,
     state.paymentMethods,
+    state.shippingMethods,
     state.salesPreferences,
     state.almacenes,
     state.units,
@@ -2162,6 +2191,20 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
             createdAt: new Date(),
             updatedAt: new Date(),
           },
+        ],
+      });
+    }
+
+    // Métodos de envío predeterminados: solo se siembran si no había nada
+    // persistido para este tenant (mismo patrón que paymentMethodsHydratedRef),
+    // para no pisar los métodos que el usuario ya creó desde Compras.
+    if (!shippingMethodsHydratedRef.current) {
+      dispatch({
+        type: 'SET_SHIPPING_METHODS',
+        payload: [
+          { id: 'sm-transporte-propio', nombre: 'Transporte propio', activo: true },
+          { id: 'sm-transporte-tercero', nombre: 'Transporte por tercero', activo: true },
+          { id: 'sm-recojo-cliente', nombre: 'Recojo por cliente', activo: true },
         ],
       });
     }

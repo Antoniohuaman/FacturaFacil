@@ -1,12 +1,64 @@
-import type { OrdenCompra } from '../modelos/OrdenCompra';
+import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra, EstadoPagoCC } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
 import type { LineaCompra, TipoAfectacionCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 
+/**
+ * Único estado principal vigente de la OC, derivado de sus dimensiones
+ * internas (estadoDocumento, estadoAprobacion, relaciones). Precedencia:
+ * anulada > borrador > convertida > aprobación. Una OC anulada nunca vuelve
+ * a mostrar "Aprobada" como vigente; "Convertida" exige una relación real
+ * persistida (comprobante de compra generado), no solo una acción disparada.
+ */
+export function calcularEstadoPrincipalOC(oc: OrdenCompra): EstadoPrincipalOC {
+  if (oc.estadoDocumento === 'anulado') return 'Anulada';
+  if (oc.estadoDocumento === 'borrador') return 'Borrador';
+  if ((oc.comprobantesCompraRelacionados?.length ?? 0) > 0) return 'Convertida';
+  if (oc.estadoAprobacion === 'no_aprobada') return 'No Aprobada';
+  if (oc.estadoAprobacion === 'pendiente') return 'Pendiente de aprobación';
+  if (oc.estadoAprobacion === 'aprobada') return 'Aprobada';
+  return 'Registrada';
+}
+
+/** Única lista de estados principales, reutilizada por el filtro del listado (no crear un array paralelo). */
+export const ESTADOS_PRINCIPALES_OC: EstadoPrincipalOC[] = [
+  'Borrador',
+  'Registrada',
+  'Pendiente de aprobación',
+  'Aprobada',
+  'No Aprobada',
+  'Anulada',
+  'Convertida',
+];
+
+/**
+ * Una OC "Registrada" (sin requerir aprobación) también es editable mientras
+ * no tenga documentos derivados (mismo chequeo que bloquea su anulación) ni
+ * esté en un estado ya cerrado del ciclo.
+ */
 export function puedeEditarOC(oc: OrdenCompra): boolean {
-  return oc.estadoDocumento === 'borrador';
+  const estado = calcularEstadoPrincipalOC(oc);
+  if (estado === 'Borrador' || estado === 'No Aprobada') return true;
+  if (estado === 'Registrada') return motivoBloqueoAnulacionOC(oc) === null;
+  return false;
+}
+
+export function puedeEliminarBorradorOC(oc: OrdenCompra): boolean {
+  return calcularEstadoPrincipalOC(oc) === 'Borrador';
+}
+
+/**
+ * Regla de adjuntos por estado (sección 11 del alcance): eliminar solo se
+ * permite mientras la orden sigue en trámite (borrador, registrada o
+ * pendiente de aprobación); una vez aprobada/no aprobada/anulada/convertida,
+ * los adjuntos quedan fijos como sustento documental. Descargar nunca se
+ * bloquea en ningún estado.
+ */
+export function puedeEliminarAdjuntoOC(oc: OrdenCompra): boolean {
+  const estado = calcularEstadoPrincipalOC(oc);
+  return estado === 'Borrador' || estado === 'Registrada' || estado === 'Pendiente de aprobación';
 }
 
 export function puedeAprobarOC(oc: OrdenCompra): boolean {
@@ -88,6 +140,20 @@ export function motivoBloqueoAnulacionPago(pago: PagoCompra): string | null {
 
 export function puedeAnularPago(pago: PagoCompra): boolean {
   return motivoBloqueoAnulacionPago(pago) === null;
+}
+
+/**
+ * Resuelve el nombre específico de la forma de pago de una OC (nombre real
+ * del método de Configuración → Formas de pago, o el snapshot de
+ * condicionesPago si ya lo tiene grabado), en vez de reducir a "Contado"/
+ * "Crédito" genérico. Única fuente para drawer, listado e impresión.
+ */
+export function resolverNombreFormaPagoOC(
+  oc: Pick<OrdenCompra, 'formaPago' | 'formaPagoMetodoId' | 'condicionesPago'>,
+  metodosPago: Array<{ id: string; name: string }>,
+): string {
+  const metodo = metodosPago.find((m) => m.id === oc.formaPagoMetodoId);
+  return metodo?.name ?? oc.condicionesPago ?? (oc.formaPago === 'contado' ? 'Contado' : 'Crédito');
 }
 
 /**

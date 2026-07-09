@@ -1,21 +1,22 @@
 import { useState } from 'react';
-import { FileText, Clock, Link2 } from 'lucide-react';
+import { FileText, Clock, Link2, Printer, Send, Pencil } from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { formatMoney } from '@/shared/currency';
 import { CreditInstallmentsTable } from '@/shared/payments/CreditInstallmentsTable';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { CLASIFICACION_LINEA_LABELS } from '../../modelos/LineaCompra';
+import { calcularEstadoPrincipalOC, puedeEditarOC, resolverNombreFormaPagoOC } from '../../logica/reglasCompras';
+import { formatearFechaCompra, formatearNumeroCompra } from '../../utilidades/formatearCompras';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import {
   ESTADO_DOCUMENTO_OC_LABELS,
-  ESTADO_APROBACION_OC_LABELS,
   ESTADO_RECEPCION_OC_LABELS,
   ESTADO_FACTURACION_OC_LABELS,
   ESTADO_INVENTARIO_OC_LABELS,
 } from '../../modelos/OrdenCompra';
 import {
-  BADGE_ESTADO_DOCUMENTO_OC,
-  BADGE_ESTADO_APROBACION_OC,
+  BADGE_ESTADO_PRINCIPAL_OC,
   BADGE_ESTADO_RECEPCION_OC,
   BADGE_ESTADO_FACTURACION_OC,
   BADGE_ESTADO_INVENTARIO_OC,
@@ -27,6 +28,9 @@ interface PanelDetalleOrdenCompraProps {
   comprobantes: ComprobanteCompra[];
   onCerrar: () => void;
   onVerComprobante?: (cc: ComprobanteCompra) => void;
+  onImprimir?: (oc: OrdenCompra) => void;
+  onEnviar?: (oc: OrdenCompra) => void;
+  onEditar?: (oc: OrdenCompra) => void;
 }
 
 type TabOC = 'general' | 'historial' | 'relacionados';
@@ -72,6 +76,9 @@ export default function PanelDetalleOrdenCompra({
   comprobantes,
   onCerrar,
   onVerComprobante,
+  onImprimir,
+  onEnviar,
+  onEditar,
 }: PanelDetalleOrdenCompraProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabOC>('general');
@@ -87,22 +94,57 @@ export default function PanelDetalleOrdenCompra({
 
   const comprobantesGenerados = oc ? comprobantes.filter((c) => c.ordenCompraOrigenId === oc.id) : [];
 
+  const nombreFormaPago = oc ? resolverNombreFormaPagoOC(oc, config.paymentMethods) : '';
+
   const titulo = oc ? (
     <div className="flex items-center gap-2">
       <FileText size={18} className="text-blue-600 shrink-0" />
-      <span className="font-mono font-semibold text-gray-900">{oc.numero}</span>
+      <span className="font-mono font-semibold text-gray-900">{formatearNumeroCompra(oc.serie, oc.correlativo || undefined)}</span>
     </div>
   ) : null;
 
   const subtitulo = oc ? (
     <div className="flex flex-wrap gap-1 mt-1">
-      <BadgeEstado estado={oc.estadoDocumento} labels={ESTADO_DOCUMENTO_OC_LABELS} clases={BADGE_ESTADO_DOCUMENTO_OC} />
-      {oc.requiereAprobacion && (
-        <BadgeEstado estado={oc.estadoAprobacion} labels={ESTADO_APROBACION_OC_LABELS} clases={BADGE_ESTADO_APROBACION_OC} />
+      <BadgeEstado
+        estado={calcularEstadoPrincipalOC(oc)}
+        labels={{}}
+        clases={BADGE_ESTADO_PRINCIPAL_OC as unknown as Record<string, string>}
+      />
+    </div>
+  ) : null;
+
+  const accionesEncabezado = oc ? (
+    <div className="flex items-center gap-1">
+      {onEditar && puedeEditarOC(oc) && (
+        <button
+          type="button"
+          onClick={() => { onCerrar(); onEditar(oc); }}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          title="Editar"
+        >
+          <Pencil size={14} /> Editar
+        </button>
       )}
-      <BadgeEstado estado={oc.estadoRecepcion} labels={ESTADO_RECEPCION_OC_LABELS} clases={BADGE_ESTADO_RECEPCION_OC} />
-      <BadgeEstado estado={oc.estadoFacturacion} labels={ESTADO_FACTURACION_OC_LABELS} clases={BADGE_ESTADO_FACTURACION_OC} />
-      <BadgeEstado estado={oc.estadoInventario} labels={ESTADO_INVENTARIO_OC_LABELS} clases={BADGE_ESTADO_INVENTARIO_OC} />
+      {onImprimir && (
+        <button
+          type="button"
+          onClick={() => onImprimir(oc)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          title="Imprimir"
+        >
+          <Printer size={14} /> Imprimir
+        </button>
+      )}
+      {onEnviar && (
+        <button
+          type="button"
+          onClick={() => onEnviar(oc)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          title="Enviar por WhatsApp"
+        >
+          <Send size={14} /> Enviar
+        </button>
+      )}
     </div>
   ) : null;
 
@@ -112,6 +154,7 @@ export default function PanelDetalleOrdenCompra({
       alCerrar={onCerrar}
       titulo={titulo}
       subtitulo={subtitulo}
+      accionesEncabezado={accionesEncabezado}
       tamano="lg"
     >
       {oc && (
@@ -155,24 +198,33 @@ export default function PanelDetalleOrdenCompra({
                   )}
                 </Seccion>
 
-                <Seccion titulo="Datos y condiciones de la orden">
+                {(oc.proveedorContactoNombre || oc.proveedorContactoId) && (
+                  <Seccion titulo="Contacto">
+                    <Campo label="Nombre" valor={oc.proveedorContactoNombre} />
+                    {oc.proveedorContactoCargo && <Campo label="Cargo" valor={oc.proveedorContactoCargo} />}
+                    {oc.proveedorContactoCorreo && <Campo label="Correo" valor={oc.proveedorContactoCorreo} />}
+                    {oc.proveedorContactoTelefono && <Campo label="Teléfono" valor={oc.proveedorContactoTelefono} />}
+                  </Seccion>
+                )}
+
+                <Seccion titulo="Datos de la orden">
                   <Campo label="Comprador" valor={oc.compradorNombre} />
-                  <Campo label="Fecha emisión" valor={oc.fechaEmision} />
-                  {oc.fechaVencimiento && <Campo label="Vencimiento" valor={oc.fechaVencimiento} />}
-                  <Campo label="Moneda" valor={oc.moneda} />
+                  <Campo label="Fecha emisión" valor={formatearFechaCompra(oc.fechaEmision)} />
+                  {oc.fechaVencimiento && <Campo label="Vencimiento" valor={formatearFechaCompra(oc.fechaVencimiento)} />}
                   {oc.tipoCambio && <Campo label="Tipo de cambio" valor={oc.tipoCambio.toFixed(3)} />}
-                  {oc.condicionesPago && (
-                    <Campo label="Condiciones" valor={oc.condicionesPago} />
-                  )}
                   {oc.centroCosto && <Campo label="Centro de costo" valor={oc.centroCosto} />}
                   {oc.presupuesto && <Campo label="Presupuesto" valor={oc.presupuesto} />}
+                  {oc.fechaEntregaEsperada && <Campo label="Entrega esperada" valor={formatearFechaCompra(oc.fechaEntregaEsperada)} />}
                 </Seccion>
 
+                {oc.metodoEnvio && (
+                  <Seccion titulo="Método de envío">
+                    <Campo label="Método de envío" valor={oc.metodoEnvio} />
+                  </Seccion>
+                )}
+
                 <Seccion titulo="Forma de pago">
-                  <Campo
-                    label="Forma de pago"
-                    valor={oc.formaPago === 'contado' ? 'Contado' : 'Crédito'}
-                  />
+                  <Campo label="Forma de pago" valor={nombreFormaPago} />
                 </Seccion>
 
                 {oc.formaPago === 'credito' && oc.creditTerms && oc.creditTerms.schedule.length > 0 && (
@@ -185,12 +237,6 @@ export default function PanelDetalleOrdenCompra({
                         compact
                       />
                     </div>
-                  </Seccion>
-                )}
-
-                {oc.fechaEntregaEsperada && (
-                  <Seccion titulo="Datos de entrega">
-                    <Campo label="Entrega esperada" valor={oc.fechaEntregaEsperada} />
                   </Seccion>
                 )}
 
@@ -246,32 +292,32 @@ export default function PanelDetalleOrdenCompra({
                 <Seccion titulo="Totales">
                   <Campo
                     label="Subtotal gravado"
-                    valor={`${oc.totales.subtotal.toFixed(2)} ${oc.moneda}`}
+                    valor={formatMoney(oc.totales.subtotal, oc.moneda)}
                   />
                   {oc.totales.subtotalExonerado > 0 && (
                     <Campo
                       label="Subtotal exonerado"
-                      valor={`${oc.totales.subtotalExonerado.toFixed(2)} ${oc.moneda}`}
+                      valor={formatMoney(oc.totales.subtotalExonerado, oc.moneda)}
                     />
                   )}
                   {oc.totales.subtotalInafecto > 0 && (
                     <Campo
                       label="Subtotal inafecto"
-                      valor={`${oc.totales.subtotalInafecto.toFixed(2)} ${oc.moneda}`}
+                      valor={formatMoney(oc.totales.subtotalInafecto, oc.moneda)}
                     />
                   )}
                   {oc.totales.descuentoTotal > 0 && (
                     <Campo
                       label="Descuentos"
-                      valor={`-${oc.totales.descuentoTotal.toFixed(2)} ${oc.moneda}`}
+                      valor={`-${formatMoney(oc.totales.descuentoTotal, oc.moneda)}`}
                     />
                   )}
-                  <Campo label={igvLabel} valor={`${oc.totales.igv.toFixed(2)} ${oc.moneda}`} />
+                  <Campo label={igvLabel} valor={formatMoney(oc.totales.igv, oc.moneda)} />
                   <Campo
                     label="Total"
                     valor={
                       <span className="font-semibold text-gray-900 font-mono">
-                        {oc.totales.total.toFixed(2)} {oc.moneda}
+                        {formatMoney(oc.totales.total, oc.moneda)}
                       </span>
                     }
                   />
@@ -287,20 +333,29 @@ export default function PanelDetalleOrdenCompra({
                   <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
                     Adjuntos ({oc.adjuntos?.length ?? 0})
                   </h3>
-                  <AdjuntosCompra adjuntos={oc.adjuntos ?? []} tiposPermitidos={[]} />
+                  <AdjuntosCompra
+                    adjuntos={oc.adjuntos ?? []}
+                    tiposPermitidos={[]}
+                  />
                 </div>
 
-                <Seccion titulo="Estados operativos">
+                <Seccion titulo="Estados operativos secundarios">
                   <Campo label="Documento" valor={ESTADO_DOCUMENTO_OC_LABELS[oc.estadoDocumento]} />
-                  {oc.requiereAprobacion && (
-                    <Campo label="Aprobación" valor={ESTADO_APROBACION_OC_LABELS[oc.estadoAprobacion]} />
-                  )}
                   {oc.aprobadoPor && <Campo label="Aprobado por" valor={oc.aprobadoPor} />}
-                  {oc.rechazadoPor && <Campo label="Rechazado por" valor={oc.rechazadoPor} />}
-                  {oc.motivoRechazo && <Campo label="Motivo de rechazo" valor={oc.motivoRechazo} />}
-                  <Campo label="Recepción" valor={ESTADO_RECEPCION_OC_LABELS[oc.estadoRecepcion]} />
-                  <Campo label="Facturación" valor={ESTADO_FACTURACION_OC_LABELS[oc.estadoFacturacion]} />
-                  <Campo label="Inventario" valor={ESTADO_INVENTARIO_OC_LABELS[oc.estadoInventario]} />
+                  {oc.rechazadoPor && <Campo label="No aprobado por" valor={oc.rechazadoPor} />}
+                  {oc.motivoRechazo && <Campo label="Motivo de no aprobación" valor={oc.motivoRechazo} />}
+                  <Campo
+                    label="Recepción"
+                    valor={<BadgeEstado estado={oc.estadoRecepcion} labels={ESTADO_RECEPCION_OC_LABELS} clases={BADGE_ESTADO_RECEPCION_OC} />}
+                  />
+                  <Campo
+                    label="Facturación"
+                    valor={<BadgeEstado estado={oc.estadoFacturacion} labels={ESTADO_FACTURACION_OC_LABELS} clases={BADGE_ESTADO_FACTURACION_OC} />}
+                  />
+                  <Campo
+                    label="Inventario"
+                    valor={<BadgeEstado estado={oc.estadoInventario} labels={ESTADO_INVENTARIO_OC_LABELS} clases={BADGE_ESTADO_INVENTARIO_OC} />}
+                  />
                 </Seccion>
 
                 {oc.estadoDocumento === 'anulado' && oc.motivoAnulacion && (
@@ -330,7 +385,7 @@ export default function PanelDetalleOrdenCompra({
                             {cc.serieProveedor}-{cc.numeroProveedor}
                           </span>
                           <span className="text-sm text-gray-500">
-                            {cc.totales.total.toFixed(2)} {cc.moneda}
+                            {formatMoney(cc.totales.total, cc.moneda)}
                           </span>
                         </button>
                       ))}
@@ -363,7 +418,9 @@ export default function PanelDetalleOrdenCompra({
                               <span className="text-xs text-gray-500">por {evt.usuario}</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400">{evt.fecha.slice(0, 16).replace('T', ' ')}</p>
+                          <p className="text-xs text-gray-400">
+                            {formatearFechaCompra(evt.fecha)} {evt.fecha.split('T')[1]?.slice(0, 5) ?? ''}
+                          </p>
                           {evt.detalle && (
                             <p className="text-xs text-gray-600 mt-0.5">{evt.detalle}</p>
                           )}

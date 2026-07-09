@@ -5,7 +5,7 @@ import type { OrdenCompra } from '../../modelos/OrdenCompra';
 interface ModalAprobarRechazarOCProps {
   oc: OrdenCompra | null;
   abierto: boolean;
-  onAprobar: (id: string) => Promise<void>;
+  onAprobar: (id: string, motivo?: string) => Promise<void>;
   onRechazar: (id: string, motivo: string) => Promise<void>;
   onCerrar: () => void;
 }
@@ -17,7 +17,7 @@ export default function ModalAprobarRechazarOC({
   onRechazar,
   onCerrar,
 }: ModalAprobarRechazarOCProps) {
-  const [accion, setAccion] = useState<'aprobar' | 'rechazar' | null>(null);
+  const [accion, setAccion] = useState<'aprobar' | 'no_aprobar' | null>(null);
   const [motivo, setMotivo] = useState('');
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState('');
@@ -34,8 +34,8 @@ export default function ModalAprobarRechazarOC({
 
   async function handleConfirmar() {
     if (!accion) return;
-    if (accion === 'rechazar' && !motivo.trim()) {
-      setError('El motivo de rechazo es obligatorio.');
+    if (accion === 'no_aprobar' && !motivo.trim()) {
+      setError('El motivo de no aprobación es obligatorio.');
       return;
     }
 
@@ -43,7 +43,7 @@ export default function ModalAprobarRechazarOC({
     setProcesando(true);
     try {
       if (accion === 'aprobar') {
-        await onAprobar(oc!.id);
+        await onAprobar(oc!.id, motivo.trim() || undefined);
       } else {
         await onRechazar(oc!.id, motivo.trim());
       }
@@ -93,25 +93,36 @@ export default function ModalAprobarRechazarOC({
                 Aprobar
               </button>
               <button
-                onClick={() => setAccion('rechazar')}
+                onClick={() => setAccion('no_aprobar')}
                 className="flex items-center justify-center gap-2 py-3 bg-red-50 border border-red-200 text-red-700 rounded-lg hover:bg-red-100 transition-colors font-medium text-sm"
               >
                 <XCircle size={18} />
-                Rechazar
+                No aprobar
               </button>
             </div>
           )}
 
           {accion === 'aprobar' && (
-            <div className="p-4 bg-green-50 rounded-lg text-sm text-green-700">
-              Se aprobará la orden <strong>{oc.numero}</strong>. Esta acción no se puede deshacer.
+            <div className="space-y-2">
+              <div className="p-4 bg-green-50 rounded-lg text-sm text-green-700">
+                Se aprobará la orden <strong>{oc.numero}</strong>. Esta acción no se puede deshacer.
+              </div>
+              <label className="text-sm font-medium text-gray-700">Motivo / Observación (opcional)</label>
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                rows={2}
+                placeholder="Observación opcional sobre la aprobación..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-400"
+                disabled={procesando}
+              />
             </div>
           )}
 
-          {accion === 'rechazar' && (
+          {accion === 'no_aprobar' && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Motivo del rechazo <span className="text-red-500">*</span>
+                Motivo de no aprobación <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={motivo}
@@ -120,7 +131,7 @@ export default function ModalAprobarRechazarOC({
                   setError('');
                 }}
                 rows={3}
-                placeholder="Describe el motivo del rechazo..."
+                placeholder="Describe el motivo de no aprobación..."
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
                 disabled={procesando}
               />
@@ -166,7 +177,7 @@ export default function ModalAprobarRechazarOC({
                 ? 'Procesando...'
                 : accion === 'aprobar'
                   ? 'Confirmar aprobación'
-                  : 'Confirmar rechazo'}
+                  : 'Confirmar no aprobación'}
             </button>
           )}
         </div>

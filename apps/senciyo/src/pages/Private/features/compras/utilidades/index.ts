@@ -7,7 +7,6 @@ export {
 } from './calcularEstadosCompra';
 export {
   formatearNumeroCompra,
-  formatearMonedaCompra,
   formatearFechaCompra,
   siguienteNumeroPago,
 } from './formatearCompras';

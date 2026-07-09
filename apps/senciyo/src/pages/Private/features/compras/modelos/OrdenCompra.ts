@@ -6,7 +6,7 @@ import type { EventoHistorialCompras } from './EventoHistorialCompras';
 import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
 
 export type EstadoDocumentoOC = 'borrador' | 'registrado' | 'cerrado' | 'anulado';
-export type EstadoAprobacionOC = 'no_requiere' | 'pendiente' | 'aprobada' | 'rechazada';
+export type EstadoAprobacionOC = 'no_requiere' | 'pendiente' | 'aprobada' | 'no_aprobada';
 export type EstadoRecepcionOC = 'pendiente' | 'parcial' | 'completa' | 'no_aplica';
 export type EstadoFacturacionOC = 'pendiente' | 'parcial' | 'completa' | 'no_aplica';
 export type EstadoInventarioOC = 'pendiente' | 'parcial' | 'completo' | 'automatico' | 'no_aplica';
@@ -18,12 +18,20 @@ export const ESTADO_DOCUMENTO_OC_LABELS: Record<EstadoDocumentoOC, string> = {
   anulado: 'Anulado',
 };
 
-export const ESTADO_APROBACION_OC_LABELS: Record<EstadoAprobacionOC, string> = {
-  no_requiere: 'Sin requerimiento',
-  pendiente: 'Pendiente aprobación',
-  aprobada: 'Aprobada',
-  rechazada: 'Rechazada',
-};
+/**
+ * Estado principal único de la OC, derivado de las dimensiones internas
+ * (estadoDocumento + estadoAprobacion + relaciones). Es el único estado que
+ * debe mostrarse como badge principal en listado/drawer — ver
+ * calcularEstadoPrincipalOC en logica/reglasCompras.ts.
+ */
+export type EstadoPrincipalOC =
+  | 'Borrador'
+  | 'Registrada'
+  | 'Pendiente de aprobación'
+  | 'Aprobada'
+  | 'No Aprobada'
+  | 'Anulada'
+  | 'Convertida';
 
 export const ESTADO_RECEPCION_OC_LABELS: Record<EstadoRecepcionOC, string> = {
   pendiente: 'Pendiente',
@@ -68,10 +76,18 @@ export interface OrdenCompra {
   proveedorDireccionFacturacion?: string;
   proveedorDireccionEntrega?: string;
   proveedorContactoId?: string;
+  /** Snapshot del contacto elegido al momento del documento (sobrevive si el contacto cambia luego en Gestión de Clientes). */
+  proveedorContactoNombre?: string;
+  proveedorContactoCargo?: string;
+  proveedorContactoCorreo?: string;
+  proveedorContactoTelefono?: string;
 
   // Comprador (usuario que registra)
   compradorId?: string;
   compradorNombre?: string;
+
+  // Envío
+  metodoEnvio?: string;
 
   // Financiero
   moneda: MonedaCompra;

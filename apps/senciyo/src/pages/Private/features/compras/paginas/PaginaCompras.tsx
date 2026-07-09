@@ -3,6 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, FileText, Receipt, CreditCard, Wallet } from 'lucide-react';
 import { useCompras } from '../contexto/ContextoCompras';
 import { useUserSession } from '@/contexts/UserSessionContext';
+import { useTenant } from '@/shared/tenant/TenantContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useFeedback } from '@/shared/feedback';
+import { resolverNombreFormaPagoOC, calcularEstadoPrincipalOC } from '../logica/reglasCompras';
+import { formatearNumeroCompra } from '../utilidades/formatearCompras';
+import { imprimirOrdenCompra, compartirOrdenCompraPorWhatsApp, type EmpresaOC } from '../servicios/servicioOrdenCompra';
 import TablaOrdenesCompra from '../componentes/listados/TablaOrdenesCompra';
 import TablaComprobantesCompra from '../componentes/listados/TablaComprobantesCompra';
 import TablaCuentasPorPagar from '../componentes/listados/TablaCuentasPorPagar';
@@ -29,6 +35,7 @@ type TabActivo = 'ordenes' | 'comprobantes' | 'cuentas_por_pagar' | 'pagos';
 type Vista =
   | { tipo: 'lista' }
   | { tipo: 'nueva_oc' }
+  | { tipo: 'editar_oc'; ocId: string }
   | { tipo: 'nuevo_cc'; ocOrigen?: OrdenCompra }
   | { tipo: 'detalle_oc'; ocId: string }
   | { tipo: 'detalle_cc'; ccId: string }
@@ -48,10 +55,15 @@ export default function PaginaCompras() {
     anularOrdenCompra,
     aprobarOrdenCompra,
     rechazarOrdenCompra,
+    eliminarOrdenCompraBorrador,
+    registrarOrdenCompraDesdeBorrador,
     anularComprobanteCompra,
     anularPagoCompra,
   } = useCompras();
   const { session } = useUserSession();
+  const { activeWorkspace } = useTenant();
+  const { state: config } = useConfigurationContext();
+  const feedback = useFeedback();
   const navigate = useNavigate();
   const location = useLocation();
   const tabDesdeNavegacion = (location.state as { tab?: TabActivo } | null)?.tab;
@@ -65,9 +77,64 @@ export default function PaginaCompras() {
 
   const usuarioNombre = session?.userName ?? '';
 
+  const empresaImpresion: EmpresaOC | undefined = activeWorkspace
+    ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal }
+    : undefined;
+
+  function handleImprimir(oc: OrdenCompra) {
+    const nombreFormaPago = resolverNombreFormaPagoOC(oc, config.paymentMethods);
+    void imprimirOrdenCompra(oc, empresaImpresion, nombreFormaPago);
+  }
+
+  function handleEnviar(oc: OrdenCompra) {
+    try {
+      compartirOrdenCompraPorWhatsApp(oc);
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo enviar la orden.');
+    }
+  }
+
+  async function handleEliminarBorrador(oc: OrdenCompra) {
+    const numero = formatearNumeroCompra(oc.serie, oc.correlativo || undefined);
+    if (!window.confirm(`¿Eliminar el borrador ${numero}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await eliminarOrdenCompraBorrador(oc.id);
+      feedback.success('Borrador eliminado.');
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo eliminar el borrador.');
+    }
+  }
+
+  async function handleRegistrarBorrador(oc: OrdenCompra) {
+    try {
+      const registrada = await registrarOrdenCompraDesdeBorrador(oc.id, undefined, usuarioNombre);
+      feedback.success(
+        calcularEstadoPrincipalOC(registrada) === 'Pendiente de aprobación'
+          ? 'Orden enviada a aprobación.'
+          : 'Orden de compra registrada.',
+      );
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo registrar la orden.');
+    }
+  }
+
   if (vista.tipo === 'nueva_oc') {
     return (
       <FormularioOrdenCompra
+        onExito={(oc) => {
+          setVista({ tipo: 'detalle_oc', ocId: oc.id });
+          setTabActivo('ordenes');
+        }}
+        onCancelar={() => setVista({ tipo: 'lista' })}
+      />
+    );
+  }
+
+  if (vista.tipo === 'editar_oc') {
+    const ocBase = state.ordenes.find((o) => o.id === vista.ocId);
+    return (
+      <FormularioOrdenCompra
+        ocBase={ocBase}
         onExito={(oc) => {
           setVista({ tipo: 'detalle_oc', ocId: oc.id });
           setTabActivo('ordenes');
@@ -82,6 +149,12 @@ export default function PaginaCompras() {
       <FormularioComprobanteCompra
         ocOrigen={vista.ocOrigen}
         onExito={(cc) => {
+          const numeroCC = `${cc.serieProveedor}-${cc.numeroProveedor}`;
+          feedback.success(
+            vista.ocOrigen
+              ? `Comprobante ${numeroCC} generado. Orden de compra convertida.`
+              : `Comprobante ${numeroCC} registrado.`,
+          );
           setVista({ tipo: 'detalle_cc', ccId: cc.id });
           setTabActivo('comprobantes');
         }}
@@ -174,10 +247,16 @@ export default function PaginaCompras() {
         {tabActivo === 'ordenes' && (
           <TablaOrdenesCompra
             ordenes={state.ordenes}
+            comprobantes={state.comprobantes}
             onVer={(oc) => setVista({ tipo: 'detalle_oc', ocId: oc.id })}
+            onEditar={(oc) => setVista({ tipo: 'editar_oc', ocId: oc.id })}
+            onEliminarBorrador={handleEliminarBorrador}
+            onRegistrarBorrador={handleRegistrarBorrador}
             onAprobarRechazar={(oc) => setOcParaAprobar(oc)}
             onAnular={(oc) => setOcParaAnular(oc)}
             onGenerarCC={(oc) => setVista({ tipo: 'nuevo_cc', ocOrigen: oc })}
+            onImprimir={handleImprimir}
+            onEnviar={handleEnviar}
             onNueva={() => setVista({ tipo: 'nueva_oc' })}
           />
         )}
@@ -217,6 +296,9 @@ export default function PaginaCompras() {
           comprobantes={state.comprobantes}
           onCerrar={() => setVista({ tipo: 'lista' })}
           onVerComprobante={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
+          onImprimir={handleImprimir}
+          onEnviar={handleEnviar}
+          onEditar={(oc) => setVista({ tipo: 'editar_oc', ocId: oc.id })}
         />
       )}
 
@@ -254,12 +336,14 @@ export default function PaginaCompras() {
       <ModalAprobarRechazarOC
         oc={ocParaAprobar}
         abierto={ocParaAprobar !== null}
-        onAprobar={async (id) => {
-          await aprobarOrdenCompra(id, usuarioNombre);
+        onAprobar={async (id, motivo) => {
+          await aprobarOrdenCompra(id, usuarioNombre, motivo);
+          feedback.success('Orden aprobada.');
           setOcParaAprobar(null);
         }}
         onRechazar={async (id, motivo) => {
           await rechazarOrdenCompra(id, motivo, usuarioNombre);
+          feedback.success('Orden marcada como No Aprobada.');
           setOcParaAprobar(null);
         }}
         onCerrar={() => setOcParaAprobar(null)}
@@ -269,11 +353,12 @@ export default function PaginaCompras() {
       <ModalAnularCompra
         abierto={ocParaAnular !== null}
         titulo="Anular Orden de Compra"
-        descripcion={`¿Confirmas la anulación de la orden ${ocParaAnular?.numero ?? ''}? Esta acción no se puede deshacer.`}
+        descripcion={`¿Confirmas la anulación de la orden ${ocParaAnular ? formatearNumeroCompra(ocParaAnular.serie, ocParaAnular.correlativo || undefined) : ''}? Esta acción no se puede deshacer.`}
         motivos={[...MOTIVOS_ANULACION_OC]}
         onConfirmar={async (motivo) => {
           if (ocParaAnular) {
             await anularOrdenCompra(ocParaAnular.id, motivo, usuarioNombre);
+            feedback.success('Orden de compra anulada.');
             setOcParaAnular(null);
           }
         }}

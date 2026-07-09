@@ -31,6 +31,8 @@ interface CreditInstallmentsTableProps {
   showRemainingResult?: boolean;
   compact?: boolean;
   emptyState?: string;
+  /** Oculta la columna "Estado" (cuotas que aún son solo una programación, no pagos gestionados). Default true. */
+  showStatusColumn?: boolean;
 }
 
 const TOLERANCE = 0.01;
@@ -68,6 +70,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   showRemainingResult = true,
   compact = true,
   emptyState = 'No hay cuotas registradas para esta venta.',
+  showStatusColumn = true,
 }) => {
   const formatPrice = useCallback(
     (price: number, moneda?: CurrencyCode) => formatMoney(price, moneda ?? currency, { showSymbol: true }),
@@ -147,7 +150,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                   <th className={`${cellPadding} text-right w-16`}>%</th>
                   <th className={`${cellPadding} text-right w-28`}>Importe</th>
                   <th className={`${cellPadding} text-right w-28`}>Saldo actual</th>
-                  <th className={`${cellPadding} text-center w-28`}>Estado</th>
+                  {showStatusColumn && <th className={`${cellPadding} text-center w-28`}>Estado</th>}
                   <th className={`${cellPadding} text-center w-12`} aria-hidden="true" />
                 </tr>
               </thead>
@@ -183,7 +186,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                 <th className={`${cellPadding} text-right w-16`}>%</th>
                 <th className={`${cellPadding} text-right w-28`}>Importe</th>
                 <th className={`${cellPadding} text-right w-28`}>Saldo actual</th>
-                <th className={`${cellPadding} text-center w-28`}>Estado</th>
+                {showStatusColumn && <th className={`${cellPadding} text-center w-28`}>Estado</th>}
                 {isManualMode && <th className={`${cellPadding} text-center w-12`} aria-hidden="true" />}
                 {mode === 'allocation' && <th className={`${cellPadding} text-right w-32`}>Monto a aplicar</th>}
                 {mode === 'allocation' && showRemainingResult && <th className={`${cellPadding} text-right w-32`}>Saldo resultante</th>}
@@ -330,19 +333,21 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                     <td className={`${cellPadding} text-right text-slate-900`}>
                       {formatPrice(saldo, currency)}
                     </td>
-                    <td className={`${cellPadding} text-center`}>
-                      <span
-                        className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          estado === 'CANCELADO'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : estado === 'PARCIAL'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {estado}
-                      </span>
-                    </td>
+                    {showStatusColumn && (
+                      <td className={`${cellPadding} text-center`}>
+                        <span
+                          className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            estado === 'CANCELADO'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : estado === 'PARCIAL'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {estado}
+                        </span>
+                      </td>
+                    )}
                     {isManualMode && (
                       <td className={`${cellPadding} text-center`}>
                         <button

@@ -1,26 +1,22 @@
 import type {
-  EstadoDocumentoOC,
-  EstadoAprobacionOC,
   EstadoRecepcionOC,
   EstadoFacturacionOC,
   EstadoInventarioOC,
+  EstadoPrincipalOC,
 } from '../modelos/OrdenCompra';
 import type { EstadoDocumentoCC, EstadoPagoCC, EstadoInventarioCC } from '../modelos/ComprobanteCompra';
 import type { EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { EstadoDocumentoPago } from '../modelos/PagoCompra';
 
-export const BADGE_ESTADO_DOCUMENTO_OC: Record<EstadoDocumentoOC, string> = {
-  borrador: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-  registrado: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  cerrado: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
-  anulado: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
-};
-
-export const BADGE_ESTADO_APROBACION_OC: Record<EstadoAprobacionOC, string> = {
-  no_requiere: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
-  pendiente: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
-  aprobada: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  rechazada: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+/** Badge del estado principal único de la OC (ver EstadoPrincipalOC / calcularEstadoPrincipalOC). */
+export const BADGE_ESTADO_PRINCIPAL_OC: Record<EstadoPrincipalOC, string> = {
+  Borrador: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  Registrada: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  'Pendiente de aprobación': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  Aprobada: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  'No Aprobada': 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+  Anulada: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+  Convertida: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
 };
 
 export const BADGE_ESTADO_RECEPCION_OC: Record<EstadoRecepcionOC, string> = {

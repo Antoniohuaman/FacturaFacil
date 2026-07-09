@@ -9,8 +9,7 @@ export {
 export type { TipoDocumentoProveedorItem } from './tiposDocumentoProveedor';
 
 export {
-  BADGE_ESTADO_DOCUMENTO_OC,
-  BADGE_ESTADO_APROBACION_OC,
+  BADGE_ESTADO_PRINCIPAL_OC,
   BADGE_ESTADO_RECEPCION_OC,
   BADGE_ESTADO_FACTURACION_OC,
   BADGE_ESTADO_INVENTARIO_OC,

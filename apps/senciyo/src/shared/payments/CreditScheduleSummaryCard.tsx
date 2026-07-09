@@ -26,6 +26,8 @@ interface CreditScheduleSummaryCardProps {
   paymentMethodName?: string;
   context?: 'emision' | 'cxc';
   creditoManual?: CreditoManualConfig;
+  /** Oculta la columna "Estado" de las cuotas (programación previa al registro, no pagos gestionados). Default true. */
+  showStatusColumn?: boolean;
 }
 
 export const CreditScheduleSummaryCard = ({
@@ -37,6 +39,7 @@ export const CreditScheduleSummaryCard = ({
   paymentMethodName,
   context = 'cxc',
   creditoManual,
+  showStatusColumn = true,
 }: CreditScheduleSummaryCardProps) => {
   const resolvedCurrency: CurrencyCode = currency ?? 'PEN';
   const formatPrice = (price: number, moneda?: CurrencyCode) => formatMoney(price, moneda ?? resolvedCurrency, { showSymbol: true });
@@ -132,6 +135,7 @@ export const CreditScheduleSummaryCard = ({
             scrollMaxHeight={undefined}
             showDaysOverdue
             compact
+            showStatusColumn={showStatusColumn}
           />
           <div className="flex flex-wrap gap-4 text-xs text-slate-600">
             <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-800">

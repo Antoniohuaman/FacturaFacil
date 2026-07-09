@@ -1,16 +1,12 @@
-import type {
-  OrdenCompra,
-  EstadoDocumentoOC,
-  EstadoAprobacionOC,
-} from '../modelos/OrdenCompra';
+import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
+import { calcularEstadoPrincipalOC } from './reglasCompras';
 
 export interface FiltrosOC {
   busqueda?: string;
-  estadoDocumento?: EstadoDocumentoOC | '';
-  estadoAprobacion?: EstadoAprobacionOC | '';
+  estadoPrincipal?: EstadoPrincipalOC | '';
   proveedorId?: string;
   fechaDesde?: string;
   fechaHasta?: string;
@@ -27,8 +23,7 @@ export function filtrarOrdenesCompra(ordenes: OrdenCompra[], filtros: FiltrosOC)
       )
         return false;
     }
-    if (filtros.estadoDocumento && oc.estadoDocumento !== filtros.estadoDocumento) return false;
-    if (filtros.estadoAprobacion && oc.estadoAprobacion !== filtros.estadoAprobacion) return false;
+    if (filtros.estadoPrincipal && calcularEstadoPrincipalOC(oc) !== filtros.estadoPrincipal) return false;
     if (filtros.proveedorId && oc.proveedorId !== filtros.proveedorId) return false;
     if (filtros.fechaDesde && oc.fechaEmision < filtros.fechaDesde) return false;
     if (filtros.fechaHasta && oc.fechaEmision > filtros.fechaHasta) return false;

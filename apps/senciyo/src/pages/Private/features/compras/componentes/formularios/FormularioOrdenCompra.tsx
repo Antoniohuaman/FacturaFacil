@@ -1,21 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { Breadcrumb, PageHeader } from '@/contasis';
 import {
   FormSectionCard,
   TwoColumnDocumentFields,
   CollapsibleNotes,
-  DocumentFormFooter,
   FieldsConfigurationModal,
   useConfiguracionCampos,
   type CampoConfigurableDocumento,
 } from '@/shared/ui';
+import ActionButtonsSection from '../../../comprobantes-electronicos/shared/form-core/components/ActionButtonsSection';
 import { useCompras } from '../../contexto/ContextoCompras';
-import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useConfigurationContext, type ShippingMethod } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '@/contexts/UserSessionContext';
+import { useFeedback } from '@/shared/feedback';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
-import { calcularTotalesLineas } from '../../logica/reglasCompras';
+import { calcularTotalesLineas, calcularEstadoPrincipalOC, puedeEliminarAdjuntoOC } from '../../logica/reglasCompras';
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
+import { obtenerContactosCliente } from '../../../gestion-clientes/utils/contactosCliente';
 import BuscadorProveedor, { type ProveedorSeleccionado } from '../BuscadorProveedor';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { useLineasCompra } from '../items/useLineasCompra';
@@ -30,6 +32,7 @@ import type { AdjuntoCompra } from '../../modelos/AdjuntoCompra';
 import { obtenerErrorDeCampo, type ErrorCampoDocumento } from '../../modelos/ErroresValidacion';
 
 const NUEVO_CREDITO_VALUE = '__nuevo_credito__';
+const NUEVO_METODO_ENVIO_VALUE = '__nuevo_metodo_envio__';
 
 interface FormularioOrdenCompraProps {
   ocBase?: Partial<OrdenCompra>;
@@ -50,9 +53,20 @@ export default function FormularioOrdenCompra({
   onExito,
   onCancelar,
 }: FormularioOrdenCompraProps) {
-  const { registrarOrdenCompra, refrescarProveedores } = useCompras();
+  const {
+    registrarOrdenCompra,
+    guardarBorradorOC,
+    actualizarOrdenCompraBorrador,
+    registrarOrdenCompraDesdeBorrador,
+    actualizarOrdenCompra,
+    refrescarProveedores,
+  } = useCompras();
+  const esBorradorExistente = Boolean(ocBase?.id) && ocBase?.estadoDocumento === 'borrador';
+  const esEdicionRegistrada = Boolean(ocBase?.id) && ocBase?.estadoDocumento !== 'borrador';
+  const esEdicion = esBorradorExistente || esEdicionRegistrada;
   const { state: config, dispatch } = useConfigurationContext();
   const { session } = useUserSession();
+  const feedback = useFeedback();
   const { createCliente } = useClientes();
   const { campos: camposConfigurables, esVisible, guardar: guardarCamposConfigurables } =
     useConfiguracionCampos(CAMPOS_OC_DEFAULT, STORAGE_KEY_CAMPOS_OC);
@@ -79,6 +93,43 @@ export default function FormularioOrdenCompra({
   const [direccionEntrega, setDireccionEntrega] = useState(
     ocBase?.proveedorDireccionEntrega ?? '',
   );
+
+  // Contacto real del proveedor (Gestión de Clientes → pestaña Contactos).
+  const contactosProveedor = useMemo(
+    () => obtenerContactosCliente(proveedor).contactos,
+    [proveedor],
+  );
+  const [contactoId, setContactoId] = useState(ocBase?.proveedorContactoId ?? '');
+  const contactoSeleccionado = contactosProveedor.find((c) => c.id === contactoId);
+
+  function handleSeleccionarContacto(id: string) {
+    setContactoId(id);
+  }
+
+  const [metodoEnvio, setMetodoEnvio] = useState(ocBase?.metodoEnvio ?? '');
+  const [creandoMetodoEnvio, setCreandoMetodoEnvio] = useState(false);
+  const [nuevoMetodoEnvioNombre, setNuevoMetodoEnvioNombre] = useState('');
+  const [errorMetodoEnvio, setErrorMetodoEnvio] = useState<string | null>(null);
+
+  function handleCrearMetodoEnvio() {
+    const nombre = nuevoMetodoEnvioNombre.trim();
+    if (!nombre) {
+      setErrorMetodoEnvio('Ingresa un nombre para el método de envío.');
+      return;
+    }
+    const yaExiste = config.shippingMethods.some((m) => m.nombre.toLowerCase() === nombre.toLowerCase());
+    if (yaExiste) {
+      setErrorMetodoEnvio('Ya existe un método de envío con ese nombre.');
+      return;
+    }
+    const nuevo: ShippingMethod = { id: `sm-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, nombre, activo: true };
+    dispatch({ type: 'SET_SHIPPING_METHODS', payload: [...config.shippingMethods, nuevo] });
+    setMetodoEnvio(nuevo.nombre);
+    setCreandoMetodoEnvio(false);
+    setNuevoMetodoEnvioNombre('');
+    setErrorMetodoEnvio(null);
+  }
+
   const [serieId, setSerieId] = useState(seriesOC[0]?.series ?? '');
   const [fechaEmision, setFechaEmision] = useState(
     ocBase?.fechaEmision ?? new Date().toISOString().slice(0, 10),
@@ -141,6 +192,85 @@ export default function FormularioOrdenCompra({
     initialCreditTerms: ocBase?.creditTerms,
   });
 
+  // La Fecha de vencimiento se calcula desde la última cuota mientras la
+  // forma de pago sea crédito; al pasar a Contado, el campo queda libre
+  // para edición manual (no se limpia el valor ya tecleado).
+  useEffect(() => {
+    if (isCreditMethod && creditTerms?.fechaVencimientoGlobal) {
+      setFechaVencimiento(creditTerms.fechaVencimientoGlobal);
+    }
+  }, [isCreditMethod, creditTerms?.fechaVencimientoGlobal]);
+
+  function construirDatosOC() {
+    return {
+      serie: serieId,
+      fechaEmision,
+      fechaVencimiento: fechaVencimiento || undefined,
+      fechaEntregaEsperada: fechaEntregaEsperada || undefined,
+      proveedorId: proveedor!.id.toString(),
+      proveedorTipoDocumento: proveedor!.tipoDocumento,
+      proveedorNumeroDocumento: proveedor!.numeroDocumento,
+      proveedorNombre: proveedor!.nombre,
+      proveedorDireccionFacturacion: direccionFacturacion || undefined,
+      proveedorDireccionEntrega: direccionEntrega || undefined,
+      proveedorContactoId: contactoId || undefined,
+      proveedorContactoNombre: contactoSeleccionado?.nombre || undefined,
+      proveedorContactoCargo: contactoSeleccionado?.cargo || undefined,
+      proveedorContactoCorreo: contactoSeleccionado?.correos[0]?.valor || undefined,
+      proveedorContactoTelefono: contactoSeleccionado?.telefonos[0]?.numero || undefined,
+      compradorId: session?.userId,
+      compradorNombre: session?.userName,
+      metodoEnvio: metodoEnvio || undefined,
+      moneda,
+      tipoCambio: tipoCambio ? parseFloat(tipoCambio) : undefined,
+      formaPago,
+      formaPagoMetodoId: formaPagoMetodoId || undefined,
+      creditTerms: isCreditMethod ? creditTerms : undefined,
+      requiereAprobacion,
+      centroCosto: centroCosto || undefined,
+      presupuesto: presupuesto || undefined,
+      observaciones: observaciones || undefined,
+      lineas,
+      totales: {
+        subtotal: totalesCalculados.subtotal,
+        subtotalExonerado: totalesCalculados.subtotalExonerado,
+        subtotalInafecto: totalesCalculados.subtotalInafecto,
+        descuentoTotal: totalesCalculados.descuentoTotal,
+        igv: totalesCalculados.igv,
+        total: totalesCalculados.total,
+        moneda,
+      },
+      adjuntos,
+    };
+  }
+
+  async function handleGuardarBorrador() {
+    if (!proveedor) {
+      setErrores([{ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor para guardar el borrador.' }]);
+      return;
+    }
+    setErrores([]);
+    setEnviando(true);
+    try {
+      const datos = construirDatosOC();
+      const oc = esBorradorExistente
+        ? await actualizarOrdenCompraBorrador(ocBase!.id!, datos, session?.userName)
+        : await guardarBorradorOC(datos, session?.userId, session?.userName);
+      if (proveedor) {
+        await persistirProveedorSiEsNuevo(proveedor, createCliente);
+        refrescarProveedores();
+      }
+      feedback.success(esBorradorExistente ? 'Borrador actualizado.' : 'Borrador guardado.');
+      onExito(oc);
+    } catch (e) {
+      const mensaje = e instanceof Error ? e.message : 'Error al guardar el borrador.';
+      setErrores([{ campo: 'general', codigo: 'ERROR_BORRADOR', mensaje }]);
+      feedback.error(mensaje);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   async function handleSubmit() {
     const nuevosErrores: ErrorCampoDocumento[] = [];
     if (!proveedor) {
@@ -179,55 +309,28 @@ export default function FormularioOrdenCompra({
     setEnviando(true);
 
     try {
-      const oc = await registrarOrdenCompra(
-        {
-          serie: serieId,
-          fechaEmision,
-          fechaVencimiento: fechaVencimiento || undefined,
-          fechaEntregaEsperada: fechaEntregaEsperada || undefined,
-          proveedorId: proveedor!.id.toString(),
-          proveedorTipoDocumento: proveedor!.tipoDocumento,
-          proveedorNumeroDocumento: proveedor!.numeroDocumento,
-          proveedorNombre: proveedor!.nombre,
-          proveedorDireccionFacturacion: direccionFacturacion || undefined,
-          proveedorDireccionEntrega: direccionEntrega || undefined,
-          compradorId: session?.userId,
-          compradorNombre: session?.userName,
-          moneda,
-          tipoCambio: tipoCambio ? parseFloat(tipoCambio) : undefined,
-          formaPago,
-          formaPagoMetodoId: formaPagoMetodoId || undefined,
-          creditTerms: isCreditMethod ? creditTerms : undefined,
-          requiereAprobacion,
-          centroCosto: centroCosto || undefined,
-          presupuesto: presupuesto || undefined,
-          observaciones: observaciones || undefined,
-          lineas,
-          totales: {
-            subtotal: totalesCalculados.subtotal,
-            subtotalExonerado: totalesCalculados.subtotalExonerado,
-            subtotalInafecto: totalesCalculados.subtotalInafecto,
-            descuentoTotal: totalesCalculados.descuentoTotal,
-            igv: totalesCalculados.igv,
-            total: totalesCalculados.total,
-            moneda,
-          },
-          adjuntos,
-        },
-        session?.userId,
-        session?.userName,
-      );
+      const datos = construirDatosOC();
+      const oc = esEdicionRegistrada
+        ? await actualizarOrdenCompra(ocBase!.id!, datos, session?.userName)
+        : esBorradorExistente
+          ? await registrarOrdenCompraDesdeBorrador(ocBase!.id!, datos, session?.userName)
+          : await registrarOrdenCompra(datos, session?.userId, session?.userName);
       if (proveedor) {
         await persistirProveedorSiEsNuevo(proveedor, createCliente);
         refrescarProveedores();
       }
+      const estadoResultante = calcularEstadoPrincipalOC(oc);
+      const mensajeExito = estadoResultante === 'Pendiente de aprobación'
+        ? 'Orden enviada a aprobación.'
+        : esEdicion
+          ? 'Orden de compra actualizada.'
+          : 'Orden de compra registrada.';
+      feedback.success(mensajeExito);
       onExito(oc);
     } catch (e) {
-      setErrores([{
-        campo: 'general',
-        codigo: 'ERROR_REGISTRO',
-        mensaje: e instanceof Error ? e.message : 'Error al registrar la orden.',
-      }]);
+      const mensaje = e instanceof Error ? e.message : 'Error al registrar la orden.';
+      setErrores([{ campo: 'general', codigo: 'ERROR_REGISTRO', mensaje }]);
+      feedback.error(mensaje);
     } finally {
       setEnviando(false);
     }
@@ -237,20 +340,20 @@ export default function FormularioOrdenCompra({
     setProveedor(p);
     setDireccionFacturacion(p?.direccion ?? '');
     setDireccionEntrega(p?.direccion ?? '');
+    setContactoId('');
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <PageHeader
         breadcrumb={
-          <Breadcrumb items={[{ label: 'Compras', onClick: onCancelar }, { label: 'Nueva orden de compra' }]} />
+          <Breadcrumb items={[{ label: 'Compras', onClick: onCancelar }, { label: esEdicion ? 'Editar orden de compra' : 'Nueva orden de compra' }]} />
         }
         title={
           <div className="flex items-center gap-2.5">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 leading-tight">Nueva Orden de Compra</h1>
-              <p className="text-xs text-gray-500">Completa los datos del pedido al proveedor</p>
-            </div>
+            <h1 className="text-lg font-semibold text-gray-900 leading-tight">
+              {esEdicion ? 'Editar Orden de Compra' : 'Nueva Orden de Compra'}
+            </h1>
             {serieId && (
               <span className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-0.5 rounded">{serieId}</span>
             )}
@@ -291,6 +394,45 @@ export default function FormularioOrdenCompra({
                     onSeleccionar={handleSeleccionarProveedor}
                     error={obtenerErrorDeCampo(errores, 'proveedorId')?.mensaje ?? null}
                   />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Contacto</label>
+                  {!proveedor ? (
+                    <div
+                      className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400"
+                      title="Selecciona un proveedor para ver sus contactos"
+                    >
+                      Selecciona un proveedor primero
+                    </div>
+                  ) : contactosProveedor.length === 0 ? (
+                    <div
+                      className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-400"
+                      title="Este proveedor no tiene contactos registrados en Gestión de Clientes"
+                    >
+                      Sin contactos registrados
+                    </div>
+                  ) : (
+                    <select
+                      value={contactoId}
+                      onChange={(e) => handleSeleccionarContacto(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="">Sin contacto específico</option>
+                      {contactosProveedor.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}{c.cargo ? ` — ${c.cargo}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {contactoSeleccionado && (
+                    <p className="text-[11px] text-gray-500">
+                      {[contactoSeleccionado.correos[0]?.valor, contactoSeleccionado.telefonos[0]?.numero]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -399,17 +541,6 @@ export default function FormularioOrdenCompra({
                   </div>
                 </div>
 
-                {isCreditMethod && (
-                  <CreditScheduleSummaryCard
-                    creditTerms={creditTerms}
-                    currency={moneda}
-                    total={totalesCalculados.total}
-                    onConfigure={() => setCreditScheduleModalOpen(true)}
-                    errors={creditErrors}
-                    paymentMethodName={metodoPagoSeleccionado?.name}
-                  />
-                )}
-
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">F. vencimiento</label>
@@ -417,8 +548,15 @@ export default function FormularioOrdenCompra({
                       type="date"
                       value={fechaVencimiento}
                       onChange={(e) => setFechaVencimiento(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      readOnly={isCreditMethod}
+                      title={isCreditMethod ? 'Calculado desde el cronograma de crédito' : undefined}
+                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                        isCreditMethod ? 'bg-gray-50 text-gray-600' : ''
+                      }`}
                     />
+                    {isCreditMethod && (
+                      <p className="text-[11px] text-gray-400">Calculado desde el cronograma de crédito</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Comprador</label>
@@ -426,6 +564,59 @@ export default function FormularioOrdenCompra({
                       {session?.userName || 'Usuario no identificado'}
                     </div>
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Método de envío</label>
+                  {creandoMetodoEnvio ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={nuevoMetodoEnvioNombre}
+                          onChange={(e) => { setNuevoMetodoEnvioNombre(e.target.value); setErrorMetodoEnvio(null); }}
+                          placeholder="Nombre del nuevo método de envío..."
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCrearMetodoEnvio}
+                          className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setCreandoMetodoEnvio(false); setNuevoMetodoEnvioNombre(''); setErrorMetodoEnvio(null); }}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                      {errorMetodoEnvio && <p className="text-xs text-red-600">{errorMetodoEnvio}</p>}
+                    </div>
+                  ) : (
+                    <select
+                      value={metodoEnvio}
+                      onChange={(e) => {
+                        if (e.target.value === NUEVO_METODO_ENVIO_VALUE) {
+                          setCreandoMetodoEnvio(true);
+                          return;
+                        }
+                        setMetodoEnvio(e.target.value);
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="">Sin especificar</option>
+                      {config.shippingMethods.filter((m) => m.activo).map((m) => (
+                        <option key={m.id} value={m.nombre}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                      <option value={NUEVO_METODO_ENVIO_VALUE}>+ Crear método de envío</option>
+                    </select>
+                  )}
                 </div>
 
                 {esVisible('entregaEsperada') && (
@@ -479,12 +670,28 @@ export default function FormularioOrdenCompra({
           />
         </FormSectionCard>
 
-        {/* Productos - Servicios */}
+        {/* Productos - Servicios (incluye Totales) */}
         <SeccionProductosCompra
           moneda={moneda}
           lineasCompra={lineasCompra}
           totalesCalculados={totalesCalculados}
         />
+
+        {/* Cronograma de crédito: solo programación, sin estados de pago (aún no está registrada) */}
+        {isCreditMethod && (
+          <FormSectionCard titulo="Cronograma de crédito">
+            <CreditScheduleSummaryCard
+              creditTerms={creditTerms}
+              currency={moneda}
+              total={totalesCalculados.total}
+              onConfigure={() => setCreditScheduleModalOpen(true)}
+              errors={creditErrors}
+              paymentMethodName={metodoPagoSeleccionado?.name}
+              context="emision"
+              showStatusColumn={false}
+            />
+          </FormSectionCard>
+        )}
 
         {/* Observaciones */}
         <CollapsibleNotes observaciones={observaciones} onCambiarObservaciones={setObservaciones} />
@@ -495,23 +702,28 @@ export default function FormularioOrdenCompra({
             adjuntos={adjuntos}
             tiposPermitidos={['cotizacion_proveedor', 'orden_compra_firmada', 'contrato', 'otro']}
             cargadoPor={session?.userName}
-            onAgregar={(a) => setAdjuntos((prev) => [...prev, a])}
-            onEliminar={(id) => setAdjuntos((prev) => prev.filter((a) => a.id !== id))}
+            permiteEliminar={!ocBase?.id || puedeEliminarAdjuntoOC(ocBase as OrdenCompra)}
+            onAgregar={(a) => {
+              setAdjuntos((prev) => [...prev, a]);
+              feedback.success('Adjunto agregado.');
+            }}
+            onEliminar={(id) => {
+              setAdjuntos((prev) => prev.filter((a) => a.id !== id));
+              feedback.success('Adjunto eliminado.');
+            }}
           />
         </FormSectionCard>
       </div>
 
-      <DocumentFormFooter
-        infoIzquierda={
-          seriesOC.length === 0
-            ? 'Configura una serie OC en Configuración → Series'
-            : `Serie: ${serieId || '—'} · ${lineas.length} ítem(s)`
-        }
+      <ActionButtonsSection
         onCancelar={onCancelar}
-        onSubmit={handleSubmit}
-        textoBotonPrimario="Registrar OC"
-        deshabilitado={enviando || seriesOC.length === 0}
-        cargando={enviando}
+        onGuardarBorrador={esEdicionRegistrada ? undefined : handleGuardarBorrador}
+        primaryAction={{
+          label: enviando ? 'Guardando...' : esEdicionRegistrada ? 'Actualizar OC' : 'Registrar OC',
+          onClick: handleSubmit,
+          disabled: enviando || seriesOC.length === 0,
+          title: seriesOC.length === 0 ? 'Configura una serie OC en Configuración → Series' : undefined,
+        }}
       />
 
       <FieldsConfigurationModal

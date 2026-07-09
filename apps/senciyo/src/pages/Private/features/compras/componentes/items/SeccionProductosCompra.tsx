@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { SlidersHorizontal, Trash2 } from 'lucide-react';
 import { Tooltip, TablaLineasDocumento, BadgeStock, BadgeImpuesto, type ColumnaTablaLineas } from '@/shared/ui';
+import { formatMoney } from '@/shared/currency';
 import { formatearEtiquetaImpuesto, type TotalesLineasCompra } from '../../logica/reglasCompras';
 import type { LineaCompra } from '../../modelos/LineaCompra';
 import type { UseLineasCompraResultado } from './useLineasCompra';
@@ -371,14 +372,14 @@ export default function SeccionProductosCompra({
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Subtotal</span>
                 <span className="text-gray-700 font-medium">
-                  {totalesCalculados.subtotal.toFixed(2)} {moneda}
+                  {formatMoney(totalesCalculados.subtotal, moneda)}
                 </span>
               </div>
               {totalesCalculados.descuentoTotal > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-600">Descuentos</span>
                   <span className="text-gray-700 font-medium">
-                    -{totalesCalculados.descuentoTotal.toFixed(2)} {moneda}
+                    -{formatMoney(totalesCalculados.descuentoTotal, moneda)}
                   </span>
                 </div>
               )}
@@ -388,7 +389,7 @@ export default function SeccionProductosCompra({
                     {grupo.etiqueta}
                   </span>
                   <span className={grupo.tipoAfectacion === 'sin_configurar' ? 'text-red-600 font-medium' : 'text-gray-700 font-medium'}>
-                    {grupo.monto > 0 ? grupo.monto.toFixed(2) : grupo.baseImponible.toFixed(2)} {moneda}
+                    {formatMoney(grupo.monto > 0 ? grupo.monto : grupo.baseImponible, moneda)}
                   </span>
                 </div>
               ))}
@@ -400,7 +401,7 @@ export default function SeccionProductosCompra({
                       <span className="text-xs font-semibold tracking-[0.16em] text-violet-700 uppercase">Total</span>
                     </div>
                     <span className="text-2xl font-semibold text-gray-900">
-                      {totalesCalculados.total.toFixed(2)} {moneda}
+                      {formatMoney(totalesCalculados.total, moneda)}
                     </span>
                   </div>
                 </div>
