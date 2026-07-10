@@ -29,7 +29,7 @@ import {
   puedeImprimirOC,
   puedeEnviarOC,
   puedeEliminarBorradorOC,
-  resolverNombreFormaPagoOC,
+  resolverNombreFormaPago,
   calcularTotalesLineas,
   formatearEtiquetaImpuesto,
   construirFilasResumenTributarioCompra,
@@ -198,7 +198,7 @@ export default function PanelDetalleOrdenCompra({
 
   const comprobantesGenerados = oc ? comprobantes.filter((c) => c.ordenCompraOrigenId === oc.id) : [];
 
-  const nombreFormaPago = oc ? resolverNombreFormaPagoOC(oc, config.paymentMethods) : '';
+  const nombreFormaPago = oc ? resolverNombreFormaPago(oc, config.paymentMethods) : '';
   // Misma fuente que el formulario y la impresión: se reconstruye el
   // desglose tributario desde las líneas persistidas, nunca desde los
   // totales planos guardados (evita cualquier deriva entre pantallas).

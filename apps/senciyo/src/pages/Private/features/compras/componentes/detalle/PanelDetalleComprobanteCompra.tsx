@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { Receipt, Clock, Link2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Receipt, Clock, Link2, Pencil, Copy, XCircle, Printer, Download, MoreHorizontal, Trash2 } from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { listarTiposOperacion } from '@/shared/catalogos-sunat';
 import { CreditInstallmentsTable } from '@/shared/payments/CreditInstallmentsTable';
+import { formatMoney } from '@/shared/currency';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { CLASIFICACION_LINEA_LABELS } from '../../modelos/LineaCompra';
-import type { ComprobanteCompra } from '../../modelos/ComprobanteCompra';
+import type { ComprobanteCompra, EstadoPrincipalCC } from '../../modelos/ComprobanteCompra';
 import {
   ESTADO_DOCUMENTO_CC_LABELS,
   ESTADO_PAGO_CC_LABELS,
@@ -19,7 +20,22 @@ import {
   BADGE_ESTADO_INVENTARIO_CC,
   BADGE_ESTADO_PAGO_CXP,
   BADGE_ESTADO_DOCUMENTO_PAGO,
+  BADGE_ESTADO_PRINCIPAL_CC,
+  ETIQUETA_ESTADO_PRINCIPAL_CC,
 } from '../../constantes/estadosCompras';
+import {
+  calcularEstadoPrincipalCC,
+  puedeEditarCC,
+  puedeEliminarBorradorCC,
+  puedeAnularCC,
+  puedeImprimirCC,
+  calcularTotalesLineas,
+  construirFilasResumenTributarioCompra,
+  formatearEtiquetaImpuesto,
+  resolverNombreFormaPago,
+} from '../../logica/reglasCompras';
+import { formatearFechaCompra, formatearNumeroCompra, formatearNumeroComprobanteCompra } from '../../utilidades/formatearCompras';
+import { TIPOS_DOCUMENTO_PROVEEDOR } from '../../constantes/tiposDocumentoProveedor';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import { ESTADO_PAGO_CXP_LABELS } from '../../modelos/CuentaPorPagar';
@@ -35,6 +51,11 @@ interface PanelDetalleComprobanteCompraProps {
   onVerOrdenCompra?: (oc: OrdenCompra) => void;
   onVerCuentaPorPagar?: (cxp: CuentaPorPagar) => void;
   onVerPago?: (pago: PagoCompra) => void;
+  onEditar?: (cc: ComprobanteCompra) => void;
+  onDuplicar?: (cc: ComprobanteCompra) => void;
+  onAnular?: (cc: ComprobanteCompra) => void;
+  onImprimir?: (cc: ComprobanteCompra) => void;
+  onEliminarBorrador?: (cc: ComprobanteCompra) => void;
 }
 
 type TabCC = 'general' | 'historial' | 'relacionados';
@@ -75,6 +96,61 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
   );
 }
 
+/** Acción principal visible del header (icono + texto corto), máximo 2 por estado — el resto va al menú "Más acciones". Mismo patrón que PanelDetalleOrdenCompra. */
+function BotonEncabezado({
+  icon: Icon,
+  texto,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: typeof Receipt;
+  texto: string;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+        danger ? 'text-red-600 hover:bg-red-50' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+      }`}
+    >
+      <Icon size={14} /> {texto}
+    </button>
+  );
+}
+
+/** Fila del menú "Más acciones" del header. */
+function ItemMenuAccion({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: typeof Receipt;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+        danger ? 'text-red-600 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-50'
+      }`}
+    >
+      <Icon size={14} />
+      {label}
+    </button>
+  );
+}
+
 export default function PanelDetalleComprobanteCompra({
   cc,
   ordenes,
@@ -84,12 +160,29 @@ export default function PanelDetalleComprobanteCompra({
   onVerOrdenCompra,
   onVerCuentaPorPagar,
   onVerPago,
+  onEditar,
+  onDuplicar,
+  onAnular,
+  onImprimir,
+  onEliminarBorrador,
 }: PanelDetalleComprobanteCompraProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabCC>('general');
+  const [menuAccionesAbierto, setMenuAccionesAbierto] = useState(false);
+  const menuAccionesRef = useRef<HTMLDivElement>(null);
 
-  const igvDefault = config.taxes.find((t) => t.isDefault && t.isActive);
-  const igvLabel = igvDefault ? `IGV (${igvDefault.rate}%):` : 'IGV:';
+  useEffect(() => {
+    function handleClickFuera(e: MouseEvent) {
+      if (menuAccionesRef.current && !menuAccionesRef.current.contains(e.target as Node)) {
+        setMenuAccionesAbierto(false);
+      }
+    }
+    if (menuAccionesAbierto) {
+      document.addEventListener('mousedown', handleClickFuera);
+      return () => document.removeEventListener('mousedown', handleClickFuera);
+    }
+  }, [menuAccionesAbierto]);
+
   const tiposOperacion = listarTiposOperacion();
 
   const TABS: { id: TabCC; label: string; icon: typeof Receipt }[] = [
@@ -104,20 +197,126 @@ export default function PanelDetalleComprobanteCompra({
     ? pagos.filter((p) => p.comprobantesCompraAplicados.includes(cc.id))
     : [];
 
+  const nombreFormaPago = cc ? resolverNombreFormaPago(cc, config.paymentMethods) : '';
+  // Misma fuente que el formulario y el listado: se reconstruye el desglose
+  // tributario desde las líneas persistidas, nunca desde un cálculo propio.
+  const totalesDocumento = cc ? calcularTotalesLineas(cc.lineas) : null;
+
   const titulo = cc ? (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       <Receipt size={18} className="text-blue-600 shrink-0" />
-      <span className="font-mono font-semibold text-gray-900">
-        {cc.serieProveedor}-{cc.numeroProveedor}
-      </span>
+      {cc.serieProveedor && cc.numeroProveedor ? (
+        <span className="min-w-0 truncate font-mono font-semibold text-gray-900">
+          {formatearNumeroComprobanteCompra(cc)}
+        </span>
+      ) : (
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className="shrink-0 font-mono font-semibold text-gray-900">
+            {TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === cc.tipoComprobanteProveedor)?.nombreCorto ?? 'Comprobante'}
+          </span>
+          <span className="min-w-0 truncate text-xs text-gray-400">sin número</span>
+        </span>
+      )}
     </div>
   ) : null;
 
   const subtitulo = cc ? (
     <div className="flex flex-wrap gap-1 mt-1">
-      <BadgeEstado estado={cc.estadoDocumento} labels={ESTADO_DOCUMENTO_CC_LABELS} clases={BADGE_ESTADO_DOCUMENTO_CC} />
-      <BadgeEstado estado={cc.estadoPago} labels={ESTADO_PAGO_CC_LABELS} clases={BADGE_ESTADO_PAGO_CC} />
-      <BadgeEstado estado={cc.estadoInventario} labels={ESTADO_INVENTARIO_CC_LABELS} clases={BADGE_ESTADO_INVENTARIO_CC} />
+      <BadgeEstado
+        estado={calcularEstadoPrincipalCC(cc)}
+        labels={ETIQUETA_ESTADO_PRINCIPAL_CC as unknown as Record<string, string>}
+        clases={BADGE_ESTADO_PRINCIPAL_CC as unknown as Record<string, string>}
+      />
+    </div>
+  ) : null;
+
+  /** Máximo 2 acciones visibles en el header (más el menú "Más acciones"), mismas reglas que el listado — ninguna regla de negocio nueva. */
+  function construirAccionesHeaderCC(
+    ccActual: ComprobanteCompra,
+    estado: EstadoPrincipalCC,
+  ): { visibles: React.ReactNode[]; menu: React.ReactNode[] } {
+    const visibles: React.ReactNode[] = [];
+    const menu: React.ReactNode[] = [];
+
+    const agregarDuplicarVisible = () => {
+      if (onDuplicar) {
+        visibles.push(<BotonEncabezado key="duplicar" icon={Copy} texto="Duplicar" label="Duplicar comprobante de compra" onClick={() => onDuplicar(ccActual)} />);
+      }
+    };
+    const agregarImprimirPdfMenu = () => {
+      if (onImprimir && puedeImprimirCC(ccActual)) {
+        menu.push(
+          <ItemMenuAccion key="imprimir" icon={Printer} label="Imprimir comprobante de compra" onClick={() => onImprimir(ccActual)} />,
+          <ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ccActual)} />,
+        );
+      }
+    };
+
+    switch (estado) {
+      case 'Borrador':
+        if (onEditar && puedeEditarCC(ccActual)) {
+          visibles.push(
+            <BotonEncabezado key="editar" icon={Pencil} texto="Editar" label="Editar comprobante de compra" onClick={() => { onCerrar(); onEditar(ccActual); }} />,
+          );
+        }
+        agregarDuplicarVisible();
+        if (onEliminarBorrador && puedeEliminarBorradorCC(ccActual)) {
+          menu.push(<ItemMenuAccion key="eliminar" icon={Trash2} label="Eliminar borrador" onClick={() => onEliminarBorrador(ccActual)} danger />);
+        }
+        agregarImprimirPdfMenu();
+        break;
+      case 'Registrado':
+        if (onAnular && puedeAnularCC(ccActual)) {
+          visibles.push(
+            <BotonEncabezado key="anular" icon={XCircle} texto="Anular" label="Anular comprobante de compra" onClick={() => onAnular(ccActual)} danger />,
+          );
+        }
+        agregarDuplicarVisible();
+        agregarImprimirPdfMenu();
+        break;
+      case 'Anulado':
+      case 'Convertido':
+        if (onImprimir && puedeImprimirCC(ccActual)) {
+          visibles.push(<BotonEncabezado key="imprimir" icon={Printer} texto="Imprimir" label="Imprimir comprobante de compra" onClick={() => onImprimir(ccActual)} />);
+          menu.push(<ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ccActual)} />);
+        }
+        agregarDuplicarVisible();
+        break;
+      default:
+        break;
+    }
+
+    return { visibles, menu };
+  }
+
+  const estadoCC = cc ? calcularEstadoPrincipalCC(cc) : null;
+  const { visibles: accionesVisibles, menu: accionesMenu } =
+    cc && estadoCC ? construirAccionesHeaderCC(cc, estadoCC) : { visibles: [], menu: [] };
+
+  const accionesEncabezado = cc ? (
+    <div className="flex shrink-0 items-center gap-1">
+      {accionesVisibles}
+      {accionesMenu.length > 0 && (
+        <div className="relative" ref={menuAccionesRef}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMenuAccionesAbierto((v) => !v); }}
+            title="Más acciones"
+            aria-label="Más acciones"
+            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <MoreHorizontal size={16} />
+          </button>
+          {menuAccionesAbierto && (
+            <div
+              className="absolute right-0 z-10 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+              onClick={(e) => { e.stopPropagation(); setMenuAccionesAbierto(false); }}
+            >
+              {accionesMenu}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   ) : null;
 
@@ -127,6 +326,7 @@ export default function PanelDetalleComprobanteCompra({
       alCerrar={onCerrar}
       titulo={titulo}
       subtitulo={subtitulo}
+      accionesEncabezado={accionesEncabezado}
       tamano="lg"
     >
       {cc && (
@@ -165,11 +365,17 @@ export default function PanelDetalleComprobanteCompra({
                 </Seccion>
 
                 <Seccion titulo="Datos del comprobante">
-                  <Campo label="Tipo de comprobante" valor={cc.tipoComprobanteProveedor} />
-                  <Campo label="Serie / N.°" valor={`${cc.serieProveedor}-${cc.numeroProveedor}`} />
-                  <Campo label="Fecha de emisión" valor={cc.fechaEmisionProveedor} />
-                  <Campo label="Fecha registro" valor={cc.fechaRegistro} />
-                  {cc.fechaVencimiento && <Campo label="Vencimiento" valor={cc.fechaVencimiento} />}
+                  <Campo
+                    label="Tipo de comprobante"
+                    valor={TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === cc.tipoComprobanteProveedor)?.nombre ?? '—'}
+                  />
+                  <Campo
+                    label="Serie / N.°"
+                    valor={cc.serieProveedor && cc.numeroProveedor ? formatearNumeroComprobanteCompra(cc) : 'Sin número'}
+                  />
+                  <Campo label="Fecha de emisión" valor={cc.fechaEmisionProveedor ? formatearFechaCompra(cc.fechaEmisionProveedor) : '—'} />
+                  <Campo label="Fecha registro" valor={formatearFechaCompra(cc.fechaRegistro)} />
+                  {cc.fechaVencimiento && <Campo label="Vencimiento" valor={formatearFechaCompra(cc.fechaVencimiento)} />}
                   <Campo label="Comprador" valor={cc.compradorNombre} />
                   <Campo label="Moneda" valor={cc.moneda} />
                   {cc.tipoCambio && <Campo label="Tipo de cambio" valor={cc.tipoCambio.toFixed(3)} />}
@@ -203,10 +409,7 @@ export default function PanelDetalleComprobanteCompra({
                 )}
 
                 <Seccion titulo="Forma de pago">
-                  <Campo
-                    label="Forma de pago"
-                    valor={cc.formaPago === 'contado' ? 'Contado' : 'Crédito'}
-                  />
+                  <Campo label="Forma de pago" valor={nombreFormaPago} />
                   {cc.condicionesPago && (
                     <Campo label="Condiciones" valor={cc.condicionesPago} />
                   )}
@@ -228,7 +431,7 @@ export default function PanelDetalleComprobanteCompra({
                 <Seccion titulo="Base imponible">
                   <Campo
                     label="Base imponible de compra"
-                    valor={`${cc.totales.subtotal.toFixed(2)} ${cc.moneda}`}
+                    valor={formatMoney(totalesDocumento!.subtotal, cc.moneda)}
                   />
                 </Seccion>
 
@@ -242,9 +445,9 @@ export default function PanelDetalleComprobanteCompra({
                         <tr>
                           <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Descripción</th>
                           <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Clasificación</th>
-                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Almacén</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Cant.</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Costo</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Impuesto</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Total</th>
                         </tr>
                       </thead>
@@ -262,17 +465,17 @@ export default function PanelDetalleComprobanteCompra({
                             <td className="px-3 py-2 text-xs text-gray-600">
                               {CLASIFICACION_LINEA_LABELS[linea.clasificacion]}
                             </td>
-                            <td className="px-3 py-2 text-xs text-gray-600">
-                              {linea.afectaInventario ? (linea.almacenDestinoNombre ?? '—') : 'No aplica'}
-                            </td>
                             <td className="px-3 py-2 text-right font-mono text-gray-700">
                               {linea.cantidadFacturada || linea.cantidadSolicitada}
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-gray-700">
-                              {linea.costoUnitario.toFixed(2)}
+                              {formatMoney(linea.costoUnitario, cc.moneda)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {formatearEtiquetaImpuesto(linea.tipoAfectacion, linea.tasaIgv ?? 0)}
                             </td>
                             <td className="px-3 py-2 text-right font-mono font-medium text-gray-900">
-                              {linea.total.toFixed(2)}
+                              {formatMoney(linea.total, cc.moneda)}
                             </td>
                           </tr>
                         ))}
@@ -282,36 +485,23 @@ export default function PanelDetalleComprobanteCompra({
                 </div>
 
                 <Seccion titulo="Totales">
-                  {cc.totales.subtotalExonerado > 0 && (
-                    <Campo
-                      label="Subtotal exonerado"
-                      valor={`${cc.totales.subtotalExonerado.toFixed(2)} ${cc.moneda}`}
-                    />
+                  {construirFilasResumenTributarioCompra(totalesDocumento!).map((fila) => (
+                    <Campo key={fila.clave} label={fila.etiqueta} valor={formatMoney(fila.monto, cc.moneda)} />
+                  ))}
+                  {totalesDocumento!.descuentoTotal > 0 && (
+                    <Campo label="Descuentos" valor={`-${formatMoney(totalesDocumento!.descuentoTotal, cc.moneda)}`} />
                   )}
-                  {cc.totales.descuentoTotal > 0 && (
-                    <Campo
-                      label="Descuentos"
-                      valor={`-${cc.totales.descuentoTotal.toFixed(2)} ${cc.moneda}`}
-                    />
-                  )}
-                  <Campo label={igvLabel} valor={`${cc.totales.igv.toFixed(2)} ${cc.moneda}`} />
                   {cc.totales.detraccion && cc.totales.detraccion > 0 && (
-                    <Campo
-                      label="Detracción"
-                      valor={`-${cc.totales.detraccion.toFixed(2)} ${cc.moneda}`}
-                    />
+                    <Campo label="Detracción" valor={`-${formatMoney(cc.totales.detraccion, cc.moneda)}`} />
                   )}
                   {cc.totales.retencion && cc.totales.retencion > 0 && (
-                    <Campo
-                      label="Retención"
-                      valor={`-${cc.totales.retencion.toFixed(2)} ${cc.moneda}`}
-                    />
+                    <Campo label="Retención" valor={`-${formatMoney(cc.totales.retencion, cc.moneda)}`} />
                   )}
                   <Campo
                     label="Total"
                     valor={
                       <span className="font-semibold text-gray-900 font-mono">
-                        {cc.totales.total.toFixed(2)} {cc.moneda}
+                        {formatMoney(totalesDocumento!.total, cc.moneda)}
                       </span>
                     }
                   />
@@ -324,18 +514,33 @@ export default function PanelDetalleComprobanteCompra({
                   />
                 </Seccion>
 
-                {cc.observaciones && (
-                  <Seccion titulo="Observaciones">
-                    <p className="text-sm text-gray-700 py-2">{cc.observaciones}</p>
-                  </Seccion>
-                )}
-
                 <div>
                   <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
                     Adjuntos ({cc.adjuntos.length})
                   </h3>
                   <AdjuntosCompra adjuntos={cc.adjuntos} tiposPermitidos={[]} />
                 </div>
+
+                <Seccion titulo="Estados operativos secundarios">
+                  <Campo
+                    label="Documento"
+                    valor={<BadgeEstado estado={cc.estadoDocumento} labels={ESTADO_DOCUMENTO_CC_LABELS} clases={BADGE_ESTADO_DOCUMENTO_CC} />}
+                  />
+                  <Campo
+                    label="Pago"
+                    valor={<BadgeEstado estado={cc.estadoPago} labels={ESTADO_PAGO_CC_LABELS} clases={BADGE_ESTADO_PAGO_CC} />}
+                  />
+                  <Campo
+                    label="Inventario"
+                    valor={<BadgeEstado estado={cc.estadoInventario} labels={ESTADO_INVENTARIO_CC_LABELS} clases={BADGE_ESTADO_INVENTARIO_CC} />}
+                  />
+                </Seccion>
+
+                {cc.observaciones && (
+                  <Seccion titulo="Observaciones">
+                    <p className="text-sm text-gray-700 py-2">{cc.observaciones}</p>
+                  </Seccion>
+                )}
 
                 {cc.estadoDocumento === 'anulado' && cc.motivoAnulacion && (
                   <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
@@ -355,9 +560,9 @@ export default function PanelDetalleComprobanteCompra({
                       disabled={!onVerOrdenCompra}
                       className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
                     >
-                      <span className="text-sm text-gray-900 font-mono">{ocOrigen.numero}</span>
+                      <span className="text-sm text-gray-900 font-mono">{formatearNumeroCompra(ocOrigen.serie, ocOrigen.correlativo)}</span>
                       <span className="text-sm text-gray-500">
-                        {ocOrigen.totales.total.toFixed(2)} {ocOrigen.moneda}
+                        {formatMoney(ocOrigen.totales.total, ocOrigen.moneda)}
                       </span>
                     </button>
                   ) : (
@@ -374,7 +579,7 @@ export default function PanelDetalleComprobanteCompra({
                       className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
                     >
                       <span className="text-sm text-gray-900">
-                        Saldo {cxp.saldoPendiente.toFixed(2)} {cxp.moneda}
+                        Saldo {formatMoney(cxp.saldoPendiente, cxp.moneda)}
                       </span>
                       <BadgeEstado estado={cxp.estadoPago} labels={ESTADO_PAGO_CXP_LABELS} clases={BADGE_ESTADO_PAGO_CXP} />
                     </button>
@@ -399,7 +604,7 @@ export default function PanelDetalleComprobanteCompra({
                           <span className="text-sm text-gray-900 font-mono">{pago.numeroPago}</span>
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-500">
-                              {pago.montoTotalPagado.toFixed(2)} {pago.moneda}
+                              {formatMoney(pago.montoTotalPagado, pago.moneda)}
                             </span>
                             <BadgeEstado
                               estado={pago.estadoDocumento}
@@ -438,7 +643,9 @@ export default function PanelDetalleComprobanteCompra({
                               <span className="text-xs text-gray-500">por {evt.usuario}</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400">{evt.fecha.slice(0, 16).replace('T', ' ')}</p>
+                          <p className="text-xs text-gray-400">
+                            {formatearFechaCompra(evt.fecha)} {evt.fecha.split('T')[1]?.slice(0, 5) ?? ''}
+                          </p>
                           {evt.detalle && (
                             <p className="text-xs text-gray-600 mt-0.5">{evt.detalle}</p>
                           )}

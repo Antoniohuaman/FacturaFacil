@@ -15,6 +15,13 @@ export type EstadoDocumentoCC = 'borrador' | 'registrado' | 'anulado';
 export type EstadoPagoCC = 'pendiente' | 'parcial' | 'pagado';
 export type EstadoInventarioCC = 'pendiente' | 'parcial' | 'completo' | 'automatico' | 'no_aplica';
 
+/**
+ * Estado principal único del CC, derivado (no persistido) de las dimensiones
+ * internas — ver calcularEstadoPrincipalCC en logica/reglasCompras.ts. Es el
+ * único estado que debe mostrarse como badge principal en listado/drawer.
+ */
+export type EstadoPrincipalCC = 'Borrador' | 'Registrado' | 'Anulado' | 'Convertido';
+
 /** Define cómo este comprobante afecta el stock al ser registrado */
 export type ModalidadInventarioCC =
   | 'con_nota_ingreso'
@@ -52,17 +59,16 @@ export interface ComprobanteCompra {
   id: string;
   tipoRegistro: 'comprobante_compra';
 
-  // Datos del documento del proveedor (NO es emisión propia)
-  tipoComprobanteProveedor: string;
-  serieProveedor: string;
-  numeroProveedor: string;
-  fechaEmisionProveedor: string;
+  // Datos del documento del proveedor (NO es emisión propia). Opcionales:
+  // un borrador puede no tener aún el documento físico del proveedor cargado.
+  tipoComprobanteProveedor?: string;
+  serieProveedor?: string;
+  numeroProveedor?: string;
+  fechaEmisionProveedor?: string;
 
   // Datos de registro interno
   fechaRegistro: string;
   fechaVencimiento?: string;
-  serie?: string;
-  correlativo?: string;
 
   // Proveedor
   proveedorId: string;
@@ -83,6 +89,7 @@ export interface ComprobanteCompra {
   moneda: MonedaCompra;
   tipoCambio?: number;
   formaPago: 'contado' | 'credito';
+  formaPagoMetodoId?: string;
   condicionesPago?: string;
   /** Cronograma de cuotas específico de este comprobante cuando formaPago es 'credito'. */
   creditTerms?: CreditScheduleTerms;

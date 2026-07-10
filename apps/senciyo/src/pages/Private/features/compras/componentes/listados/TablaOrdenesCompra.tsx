@@ -40,7 +40,7 @@ import {
   puedeImprimirOC,
   puedeEnviarOC,
   calcularEstadoPrincipalOC,
-  resolverNombreFormaPagoOC,
+  resolverNombreFormaPago,
   ESTADOS_PRINCIPALES_OC,
 } from '../../logica/reglasCompras';
 
@@ -377,7 +377,7 @@ export default function TablaOrdenesCompra({
       case 'moneda':
         return oc.moneda;
       case 'formaPago':
-        return resolverNombreFormaPagoOC(oc, config.paymentMethods);
+        return resolverNombreFormaPago(oc, config.paymentMethods);
       case 'centroCosto':
         return oc.centroCosto ?? '—';
       case 'presupuesto':

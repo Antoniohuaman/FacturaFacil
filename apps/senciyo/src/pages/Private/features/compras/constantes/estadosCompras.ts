@@ -4,7 +4,12 @@ import type {
   EstadoInventarioOC,
   EstadoPrincipalOC,
 } from '../modelos/OrdenCompra';
-import type { EstadoDocumentoCC, EstadoPagoCC, EstadoInventarioCC } from '../modelos/ComprobanteCompra';
+import type {
+  EstadoDocumentoCC,
+  EstadoPagoCC,
+  EstadoInventarioCC,
+  EstadoPrincipalCC,
+} from '../modelos/ComprobanteCompra';
 import type { EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { EstadoDocumentoPago } from '../modelos/PagoCompra';
 
@@ -56,6 +61,26 @@ export const BADGE_ESTADO_INVENTARIO_OC: Record<EstadoInventarioOC, string> = {
   completo: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   automatico: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
   no_aplica: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+};
+
+/**
+ * Etiqueta visual del estado principal único del CC (ver EstadoPrincipalCC /
+ * calcularEstadoPrincipalCC). Única fuente para badge (listado y drawer),
+ * filtro de estados e impresión/PDF — no mezclar con estadoPago/estadoInventario.
+ */
+export const ETIQUETA_ESTADO_PRINCIPAL_CC: Record<EstadoPrincipalCC, string> = {
+  Borrador: 'Borrador',
+  Registrado: 'Registrado',
+  Anulado: 'Anulado',
+  Convertido: 'Convertido',
+};
+
+/** Badge del estado principal único del CC (ver EstadoPrincipalCC / calcularEstadoPrincipalCC). */
+export const BADGE_ESTADO_PRINCIPAL_CC: Record<EstadoPrincipalCC, string> = {
+  Borrador: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  Registrado: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  Anulado: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+  Convertido: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
 };
 
 export const BADGE_ESTADO_DOCUMENTO_CC: Record<EstadoDocumentoCC, string> = {

@@ -1,22 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { Breadcrumb, PageHeader } from '@/contasis';
 import {
   FormSectionCard,
   TwoColumnDocumentFields,
   CollapsibleNotes,
-  DocumentFormFooter,
   FieldsConfigurationModal,
   useConfiguracionCampos,
   type CampoConfigurableDocumento,
 } from '@/shared/ui';
+import ActionButtonsSection from '../../../comprobantes-electronicos/shared/form-core/components/ActionButtonsSection';
 import { useCompras } from '../../contexto/ContextoCompras';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useFeedback } from '@/shared/feedback';
-import { calcularTotalesLineas } from '../../logica/reglasCompras';
+import { formatMoney } from '@/shared/currency';
+import { calcularTotalesLineas, puedeEditarCC } from '../../logica/reglasCompras';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
-import { TIPOS_DOCUMENTO_PROVEEDOR } from '../../constantes/tiposDocumentoProveedor';
+import {
+  TIPOS_DOCUMENTO_PROVEEDOR,
+  obtenerPlaceholderSerieDocumentoProveedor,
+} from '../../constantes/tiposDocumentoProveedor';
+import { formatearNumeroCompra } from '../../utilidades/formatearCompras';
 import { extraerDatosOCParaCC } from '../../mapeadores/mapeadorOCaCC';
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import BuscadorProveedor, { type ProveedorSeleccionado } from '../BuscadorProveedor';
@@ -39,7 +44,8 @@ import { obtenerErrorDeCampo, type ErrorCampoDocumento } from '../../modelos/Err
 
 interface FormularioComprobanteCompraProps {
   ocOrigen?: OrdenCompra;
-  onExito: (cc: ComprobanteCompra, cxp: CuentaPorPagar) => void;
+  ccBase?: Partial<ComprobanteCompra>;
+  onExito: (cc: ComprobanteCompra, cxp?: CuentaPorPagar) => void;
   onCancelar: () => void;
 }
 
@@ -52,10 +58,18 @@ const NUEVO_CREDITO_VALUE = '__nuevo_credito__';
 
 export default function FormularioComprobanteCompra({
   ocOrigen,
+  ccBase,
   onExito,
   onCancelar,
 }: FormularioComprobanteCompraProps) {
-  const { registrarComprobanteCompra, refrescarProveedores } = useCompras();
+  const {
+    registrarComprobanteCompra,
+    guardarBorradorCC,
+    actualizarComprobanteCompraBorrador,
+    registrarComprobanteCompraDesdeBorrador,
+    refrescarProveedores,
+  } = useCompras();
+  const esBorradorExistente = Boolean(ccBase?.id) && ccBase?.estadoDocumento === 'borrador';
   const { state: config, dispatch } = useConfigurationContext();
   const { session } = useUserSession();
   const feedback = useFeedback();
@@ -77,26 +91,30 @@ export default function FormularioComprobanteCompra({
   const datosDesdeOC = ocOrigen ? extraerDatosOCParaCC(ocOrigen) : null;
 
   const [proveedor, setProveedor] = useState<ProveedorSeleccionado | null>(
-    ocOrigen?.proveedorId
-      ? { id: ocOrigen.proveedorId, nombre: ocOrigen.proveedorNombre, tipoDocumento: ocOrigen.proveedorTipoDocumento, numeroDocumento: ocOrigen.proveedorNumeroDocumento }
-      : null,
+    ccBase?.proveedorId
+      ? { id: ccBase.proveedorId, nombre: ccBase.proveedorNombre ?? '', tipoDocumento: ccBase.proveedorTipoDocumento ?? '6', numeroDocumento: ccBase.proveedorNumeroDocumento ?? '' }
+      : ocOrigen?.proveedorId
+        ? { id: ocOrigen.proveedorId, nombre: ocOrigen.proveedorNombre, tipoDocumento: ocOrigen.proveedorTipoDocumento, numeroDocumento: ocOrigen.proveedorNumeroDocumento }
+        : null,
   );
   const [direccionFacturacion, setDireccionFacturacion] = useState(
-    datosDesdeOC?.proveedorDireccionFacturacion ?? '',
+    ccBase?.proveedorDireccionFacturacion ?? datosDesdeOC?.proveedorDireccionFacturacion ?? '',
   );
   const [direccionEntrega, setDireccionEntrega] = useState(
-    datosDesdeOC?.proveedorDireccionEntrega ?? '',
+    ccBase?.proveedorDireccionEntrega ?? datosDesdeOC?.proveedorDireccionEntrega ?? '',
   );
-  const [tipoComprobante, setTipoComprobante] = useState('01');
-  const [serieProveedor, setSerieProveedor] = useState('');
-  const [numeroProveedor, setNumeroProveedor] = useState('');
+  const [tipoComprobante, setTipoComprobante] = useState(ccBase?.tipoComprobanteProveedor ?? '01');
+  const [serieProveedor, setSerieProveedor] = useState(ccBase?.serieProveedor ?? '');
+  const [numeroProveedor, setNumeroProveedor] = useState(ccBase?.numeroProveedor ?? '');
   const [fechaEmisionProveedor, setFechaEmisionProveedor] = useState(
-    new Date().toISOString().slice(0, 10),
+    ccBase?.fechaEmisionProveedor ?? new Date().toISOString().slice(0, 10),
   );
-  const [fechaVencimiento, setFechaVencimiento] = useState('');
-  const [tipoOperacion, setTipoOperacion] = useState('');
-  const [moneda, setMoneda] = useState<MonedaCompra>(ocOrigen?.moneda ?? monedaDefault);
-  const [tipoCambio, setTipoCambio] = useState(datosDesdeOC?.tipoCambio?.toString() ?? '');
+  const [fechaVencimiento, setFechaVencimiento] = useState(ccBase?.fechaVencimiento ?? '');
+  const [tipoOperacion, setTipoOperacion] = useState(ccBase?.tipoOperacion ?? '');
+  const [moneda, setMoneda] = useState<MonedaCompra>(ccBase?.moneda ?? ocOrigen?.moneda ?? monedaDefault);
+  const [tipoCambio, setTipoCambio] = useState(
+    ccBase?.tipoCambio?.toString() ?? datosDesdeOC?.tipoCambio?.toString() ?? '',
+  );
 
   // Forma de pago: se consume el catálogo real de Configuración de Negocio
   // (config.paymentMethods), nunca un enum local. formaPago 'contado'/'credito'
@@ -104,6 +122,7 @@ export default function FormularioComprobanteCompra({
   // de Compras (CuentaPorPagar.formaPago, reglasCompras.ts).
   const metodosPagoActivos = config.paymentMethods.filter((m) => m.isActive);
   const [formaPagoMetodoId, setFormaPagoMetodoId] = useState(() => {
+    if (ccBase?.formaPagoMetodoId) return ccBase.formaPagoMetodoId;
     const preferido = metodosPagoActivos.find((m) =>
       ocOrigen?.formaPago === 'credito' ? m.code === 'CREDITO' : m.code === 'CONTADO',
     );
@@ -121,17 +140,17 @@ export default function FormularioComprobanteCompra({
     setFormaPagoMetodoId(value);
   }
   const [modalidadInventario, setModalidadInventario] = useState<ModalidadInventarioCC>(
-    datosDesdeOC?.modalidadInventarioSugerida ?? 'con_nota_ingreso',
+    ccBase?.modalidadInventario ?? datosDesdeOC?.modalidadInventarioSugerida ?? 'con_nota_ingreso',
   );
   const [almacenId, setAlmacenId] = useState(almacenesActivos[0]?.id ?? '');
-  const [centroCosto, setCentroCosto] = useState(datosDesdeOC?.centroCosto ?? '');
-  const [presupuesto, setPresupuesto] = useState(datosDesdeOC?.presupuesto ?? '');
-  const [observaciones, setObservaciones] = useState(datosDesdeOC?.observaciones ?? '');
-  const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>([]);
+  const [centroCosto, setCentroCosto] = useState(ccBase?.centroCosto ?? datosDesdeOC?.centroCosto ?? '');
+  const [presupuesto, setPresupuesto] = useState(ccBase?.presupuesto ?? datosDesdeOC?.presupuesto ?? '');
+  const [observaciones, setObservaciones] = useState(ccBase?.observaciones ?? datosDesdeOC?.observaciones ?? '');
+  const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>(ccBase?.adjuntos ?? []);
   const [enviando, setEnviando] = useState(false);
   const [errores, setErrores] = useState<ErrorCampoDocumento[]>([]);
 
-  const lineasCompra = useLineasCompra(datosDesdeOC?.lineas ?? []);
+  const lineasCompra = useLineasCompra(ccBase?.lineas ?? datosDesdeOC?.lineas ?? []);
   const lineas = lineasCompra.lineas;
 
   const totalesCalculados = calcularTotalesLineas(lineas);
@@ -140,10 +159,9 @@ export default function FormularioComprobanteCompra({
   const tipoComprobanteLabel = TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === tipoComprobante)?.nombre;
   const tiposOperacionActivos = listarTiposOperacion().filter((t) => t.activo && t.visible);
 
-  // Cuotas de crédito: reutiliza el mismo configurador/modal que Documentos
-  // Comerciales (useCreditTermsConfigurator + CreditScheduleModal), nunca un
-  // cronograma propio. Se valida suma de cuotas = total y fechas mediante
-  // los `errors` que ya calcula el hook.
+  // Cuotas de crédito: reutiliza el mismo configurador/modal que Orden de
+  // Compra (useCreditTermsConfigurator + CreditScheduleModal), nunca un
+  // cronograma propio.
   const {
     isCreditMethod,
     templates: creditTemplates,
@@ -155,18 +173,106 @@ export default function FormularioComprobanteCompra({
     paymentMethodId: formaPagoMetodoId,
     total: totalesCalculados.total,
     issueDate: fechaEmisionProveedor,
+    initialCreditTerms: ccBase?.creditTerms,
   });
+
+  // La Fecha de vencimiento se calcula desde la última cuota mientras la
+  // forma de pago sea crédito; al pasar a Contado, el campo queda libre
+  // para edición manual (mismo patrón que Orden de Compra).
+  useEffect(() => {
+    if (isCreditMethod && creditTerms?.fechaVencimientoGlobal) {
+      setFechaVencimiento(creditTerms.fechaVencimientoGlobal);
+    }
+  }, [isCreditMethod, creditTerms?.fechaVencimientoGlobal]);
+
+  function construirDatosCC() {
+    return {
+      tipoComprobanteProveedor: tipoComprobante || undefined,
+      serieProveedor: serieProveedor.trim() ? serieProveedor.toUpperCase() : undefined,
+      numeroProveedor: numeroProveedor.trim() || undefined,
+      fechaEmisionProveedor: fechaEmisionProveedor || undefined,
+      fechaRegistro: new Date().toISOString(),
+      fechaVencimiento: fechaVencimiento || undefined,
+      proveedorId: proveedor!.id.toString(),
+      proveedorTipoDocumento: proveedor!.tipoDocumento,
+      proveedorNumeroDocumento: proveedor!.numeroDocumento,
+      proveedorNombre: proveedor!.nombre,
+      proveedorDireccionFacturacion: direccionFacturacion || undefined,
+      proveedorDireccionEntrega: direccionEntrega || undefined,
+      tipoOperacion: tipoOperacion || undefined,
+      compradorId: ccBase?.compradorId ?? session?.userId,
+      compradorNombre: ccBase?.compradorNombre ?? session?.userName,
+      moneda,
+      tipoCambio: tipoCambio ? parseFloat(tipoCambio) : undefined,
+      formaPago,
+      formaPagoMetodoId: formaPagoMetodoId || undefined,
+      condicionesPago: ccBase?.condicionesPago ?? datosDesdeOC?.condicionesPago,
+      creditTerms: isCreditMethod ? creditTerms : undefined,
+      modalidadInventario,
+      centroCosto: centroCosto || undefined,
+      presupuesto: presupuesto || undefined,
+      observaciones: observaciones || undefined,
+      observacionPresupuestal: ccBase?.observacionPresupuestal,
+      lineas: lineas.map((l) => ({
+        ...l,
+        afectaInventario: documentoAfectaInventario,
+        almacenDestinoId: documentoAfectaInventario ? almacenSeleccionado?.id : undefined,
+        almacenDestinoNombre: documentoAfectaInventario ? almacenSeleccionado?.nombreAlmacen : undefined,
+      })),
+      totales: {
+        subtotal: totalesCalculados.subtotal,
+        subtotalExonerado: totalesCalculados.subtotalExonerado,
+        subtotalInafecto: totalesCalculados.subtotalInafecto,
+        descuentoTotal: totalesCalculados.descuentoTotal,
+        igv: totalesCalculados.igv,
+        total: totalesCalculados.total,
+        moneda,
+      },
+      ordenCompraOrigenId: ocOrigen?.id ?? ccBase?.ordenCompraOrigenId,
+      adjuntos,
+    };
+  }
+
+  async function handleGuardarBorrador() {
+    if (!proveedor) {
+      setErrores([{ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor para guardar el borrador.' }]);
+      return;
+    }
+    setErrores([]);
+    setEnviando(true);
+    try {
+      const datos = construirDatosCC();
+      const cc = esBorradorExistente
+        ? await actualizarComprobanteCompraBorrador(ccBase!.id!, datos, session?.userName)
+        : await guardarBorradorCC(datos, session?.userId, session?.userName);
+      if (proveedor) {
+        await persistirProveedorSiEsNuevo(proveedor, createCliente);
+        refrescarProveedores();
+      }
+      feedback.success(esBorradorExistente ? 'Borrador actualizado.' : 'Borrador guardado.');
+      onExito(cc);
+    } catch (e) {
+      const mensaje = e instanceof Error ? e.message : 'Error al guardar el borrador.';
+      setErrores([{ campo: 'general', codigo: 'ERROR_BORRADOR', mensaje }]);
+      feedback.error(mensaje);
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   async function handleSubmit() {
     const nuevosErrores: ErrorCampoDocumento[] = [];
     if (!proveedor) {
       nuevosErrores.push({ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor.' });
     }
+    if (!tipoComprobante) {
+      nuevosErrores.push({ campo: 'tipoComprobanteProveedor', codigo: 'TIPO_COMPROBANTE_REQUERIDO', mensaje: 'Selecciona el tipo de comprobante.' });
+    }
     if (!serieProveedor.trim()) {
-      nuevosErrores.push({ campo: 'serieProveedor', codigo: 'SERIE_PROVEEDOR_REQUERIDA', mensaje: 'Ingresa la serie del comprobante del proveedor.' });
+      nuevosErrores.push({ campo: 'serieProveedor', codigo: 'SERIE_REQUERIDA', mensaje: 'Ingresa la serie del comprobante.' });
     }
     if (!numeroProveedor.trim()) {
-      nuevosErrores.push({ campo: 'numeroProveedor', codigo: 'NUMERO_PROVEEDOR_REQUERIDO', mensaje: 'Ingresa el número del comprobante del proveedor.' });
+      nuevosErrores.push({ campo: 'numeroProveedor', codigo: 'NUMERO_REQUERIDO', mensaje: 'Ingresa el número del comprobante.' });
     }
     if (lineas.length === 0) {
       nuevosErrores.push({ campo: 'lineas', codigo: 'LINEAS_REQUERIDAS', mensaje: 'Agrega al menos una línea.' });
@@ -198,60 +304,18 @@ export default function FormularioComprobanteCompra({
     setErrores([]);
     setEnviando(true);
 
-    const lineasParaRegistrar = lineas.map((l) => ({
-      ...l,
-      afectaInventario: documentoAfectaInventario,
-      almacenDestinoId: documentoAfectaInventario ? almacenSeleccionado?.id : undefined,
-      almacenDestinoNombre: documentoAfectaInventario ? almacenSeleccionado?.nombreAlmacen : undefined,
-    }));
-
     try {
-      const { comprobante, cuentaPorPagar } = await registrarComprobanteCompra(
-        {
-          tipoComprobanteProveedor: tipoComprobante,
-          serieProveedor: serieProveedor.toUpperCase(),
-          numeroProveedor: numeroProveedor.trim(),
-          fechaEmisionProveedor,
-          fechaRegistro: new Date().toISOString(),
-          fechaVencimiento: fechaVencimiento || undefined,
-          proveedorId: proveedor!.id.toString(),
-          proveedorTipoDocumento: proveedor!.tipoDocumento,
-          proveedorNumeroDocumento: proveedor!.numeroDocumento,
-          proveedorNombre: proveedor!.nombre,
-          proveedorDireccionFacturacion: direccionFacturacion || undefined,
-          proveedorDireccionEntrega: direccionEntrega || undefined,
-          tipoOperacion: tipoOperacion || undefined,
-          compradorId: session?.userId,
-          compradorNombre: session?.userName,
-          moneda,
-          tipoCambio: tipoCambio ? parseFloat(tipoCambio) : undefined,
-          formaPago,
-          creditTerms: isCreditMethod ? creditTerms : undefined,
-          modalidadInventario,
-          centroCosto: centroCosto || undefined,
-          presupuesto: presupuesto || undefined,
-          lineas: lineasParaRegistrar,
-          totales: {
-            subtotal: totalesCalculados.subtotal,
-            subtotalExonerado: totalesCalculados.subtotalExonerado,
-            subtotalInafecto: totalesCalculados.subtotalInafecto,
-            descuentoTotal: totalesCalculados.descuentoTotal,
-            igv: totalesCalculados.igv,
-            total: totalesCalculados.total,
-            moneda,
-          },
-          observaciones: observaciones || undefined,
-          ordenCompraOrigenId: ocOrigen?.id,
-          adjuntos,
-        },
-        session?.userId,
-      );
+      const datos = construirDatosCC();
+      const { comprobante, cuentaPorPagar } = esBorradorExistente
+        ? await registrarComprobanteCompraDesdeBorrador(ccBase!.id!, datos, session?.userName)
+        : await registrarComprobanteCompra(datos, session?.userId);
 
       if (proveedor) {
         await persistirProveedorSiEsNuevo(proveedor, createCliente);
         refrescarProveedores();
       }
 
+      feedback.success('Comprobante de compra registrado.');
       onExito(comprobante, cuentaPorPagar);
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : 'Error al registrar el comprobante.';
@@ -266,15 +330,17 @@ export default function FormularioComprobanteCompra({
     <div className="min-h-screen bg-gray-50 pb-24">
       <PageHeader
         breadcrumb={
-          <Breadcrumb items={[{ label: 'Compras', onClick: onCancelar }, { label: 'Registrar comprobante' }]} />
+          <Breadcrumb items={[{ label: 'Compras', onClick: onCancelar }, { label: esBorradorExistente ? 'Editar borrador de comprobante' : 'Registrar comprobante' }]} />
         }
         title={
           <div className="flex items-center gap-2.5">
             <div>
-              <h1 className="text-lg font-semibold text-gray-900 leading-tight">Registrar Comprobante de Compra</h1>
-              <p className="text-xs text-gray-500">
-                {ocOrigen ? `Desde OC: ${ocOrigen.numero}` : 'Registra el documento recibido del proveedor'}
-              </p>
+              <h1 className="text-lg font-semibold text-gray-900 leading-tight">
+                {esBorradorExistente ? 'Editar Borrador de Comprobante' : 'Registrar Comprobante de Compra'}
+              </h1>
+              {ocOrigen && (
+                <p className="text-xs text-gray-500">Desde OC: {formatearNumeroCompra(ocOrigen.serie, ocOrigen.correlativo)}</p>
+              )}
             </div>
             {tipoComprobanteLabel && (
               <span className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-0.5 rounded">
@@ -366,12 +432,13 @@ export default function FormularioComprobanteCompra({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Serie</label>
+                    <label className="text-sm font-medium text-gray-700" title="Serie del comprobante emitido por el proveedor (máx. 4 caracteres)">Serie</label>
                     <input
                       type="text"
                       value={serieProveedor}
-                      onChange={(e) => setSerieProveedor(e.target.value)}
-                      placeholder="F001"
+                      onChange={(e) => setSerieProveedor(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
+                      maxLength={4}
+                      placeholder={obtenerPlaceholderSerieDocumentoProveedor(tipoComprobante)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
@@ -379,12 +446,13 @@ export default function FormularioComprobanteCompra({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Número</label>
+                    <label className="text-sm font-medium text-gray-700" title="Número del comprobante emitido por el proveedor, tal como aparece en el documento">Número</label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={numeroProveedor}
-                      onChange={(e) => setNumeroProveedor(e.target.value)}
-                      placeholder="00000001"
+                      onChange={(e) => setNumeroProveedor(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Ej: 123"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
@@ -406,7 +474,9 @@ export default function FormularioComprobanteCompra({
                       type="date"
                       value={fechaVencimiento}
                       onChange={(e) => setFechaVencimiento(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      readOnly={isCreditMethod}
+                      title={isCreditMethod ? 'Calculada automáticamente desde la última cuota del cronograma de crédito' : undefined}
+                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isCreditMethod ? 'bg-gray-50 text-gray-600' : ''}`}
                     />
                   </div>
                   <div className="space-y-1">
@@ -444,7 +514,7 @@ export default function FormularioComprobanteCompra({
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Base imponible de compra</label>
                   <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600 font-mono">
-                    {totalesCalculados.subtotal.toFixed(2)} {moneda}
+                    {formatMoney(totalesCalculados.subtotal, moneda)}
                   </div>
                 </div>
 
@@ -483,21 +553,10 @@ export default function FormularioComprobanteCompra({
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Comprador</label>
                     <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
-                      {session?.userName || 'Usuario no identificado'}
+                      {ccBase?.compradorNombre ?? session?.userName ?? 'Usuario no identificado'}
                     </div>
                   </div>
                 </div>
-
-                {isCreditMethod && (
-                  <CreditScheduleSummaryCard
-                    creditTerms={creditTerms}
-                    currency={moneda}
-                    total={totalesCalculados.total}
-                    onConfigure={() => setCreditScheduleModalOpen(true)}
-                    errors={creditErrors}
-                    paymentMethodName={metodoPagoSeleccionado?.name}
-                  />
-                )}
 
                 <SelectorModalidadInventario
                   modalidad={modalidadInventario}
@@ -543,6 +602,22 @@ export default function FormularioComprobanteCompra({
           totalesCalculados={totalesCalculados}
         />
 
+        {/* Cronograma de crédito: solo programación, sin estados de pago (aún no está registrado) */}
+        {isCreditMethod && (
+          <FormSectionCard titulo="Cronograma de crédito">
+            <CreditScheduleSummaryCard
+              creditTerms={creditTerms}
+              currency={moneda}
+              total={totalesCalculados.total}
+              onConfigure={() => setCreditScheduleModalOpen(true)}
+              errors={creditErrors}
+              paymentMethodName={metodoPagoSeleccionado?.name}
+              context="emision"
+              showStatusColumn={false}
+            />
+          </FormSectionCard>
+        )}
+
         {/* Observaciones */}
         <CollapsibleNotes observaciones={observaciones} onCambiarObservaciones={setObservaciones} />
 
@@ -552,26 +627,27 @@ export default function FormularioComprobanteCompra({
             adjuntos={adjuntos}
             tiposPermitidos={['factura_proveedor', 'guia_remision', 'cotizacion_proveedor', 'contrato', 'otro']}
             cargadoPor={session?.userName}
-            onAgregar={(a) => setAdjuntos((prev) => [...prev, a])}
-            onEliminar={(id) => setAdjuntos((prev) => prev.filter((a) => a.id !== id))}
+            permiteEliminar={!ccBase?.id || puedeEditarCC(ccBase as ComprobanteCompra)}
+            onAgregar={(a) => {
+              setAdjuntos((prev) => [...prev, a]);
+              feedback.success('Adjunto agregado.');
+            }}
+            onEliminar={(id) => {
+              setAdjuntos((prev) => prev.filter((a) => a.id !== id));
+              feedback.success('Adjunto eliminado.');
+            }}
           />
         </FormSectionCard>
       </div>
 
-      <DocumentFormFooter
-        infoIzquierda={
-          <>
-            {lineas.length} ítem(s) · Total:{' '}
-            <span className="font-semibold text-gray-700">
-              {totalesCalculados.total.toFixed(2)} {moneda}
-            </span>
-          </>
-        }
+      <ActionButtonsSection
         onCancelar={onCancelar}
-        onSubmit={handleSubmit}
-        textoBotonPrimario="Registrar CC"
-        deshabilitado={enviando}
-        cargando={enviando}
+        onGuardarBorrador={handleGuardarBorrador}
+        primaryAction={{
+          label: enviando ? 'Guardando...' : 'Registrar comprobante',
+          onClick: handleSubmit,
+          disabled: enviando,
+        }}
       />
 
       <FieldsConfigurationModal

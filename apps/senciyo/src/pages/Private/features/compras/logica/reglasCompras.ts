@@ -1,5 +1,5 @@
 import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
-import type { ComprobanteCompra, EstadoPagoCC } from '../modelos/ComprobanteCompra';
+import type { ComprobanteCompra, EstadoPagoCC, EstadoPrincipalCC } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
 import type { LineaCompra, TipoAfectacionCompra } from '../modelos/LineaCompra';
@@ -120,12 +120,43 @@ export function puedeCerrarOC(oc: OrdenCompra): boolean {
 }
 
 /**
+ * Único estado principal vigente del CC, derivado de sus dimensiones internas
+ * (estadoDocumento, relación con Nota de Ingreso). Un CC anulado nunca vuelve
+ * a mostrar "Registrado"; "Convertido" exige una relación real persistida
+ * (Nota de Ingreso generada), no solo una acción disparada.
+ */
+export function calcularEstadoPrincipalCC(cc: ComprobanteCompra): EstadoPrincipalCC {
+  if (cc.estadoDocumento === 'anulado') return 'Anulado';
+  if (cc.estadoDocumento === 'borrador') return 'Borrador';
+  if ((cc.notasIngresoRelacionadas?.length ?? 0) > 0) return 'Convertido';
+  return 'Registrado';
+}
+
+/** Única lista de estados principales, reutilizada por el filtro del listado (no crear un array paralelo). */
+export const ESTADOS_PRINCIPALES_CC: EstadoPrincipalCC[] = ['Borrador', 'Registrado', 'Anulado', 'Convertido'];
+
+/** Un CC en Borrador es siempre editable; una vez registrado, esta ronda no soporta edición (solo Anular/Duplicar). */
+export function puedeEditarCC(cc: ComprobanteCompra): boolean {
+  return calcularEstadoPrincipalCC(cc) === 'Borrador';
+}
+
+export function puedeEliminarBorradorCC(cc: ComprobanteCompra): boolean {
+  return calcularEstadoPrincipalCC(cc) === 'Borrador';
+}
+
+/** Disponibilidad de imprimir/PDF: no aplica a borradores (documento aún no registrado formalmente). Única fuente para listado y drawer. */
+export function puedeImprimirCC(cc: ComprobanteCompra): boolean {
+  return calcularEstadoPrincipalCC(cc) !== 'Borrador';
+}
+
+/**
  * Determina si un comprobante de compra puede anularse, o el motivo puntual
  * del bloqueo. No puede anularse si ya tiene pagos aplicados (estadoPago
  * distinto de 'pendiente') ni si ya tiene una nota de ingreso o movimiento de
  * inventario relacionado.
  */
 export function motivoBloqueoAnulacionCC(cc: ComprobanteCompra): string | null {
+  if (cc.estadoDocumento === 'borrador') return 'Los borradores se eliminan, no se anulan.';
   if (cc.estadoDocumento === 'anulado') return 'El comprobante de compra ya se encuentra anulado.';
   if (cc.estadoDocumento !== 'registrado') {
     return 'Solo se puede anular un comprobante de compra registrado.';
@@ -160,17 +191,18 @@ export function puedeAnularPago(pago: PagoCompra): boolean {
 }
 
 /**
- * Resuelve el nombre específico de la forma de pago de una OC (nombre real
- * del método de Configuración → Formas de pago, o el snapshot de
- * condicionesPago si ya lo tiene grabado), en vez de reducir a "Contado"/
- * "Crédito" genérico. Única fuente para drawer, listado e impresión.
+ * Resuelve el nombre específico de la forma de pago de un documento de
+ * Compras (OC o CC): nombre real del método de Configuración → Formas de
+ * pago, o el snapshot de condicionesPago si ya lo tiene grabado, en vez de
+ * reducir a "Contado"/"Crédito" genérico. Única fuente para drawer, listado
+ * e impresión de ambos documentos.
  */
-export function resolverNombreFormaPagoOC(
-  oc: Pick<OrdenCompra, 'formaPago' | 'formaPagoMetodoId' | 'condicionesPago'>,
+export function resolverNombreFormaPago(
+  documento: { formaPago: 'contado' | 'credito'; formaPagoMetodoId?: string; condicionesPago?: string },
   metodosPago: Array<{ id: string; name: string }>,
 ): string {
-  const metodo = metodosPago.find((m) => m.id === oc.formaPagoMetodoId);
-  return metodo?.name ?? oc.condicionesPago ?? (oc.formaPago === 'contado' ? 'Contado' : 'Crédito');
+  const metodo = metodosPago.find((m) => m.id === documento.formaPagoMetodoId);
+  return metodo?.name ?? documento.condicionesPago ?? (documento.formaPago === 'contado' ? 'Contado' : 'Crédito');
 }
 
 /**

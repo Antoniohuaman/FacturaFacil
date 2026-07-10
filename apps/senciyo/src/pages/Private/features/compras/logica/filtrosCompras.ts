@@ -1,8 +1,8 @@
 import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
-import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
+import type { ComprobanteCompra, EstadoPrincipalCC } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
-import { calcularEstadoPrincipalOC } from './reglasCompras';
+import { calcularEstadoPrincipalOC, calcularEstadoPrincipalCC } from './reglasCompras';
 
 /** Fecha real en que la OC quedó registrada (distinta de fechaEmision, que es declarada). Sin registrar aún → null. Única fuente, reutilizada por el filtro de fechas y por la columna "F. Registro". */
 export function obtenerFechaRegistroOC(oc: OrdenCompra): string | null {
@@ -74,15 +74,29 @@ export function filtrarOrdenesCompra(
   });
 }
 
-export interface FiltrosCC {
-  busqueda?: string;
-  estadoDocumento?: string;
-  estadoPago?: string;
-  proveedorId?: string;
-  fechaDesde?: string;
-  fechaHasta?: string;
+export type CampoFechaFiltroCC = 'fechaEmisionProveedor' | 'fechaRegistro' | 'fechaVencimiento';
+
+/** Normaliza cualquier fecha del CC al prefijo `YYYY-MM-DD`, para comparar sin drift de zona horaria. */
+function obtenerValorFechaCC(cc: ComprobanteCompra, campo: CampoFechaFiltroCC): string | null {
+  if (campo === 'fechaVencimiento') return cc.fechaVencimiento ? cc.fechaVencimiento.slice(0, 10) : null;
+  if (campo === 'fechaRegistro') return cc.fechaRegistro ? cc.fechaRegistro.slice(0, 10) : null;
+  return cc.fechaEmisionProveedor ? cc.fechaEmisionProveedor.slice(0, 10) : null;
 }
 
+export interface FiltrosCC {
+  busqueda?: string;
+  estadoPrincipal?: EstadoPrincipalCC | '';
+  proveedorId?: string;
+  campoFecha?: CampoFechaFiltroCC;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  tipoComprobanteProveedor?: string;
+  formaPagoMetodoId?: string;
+  moneda?: string;
+  documentoRelacionado?: 'todos' | 'con' | 'sin';
+}
+
+/** Único filtro combinado de CC (AND entre todos los criterios activos), mismo patrón que filtrarOrdenesCompra. */
 export function filtrarComprobantesCompra(
   comprobantes: ComprobanteCompra[],
   filtros: FiltrosCC,
@@ -90,19 +104,30 @@ export function filtrarComprobantesCompra(
   return comprobantes.filter((cc) => {
     if (filtros.busqueda) {
       const q = filtros.busqueda.toLowerCase();
-      const numero = `${cc.serieProveedor}-${cc.numeroProveedor}`;
       if (
-        !numero.toLowerCase().includes(q) &&
+        !(cc.serieProveedor ?? '').toLowerCase().includes(q) &&
+        !(cc.numeroProveedor ?? '').toLowerCase().includes(q) &&
         !cc.proveedorNombre.toLowerCase().includes(q) &&
         !cc.proveedorNumeroDocumento.toLowerCase().includes(q)
       )
         return false;
     }
-    if (filtros.estadoDocumento && cc.estadoDocumento !== filtros.estadoDocumento) return false;
-    if (filtros.estadoPago && cc.estadoPago !== filtros.estadoPago) return false;
+    if (filtros.estadoPrincipal && calcularEstadoPrincipalCC(cc) !== filtros.estadoPrincipal) return false;
     if (filtros.proveedorId && cc.proveedorId !== filtros.proveedorId) return false;
-    if (filtros.fechaDesde && cc.fechaEmisionProveedor < filtros.fechaDesde) return false;
-    if (filtros.fechaHasta && cc.fechaEmisionProveedor > filtros.fechaHasta) return false;
+    if (filtros.fechaDesde || filtros.fechaHasta) {
+      const valor = obtenerValorFechaCC(cc, filtros.campoFecha ?? 'fechaEmisionProveedor');
+      if (!valor) return false;
+      if (filtros.fechaDesde && valor < filtros.fechaDesde) return false;
+      if (filtros.fechaHasta && valor > filtros.fechaHasta) return false;
+    }
+    if (filtros.tipoComprobanteProveedor && cc.tipoComprobanteProveedor !== filtros.tipoComprobanteProveedor) return false;
+    if (filtros.formaPagoMetodoId && cc.formaPagoMetodoId !== filtros.formaPagoMetodoId) return false;
+    if (filtros.moneda && cc.moneda !== filtros.moneda) return false;
+    if (filtros.documentoRelacionado && filtros.documentoRelacionado !== 'todos') {
+      const tieneRelacionado = Boolean(cc.ordenCompraOrigenId);
+      if (filtros.documentoRelacionado === 'con' && !tieneRelacionado) return false;
+      if (filtros.documentoRelacionado === 'sin' && tieneRelacionado) return false;
+    }
     return true;
   });
 }

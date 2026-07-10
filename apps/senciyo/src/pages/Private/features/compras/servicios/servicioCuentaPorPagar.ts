@@ -16,8 +16,8 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
   return {
     id,
     comprobanteCompraId: cc.id,
-    comprobanteCompraNumero: `${cc.serieProveedor}-${cc.numeroProveedor}`,
-    tipoComprobanteOrigen: cc.tipoComprobanteProveedor,
+    comprobanteCompraNumero: `${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}`,
+    tipoComprobanteOrigen: cc.tipoComprobanteProveedor ?? '',
     proveedorId: cc.proveedorId,
     proveedorNombre: cc.proveedorNombre,
     proveedorNumeroDocumento: cc.proveedorNumeroDocumento,
@@ -29,7 +29,7 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
     formaPago: cc.formaPago,
     // La fecha de emisión de la CxP es la fecha real del comprobante del
     // proveedor, no la fecha en que se registró en SenciYo.
-    fechaEmision: cc.fechaEmisionProveedor,
+    fechaEmision: cc.fechaEmisionProveedor ?? cc.fechaRegistro,
     fechaVencimiento,
     cuotas: generarCuotasDesdeCC(cc),
     estadoPago: 'pendiente',
@@ -39,7 +39,7 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
       {
         fecha: cc.fechaRegistro,
         accion: 'Cuenta por pagar generada',
-        detalle: `Desde comprobante ${cc.serieProveedor}-${cc.numeroProveedor}`,
+        detalle: `Desde comprobante ${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}`,
       },
     ],
     fechaCreacion: cc.fechaRegistro,

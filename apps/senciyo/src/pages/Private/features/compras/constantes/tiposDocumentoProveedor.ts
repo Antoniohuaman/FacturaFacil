@@ -28,3 +28,10 @@ export const TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO: Record<string, TipoDocumentoP
 export function getNombreTipoDocumentoProveedor(codigo: string): string {
   return TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO[codigo]?.nombre ?? codigo;
 }
+
+/** Placeholder de serie coherente con el tipo de comprobante elegido (ej. "F001", "BV01", "RH01") — máximo 4 caracteres, sin dispersar esta regla en el JSX del formulario. */
+export function obtenerPlaceholderSerieDocumentoProveedor(codigo: string): string {
+  const nombreCorto = TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO[codigo]?.nombreCorto ?? 'S';
+  const ceros = Math.max(0, 4 - nombreCorto.length - 1);
+  return `${nombreCorto}${'0'.repeat(ceros)}1`.slice(0, 4);
+}

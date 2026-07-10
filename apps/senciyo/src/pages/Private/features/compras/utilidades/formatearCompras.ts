@@ -8,6 +8,18 @@ export function formatearNumeroCompra(serie: string, correlativo: string | numbe
   return `${serie}-${corr}`;
 }
 
+/** Identidad visible del documento del proveedor: "serie-número" cuando ambos existen; si falta (borrador aún sin el documento del proveedor cargado), usa el tipo de comprobante (o "Comprobante") + "sin número". */
+export function formatearNumeroComprobanteCompra(cc: {
+  tipoComprobanteProveedor?: string;
+  serieProveedor?: string;
+  numeroProveedor?: string;
+}): string {
+  if (cc.serieProveedor && cc.numeroProveedor) {
+    return `${cc.serieProveedor}-${cc.numeroProveedor}`;
+  }
+  return `${cc.tipoComprobanteProveedor ?? 'Comprobante'} sin número`;
+}
+
 export function formatearFechaCompra(isoDate: string): string {
   if (!isoDate) return '—';
   const partes = isoDate.split('T')[0].split('-');

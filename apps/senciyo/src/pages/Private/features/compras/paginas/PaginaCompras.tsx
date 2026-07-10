@@ -6,14 +6,15 @@ import { useUserSession } from '@/contexts/UserSessionContext';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useFeedback } from '@/shared/feedback';
-import { resolverNombreFormaPagoOC, calcularEstadoPrincipalOC } from '../logica/reglasCompras';
-import { formatearNumeroCompra } from '../utilidades/formatearCompras';
+import { resolverNombreFormaPago, calcularEstadoPrincipalOC } from '../logica/reglasCompras';
+import { formatearNumeroCompra, formatearNumeroComprobanteCompra } from '../utilidades/formatearCompras';
 import {
   imprimirOrdenCompra,
   compartirOrdenCompraPorWhatsApp,
   prepararDuplicadoOC,
   type EmpresaOC,
 } from '../servicios/servicioOrdenCompra';
+import { imprimirComprobanteCompra, prepararDuplicadoCC } from '../servicios/servicioComprobanteCompra';
 import TablaOrdenesCompra from '../componentes/listados/TablaOrdenesCompra';
 import TablaComprobantesCompra from '../componentes/listados/TablaComprobantesCompra';
 import TablaCuentasPorPagar from '../componentes/listados/TablaCuentasPorPagar';
@@ -41,7 +42,8 @@ type Vista =
   | { tipo: 'lista' }
   | { tipo: 'nueva_oc'; ocBase?: Partial<OrdenCompra> }
   | { tipo: 'editar_oc'; ocId: string }
-  | { tipo: 'nuevo_cc'; ocOrigen?: OrdenCompra }
+  | { tipo: 'nuevo_cc'; ocOrigen?: OrdenCompra; ccBase?: Partial<ComprobanteCompra> }
+  | { tipo: 'editar_cc'; ccId: string }
   | { tipo: 'detalle_oc'; ocId: string }
   | { tipo: 'detalle_cc'; ccId: string }
   | { tipo: 'detalle_cxp'; cxpId: string }
@@ -63,8 +65,11 @@ export default function PaginaCompras() {
     eliminarOrdenCompraBorrador,
     registrarOrdenCompraDesdeBorrador,
     anularComprobanteCompra,
+    eliminarComprobanteCompraBorrador,
+    registrarComprobanteCompraDesdeBorrador,
     anularPagoCompra,
     agregarEventoHistorialOC,
+    agregarEventoHistorialCC,
     recargarDatos,
   } = useCompras();
   const { session } = useUserSession();
@@ -89,7 +94,7 @@ export default function PaginaCompras() {
     : undefined;
 
   function handleImprimir(oc: OrdenCompra) {
-    const nombreFormaPago = resolverNombreFormaPagoOC(oc, config.paymentMethods);
+    const nombreFormaPago = resolverNombreFormaPago(oc, config.paymentMethods);
     void imprimirOrdenCompra(oc, empresaImpresion, nombreFormaPago);
   }
 
@@ -136,6 +141,42 @@ export default function PaginaCompras() {
     }
   }
 
+  function handleImprimirCC(cc: ComprobanteCompra) {
+    const nombreFormaPago = resolverNombreFormaPago(cc, config.paymentMethods);
+    void imprimirComprobanteCompra(cc, empresaImpresion, nombreFormaPago);
+  }
+
+  async function handleEliminarBorradorCC(cc: ComprobanteCompra) {
+    const numero = formatearNumeroComprobanteCompra(cc);
+    if (!window.confirm(`¿Eliminar el borrador ${numero}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await eliminarComprobanteCompraBorrador(cc.id);
+      feedback.success('Borrador eliminado.');
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo eliminar el borrador.');
+    }
+  }
+
+  async function handleRegistrarBorradorCC(cc: ComprobanteCompra) {
+    try {
+      await registrarComprobanteCompraDesdeBorrador(cc.id, undefined, usuarioNombre);
+      feedback.success('Comprobante de compra registrado.');
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo registrar el comprobante.');
+    }
+  }
+
+  function handleDuplicarCC(cc: ComprobanteCompra) {
+    try {
+      const datos = prepararDuplicadoCC(cc);
+      void agregarEventoHistorialCC(cc.id, 'Comprobante duplicado', undefined, usuarioNombre);
+      feedback.success('Comprobante duplicado como borrador.');
+      setVista({ tipo: 'nuevo_cc', ccBase: datos });
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo duplicar el comprobante.');
+    }
+  }
+
   if (vista.tipo === 'nueva_oc') {
     return (
       <FormularioOrdenCompra
@@ -167,13 +208,22 @@ export default function PaginaCompras() {
     return (
       <FormularioComprobanteCompra
         ocOrigen={vista.ocOrigen}
+        ccBase={vista.ccBase}
         onExito={(cc) => {
-          const numeroCC = `${cc.serieProveedor}-${cc.numeroProveedor}`;
-          feedback.success(
-            vista.ocOrigen
-              ? `Comprobante ${numeroCC} generado. Orden de compra convertida.`
-              : `Comprobante ${numeroCC} registrado.`,
-          );
+          setVista({ tipo: 'detalle_cc', ccId: cc.id });
+          setTabActivo('comprobantes');
+        }}
+        onCancelar={() => setVista({ tipo: 'lista' })}
+      />
+    );
+  }
+
+  if (vista.tipo === 'editar_cc') {
+    const ccBase = state.comprobantes.find((c) => c.id === vista.ccId);
+    return (
+      <FormularioComprobanteCompra
+        ccBase={ccBase}
+        onExito={(cc) => {
           setVista({ tipo: 'detalle_cc', ccId: cc.id });
           setTabActivo('comprobantes');
         }}
@@ -288,9 +338,19 @@ export default function PaginaCompras() {
         {tabActivo === 'comprobantes' && (
           <TablaComprobantesCompra
             comprobantes={state.comprobantes}
+            ordenes={state.ordenes}
+            cargando={state.cargando}
+            errorCarga={state.errorCarga}
             onVer={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
+            onEditar={(cc) => setVista({ tipo: 'editar_cc', ccId: cc.id })}
+            onEliminarBorrador={handleEliminarBorradorCC}
+            onRegistrarBorrador={handleRegistrarBorradorCC}
             onAnular={(cc) => setCcParaAnular(cc)}
+            onDuplicar={handleDuplicarCC}
+            onImprimir={handleImprimirCC}
+            onVerOC={(ocId) => setVista({ tipo: 'detalle_oc', ocId })}
             onNuevo={() => setVista({ tipo: 'nuevo_cc' })}
+            onActualizar={recargarDatos}
           />
         )}
 
@@ -341,6 +401,11 @@ export default function PaginaCompras() {
           onVerOrdenCompra={(oc) => setVista({ tipo: 'detalle_oc', ocId: oc.id })}
           onVerCuentaPorPagar={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
           onVerPago={(pago) => setVista({ tipo: 'detalle_pago', pagoId: pago.id })}
+          onEditar={(cc) => setVista({ tipo: 'editar_cc', ccId: cc.id })}
+          onDuplicar={handleDuplicarCC}
+          onAnular={(cc) => setCcParaAnular(cc)}
+          onImprimir={handleImprimirCC}
+          onEliminarBorrador={handleEliminarBorradorCC}
         />
       )}
 
@@ -398,7 +463,7 @@ export default function PaginaCompras() {
       <ModalAnularCompra
         abierto={ccParaAnular !== null}
         titulo="Anular Comprobante de Compra"
-        descripcion={`¿Confirmas la anulación del comprobante ${ccParaAnular ? `${ccParaAnular.serieProveedor}-${ccParaAnular.numeroProveedor}` : ''}? Se anulará también la cuenta por pagar asociada.`}
+        descripcion={`¿Confirmas la anulación del comprobante ${ccParaAnular ? formatearNumeroComprobanteCompra(ccParaAnular) : ''}? Se anulará también la cuenta por pagar asociada.`}
         motivos={[...MOTIVOS_ANULACION_CC]}
         onConfirmar={async (motivo) => {
           if (ccParaAnular) {

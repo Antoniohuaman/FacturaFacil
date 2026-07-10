@@ -8,7 +8,7 @@ import type { CuotaCuentaPorPagar } from '../modelos/CuentaPorPagar';
  * fecha de emisión del documento del proveedor como vencimiento.
  */
 export function resolverFechaVencimientoCxP(cc: ComprobanteCompra): string {
-  return cc.fechaVencimiento || cc.fechaEmisionProveedor;
+  return cc.fechaVencimiento || cc.fechaEmisionProveedor || cc.fechaRegistro;
 }
 
 /**
