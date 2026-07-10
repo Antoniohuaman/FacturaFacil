@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { SlidersHorizontal, Trash2 } from 'lucide-react';
 import { Tooltip, TablaLineasDocumento, BadgeStock, BadgeImpuesto, type ColumnaTablaLineas } from '@/shared/ui';
 import { formatMoney } from '@/shared/currency';
-import { formatearEtiquetaImpuesto, type TotalesLineasCompra } from '../../logica/reglasCompras';
+import {
+  formatearEtiquetaImpuesto,
+  construirFilasResumenTributarioCompra,
+  type TotalesLineasCompra,
+} from '../../logica/reglasCompras';
 import type { LineaCompra } from '../../modelos/LineaCompra';
 import type { UseLineasCompraResultado } from './useLineasCompra';
 import ProductSelector from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
@@ -261,7 +265,7 @@ export default function SeccionProductosCompra({
 
       case 'subtotal':
         return (
-          <td className="px-3 py-2.5 text-right text-xs text-gray-700">{linea.subtotal.toFixed(2)}</td>
+          <td className="px-3 py-2.5 text-right text-xs text-gray-700">{formatMoney(linea.subtotal, moneda)}</td>
         );
 
       case 'total':
@@ -269,7 +273,7 @@ export default function SeccionProductosCompra({
           <td
             className={`px-3 py-2.5 text-right text-xs font-semibold ${linea.total < 0 ? 'text-red-600' : 'text-gray-900'}`}
           >
-            {linea.total.toFixed(2)}
+            {formatMoney(linea.total, moneda)}
           </td>
         );
 
@@ -369,12 +373,6 @@ export default function SeccionProductosCompra({
         <div className="flex justify-end">
           <div className="w-80 bg-white rounded-lg border border-gray-200 p-3 shadow-sm md:sticky md:top-4">
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="text-gray-700 font-medium">
-                  {formatMoney(totalesCalculados.subtotal, moneda)}
-                </span>
-              </div>
               {totalesCalculados.descuentoTotal > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-600">Descuentos</span>
@@ -383,13 +381,13 @@ export default function SeccionProductosCompra({
                   </span>
                 </div>
               )}
-              {totalesCalculados.impuestos.map((grupo) => (
-                <div key={`${grupo.tipoAfectacion}-${grupo.tasaIgv}`} className="flex justify-between items-center text-sm">
-                  <span className={grupo.tipoAfectacion === 'sin_configurar' ? 'text-red-600 font-medium' : 'text-gray-600'}>
-                    {grupo.etiqueta}
+              {construirFilasResumenTributarioCompra(totalesCalculados).map((fila) => (
+                <div key={fila.clave} className="flex justify-between items-center text-sm">
+                  <span className={fila.advertencia ? 'text-red-600 font-medium' : 'text-gray-600'}>
+                    {fila.etiqueta}
                   </span>
-                  <span className={grupo.tipoAfectacion === 'sin_configurar' ? 'text-red-600 font-medium' : 'text-gray-700 font-medium'}>
-                    {formatMoney(grupo.monto > 0 ? grupo.monto : grupo.baseImponible, moneda)}
+                  <span className={fila.advertencia ? 'text-red-600 font-medium' : 'text-gray-700 font-medium'}>
+                    {formatMoney(fila.monto, moneda)}
                   </span>
                 </div>
               ))}

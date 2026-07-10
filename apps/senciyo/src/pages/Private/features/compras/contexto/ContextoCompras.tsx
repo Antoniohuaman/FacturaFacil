@@ -298,6 +298,20 @@ interface ContextoComprasTipo {
     usuarioNombre?: string,
   ): Promise<OrdenCompra>;
 
+  /**
+   * Añade una entrada de auditoría al historial sin tocar ningún campo de
+   * estado — por eso funciona desde cualquier estado (incluida Anulada o
+   * Convertida), a diferencia de actualizarOrdenCompra que sí exige guardas
+   * de transición. Se usa para dejar constancia de "Orden duplicada" en el
+   * documento original.
+   */
+  agregarEventoHistorialOC(
+    id: string,
+    accion: string,
+    detalle?: string,
+    usuario?: string,
+  ): Promise<void>;
+
   registrarComprobanteCompra(
     datos: Omit<
       ComprobanteCompra,
@@ -682,6 +696,24 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       return actualizada;
     },
     [state.ordenes, monedaBase],
+  );
+
+  const agregarEventoHistorialOC = useCallback(
+    async (id: string, accion: string, detalle?: string, usuario?: string): Promise<void> => {
+      const existente = state.ordenes.find((o) => o.id === id);
+      if (!existente) throw new Error(`Orden de compra ${id} no encontrada.`);
+
+      const ts = ahora();
+      const actualizada: OrdenCompra = {
+        ...existente,
+        historial: [...existente.historial, { fecha: ts, usuario, accion, detalle: detalle ?? '' }],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarOC(actualizada);
+      dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
+    },
+    [state.ordenes],
   );
 
   // -------------------------------------------------------------------------
@@ -1106,6 +1138,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         registrarOrdenCompraDesdeBorrador,
         eliminarOrdenCompraBorrador,
         actualizarOrdenCompra,
+        agregarEventoHistorialOC,
         registrarComprobanteCompra,
         anularComprobanteCompra,
         registrarPagoCompra,

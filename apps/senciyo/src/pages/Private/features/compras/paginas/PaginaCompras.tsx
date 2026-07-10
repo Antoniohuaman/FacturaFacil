@@ -8,7 +8,12 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { useFeedback } from '@/shared/feedback';
 import { resolverNombreFormaPagoOC, calcularEstadoPrincipalOC } from '../logica/reglasCompras';
 import { formatearNumeroCompra } from '../utilidades/formatearCompras';
-import { imprimirOrdenCompra, compartirOrdenCompraPorWhatsApp, type EmpresaOC } from '../servicios/servicioOrdenCompra';
+import {
+  imprimirOrdenCompra,
+  compartirOrdenCompraPorWhatsApp,
+  prepararDuplicadoOC,
+  type EmpresaOC,
+} from '../servicios/servicioOrdenCompra';
 import TablaOrdenesCompra from '../componentes/listados/TablaOrdenesCompra';
 import TablaComprobantesCompra from '../componentes/listados/TablaComprobantesCompra';
 import TablaCuentasPorPagar from '../componentes/listados/TablaCuentasPorPagar';
@@ -34,7 +39,7 @@ type TabActivo = 'ordenes' | 'comprobantes' | 'cuentas_por_pagar' | 'pagos';
 
 type Vista =
   | { tipo: 'lista' }
-  | { tipo: 'nueva_oc' }
+  | { tipo: 'nueva_oc'; ocBase?: Partial<OrdenCompra> }
   | { tipo: 'editar_oc'; ocId: string }
   | { tipo: 'nuevo_cc'; ocOrigen?: OrdenCompra }
   | { tipo: 'detalle_oc'; ocId: string }
@@ -59,6 +64,7 @@ export default function PaginaCompras() {
     registrarOrdenCompraDesdeBorrador,
     anularComprobanteCompra,
     anularPagoCompra,
+    agregarEventoHistorialOC,
   } = useCompras();
   const { session } = useUserSession();
   const { activeWorkspace } = useTenant();
@@ -118,9 +124,21 @@ export default function PaginaCompras() {
     }
   }
 
+  function handleDuplicar(oc: OrdenCompra) {
+    try {
+      const datos = prepararDuplicadoOC(oc);
+      void agregarEventoHistorialOC(oc.id, 'Orden duplicada', undefined, usuarioNombre);
+      feedback.success('Orden duplicada como borrador.');
+      setVista({ tipo: 'nueva_oc', ocBase: datos });
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo duplicar la orden.');
+    }
+  }
+
   if (vista.tipo === 'nueva_oc') {
     return (
       <FormularioOrdenCompra
+        ocBase={vista.ocBase}
         onExito={(oc) => {
           setVista({ tipo: 'detalle_oc', ocId: oc.id });
           setTabActivo('ordenes');
@@ -258,6 +276,7 @@ export default function PaginaCompras() {
             onImprimir={handleImprimir}
             onEnviar={handleEnviar}
             onNueva={() => setVista({ tipo: 'nueva_oc' })}
+            onDuplicar={handleDuplicar}
           />
         )}
 
@@ -299,6 +318,7 @@ export default function PaginaCompras() {
           onImprimir={handleImprimir}
           onEnviar={handleEnviar}
           onEditar={(oc) => setVista({ tipo: 'editar_oc', ocId: oc.id })}
+          onDuplicar={handleDuplicar}
         />
       )}
 

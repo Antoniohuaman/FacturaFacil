@@ -13,6 +13,7 @@ import {
   Printer,
   Download,
   Link2,
+  Copy,
 } from 'lucide-react';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
@@ -45,6 +46,7 @@ interface TablaOrdenesCompraProps {
   onGenerarCC: (oc: OrdenCompra) => void;
   onImprimir: (oc: OrdenCompra) => void;
   onEnviar: (oc: OrdenCompra) => void;
+  onDuplicar: (oc: OrdenCompra) => void;
   onNueva: () => void;
 }
 
@@ -214,6 +216,7 @@ export default function TablaOrdenesCompra({
   onGenerarCC,
   onImprimir,
   onEnviar,
+  onDuplicar,
   onNueva,
 }: TablaOrdenesCompraProps) {
   const { state: config } = useConfigurationContext();
@@ -474,7 +477,14 @@ export default function TablaOrdenesCompra({
                     onClick={() => onVer(oc)}
                   >
                     <td className="px-4 py-3 font-mono font-medium text-gray-900">
-                      {formatearNumeroCompra(oc.serie, oc.correlativo || undefined)}
+                      {oc.correlativo ? (
+                        formatearNumeroCompra(oc.serie, oc.correlativo)
+                      ) : (
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="font-semibold">{oc.serie}</span>
+                          <span className="text-xs font-normal text-gray-400">sin correlativo</span>
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900 truncate max-w-[180px]">
@@ -529,6 +539,11 @@ export default function TablaOrdenesCompra({
             icon={Eye}
             label="Ver detalle"
             onClick={() => { onVer(ocActiva); setMenu(null); }}
+          />
+          <MenuItem
+            icon={Copy}
+            label="Duplicar"
+            onClick={() => { onDuplicar(ocActiva); setMenu(null); }}
           />
           {estadoPrincipalActivo === 'Borrador' && (
             <MenuItem

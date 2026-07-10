@@ -1,6 +1,6 @@
-/** Sin correlativo (borrador aún no registrado) usa la misma convención visual que GRE: `${serie}-[pendiente]`. */
+/** Sin correlativo (borrador aún no registrado): serie + "sin correlativo", sin corchetes ni número simulado. */
 export function formatearNumeroCompra(serie: string, correlativo: string | number | undefined): string {
-  if (!correlativo) return `${serie}-[pendiente]`;
+  if (!correlativo) return `${serie} sin correlativo`;
   const corr =
     typeof correlativo === 'number'
       ? String(correlativo).padStart(8, '0')

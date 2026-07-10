@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getProductUnitOptions } from '@/shared/units/productUnitOptions';
 import { crearLineaCompraDesdeProducto, type ProductDataLineaCompra } from '../../servicios/servicioOrdenCompra';
+import { calcularLineaCompra } from '../../logica/reglasCompras';
 import type { LineaCompra } from '../../modelos/LineaCompra';
 import type { Product } from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
 
@@ -16,23 +17,12 @@ function generarIdLinea(): string {
  */
 export function useLineasCompra(lineasIniciales: LineaCompra[]) {
   function recalcularLinea(linea: LineaCompra): LineaCompra {
-    const bruto = linea.cantidadSolicitada * linea.costoUnitario;
-    const desc = (linea.descuentoUnitario ?? 0) * linea.cantidadSolicitada;
-    const neto = bruto - desc;
-    const tasa = linea.tipoAfectacion === 'gravado' ? (linea.tasaIgv ?? 0) : 0;
-    let subtotal = 0;
-    let igv = 0;
-    if (linea.tipoAfectacion === 'gravado') {
-      subtotal = tasa > 0 ? neto / (1 + tasa) : neto;
-      igv = neto - subtotal;
-    } else {
-      subtotal = neto;
-    }
+    const { baseImponible, igv, total } = calcularLineaCompra(linea);
     return {
       ...linea,
-      subtotal: Math.round(subtotal * 100) / 100,
-      igv: Math.round(igv * 100) / 100,
-      total: Math.round(neto * 100) / 100,
+      subtotal: baseImponible,
+      igv,
+      total,
       cantidadPendienteRecepcion: linea.cantidadSolicitada,
       cantidadPendienteFacturacion: 0,
       cantidadPendienteInventario: 0,

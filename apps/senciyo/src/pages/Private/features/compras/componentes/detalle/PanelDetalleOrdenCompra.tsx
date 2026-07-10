@@ -1,12 +1,19 @@
 import { useState } from 'react';
-import { FileText, Clock, Link2, Printer, Send, Pencil } from 'lucide-react';
+import { FileText, Clock, Link2, Printer, Send, Pencil, Copy } from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { formatMoney } from '@/shared/currency';
 import { CreditInstallmentsTable } from '@/shared/payments/CreditInstallmentsTable';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { CLASIFICACION_LINEA_LABELS } from '../../modelos/LineaCompra';
-import { calcularEstadoPrincipalOC, puedeEditarOC, resolverNombreFormaPagoOC } from '../../logica/reglasCompras';
+import {
+  calcularEstadoPrincipalOC,
+  puedeEditarOC,
+  resolverNombreFormaPagoOC,
+  calcularTotalesLineas,
+  formatearEtiquetaImpuesto,
+  construirFilasResumenTributarioCompra,
+} from '../../logica/reglasCompras';
 import { formatearFechaCompra, formatearNumeroCompra } from '../../utilidades/formatearCompras';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import {
@@ -31,6 +38,7 @@ interface PanelDetalleOrdenCompraProps {
   onImprimir?: (oc: OrdenCompra) => void;
   onEnviar?: (oc: OrdenCompra) => void;
   onEditar?: (oc: OrdenCompra) => void;
+  onDuplicar?: (oc: OrdenCompra) => void;
 }
 
 type TabOC = 'general' | 'historial' | 'relacionados';
@@ -79,12 +87,10 @@ export default function PanelDetalleOrdenCompra({
   onImprimir,
   onEnviar,
   onEditar,
+  onDuplicar,
 }: PanelDetalleOrdenCompraProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabOC>('general');
-
-  const igvDefault = config.taxes.find((t) => t.isDefault && t.isActive);
-  const igvLabel = igvDefault ? `IGV (${igvDefault.rate}%):` : 'IGV:';
 
   const TABS: { id: TabOC; label: string; icon: typeof FileText }[] = [
     { id: 'general', label: 'General', icon: FileText },
@@ -95,11 +101,22 @@ export default function PanelDetalleOrdenCompra({
   const comprobantesGenerados = oc ? comprobantes.filter((c) => c.ordenCompraOrigenId === oc.id) : [];
 
   const nombreFormaPago = oc ? resolverNombreFormaPagoOC(oc, config.paymentMethods) : '';
+  // Misma fuente que el formulario y la impresión: se reconstruye el
+  // desglose tributario desde las líneas persistidas, nunca desde los
+  // totales planos guardados (evita cualquier deriva entre pantallas).
+  const totalesDocumento = oc ? calcularTotalesLineas(oc.lineas) : null;
 
   const titulo = oc ? (
     <div className="flex items-center gap-2">
       <FileText size={18} className="text-blue-600 shrink-0" />
-      <span className="font-mono font-semibold text-gray-900">{formatearNumeroCompra(oc.serie, oc.correlativo || undefined)}</span>
+      {oc.correlativo ? (
+        <span className="font-mono font-semibold text-gray-900">{formatearNumeroCompra(oc.serie, oc.correlativo)}</span>
+      ) : (
+        <span className="flex items-baseline gap-1.5">
+          <span className="font-mono font-semibold text-gray-900">{oc.serie}</span>
+          <span className="text-xs text-gray-400">sin correlativo</span>
+        </span>
+      )}
     </div>
   ) : null;
 
@@ -143,6 +160,16 @@ export default function PanelDetalleOrdenCompra({
           title="Enviar por WhatsApp"
         >
           <Send size={14} /> Enviar
+        </button>
+      )}
+      {onDuplicar && (
+        <button
+          type="button"
+          onClick={() => onDuplicar(oc)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          title="Duplicar"
+        >
+          <Copy size={14} /> Duplicar
         </button>
       )}
     </div>
@@ -253,6 +280,7 @@ export default function PanelDetalleOrdenCompra({
                           <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Almacén</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Cant.</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Costo</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Impuesto</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Total</th>
                         </tr>
                       </thead>
@@ -277,10 +305,13 @@ export default function PanelDetalleOrdenCompra({
                               {linea.cantidadSolicitada}
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-gray-700">
-                              {linea.costoUnitario.toFixed(2)}
+                              {formatMoney(linea.costoUnitario, oc.moneda)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {formatearEtiquetaImpuesto(linea.tipoAfectacion, linea.tasaIgv ?? 0)}
                             </td>
                             <td className="px-3 py-2 text-right font-mono font-medium text-gray-900">
-                              {linea.total.toFixed(2)}
+                              {formatMoney(linea.total, oc.moneda)}
                             </td>
                           </tr>
                         ))}
@@ -290,34 +321,24 @@ export default function PanelDetalleOrdenCompra({
                 </div>
 
                 <Seccion titulo="Totales">
-                  <Campo
-                    label="Subtotal gravado"
-                    valor={formatMoney(oc.totales.subtotal, oc.moneda)}
-                  />
-                  {oc.totales.subtotalExonerado > 0 && (
+                  {construirFilasResumenTributarioCompra(totalesDocumento!).map((fila) => (
                     <Campo
-                      label="Subtotal exonerado"
-                      valor={formatMoney(oc.totales.subtotalExonerado, oc.moneda)}
+                      key={fila.clave}
+                      label={fila.etiqueta}
+                      valor={formatMoney(fila.monto, oc.moneda)}
                     />
-                  )}
-                  {oc.totales.subtotalInafecto > 0 && (
-                    <Campo
-                      label="Subtotal inafecto"
-                      valor={formatMoney(oc.totales.subtotalInafecto, oc.moneda)}
-                    />
-                  )}
-                  {oc.totales.descuentoTotal > 0 && (
+                  ))}
+                  {totalesDocumento!.descuentoTotal > 0 && (
                     <Campo
                       label="Descuentos"
-                      valor={`-${formatMoney(oc.totales.descuentoTotal, oc.moneda)}`}
+                      valor={`-${formatMoney(totalesDocumento!.descuentoTotal, oc.moneda)}`}
                     />
                   )}
-                  <Campo label={igvLabel} valor={formatMoney(oc.totales.igv, oc.moneda)} />
                   <Campo
                     label="Total"
                     valor={
                       <span className="font-semibold text-gray-900 font-mono">
-                        {formatMoney(oc.totales.total, oc.moneda)}
+                        {formatMoney(totalesDocumento!.total, oc.moneda)}
                       </span>
                     }
                   />

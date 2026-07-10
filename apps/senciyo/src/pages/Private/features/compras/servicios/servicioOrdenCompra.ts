@@ -3,7 +3,16 @@ import type { OrdenCompra } from '../modelos/OrdenCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from './tiposServiciosCompras';
 import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
-import { validarFechaVencimientoCredito, validarLineasCompra, resolverImpuestoProducto, calcularEstadoPrincipalOC } from '../logica/reglasCompras';
+import {
+  validarFechaVencimientoCredito,
+  validarLineasCompra,
+  resolverImpuestoProducto,
+  calcularEstadoPrincipalOC,
+  calcularLineaCompra,
+  calcularTotalesLineas,
+  formatearEtiquetaImpuesto,
+  construirFilasResumenTributarioCompra,
+} from '../logica/reglasCompras';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
 import { formatMoney } from '@/shared/currency';
 import { formatearFechaCompra, formatearNumeroCompra } from '../utilidades/formatearCompras';
@@ -27,6 +36,10 @@ export function validarOrdenCompraBasica(oc: Partial<OrdenCompra>): ErrorValidac
   }
   if (oc.lineas) {
     errores.push(...validarLineasCompra(oc.lineas));
+    const totalRecalculado = calcularTotalesLineas(oc.lineas).total;
+    if (!Number.isFinite(totalRecalculado)) {
+      errores.push({ campo: 'totales.total', mensaje: 'El total de la orden no es un valor numérico válido.' });
+    }
   }
 
   return errores;
@@ -68,6 +81,13 @@ export function crearLineaCompraDesdeProducto(
   cantidad: number,
 ): LineaCompra {
   const { tipoAfectacion, tasaIgv } = resolverImpuestoProducto(productData.impuestoProducto);
+  const costoUnitario = productData.precioCompra ?? 0;
+  const { baseImponible, igv, total } = calcularLineaCompra({
+    cantidadSolicitada: cantidad,
+    costoUnitario,
+    tipoAfectacion,
+    tasaIgv,
+  });
 
   return {
     id,
@@ -99,12 +119,12 @@ export function crearLineaCompraDesdeProducto(
     cantidadPendienteRecepcion: cantidad,
     cantidadPendienteFacturacion: 0,
     cantidadPendienteInventario: 0,
-    costoUnitario: productData.precioCompra ?? 0,
-    subtotal: 0,
+    costoUnitario,
+    subtotal: baseImponible,
     tipoAfectacion,
     tasaIgv,
-    igv: 0,
-    total: 0,
+    igv,
+    total,
   };
 }
 
@@ -170,6 +190,10 @@ function construirRepresentacionImpresaOC(
   empresa: EmpresaOC | undefined,
   nombreFormaPago: string,
 ) {
+  // Misma fuente que el formulario y el drawer: se reconstruye el desglose
+  // tributario desde las líneas persistidas, nunca desde oc.totales plano.
+  const totalesDocumento = calcularTotalesLineas(oc.lineas);
+
   return createElement(
     'div',
     { style: { fontFamily: 'Arial, sans-serif', padding: '28px', color: '#111827' } },
@@ -265,6 +289,7 @@ function construirRepresentacionImpresaOC(
             createElement('th', { style: ESTILO_TH }, 'Descripción'),
             createElement('th', { style: { ...ESTILO_TH, textAlign: 'right' as const } }, 'Cant.'),
             createElement('th', { style: { ...ESTILO_TH, textAlign: 'right' as const } }, 'Costo U.'),
+            createElement('th', { style: ESTILO_TH }, 'Impuesto'),
             createElement('th', { style: { ...ESTILO_TH, textAlign: 'right' as const } }, 'Total'),
           ),
         ),
@@ -278,18 +303,21 @@ function construirRepresentacionImpresaOC(
               createElement('td', { style: ESTILO_TD }, linea.nombreProducto),
               createElement('td', { style: { ...ESTILO_TD, textAlign: 'right' as const } }, String(linea.cantidadSolicitada)),
               createElement('td', { style: { ...ESTILO_TD, textAlign: 'right' as const } }, formatMoney(linea.costoUnitario, oc.moneda)),
+              createElement('td', { style: ESTILO_TD }, formatearEtiquetaImpuesto(linea.tipoAfectacion, linea.tasaIgv ?? 0)),
               createElement('td', { style: { ...ESTILO_TD, textAlign: 'right' as const } }, formatMoney(linea.total, oc.moneda)),
             ),
           ),
         ),
       ),
     ]),
-    // Totales
+    // Totales — mismo cálculo que formulario/drawer (calcularTotalesLineas
+    // sobre oc.lineas), desglosado por grupo tributario real.
     seccion('Totales', [
-      fila('Subtotal', formatMoney(oc.totales.subtotal, oc.moneda)),
-      oc.totales.descuentoTotal > 0 ? fila('Descuentos', `-${formatMoney(oc.totales.descuentoTotal, oc.moneda)}`) : null,
-      fila('IGV', formatMoney(oc.totales.igv, oc.moneda)),
-      fila('Total', formatMoney(oc.totales.total, oc.moneda)),
+      ...construirFilasResumenTributarioCompra(totalesDocumento).map((filaResumen) =>
+        fila(filaResumen.etiqueta, formatMoney(filaResumen.monto, oc.moneda)),
+      ),
+      totalesDocumento.descuentoTotal > 0 ? fila('Descuentos', `-${formatMoney(totalesDocumento.descuentoTotal, oc.moneda)}`) : null,
+      fila('Total', formatMoney(totalesDocumento.total, oc.moneda)),
     ].filter(Boolean) as ReturnType<typeof createElement>[]),
     oc.observaciones ? seccion('Observaciones', [createElement('p', { style: { fontSize: '11px' } }, oc.observaciones)]) : null,
   );
@@ -308,7 +336,7 @@ export async function imprimirOrdenCompra(
 ): Promise<void> {
   await imprimirComprobante({
     formato: 'A4',
-    titulo: `Orden de Compra ${oc.numero}`,
+    titulo: `Orden de Compra ${formatearNumeroCompra(oc.serie, oc.correlativo || undefined)}`,
     render: () => construirRepresentacionImpresaOC(oc, empresa, nombreFormaPago),
   });
 }
@@ -334,7 +362,51 @@ export function compartirOrdenCompraPorWhatsApp(oc: OrdenCompra): void {
     throw new Error('El proveedor no tiene un teléfono de contacto registrado para enviar por WhatsApp.');
   }
   const mensaje = encodeURIComponent(
-    `Orden de Compra ${oc.numero} — ${oc.proveedorNombre} — Total: ${formatMoney(oc.totales.total, oc.moneda)}`,
+    `Orden de Compra ${formatearNumeroCompra(oc.serie, oc.correlativo || undefined)} — ${oc.proveedorNombre} — Total: ${formatMoney(oc.totales.total, oc.moneda)}`,
   );
   window.open(`https://wa.me/${telefono}?text=${mensaje}`, '_blank', 'noopener,noreferrer');
+}
+
+// ---------------------------------------------------------------------------
+// Duplicar
+// ---------------------------------------------------------------------------
+
+function generarIdLineaDuplicada(): string {
+  return `linea-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/**
+ * Prepara los datos editables de una OC para duplicarla como un nuevo
+ * borrador independiente (sección 13-16 del alcance). Devuelve exactamente
+ * la forma que ya acepta `ocBase` en el formulario: sin id/correlativo/
+ * número/estados/historial/relaciones/adjuntos — el usuario decide si
+ * guarda borrador o registra. Copia profunda de líneas y cronograma (no se
+ * comparten arrays/objetos por referencia con la orden original).
+ */
+export function prepararDuplicadoOC(original: OrdenCompra): Partial<OrdenCompra> {
+  return {
+    serie: original.serie,
+    proveedorId: original.proveedorId,
+    proveedorTipoDocumento: original.proveedorTipoDocumento,
+    proveedorNumeroDocumento: original.proveedorNumeroDocumento,
+    proveedorNombre: original.proveedorNombre,
+    proveedorDireccionFacturacion: original.proveedorDireccionFacturacion,
+    proveedorDireccionEntrega: original.proveedorDireccionEntrega,
+    proveedorContactoId: original.proveedorContactoId,
+    proveedorContactoNombre: original.proveedorContactoNombre,
+    proveedorContactoCargo: original.proveedorContactoCargo,
+    proveedorContactoCorreo: original.proveedorContactoCorreo,
+    proveedorContactoTelefono: original.proveedorContactoTelefono,
+    metodoEnvio: original.metodoEnvio,
+    moneda: original.moneda,
+    tipoCambio: original.tipoCambio,
+    formaPago: original.formaPago,
+    formaPagoMetodoId: original.formaPagoMetodoId,
+    creditTerms: original.creditTerms ? structuredClone(original.creditTerms) : undefined,
+    requiereAprobacion: original.requiereAprobacion,
+    centroCosto: original.centroCosto,
+    presupuesto: original.presupuesto,
+    observaciones: original.observaciones,
+    lineas: original.lineas.map((linea) => ({ ...structuredClone(linea), id: generarIdLineaDuplicada() })),
+  };
 }

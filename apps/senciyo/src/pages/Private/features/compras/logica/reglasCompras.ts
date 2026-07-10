@@ -300,6 +300,13 @@ export function validarLineasCompra(lineas: LineaCompra[]): ErrorValidacion[] {
         mensaje: `El total de la línea no puede ser negativo ("${nombre}").`,
       });
     }
+
+    if (!Number.isFinite(linea.subtotal) || !Number.isFinite(linea.igv) || !Number.isFinite(linea.total)) {
+      errores.push({
+        campo: `${prefijo}.total`,
+        mensaje: `Los cálculos de "${nombre}" no son válidos. Revisa cantidad, costo y descuento.`,
+      });
+    }
   });
 
   return errores;
@@ -385,7 +392,6 @@ export interface DesgloseImpuestoLinea {
   tipoAfectacion: TipoAfectacionCompra;
   tasaIgv: number;
   etiqueta: string;
-  baseImponible: number;
   monto: number;
 }
 
@@ -396,7 +402,7 @@ export interface TotalesLineasCompra {
   subtotalSinConfigurar: number;
   descuentoTotal: number;
   igv: number;
-  /** Desglose de impuestos por tasa/tipo real de cada línea (ver formatearEtiquetaImpuesto). */
+  /** IGV agrupado por cada tasa real presente en las líneas gravadas (ver formatearEtiquetaImpuesto). La base imponible gravada va consolidada en `subtotal`, no repetida aquí. */
   impuestos: DesgloseImpuestoLinea[];
   total: number;
 }
@@ -415,6 +421,42 @@ export function formatearEtiquetaImpuesto(tipoAfectacion: TipoAfectacionCompra, 
   }
 }
 
+export interface ResultadoLineaCompra {
+  /** Base imponible (sin impuesto) para 'gravado'; para las demás afectaciones, es el neto completo. */
+  baseImponible: number;
+  igv: number;
+  /** Total de línea (neto: cantidad × costo − descuento). Igual a baseImponible + igv. */
+  total: number;
+}
+
+/**
+ * Única función de cálculo por línea (formulario, drawer, impresión y
+ * persistencia parten todos de aquí — ver sección 7/2 del alcance). Costo
+ * unitario es tax-inclusive (misma convención que Comprobantes): si la línea
+ * es 'gravado', la base se obtiene por división, nunca por resta anticipada
+ * de un IGV ya redondeado. No redondea nada — precisión completa hasta que
+ * el consumidor decida mostrar/persistir el Total final del documento.
+ */
+export function calcularLineaCompra(linea: {
+  cantidadSolicitada: number;
+  costoUnitario: number;
+  descuentoUnitario?: number;
+  tipoAfectacion: TipoAfectacionCompra;
+  tasaIgv?: number;
+}): ResultadoLineaCompra {
+  const bruto = linea.cantidadSolicitada * linea.costoUnitario;
+  const descuento = (linea.descuentoUnitario ?? 0) * linea.cantidadSolicitada;
+  const neto = bruto - descuento;
+
+  if (linea.tipoAfectacion === 'gravado') {
+    const tasa = linea.tasaIgv ?? 0;
+    const baseImponible = tasa > 0 ? neto / (1 + tasa) : neto;
+    return { baseImponible, igv: neto - baseImponible, total: neto };
+  }
+
+  return { baseImponible: neto, igv: 0, total: neto };
+}
+
 export function calcularTotalesLineas(
   lineas: Array<{
     cantidadSolicitada: number;
@@ -430,65 +472,110 @@ export function calcularTotalesLineas(
   let subtotalSinConfigurar = 0;
   let descuentoTotal = 0;
   let igv = 0;
-  const grupos = new Map<string, DesgloseImpuestoLinea>();
-
-  const acumularGrupo = (tipoAfectacion: TipoAfectacionCompra, tasaIgv: number, base: number, monto: number) => {
-    const clave = `${tipoAfectacion}|${tasaIgv}`;
-    const grupo = grupos.get(clave) ?? {
-      tipoAfectacion,
-      tasaIgv,
-      etiqueta: formatearEtiquetaImpuesto(tipoAfectacion, tasaIgv),
-      baseImponible: 0,
-      monto: 0,
-    };
-    grupo.baseImponible += base;
-    grupo.monto += monto;
-    grupos.set(clave, grupo);
-  };
+  // Solo agrupa IGV por tasa (única fila repetida por tasa que exige el
+  // resumen tributario); la base imponible gravada se consolida en una sola
+  // cifra (`subtotal`), nunca repetida por tasa.
+  const gruposIgv = new Map<number, DesgloseImpuestoLinea>();
 
   for (const linea of lineas) {
-    const bruto = linea.cantidadSolicitada * linea.costoUnitario;
-    const descLinea = (linea.descuentoUnitario ?? 0) * linea.cantidadSolicitada;
-    const neto = bruto - descLinea;
-    descuentoTotal += descLinea;
+    const { baseImponible, igv: igvLinea, total } = calcularLineaCompra(linea);
+    descuentoTotal += (linea.descuentoUnitario ?? 0) * linea.cantidadSolicitada;
 
     if (linea.tipoAfectacion === 'gravado') {
-      const tasa = linea.tasaIgv ?? 0;
-      const base = tasa > 0 ? neto / (1 + tasa) : neto;
-      const monto = neto - base;
-      subtotal += base;
-      igv += monto;
-      acumularGrupo('gravado', tasa, base, monto);
+      subtotal += baseImponible;
+      igv += igvLinea;
+      const tasaIgv = linea.tasaIgv ?? 0;
+      const grupo = gruposIgv.get(tasaIgv) ?? {
+        tipoAfectacion: 'gravado' as const,
+        tasaIgv,
+        etiqueta: formatearEtiquetaImpuesto('gravado', tasaIgv),
+        monto: 0,
+      };
+      grupo.monto += igvLinea;
+      gruposIgv.set(tasaIgv, grupo);
     } else if (linea.tipoAfectacion === 'exonerado') {
-      subtotalExonerado += neto;
-      acumularGrupo('exonerado', 0, neto, 0);
+      subtotalExonerado += total;
     } else if (linea.tipoAfectacion === 'inafecto') {
-      subtotalInafecto += neto;
-      acumularGrupo('inafecto', 0, neto, 0);
+      subtotalInafecto += total;
     } else {
-      subtotalSinConfigurar += neto;
-      acumularGrupo('sin_configurar', 0, neto, 0);
+      subtotalSinConfigurar += total;
     }
   }
 
-  const impuestos = Array.from(grupos.values())
-    .map((g) => ({ ...g, baseImponible: round2(g.baseImponible), monto: round2(g.monto) }))
-    .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta));
+  // Sin redondeo intermedio: grupos, subtotal e igv conservan precisión
+  // completa. El único punto de redondeo a dos decimales de todo el
+  // documento es el Total final, evitando la deriva de ±S/0.01 que produce
+  // sumar valores ya redondeados por separado.
+  const impuestos = Array.from(gruposIgv.values()).sort((a, b) => a.tasaIgv - b.tasaIgv);
 
   return {
-    subtotal: round2(subtotal),
-    subtotalExonerado: round2(subtotalExonerado),
-    subtotalInafecto: round2(subtotalInafecto),
-    subtotalSinConfigurar: round2(subtotalSinConfigurar),
-    descuentoTotal: round2(descuentoTotal),
-    igv: round2(igv),
+    subtotal,
+    subtotalExonerado,
+    subtotalInafecto,
+    subtotalSinConfigurar,
+    descuentoTotal,
+    igv,
     impuestos,
     total: round2(subtotal + igv + subtotalExonerado + subtotalInafecto + subtotalSinConfigurar),
   };
 }
 
+export interface FilaResumenTributarioCompra {
+  clave: string;
+  etiqueta: string;
+  monto: number;
+  /** Fila de advertencia (línea sin impuesto configurado), no un tributo real. */
+  advertencia?: boolean;
+}
+
+/**
+ * Filas del resumen tributario del documento, en el orden de presentación
+ * oficial: una única "Base imponible gravada" consolidada (nunca repetida
+ * por tasa), un IGV independiente por cada tasa real presente en las líneas,
+ * Exonerado e Inafecto (importe de la operación, no impuesto — su impuesto
+ * es cero), y "Sin impuesto configurado" únicamente si existen líneas así
+ * (caso bloqueado por validarLineasCompra antes de guardar). Ninguna fila se
+ * muestra en cero. Única fuente reutilizada por formulario, drawer e
+ * impresión — no se reconstruye esta agrupación en cada consumidor.
+ */
+export function construirFilasResumenTributarioCompra(
+  totales: TotalesLineasCompra,
+): FilaResumenTributarioCompra[] {
+  const filas: FilaResumenTributarioCompra[] = [];
+
+  if (totales.subtotal > 0) {
+    filas.push({ clave: 'base-gravada', etiqueta: 'Base imponible gravada', monto: totales.subtotal });
+  }
+
+  totales.impuestos
+    .filter((grupo) => grupo.tipoAfectacion === 'gravado')
+    .forEach((grupo) => {
+      filas.push({ clave: `igv-${grupo.tasaIgv}`, etiqueta: grupo.etiqueta, monto: grupo.monto });
+    });
+
+  if (totales.subtotalExonerado > 0) {
+    filas.push({ clave: 'exonerado', etiqueta: 'Exonerado', monto: totales.subtotalExonerado });
+  }
+
+  if (totales.subtotalInafecto > 0) {
+    filas.push({ clave: 'inafecto', etiqueta: 'Inafecto', monto: totales.subtotalInafecto });
+  }
+
+  if (totales.subtotalSinConfigurar > 0) {
+    filas.push({
+      clave: 'sin-configurar',
+      etiqueta: 'Sin impuesto configurado',
+      monto: totales.subtotalSinConfigurar,
+      advertencia: true,
+    });
+  }
+
+  return filas;
+}
+
+/** Única primitiva de redondeo monetario del módulo (con Number.EPSILON para evitar el clásico 0.1+0.2!==0.3). */
 function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
 /**
