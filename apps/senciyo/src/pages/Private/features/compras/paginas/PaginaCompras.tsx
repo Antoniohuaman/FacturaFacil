@@ -65,6 +65,7 @@ export default function PaginaCompras() {
     anularComprobanteCompra,
     anularPagoCompra,
     agregarEventoHistorialOC,
+    recargarDatos,
   } = useCompras();
   const { session } = useUserSession();
   const { activeWorkspace } = useTenant();
@@ -266,6 +267,8 @@ export default function PaginaCompras() {
           <TablaOrdenesCompra
             ordenes={state.ordenes}
             comprobantes={state.comprobantes}
+            cargando={state.cargando}
+            errorCarga={state.errorCarga}
             onVer={(oc) => setVista({ tipo: 'detalle_oc', ocId: oc.id })}
             onEditar={(oc) => setVista({ tipo: 'editar_oc', ocId: oc.id })}
             onEliminarBorrador={handleEliminarBorrador}
@@ -277,6 +280,8 @@ export default function PaginaCompras() {
             onEnviar={handleEnviar}
             onNueva={() => setVista({ tipo: 'nueva_oc' })}
             onDuplicar={handleDuplicar}
+            onActualizar={recargarDatos}
+            onVerComprobante={(id) => setVista({ tipo: 'detalle_cc', ccId: id })}
           />
         )}
 

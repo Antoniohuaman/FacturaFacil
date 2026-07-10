@@ -79,6 +79,7 @@ interface EstadoCompras {
   pagos: PagoCompra[];
   proveedores: Cliente[];
   cargando: boolean;
+  errorCarga: string | null;
 }
 
 const estadoInicial: EstadoCompras = {
@@ -88,6 +89,7 @@ const estadoInicial: EstadoCompras = {
   pagos: [],
   proveedores: [],
   cargando: false,
+  errorCarga: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -109,7 +111,8 @@ type AccionCompras =
   | { type: 'AGREGAR_PAGO'; payload: PagoCompra }
   | { type: 'ACTUALIZAR_PAGO'; payload: PagoCompra }
   | { type: 'ESTABLECER_PROVEEDORES'; payload: Cliente[] }
-  | { type: 'SET_CARGANDO'; payload: boolean };
+  | { type: 'SET_CARGANDO'; payload: boolean }
+  | { type: 'SET_ERROR_CARGA'; payload: string | null };
 
 // ---------------------------------------------------------------------------
 // Reducer
@@ -163,6 +166,8 @@ function reducerCompras(estado: EstadoCompras, accion: AccionCompras): EstadoCom
       return { ...estado, proveedores: accion.payload };
     case 'SET_CARGANDO':
       return { ...estado, cargando: accion.payload };
+    case 'SET_ERROR_CARGA':
+      return { ...estado, errorCarga: accion.payload };
     default:
       return estado;
   }
@@ -338,6 +343,8 @@ interface ContextoComprasTipo {
   anularPagoCompra(id: string, motivo: string, anuladoPor?: string): Promise<void>;
 
   refrescarProveedores(): void;
+
+  recargarDatos(): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -353,15 +360,28 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const { session } = useUserSession();
   const monedaBase = config.currencies.find((c) => c.isBaseCurrency)?.code ?? 'PEN';
 
-  useEffect(() => {
+  const recargarDatos = useCallback(() => {
     dispatch({ type: 'SET_CARGANDO', payload: true });
-    dispatch({ type: 'ESTABLECER_ORDENES', payload: cargarOrdenesCompra() });
-    dispatch({ type: 'ESTABLECER_COMPROBANTES', payload: cargarComprobantesCompra() });
-    dispatch({ type: 'ESTABLECER_CUENTAS_POR_PAGAR', payload: cargarCuentasPorPagar() });
-    dispatch({ type: 'ESTABLECER_PAGOS', payload: cargarPagosCompra() });
-    dispatch({ type: 'ESTABLECER_PROVEEDORES', payload: cargarProveedores() });
-    dispatch({ type: 'SET_CARGANDO', payload: false });
+    try {
+      dispatch({ type: 'ESTABLECER_ORDENES', payload: cargarOrdenesCompra() });
+      dispatch({ type: 'ESTABLECER_COMPROBANTES', payload: cargarComprobantesCompra() });
+      dispatch({ type: 'ESTABLECER_CUENTAS_POR_PAGAR', payload: cargarCuentasPorPagar() });
+      dispatch({ type: 'ESTABLECER_PAGOS', payload: cargarPagosCompra() });
+      dispatch({ type: 'ESTABLECER_PROVEEDORES', payload: cargarProveedores() });
+      dispatch({ type: 'SET_ERROR_CARGA', payload: null });
+    } catch (e) {
+      dispatch({
+        type: 'SET_ERROR_CARGA',
+        payload: e instanceof Error ? e.message : 'No se pudo cargar la información de Compras.',
+      });
+    } finally {
+      dispatch({ type: 'SET_CARGANDO', payload: false });
+    }
   }, []);
+
+  useEffect(() => {
+    recargarDatos();
+  }, [recargarDatos]);
 
   const refrescarProveedores = useCallback(() => {
     dispatch({ type: 'ESTABLECER_PROVEEDORES', payload: cargarProveedores() });
@@ -1144,6 +1164,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         registrarPagoCompra,
         anularPagoCompra,
         refrescarProveedores,
+        recargarDatos,
       }}
     >
       {children}

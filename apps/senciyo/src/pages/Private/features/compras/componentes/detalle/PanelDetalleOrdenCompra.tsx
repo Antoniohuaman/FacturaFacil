@@ -24,6 +24,7 @@ import {
 } from '../../modelos/OrdenCompra';
 import {
   BADGE_ESTADO_PRINCIPAL_OC,
+  ETIQUETA_ESTADO_PRINCIPAL_OC,
   BADGE_ESTADO_RECEPCION_OC,
   BADGE_ESTADO_FACTURACION_OC,
   BADGE_ESTADO_INVENTARIO_OC,
@@ -124,7 +125,7 @@ export default function PanelDetalleOrdenCompra({
     <div className="flex flex-wrap gap-1 mt-1">
       <BadgeEstado
         estado={calcularEstadoPrincipalOC(oc)}
-        labels={{}}
+        labels={ETIQUETA_ESTADO_PRINCIPAL_OC as unknown as Record<string, string>}
         clases={BADGE_ESTADO_PRINCIPAL_OC as unknown as Record<string, string>}
       />
     </div>

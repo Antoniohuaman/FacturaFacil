@@ -16,6 +16,7 @@ import {
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
 import { formatMoney } from '@/shared/currency';
 import { formatearFechaCompra, formatearNumeroCompra } from '../utilidades/formatearCompras';
+import { ETIQUETA_ESTADO_PRINCIPAL_OC } from '../constantes/estadosCompras';
 
 export function validarOrdenCompraBasica(oc: Partial<OrdenCompra>): ErrorValidacion[] {
   const errores: ErrorValidacion[] = [];
@@ -213,7 +214,7 @@ function construirRepresentacionImpresaOC(
         { style: { textAlign: 'right' as const } },
         createElement('h2', { style: { margin: 0, fontSize: '14px' } }, 'ORDEN DE COMPRA'),
         createElement('p', { style: { margin: 0, fontWeight: 700 } }, formatearNumeroCompra(oc.serie, oc.correlativo || undefined)),
-        createElement('p', { style: { margin: 0, fontSize: '11px' } }, calcularEstadoPrincipalOC(oc)),
+        createElement('p', { style: { margin: 0, fontSize: '11px' } }, ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc)]),
         createElement('p', { style: { margin: 0, fontSize: '11px' } }, `Emisión: ${formatearFechaCompra(oc.fechaEmision)}`),
         oc.fechaVencimiento
           ? createElement('p', { style: { margin: 0, fontSize: '11px' } }, `Vencimiento: ${formatearFechaCompra(oc.fechaVencimiento)}`)

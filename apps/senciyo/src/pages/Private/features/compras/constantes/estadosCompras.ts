@@ -8,6 +8,23 @@ import type { EstadoDocumentoCC, EstadoPagoCC, EstadoInventarioCC } from '../mod
 import type { EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { EstadoDocumentoPago } from '../modelos/PagoCompra';
 
+/**
+ * Etiqueta visual del estado principal de la OC. El valor interno persistido
+ * (EstadoPrincipalOC) sigue siendo 'Pendiente de aprobación' — solo cambia el
+ * texto mostrado ("Por aprobar"), sin migrar documentos ni tocar
+ * calcularEstadoPrincipalOC/transiciones. Única fuente para badge (listado y
+ * drawer), filtro de estados e impresión/PDF.
+ */
+export const ETIQUETA_ESTADO_PRINCIPAL_OC: Record<EstadoPrincipalOC, string> = {
+  Borrador: 'Borrador',
+  Registrada: 'Registrada',
+  'Pendiente de aprobación': 'Por aprobar',
+  Aprobada: 'Aprobada',
+  'No Aprobada': 'No Aprobada',
+  Anulada: 'Anulada',
+  Convertida: 'Convertida',
+};
+
 /** Badge del estado principal único de la OC (ver EstadoPrincipalOC / calcularEstadoPrincipalOC). */
 export const BADGE_ESTADO_PRINCIPAL_OC: Record<EstadoPrincipalOC, string> = {
   Borrador: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',

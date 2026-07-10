@@ -14,14 +14,22 @@ import {
   Download,
   Link2,
   Copy,
+  CalendarRange,
+  SlidersHorizontal,
+  RefreshCw,
 } from 'lucide-react';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { EstadoPrincipalOC } from '../../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../../modelos/ComprobanteCompra';
-import { BADGE_ESTADO_PRINCIPAL_OC } from '../../constantes/estadosCompras';
-import { filtrarOrdenesCompra, type FiltrosOC } from '../../logica/filtrosCompras';
+import { BADGE_ESTADO_PRINCIPAL_OC, ETIQUETA_ESTADO_PRINCIPAL_OC } from '../../constantes/estadosCompras';
+import {
+  filtrarOrdenesCompra,
+  obtenerFechaRegistroOC,
+  type FiltrosOC,
+  type CampoFechaFiltroOC,
+} from '../../logica/filtrosCompras';
 import { formatearFechaCompra, formatearNumeroCompra } from '../../utilidades/formatearCompras';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import {
@@ -37,6 +45,8 @@ import {
 interface TablaOrdenesCompraProps {
   ordenes: OrdenCompra[];
   comprobantes: ComprobanteCompra[];
+  cargando: boolean;
+  errorCarga: string | null;
   onVer: (oc: OrdenCompra) => void;
   onEditar: (oc: OrdenCompra) => void;
   onEliminarBorrador: (oc: OrdenCompra) => void;
@@ -48,7 +58,15 @@ interface TablaOrdenesCompraProps {
   onEnviar: (oc: OrdenCompra) => void;
   onDuplicar: (oc: OrdenCompra) => void;
   onNueva: () => void;
+  onActualizar: () => void;
+  onVerComprobante: (comprobanteId: string) => void;
 }
+
+const CAMPOS_FECHA_OC: Array<{ id: CampoFechaFiltroOC; label: string }> = [
+  { id: 'fechaEmision', label: 'F. Emisión' },
+  { id: 'fechaVencimiento', label: 'F. Vencimiento' },
+  { id: 'fechaRegistro', label: 'F. Registro' },
+];
 
 type ColumnaConfigurableOC =
   | 'fechaEmision'
@@ -119,13 +137,6 @@ function guardarConfigColumnasOC(config: ConfigColumnasOC): void {
   } catch {
     // ignorar cuota de almacenamiento
   }
-}
-
-/** Fecha real en que la OC quedó registrada (distinta de fechaEmision, que es declarada). Sin registrar aún → null. */
-function obtenerFechaRegistroOC(oc: OrdenCompra): string | null {
-  if (oc.estadoDocumento === 'borrador') return null;
-  const evento = oc.historial.find((e) => e.accion === 'Orden de compra registrada');
-  return evento?.fecha ?? oc.fechaCreacion;
 }
 
 interface PosMenu {
@@ -207,6 +218,8 @@ function MenuItem({
 export default function TablaOrdenesCompra({
   ordenes,
   comprobantes,
+  cargando,
+  errorCarga,
   onVer,
   onEditar,
   onEliminarBorrador,
@@ -218,12 +231,60 @@ export default function TablaOrdenesCompra({
   onEnviar,
   onDuplicar,
   onNueva,
+  onActualizar,
+  onVerComprobante,
 }: TablaOrdenesCompraProps) {
   const { state: config } = useConfigurationContext();
   const [filtros, setFiltros] = useState<FiltrosOC>({ busqueda: '' });
   const [menu, setMenu] = useState<PosMenu | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const filtradas = filtrarOrdenesCompra(ordenes, filtros);
+  const filtradas = filtrarOrdenesCompra(ordenes, filtros, comprobantes);
+
+  const [mostrarFechas, setMostrarFechas] = useState(false);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const fechaPopoverRef = useRef<HTMLDivElement>(null);
+  const filtrosPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickFuera(e: MouseEvent) {
+      if (fechaPopoverRef.current && !fechaPopoverRef.current.contains(e.target as Node)) {
+        setMostrarFechas(false);
+      }
+      if (filtrosPanelRef.current && !filtrosPanelRef.current.contains(e.target as Node)) {
+        setMostrarFiltros(false);
+      }
+    }
+    if (mostrarFechas || mostrarFiltros) {
+      document.addEventListener('mousedown', handleClickFuera);
+      return () => document.removeEventListener('mousedown', handleClickFuera);
+    }
+  }, [mostrarFechas, mostrarFiltros]);
+
+  const formasPagoActivas = config.paymentMethods.filter((m) => m.isActive);
+  const monedasActivas = config.currencies.filter((c) => c.isActive);
+  const compradoresUnicos = Array.from(
+    new Map(
+      ordenes
+        .filter((oc): oc is OrdenCompra & { compradorId: string; compradorNombre: string } =>
+          Boolean(oc.compradorId && oc.compradorNombre),
+        )
+        .map((oc) => [oc.compradorId, { id: oc.compradorId, nombre: oc.compradorNombre }]),
+    ).values(),
+  ).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  const hayRangoFechas = Boolean(filtros.fechaDesde || filtros.fechaHasta);
+  const filtrosAvanzadosActivos = [
+    filtros.estadoPrincipal,
+    filtros.formaPagoMetodoId,
+    filtros.compradorId,
+    filtros.documentoRelacionado && filtros.documentoRelacionado !== 'todos' ? filtros.documentoRelacionado : undefined,
+    filtros.moneda,
+  ].filter(Boolean).length;
+
+  function limpiarFiltros() {
+    setFiltros({ busqueda: '', campoFecha: 'fechaEmision' });
+    setMostrarFiltros(false);
+  }
 
   const [colConfig, setColConfig] = useState<ConfigColumnasOC>(() => cargarConfigColumnasOC());
   useEffect(() => {
@@ -262,6 +323,7 @@ export default function TablaOrdenesCompra({
   }
 
   const columnasVisiblesOrdenadas = colConfig.orden.filter((id) => colConfig.visibles.includes(id));
+  const totalColumnas = 5 + columnasVisiblesOrdenadas.length;
 
   const columnasManager: ColumnsManagerColumn[] = [
     { id: 'numero', label: 'Número', visible: true, fixed: true },
@@ -292,7 +354,17 @@ export default function TablaOrdenesCompra({
         const relacionados = comprobantes.filter((c) => c.ordenCompraOrigenId === oc.id);
         if (relacionados.length === 0) return '—';
         if (relacionados.length === 1) {
-          return `CC ${relacionados[0].serieProveedor}-${relacionados[0].numeroProveedor}`;
+          const comprobante = relacionados[0];
+          return (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onVerComprobante(comprobante.id); }}
+              title="Comprobante de compra"
+              className="font-mono text-blue-600 hover:underline"
+            >
+              {comprobante.serieProveedor}-{comprobante.numeroProveedor}
+            </button>
+          );
         }
         return (
           <span title={relacionados.map((c) => `${c.serieProveedor}-${c.numeroProveedor}`).join(', ')}>
@@ -400,21 +472,167 @@ export default function TablaOrdenesCompra({
             className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
         </div>
-        <select
-          value={filtros.estadoPrincipal ?? ''}
-          onChange={(e) =>
-            setFiltros((f) => ({
-              ...f,
-              estadoPrincipal: e.target.value as EstadoPrincipalOC | '',
-            }))
-          }
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+
+        <div className="relative" ref={fechaPopoverRef}>
+          <button
+            type="button"
+            onClick={() => setMostrarFechas((v) => !v)}
+            className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 whitespace-nowrap"
+          >
+            <CalendarRange size={16} className="text-gray-400" />
+            {hayRangoFechas
+              ? `${filtros.fechaDesde ? formatearFechaCompra(filtros.fechaDesde) : '…'} – ${filtros.fechaHasta ? formatearFechaCompra(filtros.fechaHasta) : '…'}`
+              : 'Todas las fechas'}
+          </button>
+          {mostrarFechas && (
+            <div className="absolute z-40 mt-2 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg space-y-2">
+              <label className="block text-sm">
+                <span className="text-xs text-gray-500">Desde</span>
+                <input
+                  type="date"
+                  value={filtros.fechaDesde ?? ''}
+                  onChange={(e) => setFiltros((f) => ({ ...f, fechaDesde: e.target.value || undefined }))}
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-xs text-gray-500">Hasta</span>
+                <input
+                  type="date"
+                  value={filtros.fechaHasta ?? ''}
+                  onChange={(e) => setFiltros((f) => ({ ...f, fechaHasta: e.target.value || undefined }))}
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setFiltros((f) => ({ ...f, fechaDesde: undefined, fechaHasta: undefined }))}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Limpiar rango
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="relative" ref={filtrosPanelRef}>
+          <button
+            type="button"
+            onClick={() => setMostrarFiltros((v) => !v)}
+            className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 whitespace-nowrap"
+          >
+            <SlidersHorizontal size={16} className="text-gray-400" />
+            Filtros
+            {filtrosAvanzadosActivos > 0 && (
+              <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-blue-600 text-white text-[10px] font-medium">
+                {filtrosAvanzadosActivos}
+              </span>
+            )}
+          </button>
+          {mostrarFiltros && (
+            <div className="absolute right-0 z-40 mt-2 w-80 rounded-lg border border-gray-200 bg-white p-4 shadow-lg space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Estado</label>
+                <select
+                  value={filtros.estadoPrincipal ?? ''}
+                  onChange={(e) =>
+                    setFiltros((f) => ({ ...f, estadoPrincipal: e.target.value as EstadoPrincipalOC | '' }))
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                >
+                  <option value="">Todos los estados</option>
+                  {ESTADOS_PRINCIPALES_OC.map((estado) => (
+                    <option key={estado} value={estado}>{ETIQUETA_ESTADO_PRINCIPAL_OC[estado]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Forma de pago</label>
+                <select
+                  value={filtros.formaPagoMetodoId ?? ''}
+                  onChange={(e) => setFiltros((f) => ({ ...f, formaPagoMetodoId: e.target.value || undefined }))}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                >
+                  <option value="">Todas</option>
+                  {formasPagoActivas.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Comprador</label>
+                <select
+                  value={filtros.compradorId ?? ''}
+                  onChange={(e) => setFiltros((f) => ({ ...f, compradorId: e.target.value || undefined }))}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                >
+                  <option value="">Todos</option>
+                  {compradoresUnicos.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Documento relacionado</label>
+                <select
+                  value={filtros.documentoRelacionado ?? 'todos'}
+                  onChange={(e) =>
+                    setFiltros((f) => ({ ...f, documentoRelacionado: e.target.value as 'todos' | 'con' | 'sin' }))
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="con">Con documento relacionado</option>
+                  <option value="sin">Sin documento relacionado</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Moneda</label>
+                <select
+                  value={filtros.moneda ?? ''}
+                  onChange={(e) => setFiltros((f) => ({ ...f, moneda: e.target.value || undefined }))}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                >
+                  <option value="">Todas</option>
+                  {monedasActivas.map((c) => (
+                    <option key={c.id} value={c.code}>{c.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Campo de fecha del filtro</label>
+                <select
+                  value={filtros.campoFecha ?? 'fechaEmision'}
+                  onChange={(e) => setFiltros((f) => ({ ...f, campoFecha: e.target.value as CampoFechaFiltroOC }))}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                >
+                  {CAMPOS_FECHA_OC.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={limpiarFiltros}
+                className="w-full text-center text-sm text-blue-600 hover:underline pt-1"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onActualizar}
+          disabled={cargando}
+          title="Actualizar"
+          aria-label="Actualizar"
+          className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <option value="">Todos los estados</option>
-          {ESTADOS_PRINCIPALES_OC.map((estado) => (
-            <option key={estado} value={estado}>{estado}</option>
-          ))}
-        </select>
+          <RefreshCw size={16} className={cargando ? 'animate-spin text-gray-400' : 'text-gray-400'} />
+        </button>
+
         <ColumnsManager
           columns={columnasManager}
           onToggleColumn={alternarColumna}
@@ -432,43 +650,76 @@ export default function TablaOrdenesCompra({
         </button>
       </div>
 
-      {/* Tabla */}
-      {filtradas.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
-          <FileText size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="font-medium">
-            {ordenes.length === 0 ? 'No hay órdenes de compra' : 'Sin resultados para la búsqueda'}
-          </p>
-          {ordenes.length === 0 && (
-            <p className="text-sm mt-1">Crea la primera orden de compra para empezar.</p>
-          )}
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+      {/* Tabla — el contenedor, thead y columna Acciones siempre se renderizan; solo el tbody cambia según el estado real. */}
+      <div className="overflow-x-auto rounded-xl border border-gray-200">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Número</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Proveedor</th>
+              {columnasVisiblesOrdenadas.map((id) => {
+                const columna = COLUMNAS_CONFIGURABLES_OC.find((c) => c.id === id);
+                return (
+                  <th
+                    key={id}
+                    className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap"
+                    title={columna?.label}
+                  >
+                    {columna?.labelCorto ?? columna?.label}
+                  </th>
+                );
+              })}
+              <th className="text-right px-4 py-3 font-medium text-gray-600">Total</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
+              <th className="text-right px-4 py-3 font-medium text-gray-600">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {cargando ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`skeleton-${i}`}>
+                  <td colSpan={totalColumnas} className="px-4 py-3">
+                    <div className="h-4 w-full max-w-sm animate-pulse rounded bg-gray-200" />
+                  </td>
+                </tr>
+              ))
+            ) : errorCarga ? (
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Número</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Proveedor</th>
-                {columnasVisiblesOrdenadas.map((id) => {
-                  const columna = COLUMNAS_CONFIGURABLES_OC.find((c) => c.id === id);
-                  return (
-                    <th
-                      key={id}
-                      className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap"
-                      title={columna?.label}
-                    >
-                      {columna?.labelCorto ?? columna?.label}
-                    </th>
-                  );
-                })}
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Total</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Acciones</th>
+                <td colSpan={totalColumnas} className="px-4 py-16 text-center">
+                  <p className="text-sm font-medium text-red-600">{errorCarga}</p>
+                  <button
+                    type="button"
+                    onClick={onActualizar}
+                    className="mt-2 text-sm text-blue-600 hover:underline"
+                  >
+                    Reintentar
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtradas.map((oc) => {
+            ) : ordenes.length === 0 ? (
+              <tr>
+                <td colSpan={totalColumnas} className="px-4 py-16 text-center text-gray-500">
+                  <FileText size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No hay órdenes de compra registradas.</p>
+                  <p className="text-sm mt-1">Crea la primera orden de compra para empezar.</p>
+                </td>
+              </tr>
+            ) : filtradas.length === 0 ? (
+              <tr>
+                <td colSpan={totalColumnas} className="px-4 py-16 text-center text-gray-500">
+                  <FileText size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">No se encontraron órdenes con los filtros aplicados.</p>
+                  <button
+                    type="button"
+                    onClick={limpiarFiltros}
+                    className="mt-2 text-sm text-blue-600 hover:underline"
+                  >
+                    Limpiar filtros
+                  </button>
+                </td>
+              </tr>
+            ) : (
+              filtradas.map((oc) => {
                 const estadoPrincipal = calcularEstadoPrincipalOC(oc);
                 return (
                   <tr
@@ -476,7 +727,7 @@ export default function TablaOrdenesCompra({
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => onVer(oc)}
                   >
-                    <td className="px-4 py-3 font-mono font-medium text-gray-900">
+                    <td className="px-4 py-3 font-mono font-medium text-gray-900 whitespace-nowrap">
                       {oc.correlativo ? (
                         formatearNumeroCompra(oc.serie, oc.correlativo)
                       ) : (
@@ -501,7 +752,7 @@ export default function TablaOrdenesCompra({
                       {formatMoney(oc.totales.total, oc.moneda)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge estado={estadoPrincipal} labels={{}} clases={BADGE_ESTADO_PRINCIPAL_OC} />
+                      <Badge estado={estadoPrincipal} labels={ETIQUETA_ESTADO_PRINCIPAL_OC} clases={BADGE_ESTADO_PRINCIPAL_OC} />
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-0.5">
@@ -518,11 +769,11 @@ export default function TablaOrdenesCompra({
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {/* Menú contextual con posición fija */}
       {menu && ocActiva && (

@@ -4,20 +4,51 @@ import type { CuentaPorPagar, EstadoPagoCxP, EstadoVencimientoCxP } from '../mod
 import type { PagoCompra } from '../modelos/PagoCompra';
 import { calcularEstadoPrincipalOC } from './reglasCompras';
 
+/** Fecha real en que la OC quedó registrada (distinta de fechaEmision, que es declarada). Sin registrar aún → null. Única fuente, reutilizada por el filtro de fechas y por la columna "F. Registro". */
+export function obtenerFechaRegistroOC(oc: OrdenCompra): string | null {
+  if (oc.estadoDocumento === 'borrador') return null;
+  const evento = oc.historial.find((e) => e.accion === 'Orden de compra registrada');
+  return evento?.fecha ?? oc.fechaCreacion;
+}
+
+export type CampoFechaFiltroOC = 'fechaEmision' | 'fechaVencimiento' | 'fechaRegistro';
+
+/** Normaliza cualquier fecha de la OC (algunas son `YYYY-MM-DD`, otras ISO completo) al prefijo de fecha, para comparar sin drift de zona horaria. */
+function obtenerValorFechaOC(oc: OrdenCompra, campo: CampoFechaFiltroOC): string | null {
+  if (campo === 'fechaVencimiento') return oc.fechaVencimiento ? oc.fechaVencimiento.slice(0, 10) : null;
+  if (campo === 'fechaRegistro') {
+    const fecha = obtenerFechaRegistroOC(oc);
+    return fecha ? fecha.slice(0, 10) : null;
+  }
+  return oc.fechaEmision ? oc.fechaEmision.slice(0, 10) : null;
+}
+
 export interface FiltrosOC {
   busqueda?: string;
   estadoPrincipal?: EstadoPrincipalOC | '';
   proveedorId?: string;
+  campoFecha?: CampoFechaFiltroOC;
   fechaDesde?: string;
   fechaHasta?: string;
+  formaPagoMetodoId?: string;
+  compradorId?: string;
+  documentoRelacionado?: 'todos' | 'con' | 'sin';
+  moneda?: string;
 }
 
-export function filtrarOrdenesCompra(ordenes: OrdenCompra[], filtros: FiltrosOC): OrdenCompra[] {
+/** Único filtro combinado de OC (AND entre todos los criterios activos). `comprobantes` solo se usa para el criterio de documento relacionado (cruce real por ordenCompraOrigenId). */
+export function filtrarOrdenesCompra(
+  ordenes: OrdenCompra[],
+  filtros: FiltrosOC,
+  comprobantes: ComprobanteCompra[],
+): OrdenCompra[] {
   return ordenes.filter((oc) => {
     if (filtros.busqueda) {
       const q = filtros.busqueda.toLowerCase();
       if (
         !oc.numero.toLowerCase().includes(q) &&
+        !oc.serie.toLowerCase().includes(q) &&
+        !String(oc.correlativo ?? '').toLowerCase().includes(q) &&
         !oc.proveedorNombre.toLowerCase().includes(q) &&
         !oc.proveedorNumeroDocumento.toLowerCase().includes(q)
       )
@@ -25,8 +56,20 @@ export function filtrarOrdenesCompra(ordenes: OrdenCompra[], filtros: FiltrosOC)
     }
     if (filtros.estadoPrincipal && calcularEstadoPrincipalOC(oc) !== filtros.estadoPrincipal) return false;
     if (filtros.proveedorId && oc.proveedorId !== filtros.proveedorId) return false;
-    if (filtros.fechaDesde && oc.fechaEmision < filtros.fechaDesde) return false;
-    if (filtros.fechaHasta && oc.fechaEmision > filtros.fechaHasta) return false;
+    if (filtros.fechaDesde || filtros.fechaHasta) {
+      const valor = obtenerValorFechaOC(oc, filtros.campoFecha ?? 'fechaEmision');
+      if (!valor) return false;
+      if (filtros.fechaDesde && valor < filtros.fechaDesde) return false;
+      if (filtros.fechaHasta && valor > filtros.fechaHasta) return false;
+    }
+    if (filtros.formaPagoMetodoId && oc.formaPagoMetodoId !== filtros.formaPagoMetodoId) return false;
+    if (filtros.compradorId && oc.compradorId !== filtros.compradorId) return false;
+    if (filtros.moneda && oc.moneda !== filtros.moneda) return false;
+    if (filtros.documentoRelacionado && filtros.documentoRelacionado !== 'todos') {
+      const tieneRelacionado = comprobantes.some((c) => c.ordenCompraOrigenId === oc.id);
+      if (filtros.documentoRelacionado === 'con' && !tieneRelacionado) return false;
+      if (filtros.documentoRelacionado === 'sin' && tieneRelacionado) return false;
+    }
     return true;
   });
 }
