@@ -4,6 +4,7 @@ import {
   Eye,
   CheckCircle,
   FileText,
+  Receipt,
   Search,
   Plus,
   XCircle,
@@ -12,7 +13,6 @@ import {
   Send,
   Printer,
   Download,
-  Link2,
   Copy,
   CalendarRange,
   SlidersHorizontal,
@@ -37,6 +37,8 @@ import {
   puedeGenerarCCDesdeOC,
   puedeEditarOC,
   puedeEliminarBorradorOC,
+  puedeImprimirOC,
+  puedeEnviarOC,
   calcularEstadoPrincipalOC,
   resolverNombreFormaPagoOC,
   ESTADOS_PRINCIPALES_OC,
@@ -359,7 +361,7 @@ export default function TablaOrdenesCompra({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onVerComprobante(comprobante.id); }}
-              title="Comprobante de compra"
+              title="Abrir comprobante de compra relacionado"
               className="font-mono text-blue-600 hover:underline"
             >
               {comprobante.serieProveedor}-{comprobante.numeroProveedor}
@@ -393,46 +395,76 @@ export default function TablaOrdenesCompra({
     if (estado === 'Borrador') {
       return (
         <>
-          <BotonAccionDirecta icon={Pencil} label="Editar" onClick={() => onEditar(oc)} />
+          <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
           {puedeEliminarBorradorOC(oc) && (
             <BotonAccionDirecta icon={Trash2} label="Eliminar borrador" onClick={() => onEliminarBorrador(oc)} danger />
           )}
+          <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
         </>
       );
     }
     if (estado === 'Registrada') {
       return (
         <>
-          {puedeEditarOC(oc) && <BotonAccionDirecta icon={Pencil} label="Editar" onClick={() => onEditar(oc)} />}
+          {puedeEditarOC(oc) && (
+            <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
+          )}
           {puedeGenerarCCDesdeOC(oc) && (
-            <BotonAccionDirecta icon={FileText} label="Generar comprobante" onClick={() => onGenerarCC(oc)} />
+            <BotonAccionDirecta icon={Receipt} label="Generar comprobante de compra" onClick={() => onGenerarCC(oc)} />
+          )}
+          {puedeAnularOC(oc) && (
+            <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
           )}
         </>
       );
     }
     if (estado === 'Pendiente de aprobación') {
-      return <BotonAccionDirecta icon={CheckCircle} label="Aprobar / No aprobar" onClick={() => onAprobarRechazar(oc)} />;
+      return (
+        <>
+          <BotonAccionDirecta icon={CheckCircle} label="Aprobar / No aprobar" onClick={() => onAprobarRechazar(oc)} />
+          {puedeAnularOC(oc) && (
+            <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
+          )}
+          <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
+        </>
+      );
     }
     if (estado === 'Aprobada') {
       return (
         <>
           {puedeGenerarCCDesdeOC(oc) && (
-            <BotonAccionDirecta icon={FileText} label="Generar comprobante" onClick={() => onGenerarCC(oc)} />
+            <BotonAccionDirecta icon={Receipt} label="Generar comprobante de compra" onClick={() => onGenerarCC(oc)} />
           )}
-          {puedeAnularOC(oc) && <BotonAccionDirecta icon={XCircle} label="Anular" onClick={() => onAnular(oc)} danger />}
+          {puedeAnularOC(oc) && (
+            <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
+          )}
+          <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
         </>
       );
     }
     if (estado === 'No Aprobada') {
       return (
         <>
-          <BotonAccionDirecta icon={Pencil} label="Editar" onClick={() => onEditar(oc)} />
-          {puedeAnularOC(oc) && <BotonAccionDirecta icon={XCircle} label="Anular" onClick={() => onAnular(oc)} danger />}
+          <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
+          <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
+          {puedeAnularOC(oc) && (
+            <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
+          )}
         </>
       );
     }
-    if (estado === 'Convertida') {
-      return <BotonAccionDirecta icon={Link2} label="Abrir documento relacionado" onClick={() => onVer(oc)} />;
+    if (estado === 'Convertida' || estado === 'Anulada') {
+      return (
+        <>
+          <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
+          {puedeImprimirOC(oc) && (
+            <BotonAccionDirecta icon={Printer} label="Imprimir orden de compra" onClick={() => onImprimir(oc)} />
+          )}
+          {puedeImprimirOC(oc) && (
+            <BotonAccionDirecta icon={Download} label="Descargar PDF" onClick={() => onImprimir(oc)} />
+          )}
+        </>
+      );
     }
     return null;
   }
@@ -791,11 +823,13 @@ export default function TablaOrdenesCompra({
             label="Ver detalle"
             onClick={() => { onVer(ocActiva); setMenu(null); }}
           />
-          <MenuItem
-            icon={Copy}
-            label="Duplicar"
-            onClick={() => { onDuplicar(ocActiva); setMenu(null); }}
-          />
+          {estadoPrincipalActivo === 'Registrada' && (
+            <MenuItem
+              icon={Copy}
+              label="Duplicar"
+              onClick={() => { onDuplicar(ocActiva); setMenu(null); }}
+            />
+          )}
           {estadoPrincipalActivo === 'Borrador' && (
             <MenuItem
               icon={CheckCircle}
@@ -803,16 +837,9 @@ export default function TablaOrdenesCompra({
               onClick={() => { onRegistrarBorrador(ocActiva); setMenu(null); }}
             />
           )}
-          {(estadoPrincipalActivo === 'Registrada' || estadoPrincipalActivo === 'Pendiente de aprobación') &&
-            puedeAnularOC(ocActiva) && (
-            <MenuItem
-              icon={XCircle}
-              label="Anular OC"
-              onClick={() => { onAnular(ocActiva); setMenu(null); }}
-              danger
-            />
-          )}
-          {estadoPrincipalActivo !== 'Borrador' && (
+          {estadoPrincipalActivo !== 'Convertida' &&
+            estadoPrincipalActivo !== 'Anulada' &&
+            puedeImprimirOC(ocActiva) && (
             <>
               <div className="my-1 border-t border-gray-100" />
               <MenuItem
@@ -825,14 +852,14 @@ export default function TablaOrdenesCompra({
                 label="Descargar PDF"
                 onClick={() => { onImprimir(ocActiva); setMenu(null); }}
               />
-              {(estadoPrincipalActivo === 'Aprobada' || estadoPrincipalActivo === 'Convertida') && (
-                <MenuItem
-                  icon={Send}
-                  label="Compartir"
-                  onClick={() => { onEnviar(ocActiva); setMenu(null); }}
-                />
-              )}
             </>
+          )}
+          {puedeEnviarOC(ocActiva) && (
+            <MenuItem
+              icon={Send}
+              label="Compartir"
+              onClick={() => { onEnviar(ocActiva); setMenu(null); }}
+            />
           )}
         </div>
       )}

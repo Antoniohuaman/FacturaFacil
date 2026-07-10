@@ -324,6 +324,10 @@ export default function PaginaCompras() {
           onEnviar={handleEnviar}
           onEditar={(oc) => setVista({ tipo: 'editar_oc', ocId: oc.id })}
           onDuplicar={handleDuplicar}
+          onAprobarRechazar={(oc) => setOcParaAprobar(oc)}
+          onAnular={(oc) => setOcParaAnular(oc)}
+          onGenerarCC={(oc) => setVista({ tipo: 'nuevo_cc', ocOrigen: oc })}
+          onEliminarBorrador={handleEliminarBorrador}
         />
       )}
 

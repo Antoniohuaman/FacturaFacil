@@ -1,5 +1,19 @@
-import { useState } from 'react';
-import { FileText, Clock, Link2, Printer, Send, Pencil, Copy } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {
+  FileText,
+  Clock,
+  Link2,
+  Printer,
+  Send,
+  Pencil,
+  Copy,
+  CheckCircle,
+  Receipt,
+  XCircle,
+  Trash2,
+  MoreHorizontal,
+  Download,
+} from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { formatMoney } from '@/shared/currency';
@@ -9,13 +23,19 @@ import { CLASIFICACION_LINEA_LABELS } from '../../modelos/LineaCompra';
 import {
   calcularEstadoPrincipalOC,
   puedeEditarOC,
+  puedeAnularOC,
+  puedeGenerarCCDesdeOC,
+  puedeAprobarOC,
+  puedeImprimirOC,
+  puedeEnviarOC,
+  puedeEliminarBorradorOC,
   resolverNombreFormaPagoOC,
   calcularTotalesLineas,
   formatearEtiquetaImpuesto,
   construirFilasResumenTributarioCompra,
 } from '../../logica/reglasCompras';
 import { formatearFechaCompra, formatearNumeroCompra } from '../../utilidades/formatearCompras';
-import type { OrdenCompra } from '../../modelos/OrdenCompra';
+import type { OrdenCompra, EstadoPrincipalOC } from '../../modelos/OrdenCompra';
 import {
   ESTADO_DOCUMENTO_OC_LABELS,
   ESTADO_RECEPCION_OC_LABELS,
@@ -40,6 +60,10 @@ interface PanelDetalleOrdenCompraProps {
   onEnviar?: (oc: OrdenCompra) => void;
   onEditar?: (oc: OrdenCompra) => void;
   onDuplicar?: (oc: OrdenCompra) => void;
+  onAprobarRechazar?: (oc: OrdenCompra) => void;
+  onAnular?: (oc: OrdenCompra) => void;
+  onGenerarCC?: (oc: OrdenCompra) => void;
+  onEliminarBorrador?: (oc: OrdenCompra) => void;
 }
 
 type TabOC = 'general' | 'historial' | 'relacionados';
@@ -80,6 +104,61 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
   );
 }
 
+/** Acción principal visible del header (icono + texto corto), máximo 2 por estado — el resto va al menú "Más acciones". */
+function BotonEncabezado({
+  icon: Icon,
+  texto,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: typeof FileText;
+  texto: string;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+        danger ? 'text-red-600 hover:bg-red-50' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+      }`}
+    >
+      <Icon size={14} /> {texto}
+    </button>
+  );
+}
+
+/** Fila del menú "Más acciones" del header. */
+function ItemMenuAccion({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: typeof FileText;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+        danger ? 'text-red-600 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-50'
+      }`}
+    >
+      <Icon size={14} />
+      {label}
+    </button>
+  );
+}
+
 export default function PanelDetalleOrdenCompra({
   oc,
   comprobantes,
@@ -89,9 +168,27 @@ export default function PanelDetalleOrdenCompra({
   onEnviar,
   onEditar,
   onDuplicar,
+  onAprobarRechazar,
+  onAnular,
+  onGenerarCC,
+  onEliminarBorrador,
 }: PanelDetalleOrdenCompraProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabOC>('general');
+  const [menuAccionesAbierto, setMenuAccionesAbierto] = useState(false);
+  const menuAccionesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickFuera(e: MouseEvent) {
+      if (menuAccionesRef.current && !menuAccionesRef.current.contains(e.target as Node)) {
+        setMenuAccionesAbierto(false);
+      }
+    }
+    if (menuAccionesAbierto) {
+      document.addEventListener('mousedown', handleClickFuera);
+      return () => document.removeEventListener('mousedown', handleClickFuera);
+    }
+  }, [menuAccionesAbierto]);
 
   const TABS: { id: TabOC; label: string; icon: typeof FileText }[] = [
     { id: 'general', label: 'General', icon: FileText },
@@ -108,14 +205,16 @@ export default function PanelDetalleOrdenCompra({
   const totalesDocumento = oc ? calcularTotalesLineas(oc.lineas) : null;
 
   const titulo = oc ? (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       <FileText size={18} className="text-blue-600 shrink-0" />
       {oc.correlativo ? (
-        <span className="font-mono font-semibold text-gray-900">{formatearNumeroCompra(oc.serie, oc.correlativo)}</span>
+        <span className="min-w-0 truncate font-mono font-semibold text-gray-900">
+          {formatearNumeroCompra(oc.serie, oc.correlativo)}
+        </span>
       ) : (
-        <span className="flex items-baseline gap-1.5">
-          <span className="font-mono font-semibold text-gray-900">{oc.serie}</span>
-          <span className="text-xs text-gray-400">sin correlativo</span>
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className="shrink-0 font-mono font-semibold text-gray-900">{oc.serie}</span>
+          <span className="min-w-0 truncate text-xs text-gray-400">sin correlativo</span>
         </span>
       )}
     </div>
@@ -131,47 +230,168 @@ export default function PanelDetalleOrdenCompra({
     </div>
   ) : null;
 
+  const estadoOC = oc ? calcularEstadoPrincipalOC(oc) : null;
+
+  /**
+   * Máximo 2 acciones visibles en el header (más el menú "Más acciones"), para
+   * que la identificación del documento (número/serie + estado) nunca quede
+   * tapada. Todas las condiciones reutilizan las mismas funciones de
+   * reglasCompras.ts que ya usa el listado — ninguna regla de negocio nueva.
+   */
+  function construirAccionesHeaderOC(
+    ocActual: OrdenCompra,
+    estado: EstadoPrincipalOC,
+  ): { visibles: React.ReactNode[]; menu: React.ReactNode[] } {
+    const visibles: React.ReactNode[] = [];
+    const menu: React.ReactNode[] = [];
+
+    const agregarEditarVisible = () => {
+      if (onEditar && puedeEditarOC(ocActual)) {
+        visibles.push(
+          <BotonEncabezado
+            key="editar"
+            icon={Pencil}
+            texto="Editar"
+            label="Editar orden de compra"
+            onClick={() => { onCerrar(); onEditar(ocActual); }}
+          />,
+        );
+      }
+    };
+    const agregarDuplicarVisible = () => {
+      if (onDuplicar) {
+        visibles.push(
+          <BotonEncabezado key="duplicar" icon={Copy} texto="Duplicar" label="Duplicar orden de compra" onClick={() => onDuplicar(ocActual)} />,
+        );
+      }
+    };
+    const agregarDuplicarMenu = () => {
+      if (onDuplicar) {
+        menu.push(<ItemMenuAccion key="duplicar" icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(ocActual)} />);
+      }
+    };
+    const agregarImprimirPdfMenu = () => {
+      if (onImprimir && puedeImprimirOC(ocActual)) {
+        menu.push(
+          <ItemMenuAccion key="imprimir" icon={Printer} label="Imprimir orden de compra" onClick={() => onImprimir(ocActual)} />,
+          <ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ocActual)} />,
+        );
+      }
+    };
+    const agregarEnviarMenu = () => {
+      if (onEnviar && puedeEnviarOC(ocActual)) {
+        menu.push(<ItemMenuAccion key="enviar" icon={Send} label="Enviar orden de compra" onClick={() => onEnviar(ocActual)} />);
+      }
+    };
+    const agregarAnularMenu = () => {
+      if (onAnular && puedeAnularOC(ocActual)) {
+        menu.push(<ItemMenuAccion key="anular" icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(ocActual)} danger />);
+      }
+    };
+
+    switch (estado) {
+      case 'Borrador':
+        agregarEditarVisible();
+        agregarDuplicarVisible();
+        if (onEliminarBorrador && puedeEliminarBorradorOC(ocActual)) {
+          menu.push(<ItemMenuAccion key="eliminar" icon={Trash2} label="Eliminar borrador" onClick={() => onEliminarBorrador(ocActual)} danger />);
+        }
+        agregarImprimirPdfMenu();
+        break;
+      case 'Registrada':
+        agregarEditarVisible();
+        if (onGenerarCC && puedeGenerarCCDesdeOC(ocActual)) {
+          visibles.push(
+            <BotonEncabezado
+              key="generar-cc"
+              icon={Receipt}
+              texto="Generar comprobante"
+              label="Generar comprobante de compra"
+              onClick={() => onGenerarCC(ocActual)}
+            />,
+          );
+        }
+        agregarImprimirPdfMenu();
+        agregarEnviarMenu();
+        agregarDuplicarMenu();
+        agregarAnularMenu();
+        break;
+      case 'Pendiente de aprobación':
+        if (onAprobarRechazar && puedeAprobarOC(ocActual)) {
+          visibles.push(
+            <BotonEncabezado key="aprobar" icon={CheckCircle} texto="Aprobar" label="Aprobar / No aprobar" onClick={() => onAprobarRechazar(ocActual)} />,
+          );
+        }
+        agregarDuplicarVisible();
+        agregarImprimirPdfMenu();
+        agregarEnviarMenu();
+        agregarAnularMenu();
+        break;
+      case 'Aprobada':
+        if (onGenerarCC && puedeGenerarCCDesdeOC(ocActual)) {
+          visibles.push(
+            <BotonEncabezado
+              key="generar-cc"
+              icon={Receipt}
+              texto="Generar comprobante"
+              label="Generar comprobante de compra"
+              onClick={() => onGenerarCC(ocActual)}
+            />,
+          );
+        }
+        agregarDuplicarVisible();
+        agregarImprimirPdfMenu();
+        agregarEnviarMenu();
+        agregarAnularMenu();
+        break;
+      case 'No Aprobada':
+        agregarEditarVisible();
+        agregarDuplicarVisible();
+        agregarImprimirPdfMenu();
+        agregarAnularMenu();
+        break;
+      case 'Convertida':
+      case 'Anulada':
+        if (onImprimir && puedeImprimirOC(ocActual)) {
+          visibles.push(<BotonEncabezado key="imprimir" icon={Printer} texto="Imprimir" label="Imprimir orden de compra" onClick={() => onImprimir(ocActual)} />);
+          menu.push(<ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ocActual)} />);
+        }
+        agregarDuplicarVisible();
+        agregarEnviarMenu();
+        break;
+      default:
+        break;
+    }
+
+    return { visibles, menu };
+  }
+
+  const { visibles: accionesVisibles, menu: accionesMenu } =
+    oc && estadoOC ? construirAccionesHeaderOC(oc, estadoOC) : { visibles: [], menu: [] };
+
   const accionesEncabezado = oc ? (
-    <div className="flex items-center gap-1">
-      {onEditar && puedeEditarOC(oc) && (
-        <button
-          type="button"
-          onClick={() => { onCerrar(); onEditar(oc); }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-          title="Editar"
-        >
-          <Pencil size={14} /> Editar
-        </button>
-      )}
-      {onImprimir && (
-        <button
-          type="button"
-          onClick={() => onImprimir(oc)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-          title="Imprimir"
-        >
-          <Printer size={14} /> Imprimir
-        </button>
-      )}
-      {onEnviar && (
-        <button
-          type="button"
-          onClick={() => onEnviar(oc)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-          title="Enviar por WhatsApp"
-        >
-          <Send size={14} /> Enviar
-        </button>
-      )}
-      {onDuplicar && (
-        <button
-          type="button"
-          onClick={() => onDuplicar(oc)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-          title="Duplicar"
-        >
-          <Copy size={14} /> Duplicar
-        </button>
+    <div className="flex shrink-0 items-center gap-1">
+      {accionesVisibles}
+      {accionesMenu.length > 0 && (
+        <div className="relative" ref={menuAccionesRef}>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMenuAccionesAbierto((v) => !v); }}
+            title="Más acciones"
+            aria-label="Más acciones"
+            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <MoreHorizontal size={16} />
+          </button>
+          {menuAccionesAbierto && (
+            <div
+              className="absolute right-0 z-10 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+              onClick={(e) => { e.stopPropagation(); setMenuAccionesAbierto(false); }}
+            >
+              {accionesMenu}
+            </div>
+          )}
+        </div>
       )}
     </div>
   ) : null;

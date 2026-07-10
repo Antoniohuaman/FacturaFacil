@@ -83,6 +83,7 @@ export function puedeGenerarCCDesdeOC(oc: OrdenCompra): boolean {
  * derivados (anular el comprobante, etc.).
  */
 export function motivoBloqueoAnulacionOC(oc: OrdenCompra): string | null {
+  if (oc.estadoDocumento === 'borrador') return 'Los borradores se eliminan, no se anulan.';
   if (oc.estadoDocumento === 'anulado') return 'La orden de compra ya se encuentra anulada.';
   if (oc.estadoDocumento === 'cerrado') return 'La orden de compra ya se encuentra cerrada.';
   if ((oc.comprobantesCompraRelacionados?.length ?? 0) > 0) {
@@ -96,6 +97,22 @@ export function motivoBloqueoAnulacionOC(oc: OrdenCompra): string | null {
 
 export function puedeAnularOC(oc: OrdenCompra): boolean {
   return motivoBloqueoAnulacionOC(oc) === null;
+}
+
+/** Disponibilidad de imprimir/PDF: no aplica a borradores (documento aún no oficial, sin correlativo). No es una transición de estado, solo disponibilidad de la acción — única fuente para listado y drawer. */
+export function puedeImprimirOC(oc: OrdenCompra): boolean {
+  return calcularEstadoPrincipalOC(oc) !== 'Borrador';
+}
+
+/** Disponibilidad de compartir (WhatsApp): solo documentos ya registrados y presentables formalmente. Única fuente para listado y drawer. */
+export function puedeEnviarOC(oc: OrdenCompra): boolean {
+  const estado = calcularEstadoPrincipalOC(oc);
+  return (
+    estado === 'Registrada' ||
+    estado === 'Pendiente de aprobación' ||
+    estado === 'Aprobada' ||
+    estado === 'Convertida'
+  );
 }
 
 export function puedeCerrarOC(oc: OrdenCompra): boolean {
