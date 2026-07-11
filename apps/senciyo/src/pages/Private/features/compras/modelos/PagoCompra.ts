@@ -45,6 +45,15 @@ export interface PagoCompra {
   cuentasPorPagarAplicadas: string[];
   comprobantesCompraAplicados: string[];
 
+  /**
+   * Cuando la CxP de origen tiene cronograma real (varias cuotas), registra
+   * exactamente qué cuota recibió cuánto — permite anular el pago revirtiendo
+   * la cuota correcta, en vez de redistribuir de la más antigua a la más
+   * nueva. Ausente en pagos de contado o CxP sin cuotas (comportamiento
+   * agregado ya existente, sin cambios).
+   */
+  asignacionesCuotas?: Array<{ cuotaId: string; monto: number }>;
+
   // Caja / Cuenta bancaria principal
   cajaId?: string;
   cuentaBancariaId?: string;

@@ -357,9 +357,13 @@ export default function PaginaCompras() {
         {tabActivo === 'cuentas_por_pagar' && (
           <TablaCuentasPorPagar
             cuentas={state.cuentasPorPagar}
+            pagos={state.pagos}
+            cargando={state.cargando}
+            errorCarga={state.errorCarga}
             onVer={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
             onRegistrarPago={(cxp) => navigate(`/compras/pagos/nuevo?cuentaPorPagarId=${cxp.id}`)}
             onNuevoPago={() => navigate('/compras/pagos/nuevo')}
+            onActualizar={recargarDatos}
           />
         )}
 
@@ -413,8 +417,10 @@ export default function PaginaCompras() {
         <PanelDetalleCuentaPorPagar
           cxp={cxpDetalle}
           pagos={state.pagos}
+          comprobantes={state.comprobantes}
           onCerrar={() => setVista({ tipo: 'lista' })}
           onRegistrarPago={(cxp) => navigate(`/compras/pagos/nuevo?cuentaPorPagarId=${cxp.id}`)}
+          onVerComprobante={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
         />
       )}
 

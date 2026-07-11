@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { tryLsKey } from '@/shared/tenant';
+import { formatMoney } from '@/shared/currency';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { getConfiguredPaymentMeans } from '@/shared/payments/paymentMeans';
 import type { OrdenCompra } from '../modelos/OrdenCompra';
@@ -1267,7 +1268,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
             fecha: ts,
             usuario: usuarioId,
             accion: 'Pago registrado',
-            detalle: `${numeroPago} — Total: ${datos.montoTotalPagado.toFixed(2)} ${datos.moneda}`,
+            detalle: `${numeroPago} — Total: ${formatMoney(datos.montoTotalPagado, datos.moneda)}`,
           },
         ],
         creadoPor: usuarioId,
@@ -1286,6 +1287,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
             datos.montoTotalPagado,
             pago.id,
             hoy(),
+            usuarioId,
+            datos.asignacionesCuotas,
           );
           agregarOActualizarCxP(cxpActualizada);
           dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpActualizada });
@@ -1376,6 +1379,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
             pago.montoTotalPagado,
             pago.id,
             ts,
+            anuladoPor,
+            pago.asignacionesCuotas,
           );
           const cxpConVencimiento: CuentaPorPagar = {
             ...cxpRevertida,

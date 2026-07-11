@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MoreHorizontal, Eye, XCircle, Search, Wallet } from 'lucide-react';
+import { formatMoney } from '@/shared/currency';
 import type { PagoCompra } from '../../modelos/PagoCompra';
 import { ESTADO_DOCUMENTO_PAGO_LABELS } from '../../modelos/PagoCompra';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
@@ -7,6 +8,7 @@ import { ESTADO_PAGO_CXP_LABELS } from '../../modelos/CuentaPorPagar';
 import { BADGE_ESTADO_DOCUMENTO_PAGO, BADGE_ESTADO_PAGO_CXP } from '../../constantes/estadosCompras';
 import { filtrarPagosCompra, type FiltrosPagos } from '../../logica/filtrosCompras';
 import { puedeAnularPago } from '../../logica/reglasCompras';
+import { formatearFechaCompra } from '../../utilidades/formatearCompras';
 
 interface TablaPagosCompraProps {
   pagos: PagoCompra[];
@@ -161,7 +163,7 @@ export default function TablaPagosCompra({ pagos, cuentasPorPagar, onVer, onAnul
                   <td className="px-4 py-3 font-mono text-gray-600">
                     {cxp?.comprobanteCompraNumero ?? <span className="text-gray-400">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{pago.fechaPago}</td>
+                  <td className="px-4 py-3 text-gray-600">{formatearFechaCompra(pago.fechaPago)}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {pago.mediosPago.map((mp) => (
@@ -175,8 +177,7 @@ export default function TablaPagosCompra({ pagos, cuentasPorPagar, onVer, onAnul
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-medium">
-                    {pago.montoTotalPagado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}{' '}
-                    <span className="text-xs text-gray-500">{pago.moneda}</span>
+                    {formatMoney(pago.montoTotalPagado, pago.moneda)}
                   </td>
                   <td className="px-4 py-3">
                     <Badge

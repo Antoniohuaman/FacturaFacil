@@ -51,6 +51,7 @@ export interface CuentaPorPagar {
 
   // Condiciones
   formaPago: 'contado' | 'credito';
+  formaPagoMetodoId?: string;
   fechaEmision: string;
   fechaVencimiento?: string;
   cuotas?: CuotaCuentaPorPagar[];

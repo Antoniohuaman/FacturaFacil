@@ -132,13 +132,27 @@ export function filtrarComprobantesCompra(
   });
 }
 
+export type CampoFechaFiltroCxP = 'fechaEmision' | 'fechaVencimiento' | 'fechaRegistro';
+
+/** Normaliza cualquier fecha de la CxP al prefijo `YYYY-MM-DD`. CxP no tiene un `fechaRegistro` propio (a diferencia de CC): el campo real más cercano es `fechaCreacion`. */
+function obtenerValorFechaCxP(cxp: CuentaPorPagar, campo: CampoFechaFiltroCxP): string | null {
+  if (campo === 'fechaVencimiento') return cxp.fechaVencimiento ? cxp.fechaVencimiento.slice(0, 10) : null;
+  if (campo === 'fechaRegistro') return cxp.fechaCreacion ? cxp.fechaCreacion.slice(0, 10) : null;
+  return cxp.fechaEmision ? cxp.fechaEmision.slice(0, 10) : null;
+}
+
 export interface FiltrosCxP {
   busqueda?: string;
   estadoPago?: EstadoPagoCxP | '';
   estadoVencimiento?: EstadoVencimientoCxP | '';
   proveedorId?: string;
+  campoFecha?: CampoFechaFiltroCxP;
   fechaDesde?: string;
   fechaHasta?: string;
+  formaPagoMetodoId?: string;
+  moneda?: string;
+  /** Bandeja operativa: por defecto (no `false`) excluye cuentas ya `pagada`/`anulada`, que dejaron de requerir gestión de pago. */
+  soloPendientes?: boolean;
 }
 
 export function filtrarCuentasPorPagar(
@@ -146,6 +160,8 @@ export function filtrarCuentasPorPagar(
   filtros: FiltrosCxP,
 ): CuentaPorPagar[] {
   return cuentas.filter((cxp) => {
+    if (filtros.soloPendientes !== false && (cxp.estadoPago === 'pagada' || cxp.estadoPago === 'anulada'))
+      return false;
     if (filtros.busqueda) {
       const q = filtros.busqueda.toLowerCase();
       if (
@@ -159,8 +175,14 @@ export function filtrarCuentasPorPagar(
     if (filtros.estadoVencimiento && cxp.estadoVencimiento !== filtros.estadoVencimiento)
       return false;
     if (filtros.proveedorId && cxp.proveedorId !== filtros.proveedorId) return false;
-    if (filtros.fechaDesde && cxp.fechaEmision < filtros.fechaDesde) return false;
-    if (filtros.fechaHasta && cxp.fechaEmision > filtros.fechaHasta) return false;
+    if (filtros.fechaDesde || filtros.fechaHasta) {
+      const valor = obtenerValorFechaCxP(cxp, filtros.campoFecha ?? 'fechaEmision');
+      if (!valor) return false;
+      if (filtros.fechaDesde && valor < filtros.fechaDesde) return false;
+      if (filtros.fechaHasta && valor > filtros.fechaHasta) return false;
+    }
+    if (filtros.formaPagoMetodoId && cxp.formaPagoMetodoId !== filtros.formaPagoMetodoId) return false;
+    if (filtros.moneda && cxp.moneda !== filtros.moneda) return false;
     return true;
   });
 }

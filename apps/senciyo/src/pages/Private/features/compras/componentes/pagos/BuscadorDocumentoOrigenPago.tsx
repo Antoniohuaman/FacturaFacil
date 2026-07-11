@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { Search, CreditCard } from 'lucide-react';
+import { formatMoney } from '@/shared/currency';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import { filtrarCuentasPorPagar } from '../../logica/filtrosCompras';
-import { puedeRegistrarPago } from '../../logica/reglasCompras';
+import { puedeRegistrarPago, resolverNombreFormaPago } from '../../logica/reglasCompras';
+import { getNombreTipoDocumentoProveedor } from '../../constantes/tiposDocumentoProveedor';
+import { formatearFechaCompra } from '../../utilidades/formatearCompras';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
 interface BuscadorDocumentoOrigenPagoProps {
   cuentasPorPagar: CuentaPorPagar[];
@@ -19,6 +23,7 @@ export default function BuscadorDocumentoOrigenPago({
   cuentasPorPagar,
   onSeleccionar,
 }: BuscadorDocumentoOrigenPagoProps) {
+  const { state: config } = useConfigurationContext();
   const [busqueda, setBusqueda] = useState('');
 
   const candidatas = cuentasPorPagar.filter(
@@ -76,17 +81,18 @@ export default function BuscadorDocumentoOrigenPago({
                   </td>
                   <td className="px-4 py-3 font-mono text-gray-700">
                     {cxp.comprobanteCompraNumero}
-                    <div className="text-xs text-gray-400 font-sans">{cxp.tipoComprobanteOrigen}</div>
+                    <div className="text-xs text-gray-400 font-sans">
+                      {getNombreTipoDocumentoProveedor(cxp.tipoComprobanteOrigen)}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {cxp.formaPago === 'contado' ? 'Contado' : 'Crédito'}
+                    {resolverNombreFormaPago(cxp, config.paymentMethods)}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {cxp.fechaVencimiento ?? <span className="text-gray-400">—</span>}
+                    {cxp.fechaVencimiento ? formatearFechaCompra(cxp.fechaVencimiento) : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-medium">
-                    {cxp.saldoPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2 })}{' '}
-                    <span className="text-xs text-gray-500">{cxp.moneda}</span>
+                    {formatMoney(cxp.saldoPendiente, cxp.moneda)}
                   </td>
                 </tr>
               ))}

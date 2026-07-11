@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { Breadcrumb, PageHeader } from '@/contasis';
+import { formatMoney } from '@/shared/currency';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import {
   FormSectionCard,
@@ -87,10 +88,11 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
         <FormSectionCard titulo="Documento a pagar">
           <TablaAplicacionPagoCompra
             cxp={cxp}
-            seleccionada={f.cxpSeleccionada}
-            onCambiarSeleccion={f.alternarSeleccionCxp}
-            importeAplicado={f.importeAplicado}
-            onCambiarImporte={f.setImporteAplicado}
+            formaPagoNombre={f.formaPagoNombre}
+            installments={f.installments}
+            allocations={f.allocations}
+            onChangeAllocations={f.onChangeAllocations}
+            disabled={f.enviando}
           />
         </FormSectionCard>
 
@@ -170,7 +172,7 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Total a pagar</label>
                     <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900">
-                      {f.importeAplicado.toFixed(2)} {cxp.moneda}
+                      {formatMoney(f.importeAplicado, cxp.moneda)}
                     </div>
                   </div>
                 </div>
@@ -268,8 +270,8 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
       <DocumentFormFooter
         infoIzquierda={
           <>
-            Total: <span className="font-semibold text-gray-700">{f.importeAplicado.toFixed(2)} {cxp.moneda}</span>
-            {' · '}Saldo resultante: <span className="font-semibold text-gray-700">{f.saldoResultante.toFixed(2)} {cxp.moneda}</span>
+            Total: <span className="font-semibold text-gray-700">{formatMoney(f.importeAplicado, cxp.moneda)}</span>
+            {' · '}Saldo resultante: <span className="font-semibold text-gray-700">{formatMoney(f.saldoResultante, cxp.moneda)}</span>
           </>
         }
         onCancelar={onCancelar}

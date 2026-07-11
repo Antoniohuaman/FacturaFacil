@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import { Breadcrumb, PageHeader } from '@/contasis';
 import { useCompras } from '../contexto/ContextoCompras';
 import { puedeRegistrarPago } from '../logica/reglasCompras';
+import { ESTADO_PAGO_CXP_LABELS } from '../modelos/CuentaPorPagar';
 import FormularioPagoCompra from '../componentes/formularios/FormularioPagoCompra';
 import BuscadorDocumentoOrigenPago from '../componentes/pagos/BuscadorDocumentoOrigenPago';
 
@@ -74,7 +75,7 @@ export default function PaginaRegistrarPagoCompra() {
   if (!puedeRegistrarPago(cxp)) {
     return (
       <EstadoNoDisponible
-        mensaje={`La cuenta por pagar ${cxp.comprobanteCompraNumero} ya no admite un nuevo pago (estado actual: ${cxp.estadoPago}).`}
+        mensaje={`La cuenta por pagar ${cxp.comprobanteCompraNumero} ya no admite un nuevo pago (estado actual: ${ESTADO_PAGO_CXP_LABELS[cxp.estadoPago]}).`}
         onVolver={volverACuentasPorPagar}
       />
     );

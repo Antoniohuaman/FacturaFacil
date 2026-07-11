@@ -1,3 +1,5 @@
+import { formatMoney } from '@/shared/currency';
+
 interface ResumenPagoCompraProps {
   moneda: string;
   saldoInicial: number;
@@ -22,23 +24,23 @@ export default function ResumenPagoCompra({
     <div className="bg-gray-50 rounded-lg p-3 space-y-1.5 text-sm">
       <div className="flex justify-between text-gray-600">
         <span>Saldo inicial</span>
-        <span className="font-mono">{saldoInicial.toFixed(2)} {moneda}</span>
+        <span className="font-mono">{formatMoney(saldoInicial, moneda)}</span>
       </div>
       <div className="flex justify-between text-gray-600">
         <span>Importe aplicado</span>
-        <span className="font-mono">{importeAplicado.toFixed(2)} {moneda}</span>
+        <span className="font-mono">{formatMoney(importeAplicado, moneda)}</span>
       </div>
       <div className="flex justify-between text-gray-600">
         <span>Medios registrados</span>
-        <span className="font-mono">{totalMedios.toFixed(2)} {moneda}</span>
+        <span className="font-mono">{formatMoney(totalMedios, moneda)}</span>
       </div>
       <div className="flex justify-between text-gray-700 font-medium pt-1.5 border-t border-gray-200">
         <span>Saldo resultante</span>
-        <span className="font-mono">{saldoResultante.toFixed(2)} {moneda}</span>
+        <span className="font-mono">{formatMoney(saldoResultante, moneda)}</span>
       </div>
       <div className={`flex justify-between font-semibold pt-1 ${cuadra ? 'text-green-700' : 'text-red-600'}`}>
         <span>Diferencia</span>
-        <span className="font-mono">{diferencia.toFixed(2)} {moneda}</span>
+        <span className="font-mono">{formatMoney(diferencia, moneda)}</span>
       </div>
     </div>
   );

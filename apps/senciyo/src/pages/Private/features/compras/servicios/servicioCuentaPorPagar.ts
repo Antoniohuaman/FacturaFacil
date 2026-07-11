@@ -27,6 +27,7 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
     totalPagado: 0,
     saldoPendiente: cc.totales.total,
     formaPago: cc.formaPago,
+    formaPagoMetodoId: cc.formaPagoMetodoId,
     // La fecha de emisión de la CxP es la fecha real del comprobante del
     // proveedor, no la fecha en que se registró en SenciYo.
     fechaEmision: cc.fechaEmisionProveedor ?? cc.fechaRegistro,
@@ -49,12 +50,18 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
 
 /**
  * Sincroniza las cuotas de la CxP con el total pagado/saldo tras aplicar o
- * revertir un pago. El pago se registra siempre sobre el total de la CxP (no
- * por cuota individual); el monto pagado se distribuye entre las cuotas en
- * orden de número de cuota (la más antigua primero), recalculando siempre
- * desde el total pagado acumulado — por eso es idempotente sin importar
- * cuántas veces se aplique o revierta un pago. Con una sola cuota (el caso
- * más común) el resultado es idéntico al de antes de soportar cuotas reales.
+ * revertir un pago SIN asignación explícita por cuota (contado, o datos
+ * heredados sin cronograma seleccionable). El monto pagado se distribuye
+ * entre las cuotas en orden de número de cuota (la más antigua primero),
+ * recalculando siempre desde el total pagado acumulado — por eso es
+ * idempotente sin importar cuántas veces se aplique o revierta un pago. Con
+ * una sola cuota (el caso más común) el resultado es idéntico al de antes de
+ * soportar cuotas reales.
+ *
+ * Cuando el pago sí trae asignación explícita por cuota (el usuario
+ * seleccionó exactamente qué cuota(s) pagar desde Registrar Pago), se usa en
+ * su lugar `aplicarAsignacionesACuotas`, que respeta esa selección en vez de
+ * redistribuir de la más antigua a la más nueva.
  */
 function sincronizarCuotas(
   cuotas: CuotaCuentaPorPagar[] | undefined,
@@ -79,6 +86,35 @@ function sincronizarCuotas(
     });
 }
 
+/**
+ * Aplica (direccion=1) o revierte (direccion=-1) montos exactos por cuota,
+ * según lo que el usuario seleccionó en Registrar Pago — a diferencia de
+ * `sincronizarCuotas`, no redistribuye: cada asignación afecta únicamente la
+ * cuota `cuotaId` indicada, con el monto acotado a su propio importe/saldo.
+ */
+function aplicarAsignacionesACuotas(
+  cuotas: CuotaCuentaPorPagar[],
+  asignaciones: Array<{ cuotaId: string; monto: number }>,
+  direccion: 1 | -1,
+): CuotaCuentaPorPagar[] {
+  const montosPorCuota = new Map(asignaciones.map((a) => [a.cuotaId, a.monto]));
+  return cuotas.map((cuota) => {
+    const monto = montosPorCuota.get(cuota.id);
+    if (monto === undefined) return cuota;
+    const nuevoMontoPagado = round2(
+      Math.max(0, Math.min(cuota.montoCuota, cuota.montoPagado + direccion * monto)),
+    );
+    const saldo = round2(Math.max(0, cuota.montoCuota - nuevoMontoPagado));
+    return {
+      ...cuota,
+      montoPagado: nuevoMontoPagado,
+      saldoPendiente: saldo,
+      estadoPago: saldo <= TOLERANCIA_DECIMAL ? 'pagada' : nuevoMontoPagado > 0 ? 'parcial' : 'pendiente',
+      estadoVencimiento: calcularEstadoVencimiento(cuota.fechaVencimiento),
+    };
+  });
+}
+
 /** Deriva el estadoPago de una CxP a partir de su total y lo efectivamente pagado. */
 export function recalcularEstadoCuentaPorPagar(
   total: number,
@@ -95,8 +131,16 @@ export function aplicarPagoACuentaPorPagar(
   montoAplicado: number,
   pagoId: string,
   fechaPago: string,
+  usuario?: string,
+  asignaciones?: Array<{ cuotaId: string; monto: number }>,
 ): CuentaPorPagar {
-  const nuevoTotalPagado = round2(cxp.totalPagado + montoAplicado);
+  const usaAsignacionesExactas = !!asignaciones?.length && !!cxp.cuotas?.length;
+  const nuevasCuotas = usaAsignacionesExactas
+    ? aplicarAsignacionesACuotas(cxp.cuotas!, asignaciones!, 1)
+    : sincronizarCuotas(cxp.cuotas, round2(cxp.totalPagado + montoAplicado));
+  const nuevoTotalPagado = usaAsignacionesExactas
+    ? round2((nuevasCuotas ?? []).reduce((acumulado, cuota) => acumulado + cuota.montoPagado, 0))
+    : round2(cxp.totalPagado + montoAplicado);
   const nuevoSaldo = Math.max(0, round2(cxp.total - nuevoTotalPagado));
   const nuevoEstadoPago = recalcularEstadoCuentaPorPagar(cxp.total, nuevoTotalPagado);
 
@@ -105,11 +149,16 @@ export function aplicarPagoACuentaPorPagar(
     totalPagado: nuevoTotalPagado,
     saldoPendiente: nuevoSaldo,
     estadoPago: nuevoEstadoPago,
-    cuotas: sincronizarCuotas(cxp.cuotas, nuevoTotalPagado),
+    cuotas: nuevasCuotas,
     pagosRelacionados: [...cxp.pagosRelacionados, pagoId],
     historial: [
       ...cxp.historial,
-      { fecha: fechaPago, accion: 'Pago registrado', detalle: `Monto aplicado: ${montoAplicado.toFixed(2)}` },
+      {
+        fecha: fechaPago,
+        usuario,
+        accion: 'Pago registrado',
+        detalle: `Monto aplicado: ${montoAplicado.toFixed(2)}`,
+      },
     ],
     fechaActualizacion: fechaPago,
   };
@@ -120,8 +169,16 @@ export function revertirPagoDeCuentaPorPagar(
   montoRevertido: number,
   pagoId: string,
   fechaReversion: string,
+  usuario?: string,
+  asignaciones?: Array<{ cuotaId: string; monto: number }>,
 ): CuentaPorPagar {
-  const nuevoTotalPagado = round2(Math.max(0, cxp.totalPagado - montoRevertido));
+  const usaAsignacionesExactas = !!asignaciones?.length && !!cxp.cuotas?.length;
+  const nuevasCuotas = usaAsignacionesExactas
+    ? aplicarAsignacionesACuotas(cxp.cuotas!, asignaciones!, -1)
+    : sincronizarCuotas(cxp.cuotas, round2(Math.max(0, cxp.totalPagado - montoRevertido)));
+  const nuevoTotalPagado = usaAsignacionesExactas
+    ? round2((nuevasCuotas ?? []).reduce((acumulado, cuota) => acumulado + cuota.montoPagado, 0))
+    : round2(Math.max(0, cxp.totalPagado - montoRevertido));
   const nuevoSaldo = round2(cxp.total - nuevoTotalPagado);
   const nuevoEstadoPago = recalcularEstadoCuentaPorPagar(cxp.total, nuevoTotalPagado);
 
@@ -130,11 +187,16 @@ export function revertirPagoDeCuentaPorPagar(
     totalPagado: nuevoTotalPagado,
     saldoPendiente: nuevoSaldo,
     estadoPago: nuevoEstadoPago,
-    cuotas: sincronizarCuotas(cxp.cuotas, nuevoTotalPagado),
+    cuotas: nuevasCuotas,
     pagosRelacionados: cxp.pagosRelacionados.filter((id) => id !== pagoId),
     historial: [
       ...cxp.historial,
-      { fecha: fechaReversion, accion: 'Pago anulado', detalle: `Monto revertido: ${montoRevertido.toFixed(2)}` },
+      {
+        fecha: fechaReversion,
+        usuario,
+        accion: 'Pago anulado',
+        detalle: `Monto revertido: ${montoRevertido.toFixed(2)}`,
+      },
     ],
     fechaActualizacion: fechaReversion,
   };

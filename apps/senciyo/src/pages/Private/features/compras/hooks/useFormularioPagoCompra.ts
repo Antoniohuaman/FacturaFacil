@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '@/shared/payments/paymentMeans';
+import type { CreditInstallment } from '@/shared/payments/paymentTerms';
+import type { CreditInstallmentAllocationInput } from '@/shared/payments/CreditInstallmentsTable';
 import { useCompras } from '../contexto/ContextoCompras';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useBankAccounts } from '../../configuracion-sistema/hooks/useCuentasBancarias';
@@ -7,9 +9,13 @@ import { useCaja } from '../../control-caja';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { siguienteNumeroPago } from '../utilidades/formatearCompras';
 import { esMedioBancario, requiereReferencia, tieneMedioDeCaja } from '../servicios/servicioPagoCompra';
+import { calcularDiasCredito } from '../servicios/servicioCuentaPorPagar';
+import { resolverNombreFormaPago } from '../logica/reglasCompras';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import type { MedioPagoCompra } from '../modelos/PagoCompra';
 import type { AdjuntoCompra } from '../modelos/AdjuntoCompra';
+
+const TOLERANCIA_DECIMAL = 0.01;
 
 function generarIdLinea(): string {
   return `ml-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -26,6 +32,41 @@ function crearMedioDesde(medio: PaymentMeanOption | undefined, monto: number): M
     medioPagoNombre: medio?.label ?? '',
     monto,
   };
+}
+
+/**
+ * Cuotas reales de la CxP (crédito, generadas por generarCuotasDesdeCC) como
+ * `CreditInstallment[]` para reutilizar CreditInstallmentsTable en modo
+ * `allocation` — el mismo componente y patrón que ya usa Cobranzas. Si la CxP
+ * no trae cuotas (contado / dato heredado), se sintetiza una única cuota a
+ * partir del propio saldo de la CxP, para que el usuario siempre pague desde
+ * la misma tabla de selección real.
+ */
+function construirCuotasParaFormulario(cxp: CuentaPorPagar): CreditInstallment[] {
+  if (cxp.cuotas && cxp.cuotas.length > 0) {
+    return cxp.cuotas.map((cuota) => ({
+      numeroCuota: cuota.numeroCuota,
+      fechaVencimiento: cuota.fechaVencimiento,
+      importe: cuota.montoCuota,
+      pagado: cuota.montoPagado,
+      saldo: cuota.saldoPendiente,
+      diasCredito: calcularDiasCredito(cxp.fechaEmision, cuota.fechaVencimiento) ?? 0,
+      porcentaje: cxp.total > 0 ? round2((cuota.montoCuota / cxp.total) * 100) : 0,
+      estado: cuota.estadoPago === 'pagada' ? 'cancelado' : cuota.estadoPago,
+    }));
+  }
+  return [
+    {
+      numeroCuota: 1,
+      fechaVencimiento: cxp.fechaVencimiento ?? cxp.fechaEmision,
+      importe: cxp.total,
+      pagado: cxp.totalPagado,
+      saldo: cxp.saldoPendiente,
+      diasCredito: calcularDiasCredito(cxp.fechaEmision, cxp.fechaVencimiento) ?? 0,
+      porcentaje: 100,
+      estado: cxp.estadoPago === 'pagada' || cxp.estadoPago === 'anulada' ? 'cancelado' : cxp.estadoPago,
+    },
+  ];
 }
 
 /**
@@ -63,10 +104,18 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
     (c) => c.isVisible && c.currencyCode === cxp.moneda,
   );
 
-  const [cxpSeleccionada, setCxpSeleccionada] = useState(true);
+  const formaPagoNombre = resolverNombreFormaPago(cxp, config.paymentMethods);
+
+  const installments = useMemo(() => construirCuotasParaFormulario(cxp), [cxp]);
+  const [allocations, setAllocations] = useState<CreditInstallmentAllocationInput[]>(() =>
+    installments
+      .filter((cuota) => (cuota.saldo ?? 0) > TOLERANCIA_DECIMAL)
+      .map((cuota) => ({ installmentNumber: cuota.numeroCuota, amount: cuota.saldo ?? 0 })),
+  );
+  const importeAplicado = round2(allocations.reduce((acumulado, a) => acumulado + (a.amount || 0), 0));
+
   const [fechaPago, setFechaPago] = useState(() => new Date().toISOString().slice(0, 10));
   const [tipoCambio, setTipoCambio] = useState('');
-  const [importeAplicado, setImporteAplicadoState] = useState(cxp.saldoPendiente);
   const [medioSincronizado, setMedioSincronizado] = useState(true);
   const [mediosPago, setMediosPago] = useState<MedioPagoCompra[]>(() => [
     crearMedioDesde(medioPorDefecto, cxp.saldoPendiente),
@@ -88,24 +137,18 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
   const hayMedioBancarioSinCuentaCompatible =
     cuentasBancariasCompatibles.length === 0 && mediosPago.some((m) => esMedioBancario(m.medioPagoCodigo));
 
-  /** Marca/desmarca la CxP en "Documento a pagar". Al desmarcar, el importe pasa a 0. */
-  function alternarSeleccionCxp(seleccionada: boolean) {
-    setCxpSeleccionada(seleccionada);
-    const nuevoImporte = seleccionada ? cxp.saldoPendiente : 0;
-    setImporteAplicadoState(nuevoImporte);
-    setMedioSincronizado(true);
-    setMediosPago((prev) => (prev.length === 1 ? [{ ...prev[0], monto: nuevoImporte }] : prev));
-  }
-
   /**
-   * Cambia el importe aplicado. Si solo hay un medio y el usuario aún no lo
-   * editó manualmente, se mantiene sincronizado con el nuevo total — nunca
-   * se conserva silenciosamente el importe anterior del medio.
+   * Selección real de cuotas/saldo a pagar: una, varias, completas o
+   * parciales, con posibilidad de desmarcar (CreditInstallmentsTable en modo
+   * `allocation` ya implementa el toggle/edición/clamping a saldo). Si solo
+   * hay un medio y el usuario aún no lo editó manualmente, el medio se
+   * mantiene sincronizado con el nuevo importe total seleccionado.
    */
-  function setImporteAplicado(nuevoValor: number) {
-    setImporteAplicadoState(nuevoValor);
+  function onChangeAllocations(nuevasAsignaciones: CreditInstallmentAllocationInput[]) {
+    setAllocations(nuevasAsignaciones);
+    const nuevoImporte = round2(nuevasAsignaciones.reduce((acumulado, a) => acumulado + (a.amount || 0), 0));
     if (mediosPago.length === 1 && medioSincronizado) {
-      setMediosPago([{ ...mediosPago[0], monto: nuevoValor }]);
+      setMediosPago([{ ...mediosPago[0], monto: nuevoImporte }]);
     }
   }
 
@@ -146,14 +189,22 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
     if (!hayMediosConfigurados) {
       nuevosErrores.push('No hay medios de pago activos configurados.');
     }
-    if (!cxpSeleccionada) {
-      nuevosErrores.push('Selecciona al menos un documento para pagar.');
+    if (allocations.length === 0) {
+      nuevosErrores.push('Selecciona al menos una cuota o el saldo a pagar.');
     }
     if (importeAplicado <= 0) {
       nuevosErrores.push('El importe a pagar debe ser mayor a cero.');
     }
-    if (importeAplicado > cxp.saldoPendiente + 0.01) {
+    if (importeAplicado > cxp.saldoPendiente + TOLERANCIA_DECIMAL) {
       nuevosErrores.push(`El importe a pagar (${importeAplicado.toFixed(2)}) no puede superar el saldo pendiente (${cxp.saldoPendiente.toFixed(2)}).`);
+    }
+    const cuotaConImporteInvalido = allocations.some((a) => {
+      const cuota = installments.find((i) => i.numeroCuota === a.installmentNumber);
+      const saldoCuota = cuota?.saldo ?? 0;
+      return a.amount < 0 || a.amount > saldoCuota + TOLERANCIA_DECIMAL;
+    });
+    if (cuotaConImporteInvalido) {
+      nuevosErrores.push('Hay una cuota con un importe inválido (negativo o mayor a su saldo pendiente).');
     }
     if (mediosPago.length === 0) {
       nuevosErrores.push('Agrega al menos un medio de pago.');
@@ -202,6 +253,19 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
     setEnviando(true);
 
     try {
+      // Solo se envían asignaciones exactas por cuota cuando la CxP tiene un
+      // cronograma real (cxp.cuotas) — para el caso sintético de contado, el
+      // pago se sigue registrando de forma agregada (comportamiento actual).
+      const asignacionesCuotas =
+        cxp.cuotas && cxp.cuotas.length > 0
+          ? allocations
+              .map((a) => {
+                const cuota = cxp.cuotas!.find((c) => c.numeroCuota === a.installmentNumber);
+                return cuota ? { cuotaId: cuota.id, monto: round2(a.amount) } : null;
+              })
+              .filter((asignacion): asignacion is { cuotaId: string; monto: number } => asignacion !== null)
+          : undefined;
+
       await registrarPagoCompra(
         {
           fechaPago,
@@ -213,6 +277,7 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
           mediosPago,
           cuentasPorPagarAplicadas: [cxp.id],
           comprobantesCompraAplicados: [cxp.comprobanteCompraId],
+          asignacionesCuotas,
           documentoSustentoTipo: documentoSustentoTipo || undefined,
           documentoSustentoSerie: documentoSustentoSerie || undefined,
           documentoSustentoNumero: documentoSustentoNumero || undefined,
@@ -239,14 +304,15 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
     mediosDisponibles,
     hayMediosConfigurados,
     cuentasBancariasCompatibles,
-    cxpSeleccionada,
-    alternarSeleccionCxp,
+    formaPagoNombre,
+    installments,
+    allocations,
+    onChangeAllocations,
     fechaPago,
     setFechaPago,
     tipoCambio,
     setTipoCambio,
     importeAplicado,
-    setImporteAplicado,
     mediosPago,
     agregarMedio,
     eliminarMedio,

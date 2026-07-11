@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Wallet, Paperclip, Clock } from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
+import { formatMoney } from '@/shared/currency';
 import { useBankAccounts } from '../../../configuracion-sistema/hooks/useCuentasBancarias';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
@@ -10,6 +11,7 @@ import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import { ESTADO_PAGO_CXP_LABELS } from '../../modelos/CuentaPorPagar';
 import { BADGE_ESTADO_DOCUMENTO_PAGO, BADGE_ESTADO_PAGO_CXP } from '../../constantes/estadosCompras';
 import { TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO } from '../../constantes/tiposDocumentoProveedor';
+import { formatearFechaCompra } from '../../utilidades/formatearCompras';
 
 interface PanelDetallePagoCompraProps {
   pago: PagoCompra | null;
@@ -129,8 +131,8 @@ export default function PanelDetallePagoCompra({ pago, cuentasPorPagar, onCerrar
                         : undefined
                     }
                   />
-                  <Campo label="Cuenta por pagar" valor={cxp ? `Saldo ${cxp.saldoPendiente.toFixed(2)} ${cxp.moneda}` : undefined} />
-                  <Campo label="Fecha de pago" valor={pago.fechaPago} />
+                  <Campo label="Cuenta por pagar" valor={cxp ? `Saldo ${formatMoney(cxp.saldoPendiente, cxp.moneda)}` : undefined} />
+                  <Campo label="Fecha de pago" valor={formatearFechaCompra(pago.fechaPago)} />
                   <Campo label="Moneda" valor={pago.moneda} />
                   {pago.tipoCambio && <Campo label="Tipo de cambio" valor={pago.tipoCambio.toFixed(3)} />}
                   {cajaUtilizada && <Campo label="Caja utilizada" valor={cajaUtilizada.nombreCaja} />}
@@ -138,7 +140,7 @@ export default function PanelDetallePagoCompra({ pago, cuentasPorPagar, onCerrar
                     label="Monto total"
                     valor={
                       <span className="font-semibold text-gray-900 font-mono">
-                        {pago.montoTotalPagado.toFixed(2)} {pago.moneda}
+                        {formatMoney(pago.montoTotalPagado, pago.moneda)}
                       </span>
                     }
                   />
@@ -169,7 +171,7 @@ export default function PanelDetallePagoCompra({ pago, cuentasPorPagar, onCerrar
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-gray-700">{medio.medioPagoNombre}</span>
                             <span className="text-sm font-mono font-medium text-gray-900">
-                              {medio.monto.toFixed(2)} {medio.moneda ?? pago.moneda}
+                              {formatMoney(medio.monto, medio.moneda ?? pago.moneda)}
                             </span>
                           </div>
                           {cuenta && (
@@ -222,7 +224,9 @@ export default function PanelDetallePagoCompra({ pago, cuentasPorPagar, onCerrar
                               <span className="text-xs text-gray-500">por {evt.usuario}</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400">{evt.fecha.slice(0, 16).replace('T', ' ')}</p>
+                          <p className="text-xs text-gray-400">
+                            {formatearFechaCompra(evt.fecha)} {evt.fecha.split('T')[1]?.slice(0, 5) ?? ''}
+                          </p>
                           {evt.detalle && <p className="text-xs text-gray-600 mt-0.5">{evt.detalle}</p>}
                         </div>
                       </div>
