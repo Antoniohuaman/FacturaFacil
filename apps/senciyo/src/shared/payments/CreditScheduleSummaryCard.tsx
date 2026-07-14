@@ -24,7 +24,6 @@ interface CreditScheduleSummaryCardProps {
   onConfigure?: () => void;
   errors?: string[];
   paymentMethodName?: string;
-  context?: 'emision' | 'cxc';
   creditoManual?: CreditoManualConfig;
   /** Oculta la columna "Estado" de las cuotas (programación previa al registro, no pagos gestionados). Default true. */
   showStatusColumn?: boolean;
@@ -37,7 +36,6 @@ export const CreditScheduleSummaryCard = ({
   onConfigure,
   errors,
   paymentMethodName,
-  context = 'cxc',
   creditoManual,
   showStatusColumn = true,
 }: CreditScheduleSummaryCardProps) => {
@@ -125,7 +123,6 @@ export const CreditScheduleSummaryCard = ({
             installments={cuotas}
             currency={resolvedCurrency}
             mode={esManual ? 'manual' : 'readonly'}
-            context={context}
             manualReadOnly={Boolean(creditoManual && !creditoManual.estaEditando)}
             onManualChange={creditoManual?.onCambiar}
             onManualRemove={creditoManual?.onEliminar}
@@ -148,7 +145,7 @@ export const CreditScheduleSummaryCard = ({
         </div>
       ) : (
         <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-600">
-          Aún no defines un cronograma para esta venta. Usa el botón para crear cuotas personalizadas.
+          Aún no defines un cronograma. Usa el botón para crear cuotas personalizadas.
         </p>
       )}
 

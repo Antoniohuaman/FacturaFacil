@@ -15,7 +15,7 @@ import { useConfigurationContext } from '../../../configuracion-sistema/contexto
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useFeedback } from '@/shared/feedback';
 import { formatMoney } from '@/shared/currency';
-import { calcularTotalesLineas, puedeEditarCC } from '../../logica/reglasCompras';
+import { calcularTotalesLineas, puedeEditarCC, round2 } from '../../logica/reglasCompras';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
 import {
   TIPOS_DOCUMENTO_PROVEEDOR,
@@ -143,6 +143,22 @@ export default function FormularioComprobanteCompra({
     ccBase?.modalidadInventario ?? datosDesdeOC?.modalidadInventarioSugerida ?? 'con_nota_ingreso',
   );
   const [almacenId, setAlmacenId] = useState(almacenesActivos[0]?.id ?? '');
+
+  // Recibo por Honorarios (código '12'): siempre es un servicio prestado por
+  // una persona natural, nunca afecta inventario — se fuerza y bloquea la
+  // modalidad para no ofrecer un almacén/Nota de Ingreso que no corresponde.
+  const esRH = tipoComprobante === '12';
+  useEffect(() => {
+    if (esRH) setModalidadInventario('no_afecta_inventario');
+  }, [esRH]);
+
+  // Retención (solo RH): la tasa la ingresa el usuario por documento — no
+  // existe (todavía) un catálogo de tasas de retención en Configuración, así
+  // que nunca se hardcodea un porcentaje.
+  const [aplicaRetencion, setAplicaRetencion] = useState(Boolean(ccBase?.retencion));
+  const [tasaRetencionInput, setTasaRetencionInput] = useState(
+    ccBase?.retencion ? String(ccBase.retencion.tasaRetencion) : '',
+  );
   const [centroCosto, setCentroCosto] = useState(ccBase?.centroCosto ?? datosDesdeOC?.centroCosto ?? '');
   const [presupuesto, setPresupuesto] = useState(ccBase?.presupuesto ?? datosDesdeOC?.presupuesto ?? '');
   const [observaciones, setObservaciones] = useState(ccBase?.observaciones ?? datosDesdeOC?.observaciones ?? '');
@@ -154,6 +170,9 @@ export default function FormularioComprobanteCompra({
   const lineas = lineasCompra.lineas;
 
   const totalesCalculados = calcularTotalesLineas(lineas);
+  const tasaRetencion = aplicaRetencion ? parseFloat(tasaRetencionInput) || 0 : 0;
+  const montoRetencion = esRH && aplicaRetencion ? round2((totalesCalculados.total * tasaRetencion) / 100) : 0;
+  const netoAPagarCC = round2(totalesCalculados.total - montoRetencion);
   const documentoAfectaInventario = modalidadInventario !== 'no_afecta_inventario';
   const almacenSeleccionado = almacenesActivos.find((a) => a.id === almacenId);
   const tipoComprobanteLabel = TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === tipoComprobante)?.nombre;
@@ -208,6 +227,10 @@ export default function FormularioComprobanteCompra({
       formaPagoMetodoId: formaPagoMetodoId || undefined,
       condicionesPago: ccBase?.condicionesPago ?? datosDesdeOC?.condicionesPago,
       creditTerms: isCreditMethod ? creditTerms : undefined,
+      retencion:
+        esRH && aplicaRetencion
+          ? { tasaRetencion, montoRetencion, netoAPagar: netoAPagarCC }
+          : undefined,
       modalidadInventario,
       centroCosto: centroCosto || undefined,
       presupuesto: presupuesto || undefined,
@@ -225,6 +248,7 @@ export default function FormularioComprobanteCompra({
         subtotalInafecto: totalesCalculados.subtotalInafecto,
         descuentoTotal: totalesCalculados.descuentoTotal,
         igv: totalesCalculados.igv,
+        retencion: esRH && aplicaRetencion ? montoRetencion : undefined,
         total: totalesCalculados.total,
         moneda,
       },
@@ -564,7 +588,52 @@ export default function FormularioComprobanteCompra({
                   almacenesActivos={almacenesActivos}
                   almacenId={almacenId}
                   onCambiarAlmacen={setAlmacenId}
+                  bloqueada={esRH}
+                  motivoBloqueo="Recibo por Honorarios no afecta inventario."
                 />
+
+                {esRH && (
+                  <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={aplicaRetencion}
+                        onChange={(e) => setAplicaRetencion(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                      Aplica retención
+                    </label>
+                    {aplicaRetencion && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500">Tasa (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={tasaRetencionInput}
+                            onChange={(e) => setTasaRetencionInput(e.target.value)}
+                            placeholder="Ej: 8"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500">Monto retenido</label>
+                          <div className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm text-gray-600">
+                            {formatMoney(montoRetencion, moneda)}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500">Neto a pagar</label>
+                          <div className="w-full border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm font-medium text-gray-900">
+                            {formatMoney(netoAPagarCC, moneda)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {esVisible('centroCosto') && (
                   <div className="space-y-1">
@@ -612,7 +681,6 @@ export default function FormularioComprobanteCompra({
               onConfigure={() => setCreditScheduleModalOpen(true)}
               errors={creditErrors}
               paymentMethodName={metodoPagoSeleccionado?.name}
-              context="emision"
               showStatusColumn={false}
             />
           </FormSectionCard>

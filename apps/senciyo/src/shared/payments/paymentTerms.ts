@@ -29,7 +29,15 @@ export interface CreditInstallment extends CreditInstallmentTemplate {
   importe: number;
   pagado?: number;
   saldo?: number;
-  estado?: CreditInstallmentStatus;
+  /**
+   * Etiqueta de estado ya resuelta y traducida por el dominio consumidor
+   * (Cobranzas, Cuentas por Pagar, etc.) — interfaz neutral: este módulo
+   * compartido no conoce ni decide terminología de negocio (nunca "Pagado",
+   * "Cobrado", "Cancelado" fijos aquí). `CreditInstallmentStatus` sigue
+   * existiendo para el dato persistido de asignaciones de Cobranzas
+   * (`CreditInstallmentAllocation.status`), no para este campo de display.
+   */
+  estado?: string;
   pagos?: CreditInstallmentPaymentTrace[];
 }
 

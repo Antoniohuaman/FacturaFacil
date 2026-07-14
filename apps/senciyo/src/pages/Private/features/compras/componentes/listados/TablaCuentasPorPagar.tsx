@@ -9,15 +9,19 @@ import {
   CalendarRange,
   SlidersHorizontal,
   RefreshCw,
+  FileDown,
 } from 'lucide-react';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
+import { useFeedback } from '@/shared/feedback';
+import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import type { CuentaPorPagar, EstadoPagoCxP, EstadoVencimientoCxP } from '../../modelos/CuentaPorPagar';
 import {
   ESTADO_PAGO_CXP_LABELS,
   ESTADO_VENCIMIENTO_CXP_LABELS,
 } from '../../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../../modelos/PagoCompra';
+import type { ComprobanteCompra } from '../../modelos/ComprobanteCompra';
 import {
   BADGE_ESTADO_PAGO_CXP,
   BADGE_ESTADO_VENCIMIENTO_CXP,
@@ -33,15 +37,19 @@ import { getNombreTipoDocumentoProveedor } from '../../constantes/tiposDocumento
 import { formatearFechaCompra } from '../../utilidades/formatearCompras';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 
+const TAMANO_PAGINA_CXP = 10;
+
 interface TablaCuentasPorPagarProps {
   cuentas: CuentaPorPagar[];
   pagos: PagoCompra[];
+  comprobantes: ComprobanteCompra[];
   cargando: boolean;
   errorCarga: string | null;
   onVer: (cxp: CuentaPorPagar) => void;
   onRegistrarPago: (cxp: CuentaPorPagar) => void;
   onNuevoPago: () => void;
   onActualizar: () => void;
+  onVerComprobante: (cc: ComprobanteCompra) => void;
 }
 
 type ColumnaConfigurableCxP =
@@ -90,7 +98,7 @@ const CAMPOS_FECHA_CXP: Array<{ id: CampoFechaFiltroCxP; label: string }> = [
 ];
 
 const ESTADOS_PAGO_FILTRO_CXP: EstadoPagoCxP[] = ['pendiente', 'parcial', 'anulada'];
-const ESTADOS_VENCIMIENTO_CXP: EstadoVencimientoCxP[] = ['vigente', 'por_vencer', 'vencida'];
+const ESTADOS_VENCIMIENTO_CXP: EstadoVencimientoCxP[] = ['vigente', 'por_vencer', 'vence_hoy', 'vencida'];
 
 interface ConfigColumnasCxP {
   visibles: ColumnaConfigurableCxP[];
@@ -195,18 +203,31 @@ function MenuItem({
 export default function TablaCuentasPorPagar({
   cuentas,
   pagos,
+  comprobantes,
   cargando,
   errorCarga,
   onVer,
   onRegistrarPago,
   onNuevoPago,
   onActualizar,
+  onVerComprobante,
 }: TablaCuentasPorPagarProps) {
   const { state: config } = useConfigurationContext();
+  const feedback = useFeedback();
   const [filtros, setFiltros] = useState<FiltrosCxP>({ busqueda: '' });
   const [menu, setMenu] = useState<PosMenu | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const filtradas = filtrarCuentasPorPagar(cuentas, filtros);
+
+  const [paginaActual, setPaginaActual] = useState(1);
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtros]);
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / TAMANO_PAGINA_CXP));
+  const paginaSegura = Math.min(paginaActual, totalPaginas);
+  const inicioRango = filtradas.length === 0 ? 0 : (paginaSegura - 1) * TAMANO_PAGINA_CXP + 1;
+  const finRango = Math.min(paginaSegura * TAMANO_PAGINA_CXP, filtradas.length);
+  const filasPagina = filtradas.slice((paginaSegura - 1) * TAMANO_PAGINA_CXP, paginaSegura * TAMANO_PAGINA_CXP);
 
   const [mostrarFechas, setMostrarFechas] = useState(false);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -359,9 +380,63 @@ export default function TablaCuentasPorPagar({
 
   const cxpActiva = menu ? cuentas.find((c) => c.id === menu.id) ?? null : null;
 
-  const totalPendiente = cuentas
-    .filter((c) => c.estadoPago !== 'pagada' && c.estadoPago !== 'anulada')
-    .reduce((s, c) => s + c.saldoPendiente, 0);
+  // Agrupado por moneda real — nunca se suman monedas distintas en un solo número.
+  const totalesPendientesPorMoneda = Array.from(
+    cuentas
+      .filter((c) => c.estadoPago !== 'pagada' && c.estadoPago !== 'anulada')
+      .reduce((mapa, c) => {
+        const actual = mapa.get(c.moneda) ?? { count: 0, total: 0 };
+        mapa.set(c.moneda, { count: actual.count + 1, total: actual.total + c.saldoPendiente });
+        return mapa;
+      }, new Map<string, { count: number; total: number }>())
+      .entries(),
+  );
+
+  async function handleExportar() {
+    if (!filtradas.length) {
+      feedback.warning('No hay datos para exportar con los filtros actuales.');
+      return;
+    }
+    try {
+      const rows = filtradas.map((cxp) => ({
+        proveedor: cxp.proveedorNombre,
+        documento: cxp.proveedorNumeroDocumento,
+        comprobante: cxp.comprobanteCompraNumero,
+        tipoComprobante: getNombreTipoDocumentoProveedor(cxp.tipoComprobanteOrigen),
+        fechaEmision: formatearFechaCompra(cxp.fechaEmision),
+        fechaVencimiento: cxp.fechaVencimiento ? formatearFechaCompra(cxp.fechaVencimiento) : '—',
+        formaPago: resolverNombreFormaPago(cxp, config.paymentMethods),
+        moneda: cxp.moneda,
+        total: cxp.total,
+        pagado: cxp.totalPagado,
+        saldo: cxp.saldoPendiente,
+        estado: ESTADO_PAGO_CXP_LABELS[cxp.estadoPago],
+        vencimiento: cxp.fechaVencimiento ? ESTADO_VENCIMIENTO_CXP_LABELS[cxp.estadoVencimiento] : '—',
+      }));
+      await exportDatasetToExcel({
+        rows,
+        columns: [
+          { header: 'Proveedor', key: 'proveedor', width: 30 },
+          { header: 'RUC / DNI', key: 'documento', width: 15 },
+          { header: 'Comprobante', key: 'comprobante', width: 20 },
+          { header: 'Tipo de comprobante', key: 'tipoComprobante', width: 22 },
+          { header: 'F. Emisión', key: 'fechaEmision', width: 14 },
+          { header: 'F. Vencimiento', key: 'fechaVencimiento', width: 16 },
+          { header: 'Forma de pago', key: 'formaPago', width: 20 },
+          { header: 'Moneda', key: 'moneda', width: 10 },
+          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+          { header: 'Pagado', key: 'pagado', width: 14, numFmt: '#,##0.00' },
+          { header: 'Saldo', key: 'saldo', width: 14, numFmt: '#,##0.00' },
+          { header: 'Estado', key: 'estado', width: 14 },
+          { header: 'Vencimiento', key: 'vencimiento', width: 14 },
+        ],
+        filename: `cuentas-por-pagar_${new Date().toISOString().split('T')[0]}`,
+        worksheetName: 'Cuentas por Pagar',
+      });
+    } catch {
+      feedback.error('Error al exportar. Intenta nuevamente.');
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -540,6 +615,16 @@ export default function TablaCuentasPorPagar({
           buttonLabel="Columnas"
         />
         <button
+          type="button"
+          onClick={() => void handleExportar()}
+          title="Exportar"
+          aria-label="Exportar"
+          className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+        >
+          <FileDown size={16} className="text-gray-400" />
+          Exportar
+        </button>
+        <button
           onClick={onNuevoPago}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
@@ -548,13 +633,21 @@ export default function TablaCuentasPorPagar({
         </button>
       </div>
 
-      {/* Resumen: sobre el total real de cuentas gestionables (no sobre el filtrado), excluyendo pagadas/anuladas */}
-      {totalPendiente > 0 && (
-        <div className="flex items-center gap-2 text-sm bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-          <Banknote size={16} className="text-amber-600" />
-          <span className="text-amber-700">
-            Total pendiente de pago: <strong>{formatMoney(totalPendiente)}</strong>
-          </span>
+      {/* KPI compacto de saldo pendiente, agrupado por moneda real — nunca un total amarillo de ancho completo ni monedas mezcladas */}
+      {totalesPendientesPorMoneda.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {totalesPendientesPorMoneda.map(([moneda, { count, total }]) => (
+            <div
+              key={moneda}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600"
+            >
+              <Banknote size={13} className="text-amber-600 shrink-0" />
+              <span>
+                {count} doc.{count !== 1 ? 's' : ''} pendiente{count !== 1 ? 's' : ''} ·{' '}
+                <strong className="text-gray-800">{formatMoney(total, moneda)}</strong>
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -628,7 +721,9 @@ export default function TablaCuentasPorPagar({
                 </td>
               </tr>
             ) : (
-              filtradas.map((cxp) => (
+              filasPagina.map((cxp) => {
+                const comprobanteOrigen = comprobantes.find((c) => c.id === cxp.comprobanteCompraId);
+                return (
                 <tr
                   key={cxp.id}
                   className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -640,8 +735,18 @@ export default function TablaCuentasPorPagar({
                     </div>
                     <div className="text-xs text-gray-500">{cxp.proveedorNumeroDocumento}</div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-gray-700 whitespace-nowrap">
-                    {cxp.comprobanteCompraNumero}
+                  <td className="px-4 py-3 font-mono text-gray-700 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    {comprobanteOrigen ? (
+                      <button
+                        type="button"
+                        onClick={() => onVerComprobante(comprobanteOrigen)}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {cxp.comprobanteCompraNumero}
+                      </button>
+                    ) : (
+                      cxp.comprobanteCompraNumero
+                    )}
                   </td>
                   {columnasVisiblesOrdenadas.map((id) => (
                     <td key={id} className="px-4 py-3 text-gray-600 whitespace-nowrap">
@@ -673,7 +778,8 @@ export default function TablaCuentasPorPagar({
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
@@ -698,9 +804,32 @@ export default function TablaCuentasPorPagar({
         </div>
       )}
 
-      <p className="text-xs text-gray-400">
-        Mostrando {filtradas.length} de {cuentas.length} cuentas por pagar
-      </p>
+      <div className="flex items-center justify-between text-xs text-gray-400">
+        <span>
+          Mostrando {inicioRango}–{finRango} de {filtradas.length} cuentas por pagar
+        </span>
+        {totalPaginas > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPaginaActual((p) => Math.max(1, p - 1))}
+              disabled={paginaSegura <= 1}
+              className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+            <span>Página {paginaSegura} de {totalPaginas}</span>
+            <button
+              type="button"
+              onClick={() => setPaginaActual((p) => Math.min(totalPaginas, p + 1))}
+              disabled={paginaSegura >= totalPaginas}
+              className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1973,7 +1973,6 @@ const EmisionTradicional = () => {
                       onConfigure={handleOpenCreditScheduleModal}
                       errors={esCreditoManual ? undefined : creditTemplateErrors}
                       paymentMethodName={esCreditoManual ? 'Crédito' : selectedPaymentMethod?.name}
-                      context="emision"
                       creditoManual={esCreditoManual ? {
                         cuotas: cuotasManualNormalizadas,
                         estaEditando: !creditoManualConfirmado,

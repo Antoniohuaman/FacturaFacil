@@ -623,7 +623,7 @@ export function construirFilasResumenTributarioCompra(
 }
 
 /** Única primitiva de redondeo monetario del módulo (con Number.EPSILON para evitar el clásico 0.1+0.2!==0.3). */
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 

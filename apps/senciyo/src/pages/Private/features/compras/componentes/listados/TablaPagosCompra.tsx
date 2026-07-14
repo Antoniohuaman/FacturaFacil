@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { MoreHorizontal, Eye, XCircle, Search, Wallet } from 'lucide-react';
+import { MoreHorizontal, Eye, XCircle, Search, Wallet, FileDown } from 'lucide-react';
 import { formatMoney } from '@/shared/currency';
+import { useFeedback } from '@/shared/feedback';
+import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import type { PagoCompra } from '../../modelos/PagoCompra';
 import { ESTADO_DOCUMENTO_PAGO_LABELS } from '../../modelos/PagoCompra';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
@@ -68,10 +70,52 @@ function MenuItem({
 }
 
 export default function TablaPagosCompra({ pagos, cuentasPorPagar, onVer, onAnular }: TablaPagosCompraProps) {
+  const feedback = useFeedback();
   const [filtros, setFiltros] = useState<FiltrosPagos>({ busqueda: '' });
   const [menu, setMenu] = useState<PosMenu | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const filtrados = filtrarPagosCompra(pagos, filtros);
+
+  async function handleExportar() {
+    if (!filtrados.length) {
+      feedback.warning('No hay datos para exportar con los filtros actuales.');
+      return;
+    }
+    try {
+      const rows = filtrados.map((pago) => {
+        const cxp = cuentasPorPagar.find((c) => pago.cuentasPorPagarAplicadas.includes(c.id));
+        return {
+          numero: pago.numeroPago,
+          proveedor: pago.proveedorNombre,
+          docOrigen: cxp?.comprobanteCompraNumero ?? '—',
+          fecha: formatearFechaCompra(pago.fechaPago),
+          medios: pago.mediosPago.map((mp) => mp.medioPagoNombre).join(', '),
+          moneda: pago.moneda,
+          total: pago.montoTotalPagado,
+          estadoPago: ESTADO_DOCUMENTO_PAGO_LABELS[pago.estadoDocumento],
+          estadoCxP: cxp ? ESTADO_PAGO_CXP_LABELS[cxp.estadoPago] : '—',
+        };
+      });
+      await exportDatasetToExcel({
+        rows,
+        columns: [
+          { header: 'N° Pago', key: 'numero', width: 20 },
+          { header: 'Proveedor', key: 'proveedor', width: 30 },
+          { header: 'Doc. origen', key: 'docOrigen', width: 20 },
+          { header: 'Fecha', key: 'fecha', width: 14 },
+          { header: 'Medios de pago', key: 'medios', width: 30 },
+          { header: 'Moneda', key: 'moneda', width: 10 },
+          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+          { header: 'Estado pago', key: 'estadoPago', width: 14 },
+          { header: 'Estado CxP', key: 'estadoCxP', width: 14 },
+        ],
+        filename: `pagos_${new Date().toISOString().split('T')[0]}`,
+        worksheetName: 'Pagos',
+      });
+    } catch {
+      feedback.error('Error al exportar. Intenta nuevamente.');
+    }
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -115,6 +159,16 @@ export default function TablaPagosCompra({ pagos, cuentasPorPagar, onVer, onAnul
           <option value="registrado">Registrado</option>
           <option value="anulado">Anulado</option>
         </select>
+        <button
+          type="button"
+          onClick={() => void handleExportar()}
+          title="Exportar"
+          aria-label="Exportar"
+          className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+        >
+          <FileDown size={16} className="text-gray-400" />
+          Exportar
+        </button>
       </div>
 
       {filtrados.length === 0 ? (

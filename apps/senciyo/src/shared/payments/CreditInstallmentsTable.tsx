@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { CheckSquare, Square, Trash2 } from 'lucide-react';
 import type { CreditInstallment } from './paymentTerms';
 import type { CurrencyCode } from '@/shared/currency';
-import { formatMoney } from '@/shared/currency';
+import { formatMoney, currencyManager } from '@/shared/currency';
 import { obtenerFechaMinimaPrimeraCuota, sanitizarImporteTexto } from './creditoManualTransaccion';
 
 export type CreditInstallmentAllocationInput = {
@@ -16,7 +16,6 @@ interface CreditInstallmentsTableProps {
   installments: CreditInstallment[];
   currency: CurrencyCode;
   mode?: TableMode;
-  context?: 'emision' | 'cxc';
   manualReadOnly?: boolean;
   onManualChange?: (installments: CreditInstallment[]) => void;
   onManualRemove?: (installmentNumber: number) => void;
@@ -33,18 +32,34 @@ interface CreditInstallmentsTableProps {
   emptyState?: string;
   /** Oculta la columna "Estado" (cuotas que aún son solo una programación, no pagos gestionados). Default true. */
   showStatusColumn?: boolean;
+  /** Encabezado de la columna de selección en modo `allocation` (ej. "Cobrar" en Cobranzas, "Pagar" en Cuentas por Pagar). El componente es neutral: por defecto usa una palabra genérica y cada consumidor puede pedir la suya. */
+  selectionColumnLabel?: string;
 }
 
-const TOLERANCE = 0.01;
+/**
+ * Redondea un importe a la precisión real configurada para la moneda
+ * (fuente oficial: currencyManager.getCurrency(...).decimalPlaces — nunca 2
+ * decimales fijos a ciegas). Esta es la única normalización monetaria del
+ * componente: todo importe se compara ya redondeado a su precisión real
+ * contra cero exacto, nunca contra un margen de tolerancia de un céntimo —
+ * así un saldo real de S/ 0.01 nunca se confunde con saldo cero.
+ */
+function normalizarImporte(valor: number, currency: CurrencyCode): number {
+  const decimales = currencyManager.getCurrency(currency)?.decimalPlaces ?? 2;
+  const factor = 10 ** decimales;
+  return Math.round((valor + Number.EPSILON) * factor) / factor;
+}
 
-const getSaldo = (installment: CreditInstallment): number => {
+const getSaldo = (installment: CreditInstallment, currency: CurrencyCode): number => {
   const pagado = Number(installment.pagado ?? 0);
   const saldo = installment.saldo ?? installment.importe - pagado;
-  return Number(Math.max(0, saldo).toFixed(2));
+  return Math.max(0, normalizarImporte(saldo, currency));
 };
 
-const getDaysOverdue = (installment: CreditInstallment): number => {
+/** 0 si la cuota ya no tiene saldo pendiente — una cuota saldada nunca sigue contando como vencida. */
+const getDaysOverdue = (installment: CreditInstallment, currency: CurrencyCode): number => {
   if (!installment.fechaVencimiento) return 0;
+  if (getSaldo(installment, currency) <= 0) return 0;
   const now = new Date();
   const due = new Date(`${installment.fechaVencimiento}T00:00:00`);
   const diff = Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
@@ -55,7 +70,6 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   installments,
   currency,
   mode = 'readonly',
-  context = 'cxc',
   manualReadOnly = false,
   onManualChange,
   onManualRemove,
@@ -69,8 +83,9 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   showDaysOverdue = false,
   showRemainingResult = true,
   compact = true,
-  emptyState = 'No hay cuotas registradas para esta venta.',
+  emptyState = 'No hay cuotas registradas.',
   showStatusColumn = true,
+  selectionColumnLabel = 'Seleccionar',
 }) => {
   const formatPrice = useCallback(
     (price: number, moneda?: CurrencyCode) => formatMoney(price, moneda ?? currency, { showSymbol: true }),
@@ -90,7 +105,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
   const handleToggle = useCallback((installment: CreditInstallment) => {
     if (disabled) return;
     const current = allocationMap.get(installment.numeroCuota) ?? 0;
-    const alreadySelected = current > TOLERANCE;
+    const alreadySelected = current > 0;
     if (!onChangeAllocations) return;
 
     if (alreadySelected) {
@@ -100,8 +115,8 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
       return;
     }
 
-    const saldo = getSaldo(installment);
-    if (saldo <= TOLERANCE) {
+    const saldo = getSaldo(installment, currency);
+    if (saldo <= 0) {
       return;
     }
     onChangeAllocations([
@@ -111,11 +126,12 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
         amount: saldo,
       },
     ]);
-  }, [allocationMap, allocations, disabled, onChangeAllocations]);
+  }, [allocationMap, allocations, currency, disabled, onChangeAllocations]);
 
   const handleAmountChange = useCallback((installment: CreditInstallment, value: number) => {
     if (!onChangeAllocations || disabled) return;
-    const safeValue = Math.max(0, Math.min(getSaldo(installment), Number(value) || 0));
+    const saldo = getSaldo(installment, currency);
+    const safeValue = normalizarImporte(Math.max(0, Math.min(saldo, Number(value) || 0)), currency);
     const exists = allocations.some((entry) => entry.installmentNumber === installment.numeroCuota);
     const next: CreditInstallmentAllocationInput[] = exists
       ? allocations.map((entry) =>
@@ -123,9 +139,9 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
         )
       : [...allocations, { installmentNumber: installment.numeroCuota, amount: safeValue }];
 
-    const sanitized = next.filter((entry) => entry.amount > TOLERANCE);
+    const sanitized = next.filter((entry) => entry.amount > 0);
     onChangeAllocations(sanitized);
-  }, [allocations, disabled, onChangeAllocations]);
+  }, [allocations, currency, disabled, onChangeAllocations]);
 
   const isManualMode = mode === 'manual';
   const canEditManual = isManualMode && !manualReadOnly;
@@ -178,7 +194,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
             <table className={`min-w-full ${textSize} text-slate-600`}>
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
               <tr>
-                {mode === 'allocation' && <th className={`${cellPadding} text-left w-12`}>Cobrar</th>}
+                {mode === 'allocation' && <th className={`${cellPadding} text-left w-12`}>{selectionColumnLabel}</th>}
                 <th className={`${cellPadding} text-left w-14`}>N°</th>
                 <th className={`${cellPadding} text-left w-20`}>Días</th>
                 {showDaysOverdue && <th className={`${cellPadding} text-left w-24`}>Vencidos</th>}
@@ -194,16 +210,21 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
             </thead>
             <tbody>
               {installments.map((installment) => {
-                const saldo = getSaldo(installment);
-                const estado = context === 'emision'
-                  ? 'PENDIENTE'
-                  : saldo <= TOLERANCE
-                    ? 'CANCELADO'
-                    : (installment.estado || 'pendiente').toUpperCase();
+                const saldo = getSaldo(installment, currency);
+                // El componente no decide semántica de dominio: solo muestra la
+                // etiqueta que el consumidor ya resolvió (installment.estado) y
+                // colorea según el saldo real (dato numérico, no texto) — nunca
+                // inventa "Pagado"/"Cobrado"/"Cancelado" por sí mismo.
+                const estadoLabel = (installment.estado ?? '').toUpperCase();
+                const saldado = saldo <= 0;
+                const conAvance = !saldado && Number(installment.pagado ?? 0) > 0;
                 const allocatedAmount = allocationMap.get(installment.numeroCuota) ?? 0;
-                const isSelected = allocatedAmount > TOLERANCE;
-                const remainingAfterAllocation = Number(Math.max(0, saldo - allocatedAmount).toFixed(2));
-                const overdueDays = showDaysOverdue ? getDaysOverdue(installment) : 0;
+                const isSelected = allocatedAmount > 0;
+                const remainingAfterAllocation = normalizarImporte(Math.max(0, saldo - allocatedAmount), currency);
+                const overdueDays = showDaysOverdue ? getDaysOverdue(installment, currency) : 0;
+                const accionSeleccion = isSelected
+                  ? `Deseleccionar cuota ${installment.numeroCuota}`
+                  : `Seleccionar cuota ${installment.numeroCuota}`;
                 return (
                   <tr
                     key={installment.numeroCuota}
@@ -214,8 +235,11 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                         <button
                           type="button"
                           onClick={() => handleToggle(installment)}
-                          disabled={disabled || saldo <= TOLERANCE}
-                          className={`text-slate-500 transition ${saldo <= TOLERANCE ? 'opacity-40 cursor-not-allowed' : 'hover:text-slate-900'}`}
+                          disabled={disabled || saldo <= 0}
+                          aria-label={accionSeleccion}
+                          aria-pressed={isSelected}
+                          title={accionSeleccion}
+                          className={`text-slate-500 transition ${saldo <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:text-slate-900'}`}
                         >
                           {isSelected ? <CheckSquare className="h-4 w-4 text-emerald-600" /> : <Square className="h-4 w-4" />}
                         </button>
@@ -337,14 +361,14 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                       <td className={`${cellPadding} text-center`}>
                         <span
                           className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                            estado === 'CANCELADO'
+                            saldado
                               ? 'bg-emerald-100 text-emerald-700'
-                              : estado === 'PARCIAL'
+                              : conAvance
                               ? 'bg-amber-100 text-amber-700'
                               : 'bg-slate-100 text-slate-600'
                           }`}
                         >
-                          {estado}
+                          {estadoLabel || '—'}
                         </span>
                       </td>
                     )}
@@ -380,7 +404,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                       </td>
                     )}
                     {mode === 'allocation' && showRemainingResult && (
-                      <td className={`${cellPadding} text-right font-semibold ${remainingAfterAllocation <= TOLERANCE ? 'text-emerald-600' : 'text-slate-900'}`}>
+                      <td className={`${cellPadding} text-right font-semibold ${remainingAfterAllocation <= 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
                         {formatPrice(remainingAfterAllocation, currency)}
                       </td>
                     )}

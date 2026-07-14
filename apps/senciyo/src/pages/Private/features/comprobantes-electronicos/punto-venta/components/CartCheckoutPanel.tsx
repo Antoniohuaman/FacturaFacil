@@ -633,7 +633,6 @@ export const CartCheckoutPanel: React.FC<CartCheckoutPanelProps> = ({
                 onConfigure={onConfigureCreditSchedule}
                 errors={creditScheduleErrors}
                 paymentMethodName={creditPaymentMethodName || selectedPaymentMethod?.name}
-                context="emision"
               />
             )}
 

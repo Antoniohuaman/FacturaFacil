@@ -61,13 +61,18 @@ export default function EditorMediosPagoCompra({
         const esBancario = esMedioBancario(linea.medioPagoCodigo);
         const conReferencia = requiereReferencia(linea.medioPagoCodigo);
         return (
-          <div key={linea.id} className="space-y-2 bg-gray-50 rounded-lg p-3 border border-gray-200">
-            <div className="flex gap-2 items-center">
-              <span className="text-[11px] font-medium text-gray-400 w-4 shrink-0">{i + 1}</span>
+          <div
+            key={linea.id}
+            className="flex flex-wrap items-end gap-2 bg-gray-50 rounded-lg p-3 border border-gray-200"
+          >
+            <span className="text-[11px] font-medium text-gray-400 self-center shrink-0">{i + 1}</span>
+
+            <div className="flex-1 min-w-[140px] space-y-1">
+              <label className="text-xs text-gray-500">Medio de pago</label>
               <select
                 value={linea.medioPagoCodigo}
                 onChange={(e) => onCambiarMedio(linea.id, e.target.value)}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
               >
                 <option value="">Selecciona un medio...</option>
                 {mediosDisponibles.map((m) => (
@@ -76,77 +81,69 @@ export default function EditorMediosPagoCompra({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="w-28 space-y-1">
+              <label className="text-xs text-gray-500">Importe</label>
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 value={linea.monto || ''}
                 onChange={(e) => onCambiarCampo(linea.id, 'monto', parseFloat(e.target.value) || 0)}
-                className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                 placeholder="0.00"
               />
-              {mediosPago.length > 1 && (
-                <button
-                  onClick={() => onEliminar(linea.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
-                  aria-label="Eliminar medio"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
             </div>
 
             {esBancario && (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-500">
-                    Cuenta bancaria <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={linea.cuentaBancariaId ?? ''}
-                    onChange={(e) => onCambiarCampo(linea.id, 'cuentaBancariaId', e.target.value || undefined)}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                    disabled={cuentasBancariasCompatibles.length === 0}
-                  >
-                    <option value="">Seleccionar cuenta...</option>
-                    {cuentasBancariasCompatibles.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.bankName} — {c.accountNumber} ({c.currencyCode})
-                      </option>
-                    ))}
-                  </select>
-                  {cuentasBancariasCompatibles.length === 0 && (
-                    <p className="text-xs text-red-600">No hay cuentas bancarias en {moneda}.</p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-500">
-                    N° operación / referencia <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={linea.referenciaOperacion ?? ''}
-                    onChange={(e) => onCambiarCampo(linea.id, 'referenciaOperacion', e.target.value || undefined)}
-                    placeholder="Ej: 12345678"
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
+              <div className="flex-1 min-w-[160px] space-y-1">
+                <label className="text-xs text-gray-500">
+                  Cuenta bancaria <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={linea.cuentaBancariaId ?? ''}
+                  onChange={(e) => onCambiarCampo(linea.id, 'cuentaBancariaId', e.target.value || undefined)}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  disabled={cuentasBancariasCompatibles.length === 0}
+                >
+                  <option value="">Seleccionar cuenta...</option>
+                  {cuentasBancariasCompatibles.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.bankName} — {c.accountNumber} ({c.currencyCode})
+                    </option>
+                  ))}
+                </select>
+                {cuentasBancariasCompatibles.length === 0 && (
+                  <p className="text-xs text-red-600">No hay cuentas en {moneda}.</p>
+                )}
               </div>
             )}
 
-            {!esBancario && conReferencia && (
-              <div className="space-y-1">
+            {(esBancario || conReferencia) && (
+              <div className="flex-1 min-w-[140px] space-y-1">
                 <label className="text-xs text-gray-500">
-                  N° de documento / referencia <span className="text-red-500">*</span>
+                  {esBancario ? 'N° operación' : 'Referencia'} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={linea.referenciaOperacion ?? ''}
                   onChange={(e) => onCambiarCampo(linea.id, 'referenciaOperacion', e.target.value || undefined)}
-                  placeholder="Ej: N° de cheque"
-                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder={esBancario ? 'Ej: 12345678' : 'Ej: N° de cheque'}
+                  className="w-full border border-gray-300 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
+            )}
+
+            {mediosPago.length > 1 && (
+              <button
+                onClick={() => onEliminar(linea.id)}
+                className="text-gray-400 hover:text-red-500 transition-colors shrink-0 pb-2"
+                aria-label="Eliminar medio"
+                title="Eliminar medio"
+              >
+                <Trash2 size={16} />
+              </button>
             )}
           </div>
         );

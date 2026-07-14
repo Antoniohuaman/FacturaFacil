@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useFeedback } from '@/shared/feedback';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '@/shared/payments/paymentMeans';
 import type { CreditInstallment } from '@/shared/payments/paymentTerms';
 import type { CreditInstallmentAllocationInput } from '@/shared/payments/CreditInstallmentsTable';
@@ -12,6 +13,7 @@ import { esMedioBancario, requiereReferencia, tieneMedioDeCaja } from '../servic
 import { calcularDiasCredito } from '../servicios/servicioCuentaPorPagar';
 import { resolverNombreFormaPago } from '../logica/reglasCompras';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
+import { ESTADO_PAGO_CXP_LABELS } from '../modelos/CuentaPorPagar';
 import type { MedioPagoCompra } from '../modelos/PagoCompra';
 import type { AdjuntoCompra } from '../modelos/AdjuntoCompra';
 
@@ -52,7 +54,9 @@ function construirCuotasParaFormulario(cxp: CuentaPorPagar): CreditInstallment[]
       saldo: cuota.saldoPendiente,
       diasCredito: calcularDiasCredito(cxp.fechaEmision, cuota.fechaVencimiento) ?? 0,
       porcentaje: cxp.total > 0 ? round2((cuota.montoCuota / cxp.total) * 100) : 0,
-      estado: cuota.estadoPago === 'pagada' ? 'cancelado' : cuota.estadoPago,
+      // Etiqueta ya resuelta con la terminología oficial de Cuentas por
+      // Pagar — el componente compartido no decide ni conoce "Pagada".
+      estado: ESTADO_PAGO_CXP_LABELS[cuota.estadoPago],
     }));
   }
   return [
@@ -64,7 +68,7 @@ function construirCuotasParaFormulario(cxp: CuentaPorPagar): CreditInstallment[]
       saldo: cxp.saldoPendiente,
       diasCredito: calcularDiasCredito(cxp.fechaEmision, cxp.fechaVencimiento) ?? 0,
       porcentaje: 100,
-      estado: cxp.estadoPago === 'pagada' || cxp.estadoPago === 'anulada' ? 'cancelado' : cxp.estadoPago,
+      estado: ESTADO_PAGO_CXP_LABELS[cxp.estadoPago],
     },
   ];
 }
@@ -86,6 +90,7 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
   const { status: estadoCaja } = useCaja();
   const { accounts: cuentasBancarias } = useBankAccounts();
   const { session } = useUserSession();
+  const feedback = useFeedback();
   const monedaBase = config.currencies.find((c) => c.isBaseCurrency)?.code ?? cxp.moneda;
 
   const seriePG = config.series.find(
@@ -242,6 +247,8 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
   const puedeRegistrar = calcularErroresValidacion().length === 0;
 
   async function registrarPago(): Promise<boolean> {
+    if (enviando) return false;
+
     const nuevosErrores = calcularErroresValidacion();
 
     if (nuevosErrores.length > 0) {
@@ -266,7 +273,7 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
               .filter((asignacion): asignacion is { cuotaId: string; monto: number } => asignacion !== null)
           : undefined;
 
-      await registrarPagoCompra(
+      const pago = await registrarPagoCompra(
         {
           fechaPago,
           proveedorId: cxp.proveedorId,
@@ -287,6 +294,9 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
         },
         session?.userId,
         seriePG!.series,
+      );
+      feedback.success(
+        `Pago ${pago.numeroPago} registrado correctamente.${hayMedioDeCaja ? ' Caja actualizada.' : ''}`,
       );
       return true;
     } catch (e) {

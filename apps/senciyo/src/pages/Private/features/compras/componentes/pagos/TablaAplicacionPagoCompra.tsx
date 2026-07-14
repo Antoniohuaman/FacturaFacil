@@ -57,6 +57,7 @@ export default function TablaAplicacionPagoCompra({
         installments={installments}
         currency={cxp.moneda}
         mode="allocation"
+        selectionColumnLabel="Pagar"
         allocations={allocations}
         onChangeAllocations={onChangeAllocations}
         disabled={disabled}

@@ -687,7 +687,6 @@ export default function FormularioOrdenCompra({
               onConfigure={() => setCreditScheduleModalOpen(true)}
               errors={creditErrors}
               paymentMethodName={metodoPagoSeleccionado?.name}
-              context="emision"
               showStatusColumn={false}
             />
           </FormSectionCard>

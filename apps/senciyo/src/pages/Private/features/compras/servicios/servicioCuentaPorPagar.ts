@@ -1,8 +1,12 @@
 import type { CuentaPorPagar, CuotaCuentaPorPagar } from '../modelos/CuentaPorPagar';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import { generarCuotasDesdeCC, resolverFechaVencimientoCxP } from '../mapeadores/mapeadorCCaCuentaPorPagar';
+import { round2 } from '../logica/reglasCompras';
 
 const TOLERANCIA_DECIMAL = 0.01;
+
+/** Umbral (días) a partir del cual una cuenta por vencer se marca "Por vencer". Única fuente — no dispersar este número en componentes. */
+export const UMBRAL_DIAS_POR_VENCER_CXP = 7;
 
 /**
  * Genera la Cuenta por Pagar de un comprobante de compra registrado. Todo CC
@@ -12,6 +16,10 @@ const TOLERANCIA_DECIMAL = 0.01;
  */
 export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): CuentaPorPagar {
   const fechaVencimiento = resolverFechaVencimientoCxP(cc);
+  // La retención (si el CC la registró, ej. Recibo por Honorarios) reduce el
+  // neto realmente pendiente de pago — la CxP nunca gestiona el bruto.
+  const montoRetencion = cc.totales.retencion ?? 0;
+  const totalNeto = round2(cc.totales.total - montoRetencion);
 
   return {
     id,
@@ -23,9 +31,9 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
     proveedorNumeroDocumento: cc.proveedorNumeroDocumento,
     moneda: cc.moneda,
     tipoCambio: cc.tipoCambio,
-    total: cc.totales.total,
+    total: totalNeto,
     totalPagado: 0,
-    saldoPendiente: cc.totales.total,
+    saldoPendiente: totalNeto,
     formaPago: cc.formaPago,
     formaPagoMetodoId: cc.formaPagoMetodoId,
     // La fecha de emisión de la CxP es la fecha real del comprobante del
@@ -34,7 +42,7 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
     fechaVencimiento,
     cuotas: generarCuotasDesdeCC(cc),
     estadoPago: 'pendiente',
-    estadoVencimiento: calcularEstadoVencimiento(fechaVencimiento),
+    estadoVencimiento: calcularEstadoVencimiento(fechaVencimiento, totalNeto),
     pagosRelacionados: [],
     historial: [
       {
@@ -81,7 +89,7 @@ function sincronizarCuotas(
         montoPagado: pagoEnCuota,
         saldoPendiente: saldo,
         estadoPago: saldo <= TOLERANCIA_DECIMAL ? 'pagada' : pagoEnCuota > 0 ? 'parcial' : 'pendiente',
-        estadoVencimiento: calcularEstadoVencimiento(cuota.fechaVencimiento),
+        estadoVencimiento: calcularEstadoVencimiento(cuota.fechaVencimiento, saldo),
       };
     });
 }
@@ -110,7 +118,7 @@ function aplicarAsignacionesACuotas(
       montoPagado: nuevoMontoPagado,
       saldoPendiente: saldo,
       estadoPago: saldo <= TOLERANCIA_DECIMAL ? 'pagada' : nuevoMontoPagado > 0 ? 'parcial' : 'pendiente',
-      estadoVencimiento: calcularEstadoVencimiento(cuota.fechaVencimiento),
+      estadoVencimiento: calcularEstadoVencimiento(cuota.fechaVencimiento, saldo),
     };
   });
 }
@@ -149,6 +157,7 @@ export function aplicarPagoACuentaPorPagar(
     totalPagado: nuevoTotalPagado,
     saldoPendiente: nuevoSaldo,
     estadoPago: nuevoEstadoPago,
+    estadoVencimiento: calcularEstadoVencimiento(cxp.fechaVencimiento, nuevoSaldo),
     cuotas: nuevasCuotas,
     pagosRelacionados: [...cxp.pagosRelacionados, pagoId],
     historial: [
@@ -187,6 +196,7 @@ export function revertirPagoDeCuentaPorPagar(
     totalPagado: nuevoTotalPagado,
     saldoPendiente: nuevoSaldo,
     estadoPago: nuevoEstadoPago,
+    estadoVencimiento: calcularEstadoVencimiento(cxp.fechaVencimiento, nuevoSaldo),
     cuotas: nuevasCuotas,
     pagosRelacionados: cxp.pagosRelacionados.filter((id) => id !== pagoId),
     historial: [
@@ -219,13 +229,21 @@ export function anularCuentaPorPagarPorComprobante(
   };
 }
 
+/**
+ * Deriva el estado de vencimiento real: una cuenta sin saldo pendiente ya no
+ * tiene deuda que vencer (nunca "Vencida"/"Por vencer" tras quedar pagada),
+ * y el día exacto del vencimiento se distingue de "Vencida" ("Vence hoy").
+ */
 export function calcularEstadoVencimiento(
   fechaVencimiento: string | undefined,
-  diasAviso = 7,
+  saldoPendiente: number,
+  diasAviso = UMBRAL_DIAS_POR_VENCER_CXP,
 ): CuentaPorPagar['estadoVencimiento'] {
   if (!fechaVencimiento) return 'vigente';
+  if (saldoPendiente <= TOLERANCIA_DECIMAL) return 'vigente';
   const diffDias = diasHastaVencimiento(fechaVencimiento);
   if (diffDias < 0) return 'vencida';
+  if (diffDias === 0) return 'vence_hoy';
   if (diffDias <= diasAviso) return 'por_vencer';
   return 'vigente';
 }
@@ -259,6 +277,3 @@ export function calcularDiasCredito(
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}

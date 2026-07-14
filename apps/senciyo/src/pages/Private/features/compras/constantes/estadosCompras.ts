@@ -113,6 +113,7 @@ export const BADGE_ESTADO_PAGO_CXP: Record<EstadoPagoCxP, string> = {
 export const BADGE_ESTADO_VENCIMIENTO_CXP: Record<EstadoVencimientoCxP, string> = {
   vigente: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   por_vencer: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  vence_hoy: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
   vencida: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
 };
 

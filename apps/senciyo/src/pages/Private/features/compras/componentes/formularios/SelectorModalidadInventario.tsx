@@ -9,6 +9,9 @@ interface SelectorModalidadInventarioProps {
   almacenesActivos: Almacen[];
   almacenId: string;
   onCambiarAlmacen: (almacenId: string) => void;
+  /** Cuando el tipo de documento no admite afectar inventario (ej. Recibo por Honorarios), se bloquea en "No afecta inventario" sin ofrecer el selector ni el almacén. */
+  bloqueada?: boolean;
+  motivoBloqueo?: string;
 }
 
 /**
@@ -23,8 +26,23 @@ export default function SelectorModalidadInventario({
   almacenesActivos,
   almacenId,
   onCambiarAlmacen,
+  bloqueada = false,
+  motivoBloqueo,
 }: SelectorModalidadInventarioProps) {
   const conNotaIngreso = modalidad === 'con_nota_ingreso';
+
+  if (bloqueada) {
+    return (
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-gray-700">Inventario</label>
+        <Tooltip contenido={motivoBloqueo ?? 'Este tipo de comprobante no afecta inventario.'}>
+          <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
+            No afecta inventario
+          </div>
+        </Tooltip>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1.5">

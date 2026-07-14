@@ -2,7 +2,7 @@ import type { MonedaCompra } from './tiposBaseCompras';
 import type { EventoHistorialCompras } from './EventoHistorialCompras';
 
 export type EstadoPagoCxP = 'pendiente' | 'parcial' | 'pagada' | 'anulada';
-export type EstadoVencimientoCxP = 'vigente' | 'por_vencer' | 'vencida';
+export type EstadoVencimientoCxP = 'vigente' | 'por_vencer' | 'vence_hoy' | 'vencida';
 
 export const ESTADO_PAGO_CXP_LABELS: Record<EstadoPagoCxP, string> = {
   pendiente: 'Pendiente',
@@ -14,6 +14,7 @@ export const ESTADO_PAGO_CXP_LABELS: Record<EstadoPagoCxP, string> = {
 export const ESTADO_VENCIMIENTO_CXP_LABELS: Record<EstadoVencimientoCxP, string> = {
   vigente: 'Vigente',
   por_vencer: 'Por vencer',
+  vence_hoy: 'Vence hoy',
   vencida: 'Vencida',
 };
 

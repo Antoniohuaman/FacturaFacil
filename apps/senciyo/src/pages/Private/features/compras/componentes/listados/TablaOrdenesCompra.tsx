@@ -17,9 +17,12 @@ import {
   CalendarRange,
   SlidersHorizontal,
   RefreshCw,
+  FileDown,
 } from 'lucide-react';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
+import { useFeedback } from '@/shared/feedback';
+import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { EstadoPrincipalOC } from '../../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../../modelos/ComprobanteCompra';
@@ -237,10 +240,47 @@ export default function TablaOrdenesCompra({
   onVerComprobante,
 }: TablaOrdenesCompraProps) {
   const { state: config } = useConfigurationContext();
+  const feedback = useFeedback();
   const [filtros, setFiltros] = useState<FiltrosOC>({ busqueda: '' });
   const [menu, setMenu] = useState<PosMenu | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const filtradas = filtrarOrdenesCompra(ordenes, filtros, comprobantes);
+
+  async function handleExportar() {
+    if (!filtradas.length) {
+      feedback.warning('No hay datos para exportar con los filtros actuales.');
+      return;
+    }
+    try {
+      const rows = filtradas.map((oc) => ({
+        numero: formatearNumeroCompra(oc.serie, oc.correlativo),
+        estado: ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc)],
+        fechaEmision: formatearFechaCompra(oc.fechaEmision),
+        fechaVencimiento: oc.fechaVencimiento ? formatearFechaCompra(oc.fechaVencimiento) : '—',
+        comprador: oc.compradorNombre ?? '—',
+        formaPago: resolverNombreFormaPago(oc, config.paymentMethods),
+        moneda: oc.moneda,
+        total: oc.totales.total,
+      }));
+      await exportDatasetToExcel({
+        rows,
+        columns: [
+          { header: 'N° Orden', key: 'numero', width: 20 },
+          { header: 'Estado', key: 'estado', width: 14 },
+          { header: 'F. Emisión', key: 'fechaEmision', width: 14 },
+          { header: 'F. Vencimiento', key: 'fechaVencimiento', width: 16 },
+          { header: 'Comprador', key: 'comprador', width: 24 },
+          { header: 'Forma de pago', key: 'formaPago', width: 20 },
+          { header: 'Moneda', key: 'moneda', width: 10 },
+          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+        ],
+        filename: `ordenes-de-compra_${new Date().toISOString().split('T')[0]}`,
+        worksheetName: 'Órdenes de Compra',
+      });
+    } catch {
+      feedback.error('Error al exportar. Intenta nuevamente.');
+    }
+  }
 
   const [mostrarFechas, setMostrarFechas] = useState(false);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -673,6 +713,16 @@ export default function TablaOrdenesCompra({
           onReorderColumns={reordenarColumnas}
           buttonLabel="Columnas"
         />
+        <button
+          type="button"
+          onClick={() => void handleExportar()}
+          title="Exportar"
+          aria-label="Exportar"
+          className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+        >
+          <FileDown size={16} className="text-gray-400" />
+          Exportar
+        </button>
         <button
           onClick={onNueva}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

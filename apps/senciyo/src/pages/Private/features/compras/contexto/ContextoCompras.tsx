@@ -40,7 +40,6 @@ import {
   aplicarPagoACuentaPorPagar,
   revertirPagoDeCuentaPorPagar,
   anularCuentaPorPagarPorComprobante,
-  calcularEstadoVencimiento,
 } from '../servicios/servicioCuentaPorPagar';
 import { validarOrdenCompraBasica } from '../servicios/servicioOrdenCompra';
 import {
@@ -1382,19 +1381,15 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
             anuladoPor,
             pago.asignacionesCuotas,
           );
-          const cxpConVencimiento: CuentaPorPagar = {
-            ...cxpRevertida,
-            estadoVencimiento: calcularEstadoVencimiento(cxpRevertida.fechaVencimiento),
-          };
-          agregarOActualizarCxP(cxpConVencimiento);
-          dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpConVencimiento });
+          agregarOActualizarCxP(cxpRevertida);
+          dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpRevertida });
 
           // Revertir en CC
           const cc = state.comprobantes.find((c) => c.cuentaPorPagarId === cxpId);
           if (cc) {
             const ccActualizado: ComprobanteCompra = {
               ...cc,
-              estadoPago: recalcularEstadoPagoComprobante(cxpConVencimiento.estadoPago),
+              estadoPago: recalcularEstadoPagoComprobante(cxpRevertida.estadoPago),
               pagosRelacionados: (cc.pagosRelacionados ?? []).filter((pid) => pid !== pago.id),
               historial: [
                 ...cc.historial,

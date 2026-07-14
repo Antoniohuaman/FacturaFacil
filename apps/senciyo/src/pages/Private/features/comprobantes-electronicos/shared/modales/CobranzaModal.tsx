@@ -6,7 +6,6 @@ import type {
   ComprobanteCreditInstallment,
   ComprobanteCreditTerms,
   CreditInstallmentAllocation,
-  CreditInstallmentStatus,
   Currency,
   CurrencyInfo,
   PaymentCollectionMode,
@@ -240,16 +239,15 @@ const computeDiasCreditoFromDates = (issueDate: string, dueDate?: string) => {
   return diff < 0 ? 0 : diff;
 };
 
-const normalizeInstallmentStatus = (status?: CobranzaInstallmentState['status']): CreditInstallmentStatus => {
-  switch (status) {
-    case 'CANCELADA':
-      return 'cancelado';
-    case 'PARCIAL':
-      return 'parcial';
-    default:
-      return 'pendiente';
-  }
+/** Terminología propia de Cobranzas para el estado de una cuota — el componente compartido de cuotas no la conoce ni la decide, solo la muestra. */
+const ETIQUETA_ESTADO_CUOTA_COBRANZA: Record<CobranzaInstallmentState['status'], string> = {
+  PENDIENTE: 'Pendiente',
+  PARCIAL: 'Parcial',
+  CANCELADA: 'Cancelada',
 };
+
+const normalizeInstallmentStatus = (status?: CobranzaInstallmentState['status']): string =>
+  ETIQUETA_ESTADO_CUOTA_COBRANZA[status ?? 'PENDIENTE'] ?? 'Pendiente';
 
 const mapCobranzaInstallmentToSchedule = (
   installment: CobranzaInstallmentState,
@@ -1346,6 +1344,7 @@ export const CobranzaModal: React.FC<CobranzaModalProps> = ({
                           installments={normalizedInstallments}
                           currency={documentCurrencyCode}
                           mode={allowAllocations ? 'allocation' : 'readonly'}
+                          selectionColumnLabel="Cobrar"
                           allocations={allowAllocations ? allocationDrafts : undefined}
                           onChangeAllocations={allowAllocations ? handleAllocationChange : undefined}
                           disabled={!allowAllocations || submitting || isProcessing}

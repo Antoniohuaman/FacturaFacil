@@ -15,9 +15,12 @@ import {
   CalendarRange,
   SlidersHorizontal,
   RefreshCw,
+  FileDown,
 } from 'lucide-react';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
+import { useFeedback } from '@/shared/feedback';
+import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
 import type { ComprobanteCompra, EstadoPrincipalCC } from '../../modelos/ComprobanteCompra';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import { BADGE_ESTADO_PRINCIPAL_CC, ETIQUETA_ESTADO_PRINCIPAL_CC } from '../../constantes/estadosCompras';
@@ -222,10 +225,51 @@ export default function TablaComprobantesCompra({
   onActualizar,
 }: TablaComprobantesCompraProps) {
   const { state: config } = useConfigurationContext();
+  const feedback = useFeedback();
   const [filtros, setFiltros] = useState<FiltrosCC>({ busqueda: '' });
   const [menu, setMenu] = useState<PosMenu | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const filtrados = filtrarComprobantesCompra(comprobantes, filtros);
+
+  async function handleExportar() {
+    if (!filtrados.length) {
+      feedback.warning('No hay datos para exportar con los filtros actuales.');
+      return;
+    }
+    try {
+      const rows = filtrados.map((cc) => ({
+        numero: cc.serieProveedor && cc.numeroProveedor ? formatearNumeroComprobanteCompra(cc) : 'Sin número',
+        tipo: TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === cc.tipoComprobanteProveedor)?.nombre ?? cc.tipoComprobanteProveedor,
+        proveedor: cc.proveedorNombre,
+        documento: cc.proveedorNumeroDocumento,
+        estado: ETIQUETA_ESTADO_PRINCIPAL_CC[calcularEstadoPrincipalCC(cc)],
+        fechaEmision: cc.fechaEmisionProveedor ? formatearFechaCompra(cc.fechaEmisionProveedor) : '—',
+        fechaVencimiento: cc.fechaVencimiento ? formatearFechaCompra(cc.fechaVencimiento) : '—',
+        formaPago: resolverNombreFormaPago(cc, config.paymentMethods),
+        moneda: cc.moneda,
+        total: cc.totales.total,
+      }));
+      await exportDatasetToExcel({
+        rows,
+        columns: [
+          { header: 'Comprobante', key: 'numero', width: 20 },
+          { header: 'Tipo', key: 'tipo', width: 22 },
+          { header: 'Proveedor', key: 'proveedor', width: 30 },
+          { header: 'RUC / DNI', key: 'documento', width: 15 },
+          { header: 'Estado', key: 'estado', width: 14 },
+          { header: 'F. Emisión', key: 'fechaEmision', width: 14 },
+          { header: 'F. Vencimiento', key: 'fechaVencimiento', width: 16 },
+          { header: 'Forma de pago', key: 'formaPago', width: 20 },
+          { header: 'Moneda', key: 'moneda', width: 10 },
+          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+        ],
+        filename: `comprobantes-de-compra_${new Date().toISOString().split('T')[0]}`,
+        worksheetName: 'Comprobantes de Compra',
+      });
+    } catch {
+      feedback.error('Error al exportar. Intenta nuevamente.');
+    }
+  }
 
   const [mostrarFechas, setMostrarFechas] = useState(false);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -595,6 +639,16 @@ export default function TablaComprobantesCompra({
           onReorderColumns={reordenarColumnas}
           buttonLabel="Columnas"
         />
+        <button
+          type="button"
+          onClick={() => void handleExportar()}
+          title="Exportar"
+          aria-label="Exportar"
+          className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+        >
+          <FileDown size={16} className="text-gray-400" />
+          Exportar
+        </button>
         <button
           onClick={onNuevo}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

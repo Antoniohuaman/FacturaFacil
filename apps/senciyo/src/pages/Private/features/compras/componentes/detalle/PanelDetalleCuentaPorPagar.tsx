@@ -28,6 +28,7 @@ interface PanelDetalleCuentaPorPagarProps {
   onCerrar: () => void;
   onRegistrarPago: (cxp: CuentaPorPagar) => void;
   onVerComprobante?: (cc: ComprobanteCompra) => void;
+  onVerPago?: (pago: PagoCompra) => void;
 }
 
 type TabCxP = 'general' | 'relacionados' | 'historial';
@@ -100,6 +101,7 @@ export default function PanelDetalleCuentaPorPagar({
   onCerrar,
   onRegistrarPago,
   onVerComprobante,
+  onVerPago,
 }: PanelDetalleCuentaPorPagarProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabCxP>('general');
@@ -271,7 +273,10 @@ export default function PanelDetalleCuentaPorPagar({
                           saldo: cuota.saldoPendiente,
                           diasCredito: cuota.diasCredito ?? 0,
                           porcentaje: cxp.total > 0 ? Math.round((cuota.montoCuota / cxp.total) * 10000) / 100 : 0,
-                          estado: cuota.estadoPago === 'pagada' ? 'cancelado' : cuota.estadoPago,
+                          // Etiqueta ya resuelta con la terminología oficial de
+                          // Cuentas por Pagar — el componente compartido no
+                          // decide ni conoce "Pagada"/"Cancelada".
+                          estado: ESTADO_PAGO_CXP_LABELS[cuota.estadoPago],
                         }))}
                         currency={cxp.moneda}
                         mode="readonly"
@@ -297,10 +302,19 @@ export default function PanelDetalleCuentaPorPagar({
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {pagosAplicados.map((pago) => (
-                      <div key={pago.id} className="py-2 flex justify-between items-center">
+                      <button
+                        key={pago.id}
+                        type="button"
+                        onClick={() => onVerPago?.(pago)}
+                        disabled={!onVerPago}
+                        className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                      >
                         <div>
                           <p className="text-sm font-mono text-gray-700">{pago.numeroPago}</p>
                           <p className="text-xs text-gray-400">{formatearFechaCompra(pago.fechaPago)}</p>
+                          <p className="text-xs text-gray-500">
+                            {pago.mediosPago.map((mp) => mp.medioPagoNombre).join(', ')}
+                          </p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-mono font-medium text-gray-900">
@@ -312,7 +326,7 @@ export default function PanelDetalleCuentaPorPagar({
                             clases={BADGE_ESTADO_DOCUMENTO_PAGO}
                           />
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}

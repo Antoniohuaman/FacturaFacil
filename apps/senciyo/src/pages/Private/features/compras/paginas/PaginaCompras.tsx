@@ -358,12 +358,14 @@ export default function PaginaCompras() {
           <TablaCuentasPorPagar
             cuentas={state.cuentasPorPagar}
             pagos={state.pagos}
+            comprobantes={state.comprobantes}
             cargando={state.cargando}
             errorCarga={state.errorCarga}
             onVer={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
             onRegistrarPago={(cxp) => navigate(`/compras/pagos/nuevo?cuentaPorPagarId=${cxp.id}`)}
             onNuevoPago={() => navigate('/compras/pagos/nuevo')}
             onActualizar={recargarDatos}
+            onVerComprobante={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
           />
         )}
 
@@ -421,6 +423,7 @@ export default function PaginaCompras() {
           onCerrar={() => setVista({ tipo: 'lista' })}
           onRegistrarPago={(cxp) => navigate(`/compras/pagos/nuevo?cuentaPorPagarId=${cxp.id}`)}
           onVerComprobante={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
+          onVerPago={(pago) => setVista({ tipo: 'detalle_pago', pagoId: pago.id })}
         />
       )}
 
@@ -489,6 +492,7 @@ export default function PaginaCompras() {
         onConfirmar={async (motivo) => {
           if (pagoParaAnular) {
             await anularPagoCompra(pagoParaAnular.id, motivo, usuarioNombre);
+            feedback.success(`Pago ${pagoParaAnular.numeroPago} anulado.`);
             setPagoParaAnular(null);
           }
         }}
