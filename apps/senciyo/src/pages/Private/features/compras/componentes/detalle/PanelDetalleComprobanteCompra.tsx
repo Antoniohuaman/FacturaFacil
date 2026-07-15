@@ -266,12 +266,19 @@ export default function PanelDetalleComprobanteCompra({
         agregarImprimirPdfMenu();
         break;
       case 'Registrado':
+        if (onEditar && puedeEditarCC(ccActual)) {
+          visibles.push(
+            <BotonEncabezado key="editar" icon={Pencil} texto="Editar" label="Editar comprobante de compra" onClick={() => { onCerrar(); onEditar(ccActual); }} />,
+          );
+        }
         if (onAnular && puedeAnularCC(ccActual)) {
           visibles.push(
             <BotonEncabezado key="anular" icon={XCircle} texto="Anular" label="Anular comprobante de compra" onClick={() => onAnular(ccActual)} danger />,
           );
         }
-        agregarDuplicarVisible();
+        if (onDuplicar) {
+          menu.push(<ItemMenuAccion key="duplicar" icon={Copy} label="Duplicar comprobante de compra" onClick={() => onDuplicar(ccActual)} />);
+        }
         agregarImprimirPdfMenu();
         break;
       case 'Anulado':

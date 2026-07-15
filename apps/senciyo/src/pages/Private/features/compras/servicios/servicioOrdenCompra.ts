@@ -377,6 +377,25 @@ function generarIdLineaDuplicada(): string {
 }
 
 /**
+ * Reinicia el seguimiento de consumo de una línea al estado "nunca tocado"
+ * (id nuevo, cero recepción/facturación/inventario, pendiente = cantidad
+ * completa). Una línea duplicada nunca debe heredar cuánto se consumió de la
+ * línea original: dos OC con el mismo producto no comparten seguimiento.
+ */
+function reiniciarSeguimientoLineaDuplicada(linea: LineaCompra): LineaCompra {
+  return {
+    ...structuredClone(linea),
+    id: generarIdLineaDuplicada(),
+    cantidadRecibida: 0,
+    cantidadFacturada: 0,
+    cantidadIngresadaInventario: 0,
+    cantidadPendienteRecepcion: linea.cantidadSolicitada,
+    cantidadPendienteFacturacion: linea.cantidadSolicitada,
+    cantidadPendienteInventario: linea.afectaInventario ? linea.cantidadSolicitada : 0,
+  };
+}
+
+/**
  * Prepara los datos editables de una OC para duplicarla como un nuevo
  * borrador independiente (sección 13-16 del alcance). Devuelve exactamente
  * la forma que ya acepta `ocBase` en el formulario: sin id/correlativo/
@@ -408,6 +427,6 @@ export function prepararDuplicadoOC(original: OrdenCompra): Partial<OrdenCompra>
     centroCosto: original.centroCosto,
     presupuesto: original.presupuesto,
     observaciones: original.observaciones,
-    lineas: original.lineas.map((linea) => ({ ...structuredClone(linea), id: generarIdLineaDuplicada() })),
+    lineas: original.lineas.map(reiniciarSeguimientoLineaDuplicada),
   };
 }

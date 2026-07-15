@@ -36,11 +36,15 @@ export const ESTADOS_PRINCIPALES_OC: EstadoPrincipalOC[] = [
 /**
  * Una OC "Registrada" (sin requerir aprobación) también es editable mientras
  * no tenga documentos derivados (mismo chequeo que bloquea su anulación) ni
- * esté en un estado ya cerrado del ciclo.
+ * esté en un estado ya cerrado del ciclo. Una OC "Convertida" (ya generó un
+ * Comprobante de Compra) también admite edición: actualiza el mismo
+ * documento (mismo id/serie/correlativo/número, sin volver a ejecutar la
+ * conversión) y propaga los campos heredados al CC relacionado — ver
+ * `actualizarOrdenCompra` en ContextoCompras.tsx.
  */
 export function puedeEditarOC(oc: OrdenCompra): boolean {
   const estado = calcularEstadoPrincipalOC(oc);
-  if (estado === 'Borrador' || estado === 'No Aprobada') return true;
+  if (estado === 'Borrador' || estado === 'No Aprobada' || estado === 'Convertida') return true;
   if (estado === 'Registrada') return motivoBloqueoAnulacionOC(oc) === null;
   return false;
 }
@@ -135,9 +139,86 @@ export function calcularEstadoPrincipalCC(cc: ComprobanteCompra): EstadoPrincipa
 /** Única lista de estados principales, reutilizada por el filtro del listado (no crear un array paralelo). */
 export const ESTADOS_PRINCIPALES_CC: EstadoPrincipalCC[] = ['Borrador', 'Registrado', 'Anulado', 'Convertido'];
 
-/** Un CC en Borrador es siempre editable; una vez registrado, esta ronda no soporta edición (solo Anular/Duplicar). */
+/**
+ * Un CC en Borrador siempre es editable. Un CC Registrado también admite
+ * edición (actualiza el mismo documento y su misma CxP, nunca genera un
+ * segundo) — con o sin pagos aplicados: si ya tiene pagos, el formulario
+ * bloquea los campos financieros (ver `puedeEditarCamposFinancierosCC`) pero
+ * igual permite entrar a editar observaciones/adjuntos. Convertido (ya generó
+ * Nota de Ingreso) y Anulado quedan fuera: no se tocan datos con inventario
+ * ya movido ni documentos anulados.
+ */
 export function puedeEditarCC(cc: ComprobanteCompra): boolean {
-  return calcularEstadoPrincipalCC(cc) === 'Borrador';
+  const estado = calcularEstadoPrincipalCC(cc);
+  return estado === 'Borrador' || estado === 'Registrado';
+}
+
+/**
+ * Un CC Registrado sin pagos aplicados admite editar campos financieros y
+ * documentales completos; en cuanto existe algún pago (parcial o total) esos
+ * campos quedan bloqueados para no romper la trazabilidad de lo ya pagado —
+ * solo observaciones/adjuntos siguen editables. Esta función NO distingue si
+ * el CC proviene de una OC: ese bloqueo, más acotado (solo los campos
+ * realmente heredados: proveedor, direcciones, moneda/TC, forma de pago/
+ * cronograma, centro de costo/presupuesto y líneas), lo resuelve el propio
+ * formulario a partir de `Boolean(cc.ordenCompraOrigenId)` — una fuente
+ * independiente que se combina con esta vía OR. Única fuente para el
+ * formulario (deshabilitar inputs) y el servicio (`actualizarComprobanteCompra`,
+ * defensa adicional que no confía solo en la UI).
+ */
+export function puedeEditarCamposFinancierosCC(cc: ComprobanteCompra): boolean {
+  return cc.estadoPago === 'pendiente';
+}
+
+export function motivoBloqueoCamposFinancierosCC(cc: ComprobanteCompra): string | null {
+  if (puedeEditarCamposFinancierosCC(cc)) return null;
+  return 'Este comprobante ya tiene pagos aplicados: solo puedes editar observaciones y adjuntos.';
+}
+
+/**
+ * Determina si una CxP tiene pagos activos cruzando las relaciones reales
+ * (CxP → Pagos), no un estado derivado que podría no reflejar de inmediato
+ * una reversión: hay pagos activos si el total pagado o el pagado de
+ * cualquier cuota es mayor a cero, o si existe al menos un Pago relacionado
+ * cuyo estado no sea 'anulado'. Única fuente reutilizada por el bloqueo de
+ * edición de la OC convertida (`tieneOCPagosActivosRelacionados`) y de su CC
+ * relacionado (`tieneCCPagosActivos`).
+ */
+export function tieneCxPPagosActivos(cxp: CuentaPorPagar, pagos: PagoCompra[]): boolean {
+  if (cxp.totalPagado > 0) return true;
+  if (cxp.cuotas?.some((cuota) => cuota.montoPagado > 0)) return true;
+  return pagos.some((p) => p.cuentasPorPagarAplicadas.includes(cxp.id) && p.estadoDocumento !== 'anulado');
+}
+
+/** Mismo criterio de `tieneCxPPagosActivos`, aplicado a un CC a través de su CxP relacionada. */
+export function tieneCCPagosActivos(
+  cc: ComprobanteCompra,
+  cuentasPorPagar: CuentaPorPagar[],
+  pagos: PagoCompra[],
+): boolean {
+  if (!cc.cuentaPorPagarId) return false;
+  const cxp = cuentasPorPagar.find((c) => c.id === cc.cuentaPorPagarId);
+  return cxp ? tieneCxPPagosActivos(cxp, pagos) : false;
+}
+
+/**
+ * Determina si una OC tiene pagos activos en cualquiera de sus Comprobantes
+ * de Compra relacionados — regla central que bloquea la edición financiera/
+ * documental heredable de una OC ya Convertida. Única fuente reutilizada por
+ * el formulario de OC (bloqueo de campos) y por `actualizarOrdenCompra`
+ * (ContextoCompras.tsx, defensa de servicio que no confía solo en la UI):
+ * mientras exista un pago activo en cualquier CC relacionado, la OC no puede
+ * modificar sus datos heredables, sin excepciones parciales.
+ */
+export function tieneOCPagosActivosRelacionados(
+  oc: OrdenCompra,
+  comprobantes: ComprobanteCompra[],
+  cuentasPorPagar: CuentaPorPagar[],
+  pagos: PagoCompra[],
+): boolean {
+  return comprobantes
+    .filter((cc) => cc.ordenCompraOrigenId === oc.id)
+    .some((cc) => tieneCCPagosActivos(cc, cuentasPorPagar, pagos));
 }
 
 export function puedeEliminarBorradorCC(cc: ComprobanteCompra): boolean {
@@ -625,6 +706,17 @@ export function construirFilasResumenTributarioCompra(
 /** Única primitiva de redondeo monetario del módulo (con Number.EPSILON para evitar el clásico 0.1+0.2!==0.3). */
 export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Único cálculo del monto de retención (solo Recibo por Honorarios): tasa
+ * como porcentaje del total del documento. Reutilizado por el formulario de
+ * CC y por la propagación OC→CC (al recalcular totales heredados, la
+ * retención ya aplicada debe recalcularse sobre el nuevo total, nunca
+ * quedarse con el monto anterior).
+ */
+export function calcularMontoRetencion(total: number, tasaRetencion: number): number {
+  return round2((total * tasaRetencion) / 100);
 }
 
 /**

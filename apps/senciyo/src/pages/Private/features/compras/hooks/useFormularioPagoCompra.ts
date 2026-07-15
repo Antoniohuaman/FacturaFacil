@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useFeedback } from '@/shared/feedback';
 import { getConfiguredPaymentMeans, type PaymentMeanOption } from '@/shared/payments/paymentMeans';
 import type { CreditInstallment } from '@/shared/payments/paymentTerms';
+import { normalizarImporte } from '@/shared/currency';
 import type { CreditInstallmentAllocationInput } from '@/shared/payments/CreditInstallmentsTable';
 import { useCompras } from '../contexto/ContextoCompras';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -16,8 +17,6 @@ import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import { ESTADO_PAGO_CXP_LABELS } from '../modelos/CuentaPorPagar';
 import type { MedioPagoCompra } from '../modelos/PagoCompra';
 import type { AdjuntoCompra } from '../modelos/AdjuntoCompra';
-
-const TOLERANCIA_DECIMAL = 0.01;
 
 function generarIdLinea(): string {
   return `ml-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -114,7 +113,7 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
   const installments = useMemo(() => construirCuotasParaFormulario(cxp), [cxp]);
   const [allocations, setAllocations] = useState<CreditInstallmentAllocationInput[]>(() =>
     installments
-      .filter((cuota) => (cuota.saldo ?? 0) > TOLERANCIA_DECIMAL)
+      .filter((cuota) => normalizarImporte(cuota.saldo ?? 0, cxp.moneda) > 0)
       .map((cuota) => ({ installmentNumber: cuota.numeroCuota, amount: cuota.saldo ?? 0 })),
   );
   const importeAplicado = round2(allocations.reduce((acumulado, a) => acumulado + (a.amount || 0), 0));
@@ -200,13 +199,13 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
     if (importeAplicado <= 0) {
       nuevosErrores.push('El importe a pagar debe ser mayor a cero.');
     }
-    if (importeAplicado > cxp.saldoPendiente + TOLERANCIA_DECIMAL) {
+    if (normalizarImporte(importeAplicado, cxp.moneda) > normalizarImporte(cxp.saldoPendiente, cxp.moneda)) {
       nuevosErrores.push(`El importe a pagar (${importeAplicado.toFixed(2)}) no puede superar el saldo pendiente (${cxp.saldoPendiente.toFixed(2)}).`);
     }
     const cuotaConImporteInvalido = allocations.some((a) => {
       const cuota = installments.find((i) => i.numeroCuota === a.installmentNumber);
       const saldoCuota = cuota?.saldo ?? 0;
-      return a.amount < 0 || a.amount > saldoCuota + TOLERANCIA_DECIMAL;
+      return a.amount < 0 || normalizarImporte(a.amount, cxp.moneda) > normalizarImporte(saldoCuota, cxp.moneda);
     });
     if (cuotaConImporteInvalido) {
       nuevosErrores.push('Hay una cuota con un importe inválido (negativo o mayor a su saldo pendiente).');
@@ -220,7 +219,7 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
     if (mediosPago.some((m) => m.monto <= 0)) {
       nuevosErrores.push('Todos los importes de medios de pago deben ser mayores a cero.');
     }
-    if (Math.abs(diferencia) > 0.01) {
+    if (normalizarImporte(diferencia, cxp.moneda) !== 0) {
       nuevosErrores.push(`La suma de medios de pago (${totalMedios.toFixed(2)}) debe coincidir exactamente con el importe a pagar (${importeAplicado.toFixed(2)}).`);
     }
     mediosPago.forEach((m, i) => {

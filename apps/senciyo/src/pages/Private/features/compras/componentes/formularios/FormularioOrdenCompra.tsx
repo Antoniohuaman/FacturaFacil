@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Settings } from 'lucide-react';
+import { Settings, Wallet } from 'lucide-react';
 import { Breadcrumb, PageHeader } from '@/contasis';
 import {
   FormSectionCard,
@@ -15,7 +15,13 @@ import { useConfigurationContext, type ShippingMethod } from '../../../configura
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useFeedback } from '@/shared/feedback';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
-import { calcularTotalesLineas, calcularEstadoPrincipalOC, puedeEliminarAdjuntoOC } from '../../logica/reglasCompras';
+import {
+  calcularTotalesLineas,
+  calcularEstadoPrincipalOC,
+  puedeEliminarAdjuntoOC,
+  tieneOCPagosActivosRelacionados,
+  tieneCCPagosActivos,
+} from '../../logica/reglasCompras';
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import { obtenerContactosCliente } from '../../../gestion-clientes/utils/contactosCliente';
 import BuscadorProveedor, { type ProveedorSeleccionado } from '../BuscadorProveedor';
@@ -28,6 +34,7 @@ import { CreditScheduleSummaryCard } from '@/shared/payments/CreditScheduleSumma
 import { CreditPaymentMethodModal } from '@/shared/payments/CreditPaymentMethodModal';
 import type { MonedaCompra } from '../../modelos/tiposBaseCompras';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
+import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import type { AdjuntoCompra } from '../../modelos/AdjuntoCompra';
 import { obtenerErrorDeCampo, type ErrorCampoDocumento } from '../../modelos/ErroresValidacion';
 
@@ -38,6 +45,8 @@ interface FormularioOrdenCompraProps {
   ocBase?: Partial<OrdenCompra>;
   onExito: (oc: OrdenCompra) => void;
   onCancelar: () => void;
+  /** Navega al detalle de la Cuenta por Pagar del CC relacionado que tiene pagos activos. Solo se ofrece cuando la edición está bloqueada por esos pagos. */
+  onVerPagosRelacionados?: (cxp: CuentaPorPagar) => void;
 }
 
 const CAMPOS_OC_DEFAULT: CampoConfigurableDocumento[] = [
@@ -52,8 +61,10 @@ export default function FormularioOrdenCompra({
   ocBase,
   onExito,
   onCancelar,
+  onVerPagosRelacionados,
 }: FormularioOrdenCompraProps) {
   const {
+    state,
     registrarOrdenCompra,
     guardarBorradorOC,
     actualizarOrdenCompraBorrador,
@@ -64,6 +75,23 @@ export default function FormularioOrdenCompra({
   const esBorradorExistente = Boolean(ocBase?.id) && ocBase?.estadoDocumento === 'borrador';
   const esEdicionRegistrada = Boolean(ocBase?.id) && ocBase?.estadoDocumento !== 'borrador';
   const esEdicion = esBorradorExistente || esEdicionRegistrada;
+  const esConvertida = esEdicionRegistrada && calcularEstadoPrincipalOC(ocBase as OrdenCompra) === 'Convertida';
+  // Misma fuente robusta (cruza relaciones reales OC → CC → CxP → Pagos, no
+  // un estado derivado) que usa el bloqueo de servicio en `actualizarOrdenCompra`
+  // (ContextoCompras.tsx) — bloquea aquí también los campos financieros/
+  // heredables y el envío, para no dejar que el usuario llegue a un submit
+  // que el servicio rechazará.
+  const tienePagosActivos =
+    esConvertida &&
+    tieneOCPagosActivosRelacionados(ocBase as OrdenCompra, state.comprobantes, state.cuentasPorPagar, state.pagos);
+  const ccConPagosActivos = tienePagosActivos
+    ? state.comprobantes.find(
+        (cc) => cc.ordenCompraOrigenId === ocBase!.id && tieneCCPagosActivos(cc, state.cuentasPorPagar, state.pagos),
+      )
+    : undefined;
+  const cxpConPagosActivos = ccConPagosActivos?.cuentaPorPagarId
+    ? state.cuentasPorPagar.find((c) => c.id === ccConPagosActivos.cuentaPorPagarId)
+    : undefined;
   const { state: config, dispatch } = useConfigurationContext();
   const { session } = useUserSession();
   const feedback = useFeedback();
@@ -370,6 +398,25 @@ export default function FormularioOrdenCompra({
           </div>
         )}
 
+        {tienePagosActivos && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+            <span>
+              El comprobante de compra relacionado ya tiene pagos aplicados. Para editar los datos de esta orden, primero debes anular los pagos relacionados.
+            </span>
+            {onVerPagosRelacionados && cxpConPagosActivos && (
+              <button
+                type="button"
+                onClick={() => onVerPagosRelacionados(cxpConPagosActivos)}
+                title="Ver pagos relacionados"
+                className="flex shrink-0 items-center gap-1 font-medium text-blue-700 hover:text-blue-900 transition-colors"
+              >
+                <Wallet size={12} />
+                Ver pagos relacionados
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Card principal: Datos de la orden */}
         <FormSectionCard
           titulo="Datos de la orden"
@@ -392,6 +439,7 @@ export default function FormularioOrdenCompra({
                   <BuscadorProveedor
                     proveedor={proveedor}
                     onSeleccionar={handleSeleccionarProveedor}
+                    deshabilitado={tienePagosActivos}
                     error={obtenerErrorDeCampo(errores, 'proveedorId')?.mensaje ?? null}
                   />
                 </div>
@@ -442,8 +490,9 @@ export default function FormularioOrdenCompra({
                       type="text"
                       value={direccionFacturacion}
                       onChange={(e) => setDireccionFacturacion(e.target.value)}
+                      disabled={tienePagosActivos}
                       placeholder="Dirección de facturación..."
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
                     />
                   </div>
                   <div className="space-y-1">
@@ -452,8 +501,9 @@ export default function FormularioOrdenCompra({
                       type="text"
                       value={direccionEntrega}
                       onChange={(e) => setDireccionEntrega(e.target.value)}
+                      disabled={tienePagosActivos}
                       placeholder="Dirección de entrega..."
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
                     />
                   </div>
                 </div>
@@ -487,7 +537,8 @@ export default function FormularioOrdenCompra({
                     <select
                       value={moneda}
                       onChange={(e) => setMoneda(e.target.value as MonedaCompra)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      disabled={tienePagosActivos}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       {config.currencies.filter((c) => c.isActive).map((c) => (
                         <option key={c.code} value={c.code}>
@@ -507,8 +558,9 @@ export default function FormularioOrdenCompra({
                       step="0.001"
                       value={tipoCambio}
                       onChange={(e) => setTipoCambio(e.target.value)}
+                      disabled={tienePagosActivos}
                       placeholder={`1 ${moneda} = ? ${monedaBase}`}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
                     />
                   </div>
                 )}
@@ -519,7 +571,8 @@ export default function FormularioOrdenCompra({
                     <select
                       value={formaPagoMetodoId}
                       onChange={(e) => handleFormaPagoChange(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      disabled={tienePagosActivos}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
                     >
                       {!formaPagoMetodoId && <option value="">Seleccionar</option>}
                       {metodosPagoActivos.map((m) => (
@@ -549,8 +602,9 @@ export default function FormularioOrdenCompra({
                       value={fechaVencimiento}
                       onChange={(e) => setFechaVencimiento(e.target.value)}
                       readOnly={isCreditMethod}
+                      disabled={tienePagosActivos}
                       title={isCreditMethod ? 'Calculado desde el cronograma de crédito' : undefined}
-                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
                         isCreditMethod ? 'bg-gray-50 text-gray-600' : ''
                       }`}
                     />
@@ -675,6 +729,7 @@ export default function FormularioOrdenCompra({
           moneda={moneda}
           lineasCompra={lineasCompra}
           totalesCalculados={totalesCalculados}
+          disabled={tienePagosActivos}
         />
 
         {/* Cronograma de crédito: solo programación, sin estados de pago (aún no está registrada) */}
@@ -720,8 +775,12 @@ export default function FormularioOrdenCompra({
         primaryAction={{
           label: enviando ? 'Guardando...' : esEdicionRegistrada ? 'Actualizar OC' : 'Registrar OC',
           onClick: handleSubmit,
-          disabled: enviando || seriesOC.length === 0,
-          title: seriesOC.length === 0 ? 'Configura una serie OC en Configuración → Series' : undefined,
+          disabled: enviando || seriesOC.length === 0 || tienePagosActivos,
+          title: tienePagosActivos
+            ? 'Anula primero los pagos relacionados para poder editar esta orden.'
+            : seriesOC.length === 0
+              ? 'Configura una serie OC en Configuración → Series'
+              : undefined,
         }}
       />
 

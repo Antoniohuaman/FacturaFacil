@@ -187,25 +187,59 @@ export function filtrarCuentasPorPagar(
   });
 }
 
+export type CampoFechaFiltroPagos = 'fechaPago' | 'fechaCreacion';
+
 export interface FiltrosPagos {
   busqueda?: string;
   proveedorId?: string;
   estadoDocumento?: string;
+  campoFecha?: CampoFechaFiltroPagos;
   fechaDesde?: string;
   fechaHasta?: string;
+  medioPagoCodigo?: string;
+  moneda?: string;
+  estadoCxP?: EstadoPagoCxP | '';
 }
 
-export function filtrarPagosCompra(pagos: PagoCompra[], filtros: FiltrosPagos): PagoCompra[] {
+/**
+ * Único filtro combinado de Pagos (AND entre todos los criterios activos).
+ * `cuentasPorPagar` solo se usa para cruzar el documento origen/RUC-DNI (en
+ * la búsqueda) y el estado actual de la CxP relacionada — nunca para mezclar
+ * el estado propio del PG con el de la CxP.
+ */
+export function filtrarPagosCompra(
+  pagos: PagoCompra[],
+  filtros: FiltrosPagos,
+  cuentasPorPagar: CuentaPorPagar[] = [],
+): PagoCompra[] {
   return pagos.filter((p) => {
+    const cxp = cuentasPorPagar.find((c) => p.cuentasPorPagarAplicadas.includes(c.id));
     if (filtros.busqueda) {
       const q = filtros.busqueda.toLowerCase();
-      if (!p.numeroPago.toLowerCase().includes(q) && !p.proveedorNombre.toLowerCase().includes(q))
-        return false;
+      const campos = [
+        p.numeroPago,
+        p.proveedorNombre,
+        cxp?.proveedorNumeroDocumento,
+        cxp?.comprobanteCompraNumero,
+        p.documentoSustentoTipo,
+        p.documentoSustentoSerie,
+        p.documentoSustentoNumero,
+        ...p.mediosPago.flatMap((m) => [m.medioPagoNombre, m.referenciaOperacion]),
+      ];
+      if (!campos.some((campo) => campo?.toLowerCase().includes(q))) return false;
     }
     if (filtros.estadoDocumento && p.estadoDocumento !== filtros.estadoDocumento) return false;
     if (filtros.proveedorId && p.proveedorId !== filtros.proveedorId) return false;
-    if (filtros.fechaDesde && p.fechaPago < filtros.fechaDesde) return false;
-    if (filtros.fechaHasta && p.fechaPago > filtros.fechaHasta) return false;
+    if (filtros.moneda && p.moneda !== filtros.moneda) return false;
+    if (filtros.medioPagoCodigo && !p.mediosPago.some((m) => m.medioPagoCodigo === filtros.medioPagoCodigo)) {
+      return false;
+    }
+    if (filtros.estadoCxP && cxp?.estadoPago !== filtros.estadoCxP) return false;
+    if (filtros.fechaDesde || filtros.fechaHasta) {
+      const valor = (filtros.campoFecha === 'fechaCreacion' ? p.fechaCreacion : p.fechaPago).slice(0, 10);
+      if (filtros.fechaDesde && valor < filtros.fechaDesde) return false;
+      if (filtros.fechaHasta && valor > filtros.fechaHasta) return false;
+    }
     return true;
   });
 }

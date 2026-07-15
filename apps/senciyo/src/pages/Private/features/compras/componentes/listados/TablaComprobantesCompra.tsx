@@ -415,10 +415,10 @@ export default function TablaComprobantesCompra({
     if (estado === 'Registrado') {
       return (
         <>
+          {puedeEditarCC(cc) && <BotonAccionDirecta icon={Pencil} label="Editar comprobante de compra" onClick={() => onEditar(cc)} />}
           {puedeAnularCC(cc) && (
             <BotonAccionDirecta icon={XCircle} label="Anular comprobante de compra" onClick={() => onAnular(cc)} danger />
           )}
-          <BotonAccionDirecta icon={Copy} label="Duplicar comprobante de compra" onClick={() => onDuplicar(cc)} />
         </>
       );
     }
@@ -806,6 +806,13 @@ export default function TablaComprobantesCompra({
               icon={CheckCircle}
               label="Registrar"
               onClick={() => { onRegistrarBorrador(ccActivo); setMenu(null); }}
+            />
+          )}
+          {estadoPrincipalActivo === 'Registrado' && (
+            <MenuItem
+              icon={Copy}
+              label="Duplicar"
+              onClick={() => { onDuplicar(ccActivo); setMenu(null); }}
             />
           )}
           {estadoPrincipalActivo !== 'Borrador' && puedeImprimirCC(ccActivo) && (

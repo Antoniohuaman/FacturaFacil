@@ -351,6 +351,14 @@ export default function PanelDetalleOrdenCompra({
         agregarAnularMenu();
         break;
       case 'Convertida':
+        agregarEditarVisible();
+        if (onImprimir && puedeImprimirOC(ocActual)) {
+          visibles.push(<BotonEncabezado key="imprimir" icon={Printer} texto="Imprimir" label="Imprimir orden de compra" onClick={() => onImprimir(ocActual)} />);
+          menu.push(<ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ocActual)} />);
+        }
+        agregarDuplicarMenu();
+        agregarEnviarMenu();
+        break;
       case 'Anulada':
         if (onImprimir && puedeImprimirOC(ocActual)) {
           visibles.push(<BotonEncabezado key="imprimir" icon={Printer} texto="Imprimir" label="Imprimir orden de compra" onClick={() => onImprimir(ocActual)} />);

@@ -1,7 +1,13 @@
+import { createElement } from 'react';
 import { isCashPaymentMeanCode, type PaymentMeanOption } from '@/shared/payments/paymentMeans';
+import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
+import { formatMoney, normalizarImporte } from '@/shared/currency';
 import type { PagoCompra, MedioPagoCompra } from '../modelos/PagoCompra';
+import { ESTADO_DOCUMENTO_PAGO_LABELS } from '../modelos/PagoCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import type { ErrorValidacion } from './tiposServiciosCompras';
+import { formatearFechaCompra } from '../utilidades/formatearCompras';
+import type { EmpresaOC } from './servicioOrdenCompra';
 
 /**
  * Códigos del catálogo real de medios de pago (Catálogo 59 SUNAT, ver
@@ -95,7 +101,12 @@ export function validarPagoCompraBasico(pago: Partial<PagoCompra>): ErrorValidac
 
   const totalPago = pago.montoTotalPagado ?? 0;
   const sumaMedios = (pago.mediosPago ?? []).reduce((acc, m) => acc + m.monto, 0);
-  if (pago.mediosPago && pago.mediosPago.length > 0 && Math.abs(sumaMedios - totalPago) > 0.01) {
+  const moneda = pago.moneda ?? 'PEN';
+  if (
+    pago.mediosPago &&
+    pago.mediosPago.length > 0 &&
+    normalizarImporte(sumaMedios, moneda) !== normalizarImporte(totalPago, moneda)
+  ) {
     errores.push({
       campo: 'mediosPago',
       mensaje: `La suma de medios de pago (${sumaMedios.toFixed(2)}) no coincide con el total (${totalPago.toFixed(2)}).`,
@@ -116,8 +127,9 @@ export function validarPagoNoExcedeSaldo(
   cuentasPorPagar: CuentaPorPagar[],
 ): ErrorValidacion[] {
   const saldoTotal = cuentasPorPagar.reduce((acc, c) => acc + c.saldoPendiente, 0);
+  const moneda = cuentasPorPagar[0]?.moneda ?? 'PEN';
 
-  if (round2(montoTotalPagado - saldoTotal) > 0.01) {
+  if (normalizarImporte(montoTotalPagado, moneda) > normalizarImporte(saldoTotal, moneda)) {
     return [
       {
         campo: 'montoTotalPagado',
@@ -129,6 +141,95 @@ export function validarPagoNoExcedeSaldo(
   return [];
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+function fila(label: string, valor: string) {
+  return createElement(
+    'div',
+    { style: { display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: '11px' } },
+    createElement('span', { style: { color: '#6B7280' } }, label),
+    createElement('span', { style: { fontWeight: 600, color: '#111827' } }, valor || '—'),
+  );
 }
+
+function seccion(titulo: string, children: Array<ReturnType<typeof createElement> | null>) {
+  return createElement(
+    'div',
+    { style: { marginTop: '14px' } },
+    createElement(
+      'p',
+      { style: { fontSize: '10px', textTransform: 'uppercase' as const, letterSpacing: '0.06em', color: '#9CA3AF', marginBottom: '4px', fontWeight: 700 } },
+      titulo,
+    ),
+    ...children.filter(Boolean),
+  );
+}
+
+/**
+ * Construye la representación imprimible del Pago de Compra (PG). Mismo
+ * patrón que construirRepresentacionImpresaCC (servicioComprobanteCompra.ts):
+ * sin componente/archivo separado, createElement inline.
+ */
+function construirRepresentacionImpresaPago(pago: PagoCompra, empresa: EmpresaOC | undefined) {
+  return createElement(
+    'div',
+    { style: { fontFamily: 'Arial, sans-serif', padding: '28px', color: '#111827' } },
+    createElement(
+      'div',
+      { style: { display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #111827', paddingBottom: '12px', marginBottom: '16px' } },
+      createElement(
+        'div',
+        null,
+        createElement('h1', { style: { margin: 0, fontSize: '15px' } }, empresa?.razonSocial ?? '—'),
+        empresa?.ruc ? createElement('p', { style: { margin: 0, fontSize: '11px' } }, `RUC: ${empresa.ruc}`) : null,
+        empresa?.direccion ? createElement('p', { style: { margin: 0, fontSize: '11px' } }, empresa.direccion) : null,
+      ),
+      createElement(
+        'div',
+        { style: { textAlign: 'right' as const } },
+        createElement('h2', { style: { margin: 0, fontSize: '14px' } }, 'PAGO DE COMPRA'),
+        createElement('p', { style: { margin: 0, fontWeight: 700 } }, pago.numeroPago),
+        createElement('p', { style: { margin: 0, fontSize: '11px' } }, ESTADO_DOCUMENTO_PAGO_LABELS[pago.estadoDocumento]),
+        createElement('p', { style: { margin: 0, fontSize: '11px' } }, `Fecha: ${formatearFechaCompra(pago.fechaPago)}`),
+      ),
+    ),
+    seccion('Proveedor', [
+      fila('Nombre', pago.proveedorNombre),
+      pago.concepto ? fila('Concepto', pago.concepto) : null,
+    ]),
+    seccion('Medios de pago', [
+      ...pago.mediosPago.map((medio) =>
+        fila(
+          `${medio.medioPagoNombre}${medio.referenciaOperacion ? ` (Ref: ${medio.referenciaOperacion})` : ''}`,
+          formatMoney(medio.monto, medio.moneda ?? pago.moneda),
+        ),
+      ),
+      fila('Total', formatMoney(pago.montoTotalPagado, pago.moneda)),
+    ]),
+    pago.documentoSustentoTipo || pago.documentoSustentoSerie
+      ? seccion('Documento sustentatorio', [
+          pago.documentoSustentoTipo ? fila('Tipo', pago.documentoSustentoTipo) : null,
+          (pago.documentoSustentoSerie || pago.documentoSustentoNumero)
+            ? fila('Serie - número', `${pago.documentoSustentoSerie ?? ''}-${pago.documentoSustentoNumero ?? ''}`)
+            : null,
+        ])
+      : null,
+    pago.observaciones ? seccion('Observaciones', [createElement('p', { style: { fontSize: '11px' } }, pago.observaciones)]) : null,
+    pago.estadoDocumento === 'anulado' && pago.motivoAnulacion
+      ? seccion('Anulación', [fila('Motivo', pago.motivoAnulacion)])
+      : null,
+  );
+}
+
+/**
+ * Imprime el Pago de Compra reutilizando el motor de impresión compartido
+ * (imprimirComprobante, el mismo usado por OC/CC/GRE/comprobantes electrónicos).
+ */
+export async function imprimirPagoCompra(pago: PagoCompra, empresa: EmpresaOC | undefined): Promise<void> {
+  await imprimirComprobante({
+    formato: 'A4',
+    titulo: `Pago de Compra ${pago.numeroPago}`,
+    render: () => construirRepresentacionImpresaPago(pago, empresa),
+  });
+}
+
+/** "Descargar PDF" reutiliza el mismo mecanismo que "Imprimir" (window.print), mismo patrón ya usado por OC/CC. */
+export const descargarPdfPagoCompra = imprimirPagoCompra;

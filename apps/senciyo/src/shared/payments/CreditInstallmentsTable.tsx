@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { CheckSquare, Square, Trash2 } from 'lucide-react';
 import type { CreditInstallment } from './paymentTerms';
 import type { CurrencyCode } from '@/shared/currency';
-import { formatMoney, currencyManager } from '@/shared/currency';
+import { formatMoney, normalizarImporte } from '@/shared/currency';
 import { obtenerFechaMinimaPrimeraCuota, sanitizarImporteTexto } from './creditoManualTransaccion';
 
 export type CreditInstallmentAllocationInput = {
@@ -34,20 +34,6 @@ interface CreditInstallmentsTableProps {
   showStatusColumn?: boolean;
   /** Encabezado de la columna de selección en modo `allocation` (ej. "Cobrar" en Cobranzas, "Pagar" en Cuentas por Pagar). El componente es neutral: por defecto usa una palabra genérica y cada consumidor puede pedir la suya. */
   selectionColumnLabel?: string;
-}
-
-/**
- * Redondea un importe a la precisión real configurada para la moneda
- * (fuente oficial: currencyManager.getCurrency(...).decimalPlaces — nunca 2
- * decimales fijos a ciegas). Esta es la única normalización monetaria del
- * componente: todo importe se compara ya redondeado a su precisión real
- * contra cero exacto, nunca contra un margen de tolerancia de un céntimo —
- * así un saldo real de S/ 0.01 nunca se confunde con saldo cero.
- */
-function normalizarImporte(valor: number, currency: CurrencyCode): number {
-  const decimales = currencyManager.getCurrency(currency)?.decimalPlaces ?? 2;
-  const factor = 10 ** decimales;
-  return Math.round((valor + Number.EPSILON) * factor) / factor;
 }
 
 const getSaldo = (installment: CreditInstallment, currency: CurrencyCode): number => {

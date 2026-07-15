@@ -231,6 +231,20 @@ export const convertMoney = (amount: number, from: CurrencyCode, to: CurrencyCod
 
 export const getRate = (from: CurrencyCode, to: CurrencyCode) => currencyManager.getRate(from, to);
 
+/**
+ * Redondea un importe a la precisión real configurada para la moneda
+ * (fuente oficial: currencyManager.getCurrency(...).decimalPlaces — nunca 2
+ * decimales fijos a ciegas). Única normalización monetaria compartida: todo
+ * importe se compara ya redondeado a su precisión real contra cero exacto,
+ * nunca contra un margen de tolerancia de un céntimo — así un saldo real de
+ * S/ 0.01 nunca se confunde con saldo cero.
+ */
+export const normalizarImporte = (valor: number, currency: CurrencyCode): number => {
+  const decimales = currencyManager.getCurrency(currency)?.decimalPlaces ?? 2;
+  const factor = 10 ** decimales;
+  return Math.round((valor + Number.EPSILON) * factor) / factor;
+};
+
 export const useCurrencyManager = () => {
   const snapshot = useSyncExternalStore(
     (listener) => currencyManager.subscribe(listener),

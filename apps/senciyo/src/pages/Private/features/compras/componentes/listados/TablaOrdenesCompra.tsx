@@ -493,7 +493,22 @@ export default function TablaOrdenesCompra({
         </>
       );
     }
-    if (estado === 'Convertida' || estado === 'Anulada') {
+    if (estado === 'Convertida') {
+      return (
+        <>
+          {puedeEditarOC(oc) && (
+            <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
+          )}
+          {puedeImprimirOC(oc) && (
+            <BotonAccionDirecta icon={Printer} label="Imprimir orden de compra" onClick={() => onImprimir(oc)} />
+          )}
+          {puedeImprimirOC(oc) && (
+            <BotonAccionDirecta icon={Download} label="Descargar PDF" onClick={() => onImprimir(oc)} />
+          )}
+        </>
+      );
+    }
+    if (estado === 'Anulada') {
       return (
         <>
           <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
@@ -873,7 +888,7 @@ export default function TablaOrdenesCompra({
             label="Ver detalle"
             onClick={() => { onVer(ocActiva); setMenu(null); }}
           />
-          {estadoPrincipalActivo === 'Registrada' && (
+          {(estadoPrincipalActivo === 'Registrada' || estadoPrincipalActivo === 'Convertida') && (
             <MenuItem
               icon={Copy}
               label="Duplicar"

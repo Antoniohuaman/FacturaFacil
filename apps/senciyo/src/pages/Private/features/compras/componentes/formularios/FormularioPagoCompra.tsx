@@ -58,7 +58,6 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
           <div className="flex items-center gap-2.5">
             <div>
               <h1 className="text-lg font-semibold text-gray-900 leading-tight">Registrar Pago de Compra</h1>
-              <p className="text-xs text-gray-500">Registra el pago de la cuenta por pagar</p>
             </div>
             {f.numeroPagoPreview && (
               <span className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-0.5 rounded">

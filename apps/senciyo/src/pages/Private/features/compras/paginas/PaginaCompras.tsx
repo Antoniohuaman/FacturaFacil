@@ -15,6 +15,7 @@ import {
   type EmpresaOC,
 } from '../servicios/servicioOrdenCompra';
 import { imprimirComprobanteCompra, prepararDuplicadoCC } from '../servicios/servicioComprobanteCompra';
+import { imprimirPagoCompra } from '../servicios/servicioPagoCompra';
 import TablaOrdenesCompra from '../componentes/listados/TablaOrdenesCompra';
 import TablaComprobantesCompra from '../componentes/listados/TablaComprobantesCompra';
 import TablaCuentasPorPagar from '../componentes/listados/TablaCuentasPorPagar';
@@ -41,7 +42,12 @@ type TabActivo = 'ordenes' | 'comprobantes' | 'cuentas_por_pagar' | 'pagos';
 type Vista =
   | { tipo: 'lista' }
   | { tipo: 'nueva_oc'; ocBase?: Partial<OrdenCompra> }
-  | { tipo: 'editar_oc'; ocId: string }
+  | {
+      tipo: 'editar_oc';
+      ocId: string;
+      /** Datos propios del CC ya ingresados en una conversión OC→CC todavía no registrada — se preserva para volver a 'nuevo_cc' con la OC ya actualizada, sin perderlos ni crear ningún documento en el tránsito. */
+      retornarANuevoCC?: Partial<ComprobanteCompra>;
+    }
   | { tipo: 'nuevo_cc'; ocOrigen?: OrdenCompra; ccBase?: Partial<ComprobanteCompra> }
   | { tipo: 'editar_cc'; ccId: string }
   | { tipo: 'detalle_oc'; ocId: string }
@@ -146,6 +152,10 @@ export default function PaginaCompras() {
     void imprimirComprobanteCompra(cc, empresaImpresion, nombreFormaPago);
   }
 
+  function handleImprimirPago(pago: PagoCompra) {
+    void imprimirPagoCompra(pago, empresaImpresion);
+  }
+
   async function handleEliminarBorradorCC(cc: ComprobanteCompra) {
     const numero = formatearNumeroComprobanteCompra(cc);
     if (!window.confirm(`¿Eliminar el borrador ${numero}? Esta acción no se puede deshacer.`)) return;
@@ -192,14 +202,26 @@ export default function PaginaCompras() {
 
   if (vista.tipo === 'editar_oc') {
     const ocBase = state.ordenes.find((o) => o.id === vista.ocId);
+    const { retornarANuevoCC } = vista;
     return (
       <FormularioOrdenCompra
         ocBase={ocBase}
         onExito={(oc) => {
+          if (retornarANuevoCC) {
+            setVista({ tipo: 'nuevo_cc', ocOrigen: oc, ccBase: retornarANuevoCC });
+            return;
+          }
           setVista({ tipo: 'detalle_oc', ocId: oc.id });
           setTabActivo('ordenes');
         }}
-        onCancelar={() => setVista({ tipo: 'lista' })}
+        onCancelar={() => {
+          if (retornarANuevoCC && ocBase) {
+            setVista({ tipo: 'nuevo_cc', ocOrigen: ocBase, ccBase: retornarANuevoCC });
+            return;
+          }
+          setVista({ tipo: 'lista' });
+        }}
+        onVerPagosRelacionados={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
       />
     );
   }
@@ -214,6 +236,9 @@ export default function PaginaCompras() {
           setTabActivo('comprobantes');
         }}
         onCancelar={() => setVista({ tipo: 'lista' })}
+        onEditarOrdenCompra={(oc, datosPropiosCC) =>
+          setVista({ tipo: 'editar_oc', ocId: oc.id, retornarANuevoCC: datosPropiosCC })
+        }
       />
     );
   }
@@ -228,6 +253,8 @@ export default function PaginaCompras() {
           setTabActivo('comprobantes');
         }}
         onCancelar={() => setVista({ tipo: 'lista' })}
+        onEditarOrdenCompra={(oc) => setVista({ tipo: 'editar_oc', ocId: oc.id })}
+        onVerCuentaPorPagar={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
       />
     );
   }
@@ -373,8 +400,13 @@ export default function PaginaCompras() {
           <TablaPagosCompra
             pagos={state.pagos}
             cuentasPorPagar={state.cuentasPorPagar}
+            cargando={state.cargando}
+            errorCarga={state.errorCarga}
             onVer={(pago) => setVista({ tipo: 'detalle_pago', pagoId: pago.id })}
             onAnular={(pago) => setPagoParaAnular(pago)}
+            onImprimir={handleImprimirPago}
+            onActualizar={recargarDatos}
+            onVerCuentaPorPagar={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
           />
         )}
       </div>
@@ -431,7 +463,13 @@ export default function PaginaCompras() {
         <PanelDetallePagoCompra
           pago={pagoDetalle}
           cuentasPorPagar={state.cuentasPorPagar}
+          comprobantes={state.comprobantes}
+          ordenes={state.ordenes}
           onCerrar={() => setVista({ tipo: 'lista' })}
+          onVerCuentaPorPagar={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
+          onVerComprobante={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
+          onVerOrdenCompra={(oc) => setVista({ tipo: 'detalle_oc', ocId: oc.id })}
+          onImprimir={handleImprimirPago}
         />
       )}
 

@@ -15,6 +15,10 @@ interface SeccionProductosCompraProps {
   moneda: string;
   lineasCompra: UseLineasCompraResultado;
   totalesCalculados: TotalesLineasCompra;
+  /** Bloquea cantidad/unidad/costo, oculta eliminar línea y el alta de productos (ej. comprobante con pagos aplicados o proveniente de una OC). */
+  disabled?: boolean;
+  /** Igual que `disabled`, salvo que la cantidad sigue editable (conversión de OC a CC con facturación parcial: el producto/costo/unidad/impuesto son heredados, pero la cantidad a facturar es propia del CC). Ignorado si `disabled` es true. */
+  soloCantidadEditable?: boolean;
 }
 
 interface DefinicionColumna extends ColumnaTablaLineas {
@@ -81,8 +85,15 @@ export default function SeccionProductosCompra({
   moneda,
   lineasCompra,
   totalesCalculados,
+  disabled = false,
+  soloCantidadEditable = false,
 }: SeccionProductosCompraProps) {
   const { lineas, actualizarLinea, actualizarUnidadLinea, eliminarLinea, agregarProductosDesdeCatalogo } = lineasCompra;
+  // La cantidad solo se bloquea con `disabled` completo; el resto de campos y
+  // acciones (unidad, costo, eliminar línea, alta de productos) se bloquean
+  // también con `soloCantidadEditable` (conversión de OC con facturación
+  // parcial: producto/costo/unidad/impuesto son heredados de la OC).
+  const bloqueoCompleto = disabled || soloCantidadEditable;
   const [mostrarColumnas, setMostrarColumnas] = useState(false);
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>(cargarColumnasVisiblesGuardadas);
 
@@ -129,8 +140,9 @@ export default function SeccionProductosCompra({
               min="0.001"
               step="0.001"
               value={linea.cantidadSolicitada}
+              disabled={disabled}
               onChange={(e) => actualizarLinea(linea.id, 'cantidadSolicitada', parseFloat(e.target.value) || 0)}
-              className="w-full text-center text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400"
+              className="w-full text-center text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-100 disabled:text-gray-400"
             />
           </td>
         );
@@ -150,8 +162,9 @@ export default function SeccionProductosCompra({
           <td className="px-3 py-2.5">
             <select
               value={linea.unidadMedidaCodigo}
+              disabled={bloqueoCompleto}
               onChange={(e) => actualizarUnidadLinea(linea.id, e.target.value)}
-              className="w-full text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400"
+              className="w-full text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-100 disabled:text-gray-400"
             >
               {linea.unidadesDisponibles.map((opcion) => (
                 <option key={opcion.code} value={opcion.code}>
@@ -257,8 +270,9 @@ export default function SeccionProductosCompra({
               min="0"
               step="0.01"
               value={linea.costoUnitario}
+              disabled={bloqueoCompleto}
               onChange={(e) => actualizarLinea(linea.id, 'costoUnitario', parseFloat(e.target.value) || 0)}
-              className="w-full text-right text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400"
+              className="w-full text-right text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-100 disabled:text-gray-400"
             />
           </td>
         );
@@ -280,15 +294,17 @@ export default function SeccionProductosCompra({
       case 'accion':
         return (
           <td className="px-3 py-2.5 text-center">
-            <Tooltip contenido="Eliminar">
-              <button
-                onClick={() => eliminarLinea(linea.id)}
-                className="w-7 h-7 inline-flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                aria-label="Eliminar línea"
-              >
-                <Trash2 size={15} />
-              </button>
-            </Tooltip>
+            {!bloqueoCompleto && (
+              <Tooltip contenido="Eliminar">
+                <button
+                  onClick={() => eliminarLinea(linea.id)}
+                  className="w-7 h-7 inline-flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  aria-label="Eliminar línea"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </Tooltip>
+            )}
           </td>
         );
 
@@ -350,15 +366,23 @@ export default function SeccionProductosCompra({
         </div>
       )}
 
-      <div
-        data-tour="compras-productos-buscar"
-        className="mb-3 p-2.5 md:p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100"
-      >
-        <ProductSelector
-          onAddProducts={agregarProductosDesdeCatalogo}
-          existingProducts={idsProductosEnLineas}
-        />
-      </div>
+      {bloqueoCompleto ? (
+        <div className="mb-3 p-2.5 md:p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-500">
+          {soloCantidadEditable && !disabled
+            ? 'Los productos provienen de la Orden de Compra: solo puedes ajustar la cantidad a facturar.'
+            : 'Los productos no se pueden modificar en este comprobante.'}
+        </div>
+      ) : (
+        <div
+          data-tour="compras-productos-buscar"
+          className="mb-3 p-2.5 md:p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-100"
+        >
+          <ProductSelector
+            onAddProducts={agregarProductosDesdeCatalogo}
+            existingProducts={idsProductosEnLineas}
+          />
+        </div>
+      )}
 
       <div className="rounded-lg border border-gray-200">
         <TablaLineasDocumento

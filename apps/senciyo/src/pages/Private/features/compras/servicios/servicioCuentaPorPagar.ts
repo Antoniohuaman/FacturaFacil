@@ -57,6 +57,53 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
 }
 
 /**
+ * Resincroniza una CxP EXISTENTE cuando su CC origen se edita antes de
+ * cualquier pago (mismo `id`, nunca genera una segunda CxP — a diferencia de
+ * `generarCuentaPorPagar`, que solo se usa para un CC nuevo). El llamador es
+ * responsable de verificar que la CxP no tenga pagos aplicados
+ * (`cxp.totalPagado === 0` / `cc.estadoPago === 'pendiente'`) antes de
+ * invocar esta función.
+ */
+export function resincronizarCuentaPorPagar(
+  cxp: CuentaPorPagar,
+  cc: ComprobanteCompra,
+  fecha: string,
+): CuentaPorPagar {
+  const fechaVencimiento = resolverFechaVencimientoCxP(cc);
+  const montoRetencion = cc.totales.retencion ?? 0;
+  const totalNeto = round2(cc.totales.total - montoRetencion);
+
+  return {
+    ...cxp,
+    comprobanteCompraNumero: `${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}`,
+    tipoComprobanteOrigen: cc.tipoComprobanteProveedor ?? '',
+    proveedorId: cc.proveedorId,
+    proveedorNombre: cc.proveedorNombre,
+    proveedorNumeroDocumento: cc.proveedorNumeroDocumento,
+    moneda: cc.moneda,
+    tipoCambio: cc.tipoCambio,
+    total: totalNeto,
+    totalPagado: 0,
+    saldoPendiente: totalNeto,
+    formaPago: cc.formaPago,
+    formaPagoMetodoId: cc.formaPagoMetodoId,
+    fechaEmision: cc.fechaEmisionProveedor ?? cc.fechaRegistro,
+    fechaVencimiento,
+    cuotas: generarCuotasDesdeCC(cc),
+    estadoVencimiento: calcularEstadoVencimiento(fechaVencimiento, totalNeto),
+    historial: [
+      ...cxp.historial,
+      {
+        fecha,
+        accion: 'Cuenta por pagar resincronizada',
+        detalle: `Por edición del comprobante ${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}`,
+      },
+    ],
+    fechaActualizacion: fecha,
+  };
+}
+
+/**
  * Sincroniza las cuotas de la CxP con el total pagado/saldo tras aplicar o
  * revertir un pago SIN asignación explícita por cuota (contado, o datos
  * heredados sin cronograma seleccionable). El monto pagado se distribuye
@@ -188,7 +235,7 @@ export function revertirPagoDeCuentaPorPagar(
   const nuevoTotalPagado = usaAsignacionesExactas
     ? round2((nuevasCuotas ?? []).reduce((acumulado, cuota) => acumulado + cuota.montoPagado, 0))
     : round2(Math.max(0, cxp.totalPagado - montoRevertido));
-  const nuevoSaldo = round2(cxp.total - nuevoTotalPagado);
+  const nuevoSaldo = Math.max(0, round2(cxp.total - nuevoTotalPagado));
   const nuevoEstadoPago = recalcularEstadoCuentaPorPagar(cxp.total, nuevoTotalPagado);
 
   return {

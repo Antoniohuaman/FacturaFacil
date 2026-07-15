@@ -37,6 +37,7 @@ import {
 } from '../repositorios/repositorioPagosCompra';
 import {
   generarCuentaPorPagar,
+  resincronizarCuentaPorPagar,
   aplicarPagoACuentaPorPagar,
   revertirPagoDeCuentaPorPagar,
   anularCuentaPorPagarPorComprobante,
@@ -61,14 +62,24 @@ import {
   puedeEditarOC,
   puedeEliminarBorradorOC,
   puedeEditarCC,
+  puedeEditarCamposFinancierosCC,
   puedeEliminarBorradorCC,
   recalcularEstadoPagoComprobante,
   validarTipoCambioRequerido,
   validarCantidadesFacturablesDesdeOC,
   aplicarFacturacionALineasOC,
+  calcularEstadoPrincipalOC,
+  tieneCCPagosActivos,
+  tieneOCPagosActivosRelacionados,
+  calcularLineaCompra,
+  calcularTotalesLineas,
+  calcularMontoRetencion,
+  round2,
 } from '../logica/reglasCompras';
+import type { LineaCompra } from '../modelos/LineaCompra';
 import { calcularEstadoFacturacion } from '../utilidades/calcularEstadosCompra';
 import { eliminarOCDelStorage } from '../repositorios/repositorioOrdenesCompra';
+import { extraerDatosOCParaCC } from '../mapeadores/mapeadorOCaCC';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 
 // ---------------------------------------------------------------------------
@@ -218,6 +229,13 @@ function lanzarSiHayErrores(errores: ErrorValidacion[]): void {
  * (alta directa) y registrarComprobanteCompraDesdeBorrador (promoción), para
  * no duplicarla.
  */
+/** Única derivación de estadoInventario a partir de la modalidad elegida — reutilizada al registrar y al editar un CC ya registrado. */
+function derivarEstadoInventarioCC(modalidadInventario: ComprobanteCompra['modalidadInventario']): ComprobanteCompra['estadoInventario'] {
+  if (modalidadInventario === 'ingreso_automatico') return 'automatico';
+  if (modalidadInventario === 'no_afecta_inventario') return 'no_aplica';
+  return 'pendiente';
+}
+
 function armarRegistroCC(
   datos: Omit<
     ComprobanteCompra,
@@ -235,12 +253,7 @@ function armarRegistroCC(
     tipoRegistro: 'comprobante_compra',
     estadoDocumento: 'registrado',
     estadoPago: 'pendiente',
-    estadoInventario:
-      datos.modalidadInventario === 'ingreso_automatico'
-        ? 'automatico'
-        : datos.modalidadInventario === 'no_afecta_inventario'
-          ? 'no_aplica'
-          : 'pendiente',
+    estadoInventario: derivarEstadoInventarioCC(datos.modalidadInventario),
     fechaRegistro: ts,
     historial: [
       ...historialPrevio,
@@ -295,6 +308,166 @@ function generarCxPYEnlaceCC(
   }
 
   return { comprobanteConCxP, cuentaPorPagar, ocActualizada };
+}
+
+/**
+ * Actualiza una línea del CC con los atributos comerciales que realmente
+ * hereda de su línea equivalente de la OC (mismo id: toda línea de un CC
+ * generado por conversión conserva el id de su línea de OC origen — ver
+ * extraerDatosOCParaCC). Se parte de la línea de la OC (trae ya producto/
+ * costo/unidad/impuesto/descuento actualizados) y se le reimponen encima los
+ * campos exclusivos del CC (cantidad facturada, seguimiento propio, almacén
+ * de destino y demás datos operativos) para no perder nada propio; subtotal/
+ * igv/total se recalculan con `calcularLineaCompra`, la única fuente de
+ * cálculo por línea del módulo.
+ */
+function propagarLineaHeredada(lineaOC: LineaCompra, lineaCC: LineaCompra): LineaCompra {
+  const heredada: LineaCompra = {
+    ...lineaOC,
+    id: lineaCC.id,
+    cantidadSolicitada: lineaCC.cantidadSolicitada,
+    cantidadRecibida: lineaCC.cantidadRecibida,
+    cantidadFacturada: lineaCC.cantidadFacturada,
+    cantidadIngresadaInventario: lineaCC.cantidadIngresadaInventario,
+    cantidadPendienteRecepcion: lineaCC.cantidadPendienteRecepcion,
+    cantidadPendienteFacturacion: lineaCC.cantidadPendienteFacturacion,
+    cantidadPendienteInventario: lineaCC.cantidadPendienteInventario,
+    afectaInventario: lineaCC.afectaInventario,
+    almacenDestinoId: lineaCC.almacenDestinoId,
+    almacenDestinoNombre: lineaCC.almacenDestinoNombre,
+    centroCosto: lineaCC.centroCosto,
+    presupuesto: lineaCC.presupuesto,
+    descripcionActivo: lineaCC.descripcionActivo,
+    responsableActivo: lineaCC.responsableActivo,
+    ubicacionActivo: lineaCC.ubicacionActivo,
+    observacion: lineaCC.observacion,
+  };
+  const { baseImponible, igv, total } = calcularLineaCompra(heredada);
+  return { ...heredada, subtotal: baseImponible, igv, total };
+}
+
+/**
+ * Reescribe en un CC los campos que realmente hereda de su OC (cabecera:
+ * proveedor, direcciones, moneda/TC, forma de pago/cronograma/vencimiento,
+ * centro de costo/presupuesto; líneas: producto/costo/unidad/impuesto vía
+ * `propagarLineaHeredada`) a partir del estado ACTUAL de esa OC — nunca solo
+ * la cabecera, dejando líneas/totales desactualizados. Totales y monto de
+ * retención (si el CC la tiene aplicada) se recalculan siempre con las
+ * utilidades centrales (`calcularTotalesLineas`/`calcularMontoRetencion`),
+ * nunca a mano. No toca id/estadoDocumento/historial/fechas/observaciones/
+ * adjuntos/tipo/serie/número propios del CC — el llamador decide qué de eso
+ * agregar. Única fuente reutilizada tanto para (a) propagar una actualización
+ * de una OC ya convertida hacia sus CC registrados, como para (b) reafirmar
+ * los datos heredados de un CC justo antes de registrarlo desde un borrador
+ * (evita registrar con datos heredados obsoletos si el borrador quedó
+ * abierto mientras la OC se editó por otro camino).
+ */
+function aplicarDatosHeredadosCC(cc: ComprobanteCompra, oc: OrdenCompra): ComprobanteCompra {
+  const datosHeredados = extraerDatosOCParaCC(oc);
+
+  const nuevasLineas = cc.lineas.map((lineaCC) => {
+    const lineaOC = oc.lineas.find((l) => l.id === lineaCC.id);
+    return lineaOC ? propagarLineaHeredada(lineaOC, lineaCC) : lineaCC;
+  });
+  const totalesRecalculados = calcularTotalesLineas(nuevasLineas);
+  const montoRetencion = cc.retencion
+    ? calcularMontoRetencion(totalesRecalculados.total, cc.retencion.tasaRetencion)
+    : undefined;
+  const totalNetoCC = montoRetencion !== undefined
+    ? round2(totalesRecalculados.total - montoRetencion)
+    : totalesRecalculados.total;
+
+  return {
+    ...cc,
+    proveedorId: datosHeredados.proveedorId,
+    proveedorTipoDocumento: datosHeredados.proveedorTipoDocumento,
+    proveedorNumeroDocumento: datosHeredados.proveedorNumeroDocumento,
+    proveedorNombre: datosHeredados.proveedorNombre,
+    proveedorDireccionFacturacion: datosHeredados.proveedorDireccionFacturacion,
+    proveedorDireccionEntrega: datosHeredados.proveedorDireccionEntrega,
+    moneda: datosHeredados.moneda,
+    tipoCambio: datosHeredados.tipoCambio,
+    formaPago: datosHeredados.formaPago,
+    formaPagoMetodoId: datosHeredados.formaPagoMetodoId,
+    creditTerms: datosHeredados.creditTerms,
+    condicionesPago: datosHeredados.condicionesPago,
+    fechaVencimiento: oc.fechaVencimiento,
+    centroCosto: datosHeredados.centroCosto,
+    presupuesto: datosHeredados.presupuesto,
+    lineas: nuevasLineas,
+    totales: {
+      subtotal: totalesRecalculados.subtotal,
+      subtotalExonerado: totalesRecalculados.subtotalExonerado,
+      subtotalInafecto: totalesRecalculados.subtotalInafecto,
+      descuentoTotal: totalesRecalculados.descuentoTotal,
+      igv: totalesRecalculados.igv,
+      retencion: montoRetencion,
+      total: totalesRecalculados.total,
+      moneda: datosHeredados.moneda,
+    },
+    retencion: cc.retencion && montoRetencion !== undefined
+      ? { ...cc.retencion, montoRetencion, netoAPagar: totalNetoCC }
+      : cc.retencion,
+  };
+}
+
+/**
+ * Propaga a los Comprobantes de Compra generados por una OC los campos que
+ * realmente hereda de ella (`Boolean(cc.ordenCompraOrigenId)`, misma fuente
+ * reutilizada por el bloqueo de campos del formulario de CC) cuando esa OC ya
+ * convertida se actualiza, vía `aplicarDatosHeredadosCC` (cabecera + líneas +
+ * totales, nunca solo cabecera). A través de `resincronizarCuentaPorPagar`,
+ * las cuotas/saldo de la CxP también quedan al día. No toca observaciones/
+ * adjuntos/tipo/serie/número propios del CC, ni la cantidad facturada/
+ * seguimiento de cada línea (eso es del CC, no de la OC). El llamador
+ * (`actualizarOrdenCompra`) ya verificó con `tieneOCPagosActivosRelacionados`
+ * que ningún CC relacionado tiene pagos activos antes de invocar esta
+ * función; el chequeo por CC con `tieneCCPagosActivos` que sigue aquí es una
+ * segunda capa de defensa (nunca el único punto de control) para no
+ * desincronizar su trazabilidad si algún día se invoca desde otro lugar.
+ * Soporta más de un CC relacionado (una OC puede facturarse parcialmente en
+ * varios comprobantes).
+ */
+function propagarActualizacionOCaCC(
+  ocActualizada: OrdenCompra,
+  comprobantes: ComprobanteCompra[],
+  cuentasPorPagar: CuentaPorPagar[],
+  pagos: PagoCompra[],
+  ts: string,
+): { comprobantesActualizados: ComprobanteCompra[]; cuentasPorPagarActualizadas: CuentaPorPagar[] } {
+  const comprobantesActualizados: ComprobanteCompra[] = [];
+  const cuentasPorPagarActualizadas: CuentaPorPagar[] = [];
+
+  const relacionados = comprobantes.filter(
+    (cc) => cc.ordenCompraOrigenId === ocActualizada.id && cc.estadoDocumento === 'registrado',
+  );
+
+  for (const cc of relacionados) {
+    if (tieneCCPagosActivos(cc, cuentasPorPagar, pagos)) continue;
+
+    const ccActualizado: ComprobanteCompra = {
+      ...aplicarDatosHeredadosCC(cc, ocActualizada),
+      historial: [
+        ...cc.historial,
+        {
+          fecha: ts,
+          accion: 'Comprobante de compra actualizado',
+          detalle: 'Por actualización de la Orden de Compra origen',
+        },
+      ],
+      fechaActualizacion: ts,
+    };
+    comprobantesActualizados.push(ccActualizado);
+
+    if (ccActualizado.cuentaPorPagarId) {
+      const cxpExistente = cuentasPorPagar.find((c) => c.id === ccActualizado.cuentaPorPagarId);
+      if (cxpExistente) {
+        cuentasPorPagarActualizadas.push(resincronizarCuentaPorPagar(cxpExistente, ccActualizado, ts));
+      }
+    }
+  }
+
+  return { comprobantesActualizados, cuentasPorPagarActualizadas };
 }
 
 function cargarProveedores(): Cliente[] {
@@ -460,6 +633,13 @@ interface ContextoComprasTipo {
   ): Promise<{ comprobante: ComprobanteCompra; cuentaPorPagar: CuentaPorPagar }>;
 
   eliminarComprobanteCompraBorrador(id: string): Promise<void>;
+
+  /** Actualiza un CC ya Registrado en el mismo documento (nunca genera un segundo CC ni una segunda CxP); bloquea campos financieros si ya tiene pagos o proviene de una OC. */
+  actualizarComprobanteCompra(
+    id: string,
+    datos: Partial<ComprobanteCompra>,
+    usuarioNombre?: string,
+  ): Promise<{ comprobante: ComprobanteCompra; cuentaPorPagar?: CuentaPorPagar }>;
 
   /** Añade una entrada de auditoría al historial del CC sin tocar ningún campo de estado (mismo patrón que agregarEventoHistorialOC). */
   agregarEventoHistorialCC(
@@ -816,6 +996,18 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         throw new Error('Esta orden de compra no se puede editar en su estado actual.');
       }
 
+      const yaConvertida = calcularEstadoPrincipalOC(existente) === 'Convertida';
+      // Regla central: mientras cualquier CC relacionado tenga pagos activos
+      // (cruzando OC → CC → CxP → Pagos, no un estado derivado), la OC
+      // convertida no puede modificar ningún dato heredable. La validación
+      // ocurre ANTES de construir/escribir nada — ni la OC ni sus documentos
+      // relacionados quedan tocados parcialmente.
+      if (yaConvertida && tieneOCPagosActivosRelacionados(existente, state.comprobantes, state.cuentasPorPagar, state.pagos)) {
+        throw new Error(
+          'No se puede actualizar esta orden de compra: el comprobante de compra relacionado ya tiene pagos aplicados. Anula los pagos relacionados antes de editarla.',
+        );
+      }
+
       const oc: OrdenCompra = {
         ...existente,
         ...datos,
@@ -823,6 +1015,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         correlativo: existente.correlativo,
         numero: existente.numero,
         fechaCreacion: existente.fechaCreacion,
+        comprobantesCompraRelacionados: existente.comprobantesCompraRelacionados,
       };
 
       lanzarSiHayErrores(validarOrdenCompraBasica(oc));
@@ -832,27 +1025,57 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       // Editar y volver a registrar: se recalcula estadoAprobacion igual que
       // en el alta (una OC "No Aprobada" vuelve a la cola de aprobación si
       // requiereAprobacion sigue activo; se limpia el ciclo de aprobación
-      // anterior porque es una resubmisión nueva).
-      const actualizada: OrdenCompra = {
-        ...oc,
-        estadoAprobacion: oc.requiereAprobacion ? 'pendiente' : 'no_requiere',
-        aprobadoPor: undefined,
-        fechaAprobacion: undefined,
-        rechazadoPor: undefined,
-        fechaRechazo: undefined,
-        motivoRechazo: undefined,
-        historial: [
-          ...oc.historial,
-          { fecha: ts, usuario: usuarioNombre, accion: 'Orden de compra actualizada', detalle: '' },
-        ],
-        fechaActualizacion: ts,
-      };
+      // anterior porque es una resubmisión nueva). Una OC ya Convertida NO
+      // vuelve a pasar por este reinicio: esa dimensión ya quedó resuelta al
+      // generarse el comprobante, y reiniciarla dejaría estadoAprobacion en
+      // 'pendiente' sobre un documento ya cerrado (puedeAprobarOC/
+      // puedeRechazarOC no distinguen el estado principal, solo
+      // estadoAprobacion, así que expondrían Aprobar/Rechazar indebidamente).
+      const actualizada: OrdenCompra = yaConvertida
+        ? {
+            ...oc,
+            historial: [
+              ...oc.historial,
+              { fecha: ts, usuario: usuarioNombre, accion: 'Orden de compra actualizada', detalle: '' },
+            ],
+            fechaActualizacion: ts,
+          }
+        : {
+            ...oc,
+            estadoAprobacion: oc.requiereAprobacion ? 'pendiente' : 'no_requiere',
+            aprobadoPor: undefined,
+            fechaAprobacion: undefined,
+            rechazadoPor: undefined,
+            fechaRechazo: undefined,
+            motivoRechazo: undefined,
+            historial: [
+              ...oc.historial,
+              { fecha: ts, usuario: usuarioNombre, accion: 'Orden de compra actualizada', detalle: '' },
+            ],
+            fechaActualizacion: ts,
+          };
+
+      // Se calcula todo (puro, puede lanzar) antes de escribir nada: si algo
+      // falla aquí, ni la OC ni sus CC/CxP relacionados quedan persistidos a
+      // medias.
+      const { comprobantesActualizados, cuentasPorPagarActualizadas } = yaConvertida
+        ? propagarActualizacionOCaCC(actualizada, state.comprobantes, state.cuentasPorPagar, state.pagos, ts)
+        : { comprobantesActualizados: [], cuentasPorPagarActualizadas: [] };
 
       agregarOActualizarOC(actualizada);
       dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
+      comprobantesActualizados.forEach((cc) => {
+        agregarOActualizarCC(cc);
+        dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: cc });
+      });
+      cuentasPorPagarActualizadas.forEach((cxp) => {
+        agregarOActualizarCxP(cxp);
+        dispatch({ type: 'ACTUALIZAR_CXP', payload: cxp });
+      });
+
       return actualizada;
     },
-    [state.ordenes, monedaBase],
+    [state.ordenes, state.comprobantes, state.cuentasPorPagar, state.pagos, monedaBase],
   );
 
   const agregarEventoHistorialOC = useCallback(
@@ -931,7 +1154,13 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       // crédito: contado NO implica pagado automáticamente. El usuario
       // registra el pago manualmente desde Cuentas por Pagar; ni el pago ni
       // el movimiento de caja se generan aquí.
-      const comprobante = armarRegistroCC(datos, id, ts, ts, [], usuarioId);
+      let comprobante = armarRegistroCC(datos, id, ts, ts, [], usuarioId);
+      if (ocOrigen) {
+        // Reafirma los datos heredados desde el estado ACTUAL de la OC justo
+        // antes de persistir (defensa adicional que no confía solo en que el
+        // formulario haya bloqueado esos campos en la UI).
+        comprobante = aplicarDatosHeredadosCC(comprobante, ocOrigen);
+      }
       const { comprobanteConCxP, cuentaPorPagar, ocActualizada } = generarCxPYEnlaceCC(
         comprobante,
         state.ordenes,
@@ -1043,17 +1272,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
       // Se fusiona en un solo paso (sin encadenar con actualizarComprobanteCompraBorrador)
       // para no depender de que el state ya refleje una actualización previa.
-      const cc: ComprobanteCompra = { ...existente, ...datosActualizados, id: existente.id };
-
-      lanzarSiHayErrores(validarComprobanteCompraBasico(cc));
-      lanzarSiHayErrores(validarTipoCambioRequerido(cc.moneda, monedaBase, cc.tipoCambio));
-
-      const otrosComprobantes = state.comprobantes.filter((c) => c.id !== id);
-      if (validarComprobanteCompraDuplicado(otrosComprobantes, cc)) {
-        throw new Error(
-          'Ya existe un comprobante de compra registrado para este proveedor con el mismo tipo, serie y número.',
-        );
-      }
+      let cc: ComprobanteCompra = { ...existente, ...datosActualizados, id: existente.id };
 
       let ocOrigen: OrdenCompra | undefined;
       if (cc.ordenCompraOrigenId) {
@@ -1070,6 +1289,21 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
           );
         }
         lanzarSiHayErrores(validarCantidadesFacturablesDesdeOC(ocOrigen.lineas, cc.lineas));
+        // Reafirma los datos heredados desde el estado ACTUAL de la OC antes
+        // de registrar: si el borrador quedó abierto mientras la OC se editó
+        // por otro camino (p. ej. "Editar Orden de Compra"), nunca se
+        // registra con datos heredados obsoletos.
+        cc = aplicarDatosHeredadosCC(cc, ocOrigen);
+      }
+
+      lanzarSiHayErrores(validarComprobanteCompraBasico(cc));
+      lanzarSiHayErrores(validarTipoCambioRequerido(cc.moneda, monedaBase, cc.tipoCambio));
+
+      const otrosComprobantes = state.comprobantes.filter((c) => c.id !== id);
+      if (validarComprobanteCompraDuplicado(otrosComprobantes, cc)) {
+        throw new Error(
+          'Ya existe un comprobante de compra registrado para este proveedor con el mismo tipo, serie y número.',
+        );
       }
 
       const ts = ahora();
@@ -1094,6 +1328,87 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       return { comprobante: comprobanteConCxP, cuentaPorPagar };
     },
     [state.ordenes, state.comprobantes, monedaBase],
+  );
+
+  /**
+   * Actualiza un CC ya REGISTRADO en el mismo documento (mismo id, misma
+   * fecha de registro, misma CxP) — nunca genera un segundo CC ni una
+   * segunda CxP. Si el CC ya tiene pagos aplicados o proviene de una OC
+   * (`puedeEditarCamposFinancierosCC` en falso), es una defensa de servicio
+   * que ignora cualquier campo financiero recibido y solo aplica
+   * observaciones/adjuntos, sin confiar únicamente en que el formulario los
+   * haya deshabilitado.
+   */
+  const actualizarComprobanteCompra = useCallback(
+    async (
+      id: string,
+      datos: Partial<ComprobanteCompra>,
+      usuarioNombre?: string,
+    ): Promise<{ comprobante: ComprobanteCompra; cuentaPorPagar?: CuentaPorPagar }> => {
+      const existente = state.comprobantes.find((c) => c.id === id);
+      if (!existente) throw new Error(`Comprobante de compra ${id} no encontrado.`);
+      if (existente.estadoDocumento !== 'registrado') {
+        throw new Error('Este comprobante de compra no se puede editar en su estado actual.');
+      }
+
+      const puedeFinancieros = puedeEditarCamposFinancierosCC(existente);
+      const datosPermitidos: Partial<ComprobanteCompra> = puedeFinancieros
+        ? datos
+        : { observaciones: datos.observaciones, adjuntos: datos.adjuntos };
+
+      const cc: ComprobanteCompra = {
+        ...existente,
+        ...datosPermitidos,
+        id: existente.id,
+        estadoDocumento: 'registrado',
+        estadoPago: existente.estadoPago,
+        estadoInventario: puedeFinancieros
+          ? derivarEstadoInventarioCC(datosPermitidos.modalidadInventario ?? existente.modalidadInventario)
+          : existente.estadoInventario,
+        fechaRegistro: existente.fechaRegistro,
+        cuentaPorPagarId: existente.cuentaPorPagarId,
+        pagosRelacionados: existente.pagosRelacionados,
+        notasIngresoRelacionadas: existente.notasIngresoRelacionadas,
+        ordenCompraOrigenId: existente.ordenCompraOrigenId,
+        fechaCreacion: existente.fechaCreacion,
+      };
+
+      lanzarSiHayErrores(validarComprobanteCompraBasico(cc));
+      lanzarSiHayErrores(validarTipoCambioRequerido(cc.moneda, monedaBase, cc.tipoCambio));
+
+      const otrosComprobantes = state.comprobantes.filter((c) => c.id !== id);
+      if (validarComprobanteCompraDuplicado(otrosComprobantes, cc)) {
+        throw new Error(
+          'Ya existe un comprobante de compra registrado para este proveedor con el mismo tipo, serie y número.',
+        );
+      }
+
+      const ts = ahora();
+      const actualizado: ComprobanteCompra = {
+        ...cc,
+        historial: [
+          ...existente.historial,
+          { fecha: ts, usuario: usuarioNombre, accion: 'Comprobante de compra actualizado', detalle: '' },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarCC(actualizado);
+      dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: actualizado });
+
+      let cuentaPorPagar: CuentaPorPagar | undefined;
+      if (puedeFinancieros && existente.cuentaPorPagarId) {
+        const cxpExistente = state.cuentasPorPagar.find((c) => c.id === existente.cuentaPorPagarId);
+        if (cxpExistente) {
+          cuentaPorPagar = resincronizarCuentaPorPagar(cxpExistente, actualizado, ts);
+          agregarOActualizarCxP(cuentaPorPagar);
+          dispatch({ type: 'ACTUALIZAR_CXP', payload: cuentaPorPagar });
+        }
+      }
+
+      return { comprobante: actualizado, cuentaPorPagar };
+    },
+    [state.comprobantes, state.cuentasPorPagar, monedaBase],
   );
 
   const eliminarComprobanteCompraBorrador = useCallback(
@@ -1431,6 +1746,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         actualizarComprobanteCompraBorrador,
         registrarComprobanteCompraDesdeBorrador,
         eliminarComprobanteCompraBorrador,
+        actualizarComprobanteCompra,
         agregarEventoHistorialCC,
         anularComprobanteCompra,
         registrarPagoCompra,
