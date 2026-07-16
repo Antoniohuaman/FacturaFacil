@@ -628,53 +628,46 @@ export function validarCantidadesFacturablesDesdeOC(
 }
 
 /**
- * Aplica la facturación de un comprobante de compra a las líneas de su OC de
- * origen: incrementa cantidadFacturada y recalcula cantidadPendienteFacturacion
- * por línea (cantidadSolicitada - cantidadFacturada). Las líneas de OC sin
- * correspondencia en el CC quedan sin cambios.
+ * Única fuente de verdad del seguimiento interno de facturación de una OC
+ * (`lineas[].cantidadFacturada`/`cantidadPendienteFacturacion`, y por
+ * extensión `estadoFacturacion` vía `calcularEstadoFacturacion` sobre el
+ * resultado). Deriva un valor ABSOLUTO — nunca incremental/acumulado — a
+ * partir de las líneas de los Comprobantes de Compra realmente activos
+ * relacionados a esta OC (`estadoDocumento !== 'anulado'`; el llamador
+ * decide cuáles son "activos" reutilizando las reglas de relaciones ya
+ * existentes, esta función no resuelve esa relación). Con la regla vigente
+ * (sin facturación parcial, máximo un CC activo por OC — ver
+ * `validarCantidadesFacturablesDesdeOC`), en la práctica se le pasan las
+ * líneas de ese único CC activo, o un arreglo vacío si no hay ninguno.
+ *
+ * Al ser absoluta (no "sumar lo nuevo" ni "restar lo anulado"), la misma
+ * función sirve para los tres momentos en que la relación real cambia, sin
+ * arrastrar un snapshot previo ni depender del orden de las llamadas:
+ * - conversión inicial OC → CC (líneas del CC recién creado);
+ * - edición de una OC convertida, tras propagar el cambio al mismo CC
+ *   (líneas del CC ya actualizado);
+ * - anulación de un CC relacionado (líneas de los CC que sigan activos,
+ *   normalmente ninguno → todas las líneas vuelven a cantidadFacturada 0).
  */
-export function aplicarFacturacionALineasOC(
+export function recalcularSeguimientoFacturacionOC(
   lineasOC: LineaCompra[],
-  lineasCC: LineaCompra[],
+  lineasComprobantesActivos: LineaCompra[],
 ): LineaCompra[] {
-  const cantidadPorId = calcularCantidadFacturadaPorLineaOC(lineasOC, lineasCC);
+  const cantidadPorId = calcularCantidadFacturadaPorLineaOC(lineasOC, lineasComprobantesActivos);
 
   return lineasOC.map((ocLinea) => {
-    const facturadaAhora = cantidadPorId.get(ocLinea.id);
-    if (!facturadaAhora) return ocLinea;
-
-    const cantidadFacturada = round2(ocLinea.cantidadFacturada + facturadaAhora);
+    // Nunca puede haber más facturado que lo solicitado (con la relación
+    // exacta 1:1 vigente esto ya se cumple por construcción; el límite
+    // explícito es la defensa de que facturada + pendiente = solicitada
+    // siempre, incluso ante un dato heredado inconsistente).
+    const cantidadFacturada = Math.min(
+      round2(cantidadPorId.get(ocLinea.id) ?? 0),
+      ocLinea.cantidadSolicitada,
+    );
     return {
       ...ocLinea,
       cantidadFacturada,
-      cantidadPendienteFacturacion: Math.max(0, round2(ocLinea.cantidadSolicitada - cantidadFacturada)),
-    };
-  });
-}
-
-/**
- * Inversa de `aplicarFacturacionALineasOC`: al anular un Comprobante de
- * Compra, resta de cada línea de la OC exactamente lo que ese CC había
- * facturado (mismo emparejamiento por id de línea que ya usa
- * `calcularCantidadFacturadaPorLineaOC`), sin dejar `cantidadFacturada`
- * negativa. Si la OC tiene otros CC activos que facturaron las mismas
- * líneas, su aporte no se toca — solo se revierte lo que aportó el CC que se
- * está anulando. Reutilizada por `anularComprobanteCompra` (ContextoCompras.tsx)
- * junto con `calcularEstadoFacturacion` para que la OC recupere exactamente
- * la cantidad pendiente de facturar real.
- */
-export function revertirFacturacionALineasOC(lineasOC: LineaCompra[], lineasCC: LineaCompra[]): LineaCompra[] {
-  const cantidadPorId = calcularCantidadFacturadaPorLineaOC(lineasOC, lineasCC);
-
-  return lineasOC.map((ocLinea) => {
-    const facturadaAntes = cantidadPorId.get(ocLinea.id);
-    if (!facturadaAntes) return ocLinea;
-
-    const cantidadFacturada = Math.max(0, round2(ocLinea.cantidadFacturada - facturadaAntes));
-    return {
-      ...ocLinea,
-      cantidadFacturada,
-      cantidadPendienteFacturacion: Math.max(0, round2(ocLinea.cantidadSolicitada - cantidadFacturada)),
+      cantidadPendienteFacturacion: round2(ocLinea.cantidadSolicitada - cantidadFacturada),
     };
   });
 }

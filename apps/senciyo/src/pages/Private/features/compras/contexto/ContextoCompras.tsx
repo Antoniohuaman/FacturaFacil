@@ -67,8 +67,7 @@ import {
   recalcularEstadoPagoComprobante,
   validarTipoCambioRequerido,
   validarCantidadesFacturablesDesdeOC,
-  aplicarFacturacionALineasOC,
-  revertirFacturacionALineasOC,
+  recalcularSeguimientoFacturacionOC,
   calcularEstadoPrincipalOC,
   tieneCCPagosActivos,
   tieneOCPagosActivosRelacionados,
@@ -289,7 +288,7 @@ function generarCxPYEnlaceCC(
   if (comprobante.ordenCompraOrigenId) {
     const ocOrigen = ordenes.find((o) => o.id === comprobante.ordenCompraOrigenId);
     if (ocOrigen) {
-      const lineasActualizadas = aplicarFacturacionALineasOC(ocOrigen.lineas, comprobante.lineas);
+      const lineasActualizadas = recalcularSeguimientoFacturacionOC(ocOrigen.lineas, comprobante.lineas);
       ocActualizada = {
         ...ocOrigen,
         lineas: lineasActualizadas,
@@ -312,27 +311,37 @@ function generarCxPYEnlaceCC(
 }
 
 /**
- * Actualiza una línea del CC con los atributos comerciales que realmente
- * hereda de su línea equivalente de la OC (mismo id: toda línea de un CC
- * generado por conversión conserva el id de su línea de OC origen — ver
- * extraerDatosOCParaCC). Se parte de la línea de la OC (trae ya producto/
- * costo/unidad/impuesto/descuento actualizados) y se le reimponen encima los
- * campos exclusivos del CC (cantidad facturada, seguimiento propio, almacén
- * de destino y demás datos operativos) para no perder nada propio; subtotal/
- * igv/total se recalculan con `calcularLineaCompra`, la única fuente de
- * cálculo por línea del módulo.
+ * Actualiza una línea del CC con los atributos que realmente hereda de su
+ * línea equivalente de la OC (mismo id: toda línea de un CC generado por
+ * conversión conserva el id de su línea de OC origen — ver
+ * extraerDatosOCParaCC). Se parte de la línea de la OC (producto/costo/
+ * unidad/impuesto/descuento/**cantidad**, todos heredados y bloqueados en el
+ * formulario del CC — ver SeccionProductosCompra) y se le reimponen encima
+ * únicamente los campos operativos exclusivos del CC (almacén de destino,
+ * centro de costo/presupuesto propios, datos de activo fijo, observación de
+ * línea, y `cantidadIngresadaInventario`, el único contador que de verdad
+ * avanza después de creado el CC — vía Nota de Ingreso). Esta etapa no
+ * soporta facturación parcial (ver `validarCantidadesFacturablesDesdeOC`):
+ * un CC siempre factura la cantidad completa de cada línea, así que
+ * `cantidadRecibida`/`cantidadFacturada` del CC siempre son la misma
+ * cantidad heredada, nunca un valor propio distinto. subtotal/igv/total se
+ * recalculan con `calcularLineaCompra`, la única fuente de cálculo por línea
+ * del módulo.
  */
 function propagarLineaHeredada(lineaOC: LineaCompra, lineaCC: LineaCompra): LineaCompra {
+  const cantidad = lineaOC.cantidadSolicitada;
   const heredada: LineaCompra = {
     ...lineaOC,
     id: lineaCC.id,
-    cantidadSolicitada: lineaCC.cantidadSolicitada,
-    cantidadRecibida: lineaCC.cantidadRecibida,
-    cantidadFacturada: lineaCC.cantidadFacturada,
+    cantidadSolicitada: cantidad,
+    cantidadRecibida: cantidad,
+    cantidadFacturada: cantidad,
     cantidadIngresadaInventario: lineaCC.cantidadIngresadaInventario,
-    cantidadPendienteRecepcion: lineaCC.cantidadPendienteRecepcion,
-    cantidadPendienteFacturacion: lineaCC.cantidadPendienteFacturacion,
-    cantidadPendienteInventario: lineaCC.cantidadPendienteInventario,
+    cantidadPendienteRecepcion: 0,
+    cantidadPendienteFacturacion: 0,
+    cantidadPendienteInventario: lineaCC.afectaInventario
+      ? Math.max(0, round2(cantidad - lineaCC.cantidadIngresadaInventario))
+      : 0,
     afectaInventario: lineaCC.afectaInventario,
     almacenDestinoId: lineaCC.almacenDestinoId,
     almacenDestinoNombre: lineaCC.almacenDestinoNombre,
@@ -425,15 +434,24 @@ function aplicarDatosHeredadosCC(cc: ComprobanteCompra, oc: OrdenCompra): Compro
  * convertida se actualiza, vía `aplicarDatosHeredadosCC` (cabecera + líneas +
  * totales, nunca solo cabecera). A través de `resincronizarCuentaPorPagar`,
  * las cuotas/saldo de la CxP también quedan al día. No toca observaciones/
- * adjuntos/tipo/serie/número propios del CC, ni la cantidad facturada/
- * seguimiento de cada línea (eso es del CC, no de la OC). El llamador
+ * adjuntos/tipo/serie/número propios del CC. El llamador
  * (`actualizarOrdenCompra`) ya verificó con `tieneOCPagosActivosRelacionados`
  * que ningún CC relacionado tiene pagos activos antes de invocar esta
  * función; el chequeo por CC con `tieneCCPagosActivos` que sigue aquí es una
  * segunda capa de defensa (nunca el único punto de control) para no
  * desincronizar su trazabilidad si algún día se invoca desde otro lugar.
- * Soporta más de un CC relacionado (una OC puede facturarse parcialmente en
- * varios comprobantes).
+ *
+ * Esta etapa no soporta facturación parcial (una conversión siempre reclama
+ * la cantidad completa de todas las líneas de la OC — ver
+ * `validarCantidadesFacturablesDesdeOC`), así que en el flujo real nunca
+ * coexiste más de un CC "registrado" activo por OC: el primero deja la OC en
+ * `estadoFacturacion: 'completa'`, bloqueando una segunda conversión hasta
+ * que el primero se anule. Si de todas formas se encontrara más de uno
+ * (dato corrupto o una vía de registro futura que no pase por esa
+ * validación), no hay una forma segura de repartir la cantidad actualizada
+ * entre varios CC sin inventar una distribución — se bloquea la
+ * actualización completa en vez de propagar la misma cantidad íntegra a
+ * cada uno en silencio.
  */
 function propagarActualizacionOCaCC(
   ocActualizada: OrdenCompra,
@@ -448,6 +466,12 @@ function propagarActualizacionOCaCC(
   const relacionados = comprobantes.filter(
     (cc) => cc.ordenCompraOrigenId === ocActualizada.id && cc.estadoDocumento === 'registrado',
   );
+
+  if (relacionados.length > 1) {
+    throw new Error(
+      'No se puede actualizar: esta orden de compra tiene más de un comprobante de compra activo relacionado y no puede reconciliarse una distribución de cantidades entre varios. Anula los comprobantes adicionales o actualiza cada uno manualmente.',
+    );
+  }
 
   for (const cc of relacionados) {
     if (tieneCCPagosActivos(cc, cuentasPorPagar, pagos)) continue;
@@ -1069,8 +1093,24 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         ? propagarActualizacionOCaCC(actualizada, state.comprobantes, state.cuentasPorPagar, state.pagos, ts)
         : { comprobantesActualizados: [], cuentasPorPagarActualizadas: [] };
 
-      agregarOActualizarOC(actualizada);
-      dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
+      // El seguimiento interno de facturación de la OC (cantidadFacturada/
+      // cantidadPendienteFacturacion por línea, y estadoFacturacion) se
+      // deriva siempre desde cero a partir de los CC que quedan realmente
+      // activos tras esta actualización — nunca se conserva el snapshot
+      // anterior. Si la OC no está convertida, `comprobantesActualizados`
+      // viene vacío y el resultado es el mismo "sin facturar" que ya tenía.
+      const lineasConSeguimiento = recalcularSeguimientoFacturacionOC(
+        actualizada.lineas,
+        comprobantesActualizados.flatMap((cc) => cc.lineas),
+      );
+      const actualizadaFinal: OrdenCompra = {
+        ...actualizada,
+        lineas: lineasConSeguimiento,
+        estadoFacturacion: calcularEstadoFacturacion(lineasConSeguimiento),
+      };
+
+      agregarOActualizarOC(actualizadaFinal);
+      dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizadaFinal });
       comprobantesActualizados.forEach((cc) => {
         agregarOActualizarCC(cc);
         dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: cc });
@@ -1080,7 +1120,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'ACTUALIZAR_CXP', payload: cxp });
       });
 
-      return actualizada;
+      return actualizadaFinal;
     },
     [state.ordenes, state.comprobantes, state.cuentasPorPagar, state.pagos, monedaBase],
   );
@@ -1485,16 +1525,23 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Revertir la facturación aplicada a la OC origen (si la hay): este CC
-      // deja de contar como conversión activa, así que lo que aportó a
-      // cantidadFacturada/estadoFacturacion se resta — nunca se toca
-      // comprobantesCompraRelacionados (se preserva íntegro para trazabilidad
-      // histórica; calcularEstadoPrincipalOC ya ignora los CC anulados de ese
-      // array por su cuenta).
+      // Recalcula el seguimiento interno de facturación de la OC origen (si
+      // la hay) desde los CC que sigan realmente activos tras esta anulación
+      // — nunca se toca comprobantesCompraRelacionados (se preserva íntegro
+      // para trazabilidad histórica; calcularEstadoPrincipalOC ya ignora los
+      // CC anulados de ese array por su cuenta). Con la regla vigente (máximo
+      // un CC activo por OC) lo normal es que no quede ninguno, y la OC
+      // vuelva íntegramente a cantidadFacturada 0 / estadoFacturacion acorde.
       if (cc.ordenCompraOrigenId) {
         const ocOrigen = state.ordenes.find((o) => o.id === cc.ordenCompraOrigenId);
         if (ocOrigen) {
-          const lineasRevertidas = revertirFacturacionALineasOC(ocOrigen.lineas, cc.lineas);
+          const otrosActivos = state.comprobantes.filter(
+            (c) => c.ordenCompraOrigenId === ocOrigen.id && c.estadoDocumento === 'registrado' && c.id !== cc.id,
+          );
+          const lineasRevertidas = recalcularSeguimientoFacturacionOC(
+            ocOrigen.lineas,
+            otrosActivos.flatMap((c) => c.lineas),
+          );
           const ocActualizada: OrdenCompra = {
             ...ocOrigen,
             lineas: lineasRevertidas,

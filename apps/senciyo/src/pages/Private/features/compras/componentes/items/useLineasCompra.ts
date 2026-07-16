@@ -24,10 +24,12 @@ export function useLineasCompra(lineasIniciales: LineaCompra[]) {
       igv,
       total,
       cantidadPendienteRecepcion: linea.cantidadSolicitada,
-      // Mismo criterio que aplicarFacturacionALineasOC/revertirFacturacionALineasOC
-      // (reglasCompras.ts): nunca 0 a ciegas — una línea de OC duplicada o en
-      // edición ya trae su propio cantidadFacturada real (0 en un duplicado,
-      // el acumulado real en una edición), y el pendiente debe reflejarlo.
+      // Mismo criterio que recalcularSeguimientoFacturacionOC (reglasCompras.ts):
+      // nunca 0 a ciegas — una línea de OC duplicada o en edición ya trae su
+      // propio cantidadFacturada real (0 en un duplicado, el real en una
+      // edición; en el caso de OC este campo se vuelve a recalcular de todas
+      // formas al guardar, ver actualizarOrdenCompra), y el pendiente debe
+      // reflejarlo mientras tanto en el formulario.
       cantidadPendienteFacturacion: Math.max(0, round2(linea.cantidadSolicitada - linea.cantidadFacturada)),
       cantidadPendienteInventario: 0,
     };

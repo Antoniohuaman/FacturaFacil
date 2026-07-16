@@ -60,7 +60,7 @@ export interface LineaCompra {
   cantidadIngresadaInventario: number;
   /** Derivado: cantidadSolicitada - cantidadRecibida */
   cantidadPendienteRecepcion: number;
-  /** Derivado: cantidadSolicitada - cantidadFacturada (ver aplicarFacturacionALineasOC) */
+  /** Derivado: cantidadSolicitada - cantidadFacturada (ver recalcularSeguimientoFacturacionOC, en OC; en CC, siempre 0 — un CC factura la línea completa) */
   cantidadPendienteFacturacion: number;
   /** Derivado: cantidadFacturada - cantidadIngresadaInventario */
   cantidadPendienteInventario: number;
