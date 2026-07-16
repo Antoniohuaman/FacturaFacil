@@ -26,6 +26,23 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** Errores propios de una línea de medio de pago, uno por control real (nunca un solo texto a interpretar). */
+export interface ErrorMedioPago {
+  codigo?: string;
+  monto?: string;
+  cuentaBancaria?: string;
+  referencia?: string;
+}
+
+/** Errores de campo del formulario de pago, listos para mostrarse junto al control correspondiente (nunca en un banner general). */
+export interface ErroresPagoPorCampo {
+  allocations?: string;
+  /** Por id de línea de medio de pago (`MedioPagoCompra.id`). */
+  medios?: Record<string, ErrorMedioPago>;
+  diferencia?: string;
+  tipoCambio?: string;
+}
+
 function crearMedioDesde(medio: PaymentMeanOption | undefined, monto: number): MedioPagoCompra {
   return {
     id: generarIdLinea(),
@@ -131,7 +148,13 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
   const [observaciones, setObservaciones] = useState('');
   const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>([]);
   const [enviando, setEnviando] = useState(false);
-  const [errores, setErrores] = useState<string[]>([]);
+  // Mismo esquema que los formularios de OC/CC: sin errores en un formulario
+  // recién abierto, solo tras un intento real de registrar el pago — y se
+  // recalculan en cada render, así que desaparecen apenas el dato vuelve a
+  // ser válido. `errorGeneral` es exclusivamente el fallo real de un intento
+  // de envío (excepción del servicio), nunca una regla de campo.
+  const [intentoRegistrar, setIntentoRegistrar] = useState(false);
+  const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
   const totalMedios = round2(mediosPago.reduce((acc, m) => acc + (m.monto || 0), 0));
   const diferencia = round2(importeAplicado - totalMedios);
@@ -181,81 +204,91 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
   }
 
   /**
-   * Única fuente de verdad de validación del formulario: la usan tanto
-   * `puedeRegistrar` (para deshabilitar el botón) como `registrarPago` (para
-   * bloquear el envío con mensajes claros) — evita reglas duplicadas.
+   * Única fuente de verdad de validación del formulario: alimenta tanto el
+   * bloqueo real de envío (`registrarPago`) como los errores de campo que
+   * muestra la interfaz (`erroresPorCampo`) — un solo recorrido, nunca dos
+   * reglas separadas para lo mismo. Los casos que ya tienen un aviso propio
+   * siempre visible (sin serie PG, sin medios configurados, caja cerrada,
+   * sin cuentas bancarias compatibles) no repiten el mensaje aquí: siguen
+   * bloqueando el envío, pero no se muestran una segunda vez en otro lugar.
    */
-  function calcularErroresValidacion(): string[] {
-    const nuevosErrores: string[] = [];
-    if (!seriePG) {
-      nuevosErrores.push('No hay una serie PG configurada. Ve a Configuración → Series y crea una serie de tipo "Pago de Compra".');
-    }
-    if (!hayMediosConfigurados) {
-      nuevosErrores.push('No hay medios de pago activos configurados.');
-    }
+  function calcularErroresValidacion(): { lista: string[]; porCampo: ErroresPagoPorCampo } {
+    const lista: string[] = [];
+    const porCampo: ErroresPagoPorCampo = { medios: {} };
+
+    if (!seriePG) lista.push('No hay una serie PG configurada.');
+    if (!hayMediosConfigurados) lista.push('No hay medios de pago activos configurados.');
+
     if (allocations.length === 0) {
-      nuevosErrores.push('Selecciona al menos una cuota o el saldo a pagar.');
+      porCampo.allocations = 'Selecciona al menos una cuota o el saldo a pagar.';
+    } else if (importeAplicado <= 0) {
+      porCampo.allocations = 'El importe a pagar debe ser mayor a cero.';
+    } else if (normalizarImporte(importeAplicado, cxp.moneda) > normalizarImporte(cxp.saldoPendiente, cxp.moneda)) {
+      porCampo.allocations = `El importe a pagar (${importeAplicado.toFixed(2)}) no puede superar el saldo pendiente (${cxp.saldoPendiente.toFixed(2)}).`;
+    } else {
+      const cuotaConImporteInvalido = allocations.some((a) => {
+        const cuota = installments.find((i) => i.numeroCuota === a.installmentNumber);
+        const saldoCuota = cuota?.saldo ?? 0;
+        return a.amount < 0 || normalizarImporte(a.amount, cxp.moneda) > normalizarImporte(saldoCuota, cxp.moneda);
+      });
+      if (cuotaConImporteInvalido) {
+        porCampo.allocations = 'Hay una cuota con un importe inválido (negativo o mayor a su saldo pendiente).';
+      }
     }
-    if (importeAplicado <= 0) {
-      nuevosErrores.push('El importe a pagar debe ser mayor a cero.');
-    }
-    if (normalizarImporte(importeAplicado, cxp.moneda) > normalizarImporte(cxp.saldoPendiente, cxp.moneda)) {
-      nuevosErrores.push(`El importe a pagar (${importeAplicado.toFixed(2)}) no puede superar el saldo pendiente (${cxp.saldoPendiente.toFixed(2)}).`);
-    }
-    const cuotaConImporteInvalido = allocations.some((a) => {
-      const cuota = installments.find((i) => i.numeroCuota === a.installmentNumber);
-      const saldoCuota = cuota?.saldo ?? 0;
-      return a.amount < 0 || normalizarImporte(a.amount, cxp.moneda) > normalizarImporte(saldoCuota, cxp.moneda);
+    if (porCampo.allocations) lista.push(porCampo.allocations);
+
+    if (mediosPago.length === 0) lista.push('Agrega al menos un medio de pago.');
+    mediosPago.forEach((m) => {
+      const errorMedio: ErrorMedioPago = {};
+      if (!m.medioPagoCodigo) errorMedio.codigo = 'Selecciona el medio de pago.';
+      if (m.monto <= 0) errorMedio.monto = 'El importe debe ser mayor a cero.';
+      if (m.medioPagoCodigo && esMedioBancario(m.medioPagoCodigo) && !m.cuentaBancariaId) {
+        errorMedio.cuentaBancaria = 'Selecciona la cuenta bancaria.';
+      }
+      if (m.medioPagoCodigo && requiereReferencia(m.medioPagoCodigo) && !m.referenciaOperacion?.trim()) {
+        errorMedio.referencia = 'Ingresa la referencia/N° de operación.';
+      }
+      if (Object.keys(errorMedio).length > 0) porCampo.medios![m.id] = errorMedio;
     });
-    if (cuotaConImporteInvalido) {
-      nuevosErrores.push('Hay una cuota con un importe inválido (negativo o mayor a su saldo pendiente).');
-    }
-    if (mediosPago.length === 0) {
-      nuevosErrores.push('Agrega al menos un medio de pago.');
-    }
-    if (mediosPago.some((m) => !m.medioPagoCodigo)) {
-      nuevosErrores.push('Selecciona el medio de pago en todas las filas.');
-    }
-    if (mediosPago.some((m) => m.monto <= 0)) {
-      nuevosErrores.push('Todos los importes de medios de pago deben ser mayores a cero.');
-    }
+    Object.values(porCampo.medios!).forEach((e) => {
+      [e.codigo, e.monto, e.cuentaBancaria, e.referencia].forEach((mensaje) => {
+        if (mensaje) lista.push(mensaje);
+      });
+    });
+
     if (normalizarImporte(diferencia, cxp.moneda) !== 0) {
-      nuevosErrores.push(`La suma de medios de pago (${totalMedios.toFixed(2)}) debe coincidir exactamente con el importe a pagar (${importeAplicado.toFixed(2)}).`);
+      porCampo.diferencia = `La suma de medios de pago (${totalMedios.toFixed(2)}) debe coincidir exactamente con el importe a pagar (${importeAplicado.toFixed(2)}).`;
+      lista.push(porCampo.diferencia);
     }
-    mediosPago.forEach((m, i) => {
-      if (!m.medioPagoCodigo) return;
-      if (esMedioBancario(m.medioPagoCodigo) && !m.cuentaBancariaId) {
-        nuevosErrores.push(`Selecciona la cuenta bancaria en la línea ${i + 1}.`);
-      }
-      if (requiereReferencia(m.medioPagoCodigo) && !m.referenciaOperacion?.trim()) {
-        nuevosErrores.push(`Ingresa la referencia/N° de operación en la línea ${i + 1}.`);
-      }
-    });
     if (hayMedioBancarioSinCuentaCompatible) {
-      nuevosErrores.push(`No hay cuentas bancarias registradas en ${cxp.moneda}. Configura una cuenta en esa moneda antes de continuar.`);
+      lista.push(`No hay cuentas bancarias registradas en ${cxp.moneda}.`);
     }
     if (hayMedioDeCaja && estadoCaja !== 'abierta') {
-      nuevosErrores.push('La caja está cerrada. Abre una caja para registrar el pago en efectivo.');
+      lista.push('La caja está cerrada.');
     }
     if (cxp.moneda !== monedaBase && (!tipoCambio || parseFloat(tipoCambio) <= 0)) {
-      nuevosErrores.push('El tipo de cambio es obligatorio y debe ser mayor a 0.');
+      porCampo.tipoCambio = 'El tipo de cambio es obligatorio y debe ser mayor a 0.';
+      lista.push(porCampo.tipoCambio);
     }
-    return nuevosErrores;
+    return { lista, porCampo };
   }
 
-  const puedeRegistrar = calcularErroresValidacion().length === 0;
+  const { lista: erroresBloqueo, porCampo: erroresPorCampo } = calcularErroresValidacion();
+  // Únicas razones estructurales para deshabilitar el botón en silencio (no
+  // hay ningún documento/serie/medio seleccionable posible): el resto de
+  // reglas se validan al hacer click y se muestran en el campo que
+  // corresponde, nunca ocultando el botón sin explicación.
+  const bloqueadoEstructural = !seriePG || !hayMediosConfigurados;
 
   async function registrarPago(): Promise<boolean> {
     if (enviando) return false;
 
-    const nuevosErrores = calcularErroresValidacion();
-
-    if (nuevosErrores.length > 0) {
-      setErrores(nuevosErrores);
+    setIntentoRegistrar(true);
+    if (erroresBloqueo.length > 0) {
       return false;
     }
 
-    setErrores([]);
+    setErrorGeneral(null);
     setEnviando(true);
 
     try {
@@ -299,7 +332,7 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
       );
       return true;
     } catch (e) {
-      setErrores([e instanceof Error ? e.message : 'Error al registrar el pago.']);
+      setErrorGeneral(e instanceof Error ? e.message : 'Error al registrar el pago.');
       return false;
     } finally {
       setEnviando(false);
@@ -340,14 +373,16 @@ export function useFormularioPagoCompra(cxp: CuentaPorPagar) {
     adjuntos,
     setAdjuntos,
     enviando,
-    errores,
+    intentoRegistrar,
+    errorGeneral,
+    erroresPorCampo,
     totalMedios,
     diferencia,
     saldoResultante,
     hayMedioDeCaja,
     estadoCaja,
     hayMedioBancarioSinCuentaCompatible,
-    puedeRegistrar,
+    bloqueadoEstructural,
     registrarPago,
   };
 }

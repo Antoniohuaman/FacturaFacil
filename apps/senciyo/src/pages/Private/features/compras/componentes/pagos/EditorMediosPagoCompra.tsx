@@ -3,6 +3,7 @@ import type { PaymentMeanOption } from '@/shared/payments/paymentMeans';
 import type { MedioPagoCompra } from '../../modelos/PagoCompra';
 import type { BankAccount } from '../../../configuracion-sistema/modelos/BankAccount';
 import { esMedioBancario, requiereReferencia } from '../../servicios/servicioPagoCompra';
+import type { ErrorMedioPago } from '../../hooks/useFormularioPagoCompra';
 
 interface EditorMediosPagoCompraProps {
   mediosPago: MedioPagoCompra[];
@@ -15,6 +16,10 @@ interface EditorMediosPagoCompraProps {
   onEliminar: (id: string) => void;
   onCambiarMedio: (id: string, codigo: string) => void;
   onCambiarCampo: (id: string, campo: keyof MedioPagoCompra, valor: unknown) => void;
+  /** Tras un intento real de registrar el pago — antes de eso, ninguna fila muestra error de campo. */
+  mostrarErrores?: boolean;
+  /** Por id de línea (`MedioPagoCompra.id`), calculado en `useFormularioPagoCompra`. */
+  erroresPorMedio?: Record<string, ErrorMedioPago>;
 }
 
 /**
@@ -36,6 +41,8 @@ export default function EditorMediosPagoCompra({
   onEliminar,
   onCambiarMedio,
   onCambiarCampo,
+  mostrarErrores = false,
+  erroresPorMedio,
 }: EditorMediosPagoCompraProps) {
   return (
     <div className="space-y-3">
@@ -60,6 +67,7 @@ export default function EditorMediosPagoCompra({
       {mediosPago.map((linea, i) => {
         const esBancario = esMedioBancario(linea.medioPagoCodigo);
         const conReferencia = requiereReferencia(linea.medioPagoCodigo);
+        const errorLinea: ErrorMedioPago = mostrarErrores ? (erroresPorMedio?.[linea.id] ?? {}) : {};
         return (
           <div
             key={linea.id}
@@ -72,7 +80,9 @@ export default function EditorMediosPagoCompra({
               <select
                 value={linea.medioPagoCodigo}
                 onChange={(e) => onCambiarMedio(linea.id, e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white ${
+                  errorLinea.codigo ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
               >
                 <option value="">Selecciona un medio...</option>
                 {mediosDisponibles.map((m) => (
@@ -81,6 +91,7 @@ export default function EditorMediosPagoCompra({
                   </option>
                 ))}
               </select>
+              {errorLinea.codigo && <p className="text-xs text-red-600">{errorLinea.codigo}</p>}
             </div>
 
             <div className="w-28 space-y-1">
@@ -91,9 +102,12 @@ export default function EditorMediosPagoCompra({
                 step="0.01"
                 value={linea.monto || ''}
                 onChange={(e) => onCambiarCampo(linea.id, 'monto', parseFloat(e.target.value) || 0)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                className={`w-full border rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white ${
+                  errorLinea.monto ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                }`}
                 placeholder="0.00"
               />
+              {errorLinea.monto && <p className="text-xs text-red-600">{errorLinea.monto}</p>}
             </div>
 
             {esBancario && (
@@ -104,7 +118,9 @@ export default function EditorMediosPagoCompra({
                 <select
                   value={linea.cuentaBancariaId ?? ''}
                   onChange={(e) => onCambiarCampo(linea.id, 'cuentaBancariaId', e.target.value || undefined)}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                  className={`w-full border rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white ${
+                    errorLinea.cuentaBancaria ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
                   disabled={cuentasBancariasCompatibles.length === 0}
                 >
                   <option value="">Seleccionar cuenta...</option>
@@ -114,8 +130,10 @@ export default function EditorMediosPagoCompra({
                     </option>
                   ))}
                 </select>
-                {cuentasBancariasCompatibles.length === 0 && (
+                {cuentasBancariasCompatibles.length === 0 ? (
                   <p className="text-xs text-red-600">No hay cuentas en {moneda}.</p>
+                ) : (
+                  errorLinea.cuentaBancaria && <p className="text-xs text-red-600">{errorLinea.cuentaBancaria}</p>
                 )}
               </div>
             )}
@@ -130,8 +148,11 @@ export default function EditorMediosPagoCompra({
                   value={linea.referenciaOperacion ?? ''}
                   onChange={(e) => onCambiarCampo(linea.id, 'referenciaOperacion', e.target.value || undefined)}
                   placeholder={esBancario ? 'Ej: 12345678' : 'Ej: N° de cheque'}
-                  className="w-full border border-gray-300 rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className={`w-full border rounded-lg px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                    errorLinea.referencia ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
                 />
+                {errorLinea.referencia && <p className="text-xs text-red-600">{errorLinea.referencia}</p>}
               </div>
             )}
 

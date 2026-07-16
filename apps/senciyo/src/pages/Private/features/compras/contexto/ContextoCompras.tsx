@@ -392,7 +392,13 @@ function aplicarDatosHeredadosCC(cc: ComprobanteCompra, oc: OrdenCompra): Compro
     formaPagoMetodoId: datosHeredados.formaPagoMetodoId,
     creditTerms: datosHeredados.creditTerms,
     condicionesPago: datosHeredados.condicionesPago,
-    fechaVencimiento: oc.fechaVencimiento,
+    // La fecha de vencimiento NO es un campo compartido con la OC: en crédito
+    // sigue derivándose del cronograma (ya propagado arriba); en contado es
+    // propia del CC y la edición de la OC nunca la sobrescribe.
+    fechaVencimiento:
+      datosHeredados.formaPago === 'credito' && datosHeredados.creditTerms
+        ? datosHeredados.creditTerms.fechaVencimientoGlobal
+        : cc.fechaVencimiento,
     centroCosto: datosHeredados.centroCosto,
     presupuesto: datosHeredados.presupuesto,
     lineas: nuevasLineas,

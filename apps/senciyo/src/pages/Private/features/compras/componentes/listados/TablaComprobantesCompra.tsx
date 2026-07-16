@@ -20,9 +20,11 @@ import {
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
 import { useFeedback } from '@/shared/feedback';
-import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
+import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/exportToExcel';
 import type { ComprobanteCompra, EstadoPrincipalCC } from '../../modelos/ComprobanteCompra';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
+import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
+import type { PagoCompra } from '../../modelos/PagoCompra';
 import { BADGE_ESTADO_PRINCIPAL_CC, ETIQUETA_ESTADO_PRINCIPAL_CC } from '../../constantes/estadosCompras';
 import {
   filtrarComprobantesCompra,
@@ -37,6 +39,7 @@ import {
   puedeAnularCC,
   puedeImprimirCC,
   resolverNombreFormaPago,
+  tieneCCPagosActivos,
 } from '../../logica/reglasCompras';
 import { TIPOS_DOCUMENTO_PROVEEDOR } from '../../constantes/tiposDocumentoProveedor';
 import { formatearFechaCompra, formatearNumeroCompra, formatearNumeroComprobanteCompra } from '../../utilidades/formatearCompras';
@@ -45,6 +48,8 @@ import { useConfigurationContext } from '../../../configuracion-sistema/contexto
 interface TablaComprobantesCompraProps {
   comprobantes: ComprobanteCompra[];
   ordenes: OrdenCompra[];
+  cuentasPorPagar: CuentaPorPagar[];
+  pagos: PagoCompra[];
   cargando: boolean;
   errorCarga: string | null;
   onVer: (cc: ComprobanteCompra) => void;
@@ -211,6 +216,8 @@ function MenuItem({
 export default function TablaComprobantesCompra({
   comprobantes,
   ordenes,
+  cuentasPorPagar,
+  pagos,
   cargando,
   errorCarga,
   onVer,
@@ -231,38 +238,37 @@ export default function TablaComprobantesCompra({
   const menuRef = useRef<HTMLDivElement>(null);
   const filtrados = filtrarComprobantesCompra(comprobantes, filtros);
 
+  // Mismo criterio que TablaOrdenesCompra: fijas + exactamente las
+  // configurables visibles/ordenadas de colConfig, nunca un segundo arreglo
+  // de columnas hardcodeado aparte.
   async function handleExportar() {
     if (!filtrados.length) {
       feedback.warning('No hay datos para exportar con los filtros actuales.');
       return;
     }
     try {
+      const columnasExport: SimpleExcelColumn[] = [
+        { header: 'Comprobante', key: 'numero', width: 20 },
+        { header: 'Proveedor', key: 'proveedor', width: 30 },
+        { header: 'RUC / DNI', key: 'documento', width: 15 },
+        ...columnasVisiblesOrdenadas.map((id): SimpleExcelColumn => ({
+          header: COLUMNAS_CONFIGURABLES_CC.find((c) => c.id === id)?.label ?? id,
+          key: id,
+        })),
+        { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+        { header: 'Estado', key: 'estado', width: 16 },
+      ];
       const rows = filtrados.map((cc) => ({
         numero: cc.serieProveedor && cc.numeroProveedor ? formatearNumeroComprobanteCompra(cc) : 'Sin número',
-        tipo: TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === cc.tipoComprobanteProveedor)?.nombre ?? cc.tipoComprobanteProveedor,
         proveedor: cc.proveedorNombre,
         documento: cc.proveedorNumeroDocumento,
-        estado: ETIQUETA_ESTADO_PRINCIPAL_CC[calcularEstadoPrincipalCC(cc)],
-        fechaEmision: cc.fechaEmisionProveedor ? formatearFechaCompra(cc.fechaEmisionProveedor) : '—',
-        fechaVencimiento: cc.fechaVencimiento ? formatearFechaCompra(cc.fechaVencimiento) : '—',
-        formaPago: resolverNombreFormaPago(cc, config.paymentMethods),
-        moneda: cc.moneda,
+        ...Object.fromEntries(columnasVisiblesOrdenadas.map((id) => [id, obtenerValorExportacionColumna(cc, id)])),
         total: cc.totales.total,
+        estado: ETIQUETA_ESTADO_PRINCIPAL_CC[calcularEstadoPrincipalCC(cc)],
       }));
       await exportDatasetToExcel({
         rows,
-        columns: [
-          { header: 'Comprobante', key: 'numero', width: 20 },
-          { header: 'Tipo', key: 'tipo', width: 22 },
-          { header: 'Proveedor', key: 'proveedor', width: 30 },
-          { header: 'RUC / DNI', key: 'documento', width: 15 },
-          { header: 'Estado', key: 'estado', width: 14 },
-          { header: 'F. Emisión', key: 'fechaEmision', width: 14 },
-          { header: 'F. Vencimiento', key: 'fechaVencimiento', width: 16 },
-          { header: 'Forma de pago', key: 'formaPago', width: 20 },
-          { header: 'Moneda', key: 'moneda', width: 10 },
-          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
-        ],
+        columns: columnasExport,
         filename: `comprobantes-de-compra_${new Date().toISOString().split('T')[0]}`,
         worksheetName: 'Comprobantes de Compra',
       });
@@ -400,6 +406,17 @@ export default function TablaComprobantesCompra({
     }
   }
 
+  /** Mismo valor que `renderCeldaColumna`, en texto plano para Excel — solo `documentoRelacionado` difiere (JSX en pantalla). */
+  function obtenerValorExportacionColumna(cc: ComprobanteCompra, id: ColumnaConfigurableCC): string {
+    if (id === 'documentoRelacionado') {
+      if (!cc.ordenCompraOrigenId) return '—';
+      const ocOrigen = ordenes.find((o) => o.id === cc.ordenCompraOrigenId);
+      return ocOrigen ? formatearNumeroCompra(ocOrigen.serie, ocOrigen.correlativo) : '—';
+    }
+    const valor = renderCeldaColumna(cc, id);
+    return typeof valor === 'string' ? valor : '—';
+  }
+
   function renderAccionesDirectas(cc: ComprobanteCompra, estado: EstadoPrincipalCC) {
     if (estado === 'Borrador') {
       return (
@@ -413,9 +430,16 @@ export default function TablaComprobantesCompra({
       );
     }
     if (estado === 'Registrado') {
+      // El lápiz solo se muestra si además no tiene pagos activos (misma
+      // regla que bloquea los campos financieros dentro del formulario,
+      // reutilizada aquí para no inducir a creer que se puede editar
+      // normalmente). Con pagos activos, "Ver detalle"/imprimir siguen
+      // disponibles; la edición de solo observaciones/adjuntos se hace desde
+      // el drawer, que sí mantiene el botón Editar con mayor contexto.
+      const puedeEditarSinPagos = puedeEditarCC(cc) && !tieneCCPagosActivos(cc, cuentasPorPagar, pagos);
       return (
         <>
-          {puedeEditarCC(cc) && <BotonAccionDirecta icon={Pencil} label="Editar comprobante de compra" onClick={() => onEditar(cc)} />}
+          {puedeEditarSinPagos && <BotonAccionDirecta icon={Pencil} label="Editar comprobante de compra" onClick={() => onEditar(cc)} />}
           {puedeAnularCC(cc) && (
             <BotonAccionDirecta icon={XCircle} label="Anular comprobante de compra" onClick={() => onAnular(cc)} danger />
           )}

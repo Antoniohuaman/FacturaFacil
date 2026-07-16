@@ -15,6 +15,7 @@ import { useConfigurationContext, type ShippingMethod } from '../../../configura
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useFeedback } from '@/shared/feedback';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
+import { validarOrdenCompraBasica } from '../../servicios/servicioOrdenCompra';
 import {
   calcularTotalesLineas,
   calcularEstadoPrincipalOC,
@@ -36,7 +37,11 @@ import type { MonedaCompra } from '../../modelos/tiposBaseCompras';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import type { AdjuntoCompra } from '../../modelos/AdjuntoCompra';
-import { obtenerErrorDeCampo, type ErrorCampoDocumento } from '../../modelos/ErroresValidacion';
+import {
+  convertirErroresValidacion,
+  enfocarPrimerCampoConError,
+  normalizarCampoLineas,
+} from '../../modelos/ErroresValidacion';
 
 const NUEVO_CREDITO_VALUE = '__nuevo_credito__';
 const NUEVO_METODO_ENVIO_VALUE = '__nuevo_metodo_envio__';
@@ -199,12 +204,49 @@ export default function FormularioOrdenCompra({
   const [observaciones, setObservaciones] = useState(ocBase?.observaciones ?? '');
   const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>(ocBase?.adjuntos ?? []);
   const [enviando, setEnviando] = useState(false);
-  const [errores, setErrores] = useState<ErrorCampoDocumento[]>([]);
+  // Errores de campo: no se muestran en un formulario recién abierto (nunca
+  // se inicializan a partir de nada), solo tras un intento real de guardar
+  // borrador o registrar/actualizar — y se recalculan en cada render, así que
+  // desaparecen apenas el campo vuelve a ser válido, sin esperar otro click.
+  const [intentoRegistrar, setIntentoRegistrar] = useState(false);
+  const [intentoBorrador, setIntentoBorrador] = useState(false);
+  // Error general de negocio (no pertenece a un campo puntual): fallo real al
+  // persistir, o cualquier regla que el servicio rechace más allá de lo que
+  // ya valida `erroresValidacion` en el cliente.
+  const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
   const lineasCompra = useLineasCompra(ocBase?.lineas ?? []);
   const lineas = lineasCompra.lineas;
 
   const totalesCalculados = calcularTotalesLineas(lineas);
+
+  // Misma validación que ya aplica el servicio (`validarOrdenCompraBasica`,
+  // servicioOrdenCompra.ts) — se reutiliza tal cual para no duplicar reglas:
+  // proveedor, moneda, forma de pago, fecha de vencimiento por crédito y
+  // líneas (una por una, con su propio índice real de fila).
+  const erroresValidacion = useMemo(
+    () =>
+      convertirErroresValidacion(
+        validarOrdenCompraBasica({
+          proveedorId: proveedor?.id?.toString(),
+          moneda,
+          formaPago,
+          fechaEmision,
+          fechaVencimiento: fechaVencimiento || undefined,
+          lineas,
+        }),
+      ),
+    [proveedor, moneda, formaPago, fechaEmision, fechaVencimiento, lineas],
+  );
+  // La serie no participa de `erroresValidacion`: cuando no hay series OC
+  // configuradas ya existe un aviso inline junto al propio campo (líneas más
+  // abajo) y el botón principal queda deshabilitado — repetirlo aquí sería el
+  // mismo mensaje duplicado en dos lugares.
+  function errorDeCampo(campo: string): string | undefined {
+    const visible = intentoRegistrar || (intentoBorrador && campo === 'proveedorId');
+    if (!visible) return undefined;
+    return erroresValidacion.find((e) => normalizarCampoLineas(e.campo) === campo)?.mensaje;
+  }
 
   const {
     isCreditMethod,
@@ -273,11 +315,12 @@ export default function FormularioOrdenCompra({
   }
 
   async function handleGuardarBorrador() {
+    setIntentoBorrador(true);
     if (!proveedor) {
-      setErrores([{ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor para guardar el borrador.' }]);
+      enfocarPrimerCampoConError([{ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor para guardar el borrador.' }]);
       return;
     }
-    setErrores([]);
+    setErrorGeneral(null);
     setEnviando(true);
     try {
       const datos = construirDatosOC();
@@ -292,7 +335,7 @@ export default function FormularioOrdenCompra({
       onExito(oc);
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : 'Error al guardar el borrador.';
-      setErrores([{ campo: 'general', codigo: 'ERROR_BORRADOR', mensaje }]);
+      setErrorGeneral(mensaje);
       feedback.error(mensaje);
     } finally {
       setEnviando(false);
@@ -300,40 +343,13 @@ export default function FormularioOrdenCompra({
   }
 
   async function handleSubmit() {
-    const nuevosErrores: ErrorCampoDocumento[] = [];
-    if (!proveedor) {
-      nuevosErrores.push({ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor.' });
-    }
-    if (seriesOC.length === 0) {
-      nuevosErrores.push({ campo: 'serie', codigo: 'SERIES_NO_CONFIGURADAS', mensaje: 'No hay series OC configuradas. Ve a Configuración → Series.' });
-    } else if (!serieId) {
-      nuevosErrores.push({ campo: 'serie', codigo: 'SERIE_REQUERIDA', mensaje: 'Selecciona una serie OC.' });
-    }
-    if (lineas.length === 0) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'LINEAS_REQUERIDAS', mensaje: 'Agrega al menos una línea.' });
-    }
-    if (lineas.some((l) => !l.productoId)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'PRODUCTO_INVALIDO', mensaje: 'Todos los ítems deben provenir de un producto real del catálogo.' });
-    }
-    if (lineas.some((l) => !l.unidadMedida)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'UNIDAD_NO_CONFIGURADA', mensaje: 'El producto no tiene unidad de medida configurada.' });
-    }
-    if (lineas.some((l) => l.tipoAfectacion === 'sin_configurar')) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'IMPUESTO_NO_CONFIGURADO', mensaje: 'El producto no tiene impuesto configurado.' });
-    }
-    if (lineas.some((l) => l.cantidadSolicitada <= 0)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'CANTIDAD_INVALIDA', mensaje: 'La cantidad debe ser mayor a cero.' });
-    }
-    if (lineas.some((l) => l.costoUnitario < 0)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'COSTO_INVALIDO', mensaje: 'El costo unitario no puede ser negativo.' });
-    }
-
-    if (nuevosErrores.length > 0) {
-      setErrores(nuevosErrores);
+    setIntentoRegistrar(true);
+    if (erroresValidacion.length > 0) {
+      enfocarPrimerCampoConError(erroresValidacion);
       return;
     }
 
-    setErrores([]);
+    setErrorGeneral(null);
     setEnviando(true);
 
     try {
@@ -357,7 +373,7 @@ export default function FormularioOrdenCompra({
       onExito(oc);
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : 'Error al registrar la orden.';
-      setErrores([{ campo: 'general', codigo: 'ERROR_REGISTRO', mensaje }]);
+      setErrorGeneral(mensaje);
       feedback.error(mensaje);
     } finally {
       setEnviando(false);
@@ -390,11 +406,9 @@ export default function FormularioOrdenCompra({
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {errores.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 space-y-1">
-            {errores.map((e, i) => (
-              <p key={i} className="text-sm text-red-700">• {e.mensaje}</p>
-            ))}
+        {errorGeneral && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+            {errorGeneral}
           </div>
         )}
 
@@ -434,13 +448,13 @@ export default function FormularioOrdenCompra({
           <TwoColumnDocumentFields
             izquierda={
               <>
-                <div className="space-y-1">
+                <div className="space-y-1" id="campo-proveedorId">
                   <label className="text-sm font-medium text-gray-700">Proveedor</label>
                   <BuscadorProveedor
                     proveedor={proveedor}
                     onSeleccionar={handleSeleccionarProveedor}
                     deshabilitado={tienePagosActivos}
-                    error={obtenerErrorDeCampo(errores, 'proveedorId')?.mensaje ?? null}
+                    error={errorDeCampo('proveedorId') ?? null}
                   />
                 </div>
 
@@ -532,13 +546,15 @@ export default function FormularioOrdenCompra({
                       </div>
                     )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-moneda">
                     <label className="text-sm font-medium text-gray-700">Moneda</label>
                     <select
                       value={moneda}
                       onChange={(e) => setMoneda(e.target.value as MonedaCompra)}
                       disabled={tienePagosActivos}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('moneda') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {config.currencies.filter((c) => c.isActive).map((c) => (
                         <option key={c.code} value={c.code}>
@@ -546,6 +562,7 @@ export default function FormularioOrdenCompra({
                         </option>
                       ))}
                     </select>
+                    {errorDeCampo('moneda') && <p className="text-xs text-red-600">{errorDeCampo('moneda')}</p>}
                   </div>
                 </div>
 
@@ -566,13 +583,15 @@ export default function FormularioOrdenCompra({
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-formaPago">
                     <label className="text-sm font-medium text-gray-700">Forma de pago</label>
                     <select
                       value={formaPagoMetodoId}
                       onChange={(e) => handleFormaPagoChange(e.target.value)}
                       disabled={tienePagosActivos}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('formaPago') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {!formaPagoMetodoId && <option value="">Seleccionar</option>}
                       {metodosPagoActivos.map((m) => (
@@ -582,6 +601,7 @@ export default function FormularioOrdenCompra({
                       ))}
                       <option value={NUEVO_CREDITO_VALUE}>+ Crear crédito</option>
                     </select>
+                    {errorDeCampo('formaPago') && <p className="text-xs text-red-600">{errorDeCampo('formaPago')}</p>}
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Fecha emisión</label>
@@ -595,7 +615,7 @@ export default function FormularioOrdenCompra({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-fechaVencimiento">
                     <label className="text-sm font-medium text-gray-700">F. vencimiento</label>
                     <input
                       type="date"
@@ -604,13 +624,15 @@ export default function FormularioOrdenCompra({
                       readOnly={isCreditMethod}
                       disabled={tienePagosActivos}
                       title={isCreditMethod ? 'Calculado desde el cronograma de crédito' : undefined}
-                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
-                        isCreditMethod ? 'bg-gray-50 text-gray-600' : ''
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        isCreditMethod ? 'bg-gray-50 text-gray-600 border-gray-300' : errorDeCampo('fechaVencimiento') ? 'border-red-300 bg-red-50' : 'border-gray-300'
                       }`}
                     />
-                    {isCreditMethod && (
+                    {isCreditMethod ? (
                       <p className="text-[11px] text-gray-400">Calculado desde el cronograma de crédito</p>
-                    )}
+                    ) : errorDeCampo('fechaVencimiento') ? (
+                      <p className="text-xs text-red-600">{errorDeCampo('fechaVencimiento')}</p>
+                    ) : null}
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Comprador</label>
@@ -725,12 +747,19 @@ export default function FormularioOrdenCompra({
         </FormSectionCard>
 
         {/* Productos - Servicios (incluye Totales) */}
-        <SeccionProductosCompra
-          moneda={moneda}
-          lineasCompra={lineasCompra}
-          totalesCalculados={totalesCalculados}
-          disabled={tienePagosActivos}
-        />
+        <div id="campo-lineas" className="space-y-1">
+          {errorDeCampo('lineas') && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm text-red-700">
+              {errorDeCampo('lineas')}
+            </div>
+          )}
+          <SeccionProductosCompra
+            moneda={moneda}
+            lineasCompra={lineasCompra}
+            totalesCalculados={totalesCalculados}
+            disabled={tienePagosActivos}
+          />
+        </div>
 
         {/* Cronograma de crédito: solo programación, sin estados de pago (aún no está registrada) */}
         {isCreditMethod && (

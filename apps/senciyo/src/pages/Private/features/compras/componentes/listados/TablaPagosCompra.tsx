@@ -14,7 +14,7 @@ import {
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
 import { useFeedback } from '@/shared/feedback';
-import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
+import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/exportToExcel';
 import { getConfiguredPaymentMeans } from '@/shared/payments/paymentMeans';
 import { useBankAccounts } from '../../../configuracion-sistema/hooks/useCuentasBancarias';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -378,6 +378,15 @@ export default function TablaPagosCompra({
     }
   }
 
+  /** Mismo valor que `renderCeldaColumna`, en texto plano para Excel — solo `mediosPago`, `cxpRelacionada` y `estadoCxP` renderizan JSX en pantalla. */
+  function obtenerValorExportacionColumna(pago: PagoCompra, cxp: CuentaPorPagar | undefined, id: ColumnaConfigurablePago): string {
+    if (id === 'mediosPago') return pago.mediosPago.map((mp) => mp.medioPagoNombre).join(', ') || '—';
+    if (id === 'cxpRelacionada') return cxp?.comprobanteCompraNumero ?? '—';
+    if (id === 'estadoCxP') return cxp ? ESTADO_PAGO_CXP_LABELS[cxp.estadoPago] : '—';
+    const valor = renderCeldaColumna(pago, cxp, id);
+    return typeof valor === 'string' ? valor : '—';
+  }
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -398,49 +407,41 @@ export default function TablaPagosCompra({
 
   const pagoActivo = menu ? pagos.find((p) => p.id === menu.id) ?? null : null;
 
+  // Mismo criterio que las demás tablas de Compras: fijas + exactamente las
+  // configurables visibles/ordenadas de colConfig.
   async function handleExportar() {
     if (!filtrados.length) {
       feedback.warning('No hay datos para exportar con los filtros actuales.');
       return;
     }
     try {
+      const columnasExport: SimpleExcelColumn[] = [
+        { header: 'N° Pago', key: 'numero', width: 20 },
+        { header: 'Proveedor', key: 'proveedor', width: 30 },
+        { header: 'RUC / DNI', key: 'documento', width: 15 },
+        ...columnasVisiblesOrdenadas.map((id): SimpleExcelColumn => ({
+          header: COLUMNAS_CONFIGURABLES_PAGO.find((c) => c.id === id)?.label ?? id,
+          key: id,
+        })),
+        { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+        { header: 'Estado del pago', key: 'estadoPago', width: 16 },
+      ];
       const rows = filtrados.map((pago) => {
         const cxp = obtenerCxPDePago(pago, cuentasPorPagar);
         return {
           numero: pago.numeroPago,
           proveedor: pago.proveedorNombre,
           documento: cxp?.proveedorNumeroDocumento ?? '—',
-          docOrigen: cxp?.comprobanteCompraNumero ?? '—',
-          fechaPago: formatearFechaCompra(pago.fechaPago),
-          fechaRegistro: formatearFechaCompra(pago.fechaCreacion),
-          medios: pago.mediosPago.map((mp) => mp.medioPagoNombre).join(', '),
-          referencias: pago.mediosPago.map((mp) => mp.referenciaOperacion).filter(Boolean).join(', '),
-          moneda: pago.moneda,
+          ...Object.fromEntries(
+            columnasVisiblesOrdenadas.map((id) => [id, obtenerValorExportacionColumna(pago, cxp, id)]),
+          ),
           total: pago.montoTotalPagado,
           estadoPago: ESTADO_DOCUMENTO_PAGO_LABELS[pago.estadoDocumento],
-          estadoCxP: cxp ? ESTADO_PAGO_CXP_LABELS[cxp.estadoPago] : '—',
-          concepto: pago.concepto ?? '—',
-          observaciones: pago.observaciones ?? '—',
         };
       });
       await exportDatasetToExcel({
         rows,
-        columns: [
-          { header: 'N° Pago', key: 'numero', width: 20 },
-          { header: 'Proveedor', key: 'proveedor', width: 30 },
-          { header: 'RUC / DNI', key: 'documento', width: 15 },
-          { header: 'Documento origen', key: 'docOrigen', width: 20 },
-          { header: 'Fecha de pago', key: 'fechaPago', width: 14 },
-          { header: 'Fecha de registro', key: 'fechaRegistro', width: 16 },
-          { header: 'Medios de pago', key: 'medios', width: 30 },
-          { header: 'N° operación/referencia', key: 'referencias', width: 24 },
-          { header: 'Moneda', key: 'moneda', width: 10 },
-          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
-          { header: 'Estado del pago', key: 'estadoPago', width: 16 },
-          { header: 'Estado actual CxP', key: 'estadoCxP', width: 16 },
-          { header: 'Concepto', key: 'concepto', width: 24 },
-          { header: 'Observaciones', key: 'observaciones', width: 30 },
-        ],
+        columns: columnasExport,
         filename: `pagos-compra_${new Date().toISOString().split('T')[0]}`,
         worksheetName: 'Pagos',
       });

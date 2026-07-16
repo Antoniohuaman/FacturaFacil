@@ -15,7 +15,7 @@ import {
   construirFilasResumenTributarioCompra,
 } from '../logica/reglasCompras';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
-import { formatMoney } from '@/shared/currency';
+import { formatMoney, normalizarImporte } from '@/shared/currency';
 import { formatearFechaCompra, formatearNumeroCompra } from '../utilidades/formatearCompras';
 import { ETIQUETA_ESTADO_PRINCIPAL_OC } from '../constantes/estadosCompras';
 
@@ -38,9 +38,20 @@ export function validarOrdenCompraBasica(oc: Partial<OrdenCompra>): ErrorValidac
   }
   if (oc.lineas) {
     errores.push(...validarLineasCompra(oc.lineas));
+    // Igual que en Comprobante de Compra: el total se recalcula desde las
+    // líneas (nunca se confía en un `oc.totales.total` recibido) y se
+    // normaliza con la precisión real de la moneda antes de exigir que sea
+    // estrictamente mayor a cero — una OC en S/ 0.00 no representa una
+    // operación económica real.
     const totalRecalculado = calcularTotalesLineas(oc.lineas).total;
     if (!Number.isFinite(totalRecalculado)) {
       errores.push({ campo: 'totales.total', mensaje: 'El total de la orden no es un valor numérico válido.' });
+    } else if (oc.moneda && normalizarImporte(totalRecalculado, oc.moneda) <= 0) {
+      // `campo: 'lineas'` (no 'totales.total'): el total es una consecuencia
+      // directa de las líneas, así que el error se representa en la misma
+      // sección de productos que ya muestra "Agrega al menos una línea.",
+      // nunca en un campo separado sin control propio en el formulario.
+      errores.push({ campo: 'lineas', mensaje: 'El documento debe tener un total mayor a cero.' });
     }
   }
 
@@ -119,7 +130,7 @@ export function crearLineaCompraDesdeProducto(
     cantidadFacturada: 0,
     cantidadIngresadaInventario: 0,
     cantidadPendienteRecepcion: cantidad,
-    cantidadPendienteFacturacion: 0,
+    cantidadPendienteFacturacion: cantidad,
     cantidadPendienteInventario: 0,
     costoUnitario,
     subtotal: baseImponible,

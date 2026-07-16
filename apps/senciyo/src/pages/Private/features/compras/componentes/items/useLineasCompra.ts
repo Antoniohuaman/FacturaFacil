@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { getProductUnitOptions } from '@/shared/units/productUnitOptions';
 import { crearLineaCompraDesdeProducto, type ProductDataLineaCompra } from '../../servicios/servicioOrdenCompra';
-import { calcularLineaCompra } from '../../logica/reglasCompras';
+import { calcularLineaCompra, round2 } from '../../logica/reglasCompras';
 import type { LineaCompra } from '../../modelos/LineaCompra';
 import type { Product } from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
 
@@ -24,7 +24,11 @@ export function useLineasCompra(lineasIniciales: LineaCompra[]) {
       igv,
       total,
       cantidadPendienteRecepcion: linea.cantidadSolicitada,
-      cantidadPendienteFacturacion: 0,
+      // Mismo criterio que aplicarFacturacionALineasOC/revertirFacturacionALineasOC
+      // (reglasCompras.ts): nunca 0 a ciegas — una línea de OC duplicada o en
+      // edición ya trae su propio cantidadFacturada real (0 en un duplicado,
+      // el acumulado real en una edición), y el pendiente debe reflejarlo.
+      cantidadPendienteFacturacion: Math.max(0, round2(linea.cantidadSolicitada - linea.cantidadFacturada)),
       cantidadPendienteInventario: 0,
     };
   }

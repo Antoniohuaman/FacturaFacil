@@ -2,6 +2,7 @@ import type { CuentaPorPagar, CuotaCuentaPorPagar } from '../modelos/CuentaPorPa
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import { generarCuotasDesdeCC, resolverFechaVencimientoCxP } from '../mapeadores/mapeadorCCaCuentaPorPagar';
 import { round2 } from '../logica/reglasCompras';
+import { assertBusinessDate, ensureBusinessDateIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
 
 const TOLERANCIA_DECIMAL = 0.01;
 
@@ -297,13 +298,22 @@ export function calcularEstadoVencimiento(
   return 'vigente';
 }
 
+/**
+ * Días calendario entre hoy y el vencimiento, en la hora de negocio oficial
+ * (America/Lima, `@/shared/time/businessTime`) — nunca `new Date(string)` +
+ * `setHours` local: un string "YYYY-MM-DD" se interpreta como medianoche
+ * UTC, que en Lima (UTC-5) cae en el día calendario ANTERIOR, adelantando
+ * por error una fecha de vencimiento "hoy" a "vencida". Ambos extremos se
+ * normalizan al inicio de su día de negocio para que la resta sea siempre un
+ * múltiplo exacto de un día. `fechaVencimiento` puede venir como fecha corta
+ * o como timestamp completo heredado (`ensureBusinessDateIso` normaliza
+ * cualquiera de los dos a la fecha de negocio real, sin fabricar datos).
+ */
 function diasHastaVencimiento(fechaVencimiento: string): number {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const vence = new Date(fechaVencimiento);
-  vence.setHours(0, 0, 0, 0);
+  const vence = assertBusinessDate(ensureBusinessDateIso(fechaVencimiento), 'start');
+  const hoy = assertBusinessDate(getBusinessTodayISODate(), 'start');
   const diffMs = vence.getTime() - hoy.getTime();
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
 /** Días de atraso respecto a la fecha de vencimiento (0 si aún no vence o no tiene vencimiento). */

@@ -216,7 +216,7 @@ export function puedeEditarCamposFinancierosCC(cc: ComprobanteCompra): boolean {
 
 export function motivoBloqueoCamposFinancierosCC(cc: ComprobanteCompra): string | null {
   if (puedeEditarCamposFinancierosCC(cc)) return null;
-  return 'Este comprobante ya tiene pagos aplicados: solo puedes editar observaciones y adjuntos.';
+  return 'Este comprobante tiene pagos activos. Para modificar datos financieros, primero anula los pagos relacionados.';
 }
 
 /**
@@ -518,10 +518,10 @@ export function validarLineasCompra(lineas: LineaCompra[]): ErrorValidacion[] {
       });
     }
 
-    if (linea.costoUnitario < 0) {
+    if (linea.costoUnitario <= 0) {
       errores.push({
         campo: `${prefijo}.costoUnitario`,
-        mensaje: `El costo unitario de "${nombre}" no puede ser negativo.`,
+        mensaje: `El costo unitario de "${nombre}" debe ser mayor a 0.`,
       });
     }
 
@@ -577,27 +577,49 @@ function calcularCantidadFacturadaPorLineaOC(
 }
 
 /**
- * Valida que la cantidad que un comprobante de compra factura de cada línea
- * de su OC de origen no supere lo pendiente de facturar de esa línea
- * (cantidadSolicitada - cantidadFacturada). Evita generar, desde la misma OC,
- * más comprobantes de los que su cantidad pendiente permite.
+ * Valida que las líneas de un Comprobante de Compra generado desde una OC
+ * sean exactamente las líneas heredadas de esa OC: mismo id real de línea
+ * (nunca comparación por nombre/descripción), misma cantidad. Esta etapa no
+ * implementa facturación parcial — un CC generado desde una OC factura la
+ * cantidad completa de cada línea en un solo documento — así que rechaza el
+ * registro (en vez de corregir en silencio) si falta una línea de la OC, si
+ * el CC incluye una línea ajena a la OC (agregada en el formulario o por
+ * manipulación directa del estado/petición), o si la cantidad de alguna
+ * línea fue alterada. Reutilizada como única defensa de servicio por
+ * `registrarComprobanteCompra`/`registrarComprobanteCompraDesdeBorrador`
+ * (ContextoCompras.tsx), la misma capa que ya bloquea por aprobación/estado
+ * de facturación de la OC.
  */
 export function validarCantidadesFacturablesDesdeOC(
   lineasOC: LineaCompra[],
   lineasCC: LineaCompra[],
 ): ErrorValidacion[] {
   const errores: ErrorValidacion[] = [];
-  const cantidadPorId = calcularCantidadFacturadaPorLineaOC(lineasOC, lineasCC);
+  const lineasCCPorId = new Map(lineasCC.map((l) => [l.id, l]));
+  const idsOC = new Set(lineasOC.map((l) => l.id));
 
   for (const ocLinea of lineasOC) {
-    const cantidadFacturadaAhora = cantidadPorId.get(ocLinea.id);
-    if (!cantidadFacturadaAhora) continue;
-
-    const pendiente = round2(ocLinea.cantidadSolicitada - ocLinea.cantidadFacturada);
-    if (round2(cantidadFacturadaAhora - pendiente) > 0.001) {
+    const lineaCC = lineasCCPorId.get(ocLinea.id);
+    if (!lineaCC) {
       errores.push({
         campo: 'lineas',
-        mensaje: `La cantidad facturada para "${ocLinea.nombreProducto || 'línea sin nombre'}" (${cantidadFacturadaAhora}) supera lo pendiente de la orden de compra (${pendiente}).`,
+        mensaje: `Falta en el comprobante la línea "${ocLinea.nombreProducto || 'sin nombre'}" de la orden de compra.`,
+      });
+      continue;
+    }
+    if (Math.abs(round2(lineaCC.cantidadSolicitada - ocLinea.cantidadSolicitada)) > 0.001) {
+      errores.push({
+        campo: 'lineas',
+        mensaje: `La cantidad de "${ocLinea.nombreProducto || 'línea sin nombre'}" no coincide con la cantidad de la orden de compra (${ocLinea.cantidadSolicitada}).`,
+      });
+    }
+  }
+
+  for (const lineaCC of lineasCC) {
+    if (!idsOC.has(lineaCC.id)) {
+      errores.push({
+        campo: 'lineas',
+        mensaje: 'El comprobante incluye una línea que no pertenece a la orden de compra de origen.',
       });
     }
   }

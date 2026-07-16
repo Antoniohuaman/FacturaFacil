@@ -22,7 +22,7 @@ import {
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
 import { useFeedback } from '@/shared/feedback';
-import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
+import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/exportToExcel';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { EstadoPrincipalOC } from '../../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../../modelos/ComprobanteCompra';
@@ -247,34 +247,39 @@ export default function TablaOrdenesCompra({
   const menuRef = useRef<HTMLDivElement>(null);
   const filtradas = filtrarOrdenesCompra(ordenes, filtros, comprobantes);
 
+  // Único armado de columnas/filas para exportar: las fijas (siempre, mismas
+  // que columnasManager marca fixed:true, sin "acciones") + exactamente las
+  // configurables visibles y en el orden de columnasVisiblesOrdenadas (la
+  // misma fuente que ordena/filtra las columnas en pantalla) — nunca un
+  // segundo arreglo de columnas hardcodeado y desalineado de ColumnsManager.
   async function handleExportar() {
     if (!filtradas.length) {
       feedback.warning('No hay datos para exportar con los filtros actuales.');
       return;
     }
     try {
+      const columnasExport: SimpleExcelColumn[] = [
+        { header: 'N° Orden', key: 'numero', width: 20 },
+        { header: 'Proveedor', key: 'proveedor', width: 28 },
+        { header: 'Documento', key: 'documento', width: 16 },
+        ...columnasVisiblesOrdenadas.map((id): SimpleExcelColumn => ({
+          header: COLUMNAS_CONFIGURABLES_OC.find((c) => c.id === id)?.label ?? id,
+          key: id,
+        })),
+        { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+        { header: 'Estado', key: 'estado', width: 16 },
+      ];
       const rows = filtradas.map((oc) => ({
         numero: formatearNumeroCompra(oc.serie, oc.correlativo),
-        estado: ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc, comprobantes)],
-        fechaEmision: formatearFechaCompra(oc.fechaEmision),
-        fechaVencimiento: oc.fechaVencimiento ? formatearFechaCompra(oc.fechaVencimiento) : '—',
-        comprador: oc.compradorNombre ?? '—',
-        formaPago: resolverNombreFormaPago(oc, config.paymentMethods),
-        moneda: oc.moneda,
+        proveedor: oc.proveedorNombre,
+        documento: oc.proveedorNumeroDocumento,
+        ...Object.fromEntries(columnasVisiblesOrdenadas.map((id) => [id, obtenerValorExportacionColumna(oc, id)])),
         total: oc.totales.total,
+        estado: ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc, comprobantes)],
       }));
       await exportDatasetToExcel({
         rows,
-        columns: [
-          { header: 'N° Orden', key: 'numero', width: 20 },
-          { header: 'Estado', key: 'estado', width: 14 },
-          { header: 'F. Emisión', key: 'fechaEmision', width: 14 },
-          { header: 'F. Vencimiento', key: 'fechaVencimiento', width: 16 },
-          { header: 'Comprador', key: 'comprador', width: 24 },
-          { header: 'Forma de pago', key: 'formaPago', width: 20 },
-          { header: 'Moneda', key: 'moneda', width: 10 },
-          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
-        ],
+        columns: columnasExport,
         filename: `ordenes-de-compra_${new Date().toISOString().split('T')[0]}`,
         worksheetName: 'Órdenes de Compra',
       });
@@ -430,6 +435,23 @@ export default function TablaOrdenesCompra({
       default:
         return '—';
     }
+  }
+
+  /**
+   * Mismo valor que `renderCeldaColumna`, en texto plano para Excel (esta
+   * columna es la única que en pantalla renderiza un botón/JSX en vez de
+   * texto). Evita duplicar el resto de casos: delega en `renderCeldaColumna`
+   * para todo lo demás.
+   */
+  function obtenerValorExportacionColumna(oc: OrdenCompra, id: ColumnaConfigurableOC): string {
+    if (id === 'documentoRelacionado') {
+      const relacionados = obtenerComprobantesRelacionadosOC(oc, comprobantes);
+      return relacionados.length === 0
+        ? '—'
+        : relacionados.map((c) => `${c.serieProveedor}-${c.numeroProveedor}`).join(', ');
+    }
+    const valor = renderCeldaColumna(oc, id);
+    return typeof valor === 'string' ? valor : '—';
   }
 
   function renderAccionesDirectas(oc: OrdenCompra, estado: EstadoPrincipalOC) {

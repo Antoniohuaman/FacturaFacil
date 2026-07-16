@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Settings, Pencil, Wallet } from 'lucide-react';
 import { Breadcrumb, PageHeader } from '@/contasis';
 import {
@@ -25,6 +25,7 @@ import {
   round2,
 } from '../../logica/reglasCompras';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
+import { validarComprobanteCompraBasico } from '../../servicios/servicioComprobanteCompra';
 import {
   TIPOS_DOCUMENTO_PROVEEDOR,
   obtenerPlaceholderSerieDocumentoProveedor,
@@ -48,7 +49,11 @@ import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import type { MonedaCompra } from '../../modelos/tiposBaseCompras';
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { AdjuntoCompra } from '../../modelos/AdjuntoCompra';
-import { obtenerErrorDeCampo, type ErrorCampoDocumento } from '../../modelos/ErroresValidacion';
+import {
+  convertirErroresValidacion,
+  enfocarPrimerCampoConError,
+  normalizarCampoLineas,
+} from '../../modelos/ErroresValidacion';
 
 interface FormularioComprobanteCompraProps {
   ocOrigen?: OrdenCompra;
@@ -103,22 +108,28 @@ export default function FormularioComprobanteCompra({
   // duplicar la clasificación de campos heredados/propios en dos sitios.
   const ordenCompraOrigenId = ocOrigen?.id ?? ccBase?.ordenCompraOrigenId;
   const heredaDeOC = Boolean(ordenCompraOrigenId);
-  // Mientras la conversión no se registre (recién iniciada o guardada solo
-  // como Borrador), la cantidad a facturar de cada línea sigue siendo propia
-  // del CC — el resto de campos heredados (proveedor, moneda, forma de pago,
-  // producto/costo/unidad/impuesto) ya están bloqueados por `heredaDeOC`.
-  const enConversionNoRegistrada = heredaDeOC && !esEdicionRegistrada;
   // Bloqueo de los campos realmente heredados de la OC de origen (proveedor,
   // direcciones, moneda/TC, forma de pago/cronograma, centro de costo/
-  // presupuesto cuando provienen de la OC, líneas): independiente del
-  // bloqueo por pagos, se combinan con OR solo en esos campos — los propios
-  // y exclusivos del CC (tipo/serie/número, tipo de operación, retención,
-  // modalidad de inventario) siguen editables aunque el CC provenga de una OC.
+  // presupuesto, líneas —producto/cantidad/unidad/costo/impuesto—): esta
+  // etapa no implementa facturación parcial, así que la cantidad se bloquea
+  // igual que el resto de datos heredados, sin excepción durante la
+  // conversión. Independiente del bloqueo por pagos, se combinan con OR solo
+  // en esos campos — los propios y exclusivos del CC (tipo/serie/número,
+  // tipo de operación, retención, modalidad de inventario) siguen editables
+  // aunque el CC provenga de una OC.
   const camposHeredadosBloqueados = camposFinancierosBloqueados || heredaDeOC;
   // En creación, `ocOrigen` ya es el objeto real (evita una búsqueda); en
   // edición se relee de `state.ordenes` para reflejar la OC más reciente.
   const ocOrigenReal = heredaDeOC
     ? (ocOrigen ?? state.ordenes.find((o) => o.id === ordenCompraOrigenId))
+    : undefined;
+  // Mensaje específico para la sección de productos cuando hereda de una OC:
+  // el acceso "Editar Orden de Compra" ya existe en la cabecera de la card de
+  // datos del comprobante (más abajo) — este texto no repite esa acción, solo
+  // informa. Si no hereda de una OC, `SeccionProductosCompra` usa su mensaje
+  // genérico por defecto (ej. comprobante con pagos activos sin origen en OC).
+  const mensajeProductosHeredados = heredaDeOC && ocOrigenReal
+    ? `Los productos y cantidades provienen de la ${formatearNumeroCompra(ocOrigenReal.serie, ocOrigenReal.correlativo)}. Para modificarlos, edita el documento de origen.`
     : undefined;
   // Misma fuente robusta (cruza relaciones reales CxP → Pagos, no un estado
   // derivado) que usa el bloqueo de edición de la OC — decide si el aviso
@@ -169,7 +180,10 @@ export default function FormularioComprobanteCompra({
   const [fechaEmisionProveedor, setFechaEmisionProveedor] = useState(
     ccBase?.fechaEmisionProveedor ?? new Date().toISOString().slice(0, 10),
   );
-  const [fechaVencimiento, setFechaVencimiento] = useState(ccBase?.fechaVencimiento ?? '');
+  // La OC solo aporta un valor inicial sugerido (si lo tiene) — el CC conserva
+  // su propio campo, editable e independiente del de la OC (nunca se tratan
+  // como el mismo dato compartido; ver aplicarDatosHeredadosCC en ContextoCompras.tsx).
+  const [fechaVencimiento, setFechaVencimiento] = useState(ccBase?.fechaVencimiento ?? ocOrigen?.fechaVencimiento ?? '');
   const [tipoOperacion, setTipoOperacion] = useState(ccBase?.tipoOperacion ?? '');
   const [moneda, setMoneda] = useState<MonedaCompra>(ccBase?.moneda ?? ocOrigen?.moneda ?? monedaDefault);
   const [tipoCambio, setTipoCambio] = useState(
@@ -224,7 +238,13 @@ export default function FormularioComprobanteCompra({
   const [observaciones, setObservaciones] = useState(ccBase?.observaciones ?? datosDesdeOC?.observaciones ?? '');
   const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>(ccBase?.adjuntos ?? []);
   const [enviando, setEnviando] = useState(false);
-  const [errores, setErrores] = useState<ErrorCampoDocumento[]>([]);
+  // Mismo esquema que FormularioOrdenCompra.tsx: sin errores en un formulario
+  // recién abierto, solo tras un intento real de guardar borrador o
+  // registrar/actualizar; se recalculan en cada render así que desaparecen
+  // apenas el campo vuelve a ser válido.
+  const [intentoRegistrar, setIntentoRegistrar] = useState(false);
+  const [intentoBorrador, setIntentoBorrador] = useState(false);
+  const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
   const lineasCompra = useLineasCompra(ccBase?.lineas ?? datosDesdeOC?.lineas ?? []);
   const lineas = lineasCompra.lineas;
@@ -235,6 +255,61 @@ export default function FormularioComprobanteCompra({
   const netoAPagarCC = round2(totalesCalculados.total - montoRetencion);
   const documentoAfectaInventario = modalidadInventario !== 'no_afecta_inventario';
   const almacenSeleccionado = almacenesActivos.find((a) => a.id === almacenId);
+
+  // Misma validación que ya aplica el servicio (`validarComprobanteCompraBasico`,
+  // servicioComprobanteCompra.ts) — se reutiliza tal cual para no duplicar
+  // reglas. El almacén no forma parte de ese validador (es una condición
+  // propia de esta UI, no del modelo de CC) y se agrega aparte.
+  const erroresValidacion = useMemo(() => {
+    const base = convertirErroresValidacion(
+      validarComprobanteCompraBasico({
+        proveedorId: proveedor?.id?.toString(),
+        tipoComprobanteProveedor: tipoComprobante || undefined,
+        serieProveedor: serieProveedor.trim() || undefined,
+        numeroProveedor: numeroProveedor.trim() || undefined,
+        fechaEmisionProveedor: fechaEmisionProveedor || undefined,
+        fechaVencimiento: fechaVencimiento || undefined,
+        moneda,
+        formaPago,
+        modalidadInventario,
+        lineas,
+      }),
+    );
+    if (documentoAfectaInventario && !almacenSeleccionado) {
+      base.push({
+        campo: 'almacenId',
+        codigo: 'ALMACEN_REQUERIDO',
+        mensaje: 'Selecciona el almacén de destino para el ingreso a inventario.',
+      });
+    }
+    return base;
+  }, [
+    proveedor,
+    tipoComprobante,
+    serieProveedor,
+    numeroProveedor,
+    fechaEmisionProveedor,
+    fechaVencimiento,
+    moneda,
+    formaPago,
+    modalidadInventario,
+    lineas,
+    documentoAfectaInventario,
+    almacenSeleccionado,
+  ]);
+  // Los campos realmente heredados de una OC (proveedor, moneda, forma de
+  // pago, líneas) llegan ya validados desde un documento real: si algo ahí
+  // fallara, sería una inconsistencia del documento de origen, no un error
+  // que el usuario pueda corregir en un control que no puede editar — se
+  // excluyen de la visualización en campo (regla general de negocio, no
+  // representada aquí porque en la práctica no ocurre con datos reales).
+  const CAMPOS_HEREDADOS = ['proveedorId', 'moneda', 'formaPago', 'lineas', 'tipoCambio'];
+  function errorDeCampo(campo: string): string | undefined {
+    if (heredaDeOC && CAMPOS_HEREDADOS.includes(campo)) return undefined;
+    const visible = intentoRegistrar || (intentoBorrador && campo === 'proveedorId');
+    if (!visible) return undefined;
+    return erroresValidacion.find((e) => normalizarCampoLineas(e.campo) === campo)?.mensaje;
+  }
   const tipoComprobanteLabel = TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === tipoComprobante)?.nombre;
   const tiposOperacionActivos = listarTiposOperacion().filter((t) => t.activo && t.visible);
 
@@ -339,11 +414,12 @@ export default function FormularioComprobanteCompra({
   }
 
   async function handleGuardarBorrador() {
+    setIntentoBorrador(true);
     if (!proveedor) {
-      setErrores([{ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor para guardar el borrador.' }]);
+      enfocarPrimerCampoConError([{ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor para guardar el borrador.' }]);
       return;
     }
-    setErrores([]);
+    setErrorGeneral(null);
     setEnviando(true);
     try {
       const datos = construirDatosCC();
@@ -358,7 +434,7 @@ export default function FormularioComprobanteCompra({
       onExito(cc);
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : 'Error al guardar el borrador.';
-      setErrores([{ campo: 'general', codigo: 'ERROR_BORRADOR', mensaje }]);
+      setErrorGeneral(mensaje);
       feedback.error(mensaje);
     } finally {
       setEnviando(false);
@@ -366,47 +442,13 @@ export default function FormularioComprobanteCompra({
   }
 
   async function handleSubmit() {
-    const nuevosErrores: ErrorCampoDocumento[] = [];
-    if (!proveedor) {
-      nuevosErrores.push({ campo: 'proveedorId', codigo: 'PROVEEDOR_REQUERIDO', mensaje: 'Selecciona un proveedor.' });
-    }
-    if (!tipoComprobante) {
-      nuevosErrores.push({ campo: 'tipoComprobanteProveedor', codigo: 'TIPO_COMPROBANTE_REQUERIDO', mensaje: 'Selecciona el tipo de comprobante.' });
-    }
-    if (!serieProveedor.trim()) {
-      nuevosErrores.push({ campo: 'serieProveedor', codigo: 'SERIE_REQUERIDA', mensaje: 'Ingresa la serie del comprobante.' });
-    }
-    if (!numeroProveedor.trim()) {
-      nuevosErrores.push({ campo: 'numeroProveedor', codigo: 'NUMERO_REQUERIDO', mensaje: 'Ingresa el número del comprobante.' });
-    }
-    if (lineas.length === 0) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'LINEAS_REQUERIDAS', mensaje: 'Agrega al menos una línea.' });
-    }
-    if (lineas.some((l) => !l.productoId)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'PRODUCTO_INVALIDO', mensaje: 'Todos los ítems deben provenir de un producto real del catálogo.' });
-    }
-    if (lineas.some((l) => !l.unidadMedida)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'UNIDAD_NO_CONFIGURADA', mensaje: 'El producto no tiene unidad de medida configurada.' });
-    }
-    if (lineas.some((l) => l.tipoAfectacion === 'sin_configurar')) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'IMPUESTO_NO_CONFIGURADO', mensaje: 'El producto no tiene impuesto configurado.' });
-    }
-    if (lineas.some((l) => l.cantidadSolicitada <= 0)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'CANTIDAD_INVALIDA', mensaje: 'La cantidad debe ser mayor a cero.' });
-    }
-    if (lineas.some((l) => l.costoUnitario < 0)) {
-      nuevosErrores.push({ campo: 'lineas', codigo: 'COSTO_INVALIDO', mensaje: 'El costo unitario no puede ser negativo.' });
-    }
-    if (documentoAfectaInventario && !almacenSeleccionado) {
-      nuevosErrores.push({ campo: 'almacenId', codigo: 'ALMACEN_REQUERIDO', mensaje: 'Selecciona el almacén de destino para el ingreso a inventario.' });
-    }
-
-    if (nuevosErrores.length > 0) {
-      setErrores(nuevosErrores);
+    setIntentoRegistrar(true);
+    if (erroresValidacion.length > 0) {
+      enfocarPrimerCampoConError(erroresValidacion);
       return;
     }
 
-    setErrores([]);
+    setErrorGeneral(null);
     setEnviando(true);
 
     try {
@@ -426,7 +468,7 @@ export default function FormularioComprobanteCompra({
       onExito(comprobante, cuentaPorPagar);
     } catch (e) {
       const mensaje = e instanceof Error ? e.message : (esEdicionRegistrada ? 'Error al actualizar el comprobante.' : 'Error al registrar el comprobante.');
-      setErrores([{ campo: 'general', codigo: 'ERROR_REGISTRO', mensaje }]);
+      setErrorGeneral(mensaje);
       feedback.error(mensaje);
     } finally {
       setEnviando(false);
@@ -456,11 +498,9 @@ export default function FormularioComprobanteCompra({
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {errores.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 space-y-1">
-            {errores.map((e, i) => (
-              <p key={i} className="text-sm text-red-700">• {e.mensaje}</p>
-            ))}
+        {errorGeneral && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+            {errorGeneral}
           </div>
         )}
 
@@ -521,7 +561,7 @@ export default function FormularioComprobanteCompra({
           <TwoColumnDocumentFields
             izquierda={
               <>
-                <div className="space-y-1">
+                <div className="space-y-1" id="campo-proveedorId">
                   <label className="text-sm font-medium text-gray-700">Proveedor</label>
                   <BuscadorProveedor
                     proveedor={proveedor}
@@ -531,7 +571,7 @@ export default function FormularioComprobanteCompra({
                       setDireccionEntrega(p?.direccion ?? '');
                     }}
                     deshabilitado={camposHeredadosBloqueados}
-                    error={obtenerErrorDeCampo(errores, 'proveedorId')?.mensaje ?? null}
+                    error={errorDeCampo('proveedorId') ?? null}
                   />
                 </div>
 
@@ -563,13 +603,15 @@ export default function FormularioComprobanteCompra({
             derecha={
               <>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-tipoComprobanteProveedor">
                     <label className="text-sm font-medium text-gray-700">Tipo de comprobante</label>
                     <select
                       value={tipoComprobante}
                       onChange={(e) => setTipoComprobante(e.target.value)}
                       disabled={camposFinancierosBloqueados}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('tipoComprobanteProveedor') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {TIPOS_DOCUMENTO_PROVEEDOR.map((t) => (
                         <option key={t.codigo} value={t.codigo}>
@@ -577,8 +619,11 @@ export default function FormularioComprobanteCompra({
                         </option>
                       ))}
                     </select>
+                    {errorDeCampo('tipoComprobanteProveedor') && (
+                      <p className="text-xs text-red-600">{errorDeCampo('tipoComprobanteProveedor')}</p>
+                    )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-serieProveedor">
                     <label className="text-sm font-medium text-gray-700" title="Serie del comprobante emitido por el proveedor (máx. 4 caracteres)">Serie</label>
                     <input
                       type="text"
@@ -587,13 +632,16 @@ export default function FormularioComprobanteCompra({
                       maxLength={4}
                       disabled={camposFinancierosBloqueados}
                       placeholder={obtenerPlaceholderSerieDocumentoProveedor(tipoComprobante)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('serieProveedor') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
+                    {errorDeCampo('serieProveedor') && <p className="text-xs text-red-600">{errorDeCampo('serieProveedor')}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-numeroProveedor">
                     <label className="text-sm font-medium text-gray-700" title="Número del comprobante emitido por el proveedor, tal como aparece en el documento">Número</label>
                     <input
                       type="text"
@@ -602,41 +650,56 @@ export default function FormularioComprobanteCompra({
                       onChange={(e) => setNumeroProveedor(e.target.value.replace(/\D/g, ''))}
                       disabled={camposFinancierosBloqueados}
                       placeholder="Ej: 123"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('numeroProveedor') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
+                    {errorDeCampo('numeroProveedor') && <p className="text-xs text-red-600">{errorDeCampo('numeroProveedor')}</p>}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-fechaEmisionProveedor">
                     <label className="text-sm font-medium text-gray-700">Fecha de emisión</label>
                     <input
                       type="date"
                       value={fechaEmisionProveedor}
                       onChange={(e) => setFechaEmisionProveedor(e.target.value)}
                       disabled={camposFinancierosBloqueados}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('fechaEmisionProveedor') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
+                    {errorDeCampo('fechaEmisionProveedor') && (
+                      <p className="text-xs text-red-600">{errorDeCampo('fechaEmisionProveedor')}</p>
+                    )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-fechaVencimiento">
                     <label className="text-sm font-medium text-gray-700">F. vencimiento</label>
                     <input
                       type="date"
                       value={fechaVencimiento}
                       onChange={(e) => setFechaVencimiento(e.target.value)}
                       readOnly={isCreditMethod}
-                      disabled={camposHeredadosBloqueados}
+                      disabled={camposFinancierosBloqueados}
                       title={isCreditMethod ? 'Calculada automáticamente desde la última cuota del cronograma de crédito' : undefined}
-                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${isCreditMethod ? 'bg-gray-50 text-gray-600' : ''}`}
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        isCreditMethod ? 'bg-gray-50 text-gray-600 border-gray-300' : errorDeCampo('fechaVencimiento') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
+                    {!isCreditMethod && errorDeCampo('fechaVencimiento') && (
+                      <p className="text-xs text-red-600">{errorDeCampo('fechaVencimiento')}</p>
+                    )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-moneda">
                     <label className="text-sm font-medium text-gray-700">Moneda</label>
                     <select
                       value={moneda}
                       onChange={(e) => setMoneda(e.target.value as MonedaCompra)}
                       disabled={camposHeredadosBloqueados}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('moneda') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {config.currencies.filter((c) => c.isActive).map((c) => (
                         <option key={c.code} value={c.code}>
@@ -644,6 +707,7 @@ export default function FormularioComprobanteCompra({
                         </option>
                       ))}
                     </select>
+                    {errorDeCampo('moneda') && <p className="text-xs text-red-600">{errorDeCampo('moneda')}</p>}
                   </div>
                 </div>
 
@@ -688,13 +752,15 @@ export default function FormularioComprobanteCompra({
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-formaPago">
                     <label className="text-sm font-medium text-gray-700">Forma de pago</label>
                     <select
                       value={formaPagoMetodoId}
                       onChange={(e) => handleFormaPagoChange(e.target.value)}
                       disabled={camposHeredadosBloqueados}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                        errorDeCampo('formaPago') ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {!formaPagoMetodoId && <option value="">Seleccionar</option>}
                       {metodosPagoActivos.map((m) => (
@@ -704,6 +770,7 @@ export default function FormularioComprobanteCompra({
                       ))}
                       <option value={NUEVO_CREDITO_VALUE}>+ Crear crédito</option>
                     </select>
+                    {errorDeCampo('formaPago') && <p className="text-xs text-red-600">{errorDeCampo('formaPago')}</p>}
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Comprador</label>
@@ -713,15 +780,18 @@ export default function FormularioComprobanteCompra({
                   </div>
                 </div>
 
-                <SelectorModalidadInventario
-                  modalidad={modalidadInventario}
-                  onCambiarModalidad={setModalidadInventario}
-                  almacenesActivos={almacenesActivos}
-                  almacenId={almacenId}
-                  onCambiarAlmacen={setAlmacenId}
-                  bloqueada={esRH || camposFinancierosBloqueados}
-                  motivoBloqueo={esRH ? 'Recibo por Honorarios no afecta inventario.' : motivoBloqueo ?? undefined}
-                />
+                <div id="campo-almacenId">
+                  <SelectorModalidadInventario
+                    modalidad={modalidadInventario}
+                    onCambiarModalidad={setModalidadInventario}
+                    almacenesActivos={almacenesActivos}
+                    almacenId={almacenId}
+                    onCambiarAlmacen={setAlmacenId}
+                    bloqueada={esRH || camposFinancierosBloqueados}
+                    motivoBloqueo={esRH ? 'Recibo por Honorarios no afecta inventario.' : motivoBloqueo ?? undefined}
+                  />
+                  {errorDeCampo('almacenId') && <p className="mt-1 text-xs text-red-600">{errorDeCampo('almacenId')}</p>}
+                </div>
 
                 {esRH && (
                   <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
@@ -800,13 +870,20 @@ export default function FormularioComprobanteCompra({
         </FormSectionCard>
 
         {/* Productos - Servicios */}
-        <SeccionProductosCompra
-          moneda={moneda}
-          lineasCompra={lineasCompra}
-          totalesCalculados={totalesCalculados}
-          disabled={camposHeredadosBloqueados && !enConversionNoRegistrada}
-          soloCantidadEditable={camposHeredadosBloqueados && enConversionNoRegistrada}
-        />
+        <div id="campo-lineas" className="space-y-1">
+          {errorDeCampo('lineas') && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm text-red-700">
+              {errorDeCampo('lineas')}
+            </div>
+          )}
+          <SeccionProductosCompra
+            moneda={moneda}
+            lineasCompra={lineasCompra}
+            totalesCalculados={totalesCalculados}
+            disabled={camposHeredadosBloqueados}
+            mensajeBloqueo={mensajeProductosHeredados}
+          />
+        </div>
 
         {/* Cronograma de crédito: solo programación, sin estados de pago (aún no está registrado) */}
         {isCreditMethod && (

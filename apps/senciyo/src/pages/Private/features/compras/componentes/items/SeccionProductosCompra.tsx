@@ -15,10 +15,10 @@ interface SeccionProductosCompraProps {
   moneda: string;
   lineasCompra: UseLineasCompraResultado;
   totalesCalculados: TotalesLineasCompra;
-  /** Bloquea cantidad/unidad/costo, oculta eliminar línea y el alta de productos (ej. comprobante con pagos aplicados o proveniente de una OC). */
+  /** Bloquea producto/cantidad/unidad/costo, oculta eliminar línea y el alta de productos (ej. comprobante con pagos aplicados o proveniente de una OC). */
   disabled?: boolean;
-  /** Igual que `disabled`, salvo que la cantidad sigue editable (conversión de OC a CC con facturación parcial: el producto/costo/unidad/impuesto son heredados, pero la cantidad a facturar es propia del CC). Ignorado si `disabled` es true. */
-  soloCantidadEditable?: boolean;
+  /** Mensaje mostrado en vez del buscador de productos cuando `disabled` es true. Por defecto, uno genérico. */
+  mensajeBloqueo?: string;
 }
 
 interface DefinicionColumna extends ColumnaTablaLineas {
@@ -86,14 +86,9 @@ export default function SeccionProductosCompra({
   lineasCompra,
   totalesCalculados,
   disabled = false,
-  soloCantidadEditable = false,
+  mensajeBloqueo,
 }: SeccionProductosCompraProps) {
   const { lineas, actualizarLinea, actualizarUnidadLinea, eliminarLinea, agregarProductosDesdeCatalogo } = lineasCompra;
-  // La cantidad solo se bloquea con `disabled` completo; el resto de campos y
-  // acciones (unidad, costo, eliminar línea, alta de productos) se bloquean
-  // también con `soloCantidadEditable` (conversión de OC con facturación
-  // parcial: producto/costo/unidad/impuesto son heredados de la OC).
-  const bloqueoCompleto = disabled || soloCantidadEditable;
   const [mostrarColumnas, setMostrarColumnas] = useState(false);
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>(cargarColumnasVisiblesGuardadas);
 
@@ -162,7 +157,7 @@ export default function SeccionProductosCompra({
           <td className="px-3 py-2.5">
             <select
               value={linea.unidadMedidaCodigo}
-              disabled={bloqueoCompleto}
+              disabled={disabled}
               onChange={(e) => actualizarUnidadLinea(linea.id, e.target.value)}
               className="w-full text-center text-xs text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-100 disabled:text-gray-400"
             >
@@ -270,7 +265,7 @@ export default function SeccionProductosCompra({
               min="0"
               step="0.01"
               value={linea.costoUnitario}
-              disabled={bloqueoCompleto}
+              disabled={disabled}
               onChange={(e) => actualizarLinea(linea.id, 'costoUnitario', parseFloat(e.target.value) || 0)}
               className="w-full text-right text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-100 disabled:text-gray-400"
             />
@@ -294,7 +289,7 @@ export default function SeccionProductosCompra({
       case 'accion':
         return (
           <td className="px-3 py-2.5 text-center">
-            {!bloqueoCompleto && (
+            {!disabled && (
               <Tooltip contenido="Eliminar">
                 <button
                   onClick={() => eliminarLinea(linea.id)}
@@ -366,11 +361,9 @@ export default function SeccionProductosCompra({
         </div>
       )}
 
-      {bloqueoCompleto ? (
+      {disabled ? (
         <div className="mb-3 p-2.5 md:p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-500">
-          {soloCantidadEditable && !disabled
-            ? 'Los productos provienen de la Orden de Compra: solo puedes ajustar la cantidad a facturar.'
-            : 'Los productos no se pueden modificar en este comprobante.'}
+          {mensajeBloqueo ?? 'Los productos no se pueden modificar en este comprobante.'}
         </div>
       ) : (
         <div

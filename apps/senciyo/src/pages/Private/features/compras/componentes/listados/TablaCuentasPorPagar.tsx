@@ -14,7 +14,7 @@ import {
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { formatMoney } from '@/shared/currency';
 import { useFeedback } from '@/shared/feedback';
-import { exportDatasetToExcel } from '@/shared/export/exportToExcel';
+import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/exportToExcel';
 import type { CuentaPorPagar, EstadoPagoCxP, EstadoVencimientoCxP } from '../../modelos/CuentaPorPagar';
 import {
   ESTADO_PAGO_CXP_LABELS,
@@ -358,6 +358,25 @@ export default function TablaCuentasPorPagar({
     }
   }
 
+  /**
+   * Mismo valor que `renderCeldaColumna`, en texto/número plano para Excel.
+   * `pagado` se exporta como número real (nunca el string con símbolo de
+   * `formatMoney`); `estadoVencimiento`/`diasVencidos` renderizan JSX en
+   * pantalla, aquí se resuelven a su etiqueta/valor de texto.
+   */
+  function obtenerValorExportacionColumna(cxp: CuentaPorPagar, id: ColumnaConfigurableCxP): string | number {
+    if (id === 'pagado') return cxp.totalPagado;
+    if (id === 'estadoVencimiento') {
+      return cxp.fechaVencimiento ? ESTADO_VENCIMIENTO_CXP_LABELS[cxp.estadoVencimiento] : '—';
+    }
+    if (id === 'diasVencidos') {
+      const dias = calcularDiasVencidos(cxp.fechaVencimiento);
+      return dias > 0 ? dias : '—';
+    }
+    const valor = renderCeldaColumna(cxp, id);
+    return typeof valor === 'string' || typeof valor === 'number' ? valor : '—';
+  }
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -390,44 +409,39 @@ export default function TablaCuentasPorPagar({
       .entries(),
   );
 
+  // Mismo criterio que las demás tablas de Compras: fijas + exactamente las
+  // configurables visibles/ordenadas de colConfig.
   async function handleExportar() {
     if (!filtradas.length) {
       feedback.warning('No hay datos para exportar con los filtros actuales.');
       return;
     }
     try {
+      const columnasExport: SimpleExcelColumn[] = [
+        { header: 'Proveedor', key: 'proveedor', width: 30 },
+        { header: 'RUC / DNI', key: 'documento', width: 15 },
+        { header: 'Comprobante', key: 'comprobante', width: 20 },
+        ...columnasVisiblesOrdenadas.map((id): SimpleExcelColumn => ({
+          header: COLUMNAS_CONFIGURABLES_CXP.find((c) => c.id === id)?.label ?? id,
+          key: id,
+          numFmt: id === 'pagado' ? '#,##0.00' : undefined,
+        })),
+        { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
+        { header: 'Saldo', key: 'saldo', width: 14, numFmt: '#,##0.00' },
+        { header: 'Estado', key: 'estado', width: 16 },
+      ];
       const rows = filtradas.map((cxp) => ({
         proveedor: cxp.proveedorNombre,
         documento: cxp.proveedorNumeroDocumento,
         comprobante: cxp.comprobanteCompraNumero,
-        tipoComprobante: getNombreTipoDocumentoProveedor(cxp.tipoComprobanteOrigen),
-        fechaEmision: formatearFechaCompra(cxp.fechaEmision),
-        fechaVencimiento: cxp.fechaVencimiento ? formatearFechaCompra(cxp.fechaVencimiento) : '—',
-        formaPago: resolverNombreFormaPago(cxp, config.paymentMethods),
-        moneda: cxp.moneda,
+        ...Object.fromEntries(columnasVisiblesOrdenadas.map((id) => [id, obtenerValorExportacionColumna(cxp, id)])),
         total: cxp.total,
-        pagado: cxp.totalPagado,
         saldo: cxp.saldoPendiente,
         estado: ESTADO_PAGO_CXP_LABELS[cxp.estadoPago],
-        vencimiento: cxp.fechaVencimiento ? ESTADO_VENCIMIENTO_CXP_LABELS[cxp.estadoVencimiento] : '—',
       }));
       await exportDatasetToExcel({
         rows,
-        columns: [
-          { header: 'Proveedor', key: 'proveedor', width: 30 },
-          { header: 'RUC / DNI', key: 'documento', width: 15 },
-          { header: 'Comprobante', key: 'comprobante', width: 20 },
-          { header: 'Tipo de comprobante', key: 'tipoComprobante', width: 22 },
-          { header: 'F. Emisión', key: 'fechaEmision', width: 14 },
-          { header: 'F. Vencimiento', key: 'fechaVencimiento', width: 16 },
-          { header: 'Forma de pago', key: 'formaPago', width: 20 },
-          { header: 'Moneda', key: 'moneda', width: 10 },
-          { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
-          { header: 'Pagado', key: 'pagado', width: 14, numFmt: '#,##0.00' },
-          { header: 'Saldo', key: 'saldo', width: 14, numFmt: '#,##0.00' },
-          { header: 'Estado', key: 'estado', width: 14 },
-          { header: 'Vencimiento', key: 'vencimiento', width: 14 },
-        ],
+        columns: columnasExport,
         filename: `cuentas-por-pagar_${new Date().toISOString().split('T')[0]}`,
         worksheetName: 'Cuentas por Pagar',
       });

@@ -1,4 +1,3 @@
-export { calcularCantidadesPendientes } from './calcularCantidadesPendientes';
 export {
   calcularEstadoRecepcion,
   calcularEstadoFacturacion,

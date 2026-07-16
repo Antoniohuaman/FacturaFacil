@@ -18,6 +18,7 @@ import EditorMediosPagoCompra from '../pagos/EditorMediosPagoCompra';
 import ResumenPagoCompra from '../pagos/ResumenPagoCompra';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
+import { enfocarPrimerCampoConError } from '../../modelos/ErroresValidacion';
 
 interface FormularioPagoCompraProps {
   cxp: CuentaPorPagar;
@@ -39,7 +40,22 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
 
   async function handleSubmit() {
     const ok = await f.registrarPago();
-    if (ok) onExito();
+    if (ok) {
+      onExito();
+      return;
+    }
+    const primerError = f.erroresPorCampo.allocations
+      ? 'allocations'
+      : Object.keys(f.erroresPorCampo.medios ?? {}).length > 0
+        ? 'medios'
+        : f.erroresPorCampo.diferencia
+          ? 'diferencia'
+          : f.erroresPorCampo.tipoCambio
+            ? 'tipoCambio'
+            : null;
+    if (primerError) {
+      enfocarPrimerCampoConError([{ campo: primerError, codigo: primerError.toUpperCase(), mensaje: '' }]);
+    }
   }
 
   return (
@@ -69,11 +85,9 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
       />
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {f.errores.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 space-y-1">
-            {f.errores.map((e, i) => (
-              <p key={i} className="text-sm text-red-700">• {e}</p>
-            ))}
+        {f.errorGeneral && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+            {f.errorGeneral}
           </div>
         )}
 
@@ -85,14 +99,19 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
 
         {/* Documento a pagar */}
         <FormSectionCard titulo="Documento a pagar">
-          <TablaAplicacionPagoCompra
-            cxp={cxp}
-            formaPagoNombre={f.formaPagoNombre}
-            installments={f.installments}
-            allocations={f.allocations}
-            onChangeAllocations={f.onChangeAllocations}
-            disabled={f.enviando}
-          />
+          <div id="campo-allocations" className="space-y-2">
+            <TablaAplicacionPagoCompra
+              cxp={cxp}
+              formaPagoNombre={f.formaPagoNombre}
+              installments={f.installments}
+              allocations={f.allocations}
+              onChangeAllocations={f.onChangeAllocations}
+              disabled={f.enviando}
+            />
+            {f.intentoRegistrar && f.erroresPorCampo.allocations && (
+              <p className="text-xs text-red-600">{f.erroresPorCampo.allocations}</p>
+            )}
+          </div>
         </FormSectionCard>
 
         {/* Datos del pago: medios (izquierda) + documento PG / sustentatorio / concepto (derecha) */}
@@ -111,18 +130,27 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
         >
           <TwoColumnDocumentFields
             izquierda={
-              <EditorMediosPagoCompra
-                mediosPago={f.mediosPago}
-                mediosDisponibles={f.mediosDisponibles}
-                cuentasBancariasCompatibles={f.cuentasBancariasCompatibles}
-                moneda={cxp.moneda}
-                cajaAbierta={f.estadoCaja === 'abierta'}
-                hayMedioDeCaja={f.hayMedioDeCaja}
-                onAgregar={f.agregarMedio}
-                onEliminar={f.eliminarMedio}
-                onCambiarMedio={f.actualizarMedioPago}
-                onCambiarCampo={f.actualizarCampoMedio}
-              />
+              <div id="campo-medios" className="space-y-2">
+                <EditorMediosPagoCompra
+                  mediosPago={f.mediosPago}
+                  mediosDisponibles={f.mediosDisponibles}
+                  cuentasBancariasCompatibles={f.cuentasBancariasCompatibles}
+                  moneda={cxp.moneda}
+                  cajaAbierta={f.estadoCaja === 'abierta'}
+                  hayMedioDeCaja={f.hayMedioDeCaja}
+                  onAgregar={f.agregarMedio}
+                  onEliminar={f.eliminarMedio}
+                  onCambiarMedio={f.actualizarMedioPago}
+                  onCambiarCampo={f.actualizarCampoMedio}
+                  mostrarErrores={f.intentoRegistrar}
+                  erroresPorMedio={f.erroresPorCampo.medios}
+                />
+                <div id="campo-diferencia">
+                  {f.intentoRegistrar && f.erroresPorCampo.diferencia && (
+                    <p className="text-xs text-red-600">{f.erroresPorCampo.diferencia}</p>
+                  )}
+                </div>
+              </div>
             }
             derecha={
               <>
@@ -177,7 +205,7 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
                 </div>
 
                 {cxp.moneda !== f.monedaBase && (
-                  <div className="space-y-1">
+                  <div className="space-y-1" id="campo-tipoCambio">
                     <label className="text-sm font-medium text-gray-700">Tipo de cambio</label>
                     <input
                       type="number"
@@ -186,8 +214,13 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
                       value={f.tipoCambio}
                       onChange={(e) => f.setTipoCambio(e.target.value)}
                       placeholder={`1 ${cxp.moneda} = ? ${f.monedaBase}`}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                        f.intentoRegistrar && f.erroresPorCampo.tipoCambio ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
+                    {f.intentoRegistrar && f.erroresPorCampo.tipoCambio && (
+                      <p className="text-xs text-red-600">{f.erroresPorCampo.tipoCambio}</p>
+                    )}
                   </div>
                 )}
 
@@ -276,7 +309,14 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
         onCancelar={onCancelar}
         onSubmit={handleSubmit}
         textoBotonPrimario="Registrar pago"
-        deshabilitado={f.enviando || !f.puedeRegistrar}
+        deshabilitado={f.enviando || f.bloqueadoEstructural}
+        tituloBotonPrimario={
+          !f.seriePG
+            ? 'Configura una serie de tipo "Pago de Compra" en Configuración → Series.'
+            : !f.hayMediosConfigurados
+              ? 'Configura al menos un medio de pago activo en Configuración → Pagos.'
+              : undefined
+        }
         cargando={f.enviando}
       />
 

@@ -10,7 +10,7 @@ import {
   formatearEtiquetaImpuesto,
 } from '../logica/reglasCompras';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
-import { formatMoney } from '@/shared/currency';
+import { formatMoney, normalizarImporte } from '@/shared/currency';
 import { formatearFechaCompra, formatearNumeroComprobanteCompra } from '../utilidades/formatearCompras';
 import { ETIQUETA_ESTADO_PRINCIPAL_CC } from '../constantes/estadosCompras';
 import type { EmpresaOC } from './servicioOrdenCompra';
@@ -53,6 +53,15 @@ export function validarComprobanteCompraBasico(
   }
   if (cc.lineas) {
     errores.push(...validarLineasCompra(cc.lineas));
+    // El total se recalcula siempre desde las líneas (nunca se confía en
+    // `cc.totales.total` recibido) y se normaliza con la precisión real de
+    // la moneda del documento — nunca dos decimales fijos — antes de exigir
+    // que sea estrictamente mayor a cero. Un documento en S/ 0.00 no
+    // representa una operación económica real y no debe poder registrarse.
+    const totalRecalculado = calcularTotalesLineas(cc.lineas).total;
+    if (cc.moneda && Number.isFinite(totalRecalculado) && normalizarImporte(totalRecalculado, cc.moneda) <= 0) {
+      errores.push({ campo: 'lineas', mensaje: 'El documento debe tener un total mayor a cero.' });
+    }
   }
 
   return errores;
