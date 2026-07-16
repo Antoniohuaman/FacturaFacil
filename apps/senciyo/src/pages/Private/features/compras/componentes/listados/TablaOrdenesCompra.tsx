@@ -45,6 +45,7 @@ import {
   calcularEstadoPrincipalOC,
   resolverNombreFormaPago,
   ESTADOS_PRINCIPALES_OC,
+  obtenerComprobantesRelacionadosOC,
 } from '../../logica/reglasCompras';
 
 interface TablaOrdenesCompraProps {
@@ -254,7 +255,7 @@ export default function TablaOrdenesCompra({
     try {
       const rows = filtradas.map((oc) => ({
         numero: formatearNumeroCompra(oc.serie, oc.correlativo),
-        estado: ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc)],
+        estado: ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc, comprobantes)],
         fechaEmision: formatearFechaCompra(oc.fechaEmision),
         fechaVencimiento: oc.fechaVencimiento ? formatearFechaCompra(oc.fechaVencimiento) : '—',
         comprador: oc.compradorNombre ?? '—',
@@ -393,7 +394,7 @@ export default function TablaOrdenesCompra({
       case 'comprador':
         return oc.compradorNombre ?? '—';
       case 'documentoRelacionado': {
-        const relacionados = comprobantes.filter((c) => c.ordenCompraOrigenId === oc.id);
+        const relacionados = obtenerComprobantesRelacionadosOC(oc, comprobantes);
         if (relacionados.length === 0) return '—';
         if (relacionados.length === 1) {
           const comprobante = relacionados[0];
@@ -436,7 +437,7 @@ export default function TablaOrdenesCompra({
       return (
         <>
           <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
-          {puedeEliminarBorradorOC(oc) && (
+          {puedeEliminarBorradorOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={Trash2} label="Eliminar borrador" onClick={() => onEliminarBorrador(oc)} danger />
           )}
           <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
@@ -446,13 +447,13 @@ export default function TablaOrdenesCompra({
     if (estado === 'Registrada') {
       return (
         <>
-          {puedeEditarOC(oc) && (
+          {puedeEditarOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
           )}
           {puedeGenerarCCDesdeOC(oc) && (
             <BotonAccionDirecta icon={Receipt} label="Generar comprobante de compra" onClick={() => onGenerarCC(oc)} />
           )}
-          {puedeAnularOC(oc) && (
+          {puedeAnularOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
           )}
         </>
@@ -462,7 +463,7 @@ export default function TablaOrdenesCompra({
       return (
         <>
           <BotonAccionDirecta icon={CheckCircle} label="Aprobar / No aprobar" onClick={() => onAprobarRechazar(oc)} />
-          {puedeAnularOC(oc) && (
+          {puedeAnularOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
           )}
           <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
@@ -475,7 +476,7 @@ export default function TablaOrdenesCompra({
           {puedeGenerarCCDesdeOC(oc) && (
             <BotonAccionDirecta icon={Receipt} label="Generar comprobante de compra" onClick={() => onGenerarCC(oc)} />
           )}
-          {puedeAnularOC(oc) && (
+          {puedeAnularOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
           )}
           <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
@@ -487,7 +488,7 @@ export default function TablaOrdenesCompra({
         <>
           <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
           <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
-          {puedeAnularOC(oc) && (
+          {puedeAnularOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(oc)} danger />
           )}
         </>
@@ -496,13 +497,13 @@ export default function TablaOrdenesCompra({
     if (estado === 'Convertida') {
       return (
         <>
-          {puedeEditarOC(oc) && (
+          {puedeEditarOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={Pencil} label="Editar orden de compra" onClick={() => onEditar(oc)} />
           )}
-          {puedeImprimirOC(oc) && (
+          {puedeImprimirOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={Printer} label="Imprimir orden de compra" onClick={() => onImprimir(oc)} />
           )}
-          {puedeImprimirOC(oc) && (
+          {puedeImprimirOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={Download} label="Descargar PDF" onClick={() => onImprimir(oc)} />
           )}
         </>
@@ -512,10 +513,10 @@ export default function TablaOrdenesCompra({
       return (
         <>
           <BotonAccionDirecta icon={Copy} label="Duplicar orden de compra" onClick={() => onDuplicar(oc)} />
-          {puedeImprimirOC(oc) && (
+          {puedeImprimirOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={Printer} label="Imprimir orden de compra" onClick={() => onImprimir(oc)} />
           )}
-          {puedeImprimirOC(oc) && (
+          {puedeImprimirOC(oc, comprobantes) && (
             <BotonAccionDirecta icon={Download} label="Descargar PDF" onClick={() => onImprimir(oc)} />
           )}
         </>
@@ -543,7 +544,7 @@ export default function TablaOrdenesCompra({
   }
 
   const ocActiva = menu ? ordenes.find((o) => o.id === menu.id) ?? null : null;
-  const estadoPrincipalActivo = ocActiva ? calcularEstadoPrincipalOC(ocActiva) : null;
+  const estadoPrincipalActivo = ocActiva ? calcularEstadoPrincipalOC(ocActiva, comprobantes) : null;
 
   return (
     <div className="space-y-4">
@@ -817,7 +818,7 @@ export default function TablaOrdenesCompra({
               </tr>
             ) : (
               filtradas.map((oc) => {
-                const estadoPrincipal = calcularEstadoPrincipalOC(oc);
+                const estadoPrincipal = calcularEstadoPrincipalOC(oc, comprobantes);
                 return (
                   <tr
                     key={oc.id}
@@ -904,7 +905,7 @@ export default function TablaOrdenesCompra({
           )}
           {estadoPrincipalActivo !== 'Convertida' &&
             estadoPrincipalActivo !== 'Anulada' &&
-            puedeImprimirOC(ocActiva) && (
+            puedeImprimirOC(ocActiva, comprobantes) && (
             <>
               <div className="my-1 border-t border-gray-100" />
               <MenuItem
@@ -919,7 +920,7 @@ export default function TablaOrdenesCompra({
               />
             </>
           )}
-          {puedeEnviarOC(ocActiva) && (
+          {puedeEnviarOC(ocActiva, comprobantes) && (
             <MenuItem
               icon={Send}
               label="Compartir"

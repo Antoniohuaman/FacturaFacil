@@ -25,7 +25,7 @@ import type { CuentaPorPagar, EstadoPagoCxP } from '../../modelos/CuentaPorPagar
 import { ESTADO_PAGO_CXP_LABELS } from '../../modelos/CuentaPorPagar';
 import { BADGE_ESTADO_DOCUMENTO_PAGO, BADGE_ESTADO_PAGO_CXP } from '../../constantes/estadosCompras';
 import { filtrarPagosCompra, type FiltrosPagos, type CampoFechaFiltroPagos } from '../../logica/filtrosCompras';
-import { puedeAnularPago } from '../../logica/reglasCompras';
+import { puedeAnularPago, obtenerCxPDePago } from '../../logica/reglasCompras';
 import { tieneMedioDeCaja } from '../../servicios/servicioPagoCompra';
 import { formatearFechaCompra } from '../../utilidades/formatearCompras';
 
@@ -405,7 +405,7 @@ export default function TablaPagosCompra({
     }
     try {
       const rows = filtrados.map((pago) => {
-        const cxp = cuentasPorPagar.find((c) => pago.cuentasPorPagarAplicadas.includes(c.id));
+        const cxp = obtenerCxPDePago(pago, cuentasPorPagar);
         return {
           numero: pago.numeroPago,
           proveedor: pago.proveedorNombre,
@@ -698,7 +698,7 @@ export default function TablaPagosCompra({
               </tr>
             ) : (
               filasPagina.map((pago) => {
-                const cxp = cuentasPorPagar.find((c) => pago.cuentasPorPagarAplicadas.includes(c.id));
+                const cxp = obtenerCxPDePago(pago, cuentasPorPagar);
                 return (
                   <tr
                     key={pago.id}

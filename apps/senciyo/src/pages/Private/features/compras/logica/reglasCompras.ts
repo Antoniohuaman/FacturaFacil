@@ -6,16 +6,60 @@ import type { LineaCompra, TipoAfectacionCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 
 /**
- * Único estado principal vigente de la OC, derivado de sus dimensiones
- * internas (estadoDocumento, estadoAprobacion, relaciones). Precedencia:
- * anulada > borrador > convertida > aprobación. Una OC anulada nunca vuelve
- * a mostrar "Aprobada" como vigente; "Convertida" exige una relación real
- * persistida (comprobante de compra generado), no solo una acción disparada.
+ * Comprobantes de Compra realmente generados por esta OC — relación
+ * HISTÓRICA completa (incluye anulados: nunca se pierde la trazabilidad de
+ * qué se generó desde aquí). Se deriva por búsqueda real (`cc.ordenCompraOrigenId`,
+ * la FK que el propio CC persiste), no del array `oc.comprobantesCompraRelacionados`
+ * (que solo se usa como snapshot auxiliar y podría no reflejar altas
+ * posteriores si algún día se generara fuera de este flujo). Única fuente
+ * reutilizada por listado, drawer y por `tieneConversionActivaOC`.
  */
-export function calcularEstadoPrincipalOC(oc: OrdenCompra): EstadoPrincipalOC {
+export function obtenerComprobantesRelacionadosOC(
+  oc: OrdenCompra,
+  comprobantes: ComprobanteCompra[],
+): ComprobanteCompra[] {
+  return comprobantes.filter((cc) => cc.ordenCompraOrigenId === oc.id);
+}
+
+/**
+ * Subconjunto de `obtenerComprobantesRelacionadosOC` que sigue vigente (no
+ * anulado): son los que realmente cuentan como "conversión activa" de la OC.
+ * Un CC anulado sigue existiendo para historial/documentos relacionados, pero
+ * nunca participa en este subconjunto.
+ */
+export function obtenerComprobantesActivosOC(
+  oc: OrdenCompra,
+  comprobantes: ComprobanteCompra[],
+): ComprobanteCompra[] {
+  return obtenerComprobantesRelacionadosOC(oc, comprobantes).filter((cc) => cc.estadoDocumento !== 'anulado');
+}
+
+/**
+ * true si la OC tiene al menos un Comprobante de Compra relacionado que siga
+ * activo (no anulado). Única fuente de "conversión vigente" — reemplaza
+ * cualquier chequeo disperso de `comprobantesCompraRelacionados.length` (ese
+ * array no distingue anulados) en `calcularEstadoPrincipalOC` y
+ * `motivoBloqueoAnulacionOC`.
+ */
+export function tieneConversionActivaOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): boolean {
+  return obtenerComprobantesActivosOC(oc, comprobantes).length > 0;
+}
+
+/**
+ * Único estado principal vigente de la OC, derivado de sus dimensiones
+ * internas (estadoDocumento, estadoAprobacion, relaciones) y de sus
+ * Comprobantes de Compra reales. Precedencia: anulada > borrador > convertida
+ * > aprobación. Una OC anulada nunca vuelve a mostrar "Aprobada" como
+ * vigente; "Convertida" exige al menos un Comprobante de Compra relacionado
+ * que siga activo (`tieneConversionActivaOC`) — si todos los CC relacionados
+ * están anulados, la OC recupera el estado que le corresponda por su propio
+ * ciclo de aprobación, nunca queda "Convertida" por un documento que ya no
+ * representa una conversión vigente.
+ */
+export function calcularEstadoPrincipalOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): EstadoPrincipalOC {
   if (oc.estadoDocumento === 'anulado') return 'Anulada';
   if (oc.estadoDocumento === 'borrador') return 'Borrador';
-  if ((oc.comprobantesCompraRelacionados?.length ?? 0) > 0) return 'Convertida';
+  if (tieneConversionActivaOC(oc, comprobantes)) return 'Convertida';
   if (oc.estadoAprobacion === 'no_aprobada') return 'No Aprobada';
   if (oc.estadoAprobacion === 'pendiente') return 'Pendiente de aprobación';
   if (oc.estadoAprobacion === 'aprobada') return 'Aprobada';
@@ -42,15 +86,15 @@ export const ESTADOS_PRINCIPALES_OC: EstadoPrincipalOC[] = [
  * conversión) y propaga los campos heredados al CC relacionado — ver
  * `actualizarOrdenCompra` en ContextoCompras.tsx.
  */
-export function puedeEditarOC(oc: OrdenCompra): boolean {
-  const estado = calcularEstadoPrincipalOC(oc);
+export function puedeEditarOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): boolean {
+  const estado = calcularEstadoPrincipalOC(oc, comprobantes);
   if (estado === 'Borrador' || estado === 'No Aprobada' || estado === 'Convertida') return true;
-  if (estado === 'Registrada') return motivoBloqueoAnulacionOC(oc) === null;
+  if (estado === 'Registrada') return motivoBloqueoAnulacionOC(oc, comprobantes) === null;
   return false;
 }
 
-export function puedeEliminarBorradorOC(oc: OrdenCompra): boolean {
-  return calcularEstadoPrincipalOC(oc) === 'Borrador';
+export function puedeEliminarBorradorOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): boolean {
+  return calcularEstadoPrincipalOC(oc, comprobantes) === 'Borrador';
 }
 
 /**
@@ -60,8 +104,8 @@ export function puedeEliminarBorradorOC(oc: OrdenCompra): boolean {
  * los adjuntos quedan fijos como sustento documental. Descargar nunca se
  * bloquea en ningún estado.
  */
-export function puedeEliminarAdjuntoOC(oc: OrdenCompra): boolean {
-  const estado = calcularEstadoPrincipalOC(oc);
+export function puedeEliminarAdjuntoOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): boolean {
+  const estado = calcularEstadoPrincipalOC(oc, comprobantes);
   return estado === 'Borrador' || estado === 'Registrada' || estado === 'Pendiente de aprobación';
 }
 
@@ -86,11 +130,11 @@ export function puedeGenerarCCDesdeOC(oc: OrdenCompra): boolean {
  * ingreso) no puede anularse directamente: primero deben resolverse esos
  * derivados (anular el comprobante, etc.).
  */
-export function motivoBloqueoAnulacionOC(oc: OrdenCompra): string | null {
+export function motivoBloqueoAnulacionOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): string | null {
   if (oc.estadoDocumento === 'borrador') return 'Los borradores se eliminan, no se anulan.';
   if (oc.estadoDocumento === 'anulado') return 'La orden de compra ya se encuentra anulada.';
   if (oc.estadoDocumento === 'cerrado') return 'La orden de compra ya se encuentra cerrada.';
-  if ((oc.comprobantesCompraRelacionados?.length ?? 0) > 0) {
+  if (tieneConversionActivaOC(oc, comprobantes)) {
     return 'No se puede anular la orden porque ya tiene un comprobante de compra relacionado.';
   }
   if ((oc.notasIngresoRelacionadas?.length ?? 0) > 0) {
@@ -99,18 +143,18 @@ export function motivoBloqueoAnulacionOC(oc: OrdenCompra): string | null {
   return null;
 }
 
-export function puedeAnularOC(oc: OrdenCompra): boolean {
-  return motivoBloqueoAnulacionOC(oc) === null;
+export function puedeAnularOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): boolean {
+  return motivoBloqueoAnulacionOC(oc, comprobantes) === null;
 }
 
 /** Disponibilidad de imprimir/PDF: no aplica a borradores (documento aún no oficial, sin correlativo). No es una transición de estado, solo disponibilidad de la acción — única fuente para listado y drawer. */
-export function puedeImprimirOC(oc: OrdenCompra): boolean {
-  return calcularEstadoPrincipalOC(oc) !== 'Borrador';
+export function puedeImprimirOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): boolean {
+  return calcularEstadoPrincipalOC(oc, comprobantes) !== 'Borrador';
 }
 
 /** Disponibilidad de compartir (WhatsApp): solo documentos ya registrados y presentables formalmente. Única fuente para listado y drawer. */
-export function puedeEnviarOC(oc: OrdenCompra): boolean {
-  const estado = calcularEstadoPrincipalOC(oc);
+export function puedeEnviarOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]): boolean {
+  const estado = calcularEstadoPrincipalOC(oc, comprobantes);
   return (
     estado === 'Registrada' ||
     estado === 'Pendiente de aprobación' ||
@@ -176,6 +220,75 @@ export function motivoBloqueoCamposFinancierosCC(cc: ComprobanteCompra): string 
 }
 
 /**
+ * CxP canónica de un CC. La fuente oficial es la FK directa `cc.cuentaPorPagarId`
+ * (mantenida por `generarCxPYEnlaceCC`); si un registro antiguo no la tuviera
+ * completa, se cae a la búsqueda inversa por `cxp.comprobanteCompraId` como
+ * respaldo de compatibilidad — nunca al revés. Única fuente reutilizada por
+ * drawers, tablas y reglas de pagos activos, para que ambos sentidos
+ * resuelvan siempre el mismo resultado.
+ */
+export function obtenerCxPDeCC(
+  cc: ComprobanteCompra,
+  cuentasPorPagar: CuentaPorPagar[],
+): CuentaPorPagar | undefined {
+  if (cc.cuentaPorPagarId) {
+    const porFkDirecta = cuentasPorPagar.find((c) => c.id === cc.cuentaPorPagarId);
+    if (porFkDirecta) return porFkDirecta;
+  }
+  return cuentasPorPagar.find((c) => c.comprobanteCompraId === cc.id);
+}
+
+/**
+ * Pagos aplicados a una CxP — relación HISTÓRICA completa (incluye
+ * anulados). Cruza ambos sentidos de la FK (`cxp.pagosRelacionados`, la
+ * oficial, y `pago.cuentasPorPagarAplicadas` como respaldo) para no perder
+ * un pago si algún registro antiguo tuviera solo uno de los dos completos.
+ */
+export function obtenerPagosDeCxP(cxp: CuentaPorPagar, pagos: PagoCompra[]): PagoCompra[] {
+  return pagos.filter((p) => cxp.pagosRelacionados.includes(p.id) || p.cuentasPorPagarAplicadas.includes(cxp.id));
+}
+
+/** Subconjunto de `obtenerPagosDeCxP` que sigue vigente (no anulado): única fuente de "pago activo" para saldo, cuotas y bloqueos. */
+export function obtenerPagosActivosDeCxP(cxp: CuentaPorPagar, pagos: PagoCompra[]): PagoCompra[] {
+  return obtenerPagosDeCxP(cxp, pagos).filter((p) => p.estadoDocumento !== 'anulado');
+}
+
+/**
+ * Pagos aplicados a un CC — relación HISTÓRICA completa (incluye anulados),
+ * cruzando `cc.pagosRelacionados` (oficial) y `pago.comprobantesCompraAplicados`
+ * (respaldo) por el mismo motivo que `obtenerPagosDeCxP`.
+ */
+export function obtenerPagosDeCC(cc: ComprobanteCompra, pagos: PagoCompra[]): PagoCompra[] {
+  return pagos.filter(
+    (p) => (cc.pagosRelacionados ?? []).includes(p.id) || p.comprobantesCompraAplicados.includes(cc.id),
+  );
+}
+
+/** CxP de un Pago: fuente oficial `pago.cuentasPorPagarAplicadas` (Fase 1: siempre una sola). */
+export function obtenerCxPDePago(pago: PagoCompra, cuentasPorPagar: CuentaPorPagar[]): CuentaPorPagar | undefined {
+  return cuentasPorPagar.find((c) => pago.cuentasPorPagarAplicadas.includes(c.id));
+}
+
+/**
+ * CC de origen de un Pago mediante la relación oficial. La fuente directa es
+ * `pago.comprobantesCompraAplicados`; si un registro antiguo no la tuviera,
+ * se deriva vía su CxP (`obtenerCxPDePago` → `cxp.comprobanteCompraId`) —
+ * nunca por serie, número o coincidencia de proveedor. Pago → CxP → CC es la
+ * misma cadena que ya usa la navegación; esta función evita mantener dos
+ * resoluciones independientes que puedan divergir.
+ */
+export function obtenerComprobanteDePago(
+  pago: PagoCompra,
+  cuentasPorPagar: CuentaPorPagar[],
+  comprobantes: ComprobanteCompra[],
+): ComprobanteCompra | undefined {
+  const porFkDirecta = comprobantes.find((cc) => pago.comprobantesCompraAplicados.includes(cc.id));
+  if (porFkDirecta) return porFkDirecta;
+  const cxp = obtenerCxPDePago(pago, cuentasPorPagar);
+  return cxp ? comprobantes.find((cc) => cc.id === cxp.comprobanteCompraId) : undefined;
+}
+
+/**
  * Determina si una CxP tiene pagos activos cruzando las relaciones reales
  * (CxP → Pagos), no un estado derivado que podría no reflejar de inmediato
  * una reversión: hay pagos activos si el total pagado o el pagado de
@@ -187,17 +300,16 @@ export function motivoBloqueoCamposFinancierosCC(cc: ComprobanteCompra): string 
 export function tieneCxPPagosActivos(cxp: CuentaPorPagar, pagos: PagoCompra[]): boolean {
   if (cxp.totalPagado > 0) return true;
   if (cxp.cuotas?.some((cuota) => cuota.montoPagado > 0)) return true;
-  return pagos.some((p) => p.cuentasPorPagarAplicadas.includes(cxp.id) && p.estadoDocumento !== 'anulado');
+  return obtenerPagosActivosDeCxP(cxp, pagos).length > 0;
 }
 
-/** Mismo criterio de `tieneCxPPagosActivos`, aplicado a un CC a través de su CxP relacionada. */
+/** Mismo criterio de `tieneCxPPagosActivos`, aplicado a un CC a través de su CxP canónica (`obtenerCxPDeCC`). */
 export function tieneCCPagosActivos(
   cc: ComprobanteCompra,
   cuentasPorPagar: CuentaPorPagar[],
   pagos: PagoCompra[],
 ): boolean {
-  if (!cc.cuentaPorPagarId) return false;
-  const cxp = cuentasPorPagar.find((c) => c.id === cc.cuentaPorPagarId);
+  const cxp = obtenerCxPDeCC(cc, cuentasPorPagar);
   return cxp ? tieneCxPPagosActivos(cxp, pagos) : false;
 }
 
@@ -216,9 +328,9 @@ export function tieneOCPagosActivosRelacionados(
   cuentasPorPagar: CuentaPorPagar[],
   pagos: PagoCompra[],
 ): boolean {
-  return comprobantes
-    .filter((cc) => cc.ordenCompraOrigenId === oc.id)
-    .some((cc) => tieneCCPagosActivos(cc, cuentasPorPagar, pagos));
+  return obtenerComprobantesRelacionadosOC(oc, comprobantes).some((cc) =>
+    tieneCCPagosActivos(cc, cuentasPorPagar, pagos),
+  );
 }
 
 export function puedeEliminarBorradorCC(cc: ComprobanteCompra): boolean {
@@ -510,6 +622,33 @@ export function aplicarFacturacionALineasOC(
     if (!facturadaAhora) return ocLinea;
 
     const cantidadFacturada = round2(ocLinea.cantidadFacturada + facturadaAhora);
+    return {
+      ...ocLinea,
+      cantidadFacturada,
+      cantidadPendienteFacturacion: Math.max(0, round2(ocLinea.cantidadSolicitada - cantidadFacturada)),
+    };
+  });
+}
+
+/**
+ * Inversa de `aplicarFacturacionALineasOC`: al anular un Comprobante de
+ * Compra, resta de cada línea de la OC exactamente lo que ese CC había
+ * facturado (mismo emparejamiento por id de línea que ya usa
+ * `calcularCantidadFacturadaPorLineaOC`), sin dejar `cantidadFacturada`
+ * negativa. Si la OC tiene otros CC activos que facturaron las mismas
+ * líneas, su aporte no se toca — solo se revierte lo que aportó el CC que se
+ * está anulando. Reutilizada por `anularComprobanteCompra` (ContextoCompras.tsx)
+ * junto con `calcularEstadoFacturacion` para que la OC recupere exactamente
+ * la cantidad pendiente de facturar real.
+ */
+export function revertirFacturacionALineasOC(lineasOC: LineaCompra[], lineasCC: LineaCompra[]): LineaCompra[] {
+  const cantidadPorId = calcularCantidadFacturadaPorLineaOC(lineasOC, lineasCC);
+
+  return lineasOC.map((ocLinea) => {
+    const facturadaAntes = cantidadPorId.get(ocLinea.id);
+    if (!facturadaAntes) return ocLinea;
+
+    const cantidadFacturada = Math.max(0, round2(ocLinea.cantidadFacturada - facturadaAntes));
     return {
       ...ocLinea,
       cantidadFacturada,

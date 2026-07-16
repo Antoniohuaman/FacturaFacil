@@ -17,7 +17,7 @@ import {
   BADGE_ESTADO_VENCIMIENTO_CXP,
   BADGE_ESTADO_DOCUMENTO_PAGO,
 } from '../../constantes/estadosCompras';
-import { puedeRegistrarPago, resolverNombreFormaPago } from '../../logica/reglasCompras';
+import { puedeRegistrarPago, resolverNombreFormaPago, obtenerPagosDeCxP } from '../../logica/reglasCompras';
 import { getNombreTipoDocumentoProveedor } from '../../constantes/tiposDocumentoProveedor';
 import { formatearFechaCompra } from '../../utilidades/formatearCompras';
 
@@ -107,7 +107,7 @@ export default function PanelDetalleCuentaPorPagar({
   const [tabActivo, setTabActivo] = useState<TabCxP>('general');
 
   const porcentajePagado = cxp && cxp.total > 0 ? (cxp.totalPagado / cxp.total) * 100 : 0;
-  const pagosAplicados = cxp ? pagos.filter((p) => cxp.pagosRelacionados.includes(p.id)) : [];
+  const pagosAplicados = cxp ? obtenerPagosDeCxP(cxp, pagos) : [];
   const comprobanteOrigen = cxp ? comprobantes.find((c) => c.id === cxp.comprobanteCompraId) : undefined;
   const nombreFormaPago = cxp ? resolverNombreFormaPago(cxp, config.paymentMethods) : '';
 

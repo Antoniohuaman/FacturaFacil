@@ -14,6 +14,7 @@ import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import { BADGE_ESTADO_DOCUMENTO_PAGO, BADGE_ESTADO_PAGO_CXP } from '../../constantes/estadosCompras';
 import { TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO } from '../../constantes/tiposDocumentoProveedor';
 import { tieneMedioDeCaja } from '../../servicios/servicioPagoCompra';
+import { obtenerCxPDePago, obtenerComprobanteDePago } from '../../logica/reglasCompras';
 import { formatearFechaCompra, formatearNumeroCompra, formatearNumeroComprobanteCompra } from '../../utilidades/formatearCompras';
 
 interface PanelDetallePagoCompraProps {
@@ -106,8 +107,8 @@ export default function PanelDetallePagoCompra({
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabPago>('general');
 
-  const cxp = pago ? cuentasPorPagar.find((c) => pago.cuentasPorPagarAplicadas.includes(c.id)) : undefined;
-  const comprobanteOrigen = cxp ? comprobantes.find((c) => c.id === cxp.comprobanteCompraId) : undefined;
+  const cxp = pago ? obtenerCxPDePago(pago, cuentasPorPagar) : undefined;
+  const comprobanteOrigen = pago ? obtenerComprobanteDePago(pago, cuentasPorPagar, comprobantes) : undefined;
   const ocOrigen = comprobanteOrigen ? ordenes.find((o) => o.id === comprobanteOrigen.ordenCompraOrigenId) : undefined;
   const cajaUtilizada = pago?.cajaId ? config.cajas.find((c) => c.id === pago.cajaId) : undefined;
   const hayMovimientoCajaDerivado = pago ? !cajaUtilizada && tieneMedioDeCaja(pago.mediosPago) : false;

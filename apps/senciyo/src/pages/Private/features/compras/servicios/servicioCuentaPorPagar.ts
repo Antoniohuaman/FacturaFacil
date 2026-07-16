@@ -245,14 +245,16 @@ export function revertirPagoDeCuentaPorPagar(
     estadoPago: nuevoEstadoPago,
     estadoVencimiento: calcularEstadoVencimiento(cxp.fechaVencimiento, nuevoSaldo),
     cuotas: nuevasCuotas,
-    pagosRelacionados: cxp.pagosRelacionados.filter((id) => id !== pagoId),
+    // El pago anulado se conserva en pagosRelacionados (historial/documentos
+    // relacionados); deja de contar como activo por su propio
+    // estadoDocumento, no por ausencia aquí.
     historial: [
       ...cxp.historial,
       {
         fecha: fechaReversion,
         usuario,
         accion: 'Pago anulado',
-        detalle: `Monto revertido: ${montoRevertido.toFixed(2)}`,
+        detalle: `Pago ${pagoId} — monto revertido: ${montoRevertido.toFixed(2)}`,
       },
     ],
     fechaActualizacion: fechaReversion,

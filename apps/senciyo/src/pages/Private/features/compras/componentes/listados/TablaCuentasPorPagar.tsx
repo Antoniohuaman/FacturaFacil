@@ -31,7 +31,7 @@ import {
   type FiltrosCxP,
   type CampoFechaFiltroCxP,
 } from '../../logica/filtrosCompras';
-import { puedeRegistrarPago, resolverNombreFormaPago } from '../../logica/reglasCompras';
+import { puedeRegistrarPago, resolverNombreFormaPago, obtenerPagosDeCxP } from '../../logica/reglasCompras';
 import { calcularDiasVencidos } from '../../servicios/servicioCuentaPorPagar';
 import { getNombreTipoDocumentoProveedor } from '../../constantes/tiposDocumentoProveedor';
 import { formatearFechaCompra } from '../../utilidades/formatearCompras';
@@ -350,9 +350,7 @@ export default function TablaCuentasPorPagar({
         return dias > 0 ? <span className="text-red-600 font-medium">{dias}</span> : '—';
       }
       case 'ultimoPago': {
-        const relacionados = pagos
-          .filter((p) => cxp.pagosRelacionados.includes(p.id))
-          .sort((a, b) => (a.fechaPago < b.fechaPago ? 1 : -1));
+        const relacionados = obtenerPagosDeCxP(cxp, pagos).sort((a, b) => (a.fechaPago < b.fechaPago ? 1 : -1));
         return relacionados[0]?.numeroPago ?? '—';
       }
       default:

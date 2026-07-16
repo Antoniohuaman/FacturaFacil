@@ -22,6 +22,7 @@ import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import { CLASIFICACION_LINEA_LABELS } from '../../modelos/LineaCompra';
 import {
   calcularEstadoPrincipalOC,
+  obtenerComprobantesRelacionadosOC,
   puedeEditarOC,
   puedeAnularOC,
   puedeGenerarCCDesdeOC,
@@ -196,7 +197,7 @@ export default function PanelDetalleOrdenCompra({
     { id: 'historial', label: 'Historial', icon: Clock },
   ];
 
-  const comprobantesGenerados = oc ? comprobantes.filter((c) => c.ordenCompraOrigenId === oc.id) : [];
+  const comprobantesGenerados = oc ? obtenerComprobantesRelacionadosOC(oc, comprobantes) : [];
 
   const nombreFormaPago = oc ? resolverNombreFormaPago(oc, config.paymentMethods) : '';
   // Misma fuente que el formulario y la impresión: se reconstruye el
@@ -223,14 +224,14 @@ export default function PanelDetalleOrdenCompra({
   const subtitulo = oc ? (
     <div className="flex flex-wrap gap-1 mt-1">
       <BadgeEstado
-        estado={calcularEstadoPrincipalOC(oc)}
+        estado={calcularEstadoPrincipalOC(oc, comprobantes)}
         labels={ETIQUETA_ESTADO_PRINCIPAL_OC as unknown as Record<string, string>}
         clases={BADGE_ESTADO_PRINCIPAL_OC as unknown as Record<string, string>}
       />
     </div>
   ) : null;
 
-  const estadoOC = oc ? calcularEstadoPrincipalOC(oc) : null;
+  const estadoOC = oc ? calcularEstadoPrincipalOC(oc, comprobantes) : null;
 
   /**
    * Máximo 2 acciones visibles en el header (más el menú "Más acciones"), para
@@ -246,7 +247,7 @@ export default function PanelDetalleOrdenCompra({
     const menu: React.ReactNode[] = [];
 
     const agregarEditarVisible = () => {
-      if (onEditar && puedeEditarOC(ocActual)) {
+      if (onEditar && puedeEditarOC(ocActual, comprobantes)) {
         visibles.push(
           <BotonEncabezado
             key="editar"
@@ -271,7 +272,7 @@ export default function PanelDetalleOrdenCompra({
       }
     };
     const agregarImprimirPdfMenu = () => {
-      if (onImprimir && puedeImprimirOC(ocActual)) {
+      if (onImprimir && puedeImprimirOC(ocActual, comprobantes)) {
         menu.push(
           <ItemMenuAccion key="imprimir" icon={Printer} label="Imprimir orden de compra" onClick={() => onImprimir(ocActual)} />,
           <ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ocActual)} />,
@@ -279,12 +280,12 @@ export default function PanelDetalleOrdenCompra({
       }
     };
     const agregarEnviarMenu = () => {
-      if (onEnviar && puedeEnviarOC(ocActual)) {
+      if (onEnviar && puedeEnviarOC(ocActual, comprobantes)) {
         menu.push(<ItemMenuAccion key="enviar" icon={Send} label="Enviar orden de compra" onClick={() => onEnviar(ocActual)} />);
       }
     };
     const agregarAnularMenu = () => {
-      if (onAnular && puedeAnularOC(ocActual)) {
+      if (onAnular && puedeAnularOC(ocActual, comprobantes)) {
         menu.push(<ItemMenuAccion key="anular" icon={XCircle} label="Anular orden de compra" onClick={() => onAnular(ocActual)} danger />);
       }
     };
@@ -293,7 +294,7 @@ export default function PanelDetalleOrdenCompra({
       case 'Borrador':
         agregarEditarVisible();
         agregarDuplicarVisible();
-        if (onEliminarBorrador && puedeEliminarBorradorOC(ocActual)) {
+        if (onEliminarBorrador && puedeEliminarBorradorOC(ocActual, comprobantes)) {
           menu.push(<ItemMenuAccion key="eliminar" icon={Trash2} label="Eliminar borrador" onClick={() => onEliminarBorrador(ocActual)} danger />);
         }
         agregarImprimirPdfMenu();
@@ -352,7 +353,7 @@ export default function PanelDetalleOrdenCompra({
         break;
       case 'Convertida':
         agregarEditarVisible();
-        if (onImprimir && puedeImprimirOC(ocActual)) {
+        if (onImprimir && puedeImprimirOC(ocActual, comprobantes)) {
           visibles.push(<BotonEncabezado key="imprimir" icon={Printer} texto="Imprimir" label="Imprimir orden de compra" onClick={() => onImprimir(ocActual)} />);
           menu.push(<ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ocActual)} />);
         }
@@ -360,7 +361,7 @@ export default function PanelDetalleOrdenCompra({
         agregarEnviarMenu();
         break;
       case 'Anulada':
-        if (onImprimir && puedeImprimirOC(ocActual)) {
+        if (onImprimir && puedeImprimirOC(ocActual, comprobantes)) {
           visibles.push(<BotonEncabezado key="imprimir" icon={Printer} texto="Imprimir" label="Imprimir orden de compra" onClick={() => onImprimir(ocActual)} />);
           menu.push(<ItemMenuAccion key="pdf" icon={Download} label="Descargar PDF" onClick={() => onImprimir(ocActual)} />);
         }

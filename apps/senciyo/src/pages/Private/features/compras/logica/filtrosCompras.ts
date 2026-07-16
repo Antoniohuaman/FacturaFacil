@@ -2,7 +2,12 @@ import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra, EstadoPrincipalCC } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
-import { calcularEstadoPrincipalOC, calcularEstadoPrincipalCC } from './reglasCompras';
+import {
+  calcularEstadoPrincipalOC,
+  calcularEstadoPrincipalCC,
+  obtenerCxPDePago,
+  obtenerComprobantesRelacionadosOC,
+} from './reglasCompras';
 
 /** Fecha real en que la OC quedó registrada (distinta de fechaEmision, que es declarada). Sin registrar aún → null. Única fuente, reutilizada por el filtro de fechas y por la columna "F. Registro". */
 export function obtenerFechaRegistroOC(oc: OrdenCompra): string | null {
@@ -54,7 +59,7 @@ export function filtrarOrdenesCompra(
       )
         return false;
     }
-    if (filtros.estadoPrincipal && calcularEstadoPrincipalOC(oc) !== filtros.estadoPrincipal) return false;
+    if (filtros.estadoPrincipal && calcularEstadoPrincipalOC(oc, comprobantes) !== filtros.estadoPrincipal) return false;
     if (filtros.proveedorId && oc.proveedorId !== filtros.proveedorId) return false;
     if (filtros.fechaDesde || filtros.fechaHasta) {
       const valor = obtenerValorFechaOC(oc, filtros.campoFecha ?? 'fechaEmision');
@@ -66,7 +71,7 @@ export function filtrarOrdenesCompra(
     if (filtros.compradorId && oc.compradorId !== filtros.compradorId) return false;
     if (filtros.moneda && oc.moneda !== filtros.moneda) return false;
     if (filtros.documentoRelacionado && filtros.documentoRelacionado !== 'todos') {
-      const tieneRelacionado = comprobantes.some((c) => c.ordenCompraOrigenId === oc.id);
+      const tieneRelacionado = obtenerComprobantesRelacionadosOC(oc, comprobantes).length > 0;
       if (filtros.documentoRelacionado === 'con' && !tieneRelacionado) return false;
       if (filtros.documentoRelacionado === 'sin' && tieneRelacionado) return false;
     }
@@ -213,7 +218,7 @@ export function filtrarPagosCompra(
   cuentasPorPagar: CuentaPorPagar[] = [],
 ): PagoCompra[] {
   return pagos.filter((p) => {
-    const cxp = cuentasPorPagar.find((c) => p.cuentasPorPagarAplicadas.includes(c.id));
+    const cxp = obtenerCxPDePago(p, cuentasPorPagar);
     if (filtros.busqueda) {
       const q = filtros.busqueda.toLowerCase();
       const campos = [

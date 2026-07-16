@@ -75,7 +75,7 @@ export default function FormularioOrdenCompra({
   const esBorradorExistente = Boolean(ocBase?.id) && ocBase?.estadoDocumento === 'borrador';
   const esEdicionRegistrada = Boolean(ocBase?.id) && ocBase?.estadoDocumento !== 'borrador';
   const esEdicion = esBorradorExistente || esEdicionRegistrada;
-  const esConvertida = esEdicionRegistrada && calcularEstadoPrincipalOC(ocBase as OrdenCompra) === 'Convertida';
+  const esConvertida = esEdicionRegistrada && calcularEstadoPrincipalOC(ocBase as OrdenCompra, state.comprobantes) === 'Convertida';
   // Misma fuente robusta (cruza relaciones reales OC → CC → CxP → Pagos, no
   // un estado derivado) que usa el bloqueo de servicio en `actualizarOrdenCompra`
   // (ContextoCompras.tsx) — bloquea aquí también los campos financieros/
@@ -347,7 +347,7 @@ export default function FormularioOrdenCompra({
         await persistirProveedorSiEsNuevo(proveedor, createCliente);
         refrescarProveedores();
       }
-      const estadoResultante = calcularEstadoPrincipalOC(oc);
+      const estadoResultante = calcularEstadoPrincipalOC(oc, state.comprobantes);
       const mensajeExito = estadoResultante === 'Pendiente de aprobación'
         ? 'Orden enviada a aprobación.'
         : esEdicion
@@ -756,7 +756,7 @@ export default function FormularioOrdenCompra({
             adjuntos={adjuntos}
             tiposPermitidos={['cotizacion_proveedor', 'orden_compra_firmada', 'contrato', 'otro']}
             cargadoPor={session?.userName}
-            permiteEliminar={!ocBase?.id || puedeEliminarAdjuntoOC(ocBase as OrdenCompra)}
+            permiteEliminar={!ocBase?.id || puedeEliminarAdjuntoOC(ocBase as OrdenCompra, state.comprobantes)}
             onAgregar={(a) => {
               setAdjuntos((prev) => [...prev, a]);
               feedback.success('Adjunto agregado.');

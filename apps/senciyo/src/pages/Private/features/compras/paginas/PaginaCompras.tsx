@@ -101,7 +101,7 @@ export default function PaginaCompras() {
 
   function handleImprimir(oc: OrdenCompra) {
     const nombreFormaPago = resolverNombreFormaPago(oc, config.paymentMethods);
-    void imprimirOrdenCompra(oc, empresaImpresion, nombreFormaPago);
+    void imprimirOrdenCompra(oc, empresaImpresion, nombreFormaPago, state.comprobantes);
   }
 
   function handleEnviar(oc: OrdenCompra) {
@@ -127,7 +127,7 @@ export default function PaginaCompras() {
     try {
       const registrada = await registrarOrdenCompraDesdeBorrador(oc.id, undefined, usuarioNombre);
       feedback.success(
-        calcularEstadoPrincipalOC(registrada) === 'Pendiente de aprobación'
+        calcularEstadoPrincipalOC(registrada, state.comprobantes) === 'Pendiente de aprobación'
           ? 'Orden enviada a aprobación.'
           : 'Orden de compra registrada.',
       );

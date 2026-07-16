@@ -68,6 +68,7 @@ import {
   validarTipoCambioRequerido,
   validarCantidadesFacturablesDesdeOC,
   aplicarFacturacionALineasOC,
+  revertirFacturacionALineasOC,
   calcularEstadoPrincipalOC,
   tieneCCPagosActivos,
   tieneOCPagosActivosRelacionados,
@@ -772,7 +773,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       const oc = state.ordenes.find((o) => o.id === id);
       if (!oc) throw new Error(`Orden de compra ${id} no encontrada.`);
 
-      const motivoBloqueo = motivoBloqueoAnulacionOC(oc);
+      const motivoBloqueo = motivoBloqueoAnulacionOC(oc, state.comprobantes);
       if (motivoBloqueo) throw new Error(motivoBloqueo);
 
       const ts = ahora();
@@ -792,7 +793,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       agregarOActualizarOC(actualizada);
       dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
     },
-    [state.ordenes],
+    [state.ordenes, state.comprobantes],
   );
 
   const aprobarOrdenCompra = useCallback(
@@ -904,7 +905,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     ): Promise<OrdenCompra> => {
       const oc = state.ordenes.find((o) => o.id === id);
       if (!oc) throw new Error(`Orden de compra ${id} no encontrada.`);
-      if (!puedeEditarOC(oc) || oc.estadoDocumento !== 'borrador') {
+      if (!puedeEditarOC(oc, state.comprobantes) || oc.estadoDocumento !== 'borrador') {
         throw new Error('Solo se puede actualizar una orden de compra que sigue en Borrador.');
       }
 
@@ -925,7 +926,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'ACTUALIZAR_ORDEN', payload: actualizada });
       return actualizada;
     },
-    [state.ordenes],
+    [state.ordenes, state.comprobantes],
   );
 
   const registrarOrdenCompraDesdeBorrador = useCallback(
@@ -974,14 +975,14 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     async (id: string): Promise<void> => {
       const oc = state.ordenes.find((o) => o.id === id);
       if (!oc) throw new Error(`Orden de compra ${id} no encontrada.`);
-      if (!puedeEliminarBorradorOC(oc)) {
+      if (!puedeEliminarBorradorOC(oc, state.comprobantes)) {
         throw new Error('Solo se puede eliminar una orden de compra en Borrador.');
       }
 
       eliminarOCDelStorage(id);
       dispatch({ type: 'ELIMINAR_ORDEN', payload: id });
     },
-    [state.ordenes],
+    [state.ordenes, state.comprobantes],
   );
 
   const actualizarOrdenCompra = useCallback(
@@ -992,11 +993,11 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     ): Promise<OrdenCompra> => {
       const existente = state.ordenes.find((o) => o.id === id);
       if (!existente) throw new Error(`Orden de compra ${id} no encontrada.`);
-      if (existente.estadoDocumento === 'borrador' || !puedeEditarOC(existente)) {
+      if (existente.estadoDocumento === 'borrador' || !puedeEditarOC(existente, state.comprobantes)) {
         throw new Error('Esta orden de compra no se puede editar en su estado actual.');
       }
 
-      const yaConvertida = calcularEstadoPrincipalOC(existente) === 'Convertida';
+      const yaConvertida = calcularEstadoPrincipalOC(existente, state.comprobantes) === 'Convertida';
       // Regla central: mientras cualquier CC relacionado tenga pagos activos
       // (cruzando OC → CC → CxP → Pagos, no un estado derivado), la OC
       // convertida no puede modificar ningún dato heredable. La validación
@@ -1477,8 +1478,38 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpAnulada });
         }
       }
+
+      // Revertir la facturación aplicada a la OC origen (si la hay): este CC
+      // deja de contar como conversión activa, así que lo que aportó a
+      // cantidadFacturada/estadoFacturacion se resta — nunca se toca
+      // comprobantesCompraRelacionados (se preserva íntegro para trazabilidad
+      // histórica; calcularEstadoPrincipalOC ya ignora los CC anulados de ese
+      // array por su cuenta).
+      if (cc.ordenCompraOrigenId) {
+        const ocOrigen = state.ordenes.find((o) => o.id === cc.ordenCompraOrigenId);
+        if (ocOrigen) {
+          const lineasRevertidas = revertirFacturacionALineasOC(ocOrigen.lineas, cc.lineas);
+          const ocActualizada: OrdenCompra = {
+            ...ocOrigen,
+            lineas: lineasRevertidas,
+            estadoFacturacion: calcularEstadoFacturacion(lineasRevertidas),
+            historial: [
+              ...ocOrigen.historial,
+              {
+                fecha: ts,
+                usuario: anuladoPor,
+                accion: 'Comprobante de compra relacionado anulado',
+                detalle: `${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}`,
+              },
+            ],
+            fechaActualizacion: ts,
+          };
+          agregarOActualizarOC(ocActualizada);
+          dispatch({ type: 'ACTUALIZAR_ORDEN', payload: ocActualizada });
+        }
+      }
     },
-    [state.comprobantes, state.cuentasPorPagar],
+    [state.comprobantes, state.cuentasPorPagar, state.ordenes],
   );
 
   // -------------------------------------------------------------------------
@@ -1705,7 +1736,10 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
             const ccActualizado: ComprobanteCompra = {
               ...cc,
               estadoPago: recalcularEstadoPagoComprobante(cxpRevertida.estadoPago),
-              pagosRelacionados: (cc.pagosRelacionados ?? []).filter((pid) => pid !== pago.id),
+              // El pago anulado se conserva en pagosRelacionados: sigue siendo
+              // parte del historial/documentos relacionados del CC, solo deja
+              // de ser un pago activo (lo determina p.estadoDocumento, no su
+              // presencia en este arreglo).
               historial: [
                 ...cc.historial,
                 { fecha: ts, accion: 'Pago anulado y revertido', detalle: pago.numeroPago },

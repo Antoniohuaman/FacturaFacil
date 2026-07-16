@@ -33,6 +33,8 @@ import {
   construirFilasResumenTributarioCompra,
   formatearEtiquetaImpuesto,
   resolverNombreFormaPago,
+  obtenerCxPDeCC,
+  obtenerPagosDeCC,
 } from '../../logica/reglasCompras';
 import { formatearFechaCompra, formatearNumeroCompra, formatearNumeroComprobanteCompra } from '../../utilidades/formatearCompras';
 import { TIPOS_DOCUMENTO_PROVEEDOR } from '../../constantes/tiposDocumentoProveedor';
@@ -192,10 +194,8 @@ export default function PanelDetalleComprobanteCompra({
   ];
 
   const ocOrigen = cc ? ordenes.find((o) => o.id === cc.ordenCompraOrigenId) : undefined;
-  const cxp = cc ? cuentasPorPagar.find((c) => c.comprobanteCompraId === cc.id) : undefined;
-  const pagosDelComprobante = cc
-    ? pagos.filter((p) => p.comprobantesCompraAplicados.includes(cc.id))
-    : [];
+  const cxp = cc ? obtenerCxPDeCC(cc, cuentasPorPagar) : undefined;
+  const pagosDelComprobante = cc ? obtenerPagosDeCC(cc, pagos) : [];
 
   const nombreFormaPago = cc ? resolverNombreFormaPago(cc, config.paymentMethods) : '';
   // Misma fuente que el formulario y el listado: se reconstruye el desglose

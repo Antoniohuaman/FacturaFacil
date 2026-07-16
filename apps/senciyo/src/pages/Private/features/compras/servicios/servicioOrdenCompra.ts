@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import type { OrdenCompra } from '../modelos/OrdenCompra';
+import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from './tiposServiciosCompras';
 import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
@@ -190,6 +191,7 @@ function construirRepresentacionImpresaOC(
   oc: OrdenCompra,
   empresa: EmpresaOC | undefined,
   nombreFormaPago: string,
+  comprobantes: ComprobanteCompra[],
 ) {
   // Misma fuente que el formulario y el drawer: se reconstruye el desglose
   // tributario desde las líneas persistidas, nunca desde oc.totales plano.
@@ -214,7 +216,7 @@ function construirRepresentacionImpresaOC(
         { style: { textAlign: 'right' as const } },
         createElement('h2', { style: { margin: 0, fontSize: '14px' } }, 'ORDEN DE COMPRA'),
         createElement('p', { style: { margin: 0, fontWeight: 700 } }, formatearNumeroCompra(oc.serie, oc.correlativo || undefined)),
-        createElement('p', { style: { margin: 0, fontSize: '11px' } }, ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc)]),
+        createElement('p', { style: { margin: 0, fontSize: '11px' } }, ETIQUETA_ESTADO_PRINCIPAL_OC[calcularEstadoPrincipalOC(oc, comprobantes)]),
         createElement('p', { style: { margin: 0, fontSize: '11px' } }, `Emisión: ${formatearFechaCompra(oc.fechaEmision)}`),
         oc.fechaVencimiento
           ? createElement('p', { style: { margin: 0, fontSize: '11px' } }, `Vencimiento: ${formatearFechaCompra(oc.fechaVencimiento)}`)
@@ -334,11 +336,12 @@ export async function imprimirOrdenCompra(
   oc: OrdenCompra,
   empresa: EmpresaOC | undefined,
   nombreFormaPago: string,
+  comprobantes: ComprobanteCompra[],
 ): Promise<void> {
   await imprimirComprobante({
     formato: 'A4',
     titulo: `Orden de Compra ${formatearNumeroCompra(oc.serie, oc.correlativo || undefined)}`,
-    render: () => construirRepresentacionImpresaOC(oc, empresa, nombreFormaPago),
+    render: () => construirRepresentacionImpresaOC(oc, empresa, nombreFormaPago, comprobantes),
   });
 }
 
