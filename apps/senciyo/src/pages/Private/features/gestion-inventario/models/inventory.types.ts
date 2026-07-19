@@ -30,6 +30,17 @@ export type MovimientoMotivo =
   | 'OTRO';
 
 /**
+ * Tipo de documento de origen estructurado de un MovimientoStock (§10.6 del diseño aprobado) —
+ * en paralelo al `documentoReferencia` de texto existente, sin reemplazarlo.
+ */
+export type TipoDocumentoOrigenMovimiento =
+  | 'comprobante_compra' | 'nota_ingreso' | 'nota_salida' | 'ajuste' | 'importacion'
+  | 'transferencia' | 'venta' | 'nota_credito' | 'migracion';
+
+/** Estado estructural del movimiento (§10.6) — 'confirmado' es el valor asumido para movimientos históricos que no tienen este campo. */
+export type EstadoMovimientoStock = 'confirmado' | 'revertido';
+
+/**
  * Movimiento de stock
  */
 export interface MovimientoStock {
@@ -64,6 +75,24 @@ export interface MovimientoStock {
   almacenDestinoId?: string;
   almacenDestinoNombre?: string;
   movimientoRelacionadoId?: string; // ID del movimiento complementario
+
+  // --- Campos estructurales del Kardex Valorizado (§10.6, Etapa 1A) — puramente aditivos y
+  // opcionales para compatibilidad con movimientos históricos; NINGÚN campo monetario (el valor
+  // económico vive en CapaCostoInventario/ConsumoCapaCostoInventario, §9.1). Ausentes en todos
+  // los movimientos existentes hasta que un consumidor real los complete (Etapa 1C en adelante) —
+  // esta etapa no modifica ningún servicio que cree MovimientoStock. ---
+  /** Aislamiento multiempresa explícito en el dato — ausente en movimientos históricos (su único aislamiento sigue siendo el namespace de `localStorage`, no reconstruible retroactivamente). */
+  empresaId?: string;
+  /** FK real, en paralelo al `documentoReferencia` de texto existente. */
+  documentoOrigenId?: string;
+  tipoDocumentoOrigen?: TipoDocumentoOrigenMovimiento;
+  lineaOrigenId?: string;
+  /** Para ENTRADA: referencia 1:1 a la CapaCostoInventario creada. Para SALIDA: no se usa (la relación es 1:N vía ConsumoCapaCostoInventario.movimientoSalidaId). */
+  capaId?: string;
+  /** Ausente equivale a 'confirmado' (compatibilidad con movimientos históricos). */
+  estado?: EstadoMovimientoStock;
+  movimientoReversoDeId?: string;
+  claveIdempotencia?: string;
 }
 
 /**
