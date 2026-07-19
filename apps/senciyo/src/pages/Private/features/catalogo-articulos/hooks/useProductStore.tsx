@@ -588,7 +588,11 @@ function buildProduct(existing: Product | undefined, input: Partial<ProductInput
     categoria: input.categoria ?? existing?.categoria ?? '',
     descripcion: input.descripcion ?? existing?.descripcion,
     imagen: resolveImageValue(input.imagen ?? existing?.imagen),
-    impuesto: input.impuesto ?? existing?.impuesto ?? 'IGV (18.00%)',
+    // Sin fallback hardcodeado: la ausencia de impuesto se conserva como ausencia real
+    // ('sin configurar'), nunca se convierte en IGV 18% — `useProductForm.validateForm` ya exige
+    // una relación tributaria real (impuestoId) antes de permitir guardar un producto nuevo.
+    impuesto: input.impuesto ?? existing?.impuesto ?? '',
+    impuestoId: input.impuestoId ?? existing?.impuestoId,
     unidadesMedidaAdicionales: input.unidadesMedidaAdicionales ?? existing?.unidadesMedidaAdicionales ?? [],
     establecimientoIds: input.establecimientoIds ?? existing?.establecimientoIds ?? [],
     disponibleEnTodos: input.disponibleEnTodos ?? existing?.disponibleEnTodos ?? false,

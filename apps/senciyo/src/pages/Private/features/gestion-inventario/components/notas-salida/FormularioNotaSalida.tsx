@@ -41,8 +41,10 @@ import {
   resolveIgvRateNS,
   calcularDesgloseTributarioNS,
 } from '../../services/notaSalida.service';
+import { motivoImpuestoSinResolver } from '@/shared/catalogos-sunat/resolucionTributaria';
 import { obtenerReservasDeOV } from '../../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import { summarizeProductStock } from '@/shared/inventory/stockGateway';
+import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 
 const calcularLinea = (l: LineaNotaSalida): LineaNotaSalida => {
   const rate = resolveIgvRateNS(l.impuesto);
@@ -315,7 +317,7 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
   const handleAgregarProductos = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prods: { product: any; quantity: number }[]) => {
-      const bienes = prods.filter(p => p.product.tipoExistencia !== 'SERVICIOS');
+      const bienes = prods.filter(p => esProductoInventariable(p.product));
       if (bienes.length < prods.length) {
         feedback.warning('Las notas de salida solo aceptan bienes físicos. Se omitieron servicios.');
       }
@@ -424,6 +426,10 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
     if (lineas.some(l => l.cantidad <= 0)) return 'Todas las cantidades deben ser mayores a 0.';
     if (lineasConStockInsuficiente.size > 0)
       return 'No hay stock disponible suficiente para generar la nota de salida.';
+    // El impuesto no resuelto no puede continuar en silencio con una tasa 0% asumida — bloquea la
+    // confirmación con un mensaje funcional (ver resolucionTributaria.ts).
+    if (lineas.some(l => motivoImpuestoSinResolver(l.impuesto)))
+      return 'Hay productos con el impuesto sin configurar o sin poder interpretarse. Corrígelo en Productos antes de generar la nota de salida.';
     return null;
   };
 

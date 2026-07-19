@@ -23,6 +23,9 @@ import {
   tieneCCPagosActivos,
   calcularMontoRetencion,
   round2,
+  calcularEsInventariable,
+  calcularAfectaInventarioLinea,
+  resolverSnapshotInventarioLinea,
 } from '../../logica/reglasCompras';
 import { persistirProveedorSiEsNuevo } from '../../servicios/servicioProveedorCompras';
 import { validarComprobanteCompraBasico } from '../../servicios/servicioComprobanteCompra';
@@ -246,7 +249,10 @@ export default function FormularioComprobanteCompra({
   const [intentoBorrador, setIntentoBorrador] = useState(false);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
-  const lineasCompra = useLineasCompra(ccBase?.lineas ?? datosDesdeOC?.lineas ?? []);
+  const lineasCompra = useLineasCompra(ccBase?.lineas ?? datosDesdeOC?.lineas ?? [], {
+    tratamientoImpuestoCompra: config.preferenciasInventario.tratamientoImpuestoCompra,
+    taxes: config.taxes,
+  });
   const lineas = lineasCompra.lineas;
 
   const totalesCalculados = calcularTotalesLineas(lineas);
@@ -255,6 +261,30 @@ export default function FormularioComprobanteCompra({
   const netoAPagarCC = round2(totalesCalculados.total - montoRetencion);
   const documentoAfectaInventario = modalidadInventario !== 'no_afecta_inventario';
   const almacenSeleccionado = almacenesActivos.find((a) => a.id === almacenId);
+
+  /**
+   * Única resolución final por línea (naturaleza inventariable + afectación + snapshot de
+   * conversión), calculada UNA vez con la unidad y cantidad YA vigentes de cada línea — reutilizada
+   * tanto por la validación (bloquea si `snapshot.error`) como por `construirDatosCC` (persiste
+   * `snapshot.factorConversionAplicado`/`cantidadDocumentadaInventariable` tal cual, nunca conserva
+   * el valor anterior de la línea). Un solo recorrido: nunca dos cálculos independientes que puedan
+   * divergir entre lo que se valida y lo que finalmente se guarda.
+   */
+  const resolucionesLineas = useMemo(
+    () =>
+      lineas.map((l) => {
+        const esInventariable = l.esInventariable ?? calcularEsInventariable(l);
+        const afectaInventarioLinea = calcularAfectaInventarioLinea(esInventariable, modalidadInventario);
+        const snapshot = resolverSnapshotInventarioLinea({
+          esInventariable,
+          unidadMedidaCodigo: l.unidadMedidaCodigo,
+          unidadesDisponibles: l.unidadesDisponibles,
+          cantidadComercialFinal: l.cantidadSolicitada,
+        });
+        return { linea: l, esInventariable, afectaInventarioLinea, snapshot };
+      }),
+    [lineas, modalidadInventario],
+  );
 
   // Misma validación que ya aplica el servicio (`validarComprobanteCompraBasico`,
   // servicioComprobanteCompra.ts) — se reutiliza tal cual para no duplicar
@@ -282,6 +312,19 @@ export default function FormularioComprobanteCompra({
         mensaje: 'Selecciona el almacén de destino para el ingreso a inventario.',
       });
     }
+    // Validación definitiva del snapshot de conversión — con la unidad y cantidad YA finales de
+    // cada línea, inmediatamente antes de permitir confirmar el CC. Una línea inventariable que
+    // vaya a afectar inventario no puede guardarse sin un snapshot válido (§4 del saneamiento).
+    resolucionesLineas.forEach(({ linea: l, afectaInventarioLinea, snapshot }) => {
+      if (!afectaInventarioLinea) return;
+      if (snapshot.error) {
+        base.push({
+          campo: 'lineas',
+          codigo: 'SNAPSHOT_CONVERSION_INVALIDO',
+          mensaje: `${l.nombreProducto}: ${snapshot.error}`,
+        });
+      }
+    });
     return base;
   }, [
     proveedor,
@@ -296,6 +339,7 @@ export default function FormularioComprobanteCompra({
     lineas,
     documentoAfectaInventario,
     almacenSeleccionado,
+    resolucionesLineas,
   ]);
   // Los campos realmente heredados de una OC (proveedor, moneda, forma de
   // pago, líneas) llegan ya validados desde un documento real: si algo ahí
@@ -371,11 +415,20 @@ export default function FormularioComprobanteCompra({
       presupuesto: presupuesto || undefined,
       observaciones: observaciones || undefined,
       observacionPresupuestal: ccBase?.observacionPresupuestal,
-      lineas: lineas.map((l) => ({
+      // Misma resolución ya calculada para `erroresValidacion` (resolucionesLineas) — la línea
+      // definitiva persiste EXACTAMENTE ese resultado fresco, nunca los valores de
+      // factorConversionAplicado/cantidadDocumentadaInventariable que ya traía `l` en el estado:
+      // si difieren, prevalece el resultado final recién calculado con la unidad y cantidad
+      // vigentes (§ Cierre 1). Para una línea no inventariable, el snapshot resuelve `{}` (ambos
+      // campos ausentes) — nunca se inventa factor 1 ni cantidad 0.
+      lineas: resolucionesLineas.map(({ linea: l, esInventariable, afectaInventarioLinea, snapshot }) => ({
         ...l,
-        afectaInventario: documentoAfectaInventario,
-        almacenDestinoId: documentoAfectaInventario ? almacenSeleccionado?.id : undefined,
-        almacenDestinoNombre: documentoAfectaInventario ? almacenSeleccionado?.nombreAlmacen : undefined,
+        esInventariable,
+        afectaInventario: afectaInventarioLinea,
+        almacenDestinoId: afectaInventarioLinea ? almacenSeleccionado?.id : undefined,
+        almacenDestinoNombre: afectaInventarioLinea ? almacenSeleccionado?.nombreAlmacen : undefined,
+        factorConversionAplicado: snapshot.factorConversionAplicado,
+        cantidadDocumentadaInventariable: snapshot.cantidadDocumentadaInventariable,
       })),
       totales: {
         subtotal: totalesCalculados.subtotal,

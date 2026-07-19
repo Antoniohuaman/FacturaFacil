@@ -9,6 +9,19 @@ export interface AdditionalUnitMeasure {
   unidadName?: string;
 }
 
+/** Catálogo interno de naturaleza del ítem (no es un catálogo SUNAT). Fuente de verdad única: este tipo. */
+export type TipoExistenciaProducto =
+  | 'MERCADERIAS'
+  | 'PRODUCTOS_TERMINADOS'
+  | 'SERVICIOS'
+  | 'MATERIAS_PRIMAS'
+  | 'ENVASES'
+  | 'MATERIALES_AUXILIARES'
+  | 'SUMINISTROS'
+  | 'REPUESTOS'
+  | 'EMBALAJES'
+  | 'OTROS';
+
 export interface Product {
   id: string;
   codigo: string;
@@ -19,7 +32,10 @@ export interface Product {
   precio: number;
   categoria: string;
   imagen?: string;
+  /** Etiqueta de texto libre legado (ej. "IGV (18.00%)") — fuente solo cuando `impuestoId` está ausente. Ver `resolverTratamientoTributarioProducto`. */
   impuesto?: string;
+  /** FK estructurada a `Tax.id` (configuracion-sistema/modelos/Tax.ts) — fuente prioritaria de resolución tributaria para productos nuevos o editados. */
+  impuestoId?: string;
   descripcion?: string;
   unidadesMedidaAdicionales?: AdditionalUnitMeasure[];
   // Asignación de establecimientos
@@ -37,7 +53,7 @@ export interface Product {
   modelo?: string;
   isFavorite?: boolean;
   peso?: number;
-  tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
+  tipoExistencia?: TipoExistenciaProducto;
   /** Indica si el producto/servicio puede estar sujeto a detracción SUNAT. */
   sujetoDetraccion?: boolean;
   /** Código del Catálogo 54 SUNAT (ej. "037", "027"). Fuente de verdad: shared/catalogos-sunat. */
@@ -128,6 +144,7 @@ export interface ProductFormData {
   unidadesMedidaAdicionales: AdditionalUnitMeasure[];
   categoria: string;
   impuesto?: string;
+  impuestoId?: string;
   descripcion?: string;
   imagen?: File | string;
   // Asignación de establecimientos
@@ -144,7 +161,7 @@ export interface ProductFormData {
   marca?: string;
   modelo?: string;
   peso?: number;
-  tipoExistencia?: 'MERCADERIAS' | 'PRODUCTOS_TERMINADOS' | 'SERVICIOS' | 'MATERIAS_PRIMAS' | 'ENVASES' | 'MATERIALES_AUXILIARES' | 'SUMINISTROS' | 'REPUESTOS' | 'EMBALAJES' | 'OTROS';
+  tipoExistencia?: TipoExistenciaProducto;
   sujetoDetraccion?: boolean;
   codigoDetraccion?: string | null;
   aplicaBienNormalizadoGRE?: boolean;

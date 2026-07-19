@@ -5,6 +5,7 @@
 import { CATALOGO_54_DETRACCIONES } from './catalogos-tributarios';
 import { esCodigoHabilitadoParaEmision } from './calculo-detraccion';
 import type { CodigoDetraccionTributaria } from './tipos-catalogos-tributarios';
+import { parsearEtiquetaImpuesto } from './resolucionTributaria';
 
 // ─── Tipos ────────────────────────────────────────────────────────────
 
@@ -25,15 +26,19 @@ export interface ResultadoValidacionDetraccion {
 /**
  * Convierte el string de impuesto del formulario/importación a un enum interno.
  * Ejemplos: 'IGV (18.00%)' → 'gravado', 'Exonerado (0.00%)' → 'exonerado'
+ *
+ * Adaptador delgado sobre `parsearEtiquetaImpuesto` (shared/catalogos-sunat/resolucionTributaria.ts)
+ * — ya no reimplementa su propia detección de palabras clave. Corrección obligatoria: antes
+ * bastaba que la etiqueta contuviera la subcadena "igv" para resolver 'gravado', sin exigir un
+ * porcentaje numérico; ahora exige lo mismo que la fuente central (un número parseable), igual
+ * que el resto de los adaptadores — sin comportamientos divergentes entre ellos.
+ * `'gratuita'` (sin categoría propia en `AfectacionIgv`) se proyecta a `'exonerado'`, misma tasa 0.
  */
 export function resolverAfectacionDesdeImpuesto(impuesto: string): AfectacionIgv {
-  const lower = impuesto.toLowerCase();
-  if (!lower.trim()) return 'desconocido';
-  if (lower.includes('exporta')) return 'exportacion';
-  if (lower.includes('inafecto')) return 'inafecto';
-  if (lower.includes('exonerado')) return 'exonerado';
-  if (lower.includes('igv')) return 'gravado';
-  return 'desconocido';
+  const { categoria } = parsearEtiquetaImpuesto(impuesto);
+  if (categoria === 'sin_configurar') return 'desconocido';
+  if (categoria === 'gratuita') return 'exonerado';
+  return categoria;
 }
 
 // ─── Clasificaciones compatibles por tipo de producto ─────────────────

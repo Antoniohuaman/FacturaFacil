@@ -7,6 +7,7 @@ import { InventoryService } from './inventory.service';
 import { CORRELATIVO_DIGITOS_NI } from '../models/notaIngreso.constants';
 import type { NotaIngreso, TipoIngreso, LineaNotaIngreso } from '../models/notaIngreso.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
+import { parsearEtiquetaImpuesto } from '@/shared/catalogos-sunat/resolucionTributaria';
 
 const TIPO_INGRESO_A_MOTIVO: Record<TipoIngreso, MovimientoMotivo> = {
   '02': 'COMPRA',
@@ -223,17 +224,20 @@ export const anularNIEnInventario = (
 
 // ─── Pure helpers — no side effects, no storage access ──────────────────────
 
+/**
+ * Adaptador delgado sobre `parsearEtiquetaImpuesto` (shared/catalogos-sunat/resolucionTributaria.ts)
+ * — ya no reimplementa su propia expresión regular ni su propia lista de palabras clave.
+ *
+ * Corrección obligatoria: se elimina el fallback silencioso a 18% ante una etiqueta ambigua o
+ * ausente — devolvía una tasa inventada sin que el documento supiera que el impuesto nunca se
+ * resolvió. Ahora devuelve `0`, igual que `resolverImpuestoProducto` (Compras) ya hacía para
+ * `'sin_configurar'` — coherente entre los cuatro adaptadores, nunca una tasa asumida. Un IGV en
+ * 0 por impuesto no resuelto es una discrepancia visible en el documento (invita a corregir el
+ * dato real del producto); un 18% inventado no lo era.
+ */
 export const resolveIgvRate = (impuesto?: string): number => {
-  if (!impuesto) return 0.18;
-  const lower = impuesto.toLowerCase();
-  if (lower.includes('exonerado') || lower.includes('inafecto') || lower.includes('gratuita'))
-    return 0;
-  const m = impuesto.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (m) {
-    const pct = parseFloat(m[1]);
-    return Number.isFinite(pct) ? pct / 100 : 0.18;
-  }
-  return 0.18;
+  const { categoria, tasa } = parsearEtiquetaImpuesto(impuesto);
+  return categoria === 'gravado' ? tasa : 0;
 };
 
 export interface GrupoImpuesto {

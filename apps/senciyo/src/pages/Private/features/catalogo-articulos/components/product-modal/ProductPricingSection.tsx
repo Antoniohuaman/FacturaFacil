@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
 import { Percent, HelpCircle } from 'lucide-react';
 import type { ProductFormData } from '../../models/types';
+import type { FormError } from '../../hooks/useProductForm';
 import { Tooltip } from '@/shared/ui';
 
 interface ProductPricingSectionProps {
   formData: ProductFormData;
   setFormData: React.Dispatch<React.SetStateAction<ProductFormData>>;
+  errors: FormError;
   isFieldVisible: (fieldId: string) => boolean;
   isFieldRequired: (fieldId: string) => boolean;
   taxOptions: { id: string; code: string; value: string; label: string }[];
@@ -17,6 +19,7 @@ interface ProductPricingSectionProps {
 export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
   formData,
   setFormData,
+  errors,
   isFieldVisible,
   isFieldRequired,
   taxOptions,
@@ -73,10 +76,23 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
         <select
           id="impuesto"
           value={formData.impuesto}
-          onChange={(e) => setFormData(prev => ({ ...prev, impuesto: e.target.value }))}
+          onChange={(e) => {
+            const seleccionado = optionsWithLegacy.find(option => option.value === e.target.value);
+            // 'legacy-impuesto' es un pseudo-id (no una Tax real, ver optionsWithLegacy arriba) —
+            // nunca se persiste como impuestoId. Solo una opción real del catálogo (`Tax.id`)
+            // pasa a ser la relación estructurada — fuente prioritaria de
+            // `resolverTratamientoTributarioProducto` (shared/catalogos-sunat/resolucionTributaria.ts).
+            const impuestoId = seleccionado && seleccionado.id !== 'legacy-impuesto' ? seleccionado.id : undefined;
+            setFormData(prev => ({ ...prev, impuesto: e.target.value, impuestoId }));
+          }}
           onBlur={onBlur}
-          className="w-full h-9 pl-9 pr-3 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
+          className={`w-full h-9 pl-9 pr-3 rounded-md border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${
+            errors.impuesto ? 'border-red-300 bg-red-50' : 'border-gray-300'
+          }`}
         >
+          {/* Sin Tax predeterminado ni selección previa: no se asume ningún impuesto — se ofrece
+              un placeholder explícito que exige una elección real antes de poder guardar. */}
+          {!formData.impuesto && <option value="">Selecciona un impuesto…</option>}
           {optionsWithLegacy.map(option => (
             <option key={option.id} value={option.value}>
               {option.label}
@@ -84,6 +100,7 @@ export const ProductPricingSection: React.FC<ProductPricingSectionProps> = ({
           ))}
         </select>
       </div>
+      {errors.impuesto && <p className="text-red-600 text-xs mt-1">{errors.impuesto}</p>}
     </div>
   );
 };

@@ -73,7 +73,6 @@ const crearConfiguracionBase = (companyId: string): Configuration => ({
   inventory: {
     trackStock: true,
     allowNegativeStock: false,
-    autoUpdateCosts: true,
     costMethod: 'AVERAGE',
     enableBarcodes: false,
     enableSerialNumbers: false,

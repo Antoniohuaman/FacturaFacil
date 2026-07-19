@@ -7,6 +7,7 @@ import { useConfigurationContext } from '../../../configuracion-sistema/contexto
 import { useCurrentEstablecimientoId } from '@/contexts/UserSessionContext';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 import { isProductEnabledForEstablecimiento } from '../../../catalogo-articulos/models/types';
+import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 
 interface TransferModalProps {
   isOpen: boolean;
@@ -148,7 +149,7 @@ const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, onTransf
     p =>
       (p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.codigo.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      p.tipoExistencia !== 'SERVICIOS'
+      esProductoInventariable(p)
   );
 
   const handleSubmit = () => {

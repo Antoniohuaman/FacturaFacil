@@ -4,6 +4,15 @@ import type { CuentaPorPagar, EstadoPagoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
 import type { LineaCompra, TipoAfectacionCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
+import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
+import {
+  resolverTratamientoTributarioProducto,
+  type DatosProductoParaResolucionTributaria,
+} from '@/shared/catalogos-sunat/resolucionTributaria';
+import type { TratamientoImpuestoCompra } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import type { Tax } from '../../configuracion-sistema/modelos/Tax';
+import { getFactorToUnidadMinima, convertToUnidadMinima, type ProductoConUnidades } from '@/shared/inventory/unitConversion';
+import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
 
 /**
  * Comprobantes de Compra realmente generados por esta OC — relación
@@ -700,6 +709,8 @@ export function formatearEtiquetaImpuesto(tipoAfectacion: TipoAfectacionCompra, 
       return 'Exonerado';
     case 'inafecto':
       return 'Inafecto';
+    case 'exportacion':
+      return 'Exportación';
     default:
       return 'Sin impuesto configurado';
   }
@@ -777,7 +788,12 @@ export function calcularTotalesLineas(
       };
       grupo.monto += igvLinea;
       gruposIgv.set(tasaIgv, grupo);
-    } else if (linea.tipoAfectacion === 'exonerado') {
+    } else if (linea.tipoAfectacion === 'exonerado' || linea.tipoAfectacion === 'exportacion') {
+      // 'exportacion' se agrega al mismo acumulador que 'exonerado' (TotalesCompra, el modelo
+      // persistido, no tiene un bucket propio de exportación — ampliarlo es una decisión de
+      // modelo fuera de este saneamiento). La distinción que sí importa — no confundir ambas
+      // categorías — se conserva en `tipoAfectacion` de la línea (`'exportacion'` real, nunca
+      // proyectado a `'exonerado'`) y en `formatearEtiquetaImpuesto`.
       subtotalExonerado += total;
     } else if (linea.tipoAfectacion === 'inafecto') {
       subtotalInafecto += total;
@@ -874,27 +890,147 @@ export function calcularMontoRetencion(total: number, tasaRetencion: number): nu
 }
 
 /**
- * Resuelve la afectación/tasa de IGV real de una línea de compra a partir de
- * la etiqueta de impuesto propia del producto (ej. "IGV (18.00%)",
- * "Exonerado (0.00%)", generada por el módulo Productos al elegir el
- * impuesto en su formulario). Si el producto no tiene impuesto propio
- * definido, la línea queda como 'sin_configurar': Compras nunca inventa una
- * tasa ni usa un impuesto por defecto de Configuración.
+ * Resuelve la afectación/tasa de IGV real de una línea de compra — adaptador delgado sobre el
+ * núcleo central `resolverTratamientoTributarioProducto` (shared/catalogos-sunat/resolucionTributaria.ts):
+ * prioridad `impuestoId` estructurado → `Tax` real → `affectationCode`/tasa configurada → texto
+ * legado del producto (ej. "IGV (18.00%)") solo cuando no hay `impuestoId` resoluble. Nunca
+ * reimplementa su propio parseo ni su propio mapa de códigos SUNAT.
+ *
+ * `'exportacion'` se conserva como su propia categoría en `TipoAfectacionCompra` (nunca se
+ * confunde con `'exonerado'` solo porque ambas tengan tasa cero). Cuando el núcleo no puede
+ * resolver el impuesto (`estado !== 'resuelto'` — impuesto ausente/ambiguo, o `'gratuita'`, que
+ * este alcance de Compras no admite — decisión 3.9 del diseño de Kardex Valorizado), la línea
+ * queda `'sin_configurar'`: `validarLineasCompra` ya bloquea el registro para ese valor — nunca se
+ * disfraza `'gratuita'` de `'exonerado'` para forzar el mismo resultado numérico, ni se asume una
+ * tasa (0% ni 18%) cuando la resolución está pendiente.
  */
 export function resolverImpuestoProducto(
-  impuestoProducto: string | undefined,
+  producto: DatosProductoParaResolucionTributaria,
+  tratamientoEmpresa: TratamientoImpuestoCompra,
+  taxes: readonly Tax[] = [],
 ): { tipoAfectacion: TipoAfectacionCompra; tasaIgv: number } {
-  const etiqueta = (impuestoProducto ?? '').toLowerCase().trim();
-  if (!etiqueta) return { tipoAfectacion: 'sin_configurar', tasaIgv: 0 };
+  const resolucion = resolverTratamientoTributarioProducto(producto, tratamientoEmpresa, taxes);
+  if (resolucion.estado !== 'resuelto') {
+    return { tipoAfectacion: 'sin_configurar', tasaIgv: 0 };
+  }
+  switch (resolucion.categoria) {
+    case 'gravado':
+    case 'exonerado':
+    case 'inafecto':
+    case 'exportacion':
+      return { tipoAfectacion: resolucion.categoria, tasaIgv: resolucion.tasa };
+    default:
+      // 'gratuita' y 'sin_configurar' ya quedaron excluidas por `estado !== 'resuelto'` arriba —
+      // rama defensiva, no alcanzable con datos reales.
+      return { tipoAfectacion: 'sin_configurar', tasaIgv: 0 };
+  }
+}
 
-  if (etiqueta.includes('exonerado')) return { tipoAfectacion: 'exonerado', tasaIgv: 0 };
-  if (etiqueta.includes('inafecto')) return { tipoAfectacion: 'inafecto', tasaIgv: 0 };
+/**
+ * Naturaleza histórica de la línea: ¿este ítem, tal como fue clasificado y tal como es el
+ * producto al momento de confirmarse la línea, es controlado por stock? No depende de la
+ * modalidad del documento (eso es `calcularAfectaInventarioLinea`, más abajo) — separa
+ * naturaleza de efecto (decisión funcional 3.4 del diseño de Kardex Valorizado).
+ *
+ * - 'servicio' | 'gasto' | 'activo_fijo': nunca inventariables en este alcance.
+ * - 'suministro': solo si el producto real es estructuralmente un producto controlado por
+ *   stock de tipo SUMINISTROS — no basta con que la línea se haya clasificado como suministro.
+ * - 'producto': inventariable según `esProductoInventariable` (fuente única, shared/inventory).
+ */
+export function calcularEsInventariable(
+  linea: Pick<LineaCompra, 'clasificacion' | 'tipoExistencia'>,
+): boolean {
+  if (linea.clasificacion === 'producto') {
+    return esProductoInventariable({ tipoExistencia: linea.tipoExistencia });
+  }
+  if (linea.clasificacion === 'suministro') {
+    return linea.tipoExistencia === 'SUMINISTROS';
+  }
+  // servicio, gasto, activo_fijo: nunca inventariables en este alcance.
+  return false;
+}
 
-  const porcentaje = etiqueta.match(/(\d+(?:\.\d+)?)/);
-  if (porcentaje) {
-    const tasa = parseFloat(porcentaje[1]) / 100;
-    if (!Number.isNaN(tasa)) return { tipoAfectacion: 'gravado', tasaIgv: tasa };
+/**
+ * Efecto real sobre Inventario: combina la naturaleza de la línea con la modalidad del
+ * documento. Reemplaza la asignación uniforme anterior (todas las líneas de un CC recibían el
+ * mismo valor, sin importar su clasificación) — una línea de servicio nunca puede quedar
+ * `afectaInventario=true`, sin importar la modalidad elegida para el documento.
+ */
+export function calcularAfectaInventarioLinea(
+  esInventariable: boolean,
+  modalidadInventario: ComprobanteCompra['modalidadInventario'],
+): boolean {
+  return esInventariable && modalidadInventario !== 'no_afecta_inventario';
+}
+
+export interface DatosSnapshotInventarioLinea {
+  esInventariable: boolean;
+  unidadMedidaCodigo: string;
+  /** Ya incluye `factorConversion` por opción (ver `getProductUnitOptions`) — única fuente de factor que Compras conserva en cualquier momento del ciclo de vida de la línea. */
+  unidadesDisponibles: ProductUnitOption[];
+  /** Cantidad comercial final documentada (`LineaCompra.cantidadSolicitada`) — la que gobierna el snapshot, nunca `cantidadRecibida`. */
+  cantidadComercialFinal: number;
+}
+
+export interface ResultadoSnapshotInventarioLinea {
+  factorConversionAplicado?: number;
+  cantidadDocumentadaInventariable?: number;
+  /** Presente únicamente cuando no fue posible resolver un snapshot válido — nunca se inventa un factor. */
+  error?: string;
+}
+
+function construirProductoDesdeUnidadesDisponibles(unidadesDisponibles: ProductUnitOption[]): ProductoConUnidades {
+  const base = unidadesDisponibles.find((u) => u.isBase);
+  return {
+    unidad: base?.code,
+    unidadesMedidaAdicionales: unidadesDisponibles
+      .filter((u) => !u.isBase)
+      .map((u) => ({ id: u.code, unidadCodigo: u.code, factorConversion: u.factorConversion ?? 0 })),
+  };
+}
+
+/**
+ * Regla única y pura para resolver (y validar) el snapshot histórico de conversión de una línea
+ * de Compra — `factorConversionAplicado` y `cantidadDocumentadaInventariable`. Reutiliza
+ * `getFactorToUnidadMinima`/`convertToUnidadMinima` (nunca reimplementa la búsqueda de
+ * presentaciones ni la multiplicación). Debe invocarse en los 4 puntos donde la unidad o la
+ * cantidad final de una línea inventariable pueden cambiar: al crear la línea, al cambiar de
+ * unidad, al cambiar la cantidad documentada, y como validación definitiva antes de confirmar el
+ * CC — siempre con los mismos datos de entrada (unidad + cantidad ya vigentes en ese momento),
+ * nunca dejando un snapshot obsoleto a la espera de que otra ruta lo repare.
+ */
+export function resolverSnapshotInventarioLinea(
+  datos: DatosSnapshotInventarioLinea,
+): ResultadoSnapshotInventarioLinea {
+  if (!datos.esInventariable) {
+    // Una línea no inventariable no necesita snapshots de stock — ausencia válida, no un error.
+    return {};
   }
 
-  return { tipoAfectacion: 'sin_configurar', tasaIgv: 0 };
+  const opcionSeleccionada = datos.unidadesDisponibles.find((u) => u.code === datos.unidadMedidaCodigo);
+  if (!opcionSeleccionada) {
+    return { error: 'La unidad seleccionada no forma parte de las presentaciones del producto — no se puede resolver el factor de conversión.' };
+  }
+  // Validación explícita del factor CRUDO de la opción antes de reutilizar
+  // getFactorToUnidadMinima — esa utilidad, al no encontrar un factor positivo, cae de vuelta a
+  // `1` silenciosamente (pensado para "presentación no encontrada", no para "factor inválido
+  // conocido"); aquí se distingue: una unidad base siempre es factor 1 por definición, pero una
+  // presentación con `factorConversion` ausente o ≤ 0 es un dato inválido real que debe bloquear.
+  if (!opcionSeleccionada.isBase && !(Number(opcionSeleccionada.factorConversion) > 0)) {
+    return { error: `Factor de conversión inválido (${opcionSeleccionada.factorConversion}) para la unidad "${datos.unidadMedidaCodigo}" — no se puede confirmar la línea sin un factor válido.` };
+  }
+
+  const producto = construirProductoDesdeUnidadesDisponibles(datos.unidadesDisponibles);
+  const factorConversionAplicado = getFactorToUnidadMinima(producto, datos.unidadMedidaCodigo);
+  if (!(factorConversionAplicado > 0)) {
+    return { error: `Factor de conversión inválido (${factorConversionAplicado}) para la unidad "${datos.unidadMedidaCodigo}" — no se puede confirmar la línea sin un factor válido.` };
+  }
+
+  const cantidadDocumentadaInventariable = convertToUnidadMinima({
+    product: producto,
+    quantity: datos.cantidadComercialFinal,
+    unitCode: datos.unidadMedidaCodigo,
+  });
+
+  return { factorConversionAplicado, cantidadDocumentadaInventariable };
 }

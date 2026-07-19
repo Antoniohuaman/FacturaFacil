@@ -36,6 +36,8 @@ export interface Product {
   tipoExistencia?: string;
   tipoProducto?: 'BIEN' | 'SERVICIO';
   impuesto?: string;
+  /** FK estructurada a `Tax.id` (ver catalogo-articulos/models/types.ts) — fuente prioritaria de resolución tributaria sobre `impuesto` (texto legado). */
+  impuestoId?: string;
   imagen?: string;
   codigoSunat?: string;
   unidad?: string; // ✅ Nombre de la unidad del producto
@@ -109,8 +111,11 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       descuentoProducto: p.descuentoProducto,
       peso: p.peso,
       tipoExistencia: p.tipoExistencia,
+      // Clasificación comercial (BIEN/SERVICIO) — NO usa esProductoInventariable: son
+      // responsabilidades distintas (ver shared/inventory/clasificacionInventario.ts).
       tipoProducto: p.tipoExistencia === 'SERVICIOS' ? 'SERVICIO' : 'BIEN',
       impuesto: p.impuesto,
+      impuestoId: p.impuestoId,
       imagen: p.imagen,
       codigoSunat: p.codigoSunat,
       unidad: p.unidad,

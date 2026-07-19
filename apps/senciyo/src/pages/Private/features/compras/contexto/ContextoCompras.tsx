@@ -77,7 +77,7 @@ import {
   round2,
 } from '../logica/reglasCompras';
 import type { LineaCompra } from '../modelos/LineaCompra';
-import { calcularEstadoFacturacion } from '../utilidades/calcularEstadosCompra';
+import { calcularEstadoFacturacion, calcularEstadoInventarioCC, calcularEstadoInventarioOC } from '../utilidades/calcularEstadosCompra';
 import { eliminarOCDelStorage } from '../repositorios/repositorioOrdenesCompra';
 import { extraerDatosOCParaCC } from '../mapeadores/mapeadorOCaCC';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
@@ -229,13 +229,6 @@ function lanzarSiHayErrores(errores: ErrorValidacion[]): void {
  * (alta directa) y registrarComprobanteCompraDesdeBorrador (promoción), para
  * no duplicarla.
  */
-/** Única derivación de estadoInventario a partir de la modalidad elegida — reutilizada al registrar y al editar un CC ya registrado. */
-function derivarEstadoInventarioCC(modalidadInventario: ComprobanteCompra['modalidadInventario']): ComprobanteCompra['estadoInventario'] {
-  if (modalidadInventario === 'ingreso_automatico') return 'automatico';
-  if (modalidadInventario === 'no_afecta_inventario') return 'no_aplica';
-  return 'pendiente';
-}
-
 function armarRegistroCC(
   datos: Omit<
     ComprobanteCompra,
@@ -253,7 +246,7 @@ function armarRegistroCC(
     tipoRegistro: 'comprobante_compra',
     estadoDocumento: 'registrado',
     estadoPago: 'pendiente',
-    estadoInventario: derivarEstadoInventarioCC(datos.modalidadInventario),
+    estadoInventario: calcularEstadoInventarioCC(datos.lineas, datos.modalidadInventario),
     fechaRegistro: ts,
     historial: [
       ...historialPrevio,
@@ -777,7 +770,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         estadoAprobacion: datos.requiereAprobacion ? 'pendiente' : 'no_requiere',
         estadoRecepcion: 'pendiente',
         estadoFacturacion: 'pendiente',
-        estadoInventario: 'pendiente',
+        estadoInventario: calcularEstadoInventarioOC(datos.lineas),
         historial: [
           {
             fecha: ts,
@@ -911,7 +904,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         estadoAprobacion: datos.requiereAprobacion ? 'pendiente' : 'no_requiere',
         estadoRecepcion: 'pendiente',
         estadoFacturacion: 'pendiente',
-        estadoInventario: 'pendiente',
+        estadoInventario: calcularEstadoInventarioOC(datos.lineas),
         historial: [
           { fecha: ts, usuario: usuarioNombre, accion: 'Borrador guardado', detalle: '' },
         ],
@@ -1258,7 +1251,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         tipoRegistro: 'comprobante_compra',
         estadoDocumento: 'borrador',
         estadoPago: 'pendiente',
-        estadoInventario: 'pendiente',
+        estadoInventario: calcularEstadoInventarioCC(datos.lineas, datos.modalidadInventario),
         fechaRegistro: ts,
         historial: [{ fecha: ts, usuario: usuarioNombre, accion: 'Borrador guardado', detalle: '' }],
         creadoPor: usuarioId,
@@ -1410,7 +1403,10 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         estadoDocumento: 'registrado',
         estadoPago: existente.estadoPago,
         estadoInventario: puedeFinancieros
-          ? derivarEstadoInventarioCC(datosPermitidos.modalidadInventario ?? existente.modalidadInventario)
+          ? calcularEstadoInventarioCC(
+              datosPermitidos.lineas ?? existente.lineas,
+              datosPermitidos.modalidadInventario ?? existente.modalidadInventario,
+            )
           : existente.estadoInventario,
         fechaRegistro: existente.fechaRegistro,
         cuentaPorPagarId: existente.cuentaPorPagarId,

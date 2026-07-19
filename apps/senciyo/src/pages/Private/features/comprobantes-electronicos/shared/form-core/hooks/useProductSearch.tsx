@@ -7,6 +7,7 @@ import {
 } from '../../../../catalogo-articulos/models/types';
 import { useConfigurationContext } from '../../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
+import { esProductoInventariable } from '../../../../../../../shared/inventory/clasificacionInventario';
 
 type UseProductSearchParams = {
   EstablecimientoId?: string;
@@ -35,7 +36,7 @@ export const useProductSearch = ({ EstablecimientoId }: UseProductSearchParams =
           price: p.precio,
           // Para POS: stock debe respetar el establecimiento (no usar cantidad global).
           stock: summary.totalAvailable,
-          requiresStockControl: p.tipoExistencia !== 'SERVICIOS', // Servicios no requieren stock
+          requiresStockControl: esProductoInventariable(p), // Servicios no requieren stock
           category: p.categoria || 'Sin categoría',
           description: p.descripcion || ''
         };

@@ -7,8 +7,13 @@ export type ClasificacionLineaCompra =
   | 'suministro'
   | 'activo_fijo';
 
-/** 'sin_configurar': el producto no tiene impuesto propio definido en Productos; bloquea el registro. */
-export type TipoAfectacionCompra = 'gravado' | 'exonerado' | 'inafecto' | 'sin_configurar';
+/**
+ * 'sin_configurar': el producto no tiene impuesto propio definido en Productos; bloquea el
+ * registro. 'exportacion': tasa 0 igual que 'exonerado'/'inafecto', pero es una categoría
+ * tributaria distinta (Catálogo 07 SUNAT código '40') — nunca se confunde con exoneración solo
+ * porque ambas tengan tasa cero.
+ */
+export type TipoAfectacionCompra = 'gravado' | 'exonerado' | 'inafecto' | 'exportacion' | 'sin_configurar';
 
 export const CLASIFICACION_LINEA_LABELS: Record<ClasificacionLineaCompra, string> = {
   producto: 'Producto',
@@ -44,7 +49,14 @@ export interface LineaCompra {
 
   // Clasificación funcional
   clasificacion: ClasificacionLineaCompra;
-  /** Si es false, este ítem no genera movimiento de stock al registrar CC */
+  /**
+   * Naturaleza histórica de la línea (¿es controlada por stock?), calculada una sola vez con
+   * `calcularEsInventariable` al confirmar la línea — snapshot, nunca se recalcula leyendo el
+   * catálogo vigente. Ausente en líneas históricas creadas antes de este campo (ver
+   * `calcularEsInventariable`/`calcularAfectaInventarioLinea` en `logica/reglasCompras.ts`).
+   */
+  esInventariable?: boolean;
+  /** Si es false, este ítem no genera movimiento de stock al registrar CC. Derivado de esInventariable + modalidadInventario del documento (calcularAfectaInventarioLinea) — no es un booleano libre. */
   afectaInventario: boolean;
 
   // Unidad de medida
@@ -52,6 +64,13 @@ export interface LineaCompra {
   unidadMedidaCodigo: string;
   /** Unidad base + presentaciones válidas del producto (ver getProductUnitOptions). Vacío si el producto no tiene unidad configurada. */
   unidadesDisponibles: ProductUnitOption[];
+  /**
+   * Snapshot histórico del factor de conversión aplicado (presentación comercial → unidad
+   * mínima), capturado una sola vez al confirmar la línea con las utilidades centrales de
+   * `shared/inventory/unitConversion.ts` — nunca reconsultado si el producto cambia después.
+   * Ausente en líneas históricas anteriores a este campo.
+   */
+  factorConversionAplicado?: number;
 
   // Cantidades separadas (prevención de doble ingreso)
   cantidadSolicitada: number;
@@ -64,6 +83,14 @@ export interface LineaCompra {
   cantidadPendienteFacturacion: number;
   /** Derivado: cantidadFacturada - cantidadIngresadaInventario */
   cantidadPendienteInventario: number;
+  /**
+   * Cantidad documental inventariable, en unidad mínima — snapshot calculado una sola vez al
+   * confirmar la línea (cantidad comercial documentada × factorConversionAplicado), nunca
+   * recalculado ni incrementado/decrementado por deltas. Ausente en líneas no inventariables
+   * (no aplica) y en líneas históricas anteriores a este campo — ver `mapeadorCCaNI.ts` y
+   * `logica/reglasCompras.ts`.
+   */
+  cantidadDocumentadaInventariable?: number;
 
   // Financiero
   costoUnitario: number;

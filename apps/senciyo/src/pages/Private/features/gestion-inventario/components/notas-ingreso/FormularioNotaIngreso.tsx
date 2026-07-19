@@ -26,6 +26,7 @@ import ActionButtonsSection from '../../../comprobantes-electronicos/shared/form
 import ProductSelector from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useTenant } from '@/shared/tenant/TenantContext';
+import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsultaDocumentos';
@@ -46,6 +47,7 @@ import {
   resolveIgvRate,
   calcularDesgloseTributario,
 } from '../../services/notaIngreso.service';
+import { motivoImpuestoSinResolver } from '@/shared/catalogos-sunat/resolucionTributaria';
 
 const calcularLinea = (l: LineaNotaIngreso): LineaNotaIngreso => {
   const rate = resolveIgvRate(l.impuesto);
@@ -370,7 +372,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
   const handleAgregarProductos = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (prods: { product: any; quantity: number }[]) => {
-      const bienes = prods.filter(p => p.product.tipoExistencia !== 'SERVICIOS');
+      const bienes = prods.filter(p => esProductoInventariable(p.product));
       if (bienes.length < prods.length) {
         feedback.warning('Las notas de ingreso solo aceptan bienes físicos. Se omitieron servicios.');
       }
@@ -489,6 +491,10 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     if (lineas.some(l => !l.almacenId)) return 'Todas las líneas deben tener un almacén asignado.';
     if (lineas.some(l => l.costoUnitario <= 0))
       return 'Ingrese el costo unitario de todos los productos antes de generar la nota de ingreso.';
+    // El impuesto no resuelto no puede continuar en silencio con una tasa 0% asumida — bloquea la
+    // confirmación con un mensaje funcional (ver resolucionTributaria.ts).
+    if (lineas.some(l => motivoImpuestoSinResolver(l.impuesto)))
+      return 'Hay productos con el impuesto sin configurar o sin poder interpretarse. Corrígelo en Productos antes de generar la nota de ingreso.';
     return null;
   };
 

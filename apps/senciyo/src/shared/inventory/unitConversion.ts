@@ -5,6 +5,25 @@ import {
   extraerPresentacionId
 } from '../units/codigoPresentacion';
 
+/** Subconjunto estructural mínimo de `AdditionalUnitMeasure` que estas utilidades leen — nunca exige `nombre`/`unidadName`/`unidadSymbol`, que son solo de presentación. */
+export interface UnidadAdicionalConFactor {
+  id?: string;
+  unidadCodigo: string;
+  factorConversion: number;
+}
+
+/**
+ * Subconjunto estructural mínimo que estas utilidades realmente necesitan (`unidad` +
+ * `unidadesMedidaAdicionales`) — cualquier `CatalogProduct` completo lo satisface, pero también
+ * lo satisface una vista parcial de producto (ej. la usada en Compras, que no siempre trae el
+ * `Product` completo del catálogo). Evita forzar un cast inseguro en consumidores que solo
+ * conocen la unidad y las presentaciones de un producto, no el registro completo.
+ */
+export interface ProductoConUnidades {
+  unidad?: string;
+  unidadesMedidaAdicionales?: UnidadAdicionalConFactor[];
+}
+
 const DEFAULT_UNIT_CODE = '';
 
 const toNumber = (value: unknown): number => {
@@ -27,12 +46,12 @@ export const normalizeUnitCode = (value?: string | null): string | undefined => 
   return trimmed.toUpperCase();
 };
 
-export const resolveUnidadMinima = (product?: CatalogProduct | null): string => {
+export const resolveUnidadMinima = (product?: ProductoConUnidades | null): string => {
   return normalizeUnitCode(product?.unidad) || DEFAULT_UNIT_CODE;
 };
 
 const findAdditionalUnit = (
-  product: CatalogProduct | undefined | null,
+  product: ProductoConUnidades | undefined | null,
   codeOrId: string | undefined
 ) => {
   if (!product || !codeOrId) return undefined;
@@ -47,7 +66,7 @@ const findAdditionalUnit = (
 };
 
 export const getFactorToUnidadMinima = (
-  product?: CatalogProduct | null,
+  product?: ProductoConUnidades | null,
   unitCode?: string | null
 ): number => {
   const unidadMinima = resolveUnidadMinima(product);
@@ -78,7 +97,7 @@ export const getFactorToUnidadMinima = (
 };
 
 export interface ConvertQuantityInput {
-  product?: CatalogProduct | null;
+  product?: ProductoConUnidades | null;
   quantity: number | null | undefined;
   unitCode?: string | null;
 }

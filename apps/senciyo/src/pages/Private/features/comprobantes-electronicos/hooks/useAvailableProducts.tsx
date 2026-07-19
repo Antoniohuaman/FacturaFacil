@@ -131,6 +131,8 @@ export const useAvailableProducts = (options: UseAvailableProductsOptions = {}) 
         isFavorite: Boolean(product.isFavorite),
         sujetoDetraccion: product.sujetoDetraccion,
         codigoDetraccion: product.codigoDetraccion ?? null,
+        // Clasificación comercial (BIEN/SERVICIO) — NO usa esProductoInventariable: son
+        // responsabilidades distintas (ver shared/inventory/clasificacionInventario.ts).
         tipoProducto: product.tipoExistencia === 'SERVICIOS' ? ('SERVICIO' as const) : ('BIEN' as const),
         // Datos adicionales del catálogo
         catalogData: {

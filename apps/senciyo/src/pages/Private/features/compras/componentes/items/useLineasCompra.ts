@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { getProductUnitOptions } from '@/shared/units/productUnitOptions';
-import { crearLineaCompraDesdeProducto, type ProductDataLineaCompra } from '../../servicios/servicioOrdenCompra';
-import { calcularLineaCompra, round2 } from '../../logica/reglasCompras';
+import {
+  crearLineaCompraDesdeProducto,
+  type ProductDataLineaCompra,
+  type ContextoTributarioLineaCompra,
+} from '../../servicios/servicioOrdenCompra';
+import { calcularLineaCompra, resolverSnapshotInventarioLinea, round2 } from '../../logica/reglasCompras';
 import type { LineaCompra } from '../../modelos/LineaCompra';
 import type { Product } from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
 
@@ -13,11 +17,24 @@ function generarIdLinea(): string {
  * Estado y handlers de las líneas de un documento de Compras (OC o CC).
  * Toda línea proviene de un producto real del catálogo: unidad, impuesto y
  * clasificación se toman del producto (ver crearLineaCompraDesdeProducto).
- * No existen líneas libres/manuales en Compras.
+ * No existen líneas libres/manuales en Compras. `contextoTributario` (Configuración → Impuestos +
+ * PreferenciasInventario) es el mismo para todas las líneas nuevas de este documento — se resuelve
+ * una sola vez en el llamador (FormularioComprobanteCompra/FormularioOrdenCompra), nunca aquí.
  */
-export function useLineasCompra(lineasIniciales: LineaCompra[]) {
+export function useLineasCompra(lineasIniciales: LineaCompra[], contextoTributario: ContextoTributarioLineaCompra) {
   function recalcularLinea(linea: LineaCompra): LineaCompra {
     const { baseImponible, igv, total } = calcularLineaCompra(linea);
+
+    // Snapshot de conversión resuelto con la unidad y la cantidad YA vigentes en la línea —
+    // se ejecuta en cada recálculo (creación, cambio de unidad, cambio de cantidad) con la
+    // misma regla única, nunca se deja un snapshot obsoleto a la espera de otra ruta.
+    const snapshot = resolverSnapshotInventarioLinea({
+      esInventariable: linea.esInventariable ?? false,
+      unidadMedidaCodigo: linea.unidadMedidaCodigo,
+      unidadesDisponibles: linea.unidadesDisponibles,
+      cantidadComercialFinal: linea.cantidadSolicitada,
+    });
+
     return {
       ...linea,
       subtotal: baseImponible,
@@ -32,6 +49,8 @@ export function useLineasCompra(lineasIniciales: LineaCompra[]) {
       // reflejarlo mientras tanto en el formulario.
       cantidadPendienteFacturacion: Math.max(0, round2(linea.cantidadSolicitada - linea.cantidadFacturada)),
       cantidadPendienteInventario: 0,
+      factorConversionAplicado: snapshot.factorConversionAplicado,
+      cantidadDocumentadaInventariable: snapshot.cantidadDocumentadaInventariable,
     };
   }
 
@@ -51,6 +70,8 @@ export function useLineasCompra(lineasIniciales: LineaCompra[]) {
         if (l.id !== id) return l;
         const opcion = l.unidadesDisponibles.find((u) => u.code === codigoUnidad);
         if (!opcion) return l;
+        // recalcularLinea resuelve el snapshot de nuevo con la unidad ya cambiada — nunca se
+        // limita a borrar el snapshot anterior y esperar que otra ruta lo repare.
         return recalcularLinea({ ...l, unidadMedida: opcion.label, unidadMedidaCodigo: opcion.code });
       }),
     );
@@ -85,9 +106,10 @@ export function useLineasCompra(lineasIniciales: LineaCompra[]) {
         codigoSunat: product.codigoSunat,
         peso: product.peso,
         impuestoProducto: product.impuesto,
+        impuestoId: product.impuestoId,
         esServicio: product.tipoProducto === 'SERVICIO',
       };
-      const linea = crearLineaCompraDesdeProducto(generarIdLinea(), productData, quantity);
+      const linea = crearLineaCompraDesdeProducto(generarIdLinea(), productData, quantity, contextoTributario);
       return recalcularLinea(linea);
     });
     setLineas((prev) => [...prev, ...nuevasLineas]);

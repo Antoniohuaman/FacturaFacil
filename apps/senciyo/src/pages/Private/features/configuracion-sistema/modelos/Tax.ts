@@ -424,6 +424,22 @@ export function normalizeTaxes(taxes: Tax[]): Tax[] {
   return cloned;
 }
 
+/**
+ * Único impuesto real predeterminado para consumidores fuera de esta pantalla (ej. Productos al
+ * crear un ítem nuevo) — la MISMA regla que usa la pantalla de Configuración de Negocio →
+ * Afectaciones Tributarias para resaltar "Por defecto" (`tax.isDefault`). `isActive` es un
+ * resguardo adicional, no una regla distinta: `normalizeTaxes` ya garantiza que el impuesto
+ * marcado como predeterminado siempre está activo.
+ *
+ * Nunca recurre a un orden de códigos hardcodeado (`IGV18`, `IGV10`, ...) ni al primer elemento
+ * del arreglo: si ningún Tax visible está marcado como predeterminado (arreglo vacío o sin
+ * ninguno con `isDefault=true`), devuelve `undefined` — el consumidor debe exigir una selección
+ * real, nunca asumir IGV 18% ni cualquier otro impuesto por descarte.
+ */
+export function resolverImpuestoPredeterminado(taxes: readonly Tax[]): Tax | undefined {
+  return taxes.find((tax) => tax.isDefault && tax.isActive);
+}
+
 export const TAX_TYPES = [
   { value: 'PERCENTAGE', label: 'Porcentaje', description: 'Impuesto basado en porcentaje' },
   { value: 'FIXED_AMOUNT', label: 'Monto Fijo', description: 'Impuesto de monto fijo' },

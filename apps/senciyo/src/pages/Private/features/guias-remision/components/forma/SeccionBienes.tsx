@@ -547,12 +547,11 @@ export default function SeccionBienes({
         );
 
       case 'tipoProducto': {
-        const tipo =
-          catalogProduct?.tipoExistencia === 'SERVICIOS'
-            ? 'SERVICIO'
-            : catalogProduct
-              ? 'BIEN'
-              : undefined;
+        // Clasificación comercial (BIEN/SERVICIO) — NO usa esProductoInventariable: son
+        // responsabilidades distintas (ver shared/inventory/clasificacionInventario.ts).
+        const tipo = catalogProduct
+          ? (catalogProduct.tipoExistencia === 'SERVICIOS' ? 'SERVICIO' : 'BIEN')
+          : undefined;
         return (
           <td key={`${bien.id}-tipo`} className="px-2 py-2 text-center">
             {tipo ? (

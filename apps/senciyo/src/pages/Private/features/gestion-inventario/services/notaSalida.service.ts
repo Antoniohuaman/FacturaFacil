@@ -13,6 +13,7 @@ import {
   allocateSaleAcrossalmacenes,
   computeAvailable,
 } from '../../../../../shared/inventory/stockGateway';
+import { parsearEtiquetaImpuesto } from '@/shared/catalogos-sunat/resolucionTributaria';
 
 // ─── Mapeo de tipo de salida a motivo Kardex ───────────────────────────────
 
@@ -90,17 +91,15 @@ export function formatDocumentoOrigenNS(
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────
 
+/**
+ * Adaptador delgado sobre `parsearEtiquetaImpuesto` (shared/catalogos-sunat/resolucionTributaria.ts)
+ * — mismo criterio que `resolveIgvRate` (notaIngreso.service.ts): sin regex/palabras clave
+ * propias, sin fallback silencioso a 18%. Un impuesto no resuelto devuelve 0, nunca una tasa
+ * inventada.
+ */
 export const resolveIgvRateNS = (impuesto?: string): number => {
-  if (!impuesto) return 0.18;
-  const lower = impuesto.toLowerCase();
-  if (lower.includes('exonerado') || lower.includes('inafecto') || lower.includes('gratuita'))
-    return 0;
-  const m = impuesto.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (m) {
-    const pct = parseFloat(m[1]);
-    return Number.isFinite(pct) ? pct / 100 : 0.18;
-  }
-  return 0.18;
+  const { categoria, tasa } = parsearEtiquetaImpuesto(impuesto);
+  return categoria === 'gravado' ? tasa : 0;
 };
 
 export interface GrupoImpuestoNS {

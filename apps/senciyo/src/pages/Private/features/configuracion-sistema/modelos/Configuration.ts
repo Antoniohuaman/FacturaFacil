@@ -49,7 +49,18 @@ export interface Configuration {
   inventory: {
     trackStock: boolean;
     allowNegativeStock: boolean;
-    autoUpdateCosts: boolean;
+    /**
+     * Configuración fantasma confirmada: el tipo sigue permitiendo 4 métodos y el default real
+     * (`useConfiguracionSistema.ts`) sigue siendo `'AVERAGE'` — NO está restringido a FIFO, y
+     * ninguna función lee este campo para decidir comportamiento (confirmado sin consumidores en
+     * el saneamiento de Etapa 0 del Kardex Valorizado). No se implementa aquí ningún motor de
+     * costeo ni se fuerza el tipo/default a 'FIFO', porque este modelo
+     * `Configuration`/`useConfiguracionSistema` completo está huérfano (sin consumidores en
+     * ningún componente activo) — la configuración de Inventario realmente activa y persistida
+     * vive en `ContextoConfiguracion.tsx` (`SalesPreferences`/`PreferenciasInventario`), no aquí.
+     * FIFO como único método oficial (decisión 3.12 del diseño aprobado) queda como deuda
+     * pendiente de aplicar el día que este modelo se conecte a un consumidor real — no antes.
+     */
     costMethod: 'FIFO' | 'LIFO' | 'AVERAGE' | 'SPECIFIC';
     enableBarcodes: boolean;
     enableSerialNumbers: boolean;

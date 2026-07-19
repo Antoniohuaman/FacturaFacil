@@ -19,7 +19,8 @@
     "dev:pm:cf": "npm run build:pm && wrangler pages dev apps/pm-portal/dist --compatibility-date 2026-03-07 --ip 127.0.0.1 --port 8788 --local-protocol http",
     "build:pm": "npm run build -w portal-pm",
     "lint:pm": "npm run lint -w portal-pm",
-    "typecheck:functions": "tsc --project functions/tsconfig.json"
+    "typecheck:functions": "tsc --project functions/tsconfig.json",
+    "test:senciyo": "npm run test -w senciyo"
   },
   "devDependencies": {
     "wrangler": "4.83.0"

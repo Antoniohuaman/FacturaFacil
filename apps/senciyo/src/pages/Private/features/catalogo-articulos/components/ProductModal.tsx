@@ -36,6 +36,7 @@ import { useProductFieldsConfig } from '../hooks/useProductFieldsConfig';
 import { useProductForm } from '../hooks/useProductForm';
 import type { Product } from '../models/types';
 import { useConfigurationContext, type Category } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { resolverImpuestoPredeterminado } from '../../configuracion-sistema/modelos/Tax';
 import { useCurrentEstablecimientoId } from '@/contexts/UserSessionContext';
 
 interface ProductModalProps {
@@ -106,22 +107,22 @@ const ProductModal: React.FC<ProductModalProps> = ({
     }));
   }, [configState.taxes]);
 
-  const defaultTaxLabel = useMemo(() => {
-    if (!configState.taxes || configState.taxes.length === 0) {
-      return undefined;
-    }
-    const order = ['IGV18', 'IGV10', 'EXO', 'INA', 'IGV_EXP'];
-    const taxes = configState.taxes;
-    const explicitDefault = taxes.find(tax => tax.isDefault);
-    const byOrder = taxes.find(tax => order.includes(tax.code));
-    const fallback = explicitDefault ?? byOrder ?? taxes[0];
+  // Única fuente de "impuesto predeterminado" (Tax.ts::resolverImpuestoPredeterminado) — la misma
+  // regla real que usa la pantalla de Configuración de Negocio → Afectaciones Tributarias
+  // (SeccionImpuestos.tsx). Sin ese Tax marcado, `impuestoPorDefecto` es `undefined` — el
+  // formulario debe exigir una selección real, nunca asumir IGV 18% ni cualquier otro impuesto.
+  const impuestoPorDefecto = useMemo(() => {
+    const predeterminado = resolverImpuestoPredeterminado(configState.taxes ?? []);
+    if (!predeterminado) return undefined;
 
-    const rateFixed = fallback.rate.toFixed(2);
-    if (fallback.name.toLowerCase().startsWith('igv')) {
-      return `IGV (${rateFixed}%)`;
-    }
-    return `${fallback.name} (${rateFixed}%)`;
+    const rateFixed = predeterminado.rate.toFixed(2);
+    const label = predeterminado.name.toLowerCase().startsWith('igv')
+      ? `IGV (${rateFixed}%)`
+      : `${predeterminado.name} (${rateFixed}%)`;
+    return { id: predeterminado.id, label };
   }, [configState.taxes]);
+  const defaultTaxLabel = impuestoPorDefecto?.label;
+  const defaultTaxId = impuestoPorDefecto?.id;
 
   const {
     fieldsConfig,
@@ -175,6 +176,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     onSave,
     onClose,
     defaultTaxLabel,
+    defaultTaxId,
     activeEstablecimientos: Establecimientos,
     defaultEstablecimientoId,
     prefillName
@@ -399,6 +401,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   <ProductPricingSection
                     formData={formData}
                     setFormData={setFormData}
+                    errors={errors}
                     isFieldVisible={isFieldVisible}
                     isFieldRequired={isFieldRequired}
                     taxOptions={taxOptions}

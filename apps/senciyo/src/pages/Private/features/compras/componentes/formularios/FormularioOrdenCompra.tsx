@@ -215,7 +215,10 @@ export default function FormularioOrdenCompra({
   // ya valida `erroresValidacion` en el cliente.
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
-  const lineasCompra = useLineasCompra(ocBase?.lineas ?? []);
+  const lineasCompra = useLineasCompra(ocBase?.lineas ?? [], {
+    tratamientoImpuestoCompra: config.preferenciasInventario.tratamientoImpuestoCompra,
+    taxes: config.taxes,
+  });
   const lineas = lineasCompra.lineas;
 
   const totalesCalculados = calcularTotalesLineas(lineas);

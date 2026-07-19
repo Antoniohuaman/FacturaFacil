@@ -2,6 +2,14 @@ export interface ProductUnitOption {
   code: string;
   label: string;
   isBase?: boolean;
+  /**
+   * Factor de conversión hacia la unidad mínima (1 para la unidad base). Necesario para que
+   * consumidores que ya no tienen el `Product` completo (ej. Compras, que solo conserva
+   * `unidadesDisponibles` en `LineaCompra`) puedan resolver/validar snapshots de conversión en
+   * cualquier momento del ciclo de vida de la línea, sin volver a consultar el catálogo — ver
+   * `resolverSnapshotInventarioLinea` en `compras/logica/reglasCompras.ts`.
+   */
+  factorConversion?: number;
 }
 
 export interface AdditionalUnitLike {
@@ -10,6 +18,7 @@ export interface AdditionalUnitLike {
   nombre?: string;
   unidadName?: string;
   unidadSymbol?: string;
+  factorConversion?: number;
 }
 
 export interface ProductWithUnitsLike {
@@ -32,6 +41,7 @@ export const getProductUnitOptions = (product: ProductWithUnitsLike): ProductUni
       code: product.unidad,
       label: product.unitName || product.unitSymbol || product.unidad,
       isBase: true,
+      factorConversion: 1,
     });
   }
 
@@ -41,6 +51,7 @@ export const getProductUnitOptions = (product: ProductWithUnitsLike): ProductUni
     options.push({
       code,
       label: unidad.nombre || unidad.unidadName || unidad.unidadSymbol || unidad.unidadCodigo,
+      factorConversion: unidad.factorConversion,
     });
   });
 

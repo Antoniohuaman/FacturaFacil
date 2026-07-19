@@ -4,6 +4,8 @@ import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from './tiposServiciosCompras';
 import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
+import type { TratamientoImpuestoCompra } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import type { Tax } from '../../configuracion-sistema/modelos/Tax';
 import {
   validarFechaVencimientoCredito,
   validarLineasCompra,
@@ -13,6 +15,8 @@ import {
   calcularTotalesLineas,
   formatearEtiquetaImpuesto,
   construirFilasResumenTributarioCompra,
+  calcularEsInventariable,
+  resolverSnapshotInventarioLinea,
 } from '../logica/reglasCompras';
 import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprobante';
 import { formatMoney, normalizarImporte } from '@/shared/currency';
@@ -65,6 +69,7 @@ export interface ProductDataLineaCompra {
   precioCompra?: number;
   unidadMedida?: string;
   unidadMedidaCodigo?: string;
+  /** Ya debe incluir `factorConversion` por opción (ver `getProductUnitOptions`) — única fuente de factor que necesita `resolverSnapshotInventarioLinea`. */
   unidadesDisponibles: ProductUnitOption[];
   imagen?: string;
   stockReferencia?: number;
@@ -78,9 +83,17 @@ export interface ProductDataLineaCompra {
   codigoFabrica?: string;
   codigoSunat?: string;
   peso?: number;
-  /** Etiqueta de impuesto propia del producto (ej. "IGV (18.00%)"), tal como la define Productos. */
+  /** Etiqueta de impuesto propia del producto (ej. "IGV (18.00%)"), tal como la define Productos — solo se usa cuando `impuestoId` está ausente o no resuelve. */
   impuestoProducto?: string;
+  /** FK estructurada a `Tax.id` (Product.impuestoId) — fuente prioritaria de resolución tributaria. */
+  impuestoId?: string;
   esServicio: boolean;
+}
+
+/** Contexto tributario real (Configuración → Impuestos + PreferenciasInventario) necesario para resolver el impuesto de una línea nueva — nunca se asume ni se inventa fuera de estas dos fuentes. */
+export interface ContextoTributarioLineaCompra {
+  tratamientoImpuestoCompra: TratamientoImpuestoCompra;
+  taxes: readonly Tax[];
 }
 
 /**
@@ -92,14 +105,36 @@ export function crearLineaCompraDesdeProducto(
   id: string,
   productData: ProductDataLineaCompra,
   cantidad: number,
+  contextoTributario: ContextoTributarioLineaCompra,
 ): LineaCompra {
-  const { tipoAfectacion, tasaIgv } = resolverImpuestoProducto(productData.impuestoProducto);
+  const { tipoAfectacion, tasaIgv } = resolverImpuestoProducto(
+    { impuestoId: productData.impuestoId, impuestoTexto: productData.impuestoProducto },
+    contextoTributario.tratamientoImpuestoCompra,
+    contextoTributario.taxes,
+  );
   const costoUnitario = productData.precioCompra ?? 0;
   const { baseImponible, igv, total } = calcularLineaCompra({
     cantidadSolicitada: cantidad,
     costoUnitario,
     tipoAfectacion,
     tasaIgv,
+  });
+
+  const esInventariable = calcularEsInventariable({
+    clasificacion: productData.esServicio ? 'servicio' : 'producto',
+    tipoExistencia: productData.tipoExistencia,
+  });
+
+  // Snapshot histórico del factor de conversión y de la cantidad documentada en unidad mínima —
+  // regla única (`resolverSnapshotInventarioLinea`, reglasCompras.ts), reutilizada también al
+  // cambiar unidad/cantidad y como validación final antes de confirmar el CC (nunca se calcula
+  // solo aquí y se deja desactualizada después).
+  const unidadMedidaCodigoResuelto = productData.unidadMedidaCodigo ?? productData.unidadMedida ?? '';
+  const snapshot = resolverSnapshotInventarioLinea({
+    esInventariable,
+    unidadMedidaCodigo: unidadMedidaCodigoResuelto,
+    unidadesDisponibles: productData.unidadesDisponibles,
+    cantidadComercialFinal: cantidad,
   });
 
   return {
@@ -121,10 +156,15 @@ export function crearLineaCompraDesdeProducto(
     peso: productData.peso,
     precioCompraReferencia: productData.precioCompra,
     clasificacion: productData.esServicio ? 'servicio' : 'producto',
+    esInventariable,
+    // afectaInventario se recalcula por línea al confirmar el documento — nunca aquí, donde
+    // todavía no se conoce la modalidadInventario final (calcularAfectaInventarioLinea).
     afectaInventario: false,
     unidadMedida: productData.unidadMedida ?? '',
     unidadMedidaCodigo: productData.unidadMedidaCodigo ?? productData.unidadMedida ?? '',
     unidadesDisponibles: productData.unidadesDisponibles,
+    factorConversionAplicado: snapshot.factorConversionAplicado,
+    cantidadDocumentadaInventariable: snapshot.cantidadDocumentadaInventariable,
     cantidadSolicitada: cantidad,
     cantidadRecibida: 0,
     cantidadFacturada: 0,

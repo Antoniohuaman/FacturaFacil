@@ -71,6 +71,19 @@ export interface ShippingMethod {
 
 export type StockDescuentoDocumento = 'automatico' | 'nota_salida' | 'sin_control';
 
+/**
+ * Política de recuperabilidad del IGV de compra frente al costo valorizable del Kardex —
+ * decide si el impuesto de una línea gravada forma parte o no del costo que se registrará como
+ * capa. Default `'pendiente_configuracion'`: no se asume recuperabilidad ni su ausencia; la
+ * empresa debe elegir explícitamente una de las otras tres políticas (ver
+ * docs/diseno-tecnico-kardex-valorizado-integracion-compras.md §16).
+ */
+export type TratamientoImpuestoCompra =
+  | 'pendiente_configuracion'
+  | 'impuesto_recuperable'
+  | 'impuesto_no_recuperable'
+  | 'segun_afectacion';
+
 export type SalesPreferences = {
   allowNegativeStock: boolean;
   /**
@@ -88,6 +101,15 @@ export type SalesPreferences = {
   stockDescuentoGuiaRemision?: StockDescuentoDocumento;
 };
 
+/**
+ * Preferencias de Inventario que NO son una preferencia de Ventas — viven en su propia sección
+ * de la configuración persistida de la empresa, separadas de `SalesPreferences`.
+ */
+export type PreferenciasInventario = {
+  /** Ver `TratamientoImpuestoCompra` — consumido por `resolverTratamientoTributarioProducto` (shared/catalogos-sunat/resolucionTributaria.ts). */
+  tratamientoImpuestoCompra: TratamientoImpuestoCompra;
+};
+
 interface ConfigurationState {
   company: Company | null;
   Establecimientos: Establecimiento[];
@@ -103,6 +125,7 @@ interface ConfigurationState {
   rolesPersonalizados: RolPersonalizado[];
   shippingMethods: ShippingMethod[];
   salesPreferences: SalesPreferences;
+  preferenciasInventario: PreferenciasInventario;
   isLoading: boolean;
   error: string | null;
 }
@@ -505,6 +528,7 @@ type RawTenantConfig = {
   paymentMethods?: PaymentMethod[];
   shippingMethods?: ShippingMethod[];
   salesPreferences: SalesPreferences;
+  preferenciasInventario?: PreferenciasInventario;
 };
 
 type PersistedTenantConfig = {
@@ -518,6 +542,7 @@ type PersistedTenantConfig = {
   paymentMethods: PaymentMethod[];
   shippingMethods: ShippingMethod[];
   salesPreferences: SalesPreferences;
+  preferenciasInventario?: PreferenciasInventario;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -841,6 +866,10 @@ const PREFERENCIAS_VENTAS_PREDETERMINADAS: SalesPreferences = {
   stockDescuentoGuiaRemision: 'automatico',
 };
 
+const PREFERENCIAS_INVENTARIO_PREDETERMINADAS: PreferenciasInventario = {
+  tratamientoImpuestoCompra: 'pendiente_configuracion',
+};
+
 const loadTenantConfigFromStorage = (storageKey: StorageKey): PersistedTenantConfig | null => {
   if (typeof window === 'undefined') {
     return null;
@@ -887,6 +916,13 @@ const migrateSalesPreferences = (stored: SalesPreferences): SalesPreferences => 
   };
 };
 
+/** Empresas existentes: sin asumir recuperabilidad — deben confirmarla explícitamente (mismo criterio que migrateSalesPreferences: solo completa lo ausente, nunca reescribe lo ya presente). */
+const migratePreferenciasInventario = (
+  stored: Partial<PreferenciasInventario> | undefined,
+): PreferenciasInventario => ({
+  tratamientoImpuestoCompra: stored?.tratamientoImpuestoCompra ?? 'pendiente_configuracion',
+});
+
 const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferences => {
   const tenantConfig = loadTenantConfigFromStorage(storageKey);
   if (tenantConfig) {
@@ -918,6 +954,14 @@ const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferenc
   }
 
   return PREFERENCIAS_VENTAS_PREDETERMINADAS;
+};
+
+const loadPreferenciasInventarioFromStorage = (storageKey: StorageKey): PreferenciasInventario => {
+  const tenantConfig = loadTenantConfigFromStorage(storageKey);
+  // Campo nuevo — no existe una ruta legado equivalente que migrar (a diferencia de
+  // salesPreferences, que sí tenía un `sales` global previo); toda empresa existente arranca en
+  // 'pendiente_configuracion' hasta confirmar su política explícitamente.
+  return migratePreferenciasInventario(tenantConfig?.preferenciasInventario);
 };
 
 const persistTenantSnapshot = (storageKey: StorageKey, snapshot: PersistedTenantConfig) => {
@@ -1026,6 +1070,7 @@ type ResultadoInicializacionEmpresaEnAlmacenamiento = {
   impuestos: Tax[];
   units: Unit[];
   salesPreferences: SalesPreferences;
+  preferenciasInventario: PreferenciasInventario;
 };
 
 export async function inicializarEmpresaEnAlmacenamiento({
@@ -1078,6 +1123,7 @@ export async function inicializarEmpresaEnAlmacenamiento({
     paymentMethods: [],
     shippingMethods: [],
     salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
+    preferenciasInventario: PREFERENCIAS_INVENTARIO_PREDETERMINADAS,
   };
 
   persistTenantSnapshot(lsKey(LLAVE_ALMACENAMIENTO_CONFIGURACION, tenantId), snapshot);
@@ -1093,6 +1139,7 @@ export async function inicializarEmpresaEnAlmacenamiento({
     impuestos,
     units,
     salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
+    preferenciasInventario: PREFERENCIAS_INVENTARIO_PREDETERMINADAS,
   };
 }
 
@@ -1127,7 +1174,8 @@ type ConfigurationAction =
   | { type: 'UPDATE_CAJA'; payload: Caja }
   | { type: 'DELETE_CAJA'; payload: string }
   | { type: 'SET_ROLES_PERSONALIZADOS'; payload: RolPersonalizado[] }
-  | { type: 'SET_SALES_PREFERENCES'; payload: SalesPreferences };
+  | { type: 'SET_SALES_PREFERENCES'; payload: SalesPreferences }
+  | { type: 'SET_PREFERENCIAS_INVENTARIO'; payload: PreferenciasInventario };
 
 const initialState: ConfigurationState = {
   company: null,
@@ -1144,6 +1192,7 @@ const initialState: ConfigurationState = {
   rolesPersonalizados: [],
   shippingMethods: [],
   salesPreferences: PREFERENCIAS_VENTAS_PREDETERMINADAS,
+  preferenciasInventario: PREFERENCIAS_INVENTARIO_PREDETERMINADAS,
   isLoading: false,
   error: null,
 };
@@ -1307,6 +1356,12 @@ function configurationReducer(
         salesPreferences: action.payload,
       };
 
+    case 'SET_PREFERENCIAS_INVENTARIO':
+      return {
+        ...state,
+        preferenciasInventario: action.payload,
+      };
+
     default:
       return state;
   }
@@ -1358,6 +1413,11 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     [tenantConfigKey]
   );
 
+  const initialPreferenciasInventario = useMemo(
+    () => loadPreferenciasInventarioFromStorage(tenantConfigKey),
+    [tenantConfigKey]
+  );
+
   const [state, rawDispatch] = useReducer(
     configurationReducer,
     initialState,
@@ -1365,6 +1425,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       ...baseState,
       currencies: currencyManager.getSnapshot().currencies,
       salesPreferences: initialSalesPreferences,
+      preferenciasInventario: initialPreferenciasInventario,
     }),
   );
 
@@ -1510,6 +1571,10 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       dispatch({ type: 'SET_CAJAS', payload: persisted.cajas });
       dispatch({ type: 'SET_ROLES_PERSONALIZADOS', payload: persisted.rolesPersonalizados });
       dispatch({ type: 'SET_SALES_PREFERENCES', payload: persisted.salesPreferences });
+      dispatch({
+        type: 'SET_PREFERENCIAS_INVENTARIO',
+        payload: migratePreferenciasInventario(persisted.preferenciasInventario),
+      });
       if (persisted.units.length) {
         dispatch({ type: 'SET_UNITS', payload: persisted.units });
         unitsHydratedRef.current = true;
@@ -2110,7 +2175,8 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.salesPreferences.controlStockActivo !== PREFERENCIAS_VENTAS_PREDETERMINADAS.controlStockActivo ||
       state.salesPreferences.stockDescuentoFacturaYBoleta !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoFacturaYBoleta ||
       state.salesPreferences.stockDescuentoNotaVenta !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoNotaVenta ||
-      state.salesPreferences.stockDescuentoGuiaRemision !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoGuiaRemision;
+      state.salesPreferences.stockDescuentoGuiaRemision !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoGuiaRemision ||
+      state.preferenciasInventario.tratamientoImpuestoCompra !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.tratamientoImpuestoCompra;
 
     if (!hasMeaningfulConfig) {
       return;
@@ -2127,6 +2193,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       paymentMethods: state.paymentMethods,
       shippingMethods: state.shippingMethods,
       salesPreferences: state.salesPreferences,
+      preferenciasInventario: state.preferenciasInventario,
     };
 
     persistTenantSnapshot(tenantConfigKey, snapshot);
@@ -2138,6 +2205,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
     state.paymentMethods,
     state.shippingMethods,
     state.salesPreferences,
+    state.preferenciasInventario,
     state.almacenes,
     state.units,
     tenantConfigKey,

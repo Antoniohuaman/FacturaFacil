@@ -43,7 +43,31 @@ interface UseProductFormParams {
   onSave: (productData: ProductInput) => void;
   onClose: () => void;
   defaultTaxLabel?: string;
+  /** `Tax.id` correspondiente a `defaultTaxLabel` — fuente estructurada prioritaria (ver `resolverTratamientoTributarioProducto`). */
+  defaultTaxId?: string;
   prefillName?: string;
+}
+
+/**
+ * Determina el mensaje de error del campo Impuesto de un producto — regla única reutilizada por
+ * `validateForm` (evita duplicar esta validación en otro componente). Un producto NUEVO exige una
+ * relación tributaria estructurada real (`impuestoId`); el texto de la etiqueta nunca la
+ * sustituye, ni siquiera si no está vacío (nunca permite que una cadena hardcodeada supere la
+ * validación). Un producto EXISTENTE puede conservar únicamente texto legado (compatibilidad
+ * histórica) sin forzar una nueva selección — pero si no tiene ni impuestoId ni texto, sigue sin
+ * impuesto configurado.
+ */
+export function validarImpuestoProducto(
+  datos: { impuestoId?: string; impuesto?: string },
+  esProductoExistente: boolean
+): string | undefined {
+  const tieneImpuestoId = Boolean(datos.impuestoId);
+  const tieneTextoLegado = Boolean(datos.impuesto?.trim());
+
+  if (!esProductoExistente) {
+    return tieneImpuestoId ? undefined : 'Selecciona un impuesto configurado en Afectaciones Tributarias antes de guardar.';
+  }
+  return (tieneImpuestoId || tieneTextoLegado) ? undefined : 'El impuesto es requerido';
 }
 
 const generatePresentationId = (): string => {
@@ -71,7 +95,8 @@ const buildDefaultFormData = (
   defaultUnitName: string | undefined,
   defaultCategoryName: string,
   defaultEstablecimientoIds: string[],
-  defaultTaxLabel?: string
+  defaultTaxLabel?: string,
+  defaultTaxId?: string
 ): ProductFormData => ({
   nombre: '',
   codigo: '',
@@ -80,7 +105,11 @@ const buildDefaultFormData = (
   unidadName: defaultUnitName,
   unidadesMedidaAdicionales: [],
   categoria: defaultCategoryName,
-  impuesto: defaultTaxLabel ?? 'IGV (18.00%)',
+  // Sin fallback a un impuesto hardcodeado: si no hay Tax predeterminado real (`impuestoPorDefecto`
+  // en ProductModal.tsx, derivado de `tax.isDefault`), el campo queda vacío — `validateForm` exige
+  // una selección real antes de poder guardar un producto nuevo (ver más abajo).
+  impuesto: defaultTaxLabel ?? '',
+  impuestoId: defaultTaxId,
   descripcion: '',
   establecimientoIds: defaultEstablecimientoIds,
   disponibleEnTodos: false,
@@ -104,6 +133,7 @@ const buildDefaultFormData = (
 export const useProductForm = ({
   isOpen,
   defaultTaxLabel,
+  defaultTaxId,
   product,
   categories,
   availableUnits,
@@ -246,7 +276,8 @@ export const useProductForm = ({
         initialUnitSnapshot.name,
         defaultCategoryName,
         resolveDefaultEnabledEstablecimientos(),
-        defaultTaxLabel
+        defaultTaxLabel,
+        defaultTaxId
       )
   );
   const [productType, setProductType] = useState<ProductType>('BIEN');
@@ -470,7 +501,8 @@ export const useProductForm = ({
       snapshot.name,
       defaultCategoryName,
       resolveDefaultEnabledEstablecimientos(),
-      defaultTaxLabel
+      defaultTaxLabel,
+      defaultTaxId
     );
     const trimmedPrefill = prefillName?.trim() ?? '';
     if (trimmedPrefill) {
@@ -486,6 +518,7 @@ export const useProductForm = ({
   }, [
     defaultCategoryName,
     defaultTaxLabel,
+    defaultTaxId,
     getDefaultUnitForType,
     prefillName,
     resolveDefaultEnabledEstablecimientos,
@@ -523,7 +556,12 @@ export const useProductForm = ({
         unidadName: productData.unitName ?? unitSnapshot.name,
         unidadesMedidaAdicionales: sanitizedUnits,
         categoria: productData.categoria,
-        impuesto: productData.impuesto || defaultTaxLabel || 'IGV (18.00%)',
+        // Producto existente: se preserva EXACTAMENTE lo que ya tenía guardado (texto legado o
+        // ausencia real) — nunca se sustituye por el impuesto predeterminado actual de la empresa
+        // ni por un hardcode. Cambiar el predeterminado de la empresa no debe alterar productos
+        // ya persistidos con su propio impuestoId o su propio texto legado.
+        impuesto: productData.impuesto ?? '',
+        impuestoId: productData.impuestoId,
         descripcion: productData.descripcion || '',
         establecimientoIds: enabledIdsFromProduct,
         disponibleEnTodos: false,
@@ -552,7 +590,7 @@ export const useProductForm = ({
       setErrors({});
       setUnitInfoMessage(null);
       setIsDescriptionExpanded(false);
-    }, [activeEstablecimientoIds, defaultTaxLabel, uniqueIds, availableUnits, resolveFamilyFromCode, resolveUnitSnapshot]
+    }, [activeEstablecimientoIds, uniqueIds, availableUnits, resolveFamilyFromCode, resolveUnitSnapshot]
   );
 
   useEffect(() => {
@@ -602,8 +640,14 @@ export const useProductForm = ({
       }
     }
 
-    if (isFieldVisible('impuesto') && (!formData.impuesto || formData.impuesto.trim() === '')) {
-      newErrors.impuesto = 'El impuesto es requerido';
+    if (isFieldVisible('impuesto')) {
+      const mensajeImpuesto = validarImpuestoProducto(
+        { impuestoId: formData.impuestoId, impuesto: formData.impuesto },
+        Boolean(product)
+      );
+      if (mensajeImpuesto) {
+        newErrors.impuesto = mensajeImpuesto;
+      }
     }
 
     if (isFieldVisible('unidad') && (!formData.unidad || formData.unidad.trim() === '')) {
