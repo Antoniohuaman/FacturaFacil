@@ -63,7 +63,6 @@ export const InventoryPage: React.FC = () => {
     setSelectedView,
     setFilterPeriodo,
     setalmacenFiltro,
-    setShowAdjustmentModal,
     setShowTransferModal,
 
     handleStockAdjustment,
@@ -73,6 +72,7 @@ export const InventoryPage: React.FC = () => {
     handleCancelarTransfer,
     handleAnularTransfer,
     openAdjustmentModal,
+    closeAdjustmentModal,
     openTransferModal,
     reloadMovements,
   } = useInventory();
@@ -473,7 +473,7 @@ export const InventoryPage: React.FC = () => {
       {/* Modales */}
       <AdjustmentModal
         isOpen={showAdjustmentModal}
-        onClose={() => setShowAdjustmentModal(false)}
+        onClose={closeAdjustmentModal}
         onAdjust={handleStockAdjustment}
         preSelectedProductId={selectedProductId}
         preSelectedQuantity={suggestedQuantity}

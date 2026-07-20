@@ -3,7 +3,7 @@
 import type { MovimientoStock } from '../models';
 import { lsKey } from '../../../../../shared/tenant';
 
-const STORAGE_KEY_MOVEMENTS = 'facturafacil_stock_movements';
+export const STORAGE_KEY_MOVEMENTS = 'facturafacil_stock_movements';
 
 /** Evento emitido cada vez que se agregan movimientos de stock. */
 export const STOCK_MOVEMENTS_CHANGED_EVENT = 'facturafacil:stock-movements-changed';

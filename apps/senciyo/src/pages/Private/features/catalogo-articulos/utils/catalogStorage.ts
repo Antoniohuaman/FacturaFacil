@@ -11,7 +11,7 @@ const LEGACY_KEYS = [
   'productFieldsConfig'
 ];
 
-const PRODUCT_STORAGE_KEY = 'catalog_products';
+export const PRODUCT_STORAGE_KEY = 'catalog_products';
 const PACKAGE_STORAGE_KEY = 'catalog_packages';
 const CATEGORY_STORAGE_KEY = 'catalog_categories';
 const MIGRATION_MARKER = 'catalog_migrated';

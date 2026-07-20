@@ -506,7 +506,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     if (ok) onGuardado();
   };
 
-  const handleGenerarNI = () => {
+  const handleGenerarNI = async () => {
     const err = validarParaGenerar();
     if (err) {
       feedback.error(err);
@@ -518,7 +518,7 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
     setGenerando(true);
     const nota = buildNota('Borrador');
     guardarBorrador(nota, { silencioso: true });
-    const ok = generarNI(nota.id);
+    const ok = await generarNI(nota.id);
     setGenerando(false);
     if (ok) onGuardado();
   };

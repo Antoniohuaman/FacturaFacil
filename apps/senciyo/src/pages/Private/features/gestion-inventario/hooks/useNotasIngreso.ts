@@ -6,6 +6,8 @@ import { useAuth } from '../../autenticacion/hooks';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
+import { getTenantEmpresaId } from '../../../../../shared/tenant';
+import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
 import {
   cargarNotasIngreso,
   guardarNotasIngreso,
@@ -18,9 +20,14 @@ import {
 } from '../services/notaIngreso.service';
 import type { NotaIngreso } from '../models/notaIngreso.types';
 
+const dependenciasEntradaCuantitativa = {
+  generarId: () => crypto.randomUUID(),
+  fechaActual: () => new Date().toISOString(),
+};
+
 export const useNotasIngreso = () => {
   const { user } = useAuth();
-  const { allProducts, updateProduct } = useProductStore();
+  const { allProducts } = useProductStore();
   const { session } = useUserSession();
   const { state: configState } = useConfigurationContext();
   const feedback = useFeedback();
@@ -66,7 +73,7 @@ export const useNotasIngreso = () => {
   );
 
   const generarNI = useCallback(
-    (notaId: string): boolean => {
+    async (notaId: string): Promise<boolean> => {
       if (procesando) return false;
       setProcesando(true);
       try {
@@ -89,19 +96,21 @@ export const useNotasIngreso = () => {
         }
 
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
-        const { notaActualizada, productosActualizados } = generarNIEnInventario(
+        const { notaActualizada } = await generarNIEnInventario(
           nota,
           notasActuales,
           productsMap,
           almacenesMap,
           usuarioNombre,
+          getTenantEmpresaId(),
+          dependenciasEntradaCuantitativa,
         );
 
         agregarOActualizarNI(notaActualizada);
 
-        for (const prod of productosActualizados) {
-          updateProduct(prod.id, prod);
-        }
+        // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
+        // persistir aquí. Solo se rehidrata el store de productos y se refresca el Kardex.
+        sincronizarInventarioTrasConfirmacion();
 
         feedback.success(`Nota de Ingreso ${notaActualizada.numero ?? ''} generada correctamente.`);
         return true;
@@ -113,11 +122,11 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, feedback],
   );
 
   const anularNI = useCallback(
-    (notaId: string, motivoAnulacion: string): boolean => {
+    async (notaId: string, motivoAnulacion: string): Promise<boolean> => {
       if (procesando) return false;
       setProcesando(true);
       try {
@@ -140,19 +149,21 @@ export const useNotasIngreso = () => {
         }
 
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
-        const { notaActualizada, productosActualizados } = anularNIEnInventario(
+        const { notaActualizada } = await anularNIEnInventario(
           nota,
           productsMap,
           almacenesMap,
           motivoAnulacion,
           usuarioNombre,
+          getTenantEmpresaId(),
+          dependenciasEntradaCuantitativa,
         );
 
         agregarOActualizarNI(notaActualizada);
 
-        for (const prod of productosActualizados) {
-          updateProduct(prod.id, prod);
-        }
+        // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
+        // persistir aquí. Solo se rehidrata el store de productos y se refresca el Kardex.
+        sincronizarInventarioTrasConfirmacion();
 
         feedback.success(`Nota de Ingreso ${nota.numero ?? nota.id} anulada.`);
         return true;
@@ -164,7 +175,7 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, feedback],
   );
 
   const eliminarNI = useCallback(

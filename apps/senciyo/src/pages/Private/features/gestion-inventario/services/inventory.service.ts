@@ -130,53 +130,61 @@ export class InventoryService {
   }
 
   /**
-   * Registrar ajuste de stock
+   * Cálculo puro del ajuste de stock (Etapa 1C, §5 del encargo): recibe todo el estado necesario
+   * como parámetros, calcula el nuevo stock y el `MovimientoStock` propuesto, y devuelve datos
+   * nuevos sin persistirlos. No muta `product`/`almacen`, no lee ni escribe `localStorage`, no
+   * llama `StockRepository`, no emite eventos, no depende de React. Determinista para la misma
+   * entrada (incluyendo `generarId`/`fechaActual` inyectados) — `registerAdjustment` reutiliza
+   * esta misma función con los generadores no deterministas que usaba antes, para no cambiar su
+   * comportamiento observable.
    */
-  static registerAdjustment(
-    product: Product,
-    almacen: Almacen,
-    data: StockAdjustmentData,
-    usuario: string
-  ): { product: Product; movement: MovimientoStock } {
+  static calcularAjustePropuesto(params: {
+    product: Product;
+    almacen: Almacen;
+    data: StockAdjustmentData;
+    usuario: string;
+    generarId: () => string;
+    fechaActual: () => Date;
+  }): { cantidadAnterior: number; cantidadNueva: number; productoActualizado: Product; movimientoPropuesto: MovimientoStock } {
+    const { product, almacen, data, usuario, generarId, fechaActual } = params;
+
     if (!Number.isFinite(data.cantidad) || data.cantidad <= 0) {
       throw new Error('La cantidad del movimiento debe ser mayor a cero.');
     }
 
-    const stockActual = this.getStock(product, data.almacenId);
-    let nuevoStock = stockActual;
+    const cantidadAnterior = this.getStock(product, data.almacenId);
+    let cantidadNueva = cantidadAnterior;
 
     // Calcular nuevo stock según el tipo de movimiento
     switch (data.tipo) {
       case 'ENTRADA':
       case 'AJUSTE_POSITIVO':
       case 'DEVOLUCION':
-        nuevoStock = stockActual + data.cantidad;
+        cantidadNueva = cantidadAnterior + data.cantidad;
         break;
       case 'SALIDA':
       case 'AJUSTE_NEGATIVO':
       case 'MERMA':
-        nuevoStock = stockActual - data.cantidad;
+        cantidadNueva = cantidadAnterior - data.cantidad;
         break;
     }
 
-    // Actualizar producto
-    const updatedProduct = this.updateStock(product, data.almacenId, nuevoStock);
+    const productoActualizado = this.updateStock(product, data.almacenId, cantidadNueva);
 
-    // Crear movimiento
-    const movement: MovimientoStock = {
-      id: `MOV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    const movimientoPropuesto: MovimientoStock = {
+      id: generarId(),
       productoId: product.id,
       productoCodigo: product.codigo,
       productoNombre: product.nombre,
       tipo: data.tipo,
       motivo: data.motivo,
       cantidad: data.cantidad,
-      cantidadAnterior: stockActual,
-      cantidadNueva: nuevoStock,
+      cantidadAnterior,
+      cantidadNueva,
       usuario,
       observaciones: data.observaciones,
       documentoReferencia: data.documentoReferencia,
-      fecha: new Date(),
+      fecha: fechaActual(),
       almacenId: almacen.id,
       almacenCodigo: almacen.codigoAlmacen,
       almacenNombre: almacen.nombreAlmacen,
@@ -186,10 +194,34 @@ export class InventoryService {
       esTransferencia: false
     };
 
-    // Guardar movimiento
-    StockRepository.addMovement(movement);
+    return { cantidadAnterior, cantidadNueva, productoActualizado, movimientoPropuesto };
+  }
 
-    return { product: updatedProduct, movement };
+  /**
+   * @deprecated Persiste directamente sin reserva idempotente ni unidad de trabajo recuperable.
+   * Para nuevas integraciones usa `ServicioKardexValorizado.registrarEntradaValorizada` (Etapa
+   * 1C). Se mantiene como wrapper temporal — mismo comportamiento observable de siempre — para los
+   * consumidores que todavía no migraron (POS, formularios de comprobantes, ajustes negativos,
+   * transferencias, actualización masiva).
+   */
+  static registerAdjustment(
+    product: Product,
+    almacen: Almacen,
+    data: StockAdjustmentData,
+    usuario: string
+  ): { product: Product; movement: MovimientoStock } {
+    const { productoActualizado, movimientoPropuesto } = this.calcularAjustePropuesto({
+      product,
+      almacen,
+      data,
+      usuario,
+      generarId: () => `MOV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      fechaActual: () => new Date(),
+    });
+
+    StockRepository.addMovement(movimientoPropuesto);
+
+    return { product: productoActualizado, movement: movimientoPropuesto };
   }
 
   /**

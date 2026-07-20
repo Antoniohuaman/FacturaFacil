@@ -17,18 +17,136 @@ import type {
 import type { Transferencia } from '../models/transferencia.types';
 import { filterByPeriod, sortByDateDesc, inferirTransferenciasDesdeMovimientos } from '../utils/inventory.helpers';
 import { InventoryService } from '../services/inventory.service';
+import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
 import { StockRepository, STOCK_MOVEMENTS_CHANGED_EVENT } from '../repositories/stock.repository';
 import { TransferenciaRepository } from '../repositories/transferencia.repository';
 import { generateTransferId } from '../utils/inventory.helpers';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
+import type { DatosOperacionEntradaCuantitativa } from '../models/operacionEntradaInventario.types';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
+import { getTenantEmpresaId, tryGetTenantEmpresaId, lsKey } from '../../../../../shared/tenant';
+import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
+import { serializarCanonicamente } from '../utils/serializacionCanonicaInventario';
 
 type AdjustmentModalOptions = {
   almacenId?: string | null;
   mode?: 'manual' | 'prefilled';
 };
+
+/**
+ * Sesión pendiente de idempotencia del ajuste positivo (corrección final, §2): persistida en
+ * localStorage, tenantizada por empresa — a diferencia de un `useRef`, sobrevive al desmontaje
+ * del componente y a una recarga completa de la pantalla. Guarda el `operacionId` junto con una
+ * `huella` canónica del contenido del ajuste (producto/almacén/cantidad/motivo/observaciones/
+ * documentoReferencia) calculada ANTES de mutar stock: un reintento con el MISMO contenido
+ * reutiliza el mismo `operacionId`; un contenido distinto (acción realmente distinta) genera uno
+ * nuevo. No es un ledger nuevo — es una caché de intención de UI de un solo registro por empresa,
+ * completamente separada de `OperacionIdempotenteInventario` (Etapa 1B).
+ */
+const CLAVE_SESION_PENDIENTE_AJUSTE_POSITIVO = 'facturafacil_ajuste_positivo_sesion_pendiente';
+
+export interface SesionPendienteAjustePositivo {
+  operacionId: string;
+  huella: string;
+}
+
+function esSesionPendienteValida(valor: unknown): valor is SesionPendienteAjustePositivo {
+  return (
+    typeof valor === 'object' && valor !== null &&
+    typeof (valor as { operacionId?: unknown }).operacionId === 'string' &&
+    typeof (valor as { huella?: unknown }).huella === 'string'
+  );
+}
+
+/** Huella canónica del contenido del ajuste — solo datos de negocio, nunca fechas técnicas ni IDs generados durante la ejecución. */
+function construirHuellaAjustePositivo(data: StockAdjustmentData): string {
+  return serializarCanonicamente({
+    productoId: data.productoId,
+    almacenId: data.almacenId,
+    cantidad: data.cantidad,
+    motivo: data.motivo,
+    observaciones: (data.observaciones ?? '').trim(),
+    documentoReferencia: (data.documentoReferencia ?? '').trim(),
+  });
+}
+
+function leerSesionPendienteAjustePositivo(empresaId: string): SesionPendienteAjustePositivo | null {
+  const raw = localStorage.getItem(lsKey(CLAVE_SESION_PENDIENTE_AJUSTE_POSITIVO, empresaId));
+  if (raw === null) return null;
+  const parsed: unknown = JSON.parse(raw);
+  return esSesionPendienteValida(parsed) ? parsed : null;
+}
+
+/**
+ * Devuelve el `operacionId` estable para el contenido del ajuste dado — lo genera y lo persiste
+ * solo si no hay una sesión pendiente con la MISMA huella. Reintento tras desmontar/recargar con
+ * el mismo contenido: reutiliza el id. Contenido distinto: genera uno nuevo (nunca reutiliza el
+ * id de una acción diferente).
+ */
+export function obtenerOperacionIdEstablePersistente(
+  empresaId: string,
+  data: StockAdjustmentData,
+  generarId: () => string
+): string {
+  const huella = construirHuellaAjustePositivo(data);
+  const actual = leerSesionPendienteAjustePositivo(empresaId);
+  if (actual !== null && actual.huella === huella) {
+    return actual.operacionId;
+  }
+  const operacionId = generarId();
+  localStorage.setItem(
+    lsKey(CLAVE_SESION_PENDIENTE_AJUSTE_POSITIVO, empresaId),
+    JSON.stringify({ operacionId, huella } satisfies SesionPendienteAjustePositivo)
+  );
+  return operacionId;
+}
+
+/** Se elimina tras un resultado 'nueva'/'repetida' o al cancelar explícitamente la acción — nunca ante un fallo incierto (el reintento debe poder reutilizar el mismo operacionId). */
+export function limpiarSesionPendienteAjustePositivo(empresaId: string): void {
+  localStorage.removeItem(lsKey(CLAVE_SESION_PENDIENTE_AJUSTE_POSITIVO, empresaId));
+}
+
+export interface ParametrosConstruirDatosAjustePositivo {
+  data: StockAdjustmentData;
+  almacen: Almacen;
+  empresaId: string;
+  usuario: string;
+  operacionId: string;
+  fecha: string;
+}
+
+/**
+ * Construye el DTO real de un ajuste positivo (§1/§4 de la corrección final) — la misma función
+ * que usa la ruta productiva de `handleStockAdjustment`, para que las pruebas cubran el flujo
+ * real de construcción de datos y no solo una clave fabricada a mano. `documentoId`, `lineaId` y
+ * `claveIdempotencia` se derivan todos del mismo `operacionId` estable.
+ */
+export function construirDatosAjustePositivo(
+  params: ParametrosConstruirDatosAjustePositivo
+): DatosOperacionEntradaCuantitativa {
+  const { data, almacen, empresaId, usuario, operacionId, fecha } = params;
+  return {
+    modoOperacion: 'cuantitativo',
+    empresaId,
+    documentoId: operacionId,
+    tipoDocumento: 'ajuste',
+    tipoOperacion: 'ajuste_positivo',
+    claveIdempotencia: `ajuste_positivo:${operacionId}`,
+    usuario,
+    fecha,
+    motivo: data.motivo,
+    observaciones: data.observaciones,
+    documentoReferencia: data.documentoReferencia,
+    lineas: [{
+      lineaId: operacionId,
+      productoId: data.productoId,
+      almacenId: almacen.id,
+      cantidadUnidadMinima: data.cantidad,
+    }],
+  };
+}
 
 /** Sincroniza stockPorEstablecimiento para los establecimientos afectados */
 function syncEstablecimientoStock(
@@ -147,7 +265,7 @@ export const useInventory = () => {
 
   const { success, error, warning } = useFeedback();
 
-  const handleStockAdjustment = useCallback((data: StockAdjustmentData) => {
+  const handleStockAdjustment = useCallback(async (data: StockAdjustmentData) => {
     try {
       if (!tienePermiso({
         usuario: usuarioActual,
@@ -164,6 +282,43 @@ export const useInventory = () => {
 
       if (!product || !almacen) {
         warning('Producto o almacén no encontrado', 'Advertencia');
+        return;
+      }
+
+      // Ajustes positivos (Etapa 1C): motor de entradas cuantitativas (reserva idempotente +
+      // preparación pura + unidad de trabajo recuperable). El resto de tipos (incluyendo
+      // AJUSTE_NEGATIVO) permanece en el flujo previo hasta la Etapa 1D.
+      if (data.tipo === 'AJUSTE_POSITIVO') {
+        const empresaId = getTenantEmpresaId();
+        // operacionId estable persistido (corrección final, §2): sobrevive a un desmontaje/recarga
+        // de la pantalla — un reintento con el MISMO contenido reutiliza el mismo id; un contenido
+        // distinto (acción realmente distinta) genera uno nuevo.
+        const operacionId = obtenerOperacionIdEstablePersistente(empresaId, data, () => crypto.randomUUID());
+        const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
+        const datos = construirDatosAjustePositivo({
+          data,
+          almacen,
+          empresaId,
+          usuario: usuarioNombre,
+          operacionId,
+          fecha: new Date().toISOString(),
+        });
+
+        const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, {
+          almacenes: almacenesMap,
+          generarId: () => crypto.randomUUID(),
+          fechaActual: () => new Date().toISOString(),
+        });
+
+        // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
+        // persistir aquí (nada de updateProduct). Solo se rehidrata el store y se refresca el Kardex.
+        sincronizarInventarioTrasConfirmacion();
+        // Éxito ('nueva' o 'repetida'): se limpia la sesión pendiente — la próxima acción parte de un id nuevo.
+        limpiarSesionPendienteAjustePositivo(empresaId);
+
+        const cantidadNueva = resultado.movimientos[0]?.cantidadNueva ?? InventoryService.getStock(product, almacen.id);
+        success(`${data.tipo}: ${data.cantidad} u · Nuevo stock: ${cantidadNueva}`, 'Ajuste registrado');
+        setShowAdjustmentModal(false);
         return;
       }
 
@@ -582,11 +737,23 @@ export const useInventory = () => {
     suggestedQty: number = 0,
     options?: AdjustmentModalOptions
   ) => {
+    // No se reinicia la sesión pendiente aquí: si el usuario reabre el modal para retomar la
+    // misma acción (mismo contenido) tras un desmontaje/recarga, debe reutilizar el mismo
+    // operacionId. Un contenido genuinamente distinto ya obtiene un id nuevo por huella (§2).
     setSelectedProductId(productId || null);
     setSuggestedQuantity(suggestedQty);
     setPrefilledAlmacenId(options?.almacenId ?? null);
     setAdjustmentMode(options?.mode ?? (productId ? 'prefilled' : 'manual'));
     setShowAdjustmentModal(true);
+  }, []);
+
+  /** Cancelación explícita del modal de ajuste (§2): limpia la sesión pendiente del ajuste positivo. */
+  const closeAdjustmentModal = useCallback(() => {
+    const empresaId = tryGetTenantEmpresaId();
+    if (empresaId) {
+      limpiarSesionPendienteAjustePositivo(empresaId);
+    }
+    setShowAdjustmentModal(false);
   }, []);
 
   const openTransferModal = useCallback(() => {
@@ -629,6 +796,7 @@ export const useInventory = () => {
     handleAnularTransfer,
     handleMassStockUpdate,
     openAdjustmentModal,
+    closeAdjustmentModal,
     openTransferModal,
     reloadMovements,
   };

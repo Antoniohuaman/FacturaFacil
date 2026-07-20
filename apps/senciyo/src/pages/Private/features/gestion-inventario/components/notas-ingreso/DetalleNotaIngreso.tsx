@@ -61,10 +61,10 @@ const DetalleNotaIngreso: React.FC<Props> = ({ nota, onClose, onRefresh, onDupli
     l => l.almacenId && l.almacenId !== nota.almacenDestinoId,
   );
 
-  const handleAnular = () => {
+  const handleAnular = async () => {
     if (!motivoAnulacion.trim()) return;
     setAnulando(true);
-    const ok = anularNI(nota.id, motivoAnulacion);
+    const ok = await anularNI(nota.id, motivoAnulacion);
     setAnulando(false);
     if (ok) { onRefresh(); onClose(); }
   };

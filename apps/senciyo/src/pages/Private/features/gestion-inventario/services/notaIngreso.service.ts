@@ -2,12 +2,18 @@
 
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
-import type { MovimientoStock, StockAdjustmentData } from '../models';
+import type { MovimientoStock } from '../models';
 import { InventoryService } from './inventory.service';
+import { ServicioKardexValorizado } from './servicioKardexValorizado';
 import { CORRELATIVO_DIGITOS_NI } from '../models/notaIngreso.constants';
 import type { NotaIngreso, TipoIngreso, LineaNotaIngreso } from '../models/notaIngreso.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
+import type { DatosLineaOperacionCuantitativa, DatosOperacionEntradaCuantitativa } from '../models/operacionEntradaInventario.types';
 import { parsearEtiquetaImpuesto } from '@/shared/catalogos-sunat/resolucionTributaria';
+import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
+import { buscarOperacionIdempotentePorClave } from '../repositories/operacionIdempotenteInventario.repository';
+import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
+import { lsKey } from '../../../../../shared/tenant';
 
 const TIPO_INGRESO_A_MOTIVO: Record<TipoIngreso, MovimientoMotivo> = {
   '02': 'COMPRA',
@@ -48,13 +54,152 @@ export interface ResultadoGenerarNI {
   movimientos: MovimientoStock[];
 }
 
-export const generarNIEnInventario = (
+/** Generadores inyectables del motor de Etapa 1C — nunca `Math.random`/`Date.now`/`new Date()` directos. */
+export interface DependenciasEntradaCuantitativaNI {
+  generarId: () => string;
+  fechaActual: () => string;
+}
+
+/**
+ * Fuente única de clasificación inventariable (§3 de la corrección final): no basta con excluir
+ * `tipoBienServicio === 'servicio'` — un producto cuyo `tipoExistencia` no está controlado por
+ * stock (SERVICIOS, OTROS, o cualquier valor no reconocido) tampoco genera movimientos, aunque la
+ * línea no esté marcada como servicio. Un producto referenciado que no existe en `productsMap`
+ * NUNCA se descarta aquí — se conserva como "inventariable" para que `calcularMutacionesEntrada`
+ * rechace el documento completo por referenciar un producto inexistente, en vez de omitirlo en
+ * silencio.
+ */
+function esLineaInventariable(linea: LineaNotaIngreso, productsMap: Map<string, Product>): boolean {
+  if (linea.tipoBienServicio === 'servicio') return false;
+  const producto = productsMap.get(linea.productoId);
+  if (!producto) return true;
+  return esProductoInventariable(producto);
+}
+
+function construirLineasOperacion(
+  lineas: LineaNotaIngreso[],
+  productsMap: Map<string, Product>,
+  almacenesMap: Map<string, Almacen>,
+  almacenDestinoIdNota: string,
+): DatosLineaOperacionCuantitativa[] {
+  return lineas
+    .filter((linea) => esLineaInventariable(linea, productsMap))
+    .map((linea) => {
+      const almacen = almacenesMap.get(linea.almacenId ?? almacenDestinoIdNota);
+      if (!almacen) {
+        throw new Error(`No se puede generar la Nota de Ingreso: no se encontró el almacén de la línea "${linea.productoNombre}".`);
+      }
+      if (!almacen.estaActivoAlmacen) {
+        throw new Error(
+          `No se puede generar la Nota de Ingreso: el almacén "${almacen.nombreAlmacen}" está inactivo. Actívalo desde Configuración → Almacenes antes de registrar entradas.`
+        );
+      }
+      return {
+        lineaId: linea.id,
+        productoId: linea.productoId,
+        almacenId: almacen.id,
+        cantidadUnidadMinima: linea.cantidad,
+      };
+    });
+}
+
+interface MovimientoOriginalNI {
+  id: string;
+  productoId: string;
+  almacenId: string;
+  cantidad: number;
+  lineaOrigenId?: string;
+  tipo?: string;
+  documentoReferencia?: string;
+}
+
+function esMovimientoOriginalValido(valor: unknown): valor is MovimientoOriginalNI {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const candidato = valor as Record<string, unknown>;
+  return (
+    typeof candidato.id === 'string' &&
+    typeof candidato.productoId === 'string' &&
+    typeof candidato.almacenId === 'string' &&
+    typeof candidato.cantidad === 'number' && Number.isFinite(candidato.cantidad) && candidato.cantidad > 0 &&
+    (candidato.lineaOrigenId === undefined || typeof candidato.lineaOrigenId === 'string') &&
+    (candidato.tipo === undefined || typeof candidato.tipo === 'string') &&
+    (candidato.documentoReferencia === undefined || typeof candidato.documentoReferencia === 'string')
+  );
+}
+
+function leerMovimientosCrudos(empresaId: string): unknown[] {
+  const clave = lsKey(STORAGE_KEY_MOVEMENTS, empresaId);
+  const raw = localStorage.getItem(clave);
+  if (raw === null) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error(`No se puede anular la Nota de Ingreso: la colección de movimientos ("${clave}") no es un arreglo.`);
+  }
+  return parsed;
+}
+
+/**
+ * Encuentra los movimientos REALES que la generación de esta NI confirmó — nunca vuelve a decidir
+ * qué líneas eran inventariables según la clasificación vigente (§1 de la corrección final: la
+ * anulación revierte exactamente lo que realmente ingresó, no lo que la clasificación actual diría
+ * que debió ingresar).
+ *
+ * Fuente primaria: la operación idempotente de generación (`resultadoIds`) — el vínculo directo y
+ * auténtico del ledger de Etapa 1B. Fallback EXCLUSIVO para NI anteriores a Etapa 1C (sin
+ * operación idempotente porque el ledger no existía todavía): se identifican por
+ * `documentoReferencia === nota.numero` y `tipo === 'ENTRADA'`, igual que escribía la generación
+ * legado.
+ *
+ * Si la operación de generación existe pero no está confirmada, o si algún `resultadoId` no
+ * resuelve a exactamente un movimiento real y válido, rechaza toda la anulación — nunca adivina,
+ * nunca revierte parcialmente.
+ */
+function buscarMovimientosOriginalesGeneracion(empresaId: string, nota: NotaIngreso): MovimientoOriginalNI[] {
+  const claveGeneracion = `nota_ingreso:generar:${nota.id}`;
+  const operacion = buscarOperacionIdempotentePorClave(empresaId, claveGeneracion);
+  const movimientosCrudos = leerMovimientosCrudos(empresaId);
+
+  if (operacion) {
+    if (operacion.estado !== 'confirmada') {
+      throw new Error(
+        `No se puede anular la Nota de Ingreso: su operación de generación está en estado "${operacion.estado}" (se esperaba "confirmada") — el historial es inconsistente.`
+      );
+    }
+    if (new Set(operacion.resultadoIds).size !== operacion.resultadoIds.length) {
+      throw new Error('No se puede anular la Nota de Ingreso: la operación de generación tiene resultadoIds duplicados — el historial es inconsistente.');
+    }
+    const porId = new Map<string, unknown>();
+    movimientosCrudos.forEach((elemento) => {
+      if (esMovimientoOriginalValido(elemento)) porId.set(elemento.id, elemento);
+    });
+    return operacion.resultadoIds.map((resultadoId) => {
+      const movimiento = porId.get(resultadoId);
+      if (!movimiento || !esMovimientoOriginalValido(movimiento)) {
+        throw new Error(
+          `No se puede anular la Nota de Ingreso: el movimiento original "${resultadoId}" no existe o es inválido — los movimientos originales están incompletos.`
+        );
+      }
+      return movimiento;
+    });
+  }
+
+  // Legado (anterior a Etapa 1C, sin operación idempotente): identificación por documentoReferencia.
+  if (!nota.numero) return [];
+  return movimientosCrudos.filter(
+    (elemento): elemento is MovimientoOriginalNI =>
+      esMovimientoOriginalValido(elemento) && elemento.documentoReferencia === nota.numero && elemento.tipo === 'ENTRADA'
+  );
+}
+
+export const generarNIEnInventario = async (
   nota: NotaIngreso,
   notasExistentes: NotaIngreso[],
   productsMap: Map<string, Product>,
   almacenesMap: Map<string, Almacen>,
   usuario: string,
-): ResultadoGenerarNI => {
+  empresaId: string,
+  dependencias: DependenciasEntradaCuantitativaNI,
+): Promise<ResultadoGenerarNI> => {
   if (nota.estado === 'Generada') {
     throw new Error('Esta Nota de Ingreso ya fue generada.');
   }
@@ -68,47 +213,40 @@ export const generarNIEnInventario = (
   const correlativo = generarCorrelativoNI(notasExistentes, nota.serie);
   const numero = `${nota.serie}-${correlativo}`;
   const motivo = mapTipoIngresoAMotivo(nota.tipoIngreso);
-  const ahora = new Date().toISOString();
+  const ahora = dependencias.fechaActual();
 
-  const productosActualizados: Product[] = [];
-  const movimientos: MovimientoStock[] = [];
+  const lineasOperacion = construirLineasOperacion(nota.lineas, productsMap, almacenesMap, nota.almacenDestinoId);
 
-  for (const linea of nota.lineas) {
-    if (linea.tipoBienServicio === 'servicio') continue;
+  let productosActualizados: Product[] = [];
+  let movimientos: MovimientoStock[] = [];
 
-    const producto = productsMap.get(linea.productoId);
-    if (!producto) continue;
-
-    const almacen = almacenesMap.get(linea.almacenId ?? nota.almacenDestinoId);
-    if (!almacen) continue;
-    if (!almacen.estaActivoAlmacen) {
-      throw new Error(
-        `No se puede generar la Nota de Ingreso: el almacén "${almacen.nombreAlmacen}" está inactivo. Actívalo desde Configuración → Almacenes antes de registrar entradas.`
-      );
-    }
-
-    const data: StockAdjustmentData = {
-      productoId: linea.productoId,
-      almacenId: almacen.id,
-      tipo: 'ENTRADA',
+  if (lineasOperacion.length > 0) {
+    const datos: DatosOperacionEntradaCuantitativa = {
+      modoOperacion: 'cuantitativo',
+      empresaId,
+      documentoId: nota.id,
+      tipoDocumento: 'nota_ingreso',
+      tipoOperacion: 'ni_automatica',
+      claveIdempotencia: `nota_ingreso:generar:${nota.id}`,
+      usuario,
+      fecha: ahora,
       motivo,
-      cantidad: linea.cantidad,
       observaciones: `NI ${numero} - ${nota.observaciones ?? ''}`.trim(),
       documentoReferencia: numero,
+      lineas: lineasOperacion,
     };
 
-    const { product: productoActualizado, movement } = InventoryService.registerAdjustment(
-      producto,
-      almacen,
-      data,
-      usuario,
-    );
+    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, {
+      almacenes: almacenesMap,
+      generarId: dependencias.generarId,
+      fechaActual: dependencias.fechaActual,
+    });
 
-    const almacenesArray = Array.from(almacenesMap.values());
-    const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
-    productsMap.set(linea.productoId, productoFinal);
-    productosActualizados.push(productoFinal);
-    movimientos.push(movement);
+    movimientos = resultado.movimientos;
+    productosActualizados = resultado.productosActualizados;
+    for (const producto of productosActualizados) {
+      productsMap.set(producto.id, producto);
+    }
   }
 
   const notaActualizada: NotaIngreso = {
@@ -138,67 +276,81 @@ export interface ResultadoAnularNI {
   movimientos: MovimientoStock[];
 }
 
-export const anularNIEnInventario = (
+export const anularNIEnInventario = async (
   nota: NotaIngreso,
   productsMap: Map<string, Product>,
   almacenesMap: Map<string, Almacen>,
   motivo: string,
   usuario: string,
-): ResultadoAnularNI => {
+  empresaId: string,
+  dependencias: DependenciasEntradaCuantitativaNI,
+): Promise<ResultadoAnularNI> => {
   if (nota.estado !== 'Generada') {
     throw new Error('Solo se pueden anular Notas de Ingreso en estado Generada.');
   }
 
-  // Validar que el stock no quede negativo por la reversión (por almacén de cada línea)
-  for (const linea of nota.lineas) {
-    if (linea.tipoBienServicio === 'servicio') continue;
-    const producto = productsMap.get(linea.productoId);
+  // Fuente de verdad: los movimientos REALES que la generación confirmó — nunca se vuelve a
+  // decidir la afectación según la clasificación (tipoExistencia) vigente hoy (§1 de la
+  // corrección final). Si faltan, están duplicados o son inconsistentes, rechaza toda la
+  // anulación antes de tocar cualquier producto.
+  const movimientosOriginales = buscarMovimientosOriginalesGeneracion(empresaId, nota);
+
+  // Validación temprana de UX (mensaje con nombres legibles) sobre los datos ORIGINALES — el
+  // motor (§15) igualmente rechaza la operación completa si alguna línea no puede revertirse sin
+  // dejar stock negativo.
+  for (const movimientoOriginal of movimientosOriginales) {
+    const producto = productsMap.get(movimientoOriginal.productoId);
     if (!producto) continue;
-    const almacen = almacenesMap.get(linea.almacenId ?? nota.almacenDestinoId);
+    const almacen = almacenesMap.get(movimientoOriginal.almacenId);
     if (!almacen) continue;
     const stockActual = InventoryService.getStock(producto, almacen.id);
-    if (stockActual < linea.cantidad) {
+    if (stockActual < movimientoOriginal.cantidad) {
       throw new Error(
-        `No se puede anular: el producto "${linea.productoNombre}" tiene stock actual (${stockActual}) en "${almacen.nombreAlmacen}", menor a la cantidad ingresada (${linea.cantidad}).`,
+        `No se puede anular: el producto "${producto.nombre}" tiene stock actual (${stockActual}) en "${almacen.nombreAlmacen}", menor a la cantidad ingresada originalmente (${movimientoOriginal.cantidad}).`,
       );
     }
   }
 
-  const ahora = new Date().toISOString();
-  const productosActualizados: Product[] = [];
-  const movimientos: MovimientoStock[] = [];
+  const ahora = dependencias.fechaActual();
   const motivoMovimiento = mapTipoIngresoAMotivo(nota.tipoIngreso);
 
-  for (const linea of nota.lineas) {
-    if (linea.tipoBienServicio === 'servicio') continue;
-    const producto = productsMap.get(linea.productoId);
-    if (!producto) continue;
+  const lineasOperacion: DatosLineaOperacionCuantitativa[] = movimientosOriginales.map((movimientoOriginal) => ({
+    lineaId: movimientoOriginal.lineaOrigenId ?? `legado:${movimientoOriginal.id}`,
+    productoId: movimientoOriginal.productoId,
+    almacenId: movimientoOriginal.almacenId,
+    cantidadUnidadMinima: movimientoOriginal.cantidad,
+  }));
 
-    const almacen = almacenesMap.get(linea.almacenId ?? nota.almacenDestinoId);
-    if (!almacen) continue;
+  let productosActualizados: Product[] = [];
+  let movimientos: MovimientoStock[] = [];
 
-    const data: StockAdjustmentData = {
-      productoId: linea.productoId,
-      almacenId: almacen.id,
-      tipo: 'AJUSTE_NEGATIVO',
+  if (lineasOperacion.length > 0) {
+    const datos: DatosOperacionEntradaCuantitativa = {
+      modoOperacion: 'cuantitativo',
+      empresaId,
+      documentoId: nota.id,
+      tipoDocumento: 'nota_ingreso',
+      tipoOperacion: 'anulacion',
+      claveIdempotencia: `nota_ingreso:anular:${nota.id}`,
+      usuario,
+      fecha: ahora,
       motivo: motivoMovimiento,
-      cantidad: linea.cantidad,
       observaciones: `Anulación NI ${nota.numero ?? ''} - ${motivo}`.trim(),
       documentoReferencia: nota.numero ?? nota.id,
+      lineas: lineasOperacion,
     };
 
-    const { product: productoActualizado, movement } = InventoryService.registerAdjustment(
-      producto,
-      almacen,
-      data,
-      usuario,
-    );
+    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, {
+      almacenes: almacenesMap,
+      generarId: dependencias.generarId,
+      fechaActual: dependencias.fechaActual,
+    });
 
-    const almacenesArray = Array.from(almacenesMap.values());
-    const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
-    productsMap.set(linea.productoId, productoFinal);
-    productosActualizados.push(productoFinal);
-    movimientos.push(movement);
+    movimientos = resultado.movimientos;
+    productosActualizados = resultado.productosActualizados;
+    for (const producto of productosActualizados) {
+      productsMap.set(producto.id, producto);
+    }
   }
 
   const notaActualizada: NotaIngreso = {

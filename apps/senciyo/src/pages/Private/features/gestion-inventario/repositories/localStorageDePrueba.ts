@@ -11,6 +11,10 @@
 class AlmacenamientoLocalDePrueba {
   private datos = new Map<string, string>();
 
+  get length(): number {
+    return this.datos.size;
+  }
+
   getItem(clave: string): string | null {
     return this.datos.has(clave) ? this.datos.get(clave)! : null;
   }
