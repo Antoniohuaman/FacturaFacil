@@ -441,6 +441,7 @@ export default function FormularioComprobanteCompra({
         moneda,
       },
       ordenCompraOrigenId: ocOrigen?.id ?? ccBase?.ordenCompraOrigenId,
+      requerimientoCompraOrigenId: ccBase?.requerimientoCompraOrigenId,
       adjuntos,
     };
   }

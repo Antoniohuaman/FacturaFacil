@@ -442,6 +442,33 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
     },
     isActive: true,
   },
+  // Requerimiento de Compra (documento interno previo a la Orden de Compra)
+  {
+    id: 'RQ',
+    code: 'RQ',
+    name: 'Requerimiento de Compra',
+    shortName: 'RQ',
+    category: 'OTHER',
+    properties: {
+      affectsTaxes: false,
+      requiresCustomerRuc: false,
+      requiresCustomerName: false,
+      allowsCredit: false,
+      requiresPaymentMethod: false,
+      canBeVoided: true,
+      canHaveCreditNote: false,
+      canHaveDebitNote: false,
+      isElectronic: false,
+      requiresSignature: false,
+    },
+    seriesConfiguration: {
+      defaultPrefix: 'RQ',
+      seriesLength: 4,
+      correlativeLength: 8,
+      allowedPrefixes: ['RQ'],
+    },
+    isActive: true,
+  },
   // Guía de Remisión Electrónica Remitente
   {
     id: '09',

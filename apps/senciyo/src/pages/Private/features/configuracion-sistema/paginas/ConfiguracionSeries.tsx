@@ -139,6 +139,13 @@ const voucherTypeConfig = {
     color: 'teal',
     prefix: 'PG',
     description: 'Documento interno de compras - Registro de pago al proveedor'
+  },
+  PURCHASE_REQUISITION: {
+    label: 'Requerimiento de Compra',
+    icon: Clipboard,
+    color: 'orange',
+    prefix: 'RQ',
+    description: 'Documento interno de compras - Solicitud previa a la Orden de Compra'
   }
 };
 

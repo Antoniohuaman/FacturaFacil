@@ -41,6 +41,7 @@ const permisosContador: IdPermiso[] = [
   'indicadores.ver',
   'cobranzas.ver',
   'caja.ver',
+  'compras.requerimientos.ver',
   'compras.ordenes.ver',
   'compras.comprobantes.ver',
   'compras.cuentas_por_pagar.ver',

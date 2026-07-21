@@ -1,4 +1,13 @@
 export {
+  EVENTO_RC_CAMBIADA,
+  cargarRequerimientosCompra,
+  guardarRequerimientosCompra,
+  obtenerRCPorId,
+  agregarOActualizarRC,
+  eliminarRCDelStorage,
+} from './repositorioRequerimientosCompra';
+
+export {
   EVENTO_OC_CAMBIADA,
   cargarOrdenesCompra,
   guardarOrdenesCompra,

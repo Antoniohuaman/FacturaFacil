@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, FileText, Receipt, CreditCard, Wallet } from 'lucide-react';
+import { ShoppingBag, FileText, ClipboardList, Receipt, CreditCard, Wallet } from 'lucide-react';
 import { useCompras } from '../contexto/ContextoCompras';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useTenant } from '@/shared/tenant/TenantContext';
@@ -16,31 +16,41 @@ import {
 } from '../servicios/servicioOrdenCompra';
 import { imprimirComprobanteCompra, prepararDuplicadoCC } from '../servicios/servicioComprobanteCompra';
 import { imprimirPagoCompra } from '../servicios/servicioPagoCompra';
+import { extraerDatosRCParaOC } from '../mapeadores/mapeadorRCaOC';
+import { extraerDatosRCParaCC } from '../mapeadores/mapeadorRCaCC';
+import TablaRequerimientosCompra from '../componentes/listados/TablaRequerimientosCompra';
 import TablaOrdenesCompra from '../componentes/listados/TablaOrdenesCompra';
 import TablaComprobantesCompra from '../componentes/listados/TablaComprobantesCompra';
 import TablaCuentasPorPagar from '../componentes/listados/TablaCuentasPorPagar';
 import TablaPagosCompra from '../componentes/listados/TablaPagosCompra';
+import FormularioRequerimientoCompra from '../componentes/formularios/FormularioRequerimientoCompra';
 import FormularioOrdenCompra from '../componentes/formularios/FormularioOrdenCompra';
 import FormularioComprobanteCompra from '../componentes/formularios/FormularioComprobanteCompra';
+import PanelDetalleRequerimientoCompra from '../componentes/detalle/PanelDetalleRequerimientoCompra';
 import PanelDetalleOrdenCompra from '../componentes/detalle/PanelDetalleOrdenCompra';
 import PanelDetalleComprobanteCompra from '../componentes/detalle/PanelDetalleComprobanteCompra';
 import PanelDetalleCuentaPorPagar from '../componentes/detalle/PanelDetalleCuentaPorPagar';
 import PanelDetallePagoCompra from '../componentes/detalle/PanelDetallePagoCompra';
 import ModalAprobarRechazarOC from '../componentes/modales/ModalAprobarRechazarOC';
 import ModalAnularCompra from '../componentes/modales/ModalAnularCompra';
+import type { RequerimientoCompra } from '../modelos/RequerimientoCompra';
 import type { OrdenCompra } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { PagoCompra } from '../modelos/PagoCompra';
 import {
+  MOTIVOS_ANULACION_RC,
   MOTIVOS_ANULACION_OC,
   MOTIVOS_ANULACION_CC,
   MOTIVOS_ANULACION_PAGO,
 } from '../constantes/motivosAnulacionCompras';
 
-type TabActivo = 'ordenes' | 'comprobantes' | 'cuentas_por_pagar' | 'pagos';
+type TabActivo = 'requerimientos' | 'ordenes' | 'comprobantes' | 'cuentas_por_pagar' | 'pagos';
 
 type Vista =
   | { tipo: 'lista' }
+  | { tipo: 'nuevo_requerimiento'; rcBase?: Partial<RequerimientoCompra> }
+  | { tipo: 'editar_requerimiento'; rcId: string }
+  | { tipo: 'detalle_requerimiento'; rcId: string }
   | { tipo: 'nueva_oc'; ocBase?: Partial<OrdenCompra> }
   | {
       tipo: 'editar_oc';
@@ -56,6 +66,7 @@ type Vista =
   | { tipo: 'detalle_pago'; pagoId: string };
 
 const TABS: { id: TabActivo; label: string; icon: typeof FileText }[] = [
+  { id: 'requerimientos', label: 'Requerimientos', icon: ClipboardList },
   { id: 'ordenes', label: 'Órdenes de Compra', icon: FileText },
   { id: 'comprobantes', label: 'Comprobantes', icon: Receipt },
   { id: 'cuentas_por_pagar', label: 'Cuentas por Pagar', icon: CreditCard },
@@ -65,6 +76,9 @@ const TABS: { id: TabActivo; label: string; icon: typeof FileText }[] = [
 export default function PaginaCompras() {
   const {
     state,
+    eliminarRequerimientoCompraBorrador,
+    registrarRequerimientoCompraDesdeBorrador,
+    anularRequerimientoCompra,
     anularOrdenCompra,
     aprobarOrdenCompra,
     rechazarOrdenCompra,
@@ -88,6 +102,7 @@ export default function PaginaCompras() {
 
   const [tabActivo, setTabActivo] = useState<TabActivo>(tabDesdeNavegacion ?? 'ordenes');
   const [vista, setVista] = useState<Vista>({ tipo: 'lista' });
+  const [rcParaAnular, setRcParaAnular] = useState<RequerimientoCompra | null>(null);
   const [ocParaAprobar, setOcParaAprobar] = useState<OrdenCompra | null>(null);
   const [ocParaAnular, setOcParaAnular] = useState<OrdenCompra | null>(null);
   const [ccParaAnular, setCcParaAnular] = useState<ComprobanteCompra | null>(null);
@@ -109,6 +124,26 @@ export default function PaginaCompras() {
       compartirOrdenCompraPorWhatsApp(oc);
     } catch (e) {
       feedback.error(e instanceof Error ? e.message : 'No se pudo enviar la orden.');
+    }
+  }
+
+  async function handleEliminarBorradorRC(rc: RequerimientoCompra) {
+    const numero = formatearNumeroCompra(rc.serie, rc.correlativo || undefined);
+    if (!window.confirm(`¿Eliminar el borrador ${numero}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await eliminarRequerimientoCompraBorrador(rc.id);
+      feedback.success('Borrador eliminado.');
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo eliminar el borrador.');
+    }
+  }
+
+  async function handleRegistrarBorradorRC(rc: RequerimientoCompra) {
+    try {
+      await registrarRequerimientoCompraDesdeBorrador(rc.id, undefined, usuarioNombre);
+      feedback.success('Requerimiento de compra registrado.');
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo registrar el requerimiento.');
     }
   }
 
@@ -187,6 +222,33 @@ export default function PaginaCompras() {
     }
   }
 
+  if (vista.tipo === 'nuevo_requerimiento') {
+    return (
+      <FormularioRequerimientoCompra
+        rcBase={vista.rcBase}
+        onExito={(rc) => {
+          setVista({ tipo: 'detalle_requerimiento', rcId: rc.id });
+          setTabActivo('requerimientos');
+        }}
+        onCancelar={() => setVista({ tipo: 'lista' })}
+      />
+    );
+  }
+
+  if (vista.tipo === 'editar_requerimiento') {
+    const rcBase = state.requerimientos.find((r) => r.id === vista.rcId);
+    return (
+      <FormularioRequerimientoCompra
+        rcBase={rcBase}
+        onExito={(rc) => {
+          setVista({ tipo: 'detalle_requerimiento', rcId: rc.id });
+          setTabActivo('requerimientos');
+        }}
+        onCancelar={() => setVista({ tipo: 'lista' })}
+      />
+    );
+  }
+
   if (vista.tipo === 'nueva_oc') {
     return (
       <FormularioOrdenCompra
@@ -259,6 +321,11 @@ export default function PaginaCompras() {
     );
   }
 
+  const rcDetalle =
+    vista.tipo === 'detalle_requerimiento'
+      ? (state.requerimientos.find((r) => r.id === vista.rcId) ?? null)
+      : null;
+
   const ocDetalle =
     vista.tipo === 'detalle_oc'
       ? (state.ordenes.find((o) => o.id === vista.ocId) ?? null)
@@ -305,6 +372,7 @@ export default function PaginaCompras() {
             const Icon = tab.icon;
             const activo = tabActivo === tab.id;
             let contador: number | null = null;
+            if (tab.id === 'requerimientos') contador = state.requerimientos.length || null;
             if (tab.id === 'ordenes') contador = state.ordenes.length || null;
             if (tab.id === 'comprobantes') contador = state.comprobantes.length || null;
             if (tab.id === 'cuentas_por_pagar') contador = cxpPendientes.length || null;
@@ -340,6 +408,27 @@ export default function PaginaCompras() {
 
       {/* Contenido del tab */}
       <div className="flex-1 overflow-auto px-6 py-6">
+        {tabActivo === 'requerimientos' && (
+          <TablaRequerimientosCompra
+            requerimientos={state.requerimientos}
+            ordenes={state.ordenes}
+            comprobantes={state.comprobantes}
+            cargando={state.cargando}
+            errorCarga={state.errorCarga}
+            onVer={(rc) => setVista({ tipo: 'detalle_requerimiento', rcId: rc.id })}
+            onEditar={(rc) => setVista({ tipo: 'editar_requerimiento', rcId: rc.id })}
+            onEliminarBorrador={handleEliminarBorradorRC}
+            onRegistrarBorrador={handleRegistrarBorradorRC}
+            onAnular={(rc) => setRcParaAnular(rc)}
+            onGenerarOC={(rc) => setVista({ tipo: 'nueva_oc', ocBase: extraerDatosRCParaOC(rc) })}
+            onGenerarCC={(rc) => setVista({ tipo: 'nuevo_cc', ccBase: extraerDatosRCParaCC(rc) })}
+            onNuevo={() => setVista({ tipo: 'nuevo_requerimiento' })}
+            onActualizar={recargarDatos}
+            onVerOrdenCompra={(ocId) => setVista({ tipo: 'detalle_oc', ocId })}
+            onVerComprobante={(ccId) => setVista({ tipo: 'detalle_cc', ccId })}
+          />
+        )}
+
         {tabActivo === 'ordenes' && (
           <TablaOrdenesCompra
             ordenes={state.ordenes}
@@ -414,6 +503,22 @@ export default function PaginaCompras() {
       </div>
 
       {/* Paneles de detalle */}
+      {rcDetalle && (
+        <PanelDetalleRequerimientoCompra
+          rc={rcDetalle}
+          ordenes={state.ordenes}
+          comprobantes={state.comprobantes}
+          onCerrar={() => setVista({ tipo: 'lista' })}
+          onVerOrdenCompra={(oc) => setVista({ tipo: 'detalle_oc', ocId: oc.id })}
+          onVerComprobante={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}
+          onEditar={(rc) => setVista({ tipo: 'editar_requerimiento', rcId: rc.id })}
+          onAnular={(rc) => setRcParaAnular(rc)}
+          onGenerarOC={(rc) => setVista({ tipo: 'nueva_oc', ocBase: extraerDatosRCParaOC(rc) })}
+          onGenerarCC={(rc) => setVista({ tipo: 'nuevo_cc', ccBase: extraerDatosRCParaCC(rc) })}
+          onEliminarBorrador={handleEliminarBorradorRC}
+        />
+      )}
+
       {ocDetalle && (
         <PanelDetalleOrdenCompra
           oc={ocDetalle}
@@ -474,6 +579,22 @@ export default function PaginaCompras() {
           onImprimir={handleImprimirPago}
         />
       )}
+
+      {/* Modal: Anular Requerimiento de Compra */}
+      <ModalAnularCompra
+        abierto={rcParaAnular !== null}
+        titulo="Anular Requerimiento de Compra"
+        descripcion={`¿Confirmas la anulación del requerimiento ${rcParaAnular ? formatearNumeroCompra(rcParaAnular.serie, rcParaAnular.correlativo || undefined) : ''}? Esta acción no se puede deshacer.`}
+        motivos={[...MOTIVOS_ANULACION_RC]}
+        onConfirmar={async (motivo) => {
+          if (rcParaAnular) {
+            await anularRequerimientoCompra(rcParaAnular.id, motivo, usuarioNombre);
+            feedback.success('Requerimiento de compra anulado.');
+            setRcParaAnular(null);
+          }
+        }}
+        onCerrar={() => setRcParaAnular(null)}
+      />
 
       {/* Modal: Aprobar / Rechazar OC */}
       <ModalAprobarRechazarOC

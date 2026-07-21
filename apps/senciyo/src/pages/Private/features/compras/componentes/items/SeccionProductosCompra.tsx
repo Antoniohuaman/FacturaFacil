@@ -19,6 +19,10 @@ interface SeccionProductosCompraProps {
   disabled?: boolean;
   /** Mensaje mostrado en vez del buscador de productos cuando `disabled` es true. Por defecto, uno genérico. */
   mensajeBloqueo?: string;
+  /** Etiqueta de la columna de precio unitario. Por defecto "Costo U." (Orden de Compra / Comprobante); un Requerimiento de Compra la muestra como "Precio ref." */
+  etiquetaCosto?: string;
+  /** Etiqueta del total del panel de resumen. Por defecto "Total"; un Requerimiento de Compra la muestra como "Total referencial". */
+  etiquetaTotal?: string;
 }
 
 interface DefinicionColumna extends ColumnaTablaLineas {
@@ -50,12 +54,14 @@ const COLUMNAS_CONFIGURABLES: DefinicionColumna[] = [
   { id: 'precioCompra', label: 'P. Compra', align: 'right', width: '110px', fija: false },
 ];
 
-const COLUMNAS_FIN: DefinicionColumna[] = [
-  { id: 'costo', label: 'Costo U.', align: 'right', minWidth: '130px', fija: true },
-  { id: 'subtotal', label: 'Subtotal', align: 'right', width: '110px', fija: true },
-  { id: 'total', label: 'Total', align: 'right', width: '110px', fija: true },
-  { id: 'accion', label: 'Acción', align: 'center', width: '70px', fija: true },
-];
+function construirColumnasFin(etiquetaCosto: string): DefinicionColumna[] {
+  return [
+    { id: 'costo', label: etiquetaCosto, align: 'right', minWidth: '130px', fija: true },
+    { id: 'subtotal', label: 'Subtotal', align: 'right', width: '110px', fija: true },
+    { id: 'total', label: 'Total', align: 'right', width: '110px', fija: true },
+    { id: 'accion', label: 'Acción', align: 'center', width: '70px', fija: true },
+  ];
+}
 
 const COLUMNAS_VISIBLES_DEFAULT = ['imagen', 'stock'];
 const STORAGE_KEY = 'compras_table_columns_config';
@@ -87,16 +93,19 @@ export default function SeccionProductosCompra({
   totalesCalculados,
   disabled = false,
   mensajeBloqueo,
+  etiquetaCosto = 'Costo U.',
+  etiquetaTotal = 'Total',
 }: SeccionProductosCompraProps) {
   const { lineas, actualizarLinea, actualizarUnidadLinea, eliminarLinea, agregarProductosDesdeCatalogo } = lineasCompra;
   const [mostrarColumnas, setMostrarColumnas] = useState(false);
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>(cargarColumnasVisiblesGuardadas);
 
+  const columnasFin = construirColumnasFin(etiquetaCosto);
   const idsProductosEnLineas = lineas.filter((l) => !!l.productoId).map((l) => l.productoId!);
   const columnasTabla = [
     ...COLUMNAS_INICIO,
     ...COLUMNAS_CONFIGURABLES.filter((c) => columnasVisibles.includes(c.id)),
-    ...COLUMNAS_FIN,
+    ...columnasFin,
   ];
 
   function alternarColumna(columnaId: string) {
@@ -330,7 +339,7 @@ export default function SeccionProductosCompra({
       {mostrarColumnas && (
         <div className="mb-3 p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-200">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            {[...COLUMNAS_INICIO, ...COLUMNAS_CONFIGURABLES, ...COLUMNAS_FIN].map((columna) => {
+            {[...COLUMNAS_INICIO, ...COLUMNAS_CONFIGURABLES, ...columnasFin].map((columna) => {
               const visible = columna.fija || columnasVisibles.includes(columna.id);
               return (
                 <label
@@ -413,7 +422,7 @@ export default function SeccionProductosCompra({
                   <div className="flex items-baseline justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-2 w-2 rounded-full bg-violet-600" />
-                      <span className="text-xs font-semibold tracking-[0.16em] text-violet-700 uppercase">Total</span>
+                      <span className="text-xs font-semibold tracking-[0.16em] text-violet-700 uppercase">{etiquetaTotal}</span>
                     </div>
                     <span className="text-2xl font-semibold text-gray-900">
                       {formatMoney(totalesCalculados.total, moneda)}

@@ -12,6 +12,7 @@ import type {
 } from '../modelos/ComprobanteCompra';
 import type { EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { EstadoDocumentoPago } from '../modelos/PagoCompra';
+import type { EstadoPrincipalRC } from '../modelos/RequerimientoCompra';
 
 /**
  * Etiqueta visual del estado principal de la OC. El valor interno persistido
@@ -120,4 +121,24 @@ export const BADGE_ESTADO_VENCIMIENTO_CXP: Record<EstadoVencimientoCxP, string> 
 export const BADGE_ESTADO_DOCUMENTO_PAGO: Record<EstadoDocumentoPago, string> = {
   registrado: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   anulado: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+};
+
+/**
+ * Etiqueta visual del estado principal único del Requerimiento de Compra (ver
+ * EstadoPrincipalRC / calcularEstadoPrincipalRC). Única fuente para badge
+ * (listado y drawer) y filtro de estados.
+ */
+export const ETIQUETA_ESTADO_PRINCIPAL_RC: Record<EstadoPrincipalRC, string> = {
+  Borrador: 'Borrador',
+  Pendiente: 'Pendiente',
+  Atendido: 'Atendido',
+  Anulado: 'Anulado',
+};
+
+/** Badge del estado principal único del Requerimiento de Compra. */
+export const BADGE_ESTADO_PRINCIPAL_RC: Record<EstadoPrincipalRC, string> = {
+  Borrador: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  Pendiente: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  Atendido: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  Anulado: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
 };

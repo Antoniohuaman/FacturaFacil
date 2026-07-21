@@ -14,10 +14,16 @@ import type { OrdenCompra } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import type { PagoCompra, MedioPagoCompra } from '../modelos/PagoCompra';
+import type { RequerimientoCompra } from '../modelos/RequerimientoCompra';
 import type { Cliente } from '../../gestion-clientes/models/cliente.types';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { siguienteNumeroPago } from '../utilidades/formatearCompras';
+import {
+  cargarRequerimientosCompra,
+  agregarOActualizarRC,
+  eliminarRCDelStorage,
+} from '../repositorios/repositorioRequerimientosCompra';
 import {
   cargarOrdenesCompra,
   agregarOActualizarOC,
@@ -58,9 +64,12 @@ import {
   motivoBloqueoAnulacionOC,
   motivoBloqueoAnulacionCC,
   motivoBloqueoAnulacionPago,
+  motivoBloqueoAnulacionRC,
   puedeGenerarCCDesdeOC,
   puedeEditarOC,
   puedeEliminarBorradorOC,
+  puedeEditarRC,
+  puedeEliminarBorradorRC,
   puedeEditarCC,
   puedeEditarCamposFinancierosCC,
   puedeEliminarBorradorCC,
@@ -80,6 +89,7 @@ import type { LineaCompra } from '../modelos/LineaCompra';
 import { calcularEstadoFacturacion, calcularEstadoInventarioCC, calcularEstadoInventarioOC } from '../utilidades/calcularEstadosCompra';
 import { eliminarOCDelStorage } from '../repositorios/repositorioOrdenesCompra';
 import { extraerDatosOCParaCC } from '../mapeadores/mapeadorOCaCC';
+import { validarRequerimientoCompraBasico } from '../servicios/servicioRequerimientoCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 
 // ---------------------------------------------------------------------------
@@ -87,6 +97,7 @@ import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 // ---------------------------------------------------------------------------
 
 interface EstadoCompras {
+  requerimientos: RequerimientoCompra[];
   ordenes: OrdenCompra[];
   comprobantes: ComprobanteCompra[];
   cuentasPorPagar: CuentaPorPagar[];
@@ -97,6 +108,7 @@ interface EstadoCompras {
 }
 
 const estadoInicial: EstadoCompras = {
+  requerimientos: [],
   ordenes: [],
   comprobantes: [],
   cuentasPorPagar: [],
@@ -111,6 +123,10 @@ const estadoInicial: EstadoCompras = {
 // ---------------------------------------------------------------------------
 
 type AccionCompras =
+  | { type: 'ESTABLECER_REQUERIMIENTOS'; payload: RequerimientoCompra[] }
+  | { type: 'AGREGAR_REQUERIMIENTO'; payload: RequerimientoCompra }
+  | { type: 'ACTUALIZAR_REQUERIMIENTO'; payload: RequerimientoCompra }
+  | { type: 'ELIMINAR_REQUERIMIENTO'; payload: string }
   | { type: 'ESTABLECER_ORDENES'; payload: OrdenCompra[] }
   | { type: 'AGREGAR_ORDEN'; payload: OrdenCompra }
   | { type: 'ACTUALIZAR_ORDEN'; payload: OrdenCompra }
@@ -135,6 +151,17 @@ type AccionCompras =
 
 function reducerCompras(estado: EstadoCompras, accion: AccionCompras): EstadoCompras {
   switch (accion.type) {
+    case 'ESTABLECER_REQUERIMIENTOS':
+      return { ...estado, requerimientos: accion.payload };
+    case 'AGREGAR_REQUERIMIENTO':
+      return { ...estado, requerimientos: [accion.payload, ...estado.requerimientos] };
+    case 'ACTUALIZAR_REQUERIMIENTO':
+      return {
+        ...estado,
+        requerimientos: estado.requerimientos.map((r) => (r.id === accion.payload.id ? accion.payload : r)),
+      };
+    case 'ELIMINAR_REQUERIMIENTO':
+      return { ...estado, requerimientos: estado.requerimientos.filter((r) => r.id !== accion.payload) };
     case 'ESTABLECER_ORDENES':
       return { ...estado, ordenes: accion.payload };
     case 'AGREGAR_ORDEN':
@@ -204,6 +231,15 @@ function ahora(): string {
 
 function hoy(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function siguienteCorrelativoRC(requerimientos: RequerimientoCompra[], serie: string): string {
+  const existentes = requerimientos
+    .filter((r) => r.serie === serie)
+    .map((r) => parseInt(r.correlativo, 10))
+    .filter((n) => !isNaN(n));
+  const max = existentes.length > 0 ? Math.max(...existentes) : 0;
+  return String(max + 1).padStart(8, '0');
 }
 
 function siguienteCorrelativoOC(ordenes: OrdenCompra[], serie: string): string {
@@ -515,6 +551,50 @@ function cargarProveedores(): Cliente[] {
 interface ContextoComprasTipo {
   state: EstadoCompras;
 
+  registrarRequerimientoCompra(
+    datos: Omit<
+      RequerimientoCompra,
+      'id' | 'tipoDocumento' | 'correlativo' | 'numero' | 'estadoDocumento' | 'historial' | 'fechaCreacion' | 'fechaActualizacion'
+    > & { serie: string },
+    usuarioId?: string,
+    usuarioNombre?: string,
+  ): Promise<RequerimientoCompra>;
+
+  /** Guarda un Requerimiento nuevo como Borrador: solo exige el mínimo técnico (moneda), no consume correlativo/número definitivo. */
+  guardarBorradorRC(
+    datos: Omit<
+      RequerimientoCompra,
+      'id' | 'tipoDocumento' | 'correlativo' | 'numero' | 'estadoDocumento' | 'historial' | 'fechaCreacion' | 'fechaActualizacion'
+    > & { serie: string },
+    usuarioId?: string,
+    usuarioNombre?: string,
+  ): Promise<RequerimientoCompra>;
+
+  /** Sobreescribe un Requerimiento que sigue en estadoDocumento==='borrador'. */
+  actualizarRequerimientoCompraBorrador(
+    id: string,
+    datos: Partial<RequerimientoCompra>,
+    usuarioNombre?: string,
+  ): Promise<RequerimientoCompra>;
+
+  /** Promueve un borrador existente a Pendiente: fusiona los últimos datos editados y asigna correlativo/número real, todo en un solo paso atómico. */
+  registrarRequerimientoCompraDesdeBorrador(
+    id: string,
+    datosActualizados?: Partial<RequerimientoCompra>,
+    usuarioNombre?: string,
+  ): Promise<RequerimientoCompra>;
+
+  eliminarRequerimientoCompraBorrador(id: string): Promise<void>;
+
+  /** Actualiza un Requerimiento que ya no está en Borrador (Pendiente), en el mismo id, sin tocar serie/correlativo/número. */
+  actualizarRequerimientoCompra(
+    id: string,
+    datos: Partial<RequerimientoCompra>,
+    usuarioNombre?: string,
+  ): Promise<RequerimientoCompra>;
+
+  anularRequerimientoCompra(id: string, motivo: string, anuladoPor?: string): Promise<void>;
+
   registrarOrdenCompra(
     datos: Omit<
       OrdenCompra,
@@ -704,6 +784,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const recargarDatos = useCallback(() => {
     dispatch({ type: 'SET_CARGANDO', payload: true });
     try {
+      dispatch({ type: 'ESTABLECER_REQUERIMIENTOS', payload: cargarRequerimientosCompra() });
       dispatch({ type: 'ESTABLECER_ORDENES', payload: cargarOrdenesCompra() });
       dispatch({ type: 'ESTABLECER_COMPROBANTES', payload: cargarComprobantesCompra() });
       dispatch({ type: 'ESTABLECER_CUENTAS_POR_PAGAR', payload: cargarCuentasPorPagar() });
@@ -727,6 +808,239 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const refrescarProveedores = useCallback(() => {
     dispatch({ type: 'ESTABLECER_PROVEEDORES', payload: cargarProveedores() });
   }, []);
+
+  // -------------------------------------------------------------------------
+  // Requerimientos de Compra
+  // -------------------------------------------------------------------------
+
+  const registrarRequerimientoCompra = useCallback(
+    async (
+      datos: Omit<
+        RequerimientoCompra,
+        'id' | 'tipoDocumento' | 'correlativo' | 'numero' | 'estadoDocumento' | 'historial' | 'fechaCreacion' | 'fechaActualizacion'
+      > & { serie: string },
+      usuarioId?: string,
+      usuarioNombre?: string,
+    ): Promise<RequerimientoCompra> => {
+      lanzarSiHayErrores(validarRequerimientoCompraBasico(datos));
+
+      const id = generarId();
+      const ts = ahora();
+      const correlativo = siguienteCorrelativoRC(state.requerimientos, datos.serie);
+      const numero = `${datos.serie}-${correlativo}`;
+
+      const rc: RequerimientoCompra = {
+        ...datos,
+        id,
+        tipoDocumento: 'requerimiento_compra',
+        correlativo,
+        numero,
+        estadoDocumento: 'registrado',
+        historial: [
+          {
+            fecha: ts,
+            usuario: usuarioNombre,
+            accion: 'Requerimiento de compra registrado',
+            detalle: `Número: ${numero}`,
+          },
+        ],
+        creadoPor: usuarioId,
+        fechaCreacion: ts,
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarRC(rc);
+      dispatch({ type: 'AGREGAR_REQUERIMIENTO', payload: rc });
+      return rc;
+    },
+    [state.requerimientos],
+  );
+
+  const guardarBorradorRC = useCallback(
+    async (
+      datos: Omit<
+        RequerimientoCompra,
+        'id' | 'tipoDocumento' | 'correlativo' | 'numero' | 'estadoDocumento' | 'historial' | 'fechaCreacion' | 'fechaActualizacion'
+      > & { serie: string },
+      usuarioId?: string,
+      usuarioNombre?: string,
+    ): Promise<RequerimientoCompra> => {
+      if (!datos.moneda) throw new Error('Selecciona una moneda para guardar el borrador.');
+
+      const id = generarId();
+      const ts = ahora();
+
+      const rc: RequerimientoCompra = {
+        ...datos,
+        id,
+        tipoDocumento: 'requerimiento_compra',
+        correlativo: '',
+        numero: '',
+        estadoDocumento: 'borrador',
+        historial: [{ fecha: ts, usuario: usuarioNombre, accion: 'Borrador guardado', detalle: '' }],
+        creadoPor: usuarioId,
+        fechaCreacion: ts,
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarRC(rc);
+      dispatch({ type: 'AGREGAR_REQUERIMIENTO', payload: rc });
+      return rc;
+    },
+    [],
+  );
+
+  const actualizarRequerimientoCompraBorrador = useCallback(
+    async (
+      id: string,
+      datos: Partial<RequerimientoCompra>,
+      usuarioNombre?: string,
+    ): Promise<RequerimientoCompra> => {
+      const rc = state.requerimientos.find((r) => r.id === id);
+      if (!rc) throw new Error(`Requerimiento de compra ${id} no encontrado.`);
+      if (rc.estadoDocumento !== 'borrador') {
+        throw new Error('Solo se puede actualizar un requerimiento de compra que sigue en Borrador.');
+      }
+
+      const ts = ahora();
+      const actualizado: RequerimientoCompra = {
+        ...rc,
+        ...datos,
+        id: rc.id,
+        estadoDocumento: 'borrador',
+        historial: [
+          ...rc.historial,
+          { fecha: ts, usuario: usuarioNombre, accion: 'Borrador actualizado', detalle: '' },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarRC(actualizado);
+      dispatch({ type: 'ACTUALIZAR_REQUERIMIENTO', payload: actualizado });
+      return actualizado;
+    },
+    [state.requerimientos],
+  );
+
+  const registrarRequerimientoCompraDesdeBorrador = useCallback(
+    async (
+      id: string,
+      datosActualizados?: Partial<RequerimientoCompra>,
+      usuarioNombre?: string,
+    ): Promise<RequerimientoCompra> => {
+      const existente = state.requerimientos.find((r) => r.id === id);
+      if (!existente) throw new Error(`Requerimiento de compra ${id} no encontrado.`);
+      if (existente.estadoDocumento !== 'borrador') {
+        throw new Error('Este requerimiento de compra ya fue registrado.');
+      }
+
+      const rc: RequerimientoCompra = { ...existente, ...datosActualizados, id: existente.id };
+      lanzarSiHayErrores(validarRequerimientoCompraBasico(rc));
+
+      const ts = ahora();
+      const correlativo = siguienteCorrelativoRC(state.requerimientos, rc.serie);
+      const numero = `${rc.serie}-${correlativo}`;
+
+      const actualizado: RequerimientoCompra = {
+        ...rc,
+        correlativo,
+        numero,
+        estadoDocumento: 'registrado',
+        historial: [
+          ...rc.historial,
+          { fecha: ts, usuario: usuarioNombre, accion: 'Requerimiento de compra registrado', detalle: `Número: ${numero}` },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarRC(actualizado);
+      dispatch({ type: 'ACTUALIZAR_REQUERIMIENTO', payload: actualizado });
+      return actualizado;
+    },
+    [state.requerimientos],
+  );
+
+  const eliminarRequerimientoCompraBorrador = useCallback(
+    async (id: string): Promise<void> => {
+      const rc = state.requerimientos.find((r) => r.id === id);
+      if (!rc) throw new Error(`Requerimiento de compra ${id} no encontrado.`);
+      if (!puedeEliminarBorradorRC(rc, state.ordenes, state.comprobantes)) {
+        throw new Error('Solo se puede eliminar un requerimiento de compra en Borrador.');
+      }
+
+      eliminarRCDelStorage(id);
+      dispatch({ type: 'ELIMINAR_REQUERIMIENTO', payload: id });
+    },
+    [state.requerimientos, state.ordenes, state.comprobantes],
+  );
+
+  const actualizarRequerimientoCompra = useCallback(
+    async (
+      id: string,
+      datos: Partial<RequerimientoCompra>,
+      usuarioNombre?: string,
+    ): Promise<RequerimientoCompra> => {
+      const existente = state.requerimientos.find((r) => r.id === id);
+      if (!existente) throw new Error(`Requerimiento de compra ${id} no encontrado.`);
+      if (existente.estadoDocumento === 'borrador' || !puedeEditarRC(existente, state.ordenes, state.comprobantes)) {
+        throw new Error('Este requerimiento de compra no se puede editar en su estado actual.');
+      }
+
+      const rc: RequerimientoCompra = {
+        ...existente,
+        ...datos,
+        id: existente.id,
+        correlativo: existente.correlativo,
+        numero: existente.numero,
+        fechaCreacion: existente.fechaCreacion,
+      };
+
+      lanzarSiHayErrores(validarRequerimientoCompraBasico(rc));
+
+      const ts = ahora();
+      const actualizado: RequerimientoCompra = {
+        ...rc,
+        historial: [
+          ...rc.historial,
+          { fecha: ts, usuario: usuarioNombre, accion: 'Requerimiento de compra actualizado', detalle: '' },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarRC(actualizado);
+      dispatch({ type: 'ACTUALIZAR_REQUERIMIENTO', payload: actualizado });
+      return actualizado;
+    },
+    [state.requerimientos, state.ordenes, state.comprobantes],
+  );
+
+  const anularRequerimientoCompra = useCallback(
+    async (id: string, motivo: string, anuladoPor?: string): Promise<void> => {
+      const rc = state.requerimientos.find((r) => r.id === id);
+      if (!rc) throw new Error(`Requerimiento de compra ${id} no encontrado.`);
+
+      const motivoBloqueo = motivoBloqueoAnulacionRC(rc, state.ordenes, state.comprobantes);
+      if (motivoBloqueo) throw new Error(motivoBloqueo);
+
+      const ts = ahora();
+      const actualizado: RequerimientoCompra = {
+        ...rc,
+        estadoDocumento: 'anulado',
+        motivoAnulacion: motivo,
+        fechaAnulacion: ts,
+        anuladoPor,
+        historial: [
+          ...rc.historial,
+          { fecha: ts, usuario: anuladoPor, accion: 'Requerimiento anulado', detalle: motivo },
+        ],
+        fechaActualizacion: ts,
+      };
+
+      agregarOActualizarRC(actualizado);
+      dispatch({ type: 'ACTUALIZAR_REQUERIMIENTO', payload: actualizado });
+    },
+    [state.requerimientos, state.ordenes, state.comprobantes],
+  );
 
   // -------------------------------------------------------------------------
   // Órdenes de Compra
@@ -1814,6 +2128,13 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     <ContextoCompras.Provider
       value={{
         state,
+        registrarRequerimientoCompra,
+        guardarBorradorRC,
+        actualizarRequerimientoCompraBorrador,
+        registrarRequerimientoCompraDesdeBorrador,
+        eliminarRequerimientoCompraBorrador,
+        actualizarRequerimientoCompra,
+        anularRequerimientoCompra,
         registrarOrdenCompra,
         anularOrdenCompra,
         aprobarOrdenCompra,

@@ -303,6 +303,7 @@ export default function FormularioOrdenCompra({
       centroCosto: centroCosto || undefined,
       presupuesto: presupuesto || undefined,
       observaciones: observaciones || undefined,
+      requerimientoCompraOrigenId: ocBase?.requerimientoCompraOrigenId,
       lineas,
       totales: {
         subtotal: totalesCalculados.subtotal,

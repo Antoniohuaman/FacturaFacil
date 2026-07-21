@@ -1,3 +1,11 @@
+export const MOTIVOS_ANULACION_RC = [
+  'Cambio de necesidad del área solicitante',
+  'Requerimiento duplicado',
+  'Error en datos del documento',
+  'Solicitud cancelada',
+  'Otro',
+] as const;
+
 export const MOTIVOS_ANULACION_OC = [
   'Cambio de proveedor',
   'Error en datos del documento',
@@ -21,6 +29,7 @@ export const MOTIVOS_ANULACION_PAGO = [
   'Otro',
 ] as const;
 
+export type MotivoAnulacionRC = (typeof MOTIVOS_ANULACION_RC)[number];
 export type MotivoAnulacionOC = (typeof MOTIVOS_ANULACION_OC)[number];
 export type MotivoAnulacionCC = (typeof MOTIVOS_ANULACION_CC)[number];
 export type MotivoAnulacionPago = (typeof MOTIVOS_ANULACION_PAGO)[number];

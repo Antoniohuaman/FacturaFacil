@@ -1442,6 +1442,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const seriesDefaultsMigratedRef = useRef(false);
   const stockEntrySeriesMigratedRef = useRef(false);
   const stockExitSeriesMigratedRef = useRef(false);
+  const purchaseRequisitionSeriesMigratedRef = useRef(false);
   const almacenNombresNormalizadosRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
     if (action.type === 'SET_CURRENCIES') {
@@ -1751,6 +1752,41 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
     dispatch({ type: 'SET_SERIES', payload: [...state.series, ...allNewSeries] });
     stockExitSeriesMigratedRef.current = true;
+  }, [dispatch, state.Establecimientos, state.company, state.series]);
+
+  // Backfill de la serie de Requerimiento de Compra (RQ) para establecimientos
+  // ya existentes — mismo patrón que el backfill de NI/NS: los tenants que
+  // onboardearon antes de que este documento existiera no la reciben en el
+  // alta de establecimiento (`buildMissingDefaultSeries`, más arriba), así que
+  // se completa una sola vez aquí.
+  useEffect(() => {
+    if (purchaseRequisitionSeriesMigratedRef.current) return;
+    if (!seriesHydratedRef.current) return;
+    if (!state.Establecimientos.length) return;
+
+    const allNewSeries: Series[] = [];
+    for (const est of state.Establecimientos) {
+      const hasRQSeries = state.series.some(
+        s => s.EstablecimientoId === est.id && s.documentType?.code === 'RQ',
+      );
+      if (!hasRQSeries) {
+        const missing = buildMissingDefaultSeries({
+          EstablecimientoId: est.id,
+          environmentType: obtenerEntornoTecnicoEmisionEmpresa(state.company) ?? 'TESTING',
+          existingSeries: state.series,
+          isMainEstablecimiento: est.isMainEstablecimiento,
+        });
+        allNewSeries.push(...missing.filter(s => s.documentType?.code === 'RQ'));
+      }
+    }
+
+    if (!allNewSeries.length) {
+      purchaseRequisitionSeriesMigratedRef.current = true;
+      return;
+    }
+
+    dispatch({ type: 'SET_SERIES', payload: [...state.series, ...allNewSeries] });
+    purchaseRequisitionSeriesMigratedRef.current = true;
   }, [dispatch, state.Establecimientos, state.company, state.series]);
 
   // Normaliza nombres de almacenes generados automáticamente en versiones anteriores:

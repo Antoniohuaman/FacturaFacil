@@ -2,6 +2,7 @@ import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra, EstadoPagoCC, EstadoPrincipalCC } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
+import type { RequerimientoCompra, EstadoPrincipalRC } from '../modelos/RequerimientoCompra';
 import type { LineaCompra, TipoAfectacionCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
@@ -174,6 +175,180 @@ export function puedeEnviarOC(oc: OrdenCompra, comprobantes: ComprobanteCompra[]
 
 export function puedeCerrarOC(oc: OrdenCompra): boolean {
   return oc.estadoDocumento === 'registrado';
+}
+
+// ---------------------------------------------------------------------------
+// Requerimiento de Compra
+// ---------------------------------------------------------------------------
+
+/**
+ * Órdenes de Compra generadas directamente desde este Requerimiento —
+ * relación HISTÓRICA completa (incluye anuladas). Se deriva por búsqueda real
+ * (`oc.requerimientoCompraOrigenId`, la FK que la propia OC persiste), nunca
+ * de un array persistido en el Requerimiento: mismo patrón ya usado por
+ * `obtenerComprobantesRelacionadosOC` para evitar el problema de
+ * desincronización que ese array causó en la relación OC↔CC (ver auditoría de
+ * trazabilidad).
+ */
+export function obtenerOrdenesCompraDesdeRC(rc: RequerimientoCompra, ordenes: OrdenCompra[]): OrdenCompra[] {
+  return ordenes.filter((o) => o.requerimientoCompraOrigenId === rc.id);
+}
+
+export function obtenerOrdenesCompraActivasDesdeRC(rc: RequerimientoCompra, ordenes: OrdenCompra[]): OrdenCompra[] {
+  return obtenerOrdenesCompraDesdeRC(rc, ordenes).filter((o) => o.estadoDocumento !== 'anulado');
+}
+
+/**
+ * Comprobantes de Compra generados directamente desde este Requerimiento
+ * (flujo Requerimiento → Comprobante, sin Orden de Compra intermedia) —
+ * misma relación derivada por FK (`cc.requerimientoCompraOrigenId`), nunca un
+ * array persistido en el Requerimiento.
+ */
+export function obtenerComprobantesCompraDirectosDesdeRC(
+  rc: RequerimientoCompra,
+  comprobantes: ComprobanteCompra[],
+): ComprobanteCompra[] {
+  return comprobantes.filter((c) => c.requerimientoCompraOrigenId === rc.id);
+}
+
+export function obtenerComprobantesCompraDirectosActivosDesdeRC(
+  rc: RequerimientoCompra,
+  comprobantes: ComprobanteCompra[],
+): ComprobanteCompra[] {
+  return obtenerComprobantesCompraDirectosDesdeRC(rc, comprobantes).filter((c) => c.estadoDocumento !== 'anulado');
+}
+
+export type DocumentoGeneradoRC =
+  | { tipo: 'orden_compra'; documento: OrdenCompra }
+  | { tipo: 'comprobante_compra'; documento: ComprobanteCompra };
+
+/**
+ * Todos los documentos generados desde este Requerimiento (Órdenes de Compra
+ * y/o Comprobantes de Compra directos), incluidos los anulados — única fuente
+ * reutilizada por el listado ("Documento relacionado") y el drawer
+ * ("Documentos relacionados").
+ */
+export function obtenerDocumentosGeneradosRC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): DocumentoGeneradoRC[] {
+  return [
+    ...obtenerOrdenesCompraDesdeRC(rc, ordenes).map((documento) => ({ tipo: 'orden_compra' as const, documento })),
+    ...obtenerComprobantesCompraDirectosDesdeRC(rc, comprobantes).map((documento) => ({
+      tipo: 'comprobante_compra' as const,
+      documento,
+    })),
+  ];
+}
+
+/**
+ * true si el Requerimiento tiene al menos una Orden de Compra o un
+ * Comprobante de Compra directo que siga activo (no anulado). Un documento
+ * generado anulado no cuenta como "conversión vigente" — el Requerimiento
+ * puede volver a atenderse.
+ */
+export function tieneConversionActivaRC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): boolean {
+  return (
+    obtenerOrdenesCompraActivasDesdeRC(rc, ordenes).length > 0 ||
+    obtenerComprobantesCompraDirectosActivosDesdeRC(rc, comprobantes).length > 0
+  );
+}
+
+/**
+ * Único estado principal vigente del Requerimiento, derivado de
+ * estadoDocumento y de sus documentos generados reales (nunca de un booleano
+ * manual). Precedencia: anulado > borrador > atendido > pendiente. Esta
+ * primera etapa no implementa aprobación ni atención parcial (ver alcance):
+ * "Atendido" solo exige al menos un documento generado activo, sin distinguir
+ * cuántos ni si cubre la totalidad de las líneas.
+ */
+export function calcularEstadoPrincipalRC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): EstadoPrincipalRC {
+  if (rc.estadoDocumento === 'anulado') return 'Anulado';
+  if (rc.estadoDocumento === 'borrador') return 'Borrador';
+  if (tieneConversionActivaRC(rc, ordenes, comprobantes)) return 'Atendido';
+  return 'Pendiente';
+}
+
+/** Única lista de estados principales, reutilizada por el filtro del listado (no crear un array paralelo). */
+export const ESTADOS_PRINCIPALES_RC: EstadoPrincipalRC[] = ['Borrador', 'Pendiente', 'Atendido', 'Anulado'];
+
+export function puedeEditarRC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): boolean {
+  const estado = calcularEstadoPrincipalRC(rc, ordenes, comprobantes);
+  return estado === 'Borrador' || estado === 'Pendiente';
+}
+
+export function puedeEliminarBorradorRC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): boolean {
+  return calcularEstadoPrincipalRC(rc, ordenes, comprobantes) === 'Borrador';
+}
+
+/**
+ * Determina si un Requerimiento puede anularse, o el motivo puntual del
+ * bloqueo. Un Requerimiento con al menos un documento generado activo (OC o
+ * CC directo) no puede anularse directamente: primero debe resolverse ese
+ * derivado (anularlo).
+ */
+export function motivoBloqueoAnulacionRC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): string | null {
+  if (rc.estadoDocumento === 'borrador') return 'Los borradores se eliminan, no se anulan.';
+  if (rc.estadoDocumento === 'anulado') return 'El requerimiento de compra ya se encuentra anulado.';
+  if (tieneConversionActivaRC(rc, ordenes, comprobantes)) {
+    return 'No se puede anular el requerimiento porque ya tiene una orden de compra o un comprobante de compra relacionado.';
+  }
+  return null;
+}
+
+export function puedeAnularRC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): boolean {
+  return motivoBloqueoAnulacionRC(rc, ordenes, comprobantes) === null;
+}
+
+/**
+ * Disponibilidad de "Generar Orden de Compra" / "Generar Comprobante de
+ * Compra" desde el Requerimiento: solo mientras está Pendiente (registrado y
+ * sin conversión activa todavía). No es una restricción estructural — la
+ * relación sigue siendo derivada (§ obtenerOrdenesCompraDesdeRC) y admite
+ * múltiples documentos generados en el futuro; en esta primera etapa la
+ * acción simplemente deja de ofrecerse una vez atendido, igual que
+ * `puedeGenerarCCDesdeOC` deja de mostrarse en el listado una vez que la OC
+ * está "Convertida".
+ */
+export function puedeConvertirRCaOC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): boolean {
+  return calcularEstadoPrincipalRC(rc, ordenes, comprobantes) === 'Pendiente';
+}
+
+export function puedeConvertirRCaCC(
+  rc: RequerimientoCompra,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): boolean {
+  return calcularEstadoPrincipalRC(rc, ordenes, comprobantes) === 'Pendiente';
 }
 
 /**

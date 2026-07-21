@@ -19,6 +19,7 @@ const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
   'GRE_TRANSPORTISTA',
   'PURCHASE_ORDER',
   'PAYMENT_PURCHASE',
+  'PURCHASE_REQUISITION',
 ];
 
 const buildSeriesSeed = ({

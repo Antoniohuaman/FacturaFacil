@@ -2,12 +2,82 @@ import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra, EstadoPrincipalCC } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../modelos/PagoCompra';
+import type { RequerimientoCompra, EstadoPrincipalRC } from '../modelos/RequerimientoCompra';
 import {
   calcularEstadoPrincipalOC,
   calcularEstadoPrincipalCC,
+  calcularEstadoPrincipalRC,
   obtenerCxPDePago,
   obtenerComprobantesRelacionadosOC,
+  obtenerDocumentosGeneradosRC,
 } from './reglasCompras';
+
+/** Fecha real en que el Requerimiento quedó registrado (distinta de fechaSolicitud, que es declarada). Sin registrar aún → null. */
+export function obtenerFechaRegistroRC(rc: RequerimientoCompra): string | null {
+  if (rc.estadoDocumento === 'borrador') return null;
+  const evento = rc.historial.find((e) => e.accion === 'Requerimiento de compra registrado');
+  return evento?.fecha ?? rc.fechaCreacion;
+}
+
+export type CampoFechaFiltroRC = 'fechaSolicitud' | 'fechaRequerida' | 'fechaRegistro';
+
+function obtenerValorFechaRC(rc: RequerimientoCompra, campo: CampoFechaFiltroRC): string | null {
+  if (campo === 'fechaRequerida') return rc.fechaRequerida ? rc.fechaRequerida.slice(0, 10) : null;
+  if (campo === 'fechaRegistro') {
+    const fecha = obtenerFechaRegistroRC(rc);
+    return fecha ? fecha.slice(0, 10) : null;
+  }
+  return rc.fechaSolicitud ? rc.fechaSolicitud.slice(0, 10) : null;
+}
+
+export interface FiltrosRC {
+  busqueda?: string;
+  estadoPrincipal?: EstadoPrincipalRC | '';
+  proveedorId?: string;
+  campoFecha?: CampoFechaFiltroRC;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  moneda?: string;
+  documentoRelacionado?: 'todos' | 'con' | 'sin';
+}
+
+/** Único filtro combinado del Requerimiento (AND entre todos los criterios activos), mismo patrón que filtrarOrdenesCompra. */
+export function filtrarRequerimientosCompra(
+  requerimientos: RequerimientoCompra[],
+  filtros: FiltrosRC,
+  ordenes: OrdenCompra[],
+  comprobantes: ComprobanteCompra[],
+): RequerimientoCompra[] {
+  return requerimientos.filter((rc) => {
+    if (filtros.busqueda) {
+      const q = filtros.busqueda.toLowerCase();
+      if (
+        !rc.numero.toLowerCase().includes(q) &&
+        !rc.serie.toLowerCase().includes(q) &&
+        !String(rc.correlativo ?? '').toLowerCase().includes(q) &&
+        !(rc.solicitanteNombre ?? '').toLowerCase().includes(q) &&
+        !(rc.proveedorNombre ?? '').toLowerCase().includes(q) &&
+        !(rc.proveedorNumeroDocumento ?? '').toLowerCase().includes(q)
+      )
+        return false;
+    }
+    if (filtros.estadoPrincipal && calcularEstadoPrincipalRC(rc, ordenes, comprobantes) !== filtros.estadoPrincipal) return false;
+    if (filtros.proveedorId && rc.proveedorId !== filtros.proveedorId) return false;
+    if (filtros.fechaDesde || filtros.fechaHasta) {
+      const valor = obtenerValorFechaRC(rc, filtros.campoFecha ?? 'fechaSolicitud');
+      if (!valor) return false;
+      if (filtros.fechaDesde && valor < filtros.fechaDesde) return false;
+      if (filtros.fechaHasta && valor > filtros.fechaHasta) return false;
+    }
+    if (filtros.moneda && rc.moneda !== filtros.moneda) return false;
+    if (filtros.documentoRelacionado && filtros.documentoRelacionado !== 'todos') {
+      const tieneRelacionado = obtenerDocumentosGeneradosRC(rc, ordenes, comprobantes).length > 0;
+      if (filtros.documentoRelacionado === 'con' && !tieneRelacionado) return false;
+      if (filtros.documentoRelacionado === 'sin' && tieneRelacionado) return false;
+    }
+    return true;
+  });
+}
 
 /** Fecha real en que la OC quedó registrada (distinta de fechaEmision, que es declarada). Sin registrar aún → null. Única fuente, reutilizada por el filtro de fechas y por la columna "F. Registro". */
 export function obtenerFechaRegistroOC(oc: OrdenCompra): string | null {

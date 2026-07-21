@@ -353,6 +353,30 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     rutas: ['/notificaciones'],
   },
   {
+    id: 'compras.requerimientos.ver',
+    nombre: 'Ver requerimientos de compra',
+    descripcion: 'Acceder al listado y detalle de requerimientos de compra.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.requerimientos.crear',
+    nombre: 'Crear requerimientos de compra',
+    descripcion: 'Registrar nuevos requerimientos de compra.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.requerimientos.editar',
+    nombre: 'Editar requerimientos de compra',
+    descripcion: 'Editar requerimientos de compra en borrador o pendientes.',
+    modulo: 'compras',
+  },
+  {
+    id: 'compras.requerimientos.anular',
+    nombre: 'Anular requerimientos de compra',
+    descripcion: 'Anular requerimientos de compra registrados.',
+    modulo: 'compras',
+  },
+  {
     id: 'compras.ordenes.ver',
     nombre: 'Ver órdenes de compra',
     descripcion: 'Acceder al listado y detalle de órdenes de compra.',

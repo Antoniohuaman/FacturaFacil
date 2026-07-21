@@ -13,7 +13,8 @@ export type SeriesVoucherType =
   | 'GRE_REMITENTE'
   | 'GRE_TRANSPORTISTA'
   | 'PURCHASE_ORDER'
-  | 'PAYMENT_PURCHASE';
+  | 'PAYMENT_PURCHASE'
+  | 'PURCHASE_REQUISITION';
 
 export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, string> = {
   INVOICE: '01',
@@ -29,6 +30,7 @@ export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, str
   GRE_TRANSPORTISTA: '31',
   PURCHASE_ORDER: 'OC',
   PAYMENT_PURCHASE: 'PG',
+  PURCHASE_REQUISITION: 'RQ',
 };
 
 export const CREDIT_NOTE_DEFAULT_SERIES_CODES = ['FNC1', 'BNC1'] as const;
@@ -115,6 +117,10 @@ export const getVoucherTypeFromSeries = (
 
   if (series.documentType.code === 'PG' || series.documentType.name.includes('Pago de Compra')) {
     return 'PAYMENT_PURCHASE';
+  }
+
+  if (series.documentType.code === 'RQ' || series.documentType.name.includes('Requerimiento de Compra')) {
+    return 'PURCHASE_REQUISITION';
   }
 
   return normalizedSeries.startsWith('B') ? 'RECEIPT' : 'INVOICE';
@@ -226,6 +232,7 @@ export const validateSeriesCodeForVoucherType = (
     case 'STOCK_EXIT':
     case 'PURCHASE_ORDER':
     case 'PAYMENT_PURCHASE':
+    case 'PURCHASE_REQUISITION':
       return /^[A-Z0-9]{4}$/.test(normalized);
     case 'GRE_REMITENTE':
       return /^T[A-Z0-9]{3}$/.test(normalized);
@@ -311,6 +318,7 @@ export const generateSeriesSuggestion = (
     case 'STOCK_EXIT':
     case 'PURCHASE_ORDER':
     case 'PAYMENT_PURCHASE':
+    case 'PURCHASE_REQUISITION':
       return '';
     case 'GRE_REMITENTE':
       return generatePrefixedSeriesSuggestion('T', existingSeries, 'T001');

@@ -114,6 +114,8 @@ export interface ComprobanteCompra {
 
   // Referencias a otros documentos
   ordenCompraOrigenId?: string;
+  /** Presente cuando este CC se generó directamente desde un Requerimiento de Compra, sin pasar por una OC intermedia. */
+  requerimientoCompraOrigenId?: string;
   cuentaPorPagarId?: string;
   pagosRelacionados?: string[];
   notasIngresoRelacionadas?: string[];
