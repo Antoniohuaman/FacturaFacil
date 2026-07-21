@@ -7,7 +7,7 @@ import {
   calcularEstadoPrincipalOC,
   calcularEstadoPrincipalCC,
   calcularEstadoPrincipalRC,
-  obtenerCxPDePago,
+  obtenerCuentasPorPagarDePago,
   obtenerComprobantesRelacionadosOC,
   obtenerDocumentosGeneradosRC,
 } from './reglasCompras';
@@ -278,9 +278,10 @@ export interface FiltrosPagos {
 
 /**
  * Único filtro combinado de Pagos (AND entre todos los criterios activos).
- * `cuentasPorPagar` solo se usa para cruzar el documento origen/RUC-DNI (en
- * la búsqueda) y el estado actual de la CxP relacionada — nunca para mezclar
- * el estado propio del PG con el de la CxP.
+ * `cuentasPorPagar` se usa para cruzar los documentos aplicados (búsqueda por
+ * cualquiera de ellos, no solo el primero — un pago puede tener varios) y el
+ * estado actual de esas CxP relacionadas — nunca para mezclar el estado
+ * propio del PG con el de sus CxP.
  */
 export function filtrarPagosCompra(
   pagos: PagoCompra[],
@@ -288,14 +289,13 @@ export function filtrarPagosCompra(
   cuentasPorPagar: CuentaPorPagar[] = [],
 ): PagoCompra[] {
   return pagos.filter((p) => {
-    const cxp = obtenerCxPDePago(p, cuentasPorPagar);
+    const cxps = obtenerCuentasPorPagarDePago(p, cuentasPorPagar);
     if (filtros.busqueda) {
       const q = filtros.busqueda.toLowerCase();
       const campos = [
         p.numeroPago,
         p.proveedorNombre,
-        cxp?.proveedorNumeroDocumento,
-        cxp?.comprobanteCompraNumero,
+        ...cxps.flatMap((cxp) => [cxp.proveedorNumeroDocumento, cxp.comprobanteCompraNumero]),
         p.documentoSustentoTipo,
         p.documentoSustentoSerie,
         p.documentoSustentoNumero,
@@ -309,7 +309,7 @@ export function filtrarPagosCompra(
     if (filtros.medioPagoCodigo && !p.mediosPago.some((m) => m.medioPagoCodigo === filtros.medioPagoCodigo)) {
       return false;
     }
-    if (filtros.estadoCxP && cxp?.estadoPago !== filtros.estadoCxP) return false;
+    if (filtros.estadoCxP && !cxps.some((cxp) => cxp.estadoPago === filtros.estadoCxP)) return false;
     if (filtros.fechaDesde || filtros.fechaHasta) {
       const valor = (filtros.campoFecha === 'fechaCreacion' ? p.fechaCreacion : p.fechaPago).slice(0, 10);
       if (filtros.fechaDesde && valor < filtros.fechaDesde) return false;

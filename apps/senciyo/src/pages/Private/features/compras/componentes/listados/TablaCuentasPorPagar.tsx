@@ -641,7 +641,7 @@ export default function TablaCuentasPorPagar({
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus size={16} />
-          Nuevo pago
+          Registrar pago
         </button>
       </div>
 
@@ -777,7 +777,7 @@ export default function TablaCuentasPorPagar({
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-0.5">
                       {puedeRegistrarPago(cxp) && (
-                        <BotonAccionDirecta icon={CreditCard} label="Registrar pago" onClick={() => onRegistrarPago(cxp)} />
+                        <BotonAccionDirecta icon={CreditCard} label="Pagar" onClick={() => onRegistrarPago(cxp)} />
                       )}
                       <button
                         onClick={(e) => abrirMenu(e, cxp.id)}

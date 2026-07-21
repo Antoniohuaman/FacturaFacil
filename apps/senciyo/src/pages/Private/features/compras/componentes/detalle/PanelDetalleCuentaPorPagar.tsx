@@ -17,7 +17,7 @@ import {
   BADGE_ESTADO_VENCIMIENTO_CXP,
   BADGE_ESTADO_DOCUMENTO_PAGO,
 } from '../../constantes/estadosCompras';
-import { puedeRegistrarPago, resolverNombreFormaPago, obtenerPagosDeCxP } from '../../logica/reglasCompras';
+import { puedeRegistrarPago, resolverNombreFormaPago, obtenerPagosDeCxP, obtenerAplicacionesPago } from '../../logica/reglasCompras';
 import { getNombreTipoDocumentoProveedor } from '../../constantes/tiposDocumentoProveedor';
 import { formatearFechaCompra } from '../../utilidades/formatearCompras';
 
@@ -301,33 +301,42 @@ export default function PanelDetalleCuentaPorPagar({
                   <p className="text-sm text-gray-400 py-2">Sin pagos registrados todavía.</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {pagosAplicados.map((pago) => (
-                      <button
-                        key={pago.id}
-                        type="button"
-                        onClick={() => onVerPago?.(pago)}
-                        disabled={!onVerPago}
-                        className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
-                      >
-                        <div>
-                          <p className="text-sm font-mono text-gray-700">{pago.numeroPago}</p>
-                          <p className="text-xs text-gray-400">{formatearFechaCompra(pago.fechaPago)}</p>
-                          <p className="text-xs text-gray-500">
-                            {pago.mediosPago.map((mp) => mp.medioPagoNombre).join(', ')}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-mono font-medium text-gray-900">
-                            {formatMoney(pago.montoTotalPagado, pago.moneda)}
-                          </p>
-                          <BadgeEstado
-                            estado={pago.estadoDocumento}
-                            labels={ESTADO_DOCUMENTO_PAGO_LABELS}
-                            clases={BADGE_ESTADO_DOCUMENTO_PAGO}
-                          />
-                        </div>
-                      </button>
-                    ))}
+                    {pagosAplicados.map((pago) => {
+                      // Monto real aplicado a ESTA CxP, no el total del pago —
+                      // un pago puede haberse aplicado también a otros
+                      // documentos (§26 del alcance: trazabilidad por FK real,
+                      // nunca el agregado de otro documento).
+                      const importeAplicadoAEsteCxP =
+                        obtenerAplicacionesPago(pago).find((a) => a.cuentaPorPagarId === cxp!.id)?.importeAplicado ??
+                        pago.montoTotalPagado;
+                      return (
+                        <button
+                          key={pago.id}
+                          type="button"
+                          onClick={() => onVerPago?.(pago)}
+                          disabled={!onVerPago}
+                          className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                        >
+                          <div>
+                            <p className="text-sm font-mono text-gray-700">{pago.numeroPago}</p>
+                            <p className="text-xs text-gray-400">{formatearFechaCompra(pago.fechaPago)}</p>
+                            <p className="text-xs text-gray-500">
+                              {pago.mediosPago.map((mp) => mp.medioPagoNombre).join(', ')}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-mono font-medium text-gray-900">
+                              {formatMoney(importeAplicadoAEsteCxP, pago.moneda)}
+                            </p>
+                            <BadgeEstado
+                              estado={pago.estadoDocumento}
+                              labels={ESTADO_DOCUMENTO_PAGO_LABELS}
+                              clases={BADGE_ESTADO_DOCUMENTO_PAGO}
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </Seccion>

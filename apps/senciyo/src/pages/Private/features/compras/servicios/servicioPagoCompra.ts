@@ -5,6 +5,7 @@ import { formatMoney, normalizarImporte } from '@/shared/currency';
 import type { PagoCompra, MedioPagoCompra } from '../modelos/PagoCompra';
 import { ESTADO_DOCUMENTO_PAGO_LABELS } from '../modelos/PagoCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
+import type { MonedaCompra } from '../modelos/tiposBaseCompras';
 import type { ErrorValidacion } from './tiposServiciosCompras';
 import { formatearFechaCompra } from '../utilidades/formatearCompras';
 import type { EmpresaOC } from './servicioOrdenCompra';
@@ -95,9 +96,9 @@ export function validarPagoCompraBasico(pago: Partial<PagoCompra>): ErrorValidac
   if (!pago.mediosPago || pago.mediosPago.length === 0) {
     errores.push({ campo: 'mediosPago', mensaje: 'Se requiere al menos un medio de pago.' });
   }
-  if (!pago.cuentasPorPagarAplicadas || pago.cuentasPorPagarAplicadas.length === 0) {
-    errores.push({ campo: 'cuentasPorPagarAplicadas', mensaje: 'Debe asociar el pago a una cuenta por pagar.' });
-  }
+  // La validación de "a qué documentos se aplica" (al menos uno, mismo
+  // proveedor, misma moneda, importe dentro de saldo) vive exclusivamente en
+  // validarAplicacionesPagoCompra — no se duplica aquí.
 
   const totalPago = pago.montoTotalPagado ?? 0;
   const sumaMedios = (pago.mediosPago ?? []).reduce((acc, m) => acc + m.monto, 0);
@@ -117,28 +118,71 @@ export function validarPagoCompraBasico(pago: Partial<PagoCompra>): ErrorValidac
 }
 
 /**
- * Valida que el monto total pagado no supere la suma de saldos pendientes de
- * las cuentas por pagar a las que se aplica. Defensa de servicio: el
- * formulario ya bloquea esto en UI, pero registrarPagoCompra no debe confiar
- * solo en eso.
+ * Valida las aplicaciones de un Pago a una o varias Cuentas por Pagar — única
+ * fuente de las reglas que no se pueden violar (§2 del alcance): mismo
+ * proveedor, misma moneda, al menos un documento, e importe de cada
+ * aplicación estrictamente entre 0 y el saldo pendiente de SU propia CxP
+ * (nunca contra el total agregado del pago). Defensa de servicio: el
+ * formulario ya bloquea esto en UI (solo ofrece documentos del proveedor y
+ * moneda ya elegidos), pero `registrarPagoCompra` no debe confiar solo en eso.
  */
-export function validarPagoNoExcedeSaldo(
-  montoTotalPagado: number,
+export function validarAplicacionesPagoCompra(
+  aplicaciones: Array<{ cuentaPorPagarId: string; importeAplicado: number }>,
   cuentasPorPagar: CuentaPorPagar[],
 ): ErrorValidacion[] {
-  const saldoTotal = cuentasPorPagar.reduce((acc, c) => acc + c.saldoPendiente, 0);
-  const moneda = cuentasPorPagar[0]?.moneda ?? 'PEN';
+  const errores: ErrorValidacion[] = [];
 
-  if (normalizarImporte(montoTotalPagado, moneda) > normalizarImporte(saldoTotal, moneda)) {
-    return [
-      {
-        campo: 'montoTotalPagado',
-        mensaje: 'El importe pagado no puede ser mayor al saldo pendiente.',
-      },
-    ];
+  if (aplicaciones.length === 0) {
+    errores.push({ campo: 'aplicaciones', mensaje: 'Selecciona al menos un documento a pagar.' });
+    return errores;
   }
 
-  return [];
+  const resueltas = aplicaciones.map((aplicacion) => ({
+    aplicacion,
+    cxp: cuentasPorPagar.find((c) => c.id === aplicacion.cuentaPorPagarId),
+  }));
+
+  const proveedoresDistintos = new Set(
+    resueltas.map(({ cxp }) => cxp?.proveedorId).filter((v): v is string => Boolean(v)),
+  );
+  if (proveedoresDistintos.size > 1) {
+    errores.push({
+      campo: 'aplicaciones',
+      mensaje: 'Todos los documentos de un mismo pago deben pertenecer al mismo proveedor.',
+    });
+  }
+
+  const monedasDistintas = new Set(
+    resueltas.map(({ cxp }) => cxp?.moneda).filter((v): v is MonedaCompra => Boolean(v)),
+  );
+  if (monedasDistintas.size > 1) {
+    errores.push({
+      campo: 'aplicaciones',
+      mensaje: 'Todos los documentos de un mismo pago deben estar en la misma moneda.',
+    });
+  }
+
+  resueltas.forEach(({ aplicacion, cxp }, i) => {
+    if (!cxp) {
+      errores.push({ campo: `aplicaciones[${i}]`, mensaje: 'El documento seleccionado ya no existe.' });
+      return;
+    }
+    if (!Number.isFinite(aplicacion.importeAplicado) || aplicacion.importeAplicado <= 0) {
+      errores.push({
+        campo: `aplicaciones[${i}].importeAplicado`,
+        mensaje: `El importe a aplicar a ${cxp.comprobanteCompraNumero} debe ser mayor a 0.`,
+      });
+      return;
+    }
+    if (normalizarImporte(aplicacion.importeAplicado, cxp.moneda) > normalizarImporte(cxp.saldoPendiente, cxp.moneda)) {
+      errores.push({
+        campo: `aplicaciones[${i}].importeAplicado`,
+        mensaje: `El importe aplicado a ${cxp.comprobanteCompraNumero} (${aplicacion.importeAplicado.toFixed(2)}) no puede superar su saldo pendiente (${cxp.saldoPendiente.toFixed(2)}).`,
+      });
+    }
+  });
+
+  return errores;
 }
 
 function fila(label: string, valor: string) {

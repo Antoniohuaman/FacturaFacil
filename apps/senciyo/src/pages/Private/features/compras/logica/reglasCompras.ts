@@ -1,7 +1,7 @@
 import type { OrdenCompra, EstadoPrincipalOC } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra, EstadoPagoCC, EstadoPrincipalCC } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar, EstadoPagoCxP } from '../modelos/CuentaPorPagar';
-import type { PagoCompra } from '../modelos/PagoCompra';
+import type { PagoCompra, AplicacionPagoCompra } from '../modelos/PagoCompra';
 import type { RequerimientoCompra, EstadoPrincipalRC } from '../modelos/RequerimientoCompra';
 import type { LineaCompra, TipoAfectacionCompra } from '../modelos/LineaCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
@@ -448,9 +448,46 @@ export function obtenerPagosDeCC(cc: ComprobanteCompra, pagos: PagoCompra[]): Pa
   );
 }
 
-/** CxP de un Pago: fuente oficial `pago.cuentasPorPagarAplicadas` (Fase 1: siempre una sola). */
+/** CxP de un Pago: fuente oficial `pago.cuentasPorPagarAplicadas` (primera, para consumidores que solo necesitan "una" CxP representativa). */
 export function obtenerCxPDePago(pago: PagoCompra, cuentasPorPagar: CuentaPorPagar[]): CuentaPorPagar | undefined {
   return cuentasPorPagar.find((c) => pago.cuentasPorPagarAplicadas.includes(c.id));
+}
+
+/**
+ * Aplicaciones reales de un Pago — 1 o varias (mismo proveedor y moneda). Un
+ * pago nuevo ya trae `aplicaciones` poblado; un pago legacy (registrado antes
+ * de soportar múltiples documentos) no lo tiene, así que se sintetiza aquí
+ * una única aplicación equivalente a partir de sus campos históricos
+ * (`cuentasPorPagarAplicadas[0]` + `montoTotalPagado` + `asignacionesCuotas`
+ * de nivel superior) — nunca se inventa un reparto: un pago legacy siempre
+ * tuvo exactamente una CxP. Única fuente reutilizada por listado, drawer y
+ * anulación para leer "a qué se aplicó este pago", sin distinguir si es
+ * nuevo o legacy.
+ */
+export function obtenerAplicacionesPago(pago: PagoCompra): AplicacionPagoCompra[] {
+  if (pago.aplicaciones && pago.aplicaciones.length > 0) return pago.aplicaciones;
+  const cuentaPorPagarId = pago.cuentasPorPagarAplicadas[0];
+  if (!cuentaPorPagarId) return [];
+  return [
+    {
+      cuentaPorPagarId,
+      comprobanteCompraId: pago.comprobantesCompraAplicados[0] ?? '',
+      importeAplicado: pago.montoTotalPagado,
+      asignacionesCuotas: pago.asignacionesCuotas,
+    },
+  ];
+}
+
+/**
+ * Cuentas por Pagar reales a las que se aplicó un Pago (resuelve
+ * `obtenerAplicacionesPago` contra el array completo de CxP) — única fuente
+ * reutilizada por el listado y el drawer de Pago para mostrar los N
+ * documentos aplicados, en vez de una sola CxP representativa.
+ */
+export function obtenerCuentasPorPagarDePago(pago: PagoCompra, cuentasPorPagar: CuentaPorPagar[]): CuentaPorPagar[] {
+  return obtenerAplicacionesPago(pago)
+    .map((aplicacion) => cuentasPorPagar.find((c) => c.id === aplicacion.cuentaPorPagarId))
+    .filter((cxp): cxp is CuentaPorPagar => Boolean(cxp));
 }
 
 /**

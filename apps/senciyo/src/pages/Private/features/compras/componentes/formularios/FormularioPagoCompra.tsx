@@ -13,7 +13,7 @@ import {
   type CampoConfigurableDocumento,
 } from '@/shared/ui';
 import { useFormularioPagoCompra } from '../../hooks/useFormularioPagoCompra';
-import TablaAplicacionPagoCompra from '../pagos/TablaAplicacionPagoCompra';
+import TablaDocumentosPagoCompra from '../pagos/TablaDocumentosPagoCompra';
 import EditorMediosPagoCompra from '../pagos/EditorMediosPagoCompra';
 import ResumenPagoCompra from '../pagos/ResumenPagoCompra';
 import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
@@ -21,7 +21,10 @@ import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import { enfocarPrimerCampoConError } from '../../modelos/ErroresValidacion';
 
 interface FormularioPagoCompraProps {
-  cxp: CuentaPorPagar;
+  /** Documentos a pagar (1 o varios), ya resueltos por el paso previo de selección — mismo proveedor y moneda. */
+  cxps: CuentaPorPagar[];
+  /** Importe inicial a aplicar por CxP (cuentaPorPagarId -> monto), propuesto por el paso de selección. */
+  importesIniciales: Record<string, number>;
   onExito: () => void;
   onCancelar: () => void;
 }
@@ -31,9 +34,10 @@ const CAMPOS_PAGO_DEFAULT: CampoConfigurableDocumento[] = [
 ];
 const STORAGE_KEY_CAMPOS_PAGO = 'compras_pago_campos_config';
 
-export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: FormularioPagoCompraProps) {
+export default function FormularioPagoCompra({ cxps, importesIniciales, onExito, onCancelar }: FormularioPagoCompraProps) {
   const { session } = useUserSession();
-  const f = useFormularioPagoCompra(cxp);
+  const f = useFormularioPagoCompra(cxps, importesIniciales);
+  const proveedorNombre = cxps[0]?.proveedorNombre ?? '';
   const { campos: camposConfigurables, esVisible, guardar: guardarCamposConfigurables } =
     useConfiguracionCampos(CAMPOS_PAGO_DEFAULT, STORAGE_KEY_CAMPOS_PAGO);
   const [modalCamposAbierto, setModalCamposAbierto] = useState(false);
@@ -44,8 +48,8 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
       onExito();
       return;
     }
-    const primerError = f.erroresPorCampo.allocations
-      ? 'allocations'
+    const primerError = f.erroresPorCampo.aplicaciones
+      ? 'aplicaciones'
       : Object.keys(f.erroresPorCampo.medios ?? {}).length > 0
         ? 'medios'
         : f.erroresPorCampo.diferencia
@@ -97,19 +101,18 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
           </div>
         )}
 
-        {/* Documento a pagar */}
-        <FormSectionCard titulo="Documento a pagar">
-          <div id="campo-allocations" className="space-y-2">
-            <TablaAplicacionPagoCompra
-              cxp={cxp}
-              formaPagoNombre={f.formaPagoNombre}
-              installments={f.installments}
-              allocations={f.allocations}
-              onChangeAllocations={f.onChangeAllocations}
+        {/* Documentos a pagar (1 o varios, mismo proveedor y moneda) */}
+        <FormSectionCard titulo={`Documentos a pagar — ${proveedorNombre}`}>
+          <div id="campo-aplicaciones" className="space-y-2">
+            <TablaDocumentosPagoCompra
+              documentos={cxps}
+              aplicaciones={f.aplicaciones}
+              onCambiarAplicacion={f.onCambiarAplicacion}
+              moneda={f.moneda}
               disabled={f.enviando}
             />
-            {f.intentoRegistrar && f.erroresPorCampo.allocations && (
-              <p className="text-xs text-red-600">{f.erroresPorCampo.allocations}</p>
+            {f.intentoRegistrar && f.erroresPorCampo.aplicaciones && (
+              <p className="text-xs text-red-600">{f.erroresPorCampo.aplicaciones}</p>
             )}
           </div>
         </FormSectionCard>
@@ -135,7 +138,7 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
                   mediosPago={f.mediosPago}
                   mediosDisponibles={f.mediosDisponibles}
                   cuentasBancariasCompatibles={f.cuentasBancariasCompatibles}
-                  moneda={cxp.moneda}
+                  moneda={f.moneda}
                   cajaAbierta={f.estadoCaja === 'abierta'}
                   hayMedioDeCaja={f.hayMedioDeCaja}
                   onAgregar={f.agregarMedio}
@@ -193,18 +196,18 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Moneda</label>
                     <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
-                      {cxp.moneda}
+                      {f.moneda}
                     </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Total a pagar</label>
                     <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900">
-                      {formatMoney(f.importeAplicado, cxp.moneda)}
+                      {formatMoney(f.importeAplicado, f.moneda)}
                     </div>
                   </div>
                 </div>
 
-                {cxp.moneda !== f.monedaBase && (
+                {f.moneda !== f.monedaBase && (
                   <div className="space-y-1" id="campo-tipoCambio">
                     <label className="text-sm font-medium text-gray-700">Tipo de cambio</label>
                     <input
@@ -213,7 +216,7 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
                       step="0.001"
                       value={f.tipoCambio}
                       onChange={(e) => f.setTipoCambio(e.target.value)}
-                      placeholder={`1 ${cxp.moneda} = ? ${f.monedaBase}`}
+                      placeholder={`1 ${f.moneda} = ? ${f.monedaBase}`}
                       className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                         f.intentoRegistrar && f.erroresPorCampo.tipoCambio ? 'border-red-300 bg-red-50' : 'border-gray-300'
                       }`}
@@ -290,11 +293,11 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
 
         {/* Resumen */}
         <ResumenPagoCompra
-          moneda={cxp.moneda}
-          saldoInicial={cxp.saldoPendiente}
+          moneda={f.moneda}
+          saldoInicial={f.saldoInicialTotal}
           importeAplicado={f.importeAplicado}
           totalMedios={f.totalMedios}
-          saldoResultante={f.saldoResultante}
+          saldoResultante={f.saldoResultanteTotal}
           diferencia={f.diferencia}
         />
       </div>
@@ -302,8 +305,8 @@ export default function FormularioPagoCompra({ cxp, onExito, onCancelar }: Formu
       <DocumentFormFooter
         infoIzquierda={
           <>
-            Total: <span className="font-semibold text-gray-700">{formatMoney(f.importeAplicado, cxp.moneda)}</span>
-            {' · '}Saldo resultante: <span className="font-semibold text-gray-700">{formatMoney(f.saldoResultante, cxp.moneda)}</span>
+            Total: <span className="font-semibold text-gray-700">{formatMoney(f.importeAplicado, f.moneda)}</span>
+            {' · '}Saldo resultante: <span className="font-semibold text-gray-700">{formatMoney(f.saldoResultanteTotal, f.moneda)}</span>
           </>
         }
         onCancelar={onCancelar}

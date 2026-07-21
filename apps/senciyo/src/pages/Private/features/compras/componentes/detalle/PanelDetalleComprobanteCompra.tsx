@@ -35,6 +35,7 @@ import {
   resolverNombreFormaPago,
   obtenerCxPDeCC,
   obtenerPagosDeCC,
+  obtenerAplicacionesPago,
 } from '../../logica/reglasCompras';
 import { formatearFechaCompra, formatearNumeroCompra, formatearNumeroComprobanteCompra } from '../../utilidades/formatearCompras';
 import { TIPOS_DOCUMENTO_PROVEEDOR } from '../../constantes/tiposDocumentoProveedor';
@@ -600,27 +601,35 @@ export default function PanelDetalleComprobanteCompra({
                     <p className="text-sm text-gray-400 py-2">Aún no se registró ningún pago.</p>
                   ) : (
                     <div className="divide-y divide-gray-100">
-                      {pagosDelComprobante.map((pago) => (
-                        <button
-                          key={pago.id}
-                          type="button"
-                          onClick={() => onVerPago?.(pago)}
-                          disabled={!onVerPago}
-                          className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
-                        >
-                          <span className="text-sm text-gray-900 font-mono">{pago.numeroPago}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-500">
-                              {formatMoney(pago.montoTotalPagado, pago.moneda)}
-                            </span>
-                            <BadgeEstado
-                              estado={pago.estadoDocumento}
-                              labels={ESTADO_DOCUMENTO_PAGO_LABELS}
-                              clases={BADGE_ESTADO_DOCUMENTO_PAGO}
-                            />
-                          </div>
-                        </button>
-                      ))}
+                      {pagosDelComprobante.map((pago) => {
+                        // Monto real aplicado a ESTE comprobante, no el total
+                        // del pago — un pago puede haberse aplicado también a
+                        // otros documentos del mismo proveedor y moneda.
+                        const importeAplicadoAEsteComprobante =
+                          obtenerAplicacionesPago(pago).find((a) => a.comprobanteCompraId === cc!.id)?.importeAplicado ??
+                          pago.montoTotalPagado;
+                        return (
+                          <button
+                            key={pago.id}
+                            type="button"
+                            onClick={() => onVerPago?.(pago)}
+                            disabled={!onVerPago}
+                            className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                          >
+                            <span className="text-sm text-gray-900 font-mono">{pago.numeroPago}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">
+                                {formatMoney(importeAplicadoAEsteComprobante, pago.moneda)}
+                              </span>
+                              <BadgeEstado
+                                estado={pago.estadoDocumento}
+                                labels={ESTADO_DOCUMENTO_PAGO_LABELS}
+                                clases={BADGE_ESTADO_DOCUMENTO_PAGO}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </Seccion>

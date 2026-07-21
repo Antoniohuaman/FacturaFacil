@@ -25,7 +25,7 @@ import type { CuentaPorPagar, EstadoPagoCxP } from '../../modelos/CuentaPorPagar
 import { ESTADO_PAGO_CXP_LABELS } from '../../modelos/CuentaPorPagar';
 import { BADGE_ESTADO_DOCUMENTO_PAGO, BADGE_ESTADO_PAGO_CXP } from '../../constantes/estadosCompras';
 import { filtrarPagosCompra, type FiltrosPagos, type CampoFechaFiltroPagos } from '../../logica/filtrosCompras';
-import { puedeAnularPago, obtenerCxPDePago } from '../../logica/reglasCompras';
+import { puedeAnularPago, obtenerCuentasPorPagarDePago } from '../../logica/reglasCompras';
 import { tieneMedioDeCaja } from '../../servicios/servicioPagoCompra';
 import { formatearFechaCompra } from '../../utilidades/formatearCompras';
 
@@ -309,10 +309,15 @@ export default function TablaPagosCompra({
     { id: 'acciones', label: 'Acciones', visible: true, fixed: true },
   ];
 
-  function renderCeldaColumna(pago: PagoCompra, cxp: CuentaPorPagar | undefined, id: ColumnaConfigurablePago): React.ReactNode {
+  function renderCeldaColumna(pago: PagoCompra, cxps: CuentaPorPagar[], id: ColumnaConfigurablePago): React.ReactNode {
     switch (id) {
-      case 'documentoOrigen':
-        return cxp?.comprobanteCompraNumero ?? '—';
+      case 'documentoOrigen': {
+        if (cxps.length === 0) return '—';
+        if (cxps.length === 1) return cxps[0].comprobanteCompraNumero;
+        return (
+          <span title={cxps.map((c) => c.comprobanteCompraNumero).join(', ')}>{cxps.length} documentos</span>
+        );
+      }
       case 'fechaPago':
         return formatearFechaCompra(pago.fechaPago);
       case 'mediosPago':
@@ -346,21 +351,27 @@ export default function TablaPagosCompra({
           : '—';
       case 'concepto':
         return pago.concepto ?? '—';
-      case 'cxpRelacionada':
-        return cxp ? (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onVerCuentaPorPagar(cxp); }}
-            className="text-blue-600 hover:underline font-mono"
-          >
-            {cxp.comprobanteCompraNumero}
-          </button>
-        ) : (
-          '—'
+      case 'cxpRelacionada': {
+        if (cxps.length === 0) return '—';
+        if (cxps.length === 1) {
+          const cxp = cxps[0];
+          return (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onVerCuentaPorPagar(cxp); }}
+              className="text-blue-600 hover:underline font-mono"
+            >
+              {cxp.comprobanteCompraNumero}
+            </button>
+          );
+        }
+        return (
+          <span title={cxps.map((c) => c.comprobanteCompraNumero).join(', ')}>{cxps.length} documentos</span>
         );
+      }
       case 'estadoCxP':
-        return cxp ? (
-          <Badge estado={cxp.estadoPago} labels={ESTADO_PAGO_CXP_LABELS} clases={BADGE_ESTADO_PAGO_CXP} />
+        return cxps.length === 1 ? (
+          <Badge estado={cxps[0].estadoPago} labels={ESTADO_PAGO_CXP_LABELS} clases={BADGE_ESTADO_PAGO_CXP} />
         ) : (
           '—'
         );
@@ -379,11 +390,11 @@ export default function TablaPagosCompra({
   }
 
   /** Mismo valor que `renderCeldaColumna`, en texto plano para Excel — solo `mediosPago`, `cxpRelacionada` y `estadoCxP` renderizan JSX en pantalla. */
-  function obtenerValorExportacionColumna(pago: PagoCompra, cxp: CuentaPorPagar | undefined, id: ColumnaConfigurablePago): string {
+  function obtenerValorExportacionColumna(pago: PagoCompra, cxps: CuentaPorPagar[], id: ColumnaConfigurablePago): string {
     if (id === 'mediosPago') return pago.mediosPago.map((mp) => mp.medioPagoNombre).join(', ') || '—';
-    if (id === 'cxpRelacionada') return cxp?.comprobanteCompraNumero ?? '—';
-    if (id === 'estadoCxP') return cxp ? ESTADO_PAGO_CXP_LABELS[cxp.estadoPago] : '—';
-    const valor = renderCeldaColumna(pago, cxp, id);
+    if (id === 'cxpRelacionada') return cxps.map((c) => c.comprobanteCompraNumero).join(', ') || '—';
+    if (id === 'estadoCxP') return cxps.length === 1 ? ESTADO_PAGO_CXP_LABELS[cxps[0].estadoPago] : '—';
+    const valor = renderCeldaColumna(pago, cxps, id);
     return typeof valor === 'string' ? valor : '—';
   }
 
@@ -427,13 +438,13 @@ export default function TablaPagosCompra({
         { header: 'Estado del pago', key: 'estadoPago', width: 16 },
       ];
       const rows = filtrados.map((pago) => {
-        const cxp = obtenerCxPDePago(pago, cuentasPorPagar);
+        const cxps = obtenerCuentasPorPagarDePago(pago, cuentasPorPagar);
         return {
           numero: pago.numeroPago,
           proveedor: pago.proveedorNombre,
-          documento: cxp?.proveedorNumeroDocumento ?? '—',
+          documento: cxps[0]?.proveedorNumeroDocumento ?? '—',
           ...Object.fromEntries(
-            columnasVisiblesOrdenadas.map((id) => [id, obtenerValorExportacionColumna(pago, cxp, id)]),
+            columnasVisiblesOrdenadas.map((id) => [id, obtenerValorExportacionColumna(pago, cxps, id)]),
           ),
           total: pago.montoTotalPagado,
           estadoPago: ESTADO_DOCUMENTO_PAGO_LABELS[pago.estadoDocumento],
@@ -699,7 +710,7 @@ export default function TablaPagosCompra({
               </tr>
             ) : (
               filasPagina.map((pago) => {
-                const cxp = obtenerCxPDePago(pago, cuentasPorPagar);
+                const cxps = obtenerCuentasPorPagarDePago(pago, cuentasPorPagar);
                 return (
                   <tr
                     key={pago.id}
@@ -716,7 +727,7 @@ export default function TablaPagosCompra({
                     </td>
                     {columnasVisiblesOrdenadas.map((id) => (
                       <td key={id} className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {renderCeldaColumna(pago, cxp, id)}
+                        {renderCeldaColumna(pago, cxps, id)}
                       </td>
                     ))}
                     <td className="px-4 py-3 text-right font-mono font-medium">

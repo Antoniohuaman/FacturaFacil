@@ -5,6 +5,7 @@ import { Breadcrumb, PageHeader } from '@/contasis';
 import { useCompras } from '../contexto/ContextoCompras';
 import { puedeRegistrarPago } from '../logica/reglasCompras';
 import { ESTADO_PAGO_CXP_LABELS } from '../modelos/CuentaPorPagar';
+import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import FormularioPagoCompra from '../componentes/formularios/FormularioPagoCompra';
 import BuscadorDocumentoOrigenPago from '../componentes/pagos/BuscadorDocumentoOrigenPago';
 
@@ -30,40 +31,20 @@ export default function PaginaRegistrarPagoCompra() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cuentaPorPagarId = searchParams.get('cuentaPorPagarId');
-  const [cxpSeleccionadaId, setCxpSeleccionadaId] = useState<string | null>(null);
+  const [seleccion, setSeleccion] = useState<{ cxps: CuentaPorPagar[]; importesIniciales: Record<string, number> } | null>(null);
 
   const volverACuentasPorPagar = () => navigate('/compras', { state: { tab: 'cuentas_por_pagar' } });
   const volverAPagos = () => navigate('/compras', { state: { tab: 'pagos' } });
 
-  const idEfectivo = cuentaPorPagarId ?? cxpSeleccionadaId;
+  // Acceso B (§19 del alcance): "Pagar" desde una CxP específica llega con
+  // proveedor, moneda y documento preseleccionados, pero sigue mostrando el
+  // resto de documentos compatibles del mismo proveedor y moneda por si el
+  // usuario quiere agregarlos al mismo pago.
+  const cxpPreseleccionada = cuentaPorPagarId
+    ? state.cuentasPorPagar.find((c) => c.id === cuentaPorPagarId)
+    : undefined;
 
-  if (!idEfectivo) {
-    return (
-      <div className="min-h-screen bg-gray-50 pb-24">
-        <PageHeader
-          breadcrumb={
-            <Breadcrumb items={[{ label: 'Compras', onClick: volverAPagos }, { label: 'Nuevo pago' }]} />
-          }
-          title={
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 leading-tight">Nuevo pago</h1>
-              <p className="text-xs text-gray-500">Selecciona el documento pendiente que vas a pagar</p>
-            </div>
-          }
-        />
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-          <BuscadorDocumentoOrigenPago
-            cuentasPorPagar={state.cuentasPorPagar}
-            onSeleccionar={(cxp) => setCxpSeleccionadaId(cxp.id)}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  const cxp = state.cuentasPorPagar.find((c) => c.id === idEfectivo);
-
-  if (!cxp) {
+  if (cuentaPorPagarId && !cxpPreseleccionada) {
     return (
       <EstadoNoDisponible
         mensaje="No se encontró la cuenta por pagar solicitada. Es posible que ya no exista."
@@ -72,18 +53,45 @@ export default function PaginaRegistrarPagoCompra() {
     );
   }
 
-  if (!puedeRegistrarPago(cxp)) {
+  if (cxpPreseleccionada && !puedeRegistrarPago(cxpPreseleccionada)) {
     return (
       <EstadoNoDisponible
-        mensaje={`La cuenta por pagar ${cxp.comprobanteCompraNumero} ya no admite un nuevo pago (estado actual: ${ESTADO_PAGO_CXP_LABELS[cxp.estadoPago]}).`}
+        mensaje={`La cuenta por pagar ${cxpPreseleccionada.comprobanteCompraNumero} ya no admite un nuevo pago (estado actual: ${ESTADO_PAGO_CXP_LABELS[cxpPreseleccionada.estadoPago]}).`}
         onVolver={volverACuentasPorPagar}
       />
     );
   }
 
+  if (!seleccion) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-24">
+        <PageHeader
+          breadcrumb={
+            <Breadcrumb items={[{ label: 'Compras', onClick: volverAPagos }, { label: 'Registrar pago' }]} />
+          }
+          title={
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900 leading-tight">Registrar pago</h1>
+              <p className="text-xs text-gray-500">Selecciona el proveedor, la moneda y los documentos pendientes que vas a pagar</p>
+            </div>
+          }
+        />
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+          <BuscadorDocumentoOrigenPago
+            cuentasPorPagar={state.cuentasPorPagar}
+            proveedorIdInicial={cxpPreseleccionada?.proveedorId}
+            cxpIdsPreseleccionadas={cxpPreseleccionada ? [cxpPreseleccionada.id] : undefined}
+            onContinuar={setSeleccion}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <FormularioPagoCompra
-      cxp={cxp}
+      cxps={seleccion.cxps}
+      importesIniciales={seleccion.importesIniciales}
       onExito={volverAPagos}
       onCancelar={cuentaPorPagarId ? volverACuentasPorPagar : volverAPagos}
     />

@@ -4,8 +4,12 @@ import {
   calcularAfectaInventarioLinea,
   resolverImpuestoProducto,
   resolverSnapshotInventarioLinea,
+  obtenerAplicacionesPago,
+  obtenerCuentasPorPagarDePago,
 } from './reglasCompras';
 import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
+import type { PagoCompra } from '../modelos/PagoCompra';
+import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 
 const UNIDADES_CAJA_DE_12: ProductUnitOption[] = [
   { code: 'NIU', label: 'Unidad', isBase: true, factorConversion: 1 },
@@ -218,5 +222,109 @@ describe('resolverSnapshotInventarioLinea', () => {
     const b = resolverSnapshotInventarioLinea(entrada);
     expect(a).toEqual(b);
     expect(entrada).toEqual(snapshotEntrada);
+  });
+});
+
+function crearCxP(overrides: Partial<CuentaPorPagar> = {}): CuentaPorPagar {
+  return {
+    id: overrides.id ?? 'cxp-1',
+    comprobanteCompraId: 'cc-1',
+    comprobanteCompraNumero: 'FR23-366',
+    tipoComprobanteOrigen: '01',
+    proveedorId: 'prov-1',
+    proveedorNombre: 'MI EMPRESA SAC',
+    proveedorNumeroDocumento: '20123456789',
+    moneda: 'PEN',
+    total: 150,
+    totalPagado: 0,
+    saldoPendiente: 150,
+    formaPago: 'contado',
+    fechaEmision: '2026-07-01',
+    estadoPago: 'pendiente',
+    estadoVencimiento: 'vigente',
+    pagosRelacionados: [],
+    historial: [],
+    fechaCreacion: '2026-07-01T00:00:00.000Z',
+    fechaActualizacion: '2026-07-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function crearPago(overrides: Partial<PagoCompra> = {}): PagoCompra {
+  return {
+    id: 'pago-1',
+    numeroPago: 'PG01-00000001',
+    fechaPago: '2026-07-21',
+    proveedorId: 'prov-1',
+    proveedorNombre: 'MI EMPRESA SAC',
+    moneda: 'PEN',
+    montoTotalPagado: 150,
+    mediosPago: [],
+    cuentasPorPagarAplicadas: ['cxp-1'],
+    comprobantesCompraAplicados: ['cc-1'],
+    estadoDocumento: 'registrado',
+    historial: [],
+    fechaCreacion: '2026-07-21T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('obtenerAplicacionesPago', () => {
+  it('un pago nuevo (con aplicaciones) devuelve exactamente sus aplicaciones reales', () => {
+    const pago = crearPago({
+      aplicaciones: [
+        { cuentaPorPagarId: 'cxp-1', comprobanteCompraId: 'cc-1', importeAplicado: 150 },
+        { cuentaPorPagarId: 'cxp-2', comprobanteCompraId: 'cc-2', importeAplicado: 30 },
+      ],
+      montoTotalPagado: 180,
+      cuentasPorPagarAplicadas: ['cxp-1', 'cxp-2'],
+      comprobantesCompraAplicados: ['cc-1', 'cc-2'],
+    });
+    expect(obtenerAplicacionesPago(pago)).toEqual([
+      { cuentaPorPagarId: 'cxp-1', comprobanteCompraId: 'cc-1', importeAplicado: 150 },
+      { cuentaPorPagarId: 'cxp-2', comprobanteCompraId: 'cc-2', importeAplicado: 30 },
+    ]);
+  });
+
+  it('un pago legacy (sin aplicaciones) sintetiza una única aplicación desde sus campos históricos', () => {
+    const pago = crearPago({ montoTotalPagado: 150, cuentasPorPagarAplicadas: ['cxp-1'], comprobantesCompraAplicados: ['cc-1'] });
+    expect(obtenerAplicacionesPago(pago)).toEqual([
+      { cuentaPorPagarId: 'cxp-1', comprobanteCompraId: 'cc-1', importeAplicado: 150, asignacionesCuotas: undefined },
+    ]);
+  });
+
+  it('un pago legacy sin ninguna CxP aplicada devuelve un arreglo vacío (nunca inventa una aplicación)', () => {
+    const pago = crearPago({ cuentasPorPagarAplicadas: [], comprobantesCompraAplicados: [] });
+    expect(obtenerAplicacionesPago(pago)).toEqual([]);
+  });
+
+  it('un pago legacy conserva la asignación por cuota de nivel superior dentro de la aplicación sintetizada', () => {
+    const pago = crearPago({ asignacionesCuotas: [{ cuotaId: 'cuota-1', monto: 150 }] });
+    expect(obtenerAplicacionesPago(pago)[0].asignacionesCuotas).toEqual([{ cuotaId: 'cuota-1', monto: 150 }]);
+  });
+});
+
+describe('obtenerCuentasPorPagarDePago', () => {
+  it('resuelve las N Cuentas por Pagar reales de un pago multi-documento', () => {
+    const cxpA = crearCxP({ id: 'cxp-1', comprobanteCompraNumero: 'FR23-366' });
+    const cxpB = crearCxP({ id: 'cxp-2', comprobanteCompraNumero: 'FR01-223' });
+    const pago = crearPago({
+      aplicaciones: [
+        { cuentaPorPagarId: 'cxp-1', comprobanteCompraId: 'cc-1', importeAplicado: 150 },
+        { cuentaPorPagarId: 'cxp-2', comprobanteCompraId: 'cc-2', importeAplicado: 30 },
+      ],
+    });
+    expect(obtenerCuentasPorPagarDePago(pago, [cxpA, cxpB])).toEqual([cxpA, cxpB]);
+  });
+
+  it('omite silenciosamente una CxP aplicada que ya no existe en el arreglo actual', () => {
+    const cxpA = crearCxP({ id: 'cxp-1' });
+    const pago = crearPago({
+      aplicaciones: [
+        { cuentaPorPagarId: 'cxp-1', comprobanteCompraId: 'cc-1', importeAplicado: 150 },
+        { cuentaPorPagarId: 'cxp-inexistente', comprobanteCompraId: 'cc-x', importeAplicado: 30 },
+      ],
+    });
+    expect(obtenerCuentasPorPagarDePago(pago, [cxpA])).toEqual([cxpA]);
   });
 });

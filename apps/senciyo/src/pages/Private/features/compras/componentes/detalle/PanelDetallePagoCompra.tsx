@@ -14,7 +14,7 @@ import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import { BADGE_ESTADO_DOCUMENTO_PAGO, BADGE_ESTADO_PAGO_CXP } from '../../constantes/estadosCompras';
 import { TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO } from '../../constantes/tiposDocumentoProveedor';
 import { tieneMedioDeCaja } from '../../servicios/servicioPagoCompra';
-import { obtenerCxPDePago, obtenerComprobanteDePago } from '../../logica/reglasCompras';
+import { obtenerAplicacionesPago } from '../../logica/reglasCompras';
 import { formatearFechaCompra, formatearNumeroCompra, formatearNumeroComprobanteCompra } from '../../utilidades/formatearCompras';
 
 interface PanelDetallePagoCompraProps {
@@ -107,9 +107,22 @@ export default function PanelDetallePagoCompra({
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabPago>('general');
 
-  const cxp = pago ? obtenerCxPDePago(pago, cuentasPorPagar) : undefined;
-  const comprobanteOrigen = pago ? obtenerComprobanteDePago(pago, cuentasPorPagar, comprobantes) : undefined;
-  const ocOrigen = comprobanteOrigen ? ordenes.find((o) => o.id === comprobanteOrigen.ordenCompraOrigenId) : undefined;
+  // Documentos aplicados reales (1 o varios — obtenerAplicacionesPago
+  // resuelve tanto pagos nuevos como legacy de un único documento por
+  // igual). Cada aplicación resuelve su propia CxP, el Comprobante de
+  // Compra correspondiente y, si existe, la Orden de Compra de origen de
+  // ese comprobante — nunca se asume que todos los documentos vienen de la
+  // misma OC.
+  const aplicacionesResueltas = pago
+    ? obtenerAplicacionesPago(pago).map((aplicacion) => {
+        const cxp = cuentasPorPagar.find((c) => c.id === aplicacion.cuentaPorPagarId);
+        const comprobante =
+          comprobantes.find((c) => c.id === aplicacion.comprobanteCompraId) ??
+          (cxp ? comprobantes.find((c) => c.id === cxp.comprobanteCompraId) : undefined);
+        const oc = comprobante ? ordenes.find((o) => o.id === comprobante.ordenCompraOrigenId) : undefined;
+        return { aplicacion, cxp, comprobante, oc };
+      })
+    : [];
   const cajaUtilizada = pago?.cajaId ? config.cajas.find((c) => c.id === pago.cajaId) : undefined;
   const hayMovimientoCajaDerivado = pago ? !cajaUtilizada && tieneMedioDeCaja(pago.mediosPago) : false;
 
@@ -133,8 +146,12 @@ export default function PanelDetallePagoCompra({
         labels={ESTADO_DOCUMENTO_PAGO_LABELS}
         clases={BADGE_ESTADO_DOCUMENTO_PAGO}
       />
-      {cxp && (
-        <BadgeEstado estado={cxp.estadoPago} labels={ESTADO_PAGO_CXP_LABELS} clases={BADGE_ESTADO_PAGO_CXP} />
+      {aplicacionesResueltas.length === 1 && aplicacionesResueltas[0].cxp && (
+        <BadgeEstado
+          estado={aplicacionesResueltas[0].cxp.estadoPago}
+          labels={ESTADO_PAGO_CXP_LABELS}
+          clases={BADGE_ESTADO_PAGO_CXP}
+        />
       )}
     </div>
   ) : null;
@@ -188,14 +205,6 @@ export default function PanelDetallePagoCompra({
                     valor={<BadgeEstado estado={pago.estadoDocumento} labels={ESTADO_DOCUMENTO_PAGO_LABELS} clases={BADGE_ESTADO_DOCUMENTO_PAGO} />}
                   />
                   <Campo label="Proveedor" valor={pago.proveedorNombre} />
-                  <Campo
-                    label="Documento origen"
-                    valor={
-                      cxp
-                        ? `${TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO[cxp.tipoComprobanteOrigen]?.nombre ?? cxp.tipoComprobanteOrigen} ${cxp.comprobanteCompraNumero}`
-                        : undefined
-                    }
-                  />
                   <Campo label="Fecha de pago" valor={formatearFechaCompra(pago.fechaPago)} />
                   <Campo label="Fecha de registro" valor={formatearFechaCompra(pago.fechaCreacion)} />
                   <Campo label="Moneda" valor={pago.moneda} />
@@ -210,6 +219,23 @@ export default function PanelDetallePagoCompra({
                     }
                   />
                   {pago.observaciones && <Campo label="Observaciones" valor={pago.observaciones} />}
+                </Seccion>
+
+                <Seccion titulo={`Documentos aplicados (${aplicacionesResueltas.length})`}>
+                  <div className="divide-y divide-gray-100">
+                    {aplicacionesResueltas.map(({ aplicacion, cxp }, i) => (
+                      <div key={`${aplicacion.cuentaPorPagarId}-${i}`} className="flex justify-between items-center py-2">
+                        <span className="text-sm text-gray-700 font-mono">
+                          {cxp
+                            ? `${TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO[cxp.tipoComprobanteOrigen]?.nombre ?? cxp.tipoComprobanteOrigen} ${cxp.comprobanteCompraNumero}`
+                            : 'Documento no disponible'}
+                        </span>
+                        <span className="text-sm font-medium text-gray-900 font-mono">
+                          {formatMoney(aplicacion.importeAplicado, pago.moneda)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </Seccion>
 
                 {(pago.documentoSustentoTipo || pago.documentoSustentoSerie) && (
@@ -273,58 +299,87 @@ export default function PanelDetallePagoCompra({
 
             {tabActivo === 'relacionados' && (
               <>
-                <Seccion titulo="Cuenta por pagar">
-                  {cxp ? (
-                    <button
-                      type="button"
-                      onClick={() => onVerCuentaPorPagar?.(cxp)}
-                      disabled={!onVerCuentaPorPagar}
-                      className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
-                    >
-                      <span className="text-sm text-gray-900">
-                        Saldo {formatMoney(cxp.saldoPendiente, cxp.moneda)}
-                      </span>
-                      <BadgeEstado estado={cxp.estadoPago} labels={ESTADO_PAGO_CXP_LABELS} clases={BADGE_ESTADO_PAGO_CXP} />
-                    </button>
+                <Seccion titulo={`Cuentas por pagar (${aplicacionesResueltas.length})`}>
+                  {aplicacionesResueltas.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-2">No se encontró ninguna cuenta por pagar asociada.</p>
                   ) : (
-                    <p className="text-sm text-gray-400 py-2">No se encontró una cuenta por pagar asociada.</p>
+                    <div className="divide-y divide-gray-100">
+                      {aplicacionesResueltas.map(({ aplicacion, cxp }, i) => (
+                        <button
+                          key={`cxp-${aplicacion.cuentaPorPagarId}-${i}`}
+                          type="button"
+                          onClick={() => cxp && onVerCuentaPorPagar?.(cxp)}
+                          disabled={!cxp || !onVerCuentaPorPagar}
+                          className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                        >
+                          <span className="text-sm text-gray-900">
+                            {cxp ? `Saldo ${formatMoney(cxp.saldoPendiente, cxp.moneda)}` : 'No disponible'}
+                          </span>
+                          {cxp && (
+                            <BadgeEstado estado={cxp.estadoPago} labels={ESTADO_PAGO_CXP_LABELS} clases={BADGE_ESTADO_PAGO_CXP} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </Seccion>
 
-                <Seccion titulo="Comprobante de Compra">
-                  {comprobanteOrigen ? (
-                    <button
-                      type="button"
-                      onClick={() => onVerComprobante?.(comprobanteOrigen)}
-                      disabled={!onVerComprobante}
-                      className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
-                    >
-                      <span className="text-sm text-gray-900 font-mono">{formatearNumeroComprobanteCompra(comprobanteOrigen)}</span>
-                      <span className="text-sm text-gray-500">
-                        {formatMoney(comprobanteOrigen.totales.total, comprobanteOrigen.moneda)}
-                      </span>
-                    </button>
+                <Seccion titulo={`Comprobantes de Compra (${aplicacionesResueltas.length})`}>
+                  {aplicacionesResueltas.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-2">No se encontró ningún comprobante de compra origen.</p>
                   ) : (
-                    <p className="text-sm text-gray-400 py-2">No se encontró el comprobante de compra origen.</p>
+                    <div className="divide-y divide-gray-100">
+                      {aplicacionesResueltas.map(({ aplicacion, comprobante }, i) => (
+                        <button
+                          key={`cc-${aplicacion.cuentaPorPagarId}-${i}`}
+                          type="button"
+                          onClick={() => comprobante && onVerComprobante?.(comprobante)}
+                          disabled={!comprobante || !onVerComprobante}
+                          className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                        >
+                          <span className="text-sm text-gray-900 font-mono">
+                            {comprobante ? formatearNumeroComprobanteCompra(comprobante) : 'No disponible'}
+                          </span>
+                          {comprobante && (
+                            <span className="text-sm text-gray-500">
+                              {formatMoney(comprobante.totales.total, comprobante.moneda)}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </Seccion>
 
-                <Seccion titulo="Orden de Compra">
-                  {ocOrigen ? (
-                    <button
-                      type="button"
-                      onClick={() => onVerOrdenCompra?.(ocOrigen)}
-                      disabled={!onVerOrdenCompra}
-                      className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
-                    >
-                      <span className="text-sm text-gray-900 font-mono">{formatearNumeroCompra(ocOrigen.serie, ocOrigen.correlativo)}</span>
-                      <span className="text-sm text-gray-500">
-                        {formatMoney(ocOrigen.totales.total, ocOrigen.moneda)}
-                      </span>
-                    </button>
-                  ) : (
-                    <p className="text-sm text-gray-400 py-2">Este pago no proviene de una orden de compra.</p>
-                  )}
+                <Seccion titulo="Órdenes de Compra">
+                  {(() => {
+                    const ordenesUnicas = Array.from(
+                      new Map(
+                        aplicacionesResueltas
+                          .filter(({ oc }) => Boolean(oc))
+                          .map(({ oc }) => [oc!.id, oc!]),
+                      ).values(),
+                    );
+                    if (ordenesUnicas.length === 0) {
+                      return <p className="text-sm text-gray-400 py-2">Este pago no proviene de ninguna orden de compra.</p>;
+                    }
+                    return (
+                      <div className="divide-y divide-gray-100">
+                        {ordenesUnicas.map((oc) => (
+                          <button
+                            key={oc.id}
+                            type="button"
+                            onClick={() => onVerOrdenCompra?.(oc)}
+                            disabled={!onVerOrdenCompra}
+                            className="w-full flex justify-between items-center py-2 text-left disabled:cursor-default"
+                          >
+                            <span className="text-sm text-gray-900 font-mono">{formatearNumeroCompra(oc.serie, oc.correlativo)}</span>
+                            <span className="text-sm text-gray-500">{formatMoney(oc.totales.total, oc.moneda)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </Seccion>
 
                 <Seccion titulo="Caja">

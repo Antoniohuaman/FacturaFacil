@@ -13,7 +13,7 @@ import { getConfiguredPaymentMeans } from '@/shared/payments/paymentMeans';
 import type { OrdenCompra } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
-import type { PagoCompra, MedioPagoCompra } from '../modelos/PagoCompra';
+import type { PagoCompra, MedioPagoCompra, AplicacionPagoCompra } from '../modelos/PagoCompra';
 import type { RequerimientoCompra } from '../modelos/RequerimientoCompra';
 import type { Cliente } from '../../gestion-clientes/models/cliente.types';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -55,7 +55,7 @@ import {
 } from '../servicios/servicioComprobanteCompra';
 import {
   validarPagoCompraBasico,
-  validarPagoNoExcedeSaldo,
+  validarAplicacionesPagoCompra,
   validarMediosPagoCompra,
   tieneMedioDeCaja,
   esMedioDeCaja,
@@ -83,6 +83,7 @@ import {
   calcularLineaCompra,
   calcularTotalesLineas,
   calcularMontoRetencion,
+  obtenerAplicacionesPago,
   round2,
 } from '../logica/reglasCompras';
 import type { LineaCompra } from '../modelos/LineaCompra';
@@ -755,8 +756,26 @@ interface ContextoComprasTipo {
 
   anularComprobanteCompra(id: string, motivo: string, anuladoPor?: string): Promise<void>;
 
+  /**
+   * Registra un Pago aplicado a una o varias Cuentas por Pagar (mismo
+   * proveedor y moneda) — `aplicaciones` es la única fuente de a qué
+   * documentos se aplica y por cuánto; `montoTotalPagado`,
+   * `cuentasPorPagarAplicadas` y `comprobantesCompraAplicados` se derivan
+   * internamente, nunca se reciben del llamador (evita dos fuentes de
+   * verdad para el mismo total).
+   */
   registrarPagoCompra(
-    datos: Omit<PagoCompra, 'id' | 'numeroPago' | 'estadoDocumento' | 'historial' | 'fechaCreacion'>,
+    datos: Omit<
+      PagoCompra,
+      | 'id'
+      | 'numeroPago'
+      | 'estadoDocumento'
+      | 'historial'
+      | 'fechaCreacion'
+      | 'montoTotalPagado'
+      | 'cuentasPorPagarAplicadas'
+      | 'comprobantesCompraAplicados'
+    > & { aplicaciones: AplicacionPagoCompra[] },
     usuarioId?: string,
     seriePago?: string,
   ): Promise<PagoCompra>;
@@ -1919,22 +1938,34 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     async (
       datos: Omit<
         PagoCompra,
-        'id' | 'numeroPago' | 'estadoDocumento' | 'historial' | 'fechaCreacion'
-      >,
+        | 'id'
+        | 'numeroPago'
+        | 'estadoDocumento'
+        | 'historial'
+        | 'fechaCreacion'
+        | 'montoTotalPagado'
+        | 'cuentasPorPagarAplicadas'
+        | 'comprobantesCompraAplicados'
+      > & { aplicaciones: AplicacionPagoCompra[] },
       usuarioId?: string,
       seriePago?: string,
     ): Promise<PagoCompra> => {
       const mediosDisponibles = getConfiguredPaymentMeans();
-      lanzarSiHayErrores(validarPagoCompraBasico(datos));
+
+      // Única fuente del total y de los FK derivados: siempre calculados desde
+      // `aplicaciones`, nunca recibidos como un campo aparte que pueda
+      // desincronizarse (§12 del alcance).
+      const montoTotalPagado = round2(datos.aplicaciones.reduce((acc, a) => acc + a.importeAplicado, 0));
+      const cuentasPorPagarAplicadas = datos.aplicaciones.map((a) => a.cuentaPorPagarId);
+      const comprobantesCompraAplicados = datos.aplicaciones.map((a) => a.comprobanteCompraId);
+
+      lanzarSiHayErrores(validarPagoCompraBasico({ ...datos, montoTotalPagado }));
       lanzarSiHayErrores(validarMediosPagoCompra(datos.mediosPago, mediosDisponibles));
       lanzarSiHayErrores(validarTipoCambioRequerido(datos.moneda, monedaBase, datos.tipoCambio));
-
-      // Defensa de servicio: el formulario ya bloquea pago > saldo en UI, pero
-      // el contexto no debe confiar solo en eso (ni capar el saldo a 0 en silencio).
-      const cxpsAplicadas = datos.cuentasPorPagarAplicadas
-        .map((cxpId) => state.cuentasPorPagar.find((c) => c.id === cxpId))
-        .filter((cxp): cxp is CuentaPorPagar => Boolean(cxp));
-      lanzarSiHayErrores(validarPagoNoExcedeSaldo(datos.montoTotalPagado, cxpsAplicadas));
+      // Defensa de servicio: el formulario ya restringe la selección al mismo
+      // proveedor/moneda y al saldo de cada documento, pero el contexto no
+      // debe confiar solo en eso.
+      lanzarSiHayErrores(validarAplicacionesPagoCompra(datos.aplicaciones, state.cuentasPorPagar));
 
       if (tieneMedioDeCaja(datos.mediosPago) && estadoCaja !== 'abierta') {
         throw new Error('Abre una caja para registrar el pago en efectivo.');
@@ -1950,7 +1981,10 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       const numeroPago = siguienteNumeroPago(state.pagos, seriePago);
 
       // El movimiento de caja se intenta antes de comprometer el pago/CxP:
-      // si falla, no queda un pago "fantasma" sin su contraparte en caja.
+      // si falla, no queda un pago "fantasma" sin su contraparte en caja. Es
+      // UN solo movimiento por medio de pago (el total del pago), nunca uno
+      // por cada documento aplicado — un pago múltiple sigue siendo una sola
+      // operación real de caja (§33 del alcance).
       await registrarMovimientosCajaPorMedios(
         datos.mediosPago,
         'Egreso',
@@ -1970,55 +2004,68 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         cajaId: tieneMedioDeCaja(datos.mediosPago) ? (activeCajaId ?? undefined) : undefined,
         id,
         numeroPago,
+        montoTotalPagado,
+        cuentasPorPagarAplicadas,
+        comprobantesCompraAplicados,
         estadoDocumento: 'registrado',
         historial: [
           {
             fecha: ts,
             usuario: usuarioId,
             accion: 'Pago registrado',
-            detalle: `${numeroPago} — Total: ${formatMoney(datos.montoTotalPagado, datos.moneda)}`,
+            detalle: `${numeroPago} — Total: ${formatMoney(montoTotalPagado, datos.moneda)} — ${datos.aplicaciones.length} documento(s)`,
           },
         ],
         creadoPor: usuarioId,
         fechaCreacion: ts,
       };
 
+      // Se precalculan TODAS las actualizaciones de CxP/CC (puro, puede
+      // lanzar si algún documento ya no existiera) antes de persistir nada —
+      // mismo criterio que actualizarOrdenCompra: ni el pago ni sus
+      // documentos relacionados quedan escritos a medias si algo falla aquí.
+      const actualizaciones = datos.aplicaciones.map((aplicacion) => {
+        const cxp = state.cuentasPorPagar.find((c) => c.id === aplicacion.cuentaPorPagarId);
+        if (!cxp) throw new Error(`Cuenta por pagar ${aplicacion.cuentaPorPagarId} no encontrada.`);
+        const cxpActualizada = aplicarPagoACuentaPorPagar(
+          cxp,
+          aplicacion.importeAplicado,
+          id,
+          hoy(),
+          usuarioId,
+          aplicacion.asignacionesCuotas,
+        );
+        const cc = state.comprobantes.find((c) => c.cuentaPorPagarId === aplicacion.cuentaPorPagarId);
+        const ccActualizado: ComprobanteCompra | undefined = cc
+          ? {
+              ...cc,
+              estadoPago: recalcularEstadoPagoComprobante(cxpActualizada.estadoPago),
+              pagosRelacionados: [...(cc.pagosRelacionados ?? []), id],
+              historial: [
+                ...cc.historial,
+                {
+                  fecha: ts,
+                  accion: 'Pago aplicado',
+                  detalle: `Pago ${numeroPago} — ${formatMoney(aplicacion.importeAplicado, datos.moneda)}`,
+                },
+              ],
+              fechaActualizacion: ts,
+            }
+          : undefined;
+        return { cxpActualizada, ccActualizado };
+      });
+
       agregarOActualizarPago(pago);
       dispatch({ type: 'AGREGAR_PAGO', payload: pago });
 
-      // Aplicar a cada CxP
-      for (const cxpId of datos.cuentasPorPagarAplicadas) {
-        const cxp = state.cuentasPorPagar.find((c) => c.id === cxpId);
-        if (cxp) {
-          const cxpActualizada = aplicarPagoACuentaPorPagar(
-            cxp,
-            datos.montoTotalPagado,
-            pago.id,
-            hoy(),
-            usuarioId,
-            datos.asignacionesCuotas,
-          );
-          agregarOActualizarCxP(cxpActualizada);
-          dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpActualizada });
-
-          // Actualizar estadoPago del CC asociado
-          const cc = state.comprobantes.find((c) => c.cuentaPorPagarId === cxpId);
-          if (cc) {
-            const ccActualizado: ComprobanteCompra = {
-              ...cc,
-              estadoPago: recalcularEstadoPagoComprobante(cxpActualizada.estadoPago),
-              pagosRelacionados: [...(cc.pagosRelacionados ?? []), pago.id],
-              historial: [
-                ...cc.historial,
-                { fecha: ts, accion: 'Pago aplicado', detalle: `Pago ${numeroPago}` },
-              ],
-              fechaActualizacion: ts,
-            };
-            agregarOActualizarCC(ccActualizado);
-            dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: ccActualizado });
-          }
+      actualizaciones.forEach(({ cxpActualizada, ccActualizado }) => {
+        agregarOActualizarCxP(cxpActualizada);
+        dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpActualizada });
+        if (ccActualizado) {
+          agregarOActualizarCC(ccActualizado);
+          dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: ccActualizado });
         }
-      }
+      });
 
       return pago;
     },
@@ -2075,45 +2122,59 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         ],
       };
 
-      agregarOActualizarPago(pagoAnulado);
-      dispatch({ type: 'ACTUALIZAR_PAGO', payload: pagoAnulado });
-
-      // Revertir en CxP
-      for (const cxpId of pago.cuentasPorPagarAplicadas) {
-        const cxp = state.cuentasPorPagar.find((c) => c.id === cxpId);
-        if (cxp) {
+      // Revierte CADA aplicación del pago con su propio importe (nunca el
+      // total del pago aplicado a cada CxP): obtenerAplicacionesPago ya
+      // resuelve tanto pagos nuevos (`aplicaciones`) como legacy (una sola
+      // aplicación sintetizada desde los campos históricos), así que esta
+      // función anula ambos por igual (§14/§24 del alcance). Precalculado
+      // (puro) antes de persistir nada, mismo criterio que el registro.
+      const reversiones = obtenerAplicacionesPago(pago)
+        .map((aplicacion) => {
+          const cxp = state.cuentasPorPagar.find((c) => c.id === aplicacion.cuentaPorPagarId);
+          if (!cxp) return null;
           const cxpRevertida = revertirPagoDeCuentaPorPagar(
             cxp,
-            pago.montoTotalPagado,
+            aplicacion.importeAplicado,
             pago.id,
             ts,
             anuladoPor,
-            pago.asignacionesCuotas,
+            aplicacion.asignacionesCuotas,
           );
-          agregarOActualizarCxP(cxpRevertida);
-          dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpRevertida });
+          const cc = state.comprobantes.find((c) => c.cuentaPorPagarId === aplicacion.cuentaPorPagarId);
+          const ccActualizado: ComprobanteCompra | undefined = cc
+            ? {
+                ...cc,
+                estadoPago: recalcularEstadoPagoComprobante(cxpRevertida.estadoPago),
+                // El pago anulado se conserva en pagosRelacionados: sigue siendo
+                // parte del historial/documentos relacionados del CC, solo deja
+                // de ser un pago activo (lo determina p.estadoDocumento, no su
+                // presencia en este arreglo).
+                historial: [
+                  ...cc.historial,
+                  {
+                    fecha: ts,
+                    accion: 'Pago anulado y revertido',
+                    detalle: `${pago.numeroPago} — ${formatMoney(aplicacion.importeAplicado, pago.moneda)}`,
+                  },
+                ],
+                fechaActualizacion: ts,
+              }
+            : undefined;
+          return { cxpRevertida, ccActualizado };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
 
-          // Revertir en CC
-          const cc = state.comprobantes.find((c) => c.cuentaPorPagarId === cxpId);
-          if (cc) {
-            const ccActualizado: ComprobanteCompra = {
-              ...cc,
-              estadoPago: recalcularEstadoPagoComprobante(cxpRevertida.estadoPago),
-              // El pago anulado se conserva en pagosRelacionados: sigue siendo
-              // parte del historial/documentos relacionados del CC, solo deja
-              // de ser un pago activo (lo determina p.estadoDocumento, no su
-              // presencia en este arreglo).
-              historial: [
-                ...cc.historial,
-                { fecha: ts, accion: 'Pago anulado y revertido', detalle: pago.numeroPago },
-              ],
-              fechaActualizacion: ts,
-            };
-            agregarOActualizarCC(ccActualizado);
-            dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: ccActualizado });
-          }
+      agregarOActualizarPago(pagoAnulado);
+      dispatch({ type: 'ACTUALIZAR_PAGO', payload: pagoAnulado });
+
+      reversiones.forEach(({ cxpRevertida, ccActualizado }) => {
+        agregarOActualizarCxP(cxpRevertida);
+        dispatch({ type: 'ACTUALIZAR_CXP', payload: cxpRevertida });
+        if (ccActualizado) {
+          agregarOActualizarCC(ccActualizado);
+          dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: ccActualizado });
         }
-      }
+      });
     },
     [
       state.pagos,
