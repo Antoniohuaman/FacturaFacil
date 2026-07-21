@@ -8,7 +8,10 @@ import {
   construirPreparacionInventarioNS,
   construirDatosOperacionSalidaNS,
   construirNotaSalidaGenerada,
+  prepararAnulacionNS,
+  construirNotaSalidaAnulada,
 } from './notaSalida.service';
+import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { NotaSalida, LineaNotaSalida } from '../models/notaSalida.types';
@@ -544,7 +547,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
   }
 
   it('descuenta el stock real en una sola confirmación', async () => {
-    sembrarProductos([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
     const productsMap = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]]);
     const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
     const nota = crearNota({ lineas: [crearLinea({ cantidad: 8 })] });
@@ -564,7 +567,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
   });
 
   it('un reintento con el mismo documentoId (nota.id) no descuenta el stock dos veces', async () => {
-    sembrarProductos([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
     const productsMap = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]]);
     const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
     const nota = crearNota({ id: 'ns-retry', lineas: [crearLinea({ cantidad: 8 })] });
@@ -819,5 +822,81 @@ describe('Corrección post-1D §2: reintento de NS desde snapshot INMUTABLE (nun
     expect(motor2.estado).toBe('repetida');
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockReservadoOVPorEstablecimiento?.[ESTABLECIMIENTO]).toBe(0);
+  });
+});
+
+describe('prepararAnulacionNS — Etapa 1E: anulación usando los movimientos originales como fuente de verdad', () => {
+  it('localiza los movimientos originales de la NS y los revierte vía el motor genérico, restaurando el stock exacto', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const productsMap = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ id: 'ns-anular-1', lineas: [crearLinea({ cantidad: 8 })] });
+
+    const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+
+    const notaGenerada = construirNotaSalidaGenerada(nota, resultado, 'user-1', fechaActual());
+
+    const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
+    const { datosAnulacion } = prepararAnulacionNS(notaGenerada, EMPRESA, movimientosRaw, 'Error de digitación', 'user-2', '2026-08-02T00:00:00.000Z');
+
+    expect(datosAnulacion).not.toBeNull();
+    expect(datosAnulacion?.movimientoIds).toHaveLength(resultado.lineasOperacion.length);
+    expect(datosAnulacion?.claveIdempotencia).toBe('ANULACION-nota_salida-ns-anular-1');
+
+    const resultadoMotor = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual });
+
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
+
+    const notaAnulada = construirNotaSalidaAnulada(notaGenerada, 'Error de digitación', 'user-2', '2026-08-02T00:00:00.000Z', resultadoMotor.resultadoIds.length);
+    expect(notaAnulada.estado).toBe('Anulada');
+    expect(notaAnulada.historial.at(-1)?.detalle).toMatch(/Stock repuesto en 1 línea/);
+  });
+
+  it('NS solo con productos no inventariables (sinMovimientoInventario): no hay nada que revertir, datosAnulacion es null', () => {
+    const nota = crearNota({
+      id: 'ns-anular-2',
+      estado: 'Generada',
+      lineas: [crearLinea()],
+      preparacionInventario: { lineasOperacion: [], despachosOV: [], sinMovimientoInventario: true },
+    });
+
+    const { datosAnulacion } = prepararAnulacionNS(nota, EMPRESA, null, 'motivo', 'user-1', fechaActual());
+    expect(datosAnulacion).toBeNull();
+  });
+
+  it('rechaza anular una NS que no está en estado Generada', () => {
+    const nota = crearNota({ id: 'ns-anular-3', estado: 'Anulada', lineas: [crearLinea()] });
+    expect(() => prepararAnulacionNS(nota, EMPRESA, null, 'motivo', 'user-1', fechaActual())).toThrow(/Generada/);
+  });
+
+  it('rechaza si no se encuentran los movimientos originales y la NS no es legítimamente sin movimiento', () => {
+    const nota = crearNota({ id: 'ns-anular-4', estado: 'Generada', lineas: [crearLinea()] });
+    expect(() => prepararAnulacionNS(nota, EMPRESA, null, 'motivo', 'user-1', fechaActual())).toThrow(/No se encontraron los movimientos/);
+  });
+
+  it('reintento idempotente de la anulación (misma clave) devuelve "repetida" sin volver a reponer stock', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const productsMap = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ id: 'ns-anular-5', lineas: [crearLinea({ cantidad: 6 })] });
+
+    const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    const notaGenerada = construirNotaSalidaGenerada(nota, resultado, 'user-1', fechaActual());
+
+    const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
+    const { datosAnulacion } = prepararAnulacionNS(notaGenerada, EMPRESA, movimientosRaw, 'motivo', 'user-2', '2026-08-02T00:00:00.000Z');
+
+    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual });
+    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual });
+
+    expect(r1.estado).toBe('nueva');
+    expect(r2.estado).toBe('repetida');
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
   });
 });

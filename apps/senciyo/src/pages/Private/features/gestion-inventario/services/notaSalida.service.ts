@@ -2,12 +2,14 @@
 
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
-import type { MovimientoStock, StockAdjustmentData } from '../models';
+import type { MovimientoStock } from '../models';
 import { InventoryService } from './inventory.service';
 import { CORRELATIVO_DIGITOS_NS } from '../models/notaSalida.constants';
 import type { NotaSalida, TipoSalida, LineaNotaSalida, DespachoOVBasico, PreparacionInventarioNS } from '../models/notaSalida.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
 import type { DatosOperacionSalidaCuantitativa, DatosLineaOperacionCuantitativa } from '../models/operacionEntradaInventario.types';
+import type { DatosAnulacionDocumentoInventario } from '../models/operacionReversoInventario.types';
+import { parsearColeccion } from '../utils/operacionCuantitativaInventarioComun';
 import { esProductoInventariable } from '../../../../../shared/inventory/clasificacionInventario';
 import { obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import {
@@ -690,69 +692,33 @@ export function construirNotaSalidaGenerada(
   };
 }
 
-// ─── Anulación ────────────────────────────────────────────────────────────
+// ─── Anulación (Etapa 1E, §9) ───────────────────────────────────────────────
+//
+// Los movimientos ORIGINALES confirmados (`documentoOrigenId === nota.id`, `tipoDocumentoOrigen
+// === 'nota_salida'`, `claveIdempotencia === 'nota_salida:${nota.id}'`) son la ÚNICA fuente de
+// verdad — nunca se recalcula un ajuste desde `nota.lineas` actuales (que pudieron cambiar de
+// almacén/catálogo desde que se generó la NS). `prepararAnulacionNS` es PURA: localiza esos
+// movimientos y arma el contrato de `ServicioKardexValorizado.anularDocumentoValorizado`, sin
+// tocar `localStorage` ni invocar al motor — eso le corresponde al llamador (`useNotasSalida.ts`),
+// que solo debe marcar el documento 'Anulada' DESPUÉS de que Inventario confirme o repita.
 
-export interface ResultadoAnularNS {
-  notaActualizada: NotaSalida;
-  productosActualizados: Product[];
-  movimientos: MovimientoStock[];
+function esMovimientoAlmacenable(valor: unknown): valor is MovimientoStock {
+  return typeof valor === 'object' && valor !== null && typeof (valor as { id?: unknown }).id === 'string';
 }
 
-// ─── Tipo interno para el plan de anulación ───────────────────────────────
-
-interface PlanAjusteNS {
-  producto: Product;
-  linea: LineaNotaSalida;
-  almacenLinea: Almacen;
-  cantidadEnUnidadMinima: number;
+export interface ResultadoPrepararAnulacionNS {
+  /** `null` cuando la NS legítimamente no generó movimientos de inventario (solo servicios/no inventariables) — no hay nada que revertir. */
+  datosAnulacion: DatosAnulacionDocumentoInventario | null;
 }
 
-/**
- * Fase 1 de anulación: valida TODAS las líneas sin efectos secundarios.
- * Lanza si cualquier línea no puede resolverse (almacén o producto faltante).
- * Garantiza que registerAdjustment no se llame parcialmente.
- */
-function prepararPlanAnulacionNS(
+export function prepararAnulacionNS(
   nota: NotaSalida,
-  productsMap: Map<string, Product>,
-  almacenesMap: Map<string, Almacen>,
-): PlanAjusteNS[] {
-  const plan: PlanAjusteNS[] = [];
-  for (const linea of nota.lineas) {
-    if (linea.tipoBienServicio === 'servicio') continue;
-    const producto = productsMap.get(linea.productoId);
-    if (!producto) {
-      throw new Error(
-        `Producto "${linea.productoNombre ?? linea.productoId}" no encontrado en el catálogo. ` +
-        `No se puede anular la Nota de Salida.`,
-      );
-    }
-    const resolvedAlmId = linea.almacenId ?? nota.almacenOrigenId;
-    if (!resolvedAlmId) {
-      throw new Error(
-        `No se puede anular la línea "${linea.productoNombre}": sin almacén asignado. ` +
-        `Corrija la Nota de Salida antes de anularla.`,
-      );
-    }
-    const almacenLinea = almacenesMap.get(resolvedAlmId);
-    if (!almacenLinea) {
-      throw new Error(
-        `Almacén "${resolvedAlmId}" no encontrado para "${linea.productoNombre}". ` +
-        `Verifique la configuración de almacenes.`,
-      );
-    }
-    plan.push({ producto, linea, almacenLinea, cantidadEnUnidadMinima: linea.cantidad });
-  }
-  return plan;
-}
-
-export const anularNSEnInventario = (
-  nota: NotaSalida,
-  productsMap: Map<string, Product>,
-  almacenesMap: Map<string, Almacen>,
+  empresaId: string,
+  movimientosRaw: string | null,
   motivo: string,
   usuario: string,
-): ResultadoAnularNS => {
+  fecha: string,
+): ResultadoPrepararAnulacionNS {
   if (nota.estado !== 'Generada') {
     throw new Error(
       nota.estado === 'Entregada'
@@ -761,94 +727,71 @@ export const anularNSEnInventario = (
     );
   }
 
-  // Fase 1: validar todas las líneas ANTES de aplicar cualquier ajuste.
-  // Si cualquier línea falla, se lanza el error sin haber modificado stock.
-  const plan = prepararPlanAnulacionNS(nota, productsMap, almacenesMap);
-
-  const ahora = new Date().toISOString();
-  const productosActualizados: Product[] = [];
+  const claveOriginal = `nota_salida:${nota.id}`;
+  const movimientosCrudos = parsearColeccion(movimientosRaw, 'la colección de movimientos');
   const movimientos: MovimientoStock[] = [];
-  const motivoMovimiento = mapTipoSalidaAMotivo(nota.tipoSalida);
-  const almacenesArray = Array.from(almacenesMap.values());
+  movimientosCrudos.forEach((elemento, indice) => {
+    if (!esMovimientoAlmacenable(elemento)) {
+      throw new Error(`notaSalida.service: el elemento en el índice ${indice} de la colección de movimientos no tiene la forma esperada.`);
+    }
+    movimientos.push(elemento);
+  });
 
-  // Fase 2: aplicar ajustes con compensación en caso de fallo parcial.
-  const ajustesAplicados: PlanAjusteNS[] = [];
-  try {
-    for (const ajuste of plan) {
-      const prodActual = productsMap.get(ajuste.linea.productoId) ?? ajuste.producto;
-      const data: StockAdjustmentData = {
-        productoId: ajuste.linea.productoId,
-        almacenId: ajuste.almacenLinea.id,
-        tipo: 'AJUSTE_POSITIVO',
-        motivo: motivoMovimiento,
-        cantidad: ajuste.cantidadEnUnidadMinima,
-        observaciones: `Anulación NS ${nota.numero ?? ''} - ${motivo}`.trim(),
-        documentoReferencia: nota.numero ?? nota.id,
-      };
-      const { product: productoActualizado, movement } = InventoryService.registerAdjustment(
-        prodActual,
-        ajuste.almacenLinea,
-        data,
-        usuario,
-      );
-      const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
-      productsMap.set(ajuste.linea.productoId, productoFinal);
-      productosActualizados.push(productoFinal);
-      movimientos.push(movement);
-      ajustesAplicados.push(ajuste);
+  const movimientosDeLaNS = movimientos.filter(
+    (m) => m.documentoOrigenId === nota.id && m.tipoDocumentoOrigen === 'nota_salida' && m.claveIdempotencia === claveOriginal,
+  );
+
+  if (movimientosDeLaNS.length === 0) {
+    if (nota.preparacionInventario?.sinMovimientoInventario) {
+      return { datosAnulacion: null };
     }
-  } catch (err) {
-    // Rollback en orden inverso: revertir los ajustes ya aplicados
-    for (const ajuste of [...ajustesAplicados].reverse()) {
-      const dataRollback: StockAdjustmentData = {
-        productoId: ajuste.linea.productoId,
-        almacenId: ajuste.almacenLinea.id,
-        tipo: 'SALIDA',
-        motivo: motivoMovimiento,
-        cantidad: ajuste.cantidadEnUnidadMinima,
-        observaciones: `Rollback anulación NS ${nota.numero ?? ''}`.trim(),
-        documentoReferencia: nota.numero ?? nota.id,
-      };
-      try {
-        const prodActual = productsMap.get(ajuste.linea.productoId) ?? ajuste.producto;
-        const { product: productoRollback } = InventoryService.registerAdjustment(
-          prodActual,
-          ajuste.almacenLinea,
-          dataRollback,
-          usuario,
-        );
-        const productoFinalRollback = InventoryService.recalcularTotalesStock(productoRollback, almacenesArray);
-        productsMap.set(ajuste.linea.productoId, productoFinalRollback);
-      } catch {
-        throw new Error(
-          `Error crítico al anular: el stock puede estar inconsistente para ` +
-          `"${ajuste.linea.productoNombre}". Contacte a soporte.`,
-        );
-      }
-    }
-    throw err;
+    throw new Error(
+      `No se encontraron los movimientos de inventario originales de la Nota de Salida "${nota.numero ?? nota.id}" — no se puede anular con seguridad.`,
+    );
   }
 
-  const notaActualizada: NotaSalida = {
+  return {
+    datosAnulacion: {
+      empresaId,
+      tipoOperacion: 'anulacion',
+      documentoId: nota.id,
+      tipoDocumentoOrigen: 'nota_salida',
+      movimientoIds: movimientosDeLaNS.map((m) => m.id),
+      claveIdempotencia: `ANULACION-nota_salida-${nota.id}`,
+      usuario,
+      fecha,
+      motivoUsuario: motivo,
+      documentoReferencia: nota.numero ?? nota.id,
+    },
+  };
+}
+
+/** Construye el documento 'Anulada' — solo debe persistirse DESPUÉS de que el motor confirme (o repita) la anulación. */
+export function construirNotaSalidaAnulada(
+  nota: NotaSalida,
+  motivo: string,
+  usuario: string,
+  fecha: string,
+  cantidadLineasRevertidas: number,
+): NotaSalida {
+  return {
     ...nota,
     estado: 'Anulada',
     motivoAnulacion: motivo,
-    fechaAnulacion: ahora,
+    fechaAnulacion: fecha,
     usuarioAnulacion: usuario,
-    updatedAt: ahora,
+    updatedAt: fecha,
     historial: [
       ...nota.historial,
       {
-        fecha: ahora,
+        fecha,
         usuario,
         accion: 'Anulada',
-        detalle: `Motivo: ${motivo}. Stock repuesto en ${movimientos.length} línea(s).`,
+        detalle: `Motivo: ${motivo}. Stock repuesto en ${cantidadLineasRevertidas} línea(s).`,
       },
     ],
   };
-
-  return { notaActualizada, productosActualizados, movimientos };
-};
+}
 
 // ─── Marcar como entregada ────────────────────────────────────────────────
 

@@ -55,12 +55,16 @@ import {
 } from '../../models/instantaneaDocumentoComercial';
 import { esEstadoValidoParaNotaCredito } from '../../models/constants';
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
-import { useInventoryFacade } from '../../../gestion-inventario/api/inventory.facade';
 import { StockRepository } from '../../../gestion-inventario/repositories/stock.repository';
 import type { LineaNotaSalida, NotaSalida } from '../../../gestion-inventario/models/notaSalida.types';
 import { useNotasSalida } from '../../../gestion-inventario/hooks/useNotasSalida';
 import { cargarNotasSalida, obtenerNSActivasPorDocumento, persistirNotasSalidaCompleto } from '../../../gestion-inventario/repositories/notaSalida.repository';
 import { useFeedback } from '@/shared/feedback';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { ServicioKardexValorizado } from '../../../gestion-inventario/services/servicioKardexValorizado';
+import { prepararAnulacionDescuentoStockComprobante } from '../../hooks/useComprobanteActions';
+import { getTenantEmpresaId } from '../../../../../../shared/tenant';
+import { sincronizarInventarioTrasConfirmacion } from '../../../../../../shared/inventory/accionesStock';
 import { restaurarCotizacionPostAnulacion, restaurarNVPostAnulacionComprobante, restaurarOVPostAnulacionComprobante } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { persistirProductosCompleto } from '../../../catalogo-articulos/utils/catalogStorage';
@@ -400,10 +404,9 @@ const InvoiceListDashboard = () => {
   const { cuentas, registerCobranza } = useCobranzasContext();
   const currentCompany = useCurrentCompany();
 
-  // Fachada de inventario para reversiones de stock en anulación
-  const { addMovimiento: addMovimientoVoid } = useInventoryFacade();
   const feedback = useFeedback();
   const { anularNS } = useNotasSalida();
+  const { state: configState } = useConfigurationContext();
 
   // Hook de selección masiva
   const selection = useSelection();
@@ -871,7 +874,7 @@ const InvoiceListDashboard = () => {
     setShowVoidModal(true);
   };
 
-  const confirmVoid = () => {
+  const confirmVoid = async () => {
     if (!selectedInvoiceForVoid) return;
     if (!voidReason.trim()) {
       feedback.error('Debe ingresar un motivo de anulación');
@@ -978,7 +981,7 @@ const InvoiceListDashboard = () => {
       };
 
       try {
-        const anulacionNSExitosa = anularNS(comprobante.notaSalidaId, voidReason);
+        const anulacionNSExitosa = await anularNS(comprobante.notaSalidaId, voidReason);
         if (!anulacionNSExitosa) {
           aplicarRollbackNS('No se pudo anular la Nota de Salida');
           return;
@@ -996,7 +999,13 @@ const InvoiceListDashboard = () => {
     // Nota: para nota_salida sin NS activa, la reserva de la OV se mantiene intacta.
     // Al anular el Comprobante, la OV vuelve a Reservada sin liberar ni tocar la reserva.
 
-    // Fase 2 — Escenario A (automatico): reponer stock real con snapshot exacto para rollback.
+    // Fase 2 — Escenario A (automatico): revierte el descuento de stock vía el motor central de
+    // anulación (Etapa 1E, cierre final §2) — localiza los movimientos ORIGINALES confirmados
+    // como única fuente de verdad (nunca recalcula desde cantidades cacheadas), un solo plan
+    // atómico, una sola confirmación, idempotente por `claveIdempotencia`. Los snapshots se
+    // conservan para que el mecanismo de rollback EXTERNO ya existente de Fase 3 (restauración de
+    // OV) pueda intentarse si esa fase falla después — saga externa conservada tal cual, sin
+    // rediseñar OV/estados comerciales.
     let snapshotKardex: ReturnType<typeof StockRepository.getMovements> | undefined;
     let snapshotProductos: ReturnType<typeof useProductStore.getState>['allProducts'] | undefined;
 
@@ -1007,47 +1016,36 @@ const InvoiceListDashboard = () => {
         '';
 
       const todosLosMovimientos = StockRepository.getMovements();
-      const movimientosSalida = todosLosMovimientos.filter(
-        (m) => m.documentoReferencia === refComprobante && m.tipo === 'SALIDA' && m.motivo === 'VENTA'
-      );
-      const yaRevertido = todosLosMovimientos.some(
-        (m) => m.documentoReferencia === refComprobante && m.tipo === 'ENTRADA' && m.motivo === 'DEVOLUCION_CLIENTE'
+      const datosAnulacion = prepararAnulacionDescuentoStockComprobante(
+        comprobante,
+        refComprobante,
+        getTenantEmpresaId(),
+        todosLosMovimientos,
+        'Usuario',
+        new Date().toISOString(),
       );
 
-      if (!yaRevertido && movimientosSalida.length > 0) {
-        // Snapshot exacto antes de cualquier mutación: copia completa y profunda de todos los productos.
+      if (datosAnulacion) {
+        // Snapshot exacto antes de cualquier mutación — conservado únicamente para el rollback
+        // externo de Fase 3, nunca usado por esta fase (el motor ya es atómico por sí mismo).
         snapshotKardex = [...todosLosMovimientos];
         snapshotProductos = useProductStore.getState().allProducts.map(clonarProductoParaSnapshot);
 
         try {
-          for (const mov of movimientosSalida) {
-            addMovimientoVoid(
-              mov.productoId,
-              'ENTRADA',
-              'DEVOLUCION_CLIENTE',
-              mov.cantidad,
-              `Reversión anulación ${refComprobante}`,
-              refComprobante,
-              undefined,
-              mov.EstablecimientoId,
-              mov.EstablecimientoCodigo,
-              mov.EstablecimientoNombre,
-              { almacenId: mov.almacenId, allowNegativeStock: true }
-            );
-          }
+          const almacenesMap = new Map((configState.almacenes ?? []).map((a) => [a.id, a]));
+          await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, {
+            almacenes: almacenesMap,
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+          });
+          // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se
+          // vuelve a persistir aquí (nada de addMovimiento/registerAdjustment).
+          sincronizarInventarioTrasConfirmacion();
         } catch (stockErr) {
           const msgStock = stockErr instanceof Error
             ? `No se pudo reponer el stock: ${stockErr.message}`
             : 'No se pudo reponer el stock. Inténtelo de nuevo.';
-          // OV no ha sido tocada en este punto: solo revertir Kardex y productos.
-          const rollback = revertirSnapshotsAnulacion(snapshotKardex, snapshotProductos, undefined);
-          if (!rollback.exito) {
-            feedback.error(
-              `Error crítico: el stock no pudo reponerse y el rollback también falló (${rollback.error}). El Kardex o el stock puede estar inconsistente. Recargue la página.`,
-            );
-          } else {
-            feedback.error(msgStock);
-          }
+          feedback.error(msgStock);
           return;
         }
       }

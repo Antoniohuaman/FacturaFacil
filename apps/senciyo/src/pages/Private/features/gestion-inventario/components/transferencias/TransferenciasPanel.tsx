@@ -31,6 +31,7 @@ const ESTADO_BADGE: Record<EstadoTransferencia, { label: string; cls: string }> 
   RECIBIDA:    { label: 'Recibida',    cls: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300 border border-teal-200 dark:border-teal-700' },
   CANCELADA:   { label: 'Cancelada',   cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600' },
   ANULADA:     { label: 'Anulada',     cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-700' },
+  REVERTIDA:   { label: 'Revertida',   cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-700' },
 };
 
 const TIPO_BADGE: Record<string, { label: string; cls: string }> = {

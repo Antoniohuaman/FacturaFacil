@@ -7,7 +7,11 @@ import {
   obtenerOperacionIdEstablePersistenteAjusteNegativo,
   limpiarSesionPendienteAjusteNegativo,
   construirDatosAjusteNegativo,
+  obtenerTransferenciaIdEstablePersistente,
+  limpiarSesionPendienteTransferencia,
 } from './useInventory';
+import type { StockTransferData } from '../models';
+import type { DatosTransferenciaInventario } from '../models/operacionTransferenciaInventario.types';
 import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import type { Product } from '../../catalogo-articulos/models/types';
@@ -290,5 +294,68 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
     const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
 
     expect(resultado.productosActualizados[0].stockReservadoOVPorEstablecimiento?.['est-1']).toBe(7);
+  });
+});
+
+describe('useInventory — transferencia (Etapa 1E): sesión pendiente persistente + motor atómico', () => {
+  function crearDatosTransfer(overrides: Partial<StockTransferData> = {}): StockTransferData {
+    return {
+      productoId: 'prod-1',
+      almacenOrigenId: 'alm-1',
+      almacenDestinoId: 'alm-2',
+      cantidad: 5,
+      observaciones: '',
+      documentoReferencia: '',
+      ...overrides,
+    };
+  }
+
+  it('doble clic real (misma sesión) reutiliza el mismo transferenciaId y no descuenta dos veces', async () => {
+    localStorage.setItem(
+      lsKey(PRODUCT_STORAGE_KEY, EMPRESA),
+      JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })])
+    );
+    const almacenes = new Map([
+      ['alm-1', crearAlmacen({ id: 'alm-1' })],
+      ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Almacén 2' })],
+    ]);
+    const data = crearDatosTransfer();
+
+    const transferenciaId1 = obtenerTransferenciaIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
+    const datos1: DatosTransferenciaInventario = {
+      modoOperacion: 'cuantitativo', empresaId: EMPRESA, transferenciaId: transferenciaId1,
+      claveIdempotencia: `TRANSFER-${transferenciaId1}`, tipoOperacion: 'transferencia', tipoDocumento: 'transferencia',
+      productoId: data.productoId, establecimientoOrigenId: 'est-1', almacenOrigenId: data.almacenOrigenId,
+      establecimientoDestinoId: 'est-1', almacenDestinoId: data.almacenDestinoId, cantidadUnidadMinima: data.cantidad,
+      usuario: 'user-1', fecha: fechaActual(), motivo: 'TRANSFERENCIA_ALMACEN',
+    };
+    const resultado1 = await ServicioKardexValorizado.transferirStockValorizado(datos1, { almacenes, generarId, fechaActual });
+
+    // "Doble clic": misma sesión, sin limpiar — reutiliza el mismo transferenciaId.
+    const transferenciaId2 = obtenerTransferenciaIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
+    expect(transferenciaId2).toBe(transferenciaId1);
+    const datos2: DatosTransferenciaInventario = { ...datos1, transferenciaId: transferenciaId2, claveIdempotencia: `TRANSFER-${transferenciaId2}` };
+    const resultado2 = await ServicioKardexValorizado.transferirStockValorizado(datos2, { almacenes, generarId, fechaActual });
+
+    expect(resultado1.estado).toBe('nueva');
+    expect(resultado2.estado).toBe('repetida');
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(15);
+    expect(productosFinales[0].stockPorAlmacen['alm-2']).toBe(5);
+  });
+
+  it('un resultado exitoso limpia la sesión pendiente de la transferencia', () => {
+    const data = crearDatosTransfer();
+    obtenerTransferenciaIdEstablePersistente(EMPRESA, data, () => 'trf-id-1');
+    limpiarSesionPendienteTransferencia(EMPRESA);
+    expect(obtenerTransferenciaIdEstablePersistente(EMPRESA, data, () => 'trf-id-2')).toBe('trf-id-2');
+  });
+
+  it('otro contenido (distinto producto/almacenes/cantidad) genera un transferenciaId nuevo', () => {
+    const original = crearDatosTransfer({ cantidad: 5 });
+    const idOriginal = obtenerTransferenciaIdEstablePersistente(EMPRESA, original, () => 'id-original');
+    const distinta = crearDatosTransfer({ cantidad: 9 });
+    const idDistinto = obtenerTransferenciaIdEstablePersistente(EMPRESA, distinta, () => 'id-distinto');
+    expect(idDistinto).not.toBe(idOriginal);
   });
 });

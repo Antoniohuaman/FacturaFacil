@@ -24,7 +24,7 @@ import {
   validarStockParaOrden,
   reservarStockOrden,
   liberarReservaOrden,
-  revertirDescuentoStockDocumento,
+  prepararAnulacionDescuentoStockNV,
   ejecutarDescuentoStockNV as ejecutarDescuentoStockNVReal,
   cancelarNotaVentaPendiente as cancelarNotaVentaPendienteReal,
 } from '../utils/servicioReservaStock';
@@ -32,7 +32,10 @@ import { calcularReservasPendientes, EVENTO_RECARGA } from '@/shared/documentosC
 import { persistirDocumentos } from '../utils/documentoComercial.storage';
 import { obtenerNSActivasPorDocumento } from '../../gestion-inventario/repositories/notaSalida.repository';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
-import { getTenantEmpresaId, tryGetTenantEmpresaId } from '../../../../../shared/tenant';
+import { getTenantEmpresaId, tryGetTenantEmpresaId, lsKey } from '../../../../../shared/tenant';
+import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
+import { STORAGE_KEY_MOVEMENTS } from '../../gestion-inventario/repositories/stock.repository';
+import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
 
 /**
  * Calcula el estado resultante de una cotización no-borrador basándose en
@@ -108,7 +111,7 @@ export interface UseDocumentoComercialActionsReturn {
   generarDesdeBorrador: (id: string, datos: DatosFormularioDocumentoComercial) => Promise<ResultadoAccionDocumento>;
   guardarComoBorrador: (datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
   actualizarDocumento: (id: string, datos: Partial<DatosFormularioDocumentoComercial>) => ResultadoAccionDocumento;
-  anularDocumento: (id: string, motivo: string) => ResultadoAccionDocumento;
+  anularDocumento: (id: string, motivo: string) => Promise<ResultadoAccionDocumento>;
   duplicarDocumento: (id: string, nuevoTipo?: TipoDocumentoComercial) => ResultadoAccionDocumento;
   eliminarBorrador: (id: string) => ResultadoAccionDocumento;
   validarDatos: (datos: DatosFormularioDocumentoComercial) => string | null;
@@ -640,7 +643,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
   );
 
   const anularDocumento = useCallback(
-    (id: string, motivo: string): ResultadoAccionDocumento => {
+    async (id: string, motivo: string): Promise<ResultadoAccionDocumento> => {
       const doc = state.documentos.find((d) => d.id === id);
       if (!doc) return { exito: false, error: 'Documento no encontrado.' };
       if (doc.esBorrador)
@@ -698,12 +701,25 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       }
 
       if (doc.tipo === 'nota_venta' && doc.modoDescuentoStock === 'automatico' && doc.reservasStock?.length) {
-        revertirDescuentoStockDocumento(
-          doc.reservasStock,
-          configState.almacenes ?? [],
-          doc.numero ?? doc.id,
-          session?.userName ?? 'Usuario',
-        );
+        // Etapa 1E (cierre final, §2): los movimientos ORIGINALES confirmados son la única
+        // fuente de verdad — `prepararAnulacionDescuentoStockNV` los localiza (nunca recalcula
+        // desde `doc.reservasStock`) y arma el contrato para el motor genérico de anulación (un
+        // solo plan, una sola confirmación). El estado comercial (más abajo) solo cambia DESPUÉS
+        // de que Inventario confirme o repita.
+        const empresaId = getTenantEmpresaId();
+        const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, empresaId));
+        const datosAnulacion = prepararAnulacionDescuentoStockNV(doc.id, empresaId, movimientosRaw, session?.userName ?? 'Usuario', ahora);
+        const almacenesMap = new Map((configState.almacenes ?? []).map((a) => [a.id, a]));
+        await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, {
+          almacenes: almacenesMap,
+          generarId: () => crypto.randomUUID(),
+          fechaActual: () => new Date().toISOString(),
+        });
+        // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
+        // a persistir aquí (nada de registerAdjustment/updateProduct). Solo se rehidrata el
+        // store y se refresca el Kardex.
+        sincronizarInventarioTrasConfirmacion();
+
         accionHistorial = 'Descuento de stock revertido por anulación';
         const productosRevertidos = doc.reservasStock
           .map((r) => `${r.nombre} (${r.cantidad})`)

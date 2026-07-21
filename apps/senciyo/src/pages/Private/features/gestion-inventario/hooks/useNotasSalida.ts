@@ -7,7 +7,8 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
 import { useTenant } from '@/shared/tenant/TenantContext';
-import { getTenantEmpresaId } from '../../../../../shared/tenant';
+import { getTenantEmpresaId, lsKey } from '../../../../../shared/tenant';
+import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import {
   cargarNotasSalida,
   guardarNotasSalida,
@@ -20,7 +21,8 @@ import {
   construirPreparacionInventarioNS,
   construirDatosOperacionSalidaNS,
   construirNotaSalidaGenerada,
-  anularNSEnInventario,
+  prepararAnulacionNS,
+  construirNotaSalidaAnulada,
   marcarNSComoEntregada,
 } from '../services/notaSalida.service';
 import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
@@ -38,7 +40,7 @@ import type { NotaSalida } from '../models/notaSalida.types';
 
 export const useNotasSalida = () => {
   const { user } = useAuth();
-  const { allProducts, updateProduct } = useProductStore();
+  const { allProducts } = useProductStore();
   const { session } = useUserSession();
   const { state: configState } = useConfigurationContext();
   const { activeEstablecimientoId } = useTenant();
@@ -231,7 +233,7 @@ export const useNotasSalida = () => {
   );
 
   const anularNS = useCallback(
-    (notaId: string, motivoAnulacion: string): boolean => {
+    async (notaId: string, motivoAnulacion: string): Promise<boolean> => {
       if (procesando) return false;
       setProcesando(true);
       try {
@@ -247,26 +249,37 @@ export const useNotasSalida = () => {
           return false;
         }
 
-        const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
-        const productsMap = new Map(allProducts.map(p => [p.id, p]));
-        const { notaActualizada, productosActualizados } = anularNSEnInventario(
-          nota,
-          productsMap,
-          almacenesMap,
-          motivoAnulacion,
-          usuarioNombre,
-        );
+        // Etapa 1E: los movimientos ORIGINALES confirmados son la única fuente de verdad —
+        // `prepararAnulacionNS` los localiza (nunca recalcula desde `nota.lineas` actuales) y arma
+        // el contrato para el motor genérico de anulación (un solo plan, una sola confirmación).
+        const empresaId = getTenantEmpresaId();
+        const fecha = new Date().toISOString();
+        const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, empresaId));
+        const { datosAnulacion } = prepararAnulacionNS(nota, empresaId, movimientosRaw, motivoAnulacion, usuarioNombre, fecha);
 
+        let cantidadLineasRevertidas = 0;
+        if (datosAnulacion) {
+          const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
+          const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, {
+            almacenes: almacenesMap,
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+          });
+          // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
+          // a persistir aquí (nada de updateProduct). Solo se rehidrata el store y se refresca el Kardex.
+          sincronizarInventarioTrasConfirmacion();
+          cantidadLineasRevertidas = resultado.resultadoIds.length;
+        }
+
+        // Solo se marca 'Anulada' DESPUÉS de que Inventario confirmó o repitió (o de determinar
+        // que esta NS no afectó inventario).
+        const notaActualizada = construirNotaSalidaAnulada(nota, motivoAnulacion, usuarioNombre, fecha, cantidadLineasRevertidas);
         agregarOActualizarNS(notaActualizada);
 
         if (nota.comprobanteOrigenId) {
           window.dispatchEvent(new CustomEvent('facturafacil:comprobante-ns-anulada', {
             detail: { comprobanteId: nota.comprobanteOrigenId },
           }));
-        }
-
-        for (const prod of productosActualizados) {
-          updateProduct(prod.id, prod);
         }
 
         // NS directa desde OV: restaurar OV y reponer solo la reserva que esta NS descontó.
@@ -307,7 +320,7 @@ export const useNotasSalida = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback],
+    [procesando, configState.almacenes, usuarioNombre, feedback],
   );
 
   const marcarComoEntregada = useCallback(

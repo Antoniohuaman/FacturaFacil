@@ -57,8 +57,57 @@ import {
 import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
 import { serializarCanonicamente } from '../../gestion-inventario/utils/serializacionCanonicaInventario';
 import { getTenantEmpresaId, tryGetTenantEmpresaId } from '../../../../../shared/tenant';
+import type { MovimientoStock } from '../../gestion-inventario/models/inventory.types';
+import type { DatosAnulacionDocumentoInventario } from '../../gestion-inventario/models/operacionReversoInventario.types';
 
-const ESPACIO_VENTA_SALIDA = 'venta_salida';
+/** Exportado para que la anulación de comprobante/POS (ListaComprobantes.tsx, Etapa 1E cierre final §2) pueda localizar los movimientos originales por el mismo `claveIdempotencia`. */
+export const ESPACIO_VENTA_SALIDA = 'venta_salida';
+
+/**
+ * Localiza los movimientos ORIGINALES confirmados del descuento de stock de un comprobante
+ * (`documentoOrigenId === inventarioDocumentoId`, `tipoDocumentoOrigen === 'venta'`,
+ * `claveIdempotencia === 'venta_salida:${inventarioDocumentoId}'`) y construye el contrato para
+ * `ServicioKardexValorizado.anularDocumentoValorizado` (cierre final de Etapa 1E, §2) — NUNCA
+ * recalcula el ajuste desde el catálogo actual. La identidad técnica persistida
+ * (`inventarioDocumentoId`, Blocker 1) tiene prioridad; un comprobante histórico creado antes de
+ * que existiera ese campo se localiza por el criterio legacy (`documentoReferencia`+tipo+motivo).
+ * Función pura: no toca `localStorage` ni invoca al motor — el llamador (`ListaComprobantes.tsx`)
+ * debe hacerlo y solo marcar el comprobante 'anulado' DESPUÉS de que Inventario confirme o repita.
+ * Devuelve `null` cuando no hay nada que revertir (p. ej. `modoDescuentoStock` distinto de
+ * `'automatico'`, o ya sin movimientos de venta asociados).
+ */
+export function prepararAnulacionDescuentoStockComprobante(
+  comprobante: { id: string; inventarioDocumentoId?: string },
+  refComprobante: string,
+  empresaId: string,
+  movimientos: readonly MovimientoStock[],
+  usuario: string,
+  fecha: string,
+): DatosAnulacionDocumentoInventario | null {
+  const movimientosSalida = comprobante.inventarioDocumentoId
+    ? movimientos.filter(
+        (m) =>
+          m.documentoOrigenId === comprobante.inventarioDocumentoId &&
+          m.tipoDocumentoOrigen === 'venta' &&
+          m.claveIdempotencia === `${ESPACIO_VENTA_SALIDA}:${comprobante.inventarioDocumentoId}`,
+      )
+    : movimientos.filter((m) => m.documentoReferencia === refComprobante && m.tipo === 'SALIDA' && m.motivo === 'VENTA');
+
+  if (movimientosSalida.length === 0) return null;
+
+  const documentoIdVenta = comprobante.inventarioDocumentoId ?? refComprobante;
+  return {
+    empresaId,
+    tipoOperacion: 'anulacion',
+    documentoId: documentoIdVenta,
+    tipoDocumentoOrigen: 'venta',
+    movimientoIds: movimientosSalida.map((m) => m.id),
+    claveIdempotencia: `ANULACION-venta-${documentoIdVenta}`,
+    usuario,
+    fecha,
+    documentoReferencia: refComprobante,
+  };
+}
 
 /**
  * Datos cacheados en la sesión pendiente de una venta (Etapa 1D, corrección post-1D §1/§4).

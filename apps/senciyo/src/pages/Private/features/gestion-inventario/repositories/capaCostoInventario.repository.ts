@@ -14,6 +14,9 @@ import { leerColeccionTenantizada, leerColeccionParaMutacion, guardarColeccionTe
 const STORAGE_KEY = 'facturafacil_capas_costo_inventario';
 const NOMBRE_RECURSO = 'capas de costo de inventario';
 
+/** Expuesta para el motor de Etapa 1E, que necesita incluir esta colección como una escritura más de un `PlanUnidadTrabajoInventario` atómico (transferencias/reversos valorizados). */
+export const CLAVE_COLECCION_CAPAS_COSTO_INVENTARIO = STORAGE_KEY;
+
 /** Campos propios del modelo, además de id/empresaId (ya validados por el helper compartido antes de invocar este guard). */
 function esCapaCostoInventarioValida(valor: unknown): valor is CapaCostoInventario {
   return (

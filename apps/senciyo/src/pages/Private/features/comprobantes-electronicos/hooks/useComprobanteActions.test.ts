@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { instalarLocalStorageDePrueba } from '../../gestion-inventario/repositories/localStorageDePrueba';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
-import { aplicarLiberacionesOVVenta, construirHuellaVenta, esCacheVentaValida } from './useComprobanteActions';
+import { aplicarLiberacionesOVVenta, construirHuellaVenta, esCacheVentaValida, prepararAnulacionDescuentoStockComprobante } from './useComprobanteActions';
+import { STORAGE_KEY_MOVEMENTS } from '../../gestion-inventario/repositories/stock.repository';
+import type { MovimientoStock } from '../../gestion-inventario/models/inventory.types';
 import {
   obtenerDatosOperacionPendiente,
   guardarDatosOperacionPendiente,
@@ -388,5 +390,113 @@ describe('Comprobante desde OV — corrección post-1D §1: descuento + liberaci
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(15);
     expect(productosFinales[0].stockReservadoOVPorEstablecimiento?.['est-1']).toBe(0);
+  });
+});
+
+describe('prepararAnulacionDescuentoStockComprobante — cierre final Etapa 1E §2: localizador puro', () => {
+  function crearMovimiento(overrides: Partial<MovimientoStock> = {}): MovimientoStock {
+    return {
+      id: 'mov-1', productoId: 'prod-1', productoCodigo: 'P001', productoNombre: 'Producto 1',
+      tipo: 'SALIDA', motivo: 'VENTA', cantidad: 5, cantidadAnterior: 20, cantidadNueva: 15,
+      usuario: 'user-1', fecha: new Date('2026-08-01T00:00:00.000Z'), almacenId: 'alm-1',
+      almacenCodigo: 'ALM01', almacenNombre: 'Almacén Principal', EstablecimientoId: 'est-1',
+      EstablecimientoCodigo: '', EstablecimientoNombre: '', esTransferencia: false,
+      empresaId: EMPRESA, documentoOrigenId: 'doc-tec-1', tipoDocumentoOrigen: 'venta',
+      estado: 'confirmado', claveIdempotencia: 'venta_salida:doc-tec-1', documentoReferencia: 'B001-1',
+      ...overrides,
+    };
+  }
+
+  it('con inventarioDocumentoId presente, localiza por identidad técnica (documentoOrigenId+claveIdempotencia)', () => {
+    const movimientos = [crearMovimiento()];
+    const resultado = prepararAnulacionDescuentoStockComprobante(
+      { id: 'B001-1', inventarioDocumentoId: 'doc-tec-1' }, 'B001-1', EMPRESA, movimientos, 'user-2', fechaActual(),
+    );
+    expect(resultado?.documentoId).toBe('doc-tec-1');
+    expect(resultado?.movimientoIds).toEqual(['mov-1']);
+    expect(resultado?.claveIdempotencia).toBe('ANULACION-venta-doc-tec-1');
+  });
+
+  it('sin inventarioDocumentoId (comprobante histórico), localiza por el criterio legacy (documentoReferencia+tipo+motivo)', () => {
+    const movimientos = [crearMovimiento({ documentoOrigenId: undefined, claveIdempotencia: undefined, documentoReferencia: 'B001-2' })];
+    const resultado = prepararAnulacionDescuentoStockComprobante(
+      { id: 'B001-2' }, 'B001-2', EMPRESA, movimientos, 'user-2', fechaActual(),
+    );
+    expect(resultado?.documentoId).toBe('B001-2');
+    expect(resultado?.movimientoIds).toEqual(['mov-1']);
+  });
+
+  it('devuelve null cuando no hay movimientos que revertir (p. ej. modo sin control de stock)', () => {
+    const resultado = prepararAnulacionDescuentoStockComprobante(
+      { id: 'B001-3', inventarioDocumentoId: 'doc-tec-3' }, 'B001-3', EMPRESA, [], 'user-2', fechaActual(),
+    );
+    expect(resultado).toBeNull();
+  });
+});
+
+describe('Anulación de comprobante/POS — cierre final Etapa 1E §2: integración real con el motor genérico', () => {
+  function almacenesMap() {
+    return new Map([['alm-1', crearAlmacen()]]);
+  }
+
+  async function crearVentaConfirmada(documentoIdTecnico: string, cantidad = 5) {
+    const almacenes = almacenesMap();
+    const datos: DatosOperacionSalidaCuantitativa = {
+      modoOperacion: 'cuantitativo', empresaId: EMPRESA, documentoId: documentoIdTecnico,
+      tipoDocumento: 'venta', tipoOperacion: 'venta_salida',
+      claveIdempotencia: `venta_salida:${documentoIdTecnico}`, usuario: 'user-1', fecha: fechaActual(),
+      motivo: 'VENTA', documentoReferencia: 'B001-1',
+      lineas: [crearLinea({ cantidadUnidadMinima: cantidad })],
+    };
+    return ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
+  }
+
+  it('restaura el stock EXACTAMENTE una vez', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    await crearVentaConfirmada('cbte-tec-1', 5);
+    const productosTrasVenta = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosTrasVenta[0].stockPorAlmacen['alm-1']).toBe(15);
+
+    const movimientos = JSON.parse(localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA)) as string) as MovimientoStock[];
+    const datosAnulacion = prepararAnulacionDescuentoStockComprobante(
+      { id: 'B001-1', inventarioDocumentoId: 'cbte-tec-1' }, 'B001-1', EMPRESA, movimientos, 'user-2', fechaActual(),
+    );
+    expect(datosAnulacion).not.toBeNull();
+
+    await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual });
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+
+  it('reintento de la anulación (misma clave) no duplica la reposición', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    await crearVentaConfirmada('cbte-tec-2', 5);
+    const movimientos = JSON.parse(localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA)) as string) as MovimientoStock[];
+    const datosAnulacion = prepararAnulacionDescuentoStockComprobante(
+      { id: 'B001-2', inventarioDocumentoId: 'cbte-tec-2' }, 'B001-2', EMPRESA, movimientos, 'user-2', fechaActual(),
+    );
+
+    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual });
+    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual });
+
+    expect(r1.estado).toBe('nueva');
+    expect(r2.estado).toBe('repetida');
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+
+  it('ninguna ruta migrada usa registerAdjustment/addMovimiento para revertir stock: la anulación pasa exclusivamente por el motor', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    await crearVentaConfirmada('cbte-tec-3', 5);
+    const movimientos = JSON.parse(localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA)) as string) as MovimientoStock[];
+    const datosAnulacion = prepararAnulacionDescuentoStockComprobante(
+      { id: 'B001-3', inventarioDocumentoId: 'cbte-tec-3' }, 'B001-3', EMPRESA, movimientos, 'user-2', fechaActual(),
+    );
+
+    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual });
+    // El único movimiento nuevo es el reverso generado por el motor — con `movimientoReversoDeId`
+    // apuntando al original, nunca un AJUSTE_POSITIVO/ENTRADA fabricado por fuera del plan.
+    expect(resultado.movimientos).toHaveLength(1);
+    expect(resultado.movimientos[0].movimientoReversoDeId).toBeDefined();
   });
 });

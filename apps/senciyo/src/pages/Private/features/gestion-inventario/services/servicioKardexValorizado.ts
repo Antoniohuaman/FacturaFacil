@@ -35,7 +35,13 @@ import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { MovimientoStock } from '../models/inventory.types';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { DatosOperacionCuantitativa, DatosOperacionEntradaCuantitativa, DatosOperacionSalidaCuantitativa } from '../models/operacionEntradaInventario.types';
-import type { OperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
+import type { DatosTransferenciaInventario } from '../models/operacionTransferenciaInventario.types';
+import type { DatosReversoInventario, DatosAnulacionDocumentoInventario } from '../models/operacionReversoInventario.types';
+import type {
+  OperacionIdempotenteInventario,
+  ReferenciaDocumentoTipoOperacionIdempotente,
+  TipoOperacionIdempotenteInventario,
+} from '../models/operacionIdempotenteInventario.types';
 import type { PlanUnidadTrabajoInventario } from '../models/planUnidadTrabajoInventario.types';
 import { reservarOperacionIdempotente } from '../utils/idempotenciaInventario';
 import { validarContrato } from '../utils/operacionCuantitativaInventarioComun';
@@ -49,6 +55,22 @@ import {
   prepararOperacionSalidaInventario,
   confirmarOperacionSalidaInventario,
 } from '../utils/salidaCuantitativaInventario';
+import {
+  validarContratoTransferencia,
+  calcularHashTransferencia,
+  prepararOperacionTransferencia,
+  confirmarOperacionTransferencia,
+} from '../utils/transferenciaCuantitativaInventario';
+import {
+  validarContratoReverso,
+  calcularHashReverso,
+  prepararReverso,
+  confirmarReverso,
+  validarContratoAnulacion,
+  calcularHashAnulacion,
+  prepararAnulacion,
+  confirmarAnulacion,
+} from '../utils/reversoCuantitativoInventario';
 import { marcarOperacionFallida } from '../repositories/operacionIdempotenteInventario.repository';
 import { obtenerVersionInventarioActual } from '../repositories/estadoVersionInventario.repository';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
@@ -66,6 +88,18 @@ export interface DependenciasOperacionCuantitativa {
    * consumidores preserva exactamente el rechazo de stock negativo ya aprobado.
    */
   permitirStockNegativo?: boolean;
+  /**
+   * Punto ÚNICO de activación de la variante valorizada de transferencias/reversos (Etapa 1E,
+   * cierre final §1). Deliberadamente NO es un feature flag global ni se deriva de la presencia
+   * de `CapaCostoInventario` — es una dependencia de TENANT explícita, igual que
+   * `permitirStockNegativo`, que el llamador debe fijar a `true` a propósito. Ausente/`false` (el
+   * default en todo consumidor productivo hoy) fuerza el camino cuantitativo puro, exactamente
+   * igual que si no existiera ninguna capa — aunque la empresa ya tenga capas creadas por otra
+   * vía, nunca cambian el comportamiento productivo por sí solas. Reservado para que la Etapa 2
+   * conecte aquí la fuente de verdad real (configuración de la empresa) sin tocar el motor; los
+   * tests de la variante valorizada son los ÚNICOS llamadores que hoy fijan `true`.
+   */
+  valorizacionHabilitada?: boolean;
 }
 
 export type DependenciasRegistrarEntradaValorizada = DependenciasOperacionCuantitativa;
@@ -91,8 +125,21 @@ function leerSnapshots(empresaId: string): { productosRaw: string | null; movimi
   };
 }
 
-interface ParametrosPreparar {
-  datos: DatosOperacionCuantitativa;
+/** Campos mínimos que CUALQUIER contrato de operación de Inventario debe tener para pasar por la orquestación genérica — entrada/salida, transferencia, reverso y anulación los satisfacen todos. */
+interface ContratoOperacionInventarioBase {
+  empresaId: string;
+  claveIdempotencia: string;
+  tipoOperacion: TipoOperacionIdempotenteInventario;
+}
+
+/** La identidad "de documento" no tiene el mismo nombre de campo en todos los contratos (`documentoId` en entrada/salida, `transferenciaId` en transferencia, `movimientoId` en reverso) — cada motor de dirección aporta su propio extractor en vez de forzar un nombre de campo común. */
+interface IdentidadOperacionInventario {
+  documentoId: string;
+  tipoDocumento: ReferenciaDocumentoTipoOperacionIdempotente;
+}
+
+interface ParametrosPreparar<T extends ContratoOperacionInventarioBase> {
+  datos: T;
   operacionReservada: OperacionIdempotenteInventario;
   hashEntrada: string;
   versionEsperada: number;
@@ -101,6 +148,7 @@ interface ParametrosPreparar {
   almacenes: ReadonlyMap<string, Almacen>;
   generarId: () => string;
   permitirStockNegativo?: boolean;
+  valorizacionHabilitada?: boolean;
 }
 
 interface ResultadoPreparar {
@@ -109,34 +157,35 @@ interface ResultadoPreparar {
   productosActualizados: Product[];
 }
 
-interface FuncionesMotorCuantitativo {
+interface FuncionesMotorInventario<T extends ContratoOperacionInventarioBase> {
   nombreMetodo: string;
-  calcularHash: (datos: DatosOperacionCuantitativa) => Promise<string>;
-  preparar: (params: ParametrosPreparar) => ResultadoPreparar;
+  obtenerIdentidad: (datos: T) => IdentidadOperacionInventario;
+  validarContrato: (datos: T) => void;
+  calcularHash: (datos: T) => Promise<string>;
+  preparar: (params: ParametrosPreparar<T>) => ResultadoPreparar;
   confirmar: (documentoId: string, plan: PlanUnidadTrabajoInventario, fechaActual: () => string) => Promise<{ documentoId: string; resultadoIds: string[]; transaccionId: string }>;
 }
 
 /**
- * Orquestación única (Etapa 1D, §10) para cualquier operación cuantitativa — entrada o salida:
- * validar contrato → hash → reservar → resolver ambigua/repetida → preparar (protegida por
- * `marcarOperacionFallida`) → confirmar. Nunca se duplica en cada consumidor ni en cada dirección.
+ * Orquestación única (Etapa 1D, §10; generalizada en Etapa 1E, §2/§5: "reutilizar exactamente la
+ * cadena ya aprobada") para CUALQUIER operación de Inventario — entrada, salida, transferencia,
+ * reverso o anulación: validar contrato → hash → reservar → resolver ambigua/repetida → preparar
+ * (protegida por `marcarOperacionFallida`) → confirmar. Nunca se duplica en cada consumidor ni en
+ * cada dirección/operación. Genérica sobre `T` (el contrato específico) — cada motor de
+ * dirección aporta su propio `validarContrato`/`obtenerIdentidad`/`calcularHash`/`preparar`/
+ * `confirmar`, nunca la orquestación misma.
  */
-async function ejecutarOperacionCuantitativa(
-  datos: DatosOperacionCuantitativa,
+async function ejecutarOperacionInventario<T extends ContratoOperacionInventarioBase>(
+  datos: T,
   dependencias: DependenciasOperacionCuantitativa,
-  funciones: FuncionesMotorCuantitativo
+  funciones: FuncionesMotorInventario<T>
 ): Promise<ResultadoOperacionCuantitativa> {
-  if (datos.modoOperacion !== 'cuantitativo') {
-    throw new Error(
-      `ServicioKardexValorizado.${funciones.nombreMetodo}: modoOperacion "${String(datos.modoOperacion)}" no está soportado — solo se acepta la variante cuantitativa.`
-    );
-  }
-
   // Validación PURA del contrato: no depende de ningún snapshot, así que es segura de ejecutar
   // antes de reservar. La validación FUNCIONAL (producto/almacén existen, stock resultante) sí
   // depende del estado externo y por eso NO se adelanta aquí.
-  validarContrato(datos);
+  funciones.validarContrato(datos);
 
+  const { documentoId, tipoDocumento } = funciones.obtenerIdentidad(datos);
   const hashEntrada = await funciones.calcularHash(datos);
 
   const resultadoReserva = await reservarOperacionIdempotente({
@@ -144,8 +193,8 @@ async function ejecutarOperacionCuantitativa(
     clave: datos.claveIdempotencia,
     tipoOperacion: datos.tipoOperacion,
     hashEntrada,
-    referenciaDocumentoId: datos.documentoId,
-    referenciaDocumentoTipo: datos.tipoDocumento,
+    referenciaDocumentoId: documentoId,
+    referenciaDocumentoTipo: tipoDocumento,
     generarId: dependencias.generarId,
     fechaActual: dependencias.fechaActual,
   });
@@ -158,7 +207,7 @@ async function ejecutarOperacionCuantitativa(
 
   if (resultadoReserva.tipo === 'repetida') {
     return {
-      documentoId: datos.documentoId,
+      documentoId,
       estado: 'repetida',
       resultadoIds: resultadoReserva.resultadoIds,
       movimientos: [],
@@ -183,6 +232,7 @@ async function ejecutarOperacionCuantitativa(
       almacenes: dependencias.almacenes,
       generarId: dependencias.generarId,
       permitirStockNegativo: dependencias.permitirStockNegativo,
+      valorizacionHabilitada: dependencias.valorizacionHabilitada,
     });
     plan = preparado.plan;
     movimientosGenerados = preparado.movimientosGenerados;
@@ -195,15 +245,19 @@ async function ejecutarOperacionCuantitativa(
     throw causaPreparacion;
   }
 
-  const resultadoConfirmacion = await funciones.confirmar(datos.documentoId, plan, dependencias.fechaActual);
+  const resultadoConfirmacion = await funciones.confirmar(documentoId, plan, dependencias.fechaActual);
 
   return {
-    documentoId: datos.documentoId,
+    documentoId,
     estado: resultadoReserva.tipo,
     resultadoIds: resultadoConfirmacion.resultadoIds,
     movimientos: movimientosGenerados,
     productosActualizados,
   };
+}
+
+function obtenerIdentidadOperacionCuantitativa(datos: DatosOperacionCuantitativa): IdentidadOperacionInventario {
+  return { documentoId: datos.documentoId, tipoDocumento: datos.tipoDocumento };
 }
 
 export const ServicioKardexValorizado = {
@@ -217,8 +271,10 @@ export const ServicioKardexValorizado = {
     datos: DatosOperacionEntradaCuantitativa,
     dependencias: DependenciasRegistrarEntradaValorizada
   ): Promise<ResultadoRegistrarEntradaValorizada> {
-    return ejecutarOperacionCuantitativa(datos, dependencias, {
+    return ejecutarOperacionInventario(datos, dependencias, {
       nombreMetodo: 'registrarEntradaValorizada',
+      obtenerIdentidad: obtenerIdentidadOperacionCuantitativa,
+      validarContrato,
       calcularHash: calcularHashEntradaCuantitativa,
       preparar: prepararOperacionInventario,
       confirmar: confirmarOperacionInventario,
@@ -236,11 +292,83 @@ export const ServicioKardexValorizado = {
     datos: DatosOperacionSalidaCuantitativa,
     dependencias: DependenciasRegistrarSalidaValorizada
   ): Promise<ResultadoRegistrarSalidaValorizada> {
-    return ejecutarOperacionCuantitativa(datos, dependencias, {
+    return ejecutarOperacionInventario(datos, dependencias, {
       nombreMetodo: 'registrarSalidaValorizada',
+      obtenerIdentidad: obtenerIdentidadOperacionCuantitativa,
+      validarContrato,
       calcularHash: calcularHashSalidaCuantitativa,
       preparar: prepararOperacionSalidaInventario,
       confirmar: confirmarOperacionSalidaInventario,
     });
   },
+
+  /**
+   * Registra una transferencia de stock entre almacenes (Etapa 1E) como UNA sola operación:
+   * disminución en origen + aumento en destino + movimiento SALIDA + movimiento ENTRADA +
+   * (si el almacén origen tiene capas de costo disponibles para el producto) consumo FIFO de
+   * capas en origen y creación de capas equivalentes en destino — todo en el MISMO
+   * `PlanUnidadTrabajoInventario`. Nunca confirma primero la salida y después la entrada.
+   */
+  transferirStockValorizado(
+    datos: DatosTransferenciaInventario,
+    dependencias: DependenciasOperacionCuantitativa
+  ): Promise<ResultadoOperacionCuantitativa> {
+    return ejecutarOperacionInventario(datos, dependencias, {
+      nombreMetodo: 'transferirStockValorizado',
+      obtenerIdentidad: (d) => ({ documentoId: d.transferenciaId, tipoDocumento: d.tipoDocumento }),
+      validarContrato: validarContratoTransferencia,
+      calcularHash: calcularHashTransferencia,
+      preparar: prepararOperacionTransferencia,
+      confirmar: confirmarOperacionTransferencia,
+    });
+  },
+
+  /**
+   * Revierte UN movimiento original confirmado (entrada, salida, o — si el movimiento pertenece a
+   * una transferencia — ambos legs atómicamente) mediante un movimiento NUEVO de reverso: nunca
+   * edita ni elimina el original, nunca recalcula con catálogo/stock/costo actual. Rechaza toda la
+   * operación si el movimiento no existe, es de otra empresa, ya fue revertido, o su historial de
+   * capas/consumos no permite restaurarlo con seguridad (Etapa 1E, §5-§8).
+   */
+  revertirMovimientoValorizado(
+    datos: DatosReversoInventario,
+    dependencias: DependenciasOperacionCuantitativa
+  ): Promise<ResultadoOperacionCuantitativa> {
+    return ejecutarOperacionInventario(datos, dependencias, {
+      nombreMetodo: 'revertirMovimientoValorizado',
+      obtenerIdentidad: (d) => ({ documentoId: d.movimientoId, tipoDocumento: d.tipoDocumento }),
+      validarContrato: validarContratoReverso,
+      calcularHash: calcularHashReverso,
+      preparar: prepararReverso,
+      confirmar: confirmarReverso,
+    });
+  },
+
+  /**
+   * Anula un documento comercial completo (Etapa 1E, §9) revirtiendo TODOS sus movimientos
+   * originales confirmados en un solo plan: se validan todos antes de escribir, se confirman una
+   * sola vez — si una línea no puede revertirse, no se revierte ninguna. Nunca llama
+   * `revertirMovimientoValorizado` repetidamente con persistencia por línea.
+   */
+  anularDocumentoValorizado(
+    datos: DatosAnulacionDocumentoInventario,
+    dependencias: DependenciasOperacionCuantitativa
+  ): Promise<ResultadoOperacionCuantitativa> {
+    return ejecutarOperacionInventario(datos, dependencias, {
+      nombreMetodo: 'anularDocumentoValorizado',
+      obtenerIdentidad: (d) => ({ documentoId: d.documentoId, tipoDocumento: mapearAReferenciaDocumento(d.tipoDocumentoOrigen) }),
+      validarContrato: validarContratoAnulacion,
+      calcularHash: calcularHashAnulacion,
+      preparar: prepararAnulacion,
+      confirmar: confirmarAnulacion,
+    });
+  },
 };
+
+/** `TipoDocumentoOrigenMovimiento` y `ReferenciaDocumentoTipoOperacionIdempotente` se solapan para todo origen realmente anulable por este motor (nota_ingreso, nota_salida, ajuste, venta, transferencia) — 'nota_credito'/'migracion' (los únicos valores no compartidos) nunca llegan aquí porque están fuera del alcance de Etapa 1E. */
+function mapearAReferenciaDocumento(tipo: DatosAnulacionDocumentoInventario['tipoDocumentoOrigen']): ReferenciaDocumentoTipoOperacionIdempotente {
+  if (tipo === 'nota_credito' || tipo === 'migracion') {
+    throw new Error(`ServicioKardexValorizado.anularDocumentoValorizado: tipoDocumentoOrigen "${tipo}" no está soportado por el motor de anulación de Etapa 1E.`);
+  }
+  return tipo;
+}

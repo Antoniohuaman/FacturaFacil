@@ -117,13 +117,13 @@ const DetalleNotaSalida: React.FC<Props> = ({ nota, iniciarAnulacion = false, on
     });
   };
 
-  const handleAnular = () => {
+  const handleAnular = async () => {
     if (!motivoAnulacion.trim()) {
       feedback.error('Debe especificar el motivo de anulación.');
       return;
     }
     setAnulandoNS(true);
-    const ok = anularNS(nota.id, motivoAnulacion.trim());
+    const ok = await anularNS(nota.id, motivoAnulacion.trim());
     setAnulandoNS(false);
     if (ok) { onRefresh?.(); onClose(); }
   };

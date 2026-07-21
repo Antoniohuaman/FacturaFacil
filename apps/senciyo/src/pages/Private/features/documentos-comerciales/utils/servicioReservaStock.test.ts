@@ -10,6 +10,7 @@ import {
   construirHuellaNotaVenta,
   cancelarNotaVentaPendiente,
   ESPACIO_NOTA_VENTA_SALIDA,
+  prepararAnulacionDescuentoStockNV,
 } from './servicioReservaStock';
 import {
   obtenerDatosOperacionPendiente,
@@ -697,5 +698,146 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
     const huella = construirHuellaNotaVenta(datos, establecimientoId, undefined);
     const cacheTrasFalloIncierto = obtenerDatosOperacionPendiente<{ documentoId: string }>(ESPACIO_NOTA_VENTA_SALIDA, EMPRESA, huella);
     expect(cacheTrasFalloIncierto?.documentoId).toBe(resultado.documentoId);
+  });
+});
+
+describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anulación de NV vía el motor genérico', () => {
+  function crearDatosFormularioNV(overrides: Partial<DatosFormularioDocumentoComercial> = {}): DatosFormularioDocumentoComercial {
+    return {
+      tipo: 'nota_venta',
+      serie: 'NV01',
+      fechaEmision: '2026-08-01',
+      moneda: 'PEN',
+      items: [crearItem({ quantity: 5 })],
+      modoItems: 'catalogo',
+      ...overrides,
+    };
+  }
+
+  it('restaura el stock EXACTAMENTE una vez, localizando los movimientos originales (nunca recalcula desde reservasStock cacheado)', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })] });
+    const almacenes = [crearAlmacen()];
+    const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+    const datos = crearDatosFormularioNV();
+    const documentoId = 'nv-doc-1';
+
+    const resultado = await ejecutarDescuentoStockNV({
+      datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
+      documentoIdExistente: documentoId,
+      resolverNumeroFallback: () => ({ numero: 'NV01-00000090', correlativo: '00000090' }),
+    });
+    expect(resultado.documentoId).toBe(documentoId);
+    const productosTrasDescuento = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosTrasDescuento[0].stockPorAlmacen['alm-1']).toBe(15);
+
+    const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
+    const datosAnulacion = prepararAnulacionDescuentoStockNV(documentoId, EMPRESA, movimientosRaw, 'user-2', fechaActual());
+    expect(datosAnulacion.claveIdempotencia).toBe(`ANULACION-venta-${documentoId}`);
+
+    await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
+
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+
+  it('reintento de la anulación (misma clave) devuelve "repetida" — no duplica la reposición', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })] });
+    const almacenes = [crearAlmacen()];
+    const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+    const datos = crearDatosFormularioNV();
+    const documentoId = 'nv-doc-2';
+
+    await ejecutarDescuentoStockNV({
+      datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
+      documentoIdExistente: documentoId,
+      resolverNumeroFallback: () => ({ numero: 'NV01-00000091', correlativo: '00000091' }),
+    });
+
+    const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
+    const datosAnulacion = prepararAnulacionDescuentoStockNV(documentoId, EMPRESA, movimientosRaw, 'user-2', fechaActual());
+
+    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
+    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
+
+    expect(r1.estado).toBe('nueva');
+    expect(r2.estado).toBe('repetida');
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+
+  it('rechaza si no se encuentran movimientos originales para el documentoId (no se puede anular con seguridad)', () => {
+    expect(() =>
+      prepararAnulacionDescuentoStockNV('nv-doc-inexistente', EMPRESA, null, 'user-2', fechaActual())
+    ).toThrow(/No se encontraron los movimientos/);
+  });
+
+  it('documento multilínea: revierte varios movimientos del mismo documentoId en un solo plan atómico', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([
+      crearProducto({ id: 'prod-1', codigo: 'P001', stockPorAlmacen: { 'alm-1': 20 } }),
+      crearProducto({ id: 'prod-2', codigo: 'P002', nombre: 'Producto 2', stockPorAlmacen: { 'alm-1': 20 } }),
+    ]));
+    useProductStore.setState({
+      allProducts: [
+        crearProducto({ id: 'prod-1', codigo: 'P001', stockPorAlmacen: { 'alm-1': 20 } }),
+        crearProducto({ id: 'prod-2', codigo: 'P002', nombre: 'Producto 2', stockPorAlmacen: { 'alm-1': 20 } }),
+      ],
+    });
+    const almacenes = [crearAlmacen()];
+    const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+    const documentoId = 'nv-doc-multilinea';
+    const datos = crearDatosFormularioNV({
+      items: [
+        crearItem({ id: 'i1', code: 'P001', name: 'Producto 1', quantity: 3 }),
+        crearItem({ id: 'i2', code: 'P002', name: 'Producto 2', quantity: 2 }),
+      ],
+    });
+
+    await ejecutarDescuentoStockNV({
+      datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
+      documentoIdExistente: documentoId,
+      resolverNumeroFallback: () => ({ numero: 'NV01-00000092', correlativo: '00000092' }),
+    });
+    const productosTrasDescuento = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosTrasDescuento.find((p) => p.id === 'prod-1')?.stockPorAlmacen['alm-1']).toBe(17);
+    expect(productosTrasDescuento.find((p) => p.id === 'prod-2')?.stockPorAlmacen['alm-1']).toBe(18);
+
+    const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
+    const datosAnulacion = prepararAnulacionDescuentoStockNV(documentoId, EMPRESA, movimientosRaw, 'user-2', fechaActual());
+    expect(datosAnulacion.movimientoIds.length).toBeGreaterThanOrEqual(2);
+
+    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
+    expect(resultado.movimientos.length).toBe(datosAnulacion.movimientoIds.length);
+
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales.find((p) => p.id === 'prod-1')?.stockPorAlmacen['alm-1']).toBe(20);
+    expect(productosFinales.find((p) => p.id === 'prod-2')?.stockPorAlmacen['alm-1']).toBe(20);
+  });
+
+  it('fallo de una línea (movimiento inexistente en la lista) no deja ninguna reversión parcial', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })] });
+    const almacenes = [crearAlmacen()];
+    const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+    const documentoId = 'nv-doc-parcial';
+    const datos = crearDatosFormularioNV();
+
+    await ejecutarDescuentoStockNV({
+      datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
+      documentoIdExistente: documentoId,
+      resolverNumeroFallback: () => ({ numero: 'NV01-00000093', correlativo: '00000093' }),
+    });
+
+    const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
+    const datosAnulacion = prepararAnulacionDescuentoStockNV(documentoId, EMPRESA, movimientosRaw, 'user-2', fechaActual());
+    const datosAnulacionConLineaRota = { ...datosAnulacion, movimientoIds: [...datosAnulacion.movimientoIds, 'mov-inexistente'] };
+
+    await expect(
+      ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacionConLineaRota, { almacenes: almacenesMap, generarId, fechaActual })
+    ).rejects.toThrow(/no existe/);
+
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(15);
   });
 });

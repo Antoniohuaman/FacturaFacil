@@ -2,9 +2,11 @@ import type { CartItem, DatosFormularioDocumentoComercial } from '../models/docu
 import type { ReservaStockItem } from '../models/documentoComercial.types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
-import { InventoryService } from '../../gestion-inventario/services/inventory.service';
 import type { DatosLineaOperacionCuantitativa, DatosOperacionSalidaCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
+import type { DatosAnulacionDocumentoInventario } from '../../gestion-inventario/models/operacionReversoInventario.types';
+import type { MovimientoStock } from '../../gestion-inventario/models/inventory.types';
 import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
+import { parsearColeccion } from '../../gestion-inventario/utils/operacionCuantitativaInventarioComun';
 import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
 import {
   obtenerDatosOperacionPendiente,
@@ -201,7 +203,7 @@ export function reservarStockOrden(
 }
 
 export interface ResultadoPrepararDescuentoDocumento {
-  /** Mismo formato que el histórico `descontarStockParaDocumento` — usado por historial y por `revertirDescuentoStockDocumento` al anular (fuera de alcance de Etapa 1D, sin cambios). */
+  /** Mismo formato que el histórico `descontarStockParaDocumento` — usado por historial. La anulación (Etapa 1E, §2) ya no usa estas cantidades cacheadas: `prepararAnulacionDescuentoStockNV` localiza los movimientos ORIGINALES en su lugar. */
   reservasStock: ReservaStockItem[];
   /** Listas para `DatosOperacionSalidaCuantitativa.lineas` — el llamador arma el resto del contrato. */
   lineasOperacion: DatosLineaOperacionCuantitativa[];
@@ -501,55 +503,55 @@ export async function ejecutarDescuentoStockNV(
   };
 }
 
+function esMovimientoAlmacenable(valor: unknown): valor is MovimientoStock {
+  return typeof valor === 'object' && valor !== null && typeof (valor as { id?: unknown }).id === 'string';
+}
+
 /**
- * Revierte un descuento de stock realizado por descontarStockParaDocumento.
- * Incrementa stockPorAlmacen de vuelta a su valor anterior.
- * Genera movimiento Kardex inverso de AJUSTE_POSITIVO cuando se proporcionan
- * almacenes, documentoReferencia y usuario.
- * Se llama al anular un documento comercial con modoDescuentoStock 'automatico'.
+ * Localiza los movimientos ORIGINALES confirmados del descuento de stock de una Nota de Venta
+ * (`documentoOrigenId === documentoId`, `tipoDocumentoOrigen === 'venta'`, `claveIdempotencia ===
+ * 'nota_venta_salida:${documentoId}'`) y construye el contrato para
+ * `ServicioKardexValorizado.anularDocumentoValorizado` (cierre final de Etapa 1E, §2) — NUNCA
+ * recalcula el ajuste desde las cantidades cacheadas en `reservasStock`. Función pura: no toca
+ * `localStorage` ni invoca al motor — el llamador (`useDocumentoComercialActions.ts`) debe
+ * hacerlo y solo marcar el documento 'Anulada' DESPUÉS de que Inventario confirme o repita.
  */
-export function revertirDescuentoStockDocumento(
-  descuentos: ReservaStockItem[],
-  almacenes?: Almacen[],
-  documentoReferencia?: string,
-  usuario?: string,
-): void {
-  for (const descuento of descuentos) {
-    const producto = useProductStore.getState().allProducts.find((p) => p.codigo === descuento.sku);
-    if (!producto) continue;
-
-    const almacenObj = descuento.almacenId ? almacenes?.find((a) => a.id === descuento.almacenId) : undefined;
-
-    if (almacenObj && descuento.almacenId && documentoReferencia && usuario) {
-      // Usar registerAdjustment: repone stock + registra movimiento Kardex inverso
-      const { product: productoActualizado } = InventoryService.registerAdjustment(
-        producto,
-        almacenObj,
-        {
-          productoId: producto.id,
-          almacenId: descuento.almacenId,
-          tipo: 'AJUSTE_POSITIVO',
-          motivo: 'VENTA',
-          cantidad: descuento.cantidad,
-          observaciones: `Anulación Nota de Venta ${documentoReferencia}`,
-          documentoReferencia,
-        },
-        usuario,
-      );
-      // Recalcular stockPorEstablecimiento y cantidad
-      const productoConTotales = InventoryService.recalcularTotalesStock(productoActualizado, almacenes ?? []);
-      useProductStore.getState().updateProduct(producto.id, productoConTotales);
-    } else if (descuento.almacenId) {
-      // Sin parámetros de Kardex: solo actualizar stockPorAlmacen directamente
-      const stockActual = toNum((producto.stockPorAlmacen ?? {})[descuento.almacenId]);
-      useProductStore.getState().updateProduct(producto.id, {
-        stockPorAlmacen: {
-          ...(producto.stockPorAlmacen ?? {}),
-          [descuento.almacenId]: stockActual + descuento.cantidad,
-        },
-      });
+export function prepararAnulacionDescuentoStockNV(
+  documentoId: string,
+  empresaId: string,
+  movimientosRaw: string | null,
+  usuario: string,
+  fecha: string,
+): DatosAnulacionDocumentoInventario {
+  const claveOriginal = `${ESPACIO_NOTA_VENTA_SALIDA}:${documentoId}`;
+  const movimientosCrudos = parsearColeccion(movimientosRaw, 'la colección de movimientos');
+  const movimientos: MovimientoStock[] = [];
+  movimientosCrudos.forEach((elemento, indice) => {
+    if (!esMovimientoAlmacenable(elemento)) {
+      throw new Error(`servicioReservaStock: el elemento en el índice ${indice} de la colección de movimientos no tiene la forma esperada.`);
     }
+    movimientos.push(elemento);
+  });
+
+  const movimientosDeLaNV = movimientos.filter(
+    (m) => m.documentoOrigenId === documentoId && m.tipoDocumentoOrigen === 'venta' && m.claveIdempotencia === claveOriginal,
+  );
+  if (movimientosDeLaNV.length === 0) {
+    throw new Error(
+      `No se encontraron los movimientos de inventario originales de la Nota de Venta "${documentoId}" — no se puede anular con seguridad.`,
+    );
   }
+
+  return {
+    empresaId,
+    tipoOperacion: 'anulacion',
+    documentoId,
+    tipoDocumentoOrigen: 'venta',
+    movimientoIds: movimientosDeLaNV.map((m) => m.id),
+    claveIdempotencia: `ANULACION-venta-${documentoId}`,
+    usuario,
+    fecha,
+  };
 }
 
 /**

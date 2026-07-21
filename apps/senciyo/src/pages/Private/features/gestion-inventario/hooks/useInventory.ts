@@ -24,6 +24,7 @@ import { generateTransferId } from '../utils/inventory.helpers';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { DatosOperacionEntradaCuantitativa, DatosOperacionSalidaCuantitativa } from '../models/operacionEntradaInventario.types';
+import type { DatosTransferenciaInventario } from '../models/operacionTransferenciaInventario.types';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
 import { getTenantEmpresaId, tryGetTenantEmpresaId } from '../../../../../shared/tenant';
@@ -41,6 +42,7 @@ type AdjustmentModalOptions = {
 
 const ESPACIO_AJUSTE_POSITIVO = 'ajuste_positivo';
 const ESPACIO_AJUSTE_NEGATIVO = 'ajuste_negativo';
+const ESPACIO_TRANSFERENCIA = 'transferencia';
 
 /** Huella canónica del contenido del ajuste — solo datos de negocio, nunca fechas técnicas ni IDs generados durante la ejecución. */
 function construirHuellaAjuste(data: StockAdjustmentData): string {
@@ -84,6 +86,32 @@ export function obtenerOperacionIdEstablePersistenteAjusteNegativo(
 
 export function limpiarSesionPendienteAjusteNegativo(empresaId: string): void {
   limpiarSesionPendienteOperacion(ESPACIO_AJUSTE_NEGATIVO, empresaId);
+}
+
+/** Huella canónica de una transferencia intra-establecimiento (Etapa 1E) — solo datos de negocio, nunca fechas técnicas ni IDs generados durante la ejecución. */
+function construirHuellaTransferencia(data: StockTransferData): string {
+  return serializarCanonicamente({
+    productoId: data.productoId,
+    almacenOrigenId: data.almacenOrigenId,
+    almacenDestinoId: data.almacenDestinoId,
+    cantidad: data.cantidad,
+    observaciones: (data.observaciones ?? '').trim(),
+    documentoReferencia: (data.documentoReferencia ?? '').trim(),
+  });
+}
+
+/** Análogo a `obtenerOperacionIdEstablePersistente` (Etapa 1C/1D), para transferencias (Etapa 1E) — mismo mecanismo de sesión pendiente genérica, espacio de nombres propio. */
+export function obtenerTransferenciaIdEstablePersistente(
+  empresaId: string,
+  data: StockTransferData,
+  generarId: () => string
+): string {
+  return obtenerOperacionIdEstablePersistenteGenerico(ESPACIO_TRANSFERENCIA, empresaId, construirHuellaTransferencia(data), generarId);
+}
+
+/** Se elimina tras un resultado 'nueva'/'repetida' o al cancelar explícitamente — nunca ante un fallo incierto. */
+export function limpiarSesionPendienteTransferencia(empresaId: string): void {
+  limpiarSesionPendienteOperacion(ESPACIO_TRANSFERENCIA, empresaId);
 }
 
 export interface ParametrosConstruirDatosAjuste {
@@ -386,7 +414,7 @@ export const useInventory = () => {
    * Intra-establecimiento: mueve stock inmediatamente → CONFIRMADA.
    * Inter-establecimiento: crea entidad → PENDIENTE (sin mover stock).
    */
-  const handleCreateTransfer = useCallback((data: StockTransferData) => {
+  const handleCreateTransfer = useCallback(async (data: StockTransferData) => {
     try {
       if (!tienePermiso({
         usuario: usuarioActual,
@@ -414,54 +442,46 @@ export const useInventory = () => {
       }
 
       const esIntra = almacenOrigen.establecimientoId === almacenDestino.establecimientoId;
-      const tipoTransferencia = esIntra ? 'INTRA_ESTABLECIMIENTO' as const : 'INTER_ESTABLECIMIENTO' as const;
 
       if (esIntra) {
-        // Movimiento inmediato
-        const result = InventoryService.registerTransfer(
-          product,
-          almacenOrigen,
-          almacenDestino,
-          data,
-          usuarioNombre
-        );
-
-        let finalProduct = result.product;
-        finalProduct = syncEstablecimientoStock(
-          finalProduct,
-          [almacenOrigen.establecimientoId, almacenDestino.establecimientoId].filter(Boolean),
-          almacenesActivos
-        );
-
-        updateProduct(finalProduct.id, finalProduct);
-        setMovimientos(prev => [...result.movements, ...prev]);
-
-        const trfId = result.movements[0].transferenciaId ?? generateTransferId();
-        const entidad: Transferencia = {
-          id: trfId,
-          fecha: new Date(),
+        // Etapa 1E: transferencia atómica vía el motor central (transferirStockValorizado) — una
+        // sola operación (reserva idempotente + preparación pura + unidad de trabajo recuperable),
+        // nunca confirma la salida y la entrada por separado. Reemplaza a
+        // `InventoryService.registerTransfer` + `updateProduct` + `TransferenciaRepository.upsert`.
+        const empresaId = getTenantEmpresaId();
+        const transferenciaId = obtenerTransferenciaIdEstablePersistente(empresaId, data, () => crypto.randomUUID());
+        const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
+        const datosTransferencia: DatosTransferenciaInventario = {
+          modoOperacion: 'cuantitativo',
+          empresaId,
+          transferenciaId,
+          claveIdempotencia: `TRANSFER-${transferenciaId}`,
+          tipoOperacion: 'transferencia',
+          tipoDocumento: 'transferencia',
           productoId: product.id,
-          productoCodigo: product.codigo,
-          productoNombre: product.nombre,
-          almacenOrigenId: almacenOrigen.id,
-          almacenOrigenNombre: almacenOrigen.nombreAlmacen,
           establecimientoOrigenId: almacenOrigen.establecimientoId,
-          establecimientoOrigenNombre: almacenOrigen.nombreEstablecimientoDesnormalizado || '',
-          almacenDestinoId: almacenDestino.id,
-          almacenDestinoNombre: almacenDestino.nombreAlmacen,
+          almacenOrigenId: almacenOrigen.id,
           establecimientoDestinoId: almacenDestino.establecimientoId,
-          establecimientoDestinoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
-          cantidad: data.cantidad,
-          tipoTransferencia,
-          estado: 'CONFIRMADA',
-          documentoReferencia: data.documentoReferencia,
-          observaciones: data.observaciones,
+          almacenDestinoId: almacenDestino.id,
+          cantidadUnidadMinima: data.cantidad,
           usuario: usuarioNombre,
-          movimientoSalidaId: result.movements[0].id,
-          movimientoEntradaId: result.movements[1].id,
+          fecha: new Date().toISOString(),
+          motivo: 'TRANSFERENCIA_ALMACEN',
+          observaciones: data.observaciones,
+          documentoReferencia: data.documentoReferencia,
         };
-        TransferenciaRepository.upsert(entidad);
-        setTransferencias(prev => [entidad, ...prev]);
+
+        await ServicioKardexValorizado.transferirStockValorizado(datosTransferencia, {
+          almacenes: almacenesMap,
+          generarId: () => crypto.randomUUID(),
+          fechaActual: () => new Date().toISOString(),
+        });
+
+        // La unidad de trabajo (Etapa 1B) ya escribió productos, movimientos y el documento
+        // Transferencia — nunca se vuelve a persistir aquí (nada de updateProduct/upsert manual).
+        sincronizarInventarioTrasConfirmacion();
+        limpiarSesionPendienteTransferencia(empresaId);
+        setTransferencias(TransferenciaRepository.getAll());
 
         success(
           `${data.cantidad} u · ${almacenOrigen.nombreAlmacen} → ${almacenDestino.nombreAlmacen}`,
@@ -504,7 +524,7 @@ export const useInventory = () => {
           establecimientoDestinoId: almacenDestino.establecimientoId,
           establecimientoDestinoNombre: almacenDestino.nombreEstablecimientoDesnormalizado || '',
           cantidad: data.cantidad,
-          tipoTransferencia,
+          tipoTransferencia: 'INTER_ESTABLECIMIENTO',
           estado: 'PENDIENTE',
           documentoReferencia: data.documentoReferencia,
           observaciones: data.observaciones,
@@ -676,7 +696,7 @@ export const useInventory = () => {
    * Usa 'inventario.transferir' como guardia de permiso (no existe permiso específico de anulación aún).
    * El establecimiento activo debe ser origen o destino para poder anular.
    */
-  const handleAnularTransfer = useCallback((transferenciaId: string) => {
+  const handleAnularTransfer = useCallback(async (transferenciaId: string) => {
     try {
       const transferencia = TransferenciaRepository.getById(transferenciaId);
       if (!transferencia) {
@@ -698,6 +718,36 @@ export const useInventory = () => {
       const esDestino = transferencia.establecimientoDestinoId === establecimientoId;
       if (!esOrigen && !esDestino) {
         warning('Solo los establecimientos involucrados pueden anular esta transferencia.', 'Establecimiento incorrecto');
+        return;
+      }
+
+      // Etapa 1E: una transferencia creada por el motor nuevo (siempre trae `empresaId` y ambos
+      // movimientos confirmados en la MISMA operación) se anula vía `revertirMovimientoValorizado`
+      // — revierte los dos legs atómicamente. Las transferencias legacy (sin `empresaId`, o el
+      // flujo inter-establecimiento EN_TRANSITO/RECIBIDA de varias fases) conservan el camino
+      // previo, fuera de alcance de esta migración.
+      if (transferencia.empresaId && transferencia.estado === 'CONFIRMADA' && transferencia.movimientoSalidaId && transferencia.movimientoEntradaId) {
+        const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
+        const movimientoId = transferencia.movimientoSalidaId;
+        await ServicioKardexValorizado.revertirMovimientoValorizado({
+          empresaId: transferencia.empresaId,
+          movimientoId,
+          claveIdempotencia: `REVERSO-${movimientoId}`,
+          tipoOperacion: 'reverso',
+          tipoDocumento: 'transferencia',
+          usuario: usuarioNombre,
+          fecha: new Date().toISOString(),
+          motivoUsuario: 'Anulación de transferencia',
+          documentoReferencia: transferenciaId,
+        }, {
+          almacenes: almacenesMap,
+          generarId: () => crypto.randomUUID(),
+          fechaActual: () => new Date().toISOString(),
+        });
+
+        sincronizarInventarioTrasConfirmacion();
+        setTransferencias(TransferenciaRepository.getAll());
+        success(`${transferenciaId} anulada · Stock restituido`, 'Transferencia anulada');
         return;
       }
 

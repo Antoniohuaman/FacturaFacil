@@ -574,7 +574,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     });
   }, [state.documentos, feedback, navigate, configState.almacenes, activeEstablecimientoId]);
 
-  const handleConfirmarAccion = useCallback(() => {
+  const handleConfirmarAccion = useCallback(async () => {
     if (!confirmandoAccion) return;
     if (confirmandoAccion.tipo === 'anular') {
       if (!confirmandoAccion.motivo.trim()) { feedback.warning('El motivo de anulación es obligatorio.'); return; }
@@ -582,14 +582,14 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
       // Cascade: anular la NS vinculada antes de anular la NV
       const doc = state.documentos.find((d) => d.id === confirmandoAccion.id);
       if (doc?.tipo === 'nota_venta' && doc.notaSalidaGenerada && doc.notaSalidaId) {
-        const okNS = anularNS(doc.notaSalidaId, `Anulado por anulación de ${doc.numero ?? doc.id}`);
+        const okNS = await anularNS(doc.notaSalidaId, `Anulado por anulación de ${doc.numero ?? doc.id}`);
         if (!okNS) {
           feedback.error('No se pudo anular la Nota de Salida vinculada. Intente nuevamente.');
           return;
         }
       }
 
-      const r = anularDocumento(confirmandoAccion.id, confirmandoAccion.motivo);
+      const r = await anularDocumento(confirmandoAccion.id, confirmandoAccion.motivo);
       if (r.exito) feedback.success(`${labelTipo} anulada exitosamente.`);
       else feedback.error(r.error ?? 'Error al anular.');
     } else if (confirmandoAccion.tipo === 'no_aprobar') {
