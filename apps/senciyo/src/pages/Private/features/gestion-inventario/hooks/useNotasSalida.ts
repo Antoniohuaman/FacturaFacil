@@ -7,6 +7,7 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
 import { useTenant } from '@/shared/tenant/TenantContext';
+import { getTenantEmpresaId } from '../../../../../shared/tenant';
 import {
   cargarNotasSalida,
   guardarNotasSalida,
@@ -14,12 +15,17 @@ import {
   NOTAS_SALIDA_CHANGED_EVENT,
 } from '../repositories/notaSalida.repository';
 import {
-  generarNSEnInventario,
+  prepararSalidaNS,
+  reconstruirOperacionNSDesdeSnapshot,
+  construirPreparacionInventarioNS,
+  construirDatosOperacionSalidaNS,
+  construirNotaSalidaGenerada,
   anularNSEnInventario,
   marcarNSComoEntregada,
 } from '../services/notaSalida.service';
+import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
+import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
 import {
-  liberarReservasDeOV,
   obtenerReservasDeOV,
   atenderOrdenVentaPostNS,
   atenderOrdenVentaPostNSDirecta,
@@ -80,7 +86,7 @@ export const useNotasSalida = () => {
   );
 
   const generarNS = useCallback(
-    (notaId: string): boolean => {
+    async (notaId: string): Promise<boolean> => {
       if (procesando) return false;
       setProcesando(true);
       try {
@@ -104,15 +110,69 @@ export const useNotasSalida = () => {
         }
 
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
-        const { notaActualizada, productosActualizados } = generarNSEnInventario(
-          nota,
-          notasActuales,
-          productsMap,
-          almacenesMap,
-          usuarioNombre,
-          activeEstablecimientoId ?? '',
-        );
 
+        // 1. Identidad + snapshot INMUTABLE ANTES de tocar inventario (corrección post-1D, §2): si
+        // ya existe un snapshot de preparación persistido, un intento previo ya completó la
+        // preparación (y puede o no haber llegado a confirmar inventario) — se reutiliza EXACTAMENTE
+        // ese snapshot (`reconstruirOperacionNSDesdeSnapshot`), sin volver a ejecutar FIFO, sin
+        // volver a consultar `esProductoInventariable` contra el catálogo vigente y sin reconstruir
+        // cantidades/almacenes desde el stock actual. Si no, es un intento genuinamente nuevo: se
+        // calcula FIFO/OV sobre el stock vigente y se persiste identidad + snapshot ANTES de invocar
+        // al motor.
+        let resultado;
+        if (nota.preparacionInventario) {
+          resultado = reconstruirOperacionNSDesdeSnapshot(nota);
+        } else {
+          resultado = prepararSalidaNS(
+            nota,
+            notasActuales,
+            productsMap,
+            almacenesMap,
+            activeEstablecimientoId ?? '',
+          );
+          agregarOActualizarNS({
+            ...nota,
+            correlativo: resultado.correlativo,
+            numero: resultado.numero,
+            lineas: resultado.lineasExpandidas,
+            preparacionInventario: construirPreparacionInventarioNS(resultado),
+          });
+        }
+
+        const empresaId = getTenantEmpresaId();
+        const fecha = new Date().toISOString();
+
+        // Una NS compuesta únicamente por servicios y/o productos legítimamente no inventariables
+        // no genera ninguna operación de inventario (sin versión nueva, sin movimientos) — se
+        // finaliza como Generada directamente.
+        if (resultado.lineasOperacion.length > 0) {
+          const datosOperacion = construirDatosOperacionSalidaNS({
+            nota,
+            resultado,
+            empresaId,
+            usuario: usuarioNombre,
+            fecha,
+          });
+
+          // 2-5. Hash canónico, reserva idempotente, preparación del documento completo y
+          // confirmación — todo dentro de una sola operación mediante el motor genérico. `nota.id`
+          // ya es estable; y ahora `resultado` también lo es entre reintentos (paso 1), así que el
+          // hash coincide y un reintento siempre resuelve 'repetida' en vez de descontar dos veces.
+          await ServicioKardexValorizado.registrarSalidaValorizada(datosOperacion, {
+            almacenes: almacenesMap,
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+          });
+
+          // 6. Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos
+          // ni de movimientos: solo rehidrata el store desde el localStorage ya actualizado por la
+          // unidad de trabajo y reutiliza el evento existente del Kardex.
+          sincronizarInventarioTrasConfirmacion();
+        }
+
+        // Solo se marca 'Generada' DESPUÉS de que el inventario quedó confirmado o repetido (o de
+        // determinar que esta NS no afecta inventario).
+        const notaActualizada = construirNotaSalidaGenerada(nota, resultado, usuarioNombre, fecha);
         agregarOActualizarNS(notaActualizada);
 
         if (notaActualizada.comprobanteOrigenId) {
@@ -125,72 +185,13 @@ export const useNotasSalida = () => {
           }));
         }
 
-        // productosActualizados es un snapshot anterior a liberarReservasDeOV; si liberamos
-        // primero, updateProduct sobreescribe stockReservadoPorAlmacen con el valor del snapshot.
-        // El stock real debe aplicarse antes de que la liberación escriba el reservado = 0.
-        for (const prod of productosActualizados) {
-          updateProduct(prod.id, prod);
-        }
-
         if (notaActualizada.ordenVentaOrigenId) {
-          // Liberar solo la cantidad realmente despachada en esta NS (soporte salida parcial).
-          // No liberar toda la reserva OV de una vez: si la NS es parcial, la reserva pendiente
-          // debe quedar activa para futuros despachos.
-          const reservasOV = obtenerReservasDeOV(notaActualizada.ordenVentaOrigenId);
-          // aLiberar se declara aquí para ser accesible en el bloque de estado OV.
-          const aLiberar: Array<{ sku: string; cantidad: number; almacenId?: string; establecimientoId?: string }> = [];
-          if (reservasOV.length > 0) {
-            // Calcular despacho total por SKU en esta NS (lineas ya expandidas por almacén)
-            const despachoPorSku = new Map<string, number>();
-            for (const linea of notaActualizada.lineas.filter(l => l.tipoBienServicio === 'bien')) {
-              const prod = productsMap.get(linea.productoId);
-              if (!prod?.codigo) continue;
-              despachoPorSku.set(prod.codigo, (despachoPorSku.get(prod.codigo) ?? 0) + linea.cantidad);
-            }
-
-            for (const linea of notaActualizada.lineas.filter(l => l.tipoBienServicio === 'bien')) {
-              const prod = productsMap.get(linea.productoId);
-              if (!prod?.codigo) continue;
-
-              // Buscar si la OV usó reserva nueva (establecimientoId) o legacy (almacenId)
-              const reservaGlobal = reservasOV.find(r => r.sku === prod.codigo && r.establecimientoId);
-              if (reservaGlobal?.establecimientoId) {
-                // Nueva arquitectura: liberar proporcionalmente por SKU (una sola vez por SKU)
-                const totalDespachado = despachoPorSku.get(prod.codigo) ?? 0;
-                if (totalDespachado > 0 && !aLiberar.some(a => a.sku === prod.codigo && a.establecimientoId)) {
-                  const maxLiberable = reservasOV
-                    .filter(r => r.sku === prod.codigo && r.establecimientoId)
-                    .reduce((s, r) => s + r.cantidad, 0);
-                  const cantLiberar = Math.min(totalDespachado, maxLiberable);
-                  if (cantLiberar > 0) {
-                    aLiberar.push({ sku: prod.codigo, cantidad: cantLiberar, establecimientoId: reservaGlobal.establecimientoId });
-                  }
-                }
-              } else {
-                // Legacy: liberar por almacén
-                const almId = linea.almacenId ?? notaActualizada.almacenOrigenId;
-                if (!almId) continue;
-                const maxLiberable = reservasOV
-                  .filter(r => r.sku === prod.codigo && r.almacenId === almId)
-                  .reduce((s, r) => s + r.cantidad, 0);
-                const cantLiberar = Math.min(linea.cantidad, maxLiberable);
-                if (cantLiberar > 0) {
-                  aLiberar.push({ sku: prod.codigo, cantidad: cantLiberar, almacenId: almId });
-                }
-              }
-            }
-            if (aLiberar.length > 0) {
-              liberarReservasDeOV(aLiberar);
-            }
-          }
-
           if (notaActualizada.origen === 'OrdenVenta') {
             // NS generada directamente desde OV (sin pasar por comprobante).
-            // aLiberar determina si fue despacho total o parcial.
             atenderOrdenVentaPostNSDirecta(notaActualizada.ordenVentaOrigenId, {
               numeroNS: notaActualizada.numero ?? notaActualizada.id,
               usuario: usuarioNombre,
-              aLiberar,
+              aLiberar: resultado.despachosOV,
             });
             vincularDocumentoComercialNS(
               notaActualizada.ordenVentaOrigenId,
@@ -202,7 +203,7 @@ export const useNotasSalida = () => {
             atenderOrdenVentaPostNS(notaActualizada.ordenVentaOrigenId, {
               numeroNS: notaActualizada.numero ?? notaActualizada.id,
               usuario: usuarioNombre,
-              aLiberar,
+              aLiberar: resultado.despachosOV,
             });
           }
         }
@@ -226,7 +227,7 @@ export const useNotasSalida = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, updateProduct, feedback, activeEstablecimientoId],
+    [procesando, allProducts, configState.almacenes, usuarioNombre, feedback, activeEstablecimientoId],
   );
 
   const anularNS = useCallback(

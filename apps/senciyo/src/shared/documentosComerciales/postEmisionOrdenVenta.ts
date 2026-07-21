@@ -39,6 +39,14 @@ export interface InfoComprobanteEmitido {
   total: number;
   usuario?: string;
   modoDescuentoStock?: 'automatico' | 'nota_salida' | 'sin_control';
+  /**
+   * `true` cuando el descuento de stock y la liberación de la reserva de esta OV ya se aplicaron
+   * ATÓMICAMENTE dentro del mismo `PlanUnidadTrabajoInventario` del motor central de salidas
+   * (Etapa 1D, corrección post-1D §1) — en ese caso esta función NUNCA debe volver a tocar la
+   * reserva (evita una segunda liberación fuera del plan). Solo aplica al modo `'automatico'`;
+   * en `'sin_control'` el motor nunca corrió y la liberación aquí sigue siendo la única.
+   */
+  reservaYaLiberadaPorMotor?: boolean;
 }
 
 export interface DadosComerciaisSyncComprobante {
@@ -433,10 +441,14 @@ export function actualizarOrdenVentaPostEmision(
     ? ov.reservasStock.map((r: { nombre: string; cantidad: number }) => `${r.nombre} (${r.cantidad})`).join(', ')
     : '';
 
-  // Liberar reserva solo en modo conocido que no sea nota_salida.
+  // Liberar reserva solo en modo conocido que no sea nota_salida, y solo si el motor central de
+  // salidas NO la liberó ya como parte del mismo plan atómico (corrección post-1D, §1) — en modo
+  // 'automatico' con `reservaYaLiberadaPorMotor`, esta función NUNCA debe volver a mutar la
+  // reserva; solo actualiza estado, trazabilidad e historial comercial de la OV.
   // Si modoDescuentoStock es undefined no se libera la reserva (conservador).
   const tieneReservas = Array.isArray(ov.reservasStock) && ov.reservasStock.length > 0;
   if (
+    !info.reservaYaLiberadaPorMotor &&
     (info.modoDescuentoStock === 'automatico' || info.modoDescuentoStock === 'sin_control') &&
     tieneReservas
   ) {

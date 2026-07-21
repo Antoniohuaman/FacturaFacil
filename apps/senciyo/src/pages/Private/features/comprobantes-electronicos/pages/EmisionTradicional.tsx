@@ -403,7 +403,8 @@ const EmisionTradicional = () => {
     createComprobante,
     toasts,
     removeToast,
-    error
+    error,
+    cancelarVentaPendiente,
   } = useComprobanteActions();
   // ----- Lifted data from CompactDocumentForm (cliente y campos opcionales) -----
   const [clienteSeleccionadoGlobal, setClienteSeleccionadoGlobal] = useState<ClienteSeleccionadoEmision>(null);
@@ -1996,6 +1997,10 @@ const EmisionTradicional = () => {
                     onCancelar={() => {
                       registrarAbandonoVentaSiCorresponde('cancelacion_usuario');
                       limpiarBorradorEnProgreso();
+                      // Cancelación explícita (corrección post-1D, §2): nunca se debe reutilizar
+                      // esta sesión de inventario abandonada solo porque un carrito futuro
+                      // coincida en contenido.
+                      cancelarVentaPendiente();
                       clearCart();
                       resetForm();
                       // Limpiar estado que resetForm() no cubre, para evitar que el
@@ -2304,6 +2309,8 @@ const EmisionTradicional = () => {
                         sessionStorage.removeItem('conversionSourceType');
                         sessionStorage.removeItem('conversionSourceNumber');
                         limpiarBorradorEnProgreso();
+                        // Cancelación explícita (corrección post-1D, §2).
+                        cancelarVentaPendiente();
                         clearCart();
                         resetForm();
                         setClienteSeleccionadoGlobal(null);

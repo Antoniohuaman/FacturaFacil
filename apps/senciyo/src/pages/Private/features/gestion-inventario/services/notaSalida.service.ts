@@ -5,8 +5,10 @@ import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { MovimientoStock, StockAdjustmentData } from '../models';
 import { InventoryService } from './inventory.service';
 import { CORRELATIVO_DIGITOS_NS } from '../models/notaSalida.constants';
-import type { NotaSalida, TipoSalida, LineaNotaSalida } from '../models/notaSalida.types';
+import type { NotaSalida, TipoSalida, LineaNotaSalida, DespachoOVBasico, PreparacionInventarioNS } from '../models/notaSalida.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
+import type { DatosOperacionSalidaCuantitativa, DatosLineaOperacionCuantitativa } from '../models/operacionEntradaInventario.types';
+import { esProductoInventariable } from '../../../../../shared/inventory/clasificacionInventario';
 import { obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import {
   resolvealmacenesForSaleFIFO,
@@ -139,21 +141,45 @@ export const calcularDesgloseTributarioNS = (lineas: LineaNotaSalida[]): GrupoIm
 };
 
 // ─── Generación ───────────────────────────────────────────────────────────
+//
+// Etapa 1D (§6, §13.C): el cálculo de asignación FIFO/OV es PURO — no llama a
+// `registerAdjustment` ni toca `localStorage`. Devuelve las líneas listas para el motor genérico
+// (`ServicioKardexValorizado.registrarSalidaValorizada`, invocado por el llamador), que es quien
+// ejecuta la reserva idempotente, la preparación y la escritura real en una sola confirmación.
 
-export interface ResultadoGenerarNS {
-  notaActualizada: NotaSalida;
-  productosActualizados: Product[];
-  movimientos: MovimientoStock[];
+export interface ResultadoPrepararSalidaNS {
+  correlativo: string;
+  numero: string;
+  motivo: MovimientoMotivo;
+  /** Líneas ya expandidas por almacén (una por asignación FIFO) — para mostrar y persistir en la NS. */
+  lineasExpandidas: LineaNotaSalida[];
+  /**
+   * Líneas listas para `DatosOperacionSalidaCuantitativa.lineas` — el llamador solo agrega
+   * empresaId/documentoId/claveIdempotencia/usuario/fecha. Puede estar vacío (NS compuesta
+   * únicamente por servicios y/o productos legítimamente no inventariables) — en ese caso el
+   * llamador NO invoca al motor: no hay operación, no hay versión nueva, no hay movimientos.
+   * `liberarReservaOV`/`liberarReservaLegacyOV` ya van incluidos en cada línea que corresponda —
+   * el motor los aplica en la MISMA escritura que el descuento de stock (corrección post-1D, §2).
+   */
+  lineasOperacion: DatosLineaOperacionCuantitativa[];
+  /** Para `atenderOrdenVentaPostNSDirecta`/`atenderOrdenVentaPostNS` — misma cantidad que la liberación (global o legacy), pero reportada siempre, la maneje quien la maneje. */
+  despachosOV: DespachoOVBasico[];
 }
 
-export const generarNSEnInventario = (
+/**
+ * Cálculo puro de la Nota de Salida (Etapa 1D, §6): resuelve correlativo/número, valida stock
+ * suficiente con mensajes específicos de NS (validación PREVIA — antes de reservar, §10) y calcula
+ * la distribución FIFO por almacén de cada línea. Nunca muta `productsMap` ni el catálogo — simula
+ * el consumo de stock en memoria únicamente para que líneas repetidas del mismo producto dentro de
+ * la misma NS se asignen correctamente entre almacenes.
+ */
+export function prepararSalidaNS(
   nota: NotaSalida,
   notasExistentes: NotaSalida[],
   productsMap: Map<string, Product>,
   almacenesMap: Map<string, Almacen>,
-  usuario: string,
   establecimientoId: string,
-): ResultadoGenerarNS => {
+): ResultadoPrepararSalidaNS {
   if (nota.estado === 'Generada') {
     throw new Error('Esta Nota de Salida ya fue generada.');
   }
@@ -180,7 +206,29 @@ export const generarNSEnInventario = (
     );
   }
 
-  const lineasBienes = nota.lineas.filter(l => l.tipoBienServicio === 'bien');
+  // Fail-closed (corrección post-1D, §4): un producto INEXISTENTE en una línea de "bien" es un
+  // error de datos, nunca un motivo para excluir la línea en silencio — se rechaza el documento
+  // completo antes de calcular nada más. Esto es distinto de "producto real pero no inventariable"
+  // (tipoExistencia no controlado por stock), que sí puede excluirse legítimamente más abajo.
+  for (const linea of nota.lineas) {
+    if (linea.tipoBienServicio === 'bien' && !productsMap.get(linea.productoId)) {
+      throw new Error(
+        `La Nota de Salida referencia un producto inexistente ("${linea.productoNombre ?? linea.productoId}") en una línea de bien — no se puede generar.`,
+      );
+    }
+  }
+
+  // Línea inventariable: "bien" declarado en el documento Y producto realmente controlado por
+  // stock (Etapa 1D, §14: reemplaza el filtro anterior `tipoBienServicio === 'bien'` que no
+  // consultaba la clasificación real del catálogo — mismo criterio que NI/ajuste_positivo). El
+  // guard anterior ya garantiza que, si `tipoBienServicio === 'bien'`, el producto existe.
+  const esLineaInventariable = (linea: LineaNotaSalida): boolean => {
+    if (linea.tipoBienServicio !== 'bien') return false;
+    const producto = productsMap.get(linea.productoId) as Product;
+    return esProductoInventariable(producto);
+  };
+
+  const lineasBienes = nota.lineas.filter(esLineaInventariable);
   const esNSVinculadaAOV = Boolean(nota.ordenVentaOrigenId);
   const reservasOV = esNSVinculadaAOV && nota.ordenVentaOrigenId
     ? obtenerReservasDeOV(nota.ordenVentaOrigenId)
@@ -269,29 +317,34 @@ export const generarNSEnInventario = (
     }
   }
 
-  // ── Procesamiento (solo después de validar todo) ──
+  // ── Cálculo puro de asignación (solo después de validar todo) — sin registerAdjustment ──
   const correlativo = generarCorrelativoNS(notasExistentes, nota.serie);
   const numero = `${nota.serie}-${correlativo}`;
   const motivo = mapTipoSalidaAMotivo(nota.tipoSalida);
-  const ahora = new Date().toISOString();
 
-  const productosActualizados: Product[] = [];
-  const movimientos: MovimientoStock[] = [];
   // Líneas expandidas por almacén real: reemplaza las líneas originales del usuario para que
   // la anulación pueda revertir exactamente el stock por almacén afectado.
   const lineasExpandidas: LineaNotaSalida[] = [];
+  const lineasOperacion: DatosLineaOperacionCuantitativa[] = [];
+  // Simula el consumo de stock EN MEMORIA (nunca en `productsMap`) para que una segunda línea del
+  // mismo producto dentro de la misma NS asigne correctamente sobre lo que dejó la primera.
+  const stockSimulado = new Map<string, Record<string, number>>();
+
+  const obtenerProductoDeTrabajo = (productoId: string): Product | undefined => {
+    const base = productsMap.get(productoId);
+    if (!base) return undefined;
+    const simulado = stockSimulado.get(productoId);
+    return simulado ? { ...base, stockPorAlmacen: simulado } : base;
+  };
 
   for (const linea of nota.lineas) {
-    if (linea.tipoBienServicio === 'servicio') {
+    if (!esLineaInventariable(linea)) {
       lineasExpandidas.push(linea);
       continue;
     }
 
-    const producto = productsMap.get(linea.productoId);
-    if (!producto) {
-      lineasExpandidas.push(linea);
-      continue;
-    }
+    // Garantizado por el guard fail-closed de arriba: una línea "bien" siempre tiene producto.
+    const producto = obtenerProductoDeTrabajo(linea.productoId) as Product;
 
     // Calcular asignación por almacén según el tipo de NS
     const allocations: { almacenId: string; qty: number }[] = [];
@@ -343,48 +396,32 @@ export const generarNSEnInventario = (
       for (const a of fifo) allocations.push({ almacenId: a.almacenId, qty: a.qtyUnidadMinima });
     }
 
-    if (!allocations.length) {
-      lineasExpandidas.push(linea);
-      continue;
+    // Fail-closed (corrección post-1D, §4): esta línea ya fue validada como stock suficiente en el
+    // paso previo — una asignación vacía o parcial aquí es una inconsistencia real (no un caso
+    // legítimo a omitir en silencio). Se rechaza el documento completo.
+    const totalAsignado = allocations.reduce((sum, alloc) => sum + alloc.qty, 0);
+    if (totalAsignado !== linea.cantidad) {
+      throw new Error(
+        `No se pudo asignar exactamente ${linea.cantidad} unidad(es) de "${linea.productoNombre}" entre los almacenes disponibles ` +
+        `(asignado: ${totalAsignado}) — operación rechazada completa.`,
+      );
     }
 
     const igvRate = resolveIgvRateNS(linea.impuesto);
+    const stockPorAlmacenSimulado = { ...(producto.stockPorAlmacen ?? {}) };
 
     for (const alloc of allocations) {
       const almacenLinea = almacenesMap.get(alloc.almacenId);
       if (!almacenLinea) continue;
 
-      // Leer el producto actualizado por las asignaciones anteriores del mismo producto
-      const prodActual = productsMap.get(linea.productoId);
-      if (!prodActual) continue;
-
-      const data: StockAdjustmentData = {
-        productoId: linea.productoId,
-        almacenId: almacenLinea.id,
-        tipo: 'SALIDA',
-        motivo,
-        cantidad: alloc.qty,
-        observaciones: `NS ${numero} - ${nota.observaciones ?? ''}`.trim(),
-        documentoReferencia: numero,
-      };
-
-      const { product: productoActualizado, movement } = InventoryService.registerAdjustment(
-        prodActual,
-        almacenLinea,
-        data,
-        usuario,
-      );
-
-      const productoFinal = InventoryService.recalcularTotalesStock(productoActualizado, almacenesArray);
-      productsMap.set(linea.productoId, productoFinal);
-      productosActualizados.push(productoFinal);
-      movimientos.push(movement);
+      stockPorAlmacenSimulado[alloc.almacenId] = (stockPorAlmacenSimulado[alloc.almacenId] ?? 0) - alloc.qty;
 
       const subSubtotal = parseFloat((alloc.qty * linea.pvUnitario).toFixed(2));
       const subIgv = parseFloat((subSubtotal * igvRate).toFixed(2));
+      const idLineaExpandida = `${linea.id}-${alloc.almacenId}`;
       lineasExpandidas.push({
         ...linea,
-        id: `${linea.id}-${alloc.almacenId}`,
+        id: idLineaExpandida,
         almacenId: alloc.almacenId,
         almacenNombre: almacenLinea.nombreAlmacen,
         cantidad: alloc.qty,
@@ -392,30 +429,266 @@ export const generarNSEnInventario = (
         igv: subIgv,
         total: parseFloat((subSubtotal + subIgv).toFixed(2)),
       });
+
+      lineasOperacion.push({
+        lineaId: idLineaExpandida,
+        productoId: linea.productoId,
+        almacenId: alloc.almacenId,
+        cantidadUnidadMinima: alloc.qty,
+      });
+    }
+
+    stockSimulado.set(linea.productoId, stockPorAlmacenSimulado);
+  }
+
+  // Una NS compuesta únicamente por servicios y/o productos legítimamente no inventariables NUNCA
+  // es un error (comportamiento preservado de antes de Etapa 1D) — `lineasOperacion` queda vacío,
+  // el llamador debe omitir la llamada al motor por completo (sin operación, sin versión, sin
+  // movimientos) y de todos modos permitir que la NS se marque como Generada.
+  const despachosOV = aplicarLiberacionesOV(nota, lineasExpandidas, lineasOperacion, productsMap);
+
+  return { correlativo, numero, motivo, lineasExpandidas, lineasOperacion, despachosOV };
+}
+
+/**
+ * Asigna, en el arreglo `lineasOperacion` ya construido (mutándolo in-place), la liberación de
+ * reserva de OV que corresponda a cada línea — arquitectura nueva (`liberarReservaOV`, por
+ * establecimiento) y legacy (`liberarReservaLegacyOV`, por almacén). Depende ÚNICAMENTE de
+ * `reservasOV` (el propio ledger de reservas de la OV, ver `obtenerReservasDeOV`) y de las
+ * cantidades ya despachadas en `lineasExpandidas` — NUNCA del stock vigente del producto — por eso
+ * es seguro volver a ejecutarla en un reintento (§1 de la corrección post-1D) sin recalcular FIFO.
+ * Devuelve `despachosOV` para `atenderOrdenVentaPostNSDirecta`/`atenderOrdenVentaPostNS`.
+ */
+function aplicarLiberacionesOV(
+  nota: Pick<NotaSalida, 'ordenVentaOrigenId' | 'almacenOrigenId'>,
+  lineasExpandidas: LineaNotaSalida[],
+  lineasOperacion: DatosLineaOperacionCuantitativa[],
+  productsMap: Map<string, Product>,
+): DespachoOVBasico[] {
+  const despachosOV: DespachoOVBasico[] = [];
+  if (!nota.ordenVentaOrigenId) return despachosOV;
+
+  const reservasOV = obtenerReservasDeOV(nota.ordenVentaOrigenId);
+
+  const despachoPorSku = new Map<string, number>();
+  // Acumula por SKU+almacén (corrección post-1D, §3) — varias líneas expandidas de la misma NS
+  // (mismo producto, mismo almacén, ya sea por dos líneas originales o por un reparto FIFO entre
+  // varias) deben validar el TOTAL acumulado contra la reserva legacy, nunca cada una por separado.
+  const despachoPorSkuAlm = new Map<string, number>();
+  for (const linea of lineasExpandidas) {
+    if (linea.tipoBienServicio !== 'bien') continue;
+    const producto = productsMap.get(linea.productoId);
+    if (!producto?.codigo) continue;
+    despachoPorSku.set(producto.codigo, (despachoPorSku.get(producto.codigo) ?? 0) + linea.cantidad);
+    const almId = linea.almacenId ?? nota.almacenOrigenId;
+    if (!almId) continue;
+    const claveSkuAlm = `${producto.codigo}::${almId}`;
+    despachoPorSkuAlm.set(claveSkuAlm, (despachoPorSkuAlm.get(claveSkuAlm) ?? 0) + linea.cantidad);
+  }
+
+  const skusGlobalesLiberados = new Set<string>();
+  for (const linea of lineasExpandidas) {
+    if (linea.tipoBienServicio !== 'bien') continue;
+    const producto = productsMap.get(linea.productoId);
+    if (!producto?.codigo) continue;
+
+    const reservaGlobal = reservasOV.find(r => r.sku === producto.codigo && r.establecimientoId);
+    if (reservaGlobal?.establecimientoId) {
+      if (skusGlobalesLiberados.has(producto.codigo)) continue;
+      const totalDespachado = despachoPorSku.get(producto.codigo) ?? 0;
+      if (totalDespachado <= 0) continue;
+      // Suma TODAS las reservas del mismo SKU+establecimiento (corrección post-1D, §3) — nunca
+      // solo la primera coincidencia.
+      const maxLiberable = reservasOV
+        .filter(r => r.sku === producto.codigo && r.establecimientoId)
+        .reduce((s, r) => s + r.cantidad, 0);
+      // Fail-closed: NUNCA `Math.min` para ocultar una inconsistencia — si el despacho excede la
+      // reserva disponible, se rechaza la NS completa. Un despacho parcial legítimo (despachado <
+      // reservado) libera EXACTAMENTE lo despachado, dejando el resto reservado.
+      if (totalDespachado > maxLiberable) {
+        throw new Error(
+          `La cantidad despachada de "${producto.nombre}" (${totalDespachado}) excede la reserva pendiente de la Orden de Venta ` +
+          `(${maxLiberable}) — operación rechazada completa.`,
+        );
+      }
+      const lineaOp = lineasOperacion.find(op => op.lineaId === linea.id);
+      if (lineaOp) {
+        lineaOp.liberarReservaOV = { establecimientoId: reservaGlobal.establecimientoId, cantidad: totalDespachado };
+        skusGlobalesLiberados.add(producto.codigo);
+        despachosOV.push({ sku: producto.codigo, cantidad: totalDespachado, establecimientoId: reservaGlobal.establecimientoId });
+      }
+    } else {
+      const almId = linea.almacenId ?? nota.almacenOrigenId;
+      if (!almId) continue;
+      // Suma TODAS las reservas legacy del mismo SKU+almacén (corrección post-1D, §3) — nunca solo
+      // la primera coincidencia.
+      const maxLiberable = reservasOV
+        .filter(r => r.sku === producto.codigo && r.almacenId === almId)
+        .reduce((s, r) => s + r.cantidad, 0);
+      if (maxLiberable <= 0) {
+        throw new Error(
+          `No se encontró una reserva de la Orden de Venta para "${producto.nombre}" en el almacén "${almId}" — operación rechazada completa.`,
+        );
+      }
+      // Valida el TOTAL acumulado (varias líneas del mismo SKU+almacén), no solo esta línea aislada.
+      const claveSkuAlm = `${producto.codigo}::${almId}`;
+      const totalDespachadoCombo = despachoPorSkuAlm.get(claveSkuAlm) ?? 0;
+      if (totalDespachadoCombo > maxLiberable) {
+        throw new Error(
+          `La cantidad despachada de "${producto.nombre}" en el almacén "${almId}" (${totalDespachadoCombo}) excede la reserva pendiente ` +
+          `(${maxLiberable}) — operación rechazada completa.`,
+        );
+      }
+      // Legacy: cada línea expandida ya está atada a UN almacén — se libera en la MISMA línea
+      // (corrección post-1D, §2: dentro del mismo plan, nunca en una llamada separada después
+      // de confirmar). Libera EXACTAMENTE lo despachado por esta línea.
+      const lineaOp = lineasOperacion.find(op => op.lineaId === linea.id);
+      if (lineaOp) {
+        lineaOp.liberarReservaLegacyOV = { cantidad: linea.cantidad };
+        despachosOV.push({ sku: producto.codigo, cantidad: linea.cantidad, almacenId: almId });
+      }
     }
   }
 
-  const notaActualizada: NotaSalida = {
+  return despachosOV;
+}
+
+/**
+ * Construye el snapshot inmutable de preparación de inventario (§2 de la corrección post-1D) a
+ * partir de un resultado recién calculado por `prepararSalidaNS` — se persiste en la NS junto con
+ * `numero`/`correlativo`/`lineas`, ANTES de invocar al motor.
+ */
+export function construirPreparacionInventarioNS(resultado: ResultadoPrepararSalidaNS): PreparacionInventarioNS {
+  return {
+    lineasOperacion: resultado.lineasOperacion,
+    despachosOV: resultado.despachosOV,
+    sinMovimientoInventario: resultado.lineasOperacion.length === 0,
+  };
+}
+
+function esLineaOperacionValida(valor: unknown): valor is DatosLineaOperacionCuantitativa {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const l = valor as Record<string, unknown>;
+  if (typeof l.lineaId !== 'string' || !l.lineaId.trim()) return false;
+  if (typeof l.productoId !== 'string' || !l.productoId.trim()) return false;
+  if (typeof l.almacenId !== 'string' || !l.almacenId.trim()) return false;
+  if (typeof l.cantidadUnidadMinima !== 'number' || !Number.isFinite(l.cantidadUnidadMinima) || l.cantidadUnidadMinima <= 0) return false;
+  return true;
+}
+
+/**
+ * Reconstruye la operación de salida ÚNICAMENTE desde el snapshot INMUTABLE ya persistido
+ * (`nota.preparacionInventario`) — corrección post-1D, §2. Nunca recalcula FIFO, nunca vuelve a
+ * consultar `esProductoInventariable` ni el catálogo vigente, nunca reconstruye cantidades o
+ * almacenes desde el stock actual: si el producto cambió de clasificación, desapareció del
+ * catálogo, cambió el almacén o el stock desde la primera preparación, el snapshot ya congelado
+ * sigue siendo la única fuente de verdad — así el hash coincide y el motor devuelve 'repetida' en
+ * vez de descontar de nuevo. Si el snapshot está ausente, corrupto, incompleto o tiene IDs
+ * duplicados, rechaza la NS completa.
+ */
+export function reconstruirOperacionNSDesdeSnapshot(nota: NotaSalida): ResultadoPrepararSalidaNS {
+  if (!nota.numero || !nota.correlativo) {
+    throw new Error(
+      'reconstruirOperacionNSDesdeSnapshot: la Nota de Salida no tiene numero/correlativo asignado por un intento previo.',
+    );
+  }
+  const snapshot = nota.preparacionInventario;
+  if (!snapshot || typeof snapshot !== 'object') {
+    throw new Error(
+      'reconstruirOperacionNSDesdeSnapshot: la Nota de Salida no tiene un snapshot de preparación de inventario persistido — no se puede reintentar.',
+    );
+  }
+  if (!Array.isArray(snapshot.lineasOperacion) || !Array.isArray(snapshot.despachosOV) || typeof snapshot.sinMovimientoInventario !== 'boolean') {
+    throw new Error(
+      'reconstruirOperacionNSDesdeSnapshot: el snapshot de preparación de inventario de la Nota de Salida está incompleto o corrupto.',
+    );
+  }
+  if (snapshot.sinMovimientoInventario !== (snapshot.lineasOperacion.length === 0)) {
+    throw new Error(
+      'reconstruirOperacionNSDesdeSnapshot: el snapshot de preparación de inventario de la Nota de Salida es inconsistente (sinMovimientoInventario no coincide con las líneas persistidas).',
+    );
+  }
+
+  const idsVistos = new Set<string>();
+  for (const linea of snapshot.lineasOperacion) {
+    if (!esLineaOperacionValida(linea)) {
+      throw new Error('reconstruirOperacionNSDesdeSnapshot: el snapshot contiene una línea de operación inválida.');
+    }
+    if (idsVistos.has(linea.lineaId)) {
+      throw new Error(`reconstruirOperacionNSDesdeSnapshot: el snapshot contiene la línea "${linea.lineaId}" duplicada.`);
+    }
+    idsVistos.add(linea.lineaId);
+  }
+
+  const motivo = mapTipoSalidaAMotivo(nota.tipoSalida);
+  return {
+    correlativo: nota.correlativo,
+    numero: nota.numero,
+    motivo,
+    lineasExpandidas: nota.lineas,
+    lineasOperacion: snapshot.lineasOperacion,
+    despachosOV: snapshot.despachosOV,
+  };
+}
+
+export interface ParametrosConstruirDatosOperacionSalidaNS {
+  nota: NotaSalida;
+  resultado: ResultadoPrepararSalidaNS;
+  empresaId: string;
+  usuario: string;
+  fecha: string;
+}
+
+/** Ensambla el contrato del motor genérico (§7) a partir del cálculo puro de `prepararSalidaNS`. `nota.id` ya es estable y persistente (asignado al guardar el borrador) — no requiere sesión pendiente de UI. */
+export function construirDatosOperacionSalidaNS(
+  params: ParametrosConstruirDatosOperacionSalidaNS,
+): DatosOperacionSalidaCuantitativa {
+  const { nota, resultado, empresaId, usuario, fecha } = params;
+  return {
+    modoOperacion: 'cuantitativo',
+    empresaId,
+    documentoId: nota.id,
+    tipoDocumento: 'nota_salida',
+    tipoOperacion: 'nota_salida',
+    claveIdempotencia: `nota_salida:${nota.id}`,
+    usuario,
+    fecha,
+    motivo: resultado.motivo,
+    observaciones: `NS ${resultado.numero} - ${nota.observaciones ?? ''}`.trim(),
+    documentoReferencia: resultado.numero,
+    lineas: resultado.lineasOperacion,
+  };
+}
+
+/**
+ * Construye el documento NS final (estado 'Generada') a partir del resultado ya CONFIRMADO por el
+ * motor — nunca se marca 'Generada' antes de que la escritura real haya ocurrido.
+ */
+export function construirNotaSalidaGenerada(
+  nota: NotaSalida,
+  resultado: ResultadoPrepararSalidaNS,
+  usuario: string,
+  fecha: string,
+): NotaSalida {
+  return {
     ...nota,
     estado: 'Generada',
     esBorrador: false,
-    correlativo,
-    numero,
-    lineas: lineasExpandidas,
-    updatedAt: ahora,
+    correlativo: resultado.correlativo,
+    numero: resultado.numero,
+    lineas: resultado.lineasExpandidas,
+    updatedAt: fecha,
     historial: [
       ...nota.historial,
       {
-        fecha: ahora,
+        fecha,
         usuario,
         accion: 'Generada',
-        detalle: `Número asignado: ${numero}. ${movimientos.length} movimiento(s) de stock procesados.`,
+        detalle: `Número asignado: ${resultado.numero}. ${resultado.lineasOperacion.length} movimiento(s) de stock procesados.`,
       },
     ],
   };
-
-  return { notaActualizada, productosActualizados, movimientos };
-};
+}
 
 // ─── Anulación ────────────────────────────────────────────────────────────
 

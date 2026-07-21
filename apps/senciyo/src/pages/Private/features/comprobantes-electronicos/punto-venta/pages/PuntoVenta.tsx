@@ -129,6 +129,7 @@ const PuntoVenta = () => {
     handleNewSale,
     paymentMethods,
     warning,
+    cancelarVentaPendiente,
   } = usePosComprobanteFlow({ cartItems, totals, onVentaCompletada: marcarVentaCompletada });
 
   type EstadoBorradorPos = {
@@ -248,6 +249,14 @@ const PuntoVenta = () => {
     ventaActualCompletadaRef.current = false;
     handleNewSale(clearCart);
   }, [clearCart, handleNewSale]);
+
+  // "Borrar todo" (corrección post-1D, §2): es la cancelación explícita real de una venta en
+  // curso en POS (a diferencia de handleNuevaVenta, solo alcanzable tras una venta exitosa) —
+  // nunca debe dejar disponible la sesión de inventario para el siguiente carrito.
+  const handleClearCart = useCallback(() => {
+    cancelarVentaPendiente();
+    clearCart();
+  }, [cancelarVentaPendiente, clearCart]);
 
   const { iniciarAperturaCaja } = useRetornoAperturaCaja();
   const handleAbrirCaja = useCallback(() => {
@@ -566,7 +575,7 @@ const PuntoVenta = () => {
                   onClearDiscount={clearDiscount}
                   getDiscountPreviewTotals={getDiscountPreviewTotals}
                   onConfirmSale={handleConfirmSale}
-                  onClearCart={clearCart}
+                  onClearCart={handleClearCart}
                   onViewFullForm={() => navigate('/comprobantes/emision')}
                   onAddProduct={addToCart}
                   currency={currentCurrency}

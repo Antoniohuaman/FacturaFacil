@@ -24,13 +24,15 @@ import {
   validarStockParaOrden,
   reservarStockOrden,
   liberarReservaOrden,
-  descontarStockParaDocumento,
   revertirDescuentoStockDocumento,
+  ejecutarDescuentoStockNV as ejecutarDescuentoStockNVReal,
+  cancelarNotaVentaPendiente as cancelarNotaVentaPendienteReal,
 } from '../utils/servicioReservaStock';
 import { calcularReservasPendientes, EVENTO_RECARGA } from '@/shared/documentosComerciales/postEmisionOrdenVenta';
 import { persistirDocumentos } from '../utils/documentoComercial.storage';
 import { obtenerNSActivasPorDocumento } from '../../gestion-inventario/repositories/notaSalida.repository';
 import type { CartItem, PaymentTotals } from '../models/documentoComercial.types';
+import { getTenantEmpresaId, tryGetTenantEmpresaId } from '../../../../../shared/tenant';
 
 /**
  * Calcula el estado resultante de una cotización no-borrador basándose en
@@ -102,8 +104,8 @@ export interface ResultadoAccionDocumento {
 }
 
 export interface UseDocumentoComercialActionsReturn {
-  generarDocumento: (datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
-  generarDesdeBorrador: (id: string, datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
+  generarDocumento: (datos: DatosFormularioDocumentoComercial) => Promise<ResultadoAccionDocumento>;
+  generarDesdeBorrador: (id: string, datos: DatosFormularioDocumentoComercial) => Promise<ResultadoAccionDocumento>;
   guardarComoBorrador: (datos: DatosFormularioDocumentoComercial) => ResultadoAccionDocumento;
   actualizarDocumento: (id: string, datos: Partial<DatosFormularioDocumentoComercial>) => ResultadoAccionDocumento;
   anularDocumento: (id: string, motivo: string) => ResultadoAccionDocumento;
@@ -137,6 +139,8 @@ export interface UseDocumentoComercialActionsReturn {
   /** Sincroniza datos comerciales (cliente, ítems, totales, observaciones) de una NV/OV
    *  a la cotización origen cuando el documento relacionado es editado. */
   sincronizarCotizacionDesdeDocumento: (docId: string) => void;
+  /** Limpia explícitamente la sesión pendiente de descuento de stock de Nota de Venta — llamar al cancelar el formulario o iniciar otro documento. */
+  cancelarNotaVentaPendiente: () => void;
 }
 
 export function useDocumentoComercialActions(): UseDocumentoComercialActionsReturn {
@@ -168,8 +172,41 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     [],
   );
 
+  /**
+   * Envoltorio delgado sobre `ejecutarDescuentoStockNV` (servicioReservaStock.ts) — la orquestación
+   * real vive en un módulo plano, testeable sin React, compartida por `generarDocumento` y
+   * `generarDesdeBorrador` (Etapa 1D, §10; corrección post-1D, §3).
+   */
+  const ejecutarDescuentoStockNV = useCallback(
+    (
+      datos: DatosFormularioDocumentoComercial,
+      documentoIdExistente: string | undefined,
+      resolverNumeroFallback: () => { numero: string; correlativo: string },
+    ) => ejecutarDescuentoStockNVReal({
+      datos,
+      almacenes: configState.almacenes ?? [],
+      establecimientoId: activeEstablecimientoId ?? '',
+      empresaId: getTenantEmpresaId(),
+      usuario: session?.userName ?? 'Usuario',
+      documentoIdExistente,
+      resolverNumeroFallback,
+    }),
+    [activeEstablecimientoId, configState.almacenes, session],
+  );
+
+  /**
+   * Limpia explícitamente la sesión pendiente de `nota_venta_salida` — corrección post-1D, §2:
+   * debe invocarse al cancelar el formulario o al iniciar otro documento, nunca durante un fallo
+   * incierto de la propia preparación/confirmación.
+   */
+  const cancelarNotaVentaPendiente = useCallback((): void => {
+    const empresaId = tryGetTenantEmpresaId();
+    if (!empresaId) return;
+    cancelarNotaVentaPendienteReal(empresaId);
+  }, []);
+
   const generarDocumento = useCallback(
-    (datos: DatosFormularioDocumentoComercial): ResultadoAccionDocumento => {
+    async (datos: DatosFormularioDocumentoComercial): Promise<ResultadoAccionDocumento> => {
       const errorValidacion = validarDatos(datos);
       if (errorValidacion) return { exito: false, error: errorValidacion };
 
@@ -179,6 +216,8 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       // Validación y reserva/descuento de stock según tipo de documento
       let reservasStock: ReservaStockItem[] | undefined;
       let modoDescuentoStock: 'automatico' | 'nota_salida' | 'sin_control' | undefined;
+      let documentoIdNV: string | undefined;
+      let limpiarSesionNV: (() => void) | undefined;
 
       if (datos.tipo === 'orden_venta') {
         const validacion = validarStockParaOrden(
@@ -205,12 +244,15 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         }
       }
 
-      const correlativo = generarCorrelativoSeguro(
+      // Fallback: correlativo/numero recién calculados, solo se usan si esta es la primera
+      // preparación real para esta huella (corrección post-1D, §3: nunca se genera OTRO
+      // correlativo cuando ya existe una sesión pendiente con la misma intención).
+      let correlativo = generarCorrelativoSeguro(
         datos.serie,
         state.documentos,
         configState.series,
       );
-      const numero = `${datos.serie}-${correlativo}`;
+      let numero = `${datos.serie}-${correlativo}`;
       const ahora = obtenerFechaHoraISO();
 
       // OV → Reservada; cotización con aprobación → Pendiente aprobación; resto → Generada/Vigente
@@ -234,15 +276,24 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         );
       }
 
-      // Descontar stock NV automático (DESPUÉS de asignar correlativo)
+      // Descontar stock NV automático (DESPUÉS de asignar correlativo) — motor central de salidas
+      // (Etapa 1D, §1): validación previa (arriba) + hash canónico + reserva idempotente +
+      // preparación pura + confirmación, sin segunda persistencia. `documentoIdNV`/`numero`/
+      // `correlativo` (resueltos de forma estable, reutilizando el snapshot cacheado en un
+      // reintento) se reutilizan abajo como identidad real del documento — nunca un id técnico.
       if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'automatico') {
-        reservasStock = descontarStockParaDocumento(
-          datos.items,
-          configState.almacenes ?? [],
-          activeEstablecimientoId ?? '',
-          numero,
-          session?.userName ?? 'Usuario',
+        const correlativoFallback = correlativo;
+        const numeroFallback = numero;
+        const resultado = await ejecutarDescuentoStockNV(
+          datos,
+          undefined,
+          () => ({ numero: numeroFallback, correlativo: correlativoFallback }),
         );
+        reservasStock = resultado.reservasStock;
+        documentoIdNV = resultado.documentoId;
+        limpiarSesionNV = resultado.limpiarSesion;
+        numero = resultado.numero;
+        correlativo = resultado.correlativo;
       }
 
       let accionHistorial: string;
@@ -265,7 +316,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       }
 
       const documento: DocumentoComercial = {
-        id: generarIdDocumento(),
+        id: documentoIdNV ?? generarIdDocumento(),
         tipo: datos.tipo,
         estado: estadoInicial,
         esBorrador: false,
@@ -306,6 +357,11 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       }
 
       agregarDocumento(documento);
+      // La sesión pendiente de venta_salida solo se limpia AHORA — inventario ya quedó
+      // confirmado/repetido Y el documento comercial quedó correctamente persistido (recién
+      // arriba). Si `agregarDocumento` hubiera fallado, la sesión seguiría viva para que un
+      // reintento reconstruya la MISMA identidad sin descontar stock de nuevo.
+      limpiarSesionNV?.();
       return { exito: true, documento };
     },
     [
@@ -317,11 +373,12 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       session,
       activeEstablecimientoId,
       agregarDocumento,
+      ejecutarDescuentoStockNV,
     ],
   );
 
   const generarDesdeBorrador = useCallback(
-    (id: string, datos: DatosFormularioDocumentoComercial): ResultadoAccionDocumento => {
+    async (id: string, datos: DatosFormularioDocumentoComercial): Promise<ResultadoAccionDocumento> => {
       const errorValidacion = validarDatos(datos);
       if (errorValidacion) return { exito: false, error: errorValidacion };
 
@@ -360,11 +417,14 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       }
 
       const otrosDocs = state.documentos.filter((d) => d.id !== id);
-      const correlativo = generarCorrelativoSeguro(datos.serie, otrosDocs, configState.series);
-      const numero = `${datos.serie}-${correlativo}`;
+      // Fallback: solo se usa si esta es la primera preparación real para esta huella (corrección
+      // post-1D, §3).
+      let correlativo = generarCorrelativoSeguro(datos.serie, otrosDocs, configState.series);
+      let numero = `${datos.serie}-${correlativo}`;
       const ahora = obtenerFechaHoraISO();
 
       let reservasStock: ReservaStockItem[] | undefined;
+      let limpiarSesionNV: (() => void) | undefined;
 
       // Reservar stock OV (DESPUÉS de asignar correlativo)
       if (datos.tipo === 'orden_venta') {
@@ -375,15 +435,21 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         );
       }
 
-      // Descontar stock NV automático (DESPUÉS de asignar correlativo)
+      // Descontar stock NV automático (DESPUÉS de asignar correlativo) — motor central de salidas.
+      // `doc.id` (el borrador ya persistido) es la identidad REAL y estable del documento — se pasa
+      // directamente, nunca se resuelve un id técnico de sesión distinto.
       if (datos.tipo === 'nota_venta' && modoDescuentoStock === 'automatico') {
-        reservasStock = descontarStockParaDocumento(
-          datos.items,
-          configState.almacenes ?? [],
-          activeEstablecimientoId ?? '',
-          numero,
-          session?.userName ?? 'Usuario',
+        const correlativoFallback = correlativo;
+        const numeroFallback = numero;
+        const resultado = await ejecutarDescuentoStockNV(
+          datos,
+          doc.id,
+          () => ({ numero: numeroFallback, correlativo: correlativoFallback }),
         );
+        reservasStock = resultado.reservasStock;
+        limpiarSesionNV = resultado.limpiarSesion;
+        numero = resultado.numero;
+        correlativo = resultado.correlativo;
       }
 
       let accionHistorial: string;
@@ -461,6 +527,9 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       }
 
       actualizarEnContext(documentoGenerado);
+      // La sesión pendiente solo se limpia AHORA — inventario ya quedó confirmado/repetido Y el
+      // documento comercial quedó correctamente persistido (recién arriba).
+      limpiarSesionNV?.();
       return { exito: true, documento: documentoGenerado };
     },
     [
@@ -472,6 +541,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       session,
       activeEstablecimientoId,
       actualizarEnContext,
+      ejecutarDescuentoStockNV,
     ],
   );
 
@@ -1033,5 +1103,6 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
     agregarComentario,
     marcarComoAceptada,
     sincronizarCotizacionDesdeDocumento,
+    cancelarNotaVentaPendiente,
   };
 }

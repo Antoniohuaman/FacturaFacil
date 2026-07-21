@@ -4,6 +4,7 @@ import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type {
   MovimientoStock,
+  MovimientoTipo,
   StockAdjustmentData,
   StockTransferData,
   MassStockUpdateData,
@@ -130,6 +131,28 @@ export class InventoryService {
   }
 
   /**
+   * Signo cuantitativo de un `MovimientoTipo` (Etapa 1D, §6: "no mantengas dos fórmulas
+   * independientes para descontar stock") — única fuente de verdad, reutilizada por
+   * `calcularAjustePropuesto` y por `inventory.facade.ts::addMovimiento`. `TRANSFERENCIA` nunca
+   * pasa por aquí — tiene su propio flujo dedicado (`registerTransfer*`), con origen y destino
+   * explícitos, donde "signo único" no tiene significado.
+   */
+  static signoParaTipoMovimiento(tipo: MovimientoTipo): 1 | -1 {
+    switch (tipo) {
+      case 'ENTRADA':
+      case 'AJUSTE_POSITIVO':
+      case 'DEVOLUCION':
+        return 1;
+      case 'SALIDA':
+      case 'AJUSTE_NEGATIVO':
+      case 'MERMA':
+        return -1;
+      default:
+        throw new Error(`InventoryService.signoParaTipoMovimiento: "${tipo}" no tiene un signo cuantitativo genérico — usa el flujo dedicado.`);
+    }
+  }
+
+  /**
    * Cálculo puro del ajuste de stock (Etapa 1C, §5 del encargo): recibe todo el estado necesario
    * como parámetros, calcula el nuevo stock y el `MovimientoStock` propuesto, y devuelve datos
    * nuevos sin persistirlos. No muta `product`/`almacen`, no lee ni escribe `localStorage`, no
@@ -153,21 +176,7 @@ export class InventoryService {
     }
 
     const cantidadAnterior = this.getStock(product, data.almacenId);
-    let cantidadNueva = cantidadAnterior;
-
-    // Calcular nuevo stock según el tipo de movimiento
-    switch (data.tipo) {
-      case 'ENTRADA':
-      case 'AJUSTE_POSITIVO':
-      case 'DEVOLUCION':
-        cantidadNueva = cantidadAnterior + data.cantidad;
-        break;
-      case 'SALIDA':
-      case 'AJUSTE_NEGATIVO':
-      case 'MERMA':
-        cantidadNueva = cantidadAnterior - data.cantidad;
-        break;
-    }
+    const cantidadNueva = cantidadAnterior + this.signoParaTipoMovimiento(data.tipo) * data.cantidad;
 
     const productoActualizado = this.updateStock(product, data.almacenId, cantidadNueva);
 

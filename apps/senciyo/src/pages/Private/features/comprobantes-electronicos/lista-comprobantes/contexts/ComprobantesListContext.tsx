@@ -52,6 +52,14 @@ export interface Comprobante {
   notaSalidaId?: string;
   notaSalidaGenerada?: boolean;
   fechaGeneracionNotaSalida?: string;
+  /**
+   * UUID técnico (crypto.randomUUID()) usado como identidad de inventario para esta venta —
+   * corrección post-1D: relación oficial y navegable hacia `MovimientoStock.documentoOrigenId`.
+   * `id`/`numeroComprobante` siguen siendo la identidad COMERCIAL visible (pantallas existentes no
+   * cambian) — este campo es puramente estructural para auditar/enlazar con Inventario. Ausente
+   * cuando la venta no descontó stock (nota_credito, control inactivo, modo no automático).
+   */
+  inventarioDocumentoId?: string;
 }
 
 interface ComprobanteState {

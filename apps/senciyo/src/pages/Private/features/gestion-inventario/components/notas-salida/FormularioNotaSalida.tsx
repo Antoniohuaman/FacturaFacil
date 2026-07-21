@@ -441,14 +441,14 @@ const FormularioNotaSalida: React.FC<Props> = ({ notaInicial, onCancelar, onGuar
     if (ok) onGuardado();
   };
 
-  const handleGenerarNS = () => {
+  const handleGenerarNS = async () => {
     const err = validarParaGenerar();
     if (err) { feedback.error(err); return; }
     if (generando) return;
     setGenerando(true);
     const nota = buildNota('Borrador');
     guardarBorrador(nota, { silencioso: true });
-    const ok = generarNS(nota.id);
+    const ok = await generarNS(nota.id);
     setGenerando(false);
     if (ok) onGuardado();
   };

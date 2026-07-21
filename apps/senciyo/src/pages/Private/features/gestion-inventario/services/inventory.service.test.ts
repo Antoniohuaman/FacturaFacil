@@ -123,7 +123,12 @@ describe('InventoryService.calcularAjustePropuesto — cálculo puro', () => {
     };
     const r1 = InventoryService.calcularAjustePropuesto(params);
     const r2 = InventoryService.calcularAjustePropuesto(params);
-    expect(r1).toEqual(r2);
+    // `productoActualizado.fechaActualizacion` proviene de `updateStock` (que usa `new Date()`
+    // real, no el `fechaActual` inyectado) — se compara todo lo demás, que sí es puro/determinista.
+    expect(r1.cantidadAnterior).toBe(r2.cantidadAnterior);
+    expect(r1.cantidadNueva).toBe(r2.cantidadNueva);
+    expect(r1.productoActualizado.stockPorAlmacen).toEqual(r2.productoActualizado.stockPorAlmacen);
+    expect(r1.movimientoPropuesto).toEqual(r2.movimientoPropuesto);
   });
 
   it('entrada en almacén existente (con stock previo): suma sobre el stock actual', () => {

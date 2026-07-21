@@ -70,8 +70,9 @@ export function useInventoryFacade() {
     const stockActual = InventoryService.getStock(product, almacenId);
     const allowNegativeStock = Boolean(options?.allowNegativeStock);
 
-    const isEntrada = tipo === 'ENTRADA' || tipo === 'AJUSTE_POSITIVO' || tipo === 'DEVOLUCION';
-    const cantidadNuevaRaw = isEntrada ? stockActual + cantidad : stockActual - cantidad;
+    // Misma fórmula que InventoryService.calcularAjustePropuesto (Etapa 1D, §6) — nunca dos
+    // cálculos independientes para el mismo signo cuantitativo.
+    const cantidadNuevaRaw = stockActual + InventoryService.signoParaTipoMovimiento(tipo) * cantidad;
     const cantidadNueva = allowNegativeStock ? cantidadNuevaRaw : Math.max(0, cantidadNuevaRaw);
     const delta = cantidadNueva - stockActual;
 

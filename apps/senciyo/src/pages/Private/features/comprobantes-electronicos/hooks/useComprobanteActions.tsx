@@ -47,6 +47,151 @@ import { obtenerEtiquetaTipoComprobante, MOCK_OSE_RESPONSE_DELAY_MS } from '../m
 import { StockRepository } from '../../gestion-inventario/repositories/stock.repository';
 import { crearInstantaneaDocumentoComercial } from '../models/instantaneaDocumentoComercial';
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
+import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
+import type { DatosOperacionSalidaCuantitativa, DatosLineaOperacionCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
+import {
+  obtenerDatosOperacionPendiente,
+  guardarDatosOperacionPendiente,
+  limpiarSesionPendienteOperacion,
+} from '../../../../../shared/inventory/sesionPendienteOperacionInventario';
+import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
+import { serializarCanonicamente } from '../../gestion-inventario/utils/serializacionCanonicaInventario';
+import { getTenantEmpresaId, tryGetTenantEmpresaId } from '../../../../../shared/tenant';
+
+const ESPACIO_VENTA_SALIDA = 'venta_salida';
+
+/**
+ * Datos cacheados en la sesión pendiente de una venta (Etapa 1D, corrección post-1D §1/§4).
+ * `documentoId` es el UUID técnico real (nunca recalculado); `numeroComprobante` es la referencia
+ * comercial estable; `lineasOperacion` (una vez calculadas) nunca se recalculan en un reintento.
+ */
+interface CacheVenta {
+  documentoId: string;
+  numeroComprobante: string;
+  lineasOperacion?: DatosLineaOperacionCuantitativa[];
+}
+
+function esLineaOperacionVentaValida(valor: unknown): valor is DatosLineaOperacionCuantitativa {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const l = valor as Record<string, unknown>;
+  return (
+    typeof l.lineaId === 'string' && l.lineaId.trim() !== '' &&
+    typeof l.productoId === 'string' && l.productoId.trim() !== '' &&
+    typeof l.almacenId === 'string' && l.almacenId.trim() !== '' &&
+    typeof l.cantidadUnidadMinima === 'number' && Number.isFinite(l.cantidadUnidadMinima) && l.cantidadUnidadMinima > 0
+  );
+}
+
+/**
+ * Validación en tiempo de ejecución de `CacheVenta` (corrección post-1D, §2) — una caché corrupta
+ * o incompleta NUNCA puede tratarse como "ya calculada": eso omitiría el descuento de inventario en
+ * silencio (p. ej. si `lineasOperacion` llegara corrupta como `[]` o `undefined`, el llamador
+ * saltaría el motor creyendo que esta venta no afecta stock). Ante cualquier forma inesperada, se
+ * descarta la caché por completo y se recalcula desde cero.
+ */
+export function esCacheVentaValida(valor: unknown): valor is CacheVenta {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const c = valor as Record<string, unknown>;
+  if (typeof c.documentoId !== 'string' || c.documentoId.trim() === '') return false;
+  if (typeof c.numeroComprobante !== 'string' || c.numeroComprobante.trim() === '') return false;
+  if (c.lineasOperacion === undefined) return true;
+  return Array.isArray(c.lineasOperacion) && c.lineasOperacion.every(esLineaOperacionVentaValida);
+}
+
+/**
+ * Huella de la venta para la sesión pendiente de idempotencia (Etapa 1D, §9/§21) — se calcula
+ * SIEMPRE a partir de `data` (estable entre reintentos del mismo click) y del contexto de origen
+ * de la conversión (OV/NV/ninguno) y el modo de descuento vigente — nunca de `numeroComprobante`
+ * ni del `documentoId` técnico (ambos se resuelven DESPUÉS de esta huella). Corrección post-1D,
+ * §4: incluir `origenFlujo`/`origenId`/`modoDescuentoStock` es obligatorio — sin ellos, dos
+ * Órdenes de Venta distintas con el mismo carrito (productos y cantidades idénticos) producirían
+ * la MISMA huella y compartirían indebidamente una sesión pendiente. Un contenido distinto en
+ * cualquiera de estos campos produce una huella distinta y, por tanto, una identidad nueva.
+ */
+export function construirHuellaVenta(
+  data: ComprobanteData,
+  establecimientoId: string,
+  origenFlujo: string | null,
+  origenId: string | null,
+  modoDescuentoStock: string,
+): string {
+  return serializarCanonicamente({
+    tipoComprobante: data.tipoComprobante,
+    serieSeleccionada: data.serieSeleccionada,
+    establecimientoId,
+    origenFlujo: origenFlujo ?? '',
+    origenId: origenId ?? '',
+    modoDescuentoStock,
+    cartItems: data.cartItems.map((item) => ({
+      id: item.id,
+      code: item.code ?? '',
+      quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : 0,
+      tipoDetalle: item.tipoDetalle ?? '',
+      requiresStockControl: Boolean(item.requiresStockControl),
+      unidad: item.presentacionId ?? item.unidadMedida ?? item.unit ?? '',
+    })),
+  });
+}
+
+/**
+ * Asigna, en `lineas` (mutándolas in-place), la liberación de reserva de OV que corresponda a cada
+ * producto — arquitectura nueva (`liberarReservaOV`, por establecimiento) y legacy
+ * (`liberarReservaLegacyOV`, por almacén) — corrección post-1D, §1: para que el motor central
+ * libere la reserva en el MISMO plan que descuenta el stock, nunca en una llamada separada
+ * (`liberarReservasDeOV`) después de confirmar. La liberación es SIEMPRE exactamente la cantidad
+ * despachada (nunca `Math.min` para ocultar una inconsistencia) — rechaza el documento completo si
+ * falta la reserva correspondiente, si la excede, o si el almacén no coincide.
+ */
+export function aplicarLiberacionesOVVenta(
+  lineas: DatosLineaOperacionCuantitativa[],
+  ovReservas: Array<{ sku: string; cantidad: number; almacenId?: string; establecimientoId?: string }>,
+  catalogLookup: Map<string, CatalogProduct>,
+): void {
+  const porProducto = new Map<string, { sku: string; lineas: DatosLineaOperacionCuantitativa[]; total: number }>();
+  for (const linea of lineas) {
+    const catalogProduct = catalogLookup.get(linea.productoId);
+    const sku = catalogProduct?.codigo;
+    if (!sku) {
+      throw new Error(
+        `No se pudo resolver el código de catálogo del producto "${linea.productoId}" para liberar la reserva de la Orden de Venta — operación rechazada completa.`
+      );
+    }
+    const entry = porProducto.get(linea.productoId) ?? { sku, lineas: [], total: 0 };
+    entry.lineas.push(linea);
+    entry.total += linea.cantidadUnidadMinima;
+    porProducto.set(linea.productoId, entry);
+  }
+
+  for (const { sku, lineas: lineasProducto, total } of porProducto.values()) {
+    const reservaGlobal = ovReservas.find((r) => r.sku === sku && r.establecimientoId);
+    if (reservaGlobal?.establecimientoId) {
+      if (total > reservaGlobal.cantidad) {
+        throw new Error(
+          `La cantidad despachada de "${sku}" (${total}) excede la reserva pendiente de la Orden de Venta (${reservaGlobal.cantidad}) — operación rechazada completa.`
+        );
+      }
+      lineasProducto[0].liberarReservaOV = { establecimientoId: reservaGlobal.establecimientoId, cantidad: total };
+      continue;
+    }
+
+    // Legacy (por almacén): cada línea física debe coincidir EXACTAMENTE con una reserva de ese
+    // almacén — nunca se asume ni se reparte, se rechaza si no coincide.
+    for (const linea of lineasProducto) {
+      const reservaAlmacen = ovReservas.find((r) => r.sku === sku && r.almacenId === linea.almacenId);
+      if (!reservaAlmacen) {
+        throw new Error(
+          `No se encontró una reserva de la Orden de Venta para "${sku}" en el almacén "${linea.almacenId}" — operación rechazada completa.`
+        );
+      }
+      if (linea.cantidadUnidadMinima > reservaAlmacen.cantidad) {
+        throw new Error(
+          `La cantidad despachada de "${sku}" en el almacén "${linea.almacenId}" (${linea.cantidadUnidadMinima}) excede la reserva pendiente (${reservaAlmacen.cantidad}) — operación rechazada completa.`
+        );
+      }
+      linea.liberarReservaLegacyOV = { cantidad: linea.cantidadUnidadMinima };
+    }
+  }
+}
 
 interface ComprobanteData {
   tipoComprobante: TipoComprobante;
@@ -264,6 +409,19 @@ export const useComprobanteActions = () => {
     return true;
   }, [toast]);
 
+  /**
+   * Limpia la sesión pendiente de `venta_salida` explícitamente — corrección post-1D §2: nunca se
+   * debe reutilizar una sesión abandonada solo porque un carrito nuevo coincide en contenido con
+   * uno anterior. Debe invocarse al cancelar explícitamente el formulario/venta (Emisión
+   * Tradicional: botón "Cancelar"; POS: "Borrar todo"/nueva venta) — nunca durante un fallo
+   * incierto de la propia emisión (esa sesión debe sobrevivir para el reintento).
+   */
+  const cancelarVentaPendiente = useCallback((): void => {
+    const empresaId = tryGetTenantEmpresaId();
+    if (!empresaId) return;
+    limpiarSesionPendienteOperacion(ESPACIO_VENTA_SALIDA, empresaId);
+  }, []);
+
   // Crear comprobante
   const createComprobante = useCallback(async (data: ComprobanteData): Promise<boolean> => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -344,13 +502,49 @@ export const useComprobanteActions = () => {
       });
 
       // Simular respuesta exitosa
-      const numeroComprobante = `${data.serieSeleccionada}-${String(Math.floor(Math.random() * 10000)).padStart(8, '0')}`;
+      const isNoteCredit = data.tipoComprobante === 'nota_credito';
+
+      // Identidad ESTABLE del comprobante (corrección post-1D, §1/§4): solo cuando el descuento
+      // automático de stock puede afectar inventario. `documentoId` es un UUID TÉCNICO
+      // (crypto.randomUUID(), nunca Math.random) — es el único valor usado como
+      // `documentoOrigenId`/`claveIdempotencia` del motor. `numeroComprobante` permanece como
+      // referencia comercial visible (`documentoReferencia`), también estable entre reintentos
+      // pero nunca usada como identidad técnica. La huella incluye el origen de conversión
+      // (OV/NV/ninguno) y el modo de descuento — dos OVs distintas con el mismo carrito nunca
+      // comparten sesión. En cualquier otro modo (sin control, nota_salida, NC) no hay movimiento
+      // de stock en juego — se conserva el comportamiento original (número por intento).
+      const empresaId = getTenantEmpresaId();
+      const estIdParaHuellaVenta = data.EstablecimientoId || session?.currentEstablecimientoId || '';
+      const origenFlujoParaHuella = sessionStorage.getItem('conversionSourceType');
+      const origenIdParaHuella = sessionStorage.getItem('conversionSourceId');
+      const huellaVenta = construirHuellaVenta(
+        data,
+        estIdParaHuellaVenta,
+        origenFlujoParaHuella,
+        origenIdParaHuella,
+        stockDescuentoFacturaYBoleta,
+      );
+      const requiereIdentidadEstableVenta = !isNoteCredit && controlStockActivo && stockDescuentoFacturaYBoleta === 'automatico';
+
+      let cacheVenta: CacheVenta | undefined;
+      if (requiereIdentidadEstableVenta) {
+        const cacheCruda = obtenerDatosOperacionPendiente<unknown>(ESPACIO_VENTA_SALIDA, empresaId, huellaVenta);
+        // Corrección post-1D, §2: una caché corrupta nunca se trata como válida — se descarta y
+        // se recalcula desde cero en vez de arriesgar que se omita el descuento de inventario.
+        cacheVenta = esCacheVentaValida(cacheCruda) ? cacheCruda : undefined;
+      }
+      const numeroComprobante = cacheVenta?.numeroComprobante
+        ?? `${data.serieSeleccionada}-${String(Math.floor(Math.random() * 10000)).padStart(8, '0')}`;
+      const documentoIdVenta = cacheVenta?.documentoId ?? crypto.randomUUID();
+      if (requiereIdentidadEstableVenta && !cacheVenta) {
+        cacheVenta = { documentoId: documentoIdVenta, numeroComprobante };
+        guardarDatosOperacionPendiente(ESPACIO_VENTA_SALIDA, empresaId, huellaVenta, documentoIdVenta, cacheVenta);
+      }
 
       const paymentSummaryLabel = buildPaymentLabel(data.paymentDetails);
       const [serieCode, correlativoParte] = numeroComprobante.split('-');
       const resolvedCurrency: Currency = (data.currency as Currency) || 'PEN';
       const tipoComprobanteDisplay = obtenerEtiquetaTipoComprobante(data.tipoComprobante);
-      const isNoteCredit = data.tipoComprobante === 'nota_credito';
       const clienteNombre = data.client || 'Cliente General';
       const clienteDocumento = data.clientDoc || '00000000';
       const sucursalNombre = session?.currentEstablecimiento?.nombreEstablecimiento;
@@ -531,7 +725,6 @@ export const useComprobanteActions = () => {
       if (!isNoteCredit && controlStockActivo && stockDescuentoFacturaYBoleta === 'automatico') {
       try {
         const EstablecimientoId = data.EstablecimientoId || session?.currentEstablecimientoId;
-        const Establecimiento = session?.currentEstablecimiento;
         const allowNegativeStock = allowNegativeStockConfig;
 
         if (!EstablecimientoId) {
@@ -560,111 +753,135 @@ export const useComprobanteActions = () => {
           throw new Error(`No hay almacenes activos configurados para el establecimiento ${EstablecimientoId}.`);
         }
 
-        type PendingMovement = {
-          productId: string;
-          qtyUnidadMinima: number;
-          almacenId: string;
-          observaciones: string;
-        };
+        // Corrección post-1D, §1: si un intento previo (misma huella) ya calculó las líneas, se
+        // reutilizan TAL CUAL — nunca se recalcula FIFO contra un stock que pudo haber cambiado
+        // (p. ej. porque ese intento previo ya confirmó el descuento y esta es la persistencia
+        // comercial que quedó pendiente). Solo se calcula cuando es genuinamente la primera vez.
+        let lineas: DatosLineaOperacionCuantitativa[] = cacheVenta?.lineasOperacion ?? [];
 
-        const pendingMovements: PendingMovement[] = [];
+        if (!cacheVenta?.lineasOperacion) {
+          type PendingMovement = {
+            productId: string;
+            qtyUnidadMinima: number;
+            almacenId: string;
+          };
 
-        for (const item of data.cartItems) {
-          if (item.tipoDetalle === 'libre') {
-            continue;
-          }
+          const pendingMovements: PendingMovement[] = [];
 
-          if (!item.requiresStockControl) {
-            continue;
-          }
-
-          const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
-          const quantityInUnidadMinima = catalogProduct
-            ? calculateRequiredUnidadMinima({
-                product: catalogProduct,
-                quantity: item.quantity,
-                unitCode: item.presentacionId || item.unidadMedida || item.unit,
-              })
-            : (Number.isFinite(item.quantity) ? Number(item.quantity) : 0);
-
-          if (quantityInUnidadMinima <= 0) {
-            continue;
-          }
-
-          const observaciones = `Venta en ${data.tipoComprobante} ${numeroComprobante}`;
-
-          // Comprobante desde OV: consumir exactamente los almacenes y cantidades reservados.
-          // No re-ejecutar FIFO para no descontar de almacenes distintos al comprometido.
-          const itemReservas = reservasPorSku.get(item.code || '');
-          if (esDesdeOV && itemReservas && itemReservas.length > 0) {
-            for (const res of itemReservas) {
-              if (res.cantidad <= 0) continue;
-              pendingMovements.push({
-                productId: item.id,
-                qtyUnidadMinima: res.cantidad,
-                almacenId: res.almacenId,
-                observaciones,
-              });
+          for (const item of data.cartItems) {
+            if (item.tipoDetalle === 'libre') {
+              continue;
             }
-            continue;
-          }
 
-          // Venta directa: distribución FIFO progresiva por prioridad de almacén.
-          if (!catalogProduct) {
-            pendingMovements.push({
-              productId: item.id,
+            if (!item.requiresStockControl) {
+              continue;
+            }
+
+            const catalogProduct = catalogLookup.get(item.id) || catalogLookup.get(item.code || '');
+            const quantityInUnidadMinima = catalogProduct
+              ? calculateRequiredUnidadMinima({
+                  product: catalogProduct,
+                  quantity: item.quantity,
+                  unitCode: item.presentacionId || item.unidadMedida || item.unit,
+                })
+              : (Number.isFinite(item.quantity) ? Number(item.quantity) : 0);
+
+            if (quantityInUnidadMinima <= 0) {
+              continue;
+            }
+
+            // Comprobante desde OV: consumir exactamente los almacenes y cantidades reservados.
+            // No re-ejecutar FIFO para no descontar de almacenes distintos al comprometido.
+            const itemReservas = reservasPorSku.get(item.code || '');
+            if (esDesdeOV && itemReservas && itemReservas.length > 0) {
+              for (const res of itemReservas) {
+                if (res.cantidad <= 0) continue;
+                pendingMovements.push({ productId: item.id, qtyUnidadMinima: res.cantidad, almacenId: res.almacenId });
+              }
+              continue;
+            }
+
+            // Venta directa: distribución FIFO progresiva por prioridad de almacén.
+            if (!catalogProduct) {
+              pendingMovements.push({ productId: item.id, qtyUnidadMinima: quantityInUnidadMinima, almacenId: almacenesOrdered[0].id });
+              continue;
+            }
+
+            const allocations = allocateSaleAcrossalmacenes({
+              product: catalogProduct,
+              almacenesOrdered,
               qtyUnidadMinima: quantityInUnidadMinima,
-              almacenId: almacenesOrdered[0].id,
-              observaciones,
+              respectReservations: true,
             });
-            continue;
+
+            // Fail-closed (corrección post-1D, §4): una asignación que no cubre exactamente la
+            // cantidad requerida nunca se aplica parcialmente — rechaza el comprobante completo.
+            const allocatedTotal = allocations.reduce((sum, seg) => sum + seg.qtyUnidadMinima, 0);
+            if (allocatedTotal !== quantityInUnidadMinima) {
+              throw new Error(
+                `Stock insuficiente para emitir el comprobante. Revisa el inventario disponible del producto "${catalogProduct.nombre || item.name || 'producto'}".`
+              );
+            }
+
+            allocations.forEach((seg) => {
+              if (seg.qtyUnidadMinima <= 0) return;
+              pendingMovements.push({ productId: item.id, qtyUnidadMinima: seg.qtyUnidadMinima, almacenId: seg.almacenId });
+            });
           }
 
-          const allocations = allocateSaleAcrossalmacenes({
-            product: catalogProduct,
-            almacenesOrdered,
-            qtyUnidadMinima: quantityInUnidadMinima,
-            respectReservations: true,
-          });
+          lineas = pendingMovements.map((movement, indice) => ({
+            lineaId: `${documentoIdVenta}-${indice}`,
+            productoId: movement.productId,
+            almacenId: movement.almacenId,
+            cantidadUnidadMinima: movement.qtyUnidadMinima,
+          }));
 
-          const allocatedTotal = allocations.reduce((sum, seg) => sum + seg.qtyUnidadMinima, 0);
-          const remaining = quantityInUnidadMinima - allocatedTotal;
-
-          if (remaining > 0) {
-            throw new Error(
-              `Stock insuficiente para emitir el comprobante. Revisa el inventario disponible del producto "${catalogProduct.nombre || item.name || 'producto'}".`
-            );
+          // Comprobante desde OV: la liberación de la reserva se incorpora al MISMO plan que
+          // descuenta el stock (corrección post-1D, §1) — nunca una llamada separada después.
+          if (esDesdeOV) {
+            aplicarLiberacionesOVVenta(lineas, ovReservas, catalogLookup);
           }
 
-          allocations.forEach((seg) => {
-            if (seg.qtyUnidadMinima <= 0) return;
-            pendingMovements.push({
-              productId: item.id,
-              qtyUnidadMinima: seg.qtyUnidadMinima,
-              almacenId: seg.almacenId,
-              observaciones,
-            });
-          });
+          if (requiereIdentidadEstableVenta) {
+            cacheVenta = { documentoId: documentoIdVenta, numeroComprobante, lineasOperacion: lineas };
+            guardarDatosOperacionPendiente(ESPACIO_VENTA_SALIDA, empresaId, huellaVenta, documentoIdVenta, cacheVenta);
+          }
         }
 
-        // Aplicación atómica: si no se permite negativo y algo falla, no se registran parciales.
-        for (const movement of pendingMovements) {
-          addMovimientoStock(
-            movement.productId,
-            'SALIDA',
-            'VENTA',
-            movement.qtyUnidadMinima,
-            movement.observaciones,
-            numeroComprobante,
-            undefined,
-            EstablecimientoId,
-            Establecimiento?.codigoEstablecimiento,
-            Establecimiento?.nombreEstablecimiento,
-            {
-              almacenId: movement.almacenId,
-              allowNegativeStock,
-            }
-          );
+        // Operación completa vía el motor central de salidas (Etapa 1D, §1): validación previa
+        // (arriba), hash canónico, reserva idempotente, preparación pura del documento completo y
+        // confirmación mediante `ejecutarUnidadTrabajoInventario` — nunca una escritura por línea.
+        // `documentoId` es el UUID TÉCNICO real (nunca Math.random) — `numeroComprobante` queda
+        // solo como `documentoReferencia` visible.
+        if (lineas.length > 0) {
+          const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+          const datosOperacion: DatosOperacionSalidaCuantitativa = {
+            modoOperacion: 'cuantitativo',
+            empresaId,
+            documentoId: documentoIdVenta,
+            tipoDocumento: 'venta',
+            tipoOperacion: 'venta_salida',
+            claveIdempotencia: `${ESPACIO_VENTA_SALIDA}:${documentoIdVenta}`,
+            usuario: cajeroNombre,
+            fecha: new Date().toISOString(),
+            motivo: 'VENTA',
+            observaciones: `Venta en ${data.tipoComprobante} ${numeroComprobante}`,
+            documentoReferencia: numeroComprobante,
+            lineas,
+          };
+
+          await ServicioKardexValorizado.registrarSalidaValorizada(datosOperacion, {
+            almacenes: almacenesMap,
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+            permitirStockNegativo: allowNegativeStock,
+          });
+
+          // Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos ni
+          // de movimientos: solo rehidrata el store desde el localStorage ya actualizado por la
+          // unidad de trabajo y reutiliza el evento existente del Kardex. La sesión pendiente NO
+          // se limpia aquí: solo cuando el comprobante quede correctamente persistido más abajo.
+          sincronizarInventarioTrasConfirmacion();
         }
       } catch (stockError) {
         console.error('[Stock] Error descontando stock', {
@@ -981,11 +1198,25 @@ export const useComprobanteActions = () => {
                 : stockDescuentoFacturaYBoleta === 'nota_salida'
                   ? 'nota_salida' as const
                   : 'automatico' as const,
-          } : {})
+          } : {}),
+          // Relación oficial y navegable hacia Inventario (corrección post-1D, §1): el mismo UUID
+          // técnico usado como `documentoId`/`documentoOrigenId` del motor central de salidas.
+          // `numeroComprobante` (id) sigue siendo la identidad comercial visible, sin cambios.
+          ...(requiereIdentidadEstableVenta ? { inventarioDocumentoId: documentoIdVenta } : {}),
         };
 
         // Agregar al contexto global
         addComprobante(nuevoComprobante);
+
+        // La sesión pendiente de venta_salida solo se limpia AHORA — inventario ya quedó
+        // confirmado/repetido (arriba) Y el comprobante quedó correctamente persistido (recién
+        // arriba). Si `addComprobante` hubiera fallado, la sesión seguiría viva para que un
+        // reintento reconstruya la MISMA identidad sin descontar stock de nuevo (corrección
+        // post-1D, §1).
+        if (requiereIdentidadEstableVenta) {
+          limpiarSesionPendienteOperacion(ESPACIO_VENTA_SALIDA, empresaId);
+        }
+
         registrarComprobanteEstadoActualizado({
           estado: 'enviado',
           tipoComprobante: resolverTipoComprobanteAnalitica(data.tipoComprobante),
@@ -1024,6 +1255,10 @@ export const useComprobanteActions = () => {
                 total: data.totals?.total ?? 0,
                 usuario: session?.userName ?? undefined,
                 modoDescuentoStock: nuevoComprobante.modoDescuentoStock,
+                // El motor central de salidas ya liberó la reserva en el mismo plan que descontó
+                // el stock (corrección post-1D, §1) — esta llamada solo debe actualizar estado,
+                // trazabilidad e historial comercial, nunca volver a mutar la reserva.
+                reservaYaLiberadaPorMotor: nuevoComprobante.modoDescuentoStock === 'automatico',
               });
             }
             if (conversionSourceType === 'cotizacion') {
@@ -1279,6 +1514,7 @@ export const useComprobanteActions = () => {
     saveDraft,
     processPayment,
     validateComprobanteData,
+    cancelarVentaPendiente,
 
     // Toast utilities (sistema real de toasts)
     success: toast.success,

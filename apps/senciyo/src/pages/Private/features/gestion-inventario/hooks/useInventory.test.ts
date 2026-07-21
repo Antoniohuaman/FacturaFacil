@@ -4,6 +4,9 @@ import {
   obtenerOperacionIdEstablePersistente,
   limpiarSesionPendienteAjustePositivo,
   construirDatosAjustePositivo,
+  obtenerOperacionIdEstablePersistenteAjusteNegativo,
+  limpiarSesionPendienteAjusteNegativo,
+  construirDatosAjusteNegativo,
 } from './useInventory';
 import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
@@ -26,7 +29,7 @@ function fechaActual(): string {
   return '2026-08-01T00:00:00.000Z';
 }
 
-const CLAVE_SESION = 'facturafacil_ajuste_positivo_sesion_pendiente';
+const CLAVE_SESION = 'facturafacil_sesion_pendiente_ajuste_positivo';
 
 function crearAlmacen(overrides: Partial<Almacen> = {}): Almacen {
   return {
@@ -190,5 +193,102 @@ describe('useInventory — sesión pendiente PERSISTENTE (localStorage, tenantiz
     expect(idEmpresaB).toBe('id-B');
     // Reobtener para la empresa A sigue devolviendo el suyo, sin interferencia de B.
     expect(obtenerOperacionIdEstablePersistente('emp-A', data, () => 'no-deberia-usarse')).toBe('id-A');
+  });
+
+  it('la sesión de ajuste positivo y la de ajuste negativo no se comparten ni se pisan (espacios de nombres distintos)', () => {
+    const data = crearDatosAjuste();
+    const idPositivo = obtenerOperacionIdEstablePersistente(EMPRESA, data, () => 'id-positivo');
+    const idNegativo = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, { ...data, tipo: 'AJUSTE_NEGATIVO' }, () => 'id-negativo');
+
+    expect(idPositivo).toBe('id-positivo');
+    expect(idNegativo).toBe('id-negativo');
+    expect(obtenerOperacionIdEstablePersistente(EMPRESA, data, () => 'no-usado')).toBe('id-positivo');
+  });
+});
+
+describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + sesión pendiente persistente', () => {
+  function crearDatosAjusteNegativo(overrides: Partial<StockAdjustmentData> = {}): StockAdjustmentData {
+    return crearDatosAjuste({ tipo: 'AJUSTE_NEGATIVO', ...overrides });
+  }
+
+  it('doble envío real (misma sesión, sin reiniciar) construye el mismo DTO y no duplica el descuento', async () => {
+    localStorage.setItem(
+      lsKey(PRODUCT_STORAGE_KEY, EMPRESA),
+      JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })])
+    );
+    const almacen = crearAlmacen();
+    const almacenes = new Map([['alm-1', almacen]]);
+    const data = crearDatosAjusteNegativo();
+
+    const operacionId1 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
+    const datos1 = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
+    const resultado1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual });
+
+    const operacionId2 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
+    expect(operacionId2).toBe(operacionId1);
+    const datos2 = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId2, fecha: fechaActual() });
+    const resultado2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes, generarId, fechaActual });
+
+    expect(resultado1.estado).toBe('nueva');
+    expect(resultado2.estado).toBe('repetida');
+    expect(resultado2.movimientos).toEqual([]);
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(10);
+  });
+
+  it('stock insuficiente es rechazado', async () => {
+    localStorage.setItem(
+      lsKey(PRODUCT_STORAGE_KEY, EMPRESA),
+      JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 3 } })])
+    );
+    const almacen = crearAlmacen();
+    const almacenes = new Map([['alm-1', almacen]]);
+    const data = crearDatosAjusteNegativo({ cantidad: 10 });
+    const operacionId = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
+    const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual() });
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual })
+    ).rejects.toThrow(/negativo/);
+  });
+
+  it('un resultado exitoso limpia la sesión pendiente del ajuste negativo', () => {
+    const data = crearDatosAjusteNegativo();
+    obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => 'id-1');
+    limpiarSesionPendienteAjusteNegativo(EMPRESA);
+    // Tras limpiar, la próxima obtención genera un id nuevo (no reutiliza 'id-1').
+    expect(obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => 'id-2')).toBe('id-2');
+  });
+
+  it('no se limpia ante un fallo incierto: el reintento reutiliza el mismo operacionId', async () => {
+    // Sin sembrar productos: el motor fallará (producto inexistente) — un fallo incierto.
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    const data = crearDatosAjusteNegativo();
+
+    const operacionId1 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
+    const datos1 = construirDatosAjusteNegativo({ data, almacen: crearAlmacen(), empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual })
+    ).rejects.toThrow();
+
+    const operacionId2 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
+    expect(operacionId2).toBe(operacionId1);
+  });
+
+  it('no toca stockReservadoOVPorEstablecimiento (el ajuste negativo nunca modifica reservas)', async () => {
+    localStorage.setItem(
+      lsKey(PRODUCT_STORAGE_KEY, EMPRESA),
+      JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 }, stockReservadoOVPorEstablecimiento: { 'est-1': 7 } })])
+    );
+    const almacen = crearAlmacen();
+    const almacenes = new Map([['alm-1', almacen]]);
+    const data = crearDatosAjusteNegativo();
+    const operacionId = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
+    const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual() });
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
+
+    expect(resultado.productosActualizados[0].stockReservadoOVPorEstablecimiento?.['est-1']).toBe(7);
   });
 });

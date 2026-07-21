@@ -197,7 +197,7 @@ export default function FormularioDocumentoComercial({
     debePersistir: (datos) => datos.items.length > 0 || !!datos.cliente,
   });
 
-  const handleGenerar = useCallback(() => {
+  const handleGenerar = useCallback(async () => {
     const datos = obtenerDatosFormulario();
     const errorValidacion = actions.validarDatos(datos);
     if (errorValidacion) {
@@ -249,11 +249,11 @@ export default function FormularioDocumentoComercial({
 
     let resultado;
     if (esBorradorEdicion && documentoExistente) {
-      resultado = actions.generarDesdeBorrador(documentoExistente.id, datos);
+      resultado = await actions.generarDesdeBorrador(documentoExistente.id, datos);
     } else if (modo === 'editar' && documentoExistente) {
       resultado = actions.actualizarDocumento(documentoExistente.id, datos);
     } else {
-      resultado = actions.generarDocumento(datos);
+      resultado = await actions.generarDocumento(datos);
     }
 
     if (resultado.exito) {
@@ -297,10 +297,10 @@ export default function FormularioDocumentoComercial({
     prefillFrom, currentCurrency, cartItems,
   ]);
 
-  const handleConfirmarGuardar = useCallback(() => {
+  const handleConfirmarGuardar = useCallback(async () => {
     setModalCambiosCotizacion(null);
     saltarVerificacionCambiosRef.current = true;
-    handleGenerar();
+    await handleGenerar();
   }, [handleGenerar]);
 
   const handleRevertirCambios = useCallback(() => {
@@ -346,6 +346,9 @@ export default function FormularioDocumentoComercial({
   }, [obtenerDatosFormulario, actions, labelTipo, feedback, limpiarBorrador, clearCart, navigate, estado.tipoDocumento]);
 
   const handleCancelar = useCallback(() => {
+    // Cancelación explícita (corrección post-1D, §2): nunca se debe reutilizar esta sesión de
+    // inventario abandonada solo porque un documento futuro coincida en contenido.
+    actions.cancelarNotaVentaPendiente();
     limpiarBorrador();
     clearCart();
     if (cotizacionOrigenId) {
@@ -356,7 +359,7 @@ export default function FormularioDocumentoComercial({
     } else {
       navigate('/documentos-comerciales', { state: { tipo: estado.tipoDocumento } });
     }
-  }, [limpiarBorrador, clearCart, navigate, estado.tipoDocumento, cotizacionOrigenId]);
+  }, [actions, limpiarBorrador, clearCart, navigate, estado.tipoDocumento, cotizacionOrigenId]);
 
   const handleMonedaChange = useCallback(
     (moneda: typeof currentCurrency) => {

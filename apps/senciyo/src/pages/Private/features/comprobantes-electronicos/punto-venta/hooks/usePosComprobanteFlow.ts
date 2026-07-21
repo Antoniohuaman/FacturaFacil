@@ -77,6 +77,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals, onVentaCompletada }: 
     error,
     warning,
     paymentMethods,
+    cancelarVentaPendiente,
   } = useComprobanteActions();
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -511,6 +512,10 @@ export const usePosComprobanteFlow = ({ cartItems, totals, onVentaCompletada }: 
     }
     setClienteSeleccionado(null);
     setShowSuccessModal(false);
+    // Iniciar una venta genuinamente nueva (corrección post-1D, §2): la venta anterior ya limpió
+    // su propia sesión al confirmarse, pero se vuelve a limpiar aquí de forma defensiva para que
+    // nunca quede una sesión de inventario abandonada disponible para el siguiente carrito.
+    cancelarVentaPendiente();
   };
 
   return {
@@ -565,6 +570,7 @@ export const usePosComprobanteFlow = ({ cartItems, totals, onVentaCompletada }: 
     handlePrint,
     handleNewSale,
     warning,
+    cancelarVentaPendiente,
   };
 };
 

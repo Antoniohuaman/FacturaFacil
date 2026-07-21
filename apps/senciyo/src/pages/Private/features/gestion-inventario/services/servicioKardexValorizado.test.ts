@@ -8,7 +8,7 @@ import {
   buscarOperacionIdempotentePorClave,
 } from '../repositories/operacionIdempotenteInventario.repository';
 import { obtenerEstadoVersionInventario } from '../repositories/estadoVersionInventario.repository';
-import type { DatosOperacionEntradaCuantitativa } from '../models/operacionEntradaInventario.types';
+import type { DatosOperacionEntradaCuantitativa, DatosOperacionSalidaCuantitativa } from '../models/operacionEntradaInventario.types';
 import type { OperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
@@ -451,6 +451,234 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — corrección: u
 
     try {
       await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual });
+    } finally {
+      localStorage.setItem = escrituraOriginal;
+    }
+
+    expect(escriturasProductos).toBe(1);
+  });
+});
+
+function datosSalidaBase(overrides: Partial<DatosOperacionSalidaCuantitativa> = {}): DatosOperacionSalidaCuantitativa {
+  return {
+    modoOperacion: 'cuantitativo',
+    empresaId: 'emp-A',
+    documentoId: 'venta-1',
+    tipoDocumento: 'venta',
+    tipoOperacion: 'venta_salida',
+    claveIdempotencia: 'venta_salida:venta-1',
+    usuario: 'user-1',
+    fecha: '2026-01-01T00:00:00.000Z',
+    motivo: 'VENTA',
+    lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10 }],
+    ...overrides,
+  };
+}
+
+describe('ServicioKardexValorizado.registrarSalidaValorizada — modo valorizado rechazado', () => {
+  it('rechaza cualquier modoOperacion distinto de "cuantitativo" sin reservar ni mutar nada', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    // @ts-expect-error — 'valorizado' no es un modoOperacion válido; se fuerza deliberadamente
+    // (sin cast) para probar que el motor lo rechaza en tiempo de ejecución, no solo en tipos.
+    const datosInvalidos: DatosOperacionSalidaCuantitativa = { ...datosSalidaBase(), modoOperacion: 'valorizado' };
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datosInvalidos, { almacenes, generarId, fechaActual })
+    ).rejects.toThrow(/cuantitativ/);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+});
+
+describe('ServicioKardexValorizado.registrarSalidaValorizada — idempotencia', () => {
+  it('primera salida descuenta el stock', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
+
+    expect(resultado.estado).toBe('nueva');
+    expect(resultado.movimientos).toHaveLength(1);
+    expect(resultado.movimientos[0].tipo).toBe('SALIDA');
+    expect(resultado.productosActualizados[0].stockPorAlmacen?.['alm-1']).toBe(10);
+    expect(obtenerEstadoVersionInventario(empresaId)?.versionInventario).toBe(1);
+  });
+
+  it('doble clic / reintento tras recarga (mismo hash) no duplica el descuento ni sube la versión de nuevo', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    const datos = datosSalidaBase({ empresaId });
+
+    const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
+    const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
+
+    expect(segundo.estado).toBe('repetida');
+    expect(segundo.resultadoIds).toEqual(primero.resultadoIds);
+    expect(segundo.movimientos).toEqual([]);
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(10);
+    expect(obtenerEstadoVersionInventario(empresaId)?.versionInventario).toBe(1);
+  });
+
+  it('misma clave con cantidad distinta produce ConflictoIdempotencia', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
+
+    const datosCambiados = datosSalidaBase({
+      empresaId,
+      lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 3 }],
+    });
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datosCambiados, { almacenes, generarId, fechaActual })
+    ).rejects.toThrow(ConflictoIdempotencia);
+  });
+
+  it('misma clave con motivo, observaciones o documentoReferencia distintos produce ConflictoIdempotencia', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId, motivo: 'VENTA', observaciones: 'a', documentoReferencia: 'F001-1' }), { almacenes, generarId, fechaActual });
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId, motivo: 'OTRO', observaciones: 'a', documentoReferencia: 'F001-1' }), { almacenes, generarId, fechaActual })
+    ).rejects.toThrow(ConflictoIdempotencia);
+  });
+
+  it('recuperación de una operación fallida (reactivada) crea un movimiento nuevo sin reusar IDs viejos', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    sembrarOperacionDePrueba(empresaId, {
+      id: 'op-vieja',
+      empresaId,
+      clave: 'venta_salida:venta-1',
+      tipoOperacion: 'venta_salida',
+      estado: 'fallida',
+      hashEntrada: 'hash-viejo-no-coincide',
+      referenciaDocumentoId: 'venta-1',
+      referenciaDocumentoTipo: 'venta',
+      resultadoIds: [],
+      fechaCreacion: '2026-01-01T00:00:00.000Z',
+    });
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
+
+    expect(resultado.estado).toBe('reactivada');
+    expect(resultado.movimientos).toHaveLength(1);
+    expect(resultado.resultadoIds).not.toContain('op-vieja');
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(10);
+  });
+});
+
+describe('ServicioKardexValorizado.registrarSalidaValorizada — corrección: preparación fallida no deja reserva ambigua', () => {
+  it('primer intento con almacén inexistente falla, no descuenta ni sube versión, y NO queda ambigua — el reintento con datos corregidos tiene éxito', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenesIncompletos = new Map<string, Almacen>();
+    const almacenesCorregidos = new Map([['alm-1', crearAlmacen()]]);
+    const datos = datosSalidaBase({ empresaId, claveIdempotencia: 'clave-reintento-salida' });
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesIncompletos, generarId, fechaActual })
+    ).rejects.toThrow(/almacén/);
+
+    expect(obtenerEstadoVersionInventario(empresaId)).toBeUndefined();
+    const productosSinCambio = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productosSinCambio[0].stockPorAlmacen['alm-1']).toBe(20);
+    const operacionTrasFallo = buscarOperacionIdempotentePorClave(empresaId, 'clave-reintento-salida');
+    expect(operacionTrasFallo?.estado).toBe('fallida');
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesCorregidos, generarId, fechaActual });
+
+    expect(resultado.estado).toBe('reactivada');
+    expect(resultado.movimientos).toHaveLength(1);
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(10);
+  });
+});
+
+describe('ServicioKardexValorizado.registrarSalidaValorizada — clasificación inventariable', () => {
+  it('una salida directa sobre un producto SERVICIOS es rechazada sin escribir', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ tipoExistencia: 'SERVICIOS', stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual })
+    ).rejects.toThrow(/no está controlado por stock/);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+
+  it('una salida directa sobre un producto OTROS es rechazada sin escribir', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ tipoExistencia: 'OTROS', stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual })
+    ).rejects.toThrow(/no está controlado por stock/);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+});
+
+describe('ServicioKardexValorizado.registrarSalidaValorizada — integración con la unidad de trabajo de Etapa 1B', () => {
+  it('dos salidas concurrentes de la misma empresa (claves distintas) no se corrompen ni se pisan: la versión sube una vez por cada una', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    const [resultado1, resultado2] = await Promise.all([
+      ServicioKardexValorizado.registrarSalidaValorizada(
+        datosSalidaBase({ empresaId, documentoId: 'venta-1', claveIdempotencia: 'venta_salida:venta-1' }),
+        { almacenes, generarId, fechaActual }
+      ),
+      ServicioKardexValorizado.registrarSalidaValorizada(
+        datosSalidaBase({ empresaId, documentoId: 'venta-2', claveIdempotencia: 'venta_salida:venta-2' }),
+        { almacenes, generarId, fechaActual }
+      ),
+    ]);
+
+    expect(resultado1.estado).toBe('nueva');
+    expect(resultado2.estado).toBe('nueva');
+    expect(new Set([...resultado1.resultadoIds, ...resultado2.resultadoIds]).size).toBe(2);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(0);
+    expect(obtenerEstadoVersionInventario(empresaId)?.versionInventario).toBe(2);
+  });
+
+  it('confirmar escribe la colección de productos exactamente una vez', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    const claveProductos = lsKey(PRODUCT_STORAGE_KEY, empresaId);
+
+    const escrituraOriginal = localStorage.setItem.bind(localStorage);
+    let escriturasProductos = 0;
+    localStorage.setItem = ((clave: string, valor: string) => {
+      if (clave === claveProductos) escriturasProductos += 1;
+      escrituraOriginal(clave, valor);
+    }) as typeof localStorage.setItem;
+
+    try {
+      await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
     } finally {
       localStorage.setItem = escrituraOriginal;
     }
