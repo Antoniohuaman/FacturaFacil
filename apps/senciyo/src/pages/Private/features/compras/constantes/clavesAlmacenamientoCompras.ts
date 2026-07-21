@@ -1,4 +1,5 @@
 export const CLAVES_COMPRAS = {
+  TAB_ACTIVO: 'compras_tab_activo_v1',
   REQUERIMIENTOS_COMPRA: 'compras_requerimientos_compra_v1',
   ORDENES_COMPRA: 'compras_ordenes_compra_v1',
   COMPROBANTES_COMPRA: 'compras_comprobantes_compra_v1',

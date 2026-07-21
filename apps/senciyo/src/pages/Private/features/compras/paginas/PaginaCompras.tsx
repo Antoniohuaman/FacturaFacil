@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, FileText, ClipboardList, Receipt, CreditCard, Wallet } from 'lucide-react';
 import { useCompras } from '../contexto/ContextoCompras';
@@ -43,6 +43,7 @@ import {
   MOTIVOS_ANULACION_CC,
   MOTIVOS_ANULACION_PAGO,
 } from '../constantes/motivosAnulacionCompras';
+import { CLAVES_COMPRAS } from '../constantes/clavesAlmacenamientoCompras';
 
 type TabActivo = 'requerimientos' | 'ordenes' | 'comprobantes' | 'cuentas_por_pagar' | 'pagos';
 
@@ -73,6 +74,29 @@ const TABS: { id: TabActivo; label: string; icon: typeof FileText }[] = [
   { id: 'pagos', label: 'Pagos', icon: Wallet },
 ];
 
+/** Tab que se abre cuando no hay navegación explícita ni un último tab válido guardado en la sesión (flujo más frecuente: registrar un comprobante directo). */
+const TAB_ACTIVO_POR_DEFECTO: TabActivo = 'comprobantes';
+
+function esTabActivoValido(valor: string | null): valor is TabActivo {
+  return TABS.some((tab) => tab.id === valor);
+}
+
+/** Último tab utilizado durante la sesión del navegador (se pierde al cerrar la pestaña, a diferencia de las preferencias de columnas que sí persisten en localStorage). */
+function obtenerTabActivoGuardado(): TabActivo | null {
+  if (typeof window === 'undefined') return null;
+  const valor = window.sessionStorage.getItem(CLAVES_COMPRAS.TAB_ACTIVO);
+  return esTabActivoValido(valor) ? valor : null;
+}
+
+function guardarTabActivoCompras(tab: TabActivo): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(CLAVES_COMPRAS.TAB_ACTIVO, tab);
+  } catch {
+    // ignorar cuota de almacenamiento
+  }
+}
+
 export default function PaginaCompras() {
   const {
     state,
@@ -100,7 +124,18 @@ export default function PaginaCompras() {
   const location = useLocation();
   const tabDesdeNavegacion = (location.state as { tab?: TabActivo } | null)?.tab;
 
-  const [tabActivo, setTabActivo] = useState<TabActivo>(tabDesdeNavegacion ?? 'ordenes');
+  const [tabActivo, setTabActivo] = useState<TabActivo>(
+    () => tabDesdeNavegacion ?? obtenerTabActivoGuardado() ?? TAB_ACTIVO_POR_DEFECTO,
+  );
+  // Recuerda el último tab utilizado durante la sesión (prioridad: navegación
+  // explícita al entrar > último tab guardado > TAB_ACTIVO_POR_DEFECTO, ver
+  // inicialización arriba). Cualquier cambio de tab —por click del usuario o
+  // por una navegación explícita tras una acción (ej. generar OC/CC)— queda
+  // registrado aquí sin distinguir el origen, así la próxima vez se recupera
+  // el tab donde el usuario terminó.
+  useEffect(() => {
+    guardarTabActivoCompras(tabActivo);
+  }, [tabActivo]);
   const [vista, setVista] = useState<Vista>({ tipo: 'lista' });
   const [rcParaAnular, setRcParaAnular] = useState<RequerimientoCompra | null>(null);
   const [ocParaAprobar, setOcParaAprobar] = useState<OrdenCompra | null>(null);
@@ -346,9 +381,6 @@ export default function PaginaCompras() {
       ? (state.pagos.find((p) => p.id === vista.pagoId) ?? null)
       : null;
 
-  const cxpPendientes = state.cuentasPorPagar.filter(
-    (c) => c.estadoPago === 'pendiente' || c.estadoPago === 'parcial',
-  );
 
   return (
     <div className="flex flex-col h-full">
@@ -371,11 +403,6 @@ export default function PaginaCompras() {
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const activo = tabActivo === tab.id;
-            let contador: number | null = null;
-            if (tab.id === 'requerimientos') contador = state.requerimientos.length || null;
-            if (tab.id === 'ordenes') contador = state.ordenes.length || null;
-            if (tab.id === 'comprobantes') contador = state.comprobantes.length || null;
-            if (tab.id === 'cuentas_por_pagar') contador = cxpPendientes.length || null;
 
             return (
               <button
@@ -389,17 +416,6 @@ export default function PaginaCompras() {
               >
                 <Icon size={15} />
                 {tab.label}
-                {contador !== null && (
-                  <span
-                    className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${
-                      tab.id === 'cuentas_por_pagar'
-                        ? 'bg-orange-100 text-orange-700 font-medium'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {contador}
-                  </span>
-                )}
               </button>
             );
           })}

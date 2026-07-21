@@ -319,7 +319,7 @@ export default function FormularioRequerimientoCompra({
             lineasCompra={lineasCompra}
             totalesCalculados={totalesCalculados}
             etiquetaCosto="Precio ref."
-            etiquetaTotal="Total referencial"
+            etiquetaTotal="Total"
           />
         </div>
 
