@@ -2,10 +2,19 @@ import type { MonedaCompra } from './tiposBaseCompras';
 import type { AdjuntoCompra } from './AdjuntoCompra';
 import type { EventoHistorialCompras } from './EventoHistorialCompras';
 
+/**
+ * Valor interno persistido — se mantiene como 'registrado' (histórico, desde
+ * la versión original del módulo) para no invalidar pagos ya guardados en
+ * localStorage ni romper comparaciones existentes. El texto que ve el
+ * usuario es 'Pagado' (ver ESTADO_DOCUMENTO_PAGO_LABELS): a diferencia de un
+ * documento (RC/OC/CC), que pasa de Borrador a "Registrado" al emitirse, un
+ * Pago no tiene estado de borrador — su semántica correcta es que está
+ * Pagado o Anulado.
+ */
 export type EstadoDocumentoPago = 'registrado' | 'anulado';
 
 export const ESTADO_DOCUMENTO_PAGO_LABELS: Record<EstadoDocumentoPago, string> = {
-  registrado: 'Registrado',
+  registrado: 'Pagado',
   anulado: 'Anulado',
 };
 

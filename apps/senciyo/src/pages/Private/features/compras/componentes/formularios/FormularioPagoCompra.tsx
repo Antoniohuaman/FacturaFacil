@@ -106,10 +106,14 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, onExito,
           <div id="campo-aplicaciones" className="space-y-2">
             <TablaDocumentosPagoCompra
               documentos={cxps}
-              aplicaciones={f.aplicaciones}
-              onCambiarAplicacion={f.onCambiarAplicacion}
               moneda={f.moneda}
               disabled={f.enviando}
+              aplicacionesSimples={f.aplicacionesSimples}
+              onCambiarAplicacionSimple={f.onCambiarAplicacionSimple}
+              cuotasPorDocumento={f.cuotasPorDocumento}
+              asignacionesCuotasPorDocumento={f.asignacionesCuotasPorDocumento}
+              onCambiarAsignacionesCuotas={f.onCambiarAsignacionesCuotas}
+              obtenerImporteDocumento={f.obtenerImporteDocumento}
             />
             {f.intentoRegistrar && f.erroresPorCampo.aplicaciones && (
               <p className="text-xs text-red-600">{f.erroresPorCampo.aplicaciones}</p>

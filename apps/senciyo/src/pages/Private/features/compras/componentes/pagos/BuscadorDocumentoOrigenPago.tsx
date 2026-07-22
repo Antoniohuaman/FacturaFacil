@@ -11,29 +11,26 @@ import { useConfigurationContext } from '../../../configuracion-sistema/contexto
 
 interface BuscadorDocumentoOrigenPagoProps {
   cuentasPorPagar: CuentaPorPagar[];
-  /** Preselección al entrar desde la acción "Pagar" de una CxP específica. */
-  proveedorIdInicial?: string;
-  cxpIdsPreseleccionadas?: string[];
   onContinuar: (seleccion: { cxps: CuentaPorPagar[]; importesIniciales: Record<string, number> }) => void;
 }
 
 /**
- * Paso previo real de "Registrar pago" (§6-§9 del alcance): proveedor →
- * moneda → selección múltiple de documentos pendientes del mismo proveedor y
- * moneda, cada uno con un importe a aplicar editable (por defecto, su saldo
- * pendiente completo). Solo lista CxP con saldo pendiente > 0 y estado
- * pendiente/parcial (nunca pagadas, anuladas o sin saldo) — no permite crear
- * ni escribir una CxP inexistente, solo seleccionar reales.
+ * Paso previo real de "Registrar pago" (acceso "+ Registrar pago", sin CxP
+ * preseleccionada): proveedor → moneda → selección múltiple de documentos
+ * pendientes del mismo proveedor y moneda, cada uno con un importe a aplicar
+ * editable (por defecto, su saldo pendiente completo). Solo lista CxP con
+ * saldo pendiente > 0 y estado pendiente/parcial (nunca pagadas, anuladas o
+ * sin saldo) — no permite crear ni escribir una CxP inexistente, solo
+ * seleccionar reales. El acceso "Pagar" desde una CxP puntual nunca pasa por
+ * este componente: va directo al formulario de pago (PaginaRegistrarPagoCompra).
  */
 export default function BuscadorDocumentoOrigenPago({
   cuentasPorPagar,
-  proveedorIdInicial,
-  cxpIdsPreseleccionadas,
   onContinuar,
 }: BuscadorDocumentoOrigenPagoProps) {
   const { state: config } = useConfigurationContext();
   const [busqueda, setBusqueda] = useState('');
-  const [proveedorId, setProveedorId] = useState<string | null>(proveedorIdInicial ?? null);
+  const [proveedorId, setProveedorId] = useState<string | null>(null);
   const [moneda, setMoneda] = useState<MonedaCompra | null>(null);
   const [importes, setImportes] = useState<Record<string, number>>({});
 
@@ -74,17 +71,10 @@ export default function BuscadorDocumentoOrigenPago({
     [documentosProveedor],
   );
 
-  // Auto-resuelve moneda: única disponible, o la del documento preseleccionado.
+  // Auto-resuelve moneda cuando el proveedor solo tiene una disponible.
   useEffect(() => {
     if (!proveedorId) return;
     if (moneda && monedasDisponibles.includes(moneda)) return;
-    if (cxpIdsPreseleccionadas?.length) {
-      const preseleccionada = documentosProveedor.find((c) => cxpIdsPreseleccionadas.includes(c.id));
-      if (preseleccionada) {
-        setMoneda(preseleccionada.moneda);
-        return;
-      }
-    }
     if (monedasDisponibles.length === 1) {
       setMoneda(monedasDisponibles[0]);
     } else {
@@ -97,23 +87,6 @@ export default function BuscadorDocumentoOrigenPago({
     () => documentosProveedor.filter((cxp) => cxp.moneda === moneda),
     [documentosProveedor, moneda],
   );
-
-  // Preselección inicial (acceso "Pagar" desde una CxP puntual): importe = saldo pendiente completo.
-  useEffect(() => {
-    if (!cxpIdsPreseleccionadas?.length || !moneda) return;
-    setImportes((prev) => {
-      const siguiente = { ...prev };
-      let cambio = false;
-      documentosCompatibles.forEach((cxp) => {
-        if (cxpIdsPreseleccionadas.includes(cxp.id) && siguiente[cxp.id] === undefined) {
-          siguiente[cxp.id] = cxp.saldoPendiente;
-          cambio = true;
-        }
-      });
-      return cambio ? siguiente : prev;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moneda, documentosCompatibles.length]);
 
   const documentosFiltrados = filtrarCuentasPorPagar(documentosCompatibles, { busqueda });
 

@@ -224,15 +224,31 @@ export default function PanelDetallePagoCompra({
                 <Seccion titulo={`Documentos aplicados (${aplicacionesResueltas.length})`}>
                   <div className="divide-y divide-gray-100">
                     {aplicacionesResueltas.map(({ aplicacion, cxp }, i) => (
-                      <div key={`${aplicacion.cuentaPorPagarId}-${i}`} className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-700 font-mono">
-                          {cxp
-                            ? `${TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO[cxp.tipoComprobanteOrigen]?.nombre ?? cxp.tipoComprobanteOrigen} ${cxp.comprobanteCompraNumero}`
-                            : 'Documento no disponible'}
-                        </span>
-                        <span className="text-sm font-medium text-gray-900 font-mono">
-                          {formatMoney(aplicacion.importeAplicado, pago.moneda)}
-                        </span>
+                      <div key={`${aplicacion.cuentaPorPagarId}-${i}`} className="py-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-700 font-mono">
+                            {cxp
+                              ? `${TIPOS_DOCUMENTO_PROVEEDOR_POR_CODIGO[cxp.tipoComprobanteOrigen]?.nombre ?? cxp.tipoComprobanteOrigen} ${cxp.comprobanteCompraNumero}`
+                              : 'Documento no disponible'}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900 font-mono">
+                            {formatMoney(aplicacion.importeAplicado, pago.moneda)}
+                          </span>
+                        </div>
+                        {/* Desglose por cuota: solo cuando la aplicación trae asignaciones explícitas (documento con cronograma real) — §16 del alcance, para auditar exactamente qué cuotas quedaron canceladas. */}
+                        {aplicacion.asignacionesCuotas && aplicacion.asignacionesCuotas.length > 0 && (
+                          <div className="mt-1 pl-3 space-y-0.5 border-l-2 border-gray-200">
+                            {aplicacion.asignacionesCuotas.map((asignacionCuota) => {
+                              const cuota = cxp?.cuotas?.find((c) => c.id === asignacionCuota.cuotaId);
+                              return (
+                                <div key={asignacionCuota.cuotaId} className="flex justify-between items-center text-xs text-gray-500">
+                                  <span>{cuota ? `Cuota ${cuota.numeroCuota}` : 'Cuota'}</span>
+                                  <span className="font-mono">{formatMoney(asignacionCuota.monto, pago.moneda)}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

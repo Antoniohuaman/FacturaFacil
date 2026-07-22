@@ -36,10 +36,11 @@ export default function PaginaRegistrarPagoCompra() {
   const volverACuentasPorPagar = () => navigate('/compras', { state: { tab: 'cuentas_por_pagar' } });
   const volverAPagos = () => navigate('/compras', { state: { tab: 'pagos' } });
 
-  // Acceso B (§19 del alcance): "Pagar" desde una CxP específica llega con
-  // proveedor, moneda y documento preseleccionados, pero sigue mostrando el
-  // resto de documentos compatibles del mismo proveedor y moneda por si el
-  // usuario quiere agregarlos al mismo pago.
+  // Acceso directo desde "Pagar" en una CxP puntual: proveedor, moneda y
+  // documento ya están determinados por esa CxP, así que el formulario de
+  // pago se muestra de inmediato — nunca pasa por el selector de
+  // proveedor/documentos, que es exclusivo del acceso "+ Registrar pago"
+  // (sin cuentaPorPagarId en la URL).
   const cxpPreseleccionada = cuentaPorPagarId
     ? state.cuentasPorPagar.find((c) => c.id === cuentaPorPagarId)
     : undefined;
@@ -62,6 +63,17 @@ export default function PaginaRegistrarPagoCompra() {
     );
   }
 
+  if (cxpPreseleccionada) {
+    return (
+      <FormularioPagoCompra
+        cxps={[cxpPreseleccionada]}
+        importesIniciales={{ [cxpPreseleccionada.id]: cxpPreseleccionada.saldoPendiente }}
+        onExito={volverAPagos}
+        onCancelar={volverACuentasPorPagar}
+      />
+    );
+  }
+
   if (!seleccion) {
     return (
       <div className="min-h-screen bg-gray-50 pb-24">
@@ -79,8 +91,6 @@ export default function PaginaRegistrarPagoCompra() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <BuscadorDocumentoOrigenPago
             cuentasPorPagar={state.cuentasPorPagar}
-            proveedorIdInicial={cxpPreseleccionada?.proveedorId}
-            cxpIdsPreseleccionadas={cxpPreseleccionada ? [cxpPreseleccionada.id] : undefined}
             onContinuar={setSeleccion}
           />
         </div>
@@ -93,7 +103,7 @@ export default function PaginaRegistrarPagoCompra() {
       cxps={seleccion.cxps}
       importesIniciales={seleccion.importesIniciales}
       onExito={volverAPagos}
-      onCancelar={cuentaPorPagarId ? volverACuentasPorPagar : volverAPagos}
+      onCancelar={volverAPagos}
     />
   );
 }
