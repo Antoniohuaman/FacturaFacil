@@ -419,7 +419,19 @@ function calcularReversoDeTransferencia(contexto: ContextoReverso, original: Mov
   const capasDestino = Array.from(contexto.capasPorId.values()).filter((c) => c.movimientoEntradaId === entrada.id);
   const capasOrigenRestauradasIds: string[] = [];
   const capasDestinoRevertidasIds: string[] = [];
+  const consumosOrigenRevertidosIds: string[] = [];
   if (capasDestino.length > 0) {
+    // Cierre puntual Etapa 4A: el consumo original en origen (`ConsumoCapaCostoInventario`,
+    // motivo:'transferencia') es el vínculo histórico real — nunca se recalcula ni se selecciona
+    // uno nuevo, se localiza por `movimientoSalidaId`+`capaId` exactamente igual que
+    // `restaurarConsumosDeSalida`. Validado ANTES de mutar nada: si ya fue revertido (inconsistencia
+    // real, no debería ocurrir con la capa destino intacta), se bloquea TODA la anulación.
+    const consumosOrigenPorCapaId = new Map(
+      Array.from(contexto.consumosPorId.values())
+        .filter((c) => c.movimientoSalidaId === salida.id)
+        .map((c) => [c.capaId, c] as const)
+    );
+
     for (const capa of capasDestino) {
       if (capa.estado === 'revertida') {
         throw new Error(`reversoCuantitativoInventario: una capa creada por la transferencia "${original.transferenciaId}" ya fue revertida.`);
@@ -429,6 +441,12 @@ function calcularReversoDeTransferencia(contexto: ContextoReverso, original: Mov
           `reversoCuantitativoInventario: una capa creada por la transferencia "${original.transferenciaId}" ya fue consumida o transferida ` +
           `nuevamente (disponible ${capa.cantidadDisponible} de ${capa.cantidadInicial}) — la transferencia no puede revertirse.`
         );
+      }
+      if (capa.capaOrigenId) {
+        const consumoOrigen = consumosOrigenPorCapaId.get(capa.capaOrigenId);
+        if (consumoOrigen && consumoOrigen.estado === 'revertido') {
+          throw new Error(`reversoCuantitativoInventario: el consumo de la capa de origen de la transferencia "${original.transferenciaId}" ya fue revertido.`);
+        }
       }
     }
     for (const capa of capasDestino) {
@@ -448,6 +466,13 @@ function calcularReversoDeTransferencia(contexto: ContextoReverso, original: Mov
         contexto.capasPorId.set(capaOrigen.id, { ...capaOrigen, cantidadDisponible: nuevaDisponibleOrigen, estado: 'disponible' });
         contexto.capasTocadas.add(capaOrigen.id);
         capasOrigenRestauradasIds.push(capaOrigen.id);
+
+        const consumoOrigen = consumosOrigenPorCapaId.get(capa.capaOrigenId);
+        if (consumoOrigen) {
+          contexto.consumosPorId.set(consumoOrigen.id, { ...consumoOrigen, estado: 'revertido' });
+          contexto.consumosTocados.add(consumoOrigen.id);
+          consumosOrigenRevertidosIds.push(consumoOrigen.id);
+        }
       }
     }
     contexto.huboCapas = true;

@@ -16,6 +16,13 @@
 // dentro del mismo lote. El resultado de ambas pasadas se funde en UN solo
 // `PlanUnidadTrabajoInventario` — una sola escritura de productos, una sola de movimientos, una sola
 // confirmación (nunca una por dirección).
+//
+// Etapa 4A (cierre): en modo valorizado, la línea de ENTRADA (diferencia>0) crea su
+// `CapaCostoInventario` reutilizando `entradaCuantitativaInventario.ts` (`validarContrato` exige
+// costo por línea; `construirCapasEntradaValorizada` construye la capa) y la línea de SALIDA
+// (diferencia<0) consume capas FIFO existentes reutilizando `salidaCuantitativaInventario.ts`
+// (`construirConsumosSalidaValorizada`) — ningún algoritmo se reimplementa aquí. Ambas colecciones
+// de capas/consumos se funden en el MISMO plan que productos/movimientos.
 
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { Product } from '../../catalogo-articulos/models/types';
@@ -27,13 +34,26 @@ import { ejecutarUnidadTrabajoInventario } from './unidadTrabajoInventario';
 import { serializarCanonicamente } from './serializacionCanonicaInventario';
 import { calcularHashInventario } from './hashInventario';
 import { redondearAPrecision, PRECISION_CANTIDAD_UNIDAD_MINIMA } from './precisionInventario';
-import { calcularMutacionesCuantitativas } from './operacionCuantitativaInventarioComun';
+import { calcularMutacionesCuantitativas, parsearColeccion } from './operacionCuantitativaInventarioComun';
 import type { DatosLineaOperacionCuantitativa, DatosOperacionCuantitativa } from '../models/operacionEntradaInventario.types';
+import { lsKey } from '../../../../../shared/tenant';
+import { CLAVE_COLECCION_CAPAS_COSTO_INVENTARIO } from '../repositories/capaCostoInventario.repository';
+import { CLAVE_COLECCION_CONSUMOS_CAPA_COSTO_INVENTARIO } from '../repositories/consumoCapaCostoInventario.repository';
+import {
+  construirConsumosSalidaValorizada,
+  esCapaAlmacenable,
+  esConsumoAlmacenable,
+} from './salidaCuantitativaInventario';
+import {
+  validarContrato as validarContratoEntrada,
+  construirCapasEntradaValorizada,
+} from './entradaCuantitativaInventario';
+import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
 
 /** Validación PURA del contrato (no depende de ningún snapshot) — segura de ejecutar ANTES de reservar. */
 export function validarContratoImportacion(datos: DatosImportacionCuantitativa): void {
-  if (datos.modoOperacion !== 'cuantitativo') {
-    throw new Error(`importacionCuantitativaInventario: modoOperacion "${String(datos.modoOperacion)}" no está soportado — solo se acepta "cuantitativo" en esta etapa.`);
+  if (datos.modoOperacion !== 'cuantitativo' && datos.modoOperacion !== 'valorizado') {
+    throw new Error(`importacionCuantitativaInventario: modoOperacion "${String(datos.modoOperacion)}" no está soportado — solo se aceptan "cuantitativo"/"valorizado".`);
   }
   if (!datos.empresaId.trim()) throw new Error('importacionCuantitativaInventario: empresaId no puede estar vacío.');
   if (!datos.loteId.trim()) throw new Error('importacionCuantitativaInventario: loteId no puede estar vacío.');
@@ -121,22 +141,30 @@ function validarReservaCoincideImportacion(
   }
 }
 
-/** Adapta una línea de importación (con signo) a una línea cuantitativa común (siempre positiva) para reutilizar `calcularMutacionesCuantitativas`. */
+/**
+ * Adapta una línea de importación (con signo) a una línea cuantitativa común (siempre positiva)
+ * para reutilizar `calcularMutacionesCuantitativas`. `costoUnitarioBaseMonedaBase` se conserva
+ * (Etapa 4A, cierre): solo lo usan las líneas de ENTRADA en modo valorizado (crea su
+ * `CapaCostoInventario`) — irrelevante y sin efecto para las líneas de SALIDA, que nunca declaran
+ * costo propio (consumen capas existentes).
+ */
 function aLineaComun(linea: DatosLineaImportacionCuantitativa): DatosLineaOperacionCuantitativa {
   return {
     lineaId: linea.lineaId,
     productoId: linea.productoId,
     almacenId: linea.almacenId,
     cantidadUnidadMinima: Math.abs(linea.diferencia),
+    ...(linea.costoUnitarioBaseMonedaBase !== undefined ? { costoUnitarioBaseMonedaBase: linea.costoUnitarioBaseMonedaBase } : {}),
   };
 }
 
 function construirDatosComunes(
   datos: DatosImportacionCuantitativa,
-  lineas: DatosLineaOperacionCuantitativa[]
+  lineas: DatosLineaOperacionCuantitativa[],
+  modoOperacion: 'cuantitativo' | 'valorizado' = 'cuantitativo'
 ): DatosOperacionCuantitativa {
   return {
-    modoOperacion: 'cuantitativo',
+    modoOperacion,
     empresaId: datos.empresaId,
     documentoId: datos.loteId,
     tipoDocumento: datos.tipoDocumento,
@@ -160,6 +188,8 @@ export interface ParametrosPrepararOperacionImportacion {
   movimientosRaw: string | null;
   almacenes: ReadonlyMap<string, Almacen>;
   generarId: () => string;
+  /** Requerida únicamente cuando `datos.modoOperacion==='valorizado'` Y el lote trae líneas de entrada (crea `CapaCostoInventario`). */
+  monedaBase?: string;
 }
 
 export interface ResultadoPreparacionOperacionImportacion {
@@ -180,7 +210,7 @@ export interface ResultadoPreparacionOperacionImportacion {
 export function prepararOperacionImportacion(
   params: ParametrosPrepararOperacionImportacion
 ): ResultadoPreparacionOperacionImportacion {
-  const { datos, operacionReservada, hashEntrada, versionEsperada, productosRaw, movimientosRaw, almacenes, generarId } = params;
+  const { datos, operacionReservada, hashEntrada, versionEsperada, productosRaw, movimientosRaw, almacenes, generarId, monedaBase } = params;
 
   validarReservaCoincideImportacion(datos, operacionReservada, hashEntrada);
 
@@ -197,9 +227,21 @@ export function prepararOperacionImportacion(
   const movimientosGenerados: MovimientoStock[] = [];
   const productosActualizadosPorId = new Map<string, Product>();
 
+  // Etapa 4A, cierre: la línea de ENTRADA (diferencia>0) crea una CapaCostoInventario cuando el lote
+  // es valorizado — reutilizando exactamente `entradaCuantitativaInventario.ts` (`validarContrato`
+  // exige costo por línea; `construirCapasEntradaValorizada` construye la capa), nunca reimplementado
+  // aquí. `validarContratoEntrada` corre ANTES de mutar nada: una línea de entrada sin costo válido
+  // rechaza el LOTE COMPLETO (incluida cualquier línea de salida del mismo lote).
+  let datosOperacionEntrada: DatosOperacionCuantitativa | null = null;
+  let movimientosEntradaGenerados: MovimientoStock[] = [];
+
   if (lineasEntrada.length > 0) {
+    datosOperacionEntrada = construirDatosComunes(datos, lineasEntrada, datos.modoOperacion);
+    if (datosOperacionEntrada.modoOperacion === 'valorizado') {
+      validarContratoEntrada(datosOperacionEntrada);
+    }
     const resultado = calcularMutacionesCuantitativas({
-      datos: construirDatosComunes(datos, lineasEntrada),
+      datos: datosOperacionEntrada,
       productosRaw: productosRawTrabajo,
       movimientosRaw: movimientosRawTrabajo,
       almacenes,
@@ -211,15 +253,20 @@ export function prepararOperacionImportacion(
     claveMovimientos = resultado.claveMovimientos;
     productosFinales = resultado.productosFinales;
     movimientosFinales = resultado.movimientosFinales;
+    movimientosEntradaGenerados = resultado.movimientosGenerados;
     movimientosGenerados.push(...resultado.movimientosGenerados);
     resultado.productosActualizados.forEach((p) => productosActualizadosPorId.set(p.id, p));
     productosRawTrabajo = JSON.stringify(resultado.productosFinales);
     movimientosRawTrabajo = JSON.stringify(resultado.movimientosFinales);
   }
 
+  let datosOperacionSalida: DatosOperacionCuantitativa | null = null;
+  let movimientosSalidaGenerados: MovimientoStock[] = [];
+
   if (lineasSalida.length > 0) {
+    datosOperacionSalida = construirDatosComunes(datos, lineasSalida, datos.modoOperacion);
     const resultado = calcularMutacionesCuantitativas({
-      datos: construirDatosComunes(datos, lineasSalida),
+      datos: datosOperacionSalida,
       productosRaw: productosRawTrabajo,
       movimientosRaw: movimientosRawTrabajo,
       almacenes,
@@ -231,6 +278,7 @@ export function prepararOperacionImportacion(
     claveMovimientos = resultado.claveMovimientos;
     productosFinales = resultado.productosFinales;
     movimientosFinales = resultado.movimientosFinales;
+    movimientosSalidaGenerados = resultado.movimientosGenerados;
     movimientosGenerados.push(...resultado.movimientosGenerados);
     resultado.productosActualizados.forEach((p) => productosActualizadosPorId.set(p.id, p));
   }
@@ -239,6 +287,64 @@ export function prepararOperacionImportacion(
     { clave: claveProductos, valorAnterior: productosRaw, valorPropuesto: JSON.stringify(productosFinales) },
     { clave: claveMovimientos, valorAnterior: movimientosRaw, valorPropuesto: JSON.stringify(movimientosFinales) },
   ];
+
+  // Etapa 4A: en modo valorizado, la reducción real de stock (diferencia<0) consume capas FIFO
+  // existentes — nunca las crea, nunca revaloriza — reutilizando exactamente la misma construcción
+  // de consumos que el motor de salidas (`construirConsumosSalidaValorizada`); el aumento real
+  // (diferencia>0) crea su propia capa — reutilizando exactamente `construirCapasEntradaValorizada`
+  // del motor de entradas. Ambos efectos se funden en UNA sola escritura de la colección de capas
+  // (nunca dos escrituras separadas a la misma clave).
+  const entradaValorizada = datosOperacionEntrada?.modoOperacion === 'valorizado';
+  const salidaValorizada = datosOperacionSalida?.modoOperacion === 'valorizado';
+
+  if (entradaValorizada || salidaValorizada) {
+    const claveCapas = lsKey(CLAVE_COLECCION_CAPAS_COSTO_INVENTARIO, datos.empresaId);
+    const capasRawAnterior = localStorage.getItem(claveCapas);
+    const capasTodas = parsearColeccion(capasRawAnterior, `la colección de capas de costo ("${claveCapas}")`).map((elemento, indice) => {
+      if (!esCapaAlmacenable(elemento)) {
+        throw new Error(`importacionCuantitativaInventario: el elemento en el índice ${indice} de "${claveCapas}" no tiene la forma esperada de una capa de costo.`);
+      }
+      return elemento;
+    });
+
+    let capasParaEscribir: CapaCostoInventario[] = capasTodas;
+    let consumosNuevos: ReturnType<typeof construirConsumosSalidaValorizada>['consumosNuevos'] = [];
+
+    if (salidaValorizada && datosOperacionSalida) {
+      const resultadoConsumo = construirConsumosSalidaValorizada(
+        datosOperacionSalida,
+        movimientosSalidaGenerados,
+        almacenes,
+        capasTodas,
+        generarId
+      );
+      consumosNuevos = resultadoConsumo.consumosNuevos;
+      const capasFinalesPorId = new Map(resultadoConsumo.capasFinales.map((c) => [c.id, c] as const));
+      capasParaEscribir = capasTodas.map((c) => capasFinalesPorId.get(c.id) ?? c);
+    }
+
+    if (entradaValorizada && datosOperacionEntrada) {
+      if (!monedaBase || !monedaBase.trim()) {
+        throw new Error('importacionCuantitativaInventario: se requiere monedaBase para preparar las líneas de entrada de un lote de importación valorizado.');
+      }
+      const capasNuevasEntrada = construirCapasEntradaValorizada(datosOperacionEntrada, movimientosEntradaGenerados, almacenes, generarId, monedaBase);
+      capasParaEscribir = [...capasParaEscribir, ...capasNuevasEntrada];
+    }
+
+    escrituras.push({ clave: claveCapas, valorAnterior: capasRawAnterior, valorPropuesto: JSON.stringify(capasParaEscribir) });
+
+    if (consumosNuevos.length > 0) {
+      const claveConsumos = lsKey(CLAVE_COLECCION_CONSUMOS_CAPA_COSTO_INVENTARIO, datos.empresaId);
+      const consumosRawAnterior = localStorage.getItem(claveConsumos);
+      const consumosAnteriores = parsearColeccion(consumosRawAnterior, `la colección de consumos de capas ("${claveConsumos}")`).map((elemento, indice) => {
+        if (!esConsumoAlmacenable(elemento)) {
+          throw new Error(`importacionCuantitativaInventario: el elemento en el índice ${indice} de "${claveConsumos}" no tiene la forma esperada de un consumo de capa.`);
+        }
+        return elemento;
+      });
+      escrituras.push({ clave: claveConsumos, valorAnterior: consumosRawAnterior, valorPropuesto: JSON.stringify([...consumosAnteriores, ...consumosNuevos]) });
+    }
+  }
 
   const plan: PlanUnidadTrabajoInventario = {
     id: generarId(),

@@ -11,6 +11,7 @@ import { getTenantEmpresaId } from '@/shared/tenant';
 import { sincronizarInventarioTrasConfirmacion } from '@/shared/inventory/accionesStock';
 import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
 import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
+import { currencyManager } from '@/shared/currency';
 import {
   calcularDiferenciaFilaImportacion,
   calcularEstadoCostoFila,
@@ -398,7 +399,7 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     }
 
     const datosOperacion: DatosImportacionCuantitativa = {
-      modoOperacion: 'cuantitativo',
+      modoOperacion: modoOperacionResuelto === 'valorizado_exclusivo' ? 'valorizado' : 'cuantitativo',
       empresaId: lote.empresaId,
       loteId: lote.id,
       claveIdempotencia: lote.huella,
@@ -418,6 +419,7 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
         generarId: () => crypto.randomUUID(),
         fechaActual: () => new Date().toISOString(),
         estadoValorizacion,
+        monedaBase: currencyManager.getSnapshot().baseCurrency.code,
       });
       // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
       // persistir aquí (nada de registerAdjustment/updateProduct por fila).
@@ -442,6 +444,20 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     : almacenesActivos.filter(w => almacenesSeleccionados.includes(w.id));
 
   const confirmarReset = () => {
+    // Etapa 4A, §10: el reseteo masivo muta stock directamente (InventoryService.registerAdjustment)
+    // sin pasar por el motor de capas — en un estado bloqueado o valorizado dejaría el stock
+    // desincronizado de las capas de costo. Se bloquea con un mensaje claro en vez de migrarlo
+    // (rediseño fuera de alcance de esta etapa).
+    if (modoOperacionResuelto !== 'cuantitativo_libre' && modoOperacionResuelto !== 'cuantitativo_invalida_snapshot') {
+      setResultadoReset({
+        loteId: generarIdLote('RST'),
+        movimientos: 0,
+        erroresReserva: ['El reseteo masivo a cero no está disponible: la empresa está en un estado de valorización de inventario que no permite esta mutación directa de stock.'],
+      });
+      setPasoReset('resultado');
+      return;
+    }
+
     // H-03: Bloquear si existe stock reservado en algún producto+almacén seleccionado
     const productosConReserva: string[] = [];
     for (const almacen of almacenesParaReset) {

@@ -19,6 +19,7 @@ import type { Almacen } from '../../../../configuracion-sistema/modelos/Almacen'
 import type { StockAdjustmentData } from '../../../../gestion-inventario/models';
 import AdjustmentModal from '../../../../gestion-inventario/components/modals/AdjustmentModal';
 import { registrarAjusteDeStock } from '../../../../../../../shared/inventory/accionesStock';
+import { useFeedback } from '../../../../../../../shared/feedback';
 import { summarizeProductStock } from '../../../../../../../shared/inventory/stockGateway';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 import { getProductUnitOptions } from '@/shared/units/productUnitOptions';
@@ -222,6 +223,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
   const { session } = useUserSession();
   const { state: configState } = useConfigurationContext();
+  const { error: showErrorToastAjuste } = useFeedback();
 
   const almacenesActivosDelEstablecimiento = useMemo<Almacen[]>(() => {
     if (!selectedEstablecimientoId) {
@@ -465,16 +467,22 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
       return;
     }
 
-    registrarAjusteDeStock({
-      producto,
-      almacen,
-      datosAjuste: data,
-      usuario: session?.userName || 'Usuario',
-    });
+    try {
+      registrarAjusteDeStock({
+        producto,
+        almacen,
+        datosAjuste: data,
+        usuario: session?.userName || 'Usuario',
+        estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+      });
+    } catch (err) {
+      showErrorToastAjuste(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
+      return;
+    }
 
     setShowAdjustmentModal(false);
     refrescarStockEnCarrito();
-  }, [catalogProducts, configState.almacenes, refrescarStockEnCarrito, session?.userName]);
+  }, [catalogProducts, configState.almacenes, configState.preferenciasInventario, refrescarStockEnCarrito, session?.userName, showErrorToastAjuste]);
 
   const getUnitOptionsForProduct = useCallback(
     (sku: string) => {

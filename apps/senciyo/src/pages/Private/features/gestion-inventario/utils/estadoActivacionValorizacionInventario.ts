@@ -60,38 +60,42 @@ export function puedeMutarInventario(estado: EstadoActivacionValorizacion): bool
 }
 
 /**
- * Transiciones productivamente alcanzables en Etapa 2 (§4 del encargo). `validada → activando` y
- * `activando → activa` NUNCA aparecen aquí — quedan reservadas para el cierre de la Etapa 4. Un
+ * Transiciones productivamente permitidas de la máquina central (Etapa 2 §4 + cierre de Etapa 4B).
+ * `validada → activando` (inicio de activación), `activando → activa` (éxito) y
+ * `activando → fallida_recuperable` / `fallida_recuperable → activando` (interrupción y reintento)
+ * se agregan aquí — la ÚNICA extensión productiva de esta matriz, nunca una máquina paralela. Un
  * intento de invocar una transición ausente de este mapa se rechaza explícitamente (nunca se
- * "permite por omisión").
+ * "permite por omisión"). `activa` permanece sin salida (irreversible: ninguna acción de
+ * desactivar ni retroceso a un estado anterior).
  */
-const TRANSICIONES_PERMITIDAS_ETAPA_2: Readonly<Record<EstadoActivacionValorizacion, readonly EstadoActivacionValorizacion[]>> = {
+const TRANSICIONES_PERMITIDAS: Readonly<Record<EstadoActivacionValorizacion, readonly EstadoActivacionValorizacion[]>> = {
   no_iniciada: ['en_preparacion'],
   en_preparacion: ['pendiente_costos', 'cancelada_antes_activacion'],
   pendiente_costos: ['validada', 'cancelada_antes_activacion'],
-  validada: ['cancelada_antes_activacion'],
+  validada: ['cancelada_antes_activacion', 'activando'],
   cancelada_antes_activacion: ['en_preparacion'],
-  activando: [],
+  activando: ['activa', 'fallida_recuperable'],
   activa: [],
-  fallida_recuperable: [],
+  fallida_recuperable: ['activando'],
   suspendida_por_inconsistencia: [],
 };
 
 /**
- * Valida que `actual → siguiente` sea una transición productivamente permitida en esta etapa —
- * lanza si no lo es. Es la única puerta de transición: ningún llamador construye el nuevo estado
- * "a mano" sin pasar por aquí primero.
+ * Valida que `actual → siguiente` sea una transición productivamente permitida — lanza si no lo
+ * es. Es la única puerta de transición: ningún llamador construye el nuevo estado "a mano" sin
+ * pasar por aquí primero.
  */
 export function validarTransicionEstadoValorizacion(
   actual: EstadoActivacionValorizacion,
   siguiente: EstadoActivacionValorizacion
 ): void {
-  const permitidas = TRANSICIONES_PERMITIDAS_ETAPA_2[actual] ?? [];
+  const permitidas = TRANSICIONES_PERMITIDAS[actual] ?? [];
   if (!permitidas.includes(siguiente)) {
     throw new Error(
-      `estadoActivacionValorizacionInventario: la transición "${actual}" → "${siguiente}" no está permitida en esta etapa ` +
-      `(Etapa 2 solo construye no_iniciada→en_preparacion→pendiente_costos→validada, y validada⇄cancelada_antes_activacion→en_preparacion; ` +
-      `"validada→activando" queda reservada para el cierre de la Etapa 4).`
+      `estadoActivacionValorizacionInventario: la transición "${actual}" → "${siguiente}" no está permitida ` +
+      `(recorrido productivo: no_iniciada→en_preparacion→pendiente_costos→validada→activando→activa; ` +
+      `validada/en_preparacion/pendiente_costos⇄cancelada_antes_activacion→en_preparacion; ` +
+      `activando⇄fallida_recuperable para interrupción/reintento; "activa" nunca retrocede).`
     );
   }
 }

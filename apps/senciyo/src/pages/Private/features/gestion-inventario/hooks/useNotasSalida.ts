@@ -154,6 +154,7 @@ export const useNotasSalida = () => {
             empresaId,
             usuario: usuarioNombre,
             fecha,
+            estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
           });
 
           // 2-5. Hash canónico, reserva idempotente, preparación del documento completo y
@@ -261,11 +262,15 @@ export const useNotasSalida = () => {
         let cantidadLineasRevertidas = 0;
         if (datosAnulacion) {
           const almacenesMap = new Map(configState.almacenes.map(a => [a.id, a]));
+          // Etapa 4A, §9: `valorizacionHabilitada` SIEMPRE en `true` — la fuente de verdad de si
+          // hay que restaurar capas es la operación ORIGINAL y sus artefactos reales, nunca el
+          // estadoValorizacion ACTUAL de la empresa en el momento de anular.
           const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, {
             almacenes: almacenesMap,
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            valorizacionHabilitada: true,
           });
           // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
           // a persistir aquí (nada de updateProduct). Solo se rehidrata el store y se refresca el Kardex.

@@ -12,9 +12,12 @@ import {
   construirNotaSalidaAnulada,
 } from './notaSalida.service';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
+import { guardarCapaCostoInventario, listarCapasCostoInventarioPorEmpresa } from '../repositories/capaCostoInventario.repository';
+import { listarConsumosCapaCostoInventarioPorEmpresa } from '../repositories/consumoCapaCostoInventario.repository';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { NotaSalida, LineaNotaSalida } from '../models/notaSalida.types';
+import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
 import { lsKey } from '../../../../../shared/tenant';
 
 instalarLocalStorageDePrueba();
@@ -509,7 +512,7 @@ describe('construirDatosOperacionSalidaNS', () => {
     const nota = crearNota({ id: 'ns-42', lineas: [crearLinea({ cantidad: 5 })] });
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
 
-    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
     expect(datos.modoOperacion).toBe('cuantitativo');
     expect(datos.documentoId).toBe('ns-42');
@@ -553,7 +556,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
     const nota = crearNota({ lineas: [crearLinea({ cantidad: 8 })] });
 
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
-    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
     const resultadoMotor = await ServicioKardexValorizado.registrarSalidaValorizada(datos, {
       almacenes: almacenesMap,
@@ -574,7 +577,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
     const nota = crearNota({ id: 'ns-retry', lineas: [crearLinea({ cantidad: 8 })] });
 
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
-    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
     const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
@@ -597,7 +600,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
     const nota = crearNota({ ordenVentaOrigenId: 'ov-3', origen: 'OrdenVenta', lineas: [crearLinea({ cantidad: 5 })] });
 
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
-    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
     await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
@@ -614,7 +617,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
     // (simula que el stock cambió entre la validación previa y la confirmación).
     const nota = crearNota({ lineas: [crearLinea({ cantidad: 3 })] });
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
-    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
     datos.lineas[0].cantidadUnidadMinima = 999;
 
     await expect(
@@ -623,6 +626,91 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(3);
+  });
+});
+
+describe('Etapa 4A: NS en modo valorizado consume capas FIFO', () => {
+  function crearCapaDePrueba(overrides: Partial<CapaCostoInventario> = {}): CapaCostoInventario {
+    return {
+      id: 'capa-1',
+      empresaId: EMPRESA,
+      establecimientoId: ESTABLECIMIENTO,
+      productoId: 'prod-1',
+      almacenId: 'alm-1',
+      movimientoEntradaId: 'mov-x',
+      tipoDocumentoOrigen: 'nota_ingreso',
+      documentoOrigenId: 'ni-1',
+      cantidadInicial: 10,
+      cantidadDisponible: 10,
+      costoUnitarioBaseOriginal: 10,
+      costoUnitarioBaseMonedaBase: 10,
+      valorValorizableOriginal: 100,
+      valorValorizableMonedaBase: 100,
+      monedaBase: 'PEN',
+      monedaOriginal: 'PEN',
+      tipoCambioAplicado: 1,
+      fechaTipoCambio: '2026-01-01',
+      fechaEntrada: '2026-01-01T00:00:00.000Z',
+      estado: 'disponible',
+      procedencia: 'compra',
+      usuario: 'user-1',
+      fechaCreacion: '2026-01-01T00:00:00.000Z',
+      ...overrides,
+    };
+  }
+
+  it('estadoValorizacion="activa": consume la capa disponible y crea el consumo con motivo salida', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const productsMap = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba(), EMPRESA);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 5 })] });
+
+    const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'activa' });
+
+    expect(datos.modoOperacion).toBe('valorizado');
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'activa' });
+
+    const capa = listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === 'capa-1');
+    expect(capa?.cantidadDisponible).toBe(5);
+    const consumos = listarConsumosCapaCostoInventarioPorEmpresa(EMPRESA);
+    expect(consumos).toHaveLength(1);
+    expect(consumos[0].cantidadConsumida).toBe(5);
+    expect(consumos[0].motivo).toBe('salida');
+  });
+
+  it('NS de merma (tipoSalida distinto, mismo tipoOperacion nota_salida) también consume FIFO en modo activo', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const productsMap = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba(), EMPRESA);
+    const nota = crearNota({ tipoSalida: '13', lineas: [crearLinea({ cantidad: 4 })] });
+
+    const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'activa' });
+
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'activa' });
+
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === 'capa-1')?.cantidadDisponible).toBe(6);
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(EMPRESA)).toHaveLength(1);
+  });
+
+  it('estadoValorizacion="no_iniciada" conserva el comportamiento cuantitativo puro: no crea consumos ni capas', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const productsMap = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba(), EMPRESA);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 5 })] });
+
+    const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
+
+    expect(datos.modoOperacion).toBe('cuantitativo');
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(EMPRESA)).toHaveLength(0);
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === 'capa-1')?.cantidadDisponible).toBe(10);
   });
 });
 
@@ -684,7 +772,7 @@ describe('Corrección post-1D §2: reintento de NS desde snapshot INMUTABLE (nun
     const productsMap1 = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 3, 'alm-2': 20 } })]]);
 
     const { resultado: resultado1, notaConSnapshot } = prepararIntento1(nota, productsMap1, almacenesMap);
-    const datos1 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado1, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos1 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado1, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
     const motor1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     expect(motor1.estado).toBe('nueva');
 
@@ -697,7 +785,7 @@ describe('Corrección post-1D §2: reintento de NS desde snapshot INMUTABLE (nun
     const resultado2 = reconstruirOperacionNSDesdeSnapshot(notaConSnapshot);
     expect(resultado2.lineasOperacion).toEqual(resultado1.lineasOperacion);
 
-    const datos2 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado2, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos2 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado2, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
     const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(motor2.estado).toBe('repetida');
@@ -810,14 +898,14 @@ describe('Corrección post-1D §2: reintento de NS desde snapshot INMUTABLE (nun
     const productsMap1 = new Map([['prod-1', crearProducto({ stockPorAlmacen: { 'alm-1': 20 }, stockReservadoOVPorEstablecimiento: { [ESTABLECIMIENTO]: 5 } })]]);
 
     const { resultado: resultado1, notaConSnapshot } = prepararIntento1(nota, productsMap1, almacenesMap);
-    const datos1 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado1, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos1 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado1, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
     await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const productosTrasIntento1 = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosTrasIntento1[0].stockReservadoOVPorEstablecimiento?.[ESTABLECIMIENTO]).toBe(0);
 
     const resultado2 = reconstruirOperacionNSDesdeSnapshot(notaConSnapshot);
-    const datos2 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado2, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos2 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado2, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
     const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(motor2.estado).toBe('repetida');
@@ -834,7 +922,7 @@ describe('prepararAnulacionNS — Etapa 1E: anulación usando los movimientos or
     const nota = crearNota({ id: 'ns-anular-1', lineas: [crearLinea({ cantidad: 8 })] });
 
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
-    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
     await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const notaGenerada = construirNotaSalidaGenerada(nota, resultado, 'user-1', fechaActual());
@@ -885,7 +973,7 @@ describe('prepararAnulacionNS — Etapa 1E: anulación usando los movimientos or
     const nota = crearNota({ id: 'ns-anular-5', lineas: [crearLinea({ cantidad: 6 })] });
 
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
-    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
+    const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
     await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     const notaGenerada = construirNotaSalidaGenerada(nota, resultado, 'user-1', fechaActual());
 

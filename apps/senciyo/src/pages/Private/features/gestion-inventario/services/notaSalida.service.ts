@@ -9,7 +9,9 @@ import type { NotaSalida, TipoSalida, LineaNotaSalida, DespachoOVBasico, Prepara
 import type { MovimientoMotivo } from '../models/inventory.types';
 import type { DatosOperacionSalidaCuantitativa, DatosLineaOperacionCuantitativa } from '../models/operacionEntradaInventario.types';
 import type { DatosAnulacionDocumentoInventario } from '../models/operacionReversoInventario.types';
+import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
 import { parsearColeccion } from '../utils/operacionCuantitativaInventarioComun';
+import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
 import { esProductoInventariable } from '../../../../../shared/inventory/clasificacionInventario';
 import { obtenerReservasDeOV } from '../../../../../shared/documentosComerciales/postEmisionOrdenVenta';
 import {
@@ -639,15 +641,18 @@ export interface ParametrosConstruirDatosOperacionSalidaNS {
   empresaId: string;
   usuario: string;
   fecha: string;
+  /** Estado de activación de valorización de la EMPRESA (Etapa 4A) — obligatorio: resuelve si esta NS (incluida merma, que es solo un `tipoSalida`/`motivo` de NS, nunca un tipoOperacion distinto) consume capas FIFO o conserva el camino cuantitativo puro. Nunca forzado desde la UI. */
+  estadoValorizacion: EstadoActivacionValorizacion;
 }
 
 /** Ensambla el contrato del motor genérico (§7) a partir del cálculo puro de `prepararSalidaNS`. `nota.id` ya es estable y persistente (asignado al guardar el borrador) — no requiere sesión pendiente de UI. */
 export function construirDatosOperacionSalidaNS(
   params: ParametrosConstruirDatosOperacionSalidaNS,
 ): DatosOperacionSalidaCuantitativa {
-  const { nota, resultado, empresaId, usuario, fecha } = params;
+  const { nota, resultado, empresaId, usuario, fecha, estadoValorizacion } = params;
+  const esValorizado = resolverModoOperacion(estadoValorizacion) === 'valorizado_exclusivo';
   return {
-    modoOperacion: 'cuantitativo',
+    modoOperacion: esValorizado ? 'valorizado' : 'cuantitativo',
     empresaId,
     documentoId: nota.id,
     tipoDocumento: 'nota_salida',

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { instalarLocalStorageDePrueba } from '../repositories/localStorageDePrueba';
 import {
+  validarContrato,
   calcularHashSalidaCuantitativa,
   calcularMutacionesSalida,
   prepararOperacionSalidaInventario,
@@ -9,11 +10,45 @@ import {
 import { reservarOperacionIdempotente } from './idempotenciaInventario';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
+import { guardarCapaCostoInventario, listarCapasCostoInventarioPorEmpresa } from '../repositories/capaCostoInventario.repository';
+import { listarConsumosCapaCostoInventarioPorEmpresa } from '../repositories/consumoCapaCostoInventario.repository';
 import type { DatosOperacionSalidaCuantitativa, DatosLineaOperacionCuantitativa } from '../models/operacionEntradaInventario.types';
 import type { OperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
+import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import { lsKey } from '../../../../../shared/tenant';
+
+const EST_1 = 'est-1';
+
+function crearCapaDePrueba(overrides: Partial<CapaCostoInventario> = {}): CapaCostoInventario {
+  return {
+    id: 'capa-1',
+    empresaId: 'emp-A',
+    establecimientoId: EST_1,
+    productoId: 'prod-1',
+    almacenId: 'alm-1',
+    movimientoEntradaId: 'mov-x',
+    tipoDocumentoOrigen: 'nota_ingreso',
+    documentoOrigenId: 'ni-1',
+    cantidadInicial: 10,
+    cantidadDisponible: 10,
+    costoUnitarioBaseOriginal: 10,
+    costoUnitarioBaseMonedaBase: 10,
+    valorValorizableOriginal: 100,
+    valorValorizableMonedaBase: 100,
+    monedaBase: 'PEN',
+    monedaOriginal: 'PEN',
+    tipoCambioAplicado: 1,
+    fechaTipoCambio: '2026-01-01',
+    fechaEntrada: '2026-01-01T00:00:00.000Z',
+    estado: 'disponible',
+    procedencia: 'compra',
+    usuario: 'user-1',
+    fechaCreacion: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
 instalarLocalStorageDePrueba();
 
@@ -562,5 +597,264 @@ describe('salidaCuantitativaInventario — confirmarOperacionSalidaInventario: i
     expect(resultado.resultadoIds).toEqual(movimientosGenerados.map((m) => m.id));
     const productosFinales = JSON.parse(localStorage.getItem(claveProductos) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(10);
+  });
+});
+
+// ─── Etapa 4A: modo valorizado — consumo FIFO de capas ─────────────────────
+
+async function ejecutarSalidaEndToEnd(
+  empresaId: string,
+  datos: DatosOperacionSalidaCuantitativa,
+  almacenes: Map<string, Almacen>
+) {
+  const claveProductos = lsKey(PRODUCT_STORAGE_KEY, empresaId);
+  const hashEntrada = await calcularHashSalidaCuantitativa(datos);
+  const reserva = await reservarOperacionIdempotente({
+    empresaId,
+    clave: datos.claveIdempotencia,
+    tipoOperacion: datos.tipoOperacion,
+    hashEntrada,
+    referenciaDocumentoId: datos.documentoId,
+    referenciaDocumentoTipo: datos.tipoDocumento,
+    generarId,
+    fechaActual,
+  });
+  if (reserva.tipo !== 'nueva') throw new Error('se esperaba una reserva nueva');
+
+  const { plan, movimientosGenerados } = prepararOperacionSalidaInventario({
+    datos,
+    operacionReservada: reserva.operacion,
+    hashEntrada,
+    versionEsperada: 0,
+    productosRaw: localStorage.getItem(claveProductos),
+    movimientosRaw: localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, empresaId)),
+    almacenes,
+    generarId,
+  });
+
+  const resultado = await confirmarOperacionSalidaInventario(datos.documentoId, plan, fechaActual);
+  return { resultado, movimientosGenerados };
+}
+
+describe('salidaCuantitativaInventario — validarContrato: modo valorizado', () => {
+  it('rechaza modoOperacion="valorizado" para un tipoOperacion no soportado (ej. importación no listada)', () => {
+    expect(() =>
+      validarContrato({ ...datosBase({ tipoOperacion: 'nota_salida' }), modoOperacion: 'valorizado', tipoOperacion: 'devolucion_cliente' })
+    ).toThrow(/venta_salida, nota_salida, ajuste_negativo/);
+  });
+
+  it('acepta modoOperacion="valorizado" para venta_salida/nota_salida/ajuste_negativo', () => {
+    for (const tipoOperacion of ['venta_salida', 'nota_salida', 'ajuste_negativo'] as const) {
+      expect(() => validarContrato({ ...datosBase(), modoOperacion: 'valorizado', tipoOperacion })).not.toThrow();
+    }
+  });
+});
+
+describe('salidaCuantitativaInventario — modo valorizado: consumo FIFO de capas', () => {
+  it('ejemplo obligatorio del encargo: capa A 10@10 + capa B 5@12, salida 12 → consume 10+2, costo total 124, saldo B=3', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 15 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-A', fechaEntrada: '2026-01-01T00:00:00.000Z', cantidadInicial: 10, cantidadDisponible: 10, costoUnitarioBaseMonedaBase: 10 }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-B', fechaEntrada: '2026-02-01T00:00:00.000Z', cantidadInicial: 5, cantidadDisponible: 5, costoUnitarioBaseMonedaBase: 12 }), empresaId);
+
+    const datos = datosBase({ empresaId, modoOperacion: 'valorizado', lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 12 }] });
+    await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    const capaA = capas.find((c) => c.id === 'capa-A');
+    const capaB = capas.find((c) => c.id === 'capa-B');
+    expect(capaA?.cantidadDisponible).toBe(0);
+    expect(capaA?.estado).toBe('agotada');
+    expect(capaA?.cantidadInicial).toBe(10); // cantidadInicial JAMÁS cambia
+    expect(capaB?.cantidadDisponible).toBe(3);
+    expect(capaB?.estado).toBe('disponible');
+    expect(capaB?.cantidadInicial).toBe(5);
+
+    const consumos = listarConsumosCapaCostoInventarioPorEmpresa(empresaId);
+    expect(consumos).toHaveLength(2);
+    const consumoA = consumos.find((c) => c.capaId === 'capa-A');
+    const consumoB = consumos.find((c) => c.capaId === 'capa-B');
+    expect(consumoA?.cantidadConsumida).toBe(10);
+    expect(consumoB?.cantidadConsumida).toBe(2);
+    const costoTotal = (consumoA?.valorConsumidoMonedaBase ?? 0) + (consumoB?.valorConsumidoMonedaBase ?? 0);
+    expect(costoTotal).toBe(124);
+    expect(consumos.every((c) => c.motivo === 'salida' && c.estado === 'confirmado')).toBe(true);
+  });
+
+  it('una línea consume tres capas', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 9 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', fechaEntrada: '2026-01-01T00:00:00.000Z', cantidadInicial: 2, cantidadDisponible: 2, costoUnitarioBaseMonedaBase: 10 }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-2', fechaEntrada: '2026-01-02T00:00:00.000Z', cantidadInicial: 3, cantidadDisponible: 3, costoUnitarioBaseMonedaBase: 11 }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-3', fechaEntrada: '2026-01-03T00:00:00.000Z', cantidadInicial: 4, cantidadDisponible: 4, costoUnitarioBaseMonedaBase: 12 }), empresaId);
+
+    const datos = datosBase({ empresaId, modoOperacion: 'valorizado', lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 9 }] });
+    await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    const consumos = listarConsumosCapaCostoInventarioPorEmpresa(empresaId);
+    expect(consumos).toHaveLength(3);
+    expect(consumos.reduce((s, c) => s + c.cantidadConsumida, 0)).toBe(9);
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    expect(capas.every((c) => c.cantidadDisponible === 0 && c.estado === 'agotada')).toBe(true);
+  });
+
+  it('dos líneas del mismo documento (mismo producto+almacén) consumen secuencialmente sin releer un saldo obsoleto', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 7 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    // capa-1 (5, FIFO primero) + capa-2 (2, FIFO segundo) = 7 exactos para las dos líneas (4+3).
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', fechaEntrada: '2026-01-01T00:00:00.000Z', cantidadInicial: 5, cantidadDisponible: 5, costoUnitarioBaseMonedaBase: 10 }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-2', fechaEntrada: '2026-01-02T00:00:00.000Z', cantidadInicial: 2, cantidadDisponible: 2, costoUnitarioBaseMonedaBase: 11 }), empresaId);
+
+    const datos = datosBase({
+      empresaId,
+      modoOperacion: 'valorizado',
+      lineas: [
+        { lineaId: 'linea-A', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 4 },
+        { lineaId: 'linea-B', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 3 },
+      ],
+    });
+    const { movimientosGenerados } = await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    // linea-A consume 4 de capa-1 (deja 1 disponible en capa-1). linea-B necesita 3: continúa
+    // consumiendo desde el saldo de capa-1 ya actualizado por linea-A (1, nunca el original 5), y
+    // completa con 2 de capa-2 — es exactamente lo que prueba que no relee un saldo obsoleto.
+    const movA = movimientosGenerados.find((m) => m.lineaOrigenId === 'linea-A');
+    const movB = movimientosGenerados.find((m) => m.lineaOrigenId === 'linea-B');
+    const consumos = listarConsumosCapaCostoInventarioPorEmpresa(empresaId);
+    const consumoDeA = consumos.filter((c) => c.movimientoSalidaId === movA?.id);
+    const consumoDeB = consumos.filter((c) => c.movimientoSalidaId === movB?.id);
+    expect(consumoDeA.reduce((s, c) => s + c.cantidadConsumida, 0)).toBe(4);
+    expect(consumoDeB.reduce((s, c) => s + c.cantidadConsumida, 0)).toBe(3);
+    expect(consumoDeB.find((c) => c.capaId === 'capa-1')?.cantidadConsumida).toBe(1);
+    expect(consumoDeB.find((c) => c.capaId === 'capa-2')?.cantidadConsumida).toBe(2);
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    expect(capas.find((c) => c.id === 'capa-1')?.cantidadDisponible).toBe(0);
+    expect(capas.find((c) => c.id === 'capa-2')?.cantidadDisponible).toBe(0);
+  });
+
+  it('productos y almacenes distintos no mezclan sus capas', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(
+      lsKey(PRODUCT_STORAGE_KEY, empresaId),
+      JSON.stringify([
+        crearProducto({ id: 'prod-1', codigo: 'P001', stockPorAlmacen: { 'alm-1': 5, 'alm-2': 5 } }),
+        crearProducto({ id: 'prod-2', codigo: 'P002', nombre: 'Producto 2', stockPorAlmacen: { 'alm-1': 5 } }),
+      ]),
+    );
+    const almacenes = new Map([
+      ['alm-1', crearAlmacen({ id: 'alm-1' })],
+      ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Sucursal' })],
+    ]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-prod1-alm1', productoId: 'prod-1', almacenId: 'alm-1', cantidadInicial: 5, cantidadDisponible: 5 }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-prod1-alm2', productoId: 'prod-1', almacenId: 'alm-2', cantidadInicial: 5, cantidadDisponible: 5 }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-prod2-alm1', productoId: 'prod-2', almacenId: 'alm-1', cantidadInicial: 5, cantidadDisponible: 5 }), empresaId);
+
+    const datos = datosBase({
+      empresaId,
+      modoOperacion: 'valorizado',
+      lineas: [
+        { lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 },
+        { lineaId: 'linea-2', productoId: 'prod-1', almacenId: 'alm-2', cantidadUnidadMinima: 5 },
+        { lineaId: 'linea-3', productoId: 'prod-2', almacenId: 'alm-1', cantidadUnidadMinima: 5 },
+      ],
+    });
+    await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    expect(capas.find((c) => c.id === 'capa-prod1-alm1')?.cantidadDisponible).toBe(0);
+    expect(capas.find((c) => c.id === 'capa-prod1-alm2')?.cantidadDisponible).toBe(0);
+    expect(capas.find((c) => c.id === 'capa-prod2-alm1')?.cantidadDisponible).toBe(0);
+  });
+
+  it('desempate FIFO fechaEntrada → fechaCreacion → id', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 3 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({
+      id: 'capa-b', fechaEntrada: '2026-01-01T00:00:00.000Z', fechaCreacion: '2026-01-02T00:00:00.000Z', cantidadInicial: 3, cantidadDisponible: 3,
+    }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({
+      id: 'capa-a', fechaEntrada: '2026-01-01T00:00:00.000Z', fechaCreacion: '2026-01-01T00:00:00.000Z', cantidadInicial: 3, cantidadDisponible: 3,
+    }), empresaId);
+
+    const datos = datosBase({ empresaId, modoOperacion: 'valorizado', lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 3 }] });
+    await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    expect(capas.find((c) => c.id === 'capa-a')?.cantidadDisponible).toBe(0); // fechaCreacion más temprana → primero
+    expect(capas.find((c) => c.id === 'capa-b')?.cantidadDisponible).toBe(3);
+  });
+
+  it('capas insuficientes rechazan TODA la operación — sin mutar stock, capas ni consumos', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', cantidadInicial: 3, cantidadDisponible: 3 }), empresaId);
+
+    const datos = datosBase({ empresaId, modoOperacion: 'valorizado', lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }] });
+
+    await expect(ejecutarSalidaEndToEnd(empresaId, datos, almacenes)).rejects.toThrow(/no cubren exactamente la cantidad/);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+    expect(listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1')?.cantidadDisponible).toBe(3);
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(0);
+  });
+
+  it('redondeo respeta PRECISION_CANTIDAD_UNIDAD_MINIMA al partir una capa entre varias líneas', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 1.5 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', cantidadInicial: 1.5, cantidadDisponible: 1.5, costoUnitarioBaseMonedaBase: 10 }), empresaId);
+
+    const datos = datosBase({ empresaId, modoOperacion: 'valorizado', lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 1.5 }] });
+    await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    const capa = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1');
+    expect(capa?.cantidadDisponible).toBe(0);
+    expect(capa?.estado).toBe('agotada');
+  });
+
+  it('operación cuantitativa (sin modoOperacion valorizado) no crea consumos ni toca capas existentes', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', cantidadInicial: 10, cantidadDisponible: 10 }), empresaId);
+
+    const datos = datosBase({ empresaId }); // modoOperacion: 'cuantitativo' (default)
+    await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(0);
+    expect(listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1')?.cantidadDisponible).toBe(10);
+  });
+
+  it('reintento idempotente (misma clave) no duplica el consumo de capas', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', cantidadInicial: 10, cantidadDisponible: 10 }), empresaId);
+
+    const datos = datosBase({ empresaId, modoOperacion: 'valorizado', lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }] });
+    await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
+
+    // Reintento: misma clave, mismo hash → el motor reserva 'repetida' y nunca vuelve a invocar preparar/confirmar.
+    const hashEntrada = await calcularHashSalidaCuantitativa(datos);
+    const reintento = await reservarOperacionIdempotente({
+      empresaId,
+      clave: datos.claveIdempotencia,
+      tipoOperacion: datos.tipoOperacion,
+      hashEntrada,
+      referenciaDocumentoId: datos.documentoId,
+      referenciaDocumentoTipo: datos.tipoDocumento,
+      generarId,
+      fechaActual,
+    });
+    expect(reintento.tipo).toBe('repetida');
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
   });
 });

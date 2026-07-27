@@ -21,10 +21,12 @@ import { lsKey } from '../../../../../shared/tenant';
 import type { DatosLineaOperacionCuantitativa, DatosOperacionCuantitativa } from '../models/operacionEntradaInventario.types';
 import type { OperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
 import type { MovimientoStock, MovimientoTipo, TipoDocumentoOrigenMovimiento } from '../models/inventory.types';
+import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
+import type { ConsumoCapaCostoInventario, MotivoConsumoCapaCosto } from '../models/consumoCapaCostoInventario.types';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import { serializarCanonicamente } from './serializacionCanonicaInventario';
 import { calcularHashInventario } from './hashInventario';
-import { redondearAPrecision, PRECISION_CANTIDAD_UNIDAD_MINIMA } from './precisionInventario';
+import { redondearAPrecision, PRECISION_CANTIDAD_UNIDAD_MINIMA, PRECISION_COSTO_UNITARIO_INTERNO } from './precisionInventario';
 import { InventoryService } from '../services/inventory.service';
 
 /**
@@ -457,4 +459,111 @@ export function calcularMutacionesCuantitativas(
     claveProductos,
     claveMovimientos,
   };
+}
+
+// ─── Consumo FIFO de capas de costo (Etapa 1E/4A) ──────────────────────────
+//
+// Única fuente del algoritmo FIFO — antes vivía duplicado (privado, sin exportar) dentro de
+// `transferenciaCuantitativaInventario.ts`. Ahora ambos motores (transferencia y salida) importan
+// de aquí: mismo ordenamiento, mismo consumo greedy, mismo redondeo, mismo rechazo por cantidad
+// insuficiente. Nunca se decide aquí SI corresponde consumir capas (eso depende de
+// `valorizacionHabilitada`/`modoOperacion`, decisión de cada motor de dirección) — esta función es
+// puramente el "cómo", dada ya la lista de capas candidatas.
+
+/** Orden FIFO real de un conjunto de capas: fechaEntrada → fechaCreacion → id (desempate final, determinista). */
+export function ordenarCapasFifo(capas: readonly CapaCostoInventario[]): CapaCostoInventario[] {
+  return [...capas].sort((a, b) => {
+    const fa = new Date(a.fechaEntrada).getTime();
+    const fb = new Date(b.fechaEntrada).getTime();
+    if (fa !== fb) return fa - fb;
+    const ca = new Date(a.fechaCreacion).getTime();
+    const cb = new Date(b.fechaCreacion).getTime();
+    if (ca !== cb) return ca - cb;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
+export interface DetalleConsumoCapaFifo {
+  /** Capa tal como llegó (antes de este consumo) — el llamador la usa para derivar efectos propios (ej. una capa destino espejo en una transferencia). */
+  capaOriginal: CapaCostoInventario;
+  /** Capa con `cantidadDisponible`/`estado` ya actualizados por este consumo — `cantidadInicial` nunca cambia. */
+  capaActualizada: CapaCostoInventario;
+  cantidadConsumida: number;
+  consumo: ConsumoCapaCostoInventario;
+}
+
+export interface ParametrosConsumirCapasFifo {
+  /** Candidatas YA filtradas por empresa+establecimiento+producto+almacén+disponible — esta función nunca filtra, solo ordena y consume. */
+  capasDisponibles: readonly CapaCostoInventario[];
+  cantidadRequerida: number;
+  empresaId: string;
+  movimientoSalidaId: string;
+  lineaDocumentoSalidaId: string;
+  motivo: MotivoConsumoCapaCosto;
+  fecha: string;
+  generarId: () => string;
+  /** Texto descriptivo (producto + almacén) usado únicamente para el mensaje de error si las capas no alcanzan. */
+  nombreParaError: string;
+}
+
+export interface ResultadoConsumirCapasFifo {
+  /** Una entrada por cada capa efectivamente consumida, en el orden FIFO en que se tocaron. */
+  detalle: DetalleConsumoCapaFifo[];
+}
+
+/**
+ * Consumo FIFO puro: ordena las capas candidatas, consume greedy hasta cubrir
+ * `cantidadRequerida`, y por cada capa tocada construye su versión actualizada
+ * (`cantidadDisponible -= consumido`, `estado` pasa a `'agotada'` si llega a 0 — `cantidadInicial`
+ * JAMÁS cambia) y su `ConsumoCapaCostoInventario`. Rechaza TODO (lanza, no devuelve un resultado
+ * parcial) si, tras recorrer todas las capas candidatas, queda un remanente — nunca completa una
+ * salida con menos capas de las que realmente cubren la cantidad.
+ */
+export function consumirCapasFIFO(params: ParametrosConsumirCapasFifo): ResultadoConsumirCapasFifo {
+  const { capasDisponibles, cantidadRequerida, empresaId, movimientoSalidaId, lineaDocumentoSalidaId, motivo, fecha, generarId, nombreParaError } = params;
+
+  const capasOrdenadas = ordenarCapasFifo(capasDisponibles);
+  let restante = cantidadRequerida;
+  const detalle: DetalleConsumoCapaFifo[] = [];
+
+  for (const capa of capasOrdenadas) {
+    if (restante <= 0) break;
+    if (capa.cantidadDisponible <= 0) continue;
+
+    const consumir = Math.min(capa.cantidadDisponible, restante);
+    restante = redondearAPrecision(restante - consumir, PRECISION_CANTIDAD_UNIDAD_MINIMA);
+
+    const nuevaDisponible = redondearAPrecision(capa.cantidadDisponible - consumir, PRECISION_CANTIDAD_UNIDAD_MINIMA);
+    const capaActualizada: CapaCostoInventario = {
+      ...capa,
+      cantidadDisponible: nuevaDisponible,
+      estado: nuevaDisponible <= 0 ? 'agotada' : 'disponible',
+    };
+
+    const valorConsumidoMonedaBase = redondearAPrecision(capa.costoUnitarioBaseMonedaBase * consumir, PRECISION_COSTO_UNITARIO_INTERNO);
+    const consumo: ConsumoCapaCostoInventario = {
+      id: generarId(),
+      empresaId,
+      movimientoSalidaId,
+      lineaDocumentoSalidaId,
+      capaId: capa.id,
+      cantidadConsumida: consumir,
+      costoUnitarioBaseMonedaBase: capa.costoUnitarioBaseMonedaBase,
+      valorConsumidoMonedaBase,
+      monedaBase: capa.monedaBase,
+      fecha,
+      estado: 'confirmado',
+      motivo,
+    };
+
+    detalle.push({ capaOriginal: capa, capaActualizada, cantidadConsumida: consumir, consumo });
+  }
+
+  if (restante > 0) {
+    throw new Error(
+      `operacionCuantitativaInventarioComun: las capas de costo disponibles para ${nombreParaError} no cubren exactamente la cantidad requerida (falta ${restante}) — operación rechazada completa.`
+    );
+  }
+
+  return { detalle };
 }

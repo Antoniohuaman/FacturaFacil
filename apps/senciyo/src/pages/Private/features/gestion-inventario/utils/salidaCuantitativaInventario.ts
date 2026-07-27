@@ -1,16 +1,19 @@
 // gestion-inventario/utils/salidaCuantitativaInventario.ts
 //
-// Motor de SALIDAS cuantitativas (Etapa 1D, §5-§14 del encargo). Todo lo que es independiente de
-// la dirección (orden canónico, DTO/hash, validación de contrato, verificación de reserva, lectura
-// de snapshots, consolidación de mutaciones, liberación de reserva de OV) vive en
+// Motor de SALIDAS (Etapa 1D, §5-§14 del encargo original; ampliado en Etapa 4A a la variante
+// valorizada). Todo lo que es independiente de la dirección (orden canónico, DTO/hash, validación
+// de contrato, verificación de reserva, lectura de snapshots, consolidación de mutaciones,
+// liberación de reserva de OV, consumo FIFO de capas) vive en
 // `operacionCuantitativaInventarioComun.ts`. Este archivo solo aporta lo específico de una
-// salida: el signo (siempre negativo — Etapa 1D no implementa reversos/anulaciones de salida), la
-// traducción a `MovimientoTipo`, y la defensa universal de clasificación inventariable (una
-// invocación directa del servicio no puede evadir el filtro de ningún consumidor, §7).
+// salida: el signo (siempre negativo), la traducción a `MovimientoTipo`, la defensa universal de
+// clasificación inventariable, y — Etapa 4A — qué `tipoOperacion` de salida admite costo y cómo
+// construir sus `ConsumoCapaCostoInventario`.
 //
-// Solo existe la variante 'cuantitativo' (sin costo, sin capas, sin FIFO, sin consumo). No
-// implementa anulación de salidas, transferencias ni devoluciones — quedan fuera del alcance de
-// Etapa 1D.
+// Modo cuantitativo (todo tipoOperacion): sin costo, sin capas, sin consumo — comportamiento
+// intacto byte a byte respecto a Etapa 1D/2. Modo valorizado (Etapa 4A): SOLO para
+// `venta_salida`/`nota_salida`/`ajuste_negativo` — consume capas FIFO existentes (nunca las crea,
+// nunca revaloriza); cualquier otro tipoOperacion de salida en modo valorizado se rechaza
+// explícitamente. No implementa anulación de salidas — eso vive en `reversoCuantitativoInventario.ts`.
 
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { Product } from '../../catalogo-articulos/models/types';
@@ -18,26 +21,48 @@ import type { DatosOperacionSalidaCuantitativa } from '../models/operacionEntrad
 import type { OperacionIdempotenteInventario, TipoOperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
 import type { PlanUnidadTrabajoInventario } from '../models/planUnidadTrabajoInventario.types';
 import type { MovimientoStock, MovimientoTipo } from '../models/inventory.types';
+import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
+import type { ConsumoCapaCostoInventario } from '../models/consumoCapaCostoInventario.types';
 import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 import { ejecutarUnidadTrabajoInventario } from './unidadTrabajoInventario';
+import { CLAVE_COLECCION_CAPAS_COSTO_INVENTARIO } from '../repositories/capaCostoInventario.repository';
+import { CLAVE_COLECCION_CONSUMOS_CAPA_COSTO_INVENTARIO } from '../repositories/consumoCapaCostoInventario.repository';
+import { lsKey } from '../../../../../shared/tenant';
 import {
   calcularHashOperacionCuantitativa,
   calcularMutacionesCuantitativas,
+  ordenarLineasCanonicamente,
+  parsearColeccion,
+  consumirCapasFIFO,
   validarContrato as validarContratoComun,
   validarReservaCoincide,
   type ResultadoMutacionesCuantitativas,
 } from './operacionCuantitativaInventarioComun';
 
 /**
- * Validación PURA del contrato (§10; Etapa 2 §10 del encargo): delega la validación estructural
- * común y, ADEMÁS, rechaza explícitamente `modoOperacion: 'valorizado'` para TODO tipoOperacion de
- * salida — a diferencia del motor de entradas, ningún consumidor de salida (NS, venta, ajuste
- * negativo) admite costo en esta etapa. Segura de ejecutar ANTES de reservar.
+ * Variantes de salida que aceptan `modoOperacion:'valorizado'` (Etapa 4A) — venta (Factura/Boleta,
+ * POS, Nota de Venta comparten `tipoOperacion:'venta_salida'`), Nota de Salida (incluida merma, que
+ * es solo un `motivo`/`tipoSalida` de NS, nunca un tipoOperacion distinto) y ajuste negativo
+ * manual. Cualquier otro `tipoOperacion` de salida sigue siendo exclusivamente cuantitativo.
+ */
+const TIPOS_OPERACION_SALIDA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
+  'venta_salida',
+  'nota_salida',
+  'ajuste_negativo',
+]);
+
+/**
+ * Validación PURA del contrato (§10 de Etapa 1D; Etapa 4A): delega la validación estructural común
+ * y, cuando `modoOperacion==='valorizado'`, exige que `tipoOperacion` sea una de las variantes
+ * soportadas (`TIPOS_OPERACION_SALIDA_VALORIZABLES`) — nunca un fallback que acepte cualquier
+ * tipoOperacion. A diferencia del motor de entradas, la salida NUNCA exige costo por línea (el
+ * costo lo aporta la capa consumida, no el llamador) — solo la cantidad, ya validada por el
+ * contrato común. Segura de ejecutar ANTES de reservar.
  */
 export function validarContrato(datos: DatosOperacionSalidaCuantitativa): void {
-  if (datos.modoOperacion === 'valorizado') {
+  if (datos.modoOperacion === 'valorizado' && !TIPOS_OPERACION_SALIDA_VALORIZABLES.has(datos.tipoOperacion)) {
     throw new Error(
-      `salidaCuantitativaInventario: modoOperacion "valorizado" no está soportado por el motor de salidas — fuera de alcance de esta etapa (Etapa 2, §10, solo aplica a ajuste_positivo en el motor de entradas).`
+      `salidaCuantitativaInventario: modoOperacion "valorizado" no está soportado para tipoOperacion "${datos.tipoOperacion}" (solo: ${Array.from(TIPOS_OPERACION_SALIDA_VALORIZABLES).join(', ')}).`
     );
   }
   validarContratoComun(datos);
@@ -108,6 +133,85 @@ export function calcularMutacionesSalida(
   });
 }
 
+/** Exportado (Etapa 4A): reutilizado también por `importacionCuantitativaInventario.ts` para las líneas de salida de un lote de importación en modo reemplazo — nunca duplicado. */
+export function esCapaAlmacenable(valor: unknown): valor is CapaCostoInventario {
+  return typeof valor === 'object' && valor !== null && typeof (valor as { id?: unknown }).id === 'string';
+}
+
+/** Exportado (Etapa 4A): ver `esCapaAlmacenable`. */
+export function esConsumoAlmacenable(valor: unknown): valor is ConsumoCapaCostoInventario {
+  return typeof valor === 'object' && valor !== null && typeof (valor as { id?: unknown }).id === 'string';
+}
+
+/**
+ * Consume capas FIFO para CADA línea del documento de salida (Etapa 4A) — nunca crea capas nuevas,
+ * nunca revaloriza. Empareja cada línea con su `MovimientoStock` ya generado por `lineaOrigenId`
+ * (mismo criterio que `construirCapasEntradaValorizada`). Mantiene un mapa de trabajo en memoria
+ * (`capasPorId`) para que varias líneas del MISMO producto+almacén dentro del mismo documento
+ * consuman de forma secuencial correcta (la segunda línea continúa exactamente donde dejó la
+ * primera, nunca relee un saldo obsoleto). Rechaza TODA la operación (lanza, no un resultado
+ * parcial) si alguna línea no cubre exactamente su cantidad con las capas disponibles.
+ */
+/** Exportado (Etapa 4A): reutilizado también por `importacionCuantitativaInventario.ts` — ver `esCapaAlmacenable`. */
+export function construirConsumosSalidaValorizada(
+  datos: DatosOperacionSalidaCuantitativa,
+  movimientosGenerados: readonly MovimientoStock[],
+  almacenes: ReadonlyMap<string, Almacen>,
+  capasDisponiblesTodas: readonly CapaCostoInventario[],
+  generarId: () => string
+): { consumosNuevos: ConsumoCapaCostoInventario[]; capasFinales: CapaCostoInventario[] } {
+  const movimientosPorLinea = new Map(movimientosGenerados.map((m) => [m.lineaOrigenId, m] as const));
+  const capasPorId = new Map(capasDisponiblesTodas.map((c) => [c.id, c] as const));
+  const candidatosPorGrupo = new Map<string, CapaCostoInventario[]>();
+  const consumosNuevos: ConsumoCapaCostoInventario[] = [];
+
+  for (const linea of ordenarLineasCanonicamente(datos.lineas)) {
+    const movimiento = movimientosPorLinea.get(linea.lineaId);
+    if (!movimiento) {
+      throw new Error(`salidaCuantitativaInventario: no se generó un movimiento para la línea "${linea.lineaId}" — no se pueden consumir capas de costo.`);
+    }
+    const almacen = almacenes.get(linea.almacenId);
+    if (!almacen) {
+      throw new Error(`salidaCuantitativaInventario: el almacén "${linea.almacenId}" no existe — no se pueden consumir capas de costo de la línea "${linea.lineaId}".`);
+    }
+
+    const claveGrupo = `${linea.productoId}:${linea.almacenId}`;
+    if (!candidatosPorGrupo.has(claveGrupo)) {
+      candidatosPorGrupo.set(
+        claveGrupo,
+        capasDisponiblesTodas.filter(
+          (c) => c.establecimientoId === almacen.establecimientoId && c.productoId === linea.productoId && c.almacenId === linea.almacenId
+        )
+      );
+    }
+    const candidatas = (candidatosPorGrupo.get(claveGrupo) as CapaCostoInventario[])
+      .map((c) => capasPorId.get(c.id) as CapaCostoInventario)
+      .filter((c) => c.estado === 'disponible' && c.cantidadDisponible > 0);
+
+    const { detalle } = consumirCapasFIFO({
+      capasDisponibles: candidatas,
+      cantidadRequerida: linea.cantidadUnidadMinima,
+      empresaId: datos.empresaId,
+      movimientoSalidaId: movimiento.id,
+      lineaDocumentoSalidaId: linea.lineaId,
+      motivo: 'salida',
+      fecha: datos.fecha,
+      generarId,
+      nombreParaError: `"${movimiento.productoNombre}" en "${almacen.nombreAlmacen}"`,
+    });
+
+    for (const d of detalle) {
+      capasPorId.set(d.capaActualizada.id, d.capaActualizada);
+      consumosNuevos.push(d.consumo);
+    }
+  }
+
+  return {
+    consumosNuevos,
+    capasFinales: capasDisponiblesTodas.map((c) => capasPorId.get(c.id) as CapaCostoInventario),
+  };
+}
+
 export interface ParametrosPrepararOperacionSalidaCuantitativa {
   datos: DatosOperacionSalidaCuantitativa;
   operacionReservada: OperacionIdempotenteInventario;
@@ -128,9 +232,12 @@ export interface ResultadoPreparacionOperacionSalida {
 }
 
 /**
- * Preparación pura del documento completo de salida (§11): valida que la reserva recibida
- * corresponda a esta operación, calcula todas las mutaciones (`calcularMutacionesSalida`) y
- * construye el plan exacto para la unidad de trabajo de Etapa 1B. Nunca toca `localStorage`.
+ * Preparación pura del documento completo de salida (§11 de Etapa 1D; Etapa 4A añade el consumo
+ * FIFO): valida que la reserva recibida corresponda a esta operación, calcula todas las mutaciones
+ * (`calcularMutacionesSalida`) y, en modo valorizado, consume capas FIFO para cada línea — todo en
+ * el MISMO plan que la unidad de trabajo confirma atómicamente. La colección de capas/consumos,
+ * cuando aplica, se lee mediante `localStorage` directamente aquí, igual que ya hace el motor de
+ * entradas — ninguna llega precargada porque solo el modo valorizado la necesita.
  */
 export function prepararOperacionSalidaInventario(
   params: ParametrosPrepararOperacionSalidaCuantitativa
@@ -142,6 +249,42 @@ export function prepararOperacionSalidaInventario(
   const { movimientosGenerados, productosActualizados, productosFinales, movimientosFinales, claveProductos, claveMovimientos } =
     calcularMutacionesSalida(datos, productosRaw, movimientosRaw, almacenes, generarId, permitirStockNegativo);
 
+  const escrituras: PlanUnidadTrabajoInventario['escrituras'] = [
+    { clave: claveProductos, valorAnterior: productosRaw, valorPropuesto: JSON.stringify(productosFinales) },
+    { clave: claveMovimientos, valorAnterior: movimientosRaw, valorPropuesto: JSON.stringify(movimientosFinales) },
+  ];
+
+  if (datos.modoOperacion === 'valorizado') {
+    const claveCapas = lsKey(CLAVE_COLECCION_CAPAS_COSTO_INVENTARIO, datos.empresaId);
+    const claveConsumos = lsKey(CLAVE_COLECCION_CONSUMOS_CAPA_COSTO_INVENTARIO, datos.empresaId);
+
+    const capasRawAnterior = localStorage.getItem(claveCapas);
+    const capasTodas = parsearColeccion(capasRawAnterior, `la colección de capas de costo ("${claveCapas}")`).map((elemento, indice) => {
+      if (!esCapaAlmacenable(elemento)) {
+        throw new Error(`salidaCuantitativaInventario: el elemento en el índice ${indice} de "${claveCapas}" no tiene la forma esperada de una capa de costo.`);
+      }
+      return elemento;
+    });
+
+    const { consumosNuevos, capasFinales } = construirConsumosSalidaValorizada(datos, movimientosGenerados, almacenes, capasTodas, generarId);
+
+    const capasFinalesPorId = new Map(capasFinales.map((c) => [c.id, c] as const));
+    const capasParaEscribir = capasTodas.map((c) => capasFinalesPorId.get(c.id) ?? c);
+
+    const consumosRawAnterior = localStorage.getItem(claveConsumos);
+    const consumosAnteriores = parsearColeccion(consumosRawAnterior, `la colección de consumos de capas ("${claveConsumos}")`).map((elemento, indice) => {
+      if (!esConsumoAlmacenable(elemento)) {
+        throw new Error(`salidaCuantitativaInventario: el elemento en el índice ${indice} de "${claveConsumos}" no tiene la forma esperada de un consumo de capa.`);
+      }
+      return elemento;
+    });
+
+    escrituras.push(
+      { clave: claveCapas, valorAnterior: capasRawAnterior, valorPropuesto: JSON.stringify(capasParaEscribir) },
+      { clave: claveConsumos, valorAnterior: consumosRawAnterior, valorPropuesto: JSON.stringify([...consumosAnteriores, ...consumosNuevos]) },
+    );
+  }
+
   const plan: PlanUnidadTrabajoInventario = {
     id: generarId(),
     empresaId: datos.empresaId,
@@ -150,18 +293,7 @@ export function prepararOperacionSalidaInventario(
     tipoOperacion: datos.tipoOperacion,
     hashEntrada,
     versionEsperada,
-    escrituras: [
-      {
-        clave: claveProductos,
-        valorAnterior: productosRaw,
-        valorPropuesto: JSON.stringify(productosFinales),
-      },
-      {
-        clave: claveMovimientos,
-        valorAnterior: movimientosRaw,
-        valorPropuesto: JSON.stringify(movimientosFinales),
-      },
-    ],
+    escrituras,
     resultadoIds: movimientosGenerados.map((movimiento) => movimiento.id),
     usuario: datos.usuario,
   };

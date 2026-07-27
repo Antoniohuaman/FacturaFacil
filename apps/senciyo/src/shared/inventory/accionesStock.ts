@@ -4,6 +4,8 @@ import type { MovimientoStock, StockAdjustmentData } from '../../pages/Private/f
 import { InventoryService } from '../../pages/Private/features/gestion-inventario/services/inventory.service';
 import { useProductStore } from '../../pages/Private/features/catalogo-articulos/hooks/useProductStore';
 import { STOCK_MOVEMENTS_CHANGED_EVENT } from '../../pages/Private/features/gestion-inventario/repositories/stock.repository';
+import { resolverModoOperacion } from '../../pages/Private/features/gestion-inventario/utils/estadoActivacionValorizacionInventario';
+import type { EstadoActivacionValorizacion } from '../../pages/Private/features/gestion-inventario/models/estadoActivacionValorizacion.types';
 
 export type ResultadoAjusteDeStock = {
   productoActualizado: Product;
@@ -15,7 +17,23 @@ export type ParametrosAjusteDeStock = {
   almacen: Almacen;
   datosAjuste: StockAdjustmentData;
   usuario: string;
+  estadoValorizacion: EstadoActivacionValorizacion;
 };
+
+/**
+ * Etapa 4A, §10: esta mutación es directa (nunca pasa por capas/consumos) — en cualquier estado
+ * de valorización distinto de los dos modos cuantitativos libres, permitirla desincronizaría el
+ * stock respecto de las capas de costo. Se bloquea aquí, en el propio servicio, para que ningún
+ * consumidor (presente o futuro) pueda evadir la protección quedándose solo en la interfaz.
+ */
+function verificarMutacionDirectaPermitida(estadoValorizacion: EstadoActivacionValorizacion): void {
+  const modo = resolverModoOperacion(estadoValorizacion);
+  if (modo !== 'cuantitativo_libre' && modo !== 'cuantitativo_invalida_snapshot') {
+    throw new Error(
+      'Este ajuste no está disponible: la empresa está en un estado de valorización de inventario que no permite mutaciones directas de stock.'
+    );
+  }
+}
 
 /**
  * Registra un ajuste de stock y aplica el cambio al catálogo local.
@@ -30,7 +48,9 @@ export type ParametrosAjusteDeStock = {
  * `hooks/useInventory.ts::handleStockAdjustment`.
  */
 export const registrarAjusteDeStock = (params: ParametrosAjusteDeStock): ResultadoAjusteDeStock => {
-  const { producto, almacen, datosAjuste, usuario } = params;
+  const { producto, almacen, datosAjuste, usuario, estadoValorizacion } = params;
+
+  verificarMutacionDirectaPermitida(estadoValorizacion);
 
   // TODO: reemplazar por API cuando el backend esté disponible.
   const resultado = InventoryService.registerAdjustment(producto, almacen, datosAjuste, usuario);

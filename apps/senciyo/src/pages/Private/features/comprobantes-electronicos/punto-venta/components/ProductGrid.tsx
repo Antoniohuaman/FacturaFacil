@@ -174,6 +174,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         almacen,
         datosAjuste: data,
         usuario: session?.userName || 'Usuario',
+        estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
       });
 
       showSuccessToast(
@@ -185,7 +186,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       console.error('Error al registrar ajuste:', err);
       showErrorToast(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
     }
-  }, [catalogProducts, configState.almacenes, session?.userName, showErrorToast, showSuccessToast, showWarningToast]);
+  }, [catalogProducts, configState.almacenes, configState.preferenciasInventario, session?.userName, showErrorToast, showSuccessToast, showWarningToast]);
 
   const favoriteProducts = useMemo(() => products.filter((product) => product.isFavorite), [products]);
   const hasFavoriteProducts = favoriteProducts.length > 0;

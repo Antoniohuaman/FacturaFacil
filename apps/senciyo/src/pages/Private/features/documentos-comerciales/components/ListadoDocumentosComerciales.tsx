@@ -263,7 +263,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     agregarComentario,
     marcarComoAceptada,
   } = useDocumentoComercialActions();
-  const { anularNS } = useNotasSalida();
+  const { notas: notasSalida, anularNS } = useNotasSalida();
   const feedback = useFeedback();
   const { state: configState } = useConfigurationContext();
   const { activeEstablecimientoId } = useTenant();
@@ -579,13 +579,21 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
     if (confirmandoAccion.tipo === 'anular') {
       if (!confirmandoAccion.motivo.trim()) { feedback.warning('El motivo de anulación es obligatorio.'); return; }
 
-      // Cascade: anular la NS vinculada antes de anular la NV
+      // Cascade: anular la NS vinculada antes de anular la NV. Etapa 4A, §11: si un intento
+      // anterior ya anuló la NS pero la propia anulación de la NV falló después (o el usuario
+      // reintenta), la NS ya está en estado terminal 'Anulada' — reintentar `anularNS` sobre ella
+      // fallaría (el motor rechaza anular una NS que no está 'Generada') y bloquearía para
+      // siempre completar el paso pendiente real (anular la NV). Se reconcilia leyendo el estado
+      // ACTUAL de la NS antes de decidir: solo se anula si de verdad sigue 'Generada'.
       const doc = state.documentos.find((d) => d.id === confirmandoAccion.id);
       if (doc?.tipo === 'nota_venta' && doc.notaSalidaGenerada && doc.notaSalidaId) {
-        const okNS = await anularNS(doc.notaSalidaId, `Anulado por anulación de ${doc.numero ?? doc.id}`);
-        if (!okNS) {
-          feedback.error('No se pudo anular la Nota de Salida vinculada. Intente nuevamente.');
-          return;
+        const nsVinculada = notasSalida.find((n) => n.id === doc.notaSalidaId);
+        if (nsVinculada && nsVinculada.estado !== 'Anulada') {
+          const okNS = await anularNS(doc.notaSalidaId, `Anulado por anulación de ${doc.numero ?? doc.id}`);
+          if (!okNS) {
+            feedback.error('No se pudo anular la Nota de Salida vinculada. Intente nuevamente.');
+            return;
+          }
         }
       }
 
@@ -611,7 +619,7 @@ export default function ListadoDocumentosComerciales({ tipo, abrirDetalleId }: L
       else feedback.error(r.error ?? 'Error al eliminar.');
     }
     setConfirmandoAccion(null);
-  }, [confirmandoAccion, anularDocumento, anularNS, eliminarBorrador, rechazarCotizacion, aprobarCotizacion, cerrarCotizacionComoPerdida, feedback, labelTipo, state.documentos]);
+  }, [confirmandoAccion, anularDocumento, anularNS, notasSalida, eliminarBorrador, rechazarCotizacion, aprobarCotizacion, cerrarCotizacionComoPerdida, feedback, labelTipo, state.documentos]);
 
   const handleImprimir = useCallback(async (doc: DocumentoComercial, formato: 'a4' | 'ticket') => {
     setMenuAbierto(null); setMenuPosicion(null);

@@ -682,23 +682,31 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       let accionHistorial = 'Documento anulado';
       let detalleHistorial = `Motivo: ${motivo.trim()}`;
 
+      // Etapa 4A, §12: `liberarReservaOrden` es una mutación directa sin idempotencia propia (a
+      // diferencia del motor central de Nota de Venta, más abajo) — se calcula QUÉ liberar aquí,
+      // pero la liberación real se aplaza hasta DESPUÉS de persistir la anulación del documento de
+      // forma crítica (`persistirDocumentos`, que sí reporta fallo — nunca `actualizarEnContext`,
+      // cuyo `useEffect` ignora errores de cuota). Si la persistencia falla, la reserva permanece
+      // intacta y un reintento repite exactamente la misma operación sin duplicar la liberación.
+      let aLiberarOV: ReservaStockItem[] | undefined;
+
       if (
         doc.tipo === 'orden_venta' &&
         (doc.estado === 'Reservada' || doc.estado === 'Pendiente de salida' || doc.estado === 'Atendida parcialmente') &&
         doc.reservasStock?.length
       ) {
         // Para OVs con despacho parcial, liberar solo la reserva pendiente (original - despachado)
-        const aLiberar: ReservaStockItem[] = doc.despachado?.length
+        const pendiente: ReservaStockItem[] = doc.despachado?.length
           ? calcularReservasPendientes(doc.reservasStock, doc.despachado)
           : doc.reservasStock;
-        if (aLiberar.length > 0) {
-          liberarReservaOrden(aLiberar);
+        if (pendiente.length > 0) {
+          aLiberarOV = pendiente;
+          accionHistorial = 'Reserva liberada por anulación';
+          const productosLiberados = pendiente
+            .map((r) => `${r.nombre} (${r.cantidad})`)
+            .join(', ');
+          detalleHistorial = `Motivo: ${motivo.trim()}. Productos liberados: ${productosLiberados}`;
         }
-        accionHistorial = 'Reserva liberada por anulación';
-        const productosLiberados = aLiberar
-          .map((r) => `${r.nombre} (${r.cantidad})`)
-          .join(', ');
-        detalleHistorial = `Motivo: ${motivo.trim()}. Productos liberados: ${productosLiberados}`;
       }
 
       if (doc.tipo === 'nota_venta' && doc.modoDescuentoStock === 'automatico' && doc.reservasStock?.length) {
@@ -711,11 +719,16 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, empresaId));
         const datosAnulacion = prepararAnulacionDescuentoStockNV(doc.id, empresaId, movimientosRaw, session?.userName ?? 'Usuario', ahora);
         const almacenesMap = new Map((configState.almacenes ?? []).map((a) => [a.id, a]));
+        // Etapa 4A, §9: `valorizacionHabilitada` SIEMPRE en `true` — la fuente de verdad de si hay
+        // que restaurar capas es la operación ORIGINAL y sus artefactos reales, nunca el
+        // estadoValorizacion ACTUAL de la empresa en el momento de anular (mismo fix ya aplicado
+        // en Nota de Ingreso).
         await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, {
           almacenes: almacenesMap,
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+          valorizacionHabilitada: true,
         });
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
         // a persistir aquí (nada de registerAdjustment/updateProduct). Solo se rehidrata el
@@ -739,6 +752,17 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
         usuarioAnulacion: session?.userName ?? undefined,
         historial: [...(doc.historial ?? []), eventoAnulacion],
       };
+
+      if (aLiberarOV?.length) {
+        const resultadoPersistencia = persistirDocumentos(
+          state.documentos.map((d) => (d.id === id ? actualizado : d)),
+        );
+        if (!resultadoPersistencia.exito) {
+          return { exito: false, error: resultadoPersistencia.error };
+        }
+        liberarReservaOrden(aLiberarOV);
+      }
+
       actualizarEnContext(actualizado);
 
       // Cascade: si este doc fue generado desde una cotización, restaurarla.

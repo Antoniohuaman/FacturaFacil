@@ -446,7 +446,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
     expect(productos[0].stockPorAlmacen['alm-2']).toBe(0);
   });
 
-  it('restaura exactamente las capas de origen y marca revertidas las capas de destino (modo valorizado)', async () => {
+  it('restaura exactamente las capas de origen, marca revertidas las capas de destino Y revierte el consumo histórico del origen (modo valorizado)', async () => {
     const empresaId = 'emp-A';
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
     guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-origen', empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
@@ -456,6 +456,9 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
     expect(capaOrigenTrasTransferir?.cantidadDisponible).toBe(15);
     const capaDestino = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.almacenId === 'alm-2');
     expect(capaDestino).toBeDefined();
+    const consumoOrigenTrasTransferir = listarConsumosCapaCostoInventarioPorEmpresa(empresaId).find((c) => c.movimientoSalidaId === salidaId);
+    expect(consumoOrigenTrasTransferir?.estado).toBe('confirmado');
+    expect(consumoOrigenTrasTransferir?.cantidadConsumida).toBe(5);
 
     await ServicioKardexValorizado.revertirMovimientoValorizado(
       reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }),
@@ -465,6 +468,51 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
     const capasFinales = listarCapasCostoInventarioPorEmpresa(empresaId);
     expect(capasFinales.find((c) => c.id === 'capa-origen')?.cantidadDisponible).toBe(20);
     expect(capasFinales.find((c) => c.id === capaDestino!.id)?.estado).toBe('revertida');
+    // El vínculo histórico real (consumo original) queda marcado revertido — nunca recalculado ni sustituido por uno nuevo.
+    const consumoOrigenFinal = listarConsumosCapaCostoInventarioPorEmpresa(empresaId).find((c) => c.movimientoSalidaId === salidaId);
+    expect(consumoOrigenFinal?.id).toBe(consumoOrigenTrasTransferir?.id);
+    expect(consumoOrigenFinal?.estado).toBe('revertido');
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(1); // nunca crea un consumo nuevo
+  });
+
+  it('reintento (misma claveIdempotencia) no vuelve a modificar stock, capas ni consumos', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-origen', empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+    const { salidaId, almacenes } = await crearTransferenciaConfirmada(empresaId, {}, true);
+    const dependencias = { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const, valorizacionHabilitada: true };
+    const datosReverso = reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' });
+
+    const primero = await ServicioKardexValorizado.revertirMovimientoValorizado(datosReverso, dependencias);
+    expect(primero.estado).toBe('nueva');
+    const segundo = await ServicioKardexValorizado.revertirMovimientoValorizado(datosReverso, dependencias);
+    expect(segundo.estado).toBe('repetida');
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20); // nunca 20 + 5 + 5
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(0);
+    expect(listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-origen')?.cantidadDisponible).toBe(20);
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(1); // nunca un segundo consumo de reverso
+  });
+
+  it('transferencia cuantitativa (sin capas) anulada con la empresa ya en estadoValorizacion="activa": restaura cantidades, nunca exige capas', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    // La transferencia original corrió sin valorización (sin capas involucradas) — el estado actual
+    // de la empresa en el momento de anular (aquí, ya 'activa') nunca debe alterar esta decisión:
+    // la fuente de verdad es la operación original, nunca el estado presente.
+    const { salidaId, almacenes } = await crearTransferenciaConfirmada(empresaId);
+
+    const resultado = await ServicioKardexValorizado.revertirMovimientoValorizado(
+      reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }),
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', valorizacionHabilitada: true }
+    );
+
+    expect(resultado.movimientos).toHaveLength(2);
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(0);
+    expect(listarCapasCostoInventarioPorEmpresa(empresaId)).toHaveLength(0);
   });
 
   it('bloquea si la capa destino fue parcialmente consumida (mercancía ya no está intacta en destino)', async () => {

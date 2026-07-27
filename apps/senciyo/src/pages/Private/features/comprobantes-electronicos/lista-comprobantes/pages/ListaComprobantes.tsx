@@ -1025,6 +1025,18 @@ const InvoiceListDashboard = () => {
         new Date().toISOString(),
       );
 
+      // Etapa 4A, §9: si el comprobante afirma haber afectado inventario (modoDescuentoStock
+      // 'automatico') pero no puede localizarse la operación original, nunca se acepta en
+      // silencio — se bloquea la anulación completa en vez de marcar el documento 'Anulado' sin
+      // haber revertido nada. `datosAnulacion === null` sigue siendo legítimo para cualquier otra
+      // modalidad (nunca hubo descuento que revertir).
+      if (!datosAnulacion && modo === 'automatico') {
+        feedback.error(
+          'No se puede anular: no se encontraron los movimientos de inventario originales de este comprobante — el historial es inconsistente.',
+        );
+        return;
+      }
+
       if (datosAnulacion) {
         // Snapshot exacto antes de cualquier mutación — conservado únicamente para el rollback
         // externo de Fase 3, nunca usado por esta fase (el motor ya es atómico por sí mismo).
@@ -1033,11 +1045,16 @@ const InvoiceListDashboard = () => {
 
         try {
           const almacenesMap = new Map((configState.almacenes ?? []).map((a) => [a.id, a]));
+          // Etapa 4A, §9: `valorizacionHabilitada` SIEMPRE en `true` — igual que el fix ya
+          // aplicado en Nota de Ingreso. La fuente de verdad de si hay que restaurar capas es la
+          // operación ORIGINAL y sus artefactos reales (movimientoEntradaId), nunca el
+          // estadoValorizacion ACTUAL de la empresa en el momento de anular.
           await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, {
             almacenes: almacenesMap,
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            valorizacionHabilitada: true,
           });
           // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se
           // vuelve a persistir aquí (nada de addMovimiento/registerAdjustment).

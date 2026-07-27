@@ -7,6 +7,7 @@ import type { DatosAnulacionDocumentoInventario } from '../../gestion-inventario
 import type { MovimientoStock } from '../../gestion-inventario/models/inventory.types';
 import type { EstadoActivacionValorizacion } from '../../gestion-inventario/models/estadoActivacionValorizacion.types';
 import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
+import { resolverModoOperacion } from '../../gestion-inventario/utils/estadoActivacionValorizacionInventario';
 import { parsearColeccion } from '../../gestion-inventario/utils/operacionCuantitativaInventarioComun';
 import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
 import {
@@ -472,8 +473,10 @@ export async function ejecutarDescuentoStockNV(
 
   if (cache.lineasOperacion.length > 0) {
     const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+    // Etapa 4A: el modo nunca se fuerza desde la UI — se deriva del estado real de activación.
+    const esValorizado = resolverModoOperacion(estadoValorizacion) === 'valorizado_exclusivo';
     const datosOperacion: DatosOperacionSalidaCuantitativa = {
-      modoOperacion: 'cuantitativo',
+      modoOperacion: esValorizado ? 'valorizado' : 'cuantitativo',
       empresaId,
       documentoId: cache.documentoId,
       tipoDocumento: 'venta',

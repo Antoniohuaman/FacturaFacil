@@ -29,7 +29,7 @@ import { ejecutarUnidadTrabajoInventario } from './unidadTrabajoInventario';
 import { serializarCanonicamente } from './serializacionCanonicaInventario';
 import { calcularHashInventario } from './hashInventario';
 import { redondearAPrecision, PRECISION_CANTIDAD_UNIDAD_MINIMA, PRECISION_COSTO_UNITARIO_INTERNO } from './precisionInventario';
-import { parsearColeccion, esProductoAlmacenable } from './operacionCuantitativaInventarioComun';
+import { parsearColeccion, esProductoAlmacenable, consumirCapasFIFO } from './operacionCuantitativaInventarioComun';
 import { InventoryService } from '../services/inventory.service';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
@@ -118,18 +118,6 @@ function esConsumoAlmacenable(valor: unknown): valor is ConsumoCapaCostoInventar
 
 function esTransferenciaAlmacenable(valor: unknown): valor is Transferencia {
   return typeof valor === 'object' && valor !== null && typeof (valor as { id?: unknown }).id === 'string';
-}
-
-function ordenarCapasFifo(capas: readonly CapaCostoInventario[]): CapaCostoInventario[] {
-  return [...capas].sort((a, b) => {
-    const fa = new Date(a.fechaEntrada).getTime();
-    const fb = new Date(b.fechaEntrada).getTime();
-    if (fa !== fb) return fa - fb;
-    const ca = new Date(a.fechaCreacion).getTime();
-    const cb = new Date(b.fechaCreacion).getTime();
-    if (ca !== cb) return ca - cb;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  });
 }
 
 export interface ParametrosPreparaTransferencia {
@@ -354,88 +342,61 @@ export function prepararOperacionTransferencia(
   let capasDestinoIds: string[] | undefined;
 
   if (capasOrigenDisponibles.length > 0) {
-    const capasOrdenadas = ordenarCapasFifo(capasOrigenDisponibles);
-    let restante = datos.cantidadUnidadMinima;
-    const capasOrigenActualizadasPorId = new Map<string, CapaCostoInventario>();
-    const capasDestinoNuevas: CapaCostoInventario[] = [];
-    const consumosNuevos: ConsumoCapaCostoInventario[] = [];
-    const idsOrigenTocados: string[] = [];
-    const idsDestinoCreados: string[] = [];
+    // Consumo FIFO — única fuente compartida con el motor de salidas (operacionCuantitativaInventarioComun.ts).
+    const { detalle } = consumirCapasFIFO({
+      capasDisponibles: capasOrigenDisponibles,
+      cantidadRequerida: datos.cantidadUnidadMinima,
+      empresaId: datos.empresaId,
+      movimientoSalidaId: idSalida,
+      lineaDocumentoSalidaId: datos.transferenciaId,
+      motivo: 'transferencia',
+      fecha: datos.fecha,
+      generarId,
+      nombreParaError: `"${producto.nombre}" en "${almacenOrigen.nombreAlmacen}"`,
+    });
 
-    for (const capa of capasOrdenadas) {
-      if (restante <= 0) break;
-      if (capa.cantidadDisponible <= 0) continue;
-      const consumir = Math.min(capa.cantidadDisponible, restante);
-      restante = redondearAPrecision(restante - consumir, PRECISION_CANTIDAD_UNIDAD_MINIMA);
+    const capasOrigenActualizadasPorId = new Map(detalle.map((d) => [d.capaActualizada.id, d.capaActualizada] as const));
+    const consumosNuevos = detalle.map((d) => d.consumo);
+    const idsOrigenTocados = detalle.map((d) => d.capaActualizada.id);
 
-      const nuevaDisponibleOrigen = redondearAPrecision(capa.cantidadDisponible - consumir, PRECISION_CANTIDAD_UNIDAD_MINIMA);
-      capasOrigenActualizadasPorId.set(capa.id, {
-        ...capa,
-        cantidadDisponible: nuevaDisponibleOrigen,
-        estado: nuevaDisponibleOrigen <= 0 ? 'agotada' : 'disponible',
-      });
-      idsOrigenTocados.push(capa.id);
-
-      const valorConsumidoBase = redondearAPrecision(capa.costoUnitarioBaseMonedaBase * consumir, PRECISION_COSTO_UNITARIO_INTERNO);
-      consumosNuevos.push({
-        id: generarId(),
-        empresaId: datos.empresaId,
-        movimientoSalidaId: idSalida,
-        lineaDocumentoSalidaId: datos.transferenciaId,
-        capaId: capa.id,
-        cantidadConsumida: consumir,
-        costoUnitarioBaseMonedaBase: capa.costoUnitarioBaseMonedaBase,
-        valorConsumidoMonedaBase: valorConsumidoBase,
-        monedaBase: capa.monedaBase,
-        fecha: datos.fecha,
-        estado: 'confirmado',
-        motivo: 'transferencia',
-      });
-
-      const idCapaDestino = generarId();
-      capasDestinoNuevas.push({
-        id: idCapaDestino,
-        empresaId: datos.empresaId,
-        establecimientoId: datos.establecimientoDestinoId,
-        productoId: datos.productoId,
-        almacenId: datos.almacenDestinoId,
-        movimientoEntradaId: idEntrada,
-        tipoDocumentoOrigen: 'transferencia',
-        documentoOrigenId: datos.transferenciaId,
-        lineaOrigenId: datos.transferenciaId,
-        capaOrigenId: capa.id,
-        // Snapshots por unidad (costo/tasa) conservados EXACTOS — nunca revalorizados. La
-        // cantidad/valor comercial ORIGINAL de la compra pertenece a la capa origen, no se copia
-        // a una capa que ahora representa solo una porción transferida.
-        costoUnitarioComercialOriginal: capa.costoUnitarioComercialOriginal,
-        factorConversionAplicado: capa.factorConversionAplicado,
-        cantidadInicial: consumir,
-        cantidadDisponible: consumir,
-        costoUnitarioBaseOriginal: capa.costoUnitarioBaseOriginal,
-        costoUnitarioBaseMonedaBase: capa.costoUnitarioBaseMonedaBase,
-        valorValorizableOriginal: redondearAPrecision(capa.costoUnitarioBaseOriginal * consumir, PRECISION_COSTO_UNITARIO_INTERNO),
-        valorValorizableMonedaBase: valorConsumidoBase,
-        monedaBase: capa.monedaBase,
-        monedaOriginal: capa.monedaOriginal,
-        tipoCambioAplicado: capa.tipoCambioAplicado,
-        fechaTipoCambio: capa.fechaTipoCambio,
-        // Fecha de adquisición económica conservada — nunca se reemplaza por la fecha de la transferencia.
-        fechaEntrada: capa.fechaEntrada,
-        estado: 'disponible',
-        procedencia: 'transferencia',
-        usuario: datos.usuario,
-        // fechaCreacion SÍ es la fecha real de la transferencia (nueva capa, nace ahora).
-        fechaCreacion: datos.fecha,
-      });
-      idsDestinoCreados.push(idCapaDestino);
-    }
-
-    if (restante > 0) {
-      throw new Error(
-        `transferenciaCuantitativaInventario: las capas de costo disponibles en "${almacenOrigen.nombreAlmacen}" para "${producto.nombre}" ` +
-        `no cubren exactamente la cantidad a transferir (falta ${restante}) — operación rechazada completa.`
-      );
-    }
+    // La capa destino (espejo de lo transferido) es específica de una transferencia — el consumo
+    // FIFO en sí (ordenar/consumir/construir el consumo) ya es común; solo este efecto adicional
+    // se construye aquí, a partir de `capaOriginal`/`cantidadConsumida` de cada entrada de `detalle`.
+    const capasDestinoNuevas: CapaCostoInventario[] = detalle.map(({ capaOriginal: capa, cantidadConsumida: consumir, consumo }) => ({
+      id: generarId(),
+      empresaId: datos.empresaId,
+      establecimientoId: datos.establecimientoDestinoId,
+      productoId: datos.productoId,
+      almacenId: datos.almacenDestinoId,
+      movimientoEntradaId: idEntrada,
+      tipoDocumentoOrigen: 'transferencia',
+      documentoOrigenId: datos.transferenciaId,
+      lineaOrigenId: datos.transferenciaId,
+      capaOrigenId: capa.id,
+      // Snapshots por unidad (costo/tasa) conservados EXACTOS — nunca revalorizados. La
+      // cantidad/valor comercial ORIGINAL de la compra pertenece a la capa origen, no se copia
+      // a una capa que ahora representa solo una porción transferida.
+      costoUnitarioComercialOriginal: capa.costoUnitarioComercialOriginal,
+      factorConversionAplicado: capa.factorConversionAplicado,
+      cantidadInicial: consumir,
+      cantidadDisponible: consumir,
+      costoUnitarioBaseOriginal: capa.costoUnitarioBaseOriginal,
+      costoUnitarioBaseMonedaBase: capa.costoUnitarioBaseMonedaBase,
+      valorValorizableOriginal: redondearAPrecision(capa.costoUnitarioBaseOriginal * consumir, PRECISION_COSTO_UNITARIO_INTERNO),
+      valorValorizableMonedaBase: consumo.valorConsumidoMonedaBase,
+      monedaBase: capa.monedaBase,
+      monedaOriginal: capa.monedaOriginal,
+      tipoCambioAplicado: capa.tipoCambioAplicado,
+      fechaTipoCambio: capa.fechaTipoCambio,
+      // Fecha de adquisición económica conservada — nunca se reemplaza por la fecha de la transferencia.
+      fechaEntrada: capa.fechaEntrada,
+      estado: 'disponible',
+      procedencia: 'transferencia',
+      usuario: datos.usuario,
+      // fechaCreacion SÍ es la fecha real de la transferencia (nueva capa, nace ahora).
+      fechaCreacion: datos.fecha,
+    }));
+    const idsDestinoCreados = capasDestinoNuevas.map((c) => c.id);
 
     const capasRawTodas = parsearColeccion(
       localStorage.getItem(claveCapas),

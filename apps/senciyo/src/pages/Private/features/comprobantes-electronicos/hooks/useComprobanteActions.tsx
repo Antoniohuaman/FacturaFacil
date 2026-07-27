@@ -48,6 +48,7 @@ import { StockRepository } from '../../gestion-inventario/repositories/stock.rep
 import { crearInstantaneaDocumentoComercial } from '../models/instantaneaDocumentoComercial';
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
 import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
+import { resolverModoOperacion } from '../../gestion-inventario/utils/estadoActivacionValorizacionInventario';
 import type { DatosOperacionSalidaCuantitativa, DatosLineaOperacionCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
 import {
   obtenerDatosOperacionPendiente,
@@ -904,8 +905,13 @@ export const useComprobanteActions = () => {
         // solo como `documentoReferencia` visible.
         if (lineas.length > 0) {
           const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+          // Etapa 4A: el modo NUNCA se fuerza desde la UI — se deriva del estado real de
+          // activación de la empresa. Solo en 'valorizado_exclusivo' (empresa 'activa') la venta
+          // consume capas FIFO; en cualquier otro modo permitido conserva el comportamiento
+          // cuantitativo puro ya aprobado, byte a byte.
+          const esValorizado = resolverModoOperacion(preferenciasInventario.estadoValorizacion) === 'valorizado_exclusivo';
           const datosOperacion: DatosOperacionSalidaCuantitativa = {
-            modoOperacion: 'cuantitativo',
+            modoOperacion: esValorizado ? 'valorizado' : 'cuantitativo',
             empresaId,
             documentoId: documentoIdVenta,
             tipoDocumento: 'venta',
@@ -1345,7 +1351,16 @@ export const useComprobanteActions = () => {
         }
       } catch (contextError) {
         console.error('Error agregando comprobante al contexto:', contextError);
-        // No lanzar error, el comprobante ya se creó exitosamente
+        // Etapa 4A, §11: NUNCA se traga este error. Si `addComprobante` (o cualquier paso de esta
+        // proyección comercial) falla, el stock ya pudo haber sido descontado/confirmado por el
+        // motor central arriba — la sesión pendiente (`cacheVenta`) sigue viva porque
+        // `limpiarSesionPendienteOperacion` solo se ejecuta DESPUÉS de esta línea (ver comentario
+        // más arriba), así que un reintento (el botón "Reintentar" del catch externo) reutiliza el
+        // MISMO `documentoIdVenta`/`lineasOperacion` cacheados: el motor idempotente responde
+        // 'repetida' (nunca vuelve a descontar) y este bloque simplemente completa la persistencia
+        // comercial pendiente. Relanzar aquí es lo único que impide reportar éxito falso al usuario
+        // mientras el comprobante nunca llegó a existir en el listado.
+        throw contextError;
       }
 
       // ✅ Registrar snapshot para indicadores locales

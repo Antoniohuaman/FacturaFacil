@@ -32,8 +32,13 @@ export interface DatosLineaImportacionCuantitativa {
 }
 
 export interface DatosImportacionCuantitativa {
-  /** Única variante aceptada en esta etapa — 'valorizado' se rechaza explícitamente en tiempo de ejecución (Etapa 4, fuera de alcance). */
-  modoOperacion: 'cuantitativo';
+  /**
+   * Etapa 4A: `'valorizado'` habilita el consumo FIFO de capas SOLO para las líneas con
+   * `diferencia<0` (reducción real de stock) del lote — nunca crea capas para las líneas con
+   * `diferencia>0` (esa creación de capas queda fuera de alcance de esta etapa; la entrada
+   * conserva exactamente su comportamiento cuantitativo actual, sin importar el modo del lote).
+   */
+  modoOperacion: 'cuantitativo' | 'valorizado';
   empresaId: string;
   /** Identidad real del lote — UUID técnico estable (`LoteImportacionValorizada.id`), nunca un timestamp por segundo. */
   loteId: string;

@@ -16,6 +16,9 @@ import {
   obtenerDatosOperacionPendiente,
   guardarDatosOperacionPendiente,
 } from '../../../../../shared/inventory/sesionPendienteOperacionInventario';
+import { guardarCapaCostoInventario, listarCapasCostoInventarioPorEmpresa } from '../../gestion-inventario/repositories/capaCostoInventario.repository';
+import { listarConsumosCapaCostoInventarioPorEmpresa } from '../../gestion-inventario/repositories/consumoCapaCostoInventario.repository';
+import type { CapaCostoInventario } from '../../gestion-inventario/models/capaCostoInventario.types';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { CartItem, DatosFormularioDocumentoComercial } from '../models/documentoComercial.types';
@@ -495,6 +498,97 @@ describe('Corrección post-1D §3: ejecutarDescuentoStockNV — identidad y núm
     });
 
     expect(resultado.documentoId).toBe('doc-borrador-real-123');
+  });
+});
+
+describe('Etapa 4A: ejecutarDescuentoStockNV en modo valorizado (empresa "activa") consume capas FIFO', () => {
+  function crearDatosFormulario(overrides: Partial<DatosFormularioDocumentoComercial> = {}): DatosFormularioDocumentoComercial {
+    return {
+      tipo: 'nota_venta',
+      serie: 'NV01',
+      fechaEmision: '2026-08-01',
+      moneda: 'PEN',
+      items: [crearItem({ quantity: 5 })],
+      modoItems: 'catalogo',
+      ...overrides,
+    };
+  }
+
+  function crearCapaDePrueba(overrides: Partial<CapaCostoInventario> = {}): CapaCostoInventario {
+    return {
+      id: 'capa-1',
+      empresaId: EMPRESA,
+      establecimientoId: ESTABLECIMIENTO,
+      productoId: 'prod-1',
+      almacenId: 'alm-1',
+      movimientoEntradaId: 'mov-x',
+      tipoDocumentoOrigen: 'nota_ingreso',
+      documentoOrigenId: 'ni-1',
+      cantidadInicial: 10,
+      cantidadDisponible: 10,
+      costoUnitarioBaseOriginal: 10,
+      costoUnitarioBaseMonedaBase: 10,
+      valorValorizableOriginal: 100,
+      valorValorizableMonedaBase: 100,
+      monedaBase: 'PEN',
+      monedaOriginal: 'PEN',
+      tipoCambioAplicado: 1,
+      fechaTipoCambio: '2026-01-01',
+      fechaEntrada: '2026-01-01T00:00:00.000Z',
+      estado: 'disponible',
+      procedencia: 'compra',
+      usuario: 'user-1',
+      fechaCreacion: '2026-01-01T00:00:00.000Z',
+      ...overrides,
+    };
+  }
+
+  it('estadoValorizacion="activa": consume la capa disponible y crea el consumo, sin cambiar la interfaz de la función', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })] });
+    guardarCapaCostoInventario(crearCapaDePrueba(), EMPRESA);
+    const almacenes = [crearAlmacen()];
+    const datos = crearDatosFormulario({ items: [crearItem({ quantity: 5 })] });
+
+    await ejecutarDescuentoStockNV({
+      datos,
+      almacenes,
+      establecimientoId: ESTABLECIMIENTO,
+      empresaId: EMPRESA,
+      usuario: 'user-1',
+      documentoIdExistente: undefined,
+      estadoValorizacion: 'activa',
+      resolverNumeroFallback: () => ({ numero: 'NV01-00000001', correlativo: '00000001' }),
+    });
+
+    const capa = listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === 'capa-1');
+    expect(capa?.cantidadDisponible).toBe(5);
+    const consumos = listarConsumosCapaCostoInventarioPorEmpresa(EMPRESA);
+    expect(consumos).toHaveLength(1);
+    expect(consumos[0].cantidadConsumida).toBe(5);
+    expect(consumos[0].motivo).toBe('salida');
+  });
+
+  it('estadoValorizacion distinto de "activa" (ej. "no_iniciada") conserva el comportamiento cuantitativo puro: no crea consumos', async () => {
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })] });
+    guardarCapaCostoInventario(crearCapaDePrueba(), EMPRESA);
+    const almacenes = [crearAlmacen()];
+    const datos = crearDatosFormulario({ items: [crearItem({ quantity: 5 })] });
+
+    await ejecutarDescuentoStockNV({
+      datos,
+      almacenes,
+      establecimientoId: ESTABLECIMIENTO,
+      empresaId: EMPRESA,
+      usuario: 'user-1',
+      documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
+      resolverNumeroFallback: () => ({ numero: 'NV01-00000001', correlativo: '00000001' }),
+    });
+
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(EMPRESA)).toHaveLength(0);
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === 'capa-1')?.cantidadDisponible).toBe(10);
   });
 });
 

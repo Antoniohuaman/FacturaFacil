@@ -37,13 +37,16 @@ import {
 /**
  * Variantes de entrada que aceptan `modoOperacion:'valorizado'` (Etapa 2 §10 agregó
  * `ajuste_positivo`; Etapa 3 agrega `ni_automatica`/`ni_confirmacion` — la entrada real generada o
- * confirmada desde un Comprobante de Compra). Cualquier otro `tipoOperacion` de entrada
- * (`anulacion`) sigue siendo exclusivamente cuantitativo.
+ * confirmada desde un Comprobante de Compra; Etapa 4A-cierre agrega `importacion` — el lado de
+ * ENTRADA de un lote de importación en modo reemplazo/sumatoria, reutilizado por
+ * `importacionCuantitativaInventario.ts` vía `construirCapasEntradaValorizada`, nunca duplicado).
+ * Cualquier otro `tipoOperacion` de entrada (`anulacion`) sigue siendo exclusivamente cuantitativo.
  */
 const TIPOS_OPERACION_ENTRADA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
   'ajuste_positivo',
   'ni_automatica',
   'ni_confirmacion',
+  'importacion',
 ]);
 
 /**
@@ -184,6 +187,8 @@ function origenCapaParaTipoOperacion(
     case 'ni_automatica':
     case 'ni_confirmacion':
       return { procedencia: 'compra', tipoDocumentoOrigen: 'nota_ingreso' };
+    case 'importacion':
+      return { procedencia: 'importacion', tipoDocumentoOrigen: 'importacion' };
     default:
       throw new Error(`entradaCuantitativaInventario: tipoOperacion "${tipoOperacion}" no tiene una procedencia de capa de costo definida.`);
   }
@@ -205,7 +210,8 @@ function origenCapaParaTipoOperacion(
  * `costoUnitarioBaseMonedaBase` — el comportamiento cuantitativo/valorizado ya aprobado en Etapa 2
  * para `ajuste_positivo` queda intacto byte a byte.
  */
-function construirCapasEntradaValorizada(
+/** Exportado (Etapa 4A, cierre): reutilizado también por `importacionCuantitativaInventario.ts` para las líneas de ENTRADA de un lote de importación en modo valorizado — nunca duplicado. */
+export function construirCapasEntradaValorizada(
   datos: DatosOperacionEntradaCuantitativa,
   movimientosGenerados: readonly MovimientoStock[],
   almacenes: ReadonlyMap<string, Almacen>,

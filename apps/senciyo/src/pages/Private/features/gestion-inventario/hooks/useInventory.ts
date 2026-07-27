@@ -35,6 +35,8 @@ import {
 } from '../../../../../shared/inventory/sesionPendienteOperacionInventario';
 import { serializarCanonicamente } from '../utils/serializacionCanonicaInventario';
 import { currencyManager } from '@/shared/currency';
+import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
+import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
 
 type AdjustmentModalOptions = {
   almacenId?: string | null;
@@ -115,6 +117,18 @@ export function limpiarSesionPendienteTransferencia(empresaId: string): void {
   limpiarSesionPendienteOperacion(ESPACIO_TRANSFERENCIA, empresaId);
 }
 
+/**
+ * Verificación única final (cierre Etapa 4A): el camino legacy de anulación de transferencias
+ * (`InventoryService.registerTransferAnulacion`, usado por `handleAnularTransfer` solo cuando la
+ * transferencia carece de los artefactos del motor central) muta cantidades directamente, sin
+ * capas ni invalidación atómica del snapshot — nunca puede ejecutarse fuera del único modo
+ * genuinamente libre. Se usa la MISMA función productiva en el caller y aquí, para que la prueba
+ * ejercite la regla real, nunca una copia de la condición.
+ */
+export function puedeAnularTransferenciaLegacy(estadoValorizacion: EstadoActivacionValorizacion): boolean {
+  return resolverModoOperacion(estadoValorizacion) === 'cuantitativo_libre';
+}
+
 export interface ParametrosConstruirDatosAjuste {
   data: StockAdjustmentData;
   almacen: Almacen;
@@ -122,6 +136,10 @@ export interface ParametrosConstruirDatosAjuste {
   usuario: string;
   operacionId: string;
   fecha: string;
+}
+
+export interface ParametrosConstruirDatosAjusteNegativo extends ParametrosConstruirDatosAjuste {
+  estadoValorizacion: EstadoActivacionValorizacion;
 }
 
 /**
@@ -163,13 +181,19 @@ export function construirDatosAjustePositivo(
   };
 }
 
-/** Análogo a `construirDatosAjustePositivo`, para el motor de SALIDAS (Etapa 1D, §20). */
+/**
+ * Análogo a `construirDatosAjustePositivo`, para el motor de SALIDAS (Etapa 1D, §20).
+ * Etapa 4A: `modoOperacion` se resuelve desde `estadoValorizacion` (nunca hardcodeado) — con la
+ * empresa en `'activa'` el motor de salidas consume capas FIFO igual que el resto de canales de
+ * salida; en cualquier otro estado conserva exactamente el comportamiento cuantitativo puro.
+ */
 export function construirDatosAjusteNegativo(
-  params: ParametrosConstruirDatosAjuste
+  params: ParametrosConstruirDatosAjusteNegativo
 ): DatosOperacionSalidaCuantitativa {
-  const { data, almacen, empresaId, usuario, operacionId, fecha } = params;
+  const { data, almacen, empresaId, usuario, operacionId, fecha, estadoValorizacion } = params;
+  const esValorizado = resolverModoOperacion(estadoValorizacion) === 'valorizado_exclusivo';
   return {
-    modoOperacion: 'cuantitativo',
+    modoOperacion: esValorizado ? 'valorizado' : 'cuantitativo',
     empresaId,
     documentoId: operacionId,
     tipoDocumento: 'ajuste',
@@ -381,6 +405,7 @@ export const useInventory = () => {
           usuario: usuarioNombre,
           operacionId,
           fecha: new Date().toISOString(),
+          estadoValorizacion,
         });
 
         const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, {
@@ -400,6 +425,17 @@ export const useInventory = () => {
         success(`${data.tipo}: ${data.cantidad} u · Nuevo stock: ${cantidadNueva}`, 'Ajuste registrado');
         setShowAdjustmentModal(false);
         return;
+      }
+
+      // Etapa 4A, §10: ENTRADA/SALIDA/DEVOLUCION/MERMA siguen fuera del alcance de esta migración
+      // (no son tipos de operación valorizables) y esta ruta muta stock directamente, sin capas —
+      // en cualquier estado distinto de los dos modos cuantitativos libres se bloquea con un
+      // mensaje claro en vez de dejar el stock desincronizado de las capas de costo.
+      const modoResuelto = resolverModoOperacion(estadoValorizacion);
+      if (modoResuelto !== 'cuantitativo_libre' && modoResuelto !== 'cuantitativo_invalida_snapshot') {
+        throw new Error(
+          `El ajuste de tipo "${data.tipo}" no está disponible: la empresa está en un estado de valorización de inventario que no permite esta mutación directa de stock.`
+        );
       }
 
       const result = InventoryService.registerAdjustment(
@@ -464,6 +500,10 @@ export const useInventory = () => {
         const empresaId = getTenantEmpresaId();
         const transferenciaId = obtenerTransferenciaIdEstablePersistente(empresaId, data, () => crypto.randomUUID());
         const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
+        // `modoOperacion` del CONTRATO de transferencia es siempre 'cuantitativo' — a diferencia de
+        // entrada/salida/importación, este motor decide el modo valorizado exclusivamente vía la
+        // dependencia `valorizacionHabilitada` (ver transferenciaCuantitativaInventario.ts), nunca
+        // vía este campo (`validarContratoTransferencia` rechaza cualquier otro valor).
         const datosTransferencia: DatosTransferenciaInventario = {
           modoOperacion: 'cuantitativo',
           empresaId,
@@ -489,6 +529,10 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          // Cierre puntual Etapa 4A: fuente real de la empresa (nunca un flag omitido) — con
+          // 'activa' consume capas exactas en origen y crea la capa espejo en destino; en cualquier
+          // otro estado preserva exactamente el comportamiento cuantitativo puro ya aprobado.
+          valorizacionHabilitada: resolverModoOperacion(estadoValorizacion) === 'valorizado_exclusivo',
         });
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos, movimientos y el documento
@@ -735,11 +779,14 @@ export const useInventory = () => {
         return;
       }
 
-      // Etapa 1E: una transferencia creada por el motor nuevo (siempre trae `empresaId` y ambos
-      // movimientos confirmados en la MISMA operación) se anula vía `revertirMovimientoValorizado`
-      // — revierte los dos legs atómicamente. Las transferencias legacy (sin `empresaId`, o el
-      // flujo inter-establecimiento EN_TRANSITO/RECIBIDA de varias fases) conservan el camino
-      // previo, fuera de alcance de esta migración.
+      // Etapa 1E (cierre Etapa 4A): una transferencia creada por el motor nuevo (siempre trae
+      // `empresaId` y ambos movimientos confirmados en la MISMA operación) se anula vía
+      // `revertirMovimientoValorizado` — el ÚNICO camino productivo real hoy, ya que
+      // `transferirStockValorizado` (la única ruta de creación) siempre puebla estos campos.
+      // `InventoryService.registerTransferAnulacion` (abajo) queda exclusivamente para
+      // transferencias históricas anteriores a esta migración (sin estos campos) o el flujo
+      // inter-establecimiento EN_TRANSITO/RECIBIDA de varias fases — nunca para una transferencia
+      // nueva.
       if (transferencia.empresaId && transferencia.estado === 'CONFIRMADA' && transferencia.movimientoSalidaId && transferencia.movimientoEntradaId) {
         const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
         const movimientoId = transferencia.movimientoSalidaId;
@@ -758,11 +805,33 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          // Cierre puntual Etapa 4A: SIEMPRE `true` — la fuente de verdad de si hay que restaurar
+          // capas/consumos es la operación ORIGINAL y sus artefactos reales (localizados por
+          // movimientoId/capaOrigenId), nunca el estadoValorizacion ACTUAL de la empresa en el
+          // momento de anular (mismo fix ya aplicado en NI, Comprobante/POS, NV y NS). Sin este
+          // flag, `reversoCuantitativoInventario.ts` ni siquiera lee las colecciones de capas —
+          // una transferencia valorizada quedaría con la capa espejo huérfana en destino y la capa
+          // de origen sin restaurar, aunque el documento se marque "anulada".
+          valorizacionHabilitada: true,
         });
 
         sincronizarInventarioTrasConfirmacion();
         setTransferencias(TransferenciaRepository.getAll());
         success(`${transferenciaId} anulada · Stock restituido`, 'Transferencia anulada');
+        return;
+      }
+
+      // Verificación única final: el camino legacy (abajo) muta cantidades directamente, sin pasar
+      // por el motor central — nunca puede revertir con exactitud una transferencia histórica en
+      // modo valorizado (no tiene movimientos/capas originales que restaurar con seguridad) y, en
+      // 'cuantitativo_invalida_snapshot', evadiría la invalidación atómica del snapshot de
+      // valorización inicial que solo `ejecutarOperacionInventario` dispara. Se bloquea ANTES de
+      // modificar cantidades — solo se permite en el único modo genuinamente libre.
+      if (!puedeAnularTransferenciaLegacy(estadoValorizacion)) {
+        warning(
+          'Esta transferencia histórica no puede anularse en el estado de valorización actual de la empresa. Contacte soporte.',
+          'Anulación no disponible'
+        );
         return;
       }
 
@@ -818,6 +887,16 @@ export const useInventory = () => {
         return;
       }
 
+      // Etapa 4A, §10: actualización masiva muta stock directamente por fila (registerAdjustment
+      // interno), sin capas — se bloquea en cualquier estado distinto de los dos modos
+      // cuantitativos libres, igual que el resto de mutaciones directas de este hook.
+      const modoResueltoMasivo = resolverModoOperacion(estadoValorizacion);
+      if (modoResueltoMasivo !== 'cuantitativo_libre' && modoResueltoMasivo !== 'cuantitativo_invalida_snapshot') {
+        throw new Error(
+          'La actualización masiva no está disponible: la empresa está en un estado de valorización de inventario que no permite esta mutación directa de stock.'
+        );
+      }
+
       const result = InventoryService.processMassUpdate(
         allProducts,
         almacenesActivos,
@@ -834,7 +913,7 @@ export const useInventory = () => {
       console.error('Error en actualización masiva:', err);
       error(err instanceof Error ? err.message : 'No se pudo completar la actualización masiva', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion]);
 
   const openAdjustmentModal = useCallback((
     productId: string,

@@ -22,6 +22,8 @@ import {
   CLAVE_COLECCION_VALORIZACION_INICIAL_INVENTARIO,
 } from '../repositories/valorizacionInicialInventario.repository';
 import { listarInvalidacionesPendientes } from '../repositories/invalidacionPendienteValorizacionInicial.repository';
+import { guardarCapaCostoInventario, listarCapasCostoInventarioPorEmpresa } from '../repositories/capaCostoInventario.repository';
+import { listarConsumosCapaCostoInventarioPorEmpresa } from '../repositories/consumoCapaCostoInventario.repository';
 import { lsKey } from '../../../../../shared/tenant';
 
 instalarLocalStorageDePrueba();
@@ -502,23 +504,55 @@ function datosSalidaBase(overrides: Partial<DatosOperacionSalidaCuantitativa> = 
   };
 }
 
-describe('ServicioKardexValorizado.registrarSalidaValorizada — modo valorizado rechazado', () => {
-  it('rechaza cualquier modoOperacion distinto de "cuantitativo" sin reservar ni mutar nada', async () => {
+describe('ServicioKardexValorizado.registrarSalidaValorizada — modo valorizado: solo tipoOperacion soportados (Etapa 4A)', () => {
+  it('rechaza modoOperacion="valorizado" para un tipoOperacion de salida fuera de las variantes soportadas, sin reservar ni mutar nada', async () => {
     const empresaId = 'emp-A';
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    // 'valorizado' es un modoOperacion válido en el TIPO desde Etapa 2 (solo lo acepta el motor de
-    // entradas para ajuste_positivo) — el motor de SALIDAS lo sigue rechazando en tiempo de
-    // ejecución para todo tipoOperacion, sin excepción (fuera de alcance de Etapa 2, §10).
-    const datosInvalidos: DatosOperacionSalidaCuantitativa = { ...datosSalidaBase(), modoOperacion: 'valorizado' };
+    // 'valorizado' (Etapa 4A) solo está soportado para venta_salida/nota_salida/ajuste_negativo —
+    // cualquier otro tipoOperacion de salida lo sigue rechazando en tiempo de ejecución.
+    const datosInvalidos: DatosOperacionSalidaCuantitativa = {
+      ...datosSalidaBase(),
+      modoOperacion: 'valorizado',
+      tipoOperacion: 'devolucion_proveedor',
+      tipoDocumento: 'nota_salida',
+    };
 
     await expect(
       ServicioKardexValorizado.registrarSalidaValorizada(datosInvalidos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
-    ).rejects.toThrow(/valorizado.*no está soportado/);
+    ).rejects.toThrow(/venta_salida, nota_salida, ajuste_negativo/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
     expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+  });
+
+  it('acepta modoOperacion="valorizado" para venta_salida y consume la capa disponible a través de la orquestación genérica completa', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(
+      {
+        id: 'capa-1', empresaId, establecimientoId: 'est-1', productoId: 'prod-1', almacenId: 'alm-1',
+        movimientoEntradaId: 'mov-x', tipoDocumentoOrigen: 'nota_ingreso', documentoOrigenId: 'ni-1',
+        cantidadInicial: 10, cantidadDisponible: 10, costoUnitarioBaseOriginal: 10, costoUnitarioBaseMonedaBase: 10,
+        valorValorizableOriginal: 100, valorValorizableMonedaBase: 100, monedaBase: 'PEN', monedaOriginal: 'PEN',
+        tipoCambioAplicado: 1, fechaTipoCambio: '2026-01-01', fechaEntrada: '2026-01-01T00:00:00.000Z',
+        estado: 'disponible', procedencia: 'compra', usuario: 'user-1', fechaCreacion: '2026-01-01T00:00:00.000Z',
+      },
+      empresaId,
+    );
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(
+      { ...datosSalidaBase({ empresaId }), modoOperacion: 'valorizado' },
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' },
+    );
+
+    expect(resultado.estado).toBe('nueva');
+    const capa = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1');
+    expect(capa?.cantidadDisponible).toBe(0);
+    expect(capa?.estado).toBe('agotada');
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
   });
 });
 

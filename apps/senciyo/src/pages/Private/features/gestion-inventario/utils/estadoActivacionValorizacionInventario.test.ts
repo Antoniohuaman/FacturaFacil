@@ -87,20 +87,38 @@ describe('validarTransicionEstadoValorizacion', () => {
     expect(() => validarTransicionEstadoValorizacion('pendiente_costos', 'cancelada_antes_activacion')).not.toThrow();
   });
 
-  it('rechaza explícitamente validada → activando (criterio negativo de Etapa 2)', () => {
-    expect(() => validarTransicionEstadoValorizacion('validada', 'activando')).toThrow(/no está permitida/);
+  it('cierre Etapa 4B: permite validada → activando (inicio de activación)', () => {
+    expect(() => validarTransicionEstadoValorizacion('validada', 'activando')).not.toThrow();
   });
 
-  it('rechaza activando → activa (fuera de alcance de Etapa 2)', () => {
-    expect(() => validarTransicionEstadoValorizacion('activando', 'activa')).toThrow(/no está permitida/);
+  it('cierre Etapa 4B: permite activando → activa (activación exitosa)', () => {
+    expect(() => validarTransicionEstadoValorizacion('activando', 'activa')).not.toThrow();
+  });
+
+  it('cierre Etapa 4B: permite activando → fallida_recuperable y fallida_recuperable → activando (interrupción y reintento)', () => {
+    expect(() => validarTransicionEstadoValorizacion('activando', 'fallida_recuperable')).not.toThrow();
+    expect(() => validarTransicionEstadoValorizacion('fallida_recuperable', 'activando')).not.toThrow();
   });
 
   it('rechaza saltos de estado (no_iniciada → validada directamente)', () => {
     expect(() => validarTransicionEstadoValorizacion('no_iniciada', 'validada')).toThrow(/no está permitida/);
   });
 
-  it('rechaza transiciones desde un estado terminal/bloqueado sin salida en esta etapa', () => {
+  it('rechaza saltos que se evaden de la máquina (validada → activa directamente, sin pasar por activando)', () => {
+    expect(() => validarTransicionEstadoValorizacion('validada', 'activa')).toThrow(/no está permitida/);
+  });
+
+  it('nunca permite retroceder desde activando/fallida_recuperable hacia validada, ni cancelar una activación en curso', () => {
+    expect(() => validarTransicionEstadoValorizacion('activando', 'validada')).toThrow(/no está permitida/);
+    expect(() => validarTransicionEstadoValorizacion('fallida_recuperable', 'validada')).toThrow(/no está permitida/);
+    expect(() => validarTransicionEstadoValorizacion('activando', 'cancelada_antes_activacion')).toThrow(/no está permitida/);
+    expect(() => validarTransicionEstadoValorizacion('fallida_recuperable', 'cancelada_antes_activacion')).toThrow(/no está permitida/);
+  });
+
+  it('activa es irreversible: rechaza transiciones desde un estado terminal/bloqueado sin salida', () => {
     expect(() => validarTransicionEstadoValorizacion('activa', 'no_iniciada')).toThrow(/no está permitida/);
+    expect(() => validarTransicionEstadoValorizacion('activa', 'validada')).toThrow(/no está permitida/);
+    expect(() => validarTransicionEstadoValorizacion('activa', 'activando')).toThrow(/no está permitida/);
     expect(() => validarTransicionEstadoValorizacion('suspendida_por_inconsistencia', 'no_iniciada')).toThrow(/no está permitida/);
   });
 });
