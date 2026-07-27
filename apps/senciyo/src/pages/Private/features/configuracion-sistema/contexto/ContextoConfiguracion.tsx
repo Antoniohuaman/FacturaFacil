@@ -51,6 +51,8 @@ import {
   type TipoEmpresa,
 } from '@/shared/empresas/entornoEmpresa';
 import { EmpresaStatus, RegimenTributario, type Empresa as EmpresaTenant } from '../../autenticacion/types/auth.types';
+import type { EstadoActivacionValorizacion } from '../../gestion-inventario/models/estadoActivacionValorizacion.types';
+import { esEstadoActivacionValorizacionValido } from '../../gestion-inventario/models/estadoActivacionValorizacion.types';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -108,6 +110,14 @@ export type SalesPreferences = {
 export type PreferenciasInventario = {
   /** Ver `TratamientoImpuestoCompra` — consumido por `resolverTratamientoTributarioProducto` (shared/catalogos-sunat/resolucionTributaria.ts). */
   tratamientoImpuestoCompra: TratamientoImpuestoCompra;
+  /**
+   * Máquina de estados de activación de la valorización de inventario (Etapa 2, §31.5 del diseño
+   * técnico — docs/diseno-tecnico-kardex-valorizado-integracion-compras.md). Vive aquí (no en
+   * `Configuration.inventory`, huérfana) porque esta es la única configuración de inventario real
+   * y consumida hoy. Default `'no_iniciada'` — Etapa 2 solo construye el recorrido productivo
+   * hasta `'validada'`; `'activando'`/`'activa'` quedan reservados para el cierre de la Etapa 4.
+   */
+  estadoValorizacion: EstadoActivacionValorizacion;
 };
 
 interface ConfigurationState {
@@ -868,6 +878,7 @@ const PREFERENCIAS_VENTAS_PREDETERMINADAS: SalesPreferences = {
 
 const PREFERENCIAS_INVENTARIO_PREDETERMINADAS: PreferenciasInventario = {
   tratamientoImpuestoCompra: 'pendiente_configuracion',
+  estadoValorizacion: 'no_iniciada',
 };
 
 const loadTenantConfigFromStorage = (storageKey: StorageKey): PersistedTenantConfig | null => {
@@ -916,11 +927,36 @@ const migrateSalesPreferences = (stored: SalesPreferences): SalesPreferences => 
   };
 };
 
-/** Empresas existentes: sin asumir recuperabilidad — deben confirmarla explícitamente (mismo criterio que migrateSalesPreferences: solo completa lo ausente, nunca reescribe lo ya presente). */
-const migratePreferenciasInventario = (
+/** Los únicos cuatro valores reales de `TratamientoImpuestoCompra` — cualquier otro valor (ausente, corrupto, o de una versión futura/pasada del tipo) nunca se acepta en silencio. */
+const VALORES_TRATAMIENTO_IMPUESTO_COMPRA: readonly TratamientoImpuestoCompra[] = [
+  'pendiente_configuracion',
+  'impuesto_recuperable',
+  'impuesto_no_recuperable',
+  'segun_afectacion',
+];
+
+function esTratamientoImpuestoCompraValido(valor: unknown): valor is TratamientoImpuestoCompra {
+  return typeof valor === 'string' && (VALORES_TRATAMIENTO_IMPUESTO_COMPRA as readonly string[]).includes(valor);
+}
+
+/**
+ * Empresas existentes: sin asumir recuperabilidad — deben confirmarla explícitamente (mismo
+ * criterio que migrateSalesPreferences: solo completa lo ausente, nunca reescribe lo ya presente).
+ * Corrección (cierre bloqueante 3 de la revisión de Etapa 2): un valor ausente o corrupto de
+ * `tratamientoImpuestoCompra` (ej. un string que no es ninguno de los cuatro valores reales) ya NO
+ * pasa el `??` a ciegas — se valida explícitamente y cualquier valor no reconocido se normaliza a
+ * `'pendiente_configuracion'`, la misma política corrupta nunca permite avanzar a `validada`
+ * (`verificarCondicionesValidacion` bloquea mientras el tratamiento siga en `'pendiente_configuracion'`).
+ * `estadoValorizacion` (Etapa 2): toda empresa existente parte de `'no_iniciada'` — un valor
+ * corrupto/desconocido en el snapshot persistido nunca se acepta en silencio (nunca se infiere un
+ * estado de activación distinto de `'no_iniciada'` a partir de datos ajenos).
+ */
+/** Exportada (además de usada internamente) para que las pruebas verifiquen directamente la normalización de valores corruptos/ausentes sin tener que renderizar el contexto completo. */
+export const migratePreferenciasInventario = (
   stored: Partial<PreferenciasInventario> | undefined,
 ): PreferenciasInventario => ({
-  tratamientoImpuestoCompra: stored?.tratamientoImpuestoCompra ?? 'pendiente_configuracion',
+  tratamientoImpuestoCompra: esTratamientoImpuestoCompraValido(stored?.tratamientoImpuestoCompra) ? stored.tratamientoImpuestoCompra : 'pendiente_configuracion',
+  estadoValorizacion: esEstadoActivacionValorizacionValido(stored?.estadoValorizacion) ? stored.estadoValorizacion : 'no_iniciada',
 });
 
 const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferences => {
@@ -2212,7 +2248,8 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.salesPreferences.stockDescuentoFacturaYBoleta !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoFacturaYBoleta ||
       state.salesPreferences.stockDescuentoNotaVenta !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoNotaVenta ||
       state.salesPreferences.stockDescuentoGuiaRemision !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoGuiaRemision ||
-      state.preferenciasInventario.tratamientoImpuestoCompra !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.tratamientoImpuestoCompra;
+      state.preferenciasInventario.tratamientoImpuestoCompra !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.tratamientoImpuestoCompra ||
+      state.preferenciasInventario.estadoValorizacion !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.estadoValorizacion;
 
     if (!hasMeaningfulConfig) {
       return;

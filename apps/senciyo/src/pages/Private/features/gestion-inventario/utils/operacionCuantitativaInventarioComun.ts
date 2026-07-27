@@ -61,6 +61,9 @@ export function construirDtoCanonicoOperacion(datos: DatosOperacionCuantitativa)
     liberarReservaLegacyOV: linea.liberarReservaLegacyOV
       ? { cantidad: linea.liberarReservaLegacyOV.cantidad }
       : null,
+    // Etapa 2, §10: un reintento con el mismo documento pero un costo DISTINTO es una operación
+    // distinta, nunca un reintento legítimo — debe formar parte del hash.
+    costoUnitarioBaseMonedaBase: linea.costoUnitarioBaseMonedaBase ?? null,
   }));
 
   return {
@@ -99,9 +102,14 @@ export function esTipoDocumentoOrigenMovimiento(valor: string): valor is TipoDoc
  * estado YA mutado).
  */
 export function validarContrato(datos: DatosOperacionCuantitativa): void {
-  if (datos.modoOperacion !== 'cuantitativo') {
+  // Validación estructural común: solo verifica que sea uno de los DOS literales conocidos del
+  // tipo — CUÁL de los dos acepta cada motor de dirección (entrada/salida) y para qué
+  // `tipoOperacion` es responsabilidad de su propio `validarContrato` (Etapa 2, §10): el motor de
+  // salidas rechaza 'valorizado' para TODO tipoOperacion; el de entradas solo lo acepta para
+  // 'ajuste_positivo'.
+  if (datos.modoOperacion !== 'cuantitativo' && datos.modoOperacion !== 'valorizado') {
     throw new Error(
-      `operacionCuantitativaInventarioComun: modoOperacion "${String(datos.modoOperacion)}" no está soportado — solo se acepta la variante cuantitativa.`
+      `operacionCuantitativaInventarioComun: modoOperacion "${String(datos.modoOperacion)}" no está soportado — solo se aceptan las variantes "cuantitativo"/"valorizado".`
     );
   }
   if (!datos.empresaId.trim()) throw new Error('operacionCuantitativaInventarioComun: empresaId no puede estar vacío.');

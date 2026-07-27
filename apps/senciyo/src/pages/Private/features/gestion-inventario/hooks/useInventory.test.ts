@@ -118,7 +118,7 @@ describe('useInventory — sesión pendiente PERSISTENTE (localStorage, tenantiz
     // Antes de la "recarga": se obtiene el operacionId y se construye/envía el ajuste.
     const operacionId1 = obtenerOperacionIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
     const datos1 = construirDatosAjustePositivo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
-    const resultado1 = await ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual });
+    const resultado1 = await ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     // "Recarga de pantalla" simulada: no se limpió la sesión (no hubo éxito reconocido todavía
     // desde la perspectiva de la UI) — una nueva obtención con el MISMO contenido debe reutilizar
@@ -126,7 +126,7 @@ describe('useInventory — sesión pendiente PERSISTENTE (localStorage, tenantiz
     const operacionId2 = obtenerOperacionIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
     expect(operacionId2).toBe(operacionId1);
     const datos2 = construirDatosAjustePositivo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId2, fecha: fechaActual() });
-    const resultado2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos2, { almacenes, generarId, fechaActual });
+    const resultado2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado1.estado).toBe('nueva');
     expect(resultado2.estado).toBe('repetida');
@@ -169,7 +169,7 @@ describe('useInventory — sesión pendiente PERSISTENTE (localStorage, tenantiz
     const datos1 = construirDatosAjustePositivo({ data, almacen: crearAlmacen(), empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow();
 
     // La sesión sigue pendiente (no se limpió) — el reintento reutiliza el mismo id.
@@ -226,12 +226,12 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
 
     const operacionId1 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
     const datos1 = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
-    const resultado1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual });
+    const resultado1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const operacionId2 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
     expect(operacionId2).toBe(operacionId1);
     const datos2 = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId2, fecha: fechaActual() });
-    const resultado2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes, generarId, fechaActual });
+    const resultado2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado1.estado).toBe('nueva');
     expect(resultado2.estado).toBe('repetida');
@@ -252,7 +252,7 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
     const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual() });
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/negativo/);
   });
 
@@ -273,7 +273,7 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
     const datos1 = construirDatosAjusteNegativo({ data, almacen: crearAlmacen(), empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow();
 
     const operacionId2 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
@@ -291,7 +291,7 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
     const operacionId = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
     const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual() });
 
-    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado.productosActualizados[0].stockReservadoOVPorEstablecimiento?.['est-1']).toBe(7);
   });
@@ -329,13 +329,13 @@ describe('useInventory — transferencia (Etapa 1E): sesión pendiente persisten
       establecimientoDestinoId: 'est-1', almacenDestinoId: data.almacenDestinoId, cantidadUnidadMinima: data.cantidad,
       usuario: 'user-1', fecha: fechaActual(), motivo: 'TRANSFERENCIA_ALMACEN',
     };
-    const resultado1 = await ServicioKardexValorizado.transferirStockValorizado(datos1, { almacenes, generarId, fechaActual });
+    const resultado1 = await ServicioKardexValorizado.transferirStockValorizado(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     // "Doble clic": misma sesión, sin limpiar — reutiliza el mismo transferenciaId.
     const transferenciaId2 = obtenerTransferenciaIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
     expect(transferenciaId2).toBe(transferenciaId1);
     const datos2: DatosTransferenciaInventario = { ...datos1, transferenciaId: transferenciaId2, claveIdempotencia: `TRANSFER-${transferenciaId2}` };
-    const resultado2 = await ServicioKardexValorizado.transferirStockValorizado(datos2, { almacenes, generarId, fechaActual });
+    const resultado2 = await ServicioKardexValorizado.transferirStockValorizado(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado1.estado).toBe('nueva');
     expect(resultado2.estado).toBe('repetida');

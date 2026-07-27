@@ -91,7 +91,7 @@ async function crearEntradaConfirmada(empresaId: string, overrides: Partial<Dato
     lineas: [{ lineaId: 'l1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10 }],
     ...overrides,
   };
-  const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes: almacenesBase(), generarId, fechaActual });
+  const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
   return resultado.resultadoIds[0];
 }
 
@@ -109,7 +109,7 @@ async function crearSalidaConfirmada(empresaId: string, overrides: Partial<Datos
     lineas: [{ lineaId: 'l1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 4 }],
     ...overrides,
   };
-  const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesBase(), generarId, fechaActual });
+  const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
   return resultado.resultadoIds[0];
 }
 
@@ -135,7 +135,7 @@ describe('revertirMovimientoValorizado — reverso de ENTRADA (modo cuantitativo
 
     const resultado = await ServicioKardexValorizado.revertirMovimientoValorizado(
       reversoBase(movimientoId, { empresaId, tipoDocumento: 'nota_ingreso' }),
-      { almacenes: almacenesBase(), generarId, fechaActual }
+      { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
     );
 
     expect(resultado.estado).toBe('nueva');
@@ -158,7 +158,7 @@ describe('revertirMovimientoValorizado — reverso de ENTRADA (modo cuantitativo
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/no permite revertir/);
   });
@@ -170,7 +170,7 @@ describe('revertirMovimientoValorizado — reverso de ENTRADA (modo cuantitativo
     guardarCapaCostoInventario(crearCapaDePrueba({ empresaId, movimientoEntradaId: movimientoId, cantidadInicial: 10, cantidadDisponible: 10 }), empresaId);
 
     await ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     const capa = listarCapasCostoInventarioPorEmpresa(empresaId)[0];
@@ -187,7 +187,7 @@ describe('revertirMovimientoValorizado — reverso de ENTRADA (modo cuantitativo
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId }), {
-        almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
       })
     ).rejects.toThrow(/consumida o transferida parcialmente/);
 
@@ -205,7 +205,7 @@ describe('revertirMovimientoValorizado — reverso de SALIDA (modo cuantitativo 
 
     const resultado = await ServicioKardexValorizado.revertirMovimientoValorizado(
       reversoBase(movimientoId, { empresaId, tipoDocumento: 'nota_salida' }),
-      { almacenes: almacenesBase(), generarId, fechaActual }
+      { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
     );
 
     expect(resultado.movimientos[0].motivo).toBe('VENTA');
@@ -227,7 +227,7 @@ describe('revertirMovimientoValorizado — reverso de SALIDA (modo cuantitativo 
     );
 
     await ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId, tipoDocumento: 'nota_salida' }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     const capaFinal = listarCapasCostoInventarioPorEmpresa(empresaId)[0];
@@ -247,7 +247,7 @@ describe('revertirMovimientoValorizado — reverso de SALIDA (modo cuantitativo 
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId, tipoDocumento: 'nota_salida' }), {
-        almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
       })
     ).rejects.toThrow(/ya fue revertida/);
   });
@@ -260,7 +260,7 @@ describe('revertirMovimientoValorizado — validaciones de identidad', () => {
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase('mov-fantasma', { empresaId }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/no existe/);
   });
@@ -272,7 +272,7 @@ describe('revertirMovimientoValorizado — validaciones de identidad', () => {
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId: 'emp-B' }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/otra empresa|no existe/);
   });
@@ -287,7 +287,7 @@ describe('revertirMovimientoValorizado — validaciones de identidad', () => {
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase('mov-roto', { empresaId }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/histórico incompleto/);
   });
@@ -298,13 +298,13 @@ describe('revertirMovimientoValorizado — validaciones de identidad', () => {
     const movimientoId = await crearEntradaConfirmada(empresaId);
 
     await ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId }), {
-      almacenes: almacenesBase(), generarId, fechaActual,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
     });
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(
         reversoBase(movimientoId, { empresaId, claveIdempotencia: `REVERSO-${movimientoId}-otra-clave` }),
-        { almacenes: almacenesBase(), generarId, fechaActual }
+        { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
       )
     ).rejects.toThrow(/ya fue revertido/);
   });
@@ -315,8 +315,8 @@ describe('revertirMovimientoValorizado — validaciones de identidad', () => {
     const movimientoId = await crearEntradaConfirmada(empresaId);
     const datos = reversoBase(movimientoId, { empresaId });
 
-    const r1 = await ServicioKardexValorizado.revertirMovimientoValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual });
-    const r2 = await ServicioKardexValorizado.revertirMovimientoValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual });
+    const r1 = await ServicioKardexValorizado.revertirMovimientoValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const r2 = await ServicioKardexValorizado.revertirMovimientoValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(r1.estado).toBe('nueva');
     expect(r2.estado).toBe('repetida');
@@ -329,12 +329,12 @@ describe('revertirMovimientoValorizado — validaciones de identidad', () => {
     const movimientoId = await crearEntradaConfirmada(empresaId);
 
     await ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId, motivoUsuario: 'motivo A' }), {
-      almacenes: almacenesBase(), generarId, fechaActual,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
     });
 
     await expect(
       ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoId, { empresaId, motivoUsuario: 'motivo B (distinto)' }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
@@ -374,7 +374,7 @@ describe('anularDocumentoValorizado — documento multilínea, un solo plan ató
       movimientoIds: [mov1, mov2Id], claveIdempotencia: 'ANULACION-nota_salida-ns-1', usuario: 'user-1', fecha: fechaActual(),
     };
 
-    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesBase(), generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado.movimientos).toHaveLength(2);
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -393,7 +393,7 @@ describe('anularDocumentoValorizado — documento multilínea, un solo plan ató
     };
 
     await expect(
-      ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesBase(), generarId, fechaActual })
+      ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/no existe/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -426,7 +426,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
       ['alm-1', crearAlmacen({ id: 'alm-1' })],
       ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Almacén 2' })],
     ]);
-    const resultado = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes, generarId, fechaActual, valorizacionHabilitada });
+    const resultado = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada });
     return { salidaId: resultado.movimientos.find((m) => m.tipo === 'SALIDA')!.id, almacenes };
   }
 
@@ -437,7 +437,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
 
     const resultado = await ServicioKardexValorizado.revertirMovimientoValorizado(
       reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }),
-      { almacenes, generarId, fechaActual }
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
     );
 
     expect(resultado.movimientos).toHaveLength(2);
@@ -459,7 +459,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
 
     await ServicioKardexValorizado.revertirMovimientoValorizado(
       reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }),
-      { almacenes, generarId, fechaActual, valorizacionHabilitada: true }
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true }
     );
 
     const capasFinales = listarCapasCostoInventarioPorEmpresa(empresaId);
@@ -481,7 +481,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
     localStorage.setItem(lsKey('facturafacil_capas_costo_inventario', empresaId), JSON.stringify(capasRaw));
 
     await expect(
-      ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }), { almacenes, generarId, fechaActual, valorizacionHabilitada: true })
+      ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true })
     ).rejects.toThrow(/consumida o transferida/);
   });
 
@@ -496,7 +496,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
     localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify(productosRaw));
 
     await expect(
-      ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/no permite revertir/);
   });
 
@@ -510,7 +510,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
     const snapshotAntes = localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId));
 
     await expect(
-      ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow();
 
     expect(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId))).toBe(snapshotAntes);
@@ -526,7 +526,7 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
 
     await ServicioKardexValorizado.revertirMovimientoValorizado(
       reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }),
-      { almacenes, generarId, fechaActual }
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
       // valorizacionHabilitada deliberadamente AUSENTE.
     );
 

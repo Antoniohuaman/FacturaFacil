@@ -559,6 +559,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
       almacenes: almacenesMap,
       generarId,
       fechaActual,
+      estadoValorizacion: 'no_iniciada',
     });
 
     expect(resultadoMotor.estado).toBe('nueva');
@@ -575,8 +576,8 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
     const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
 
-    const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
-    const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(primero.estado).toBe('nueva');
     expect(segundo.estado).toBe('repetida');
@@ -598,7 +599,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
     const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
 
-    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(15);
@@ -617,7 +618,7 @@ describe('Integración: prepararSalidaNS + construirDatosOperacionSalidaNS + mot
     datos.lineas[0].cantidadUnidadMinima = 999;
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/negativo/);
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -684,7 +685,7 @@ describe('Corrección post-1D §2: reintento de NS desde snapshot INMUTABLE (nun
 
     const { resultado: resultado1, notaConSnapshot } = prepararIntento1(nota, productsMap1, almacenesMap);
     const datos1 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado1, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
-    const motor1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual });
+    const motor1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     expect(motor1.estado).toBe('nueva');
 
     const productosTrasIntento1 = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -697,7 +698,7 @@ describe('Corrección post-1D §2: reintento de NS desde snapshot INMUTABLE (nun
     expect(resultado2.lineasOperacion).toEqual(resultado1.lineasOperacion);
 
     const datos2 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado2, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
-    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual });
+    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(motor2.estado).toBe('repetida');
     const productosTrasIntento2 = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -810,14 +811,14 @@ describe('Corrección post-1D §2: reintento de NS desde snapshot INMUTABLE (nun
 
     const { resultado: resultado1, notaConSnapshot } = prepararIntento1(nota, productsMap1, almacenesMap);
     const datos1 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado1, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
-    await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const productosTrasIntento1 = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosTrasIntento1[0].stockReservadoOVPorEstablecimiento?.[ESTABLECIMIENTO]).toBe(0);
 
     const resultado2 = reconstruirOperacionNSDesdeSnapshot(notaConSnapshot);
     const datos2 = construirDatosOperacionSalidaNS({ nota: notaConSnapshot, resultado: resultado2, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
-    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual });
+    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(motor2.estado).toBe('repetida');
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -834,7 +835,7 @@ describe('prepararAnulacionNS — Etapa 1E: anulación usando los movimientos or
 
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
     const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
-    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const notaGenerada = construirNotaSalidaGenerada(nota, resultado, 'user-1', fechaActual());
 
@@ -845,7 +846,7 @@ describe('prepararAnulacionNS — Etapa 1E: anulación usando los movimientos or
     expect(datosAnulacion?.movimientoIds).toHaveLength(resultado.lineasOperacion.length);
     expect(datosAnulacion?.claveIdempotencia).toBe('ANULACION-nota_salida-ns-anular-1');
 
-    const resultadoMotor = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual });
+    const resultadoMotor = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
@@ -885,14 +886,14 @@ describe('prepararAnulacionNS — Etapa 1E: anulación usando los movimientos or
 
     const resultado = prepararSalidaNS(nota, [], productsMap, almacenesMap, ESTABLECIMIENTO);
     const datos = construirDatosOperacionSalidaNS({ nota, resultado, empresaId: EMPRESA, usuario: 'user-1', fecha: fechaActual() });
-    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     const notaGenerada = construirNotaSalidaGenerada(nota, resultado, 'user-1', fechaActual());
 
     const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
     const { datosAnulacion } = prepararAnulacionNS(notaGenerada, EMPRESA, movimientosRaw, 'motivo', 'user-2', '2026-08-02T00:00:00.000Z');
 
-    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual });
-    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual });
+    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(r1.estado).toBe('nueva');
     expect(r2.estado).toBe('repetida');

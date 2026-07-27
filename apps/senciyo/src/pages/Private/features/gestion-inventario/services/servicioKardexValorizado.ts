@@ -37,6 +37,7 @@ import type { Product } from '../../catalogo-articulos/models/types';
 import type { DatosOperacionCuantitativa, DatosOperacionEntradaCuantitativa, DatosOperacionSalidaCuantitativa } from '../models/operacionEntradaInventario.types';
 import type { DatosTransferenciaInventario } from '../models/operacionTransferenciaInventario.types';
 import type { DatosReversoInventario, DatosAnulacionDocumentoInventario } from '../models/operacionReversoInventario.types';
+import type { DatosImportacionCuantitativa } from '../models/operacionImportacionInventario.types';
 import type {
   OperacionIdempotenteInventario,
   ReferenciaDocumentoTipoOperacionIdempotente,
@@ -44,13 +45,14 @@ import type {
 } from '../models/operacionIdempotenteInventario.types';
 import type { PlanUnidadTrabajoInventario } from '../models/planUnidadTrabajoInventario.types';
 import { reservarOperacionIdempotente } from '../utils/idempotenciaInventario';
-import { validarContrato } from '../utils/operacionCuantitativaInventarioComun';
 import {
+  validarContrato as validarContratoEntrada,
   calcularHashEntradaCuantitativa,
   prepararOperacionInventario,
   confirmarOperacionInventario,
 } from '../utils/entradaCuantitativaInventario';
 import {
+  validarContrato as validarContratoSalida,
   calcularHashSalidaCuantitativa,
   prepararOperacionSalidaInventario,
   confirmarOperacionSalidaInventario,
@@ -71,11 +73,24 @@ import {
   prepararAnulacion,
   confirmarAnulacion,
 } from '../utils/reversoCuantitativoInventario';
+import {
+  validarContratoImportacion,
+  calcularHashImportacion,
+  prepararOperacionImportacion,
+  confirmarOperacionImportacion,
+} from '../utils/importacionCuantitativaInventario';
 import { marcarOperacionFallida } from '../repositories/operacionIdempotenteInventario.repository';
 import { obtenerVersionInventarioActual } from '../repositories/estadoVersionInventario.repository';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import { lsKey } from '../../../../../shared/tenant';
+import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
+import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
+import {
+  invalidarLoteValorizacionInicialSiAfectado,
+  drenarInvalidacionesPendientes,
+} from '../utils/invalidacionValorizacionInicial';
+import { encolarInvalidacionPendiente } from '../repositories/invalidacionPendienteValorizacionInicial.repository';
 
 export interface DependenciasOperacionCuantitativa {
   almacenes: ReadonlyMap<string, Almacen>;
@@ -100,6 +115,27 @@ export interface DependenciasOperacionCuantitativa {
    * tests de la variante valorizada son los ÚNICOS llamadores que hoy fijan `true`.
    */
   valorizacionHabilitada?: boolean;
+  /**
+   * Estado de activación de valorización de la EMPRESA (Etapa 2, §24.1ter) — dependencia de
+   * TENANT, nunca de documento. OBLIGATORIO desde el cierre de Etapa 2 (bloqueante 1 de la
+   * revisión): ningún consumidor productivo puede omitirlo — TypeScript rechaza la llamada en
+   * tiempo de compilación, y `ejecutarOperacionInventario` lo resuelve con
+   * `resolverModoOperacion` ANTES de reservar para decidir si la mutación se permite. Ya no existe
+   * un fallback silencioso a `'no_iniciada'`: la fuente real de configuración
+   * (`PreferenciasInventario.estadoValorizacion`, ContextoConfiguracion.tsx) debe leerse y pasarse
+   * explícitamente en cada llamada. Se usa para: (a) bloquear TODA mutación cuando el modo resuelto
+   * es `'bloqueado_snapshot_aprobado'`/`'bloqueado_activacion_en_curso'`/`'bloqueado_suspension'`;
+   * (b) exigir el contrato valorizado cuando el modo resuelto es `'valorizado_exclusivo'`
+   * (inalcanzable en Etapa 2, solo ejercido por tests); (c) invalidar el detalle del lote de
+   * valorización inicial afectado por esta operación cuando el modo resuelto es
+   * `'cuantitativo_invalida_snapshot'` (`en_preparacion`/`pendiente_costos`).
+   */
+  estadoValorizacion: EstadoActivacionValorizacion;
+  /**
+   * Moneda base de la empresa (Etapa 2) — requerida únicamente cuando se registra una entrada en
+   * modo `'valorizado'` (crea `CapaCostoInventario`). Ausente en todo consumidor cuantitativo.
+   */
+  monedaBase?: string;
 }
 
 export type DependenciasRegistrarEntradaValorizada = DependenciasOperacionCuantitativa;
@@ -149,6 +185,7 @@ interface ParametrosPreparar<T extends ContratoOperacionInventarioBase> {
   generarId: () => string;
   permitirStockNegativo?: boolean;
   valorizacionHabilitada?: boolean;
+  monedaBase?: string;
 }
 
 interface ResultadoPreparar {
@@ -184,6 +221,35 @@ async function ejecutarOperacionInventario<T extends ContratoOperacionInventario
   // antes de reservar. La validación FUNCIONAL (producto/almacén existen, stock resultante) sí
   // depende del estado externo y por eso NO se adelanta aquí.
   funciones.validarContrato(datos);
+
+  // Máquina de estados de activación de valorización (Etapa 2, cierre de bloqueante 1 de la
+  // revisión): se resuelve SIEMPRE, ANTES de reservar — ninguna llamada directa al motor puede
+  // evadir esta puerta. `dependencias.estadoValorizacion` ya es obligatorio en el tipo (sin
+  // fallback silencioso), así que este `resolverModoOperacion` es la ÚNICA fuente de la decisión de
+  // permitir o rechazar la mutación.
+  const modoResuelto = resolverModoOperacion(dependencias.estadoValorizacion);
+  if (
+    modoResuelto === 'bloqueado_snapshot_aprobado' ||
+    modoResuelto === 'bloqueado_activacion_en_curso' ||
+    modoResuelto === 'bloqueado_suspension'
+  ) {
+    throw new Error(
+      `ServicioKardexValorizado.${funciones.nombreMetodo}: el estado de activación de valorización de la empresa "${datos.empresaId}" ("${dependencias.estadoValorizacion}") bloquea toda mutación de inventario (modo resuelto: "${modoResuelto}") — la operación se rechaza antes de reservar.`
+    );
+  }
+  if (modoResuelto === 'valorizado_exclusivo') {
+    const contratoYaValorizado = 'modoOperacion' in datos && (datos as unknown as { modoOperacion?: unknown }).modoOperacion === 'valorizado';
+    if (!contratoYaValorizado && !dependencias.valorizacionHabilitada) {
+      throw new Error(
+        `ServicioKardexValorizado.${funciones.nombreMetodo}: la empresa "${datos.empresaId}" está en modo "valorizado_exclusivo" — esta operación exige el contrato valorizado correspondiente, nunca el cuantitativo.`
+      );
+    }
+  }
+
+  // Reintenta cualquier invalidación de valorización inicial que quedó pendiente de un intento
+  // previo fallido de ESTA empresa (bloqueante 1: "nunca best-effort silencioso") — idempotente, así
+  // que ejecutarlo en cada operación nunca duplica efectos.
+  drenarInvalidacionesPendientes(datos.empresaId, dependencias.fechaActual);
 
   const { documentoId, tipoDocumento } = funciones.obtenerIdentidad(datos);
   const hashEntrada = await funciones.calcularHash(datos);
@@ -233,6 +299,7 @@ async function ejecutarOperacionInventario<T extends ContratoOperacionInventario
       generarId: dependencias.generarId,
       permitirStockNegativo: dependencias.permitirStockNegativo,
       valorizacionHabilitada: dependencias.valorizacionHabilitada,
+      monedaBase: dependencias.monedaBase,
     });
     plan = preparado.plan;
     movimientosGenerados = preparado.movimientosGenerados;
@@ -246,6 +313,38 @@ async function ejecutarOperacionInventario<T extends ContratoOperacionInventario
   }
 
   const resultadoConfirmacion = await funciones.confirmar(documentoId, plan, dependencias.fechaActual);
+
+  // Invalidación del lote de valorización inicial (Etapa 2, §8): centralizada aquí — el ÚNICO
+  // choke point que ya atraviesan entrada/salida/transferencia/reverso/anulación — nunca llamada
+  // manualmente desde cada pantalla. Solo se ejecuta tras una confirmación NUEVA real (nunca en un
+  // replay idempotente, que retorna antes de este punto, ni tras una preparación fallida). La
+  // mutación de stock YA se confirmó con éxito en este punto y nunca se revierte por un fallo de
+  // invalidación — pero ese fallo tampoco se pierde en un `console.error` silencioso (bloqueante 1
+  // de la revisión): se encola de forma durable e idempotente para reintentarse en la próxima
+  // operación de esta empresa (`drenarInvalidacionesPendientes`, arriba) o al validar la
+  // preparación, garantizando que nunca quede stock modificado con un detalle todavía confirmado.
+  if (movimientosGenerados.length > 0) {
+    const afectados = movimientosGenerados.map((m) => ({ productoId: m.productoId, almacenId: m.almacenId }));
+    try {
+      invalidarLoteValorizacionInicialSiAfectado(
+        datos.empresaId,
+        dependencias.estadoValorizacion,
+        afectados,
+        dependencias.fechaActual()
+      );
+    } catch (causaInvalidacion) {
+      console.error(
+        `ServicioKardexValorizado.${funciones.nombreMetodo}: no se pudo invalidar el lote de valorización inicial tras confirmar "${documentoId}" — se encola para reintento.`,
+        causaInvalidacion
+      );
+      encolarInvalidacionPendiente({
+        id: dependencias.generarId(),
+        empresaId: datos.empresaId,
+        afectados,
+        fecha: dependencias.fechaActual(),
+      });
+    }
+  }
 
   return {
     documentoId,
@@ -274,7 +373,7 @@ export const ServicioKardexValorizado = {
     return ejecutarOperacionInventario(datos, dependencias, {
       nombreMetodo: 'registrarEntradaValorizada',
       obtenerIdentidad: obtenerIdentidadOperacionCuantitativa,
-      validarContrato,
+      validarContrato: validarContratoEntrada,
       calcularHash: calcularHashEntradaCuantitativa,
       preparar: prepararOperacionInventario,
       confirmar: confirmarOperacionInventario,
@@ -295,7 +394,7 @@ export const ServicioKardexValorizado = {
     return ejecutarOperacionInventario(datos, dependencias, {
       nombreMetodo: 'registrarSalidaValorizada',
       obtenerIdentidad: obtenerIdentidadOperacionCuantitativa,
-      validarContrato,
+      validarContrato: validarContratoSalida,
       calcularHash: calcularHashSalidaCuantitativa,
       preparar: prepararOperacionSalidaInventario,
       confirmar: confirmarOperacionSalidaInventario,
@@ -361,6 +460,26 @@ export const ServicioKardexValorizado = {
       calcularHash: calcularHashAnulacion,
       preparar: prepararAnulacion,
       confirmar: confirmarAnulacion,
+    });
+  },
+
+  /**
+   * Importa un lote de stock desde archivo (Etapa 2, cierre de bloqueante 2 de la revisión): cada
+   * línea trae su propia diferencia firmada (mixta entrada+salida) y se reserva/prepara/confirma
+   * como UNA sola unidad de trabajo — nunca una confirmación por línea ni por dirección. Único
+   * punto de entrada productivo para `PanelImportacionStock.tsx` — nunca un segundo importador.
+   */
+  importarStockValorizado(
+    datos: DatosImportacionCuantitativa,
+    dependencias: DependenciasOperacionCuantitativa
+  ): Promise<ResultadoOperacionCuantitativa> {
+    return ejecutarOperacionInventario(datos, dependencias, {
+      nombreMetodo: 'importarStockValorizado',
+      obtenerIdentidad: (d) => ({ documentoId: d.loteId, tipoDocumento: 'importacion' }),
+      validarContrato: validarContratoImportacion,
+      calcularHash: calcularHashImportacion,
+      preparar: prepararOperacionImportacion,
+      confirmar: confirmarOperacionImportacion,
     });
   },
 };

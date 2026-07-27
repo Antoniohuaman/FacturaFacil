@@ -25,7 +25,7 @@ function generarId(): string {
 function fechaActual(): string {
   return '2026-08-01T00:00:00.000Z';
 }
-const dependencias = { generarId, fechaActual };
+const dependencias = { generarId, fechaActual, estadoValorizacion: 'no_iniciada' };
 
 function crearAlmacen(overrides: Partial<Almacen> = {}): Almacen {
   return {

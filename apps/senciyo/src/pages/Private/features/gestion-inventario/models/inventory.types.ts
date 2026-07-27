@@ -189,6 +189,12 @@ export interface StockAdjustmentData {
   cantidad: number;
   observaciones: string;
   documentoReferencia: string;
+  /**
+   * Costo por unidad mínima, en moneda base (Etapa 2, §10) — solo aplica a `tipo:'AJUSTE_POSITIVO'`
+   * cuando `resolverModoOperacion(estadoValorizacion)==='valorizado_exclusivo'` (inalcanzable
+   * productivamente en esta etapa). Ausente en todo ajuste cuantitativo normal.
+   */
+  costoUnitario?: number;
 }
 
 /**

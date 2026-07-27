@@ -45,7 +45,7 @@ export interface LiberacionReservaLegacyOV {
   cantidad: number;
 }
 
-/** Línea sin costo — solo modifica cantidad (§6/§7). */
+/** Línea sin costo (modo cuantitativo) o con costo obligatorio (modo valorizado, Etapa 2 §10 — solo ajuste_positivo). */
 export interface DatosLineaOperacionCuantitativa {
   lineaId: string;
   productoId: string;
@@ -56,6 +56,13 @@ export interface DatosLineaOperacionCuantitativa {
   liberarReservaOV?: LiberacionReservaOV;
   /** Solo cuando esta línea de SALIDA despacha una reserva LEGACY (por almacén) de Orden de Venta existente (corrección post-1D, §2). */
   liberarReservaLegacyOV?: LiberacionReservaLegacyOV;
+  /**
+   * Costo por unidad mínima, en moneda base (Etapa 2, §10) — OBLIGATORIO cuando la operación
+   * completa tiene `modoOperacion: 'valorizado'` (validado por `entradaCuantitativaInventario`,
+   * únicamente soportado para `tipoOperacion: 'ajuste_positivo'`). Ausente en toda línea
+   * cuantitativa — el motor nunca asume un costo por defecto.
+   */
+  costoUnitarioBaseMonedaBase?: number;
 }
 
 /**
@@ -70,7 +77,12 @@ export interface DatosLineaOperacionCuantitativa {
  * existentes evita crear un segundo contrato equivalente.
  */
 export interface DatosOperacionCuantitativa {
-  modoOperacion: 'cuantitativo';
+  /**
+   * `'valorizado'` (Etapa 2, §10) solo está implementado por el motor de ENTRADAS y únicamente
+   * para `tipoOperacion: 'ajuste_positivo'` — cualquier otro `tipoOperacion` o el motor de SALIDAS
+   * lo rechazan explícitamente en tiempo de ejecución (nunca aceptado "por si acaso").
+   */
+  modoOperacion: ModoOperacionEntradaInventario;
   empresaId: string;
   documentoId: string;
   tipoDocumento: ReferenciaDocumentoTipoOperacionIdempotente;

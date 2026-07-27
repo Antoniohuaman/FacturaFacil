@@ -230,7 +230,7 @@ describe('Corrección post-1D §1: idempotencia end-to-end de Nota de Venta repi
     // ── Intento 1: flujo completo desde los datos comerciales originales ──
     const resultado1 = prepararDescuentoStockDocumento(items, almacenes, ESTABLECIMIENTO, documentoId);
     const datos1 = construirDatosOperacionVenta(documentoId, resultado1.lineasOperacion);
-    const motor1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual });
+    const motor1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     expect(motor1.estado).toBe('nueva');
 
     const productosTrasIntento1 = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -242,7 +242,7 @@ describe('Corrección post-1D §1: idempotencia end-to-end de Nota de Venta repi
     // reutilizando DIRECTAMENTE `resultado1.lineasOperacion` (exactamente lo que el caché
     // devolvería) en vez de volver a llamar a `prepararDescuentoStockDocumento`. ──
     const datos2 = construirDatosOperacionVenta(documentoId, resultado1.lineasOperacion);
-    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual });
+    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(motor2.estado).toBe('repetida');
     const productosTrasIntento2 = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -261,13 +261,13 @@ describe('Corrección post-1D §1: idempotencia end-to-end de Nota de Venta repi
     const datos = construirDatosOperacionVenta(documentoId, resultado.lineasOperacion);
 
     // Paso 1: inventario se confirma (equivalente a que `ejecutarDescuentoStockNV` ya corrió).
-    const motor1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    const motor1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     expect(motor1.estado).toBe('nueva');
 
     // Paso 2 (simulado): la persistencia del documento comercial "falló" — nunca se llamó a
     // agregarDocumento/actualizarEnContext. El reintento repite la MISMA llamada al motor (mismo
     // documentoId, mismas líneas) para completar la persistencia sin volver a descontar.
-    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    const motor2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     expect(motor2.estado).toBe('repetida');
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -303,7 +303,7 @@ describe('Corrección post-1D §3: una sola persistencia (sin segunda escritura 
     };
     localStorage.setItem = spySetItem;
     try {
-      await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+      await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     } finally {
       localStorage.setItem = setItemOriginal;
     }
@@ -327,7 +327,7 @@ describe('Corrección post-1D §3: una sola persistencia (sin segunda escritura 
 
     const resultado = prepararDescuentoStockDocumento(items, almacenes, ESTABLECIMIENTO, documentoId);
     const datos = construirDatosOperacionVenta(documentoId, resultado.lineasOperacion);
-    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     let escriturasTotales = 0;
     const setItemOriginal = localStorage.setItem.bind(localStorage);
@@ -337,7 +337,7 @@ describe('Corrección post-1D §3: una sola persistencia (sin segunda escritura 
     };
     let motorRepetido;
     try {
-      motorRepetido = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual });
+      motorRepetido = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     } finally {
       localStorage.setItem = setItemOriginal;
     }
@@ -380,6 +380,7 @@ describe('Corrección post-1D §3: ejecutarDescuentoStockNV — identidad y núm
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000001', correlativo: '00000001' }),
     });
 
@@ -402,6 +403,7 @@ describe('Corrección post-1D §3: ejecutarDescuentoStockNV — identidad y núm
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000002', correlativo: '00000002' }),
     });
 
@@ -433,6 +435,7 @@ describe('Corrección post-1D §3: ejecutarDescuentoStockNV — identidad y núm
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000005', correlativo: '00000005' }),
     });
 
@@ -444,6 +447,7 @@ describe('Corrección post-1D §3: ejecutarDescuentoStockNV — identidad y núm
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000009', correlativo: '00000009' }),
     });
     expect(resultadoReintento.documentoId).toBe(resultado.documentoId);
@@ -466,6 +470,7 @@ describe('Corrección post-1D §3: ejecutarDescuentoStockNV — identidad y núm
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000009', correlativo: '00000009' }),
     });
     expect(resultadoTrasLimpiar.numero).toBe('NV01-00000009');
@@ -485,6 +490,7 @@ describe('Corrección post-1D §3: ejecutarDescuentoStockNV — identidad y núm
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: 'doc-borrador-real-123',
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000001', correlativo: '00000001' }),
     });
 
@@ -522,6 +528,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: 'doc-borrador-1',
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000001', correlativo: '00000001' }),
     });
 
@@ -537,6 +544,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: 'doc-borrador-2',
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000002', correlativo: '00000002' }),
     });
 
@@ -570,6 +578,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: 'doc-real-999',
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000100', correlativo: '00000100' }),
     });
 
@@ -600,6 +609,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000051', correlativo: '00000051' }),
     });
 
@@ -622,6 +632,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000060', correlativo: '00000060' }),
     });
 
@@ -638,6 +649,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000061', correlativo: '00000061' }),
     });
 
@@ -658,6 +670,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000070', correlativo: '00000070' }),
     });
 
@@ -669,6 +682,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-99999999', correlativo: '99999999' }),
     });
 
@@ -690,6 +704,7 @@ describe('Corrección post-1D §2: aislamiento y limpieza de sesión — Nota de
       empresaId: EMPRESA,
       usuario: 'user-1',
       documentoIdExistente: undefined,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000080', correlativo: '00000080' }),
     });
 
@@ -725,6 +740,7 @@ describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anula
     const resultado = await ejecutarDescuentoStockNV({
       datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
       documentoIdExistente: documentoId,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000090', correlativo: '00000090' }),
     });
     expect(resultado.documentoId).toBe(documentoId);
@@ -735,7 +751,7 @@ describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anula
     const datosAnulacion = prepararAnulacionDescuentoStockNV(documentoId, EMPRESA, movimientosRaw, 'user-2', fechaActual());
     expect(datosAnulacion.claveIdempotencia).toBe(`ANULACION-venta-${documentoId}`);
 
-    await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
+    await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
@@ -752,14 +768,15 @@ describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anula
     await ejecutarDescuentoStockNV({
       datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
       documentoIdExistente: documentoId,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000091', correlativo: '00000091' }),
     });
 
     const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, EMPRESA));
     const datosAnulacion = prepararAnulacionDescuentoStockNV(documentoId, EMPRESA, movimientosRaw, 'user-2', fechaActual());
 
-    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
-    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
+    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(r1.estado).toBe('nueva');
     expect(r2.estado).toBe('repetida');
@@ -797,6 +814,7 @@ describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anula
     await ejecutarDescuentoStockNV({
       datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
       documentoIdExistente: documentoId,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000092', correlativo: '00000092' }),
     });
     const productosTrasDescuento = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -807,7 +825,7 @@ describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anula
     const datosAnulacion = prepararAnulacionDescuentoStockNV(documentoId, EMPRESA, movimientosRaw, 'user-2', fechaActual());
     expect(datosAnulacion.movimientoIds.length).toBeGreaterThanOrEqual(2);
 
-    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     expect(resultado.movimientos.length).toBe(datosAnulacion.movimientoIds.length);
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -826,6 +844,7 @@ describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anula
     await ejecutarDescuentoStockNV({
       datos, almacenes, establecimientoId: ESTABLECIMIENTO, empresaId: EMPRESA, usuario: 'user-1',
       documentoIdExistente: documentoId,
+      estadoValorizacion: 'no_iniciada',
       resolverNumeroFallback: () => ({ numero: 'NV01-00000093', correlativo: '00000093' }),
     });
 
@@ -834,7 +853,7 @@ describe('prepararAnulacionDescuentoStockNV — cierre final Etapa 1E §2: anula
     const datosAnulacionConLineaRota = { ...datosAnulacion, movimientoIds: [...datosAnulacion.movimientoIds, 'mov-inexistente'] };
 
     await expect(
-      ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacionConLineaRota, { almacenes: almacenesMap, generarId, fechaActual })
+      ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacionConLineaRota, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/no existe/);
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];

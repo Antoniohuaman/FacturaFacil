@@ -193,8 +193,9 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       usuario: session?.userName ?? 'Usuario',
       documentoIdExistente,
       resolverNumeroFallback,
+      estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
     }),
-    [activeEstablecimientoId, configState.almacenes, session],
+    [activeEstablecimientoId, configState.almacenes, configState.preferenciasInventario, session],
   );
 
   /**
@@ -714,6 +715,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
           almacenes: almacenesMap,
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
+          estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
         });
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
         // a persistir aquí (nada de registerAdjustment/updateProduct). Solo se rehidrata el
@@ -773,7 +775,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
 
       return { exito: true, documento: actualizado };
     },
-    [state.documentos, actualizarEnContext, session, configState.almacenes],
+    [state.documentos, actualizarEnContext, session, configState.almacenes, configState.preferenciasInventario.estadoValorizacion],
   );
 
   const duplicarDocumento = useCallback(

@@ -5,6 +5,7 @@ import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore'
 import type { DatosLineaOperacionCuantitativa, DatosOperacionSalidaCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
 import type { DatosAnulacionDocumentoInventario } from '../../gestion-inventario/models/operacionReversoInventario.types';
 import type { MovimientoStock } from '../../gestion-inventario/models/inventory.types';
+import type { EstadoActivacionValorizacion } from '../../gestion-inventario/models/estadoActivacionValorizacion.types';
 import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
 import { parsearColeccion } from '../../gestion-inventario/utils/operacionCuantitativaInventarioComun';
 import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
@@ -397,6 +398,8 @@ export interface ParametrosEjecutarDescuentoStockNV {
   documentoIdExistente: string | undefined;
   /** Solo se invoca en la primera preparación real (sin sesión cacheada) — nunca en un reintento. */
   resolverNumeroFallback: () => { numero: string; correlativo: string };
+  /** Estado de activación de valorización de la EMPRESA (Etapa 2) — obligatorio: el motor lo exige para resolver el modo de operación antes de mutar stock, nunca se omite silenciosamente. */
+  estadoValorizacion: EstadoActivacionValorizacion;
 }
 
 export interface ResultadoEjecutarDescuentoStockNV {
@@ -437,7 +440,7 @@ export function cancelarNotaVentaPendiente(empresaId: string): void {
 export async function ejecutarDescuentoStockNV(
   params: ParametrosEjecutarDescuentoStockNV,
 ): Promise<ResultadoEjecutarDescuentoStockNV> {
-  const { datos, almacenes, establecimientoId, empresaId, usuario, documentoIdExistente, resolverNumeroFallback } = params;
+  const { datos, almacenes, establecimientoId, empresaId, usuario, documentoIdExistente, resolverNumeroFallback, estadoValorizacion } = params;
   // `documentoIdExistente` forma parte de la huella (corrección post-1D, §2): dos borradores con
   // el mismo contenido nunca comparten sesión pendiente.
   const huella = construirHuellaNotaVenta(datos, establecimientoId, documentoIdExistente);
@@ -488,6 +491,7 @@ export async function ejecutarDescuentoStockNV(
       almacenes: almacenesMap,
       generarId: () => crypto.randomUUID(),
       fechaActual: () => new Date().toISOString(),
+      estadoValorizacion,
     });
 
     // Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos.

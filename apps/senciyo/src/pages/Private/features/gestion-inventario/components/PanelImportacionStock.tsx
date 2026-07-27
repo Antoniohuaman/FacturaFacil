@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- XLSX sheet_to_json retorna any[][] */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useUserSession } from '@/contexts/UserSessionContext';
@@ -7,6 +7,34 @@ import { InventoryService } from '../services/inventory.service';
 import { useAuth } from '../../autenticacion/hooks';
 import { isProductEnabledForEstablecimiento } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
+import { getTenantEmpresaId } from '@/shared/tenant';
+import { sincronizarInventarioTrasConfirmacion } from '@/shared/inventory/accionesStock';
+import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
+import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
+import {
+  calcularDiferenciaFilaImportacion,
+  calcularEstadoCostoFila,
+  validarFilasLoteImportacion,
+} from '../utils/importacionValorizadaInventario';
+import {
+  construirClaveIdempotenciaImportacion,
+  construirDocumentoOrigenFilaImportacion,
+} from '../models/loteImportacionValorizada.types';
+import type {
+  ModoLoteImportacionValorizada,
+  EstadoCostoFilaImportacion,
+  FilaLoteImportacionValorizada,
+  LoteImportacionValorizada,
+} from '../models/loteImportacionValorizada.types';
+import type { DatosImportacionCuantitativa, DatosLineaImportacionCuantitativa } from '../models/operacionImportacionInventario.types';
+import {
+  encabezadoAlmacen,
+  encabezadoCostoAlmacen,
+  esFormatoNuevo,
+  parsearFormatoNuevo,
+  parsearFormatoLegacy,
+} from '../utils/parseoArchivoImportacionStock';
+import type { FilaParseada, ResultadoParseo } from '../utils/parseoArchivoImportacionStock';
 import * as XLSX from 'xlsx';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -17,20 +45,11 @@ interface PanelImportacionStockProps {
 }
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
-
-type FilaParseada = {
-  codigo: string;
-  /** Clave: ID del almacén. Valor: stock final deseado, null = celda vacía (sin cambio). */
-  cantidadPorAlmacen: Record<string, number | null>;
-};
-
-type ResultadoParseo = {
-  filas: FilaParseada[];
-  codigosDuplicados: string[];
-  columnasDesconocidas: string[];
-  erroresPorFila: Array<{ codigo: string; columna: string; mensaje: string }>;
-  esFormatoLegacy: boolean;
-};
+//
+// El parseo puro (tipos, encabezados, `parsearFormatoNuevo`/`parsearFormatoLegacy`) vive en
+// `utils/parseoArchivoImportacionStock.ts` — un archivo que exporta un componente React solo puede
+// exportar componentes (`react-refresh/only-export-components`), así que nada reutilizable/testeable
+// se define aquí.
 
 type ResultadoImportacion = {
   loteId: string;
@@ -53,170 +72,6 @@ const generarIdLote = (prefijo: 'IMP' | 'RST'): string => {
   const p = (n: number, l = 2) => String(n).padStart(l, '0');
   return `${prefijo}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 };
-
-/** Encabezado de columna de almacén en la plantilla: "{codigo} - {nombre}" */
-const encabezadoAlmacen = (almacen: Almacen): string =>
-  `${almacen.codigoAlmacen} - ${almacen.nombreAlmacen}`;
-
-// Columnas informativas que no se procesan como almacenes
-const COLUMNAS_INFORMATIVAS = new Set([
-  'codigo', 'code', 'producto', 'product', 'nombre', 'name',
-  'unidad', 'unit', 'stock_total_actual', 'stock total actual',
-]);
-
-const esFormatoNuevo = (encabezados: string[]): boolean =>
-  encabezados.some(h => {
-    const n = h.toLowerCase().trim();
-    return n === 'producto' || n === 'product' || n === 'nombre' || n === 'name';
-  });
-
-// ─── Parseo del formato nuevo ─────────────────────────────────────────────────
-
-function parsearFormatoNuevo(
-  encabezadosCrudos: string[],
-  filasCrudas: any[][],
-  almacenes: Almacen[]
-): ResultadoParseo {
-  const encabezados = encabezadosCrudos.map(h => String(h ?? '').trim());
-
-  const indCodigo = encabezados.findIndex(h => {
-    const n = h.toLowerCase();
-    return n === 'codigo' || n === 'code';
-  });
-  if (indCodigo === -1) {
-    return {
-      filas: [], codigosDuplicados: [], columnasDesconocidas: [],
-      erroresPorFila: [{ codigo: '', columna: 'CODIGO', mensaje: 'No se encontró la columna CODIGO en el archivo.' }],
-      esFormatoLegacy: false,
-    };
-  }
-
-  const encabezadoAAlmacenId = new Map<string, string>();
-  almacenes.forEach(w => encabezadoAAlmacenId.set(encabezadoAlmacen(w).toLowerCase(), w.id));
-
-  const columnasAlmacen: Array<{ indice: number; almacenId: string }> = [];
-  const columnasDesconocidas: string[] = [];
-
-  encabezados.forEach((h, indice) => {
-    if (indice === indCodigo) return;
-    const minuscula = h.toLowerCase();
-    if (!h || COLUMNAS_INFORMATIVAS.has(minuscula)) return;
-    const almacenId = encabezadoAAlmacenId.get(minuscula);
-    if (almacenId) {
-      columnasAlmacen.push({ indice, almacenId });
-    } else {
-      columnasDesconocidas.push(h);
-    }
-  });
-
-  const codigosVistos = new Set<string>();
-  const codigosDuplicados: string[] = [];
-  const erroresPorFila: ResultadoParseo['erroresPorFila'] = [];
-  const filas: FilaParseada[] = [];
-
-  for (const fila of filasCrudas) {
-    const codigo = String(fila[indCodigo] ?? '').trim();
-    if (!codigo) continue;
-
-    const codigoUpper = codigo.toUpperCase();
-    if (codigosVistos.has(codigoUpper)) {
-      if (!codigosDuplicados.includes(codigo)) codigosDuplicados.push(codigo);
-      continue;
-    }
-    codigosVistos.add(codigoUpper);
-
-    const cantidadPorAlmacen: Record<string, number | null> = {};
-    for (const { indice, almacenId } of columnasAlmacen) {
-      const valorCrudo = fila[indice];
-      if (valorCrudo === null || valorCrudo === undefined || String(valorCrudo).trim() === '') {
-        cantidadPorAlmacen[almacenId] = null; // Celda vacía = sin cambio
-        continue;
-      }
-      const parseado = parseFloat(String(valorCrudo));
-      if (isNaN(parseado)) {
-        erroresPorFila.push({ codigo, columna: encabezados[indice], mensaje: `"${valorCrudo}" no es un número válido` });
-        cantidadPorAlmacen[almacenId] = null;
-      } else {
-        cantidadPorAlmacen[almacenId] = parseado;
-      }
-    }
-    filas.push({ codigo, cantidadPorAlmacen });
-  }
-
-  return { filas, codigosDuplicados, columnasDesconocidas, erroresPorFila, esFormatoLegacy: false };
-}
-
-// ─── Parseo del formato legacy ────────────────────────────────────────────────
-
-/**
- * Formato antiguo: CODIGO | ALMACEN (opcional) | CANTIDAD
- * Se mantiene compatibilidad. '_ALL' = aplica a todos los almacenes del establecimiento.
- */
-function parsearFormatoLegacy(
-  encabezadosCrudos: string[],
-  filasCrudas: any[][],
-  almacenes: Almacen[]
-): ResultadoParseo {
-  const encabezados = encabezadosCrudos.map(h => String(h ?? '').toLowerCase().trim());
-  const indCodigo = encabezados.findIndex(h => h.includes('codigo') || h === 'code');
-  const indAlmacen = encabezados.findIndex(h => h.includes('almacen'));
-  const indCantidad = encabezados.findIndex(
-    h => h.includes('cantidad') || (h.includes('stock') && !h.includes('_total')) || h === 'qty'
-  );
-
-  if (indCodigo === -1 || indCantidad === -1) {
-    return {
-      filas: [], codigosDuplicados: [], columnasDesconocidas: [],
-      erroresPorFila: [{ codigo: '', columna: 'CODIGO/CANTIDAD', mensaje: 'Formato antiguo: se requieren columnas CODIGO y CANTIDAD.' }],
-      esFormatoLegacy: true,
-    };
-  }
-
-  const codigoAAlmacenId = new Map<string, string>();
-  almacenes.forEach(w => codigoAAlmacenId.set((w.codigoAlmacen ?? w.id).toUpperCase(), w.id));
-
-  const clavesVistas = new Set<string>();
-  const codigosDuplicados: string[] = [];
-  const columnasDesconocidas: string[] = [];
-  const erroresPorFila: ResultadoParseo['erroresPorFila'] = [];
-  const filas: FilaParseada[] = [];
-
-  for (const fila of filasCrudas) {
-    const codigo = String(fila[indCodigo] ?? '').trim();
-    if (!codigo) continue;
-
-    const rawAlmacen = indAlmacen !== -1 ? String(fila[indAlmacen] ?? '').trim() : '';
-    const rawCantidad = fila[indCantidad];
-    const cantidad = parseFloat(String(rawCantidad ?? ''));
-
-    if (isNaN(cantidad)) {
-      erroresPorFila.push({ codigo, columna: 'CANTIDAD', mensaje: `"${rawCantidad}" no es un número válido` });
-      continue;
-    }
-
-    let almacenId: string | null = null;
-    if (rawAlmacen) {
-      almacenId = codigoAAlmacenId.get(rawAlmacen.toUpperCase()) ?? null;
-      if (!almacenId && !columnasDesconocidas.includes(rawAlmacen)) {
-        columnasDesconocidas.push(rawAlmacen);
-        continue;
-      }
-    }
-
-    const clave = `${codigo.toUpperCase()}|${almacenId ?? '_ALL'}`;
-    if (clavesVistas.has(clave)) {
-      if (!codigosDuplicados.includes(codigo)) codigosDuplicados.push(codigo);
-      continue;
-    }
-    clavesVistas.add(clave);
-
-    const cantidadPorAlmacen: Record<string, number | null> = {};
-    cantidadPorAlmacen[almacenId ?? '_ALL'] = cantidad;
-    filas.push({ codigo, cantidadPorAlmacen });
-  }
-
-  return { filas, codigosDuplicados, columnasDesconocidas, erroresPorFila, esFormatoLegacy: true };
-}
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
@@ -247,6 +102,19 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
   const [pasoImportacion, setPasoImportacion] = useState<PasoImportacion>('subir');
   const [resultadoParseo, setResultadoParseo] = useState<ResultadoParseo | null>(null);
   const [resultadoImportacion, setResultadoImportacion] = useState<ResultadoImportacion | null>(null);
+  const [procesandoImportacion, setProcesandoImportacion] = useState(false);
+  /** UUID estable del lote mientras el archivo previsualizado no cambie — un reintento (doble clic,
+   * error de red) reutiliza la MISMA claveIdempotencia en vez de crear un lote nuevo cada vez. */
+  const [loteImportacionId, setLoteImportacionId] = useState<string | null>(null);
+  const [nombreArchivo, setNombreArchivo] = useState<string>('');
+
+  useEffect(() => {
+    if (resultadoParseo) {
+      setLoteImportacionId(crypto.randomUUID());
+    } else {
+      setLoteImportacionId(null);
+    }
+  }, [resultadoParseo]);
 
   // ── Estado: flujo de reset ────────────────────────────────────────────────
   type PasoReset = 'formulario' | 'confirmar' | 'resultado';
@@ -263,24 +131,32 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
       ? allProducts.filter(p => isProductEnabledForEstablecimiento(p, establecimientoId))
       : allProducts;
 
-    const encabezadosAlmacen = almacenesPlantilla.map(encabezadoAlmacen);
-    const encabezados = ['CODIGO', 'PRODUCTO', 'UNIDAD', ...encabezadosAlmacen];
+    // Etapa 2 (cierre bloqueante 2): cada almacén aporta DOS columnas — cantidad y su COSTO
+    // asociado, siempre juntas, nunca una reemplazando a la otra. El costo queda conectado al
+    // flujo (clasificación de la previsualización, contrato del motor) aunque en Etapa 2 la
+    // empresa siempre opera en modo cuantitativo puro y el costo declarado todavía no se consume.
+    const encabezados = ['CODIGO', 'PRODUCTO', 'UNIDAD'];
+    almacenesPlantilla.forEach(w => {
+      encabezados.push(encabezadoAlmacen(w), encabezadoCostoAlmacen(w));
+    });
 
     const esModoSumar = modoImportacion === 'sumar';
 
     const filasDatos = [...productos]
       .sort((a, b) => a.codigo.localeCompare(b.codigo))
       .map(p => {
-        const stocks = esModoSumar
-          ? almacenesPlantilla.map(() => '')
-          : almacenesPlantilla.map(w => p.stockPorAlmacen?.[w.id] ?? 0);
-        return [p.codigo, p.nombre, p.unidad || '', ...stocks];
+        const columnas: (string | number)[] = [p.codigo, p.nombre, p.unidad || ''];
+        almacenesPlantilla.forEach(w => {
+          columnas.push(esModoSumar ? '' : (p.stockPorAlmacen?.[w.id] ?? 0));
+          columnas.push(''); // Costo: siempre vacío en la plantilla — el usuario lo completa solo si va a declarar costo.
+        });
+        return columnas;
       });
 
     const hoja = XLSX.utils.aoa_to_sheet([encabezados, ...filasDatos]);
     hoja['!cols'] = [
       { wch: 15 }, { wch: 35 }, { wch: 10 },
-      ...almacenesPlantilla.map(() => ({ wch: 18 })),
+      ...almacenesPlantilla.flatMap(() => [{ wch: 18 }, { wch: 14 }]),
     ];
     const instrucciones: (string | number)[][] = esModoSumar
       ? [
@@ -331,6 +207,7 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     const archivo = evento.target.files?.[0];
     if (!archivo) return;
     evento.target.value = '';
+    setNombreArchivo(archivo.name);
 
     const lector = new FileReader();
     const esExcel = archivo.name.endsWith('.xlsx') || archivo.name.endsWith('.xls');
@@ -387,118 +264,176 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     else lector.readAsText(archivo);
   };
 
-  // ── Aplicar importación ────────────────────────────────────────────────────
-  const aplicarImportacion = () => {
-    if (!resultadoParseo || resultadoParseo.filas.length === 0) return;
+  // ── Aplicar importación (Etapa 2, cierre bloqueante 2) ────────────────────
+  //
+  // Único importador productivo: pasa por `ServicioKardexValorizado.importarStockValorizado` —
+  // ya no llama `InventoryService.registerAdjustment` por fila. Todo el lote (mixto de entradas y
+  // salidas) se reserva/prepara/confirma como UNA sola unidad de trabajo: una fila inválida
+  // (producto inexistente, stock resultante negativo, costo faltante en modo valorizado) rechaza
+  // el lote COMPLETO, nunca una aplicación parcial. `loteImportacionId` es estable mientras el
+  // archivo previsualizado no cambie — un reintento (doble clic, error de red) reutiliza la MISMA
+  // claveIdempotencia y el motor responde 'repetida' en vez de duplicar.
+  const modoLoteImportacion: ModoLoteImportacionValorizada = modoImportacion === 'sumar' ? 'sumatoria' : 'reemplazo';
+  const estadoValorizacion = configState.preferenciasInventario.estadoValorizacion;
+  const modoOperacionResuelto = resolverModoOperacion(estadoValorizacion);
 
-    const loteId = generarIdLote('IMP');
-    const noEncontrados: string[] = [];
-    const errores: string[] = [];
-    let movimientos = 0;
-    let sinCambios = 0;
+  const aplicarImportacion = async () => {
+    if (!resultadoParseo || resultadoParseo.filas.length === 0 || procesandoImportacion) return;
 
+    const loteId = loteImportacionId ?? crypto.randomUUID();
+    if (!loteImportacionId) setLoteImportacionId(loteId);
+
+    setProcesandoImportacion(true);
     const mapaAlmacenes = new Map<string, Almacen>(almacenesActivos.map(w => [w.id, w]));
 
+    const noEncontrados: string[] = [];
+    const erroresReserva: string[] = [];
+    const filasLote: FilaLoteImportacionValorizada[] = [];
+    const lineasOperacion: DatosLineaImportacionCuantitativa[] = [];
+    let numeroFila = 0;
+
     for (const fila of resultadoParseo.filas) {
-      let productoActual = allProducts.find(
+      const productoActual = allProducts.find(
         p => p.codigo.trim().toUpperCase() === fila.codigo.trim().toUpperCase()
       );
       if (!productoActual) { noEncontrados.push(fila.codigo); continue; }
 
-      // Formato legacy sin almacén: aplica a todos los almacenes de la plantilla
+      // Formato legacy sin almacén: aplica a todos los almacenes de la plantilla (mismo costo, si trae uno).
       let entradas = Object.entries(fila.cantidadPorAlmacen);
+      let costosPorAlmacenFila = fila.costoPorAlmacen;
       if (resultadoParseo.esFormatoLegacy && entradas.length === 1 && entradas[0][0] === '_ALL') {
         const cantidad = entradas[0][1];
+        const costo = costosPorAlmacenFila['_ALL'] ?? null;
         entradas = almacenesPlantilla.map(w => [w.id, cantidad]);
+        costosPorAlmacenFila = Object.fromEntries(almacenesPlantilla.map(w => [w.id, costo]));
       }
 
       for (const [almacenId, cantidadArchivo] of entradas) {
         if (cantidadArchivo === null) continue; // Celda vacía = sin cambio
-
         const almacen = mapaAlmacenes.get(almacenId);
         if (!almacen) continue;
 
+        numeroFila += 1;
         const stockActual = productoActual.stockPorAlmacen?.[almacenId] ?? 0;
+        const diferencia = calcularDiferenciaFilaImportacion(cantidadArchivo, stockActual, modoLoteImportacion);
+        const costoUnitario = costosPorAlmacenFila[almacenId] ?? undefined;
+        const estadoCosto = calcularEstadoCostoFila(diferencia, costoUnitario, modoOperacionResuelto);
 
-        if (modoImportacion === 'sumar') {
-          // Modo: sumar ingreso — la cantidad se suma al stock actual
-          if (cantidadArchivo < 0) {
-            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: cantidad negativa no permitida en modo "Sumar ingreso"`);
-            continue;
-          }
-          if (cantidadArchivo === 0) { sinCambios++; continue; }
+        filasLote.push({
+          numeroFila,
+          productoId: productoActual.id,
+          almacenId,
+          cantidadArchivo,
+          costoUnitario,
+          estadoCosto,
+        });
 
-          const stockFinal = stockActual + cantidadArchivo;
-          try {
-            const resultado = InventoryService.registerAdjustment(
-              productoActual, almacen,
-              {
-                productoId: productoActual.id,
-                almacenId,
-                tipo: 'AJUSTE_POSITIVO',
-                motivo: 'AJUSTE_INVENTARIO',
-                cantidad: cantidadArchivo,
-                observaciones: `Ingreso masivo: ${stockActual} + ${cantidadArchivo} → ${stockFinal}`,
-                documentoReferencia: loteId,
-              },
-              nombreUsuario
-            );
-            const productoFinalS = InventoryService.recalcularTotalesStock(resultado.product, almacenesActivos);
-            updateProduct(productoActual.id, productoFinalS);
-            productoActual = productoFinalS;
-            movimientos++;
-          } catch (err) {
-            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: ${err instanceof Error ? err.message : 'Error'}`);
-          }
-        } else {
-          // Modo: actualizar stock final — la cantidad reemplaza el stock actual
-          if (cantidadArchivo < 0) {
-            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: El stock final no puede ser negativo.`);
-            continue;
-          }
-          // H-03: Bloquear si el nuevo stock sería menor al reservado activo
+        if (diferencia === 0) continue; // sin cambio — no genera línea de operación
+
+        // H-03 (preservado): una reducción de stock nunca puede dejarlo por debajo de lo reservado.
+        if (diferencia < 0) {
           const stockReservado = productoActual.stockReservadoPorAlmacen?.[almacenId] ?? 0;
-          if (cantidadArchivo < stockReservado) {
-            errores.push(
-              `${fila.codigo} [${almacen.codigoAlmacen}]: No se puede actualizar el stock a ${cantidadArchivo} ` +
-              `porque hay ${stockReservado} unidades reservadas. El stock final debe ser mayor o igual a ${stockReservado}.`
+          const stockResultante = stockActual + diferencia;
+          if (stockResultante < stockReservado) {
+            erroresReserva.push(
+              `${fila.codigo} [${almacen.codigoAlmacen}]: no se puede reducir el stock a ${stockResultante} porque hay ${stockReservado} unidades reservadas.`
             );
             continue;
-          }
-          if (stockActual === cantidadArchivo) { sinCambios++; continue; }
-
-          const diferencia = cantidadArchivo - stockActual;
-          const tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' = diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
-          try {
-            const resultado = InventoryService.registerAdjustment(
-              productoActual, almacen,
-              {
-                productoId: productoActual.id,
-                almacenId,
-                tipo,
-                motivo: 'AJUSTE_INVENTARIO',
-                cantidad: Math.abs(diferencia),
-                observaciones: `Importación masiva: ${stockActual} → ${cantidadArchivo}`,
-                documentoReferencia: loteId,
-              },
-              nombreUsuario
-            );
-            const productoFinalA = InventoryService.recalcularTotalesStock(resultado.product, almacenesActivos);
-            updateProduct(productoActual.id, productoFinalA);
-            // Actualizar referencia local para que el siguiente almacén del mismo producto
-            // vea el stock ya actualizado
-            productoActual = productoFinalA;
-            movimientos++;
-          } catch (err) {
-            errores.push(`${fila.codigo} [${almacen.codigoAlmacen}]: ${err instanceof Error ? err.message : 'Error'}`);
           }
         }
+
+        lineasOperacion.push({
+          lineaId: construirDocumentoOrigenFilaImportacion(loteId, numeroFila),
+          productoId: productoActual.id,
+          almacenId,
+          diferencia,
+          ...(costoUnitario !== undefined ? { costoUnitarioBaseMonedaBase: costoUnitario } : {}),
+        });
       }
     }
 
-    setResultadoImportacion({ loteId, movimientos, sinCambios, noEncontrados, errores });
-    setPasoImportacion('resultado');
-    if (movimientos > 0) onRecargarMovimientos?.();
+    // Una fila inválida rechaza el LOTE COMPLETO — nunca una aplicación parcial.
+    if (erroresReserva.length > 0) {
+      setResultadoImportacion({ loteId, movimientos: 0, sinCambios: 0, noEncontrados: [], errores: erroresReserva });
+      setPasoImportacion('resultado');
+      setProcesandoImportacion(false);
+      return;
+    }
+    try {
+      validarFilasLoteImportacion(filasLote);
+    } catch (err) {
+      setResultadoImportacion({ loteId, movimientos: 0, sinCambios: 0, noEncontrados: [], errores: [err instanceof Error ? err.message : String(err)] });
+      setPasoImportacion('resultado');
+      setProcesandoImportacion(false);
+      return;
+    }
+
+    const sinCambios = filasLote.filter(f => f.estadoCosto === 'sin_cambio').length;
+    const empresaId = getTenantEmpresaId();
+
+    // Lote real (Etapa 2, cierre bloqueante 2): documento completo, nunca fila por fila — su UUID
+    // estable (`loteId`) y su huella (`construirClaveIdempotenciaImportacion`) son la identidad real
+    // que el motor central usa para idempotencia; nunca se fabrica una clave aparte "a mano".
+    const lote: LoteImportacionValorizada = {
+      id: loteId,
+      empresaId,
+      establecimientoId: establecimientoId ?? '',
+      modo: modoLoteImportacion,
+      fecha: new Date().toISOString(),
+      usuario: nombreUsuario,
+      moneda: configState.company?.monedaBase ?? 'PEN',
+      estado: 'confirmado',
+      nombreArchivo,
+      totalFilas: filasLote.length,
+      filasConCostoPendiente: filasLote.filter(f => f.estadoCosto === 'requiere_costo').length,
+      filas: filasLote,
+      huella: construirClaveIdempotenciaImportacion(loteId),
+    };
+
+    if (lineasOperacion.length === 0) {
+      setResultadoImportacion({ loteId: lote.id, movimientos: 0, sinCambios, noEncontrados, errores: [] });
+      setPasoImportacion('resultado');
+      setProcesandoImportacion(false);
+      return;
+    }
+
+    const datosOperacion: DatosImportacionCuantitativa = {
+      modoOperacion: 'cuantitativo',
+      empresaId: lote.empresaId,
+      loteId: lote.id,
+      claveIdempotencia: lote.huella,
+      tipoOperacion: 'importacion',
+      tipoDocumento: 'importacion',
+      usuario: lote.usuario,
+      fecha: lote.fecha,
+      motivo: 'AJUSTE_INVENTARIO',
+      observaciones: `Importación masiva de stock (${modoImportacion === 'sumar' ? 'sumar ingreso' : 'actualizar stock final'}) — ${lote.nombreArchivo || 'archivo'}`,
+      documentoReferencia: lote.id,
+      lineas: lineasOperacion,
+    };
+
+    try {
+      const resultado = await ServicioKardexValorizado.importarStockValorizado(datosOperacion, {
+        almacenes: mapaAlmacenes,
+        generarId: () => crypto.randomUUID(),
+        fechaActual: () => new Date().toISOString(),
+        estadoValorizacion,
+      });
+      // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
+      // persistir aquí (nada de registerAdjustment/updateProduct por fila).
+      sincronizarInventarioTrasConfirmacion();
+      setResultadoImportacion({ loteId, movimientos: resultado.movimientos.length, sinCambios, noEncontrados, errores: [] });
+      setPasoImportacion('resultado');
+      onRecargarMovimientos?.();
+    } catch (err) {
+      setResultadoImportacion({
+        loteId, movimientos: 0, sinCambios, noEncontrados,
+        errores: [err instanceof Error ? err.message : 'Error al aplicar la importación.'],
+      });
+      setPasoImportacion('resultado');
+    } finally {
+      setProcesandoImportacion(false);
+    }
   };
 
   // ── Reset de stock ─────────────────────────────────────────────────────────
@@ -592,8 +527,57 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     }
   }
 
+  // Clasificación de costo por fila (Etapa 2, cierre bloqueante 2): reutiliza EXACTAMENTE las
+  // mismas funciones puras que `aplicarImportacion` usará al confirmar — la previsualización nunca
+  // puede mostrar una clasificación distinta de la que el motor aplicará realmente.
+  const PRIORIDAD_ESTADO_COSTO: Record<EstadoCostoFilaImportacion, number> = {
+    requiere_costo: 3, con_costo: 2, sin_cambio: 1, no_aplica: 0,
+  };
+  function clasificarFila(fila: FilaParseada): { porAlmacen: Record<string, { costoUnitario?: number; estadoCosto: EstadoCostoFilaImportacion }>; peor: EstadoCostoFilaImportacion } {
+    const producto = allProducts.find(p => p.codigo.toUpperCase() === fila.codigo.toUpperCase());
+    let entradas = Object.entries(fila.cantidadPorAlmacen);
+    let costos = fila.costoPorAlmacen;
+    if (resultadoParseo?.esFormatoLegacy && entradas.length === 1 && entradas[0][0] === '_ALL') {
+      const cantidad = entradas[0][1];
+      const costo = costos['_ALL'] ?? null;
+      entradas = almacenesPlantilla.map(w => [w.id, cantidad]);
+      costos = Object.fromEntries(almacenesPlantilla.map(w => [w.id, costo]));
+    }
+    const porAlmacen: Record<string, { costoUnitario?: number; estadoCosto: EstadoCostoFilaImportacion }> = {};
+    let peor: EstadoCostoFilaImportacion = 'no_aplica';
+    if (producto) {
+      for (const [almacenId, cantidad] of entradas) {
+        if (cantidad === null) continue;
+        const stockActual = producto.stockPorAlmacen?.[almacenId] ?? 0;
+        const diferencia = calcularDiferenciaFilaImportacion(cantidad, stockActual, modoLoteImportacion);
+        const costoUnitario = costos[almacenId] ?? undefined;
+        const estadoCosto = calcularEstadoCostoFila(diferencia, costoUnitario, modoOperacionResuelto);
+        porAlmacen[almacenId] = { costoUnitario, estadoCosto };
+        if (PRIORIDAD_ESTADO_COSTO[estadoCosto] > PRIORIDAD_ESTADO_COSTO[peor]) peor = estadoCosto;
+      }
+    }
+    return { porAlmacen, peor };
+  }
+
+  const ETIQUETA_ESTADO_COSTO: Record<EstadoCostoFilaImportacion, string> = {
+    con_costo: 'Con costo',
+    requiere_costo: 'Requiere costo',
+    sin_cambio: 'Sin cambio',
+    no_aplica: 'No aplica',
+  };
+  const CLASE_ESTADO_COSTO: Record<EstadoCostoFilaImportacion, string> = {
+    con_costo: 'text-green-600 dark:text-green-400',
+    requiere_costo: 'text-red-600 dark:text-red-400 font-semibold',
+    sin_cambio: 'text-gray-400',
+    no_aplica: 'text-gray-400',
+  };
+
+  const hayFilaRequiereCosto = resultadoParseo
+    ? resultadoParseo.filas.some(fila => clasificarFila(fila).peor === 'requiere_costo')
+    : false;
+
   const tieneErroresBloqueantes = resultadoParseo !== null &&
-    (resultadoParseo.erroresPorFila.length > 0 || resultadoParseo.filas.length === 0 || erroresValidacionModo.length > 0);
+    (resultadoParseo.erroresPorFila.length > 0 || resultadoParseo.filas.length === 0 || erroresValidacionModo.length > 0 || hayFilaRequiereCosto);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -797,12 +781,15 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                               {w.codigoAlmacen}
                             </th>
                           ))}
+                          <th className="px-3 py-2 text-right font-medium text-gray-500 uppercase whitespace-nowrap">Costo</th>
+                          <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase whitespace-nowrap">Estado costo</th>
                           <th className="px-3 py-2 text-left font-medium text-gray-500 uppercase">Estado</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                         {resultadoParseo.filas.slice(0, 30).map((fila, i) => {
                           const producto = allProducts.find(p => p.codigo.toUpperCase() === fila.codigo.toUpperCase());
+                          const clasificacion = clasificarFila(fila);
                           return (
                             <tr key={i} className={!producto ? 'bg-red-50 dark:bg-red-900/10' : ''}>
                               <td className="px-3 py-1.5 font-mono text-gray-900 dark:text-gray-200">{fila.codigo}</td>
@@ -845,6 +832,16 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                                   </td>
                                 );
                               })}
+                              <td className="px-3 py-1.5 text-right tabular-nums text-gray-600 dark:text-gray-400">
+                                {Object.values(clasificacion.porAlmacen)
+                                  .map(v => v.costoUnitario)
+                                  .filter((c): c is number => c !== undefined)
+                                  .map(c => c.toFixed(2))
+                                  .join(' / ') || '—'}
+                              </td>
+                              <td className={`px-3 py-1.5 whitespace-nowrap ${CLASE_ESTADO_COSTO[clasificacion.peor]}`}>
+                                {ETIQUETA_ESTADO_COSTO[clasificacion.peor]}
+                              </td>
                               <td className="px-3 py-1.5">
                                 {producto
                                   ? <span className="text-green-600 dark:text-green-400">✓</span>
@@ -862,11 +859,11 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
 
               <div className="flex justify-end pt-1">
                 <button
-                  onClick={aplicarImportacion}
-                  disabled={tieneErroresBloqueantes || resultadoParseo.filas.length === 0}
+                  onClick={() => { void aplicarImportacion(); }}
+                  disabled={tieneErroresBloqueantes || resultadoParseo.filas.length === 0 || procesandoImportacion}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#6F36FF] hover:bg-[#5B2CE0] text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Aplicar cambios ({resultadoParseo.filas.length})
+                  {procesandoImportacion ? 'Aplicando…' : `Aplicar cambios (${resultadoParseo.filas.length})`}
                 </button>
               </div>
             </div>

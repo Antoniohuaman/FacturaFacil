@@ -9,10 +9,13 @@ import {
   ArrowDownCircle,
   Info,
   AlertTriangle,
+  Calculator,
+  ChevronLeft,
 } from 'lucide-react';
 import type { StockDescuentoDocumento } from '../../contexto/ContextoConfiguracion';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import { useFeedback } from '@/shared/feedback/useFeedback';
+import SeccionValorizacionInventario from './SeccionValorizacionInventario';
 
 interface Props {
   isOpen: boolean;
@@ -114,6 +117,7 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
     prefs.stockDescuentoGuiaRemision ?? 'automatico',
   );
   const [mostrandoConfirmDesactivar, setMostrandoConfirmDesactivar] = useState(false);
+  const [mostrandoValorizacion, setMostrandoValorizacion] = useState(false);
 
   // Sincroniza estado local al abrir el modal
   useEffect(() => {
@@ -122,6 +126,7 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
       setLocalNV(prefs.stockDescuentoNotaVenta ?? 'automatico');
       setLocalGR(prefs.stockDescuentoGuiaRemision ?? 'automatico');
       setMostrandoConfirmDesactivar(false);
+      setMostrandoValorizacion(false);
     }
   }, [isOpen, prefs.stockDescuentoFacturaYBoleta, prefs.stockDescuentoNotaVenta, prefs.stockDescuentoGuiaRemision]);
 
@@ -214,7 +219,21 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
             </button>
           </div>
 
-          {mostrandoConfirmDesactivar ? (
+          {mostrandoValorizacion ? (
+            /* Sección Valorización del inventario (Etapa 2) — sub-pantalla dentro del mismo modal, sin crear una página nueva. */
+            <div className="px-6 py-5 max-h-[75vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setMostrandoValorizacion(false)}
+                className="mb-3 flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Volver
+              </button>
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">Valorización del inventario</h3>
+              <SeccionValorizacionInventario />
+            </div>
+          ) : mostrandoConfirmDesactivar ? (
             /* Pantalla de confirmación de desactivación */
             <div className="px-6 py-6 space-y-4">
               <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
@@ -334,6 +353,15 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
                     </tbody>
                   </table>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrandoValorizacion(true)}
+                  className="mt-3 flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  <Calculator className="w-3.5 h-3.5" />
+                  Valorización del inventario
+                </button>
               </div>
 
               {/* Footer */}

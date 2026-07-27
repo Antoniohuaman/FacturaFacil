@@ -10,8 +10,18 @@ import {
 import { obtenerEstadoVersionInventario } from '../repositories/estadoVersionInventario.repository';
 import type { DatosOperacionEntradaCuantitativa, DatosOperacionSalidaCuantitativa } from '../models/operacionEntradaInventario.types';
 import type { OperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
+import type { DatosTransferenciaInventario } from '../models/operacionTransferenciaInventario.types';
+import type { DatosReversoInventario, DatosAnulacionDocumentoInventario } from '../models/operacionReversoInventario.types';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
+import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
+import type { ValorizacionInicialInventario } from '../models/valorizacionInicialInventario.types';
+import {
+  guardarValorizacionInicialInventario,
+  obtenerLoteActivoPorEmpresa,
+  CLAVE_COLECCION_VALORIZACION_INICIAL_INVENTARIO,
+} from '../repositories/valorizacionInicialInventario.repository';
+import { listarInvalidacionesPendientes } from '../repositories/invalidacionPendienteValorizacionInicial.repository';
 import { lsKey } from '../../../../../shared/tenant';
 
 instalarLocalStorageDePrueba();
@@ -91,23 +101,40 @@ function datosBase(overrides: Partial<DatosOperacionEntradaCuantitativa> = {}): 
   };
 }
 
-describe('ServicioKardexValorizado.registrarEntradaValorizada — modo valorizado rechazado', () => {
-  it('rechaza cualquier modoOperacion distinto de "cuantitativo" sin reservar ni mutar nada', async () => {
+describe('ServicioKardexValorizado.registrarEntradaValorizada — modo valorizado rechazado fuera de ajuste_positivo', () => {
+  it('rechaza modoOperacion "valorizado" para tipoOperacion distinto de "ajuste_positivo" (Etapa 2, §10) sin reservar ni mutar nada', async () => {
     const empresaId = 'emp-A';
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    // @ts-expect-error — 'valorizado' no es un modoOperacion válido; se fuerza deliberadamente
-    // (sin cast) para probar que el motor lo rechaza en tiempo de ejecución, no solo en tipos.
+    // 'valorizado' SÍ es un modoOperacion válido en el tipo (Etapa 2) — pero el motor de entradas
+    // solo lo acepta para tipoOperacion==='ajuste_positivo'; aquí se prueba con 'ni_automatica'
+    // (heredado de datosBase()) para verificar el rechazo en tiempo de ejecución.
     const datosInvalidos: DatosOperacionEntradaCuantitativa = { ...datosBase(), modoOperacion: 'valorizado' };
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosInvalidos, { almacenes, generarId, fechaActual })
-    ).rejects.toThrow(/cuantitativ/);
+      ServicioKardexValorizado.registrarEntradaValorizada(datosInvalidos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+    ).rejects.toThrow(/ajuste_positivo/);
 
     expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, empresaId))).toBeNull();
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
     expect(productos[0].stockPorAlmacen['alm-1']).toBe(5);
+  });
+
+  it('rechaza un valor de modoOperacion completamente inválido (ni cuantitativo ni valorizado)', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    // @ts-expect-error — ningún valor fuera de 'cuantitativo'/'valorizado' es válido; se fuerza
+    // deliberadamente (sin cast) para probar el rechazo en tiempo de ejecución, no solo en tipos.
+    const datosInvalidos: DatosOperacionEntradaCuantitativa = { ...datosBase(), modoOperacion: 'otro' };
+
+    await expect(
+      ServicioKardexValorizado.registrarEntradaValorizada(datosInvalidos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+    ).rejects.toThrow(/cuantitativ|valorizad/);
+
+    expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, empresaId))).toBeNull();
   });
 });
 
@@ -118,7 +145,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), {
-      almacenes, generarId, fechaActual,
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada',
     });
 
     expect(resultado.estado).toBe('nueva');
@@ -133,8 +160,8 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
     const datos = datosBase({ empresaId });
 
-    const primero = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual });
-    const segundo = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual });
+    const primero = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const segundo = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(segundo.estado).toBe('repetida');
     expect(segundo.resultadoIds).toEqual(primero.resultadoIds);
@@ -150,7 +177,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const datosCambiados = datosBase({
       empresaId,
@@ -158,7 +185,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
     });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosCambiados, { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosCambiados, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
 
@@ -167,10 +194,10 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId, motivo: 'COMPRA' }), { almacenes, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId, motivo: 'COMPRA' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId, motivo: 'DEVOLUCION_CLIENTE' }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId, motivo: 'DEVOLUCION_CLIENTE' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
 
@@ -179,8 +206,8 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
     sembrarProductos('emp-B', [crearProducto({ stockPorAlmacen: { 'alm-1': 100 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    const resultadoA = await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId: 'emp-A' }), { almacenes, generarId, fechaActual });
-    const resultadoB = await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId: 'emp-B' }), { almacenes, generarId, fechaActual });
+    const resultadoA = await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId: 'emp-A' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultadoB = await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId: 'emp-B' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultadoA.estado).toBe('nueva');
     expect(resultadoB.estado).toBe('nueva');
@@ -208,7 +235,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
       fechaCreacion: '2026-01-01T00:00:00.000Z',
     });
 
-    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado.estado).toBe('reactivada');
     expect(resultado.movimientos).toHaveLength(1);
@@ -236,7 +263,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — idempotencia',
     });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/ambigu/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -255,7 +282,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — corrección: u
     const datos = datosBase({ empresaId, claveIdempotencia: 'clave-reintento' });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes: almacenesIncompletos, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes: almacenesIncompletos, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/almacén/);
 
     // Cero movimientos, cero incremento de versión.
@@ -268,7 +295,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — corrección: u
     expect(operacionTrasFallo?.estado).toBe('fallida');
 
     // Corrección del dato (almacén real) y reintento con la MISMA clave: debe funcionar.
-    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes: almacenesCorregidos, generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes: almacenesCorregidos, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado.estado).toBe('reactivada');
     expect(resultado.movimientos).toHaveLength(1);
@@ -295,10 +322,10 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajustes positi
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 8 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    await ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, observaciones: 'conteo inicial' }), { almacenes, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, observaciones: 'conteo inicial' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, observaciones: 'conteo corregido' }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, observaciones: 'conteo corregido' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
 
@@ -307,10 +334,10 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajustes positi
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 8 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    await ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, documentoReferencia: 'ACTA-001' }), { almacenes, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, documentoReferencia: 'ACTA-001' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, documentoReferencia: 'ACTA-002' }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId, documentoReferencia: 'ACTA-002' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
 
@@ -321,7 +348,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajustes positi
 
     const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(
       datosAjustePositivo({ empresaId, usuario: 'usuario-ajuste' }),
-      { almacenes, generarId, fechaActual }
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
     );
 
     expect(resultado.estado).toBe('nueva');
@@ -339,8 +366,8 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajustes positi
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
     const datos = datosAjustePositivo({ empresaId });
 
-    await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual });
-    const segunda = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const segunda = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(segunda.estado).toBe('repetida');
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -353,7 +380,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajustes positi
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/no está controlado por stock/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -366,7 +393,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajustes positi
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosAjustePositivo({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/no está controlado por stock/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -383,11 +410,11 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — integración c
     const [resultado1, resultado2] = await Promise.all([
       ServicioKardexValorizado.registrarEntradaValorizada(
         datosBase({ empresaId, documentoId: 'doc-1', claveIdempotencia: 'clave-1' }),
-        { almacenes, generarId, fechaActual }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
       ),
       ServicioKardexValorizado.registrarEntradaValorizada(
         datosBase({ empresaId, documentoId: 'doc-2', claveIdempotencia: 'clave-2' }),
-        { almacenes, generarId, fechaActual }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
       ),
     ]);
 
@@ -423,7 +450,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — integración c
 
     try {
       await expect(
-        ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual })
+        ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
       ).rejects.toThrow();
     } finally {
       localStorage.setItem = escrituraOriginal;
@@ -450,7 +477,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — corrección: u
     }) as typeof localStorage.setItem;
 
     try {
-      await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual });
+      await ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     } finally {
       localStorage.setItem = escrituraOriginal;
     }
@@ -481,13 +508,14 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — modo valorizado
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    // @ts-expect-error — 'valorizado' no es un modoOperacion válido; se fuerza deliberadamente
-    // (sin cast) para probar que el motor lo rechaza en tiempo de ejecución, no solo en tipos.
+    // 'valorizado' es un modoOperacion válido en el TIPO desde Etapa 2 (solo lo acepta el motor de
+    // entradas para ajuste_positivo) — el motor de SALIDAS lo sigue rechazando en tiempo de
+    // ejecución para todo tipoOperacion, sin excepción (fuera de alcance de Etapa 2, §10).
     const datosInvalidos: DatosOperacionSalidaCuantitativa = { ...datosSalidaBase(), modoOperacion: 'valorizado' };
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datosInvalidos, { almacenes, generarId, fechaActual })
-    ).rejects.toThrow(/cuantitativ/);
+      ServicioKardexValorizado.registrarSalidaValorizada(datosInvalidos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+    ).rejects.toThrow(/valorizado.*no está soportado/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
     expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
@@ -500,7 +528,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — idempotencia', 
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado.estado).toBe('nueva');
     expect(resultado.movimientos).toHaveLength(1);
@@ -515,8 +543,8 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — idempotencia', 
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
     const datos = datosSalidaBase({ empresaId });
 
-    const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
-    const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual });
+    const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(segundo.estado).toBe('repetida');
     expect(segundo.resultadoIds).toEqual(primero.resultadoIds);
@@ -531,7 +559,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — idempotencia', 
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     const datosCambiados = datosSalidaBase({
       empresaId,
@@ -539,7 +567,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — idempotencia', 
     });
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datosCambiados, { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datosCambiados, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
 
@@ -548,10 +576,10 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — idempotencia', 
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId, motivo: 'VENTA', observaciones: 'a', documentoReferencia: 'F001-1' }), { almacenes, generarId, fechaActual });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId, motivo: 'VENTA', observaciones: 'a', documentoReferencia: 'F001-1' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId, motivo: 'OTRO', observaciones: 'a', documentoReferencia: 'F001-1' }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId, motivo: 'OTRO', observaciones: 'a', documentoReferencia: 'F001-1' }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
 
@@ -573,7 +601,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — idempotencia', 
       fechaCreacion: '2026-01-01T00:00:00.000Z',
     });
 
-    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado.estado).toBe('reactivada');
     expect(resultado.movimientos).toHaveLength(1);
@@ -592,7 +620,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — corrección: pr
     const datos = datosSalidaBase({ empresaId, claveIdempotencia: 'clave-reintento-salida' });
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesIncompletos, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesIncompletos, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/almacén/);
 
     expect(obtenerEstadoVersionInventario(empresaId)).toBeUndefined();
@@ -601,7 +629,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — corrección: pr
     const operacionTrasFallo = buscarOperacionIdempotentePorClave(empresaId, 'clave-reintento-salida');
     expect(operacionTrasFallo?.estado).toBe('fallida');
 
-    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesCorregidos, generarId, fechaActual });
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesCorregidos, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(resultado.estado).toBe('reactivada');
     expect(resultado.movimientos).toHaveLength(1);
@@ -617,7 +645,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — clasificación 
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/no está controlado por stock/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -630,7 +658,7 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — clasificación 
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/no está controlado por stock/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -647,11 +675,11 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — integración co
     const [resultado1, resultado2] = await Promise.all([
       ServicioKardexValorizado.registrarSalidaValorizada(
         datosSalidaBase({ empresaId, documentoId: 'venta-1', claveIdempotencia: 'venta_salida:venta-1' }),
-        { almacenes, generarId, fechaActual }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
       ),
       ServicioKardexValorizado.registrarSalidaValorizada(
         datosSalidaBase({ empresaId, documentoId: 'venta-2', claveIdempotencia: 'venta_salida:venta-2' }),
-        { almacenes, generarId, fechaActual }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
       ),
     ]);
 
@@ -678,11 +706,348 @@ describe('ServicioKardexValorizado.registrarSalidaValorizada — integración co
     }) as typeof localStorage.setItem;
 
     try {
-      await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual });
+      await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     } finally {
       localStorage.setItem = escrituraOriginal;
     }
 
     expect(escriturasProductos).toBe(1);
+  });
+});
+
+// ─── Cierre de bloqueante 1 de la revisión de Etapa 2: la máquina de estados de activación de
+// valorización se APLICA REALMENTE en el motor (nunca solo definida sin gatear nada) ───────────
+
+function datosTransferenciaBase(overrides: Partial<DatosTransferenciaInventario> = {}): DatosTransferenciaInventario {
+  return {
+    modoOperacion: 'cuantitativo',
+    empresaId: 'emp-A',
+    transferenciaId: 'transfer-1',
+    claveIdempotencia: 'TRANSFER-transfer-1',
+    tipoOperacion: 'transferencia',
+    tipoDocumento: 'transferencia',
+    productoId: 'prod-1',
+    establecimientoOrigenId: 'est-1',
+    almacenOrigenId: 'alm-1',
+    establecimientoDestinoId: 'est-1',
+    almacenDestinoId: 'alm-2',
+    cantidadUnidadMinima: 5,
+    usuario: 'user-1',
+    fecha: '2026-01-01T00:00:00.000Z',
+    motivo: 'TRANSFERENCIA_ALMACEN',
+    ...overrides,
+  };
+}
+
+function datosReversoBase(overrides: Partial<DatosReversoInventario> = {}): DatosReversoInventario {
+  return {
+    empresaId: 'emp-A',
+    movimientoId: 'mov-1',
+    claveIdempotencia: 'REVERSO-mov-1',
+    tipoOperacion: 'reverso',
+    tipoDocumento: 'nota_ingreso',
+    usuario: 'user-1',
+    fecha: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function datosAnulacionBase(overrides: Partial<DatosAnulacionDocumentoInventario> = {}): DatosAnulacionDocumentoInventario {
+  return {
+    empresaId: 'emp-A',
+    tipoOperacion: 'anulacion',
+    documentoId: 'doc-1',
+    tipoDocumentoOrigen: 'nota_ingreso',
+    movimientoIds: ['mov-1'],
+    claveIdempotencia: 'ANULACION-nota_ingreso-doc-1',
+    usuario: 'user-1',
+    fecha: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('ServicioKardexValorizado — la máquina de estados de activación de valorización bloquea TODA mutación (bloqueado_snapshot_aprobado/activacion_en_curso/suspension)', () => {
+  const ESTADOS_BLOQUEADOS: EstadoActivacionValorizacion[] = ['validada', 'activando', 'suspendida_por_inconsistencia', 'fallida_recuperable'];
+
+  it.each(ESTADOS_BLOQUEADOS)('rechaza registrarEntradaValorizada cuando estadoValorizacion="%s", sin reservar nada', async (estado) => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await expect(
+      ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: estado })
+    ).rejects.toThrow(/bloquea toda mutación/);
+
+    expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, empresaId))).toBeNull();
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0]?.stockPorAlmacen?.['alm-1']).toBe(5);
+  });
+
+  it('rechaza registrarSalidaValorizada cuando estadoValorizacion="validada"', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'validada' })
+    ).rejects.toThrow(/bloquea toda mutación/);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0]?.stockPorAlmacen?.['alm-1']).toBe(20);
+  });
+
+  it('rechaza registrarEntradaValorizada de un ajuste_positivo cuando estadoValorizacion="validada"', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await expect(
+      ServicioKardexValorizado.registrarEntradaValorizada(
+        datosBase({ empresaId, tipoOperacion: 'ajuste_positivo', tipoDocumento: 'ajuste', claveIdempotencia: 'ajuste_positivo:ajuste-1' }),
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'validada' }
+      )
+    ).rejects.toThrow(/bloquea toda mutación/);
+  });
+
+  it('rechaza registrarSalidaValorizada de un ajuste_negativo cuando estadoValorizacion="validada"', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada(
+        datosSalidaBase({ empresaId, tipoOperacion: 'ajuste_negativo', tipoDocumento: 'ajuste', claveIdempotencia: 'ajuste_negativo:ajuste-1' }),
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'validada' }
+      )
+    ).rejects.toThrow(/bloquea toda mutación/);
+  });
+
+  it('rechaza transferirStockValorizado cuando estadoValorizacion="validada", sin necesitar snapshots reales (el gate corta antes de leer stock)', async () => {
+    await expect(
+      ServicioKardexValorizado.transferirStockValorizado(datosTransferenciaBase(), {
+        almacenes: new Map(), generarId, fechaActual, estadoValorizacion: 'validada',
+      })
+    ).rejects.toThrow(/bloquea toda mutación/);
+
+    expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, 'emp-A'))).toBeNull();
+  });
+
+  it('rechaza revertirMovimientoValorizado cuando estadoValorizacion="validada"', async () => {
+    await expect(
+      ServicioKardexValorizado.revertirMovimientoValorizado(datosReversoBase(), {
+        almacenes: new Map(), generarId, fechaActual, estadoValorizacion: 'validada',
+      })
+    ).rejects.toThrow(/bloquea toda mutación/);
+
+    expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, 'emp-A'))).toBeNull();
+  });
+
+  it('rechaza anularDocumentoValorizado cuando estadoValorizacion="validada"', async () => {
+    await expect(
+      ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacionBase(), {
+        almacenes: new Map(), generarId, fechaActual, estadoValorizacion: 'validada',
+      })
+    ).rejects.toThrow(/bloquea toda mutación/);
+
+    expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, 'emp-A'))).toBeNull();
+  });
+});
+
+describe('ServicioKardexValorizado — estadoValorizacion omitido/corrupto nunca permite operar (sin fallback silencioso a "no_iniciada")', () => {
+  it('rechaza en tiempo de ejecución si estadoValorizacion llega undefined (evadiendo el tipo, como haría una llamada directa mal construida)', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    const dependenciasSinEstado = { almacenes, generarId, fechaActual } as unknown as {
+      almacenes: typeof almacenes; generarId: typeof generarId; fechaActual: typeof fechaActual; estadoValorizacion: EstadoActivacionValorizacion;
+    };
+
+    await expect(
+      ServicioKardexValorizado.registrarEntradaValorizada(datosBase({ empresaId }), dependenciasSinEstado)
+    ).rejects.toThrow(/estado de activación de valorización no reconocido/);
+
+    expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, empresaId))).toBeNull();
+  });
+});
+
+describe('ServicioKardexValorizado — invalidación del snapshot de valorización inicial durante pendiente_costos/en_preparacion', () => {
+  function sembrarLote(empresaId: string, overrides: Partial<ValorizacionInicialInventario> = {}): ValorizacionInicialInventario {
+    const lote: ValorizacionInicialInventario = {
+      id: 'lote-1',
+      empresaId,
+      usuario: 'user-1',
+      fechaCreacion: '2026-01-01T00:00:00.000Z',
+      estado: 'pendiente_costos',
+      detalles: [
+        {
+          productoId: 'prod-1',
+          almacenId: 'alm-1',
+          cantidadDetectada: 20,
+          costoPropuesto: 8,
+          origenPropuesta: 'precioCompra',
+          costoConfirmado: 8,
+          confirmado: true,
+          requiereRecalculo: false,
+        },
+      ],
+      ...overrides,
+    };
+    guardarValorizacionInicialInventario(lote, empresaId);
+    return lote;
+  }
+
+  it('una venta (registrarSalidaValorizada) confirmada durante pendiente_costos invalida el detalle afectado', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    sembrarLote(empresaId);
+
+    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), {
+      almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos',
+    });
+
+    const lote = obtenerLoteActivoPorEmpresa(empresaId)!;
+    expect(lote.detalles[0].requiereRecalculo).toBe(true);
+    expect(lote.detalles[0].confirmado).toBe(false);
+    expect(lote.detalles[0].costoConfirmado).toBe(8); // se conserva como referencia visual, nunca se limpia
+  });
+
+  it('una Nota de Salida (tipoOperacion "nota_salida") confirmada durante pendiente_costos invalida el detalle afectado', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    sembrarLote(empresaId);
+
+    await ServicioKardexValorizado.registrarSalidaValorizada(
+      datosSalidaBase({ empresaId, tipoOperacion: 'nota_salida', tipoDocumento: 'nota_salida', claveIdempotencia: 'nota_salida:ns-1', documentoId: 'ns-1' }),
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos' }
+    );
+
+    const lote = obtenerLoteActivoPorEmpresa(empresaId)!;
+    expect(lote.detalles[0].requiereRecalculo).toBe(true);
+  });
+
+  it('un ajuste (ajuste_positivo) confirmado durante pendiente_costos invalida el detalle afectado', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    sembrarLote(empresaId);
+
+    await ServicioKardexValorizado.registrarEntradaValorizada(
+      datosBase({ empresaId, tipoOperacion: 'ajuste_positivo', tipoDocumento: 'ajuste', claveIdempotencia: 'ajuste_positivo:ajuste-1', documentoId: 'ajuste-1' }),
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos' }
+    );
+
+    const lote = obtenerLoteActivoPorEmpresa(empresaId)!;
+    expect(lote.detalles[0].requiereRecalculo).toBe(true);
+  });
+
+  it('una transferencia confirmada durante pendiente_costos invalida el detalle del almacén ORIGEN afectado', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    const almacenes = new Map([
+      ['alm-1', crearAlmacen()],
+      ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Almacén Secundario' })],
+    ]);
+    sembrarLote(empresaId);
+
+    await ServicioKardexValorizado.transferirStockValorizado(datosTransferenciaBase({ empresaId }), {
+      almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos',
+    });
+
+    const lote = obtenerLoteActivoPorEmpresa(empresaId)!;
+    expect(lote.detalles[0].requiereRecalculo).toBe(true);
+  });
+
+  it('una operación REPETIDA (mismo hash, reintento) no vuelve a invalidar un detalle ya recalculado manualmente', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    sembrarLote(empresaId);
+
+    const datos = datosSalidaBase({ empresaId });
+    const dependencias = { almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos' as const };
+
+    const primera = await ServicioKardexValorizado.registrarSalidaValorizada(datos, dependencias);
+    expect(primera.estado).toBe('nueva');
+    expect(obtenerLoteActivoPorEmpresa(empresaId)!.detalles[0].requiereRecalculo).toBe(true);
+
+    // Un operador recalcula/reconfirma manualmente el detalle (simulado directamente en el repositorio).
+    const loteRecalculado = { ...obtenerLoteActivoPorEmpresa(empresaId)! };
+    loteRecalculado.detalles = loteRecalculado.detalles.map((d) => ({ ...d, requiereRecalculo: false, confirmado: true }));
+    const { actualizarValorizacionInicialInventario } = await import('../repositories/valorizacionInicialInventario.repository');
+    actualizarValorizacionInicialInventario(loteRecalculado, empresaId);
+
+    const repetida = await ServicioKardexValorizado.registrarSalidaValorizada(datos, dependencias);
+    expect(repetida.estado).toBe('repetida');
+
+    // La repetición nunca vuelve a invalidar: el detalle sigue tal como el operador lo dejó.
+    expect(obtenerLoteActivoPorEmpresa(empresaId)!.detalles[0].requiereRecalculo).toBe(false);
+    expect(obtenerLoteActivoPorEmpresa(empresaId)!.detalles[0].confirmado).toBe(true);
+  });
+});
+
+describe('ServicioKardexValorizado — la invalidación fallida nunca es best-effort silencioso (se encola de forma durable e idempotente)', () => {
+  it('si la invalidación falla tras confirmar, el stock queda mutado (nunca se revierte) y la invalidación se encola para reintento', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]);
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    // Corrompe deliberadamente la colección de lotes de valorización inicial de esta empresa para
+    // que `obtenerLoteActivoPorEmpresa` (invocado dentro de la invalidación) lance una excepción —
+    // simula un fallo real de la invalidación SIN mockear ninguna función interna.
+    localStorage.setItem(lsKey(CLAVE_COLECCION_VALORIZACION_INICIAL_INVENTARIO, empresaId), '{"esto no es un arreglo": true}');
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), {
+      almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos',
+    });
+
+    expect(resultado.estado).toBe('nueva');
+    // El stock ya confirmado NUNCA se revierte por un fallo secundario de bookkeeping.
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(10);
+
+    // La invalidación fallida quedó encolada de forma durable — nunca solo un console.error perdido.
+    const pendientes = listarInvalidacionesPendientes(empresaId);
+    expect(pendientes).toHaveLength(1);
+    expect(pendientes[0].afectados).toEqual([{ productoId: 'prod-1', almacenId: 'alm-1' }]);
+  });
+
+  it('la siguiente operación de la misma empresa drena la invalidación pendiente (idempotente, sin duplicar)', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    const almacenes = new Map([
+      ['alm-1', crearAlmacen()],
+      ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Almacén Secundario' })],
+    ]);
+
+    localStorage.setItem(lsKey(CLAVE_COLECCION_VALORIZACION_INICIAL_INVENTARIO, empresaId), '{"esto no es un arreglo": true}');
+    await ServicioKardexValorizado.registrarSalidaValorizada(datosSalidaBase({ empresaId }), {
+      almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos',
+    });
+    expect(listarInvalidacionesPendientes(empresaId)).toHaveLength(1);
+
+    // Se repara la colección de lotes (ej. intervención manual) y el lote pasa a existir de verdad.
+    const lote: ValorizacionInicialInventario = {
+      id: 'lote-1',
+      empresaId,
+      usuario: 'user-1',
+      fechaCreacion: '2026-01-01T00:00:00.000Z',
+      estado: 'pendiente_costos',
+      detalles: [
+        { productoId: 'prod-1', almacenId: 'alm-1', cantidadDetectada: 10, costoPropuesto: 8, origenPropuesta: 'precioCompra', costoConfirmado: 8, confirmado: true, requiereRecalculo: false },
+      ],
+    };
+    localStorage.setItem(lsKey(CLAVE_COLECCION_VALORIZACION_INICIAL_INVENTARIO, empresaId), JSON.stringify([lote]));
+
+    // Cualquier operación NUEVA de la misma empresa drena las pendientes al inicio, antes de reservar.
+    await ServicioKardexValorizado.registrarEntradaValorizada(
+      datosBase({ empresaId, tipoOperacion: 'ni_automatica', documentoId: 'ni-2', claveIdempotencia: 'ni_automatica:ni-2', lineas: [{ lineaId: 'l1', productoId: 'prod-1', almacenId: 'alm-2', cantidadUnidadMinima: 1 }] }),
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos' }
+    );
+
+    expect(listarInvalidacionesPendientes(empresaId)).toHaveLength(0);
+    expect(obtenerLoteActivoPorEmpresa(empresaId)!.detalles[0].requiereRecalculo).toBe(true);
   });
 });

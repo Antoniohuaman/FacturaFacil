@@ -9,6 +9,7 @@ import { CORRELATIVO_DIGITOS_NI } from '../models/notaIngreso.constants';
 import type { NotaIngreso, TipoIngreso, LineaNotaIngreso } from '../models/notaIngreso.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
 import type { DatosLineaOperacionCuantitativa, DatosOperacionEntradaCuantitativa } from '../models/operacionEntradaInventario.types';
+import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
 import { parsearEtiquetaImpuesto } from '@/shared/catalogos-sunat/resolucionTributaria';
 import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 import { buscarOperacionIdempotentePorClave } from '../repositories/operacionIdempotenteInventario.repository';
@@ -58,6 +59,8 @@ export interface ResultadoGenerarNI {
 export interface DependenciasEntradaCuantitativaNI {
   generarId: () => string;
   fechaActual: () => string;
+  /** Estado de activación de valorización de la EMPRESA (Etapa 2) — obligatorio: el motor lo exige para resolver el modo de operación antes de mutar stock, nunca se omite silenciosamente. */
+  estadoValorizacion: EstadoActivacionValorizacion;
 }
 
 /**
@@ -240,6 +243,7 @@ export const generarNIEnInventario = async (
       almacenes: almacenesMap,
       generarId: dependencias.generarId,
       fechaActual: dependencias.fechaActual,
+      estadoValorizacion: dependencias.estadoValorizacion,
     });
 
     movimientos = resultado.movimientos;
@@ -344,6 +348,7 @@ export const anularNIEnInventario = async (
       almacenes: almacenesMap,
       generarId: dependencias.generarId,
       fechaActual: dependencias.fechaActual,
+      estadoValorizacion: dependencias.estadoValorizacion,
     });
 
     movimientos = resultado.movimientos;

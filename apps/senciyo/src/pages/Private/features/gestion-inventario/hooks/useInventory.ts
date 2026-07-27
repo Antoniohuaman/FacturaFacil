@@ -34,6 +34,7 @@ import {
   limpiarSesionPendienteOperacion,
 } from '../../../../../shared/inventory/sesionPendienteOperacionInventario';
 import { serializarCanonicamente } from '../utils/serializacionCanonicaInventario';
+import { currencyManager } from '@/shared/currency';
 
 type AdjustmentModalOptions = {
   almacenId?: string | null;
@@ -129,12 +130,19 @@ export interface ParametrosConstruirDatosAjuste {
  * cubran el flujo real de construcción de datos y no solo una clave fabricada a mano.
  * `documentoId`, `lineaId` y `claveIdempotencia` se derivan todos del mismo `operacionId` estable.
  */
+/**
+ * `data.costoUnitario` presente (Etapa 2, §10) produce `modoOperacion:'valorizado'` — el motor de
+ * entradas exige entonces `costoUnitarioBaseMonedaBase>0` por línea y crea una `CapaCostoInventario`.
+ * Ausente (todo ajuste productivo hoy, ya que `estadoValorizacion` nunca llega a `'activa'` en esta
+ * etapa) preserva exactamente el contrato cuantitativo puro ya aprobado.
+ */
 export function construirDatosAjustePositivo(
   params: ParametrosConstruirDatosAjuste
 ): DatosOperacionEntradaCuantitativa {
   const { data, almacen, empresaId, usuario, operacionId, fecha } = params;
+  const esValorizado = typeof data.costoUnitario === 'number';
   return {
-    modoOperacion: 'cuantitativo',
+    modoOperacion: esValorizado ? 'valorizado' : 'cuantitativo',
     empresaId,
     documentoId: operacionId,
     tipoDocumento: 'ajuste',
@@ -150,6 +158,7 @@ export function construirDatosAjustePositivo(
       productoId: data.productoId,
       almacenId: almacen.id,
       cantidadUnidadMinima: data.cantidad,
+      ...(esValorizado ? { costoUnitarioBaseMonedaBase: data.costoUnitario } : {}),
     }],
   };
 }
@@ -208,6 +217,7 @@ export const useInventory = () => {
   const { state: configState, rolesConfigurados } = useConfigurationContext();
   const establecimientoId = session?.currentEstablecimientoId;
   const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(configState.users, session), [configState.users, session]);
+  const estadoValorizacion = configState.preferenciasInventario.estadoValorizacion;
 
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([]);
   const [transferencias, setTransferencias] = useState<Transferencia[]>([]);
@@ -340,6 +350,8 @@ export const useInventory = () => {
           almacenes: almacenesMap,
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
+          estadoValorizacion,
+          monedaBase: currencyManager.getSnapshot().baseCurrency.code,
         });
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
@@ -375,6 +387,7 @@ export const useInventory = () => {
           almacenes: almacenesMap,
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
+          estadoValorizacion,
         });
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
@@ -407,7 +420,7 @@ export const useInventory = () => {
       console.error('Error al registrar ajuste:', err);
       error(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion]);
 
   /**
    * Crea una nueva transferencia.
@@ -475,6 +488,7 @@ export const useInventory = () => {
           almacenes: almacenesMap,
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
+          estadoValorizacion,
         });
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos, movimientos y el documento
@@ -543,7 +557,7 @@ export const useInventory = () => {
       console.error('Error al crear transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo crear la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion]);
 
   /** Despacha una transferencia inter-establecimiento (PENDIENTE → EN_TRANSITO) */
   const handleDespacharTransfer = useCallback((transferenciaId: string) => {
@@ -743,6 +757,7 @@ export const useInventory = () => {
           almacenes: almacenesMap,
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
+          estadoValorizacion,
         });
 
         sincronizarInventarioTrasConfirmacion();
@@ -789,7 +804,7 @@ export const useInventory = () => {
       console.error('Error al anular transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo anular la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion]);
 
   const handleMassStockUpdate = useCallback((data: MassStockUpdateData) => {
     try {

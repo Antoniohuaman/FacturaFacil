@@ -164,6 +164,7 @@ export const useNotasSalida = () => {
             almacenes: almacenesMap,
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
+            estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
           });
 
           // 6. Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos
@@ -229,7 +230,7 @@ export const useNotasSalida = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, feedback, activeEstablecimientoId],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback, activeEstablecimientoId],
   );
 
   const anularNS = useCallback(
@@ -264,6 +265,7 @@ export const useNotasSalida = () => {
             almacenes: almacenesMap,
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
+            estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
           });
           // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
           // a persistir aquí (nada de updateProduct). Solo se rehidrata el store y se refresca el Kardex.
@@ -320,7 +322,7 @@ export const useNotasSalida = () => {
         setProcesando(false);
       }
     },
-    [procesando, configState.almacenes, usuarioNombre, feedback],
+    [procesando, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback],
   );
 
   const marcarComoEntregada = useCallback(

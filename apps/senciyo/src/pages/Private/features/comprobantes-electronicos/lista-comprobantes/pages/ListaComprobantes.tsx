@@ -1037,6 +1037,7 @@ const InvoiceListDashboard = () => {
             almacenes: almacenesMap,
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
+            estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
           });
           // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se
           // vuelve a persistir aquí (nada de addMovimiento/registerAdjustment).

@@ -327,7 +327,7 @@ export const useComprobanteActions = () => {
   const { session } = useUserSession();
   const { upsertCuenta, registerCobranza } = useCobranzasContext();
   const { allProducts: catalogProducts } = useProductStore();
-  const { state: { almacenes, salesPreferences, users }, rolesConfigurados } = useConfigurationContext();
+  const { state: { almacenes, salesPreferences, users, preferenciasInventario }, rolesConfigurados } = useConfigurationContext();
   const allowNegativeStockConfig = Boolean(salesPreferences?.allowNegativeStock);
   const controlStockActivo = salesPreferences?.controlStockActivo ?? false;
   const stockDescuentoFacturaYBoleta = salesPreferences?.stockDescuentoFacturaYBoleta ?? 'automatico';
@@ -924,6 +924,7 @@ export const useComprobanteActions = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             permitirStockNegativo: allowNegativeStock,
+            estadoValorizacion: preferenciasInventario.estadoValorizacion,
           });
 
           // Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos ni
@@ -1424,7 +1425,7 @@ export const useComprobanteActions = () => {
         clearTimeout(timeoutId);
       }
     }
-  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, dispatch, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig, controlStockActivo, stockDescuentoFacturaYBoleta, rolesConfigurados, usuarioActual]);
+  }, [toast, validateComprobanteData, buildPaymentLabel, addMovimientoStock, addComprobante, dispatch, session, registerCobranza, upsertCuenta, catalogLookup, almacenes, allowNegativeStockConfig, controlStockActivo, stockDescuentoFacturaYBoleta, rolesConfigurados, usuarioActual, preferenciasInventario.estadoValorizacion]);
 
   // Guardar borrador
   const saveDraft = useCallback(async (data: ComprobanteData, expiryDate?: Date): Promise<boolean> => {

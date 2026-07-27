@@ -28,8 +28,20 @@ import {
   type ResultadoMutacionesCuantitativas,
 } from './operacionCuantitativaInventarioComun';
 
-/** Validación PURA del contrato (§10) — reexporta la validación común: segura de ejecutar ANTES de reservar. */
-export const validarContrato = validarContratoComun;
+/**
+ * Validación PURA del contrato (§10; Etapa 2 §10 del encargo): delega la validación estructural
+ * común y, ADEMÁS, rechaza explícitamente `modoOperacion: 'valorizado'` para TODO tipoOperacion de
+ * salida — a diferencia del motor de entradas, ningún consumidor de salida (NS, venta, ajuste
+ * negativo) admite costo en esta etapa. Segura de ejecutar ANTES de reservar.
+ */
+export function validarContrato(datos: DatosOperacionSalidaCuantitativa): void {
+  if (datos.modoOperacion === 'valorizado') {
+    throw new Error(
+      `salidaCuantitativaInventario: modoOperacion "valorizado" no está soportado por el motor de salidas — fuera de alcance de esta etapa (Etapa 2, §10, solo aplica a ajuste_positivo en el motor de entradas).`
+    );
+  }
+  validarContratoComun(datos);
+}
 
 /** Hash de idempotencia de una operación de salida cuantitativa (§8) — nunca fabricado a mano por el consumidor. */
 export function calcularHashSalidaCuantitativa(datos: DatosOperacionSalidaCuantitativa): Promise<string> {

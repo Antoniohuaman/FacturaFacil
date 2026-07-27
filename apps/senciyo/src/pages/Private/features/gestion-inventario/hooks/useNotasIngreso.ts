@@ -20,11 +20,6 @@ import {
 } from '../services/notaIngreso.service';
 import type { NotaIngreso } from '../models/notaIngreso.types';
 
-const dependenciasEntradaCuantitativa = {
-  generarId: () => crypto.randomUUID(),
-  fechaActual: () => new Date().toISOString(),
-};
-
 export const useNotasIngreso = () => {
   const { user } = useAuth();
   const { allProducts } = useProductStore();
@@ -103,7 +98,11 @@ export const useNotasIngreso = () => {
           almacenesMap,
           usuarioNombre,
           getTenantEmpresaId(),
-          dependenciasEntradaCuantitativa,
+          {
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+            estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+          },
         );
 
         agregarOActualizarNI(notaActualizada);
@@ -122,7 +121,7 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, feedback],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback],
   );
 
   const anularNI = useCallback(
@@ -156,7 +155,11 @@ export const useNotasIngreso = () => {
           motivoAnulacion,
           usuarioNombre,
           getTenantEmpresaId(),
-          dependenciasEntradaCuantitativa,
+          {
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+            estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+          },
         );
 
         agregarOActualizarNI(notaActualizada);
@@ -175,7 +178,7 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, usuarioNombre, feedback],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback],
   );
 
   const eliminarNI = useCallback(

@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import type { MovimientoTipo, MovimientoMotivo } from '../../models';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { resolverModoOperacion } from '../../utils/estadoActivacionValorizacionInventario';
 
 interface AdjustmentModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ interface AdjustmentData {
   cantidad: number;
   observaciones: string;
   documentoReferencia: string;
+  /** Etapa 2, §10 — solo presente cuando el ajuste positivo se registra en modo valorizado. */
+  costoUnitario?: number;
 }
 
 const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
@@ -37,6 +40,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   const { allProducts } = useProductStore();
   const { state: configState } = useConfigurationContext();
   const almacenes = configState.almacenes.filter(w => w.estaActivoAlmacen);
+  const modoOperacionInventario = resolverModoOperacion(configState.preferenciasInventario.estadoValorizacion);
 
   // PASO 1: Primero seleccionar almacén
   const [selectedalmacenId, setSelectedalmacenId] = useState(prefilledAlmacenId ?? '');
@@ -59,6 +63,12 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
   const [observaciones, setObservaciones] = useState('');
   const [documentoReferencia, setDocumentoReferencia] = useState('');
   const [showObservaciones, setShowObservaciones] = useState(false);
+  const [costoUnitario, setCostoUnitario] = useState('');
+
+  // Etapa 2, §10: costo obligatorio únicamente cuando el ajuste positivo se registra en modo
+  // valorizado (`estadoValorizacion==='activa'`) — inalcanzable productivamente en esta etapa,
+  // pero el campo queda listo para cuando la Etapa 4 habilite la activación.
+  const requiereCosto = tipo === 'AJUSTE_POSITIVO' && modoOperacionInventario === 'valorizado_exclusivo';
 
   const isPrefilledProduct = mode === 'prefilled' && Boolean(preSelectedProductId);
   const isAlmacenLocked = Boolean(prefilledAlmacenId);
@@ -154,6 +164,11 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
       return;
     }
 
+    if (requiereCosto && (!costoUnitario || Number(costoUnitario) <= 0)) {
+      alert('Este ajuste requiere un costo unitario mayor a cero.');
+      return;
+    }
+
     submittingRef.current = true;
     onAdjust({
       productoId: selectedProductId,
@@ -162,7 +177,8 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
       motivo,
       cantidad: Number(cantidad),
       observaciones,
-      documentoReferencia
+      documentoReferencia,
+      ...(requiereCosto ? { costoUnitario: Number(costoUnitario) } : {}),
     });
 
     // Reset form
@@ -174,6 +190,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
     setDocumentoReferencia('');
     setSelectedalmacenId('');
     setSearchTerm('');
+    setCostoUnitario('');
   };
 
   if (!isOpen) return null;
@@ -394,6 +411,24 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                   )}
                 </div>
 
+                {requiereCosto && (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                      Costo unitario <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={costoUnitario}
+                      onChange={(e) => setCostoUnitario(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 dark:text-white"
+                    />
+                    <p className="mt-1 text-[11px] text-gray-400">Inventario valorizado activo — este ajuste debe declarar su costo.</p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
                     Documento
@@ -449,7 +484,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!selectedProductId || !cantidad || Number(cantidad) <= 0 || !selectedalmacenId}
+              disabled={!selectedProductId || !cantidad || Number(cantidad) <= 0 || !selectedalmacenId || (requiereCosto && (!costoUnitario || Number(costoUnitario) <= 0))}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Registrar Movimiento

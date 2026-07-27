@@ -138,7 +138,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 3 } })]);
 
     const resultado = await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId }), {
-      almacenes: almacenesBase(), generarId, fechaActual,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
     });
 
     expect(resultado.estado).toBe('nueva');
@@ -156,7 +156,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     const totalAntes = 20 + 3;
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId }), {
-      almacenes: almacenesBase(), generarId, fechaActual,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
     });
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -170,7 +170,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
 
     await expect(
       ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/no hay stock disponible/i);
 
@@ -186,7 +186,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
 
     await expect(
       ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/no hay stock disponible/i);
   });
@@ -197,7 +197,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
 
     await expect(
       ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, almacenDestinoId: 'alm-1' }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/diferentes/);
   });
@@ -208,7 +208,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
 
     await expect(
       ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(/no existe en el catálogo/);
   });
@@ -222,7 +222,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     ]);
 
     await expect(
-      ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId }), { almacenes, generarId, fechaActual })
+      ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
     ).rejects.toThrow(/inactivo/);
   });
 
@@ -233,7 +233,7 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     await expect(
       ServicioKardexValorizado.transferirStockValorizado(
         datosBase({ empresaId, establecimientoOrigenId: 'est-equivocado' }),
-        { almacenes: almacenesBase(), generarId, fechaActual }
+        { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' }
       )
     ).rejects.toThrow(/no pertenece al establecimiento/);
   });
@@ -243,8 +243,8 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
     const datos = datosBase({ empresaId });
 
-    const r1 = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual });
-    const r2 = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual });
+    const r1 = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const r2 = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(r1.estado).toBe('nueva');
     expect(r2.estado).toBe('repetida');
@@ -262,9 +262,9 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
     const datos = datosBase({ empresaId });
 
-    const r1 = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual });
+    const r1 = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     // Simula una "recarga de página": se reconstruye el mismo documento con la misma clave/contenido.
-    const r2 = await ServicioKardexValorizado.transferirStockValorizado({ ...datos }, { almacenes: almacenesBase(), generarId, fechaActual });
+    const r2 = await ServicioKardexValorizado.transferirStockValorizado({ ...datos }, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
 
     expect(r2.estado).toBe('repetida');
     expect(r2.resultadoIds).toEqual(r1.resultadoIds);
@@ -275,12 +275,12 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
     });
 
     await expect(
       ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 9 }), {
-        almacenes: almacenesBase(), generarId, fechaActual,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       })
     ).rejects.toThrow(ConflictoIdempotencia);
   });
@@ -290,9 +290,9 @@ describe('transferirStockValorizado — modo cuantitativo', () => {
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
     const datos = datosBase({ empresaId });
 
-    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual });
+    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     const transferenciasTrasPrimera = leerTransferencias(empresaId);
-    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual });
+    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
     const transferenciasTrasSegunda = leerTransferencias(empresaId);
 
     expect(transferenciasTrasSegunda).toHaveLength(1);
@@ -307,7 +307,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
     guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
@@ -343,7 +343,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
     guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 5, cantidadDisponible: 5 }), empresaId);
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     const capaOrigen = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1');
@@ -358,7 +358,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
     guardarCapaCostoInventario(crearCapa({ id: 'capa-nueva', fechaEntrada: '2026-02-01T00:00:00.000Z', cantidadInicial: 10, cantidadDisponible: 10, costoUnitarioBaseMonedaBase: 20 }), empresaId);
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 6 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
@@ -387,7 +387,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
     }), empresaId);
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 3 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
@@ -403,7 +403,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
 
     await expect(
       ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-        almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+        almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
       })
     ).rejects.toThrow(/no cubren exactamente la cantidad/);
 
@@ -419,7 +419,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
     guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     const transferencia = leerTransferencias(empresaId).find((t) => t.id === 'trf-1');
@@ -434,7 +434,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
     guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
 
     const resultado = await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     for (const mov of resultado.movimientos) {
@@ -449,7 +449,7 @@ describe('transferirStockValorizado — modo valorizado (capacidad lista, dormid
     guardarCapaCostoInventario(crearCapa({ id: 'capa-B', empresaId: 'emp-B' }), 'emp-B');
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId: 'emp-A', cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: true,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
     });
 
     // Sin capas propias, la empresa A opera en modo cuantitativo puro — no crea ni toca capas.
@@ -465,7 +465,7 @@ describe('transferirStockValorizado — cierre final Etapa 1E §1: la presencia 
     guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
 
     const resultado = await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
       // valorizacionHabilitada deliberadamente AUSENTE — igual que todo consumidor productivo hoy.
     });
 
@@ -493,7 +493,7 @@ describe('transferirStockValorizado — cierre final Etapa 1E §1: la presencia 
     guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
 
     await ServicioKardexValorizado.transferirStockValorizado(datosBase({ empresaId, cantidadUnidadMinima: 5 }), {
-      almacenes: almacenesBase(), generarId, fechaActual, valorizacionHabilitada: false,
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: false,
     });
 
     const capa = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1');
