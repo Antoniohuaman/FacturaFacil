@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { instalarLocalStorageDePrueba } from '../repositories/localStorageDePrueba';
 import { generarNIEnInventario, anularNIEnInventario } from './notaIngreso.service';
 import { obtenerEstadoVersionInventario } from '../repositories/estadoVersionInventario.repository';
-import { CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES } from '../repositories/operacionIdempotenteInventario.repository';
+import { CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, buscarOperacionIdempotentePorClave } from '../repositories/operacionIdempotenteInventario.repository';
+import { listarCapasCostoInventarioPorEmpresa } from '../repositories/capaCostoInventario.repository';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import type { NotaIngreso, LineaNotaIngreso } from '../models/notaIngreso.types';
@@ -455,6 +456,7 @@ describe('notaIngreso.service — anularNIEnInventario', () => {
 
     const movimientoLegado: MovimientoStock = {
       id: 'mov-legado-1',
+      empresaId: EMPRESA,
       productoId: producto.id,
       productoCodigo: producto.codigo,
       productoNombre: producto.nombre,
@@ -523,5 +525,203 @@ describe('notaIngreso.service — anularNIEnInventario', () => {
     await expect(
       anularNIEnInventario(notaBorrador, productsMap, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependencias)
     ).rejects.toThrow(/Generada/);
+  });
+});
+
+describe('notaIngreso.service — modo valorizado (Etapa 3, §10-§11, §15)', () => {
+  const dependenciasValorizadas = { generarId, fechaActual, estadoValorizacion: 'activa' as const, monedaBase: 'PEN' };
+
+  it('generarNIEnInventario en modo valorizado (estadoValorizacion="activa") crea una CapaCostoInventario con procedencia "compra" y los snapshots de la línea', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({
+      lineas: [crearLinea({
+        cantidad: 24,
+        costoUnitario: 10,
+        costoUnitarioComercialOriginal: 120,
+        factorConversionAplicado: 12,
+        monedaOriginal: 'PEN',
+        tipoCambioAplicado: 1,
+      })],
+    });
+
+    const resultado = await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependenciasValorizadas);
+
+    expect(resultado.notaActualizada.estado).toBe('Generada');
+    expect(resultado.movimientos).toHaveLength(1);
+
+    const capas = listarCapasCostoInventarioPorEmpresa(EMPRESA);
+    expect(capas).toHaveLength(1);
+    expect(capas[0].procedencia).toBe('compra');
+    expect(capas[0].tipoDocumentoOrigen).toBe('nota_ingreso');
+    expect(capas[0].costoUnitarioBaseMonedaBase).toBe(10);
+    expect(capas[0].costoUnitarioComercialOriginal).toBe(120);
+    expect(capas[0].factorConversionAplicado).toBe(12);
+    expect(capas[0].cantidadInicial).toBe(24);
+    expect(capas[0].estado).toBe('disponible');
+  });
+
+  it('una NI sin modalidadOrigenCompra (o "automatico") se registra como tipoOperacion "ni_automatica"', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ modalidadOrigenCompra: 'automatico' });
+
+    await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependencias);
+
+    const operacion = buscarOperacionIdempotentePorClave(EMPRESA, `nota_ingreso:generar:${nota.id}`);
+    expect(operacion?.tipoOperacion).toBe('ni_automatica');
+  });
+
+  it('una NI con modalidadOrigenCompra="manual" se registra como tipoOperacion "ni_confirmacion" — misma función, mismo motor, distinto tipoOperacion', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ modalidadOrigenCompra: 'manual', comprobanteCompraOrigenId: 'cc-1' });
+
+    await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependencias);
+
+    const operacion = buscarOperacionIdempotentePorClave(EMPRESA, `nota_ingreso:generar:${nota.id}`);
+    expect(operacion?.tipoOperacion).toBe('ni_confirmacion');
+  });
+
+  it('anularNIEnInventario en modo valorizado revierte el movimiento Y marca la capa creada como "revertida"', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 10, costoUnitario: 5 })] });
+
+    const generada = await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependenciasValorizadas);
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA)[0].estado).toBe('disponible');
+
+    const resultado = await anularNIEnInventario(generada.notaActualizada, productsMap, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependenciasValorizadas);
+
+    expect(resultado.notaActualizada.estado).toBe('Anulada');
+    expect(resultado.movimientos).toHaveLength(1);
+    expect(resultado.productosActualizados[0].stockPorAlmacen?.['alm-1']).toBe(0);
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA)[0].estado).toBe('revertida');
+  });
+
+  it('no permite anular una NI valorizada cuya capa ya fue parcialmente consumida (protección del motor central, nunca decidida por la modalidad del Comprobante)', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 10, costoUnitario: 5 })] });
+
+    const generada = await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependenciasValorizadas);
+
+    // Consume parcialmente la capa creada (simula una salida que ya la usó vía FIFO).
+    const capa = listarCapasCostoInventarioPorEmpresa(EMPRESA)[0];
+    const claveCapas = lsKey('facturafacil_capas_costo_inventario', EMPRESA);
+    const capasCrudas = JSON.parse(localStorage.getItem(claveCapas) as string);
+    localStorage.setItem(
+      claveCapas,
+      JSON.stringify(capasCrudas.map((c: { id: string; cantidadDisponible: number }) => (c.id === capa.id ? { ...c, cantidadDisponible: c.cantidadDisponible - 4 } : c))),
+    );
+
+    await expect(
+      anularNIEnInventario(generada.notaActualizada, productsMap, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependenciasValorizadas)
+    ).rejects.toThrow(/consumida o transferida parcialmente/);
+  });
+});
+
+describe('notaIngreso.service — anularNIEnInventario: la decisión de revertir capas nunca depende únicamente del estadoValorizacion/modo ACTUAL', () => {
+  const dependenciasNoIniciada = { generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const };
+  const dependenciasActiva = { generarId, fechaActual, estadoValorizacion: 'activa' as const, monedaBase: 'PEN' };
+
+  it('escenario 1: NI confirmada CUANTITATIVAMENTE antes de activar, anulada con la empresa ya "activa" — revierte cantidad, nunca busca ni exige una capa inexistente', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 10, costoUnitario: 5 })] });
+
+    // Se CONFIRMA en modo cuantitativo puro (empresa aún no activada) — no crea ninguna capa.
+    const generada = await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependenciasNoIniciada);
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA)).toHaveLength(0);
+
+    // Se ANULA con la empresa ya "activa" — el motor no debe inventar ni exigir una capa que nunca existió.
+    const resultado = await anularNIEnInventario(generada.notaActualizada, productsMap, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependenciasActiva);
+
+    expect(resultado.notaActualizada.estado).toBe('Anulada');
+    expect(resultado.movimientos).toHaveLength(1);
+    expect(resultado.movimientos[0].tipo).toBe('AJUSTE_NEGATIVO');
+    expect(resultado.productosActualizados[0].stockPorAlmacen?.['alm-1']).toBe(0);
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA)).toHaveLength(0);
+  });
+
+  it('escenario 2: NI confirmada VALORIZADA y luego anulada cuando el estadoValorizacion ACTUAL ya NO resuelve a valorizado_exclusivo — igual revierte la capa original (nunca depende únicamente del estado actual)', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 10, costoUnitario: 5 })] });
+
+    // Se CONFIRMA en modo valorizado (empresa "activa" en ese momento) — crea una capa real.
+    const generada = await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependenciasActiva);
+    const capaId = listarCapasCostoInventarioPorEmpresa(EMPRESA)[0].id;
+    expect(listarCapasCostoInventarioPorEmpresa(EMPRESA)[0].estado).toBe('disponible');
+
+    // Se ANULA con estadoValorizacion="no_iniciada" (resuelve a "cuantitativo_libre", NO
+    // "valorizado_exclusivo") — la capa real sigue existiendo en el ledger y DEBE encontrarse y
+    // revertirse por sus propios artefactos (movimientoEntradaId), nunca ignorarse por el modo actual.
+    const resultado = await anularNIEnInventario(generada.notaActualizada, productsMap, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependenciasNoIniciada);
+
+    expect(resultado.notaActualizada.estado).toBe('Anulada');
+    expect(resultado.productosActualizados[0].stockPorAlmacen?.['alm-1']).toBe(0);
+    const capaFinal = listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === capaId);
+    expect(capaFinal?.estado).toBe('revertida');
+    expect(capaFinal?.cantidadDisponible).toBe(0);
+  });
+
+  it('escenario 2 (bloqueo): si la capa original fue parcialmente consumida, bloquea la anulación incluso con estadoValorizacion actual distinto al de la confirmación', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 10, costoUnitario: 5 })] });
+
+    const generada = await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependenciasActiva);
+    const capa = listarCapasCostoInventarioPorEmpresa(EMPRESA)[0];
+    const claveCapas = lsKey('facturafacil_capas_costo_inventario', EMPRESA);
+    const capasCrudas = JSON.parse(localStorage.getItem(claveCapas) as string);
+    localStorage.setItem(
+      claveCapas,
+      JSON.stringify(capasCrudas.map((c: { id: string; cantidadDisponible: number }) => (c.id === capa.id ? { ...c, cantidadDisponible: c.cantidadDisponible - 3 } : c))),
+    );
+
+    await expect(
+      anularNIEnInventario(generada.notaActualizada, productsMap, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependenciasNoIniciada)
+    ).rejects.toThrow(/consumida o transferida parcialmente/);
+  });
+
+  it('escenario 3: reintentar la misma anulación de una NI valorizada no duplica el reverso ni vuelve a tocar la capa', async () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const productsMap = new Map([[producto.id, producto]]);
+    sembrarProductos([producto]);
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    const nota = crearNota({ lineas: [crearLinea({ cantidad: 10, costoUnitario: 5 })] });
+
+    const generada = await generarNIEnInventario(nota, [nota], productsMap, almacenesMap, 'user-1', EMPRESA, dependenciasActiva);
+    const capaId = listarCapasCostoInventarioPorEmpresa(EMPRESA)[0].id;
+    // Simula el doble clic: dos llamadas con el mismo estado local todavía no refrescado.
+    const productsMapClicDos = new Map(productsMap);
+
+    const primera = await anularNIEnInventario(generada.notaActualizada, productsMap, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependenciasNoIniciada);
+    const segunda = await anularNIEnInventario(generada.notaActualizada, productsMapClicDos, almacenesMap, 'Motivo', 'user-1', EMPRESA, dependenciasNoIniciada);
+
+    expect(primera.movimientos).toHaveLength(1);
+    expect(segunda.movimientos).toEqual([]);
+    const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
+    expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(0);
+    const capasFinales = listarCapasCostoInventarioPorEmpresa(EMPRESA);
+    expect(capasFinales).toHaveLength(1);
+    expect(capasFinales.find((c) => c.id === capaId)?.estado).toBe('revertida');
   });
 });

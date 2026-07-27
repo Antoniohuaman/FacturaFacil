@@ -101,20 +101,20 @@ function datosBase(overrides: Partial<DatosOperacionEntradaCuantitativa> = {}): 
   };
 }
 
-describe('ServicioKardexValorizado.registrarEntradaValorizada — modo valorizado rechazado fuera de ajuste_positivo', () => {
-  it('rechaza modoOperacion "valorizado" para tipoOperacion distinto de "ajuste_positivo" (Etapa 2, §10) sin reservar ni mutar nada', async () => {
+describe('ServicioKardexValorizado.registrarEntradaValorizada — modo valorizado rechazado fuera de las variantes soportadas', () => {
+  it('rechaza modoOperacion "valorizado" para tipoOperacion "anulacion" (Etapa 2 §10/Etapa 3 §10: solo ajuste_positivo/ni_automatica/ni_confirmacion) sin reservar ni mutar nada', async () => {
     const empresaId = 'emp-A';
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    // 'valorizado' SÍ es un modoOperacion válido en el tipo (Etapa 2) — pero el motor de entradas
-    // solo lo acepta para tipoOperacion==='ajuste_positivo'; aquí se prueba con 'ni_automatica'
-    // (heredado de datosBase()) para verificar el rechazo en tiempo de ejecución.
-    const datosInvalidos: DatosOperacionEntradaCuantitativa = { ...datosBase(), modoOperacion: 'valorizado' };
+    // 'valorizado' SÍ es un modoOperacion válido en el tipo — pero el motor de entradas solo lo
+    // acepta para ajuste_positivo/ni_automatica/ni_confirmacion; 'anulacion' verifica el rechazo
+    // en tiempo de ejecución para todo lo demás.
+    const datosInvalidos: DatosOperacionEntradaCuantitativa = { ...datosBase(), tipoOperacion: 'anulacion', modoOperacion: 'valorizado' };
 
     await expect(
       ServicioKardexValorizado.registrarEntradaValorizada(datosInvalidos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
-    ).rejects.toThrow(/ajuste_positivo/);
+    ).rejects.toThrow(/ajuste_positivo, ni_automatica, ni_confirmacion/);
 
     expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, empresaId))).toBeNull();
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];

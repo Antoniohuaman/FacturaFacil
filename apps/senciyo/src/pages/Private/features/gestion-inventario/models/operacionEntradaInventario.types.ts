@@ -1,10 +1,11 @@
 // gestion-inventario/models/operacionEntradaInventario.types.ts
 //
 // Contrato cuantitativo compartido por los motores de ENTRADA (Etapa 1C, §6) y SALIDA (Etapa 1D,
-// §7). Única variante implementada: 'cuantitativo' (sin costo, sin capas) — 'valorizado' queda
-// reservado como nombre para una etapa futura y se rechaza en tiempo de ejecución (ver
-// `validarContrato` en utils/operacionCuantitativaInventarioComun.ts) para que ningún consumidor
-// productivo lo use por error antes de que exista una implementación real.
+// §7). Dos variantes: 'cuantitativo' (sin costo, sin capas) y 'valorizado' (Etapa 2 ajuste_positivo;
+// ampliado en Etapa 3 a ni_automatica/ni_confirmacion) — el motor de ENTRADAS es el único que
+// implementa 'valorizado' y solo para esos tres `tipoOperacion`; cualquier otro caso (incluido el
+// motor de SALIDAS) lo rechaza en tiempo de ejecución (ver `validarContrato` en
+// entradaCuantitativaInventario.ts) para que ningún consumidor productivo lo use por error.
 //
 // `DatosOperacionEntradaCuantitativa`/`DatosOperacionSalidaCuantitativa` son alias del mismo
 // contrato base (§7 de la Etapa 1D: "evita duplicar tipos de 1C... solo crea un tipo nuevo cuando
@@ -57,12 +58,33 @@ export interface DatosLineaOperacionCuantitativa {
   /** Solo cuando esta línea de SALIDA despacha una reserva LEGACY (por almacén) de Orden de Venta existente (corrección post-1D, §2). */
   liberarReservaLegacyOV?: LiberacionReservaLegacyOV;
   /**
-   * Costo por unidad mínima, en moneda base (Etapa 2, §10) — OBLIGATORIO cuando la operación
-   * completa tiene `modoOperacion: 'valorizado'` (validado por `entradaCuantitativaInventario`,
-   * únicamente soportado para `tipoOperacion: 'ajuste_positivo'`). Ausente en toda línea
-   * cuantitativa — el motor nunca asume un costo por defecto.
+   * Costo por unidad mínima, en moneda base (Etapa 2, §10; ampliado en Etapa 3 a compras) —
+   * OBLIGATORIO cuando la operación completa tiene `modoOperacion: 'valorizado'` (validado por
+   * `entradaCuantitativaInventario`, soportado para `tipoOperacion: 'ajuste_positivo'`,
+   * `'ni_automatica'` y `'ni_confirmacion'`). Ausente en toda línea cuantitativa — el motor nunca
+   * asume un costo por defecto.
    */
   costoUnitarioBaseMonedaBase?: number;
+  /**
+   * Snapshot de auditoría de compra (Etapa 3) — costo por unidad de presentación COMERCIAL, en
+   * moneda original (ej. 120 por caja), ANTES de dividir por `factorConversionAplicado`. Ausente
+   * cuando la entrada nace directamente en unidad mínima (ej. un ajuste manual, que no tiene
+   * presentación comercial). Nunca se usa para calcular stock — solo se copia a la
+   * `CapaCostoInventario` resultante como trazabilidad histórica.
+   */
+  costoUnitarioComercialOriginal?: number;
+  /**
+   * Snapshot histórico del factor de conversión de la línea de compra que originó esta entrada —
+   * nunca reconsultado desde el catálogo vigente. Presente exactamente cuando
+   * `costoUnitarioComercialOriginal` lo está (ambos o ninguno).
+   */
+  factorConversionAplicado?: number;
+  /** Moneda del documento de origen (ComprobanteCompra) — snapshot, nunca la moneda base actual de la empresa. */
+  monedaOriginal?: string;
+  /** Tipo de cambio histórico ya aplicado en el documento de origen — nunca la cotización vigente al momento de confirmar. */
+  tipoCambioAplicado?: number;
+  /** Fecha/referencia del tipo de cambio usado — snapshot, acompaña a `tipoCambioAplicado`. */
+  fechaTipoCambio?: string;
 }
 
 /**
@@ -78,9 +100,10 @@ export interface DatosLineaOperacionCuantitativa {
  */
 export interface DatosOperacionCuantitativa {
   /**
-   * `'valorizado'` (Etapa 2, §10) solo está implementado por el motor de ENTRADAS y únicamente
-   * para `tipoOperacion: 'ajuste_positivo'` — cualquier otro `tipoOperacion` o el motor de SALIDAS
-   * lo rechazan explícitamente en tiempo de ejecución (nunca aceptado "por si acaso").
+   * `'valorizado'` (Etapa 2, §10; ampliado en Etapa 3, §10) solo está implementado por el motor de
+   * ENTRADAS y únicamente para `tipoOperacion: 'ajuste_positivo' | 'ni_automatica' | 'ni_confirmacion'`
+   * — cualquier otro `tipoOperacion` o el motor de SALIDAS lo rechazan explícitamente en tiempo de
+   * ejecución (nunca aceptado "por si acaso").
    */
   modoOperacion: ModoOperacionEntradaInventario;
   empresaId: string;

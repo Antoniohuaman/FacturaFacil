@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { prepararDatosNIDesdeCC } from './mapeadorCCaNI';
+import { prepararDatosNIDesdeCC, calcularCostoValorizableLineaCompra } from './mapeadorCCaNI';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
+import type { ContextoCostoValorizableCC } from './mapeadorCCaNI';
+
+const CONTEXTO_BASE: ContextoCostoValorizableCC = { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' };
 
 function crearLinea(overrides: Partial<LineaCompra> = {}): LineaCompra {
   return {
@@ -61,7 +64,7 @@ function crearCC(lineas: LineaCompra[], modalidadInventario: ComprobanteCompra['
 describe('prepararDatosNIDesdeCC', () => {
   it('caso obligatorio: línea con snapshot canónico (cantidadDocumentadaInventariable=24) produce cantidad 24', () => {
     const cc = crearCC([crearLinea()]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(1);
     expect(resultado.lineas[0].cantidadComercialOriginal).toBe(2);
     expect(resultado.lineas[0].unidadComercialOriginal).toBe('Caja x 12');
@@ -79,7 +82,7 @@ describe('prepararDatosNIDesdeCC', () => {
         cantidadRecibida: 1, // deliberadamente distinto — no debe gobernar el snapshot
       }),
     ]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(1);
     expect(resultado.lineas[0].cantidad).toBe(24);
   });
@@ -94,19 +97,19 @@ describe('prepararDatosNIDesdeCC', () => {
         cantidadSolicitada: 2,
       }),
     ]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas[0].cantidad).toBe(30);
   });
 
   it('excluye líneas no inventariables (servicio)', () => {
     const cc = crearCC([crearLinea({ id: 'linea-servicio', clasificacion: 'servicio', esInventariable: false, afectaInventario: false })]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(0);
   });
 
   it('excluye líneas con afectaInventario=false aunque sean inventariables', () => {
     const cc = crearCC([crearLinea({ afectaInventario: false })], 'no_afecta_inventario');
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(0);
   });
 
@@ -114,7 +117,7 @@ describe('prepararDatosNIDesdeCC', () => {
     const cc = crearCC([
       crearLinea({ cantidadRecibida: 0, cantidadDocumentadaInventariable: 24, factorConversionAplicado: 12 }),
     ]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(1);
     expect(resultado.lineas[0].cantidad).toBe(24);
   });
@@ -123,14 +126,14 @@ describe('prepararDatosNIDesdeCC', () => {
     const cc = crearCC([
       crearLinea({ cantidadRecibida: 100, cantidadDocumentadaInventariable: 24, factorConversionAplicado: 12 }),
     ]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(1);
     expect(resultado.lineas[0].cantidad).toBe(24);
   });
 
   it('cantidadDocumentadaInventariable=0 no produce una línea válida (cantidad ≤ 0 queda pendiente de validación)', () => {
     const cc = crearCC([crearLinea({ cantidadDocumentadaInventariable: 0, factorConversionAplicado: 12 })]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(0);
     expect(resultado.lineasPendientesDeValidacion).toHaveLength(1);
   });
@@ -147,7 +150,7 @@ describe('prepararDatosNIDesdeCC', () => {
         ],
       }),
     ]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(0);
     expect(resultado.lineasPendientesDeValidacion).toHaveLength(1);
     expect(resultado.lineasPendientesDeValidacion[0].lineaCompraId).toBe('linea-1');
@@ -162,7 +165,7 @@ describe('prepararDatosNIDesdeCC', () => {
         unidadesDisponibles: [{ code: 'NIU', label: 'Unidad', isBase: true, factorConversion: 1 }],
       }),
     ]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(1);
     expect(resultado.lineas[0].factorConversionAplicado).toBe(1);
     expect(resultado.lineas[0].cantidad).toBe(2);
@@ -180,22 +183,234 @@ describe('prepararDatosNIDesdeCC', () => {
         ],
       }),
     ]);
-    const resultado = prepararDatosNIDesdeCC(cc);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(resultado.lineas).toHaveLength(0);
     expect(resultado.lineasPendientesDeValidacion).toHaveLength(1);
   });
 
   it('es determinista: la misma entrada produce exactamente el mismo resultado', () => {
     const cc = crearCC([crearLinea()]);
-    const a = prepararDatosNIDesdeCC(cc);
-    const b = prepararDatosNIDesdeCC(cc);
+    const a = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
+    const b = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(a).toEqual(b);
   });
 
   it('no muta el ComprobanteCompra de entrada (sin efectos secundarios)', () => {
     const cc = crearCC([crearLinea()]);
     const snapshot = JSON.parse(JSON.stringify(cc));
-    prepararDatosNIDesdeCC(cc);
+    prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
     expect(cc).toEqual(snapshot);
+  });
+
+  it('corrige el bug de auditoría: costoUnitario resultante es el costo por unidad mínima (total/cantidad), nunca el costo comercial bruto copiado sin dividir por el factor', () => {
+    // factor 12, cantidad en unidad mínima 24, total=240 (subtotal=total, igv=0 en el fixture).
+    // El bug auditado habría copiado costoUnitario=120 (el bruto comercial) tal cual.
+    const cc = crearCC([crearLinea()]);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
+    expect(resultado.lineas).toHaveLength(1);
+    expect(resultado.lineas[0].costoUnitario).toBe(10); // 240 / 24, NUNCA 120
+    expect(resultado.lineas[0].costoUnitario).not.toBe(120);
+    // La reconstrucción comercial (costoUnitarioBaseOriginal * factor) coincide con el costo bruto original
+    // porque no hubo descuento ni exclusión de impuesto en este fixture — confirma el invariante, no una coincidencia forzada.
+    expect(resultado.lineas[0].costoUnitarioComercialOriginal).toBe(120);
+  });
+
+  it('propaga el descuento por unidad aplicado en la línea de origen (informativo)', () => {
+    const cc = crearCC([crearLinea({ descuentoUnitario: 5 })]);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
+    expect(resultado.lineas[0].descuentoAplicado).toBe(5);
+  });
+
+  it('sin descuentoUnitario, descuentoAplicado es 0 (nunca undefined)', () => {
+    const cc = crearCC([crearLinea()]);
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
+    expect(resultado.lineas[0].descuentoAplicado).toBe(0);
+  });
+
+  it('moneda extranjera con tipo de cambio histórico: propaga monedaOriginal y tipoCambioAplicado, convierte a moneda base', () => {
+    const cc = crearCC([crearLinea({ subtotal: 100, total: 118, tipoAfectacion: 'gravado' })]);
+    cc.moneda = 'USD';
+    cc.tipoCambio = 3.8;
+    const contextoUsd: ContextoCostoValorizableCC = { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' };
+    const resultado = prepararDatosNIDesdeCC(cc, contextoUsd);
+    expect(resultado.lineas).toHaveLength(1);
+    expect(resultado.lineas[0].monedaOriginal).toBe('USD');
+    expect(resultado.lineas[0].tipoCambioAplicado).toBe(3.8);
+  });
+
+  it('moneda extranjera SIN tipo de cambio histórico válido: la línea queda pendiente de validación (nunca asume TC=1 ni lanza para todo el lote)', () => {
+    const cc = crearCC([crearLinea()]);
+    cc.moneda = 'USD';
+    cc.tipoCambio = undefined;
+    const resultado = prepararDatosNIDesdeCC(cc, CONTEXTO_BASE);
+    expect(resultado.lineas).toHaveLength(0);
+    expect(resultado.lineasPendientesDeValidacion).toHaveLength(1);
+    expect(resultado.lineasPendientesDeValidacion[0].motivo).toMatch(/tipo de cambio histórico/);
+  });
+
+  it('tratamientoImpuestoCompra pendiente_configuracion: la línea queda pendiente de validación, no lanza para todo el lote', () => {
+    const cc = crearCC([crearLinea()]);
+    const contextoPendiente: ContextoCostoValorizableCC = { tratamientoImpuestoCompra: 'pendiente_configuracion', monedaBase: 'PEN' };
+    const resultado = prepararDatosNIDesdeCC(cc, contextoPendiente);
+    expect(resultado.lineas).toHaveLength(0);
+    expect(resultado.lineasPendientesDeValidacion).toHaveLength(1);
+    expect(resultado.lineasPendientesDeValidacion[0].motivo).toMatch(/pendiente de configuración/);
+  });
+
+  it('segun_afectacion sobre línea gravada no bloquea: esImpuestoRecuperable queda null y el costo conserva el impuesto (nunca se asume recuperabilidad)', () => {
+    const cc = crearCC([crearLinea()]);
+    const contextoSegunAfectacion: ContextoCostoValorizableCC = { tratamientoImpuestoCompra: 'segun_afectacion', monedaBase: 'PEN' };
+    const resultado = prepararDatosNIDesdeCC(cc, contextoSegunAfectacion);
+    expect(resultado.lineas).toHaveLength(1);
+    expect(resultado.lineas[0].esImpuestoRecuperable).toBeNull();
+    expect(resultado.lineasPendientesDeValidacion).toHaveLength(0);
+  });
+});
+
+describe('calcularCostoValorizableLineaCompra', () => {
+  const ccBase: Pick<ComprobanteCompra, 'moneda' | 'tipoCambio' | 'fechaRegistro'> = {
+    moneda: 'PEN',
+    tipoCambio: undefined,
+    fechaRegistro: '2026-01-01',
+  };
+
+  it('factor 1, moneda base = moneda original, impuesto no recuperable: costo unitario = total / cantidad, TC=1', () => {
+    const resultado = calcularCostoValorizableLineaCompra(
+      { subtotal: 200, total: 236, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+      2,
+      1,
+      ccBase,
+      { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' }
+    );
+    expect(resultado.esImpuestoRecuperable).toBe(false);
+    expect(resultado.costoUnitarioBaseOriginal).toBe(118);
+    expect(resultado.costoUnitarioBaseMonedaBase).toBe(118);
+    expect(resultado.tipoCambioAplicado).toBe(1);
+    expect(resultado.monedaOriginal).toBe('PEN');
+    expect(resultado.costoUnitarioComercialOriginal).toBe(118);
+  });
+
+  it('factor 12, cantidad comercial ≠1, impuesto recuperable: excluye el impuesto (usa subtotal) y reconstruye el costo comercial multiplicando por el factor', () => {
+    const resultado = calcularCostoValorizableLineaCompra(
+      { subtotal: 2400, total: 2832, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+      24,
+      12,
+      ccBase,
+      { tratamientoImpuestoCompra: 'impuesto_recuperable', monedaBase: 'PEN' }
+    );
+    expect(resultado.esImpuestoRecuperable).toBe(true);
+    expect(resultado.costoUnitarioBaseOriginal).toBe(100);
+    expect(resultado.costoUnitarioBaseMonedaBase).toBe(100);
+    expect(resultado.costoUnitarioComercialOriginal).toBe(1200);
+  });
+
+  it('moneda extranjera con tipo de cambio histórico válido: convierte a moneda base con ese TC, nunca uno vigente', () => {
+    const resultado = calcularCostoValorizableLineaCompra(
+      { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+      1,
+      1,
+      { moneda: 'USD', tipoCambio: 3.8, fechaRegistro: '2026-01-01' },
+      { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' }
+    );
+    expect(resultado.monedaOriginal).toBe('USD');
+    expect(resultado.tipoCambioAplicado).toBe(3.8);
+    expect(resultado.costoUnitarioBaseOriginal).toBe(118);
+    expect(resultado.costoUnitarioBaseMonedaBase).toBe(448.4);
+  });
+
+  it('moneda extranjera sin tipo de cambio histórico válido: lanza, nunca asume TC=1', () => {
+    expect(() =>
+      calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+        1,
+        1,
+        { moneda: 'USD', tipoCambio: undefined, fechaRegistro: '2026-01-01' },
+        { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' }
+      )
+    ).toThrow(/tipo de cambio histórico/);
+  });
+
+  it('segun_afectacion sobre categoría gravada: esImpuestoRecuperable queda null (sin determinación por línea) y el costo conserva el impuesto', () => {
+    const resultado = calcularCostoValorizableLineaCompra(
+      { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+      1,
+      1,
+      ccBase,
+      { tratamientoImpuestoCompra: 'segun_afectacion', monedaBase: 'PEN' }
+    );
+    expect(resultado.esImpuestoRecuperable).toBeNull();
+    expect(resultado.costoUnitarioBaseOriginal).toBe(118);
+  });
+
+  it('categoría no gravada (exonerado): esImpuestoRecuperable siempre null sin importar el tratamiento de la empresa, costo = total', () => {
+    const resultado = calcularCostoValorizableLineaCompra(
+      { subtotal: 100, total: 100, tipoAfectacion: 'exonerado', descuentoUnitario: 0 },
+      1,
+      1,
+      ccBase,
+      { tratamientoImpuestoCompra: 'impuesto_recuperable', monedaBase: 'PEN' }
+    );
+    expect(resultado.esImpuestoRecuperable).toBeNull();
+    expect(resultado.costoUnitarioBaseOriginal).toBe(100);
+  });
+
+  it('tratamientoImpuestoCompra pendiente_configuracion: lanza, nunca asume una regla', () => {
+    expect(() =>
+      calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+        1,
+        1,
+        ccBase,
+        { tratamientoImpuestoCompra: 'pendiente_configuracion', monedaBase: 'PEN' }
+      )
+    ).toThrow(/pendiente de configuración/);
+  });
+
+  it('factor de conversión inválido (0): lanza, nunca asume factor 1', () => {
+    expect(() =>
+      calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+        1,
+        0,
+        ccBase,
+        { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' }
+      )
+    ).toThrow(/factor de conversión/);
+  });
+
+  it('cantidad en unidad mínima inválida (0): lanza, nunca divide entre cero', () => {
+    expect(() =>
+      calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+        0,
+        1,
+        ccBase,
+        { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' }
+      )
+    ).toThrow(/cantidad en unidad mínima/);
+  });
+
+  it('importe neto de la línea no mayor a 0: lanza, nunca produce un costo cero o negativo', () => {
+    expect(() =>
+      calcularCostoValorizableLineaCompra(
+        { subtotal: 0, total: 0, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+        1,
+        1,
+        ccBase,
+        { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' }
+      )
+    ).toThrow(/importe neto de la línea/);
+  });
+
+  it('moneda base no configurada (cadena vacía): lanza, nunca continúa sin moneda base real', () => {
+    expect(() =>
+      calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+        1,
+        1,
+        ccBase,
+        { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: '' }
+      )
+    ).toThrow(/moneda base configurada/);
   });
 });

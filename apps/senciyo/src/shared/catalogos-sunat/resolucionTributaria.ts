@@ -143,22 +143,31 @@ export function resolverTratamientoTributarioProducto(
   const motivoBloqueo = motivoBloqueoDeCategoria(categoria);
   const base = { estado, categoria, impuestoId, codigoAfectacion, tasa, tratamientoAplicado: tratamientoEmpresa, origenResolucion, motivoBloqueo };
 
-  // Solo una línea gravada tiene IGV que pueda ser recuperable o no — el resto (incluida
-  // 'gratuita', que además queda 'no_soportado' arriba) no tiene IGV que resolver.
-  if (categoria !== 'gravado') {
-    return { ...base, esRecuperable: null };
-  }
+  return { ...base, esRecuperable: resolverRecuperabilidadImpuesto(categoria, tratamientoEmpresa) };
+}
 
-  if (tratamientoEmpresa === 'impuesto_recuperable') {
-    return { ...base, esRecuperable: true };
-  }
-  if (tratamientoEmpresa === 'impuesto_no_recuperable') {
-    return { ...base, esRecuperable: false };
-  }
+/**
+ * Determina si el IGV de una categoría tributaria ya resuelta es recuperable — extraído de
+ * `resolverTratamientoTributarioProducto` (Etapa 3) para que otros consumidores que YA tienen la
+ * `categoria`/`tipoAfectacion` resuelta (ej. `LineaCompra.tipoAfectacion`, ya snapshot al
+ * confirmar la línea) puedan reutilizar exactamente esta misma regla sin reconstruir un producto
+ * falso solo para volver a pasar por el parseo de etiqueta/impuestoId. Única fuente de verdad de
+ * esta determinación — nunca se duplica en otro módulo.
+ */
+export function resolverRecuperabilidadImpuesto(
+  categoria: CategoriaTributariaImpuesto,
+  tratamientoEmpresa: TratamientoImpuestoCompra
+): boolean | null {
+  // Solo una categoría gravada tiene IGV que pueda ser recuperable o no — el resto (incluida
+  // 'gratuita') no tiene IGV que resolver.
+  if (categoria !== 'gravado') return null;
+
+  if (tratamientoEmpresa === 'impuesto_recuperable') return true;
+  if (tratamientoEmpresa === 'impuesto_no_recuperable') return false;
   // 'pendiente_configuracion' y 'segun_afectacion' (sin una determinación por línea todavía
-  // definida — esa granularidad es Etapa 3, §16.3 del diseño) quedan en esRecuperable=null: nunca
-  // se asume recuperabilidad por defecto cuando la política no la determina explícitamente.
-  return { ...base, esRecuperable: null };
+  // definida — esa granularidad de prorrateo queda fuera de alcance) devuelven `null`: nunca se
+  // asume recuperabilidad por defecto cuando la política no la determina explícitamente.
+  return null;
 }
 
 /**

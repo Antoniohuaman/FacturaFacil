@@ -29,7 +29,7 @@ export default function SelectorModalidadInventario({
   bloqueada = false,
   motivoBloqueo,
 }: SelectorModalidadInventarioProps) {
-  const conNotaIngreso = modalidad === 'con_nota_ingreso';
+  const requiereAlmacen = modalidad === 'con_nota_ingreso' || modalidad === 'ingreso_automatico';
 
   if (bloqueada) {
     return (
@@ -53,10 +53,11 @@ export default function SelectorModalidadInventario({
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
       >
         <option value="con_nota_ingreso">Con Nota de Ingreso</option>
+        <option value="ingreso_automatico">Ingreso automático</option>
         <option value="no_afecta_inventario">No afecta inventario</option>
       </select>
 
-      {conNotaIngreso && almacenesActivos.length > 0 && (
+      {requiereAlmacen && almacenesActivos.length > 0 && (
         <div className="flex items-center gap-1.5">
           <select
             value={almacenId}
@@ -75,7 +76,7 @@ export default function SelectorModalidadInventario({
         </div>
       )}
 
-      {conNotaIngreso && almacenesActivos.length === 0 && (
+      {requiereAlmacen && almacenesActivos.length === 0 && (
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
           No hay almacenes activos. Ve a Configuración → Almacenes.
         </p>

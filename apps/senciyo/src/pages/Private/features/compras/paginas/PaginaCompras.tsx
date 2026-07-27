@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, FileText, ClipboardList, Receipt, CreditCard, Wallet } from 'lucide-react';
 import { useCompras } from '../contexto/ContextoCompras';
+import { useNotasIngreso } from '../../gestion-inventario/hooks/useNotasIngreso';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -114,8 +115,10 @@ export default function PaginaCompras() {
     anularPagoCompra,
     agregarEventoHistorialOC,
     agregarEventoHistorialCC,
+    generarNotaIngresoDesdeCC,
     recargarDatos,
   } = useCompras();
+  const { notas: notasIngreso } = useNotasIngreso();
   const { session } = useUserSession();
   const { activeWorkspace } = useTenant();
   const { state: config } = useConfigurationContext();
@@ -254,6 +257,19 @@ export default function PaginaCompras() {
       setVista({ tipo: 'nuevo_cc', ccBase: datos });
     } catch (e) {
       feedback.error(e instanceof Error ? e.message : 'No se pudo duplicar el comprobante.');
+    }
+  }
+
+  async function handleGenerarNotaIngresoCC(cc: ComprobanteCompra) {
+    try {
+      const { nota } = await generarNotaIngresoDesdeCC(cc.id, usuarioNombre);
+      feedback.success(
+        nota.estado === 'Generada'
+          ? `Nota de Ingreso ${nota.numero ?? ''} generada y confirmada.`
+          : 'Nota de Ingreso creada como borrador. Confírmala desde el módulo de Inventario.',
+      );
+    } catch (e) {
+      feedback.error(e instanceof Error ? e.message : 'No se pudo generar la Nota de Ingreso.');
     }
   }
 
@@ -558,6 +574,7 @@ export default function PaginaCompras() {
           ordenes={state.ordenes}
           cuentasPorPagar={state.cuentasPorPagar}
           pagos={state.pagos}
+          notasIngreso={notasIngreso}
           onCerrar={() => setVista({ tipo: 'lista' })}
           onVerOrdenCompra={(oc) => setVista({ tipo: 'detalle_oc', ocId: oc.id })}
           onVerCuentaPorPagar={(cxp) => setVista({ tipo: 'detalle_cxp', cxpId: cxp.id })}
@@ -567,6 +584,7 @@ export default function PaginaCompras() {
           onAnular={(cc) => setCcParaAnular(cc)}
           onImprimir={handleImprimirCC}
           onEliminarBorrador={handleEliminarBorradorCC}
+          onGenerarNotaIngreso={handleGenerarNotaIngresoCC}
         />
       )}
 

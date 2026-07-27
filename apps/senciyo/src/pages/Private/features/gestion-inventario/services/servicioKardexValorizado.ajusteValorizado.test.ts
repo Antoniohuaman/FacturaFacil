@@ -162,17 +162,17 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     ).rejects.toThrow(/costoUnitarioBaseMonedaBase/);
   });
 
-  it('no permite saltar la validación llamando con modoOperacion="valorizado" para un tipoOperacion distinto de ajuste_positivo', async () => {
+  it('no permite saltar la validación llamando con modoOperacion="valorizado" para un tipoOperacion fuera de las variantes soportadas (Etapa 3: ajuste_positivo/ni_automatica/ni_confirmacion)', async () => {
     const empresaId = 'emp-A';
     sembrarProductos(empresaId, [crearProducto()]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     await expect(
       ServicioKardexValorizado.registrarEntradaValorizada(
-        datosAjusteValorizado({ empresaId, tipoOperacion: 'ni_automatica', tipoDocumento: 'nota_ingreso' }),
+        datosAjusteValorizado({ empresaId, tipoOperacion: 'anulacion', tipoDocumento: 'nota_ingreso' }),
         { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' }
       )
-    ).rejects.toThrow(/ajuste_positivo/);
+    ).rejects.toThrow(/ajuste_positivo, ni_automatica, ni_confirmacion/);
   });
 
   it('rechaza si falta monedaBase en las dependencias', async () => {

@@ -1,6 +1,9 @@
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
+import type { TratamientoImpuestoCompra } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { calcularEsInventariable, resolverSnapshotInventarioLinea } from '../logica/reglasCompras';
+import { resolverRecuperabilidadImpuesto, type CategoriaTributariaImpuesto } from '@/shared/catalogos-sunat/resolucionTributaria';
+import { redondearAPrecision, PRECISION_COSTO_UNITARIO_INTERNO } from '../../gestion-inventario/utils/precisionInventario';
 
 export interface LineaNIDesdeCC {
   lineaCompraId: string;
@@ -24,13 +27,23 @@ export interface LineaNIDesdeCC {
    * multiplicar por el factor ni se reconsulta el catálogo.
    */
   cantidad: number;
+  /** Costo por unidad mínima, en moneda base — YA neto/incluye impuesto recuperable según `tratamientoImpuestoCompra` y ya convertido con el TC histórico. Nunca el costo comercial bruto (`LineaCompra.costoUnitario`) copiado sin dividir por el factor (Etapa 3, corrección del bug confirmado en auditoría). */
   costoUnitario: number;
+  /** Costo comercial por presentación, en moneda ORIGINAL, ya neto de descuento y de impuesto recuperable — `costoUnitarioBaseOriginal * factorConversionAplicado`, para que la capa resultante mantenga el invariante `costoUnitarioBaseOriginal = costoUnitarioComercialOriginal / factorConversionAplicado` exactamente. */
+  costoUnitarioComercialOriginal: number;
+  /** Recuperabilidad tributaria ya resuelta para esta línea — snapshot, nunca vuelto a derivar al confirmar. */
+  esImpuestoRecuperable: boolean | null;
+  /** Descuento por unidad ya aplicado en la línea de origen — informativo. */
+  descuentoAplicado: number;
+  monedaOriginal: string;
+  tipoCambioAplicado: number;
+  fechaTipoCambio?: string;
   almacenDestinoId?: string;
   almacenDestinoNombre?: string;
   observacion?: string;
 }
 
-/** Línea que no pudo mapearse de forma segura — nunca se inventa un factor ni una cantidad. */
+/** Línea que no pudo mapearse de forma segura — nunca se inventa un factor, una cantidad ni un costo. */
 export interface LineaPendienteDeValidacion {
   lineaCompraId: string;
   nombreProducto: string;
@@ -45,15 +58,111 @@ export interface DatosNIDesdeCC {
   fechaIngreso: string;
   observaciones?: string;
   lineas: LineaNIDesdeCC[];
-  /** Líneas inventariables/afectan-inventario con recepción, pero sin snapshot canónico resoluble — requieren revisión antes de poder generar NI (no se les asume factor 1). */
+  /** Líneas inventariables/afectan-inventario con recepción, pero sin snapshot canónico o costo resoluble — requieren revisión antes de poder generar NI (nunca se asume un valor). */
   lineasPendientesDeValidacion: LineaPendienteDeValidacion[];
+}
+
+/** Contexto tributario/monetario de la empresa, necesario para resolver el costo valorizable — nunca se relee dentro de esta función pura; el llamador lo obtiene de la fuente real (preferenciasInventario, currencyManager). */
+export interface ContextoCostoValorizableCC {
+  tratamientoImpuestoCompra: TratamientoImpuestoCompra;
+  /** Código real de la moneda base de la empresa — nunca `'PEN'` hardcodeado ni un fallback silencioso. */
+  monedaBase: string;
+}
+
+export interface ResultadoCostoValorizableLinea {
+  costoUnitarioBaseOriginal: number;
+  costoUnitarioBaseMonedaBase: number;
+  costoUnitarioComercialOriginal: number;
+  esImpuestoRecuperable: boolean | null;
+  monedaOriginal: string;
+  tipoCambioAplicado: number;
+}
+
+/**
+ * Calcula el costo valorizable de UNA línea de compra ya resuelta en unidad mínima (Etapa 3, §8) —
+ * función pura y central, única fuente de esta regla (nunca duplicada en el formulario ni en
+ * `notaIngreso.service.ts`). Pasos exactos:
+ *  1. Importe neto real de la línea después de descuentos: `LineaCompra.subtotal` (base imponible,
+ *     sin impuesto) o `LineaCompra.total` (con impuesto), según corresponda excluir o no.
+ *  2. Recuperabilidad resuelta con la fuente tributaria central (`resolverRecuperabilidadImpuesto`)
+ *     a partir de `tipoAfectacion` (ya snapshot en la línea — nunca se vuelve a parsear una
+ *     etiqueta ni a re-consultar el producto).
+ *  3. Si es recuperable, se excluye el impuesto (`subtotal`); si no lo es o no está determinado
+ *     (`segun_afectacion` sin señal adicional), se conserva en el costo (`total`) — nunca se asume
+ *     recuperabilidad quitando impuesto sin una determinación explícita.
+ *  4-5. El costo total valorizable se divide entre la cantidad real en unidad mínima.
+ *  6. Se convierte a moneda base con el tipo de cambio HISTÓRICO del documento — nunca la
+ *     cotización vigente.
+ *
+ * Lanza (nunca asume) si: `tratamientoImpuestoCompra==='pendiente_configuracion'`, la cantidad o el
+ * factor no son finitos/mayores a cero, el costo total valorizable no es mayor a cero, la moneda
+ * base no está configurada, o las monedas difieren sin un tipo de cambio histórico válido.
+ */
+export function calcularCostoValorizableLineaCompra(
+  linea: Pick<LineaCompra, 'subtotal' | 'total' | 'tipoAfectacion' | 'descuentoUnitario'>,
+  cantidadEnUnidadMinima: number,
+  factorConversionAplicado: number,
+  cc: Pick<ComprobanteCompra, 'moneda' | 'tipoCambio' | 'fechaRegistro'>,
+  contexto: ContextoCostoValorizableCC
+): ResultadoCostoValorizableLinea {
+  if (contexto.tratamientoImpuestoCompra === 'pendiente_configuracion') {
+    throw new Error('No se puede calcular el costo valorizable: el tratamiento de impuestos de compra está pendiente de configuración.');
+  }
+  if (!Number.isFinite(cantidadEnUnidadMinima) || cantidadEnUnidadMinima <= 0) {
+    throw new Error(`No se puede calcular el costo valorizable: la cantidad en unidad mínima (${cantidadEnUnidadMinima}) debe ser finita y mayor a cero.`);
+  }
+  if (!Number.isFinite(factorConversionAplicado) || factorConversionAplicado <= 0) {
+    throw new Error(`No se puede calcular el costo valorizable: el factor de conversión (${factorConversionAplicado}) debe ser finito y mayor a cero.`);
+  }
+  if (!contexto.monedaBase || !contexto.monedaBase.trim()) {
+    throw new Error('No se puede calcular el costo valorizable: no hay una moneda base configurada para la empresa.');
+  }
+
+  const esImpuestoRecuperable = resolverRecuperabilidadImpuesto(
+    linea.tipoAfectacion as CategoriaTributariaImpuesto,
+    contexto.tratamientoImpuestoCompra
+  );
+  // Recuperable → se excluye del costo (subtotal, sin impuesto). No recuperable O indeterminado
+  // (segun_afectacion sin señal adicional) → se conserva en el costo (total, con impuesto) —
+  // nunca se asume recuperabilidad para excluir impuesto sin una determinación explícita.
+  const costoTotalValorizableOriginal = esImpuestoRecuperable === true ? linea.subtotal : linea.total;
+  if (!Number.isFinite(costoTotalValorizableOriginal) || costoTotalValorizableOriginal <= 0) {
+    throw new Error(`No se puede calcular el costo valorizable: el importe neto de la línea (${costoTotalValorizableOriginal}) debe ser finito y mayor a cero.`);
+  }
+
+  const monedaOriginal = cc.moneda;
+  let tipoCambioAplicado: number;
+  if (monedaOriginal === contexto.monedaBase) {
+    tipoCambioAplicado = 1;
+  } else {
+    if (!Number.isFinite(cc.tipoCambio) || (cc.tipoCambio as number) <= 0) {
+      throw new Error(
+        `No se puede calcular el costo valorizable: el Comprobante está en "${monedaOriginal}" (moneda base: "${contexto.monedaBase}") y no tiene un tipo de cambio histórico válido.`
+      );
+    }
+    tipoCambioAplicado = cc.tipoCambio as number;
+  }
+
+  const costoUnitarioBaseOriginal = redondearAPrecision(costoTotalValorizableOriginal / cantidadEnUnidadMinima, PRECISION_COSTO_UNITARIO_INTERNO);
+  const costoUnitarioBaseMonedaBase = redondearAPrecision(costoUnitarioBaseOriginal * tipoCambioAplicado, PRECISION_COSTO_UNITARIO_INTERNO);
+  // Back-derivado (nunca el costoUnitario bruto de la línea) para que la capa resultante conserve
+  // el invariante documentado `costoUnitarioBaseOriginal = costoUnitarioComercialOriginal / factorConversionAplicado`
+  // incluso cuando hubo descuento o exclusión de impuesto recuperable.
+  const costoUnitarioComercialOriginal = redondearAPrecision(costoUnitarioBaseOriginal * factorConversionAplicado, PRECISION_COSTO_UNITARIO_INTERNO);
+
+  return {
+    costoUnitarioBaseOriginal,
+    costoUnitarioBaseMonedaBase,
+    costoUnitarioComercialOriginal,
+    esImpuestoRecuperable,
+    monedaOriginal,
+    tipoCambioAplicado,
+  };
 }
 
 /**
  * Prepara los datos de una Nota de Ingreso a partir de un Comprobante de Compra — función pura,
- * sin efectos secundarios, sin persistencia, sin llamadas a servicios de Inventario. Sigue sin
- * tener consumidor productivo en esta etapa (se conecta recién en la Etapa 3, ver el diseño
- * aprobado). Reglas:
+ * sin efectos secundarios, sin persistencia, sin llamadas a servicios de Inventario. Reglas:
  *  1. Solo incluye líneas con esInventariable=true.
  *  2. Solo incluye líneas con afectaInventario=true.
  *  3. La elegibilidad NUNCA depende de `cantidadRecibida`: la Nota de Ingreso es precisamente el
@@ -72,8 +181,13 @@ export interface DatosNIDesdeCC {
  *     `lineasPendientesDeValidacion` — nunca se asume un factor.
  *  7. Una cantidad documental resuelta ≤ 0 tampoco produce una línea válida — queda pendiente de
  *     validación (nunca se genera una línea de NI con cantidad nula o negativa).
+ *  8. El costo valorizable (Etapa 3, §8) se calcula con `calcularCostoValorizableLineaCompra` — una
+ *     línea cuyo costo no puede resolverse (política tributaria pendiente, moneda/TC faltante,
+ *     costo/factor inválido) también queda en `lineasPendientesDeValidacion`, nunca con un costo
+ *     inventado — el llamador decide si eso bloquea la generación completa (ingreso automático) o
+ *     solo advierte (ingreso manual, donde el usuario puede revisar antes de confirmar).
  */
-export function prepararDatosNIDesdeCC(cc: ComprobanteCompra): DatosNIDesdeCC {
+export function prepararDatosNIDesdeCC(cc: ComprobanteCompra, contexto: ContextoCostoValorizableCC): DatosNIDesdeCC {
   const lineasElegibles = cc.lineas.filter((l: LineaCompra) => {
     const esInventariable = l.esInventariable ?? calcularEsInventariable(l);
     return esInventariable && l.afectaInventario;
@@ -118,6 +232,18 @@ export function prepararDatosNIDesdeCC(cc: ComprobanteCompra): DatosNIDesdeCC {
       continue;
     }
 
+    let costo: ResultadoCostoValorizableLinea;
+    try {
+      costo = calcularCostoValorizableLineaCompra(l, cantidadEnUnidadMinima, factor, cc, contexto);
+    } catch (causaCosto) {
+      lineasPendientesDeValidacion.push({
+        lineaCompraId: l.id,
+        nombreProducto: l.nombreProducto,
+        motivo: causaCosto instanceof Error ? causaCosto.message : String(causaCosto),
+      });
+      continue;
+    }
+
     lineas.push({
       lineaCompraId: l.id,
       productoId: l.productoId,
@@ -128,7 +254,13 @@ export function prepararDatosNIDesdeCC(cc: ComprobanteCompra): DatosNIDesdeCC {
       cantidadComercialOriginal: l.cantidadSolicitada,
       factorConversionAplicado: factor,
       cantidad: cantidadEnUnidadMinima,
-      costoUnitario: l.costoUnitario,
+      costoUnitario: costo.costoUnitarioBaseMonedaBase,
+      costoUnitarioComercialOriginal: costo.costoUnitarioComercialOriginal,
+      esImpuestoRecuperable: costo.esImpuestoRecuperable,
+      descuentoAplicado: l.descuentoUnitario ?? 0,
+      monedaOriginal: costo.monedaOriginal,
+      tipoCambioAplicado: costo.tipoCambioAplicado,
+      fechaTipoCambio: cc.fechaRegistro,
       almacenDestinoId: l.almacenDestinoId,
       almacenDestinoNombre: l.almacenDestinoNombre,
       observacion: l.observacion,

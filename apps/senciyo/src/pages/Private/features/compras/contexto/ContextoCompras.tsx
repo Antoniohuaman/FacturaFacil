@@ -6,10 +6,22 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { tryLsKey } from '@/shared/tenant';
-import { formatMoney } from '@/shared/currency';
+import { tryLsKey, getTenantEmpresaId } from '@/shared/tenant';
+import { formatMoney, currencyManager } from '@/shared/currency';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { getConfiguredPaymentMeans } from '@/shared/payments/paymentMeans';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
+import {
+  cargarNotasIngreso,
+  agregarOActualizarNI,
+} from '../../gestion-inventario/repositories/notaIngreso.repository';
+import { generarNIEnInventario } from '../../gestion-inventario/services/notaIngreso.service';
+import type { NotaIngreso, LineaNotaIngreso } from '../../gestion-inventario/models/notaIngreso.types';
+import {
+  prepararDatosNIDesdeCC,
+  type ContextoCostoValorizableCC,
+} from '../mapeadores/mapeadorCCaNI';
 import type { OrdenCompra } from '../modelos/OrdenCompra';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
@@ -92,6 +104,8 @@ import { eliminarOCDelStorage } from '../repositorios/repositorioOrdenesCompra';
 import { extraerDatosOCParaCC } from '../mapeadores/mapeadorOCaCC';
 import { validarRequerimientoCompraBasico } from '../servicios/servicioRequerimientoCompra';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
+import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
+import type { Series } from '../../configuracion-sistema/modelos/Series';
 
 // ---------------------------------------------------------------------------
 // Estado
@@ -297,6 +311,197 @@ function armarRegistroCC(
     creadoPor: datos.creadoPor ?? usuarioId,
     fechaCreacion,
     fechaActualizacion: ts,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Integración con Nota de Ingreso / Kardex Valorizado (Etapa 3)
+//
+// Puente CC → NI: reutiliza `prepararDatosNIDesdeCC` (mapeadorCCaNI.ts, puro) y
+// `generarNIEnInventario` (notaIngreso.service.ts, el ÚNICO motor de confirmación —
+// exactamente el mismo para la generación automática y la confirmación manual). Esta
+// sección nunca muta stock directamente ni crea una capa de costo: eso ocurre siempre
+// dentro del motor central de gestion-inventario.
+// ---------------------------------------------------------------------------
+
+/** Misma regla que `FormularioNotaIngreso.tsx` (serie NI activa por defecto del establecimiento) — nunca una serie inventada ni una constante fija. */
+function resolverSerieNIPorDefecto(series: Series[], establecimientoId: string | undefined): string {
+  const activas = series.filter(
+    (s) =>
+      s.isActive !== false &&
+      (s.status === 'ACTIVE' || !s.status) &&
+      s.documentType?.code === 'NI' &&
+      (!establecimientoId || s.EstablecimientoId === establecimientoId),
+  );
+  const serie = activas.find((s) => s.isDefault)?.series ?? activas[0]?.series;
+  if (!serie) {
+    throw new Error('No hay una serie de Nota de Ingreso activa configurada para este establecimiento. Configúrala en Configuración → Series antes de generar la Nota de Ingreso.');
+  }
+  return serie;
+}
+
+/**
+ * Construye una Nota de Ingreso (Borrador) a partir de un Comprobante de Compra ya validado por
+ * `prepararDatosNIDesdeCC` — nunca persiste ni confirma; el llamador decide (generación automática
+ * confirma de inmediato, generación manual la deja en Borrador para que el usuario la revise).
+ * `comprobanteCompraOrigenId`/`modalidadOrigenCompra`/`lineaCompraOrigenId` son la única relación
+ * técnica real con el CC — `documentoOrigen` se usa solo como referencia visual del tipo de
+ * comprobante del proveedor, nunca como FK.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function construirNotaIngresoDesdeCC(
+  cc: ComprobanteCompra,
+  datosNI: ReturnType<typeof prepararDatosNIDesdeCC>,
+  almacenesMap: Map<string, Almacen>,
+  series: Series[],
+  establecimientoId: string | undefined,
+  modalidadOrigenCompra: 'automatico' | 'manual',
+  usuario: string | undefined,
+  generarIdFn: () => string,
+  fechaActualFn: () => string,
+): NotaIngreso {
+  if (cc.moneda !== 'PEN' && cc.moneda !== 'USD') {
+    throw new Error(`No se puede generar la Nota de Ingreso: la moneda del comprobante ("${cc.moneda}") no está soportada por Nota de Ingreso (solo PEN/USD).`);
+  }
+  if (datosNI.lineas.length === 0) {
+    throw new Error('No se puede generar la Nota de Ingreso: ninguna línea del comprobante pudo resolverse (revisa cantidades, factor de conversión y configuración tributaria).');
+  }
+
+  const primeraConAlmacen = datosNI.lineas.find((l) => l.almacenDestinoId);
+  const almacenDestinoId = primeraConAlmacen?.almacenDestinoId;
+  const almacenDestino = almacenDestinoId ? almacenesMap.get(almacenDestinoId) : undefined;
+  if (!almacenDestinoId || !almacenDestino) {
+    throw new Error('No se puede generar la Nota de Ingreso: no se pudo determinar el almacén destino de las líneas del comprobante.');
+  }
+
+  const ts = fechaActualFn();
+  const hoy = ts.slice(0, 10);
+  const serie = resolverSerieNIPorDefecto(series, establecimientoId);
+
+  const lineas: LineaNotaIngreso[] = datosNI.lineas.map((l) => {
+    const lineaOrigen = cc.lineas.find((lc) => lc.id === l.lineaCompraId);
+    return {
+      id: generarIdFn(),
+      productoId: l.productoId ?? '',
+      productoCodigo: l.codigoProducto ?? '',
+      productoNombre: l.nombreProducto,
+      tipoBienServicio: 'bien',
+      unidad: l.unidadComercialOriginal,
+      unidadCodigo: l.unidadMedidaCodigo,
+      almacenId: l.almacenDestinoId ?? almacenDestinoId,
+      almacenNombre: l.almacenDestinoNombre ?? almacenDestino.nombreAlmacen,
+      cantidad: l.cantidad,
+      costoUnitario: l.costoUnitario,
+      subtotal: round2(l.costoUnitario * l.cantidad),
+      igv: 0,
+      total: round2(l.costoUnitario * l.cantidad),
+      lineaCompraOrigenId: l.lineaCompraId,
+      cantidadComercialOriginal: l.cantidadComercialOriginal,
+      factorConversionAplicado: l.factorConversionAplicado,
+      costoUnitarioComercialOriginal: l.costoUnitarioComercialOriginal,
+      descuentoAplicado: l.descuentoAplicado,
+      esImpuestoRecuperable: l.esImpuestoRecuperable ?? undefined,
+      monedaOriginal: l.monedaOriginal,
+      tipoCambioAplicado: l.tipoCambioAplicado,
+      fechaTipoCambio: l.fechaTipoCambio,
+      observacion: lineaOrigen?.observacion,
+    };
+  });
+
+  const baseImponible = round2(lineas.reduce((acc, l) => acc + l.subtotal, 0));
+
+  return {
+    id: generarIdFn(),
+    tipoDocumento: 'nota_ingreso',
+    serie,
+    estado: 'Borrador',
+    esBorrador: true,
+    fechaDocumento: hoy,
+    fechaIngresoAlmacen: hoy,
+    tipoIngreso: datosNI.tipoIngreso,
+    almacenDestinoId,
+    almacenDestinoNombre: almacenDestino.nombreAlmacen,
+    almacenDestinoCodigo: almacenDestino.codigoAlmacen,
+    proveedorId: cc.proveedorId,
+    proveedorNombre: cc.proveedorNombre,
+    tipoDocumentoProveedor: cc.proveedorTipoDocumento,
+    numeroDocumentoProveedor: cc.proveedorNumeroDocumento,
+    moneda: cc.moneda,
+    formaPago: cc.formaPago,
+    documentoOrigen: cc.tipoComprobanteProveedor,
+    numeroDocumentoOrigen: cc.serieProveedor && cc.numeroProveedor ? `${cc.serieProveedor}-${cc.numeroProveedor}` : undefined,
+    comprobanteCompraOrigenId: cc.id,
+    modalidadOrigenCompra,
+    lineas,
+    baseImponible,
+    descuentos: 0,
+    isc: 0,
+    impuesto: 0,
+    noGravados: 0,
+    otc: 0,
+    total: baseImponible,
+    observaciones: datosNI.observaciones,
+    establecimientoId,
+    usuario: usuario ?? '',
+    fechaCreacion: ts,
+    fechaActualizacion: ts,
+    historial: [{ fecha: ts, usuario, accion: 'Borrador creado desde Comprobante de Compra', detalle: `Origen: ${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}` }],
+  };
+}
+
+/**
+ * Sincroniza el Comprobante de Compra de origen tras una confirmación (nueva o repetida) de su NI
+ * — actualiza `cantidadIngresadaInventario`/`cantidadPendienteInventario` por línea (vía
+ * `lineaCompraOrigenId`, nunca recalculando desde el catálogo), `estadoInventario` (con evidencia
+ * real de que la NI automática quedó confirmada) y las relaciones existentes
+ * `notasIngresoRelacionadas`/`movimientosInventarioRelacionados`. Pura — el llamador persiste.
+ * Devuelve `null` si el CC no existe o la NI no le pertenece (nada que sincronizar).
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function sincronizarCCTrasConfirmacionNI(
+  comprobantes: ComprobanteCompra[],
+  nota: NotaIngreso,
+  movimientoIds: string[],
+  ts: string,
+): ComprobanteCompra | null {
+  if (!nota.comprobanteCompraOrigenId) return null;
+  const cc = comprobantes.find((c) => c.id === nota.comprobanteCompraOrigenId);
+  if (!cc) return null;
+
+  const lineas = cc.lineas.map((linea) => {
+    const lineaNI = nota.lineas.find((l) => l.lineaCompraOrigenId === linea.id);
+    if (!lineaNI) return linea;
+    const cantidadComercialIngresada = lineaNI.cantidadComercialOriginal ?? 0;
+    const cantidadIngresadaInventario = round2(linea.cantidadIngresadaInventario + cantidadComercialIngresada);
+    return {
+      ...linea,
+      cantidadIngresadaInventario,
+      cantidadPendienteInventario: Math.max(0, round2(linea.cantidadFacturada - cantidadIngresadaInventario)),
+    };
+  });
+
+  const notasIngresoRelacionadas = cc.notasIngresoRelacionadas?.includes(nota.id)
+    ? cc.notasIngresoRelacionadas
+    : [...(cc.notasIngresoRelacionadas ?? []), nota.id];
+  const movimientosInventarioRelacionados = Array.from(
+    new Set([...(cc.movimientosInventarioRelacionados ?? []), ...movimientoIds]),
+  );
+
+  return {
+    ...cc,
+    lineas,
+    notasIngresoRelacionadas,
+    movimientosInventarioRelacionados,
+    estadoInventario: calcularEstadoInventarioCC(lineas, cc.modalidadInventario, nota.modalidadOrigenCompra === 'automatico'),
+    fechaActualizacion: ts,
+    historial: [
+      ...cc.historial,
+      {
+        fecha: ts,
+        accion: 'Nota de Ingreso confirmada',
+        detalle: `NI ${nota.numero ?? nota.id} — ${movimientoIds.length} movimiento(s) de inventario.`,
+      },
+    ],
   };
 }
 
@@ -757,6 +962,22 @@ interface ContextoComprasTipo {
   anularComprobanteCompra(id: string, motivo: string, anuladoPor?: string): Promise<void>;
 
   /**
+   * Genera manualmente la Nota de Ingreso de un CC Registrado sin relación previa (Etapa 3, §12) —
+   * para modalidad `con_nota_ingreso` la deja en Borrador; para `ingreso_automatico` sirve como
+   * recuperación de un intento automático que falló antes de confirmar.
+   */
+  generarNotaIngresoDesdeCC(
+    ccId: string,
+    usuarioNombre?: string,
+  ): Promise<{ comprobante: ComprobanteCompra; nota: NotaIngreso }>;
+
+  /**
+   * Sincroniza el CC de origen tras una confirmación de NI ocurrida por la vía manual existente
+   * (`useNotasIngreso.ts`) — no-op si la NI no tiene `comprobanteCompraOrigenId`.
+   */
+  sincronizarComprobanteTrasConfirmacionNI(nota: NotaIngreso, movimientoIds: string[]): void;
+
+  /**
    * Registra un Pago aplicado a una o varias Cuentas por Pagar (mismo
    * proveedor y moneda) — `aplicaciones` es la única fuente de a qué
    * documentos se aplica y por cuánto; `montoTotalPagado`,
@@ -798,6 +1019,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const { state: config } = useConfigurationContext();
   const { status: estadoCaja, agregarMovimiento, activeCajaId } = useCaja();
   const { session } = useUserSession();
+  const { allProducts } = useProductStore();
   const monedaBase = config.currencies.find((c) => c.isBaseCurrency)?.code ?? 'PEN';
 
   const recargarDatos = useCallback(() => {
@@ -1473,6 +1695,184 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   // Comprobantes de Compra
   // -------------------------------------------------------------------------
 
+  /**
+   * Núcleo compartido de la generación de NI desde un CC (Etapa 3, §12/§13) — usado tanto por la
+   * acción pública `generarNotaIngresoDesdeCC` (botón manual) como por el disparo automático dentro
+   * de `registrarComprobanteCompra`/`registrarComprobanteCompraDesdeBorrador`. Recibe el CC ya
+   * resuelto (nunca lo busca en `state.comprobantes`, para evitar el cierre obsoleto del estado
+   * justo después de un `dispatch` de la misma acción). Modalidad `con_nota_ingreso` → deja la NI en
+   * Borrador (el usuario la confirma luego desde el módulo de NI, reutilizando `generarNIEnInventario`
+   * exactamente igual). Modalidad `ingreso_automatico` → confirma de inmediato con EXACTAMENTE el
+   * mismo motor — la única diferencia real es quién dispara la confirmación. Nunca persiste el CC:
+   * el llamador decide cuándo y con qué historial adicional.
+   */
+  const procesarGeneracionNIDesdeCC = useCallback(
+    async (
+      cc: ComprobanteCompra,
+      usuarioNombre: string | undefined,
+    ): Promise<{ comprobante: ComprobanteCompra; nota: NotaIngreso }> => {
+      if (cc.estadoDocumento !== 'registrado') {
+        throw new Error('Solo se puede generar una Nota de Ingreso desde un comprobante Registrado.');
+      }
+      if (cc.modalidadInventario === 'no_afecta_inventario') {
+        throw new Error('Este comprobante no afecta inventario: no se puede generar una Nota de Ingreso.');
+      }
+      if ((cc.notasIngresoRelacionadas?.length ?? 0) > 0) {
+        throw new Error('Este comprobante ya tiene una Nota de Ingreso relacionada.');
+      }
+
+      const almacenesMap = new Map(config.almacenes.map((a) => [a.id, a]));
+      const contexto: ContextoCostoValorizableCC = {
+        tratamientoImpuestoCompra: config.preferenciasInventario.tratamientoImpuestoCompra,
+        monedaBase: currencyManager.getSnapshot().baseCurrency.code,
+      };
+      const datosNI = prepararDatosNIDesdeCC(cc, contexto);
+      if (datosNI.lineasPendientesDeValidacion.length > 0) {
+        throw new Error(
+          `No se puede generar la Nota de Ingreso: ${datosNI.lineasPendientesDeValidacion
+            .map((l) => `"${l.nombreProducto}": ${l.motivo}`)
+            .join(' ')}`,
+        );
+      }
+
+      const modalidadOrigenCompra = cc.modalidadInventario === 'ingreso_automatico' ? 'automatico' : 'manual';
+      const notaBase = construirNotaIngresoDesdeCC(
+        cc,
+        datosNI,
+        almacenesMap,
+        config.series,
+        session?.currentEstablecimientoId,
+        modalidadOrigenCompra,
+        usuarioNombre,
+        generarId,
+        ahora,
+      );
+
+      if (modalidadOrigenCompra === 'manual') {
+        agregarOActualizarNI(notaBase);
+        const ts = notaBase.fechaCreacion;
+        const comprobante: ComprobanteCompra = {
+          ...cc,
+          notasIngresoRelacionadas: [...(cc.notasIngresoRelacionadas ?? []), notaBase.id],
+          fechaActualizacion: ts,
+          historial: [
+            ...cc.historial,
+            { fecha: ts, usuario: usuarioNombre, accion: 'Nota de Ingreso generada (borrador)', detalle: `Serie ${notaBase.serie}` },
+          ],
+        };
+        return { comprobante, nota: notaBase };
+      }
+
+      const productsMap = new Map(allProducts.map((p) => [p.id, p]));
+      const empresaId = getTenantEmpresaId();
+      const notasExistentes = cargarNotasIngreso();
+      const { notaActualizada, movimientos } = await generarNIEnInventario(
+        notaBase,
+        notasExistentes,
+        productsMap,
+        almacenesMap,
+        usuarioNombre ?? '',
+        empresaId,
+        {
+          generarId: () => crypto.randomUUID(),
+          fechaActual: () => new Date().toISOString(),
+          estadoValorizacion: config.preferenciasInventario.estadoValorizacion,
+          monedaBase: currencyManager.getSnapshot().baseCurrency.code,
+        },
+      );
+      agregarOActualizarNI(notaActualizada);
+      sincronizarInventarioTrasConfirmacion();
+
+      const comprobante =
+        sincronizarCCTrasConfirmacionNI([cc], notaActualizada, movimientos.map((m) => m.id), ahora()) ?? cc;
+      return { comprobante, nota: notaActualizada };
+    },
+    [config.almacenes, config.series, config.preferenciasInventario, allProducts, session?.currentEstablecimientoId],
+  );
+
+  /**
+   * Acción expuesta (Etapa 3, §12/§17): genera manualmente la Nota de Ingreso de un CC Registrado
+   * sin relación previa. Para modalidad `con_nota_ingreso` deja la NI en Borrador (el usuario la
+   * confirma desde el módulo de NI). Para `ingreso_automatico` sirve como recuperación de un intento
+   * automático que falló antes de confirmar — la vuelve a intentar con la MISMA lógica.
+   */
+  const generarNotaIngresoDesdeCC = useCallback(
+    async (
+      ccId: string,
+      usuarioNombre?: string,
+    ): Promise<{ comprobante: ComprobanteCompra; nota: NotaIngreso }> => {
+      const cc = state.comprobantes.find((c) => c.id === ccId);
+      if (!cc) throw new Error(`Comprobante de compra ${ccId} no encontrado.`);
+
+      const resultado = await procesarGeneracionNIDesdeCC(cc, usuarioNombre);
+
+      agregarOActualizarCC(resultado.comprobante);
+      dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: resultado.comprobante });
+
+      return resultado;
+    },
+    [state.comprobantes, procesarGeneracionNIDesdeCC],
+  );
+
+  /**
+   * Notifica que una NI con origen en un CC fue confirmada por la vía MANUAL existente
+   * (`useNotasIngreso.ts` → `generarNIEnInventario`) — sincroniza el CC exactamente igual que la vía
+   * automática (misma función `sincronizarCCTrasConfirmacionNI`). No-op si la NI no tiene
+   * `comprobanteCompraOrigenId` o el CC no existe en este contexto (NI sin origen en Compras).
+   */
+  const sincronizarComprobanteTrasConfirmacionNI = useCallback(
+    (nota: NotaIngreso, movimientoIds: string[]): void => {
+      const actualizado = sincronizarCCTrasConfirmacionNI(state.comprobantes, nota, movimientoIds, ahora());
+      if (!actualizado) return;
+      agregarOActualizarCC(actualizado);
+      dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: actualizado });
+    },
+    [state.comprobantes],
+  );
+
+  /**
+   * Dispara el ingreso automático (Etapa 3, §13) justo después de registrar un CC con
+   * `modalidadInventario==='ingreso_automatico'` — reutiliza `procesarGeneracionNIDesdeCC`. Un
+   * fallo NUNCA deshace el registro del comprobante ya persistido (§14: "failure before touching
+   * inventory → CC stays recoverable") — el comprobante queda con `estadoInventario` sin evidencia
+   * automática y con un evento de historial explicando el motivo; el usuario puede reintentar más
+   * tarde generando la Nota de Ingreso manualmente desde el detalle del comprobante (misma acción,
+   * misma verificación de duplicados). Para cualquier otra modalidad, devuelve el CC sin cambios.
+   */
+  const dispararIngresoAutomaticoSiCorresponde = useCallback(
+    async (cc: ComprobanteCompra, usuarioId: string | undefined): Promise<ComprobanteCompra> => {
+      if (cc.modalidadInventario !== 'ingreso_automatico') return cc;
+
+      const usuarioNombre = session?.userName ?? usuarioId;
+      try {
+        const { comprobante } = await procesarGeneracionNIDesdeCC(cc, usuarioNombre);
+        agregarOActualizarCC(comprobante);
+        dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: comprobante });
+        return comprobante;
+      } catch (errorIngresoAutomatico) {
+        const ts = ahora();
+        const comprobanteConAviso: ComprobanteCompra = {
+          ...cc,
+          fechaActualizacion: ts,
+          historial: [
+            ...cc.historial,
+            {
+              fecha: ts,
+              usuario: usuarioId,
+              accion: 'Ingreso automático pendiente',
+              detalle:
+                errorIngresoAutomatico instanceof Error ? errorIngresoAutomatico.message : String(errorIngresoAutomatico),
+            },
+          ],
+        };
+        agregarOActualizarCC(comprobanteConAviso);
+        dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: comprobanteConAviso });
+        return comprobanteConAviso;
+      }
+    },
+    [session?.userName, procesarGeneracionNIDesdeCC],
+  );
+
   const registrarComprobanteCompra = useCallback(
     async (
       datos: Omit<
@@ -1551,9 +1951,11 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'ACTUALIZAR_ORDEN', payload: ocActualizada });
       }
 
-      return { comprobante: comprobanteConCxP, cuentaPorPagar };
+      const comprobanteFinal = await dispararIngresoAutomaticoSiCorresponde(comprobanteConCxP, usuarioId);
+
+      return { comprobante: comprobanteFinal, cuentaPorPagar };
     },
-    [state.ordenes, state.comprobantes, monedaBase],
+    [state.ordenes, state.comprobantes, monedaBase, dispararIngresoAutomaticoSiCorresponde],
   );
 
   const guardarBorradorCC = useCallback(
@@ -1698,9 +2100,11 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'ACTUALIZAR_ORDEN', payload: ocActualizada });
       }
 
-      return { comprobante: comprobanteConCxP, cuentaPorPagar };
+      const comprobanteFinal = await dispararIngresoAutomaticoSiCorresponde(comprobanteConCxP, usuarioNombre);
+
+      return { comprobante: comprobanteFinal, cuentaPorPagar };
     },
-    [state.ordenes, state.comprobantes, monedaBase],
+    [state.ordenes, state.comprobantes, monedaBase, dispararIngresoAutomaticoSiCorresponde],
   );
 
   /**
@@ -2214,6 +2618,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         actualizarComprobanteCompra,
         agregarEventoHistorialCC,
         anularComprobanteCompra,
+        generarNotaIngresoDesdeCC,
+        sincronizarComprobanteTrasConfirmacionNI,
         registrarPagoCompra,
         anularPagoCompra,
         refrescarProveedores,

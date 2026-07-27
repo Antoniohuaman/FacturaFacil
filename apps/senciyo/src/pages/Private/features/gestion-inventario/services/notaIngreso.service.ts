@@ -3,13 +3,14 @@
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { MovimientoStock } from '../models';
-import { InventoryService } from './inventory.service';
 import { ServicioKardexValorizado } from './servicioKardexValorizado';
 import { CORRELATIVO_DIGITOS_NI } from '../models/notaIngreso.constants';
 import type { NotaIngreso, TipoIngreso, LineaNotaIngreso } from '../models/notaIngreso.types';
 import type { MovimientoMotivo } from '../models/inventory.types';
 import type { DatosLineaOperacionCuantitativa, DatosOperacionEntradaCuantitativa } from '../models/operacionEntradaInventario.types';
+import type { DatosAnulacionDocumentoInventario } from '../models/operacionReversoInventario.types';
 import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
+import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
 import { parsearEtiquetaImpuesto } from '@/shared/catalogos-sunat/resolucionTributaria';
 import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 import { buscarOperacionIdempotentePorClave } from '../repositories/operacionIdempotenteInventario.repository';
@@ -61,6 +62,8 @@ export interface DependenciasEntradaCuantitativaNI {
   fechaActual: () => string;
   /** Estado de activación de valorización de la EMPRESA (Etapa 2) — obligatorio: el motor lo exige para resolver el modo de operación antes de mutar stock, nunca se omite silenciosamente. */
   estadoValorizacion: EstadoActivacionValorizacion;
+  /** Moneda base real de la empresa (Etapa 3) — requerida únicamente cuando el modo resuelto es `valorizado_exclusivo` (el motor crea `CapaCostoInventario`). Ausente mientras la empresa no esté en ese modo. */
+  monedaBase?: string;
 }
 
 /**
@@ -79,11 +82,20 @@ function esLineaInventariable(linea: LineaNotaIngreso, productsMap: Map<string, 
   return esProductoInventariable(producto);
 }
 
+/**
+ * Construye las líneas del contrato del motor — en modo valorizado (Etapa 3, §10) incluye el costo
+ * y los snapshots de compra ya persistidos en la propia `LineaNotaIngreso` (nunca reconsultados del
+ * catálogo ni de Compras): `costoUnitario` (ya en unidad mínima y moneda base) se transporta como
+ * `costoUnitarioBaseMonedaBase`; el resto de snapshots (`costoUnitarioComercialOriginal`,
+ * `factorConversionAplicado`, `monedaOriginal`, `tipoCambioAplicado`, `fechaTipoCambio`) viaja tal
+ * cual cuando la línea los trae (ausentes en una NI sin origen de Compras).
+ */
 function construirLineasOperacion(
   lineas: LineaNotaIngreso[],
   productsMap: Map<string, Product>,
   almacenesMap: Map<string, Almacen>,
   almacenDestinoIdNota: string,
+  esValorizado: boolean,
 ): DatosLineaOperacionCuantitativa[] {
   return lineas
     .filter((linea) => esLineaInventariable(linea, productsMap))
@@ -97,11 +109,22 @@ function construirLineasOperacion(
           `No se puede generar la Nota de Ingreso: el almacén "${almacen.nombreAlmacen}" está inactivo. Actívalo desde Configuración → Almacenes antes de registrar entradas.`
         );
       }
+      const tieneSnapshotComercial = linea.costoUnitarioComercialOriginal !== undefined && linea.factorConversionAplicado !== undefined;
       return {
         lineaId: linea.id,
         productoId: linea.productoId,
         almacenId: almacen.id,
         cantidadUnidadMinima: linea.cantidad,
+        ...(esValorizado ? {
+          costoUnitarioBaseMonedaBase: linea.costoUnitario,
+          ...(tieneSnapshotComercial ? {
+            costoUnitarioComercialOriginal: linea.costoUnitarioComercialOriginal,
+            factorConversionAplicado: linea.factorConversionAplicado,
+          } : {}),
+          ...(linea.monedaOriginal !== undefined ? { monedaOriginal: linea.monedaOriginal } : {}),
+          ...(linea.tipoCambioAplicado !== undefined ? { tipoCambioAplicado: linea.tipoCambioAplicado } : {}),
+          ...(linea.fechaTipoCambio !== undefined ? { fechaTipoCambio: linea.fechaTipoCambio } : {}),
+        } : {}),
       };
     });
 }
@@ -218,18 +241,27 @@ export const generarNIEnInventario = async (
   const motivo = mapTipoIngresoAMotivo(nota.tipoIngreso);
   const ahora = dependencias.fechaActual();
 
-  const lineasOperacion = construirLineasOperacion(nota.lineas, productsMap, almacenesMap, nota.almacenDestinoId);
+  // Modo resuelto por la máquina de estados (Etapa 2/3, §11) — nunca forzado por la interfaz. Solo
+  // cuando la empresa está realmente en `valorizado_exclusivo` esta NI transporta costo y crea capas.
+  const esValorizado = resolverModoOperacion(dependencias.estadoValorizacion) === 'valorizado_exclusivo';
+  // La confirmación manual de una NI con origen en Compras (§12) usa 'ni_confirmacion'; toda otra
+  // generación (automática desde una CC, o una NI creada directamente en este módulo) usa
+  // 'ni_automatica' — la única diferencia real entre ambas rutas es quién dispara la confirmación,
+  // nunca la lógica de registro, que es exactamente esta misma función (§13).
+  const tipoOperacion = nota.modalidadOrigenCompra === 'manual' ? 'ni_confirmacion' : 'ni_automatica';
+
+  const lineasOperacion = construirLineasOperacion(nota.lineas, productsMap, almacenesMap, nota.almacenDestinoId, esValorizado);
 
   let productosActualizados: Product[] = [];
   let movimientos: MovimientoStock[] = [];
 
   if (lineasOperacion.length > 0) {
     const datos: DatosOperacionEntradaCuantitativa = {
-      modoOperacion: 'cuantitativo',
+      modoOperacion: esValorizado ? 'valorizado' : 'cuantitativo',
       empresaId,
       documentoId: nota.id,
       tipoDocumento: 'nota_ingreso',
-      tipoOperacion: 'ni_automatica',
+      tipoOperacion,
       claveIdempotencia: `nota_ingreso:generar:${nota.id}`,
       usuario,
       fecha: ahora,
@@ -244,6 +276,7 @@ export const generarNIEnInventario = async (
       generarId: dependencias.generarId,
       fechaActual: dependencias.fechaActual,
       estadoValorizacion: dependencias.estadoValorizacion,
+      monedaBase: dependencias.monedaBase,
     });
 
     movimientos = resultado.movimientos;
@@ -299,56 +332,49 @@ export const anularNIEnInventario = async (
   // anulación antes de tocar cualquier producto.
   const movimientosOriginales = buscarMovimientosOriginalesGeneracion(empresaId, nota);
 
-  // Validación temprana de UX (mensaje con nombres legibles) sobre los datos ORIGINALES — el
-  // motor (§15) igualmente rechaza la operación completa si alguna línea no puede revertirse sin
-  // dejar stock negativo.
-  for (const movimientoOriginal of movimientosOriginales) {
-    const producto = productsMap.get(movimientoOriginal.productoId);
-    if (!producto) continue;
-    const almacen = almacenesMap.get(movimientoOriginal.almacenId);
-    if (!almacen) continue;
-    const stockActual = InventoryService.getStock(producto, almacen.id);
-    if (stockActual < movimientoOriginal.cantidad) {
-      throw new Error(
-        `No se puede anular: el producto "${producto.nombre}" tiene stock actual (${stockActual}) en "${almacen.nombreAlmacen}", menor a la cantidad ingresada originalmente (${movimientoOriginal.cantidad}).`,
-      );
-    }
-  }
-
   const ahora = dependencias.fechaActual();
-  const motivoMovimiento = mapTipoIngresoAMotivo(nota.tipoIngreso);
-
-  const lineasOperacion: DatosLineaOperacionCuantitativa[] = movimientosOriginales.map((movimientoOriginal) => ({
-    lineaId: movimientoOriginal.lineaOrigenId ?? `legado:${movimientoOriginal.id}`,
-    productoId: movimientoOriginal.productoId,
-    almacenId: movimientoOriginal.almacenId,
-    cantidadUnidadMinima: movimientoOriginal.cantidad,
-  }));
 
   let productosActualizados: Product[] = [];
   let movimientos: MovimientoStock[] = [];
 
-  if (lineasOperacion.length > 0) {
-    const datos: DatosOperacionEntradaCuantitativa = {
-      modoOperacion: 'cuantitativo',
+  if (movimientosOriginales.length > 0) {
+    // Reverso central (Etapa 1E/3, §15): se elimina la contraentrada simulada — el motor localiza
+    // el movimiento ORIGINAL y decide él mismo cómo revertirlo (cuantitativo o, si creó capas,
+    // valorizado), incluyendo su propio rechazo si el stock actual no alcanza (mensaje "stock
+    // actual...", validado antes de escribir nada).
+    //
+    // Corrección (verificación puntual post-Etapa 3): `valorizacionHabilitada` SIEMPRE se pasa en
+    // `true` aquí — nunca derivada de `resolverModoOperacion(dependencias.estadoValorizacion)` (el
+    // modo/estado ACTUAL de la empresa en el momento de anular). La fuente de verdad de si esta
+    // anulación debe revertir capas es la operación ORIGINAL confirmada y sus artefactos reales
+    // (el movimiento y las capas vinculadas por `movimientoEntradaId`) — nunca la configuración
+    // vigente hoy, que puede haber cambiado desde que la NI se confirmó (ej. una NI confirmada
+    // cuantitativamente antes de activar valorización, o una confirmada valorizada cuya empresa
+    // luego quedó suspendida). Leer la colección de capas es inofensivo cuando no existen
+    // (`parsearColeccion(null)` → `[]`) — el filtro por `movimientoEntradaId` dentro del motor
+    // (`restaurarCapasDeEntrada`) es quien decide si ESTA operación específica tenía capas, nunca
+    // este flag.
+    const valorizacionHabilitada = true;
+    const datos: DatosAnulacionDocumentoInventario = {
       empresaId,
-      documentoId: nota.id,
-      tipoDocumento: 'nota_ingreso',
       tipoOperacion: 'anulacion',
-      claveIdempotencia: `nota_ingreso:anular:${nota.id}`,
+      documentoId: nota.id,
+      tipoDocumentoOrigen: 'nota_ingreso',
+      movimientoIds: movimientosOriginales.map((m) => m.id),
+      claveIdempotencia: `ANULACION-nota_ingreso-${nota.id}`,
       usuario,
       fecha: ahora,
-      motivo: motivoMovimiento,
-      observaciones: `Anulación NI ${nota.numero ?? ''} - ${motivo}`.trim(),
+      motivoUsuario: motivo,
       documentoReferencia: nota.numero ?? nota.id,
-      lineas: lineasOperacion,
     };
 
-    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, {
+    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datos, {
       almacenes: almacenesMap,
       generarId: dependencias.generarId,
       fechaActual: dependencias.fechaActual,
       estadoValorizacion: dependencias.estadoValorizacion,
+      valorizacionHabilitada,
+      monedaBase: dependencias.monedaBase,
     });
 
     movimientos = resultado.movimientos;

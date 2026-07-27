@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Receipt, Clock, Link2, Pencil, Copy, XCircle, Printer, Download, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Receipt, Clock, Link2, Pencil, Copy, XCircle, Printer, Download, MoreHorizontal, Trash2, PackagePlus } from 'lucide-react';
+import type { NotaIngreso } from '../../../gestion-inventario/models/notaIngreso.types';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { listarTiposOperacion } from '@/shared/catalogos-sunat';
@@ -50,6 +51,8 @@ interface PanelDetalleComprobanteCompraProps {
   ordenes: OrdenCompra[];
   cuentasPorPagar: CuentaPorPagar[];
   pagos: PagoCompra[];
+  /** Notas de Ingreso del tenant — usadas únicamente para mostrar número/estado/origen de las relacionadas con este CC (Etapa 3, §17). */
+  notasIngreso?: NotaIngreso[];
   onCerrar: () => void;
   onVerOrdenCompra?: (oc: OrdenCompra) => void;
   onVerCuentaPorPagar?: (cxp: CuentaPorPagar) => void;
@@ -59,6 +62,8 @@ interface PanelDetalleComprobanteCompraProps {
   onAnular?: (cc: ComprobanteCompra) => void;
   onImprimir?: (cc: ComprobanteCompra) => void;
   onEliminarBorrador?: (cc: ComprobanteCompra) => void;
+  /** Genera la Nota de Ingreso del CC (Etapa 3, §12/§13) — visible solo si aún no tiene una relacionada. */
+  onGenerarNotaIngreso?: (cc: ComprobanteCompra) => void;
 }
 
 type TabCC = 'general' | 'historial' | 'relacionados';
@@ -159,6 +164,7 @@ export default function PanelDetalleComprobanteCompra({
   ordenes,
   cuentasPorPagar,
   pagos,
+  notasIngreso,
   onCerrar,
   onVerOrdenCompra,
   onVerCuentaPorPagar,
@@ -168,6 +174,7 @@ export default function PanelDetalleComprobanteCompra({
   onAnular,
   onImprimir,
   onEliminarBorrador,
+  onGenerarNotaIngreso,
 }: PanelDetalleComprobanteCompraProps) {
   const { state: config } = useConfigurationContext();
   const [tabActivo, setTabActivo] = useState<TabCC>('general');
@@ -275,6 +282,15 @@ export default function PanelDetalleComprobanteCompra({
         if (onAnular && puedeAnularCC(ccActual)) {
           visibles.push(
             <BotonEncabezado key="anular" icon={XCircle} texto="Anular" label="Anular comprobante de compra" onClick={() => onAnular(ccActual)} danger />,
+          );
+        }
+        if (
+          onGenerarNotaIngreso &&
+          ccActual.modalidadInventario !== 'no_afecta_inventario' &&
+          (ccActual.notasIngresoRelacionadas?.length ?? 0) === 0
+        ) {
+          menu.push(
+            <ItemMenuAccion key="generar-ni" icon={PackagePlus} label="Generar Nota de Ingreso" onClick={() => onGenerarNotaIngreso(ccActual)} />,
           );
         }
         if (onDuplicar) {
@@ -636,7 +652,29 @@ export default function PanelDetalleComprobanteCompra({
 
                 {cc.notasIngresoRelacionadas && cc.notasIngresoRelacionadas.length > 0 && (
                   <Seccion titulo="Notas de ingreso">
-                    <Campo label="Notas de ingreso vinculadas" valor={cc.notasIngresoRelacionadas.length} />
+                    {notasIngreso && notasIngreso.length > 0 ? (
+                      <div className="divide-y divide-gray-100">
+                        {cc.notasIngresoRelacionadas.map((niId) => {
+                          const nota = notasIngreso.find((n) => n.id === niId);
+                          if (!nota) return null;
+                          return (
+                            <div key={niId} className="flex justify-between items-center py-2">
+                              <span className="text-sm text-gray-900 font-mono">{nota.numero ?? 'Borrador'}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">
+                                  {nota.modalidadOrigenCompra === 'automatico' ? 'Automática' : nota.modalidadOrigenCompra === 'manual' ? 'Manual' : ''}
+                                </span>
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                  {nota.estado}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <Campo label="Notas de ingreso vinculadas" valor={cc.notasIngresoRelacionadas.length} />
+                    )}
                   </Seccion>
                 )}
               </>

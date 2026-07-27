@@ -545,6 +545,11 @@ const FormularioNotaIngreso: React.FC<Props> = ({ notaInicial, onCancelar, onGua
 
       {/* Main content */}
       <div className="flex-1 overflow-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+        {notaInicial?.comprobanteCompraOrigenId && (
+          <div className="rounded-lg border border-teal-200 bg-teal-50 dark:border-teal-800 dark:bg-teal-900/20 px-3 py-2 text-xs text-teal-800 dark:text-teal-300">
+            Generada desde un Comprobante de Compra ({notaInicial.modalidadOrigenCompra === 'automatico' ? 'ingreso automático' : 'confirmación manual'}). El costo y las cantidades provienen del comprobante — no se editan aquí.
+          </div>
+        )}
         {/* === Datos del documento === */}
         <ConfigurationCard
           title="Datos del documento"

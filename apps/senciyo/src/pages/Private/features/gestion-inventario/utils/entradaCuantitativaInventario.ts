@@ -22,7 +22,7 @@ import type { MovimientoStock, MovimientoTipo } from '../models/inventory.types'
 import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
 import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 import { ejecutarUnidadTrabajoInventario } from './unidadTrabajoInventario';
-import { redondearAPrecision, PRECISION_COSTO_UNITARIO_INTERNO } from './precisionInventario';
+import { redondearAPrecision, PRECISION_COSTO_UNITARIO_INTERNO, PRECISION_CANTIDAD_UNIDAD_MINIMA } from './precisionInventario';
 import { parsearColeccion } from './operacionCuantitativaInventarioComun';
 import { CLAVE_COLECCION_CAPAS_COSTO_INVENTARIO } from '../repositories/capaCostoInventario.repository';
 import { lsKey } from '../../../../../shared/tenant';
@@ -35,18 +35,33 @@ import {
 } from './operacionCuantitativaInventarioComun';
 
 /**
- * Validación PURA del contrato (§2 de la corrección final de Etapa 1C; Etapa 2 §10): delega la
- * validación estructural común y, además, cuando `modoOperacion==='valorizado'`, exige que
- * `tipoOperacion==='ajuste_positivo'` (única variante de entrada soportada con costo en esta
- * etapa) y que CADA línea traiga `costoUnitarioBaseMonedaBase` finito y mayor a cero — nunca se
- * asume ni se completa con un valor por defecto. Segura de ejecutar ANTES de reservar.
+ * Variantes de entrada que aceptan `modoOperacion:'valorizado'` (Etapa 2 §10 agregó
+ * `ajuste_positivo`; Etapa 3 agrega `ni_automatica`/`ni_confirmacion` — la entrada real generada o
+ * confirmada desde un Comprobante de Compra). Cualquier otro `tipoOperacion` de entrada
+ * (`anulacion`) sigue siendo exclusivamente cuantitativo.
+ */
+const TIPOS_OPERACION_ENTRADA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
+  'ajuste_positivo',
+  'ni_automatica',
+  'ni_confirmacion',
+]);
+
+/**
+ * Validación PURA del contrato (§2 de la corrección final de Etapa 1C; Etapa 2 §10; ampliada en
+ * Etapa 3 §10): delega la validación estructural común y, además, cuando
+ * `modoOperacion==='valorizado'`, exige que `tipoOperacion` sea una de las variantes soportadas
+ * (`TIPOS_OPERACION_ENTRADA_VALORIZABLES`) y que CADA línea traiga `costoUnitarioBaseMonedaBase`
+ * finito y mayor a cero — nunca se asume ni se completa con un valor por defecto. Si la línea
+ * declara el snapshot comercial (`costoUnitarioComercialOriginal`/`factorConversionAplicado`),
+ * ambos deben estar presentes juntos y ser finitos/mayores a cero — nunca uno sin el otro, nunca
+ * un factor implícito de 1. Segura de ejecutar ANTES de reservar.
  */
 export function validarContrato(datos: DatosOperacionEntradaCuantitativa): void {
   validarContratoComun(datos);
   if (datos.modoOperacion === 'valorizado') {
-    if (datos.tipoOperacion !== 'ajuste_positivo') {
+    if (!TIPOS_OPERACION_ENTRADA_VALORIZABLES.has(datos.tipoOperacion)) {
       throw new Error(
-        `entradaCuantitativaInventario: modoOperacion "valorizado" solo está soportado para tipoOperacion "ajuste_positivo" en esta etapa (recibido "${datos.tipoOperacion}").`
+        `entradaCuantitativaInventario: modoOperacion "valorizado" no está soportado para tipoOperacion "${datos.tipoOperacion}" (solo: ${Array.from(TIPOS_OPERACION_ENTRADA_VALORIZABLES).join(', ')}).`
       );
     }
     for (const linea of datos.lineas) {
@@ -55,6 +70,19 @@ export function validarContrato(datos: DatosOperacionEntradaCuantitativa): void 
         throw new Error(
           `entradaCuantitativaInventario: la línea "${linea.lineaId}" requiere costoUnitarioBaseMonedaBase finito y mayor a cero en modo valorizado.`
         );
+      }
+      const tieneComercial = linea.costoUnitarioComercialOriginal !== undefined;
+      const tieneFactor = linea.factorConversionAplicado !== undefined;
+      if (tieneComercial !== tieneFactor) {
+        throw new Error(
+          `entradaCuantitativaInventario: la línea "${linea.lineaId}" declara solo uno de costoUnitarioComercialOriginal/factorConversionAplicado — ambos deben venir juntos o ninguno.`
+        );
+      }
+      if (tieneComercial && (!Number.isFinite(linea.costoUnitarioComercialOriginal) || (linea.costoUnitarioComercialOriginal as number) <= 0)) {
+        throw new Error(`entradaCuantitativaInventario: la línea "${linea.lineaId}" tiene costoUnitarioComercialOriginal inválido — debe ser finito y mayor a cero.`);
+      }
+      if (tieneFactor && (!Number.isFinite(linea.factorConversionAplicado) || (linea.factorConversionAplicado as number) <= 0)) {
+        throw new Error(`entradaCuantitativaInventario: la línea "${linea.lineaId}" tiene factorConversionAplicado inválido — debe ser finito y mayor a cero.`);
       }
     }
   }
@@ -68,6 +96,7 @@ export function calcularHashEntradaCuantitativa(datos: DatosOperacionEntradaCuan
 function tipoMovimientoParaOperacionEntrada(tipoOperacion: TipoOperacionIdempotenteInventario): MovimientoTipo {
   switch (tipoOperacion) {
     case 'ni_automatica':
+    case 'ni_confirmacion':
       return 'ENTRADA';
     case 'ajuste_positivo':
       return 'AJUSTE_POSITIVO';
@@ -145,20 +174,45 @@ function esCapaAlmacenable(valor: unknown): valor is CapaCostoInventario {
   return typeof valor === 'object' && valor !== null && typeof (valor as { id?: unknown }).id === 'string';
 }
 
+/** Procedencia/tipoDocumentoOrigen de la capa según qué tipoOperacion de entrada la creó — nunca inferido del nombre del documento, siempre de este mapeo explícito y exhaustivo. */
+function origenCapaParaTipoOperacion(
+  tipoOperacion: TipoOperacionIdempotenteInventario
+): Pick<CapaCostoInventario, 'procedencia' | 'tipoDocumentoOrigen'> {
+  switch (tipoOperacion) {
+    case 'ajuste_positivo':
+      return { procedencia: 'ajuste', tipoDocumentoOrigen: 'ajuste' };
+    case 'ni_automatica':
+    case 'ni_confirmacion':
+      return { procedencia: 'compra', tipoDocumentoOrigen: 'nota_ingreso' };
+    default:
+      throw new Error(`entradaCuantitativaInventario: tipoOperacion "${tipoOperacion}" no tiene una procedencia de capa de costo definida.`);
+  }
+}
+
 /**
- * Construye una `CapaCostoInventario` por cada línea de un ajuste positivo valorizado (Etapa 2,
- * §10) — nunca revaloriza ni promedia: cada línea nace como una capa nueva, independiente, con su
- * propio costo declarado por el usuario. Empareja cada línea con su `MovimientoStock` recién
- * generado por `lineaOrigenId` (nunca por posición en el arreglo — el orden canónico ya se aplicó
- * en `calcularMutacionesEntrada`, pero emparejar por id es siempre más seguro que por índice).
+ * Construye una `CapaCostoInventario` por cada línea de una entrada valorizada (Etapa 2 §10:
+ * ajuste positivo manual; Etapa 3 §10: entrada real/confirmada desde Comprobante de Compra) —
+ * nunca revaloriza ni promedia: cada línea nace como una capa nueva, independiente. Empareja cada
+ * línea con su `MovimientoStock` recién generado por `lineaOrigenId` (nunca por posición en el
+ * arreglo — el orden canónico ya se aplicó en `calcularMutacionesEntrada`, pero emparejar por id
+ * es siempre más seguro que por índice).
+ *
+ * Snapshot comercial (Etapa 3): cuando la línea trae `costoUnitarioComercialOriginal` +
+ * `factorConversionAplicado` (una compra con presentación distinta a la unidad mínima),
+ * `costoUnitarioBaseOriginal` se DERIVA dividiendo — nunca se multiplica, nunca se asume factor 1.
+ * Cuando la línea nace ya en unidad mínima (ajuste manual, o una NI sin presentación comercial),
+ * ambos campos están ausentes y `costoUnitarioBaseOriginal` es directamente
+ * `costoUnitarioBaseMonedaBase` — el comportamiento cuantitativo/valorizado ya aprobado en Etapa 2
+ * para `ajuste_positivo` queda intacto byte a byte.
  */
-function construirCapasAjustePositivoValorizado(
+function construirCapasEntradaValorizada(
   datos: DatosOperacionEntradaCuantitativa,
   movimientosGenerados: readonly MovimientoStock[],
   almacenes: ReadonlyMap<string, Almacen>,
   generarId: () => string,
   monedaBase: string
 ): CapaCostoInventario[] {
+  const { procedencia, tipoDocumentoOrigen } = origenCapaParaTipoOperacion(datos.tipoOperacion);
   const movimientosPorLinea = new Map(movimientosGenerados.map((m) => [m.lineaOrigenId, m] as const));
   return datos.lineas.map((linea) => {
     const movimiento = movimientosPorLinea.get(linea.lineaId);
@@ -169,8 +223,16 @@ function construirCapasAjustePositivoValorizado(
     if (!almacen) {
       throw new Error(`entradaCuantitativaInventario: el almacén "${linea.almacenId}" no existe — no se puede crear la capa de costo de la línea "${linea.lineaId}".`);
     }
-    const costoUnitario = linea.costoUnitarioBaseMonedaBase as number; // ya validado > 0 y finito por validarContrato
-    const valorValorizable = redondearAPrecision(costoUnitario * linea.cantidadUnidadMinima, PRECISION_COSTO_UNITARIO_INTERNO);
+    const costoUnitarioBaseMonedaBase = linea.costoUnitarioBaseMonedaBase as number; // ya validado > 0 y finito por validarContrato
+    const tieneSnapshotComercial = linea.costoUnitarioComercialOriginal !== undefined && linea.factorConversionAplicado !== undefined;
+    const costoUnitarioBaseOriginal = tieneSnapshotComercial
+      ? redondearAPrecision(
+          (linea.costoUnitarioComercialOriginal as number) / (linea.factorConversionAplicado as number),
+          PRECISION_COSTO_UNITARIO_INTERNO
+        )
+      : costoUnitarioBaseMonedaBase;
+    const valorValorizableOriginal = redondearAPrecision(costoUnitarioBaseOriginal * linea.cantidadUnidadMinima, PRECISION_COSTO_UNITARIO_INTERNO);
+    const valorValorizableMonedaBase = redondearAPrecision(costoUnitarioBaseMonedaBase * linea.cantidadUnidadMinima, PRECISION_COSTO_UNITARIO_INTERNO);
     return {
       id: generarId(),
       empresaId: datos.empresaId,
@@ -178,22 +240,32 @@ function construirCapasAjustePositivoValorizado(
       productoId: linea.productoId,
       almacenId: linea.almacenId,
       movimientoEntradaId: movimiento.id,
-      tipoDocumentoOrigen: 'ajuste',
+      tipoDocumentoOrigen,
       documentoOrigenId: datos.documentoId,
       lineaOrigenId: linea.lineaId,
+      ...(tieneSnapshotComercial
+        ? {
+            cantidadComercialOriginal: redondearAPrecision(
+              linea.cantidadUnidadMinima / (linea.factorConversionAplicado as number),
+              PRECISION_CANTIDAD_UNIDAD_MINIMA
+            ),
+            costoUnitarioComercialOriginal: linea.costoUnitarioComercialOriginal,
+            factorConversionAplicado: linea.factorConversionAplicado,
+          }
+        : {}),
       cantidadInicial: linea.cantidadUnidadMinima,
       cantidadDisponible: linea.cantidadUnidadMinima,
-      costoUnitarioBaseOriginal: costoUnitario,
-      costoUnitarioBaseMonedaBase: costoUnitario,
-      valorValorizableOriginal: valorValorizable,
-      valorValorizableMonedaBase: valorValorizable,
+      costoUnitarioBaseOriginal,
+      costoUnitarioBaseMonedaBase,
+      valorValorizableOriginal,
+      valorValorizableMonedaBase,
       monedaBase,
-      monedaOriginal: monedaBase,
-      tipoCambioAplicado: 1,
-      fechaTipoCambio: datos.fecha,
+      monedaOriginal: linea.monedaOriginal ?? monedaBase,
+      tipoCambioAplicado: linea.tipoCambioAplicado ?? 1,
+      fechaTipoCambio: linea.fechaTipoCambio ?? datos.fecha,
       fechaEntrada: datos.fecha,
       estado: 'disponible',
-      procedencia: 'ajuste',
+      procedencia,
       usuario: datos.usuario,
       fechaCreacion: datos.fecha,
     };
@@ -222,13 +294,18 @@ export function prepararOperacionInventario(
     { clave: claveProductos, valorAnterior: productosRaw, valorPropuesto: JSON.stringify(productosFinales) },
     { clave: claveMovimientos, valorAnterior: movimientosRaw, valorPropuesto: JSON.stringify(movimientosFinales) },
   ];
-  let resultadoIds = movimientosGenerados.map((movimiento) => movimiento.id);
+  // `resultadoIds` identifica exclusivamente los MOVIMIENTOS producidos — nunca se le mezclan ids
+  // de otra colección (Etapa 3: un consumidor como `notaIngreso.service.ts` resuelve cada entrada
+  // de `OperacionIdempotenteInventario.resultadoIds` contra la colección de movimientos; una capa
+  // ahí rompería esa resolución). Las capas creadas son consultables por su propio
+  // `movimientoEntradaId`, nunca por aparecer en `resultadoIds`.
+  const resultadoIds = movimientosGenerados.map((movimiento) => movimiento.id);
 
   if (datos.modoOperacion === 'valorizado') {
     if (!monedaBase || !monedaBase.trim()) {
       throw new Error('entradaCuantitativaInventario: se requiere monedaBase para preparar una entrada valorizada.');
     }
-    const capasNuevas = construirCapasAjustePositivoValorizado(datos, movimientosGenerados, almacenes, generarId, monedaBase);
+    const capasNuevas = construirCapasEntradaValorizada(datos, movimientosGenerados, almacenes, generarId, monedaBase);
     const claveCapas = lsKey(CLAVE_COLECCION_CAPAS_COSTO_INVENTARIO, datos.empresaId);
     const capasRawAnterior = localStorage.getItem(claveCapas);
     const capasAnteriores = parsearColeccion(capasRawAnterior, `la colección de capas de costo ("${claveCapas}")`).map((elemento, indice) => {
@@ -242,7 +319,6 @@ export function prepararOperacionInventario(
       valorAnterior: capasRawAnterior,
       valorPropuesto: JSON.stringify([...capasAnteriores, ...capasNuevas]),
     });
-    resultadoIds = [...resultadoIds, ...capasNuevas.map((c) => c.id)];
   }
 
   const plan: PlanUnidadTrabajoInventario = {

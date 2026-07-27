@@ -8,6 +8,7 @@ import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { useFeedback } from '../../../../../shared/feedback';
 import { getTenantEmpresaId } from '../../../../../shared/tenant';
 import { sincronizarInventarioTrasConfirmacion } from '../../../../../shared/inventory/accionesStock';
+import { currencyManager } from '@/shared/currency';
 import {
   cargarNotasIngreso,
   guardarNotasIngreso,
@@ -19,6 +20,7 @@ import {
   anularNIEnInventario,
 } from '../services/notaIngreso.service';
 import type { NotaIngreso } from '../models/notaIngreso.types';
+import { useComprasOpcional } from '../../compras/contexto/ContextoCompras';
 
 export const useNotasIngreso = () => {
   const { user } = useAuth();
@@ -26,6 +28,7 @@ export const useNotasIngreso = () => {
   const { session } = useUserSession();
   const { state: configState } = useConfigurationContext();
   const feedback = useFeedback();
+  const comprasOpcional = useComprasOpcional();
 
   const usuarioNombre = session?.userName ?? user?.nombre ?? 'Usuario';
   const usuarioId = session?.userId ?? '';
@@ -91,7 +94,7 @@ export const useNotasIngreso = () => {
         }
 
         const productsMap = new Map(allProducts.map(p => [p.id, p]));
-        const { notaActualizada } = await generarNIEnInventario(
+        const { notaActualizada, movimientos } = await generarNIEnInventario(
           nota,
           notasActuales,
           productsMap,
@@ -102,6 +105,7 @@ export const useNotasIngreso = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            monedaBase: currencyManager.getSnapshot().baseCurrency.code,
           },
         );
 
@@ -110,6 +114,11 @@ export const useNotasIngreso = () => {
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
         // persistir aquí. Solo se rehidrata el store de productos y se refresca el Kardex.
         sincronizarInventarioTrasConfirmacion();
+
+        // Etapa 3, §12: si esta NI tiene origen en un Comprobante de Compra (confirmación manual),
+        // sincroniza el CC exactamente igual que la vía automática — no-op si Compras no está
+        // montado en este árbol (useComprasOpcional) o si la NI no tiene ese origen.
+        comprasOpcional?.sincronizarComprobanteTrasConfirmacionNI(notaActualizada, movimientos.map(m => m.id));
 
         feedback.success(`Nota de Ingreso ${notaActualizada.numero ?? ''} generada correctamente.`);
         return true;
@@ -121,7 +130,7 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback, comprasOpcional],
   );
 
   const anularNI = useCallback(
@@ -159,6 +168,7 @@ export const useNotasIngreso = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            monedaBase: currencyManager.getSnapshot().baseCurrency.code,
           },
         );
 
