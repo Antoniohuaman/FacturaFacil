@@ -11,6 +11,8 @@ import type {
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
+import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionInventario';
+import { currencyManager, formatMoney } from '@/shared/currency';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -63,6 +65,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   mostrarColumnasPorAlmacen,
 }) => {
   const { state: configState } = useConfigurationContext();
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const [savingCellId, setSavingCellId] = useState<string | null>(null);
   const [cellErrors, setCellErrors] = useState<Record<string, string>>({});
@@ -507,6 +510,7 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
             {renderHeader('stockMinimo', 'Stock mínimo', 'right', false)}
             {renderHeader('stockMaximo', 'Stock máximo', 'right', false)}
             {renderHeader('situacion', 'Estado', 'center', true)}
+            {puedeConsultarValorizado && renderHeader('valorStock', 'Valor stock', 'right', false)}
             {renderHeader('acciones', 'Acciones', 'center', false)}
           </tr>
         </thead>
@@ -600,6 +604,15 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
               {columnasVisibles.includes('situacion') && (
                 <td className={`${cellClass} text-center`}>
                   {renderSituacionBadge(item.situacion)}
+                </td>
+              )}
+
+              {/* Valor stock (Etapa 5) — costo del stock disponible, nunca precio de venta; "—" cuando aún no hay valorización registrada para el producto. */}
+              {puedeConsultarValorizado && columnasVisibles.includes('valorStock') && (
+                <td className={`${cellClass} text-right tabular-nums font-medium text-gray-900 dark:text-gray-100`}>
+                  {item.valorStock !== undefined
+                    ? formatMoney(item.valorStock, currencyManager.getSnapshot().baseCurrency.code)
+                    : <span className="text-gray-300 dark:text-gray-600">—</span>}
                 </td>
               )}
 

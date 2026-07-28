@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { Button } from '@/contasis';
 import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDisponibilidad';
 import { useFeedback } from '@/shared/feedback/useFeedback';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionInventario';
 import type { DensidadTabla, ColumnaDisponibilidad } from '../../models/disponibilidad.types';
 
 interface DisponibilidadSettingsProps {
@@ -22,7 +24,13 @@ const COLUMNAS_INFO: Record<ColumnaDisponibilidad, string> = {
   stockMaximo: 'Stock máximo',
   situacion: 'Estado',
   acciones: 'Acciones',
+  valorStock: 'Valor stock',
 };
+
+/** Etapa 5: "Valor stock" solo se ofrece en el listado de columnas cuando la valorización permite consulta oficial — nunca deshabilitado, se oculta por completo. */
+const COLUMNAS_SIEMPRE_DISPONIBLES: ColumnaDisponibilidad[] = (Object.keys(COLUMNAS_INFO) as ColumnaDisponibilidad[]).filter(
+  (columna) => columna !== 'valorStock'
+);
 
 const LABEL_DENSIDAD: Record<DensidadTabla, string> = {
   compacta: 'Compacta',
@@ -42,6 +50,12 @@ const DisponibilidadSettings: React.FC<DisponibilidadSettingsProps> = ({ isOpen,
     ocultarTodasColumnasOpcionales,
     resetearPreferencias,
   } = usePreferenciasDisponibilidad();
+
+  const { state: configState } = useConfigurationContext();
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
+  const columnasOfrecidas = puedeConsultarValorizado
+    ? (Object.keys(COLUMNAS_INFO) as ColumnaDisponibilidad[])
+    : COLUMNAS_SIEMPRE_DISPONIBLES;
 
   const feedback = useFeedback();
   const [confirmarReset, setConfirmarReset] = useState(false);
@@ -122,7 +136,7 @@ const DisponibilidadSettings: React.FC<DisponibilidadSettingsProps> = ({ isOpen,
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {(Object.keys(COLUMNAS_INFO) as ColumnaDisponibilidad[]).map((columna) => (
+              {columnasOfrecidas.map((columna) => (
                 <label
                   key={columna}
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"

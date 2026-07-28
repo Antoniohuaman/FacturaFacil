@@ -1,6 +1,6 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { MovimientoStock } from '../models';
 import { Download, Settings } from 'lucide-react';
@@ -24,6 +24,104 @@ import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { inferirFuente } from '../utils/inventory.helpers';
+import { getTenantEmpresaId, lsKey } from '@/shared/tenant';
+import { currencyManager, formatMoney } from '@/shared/currency';
+import { esValorizacionActiva } from '../utils/estadoActivacionValorizacionInventario';
+import { proyectarKardexValorizado } from '../services/consultaKardexValorizado.service';
+import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
+
+/**
+ * Corrección final Etapa 5 — el ColumnsManager de Movimientos administra TODAS las columnas
+ * configurables: las 8 operativas actuales (visibles por defecto, conservando la experiencia de
+ * hoy) más las 2 valorizadas (apagadas por defecto, solo ofrecidas cuando la valorización permite
+ * consulta oficial). "Producto" y "Ver" quedan fijas — mismo criterio que usa Compras para sus
+ * columnas de identidad/acción (`comprobante`/`acciones`: excluidas del popover, siempre visibles)
+ * — nunca configurables ni ocultables.
+ */
+type ColumnaMovimientoOperativa = 'fecha' | 'tipo' | 'motivo' | 'almacen' | 'cantidad' | 'stock' | 'documento' | 'usuario';
+type ColumnaMovimientoValorizada = 'costoUnitario' | 'valorMovimiento';
+type ColumnaMovimientoConfigurable = ColumnaMovimientoOperativa | ColumnaMovimientoValorizada;
+
+const ETIQUETA_COLUMNA_MOVIMIENTO: Record<ColumnaMovimientoConfigurable, string> = {
+  fecha: 'Fecha',
+  tipo: 'Tipo',
+  motivo: 'Motivo',
+  almacen: 'Almacén',
+  cantidad: 'Cantidad',
+  stock: 'Stock',
+  documento: 'Documento / Referencia',
+  usuario: 'Usuario',
+  costoUnitario: 'Costo unitario',
+  valorMovimiento: 'Valor del movimiento',
+};
+
+const COLUMNAS_OPERATIVAS_MOVIMIENTO: ColumnaMovimientoOperativa[] = ['fecha', 'tipo', 'motivo', 'almacen', 'cantidad', 'stock', 'documento', 'usuario'];
+const COLUMNAS_VALORIZADAS_MOVIMIENTO: ColumnaMovimientoValorizada[] = ['costoUnitario', 'valorMovimiento'];
+const ORDEN_COLUMNAS_MOVIMIENTO_POR_DEFECTO: ColumnaMovimientoConfigurable[] = [...COLUMNAS_OPERATIVAS_MOVIMIENTO, ...COLUMNAS_VALORIZADAS_MOVIMIENTO];
+
+const CLAVE_COLUMNAS_MOVIMIENTOS = 'inventario_movimientos_tabla_columnas';
+// v2: el esquema pasó de 2 columnas configurables (solo valorizadas) a 10 (operativas + valorizadas)
+// en la corrección final — un valor v1 persistido no es compatible con este arreglo más amplio.
+const VERSION_COLUMNAS_MOVIMIENTOS = 'v2';
+
+interface PreferenciaColumnasMovimientos {
+  visibles: ColumnaMovimientoConfigurable[];
+  orden: ColumnaMovimientoConfigurable[];
+}
+
+/** Operativas visibles por defecto (conserva exactamente la experiencia actual); valorizadas apagadas por defecto. */
+const PREFERENCIA_COLUMNAS_POR_DEFECTO: PreferenciaColumnasMovimientos = {
+  visibles: [...COLUMNAS_OPERATIVAS_MOVIMIENTO],
+  orden: ORDEN_COLUMNAS_MOVIMIENTO_POR_DEFECTO,
+};
+
+function esColumnaMovimientoValida(valor: unknown): valor is ColumnaMovimientoConfigurable {
+  return typeof valor === 'string' && (ORDEN_COLUMNAS_MOVIMIENTO_POR_DEFECTO as string[]).includes(valor);
+}
+
+function esColumnaValorizadaEspecifica(id: ColumnaMovimientoConfigurable): id is ColumnaMovimientoValorizada {
+  return id === 'costoUnitario' || id === 'valorMovimiento';
+}
+
+/**
+ * Carga tenantizada (mismo mecanismo `lsKey` ya usado en el resto del feature) — nunca una clave
+ * de localStorage sin espacio de tenant. No exportada: `react-refresh/only-export-components`
+ * prohíbe exportar funciones/constantes junto al componente de página desde el mismo archivo —
+ * crear un archivo nuevo solo para esto excedería el único archivo productivo nuevo permitido en
+ * esta etapa (`consultaKardexValorizado.service.ts`). Sin prueba unitaria directa por esa misma
+ * razón; ver el informe final.
+ */
+function cargarPreferenciaColumnasMovimientos(empresaId: string): PreferenciaColumnasMovimientos {
+  try {
+    const claveVersion = lsKey(`${CLAVE_COLUMNAS_MOVIMIENTOS}_version`, empresaId);
+    const claveDatos = lsKey(CLAVE_COLUMNAS_MOVIMIENTOS, empresaId);
+    if (localStorage.getItem(claveVersion) !== VERSION_COLUMNAS_MOVIMIENTOS) {
+      localStorage.setItem(claveVersion, VERSION_COLUMNAS_MOVIMIENTOS);
+      localStorage.setItem(claveDatos, JSON.stringify(PREFERENCIA_COLUMNAS_POR_DEFECTO));
+      return PREFERENCIA_COLUMNAS_POR_DEFECTO;
+    }
+    const raw = localStorage.getItem(claveDatos);
+    if (!raw) {
+      return PREFERENCIA_COLUMNAS_POR_DEFECTO;
+    }
+    const parsed = JSON.parse(raw) as Partial<PreferenciaColumnasMovimientos>;
+    const visibles = Array.isArray(parsed.visibles) ? parsed.visibles.filter(esColumnaMovimientoValida) : [];
+    const ordenGuardado = Array.isArray(parsed.orden) ? parsed.orden.filter(esColumnaMovimientoValida) : [];
+    const orden = ORDEN_COLUMNAS_MOVIMIENTO_POR_DEFECTO.filter((id) => !ordenGuardado.includes(id));
+    return { visibles, orden: [...ordenGuardado, ...orden] };
+  } catch {
+    return PREFERENCIA_COLUMNAS_POR_DEFECTO;
+  }
+}
+
+function guardarPreferenciaColumnasMovimientos(empresaId: string, preferencia: PreferenciaColumnasMovimientos): void {
+  try {
+    localStorage.setItem(lsKey(`${CLAVE_COLUMNAS_MOVIMIENTOS}_version`, empresaId), VERSION_COLUMNAS_MOVIMIENTOS);
+    localStorage.setItem(lsKey(CLAVE_COLUMNAS_MOVIMIENTOS, empresaId), JSON.stringify(preferencia));
+  } catch {
+    // Persistencia best-effort — un fallo de almacenamiento nunca debe romper la tabla de Movimientos.
+  }
+}
 
 const formatMovementTimestamp = (value: Date | string): string => {
   const date = value instanceof Date ? value : new Date(value);
@@ -42,7 +140,81 @@ export const InventoryPage: React.FC = () => {
   const location = useLocation();
   const { state: configState } = useConfigurationContext();
   const controlStockActivo = configState.salesPreferences.controlStockActivo ?? false;
+  const estadoValorizacion = configState.preferenciasInventario.estadoValorizacion;
+  const puedeConsultarValorizado = esValorizacionActiva(estadoValorizacion);
+  const empresaId = getTenantEmpresaId();
   const [modalInventarioOpen, setModalInventarioOpen] = useState(false);
+  const [preferenciaColumnasMovimientos, setPreferenciaColumnasMovimientos] = useState<PreferenciaColumnasMovimientos>(
+    () => cargarPreferenciaColumnasMovimientos(empresaId)
+  );
+
+  useEffect(() => {
+    guardarPreferenciaColumnasMovimientos(empresaId, preferenciaColumnasMovimientos);
+  }, [empresaId, preferenciaColumnasMovimientos]);
+
+  // Corrección final Etapa 5: columnas configurables efectivamente visibles, en el orden a
+  // renderizar — operativas siempre elegibles; valorizadas solo cuando la valorización permite
+  // consulta oficial (nunca se filtran las operativas por estadoValorizacion).
+  const columnasVisiblesOrdenadas = useMemo(
+    () =>
+      preferenciaColumnasMovimientos.orden.filter((id) => {
+        if (!preferenciaColumnasMovimientos.visibles.includes(id)) return false;
+        if (esColumnaValorizadaEspecifica(id) && !puedeConsultarValorizado) return false;
+        return true;
+      }),
+    [puedeConsultarValorizado, preferenciaColumnasMovimientos]
+  );
+
+  // Corrección final Etapa 5: el ColumnsManager de Movimientos siempre muestra las columnas
+  // operativas (nunca "No hay columnas configurables" — siempre existen las 8 operativas); las 2
+  // valorizadas solo se agregan al menú cuando la valorización permite consulta oficial. "Producto"
+  // y "Ver" se incluyen como fijas (mismo criterio que Compras) — ColumnsManager las excluye del
+  // popover automáticamente.
+  const columnasManagerMovimientos: ColumnsManagerColumn[] = useMemo(() => {
+    const configurables = preferenciaColumnasMovimientos.orden
+      .filter((id) => !esColumnaValorizadaEspecifica(id) || puedeConsultarValorizado)
+      .map((id) => ({
+        id,
+        label: ETIQUETA_COLUMNA_MOVIMIENTO[id],
+        visible: preferenciaColumnasMovimientos.visibles.includes(id),
+      }));
+    return [
+      { id: 'producto', label: 'Producto', visible: true, fixed: true },
+      ...configurables,
+      { id: 'ver', label: 'Ver', visible: true, fixed: true },
+    ];
+  }, [puedeConsultarValorizado, preferenciaColumnasMovimientos]);
+
+  const alternarColumnaMovimiento = useCallback((columnId: string) => {
+    if (!esColumnaMovimientoValida(columnId)) return;
+    setPreferenciaColumnasMovimientos((prev) => ({
+      ...prev,
+      visibles: prev.visibles.includes(columnId)
+        ? prev.visibles.filter((id) => id !== columnId)
+        : [...prev.visibles, columnId],
+    }));
+  }, []);
+
+  const restablecerColumnasMovimientos = useCallback(() => {
+    setPreferenciaColumnasMovimientos(PREFERENCIA_COLUMNAS_POR_DEFECTO);
+  }, []);
+
+  const seleccionarTodasColumnasMovimientos = useCallback(() => {
+    setPreferenciaColumnasMovimientos((prev) => ({ ...prev, visibles: [...prev.orden] }));
+  }, []);
+
+  const reordenarColumnasMovimientos = useCallback((sourceId: string, targetId: string) => {
+    if (!esColumnaMovimientoValida(sourceId) || !esColumnaMovimientoValida(targetId)) return;
+    setPreferenciaColumnasMovimientos((prev) => {
+      const sourceIndex = prev.orden.indexOf(sourceId);
+      const targetIndex = prev.orden.indexOf(targetId);
+      if (sourceIndex === -1 || targetIndex === -1) return prev;
+      const siguienteOrden = [...prev.orden];
+      const [movido] = siguienteOrden.splice(sourceIndex, 1);
+      siguienteOrden.splice(targetIndex, 0, movido);
+      return { ...prev, orden: siguienteOrden };
+    });
+  }, []);
   const {
     selectedView,
     filterPeriodo,
@@ -101,63 +273,110 @@ export const InventoryPage: React.FC = () => {
    * Usa los movimientos visibles en la tabla (respeta filtros de tipo y búsqueda)
    * si la tabla ya fue montada; de lo contrario usa el período/almacén del hook.
    */
+  // Ancho de columna por encabezado — mismo criterio ya usado (SheetJS `!cols` posicional), ahora
+  // indexado por nombre porque el conjunto de columnas presentes varía según "Columnas".
+  const ANCHO_COLUMNA_EXCEL: Record<string, number> = {
+    'Fecha': 20, 'Producto': 30, 'Código Producto': 15, 'Tipo': 16, 'Motivo': 22, 'Fuente': 22,
+    'Movimiento': 12, 'Saldo Anterior': 14, 'Saldo Final': 12, 'Almacén': 25, 'Código Almacén': 14,
+    'Establecimiento': 28, 'Usuario': 20, 'Documento / Ref.': 24, 'Observaciones': 45,
+    'Es Transferencia': 15, 'Transferencia ID': 24, 'Tipo Transferencia': 22, 'Almacén Origen': 25, 'Almacén Destino': 25,
+    'Costo unitario': 18, 'Valor del movimiento': 18,
+  };
+
+  /**
+   * Corrección final Etapa 5, §5: la exportación respeta la selección de TODAS las columnas
+   * configurables (no solo las valorizadas) — mismo botón, mismo handler, misma librería. Cada
+   * columna operativa toggleable controla su(s) columna(s) reales del Excel; "Producto" (+ Código
+   * Producto) es fija y siempre se exporta, igual que "Fuente"/"Observaciones"/los campos de
+   * transferencia (enriquecimiento del export que nunca estuvo atado a "Columnas"). Reutiliza
+   * EXACTAMENTE la misma proyección que la tabla y el detalle para las 2 columnas valorizadas —
+   * nunca un cálculo de costo distinto para la exportación.
+   */
   const handleExportToExcel = () => {
     const baseMovements = movimientosFiltradosVisiblesRef.current.length > 0
       ? movimientosFiltradosVisiblesRef.current
       : filteredMovements;
 
-    const data = baseMovements.map(mov => ({
-      'Fecha':              formatMovementTimestamp(mov.fecha),
-      'Producto':           mov.productoNombre,
-      'Código Producto':    mov.productoCodigo,
-      'Tipo':               mov.tipo,
-      'Motivo':             mov.motivo,
-      'Fuente':             inferirFuente(mov),
-      'Movimiento':         mov.cantidad,
-      'Saldo Anterior':     mov.cantidadAnterior,
-      'Saldo Final':        mov.cantidadNueva,
-      'Almacén':            mov.almacenNombre || '',
-      'Código Almacén':     mov.almacenCodigo || '',
-      'Establecimiento':    mov.EstablecimientoNombre || '',
-      'Usuario':            mov.usuario,
-      'Documento / Ref.':   mov.documentoReferencia || '',
-      'Observaciones':      mov.observaciones || '',
-      'Es Transferencia':   mov.esTransferencia ? 'Sí' : 'No',
-      'Transferencia ID':   mov.transferenciaId || '',
-      'Tipo Transferencia': mov.tipoTransferencia || '',
-      'Almacén Origen':     mov.almacenOrigenNombre || '',
-      'Almacén Destino':    mov.almacenDestinoNombre || '',
-    }));
+    const esVisible = (id: ColumnaMovimientoConfigurable) => columnasVisiblesOrdenadas.includes(id);
+    const incluyeCostos = esVisible('costoUnitario') || esVisible('valorMovimiento');
+    const proyeccionCostos = incluyeCostos
+      ? proyectarKardexValorizado({ empresaId, movimientos: baseMovements })
+      : undefined;
+    const monedaBaseActual = currencyManager.getSnapshot().baseCurrency.code;
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    /** Construye las entradas [encabezado, valor] de una fila, en el ORDEN exacto de columnas del archivo — determinista independientemente de si hay 0 o más movimientos. */
+    const construirEntradasFila = (mov: MovimientoStock): Array<[string, string | number]> => {
+      const entradas: Array<[string, string | number]> = [];
+      if (esVisible('fecha')) entradas.push(['Fecha', formatMovementTimestamp(mov.fecha)]);
+      entradas.push(['Producto', mov.productoNombre], ['Código Producto', mov.productoCodigo]);
+      if (esVisible('tipo')) entradas.push(['Tipo', mov.tipo]);
+      if (esVisible('motivo')) entradas.push(['Motivo', mov.motivo]);
+      entradas.push(['Fuente', inferirFuente(mov)]);
+      if (esVisible('cantidad')) entradas.push(['Movimiento', mov.cantidad]);
+      if (esVisible('stock')) entradas.push(['Saldo Anterior', mov.cantidadAnterior], ['Saldo Final', mov.cantidadNueva]);
+      if (esVisible('almacen')) {
+        entradas.push(
+          ['Almacén', mov.almacenNombre || ''],
+          ['Código Almacén', mov.almacenCodigo || ''],
+          ['Establecimiento', mov.EstablecimientoNombre || '']
+        );
+      }
+      if (esVisible('usuario')) entradas.push(['Usuario', mov.usuario]);
+      if (esVisible('documento')) entradas.push(['Documento / Ref.', mov.documentoReferencia || '']);
+      entradas.push(
+        ['Observaciones', mov.observaciones || ''],
+        ['Es Transferencia', mov.esTransferencia ? 'Sí' : 'No'],
+        ['Transferencia ID', mov.transferenciaId || ''],
+        ['Tipo Transferencia', mov.tipoTransferencia || ''],
+        ['Almacén Origen', mov.almacenOrigenNombre || ''],
+        ['Almacén Destino', mov.almacenDestinoNombre || '']
+      );
+      if (incluyeCostos) {
+        const proyectado = proyeccionCostos?.get(mov.id);
+        const tieneValor = proyectado?.tieneValorizacion ?? false;
+        if (esVisible('costoUnitario')) {
+          entradas.push(['Costo unitario', tieneValor && proyectado?.costoUnitario !== undefined
+            ? formatMoney(proyectado.costoUnitario, proyectado?.monedaBase ?? monedaBaseActual)
+            : '—']);
+        }
+        if (esVisible('valorMovimiento')) {
+          entradas.push(['Valor del movimiento', tieneValor && proyectado?.valorMovimiento !== undefined
+            ? formatMoney(proyectado.valorMovimiento, proyectado?.monedaBase ?? monedaBaseActual)
+            : '—']);
+        }
+      }
+      return entradas;
+    };
+
+    // Encabezados calculados con la MISMA lógica de visibilidad, independiente de `baseMovements`
+    // (nunca depende de si hay 0 o más filas) — SheetJS ordena las columnas según este arreglo.
+    const headers: string[] = [];
+    if (esVisible('fecha')) headers.push('Fecha');
+    headers.push('Producto', 'Código Producto');
+    if (esVisible('tipo')) headers.push('Tipo');
+    if (esVisible('motivo')) headers.push('Motivo');
+    headers.push('Fuente');
+    if (esVisible('cantidad')) headers.push('Movimiento');
+    if (esVisible('stock')) headers.push('Saldo Anterior', 'Saldo Final');
+    if (esVisible('almacen')) headers.push('Almacén', 'Código Almacén', 'Establecimiento');
+    if (esVisible('usuario')) headers.push('Usuario');
+    if (esVisible('documento')) headers.push('Documento / Ref.');
+    headers.push('Observaciones', 'Es Transferencia', 'Transferencia ID', 'Tipo Transferencia', 'Almacén Origen', 'Almacén Destino');
+    if (incluyeCostos) {
+      if (esVisible('costoUnitario')) headers.push('Costo unitario');
+      if (esVisible('valorMovimiento')) headers.push('Valor del movimiento');
+    }
+
+    const data = baseMovements.map((mov) => Object.fromEntries(construirEntradasFila(mov)));
+
+    const ws = XLSX.utils.json_to_sheet(data, { header: headers });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Movimientos');
+    ws['!cols'] = headers.map((header) => ({ wch: ANCHO_COLUMNA_EXCEL[header] ?? 18 }));
 
-    const colWidths = [
-      { wch: 20 }, // Fecha
-      { wch: 30 }, // Producto
-      { wch: 15 }, // Código Producto
-      { wch: 16 }, // Tipo
-      { wch: 22 }, // Motivo
-      { wch: 22 }, // Fuente
-      { wch: 12 }, // Movimiento
-      { wch: 14 }, // Saldo Anterior
-      { wch: 12 }, // Saldo Final
-      { wch: 25 }, // Almacén
-      { wch: 14 }, // Código Almacén
-      { wch: 28 }, // Establecimiento
-      { wch: 20 }, // Usuario
-      { wch: 24 }, // Documento / Ref.
-      { wch: 45 }, // Observaciones
-      { wch: 15 }, // Es Transferencia
-      { wch: 24 }, // Transferencia ID
-      { wch: 22 }, // Tipo Transferencia
-      { wch: 25 }, // Almacén Origen
-      { wch: 25 }, // Almacén Destino
-    ];
-    ws['!cols'] = colWidths;
-
-    const fileName = `movimientos_stock_${getBusinessTodayISODate()}.xlsx`;
+    const fileName = incluyeCostos
+      ? `movimientos_costos_${getBusinessTodayISODate()}.xlsx`
+      : `movimientos_stock_${getBusinessTodayISODate()}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
@@ -385,6 +604,20 @@ export const InventoryPage: React.FC = () => {
 
             <div className="flex-1" />
 
+            {/* Cierre puntual Etapa 5, §1: "Columnas" permanece disponible en todos los estados
+                para personalizar las columnas operativas de Movimientos — nunca se oculta el
+                botón entero solo porque la valorización todavía no está activa. Lo que sí varía
+                por estado es qué columnas ofrece el menú (ver columnasManagerMovimientos). */}
+            <ColumnsManager
+              columns={columnasManagerMovimientos}
+              onToggleColumn={alternarColumnaMovimiento}
+              onResetColumns={restablecerColumnasMovimientos}
+              onSelectAllColumns={seleccionarTodasColumnasMovimientos}
+              onReorderColumns={reordenarColumnasMovimientos}
+              buttonLabel="Columnas"
+              title="Columnas de Movimientos"
+            />
+
             <button
               onClick={handleExportToExcel}
               className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
@@ -428,6 +661,7 @@ export const InventoryPage: React.FC = () => {
             movimientos={filteredMovements}
             almacenFiltro={almacenFiltro}
             onFilteredDataChange={handleMovimientosFiltradosChange}
+            columnasVisibles={columnasVisiblesOrdenadas}
           />
         )}
 

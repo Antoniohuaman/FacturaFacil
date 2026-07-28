@@ -14,6 +14,8 @@ import * as XLSX from 'xlsx';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { AutoExportRequest } from '@/shared/export/autoExportParams';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
+import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionInventario';
+import { currencyManager, formatMoney } from '@/shared/currency';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -64,9 +66,11 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     selectedalmacen,
     selectedEstablecimiento,
     almacenescope,
-    updateStockThreshold
+    updateStockThreshold,
+    resumen
   } = useInventarioDisponibilidad();
   const { state: configState } = useConfigurationContext();
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
 
   // Preferencias de UI
   const { densidad, columnasVisibles, mostrarColumnasPorAlmacen, itemsPorPagina } = usePreferenciasDisponibilidad();
@@ -316,6 +320,25 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
         onTransferir={onTransferir}
         onAjustar={onAjustar}
       />
+
+      {/* Resumen de valor (Etapa 5) — solo cuando la valorización permite consulta oficial; nunca margen ni precio de venta. */}
+      {puedeConsultarValorizado && resumen.valorInventarioValorizado !== undefined && (
+        <div className="px-4 pt-3">
+          <div className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+            <span>Valor total del inventario:</span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
+              {formatMoney(resumen.valorInventarioValorizado, currencyManager.getSnapshot().baseCurrency.code)}
+            </span>
+            <span
+              title="Calculado según los costos registrados del stock disponible y los filtros actuales."
+              aria-label="Calculado según los costos registrados del stock disponible y los filtros actuales."
+              className="cursor-help text-gray-400 dark:text-gray-500 select-none"
+            >
+              ⓘ
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Tabla principal */}
       <div className="flex-1 overflow-auto px-4 py-3">

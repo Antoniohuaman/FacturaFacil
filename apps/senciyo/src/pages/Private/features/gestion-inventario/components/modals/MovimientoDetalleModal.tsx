@@ -1,15 +1,31 @@
 // src/features/inventario/components/modals/MovimientoDetalleModal.tsx
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { X } from 'lucide-react';
 import type { MovimientoStock } from '../../models';
+import type { TipoDocumentoOrigenCapa } from '../../models/capaCostoInventario.types';
 import { formatBusinessDateTimeForTicket } from '@/shared/time/businessTime';
 import { inferirFuente } from '../../utils/inventory.helpers';
+import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionInventario';
+import { proyectarKardexValorizado } from '../../services/consultaKardexValorizado.service';
+import { getTenantEmpresaId } from '@/shared/tenant';
+import { formatMoney } from '@/shared/currency';
 
 interface MovimientoDetalleModalProps {
   movimiento: MovimientoStock;
   onCerrar: () => void;
 }
+
+/** Etiqueta comprensible del tipo de documento de origen de una capa consumida — nunca un ID técnico. */
+const ETIQUETA_TIPO_DOCUMENTO_ORIGEN: Record<TipoDocumentoOrigenCapa, string> = {
+  nota_ingreso: 'Nota de ingreso',
+  ajuste: 'Ajuste de inventario',
+  importacion: 'Importación de stock',
+  devolucion_cliente: 'Devolución de cliente',
+  transferencia: 'Transferencia entre almacenes',
+  migracion: 'Migración inicial de inventario',
+};
 
 const TIPO_LABEL: Record<MovimientoStock['tipo'], string> = {
   ENTRADA: 'Entrada',
@@ -49,6 +65,21 @@ const Fila: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, val
 const MovimientoDetalleModal: React.FC<MovimientoDetalleModalProps> = ({ movimiento, onCerrar }) => {
   const esEntrada = movimiento.tipo === 'ENTRADA' || movimiento.tipo === 'AJUSTE_POSITIVO' || movimiento.tipo === 'DEVOLUCION';
   const fuente = inferirFuente(movimiento);
+
+  const { state: configState } = useConfigurationContext();
+  const estadoValorizacion = configState.preferenciasInventario.estadoValorizacion;
+  const puedeConsultarValorizado = esValorizacionActiva(estadoValorizacion);
+
+  // Etapa 5: misma proyección que la tabla y la exportación — un solo movimiento por invocación
+  // (el modal es una acción puntual del usuario, nunca un render por fila).
+  const filaValorizada = useMemo(() => {
+    if (!puedeConsultarValorizado) {
+      return undefined;
+    }
+    return proyectarKardexValorizado({ empresaId: getTenantEmpresaId(), movimientos: [movimiento] }).get(movimiento.id);
+  }, [puedeConsultarValorizado, movimiento]);
+
+  const mostrarDetalleCosto = puedeConsultarValorizado && Boolean(filaValorizada?.tieneValorizacion);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -101,6 +132,57 @@ const MovimientoDetalleModal: React.FC<MovimientoDetalleModalProps> = ({ movimie
               }
             />
           </section>
+
+          {/* Detalle de costo (Etapa 5) — solo cuando la valorización permite consulta oficial y
+              este movimiento tiene valorización histórica registrada; nunca capaId/consumoId. */}
+          {mostrarDetalleCosto && filaValorizada && (
+            <section>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Detalle de costo</p>
+              {estadoValorizacion === 'suspendida_por_inconsistencia' && (
+                <p className="mb-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                  Los valores del inventario se encuentran en revisión.
+                </p>
+              )}
+              <Fila
+                label="Costo unitario"
+                value={filaValorizada.costoUnitario !== undefined ? formatMoney(filaValorizada.costoUnitario, filaValorizada.monedaBase) : '—'}
+              />
+              <Fila
+                label="Valor del movimiento"
+                value={
+                  filaValorizada.valorMovimiento !== undefined ? (
+                    <span className={filaValorizada.valorMovimiento >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                      {formatMoney(filaValorizada.valorMovimiento, filaValorizada.monedaBase)}
+                    </span>
+                  ) : '—'
+                }
+              />
+              <Fila label="Moneda" value={filaValorizada.monedaBase} />
+
+              {filaValorizada.origenes.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/60">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">Origen del costo</p>
+                  <div className="space-y-2">
+                    {filaValorizada.origenes.map((origen, indice) => (
+                      <div key={`${origen.documentoOrigenId}-${indice}`} className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-2.5 py-2">
+                        <p className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                          {ETIQUETA_TIPO_DOCUMENTO_ORIGEN[origen.tipoDocumentoOrigen] ?? 'Origen del costo'}
+                        </p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                          {formatBusinessDateTimeForTicket(origen.fecha)}
+                        </p>
+                        <div className="mt-1 grid grid-cols-3 gap-1 text-[10px] text-gray-600 dark:text-gray-300">
+                          <span>Cant.: <span className="font-medium tabular-nums">{origen.cantidad}</span></span>
+                          <span>Costo u.: <span className="font-medium tabular-nums">{formatMoney(origen.costoUnitario, filaValorizada.monedaBase)}</span></span>
+                          <span>Valor: <span className="font-medium tabular-nums">{formatMoney(origen.valor, filaValorizada.monedaBase)}</span></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Almacén */}
           <section>

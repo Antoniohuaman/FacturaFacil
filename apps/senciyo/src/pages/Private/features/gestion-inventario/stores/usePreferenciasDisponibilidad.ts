@@ -19,7 +19,8 @@ const TODAS_LAS_COLUMNAS: ColumnaDisponibilidad[] = [
   'stockMinimo',
   'stockMaximo',
   'situacion',
-  'acciones'
+  'acciones',
+  'valorStock'
 ];
 
 const COLUMNAS_VISIBLES_POR_DEFECTO: ColumnaDisponibilidad[] = [

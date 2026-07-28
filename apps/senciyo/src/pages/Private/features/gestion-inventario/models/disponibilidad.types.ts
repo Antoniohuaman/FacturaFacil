@@ -49,6 +49,14 @@ export interface DisponibilidadItem {
    * (modo "Todos los almacenes"), para mostrar columnas dinámicas por almacén.
    */
   stockPorAlmacen?: Record<string, number>;
+
+  /**
+   * Valor de costo del stock disponible en el alcance mostrado (Etapa 5) — suma de
+   * `cantidadDisponible × costoUnitarioBaseMonedaBase` de las capas vigentes del producto en los
+   * almacenes del alcance actual. `undefined` cuando la valorización no permite consulta oficial
+   * todavía — nunca 0 inventado. NUNCA deriva de `precio` (precio de venta) ni de `precioCompra`.
+   */
+  valorStock?: number;
 }
 
 /**
@@ -86,7 +94,9 @@ export type ColumnaDisponibilidad =
   | 'stockMinimo'
   | 'stockMaximo'
   | 'situacion'
-  | 'acciones';
+  | 'acciones'
+  /** Etapa 5 — opcional, apagada por defecto, solo disponible cuando la valorización permite consulta oficial. */
+  | 'valorStock';
 
 /**
  * Preferencias de usuario para la vista de disponibilidad

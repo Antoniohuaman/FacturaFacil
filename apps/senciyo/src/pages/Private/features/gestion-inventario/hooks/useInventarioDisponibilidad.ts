@@ -8,6 +8,13 @@ import { useConfigurationContext } from '../../configuracion-sistema/contexto/Co
 import { InventoryService } from '../services/inventory.service';
 import { summarizeProductStock } from '@/shared/inventory/stockGateway';
 import { useCurrentEstablecimientoId } from '../../../../../contexts/UserSessionContext';
+import { getTenantEmpresaId } from '@/shared/tenant';
+import { esValorizacionActiva } from '../utils/estadoActivacionValorizacionInventario';
+import {
+  calcularValorStockPorProductoAlmacen,
+  obtenerValorStockProducto,
+  type ValorStockProductoAlmacen
+} from '../services/consultaKardexValorizado.service';
 import type {
   DisponibilidadItem,
   DisponibilidadFilters,
@@ -32,6 +39,8 @@ export const useInventarioDisponibilidad = () => {
   const { allProducts, updateProduct } = useProductStore();
   const { state: configState } = useConfigurationContext();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const empresaId = getTenantEmpresaId();
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
 
   const almacenesActivos = useMemo(
     () => configState.almacenes.filter(w => w.estaActivoAlmacen),
@@ -179,6 +188,14 @@ export const useInventarioDisponibilidad = () => {
 
     const almacenesEnScope = almacenesActivos.filter(a => almacenescope.includes(a.id));
 
+    // Etapa 5: una sola lectura de capas por recálculo (nunca por producto) — se omite por
+    // completo antes de que la valorización permita consulta oficial. Vive en el mismo memo que ya
+    // depende de `allProducts` (recalcula tras cualquier operación que afecte stock/capas), en vez
+    // de un memo separado con una dependencia artificial.
+    const valoresStockPorProductoAlmacen: ReadonlyMap<string, ValorStockProductoAlmacen> = puedeConsultarValorizado
+      ? calcularValorStockPorProductoAlmacen(empresaId)
+      : new Map();
+
     // La reserva global de OV pertenece al establecimiento, no a un almacén físico concreto.
     // Al ver un único almacén no se le atribuye esa reserva: sería una falsa restricción.
     const establecimientoParaGlobalOV = filtros.almacenId
@@ -247,9 +264,12 @@ export const useInventarioDisponibilidad = () => {
         stockMaximo,
         precio: product.precio,
         stockPorAlmacen,
+        valorStock: puedeConsultarValorizado
+          ? obtenerValorStockProducto(valoresStockPorProductoAlmacen, product.id, almacenescope)
+          : undefined,
       };
     });
-  }, [allProducts, almacenescope, almacenesActivos, hasSinglealmacen, calcularSituacion, currentEstablecimientoId, filtros.almacenId]);
+  }, [allProducts, almacenescope, almacenesActivos, hasSinglealmacen, calcularSituacion, currentEstablecimientoId, filtros.almacenId, puedeConsultarValorizado, empresaId]);
 
   /**
    * Aplicar filtros de búsqueda y disponibilidad
@@ -379,6 +399,17 @@ export const useInventarioDisponibilidad = () => {
     const totalReservado = datosDisponibilidad.reduce((sum, d) => sum + d.reservado, 0);
     const totalDisponible = datosDisponibilidad.reduce((sum, d) => sum + d.disponible, 0);
     const valorTotal = datosDisponibilidad.reduce((sum, d) => sum + (d.disponible * d.precio), 0);
+    // Etapa 5 — distinto de `valorTotal` (precio de venta × disponible, ya existente arriba): esta
+    // es la valorización de COSTO del inventario (nunca precio de venta), `undefined` hasta que la
+    // valorización permita consulta oficial.
+    //
+    // Cierre puntual Etapa 5, §2: suma sobre `datosFiltrados` (empresa/establecimiento/almacén YA
+    // aplicados en `datosDisponibilidad`, más búsqueda/"solo con disponible" de Stock Actual) —
+    // nunca `datosOrdenados`/`datosPaginados` (el orden no debe importar y la paginación NUNCA debe
+    // recortar esta suma; es el mismo conjunto de filas, solo sin cortar por página).
+    const valorInventarioValorizado = puedeConsultarValorizado
+      ? datosFiltrados.reduce((sum, d) => sum + (d.valorStock ?? 0), 0)
+      : undefined;
 
     return {
       totalProductos,
@@ -389,9 +420,10 @@ export const useInventarioDisponibilidad = () => {
       totalReal,
       totalReservado,
       totalDisponible,
-      valorTotal
+      valorTotal,
+      valorInventarioValorizado
     };
-  }, [datosDisponibilidad]);
+  }, [datosDisponibilidad, datosFiltrados, puedeConsultarValorizado]);
 
   /**
    * Actualizar filtros
