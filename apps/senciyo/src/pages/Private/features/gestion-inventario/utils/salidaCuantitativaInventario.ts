@@ -45,7 +45,7 @@ import {
  * es solo un `motivo`/`tipoSalida` de NS, nunca un tipoOperacion distinto) y ajuste negativo
  * manual. Cualquier otro `tipoOperacion` de salida sigue siendo exclusivamente cuantitativo.
  */
-const TIPOS_OPERACION_SALIDA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
+export const TIPOS_OPERACION_SALIDA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
   'venta_salida',
   'nota_salida',
   'ajuste_negativo',

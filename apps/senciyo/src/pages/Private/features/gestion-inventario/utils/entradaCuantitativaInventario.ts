@@ -42,7 +42,7 @@ import {
  * `importacionCuantitativaInventario.ts` vía `construirCapasEntradaValorizada`, nunca duplicado).
  * Cualquier otro `tipoOperacion` de entrada (`anulacion`) sigue siendo exclusivamente cuantitativo.
  */
-const TIPOS_OPERACION_ENTRADA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
+export const TIPOS_OPERACION_ENTRADA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
   'ajuste_positivo',
   'ni_automatica',
   'ni_confirmacion',

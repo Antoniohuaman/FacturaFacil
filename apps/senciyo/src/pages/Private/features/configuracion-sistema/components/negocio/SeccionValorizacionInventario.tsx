@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import { OPCIONES_TRATAMIENTO_IMPUESTO } from './opcionesTratamientoImpuestoCompra';
 import { useProductStore } from '../../../catalogo-articulos/hooks/useProductStore';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import { getTenantEmpresaId } from '@/shared/tenant';
 import { useUserSession } from '@/contexts/UserSessionContext';
+import { currencyManager } from '@/shared/currency';
 import type { Almacen } from '../../modelos/Almacen';
 import type { ValorizacionInicialInventario } from '../../../gestion-inventario/models/valorizacionInicialInventario.types';
 import { obtenerLoteActivoPorEmpresa } from '../../../gestion-inventario/repositories/valorizacionInicialInventario.repository';
@@ -16,6 +17,9 @@ import {
   cancelarPreparacion,
   verificarCondicionesValidacion,
   validarYTransicionarAValidada,
+  puedeReanudarOIniciarActivacion,
+  verificarCondicionesActivacion,
+  ejecutarActivacionValorizacion,
 } from '../../../gestion-inventario/services/valorizacionInicial.service';
 import { valorInicialInputCosto, parsearValorCosto, determinarEsManual } from './orquestacionConfirmacionCosto';
 
@@ -44,6 +48,19 @@ export default function SeccionValorizacionInventario() {
   // edición en curso de OTRA fila nunca se pierde por una acción en una fila distinta. Se limpia
   // por completo únicamente cuando cambia el lote activo (id distinto — otra preparación).
   const [costosLocales, setCostosLocales] = useState<Record<string, string>>({});
+  // Confirmación inline (nunca un modal/wizard nuevo) antes de activar — se reinicia cada vez que
+  // cambia el lote activo, para que un lote distinto nunca herede una confirmación pendiente.
+  const [confirmandoActivacion, setConfirmandoActivacion] = useState(false);
+  const [activando, setActivando] = useState(false);
+  const [errorActivacion, setErrorActivacion] = useState<string | undefined>(undefined);
+  // Evita reintentar la reanudación automática en cada render — solo una vez por montaje real.
+  const reanudacionAutomaticaIntentadaRef = useRef(false);
+  // Re-entrancia real (revisión final Etapa 4B, §3): evita que un doble disparo síncrono del mismo
+  // render (StrictMode invocando el efecto dos veces, o un clic manual mientras la reanudación
+  // automática ya está en vuelo) invoque `ejecutarActivacionValorizacion` dos veces antes de que
+  // `setActivando(true)` se refleje en un nuevo render. La idempotencia real la garantiza el
+  // ledger; este ref solo evita una invocación redundante desde la UI.
+  const activandoRef = useRef(false);
 
   useEffect(() => {
     setLote(obtenerLoteActivoPorEmpresa(empresaId));
@@ -148,6 +165,71 @@ export default function SeccionValorizacionInventario() {
     }
   };
 
+  /**
+   * Activación final (cierre Etapa 4B) — irreversible. `estadoValorizacion` pasa a `'activando'`
+   * ANTES de la llamada asíncrona (bloquea toda mutación de inventario mientras se ejecuta, y deja
+   * evidencia real para que una recarga a mitad de camino pueda reanudar). Reutiliza exactamente
+   * `ejecutarActivacionValorizacion` — nunca reconstruye la lógica de activación aquí.
+   *
+   * Revisión final Etapa 4B (§3): usa `puedeReanudarOIniciarActivacion`, NO `puedeIniciarActivacion`
+   * a solas — esta última rechaza `'activando'` (no está en su propio conjunto de transiciones
+   * permitidas), lo que dejaba la reanudación automática y el botón manual "Reanudar activación"
+   * completamente inoperantes cuando el estado ya era `'activando'` (recarga o reintento). El
+   * guard `activandoRef` (además del estado `activando`, que solo controla el render) evita que un
+   * doble disparo síncrono del mismo render (StrictMode, doble clic) invoque la función dos veces
+   * antes de que el primer `setActivando(true)` se refleje.
+   */
+  const handleActivar = useCallback(async () => {
+    if (activandoRef.current || !puedeReanudarOIniciarActivacion(estadoValorizacion)) {
+      if (!puedeReanudarOIniciarActivacion(estadoValorizacion)) {
+        feedback.error('La activación no está disponible desde el estado actual.');
+      }
+      return;
+    }
+    activandoRef.current = true;
+    setActivando(true);
+    setErrorActivacion(undefined);
+    dispatch({ type: 'SET_PREFERENCIAS_INVENTARIO', payload: { ...state.preferenciasInventario, estadoValorizacion: 'activando' } });
+    try {
+      const resultado = await ejecutarActivacionValorizacion({
+        empresaId,
+        tratamientoImpuestoCompra,
+        productos: allProducts,
+        almacenes: almacenesMap,
+        monedaBase: currencyManager.getSnapshot().baseCurrency.code,
+        generarId: () => crypto.randomUUID(),
+        fechaActual: () => new Date().toISOString(),
+      });
+      dispatch({ type: 'SET_PREFERENCIAS_INVENTARIO', payload: { ...state.preferenciasInventario, estadoValorizacion: resultado.estadoValorizacion } });
+      setLote(resultado.lote);
+      setConfirmandoActivacion(false);
+      if (resultado.estadoValorizacion === 'activa') {
+        feedback.success('Inventario valorizado activado.');
+      } else {
+        setErrorActivacion(resultado.error);
+        feedback.error(resultado.error ?? 'La activación no pudo completarse — puede reintentarse.');
+      }
+    } catch (e) {
+      const mensaje = e instanceof Error ? e.message : String(e);
+      dispatch({ type: 'SET_PREFERENCIAS_INVENTARIO', payload: { ...state.preferenciasInventario, estadoValorizacion: 'fallida_recuperable' } });
+      setErrorActivacion(mensaje);
+      feedback.error(mensaje);
+    } finally {
+      activandoRef.current = false;
+      setActivando(false);
+    }
+  }, [estadoValorizacion, feedback, empresaId, tratamientoImpuestoCompra, allProducts, almacenesMap, dispatch, state.preferenciasInventario]);
+
+  // Recarga durante 'activando' (cierre Etapa 4B, §7): la operación real (ledger de idempotencia +
+  // unidad de trabajo) es la fuente de verdad, nunca este componente — reanuda automáticamente
+  // llamando a la MISMA función, que resuelve 'nueva'/'repetida'/'reactivada'/'ambigua' por sí sola.
+  useEffect(() => {
+    if (estadoValorizacion === 'activando' && !reanudacionAutomaticaIntentadaRef.current) {
+      reanudacionAutomaticaIntentadaRef.current = true;
+      handleActivar();
+    }
+  }, [estadoValorizacion, handleActivar]);
+
   if (estadoValorizacion === 'no_iniciada' || estadoValorizacion === 'cancelada_antes_activacion') {
     return (
       <div className="space-y-3">
@@ -161,6 +243,62 @@ export default function SeccionValorizacionInventario() {
           className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >
           {estadoValorizacion === 'cancelada_antes_activacion' ? 'Reiniciar preparación' : 'Iniciar preparación'}
+        </button>
+      </div>
+    );
+  }
+
+  if (estadoValorizacion === 'activa') {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-xs text-green-800">
+          <p className="font-semibold">Inventario valorizado activo.</p>
+          <p className="mt-1">
+            Compras, ventas, ajustes, importaciones y transferencias operan en modo valorizado (costo por capas FIFO). Esta activación es irreversible.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (estadoValorizacion === 'activando') {
+    return (
+      <div className="space-y-2">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-800 flex items-center gap-2">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" aria-hidden="true" />
+          Activando la valorización de inventario — no cierres ni recargues esta pantalla.
+        </div>
+        {/* Acción segura de respaldo (revisión final Etapa 4B, §3): la reanudación automática ya se
+            intenta al montar (ver el efecto de abajo), pero esta acción visible cubre cualquier caso
+            en que ese efecto no se haya disparado (p. ej. la pestaña estuvo en segundo plano). Nunca
+            inicia una segunda activación — reutiliza `handleActivar`, cuya idempotencia real la
+            garantiza el ledger de `ejecutarActivacionValorizacion`, nunca este botón. */}
+        <button
+          type="button"
+          onClick={handleActivar}
+          disabled={activando}
+          className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {activando ? 'Reanudando…' : 'Reanudar activación'}
+        </button>
+      </div>
+    );
+  }
+
+  if (estadoValorizacion === 'fallida_recuperable') {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">
+          <p className="font-semibold">La activación no pudo completarse.</p>
+          {errorActivacion && <p className="mt-1">{errorActivacion}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={handleActivar}
+          disabled={activando}
+          className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {activando ? 'Reintentando…' : 'Reintentar activación'}
         </button>
       </div>
     );
@@ -180,6 +318,10 @@ export default function SeccionValorizacionInventario() {
     ? verificarCondicionesValidacion(lote, tratamientoImpuestoCompra, allProducts, almacenesMap)
     : [];
 
+  const bloqueantesActivacion = lote.estado === 'validada'
+    ? verificarCondicionesActivacion(lote, tratamientoImpuestoCompra, allProducts, almacenesMap, currencyManager.getSnapshot().baseCurrency.code)
+    : [];
+
   const estadoDetalle = (d: ValorizacionInicialInventario['detalles'][number]): string => {
     if (d.requiereRecalculo) return 'Stock modificado, requiere revisión';
     if (lote.estado === 'validada') return 'Validado';
@@ -190,8 +332,54 @@ export default function SeccionValorizacionInventario() {
   return (
     <div className="space-y-4">
       {lote.estado === 'validada' && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-xs text-green-800">
-          Preparación validada. La activación estará disponible cuando las integraciones de Compras y Ventas estén completas.
+        <div className="space-y-3">
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-xs text-green-800">
+            Preparación validada.
+          </div>
+          {bloqueantesActivacion.length > 0 ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-xs font-semibold text-amber-800 mb-1">La activación todavía no está disponible:</p>
+              <ul className="list-disc pl-4 text-[11px] text-amber-700 space-y-0.5">
+                {bloqueantesActivacion.map((m) => <li key={m}>{m}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 space-y-2">
+              <p className="font-semibold">Activar la valorización de inventario es irreversible.</p>
+              <p>
+                A partir de la activación, Compras, Ventas, ajustes, importaciones y transferencias operarán en modo
+                valorizado (costo por capas FIFO). No existe una acción para desactivar.
+              </p>
+              {!confirmandoActivacion ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoActivacion(true)}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  Activar valorización
+                </button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleActivar}
+                    disabled={activando}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {activando ? 'Activando…' : 'Confirmar activación (irreversible)'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoActivacion(false)}
+                    disabled={activando}
+                    className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-40"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
