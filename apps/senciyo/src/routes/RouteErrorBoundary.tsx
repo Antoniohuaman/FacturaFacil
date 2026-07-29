@@ -1,12 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- boundary legacy; pendiente tipado */
 import { useRouteError, isRouteErrorResponse } from "react-router-dom";
 
+const PATRONES_ERROR_CHUNK = [
+  "failed to fetch dynamically imported module",
+  "error loading dynamically imported module",
+  "importing a module script failed",
+  "failed to load module script",
+  "load failed",
+];
+
+function esErrorDeCargaDeChunk(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const mensaje = error.message.toLowerCase();
+  return PATRONES_ERROR_CHUNK.some((patron) => mensaje.includes(patron));
+}
+
 export default function RouteErrorBoundary() {
   const error = useRouteError();
 
   let title = "Algo salió mal";
   let message = "Ocurrió un error inesperado. Intenta recargar la página.";
   let details: string | undefined;
+  let esErrorDeChunk = false;
 
   if (isRouteErrorResponse(error)) {
     title = `${error.status} ${error.statusText}`;
@@ -14,6 +32,13 @@ export default function RouteErrorBoundary() {
   } else if (error instanceof Error) {
     message = error.message;
     details = error.stack;
+    esErrorDeChunk = esErrorDeCargaDeChunk(error);
+  }
+
+  if (esErrorDeChunk) {
+    title = "Hay una nueva versión disponible";
+    message = "Esta sección se actualizó desde tu última visita. Recarga la página para continuar.";
+    details = undefined;
   }
 
   return (

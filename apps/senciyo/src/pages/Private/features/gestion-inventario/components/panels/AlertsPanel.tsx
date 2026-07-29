@@ -1,7 +1,8 @@
 // src/features/inventario/components/panels/AlertsPanel.tsx
 
-import React, { useMemo } from 'react';
-import * as XLSX from 'xlsx';
+import React, { useMemo, useState } from 'react';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
+import { useFeedback } from '@/shared/feedback/useFeedback';
 import type { StockAlert } from '../../models';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 
@@ -67,44 +68,59 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
     [alertas]
   );
 
-  const handleExportarAlertas = () => {
-    const data = alertas.map(a => ({
-      'Producto':           a.productoNombre,
-      'Código Producto':    a.productoCodigo,
-      'Almacén':            a.almacenNombre,
-      'Código Almacén':     a.almacenCodigo,
-      'Establecimiento':    a.EstablecimientoNombre,
-      'Stock Real':         a.cantidadReal ?? a.cantidadActual,
-      'Stock Reservado':    a.cantidadReservada ?? 0,
-      'Stock Disponible':   a.cantidadActual,
-      'Stock Mínimo':       a.stockMinimo || '',
-      'Stock Máximo':       a.stockMaximo ?? '',
-      'Faltante':           a.faltante ?? '',
-      'Excedente':          a.excedente ?? '',
-      'Estado':             ESTADO_LABEL[a.estado] ?? a.estado,
-      'Es Crítico':         a.isCritical ? 'Sí' : 'No',
-    }));
+  const [exportando, setExportando] = useState(false);
+  const { error: mostrarError } = useFeedback();
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws['!cols'] = [
-      { wch: 30 }, // Producto
-      { wch: 15 }, // Código Producto
-      { wch: 25 }, // Almacén
-      { wch: 14 }, // Código Almacén
-      { wch: 28 }, // Establecimiento
-      { wch: 12 }, // Stock Real
-      { wch: 14 }, // Stock Reservado
-      { wch: 16 }, // Stock Disponible
-      { wch: 14 }, // Stock Mínimo
-      { wch: 14 }, // Stock Máximo
-      { wch: 10 }, // Faltante
-      { wch: 10 }, // Excedente
-      { wch: 16 }, // Estado
-      { wch: 10 }, // Es Crítico
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Alertas');
-    XLSX.writeFile(wb, `alertas_stock_${getBusinessTodayISODate()}.xlsx`);
+  const handleExportarAlertas = async () => {
+    if (exportando) {
+      return;
+    }
+    setExportando(true);
+    try {
+      const XLSX = await cargarXlsx();
+      const data = alertas.map(a => ({
+        'Producto':           a.productoNombre,
+        'Código Producto':    a.productoCodigo,
+        'Almacén':            a.almacenNombre,
+        'Código Almacén':     a.almacenCodigo,
+        'Establecimiento':    a.EstablecimientoNombre,
+        'Stock Real':         a.cantidadReal ?? a.cantidadActual,
+        'Stock Reservado':    a.cantidadReservada ?? 0,
+        'Stock Disponible':   a.cantidadActual,
+        'Stock Mínimo':       a.stockMinimo || '',
+        'Stock Máximo':       a.stockMaximo ?? '',
+        'Faltante':           a.faltante ?? '',
+        'Excedente':          a.excedente ?? '',
+        'Estado':             ESTADO_LABEL[a.estado] ?? a.estado,
+        'Es Crítico':         a.isCritical ? 'Sí' : 'No',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      ws['!cols'] = [
+        { wch: 30 }, // Producto
+        { wch: 15 }, // Código Producto
+        { wch: 25 }, // Almacén
+        { wch: 14 }, // Código Almacén
+        { wch: 28 }, // Establecimiento
+        { wch: 12 }, // Stock Real
+        { wch: 14 }, // Stock Reservado
+        { wch: 16 }, // Stock Disponible
+        { wch: 14 }, // Stock Mínimo
+        { wch: 14 }, // Stock Máximo
+        { wch: 10 }, // Faltante
+        { wch: 10 }, // Excedente
+        { wch: 16 }, // Estado
+        { wch: 10 }, // Es Crítico
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Alertas');
+      XLSX.writeFile(wb, `alertas_stock_${getBusinessTodayISODate()}.xlsx`);
+    } catch (error) {
+      console.error('[Alertas] Error al exportar', error);
+      mostrarError('No se pudo exportar las alertas. Intenta nuevamente.');
+    } finally {
+      setExportando(false);
+    }
   };
 
   return (
@@ -133,7 +149,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alertas, onReabastecerProduct
           </div>
           <button
             onClick={handleExportarAlertas}
-            disabled={alertas.length === 0}
+            disabled={alertas.length === 0 || exportando}
             className="h-9 px-4 py-2 text-sm font-medium text-[#4B5563] dark:text-gray-300 bg-white dark:bg-gray-800 border border-[#E5E7EB] dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-150"
           >
             Exportar alertas

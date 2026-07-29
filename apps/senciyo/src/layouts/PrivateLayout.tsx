@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Header from "./components/Header";
 import SideNav from "./components/SideNav";
 import { AppShellProvider, useModoAmpliado } from "../contexts/ContextoAppShell";
@@ -43,7 +43,9 @@ function AppShellInner() {
         )}
         <div className="flex-1 flex flex-col transition-all duration-300 ease-in-out overflow-x-hidden print:block print:overflow-visible">
           <div className="flex-1 overflow-y-auto overflow-x-hidden print:block print:overflow-visible">
-            <Outlet />
+            <Suspense fallback={<RouteFallback />}>
+              <Outlet />
+            </Suspense>
           </div>
         </div>
       </div>
@@ -92,6 +94,17 @@ export default function AppShell() {
         </ConfigurationProvider>
       </UserSessionProvider>
     </ThemeProvider>
+  );
+}
+
+function RouteFallback() {
+  return (
+    <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
+        <p className="text-gray-600 dark:text-gray-400">Cargando...</p>
+      </div>
+    </div>
   );
 }
 

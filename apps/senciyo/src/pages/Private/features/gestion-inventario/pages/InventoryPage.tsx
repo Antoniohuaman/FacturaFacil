@@ -18,7 +18,8 @@ import CintilloControlStock from '../components/CintilloControlStock';
 import ModalConfiguracionInventario from '../../configuracion-sistema/components/negocio/ModalConfiguracionInventario';
 import { PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
+import { useFeedback } from '@/shared/feedback/useFeedback';
 import { formatBusinessDateTimeLocal, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useFocusFromQuery } from '../../../../../hooks/useFocusFromQuery';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
@@ -261,6 +262,8 @@ export const InventoryPage: React.FC = () => {
   const { request: movementsAutoExportRequest, finish: finishMovementsAutoExport } = useAutoExportRequest('inventario-movimientos');
   const movementsAutoExportHandledRef = useRef(false);
   const exportHandlerRef = useRef<() => void>(() => {});
+  const [exportandoMovimientos, setExportandoMovimientos] = useState(false);
+  const { error: mostrarError } = useFeedback();
 
   // Almacena los movimientos visibles en la tabla (respetando filtros de tipo y búsqueda)
   const movimientosFiltradosVisiblesRef = useRef<MovimientoStock[]>([]);
@@ -292,7 +295,13 @@ export const InventoryPage: React.FC = () => {
    * EXACTAMENTE la misma proyección que la tabla y el detalle para las 2 columnas valorizadas —
    * nunca un cálculo de costo distinto para la exportación.
    */
-  const handleExportToExcel = () => {
+  const handleExportToExcel = async () => {
+    if (exportandoMovimientos) {
+      return;
+    }
+    setExportandoMovimientos(true);
+    try {
+    const XLSX = await cargarXlsx();
     const baseMovements = movimientosFiltradosVisiblesRef.current.length > 0
       ? movimientosFiltradosVisiblesRef.current
       : filteredMovements;
@@ -378,6 +387,12 @@ export const InventoryPage: React.FC = () => {
       ? `movimientos_costos_${getBusinessTodayISODate()}.xlsx`
       : `movimientos_stock_${getBusinessTodayISODate()}.xlsx`;
     XLSX.writeFile(wb, fileName);
+    } catch (error) {
+      console.error('[Inventario] Error al exportar movimientos', error);
+      mostrarError('No se pudo exportar los movimientos. Intenta nuevamente.');
+    } finally {
+      setExportandoMovimientos(false);
+    }
   };
 
   exportHandlerRef.current = handleExportToExcel;
@@ -620,7 +635,8 @@ export const InventoryPage: React.FC = () => {
 
             <button
               onClick={handleExportToExcel}
-              className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35"
+              disabled={exportandoMovimientos}
+              className="inline-flex items-center h-9 px-4 py-2 bg-[#6F36FF] text-white text-sm font-medium rounded-lg hover:bg-[#6F36FF]/90 dark:bg-[#8B5CF6] dark:hover:bg-[#8B5CF6]/90 transition-all duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4 mr-2" />
               Exportar Excel

@@ -22,6 +22,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [showHeaders, setShowHeaders] = useState(false);
+  const [generandoPlantilla, setGenerandoPlantilla] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { state: configState } = useConfigurationContext();
@@ -87,12 +88,18 @@ const ImportModal: React.FC<ImportModalProps> = ({
     }
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    if (generandoPlantilla) {
+      return;
+    }
+    setGenerandoPlantilla(true);
     try {
-      generateExcelTemplate(tipo, units, Establecimientos);
+      await generateExcelTemplate(tipo, units, Establecimientos);
     } catch (error) {
       console.error('Error al generar plantilla:', error);
       alert('Error al generar la plantilla. Por favor intenta de nuevo.');
+    } finally {
+      setGenerandoPlantilla(false);
     }
   };
 
@@ -161,7 +168,8 @@ const ImportModal: React.FC<ImportModalProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 onClick={downloadTemplate}
-                className="inline-flex items-center px-3 py-1.5 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
+                disabled={generandoPlantilla}
+                className="inline-flex items-center px-3 py-1.5 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Descargar plantilla Excel"
               >
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

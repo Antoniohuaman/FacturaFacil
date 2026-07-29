@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import * as ExcelJS from 'exceljs';
+import { cargarExcelJS } from '@/shared/export/cargarLibreriasExcel';
 import { Download, ChevronDown, FileSpreadsheet, Layers, Pencil } from 'lucide-react';
 import ClienteFormNew from '../components/ClienteFormNew';
 import ClientesTable from '../components/ClientesTable';
@@ -780,6 +780,7 @@ function ClientesPage() {
 		}
 
 		try {
+			const ExcelJS = await cargarExcelJS();
 			const workbook = new ExcelJS.Workbook();
 			const worksheet = workbook.addWorksheet(variant === 'BASICO' ? 'Clientes básico' : 'Clientes completo');
 

@@ -1,4 +1,4 @@
-import * as ExcelJS from 'exceljs';
+import { cargarExcelJS } from './cargarLibreriasExcel';
 
 export interface SimpleExcelColumn {
   header: string;
@@ -28,6 +28,7 @@ export async function exportDatasetToExcel({
     throw new Error('No hay datos para exportar');
   }
 
+  const ExcelJS = await cargarExcelJS();
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(worksheetName);
 

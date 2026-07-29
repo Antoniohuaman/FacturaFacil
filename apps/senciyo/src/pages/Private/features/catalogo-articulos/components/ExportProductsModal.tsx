@@ -144,7 +144,7 @@ const ExportProductsModal: React.FC<ExportProductsModalProps> = ({
       const { columns } = generateExportData();
 
       if (selectedFormat === 'excel') {
-        exportProductsToExcel(products, selectedColumns, columns);
+        await exportProductsToExcel(products, selectedColumns, columns);
       } else if (selectedFormat === 'csv') {
         const { headers, rows } = generateExportData();
         const csvContent = [

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- archivo comparte helpers y componentes; split diferido */
 import { Download } from 'lucide-react';
-import * as ExcelJS from 'exceljs';
+import { cargarExcelJS } from '@/shared/export/cargarLibreriasExcel';
 
 export interface ExcelColumn {
   header: string;
@@ -106,6 +106,7 @@ export const exportToExcel = async (
     throw new Error('No hay columnas disponibles para exportar');
   }
 
+  const ExcelJS = await cargarExcelJS();
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(options?.worksheetName || 'Datos');
 

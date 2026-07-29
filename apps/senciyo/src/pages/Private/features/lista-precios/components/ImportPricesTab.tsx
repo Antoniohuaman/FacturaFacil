@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 import { formatBusinessDateTimeIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
 import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { registrarImportacionCompletada } from '../../../../../shared/analitica/analitica';
@@ -34,7 +34,7 @@ interface ImportPricesTabProps {
   catalogProducts: CatalogProduct[];
   loading: boolean;
   onApplyImport: (entries: BulkPriceImportEntry[]) => Promise<BulkPriceImportResult>;
-  onExportPrices: () => ExportPricesResult;
+  onExportPrices: () => Promise<ExportPricesResult>;
 }
 interface StoredImportState {
   rows: PriceImportPreviewRow[];
@@ -115,9 +115,13 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
     setLastResult(null);
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     if (tableColumns.length === 0) {
       setParseError('Activa al menos una columna visible en la tabla para generar una plantilla.');
+      return;
+    }
+
+    if (isParsing) {
       return;
     }
 
@@ -147,27 +151,42 @@ export const ImportPricesTab: React.FC<ImportPricesTabProps> = ({
       return;
     }
 
-    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-    worksheet['!cols'] = buildWorksheetColConfig(expectedHeaders);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, TEMPLATE_TITLE);
-    const timestamp = getBusinessTodayISODate();
-    XLSX.writeFile(workbook, `Plantilla_ImportacionPrecios_${timestamp}.xlsx`);
+    setIsParsing(true);
+    try {
+      const XLSX = await cargarXlsx();
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+      worksheet['!cols'] = buildWorksheetColConfig(expectedHeaders);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, TEMPLATE_TITLE);
+      const timestamp = getBusinessTodayISODate();
+      XLSX.writeFile(workbook, `Plantilla_ImportacionPrecios_${timestamp}.xlsx`);
+    } catch (error) {
+      console.error('[ImportPricesTab] Error generating template:', error);
+      setParseError('No se pudo generar la plantilla. Inténtalo nuevamente.');
+    } finally {
+      setIsParsing(false);
+    }
   };
 
-  const handleExportPrices = useCallback(() => {
-    setParseError(null);
+  const handleExportPrices = useCallback(async () => {
+    if (isParsing) {
+      return;
+    }
 
+    setParseError(null);
+    setIsParsing(true);
     try {
-      const result = onExportPrices();
+      const result = await onExportPrices();
       if (!result.success) {
         setParseError(result.error ?? 'No se pudo exportar los precios.');
       }
     } catch (error) {
       console.error('[ImportPricesTab] Error exporting prices:', error);
       setParseError('No se pudo exportar los precios. Inténtalo nuevamente.');
+    } finally {
+      setIsParsing(false);
     }
-  }, [onExportPrices]);
+  }, [isParsing, onExportPrices]);
 
   const handleFileSelected = useCallback(async (file: File) => {
     if (tableColumns.length === 0) {

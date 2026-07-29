@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 import { PageHeader } from '@/contasis';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { NewColumnForm } from '../models/PriceTypes';
@@ -111,7 +111,7 @@ export const ListaPrecios: React.FC = () => {
     return true;
   }, [editingColumn, updateColumn]);
 
-  const exportVisiblePrices = useCallback((filterSkus?: Set<string>): ExportPricesResult => {
+  const exportVisiblePrices = useCallback(async (filterSkus?: Set<string>): Promise<ExportPricesResult> => {
     if (tableColumnConfigs.length === 0) {
       return { success: false, error: 'Activa al menos una columna visible en la tabla para exportar.' };
     }
@@ -182,6 +182,7 @@ export const ListaPrecios: React.FC = () => {
       return { success: false, error: 'No hay productos en el catálogo para exportar.' };
     }
 
+    const XLSX = await cargarXlsx();
     const worksheet = XLSX.utils.aoa_to_sheet(aoa);
     worksheet['!cols'] = buildWorksheetColConfig(exportHeaders);
     const workbook = XLSX.utils.book_new();
@@ -192,7 +193,7 @@ export const ListaPrecios: React.FC = () => {
     return { success: true };
   }, [catalogProducts, products, tableColumnConfigs]);
 
-  const handleExportVisibleFromMain = useCallback(() => {
+  const handleExportVisibleFromMain = useCallback(async () => {
     if (exportingPrices) {
       return;
     }
@@ -206,7 +207,7 @@ export const ListaPrecios: React.FC = () => {
 
     setExportingPrices(true);
     try {
-      const result = exportVisiblePrices(new Set(filteredProducts.map(p => p.sku.toUpperCase())));
+      const result = await exportVisiblePrices(new Set(filteredProducts.map(p => p.sku.toUpperCase())));
       if (!result.success && result.error) {
         setExportError(result.error);
       }

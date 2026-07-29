@@ -10,7 +10,7 @@ import {
   XCircle,
   CheckCircle2,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { useClientes } from '../hooks';
 import { ClientesModuleLayout } from '../components/ClientesModuleLayout';
@@ -852,6 +852,7 @@ const parseCompleteSheet = (rows: Array<Array<string | number>>): ParseResult =>
 
 const parseFile = async (file: File, mode: ImportMode): Promise<ParseResult> => {
   const buffer = await file.arrayBuffer();
+  const XLSX = await cargarXlsx();
   const workbook = XLSX.read(buffer, { type: 'array' });
 
   const sheetName = workbook.SheetNames[0];

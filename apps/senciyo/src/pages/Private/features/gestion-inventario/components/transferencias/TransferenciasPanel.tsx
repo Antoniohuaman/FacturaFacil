@@ -1,7 +1,8 @@
 // src/features/gestion-inventario/components/transferencias/TransferenciasPanel.tsx
 
 import React, { useState, useMemo } from 'react';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
+import { useFeedback } from '@/shared/feedback/useFeedback';
 import { Plus, Eye, Truck, CheckCircle, XCircle, Ban, Download } from 'lucide-react';
 import type { Transferencia, EstadoTransferencia } from '../../models/transferencia.types';
 import DetalleTransferencia from './DetalleTransferencia';
@@ -57,6 +58,8 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
   const [filtroTipo, setFiltroTipo] = useState<string>(ESTADOS_TODOS);
   const [busqueda, setBusqueda] = useState('');
   const [pagina, setPagina] = useState(1);
+  const [exportando, setExportando] = useState(false);
+  const { error: mostrarError } = useFeedback();
   const POR_PAGINA = 15;
 
   const { allProducts } = useProductStore();
@@ -114,48 +117,60 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
   };
 
   // Exportar a Excel los resultados filtrados (todas las páginas)
-  const handleExportarExcel = () => {
-    const formatFecha = (d?: Date): string => {
-      if (!d) return '—';
-      try {
-        return formatBusinessDateTimeForTicket(d instanceof Date ? d : new Date(d as unknown as string));
-      } catch {
-        return '—';
-      }
-    };
+  const handleExportarExcel = async () => {
+    if (exportando) {
+      return;
+    }
+    setExportando(true);
+    try {
+      const XLSX = await cargarXlsx();
+      const formatFecha = (d?: Date): string => {
+        if (!d) return '—';
+        try {
+          return formatBusinessDateTimeForTicket(d instanceof Date ? d : new Date(d as unknown as string));
+        } catch {
+          return '—';
+        }
+      };
 
-    const data = datosFiltrados.map(t => ({
-      'Código':                t.id,
-      'Fecha creación':        formatFecha(t.fecha),
-      'Producto':              t.productoNombre,
-      'Código producto':       t.productoCodigo,
-      'Cantidad':              t.cantidad,
-      'Unidad':                unidadPorProducto[t.productoId] || '—',
-      'Tipo':                  t.tipoTransferencia === 'INTRA_ESTABLECIMIENTO' ? 'Mismo establecimiento' : 'Entre establecimientos',
-      'Estado':                ESTADO_BADGE[t.estado].label,
-      'Estab. origen':         t.establecimientoOrigenNombre || '—',
-      'Almacén origen':        t.almacenOrigenNombre,
-      'Estab. destino':        t.establecimientoDestinoNombre || '—',
-      'Almacén destino':       t.almacenDestinoNombre,
-      'Usuario':               t.usuario,
-      'Referencia':            t.documentoReferencia || '—',
-      'Observaciones':         t.observaciones || '—',
-      'Fecha despacho':        formatFecha(t.fechaDespacho),
-      'Fecha recepción':       formatFecha(t.fechaRecepcion),
-      'Fecha anulación':       formatFecha(t.fechaAnulacion),
-    }));
+      const data = datosFiltrados.map(t => ({
+        'Código':                t.id,
+        'Fecha creación':        formatFecha(t.fecha),
+        'Producto':              t.productoNombre,
+        'Código producto':       t.productoCodigo,
+        'Cantidad':              t.cantidad,
+        'Unidad':                unidadPorProducto[t.productoId] || '—',
+        'Tipo':                  t.tipoTransferencia === 'INTRA_ESTABLECIMIENTO' ? 'Mismo establecimiento' : 'Entre establecimientos',
+        'Estado':                ESTADO_BADGE[t.estado].label,
+        'Estab. origen':         t.establecimientoOrigenNombre || '—',
+        'Almacén origen':        t.almacenOrigenNombre,
+        'Estab. destino':        t.establecimientoDestinoNombre || '—',
+        'Almacén destino':       t.almacenDestinoNombre,
+        'Usuario':               t.usuario,
+        'Referencia':            t.documentoReferencia || '—',
+        'Observaciones':         t.observaciones || '—',
+        'Fecha despacho':        formatFecha(t.fechaDespacho),
+        'Fecha recepción':       formatFecha(t.fechaRecepcion),
+        'Fecha anulación':       formatFecha(t.fechaAnulacion),
+      }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Transferencias');
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Transferencias');
 
-    ws['!cols'] = [
-      { wch: 22 }, { wch: 20 }, { wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
-      { wch: 22 }, { wch: 12 }, { wch: 28 }, { wch: 25 }, { wch: 28 }, { wch: 25 },
-      { wch: 20 }, { wch: 20 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
-    ];
+      ws['!cols'] = [
+        { wch: 22 }, { wch: 20 }, { wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
+        { wch: 22 }, { wch: 12 }, { wch: 28 }, { wch: 25 }, { wch: 28 }, { wch: 25 },
+        { wch: 20 }, { wch: 20 }, { wch: 35 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+      ];
 
-    XLSX.writeFile(wb, `transferencias-inventario-${getBusinessTodayISODate()}.xlsx`);
+      XLSX.writeFile(wb, `transferencias-inventario-${getBusinessTodayISODate()}.xlsx`);
+    } catch (error) {
+      console.error('[Transferencias] Error al exportar', error);
+      mostrarError('No se pudo exportar las transferencias. Intenta nuevamente.');
+    } finally {
+      setExportando(false);
+    }
   };
 
   return (
@@ -208,7 +223,7 @@ const TransferenciasPanel: React.FC<TransferenciasPanelProps> = ({
           {/* Exportar Excel */}
           <button
             onClick={handleExportarExcel}
-            disabled={datosFiltrados.length === 0}
+            disabled={datosFiltrados.length === 0 || exportando}
             title="Exportar transferencias filtradas a Excel"
             className="inline-flex items-center h-9 px-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-[#E5E7EB] dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-[#6F36FF]/35 disabled:opacity-40 disabled:cursor-not-allowed"
           >

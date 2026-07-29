@@ -10,7 +10,8 @@ import DisponibilidadSettings from './DisponibilidadSettings';
 import type { DisponibilidadItem } from '../../models/disponibilidad.types';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
+import { useFeedback } from '@/shared/feedback/useFeedback';
 import { getBusinessTodayISODate } from '@/shared/time/businessTime';
 import type { AutoExportRequest } from '@/shared/export/autoExportParams';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
@@ -77,6 +78,8 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
 
   // Estado local para panel de configuración
   const [mostrandoSettings, setMostrandoSettings] = useState(false);
+  const [exportandoStockActual, setExportandoStockActual] = useState(false);
+  const { error: mostrarError } = useFeedback();
   const autoExportHandledRef = useRef(false);
   const selectedalmacenId = selectedalmacen?.id;
 
@@ -125,7 +128,13 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     return new Map(configState.Establecimientos.map((est) => [est.id, est]));
   }, [configState.Establecimientos]);
 
-  const handleExportStockActual = useCallback(() => {
+  const handleExportStockActual = useCallback(async () => {
+    if (exportandoStockActual) {
+      return;
+    }
+    setExportandoStockActual(true);
+    try {
+    const XLSX = await cargarXlsx();
     const scopealmacenes = almacenescope
       .map(id => almacenMap.get(id))
       .filter((almacen): almacen is Almacen => Boolean(almacen));
@@ -277,6 +286,12 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock Actual');
     const fileName = `stock_actual_${getBusinessTodayISODate()}.xlsx`;
     XLSX.writeFile(workbook, fileName);
+    } catch (error) {
+      console.error('[Disponibilidad] Error al exportar stock actual', error);
+      mostrarError('No se pudo exportar el stock actual. Intenta nuevamente.');
+    } finally {
+      setExportandoStockActual(false);
+    }
   }, [
     datosExportacion,
     filtros.almacenId,
@@ -285,7 +300,9 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     selectedalmacen,
     almacenMap,
     almacenescope,
-    EstablecimientoMap
+    EstablecimientoMap,
+    exportandoStockActual,
+    mostrarError
   ]);
 
   useEffect(() => {

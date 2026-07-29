@@ -1,59 +1,97 @@
-import type { ReactElement } from "react";
+import { lazy, type ReactElement } from "react";
 import type { RouteObject } from "react-router-dom";
 import { redirect } from "react-router-dom";
 
 import AppShell from "../layouts/PrivateLayout";
 import { ProtectedRoute } from "../pages/Private/features/autenticacion";
 
-// Pages por módulo - Comprobantes
+// Página de aterrizaje post-login ("/" y "/comprobantes") - eager a propósito
 import ComprobantesTabs from "../pages/Private/features/comprobantes-electronicos/lista-comprobantes/pages/ComprobantesTabs";
-import { SelectorModoEmision } from "../pages/Private/features/comprobantes-electronicos/pages/SelectorModoEmision";
-import EmisionTradicional from "../pages/Private/features/comprobantes-electronicos/pages/EmisionTradicional";
-import PuntoVenta from "../pages/Private/features/comprobantes-electronicos/punto-venta/pages/PuntoVenta";
-import ImportarClientesPage from "../pages/Private/features/gestion-clientes/pages/ImportarClientesPage";
-import HistorialCompras from "../pages/Private/features/gestion-clientes/pages/HistorialCompras";
-import ControlCajaHome from "../pages/Private/features/control-caja/pages/Home";
-import { SesionesCajaPage } from "../pages/Private/features/control-caja/pages/SesionesCajaPage";
-import ClientesPage from "../pages/Private/features/gestion-clientes/pages/ClientesPage";
-import IndicadoresPage from "../pages/Private/features/indicadores-negocio/pages/IndicadoresPage";
-import { ConfigurationDashboard } from "../pages/Private/features/configuracion-sistema/paginas/PanelConfiguracion";
-import { CompanyConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEmpresa";
-import { EstablecimientosConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEstablecimientos";
-import { ConfiguracionAlmacenes } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionAlmacenes";
-import { ConfiguracionUsuarios } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionUsuarios";
-import { SeriesConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionSeries";
-import { BusinessConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionNegocio";
-import { VoucherDesignConfigurationNew } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionDisenoComprobante";
-import { CajasConfiguration } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionCajas";
-import { CajaFormPage } from "../pages/Private/features/configuracion-sistema/paginas/PaginaFormularioCaja";
-import { ConfiguracionConexionSunat } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionConexionSunat";
-import { ConfiguracionTransporte } from "../pages/Private/features/configuracion-sistema/paginas/ConfiguracionTransporte";
-import CatalogoArticulosMain from "../pages/Private/features/catalogo-articulos/pages/CatalogoArticulosMain";
-import { ListaPrecios } from "../pages/Private/features/lista-precios/components/ListaPrecios";
-import { InventoryPage } from "../pages/Private/features/gestion-inventario/pages/InventoryPage";
-import CobranzasDashboard from "../pages/Private/features/gestion-cobranzas/pages/CobranzasDashboard";
-import NotificationsCenterPage from "../pages/Private/features/notifications/pages/NotificationsCenterPage";
-import { AdministrarEmpresas } from "../pages/Private/features/administracion-empresas/paginas/AdministrarEmpresas";
 
-// Documentos Comerciales (nuevo módulo)
-import DocumentosComerciales from "../pages/Private/features/documentos-comerciales/pages/DocumentosComerciales";
-import FormularioDocumentoComercialPage from "../pages/Private/features/documentos-comerciales/pages/FormularioDocumentoComercialPage";
-import DocumentosComercialesLayout from "../pages/Private/features/documentos-comerciales/pages/DocumentosComercialesLayout";
+// Pages por módulo - Comprobantes (diferidas: no forman parte del primer render)
+const SelectorModoEmision = lazy(() =>
+  import("../pages/Private/features/comprobantes-electronicos/pages/SelectorModoEmision").then((m) => ({ default: m.SelectorModoEmision }))
+);
+const EmisionTradicional = lazy(() => import("../pages/Private/features/comprobantes-electronicos/pages/EmisionTradicional"));
+const PuntoVenta = lazy(() => import("../pages/Private/features/comprobantes-electronicos/punto-venta/pages/PuntoVenta"));
+const ImportarClientesPage = lazy(() => import("../pages/Private/features/gestion-clientes/pages/ImportarClientesPage"));
+const HistorialCompras = lazy(() => import("../pages/Private/features/gestion-clientes/pages/HistorialCompras"));
+const ControlCajaHome = lazy(() => import("../pages/Private/features/control-caja/pages/Home"));
+const SesionesCajaPage = lazy(() =>
+  import("../pages/Private/features/control-caja/pages/SesionesCajaPage").then((m) => ({ default: m.SesionesCajaPage }))
+);
+const ClientesPage = lazy(() => import("../pages/Private/features/gestion-clientes/pages/ClientesPage"));
+const IndicadoresPage = lazy(() => import("../pages/Private/features/indicadores-negocio/pages/IndicadoresPage"));
+const ConfigurationDashboard = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/PanelConfiguracion").then((m) => ({ default: m.ConfigurationDashboard }))
+);
+const CompanyConfiguration = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEmpresa").then((m) => ({ default: m.CompanyConfiguration }))
+);
+const EstablecimientosConfiguration = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionEstablecimientos").then((m) => ({ default: m.EstablecimientosConfiguration }))
+);
+const ConfiguracionAlmacenes = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionAlmacenes").then((m) => ({ default: m.ConfiguracionAlmacenes }))
+);
+const ConfiguracionUsuarios = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionUsuarios").then((m) => ({ default: m.ConfiguracionUsuarios }))
+);
+const SeriesConfiguration = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionSeries").then((m) => ({ default: m.SeriesConfiguration }))
+);
+const BusinessConfiguration = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionNegocio").then((m) => ({ default: m.BusinessConfiguration }))
+);
+const VoucherDesignConfigurationNew = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionDisenoComprobante").then((m) => ({ default: m.VoucherDesignConfigurationNew }))
+);
+const CajasConfiguration = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionCajas").then((m) => ({ default: m.CajasConfiguration }))
+);
+const CajaFormPage = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/PaginaFormularioCaja").then((m) => ({ default: m.CajaFormPage }))
+);
+const ConfiguracionConexionSunat = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionConexionSunat").then((m) => ({ default: m.ConfiguracionConexionSunat }))
+);
+const ConfiguracionTransporte = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionTransporte").then((m) => ({ default: m.ConfiguracionTransporte }))
+);
+const CatalogoArticulosMain = lazy(() => import("../pages/Private/features/catalogo-articulos/pages/CatalogoArticulosMain"));
+const ListaPrecios = lazy(() =>
+  import("../pages/Private/features/lista-precios/components/ListaPrecios").then((m) => ({ default: m.ListaPrecios }))
+);
+const InventoryPage = lazy(() =>
+  import("../pages/Private/features/gestion-inventario/pages/InventoryPage").then((m) => ({ default: m.InventoryPage }))
+);
+const CobranzasDashboard = lazy(() => import("../pages/Private/features/gestion-cobranzas/pages/CobranzasDashboard"));
+const NotificationsCenterPage = lazy(() => import("../pages/Private/features/notifications/pages/NotificationsCenterPage"));
+const AdministrarEmpresas = lazy(() =>
+  import("../pages/Private/features/administracion-empresas/paginas/AdministrarEmpresas").then((m) => ({ default: m.AdministrarEmpresas }))
+);
 
-// Compras
-import PaginaCompras from "../pages/Private/features/compras/paginas/PaginaCompras";
-import PaginaRegistrarPagoCompra from "../pages/Private/features/compras/paginas/PaginaRegistrarPagoCompra";
-import ComprasLayout from "../pages/Private/features/compras/paginas/ComprasLayout";
+// Documentos Comerciales (nuevo módulo) - diferido
+const DocumentosComerciales = lazy(() => import("../pages/Private/features/documentos-comerciales/pages/DocumentosComerciales"));
+const FormularioDocumentoComercialPage = lazy(() => import("../pages/Private/features/documentos-comerciales/pages/FormularioDocumentoComercialPage"));
+const DocumentosComercialesLayout = lazy(() => import("../pages/Private/features/documentos-comerciales/pages/DocumentosComercialesLayout"));
 
-// Guías de Remisión
-import GuiasRemision from "../pages/Private/features/guias-remision/paginas/GuiasRemision";
-import FormularioGREPage from "../pages/Private/features/guias-remision/paginas/FormularioGREPage";
-import GuiasRemisionLayout from "../pages/Private/features/guias-remision/paginas/GuiasRemisionLayout";
+// Compras - diferido
+const PaginaCompras = lazy(() => import("../pages/Private/features/compras/paginas/PaginaCompras"));
+const PaginaRegistrarPagoCompra = lazy(() => import("../pages/Private/features/compras/paginas/PaginaRegistrarPagoCompra"));
+const ComprasLayout = lazy(() => import("../pages/Private/features/compras/paginas/ComprasLayout"));
+
+// Guías de Remisión - diferido
+const GuiasRemision = lazy(() => import("../pages/Private/features/guias-remision/paginas/GuiasRemision"));
+const FormularioGREPage = lazy(() => import("../pages/Private/features/guias-remision/paginas/FormularioGREPage"));
+const GuiasRemisionLayout = lazy(() => import("../pages/Private/features/guias-remision/paginas/GuiasRemisionLayout"));
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
-import ClientesTestPage from "../pages/Private/features/gestion-clientes/pages/ClientesTestPage";
 import { PermisoGuard } from "./PermisoGuard";
 import { SinPermiso } from "../pages/Private/SinPermiso";
+
+// Página de prueba solo-dev - diferida
+const ClientesTestPage = lazy(() => import("../pages/Private/features/gestion-clientes/pages/ClientesTestPage"));
 
 const showClientesTestPage = import.meta.env.DEV || import.meta.env.VITE_DEV_MODE === "true";
 

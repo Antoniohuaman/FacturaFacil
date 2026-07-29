@@ -18,6 +18,7 @@ const ImportPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [descargandoErrores, setDescargandoErrores] = useState(false);
   const [finalResult, setFinalResult] = useState<{ createdCount: number; updatedCount: number } | null>(null);
 
   const { importProducts, allProducts, categories } = useProductStore();
@@ -103,13 +104,16 @@ const ImportPage: React.FC = () => {
     setImportResult(null);
   };
 
-  const handleDownloadErrors = () => {
-    if (importResult && importResult.filasInvalidas.length > 0) {
+  const handleDownloadErrors = async () => {
+    if (importResult && importResult.filasInvalidas.length > 0 && !descargandoErrores) {
+      setDescargandoErrores(true);
       try {
-        exportImportErrors(importResult.filasInvalidas);
+        await exportImportErrors(importResult.filasInvalidas);
       } catch (error) {
         console.error('Error al exportar errores', error);
         alert('Error al exportar errores');
+      } finally {
+        setDescargandoErrores(false);
       }
     }
   };
@@ -340,7 +344,8 @@ const ImportPage: React.FC = () => {
                   </div>
                   <button
                     onClick={handleDownloadErrors}
-                    className="mt-3 inline-flex items-center px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-100 border border-yellow-300 rounded-md hover:bg-yellow-200 transition-colors"
+                    disabled={descargandoErrores}
+                    className="mt-3 inline-flex items-center px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-100 border border-yellow-300 rounded-md hover:bg-yellow-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -410,7 +415,8 @@ const ImportPage: React.FC = () => {
               </p>
               <button
                 onClick={handleDownloadErrors}
-                className="mt-3 inline-flex items-center px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-100 border border-yellow-300 rounded-md hover:bg-yellow-200 transition-colors"
+                disabled={descargandoErrores}
+                className="mt-3 inline-flex items-center px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-100 border border-yellow-300 rounded-md hover:bg-yellow-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

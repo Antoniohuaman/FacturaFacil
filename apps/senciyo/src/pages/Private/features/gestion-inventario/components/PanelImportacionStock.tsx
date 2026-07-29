@@ -8,6 +8,7 @@ import { useAuth } from '../../autenticacion/hooks';
 import { isProductEnabledForEstablecimiento } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import { getTenantEmpresaId } from '@/shared/tenant';
+import { useFeedback } from '@/shared/feedback/useFeedback';
 import { sincronizarInventarioTrasConfirmacion } from '@/shared/inventory/accionesStock';
 import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
 import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
@@ -36,7 +37,7 @@ import {
   parsearFormatoLegacy,
 } from '../utils/parseoArchivoImportacionStock';
 import type { FilaParseada, ResultadoParseo } from '../utils/parseoArchivoImportacionStock';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,8 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
    * error de red) reutiliza la MISMA claveIdempotencia en vez de crear un lote nuevo cada vez. */
   const [loteImportacionId, setLoteImportacionId] = useState<string | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState<string>('');
+  const [generandoPlantilla, setGenerandoPlantilla] = useState(false);
+  const { error: mostrarError } = useFeedback();
 
   useEffect(() => {
     if (resultadoParseo) {
@@ -127,7 +130,13 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
   const [resultadoReset, setResultadoReset] = useState<ResultadoReset | null>(null);
 
   // ── Descarga de plantilla ─────────────────────────────────────────────────
-  const descargarPlantilla = () => {
+  const descargarPlantilla = async () => {
+    if (generandoPlantilla) {
+      return;
+    }
+    setGenerandoPlantilla(true);
+    try {
+    const XLSX = await cargarXlsx();
     const productos = establecimientoId
       ? allProducts.filter(p => isProductEnabledForEstablecimiento(p, establecimientoId))
       : allProducts;
@@ -199,8 +208,14 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
 
     const d = new Date();
     const fecha = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const nombreArchivo = esModoSumar ? `Plantilla_Ingreso_Stock_${fecha}.xlsx` : `Plantilla_Stock_${fecha}.xlsx`;
-    XLSX.writeFile(libro, nombreArchivo);
+    const nombreArchivoPlantilla = esModoSumar ? `Plantilla_Ingreso_Stock_${fecha}.xlsx` : `Plantilla_Stock_${fecha}.xlsx`;
+    XLSX.writeFile(libro, nombreArchivoPlantilla);
+    } catch (error) {
+      console.error('[Inventario] Error al generar plantilla', error);
+      mostrarError('No se pudo generar la plantilla. Intenta nuevamente.');
+    } finally {
+      setGenerandoPlantilla(false);
+    }
   };
 
   // ── Carga y parseo del archivo ────────────────────────────────────────────
@@ -213,12 +228,13 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
     const lector = new FileReader();
     const esExcel = archivo.name.endsWith('.xlsx') || archivo.name.endsWith('.xls');
 
-    lector.onload = (e) => {
+    lector.onload = async (e) => {
       try {
         let encabezadosCrudos: string[] = [];
         let filasCrudas: any[][] = [];
 
         if (esExcel) {
+          const XLSX = await cargarXlsx();
           const libro = XLSX.read(e.target?.result, { type: 'binary' });
           const hoja = libro.Sheets[libro.SheetNames[0]];
           const datos = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: '' }) as any[][];
@@ -658,7 +674,8 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
                     </p>
                     <button
                       onClick={descargarPlantilla}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                      disabled={generandoPlantilla}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

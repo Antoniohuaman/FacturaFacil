@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/contasis';
 import { useCaja } from '../context/CajaContext';
 import { FileBarChart, Download, Filter, X, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 import { EmptyState } from '../components/common/EmptyState';
 import {
   ensureBusinessDateIso,
@@ -66,6 +66,7 @@ const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoEx
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [usuarioFiltro, setUsuarioFiltro] = useState('');
+  const [exportandoExcel, setExportandoExcel] = useState(false);
   const autoExportHandledRef = useRef(false);
   const exportarExcelRef = useRef<() => void>(() => {});
 
@@ -172,13 +173,19 @@ const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoEx
     }
   };
 
-  const exportarExcel = () => {
+  const exportarExcel = async () => {
     if (reportesFiltrados.length === 0) {
       showToast('warning', 'Sin datos', 'No hay datos para exportar.');
       return;
     }
 
+    if (exportandoExcel) {
+      return;
+    }
+
+    setExportandoExcel(true);
     try {
+      const XLSX = await cargarXlsx();
       const rows = reportesFiltrados.map((m) => ({
         'Fecha/Hora': formatMovementDateTimeLabel(m.fecha),
         'Tipo': m.tipo,
@@ -209,6 +216,8 @@ const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoEx
     } catch (error) {
       console.error('[Caja] exportarExcel error', error);
       showToast('error', 'Error', 'No se pudo exportar el reporte en Excel.');
+    } finally {
+      setExportandoExcel(false);
     }
   };
 
@@ -333,6 +342,7 @@ const ReportesCaja: React.FC<ReportesCajaProps> = ({ autoExportRequest, onAutoEx
               variant="primary"
               size="sm"
               onClick={exportarExcel}
+              loading={exportandoExcel}
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Exportar Excel</span>

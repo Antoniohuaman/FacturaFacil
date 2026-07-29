@@ -1,6 +1,6 @@
 // src/features/catalogo-articulos/utils/excelHelpers.ts
 
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 import type { Product, ProductFormData } from '../models/types';
 import type { Establecimiento } from '../../configuracion-sistema/modelos/Establecimiento';
 import {
@@ -89,11 +89,12 @@ export const COMPLETE_IMPORT_COLUMNS: ExcelColumn[] = [
 // GENERACIÓN DE PLANTILLA EXCEL
 // ====================================================================
 
-export function generateExcelTemplate(
+export async function generateExcelTemplate(
   tipo: 'basica' | 'completa',
   availableUnits: Array<{ code: string; name: string }>,
   availableEstablecimientos: Establecimiento[]
-): void {
+): Promise<void> {
+  const XLSX = await cargarXlsx();
   const columns = tipo === 'basica' ? BASIC_IMPORT_COLUMNS : COMPLETE_IMPORT_COLUMNS;
 
   // Crear workbook
@@ -217,8 +218,9 @@ export function parseExcelFile(
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const XLSX = await cargarXlsx();
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
 
@@ -536,14 +538,16 @@ function parseRow(
 // EXPORTACIÓN DE PRODUCTOS A EXCEL
 // ====================================================================
 
-export function exportProductsToExcel(
+export async function exportProductsToExcel(
   products: Product[],
   visibleColumns: string[],
   columnDefinitions: Array<{ key: string; label: string; type: string }>
-): void {
+): Promise<void> {
   if (products.length === 0) {
     throw new Error('No hay productos para exportar');
   }
+
+  const XLSX = await cargarXlsx();
 
   // Filtrar solo columnas visibles
   const columnsToExport = columnDefinitions.filter(col => visibleColumns.includes(col.key));
@@ -599,12 +603,14 @@ export function exportProductsToExcel(
 // EXPORTACIÓN DE ERRORES DE IMPORTACIÓN
 // ====================================================================
 
-export function exportImportErrors(
+export async function exportImportErrors(
   filasInvalidas: Array<Record<string, unknown> & { _errores: string[] }>
-): void {
+): Promise<void> {
   if (filasInvalidas.length === 0) {
     throw new Error('No hay errores para exportar');
   }
+
+  const XLSX = await cargarXlsx();
 
   // Obtener todas las columnas
   const allColumns = new Set<string>();

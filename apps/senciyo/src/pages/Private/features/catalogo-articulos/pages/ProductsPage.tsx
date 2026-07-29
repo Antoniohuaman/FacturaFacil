@@ -185,14 +185,14 @@ const ProductsPage: React.FC = () => {
     updateFilters({ busqueda: value });
   };
 
-  const handleExportVisibleFromMain = () => {
+  const handleExportVisibleFromMain = async () => {
     if (!products.length) {
       return;
     }
 
     try {
       const columnKeys = MAIN_EXPORT_COLUMNS.map(column => column.key as string);
-      exportProductsToExcel(products, columnKeys, MAIN_EXPORT_COLUMNS);
+      await exportProductsToExcel(products, columnKeys, MAIN_EXPORT_COLUMNS);
     } catch (error) {
       console.error('[Catálogo] Error al exportar productos visibles', error);
     }

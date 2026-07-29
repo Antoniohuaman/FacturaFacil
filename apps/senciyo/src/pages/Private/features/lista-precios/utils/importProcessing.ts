@@ -1,4 +1,5 @@
-import * as XLSX from 'xlsx';
+import type * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 import {
   assertBusinessDate,
   getBusinessDefaultValidityRange,
@@ -497,6 +498,7 @@ export const parsePriceImportFile = async (
   context: ImportParserContext
 ): Promise<PriceImportPreviewRow[]> => {
   const buffer = await file.arrayBuffer();
+  const XLSX = await cargarXlsx();
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];

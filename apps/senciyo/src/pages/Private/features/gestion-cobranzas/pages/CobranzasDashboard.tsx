@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NotebookPen, Filter, Download } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
 import type {
   Currency,
   CartItem,
@@ -70,6 +70,7 @@ export const CobranzasDashboard = () => {
   const cuentasColumnsManager = useCuentasPorCobrarColumnsManager();
   const cobranzasColumnsManager = useCobranzaColumnsManager();
   const [highlightCuentaId, setHighlightCuentaId] = useState<string | null>(null);
+  const [exportando, setExportando] = useState(false);
 
   useEffect(() => {
     if (!locationState) {
@@ -271,13 +272,19 @@ export const CobranzasDashboard = () => {
     return { from, to };
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!canExport) {
       error('Sin datos para exportar', 'Ajusta los filtros y vuelve a intentarlo.');
       return;
     }
 
+    if (exportando) {
+      return;
+    }
+
+    setExportando(true);
     try {
+      const XLSX = await cargarXlsx();
       const rows = activeTab === 'cuentas'
         ? buildCuentasExportRows(filteredCuentas, formatMoney)
         : activeTab === 'cobranzas'
@@ -347,6 +354,8 @@ export const CobranzasDashboard = () => {
     } catch (exportError) {
       console.error('Error al exportar cobranzas:', exportError);
       error('Error al exportar', 'No se pudo generar el archivo. Intente nuevamente.');
+    } finally {
+      setExportando(false);
     }
   };
 
@@ -410,7 +419,7 @@ export const CobranzasDashboard = () => {
           <button
             type="button"
             onClick={handleExport}
-            disabled={!canExport}
+            disabled={!canExport || exportando}
             className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors shadow-sm ${
               canExport
                 ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40'
