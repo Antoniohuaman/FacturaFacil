@@ -279,7 +279,7 @@ export default function PanelDetalleComprobanteCompra({
             <BotonEncabezado key="editar" icon={Pencil} texto="Editar" label="Editar comprobante de compra" onClick={() => { onCerrar(); onEditar(ccActual); }} />,
           );
         }
-        if (onAnular && puedeAnularCC(ccActual)) {
+        if (onAnular && puedeAnularCC(ccActual, notasIngreso ?? [])) {
           visibles.push(
             <BotonEncabezado key="anular" icon={XCircle} texto="Anular" label="Anular comprobante de compra" onClick={() => onAnular(ccActual)} danger />,
           );

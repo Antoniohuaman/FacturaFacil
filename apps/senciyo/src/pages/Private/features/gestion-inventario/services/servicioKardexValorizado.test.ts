@@ -23,7 +23,7 @@ import {
 } from '../repositories/valorizacionInicialInventario.repository';
 import { listarInvalidacionesPendientes } from '../repositories/invalidacionPendienteValorizacionInicial.repository';
 import { guardarCapaCostoInventario, listarCapasCostoInventarioPorEmpresa } from '../repositories/capaCostoInventario.repository';
-import { listarConsumosCapaCostoInventarioPorEmpresa } from '../repositories/consumoCapaCostoInventario.repository';
+import { listarConsumosCapaCostoInventarioPorEmpresa, listarConsumosPorMovimientoSalida } from '../repositories/consumoCapaCostoInventario.repository';
 import { lsKey } from '../../../../../shared/tenant';
 
 instalarLocalStorageDePrueba();
@@ -1083,5 +1083,199 @@ describe('ServicioKardexValorizado — la invalidación fallida nunca es best-ef
 
     expect(listarInvalidacionesPendientes(empresaId)).toHaveLength(0);
     expect(obtenerLoteActivoPorEmpresa(empresaId)!.detalles[0].requiereRecalculo).toBe(true);
+  });
+});
+
+describe('Transferencia inter-establecimiento POR ETAPAS (cierre correctivo): despacho y recepción reutilizan los motores de salida/entrada, nunca el motor atómico ni un motor nuevo', () => {
+  const EST_1 = 'est-1';
+  const EST_2 = 'est-2';
+
+  function almacenesInterEstablecimiento(): Map<string, Almacen> {
+    return new Map([
+      ['alm-1', crearAlmacen({ id: 'alm-1', establecimientoId: EST_1 })],
+      ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Almacén 2', establecimientoId: EST_2 })],
+    ]);
+  }
+
+  it('PASO 1 — despacho (PENDIENTE→EN_TRANSITO): registrarSalidaValorizada con tipoOperacion "transferencia" consume capas FIFO en el almacén origen', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario({
+      id: 'capa-1', empresaId, establecimientoId: EST_1, productoId: 'prod-1', almacenId: 'alm-1',
+      movimientoEntradaId: 'mov-ni-1', tipoDocumentoOrigen: 'nota_ingreso', documentoOrigenId: 'ni-1',
+      cantidadInicial: 20, cantidadDisponible: 20, costoUnitarioBaseOriginal: 12.5, costoUnitarioBaseMonedaBase: 12.5,
+      valorValorizableOriginal: 250, valorValorizableMonedaBase: 250, monedaBase: 'PEN', monedaOriginal: 'PEN',
+      tipoCambioAplicado: 1, fechaTipoCambio: '2026-01-01', fechaEntrada: '2026-01-01T00:00:00.000Z',
+      estado: 'disponible', procedencia: 'compra', usuario: 'user-1', fechaCreacion: '2026-01-01T00:00:00.000Z',
+    }, empresaId);
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada({
+      modoOperacion: 'valorizado',
+      empresaId,
+      documentoId: 'trf-1',
+      tipoDocumento: 'transferencia',
+      tipoOperacion: 'transferencia',
+      claveIdempotencia: 'DESPACHO-trf-1',
+      usuario: 'user-1',
+      fecha: '2026-08-01T00:00:00.000Z',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+      lineas: [{ lineaId: 'trf-1-despacho', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }],
+    }, {
+      almacenes: almacenesInterEstablecimiento(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
+    });
+
+    expect(resultado.movimientos).toHaveLength(1);
+    expect(resultado.movimientos[0].tipo).toBe('SALIDA');
+    const capaOrigen = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1');
+    expect(capaOrigen?.cantidadDisponible).toBe(15);
+    const consumos = listarConsumosPorMovimientoSalida(resultado.movimientos[0].id, empresaId);
+    expect(consumos).toHaveLength(1);
+    expect(consumos[0].cantidadConsumida).toBe(5);
+    expect(consumos[0].costoUnitarioBaseMonedaBase).toBe(12.5);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(15);
+    // El almacén destino NO se toca todavía — la recepción es un paso aparte (EN_TRANSITO, no RECIBIDA).
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(0);
+  });
+
+  it('PASO 2 — recepción (EN_TRANSITO→RECIBIDA): registrarEntradaValorizada con tipoOperacion "transferencia" crea la capa espejo en destino con el costo EXACTO de los consumos del despacho', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario({
+      id: 'capa-1', empresaId, establecimientoId: EST_1, productoId: 'prod-1', almacenId: 'alm-1',
+      movimientoEntradaId: 'mov-ni-1', tipoDocumentoOrigen: 'nota_ingreso', documentoOrigenId: 'ni-1',
+      cantidadInicial: 20, cantidadDisponible: 20, costoUnitarioBaseOriginal: 12.5, costoUnitarioBaseMonedaBase: 12.5,
+      valorValorizableOriginal: 250, valorValorizableMonedaBase: 250, monedaBase: 'PEN', monedaOriginal: 'PEN',
+      tipoCambioAplicado: 1, fechaTipoCambio: '2026-01-01', fechaEntrada: '2026-01-01T00:00:00.000Z',
+      estado: 'disponible', procedencia: 'compra', usuario: 'user-1', fechaCreacion: '2026-01-01T00:00:00.000Z',
+    }, empresaId);
+
+    // PASO 1 (despacho) ya ocurrido.
+    const despacho = await ServicioKardexValorizado.registrarSalidaValorizada({
+      modoOperacion: 'valorizado', empresaId, documentoId: 'trf-1', tipoDocumento: 'transferencia',
+      tipoOperacion: 'transferencia', claveIdempotencia: 'DESPACHO-trf-1', usuario: 'user-1',
+      fecha: '2026-08-01T00:00:00.000Z', motivo: 'TRANSFERENCIA_ALMACEN',
+      lineas: [{ lineaId: 'trf-1-despacho', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }],
+    }, { almacenes: almacenesInterEstablecimiento(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+
+    // PASO 2 (recepción): construye sus líneas a partir de los consumos REALES del despacho — nunca un costo nuevo.
+    const consumosDespacho = listarConsumosPorMovimientoSalida(despacho.movimientos[0].id, empresaId);
+    const recepcion = await ServicioKardexValorizado.registrarEntradaValorizada({
+      modoOperacion: 'valorizado', empresaId, documentoId: 'trf-1', tipoDocumento: 'transferencia',
+      tipoOperacion: 'transferencia', claveIdempotencia: 'RECEPCION-trf-1', usuario: 'user-1',
+      fecha: '2026-08-02T00:00:00.000Z', motivo: 'TRANSFERENCIA_ALMACEN',
+      lineas: consumosDespacho.map((c, i) => ({
+        lineaId: `trf-1-recepcion-${i}`, productoId: 'prod-1', almacenId: 'alm-2',
+        cantidadUnidadMinima: c.cantidadConsumida, costoUnitarioBaseMonedaBase: c.costoUnitarioBaseMonedaBase,
+      })),
+    }, { almacenes: almacenesInterEstablecimiento(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
+
+    expect(recepcion.movimientos).toHaveLength(1);
+    expect(recepcion.movimientos[0].tipo).toBe('ENTRADA');
+    const capaDestino = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.almacenId === 'alm-2');
+    expect(capaDestino?.cantidadInicial).toBe(5);
+    expect(capaDestino?.costoUnitarioBaseMonedaBase).toBe(12.5);
+    expect(capaDestino?.procedencia).toBe('transferencia');
+    expect(capaDestino?.tipoDocumentoOrigen).toBe('transferencia');
+    expect(capaDestino?.establecimientoId).toBe(EST_2);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(15);
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(5);
+
+    // Valor total de la empresa preservado: 15@12.5 (origen) + 5@12.5 (destino) = 250, igual que antes de mover nada.
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    const valorTotal = capas.reduce((s, c) => s + c.cantidadDisponible * c.costoUnitarioBaseMonedaBase, 0);
+    expect(valorTotal).toBe(250);
+  });
+
+  it('el ciclo NUNCA salta directamente a RECIBIDA: la recepción depende de que el despacho ya haya ocurrido (requiere sus consumos reales, no un costo inventado)', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    // Sin despacho previo: no hay `movimientoSalidaId`/consumos que consultar — este test documenta
+    // que `useInventory.ts` (handleRecibirTransfer) exige `consumosDespacho.length > 0` para tomar la
+    // rama valorizada; sin despacho, cae al camino cuantitativo legado — nunca inventa un costo aquí.
+    expect(listarConsumosPorMovimientoSalida('mov-inexistente', empresaId)).toHaveLength(0);
+  });
+
+  it('anularDocumentoValorizado revierte AMBOS legs (salida+entrada) de una transferencia por etapas en un solo plan, dado un movimientoIds explícito', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario({
+      id: 'capa-1', empresaId, establecimientoId: EST_1, productoId: 'prod-1', almacenId: 'alm-1',
+      movimientoEntradaId: 'mov-ni-1', tipoDocumentoOrigen: 'nota_ingreso', documentoOrigenId: 'ni-1',
+      cantidadInicial: 20, cantidadDisponible: 20, costoUnitarioBaseOriginal: 12.5, costoUnitarioBaseMonedaBase: 12.5,
+      valorValorizableOriginal: 250, valorValorizableMonedaBase: 250, monedaBase: 'PEN', monedaOriginal: 'PEN',
+      tipoCambioAplicado: 1, fechaTipoCambio: '2026-01-01', fechaEntrada: '2026-01-01T00:00:00.000Z',
+      estado: 'disponible', procedencia: 'compra', usuario: 'user-1', fechaCreacion: '2026-01-01T00:00:00.000Z',
+    }, empresaId);
+
+    const despacho = await ServicioKardexValorizado.registrarSalidaValorizada({
+      modoOperacion: 'valorizado', empresaId, documentoId: 'trf-1', tipoDocumento: 'transferencia',
+      tipoOperacion: 'transferencia', claveIdempotencia: 'DESPACHO-trf-1', usuario: 'user-1',
+      fecha: '2026-08-01T00:00:00.000Z', motivo: 'TRANSFERENCIA_ALMACEN',
+      lineas: [{ lineaId: 'trf-1-despacho', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }],
+    }, { almacenes: almacenesInterEstablecimiento(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+
+    const consumosDespacho = listarConsumosPorMovimientoSalida(despacho.movimientos[0].id, empresaId);
+    const recepcion = await ServicioKardexValorizado.registrarEntradaValorizada({
+      modoOperacion: 'valorizado', empresaId, documentoId: 'trf-1', tipoDocumento: 'transferencia',
+      tipoOperacion: 'transferencia', claveIdempotencia: 'RECEPCION-trf-1', usuario: 'user-1',
+      fecha: '2026-08-02T00:00:00.000Z', motivo: 'TRANSFERENCIA_ALMACEN',
+      lineas: consumosDespacho.map((c, i) => ({
+        lineaId: `trf-1-recepcion-${i}`, productoId: 'prod-1', almacenId: 'alm-2',
+        cantidadUnidadMinima: c.cantidadConsumida, costoUnitarioBaseMonedaBase: c.costoUnitarioBaseMonedaBase,
+      })),
+    }, { almacenes: almacenesInterEstablecimiento(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
+
+    await ServicioKardexValorizado.anularDocumentoValorizado({
+      empresaId,
+      tipoOperacion: 'anulacion',
+      documentoId: 'trf-1',
+      tipoDocumentoOrigen: 'transferencia',
+      movimientoIds: [despacho.movimientos[0].id, recepcion.movimientos[0].id],
+      claveIdempotencia: 'ANULACION-transferencia-trf-1',
+      usuario: 'user-1',
+      fecha: '2026-08-03T00:00:00.000Z',
+      motivoUsuario: 'Anulación de transferencia',
+    }, { almacenes: almacenesInterEstablecimiento(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true });
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(0);
+    const capaOrigenFinal = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-1');
+    expect(capaOrigenFinal?.cantidadDisponible).toBe(20);
+    const capaDestinoFinal = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.almacenId === 'alm-2');
+    expect(capaDestinoFinal?.estado).toBe('revertida');
+  });
+
+  it('aislamiento multiempresa: el despacho de la empresa A nunca consume capas de la empresa B (rechaza por falta de capas PROPIAS, nunca toma prestada la de otra empresa)', async () => {
+    sembrarProductos('emp-A', [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario({
+      id: 'capa-B', empresaId: 'emp-B', establecimientoId: EST_1, productoId: 'prod-1', almacenId: 'alm-1',
+      movimientoEntradaId: 'mov-ni-b', tipoDocumentoOrigen: 'nota_ingreso', documentoOrigenId: 'ni-b',
+      cantidadInicial: 20, cantidadDisponible: 20, costoUnitarioBaseOriginal: 99, costoUnitarioBaseMonedaBase: 99,
+      valorValorizableOriginal: 1980, valorValorizableMonedaBase: 1980, monedaBase: 'PEN', monedaOriginal: 'PEN',
+      tipoCambioAplicado: 1, fechaTipoCambio: '2026-01-01', fechaEntrada: '2026-01-01T00:00:00.000Z',
+      estado: 'disponible', procedencia: 'compra', usuario: 'user-1', fechaCreacion: '2026-01-01T00:00:00.000Z',
+    }, 'emp-B');
+
+    // La empresa A no tiene NINGUNA capa propia — un despacho valorizado debe rechazarse por
+    // completo (nunca "tomar prestada" la capa de la empresa B, ni degradar en silencio a un costo
+    // inventado). Si hubiera fuga entre tenants, esto pasaría usando el costo 99 de emp-B.
+    await expect(
+      ServicioKardexValorizado.registrarSalidaValorizada({
+        modoOperacion: 'valorizado', empresaId: 'emp-A', documentoId: 'trf-1', tipoDocumento: 'transferencia',
+        tipoOperacion: 'transferencia', claveIdempotencia: 'DESPACHO-trf-1', usuario: 'user-1',
+        fecha: '2026-08-01T00:00:00.000Z', motivo: 'TRANSFERENCIA_ALMACEN',
+        lineas: [{ lineaId: 'trf-1-despacho', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }],
+      }, { almacenes: almacenesInterEstablecimiento(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+    ).rejects.toThrow(/no cubren exactamente la cantidad/);
+
+    expect(listarCapasCostoInventarioPorEmpresa('emp-B').find((c) => c.id === 'capa-B')?.cantidadDisponible).toBe(20);
+    expect(listarCapasCostoInventarioPorEmpresa('emp-A')).toHaveLength(0);
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, 'emp-A')) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
   });
 });

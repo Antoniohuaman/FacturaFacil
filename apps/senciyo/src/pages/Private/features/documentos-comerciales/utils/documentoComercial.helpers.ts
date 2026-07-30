@@ -11,6 +11,7 @@ import {
   CORRELATIVO_DIGITOS_DEFAULT,
 } from '../models/documentoComercial.constants';
 import type { Series } from '../../configuracion-sistema/modelos/Series';
+import { calcularDesgloseFinancieroVenta } from '../../comprobantes-electronicos/shared/core/desgloseFinancieroVenta';
 
 let contadorFallback = 0;
 
@@ -133,41 +134,47 @@ export interface DesgloseImpuesto {
   key: string;
 }
 
+/**
+ * Cierre de brecha (venta neta canónica): agrupa por tasa/tipo de impuesto para la vista de
+ * desglose tributario del documento, pero las CIFRAS de cada línea (base imponible neta e
+ * impuesto) provienen de `calcularDesgloseFinancieroVenta` — la misma función única que ahora
+ * también usa `usePayment.calculateTotals`. Antes, esta función recalculaba `descuentoItem` y el
+ * split de impuesto por su cuenta (con 0.18/0.10 hardcodeados) mientras `calculateTotals` los
+ * ignoraba por completo: el total base y el desglose tributario del MISMO documento podían no
+ * coincidir. Ahora ambos suman a partir de la misma fuente, por línea.
+ */
 export const calcularDesgloseTributos = (items: CartItem[]): DesgloseImpuesto[] => {
+  const desgloseLineas = calcularDesgloseFinancieroVenta(items, {
+    monedaDocumento: items.find((i) => i.currency)?.currency ?? 'PEN',
+    precioIncluyeImpuesto: true,
+  });
+
   const grupos = new Map<string, DesgloseImpuesto>();
 
-  items.forEach((item) => {
-    const bruto = item.price * item.quantity;
-    const descPct = item.descuentoItem ?? 0;
-    const precioNeto = bruto * (1 - descPct / 100);
+  items.forEach((item, indice) => {
     const igvType = item.igvType ?? 'igv18';
-
     let kind: DesgloseImpuesto['kind'] = 'gravado';
     let rate = 0.18;
-
     if (igvType === 'igv18') { kind = 'gravado'; rate = 0.18; }
     else if (igvType === 'igv10') { kind = 'gravado'; rate = 0.10; }
     else if (igvType === 'exonerado') { kind = 'exonerado'; rate = 0; }
     else if (igvType === 'inafecto') { kind = 'inafecto'; rate = 0; }
 
     const key = kind === 'gravado' ? `gravado_${Math.round(rate * 100)}` : kind;
-    const existing = grupos.get(key);
+    const linea = desgloseLineas[indice];
+    const taxableBase = linea.ventaNetaSinImpuesto;
+    const taxAmount = kind === 'gravado' ? linea.impuesto : 0;
+    // Para exonerado/inafecto, la base imponible mostrada es la venta neta MÁS el impuesto (que es
+    // 0), es decir el total de la línea sin impuesto — conserva el comportamiento previo, donde
+    // `precioNeto` completo (sin dividir por 1+rate) era la base para esos dos casos.
+    const taxableBaseGrupo = kind === 'gravado' ? taxableBase : linea.baseNetaAntesImpuesto;
 
-    if (kind === 'gravado' && rate > 0) {
-      const taxableBase = precioNeto / (1 + rate);
-      const taxAmount = precioNeto - taxableBase;
-      if (existing) {
-        existing.taxableBase += taxableBase;
-        existing.taxAmount += taxAmount;
-      } else {
-        grupos.set(key, { kind, igvRate: rate, taxableBase, taxAmount, key });
-      }
+    const existing = grupos.get(key);
+    if (existing) {
+      existing.taxableBase += taxableBaseGrupo;
+      existing.taxAmount += taxAmount;
     } else {
-      if (existing) {
-        existing.taxableBase += precioNeto;
-      } else {
-        grupos.set(key, { kind, igvRate: 0, taxableBase: precioNeto, taxAmount: 0, key });
-      }
+      grupos.set(key, { kind, igvRate: rate, taxableBase: taxableBaseGrupo, taxAmount, key });
     }
   });
 

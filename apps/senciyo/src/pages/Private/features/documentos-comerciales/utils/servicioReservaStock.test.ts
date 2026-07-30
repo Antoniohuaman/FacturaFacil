@@ -215,6 +215,40 @@ describe('prepararDescuentoStockDocumento — cálculo puro (Etapa 1D)', () => {
       /No se pudo asignar exactamente 5/,
     );
   });
+
+  it('cierre correctivo (identidad estable de línea, canal Nota de Venta/OV): propaga item.lineaId a lineaComercialId, distinto del lineaId técnico', () => {
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })] });
+    const almacenes = [crearAlmacen()];
+    const items: CartItem[] = [crearItem({ lineaId: 'linea-comercial-nv-1', quantity: 5 })];
+
+    const resultado = prepararDescuentoStockDocumento(items, almacenes, ESTABLECIMIENTO, 'op-1');
+    expect(resultado.lineasOperacion).toHaveLength(1);
+    expect(resultado.lineasOperacion[0].lineaId).toBe('op-1-0');
+    expect(resultado.lineasOperacion[0].lineaComercialId).toBe('linea-comercial-nv-1');
+  });
+
+  it('cierre correctivo: una línea comercial dividida entre almacenes conserva el MISMO lineaComercialId en todos sus segmentos, cada uno con su propio lineaId técnico', () => {
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 3, 'alm-2': 20 } })] });
+    const almacenes = [
+      crearAlmacen({ id: 'alm-1', prioridadSalida: 1 }),
+      crearAlmacen({ id: 'alm-2', prioridadSalida: 2 }),
+    ];
+    const items: CartItem[] = [crearItem({ lineaId: 'linea-comercial-nv-1', quantity: 5 })];
+
+    const resultado = prepararDescuentoStockDocumento(items, almacenes, ESTABLECIMIENTO, 'op-1');
+    expect(resultado.lineasOperacion).toHaveLength(2);
+    expect(resultado.lineasOperacion.map((l) => l.lineaId).sort()).toEqual(['op-1-0', 'op-1-1']);
+    expect(resultado.lineasOperacion.every((l) => l.lineaComercialId === 'linea-comercial-nv-1')).toBe(true);
+  });
+
+  it('sin item.lineaId (canal legacy), la línea resultante no incluye lineaComercialId — nunca lo inventa desde productoId ni desde el índice', () => {
+    useProductStore.setState({ allProducts: [crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })] });
+    const almacenes = [crearAlmacen()];
+    const items: CartItem[] = [crearItem({ lineaId: undefined, quantity: 5 })];
+
+    const resultado = prepararDescuentoStockDocumento(items, almacenes, ESTABLECIMIENTO, 'op-1');
+    expect(resultado.lineasOperacion[0].lineaComercialId).toBeUndefined();
+  });
 });
 
 describe('Corrección post-1D §1: idempotencia end-to-end de Nota de Venta repitiendo el flujo productivo completo', () => {

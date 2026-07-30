@@ -25,6 +25,7 @@ import type { ComprobanteCompra, EstadoPrincipalCC } from '../../modelos/Comprob
 import type { OrdenCompra } from '../../modelos/OrdenCompra';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import type { PagoCompra } from '../../modelos/PagoCompra';
+import type { NotaIngreso } from '../../../gestion-inventario/models/notaIngreso.types';
 import { BADGE_ESTADO_PRINCIPAL_CC, ETIQUETA_ESTADO_PRINCIPAL_CC } from '../../constantes/estadosCompras';
 import {
   filtrarComprobantesCompra,
@@ -50,6 +51,8 @@ interface TablaComprobantesCompraProps {
   ordenes: OrdenCompra[];
   cuentasPorPagar: CuentaPorPagar[];
   pagos: PagoCompra[];
+  /** Notas de Ingreso relacionadas — necesarias para saber si un CC tiene alguna NI todavía ACTIVA (`puedeAnularCC`), nunca solo la cuenta de ids. */
+  notasIngreso: NotaIngreso[];
   cargando: boolean;
   errorCarga: string | null;
   onVer: (cc: ComprobanteCompra) => void;
@@ -218,6 +221,7 @@ export default function TablaComprobantesCompra({
   ordenes,
   cuentasPorPagar,
   pagos,
+  notasIngreso,
   cargando,
   errorCarga,
   onVer,
@@ -440,7 +444,7 @@ export default function TablaComprobantesCompra({
       return (
         <>
           {puedeEditarSinPagos && <BotonAccionDirecta icon={Pencil} label="Editar comprobante de compra" onClick={() => onEditar(cc)} />}
-          {puedeAnularCC(cc) && (
+          {puedeAnularCC(cc, notasIngreso) && (
             <BotonAccionDirecta icon={XCircle} label="Anular comprobante de compra" onClick={() => onAnular(cc)} danger />
           )}
         </>

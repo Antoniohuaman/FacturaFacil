@@ -261,6 +261,13 @@ export const useCart = (modoDescuentoOverride?: 'automatico' | 'nota_salida' | '
     return true;
   }, [modoDescuentoOverride, controlStockActivo, stockDescuentoFacturaYBoleta, allowNegativeStock, EstablecimientoId, findCatalogProduct, almacenes, units]);
 
+  const generarLineaIdEstable = useCallback((): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `linea-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }, []);
+
   const createCartItem = useCallback((product: Product, quantity: number): CartItem => {
     const price = Number.isFinite(product.price) ? product.price : 0;
     const resolvedUnit = product.unidadMedida || product.unit;
@@ -269,6 +276,7 @@ export const useCart = (modoDescuentoOverride?: 'automatico' | 'nota_salida' | '
       String(product.category || '').toUpperCase().includes('SERV') ? 'SERVICIO' : 'BIEN';
     return {
       ...product,
+      lineaId: generarLineaIdEstable(),
       unidadMedida: resolvedUnit,
       unidadMedidaCodigo: resolvedUnit,
       unit: resolvedUnit ?? product.unit,
@@ -285,7 +293,7 @@ export const useCart = (modoDescuentoOverride?: 'automatico' | 'nota_salida' | '
       tipoBienServicio: tipoProductoInferido === 'SERVICIO' ? 'servicio' : 'bien',
       descuentoItem: 0,
     };
-  }, [effectiveDefaultIgvConfig]);
+  }, [effectiveDefaultIgvConfig, generarLineaIdEstable]);
 
   const crearIdItemLibre = useCallback(() => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -302,6 +310,7 @@ export const useCart = (modoDescuentoOverride?: 'automatico' | 'nota_salida' | '
       ...prev,
       {
         id: idItemLibre,
+        lineaId: idItemLibre,
         code: '',
         name: '',
         price: 0,

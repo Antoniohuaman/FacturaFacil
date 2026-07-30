@@ -5,12 +5,18 @@ import {
   calcularMutacionesEntrada,
   prepararOperacionInventario,
   confirmarOperacionInventario,
+  calcularCantidadYaDevueltaPorConsumo,
+  construirLineasDevolucionFisica,
+  type ConsumoDisponibleDevolucion,
 } from './entradaCuantitativaInventario';
 import { reservarOperacionIdempotente } from './idempotenciaInventario';
+import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import type { DatosOperacionEntradaCuantitativa, DatosLineaOperacionCuantitativa } from '../models/operacionEntradaInventario.types';
 import type { OperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
+import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
+import { listarCapasCostoInventarioPorEmpresa } from '../repositories/capaCostoInventario.repository';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import { lsKey } from '../../../../../shared/tenant';
@@ -504,5 +510,212 @@ describe('entradaCuantitativaInventario — confirmarOperacionInventario: integr
 
     const productosFinales = JSON.parse(localStorage.getItem(claveProductos) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(15);
+  });
+});
+
+function crearCapaDevolucion(overrides: Partial<CapaCostoInventario> = {}): CapaCostoInventario {
+  return {
+    id: 'capa-dev-1',
+    empresaId: 'emp-A',
+    establecimientoId: 'est-1',
+    productoId: 'prod-1',
+    almacenId: 'alm-1',
+    movimientoEntradaId: 'mov-dev-1',
+    tipoDocumentoOrigen: 'devolucion_cliente',
+    documentoOrigenId: 'nc-1',
+    cantidadInicial: 3,
+    cantidadDisponible: 3,
+    costoUnitarioBaseOriginal: 10,
+    costoUnitarioBaseMonedaBase: 10,
+    valorValorizableOriginal: 30,
+    valorValorizableMonedaBase: 30,
+    monedaBase: 'PEN',
+    monedaOriginal: 'PEN',
+    tipoCambioAplicado: 1,
+    fechaTipoCambio: '2026-08-01',
+    fechaEntrada: '2026-08-01T00:00:00.000Z',
+    estado: 'disponible',
+    procedencia: 'devolucion_cliente',
+    usuario: 'user-1',
+    fechaCreacion: '2026-08-01T00:00:00.000Z',
+    consumoOrigenId: 'consumo-1',
+    ...overrides,
+  };
+}
+
+function crearConsumoDisponible(overrides: Partial<ConsumoDisponibleDevolucion> = {}): ConsumoDisponibleDevolucion {
+  return {
+    consumoId: 'consumo-1',
+    cantidadConsumida: 10,
+    costoUnitarioBaseMonedaBase: 12.5,
+    fecha: '2026-07-01T00:00:00.000Z',
+    estado: 'confirmado',
+    ...overrides,
+  };
+}
+
+describe('calcularCantidadYaDevueltaPorConsumo — cierre de brecha de devoluciones físicas', () => {
+  it('suma cantidadInicial de las capas de devolución no revertidas, agrupadas por consumoOrigenId', () => {
+    const capas = [
+      crearCapaDevolucion({ id: 'c1', consumoOrigenId: 'consumo-1', cantidadInicial: 2 }),
+      crearCapaDevolucion({ id: 'c2', consumoOrigenId: 'consumo-1', cantidadInicial: 3 }),
+      crearCapaDevolucion({ id: 'c3', consumoOrigenId: 'consumo-2', cantidadInicial: 4 }),
+    ];
+    const resultado = calcularCantidadYaDevueltaPorConsumo(capas);
+    expect(resultado.get('consumo-1')).toBe(5);
+    expect(resultado.get('consumo-2')).toBe(4);
+  });
+
+  it('ignora capas de devolución revertidas (libera el saldo disponible de nuevo)', () => {
+    const capas = [crearCapaDevolucion({ consumoOrigenId: 'consumo-1', cantidadInicial: 5, estado: 'revertida' })];
+    expect(calcularCantidadYaDevueltaPorConsumo(capas).get('consumo-1')).toBeUndefined();
+  });
+
+  it('ignora capas de otra procedencia (nunca confunde una transferencia o un ajuste con una devolución)', () => {
+    const capas = [crearCapaDevolucion({ procedencia: 'transferencia', consumoOrigenId: 'consumo-1', cantidadInicial: 5 })];
+    expect(calcularCantidadYaDevueltaPorConsumo(capas).get('consumo-1')).toBeUndefined();
+  });
+
+  it('ignora capas sin consumoOrigenId (no son devoluciones vinculadas)', () => {
+    const capas = [crearCapaDevolucion({ consumoOrigenId: undefined })];
+    expect(calcularCantidadYaDevueltaPorConsumo(capas).size).toBe(0);
+  });
+});
+
+describe('construirLineasDevolucionFisica — cierre de brecha de devoluciones físicas', () => {
+  it('una sola línea cuando un consumo cubre exactamente lo devuelto, con el costo histórico del consumo', () => {
+    const consumos = [crearConsumoDisponible({ consumoId: 'consumo-1', cantidadConsumida: 10, costoUnitarioBaseMonedaBase: 12.5 })];
+    const lineas = construirLineasDevolucionFisica(4, 'prod-1', 'alm-1', consumos, new Map(), () => 'linea-1');
+
+    expect(lineas).toHaveLength(1);
+    expect(lineas[0]).toMatchObject({
+      productoId: 'prod-1',
+      almacenId: 'alm-1',
+      cantidadUnidadMinima: 4,
+      costoUnitarioBaseMonedaBase: 12.5,
+      consumoOrigenId: 'consumo-1',
+    });
+  });
+
+  it('varias líneas cuando la devolución abarca varios consumos, en orden histórico determinístico (fecha, luego id)', () => {
+    const consumos = [
+      crearConsumoDisponible({ consumoId: 'consumo-nuevo', fecha: '2026-07-10T00:00:00.000Z', cantidadConsumida: 10, costoUnitarioBaseMonedaBase: 20 }),
+      crearConsumoDisponible({ consumoId: 'consumo-viejo', fecha: '2026-07-01T00:00:00.000Z', cantidadConsumida: 4, costoUnitarioBaseMonedaBase: 10 }),
+    ];
+    const lineas = construirLineasDevolucionFisica(6, 'prod-1', 'alm-1', consumos, new Map(), () => `linea-${Math.random()}`);
+
+    expect(lineas).toHaveLength(2);
+    expect(lineas[0].consumoOrigenId).toBe('consumo-viejo');
+    expect(lineas[0].cantidadUnidadMinima).toBe(4);
+    expect(lineas[0].costoUnitarioBaseMonedaBase).toBe(10);
+    expect(lineas[1].consumoOrigenId).toBe('consumo-nuevo');
+    expect(lineas[1].cantidadUnidadMinima).toBe(2);
+    expect(lineas[1].costoUnitarioBaseMonedaBase).toBe(20);
+  });
+
+  it('descuenta lo ya devuelto de cada consumo antes de distribuir', () => {
+    const consumos = [crearConsumoDisponible({ consumoId: 'consumo-1', cantidadConsumida: 10 })];
+    const yaDevuelto = new Map([['consumo-1', 6]]);
+    const lineas = construirLineasDevolucionFisica(4, 'prod-1', 'alm-1', consumos, yaDevuelto, () => 'linea-1');
+    expect(lineas).toHaveLength(1);
+    expect(lineas[0].cantidadUnidadMinima).toBe(4);
+  });
+
+  it('rechaza con el mensaje de dominio exacto cuando no hay ningún consumo disponible (venta original sin costo histórico)', () => {
+    expect(() => construirLineasDevolucionFisica(5, 'prod-1', 'alm-1', [], new Map(), () => 'linea-1')).toThrow(
+      'No es posible valorizar automáticamente esta devolución porque la venta original no tiene costo histórico registrado.'
+    );
+  });
+
+  it('rechaza la operación completa (sin líneas parciales) cuando la cantidad solicitada excede lo disponible (sobre-devolución)', () => {
+    const consumos = [crearConsumoDisponible({ consumoId: 'consumo-1', cantidadConsumida: 5 })];
+    const yaDevuelto = new Map([['consumo-1', 4]]);
+    expect(() => construirLineasDevolucionFisica(3, 'prod-1', 'alm-1', consumos, yaDevuelto, () => 'linea-1')).toThrow(
+      /excede lo disponible/
+    );
+  });
+
+  it('nunca usa costo actual, último costo ni precio de compra/venta — solo el costoUnitarioBaseMonedaBase del consumo', () => {
+    const consumos = [
+      crearConsumoDisponible({ consumoId: 'c1', costoUnitarioBaseMonedaBase: 7.35, cantidadConsumida: 2 }),
+    ];
+    const lineas = construirLineasDevolucionFisica(2, 'prod-1', 'alm-1', consumos, new Map(), () => 'linea-1');
+    expect(lineas[0].costoUnitarioBaseMonedaBase).toBe(7.35);
+  });
+
+  it('ignora consumos revertidos (la venta original ya fue anulada — nada que devolver ahí)', () => {
+    const consumos = [
+      crearConsumoDisponible({ consumoId: 'c1', estado: 'revertido', cantidadConsumida: 10 }),
+      crearConsumoDisponible({ consumoId: 'c2', estado: 'confirmado', cantidadConsumida: 5, costoUnitarioBaseMonedaBase: 8 }),
+    ];
+    const lineas = construirLineasDevolucionFisica(3, 'prod-1', 'alm-1', consumos, new Map(), () => 'linea-1');
+    expect(lineas).toHaveLength(1);
+    expect(lineas[0].consumoOrigenId).toBe('c2');
+  });
+});
+
+describe('registrarEntradaValorizada — tipoOperacion "devolucion_cliente" (cierre de brecha de devoluciones físicas)', () => {
+  it('crea una capa de devolución con procedencia/tipoDocumentoOrigen correctos y el vínculo consumoOrigenId', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 0 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+
+    const datos: DatosOperacionEntradaCuantitativa = {
+      modoOperacion: 'valorizado',
+      empresaId,
+      documentoId: 'nc-1',
+      tipoDocumento: 'nota_credito',
+      tipoOperacion: 'devolucion_cliente',
+      claveIdempotencia: 'DEVOLUCION-nc-1',
+      usuario: 'user-1',
+      fecha: '2026-08-01T00:00:00.000Z',
+      motivo: 'DEVOLUCION_CLIENTE',
+      documentoReferencia: 'F001-1',
+      lineas: [
+        { lineaId: 'nc-1-dev-0', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 4, costoUnitarioBaseMonedaBase: 12.5, consumoOrigenId: 'consumo-1' },
+      ],
+    };
+
+    await ServicioKardexValorizado.registrarEntradaValorizada(datos, {
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN',
+    });
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    expect(capas).toHaveLength(1);
+    expect(capas[0].procedencia).toBe('devolucion_cliente');
+    expect(capas[0].tipoDocumentoOrigen).toBe('devolucion_cliente');
+    expect(capas[0].consumoOrigenId).toBe('consumo-1');
+    expect(capas[0].costoUnitarioBaseMonedaBase).toBe(12.5);
+    expect(capas[0].documentoOrigenId).toBe('nc-1');
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(4);
+  });
+
+  it('doble clic (misma clave) no duplica la capa de devolución', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 0 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    const datos: DatosOperacionEntradaCuantitativa = {
+      modoOperacion: 'valorizado',
+      empresaId,
+      documentoId: 'nc-1',
+      tipoDocumento: 'nota_credito',
+      tipoOperacion: 'devolucion_cliente',
+      claveIdempotencia: 'DEVOLUCION-nc-1',
+      usuario: 'user-1',
+      fecha: '2026-08-01T00:00:00.000Z',
+      motivo: 'DEVOLUCION_CLIENTE',
+      lineas: [
+        { lineaId: 'nc-1-dev-0', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 4, costoUnitarioBaseMonedaBase: 12.5, consumoOrigenId: 'consumo-1' },
+      ],
+    };
+
+    const r1 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
+    const r2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
+
+    expect(r1.estado).toBe('nueva');
+    expect(r2.estado).toBe('repetida');
+    expect(listarCapasCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
   });
 });

@@ -736,6 +736,48 @@ describe('salidaCuantitativaInventario — modo valorizado: consumo FIFO de capa
     expect(capas.find((c) => c.id === 'capa-2')?.cantidadDisponible).toBe(0);
   });
 
+  it('cierre de brecha (identidad estable de línea): una línea comercial repartida entre dos segmentos conserva el MISMO lineaComercialId en ambos movimientos y consumos, aunque cada uno tenga su propio lineaOrigenId técnico', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 7 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', fechaEntrada: '2026-01-01T00:00:00.000Z', cantidadInicial: 5, cantidadDisponible: 5, costoUnitarioBaseMonedaBase: 10 }), empresaId);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-2', fechaEntrada: '2026-01-02T00:00:00.000Z', cantidadInicial: 2, cantidadDisponible: 2, costoUnitarioBaseMonedaBase: 11 }), empresaId);
+
+    const datos = datosBase({
+      empresaId,
+      modoOperacion: 'valorizado',
+      lineas: [
+        { lineaId: 'seg-A', lineaComercialId: 'linea-comercial-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 4 },
+        { lineaId: 'seg-B', lineaComercialId: 'linea-comercial-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 3 },
+      ],
+    });
+    const { movimientosGenerados } = await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    expect(movimientosGenerados).toHaveLength(2);
+    expect(movimientosGenerados.map((m) => m.lineaOrigenId).sort()).toEqual(['seg-A', 'seg-B']);
+    expect(movimientosGenerados.every((m) => m.lineaComercialId === 'linea-comercial-1')).toBe(true);
+
+    const consumos = listarConsumosCapaCostoInventarioPorEmpresa(empresaId);
+    expect(consumos.length).toBeGreaterThan(0);
+    expect(consumos.every((c) => c.lineaComercialId === 'linea-comercial-1')).toBe(true);
+    // Cada consumo conserva su propia lineaDocumentoSalidaId (clave técnica del segmento) distinta.
+    const lineasDocumentoSalida = new Set(consumos.map((c) => c.lineaDocumentoSalidaId));
+    expect(lineasDocumentoSalida).toEqual(new Set(['seg-A', 'seg-B']));
+  });
+
+  it('sin lineaComercialId (canal legacy), el movimiento y el consumo simplemente no lo incluyen — nunca se inventa', async () => {
+    const empresaId = 'emp-A';
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, empresaId), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]));
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-1', cantidadInicial: 5, cantidadDisponible: 5 }), empresaId);
+
+    const datos = datosBase({ empresaId, modoOperacion: 'valorizado', lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }] });
+    const { movimientosGenerados } = await ejecutarSalidaEndToEnd(empresaId, datos, almacenes);
+
+    expect(movimientosGenerados[0].lineaComercialId).toBeUndefined();
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)[0].lineaComercialId).toBeUndefined();
+  });
+
   it('productos y almacenes distintos no mezclan sus capas', async () => {
     const empresaId = 'emp-A';
     localStorage.setItem(

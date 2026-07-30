@@ -14,6 +14,7 @@ import {
   obtenerCodigoSunatPorTipoComprobante,
   obtenerEtiquetaDocumentoRelacionado,
 } from './constants';
+import { calcularDesgloseFinancieroVenta, type DesgloseFinancieroLinea } from '../shared/core/desgloseFinancieroVenta';
 
 export type OrigenDocumentoComercial =
   | 'pos'
@@ -102,6 +103,15 @@ export interface DetalleDocumentoComercial {
   modoDetalle: ModoDetalleDocumentoComercial;
   contieneItemsCatalogo: boolean;
   contieneItemsLibres: boolean;
+  /**
+   * Cierre correctivo (snapshot financiero inmutable): desglose financiero POR LÍNEA, calculado
+   * una sola vez al crear la instantánea con `calcularDesgloseFinancieroVenta` — nunca recalculado
+   * después. Una consulta futura (p. ej. Rentabilidad) debe leer esto directamente, nunca volver a
+   * ejecutar la fórmula sobre `items` con el precio/configuración tributaria ACTUAL. Ausente en
+   * instantáneas creadas antes de este cierre (documentos legacy) — su ausencia debe tratarse como
+   * "no verificable", nunca reconstruida ni inventada.
+   */
+  desgloseFinancieroLineas?: DesgloseFinancieroLinea[];
 }
 
 export interface RelacionesDocumentoComercial {
@@ -412,6 +422,10 @@ const combinarInstantaneaDocumentoComercial = (
       modoDetalle,
       contieneItemsCatalogo: modoDetalle === 'catalogo' || modoDetalle === 'mixto',
       contieneItemsLibres: modoDetalle === 'libre' || modoDetalle === 'mixto',
+      desgloseFinancieroLineas: calcularDesgloseParaSnapshot(
+        items,
+        (combinarTexto(principal.identidad.moneda ?? null, respaldo.identidad.moneda ?? null) as Currency | null) ?? null,
+      ),
     },
     totales: combinarTotales(principal.totales, respaldo.totales),
     relaciones: {
@@ -424,6 +438,24 @@ const combinarInstantaneaDocumentoComercial = (
       tipoDocumentoFuente: combinarTexto(principal.relaciones.tipoDocumentoFuente, respaldo.relaciones.tipoDocumentoFuente),
     },
   };
+};
+
+/**
+ * Cierre correctivo: calcula el desglose financiero por línea para el snapshot inmutable — única
+ * fuente ("calcularDesgloseFinancieroVenta"), nunca una fórmula distinta aquí. `precioIncluyeImpuesto:true`
+ * es la convención vigente de Emisión Tradicional/POS/Documentos Comerciales (mismo valor que ya
+ * usa `usePayment.calculateTotals`). Sin descuento global: no existe hoy una fuente real de monto
+ * de descuento global capturado en este punto — nunca se inventa uno.
+ */
+const calcularDesgloseParaSnapshot = (
+  items: CartItem[],
+  moneda: Currency | null,
+): DesgloseFinancieroLinea[] | undefined => {
+  if (items.length === 0) return undefined;
+  return calcularDesgloseFinancieroVenta(items, {
+    monedaDocumento: moneda ?? 'PEN',
+    precioIncluyeImpuesto: true,
+  });
 };
 
 export const inferirModoDetalleDocumentoComercial = (
@@ -515,6 +547,7 @@ export const crearInstantaneaDocumentoComercial = (
       modoDetalle,
       contieneItemsCatalogo: modoDetalle === 'catalogo' || modoDetalle === 'mixto',
       contieneItemsLibres: modoDetalle === 'libre' || modoDetalle === 'mixto',
+      desgloseFinancieroLineas: calcularDesgloseParaSnapshot(items, opciones.moneda ?? null),
     },
     totales: {
       ...opciones.totales,

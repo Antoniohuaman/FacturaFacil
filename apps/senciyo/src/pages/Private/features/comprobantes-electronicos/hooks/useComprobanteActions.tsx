@@ -49,7 +49,15 @@ import { crearInstantaneaDocumentoComercial } from '../models/instantaneaDocumen
 import { registrarComprobanteEstadoActualizado } from '@/shared/analitica/analitica';
 import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
 import { resolverModoOperacion } from '../../gestion-inventario/utils/estadoActivacionValorizacionInventario';
-import type { DatosOperacionSalidaCuantitativa, DatosLineaOperacionCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
+import type { DatosOperacionSalidaCuantitativa, DatosOperacionEntradaCuantitativa, DatosLineaOperacionCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
+import {
+  calcularCantidadYaDevueltaPorConsumo,
+  construirLineasDevolucionFisica,
+  type ConsumoDisponibleDevolucion,
+} from '../../gestion-inventario/utils/entradaCuantitativaInventario';
+import { listarConsumosPorMovimientoSalida } from '../../gestion-inventario/repositories/consumoCapaCostoInventario.repository';
+import { listarCapasCostoInventarioPorEmpresa } from '../../gestion-inventario/repositories/capaCostoInventario.repository';
+import { currencyManager } from '@/shared/currency';
 import {
   obtenerDatosOperacionPendiente,
   guardarDatosOperacionPendiente,
@@ -63,6 +71,50 @@ import type { DatosAnulacionDocumentoInventario } from '../../gestion-inventario
 
 /** Exportado para que la anulación de comprobante/POS (ListaComprobantes.tsx, Etapa 1E cierre final §2) pueda localizar los movimientos originales por el mismo `claveIdempotencia`. */
 export const ESPACIO_VENTA_SALIDA = 'venta_salida';
+
+/**
+ * Cierre correctivo (devolución de la línea EXACTA): localiza los movimientos de SALIDA
+ * originales que corresponden a la línea del carrito de la NC que se está devolviendo.
+ *
+ * Relación PRINCIPAL para documentos NUEVOS: `item.lineaId` (la identidad estable de línea,
+ * sobrevive intacta cuando la NC se genera duplicando/convirtiendo el comprobante original — ver
+ * `extraerDatosRehidratacionDesdeInstantanea`, que copia `detalle.items` verbatim) contra
+ * `MovimientoStock.lineaComercialId` — nunca `documentoReferencia + productoId` como relación
+ * principal, que no distingue dos líneas del mismo producto con precio/descuento/presentación/
+ * almacén distintos.
+ *
+ * Fallback LEGACY (solo por `productoId`) ÚNICAMENTE cuando la coincidencia es inequívoca — es
+ * decir, cuando el documento de la NC no tiene MÁS de una línea con ese mismo producto. Si hay
+ * varias líneas posibles para el mismo producto y ninguna trae una identidad estable que las
+ * distinga, rechaza con un error de dominio claro — nunca elige en silencio por producto o
+ * posición.
+ */
+export function resolverMovimientosOriginalesDeLinea(
+  item: CartItem,
+  movimientosOriginales: readonly MovimientoStock[],
+  itemsDeLaNC: readonly CartItem[],
+): MovimientoStock[] {
+  if (item.lineaId) {
+    const porLineaComercial = movimientosOriginales.filter((m) => m.lineaComercialId === item.lineaId);
+    if (porLineaComercial.length > 0) {
+      return porLineaComercial;
+    }
+    // Tiene identidad estable pero ningún movimiento original la referencia (venta anterior a esta
+    // capacidad, o sin relación real) — cae al fallback legacy, con la misma verificación de
+    // ambigüedad que un documento genuinamente legacy.
+  }
+
+  const otrasLineasMismoProducto = itemsDeLaNC.filter(
+    (otro) => otro !== item && otro.id === item.id && otro.tipoDetalle !== 'libre'
+  );
+  if (otrasLineasMismoProducto.length > 0) {
+    throw new Error(
+      `No es posible determinar de forma inequívoca a qué línea de la venta original corresponde la devolución del producto "${item.name || item.id}": el documento tiene varias líneas de este producto y ninguna tiene una identidad de línea estable registrada.`
+    );
+  }
+
+  return movimientosOriginales.filter((m) => m.productoId === item.id);
+}
 
 /**
  * Localiza los movimientos ORIGINALES confirmados del descuento de stock de un comprobante
@@ -814,6 +866,8 @@ export const useComprobanteActions = () => {
             productId: string;
             qtyUnidadMinima: number;
             almacenId: string;
+            /** Identidad estable de la línea del carrito que originó este segmento (Cierre de brecha §7) — ausente si el canal todavía no la genera. */
+            lineaComercialId?: string;
           };
 
           const pendingMovements: PendingMovement[] = [];
@@ -846,14 +900,14 @@ export const useComprobanteActions = () => {
             if (esDesdeOV && itemReservas && itemReservas.length > 0) {
               for (const res of itemReservas) {
                 if (res.cantidad <= 0) continue;
-                pendingMovements.push({ productId: item.id, qtyUnidadMinima: res.cantidad, almacenId: res.almacenId });
+                pendingMovements.push({ productId: item.id, qtyUnidadMinima: res.cantidad, almacenId: res.almacenId, lineaComercialId: item.lineaId });
               }
               continue;
             }
 
             // Venta directa: distribución FIFO progresiva por prioridad de almacén.
             if (!catalogProduct) {
-              pendingMovements.push({ productId: item.id, qtyUnidadMinima: quantityInUnidadMinima, almacenId: almacenesOrdered[0].id });
+              pendingMovements.push({ productId: item.id, qtyUnidadMinima: quantityInUnidadMinima, almacenId: almacenesOrdered[0].id, lineaComercialId: item.lineaId });
               continue;
             }
 
@@ -875,12 +929,13 @@ export const useComprobanteActions = () => {
 
             allocations.forEach((seg) => {
               if (seg.qtyUnidadMinima <= 0) return;
-              pendingMovements.push({ productId: item.id, qtyUnidadMinima: seg.qtyUnidadMinima, almacenId: seg.almacenId });
+              pendingMovements.push({ productId: item.id, qtyUnidadMinima: seg.qtyUnidadMinima, almacenId: seg.almacenId, lineaComercialId: item.lineaId });
             });
           }
 
           lineas = pendingMovements.map((movement, indice) => ({
             lineaId: `${documentoIdVenta}-${indice}`,
+            ...(movement.lineaComercialId ? { lineaComercialId: movement.lineaComercialId } : {}),
             productoId: movement.productId,
             almacenId: movement.almacenId,
             cantidadUnidadMinima: movement.qtyUnidadMinima,
@@ -976,6 +1031,27 @@ export const useComprobanteActions = () => {
                 )
               : [];
 
+            // Cierre correctivo: resuelve la identidad de línea de TODOS los ítems ANTES de mutar
+            // nada — si algún ítem es ambiguo (varias líneas del mismo producto, sin identidad
+            // estable que las distinga), se rechaza la NC completa sin ningún efecto parcial (nunca
+            // ya se habrá restaurado stock de un ítem anterior del mismo carrito).
+            for (const itemValidar of data.cartItems) {
+              if (itemValidar.tipoDetalle === 'libre' || !itemValidar.requiresStockControl) continue;
+              resolverMovimientosOriginalesDeLinea(itemValidar, movimientosOriginales, data.cartItems);
+            }
+
+            // Cierre de brecha: en modo valorizado exclusivo, una devolución física DEBE recuperar
+            // el costo histórico real de la venta (vía sus ConsumoCapaCostoInventario originales) y
+            // crear su propia CapaCostoInventario enlazada — nunca `addMovimientoStock` (que solo
+            // mueve cantidad, sin capa ni vínculo con el consumo original). En modo cuantitativo se
+            // conserva exactamente el comportamiento ya aprobado, byte a byte.
+            const empresaIdDevolucion = getTenantEmpresaId();
+            const valorizacionHabilitadaDevolucion =
+              resolverModoOperacion(preferenciasInventario.estadoValorizacion) === 'valorizado_exclusivo';
+            const lineasDevolucionValorizada: DatosLineaOperacionCuantitativa[] = [];
+            let contadorLineaDevolucion = 0;
+            const generarLineaIdDevolucion = () => `${documentoIdVenta}-dev-${contadorLineaDevolucion++}`;
+
             for (const item of data.cartItems) {
               if (item.tipoDetalle === 'libre' || !item.requiresStockControl) continue;
 
@@ -992,9 +1068,65 @@ export const useComprobanteActions = () => {
 
               const observacionesNC = `Devolución NC ${numeroComprobante}${docAfectado ? ` / Ref: ${docAfectado}` : ''}`;
 
-              // Buscar movimientos de salida del comprobante afectado para este producto.
-              const salidaOriginal = movimientosOriginales.filter((m) => m.productoId === item.id);
+              // Cierre correctivo: localizar por identidad estable de línea (documento original +
+              // lineaComercialId) — nunca solo por productoId, salvo fallback legacy inequívoco.
+              const salidaOriginal = resolverMovimientosOriginalesDeLinea(item, movimientosOriginales, data.cartItems);
               const totalSalidaOriginal = salidaOriginal.reduce((sum, m) => sum + m.cantidad, 0);
+
+              if (valorizacionHabilitadaDevolucion) {
+                if (salidaOriginal.length === 0 || totalSalidaOriginal <= 0) {
+                  throw new Error(
+                    'No es posible valorizar automáticamente esta devolución porque la venta original no tiene costo histórico registrado.'
+                  );
+                }
+                const resolverConsumosYaDevuelto = () => ({
+                  yaDevuelto: calcularCantidadYaDevueltaPorConsumo(listarCapasCostoInventarioPorEmpresa(empresaIdDevolucion)),
+                });
+                let pendiente = quantityInUnidadMinima;
+                for (const mov of salidaOriginal) {
+                  if (pendiente <= 0) break;
+                  const proporcion = mov.cantidad / totalSalidaOriginal;
+                  const cantidadDevolverMov = Math.min(
+                    pendiente,
+                    Math.round(quantityInUnidadMinima * proporcion * 1000) / 1000
+                  );
+                  if (cantidadDevolverMov <= 0) continue;
+                  const consumosOriginales: ConsumoDisponibleDevolucion[] = listarConsumosPorMovimientoSalida(mov.id, empresaIdDevolucion)
+                    .map((c) => ({
+                      consumoId: c.id,
+                      cantidadConsumida: c.cantidadConsumida,
+                      costoUnitarioBaseMonedaBase: c.costoUnitarioBaseMonedaBase,
+                      fecha: c.fecha,
+                      estado: c.estado,
+                    }));
+                  const { yaDevuelto } = resolverConsumosYaDevuelto();
+                  lineasDevolucionValorizada.push(
+                    ...construirLineasDevolucionFisica(
+                      cantidadDevolverMov, item.id, mov.almacenId, consumosOriginales, yaDevuelto, generarLineaIdDevolucion
+                    )
+                  );
+                  pendiente -= cantidadDevolverMov;
+                }
+                // Resto por redondeo al primer movimiento original.
+                if (pendiente > 0.001) {
+                  const movResto = salidaOriginal[0];
+                  const consumosOriginales: ConsumoDisponibleDevolucion[] = listarConsumosPorMovimientoSalida(movResto.id, empresaIdDevolucion)
+                    .map((c) => ({
+                      consumoId: c.id,
+                      cantidadConsumida: c.cantidadConsumida,
+                      costoUnitarioBaseMonedaBase: c.costoUnitarioBaseMonedaBase,
+                      fecha: c.fecha,
+                      estado: c.estado,
+                    }));
+                  const { yaDevuelto } = resolverConsumosYaDevuelto();
+                  lineasDevolucionValorizada.push(
+                    ...construirLineasDevolucionFisica(
+                      pendiente, item.id, movResto.almacenId, consumosOriginales, yaDevuelto, generarLineaIdDevolucion
+                    )
+                  );
+                }
+                continue;
+              }
 
               if (salidaOriginal.length > 0 && totalSalidaOriginal > 0) {
                 // Devolver al almacén original de forma proporcional.
@@ -1057,6 +1189,34 @@ export const useComprobanteActions = () => {
                   { almacenId: almacenDestino.id, allowNegativeStock: true }
                 );
               }
+            }
+
+            if (valorizacionHabilitadaDevolucion && lineasDevolucionValorizada.length > 0) {
+              const almacenesMap = new Map(almacenes.map((a) => [a.id, a]));
+              const datosDevolucion: DatosOperacionEntradaCuantitativa = {
+                modoOperacion: 'valorizado',
+                empresaId: empresaIdDevolucion,
+                documentoId: documentoIdVenta,
+                tipoDocumento: 'nota_credito',
+                tipoOperacion: 'devolucion_cliente',
+                claveIdempotencia: `DEVOLUCION-${documentoIdVenta}`,
+                usuario: cajeroNombre,
+                fecha: new Date().toISOString(),
+                motivo: 'DEVOLUCION_CLIENTE',
+                observaciones: `Devolución NC ${numeroComprobante}${docAfectado ? ` / Ref: ${docAfectado}` : ''}`,
+                documentoReferencia: numeroComprobante,
+                lineas: lineasDevolucionValorizada,
+              };
+
+              await ServicioKardexValorizado.registrarEntradaValorizada(datosDevolucion, {
+                almacenes: almacenesMap,
+                generarId: () => crypto.randomUUID(),
+                fechaActual: () => new Date().toISOString(),
+                estadoValorizacion: preferenciasInventario.estadoValorizacion,
+                monedaBase: currencyManager.getSnapshot().baseCurrency.code,
+              });
+
+              sincronizarInventarioTrasConfirmacion();
             }
           } catch (ncStockError) {
             console.error('[Stock] Error restaurando stock por NC devolución', {

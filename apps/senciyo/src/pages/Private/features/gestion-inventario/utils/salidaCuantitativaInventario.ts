@@ -49,6 +49,12 @@ export const TIPOS_OPERACION_SALIDA_VALORIZABLES = new Set<TipoOperacionIdempote
   'venta_salida',
   'nota_salida',
   'ajuste_negativo',
+  // Cierre de brecha (transferencia inter-establecimiento por etapas): el leg de DESPACHO
+  // (PENDIENTE→EN_TRANSITO) consume capas FIFO en el almacén origen exactamente igual que
+  // cualquier otra salida valorizada — reutiliza este motor en vez de crear uno nuevo. Nunca
+  // usado por `transferenciaCuantitativaInventario.ts` (la variante ATÓMICA intra-establecimiento
+  // sigue construyendo sus propios movimientos directamente, sin pasar por aquí).
+  'transferencia',
 ]);
 
 /**
@@ -77,6 +83,7 @@ function tipoMovimientoParaOperacionSalida(tipoOperacion: TipoOperacionIdempoten
   switch (tipoOperacion) {
     case 'nota_salida':
     case 'venta_salida':
+    case 'transferencia':
       return 'SALIDA';
     case 'ajuste_negativo':
       return 'AJUSTE_NEGATIVO';
@@ -194,6 +201,7 @@ export function construirConsumosSalidaValorizada(
       empresaId: datos.empresaId,
       movimientoSalidaId: movimiento.id,
       lineaDocumentoSalidaId: linea.lineaId,
+      lineaComercialId: linea.lineaComercialId,
       motivo: 'salida',
       fecha: datos.fecha,
       generarId,

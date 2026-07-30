@@ -16,6 +16,8 @@ export interface ConsumoCapaCostoInventario {
   movimientoSalidaId: string;
   /** Línea del documento de salida (venta, NS, NC) que originó este consumo, cuando aplica. */
   lineaDocumentoSalidaId?: string;
+  /** Identidad ESTABLE de la línea comercial (CartItem.lineaId) que originó este consumo — ver el mismo campo en `MovimientoStock.lineaComercialId` para la distinción exacta con `lineaDocumentoSalidaId` (clave técnica del segmento, única por consumo). */
+  lineaComercialId?: string;
   /** 'transferencia' cuando el consumo proviene de `transferirStockValorizado` (Etapa 1E) — ausente/'salida' para el resto. */
   motivo?: MotivoConsumoCapaCosto;
 

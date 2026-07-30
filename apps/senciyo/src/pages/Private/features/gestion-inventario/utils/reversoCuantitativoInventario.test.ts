@@ -585,6 +585,103 @@ describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA', () => {
   });
 });
 
+describe('revertirMovimientoValorizado — reverso de TRANSFERENCIA inter-establecimiento (cierre de brecha)', () => {
+  async function crearTransferenciaInterEstablecimientoConfirmada(empresaId: string, valorizacionHabilitada = false) {
+    const datos: DatosTransferenciaInventario = {
+      modoOperacion: 'cuantitativo',
+      empresaId,
+      transferenciaId: 'trf-inter-1',
+      claveIdempotencia: 'TRANSFER-trf-inter-1',
+      tipoOperacion: 'transferencia',
+      tipoDocumento: 'transferencia',
+      productoId: 'prod-1',
+      establecimientoOrigenId: EST_1,
+      almacenOrigenId: 'alm-1',
+      establecimientoDestinoId: 'est-2',
+      almacenDestinoId: 'alm-2',
+      cantidadUnidadMinima: 5,
+      usuario: 'user-1',
+      fecha: '2026-08-01T00:00:00.000Z',
+      motivo: 'TRANSFERENCIA_ALMACEN',
+    };
+    const almacenes = new Map([
+      ['alm-1', crearAlmacen({ id: 'alm-1', establecimientoId: EST_1 })],
+      ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Almacén 2', establecimientoId: 'est-2' })],
+    ]);
+    const resultado = await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada });
+    return { salidaId: resultado.movimientos.find((m) => m.tipo === 'SALIDA')!.id, almacenes };
+  }
+
+  it('transferencia inter-establecimiento valorizada: consume capa en origen y crea la capa espejo en el establecimiento destino correcto', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-origen', empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+
+    await crearTransferenciaInterEstablecimientoConfirmada(empresaId, true);
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    const capaOrigen = capas.find((c) => c.id === 'capa-origen');
+    expect(capaOrigen?.cantidadDisponible).toBe(15);
+    const capaDestino = capas.find((c) => c.almacenId === 'alm-2');
+    expect(capaDestino?.establecimientoId).toBe('est-2');
+    expect(capaDestino?.cantidadInicial).toBe(5);
+    expect(capaDestino?.costoUnitarioBaseMonedaBase).toBe(12.5);
+    expect(capaDestino?.monedaBase).toBe(capaOrigen?.monedaBase);
+    expect(capaDestino?.tipoCambioAplicado).toBe(capaOrigen?.tipoCambioAplicado);
+  });
+
+  it('reverso de una transferencia inter-establecimiento restaura la capa de origen y retira la capa espejo de destino', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-origen', empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+    const { salidaId, almacenes } = await crearTransferenciaInterEstablecimientoConfirmada(empresaId, true);
+
+    await ServicioKardexValorizado.revertirMovimientoValorizado(
+      reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }),
+      { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true }
+    );
+
+    const capasFinales = listarCapasCostoInventarioPorEmpresa(empresaId);
+    expect(capasFinales.find((c) => c.id === 'capa-origen')?.cantidadDisponible).toBe(20);
+    const capaDestino = capasFinales.find((c) => c.almacenId === 'alm-2');
+    expect(capaDestino?.estado).toBe('revertida');
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(0);
+  });
+
+  it('doble reverso de una transferencia inter-establecimiento es rechazado', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-origen', empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+    const { salidaId, almacenes } = await crearTransferenciaInterEstablecimientoConfirmada(empresaId, true);
+    const dependencias = { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const, valorizacionHabilitada: true };
+
+    await ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia' }), dependencias);
+
+    await expect(
+      ServicioKardexValorizado.revertirMovimientoValorizado(
+        reversoBase(salidaId, { empresaId, tipoDocumento: 'transferencia', claveIdempotencia: `REVERSO-${salidaId}-otra` }),
+        dependencias
+      )
+    ).rejects.toThrow(/ya fue revertido/);
+  });
+
+  it('transferencia inter-establecimiento en modo cuantitativo (sin valorización habilitada) mueve stock igual que intra, sin tocar capas', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapaDePrueba({ id: 'capa-origen', empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+
+    await crearTransferenciaInterEstablecimientoConfirmada(empresaId, false);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(15);
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(5);
+    expect(listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'capa-origen')?.cantidadDisponible).toBe(20);
+  });
+});
+
 function crearCapaDePrueba(overrides: Partial<CapaCostoInventario> = {}): CapaCostoInventario {
   return {
     id: 'capa-1',
@@ -629,3 +726,65 @@ function crearConsumoDePrueba(overrides: Partial<ConsumoCapaCostoInventario> = {
     ...overrides,
   };
 }
+
+describe('revertirMovimientoValorizado — reverso de DEVOLUCIÓN FÍSICA por NC (cierre de brecha)', () => {
+  async function crearDevolucionConfirmada(empresaId: string) {
+    const datos: DatosOperacionEntradaCuantitativa = {
+      modoOperacion: 'valorizado',
+      empresaId,
+      documentoId: 'nc-1',
+      tipoDocumento: 'nota_credito',
+      tipoOperacion: 'devolucion_cliente',
+      claveIdempotencia: 'DEVOLUCION-nc-1',
+      usuario: 'user-1',
+      fecha: '2026-08-02T00:00:00.000Z',
+      motivo: 'DEVOLUCION_CLIENTE',
+      lineas: [{ lineaId: 'nc-1-dev-0', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 4, costoUnitarioBaseMonedaBase: 12.5, consumoOrigenId: 'consumo-venta-1' }],
+    };
+    const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datos, {
+      almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN',
+    });
+    return resultado.resultadoIds[0];
+  }
+
+  it('revierte la capa creada por la devolución, sin tocar el consumo de la venta original', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 0 } })]);
+    guardarConsumoCapaCostoInventario(crearConsumoDePrueba({ id: 'consumo-venta-1', empresaId, capaId: 'capa-venta-original', movimientoSalidaId: 'mov-venta-original' }), empresaId);
+    const movimientoDevolucionId = await crearDevolucionConfirmada(empresaId);
+
+    await ServicioKardexValorizado.revertirMovimientoValorizado(
+      reversoBase(movimientoDevolucionId, { empresaId, tipoDocumento: 'nota_credito' }),
+      { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true }
+    );
+
+    const capaDevolucion = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.movimientoEntradaId === movimientoDevolucionId);
+    expect(capaDevolucion?.estado).toBe('revertida');
+    expect(capaDevolucion?.cantidadDisponible).toBe(0);
+
+    // El consumo de la venta original (otro movimiento por completo) nunca se toca ni se duplica.
+    const consumoVentaOriginal = listarConsumosCapaCostoInventarioPorEmpresa(empresaId).find((c) => c.id === 'consumo-venta-1');
+    expect(consumoVentaOriginal?.estado).toBe('confirmado');
+    expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(0);
+  });
+
+  it('doble reverso de una devolución física es rechazado', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 0 } })]);
+    guardarConsumoCapaCostoInventario(crearConsumoDePrueba({ id: 'consumo-venta-1', empresaId }), empresaId);
+    const movimientoDevolucionId = await crearDevolucionConfirmada(empresaId);
+    const dependencias = { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const, valorizacionHabilitada: true };
+
+    await ServicioKardexValorizado.revertirMovimientoValorizado(reversoBase(movimientoDevolucionId, { empresaId, tipoDocumento: 'nota_credito' }), dependencias);
+
+    await expect(
+      ServicioKardexValorizado.revertirMovimientoValorizado(
+        reversoBase(movimientoDevolucionId, { empresaId, tipoDocumento: 'nota_credito', claveIdempotencia: `REVERSO-${movimientoDevolucionId}-otra` }),
+        dependencias
+      )
+    ).rejects.toThrow(/ya fue revertido/);
+  });
+});

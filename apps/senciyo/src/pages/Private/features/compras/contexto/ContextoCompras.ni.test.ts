@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { construirNotaIngresoDesdeCC, sincronizarCCTrasConfirmacionNI } from './ContextoCompras';
+import { construirNotaIngresoDesdeCC } from './ContextoCompras';
+import { sincronizarCCTrasConfirmacionNI, sincronizarCCTrasAnulacionNI } from '../logica/reglasCompras';
 import { prepararDatosNIDesdeCC } from '../mapeadores/mapeadorCCaNI';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
@@ -333,5 +334,156 @@ describe('sincronizarCCTrasConfirmacionNI', () => {
 
     expect(actualizado?.lineas.find((l) => l.id === 'linea-A')?.cantidadIngresadaInventario).toBe(2);
     expect(actualizado?.lineas.find((l) => l.id === 'linea-B')?.cantidadIngresadaInventario).toBe(0);
+  });
+});
+
+describe('sincronizarCCTrasAnulacionNI — cierre de brecha CC↔NI', () => {
+  function crearLineaNI(overrides: Partial<LineaNotaIngreso> = {}): LineaNotaIngreso {
+    return {
+      id: 'ni-linea-1',
+      productoId: 'prod-1',
+      productoCodigo: 'P001',
+      productoNombre: 'Producto de prueba',
+      tipoBienServicio: 'bien',
+      unidad: 'Caja x 12',
+      unidadCodigo: 'BX',
+      almacenId: 'alm-1',
+      cantidad: 24,
+      costoUnitario: 10,
+      subtotal: 240,
+      igv: 0,
+      total: 240,
+      lineaCompraOrigenId: 'linea-1',
+      cantidadComercialOriginal: 2,
+      factorConversionAplicado: 12,
+      ...overrides,
+    };
+  }
+
+  function crearNotaAnulada(overrides: Partial<NotaIngreso> = {}): NotaIngreso {
+    return {
+      id: 'ni-1',
+      tipoDocumento: 'nota_ingreso',
+      serie: 'NI01',
+      correlativo: '00000001',
+      numero: 'NI01-00000001',
+      estado: 'Anulada',
+      esBorrador: false,
+      fechaDocumento: '2026-08-01',
+      fechaIngresoAlmacen: '2026-08-01',
+      tipoIngreso: '02',
+      almacenDestinoId: 'alm-1',
+      almacenDestinoNombre: 'Almacén Principal',
+      almacenDestinoCodigo: 'ALM01',
+      moneda: 'PEN',
+      comprobanteCompraOrigenId: 'cc-1',
+      modalidadOrigenCompra: 'automatico',
+      lineas: [crearLineaNI()],
+      baseImponible: 240,
+      descuentos: 0,
+      isc: 0,
+      impuesto: 0,
+      noGravados: 0,
+      otc: 0,
+      total: 240,
+      usuario: 'Ana',
+      fechaCreacion: '2026-08-01T00:00:00.000Z',
+      fechaActualizacion: '2026-08-02T00:00:00.000Z',
+      historial: [],
+      ...overrides,
+    };
+  }
+
+  it('descuenta exactamente cantidadComercialOriginal de cantidadIngresadaInventario — el inverso exacto de la confirmación', () => {
+    const cc = crearCC([crearLineaCompra({ cantidadIngresadaInventario: 2, cantidadPendienteInventario: 0 })]);
+    const nota = crearNotaAnulada();
+
+    const actualizado = sincronizarCCTrasAnulacionNI([cc], nota, '2026-08-02T00:00:00.000Z');
+
+    expect(actualizado?.lineas[0].cantidadIngresadaInventario).toBe(0);
+    expect(actualizado?.lineas[0].cantidadPendienteInventario).toBe(2);
+  });
+
+  it('recalcula estadoInventario a "pendiente" tras anular la única NI (nunca queda en "automatico"/"completo")', () => {
+    const cc = crearCC(
+      [crearLineaCompra({ cantidadIngresadaInventario: 2, cantidadPendienteInventario: 0 })],
+      { modalidadInventario: 'ingreso_automatico', estadoInventario: 'automatico' }
+    );
+    const nota = crearNotaAnulada();
+
+    const actualizado = sincronizarCCTrasAnulacionNI([cc], nota, '2026-08-02T00:00:00.000Z');
+
+    expect(actualizado?.estadoInventario).toBe('pendiente');
+  });
+
+  it('nunca deja cantidadIngresadaInventario negativa (Math.max 0) si la NI anulada declara más de lo que el CC tenía registrado', () => {
+    const cc = crearCC([crearLineaCompra({ cantidadIngresadaInventario: 1, cantidadPendienteInventario: 1 })]);
+    const nota = crearNotaAnulada();
+
+    const actualizado = sincronizarCCTrasAnulacionNI([cc], nota, '2026-08-02T00:00:00.000Z');
+
+    expect(actualizado?.lineas[0].cantidadIngresadaInventario).toBe(0);
+  });
+
+  it('nunca borra notasIngresoRelacionadas/movimientosInventarioRelacionados — son historial documental', () => {
+    const cc = crearCC(
+      [crearLineaCompra({ cantidadIngresadaInventario: 2, cantidadPendienteInventario: 0 })],
+      { notasIngresoRelacionadas: ['ni-1'], movimientosInventarioRelacionados: ['mov-1'] }
+    );
+    const nota = crearNotaAnulada();
+
+    const actualizado = sincronizarCCTrasAnulacionNI([cc], nota, '2026-08-02T00:00:00.000Z');
+
+    expect(actualizado?.notasIngresoRelacionadas).toEqual(['ni-1']);
+    expect(actualizado?.movimientosInventarioRelacionados).toEqual(['mov-1']);
+  });
+
+  it('agrega un evento al historial documentando la anulación', () => {
+    const cc = crearCC([crearLineaCompra({ cantidadIngresadaInventario: 2, cantidadPendienteInventario: 0 })]);
+    const nota = crearNotaAnulada();
+
+    const actualizado = sincronizarCCTrasAnulacionNI([cc], nota, '2026-08-02T00:00:00.000Z');
+
+    expect(actualizado?.historial.at(-1)?.accion).toBe('Nota de Ingreso anulada');
+  });
+
+  it('devuelve null si la NI no tiene comprobanteCompraOrigenId (NI sin origen en Compras)', () => {
+    const cc = crearCC([crearLineaCompra()]);
+    const nota = crearNotaAnulada({ comprobanteCompraOrigenId: undefined });
+
+    expect(sincronizarCCTrasAnulacionNI([cc], nota, '2026-08-02T00:00:00.000Z')).toBeNull();
+  });
+
+  it('devuelve null si el CC de origen no está en la colección', () => {
+    const nota = crearNotaAnulada({ comprobanteCompraOrigenId: 'cc-inexistente' });
+
+    expect(sincronizarCCTrasAnulacionNI([], nota, '2026-08-02T00:00:00.000Z')).toBeNull();
+  });
+
+  it('no toca líneas del CC sin línea de NI correspondiente', () => {
+    const cc = crearCC([
+      crearLineaCompra({ id: 'linea-A', cantidadIngresadaInventario: 2, cantidadPendienteInventario: 0 }),
+      crearLineaCompra({ id: 'linea-B', cantidadIngresadaInventario: 3, cantidadPendienteInventario: 0 }),
+    ]);
+    const nota = crearNotaAnulada({ lineas: [crearLineaNI({ lineaCompraOrigenId: 'linea-A' })] });
+
+    const actualizado = sincronizarCCTrasAnulacionNI([cc], nota, '2026-08-02T00:00:00.000Z');
+
+    expect(actualizado?.lineas.find((l) => l.id === 'linea-A')?.cantidadIngresadaInventario).toBe(0);
+    expect(actualizado?.lineas.find((l) => l.id === 'linea-B')?.cantidadIngresadaInventario).toBe(3);
+  });
+
+  it('confirmación seguida de anulación deja el CC exactamente en el estado previo a la NI', () => {
+    const cc = crearCC([crearLineaCompra()]);
+    const notaConfirmada = crearNotaAnulada({ estado: 'Generada' });
+
+    const trasConfirmar = sincronizarCCTrasConfirmacionNI([cc], notaConfirmada, ['mov-1'], '2026-08-01T00:00:00.000Z');
+    expect(trasConfirmar?.lineas[0].cantidadIngresadaInventario).toBe(2);
+
+    const trasAnular = sincronizarCCTrasAnulacionNI([trasConfirmar as ComprobanteCompra], crearNotaAnulada(), '2026-08-02T00:00:00.000Z');
+
+    expect(trasAnular?.lineas[0].cantidadIngresadaInventario).toBe(0);
+    expect(trasAnular?.lineas[0].cantidadPendienteInventario).toBe(2);
+    expect(trasAnular?.estadoInventario).toBe('pendiente');
   });
 });

@@ -216,14 +216,15 @@ export function calculateLineaComprobante(input: LinePricingInput): LinePricingR
   };
 }
 
-const IGV_RATE_BY_TYPE: Record<string, number> = {
+export const IGV_RATE_BY_TYPE: Record<string, number> = {
   igv18: 0.18,
   igv10: 0.10,
   exonerado: 0,
   inafecto: 0,
 };
 
-const deriveIgvRate = (item: CartItem): number => {
+/** Exportada (cierre de brecha de venta neta): única fuente de tasa de IGV por línea — nunca reimplementada con un 0.18/0.10 hardcodeado en otro módulo. */
+export const deriveIgvRate = (item: CartItem): number => {
   if (item.igvType && item.igvType in IGV_RATE_BY_TYPE) {
     return IGV_RATE_BY_TYPE[item.igvType];
   }

@@ -489,6 +489,7 @@ export default function PaginaCompras() {
             ordenes={state.ordenes}
             cuentasPorPagar={state.cuentasPorPagar}
             pagos={state.pagos}
+            notasIngreso={notasIngreso}
             cargando={state.cargando}
             errorCarga={state.errorCarga}
             onVer={(cc) => setVista({ tipo: 'detalle_cc', ccId: cc.id })}

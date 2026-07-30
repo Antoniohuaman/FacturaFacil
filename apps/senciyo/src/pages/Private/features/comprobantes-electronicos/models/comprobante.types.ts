@@ -83,6 +83,16 @@ export interface Product {
 
 export interface CartItem {
   id: string;
+  /**
+   * Identidad ESTABLE de esta línea del carrito — distinta de `id` (que en la práctica identifica
+   * el PRODUCTO, no la línea: dos líneas del mismo producto comparten `id`). Se genera una sola vez
+   * al crear la línea y se conserva mientras exista (cambiar cantidad/precio/descuento nunca la
+   * regenera). Se propaga a `MovimientoStock.lineaComercialId`/
+   * `ConsumoCapaCostoInventario.lineaComercialId` para trazabilidad venta→línea→movimiento→consumo.
+   * Ausente en líneas creadas por canales que todavía no la generan (compatibilidad legacy) — nunca
+   * se debe inventar leyéndola, solo generar para líneas nuevas.
+   */
+  lineaId?: string;
   code: string;
   name: string;
   price: number;

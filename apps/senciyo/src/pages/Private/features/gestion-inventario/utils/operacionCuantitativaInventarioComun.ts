@@ -378,6 +378,7 @@ export function calcularMutacionesCuantitativas(
       documentoOrigenId: datos.documentoId,
       tipoDocumentoOrigen,
       lineaOrigenId: linea.lineaId,
+      ...(linea.lineaComercialId ? { lineaComercialId: linea.lineaComercialId } : {}),
       estado: 'confirmado',
       claveIdempotencia: datos.claveIdempotencia,
     });
@@ -499,6 +500,8 @@ export interface ParametrosConsumirCapasFifo {
   empresaId: string;
   movimientoSalidaId: string;
   lineaDocumentoSalidaId: string;
+  /** Identidad estable de línea comercial (CartItem.lineaId) — copiada tal cual a cada consumo generado, nunca derivada aquí. */
+  lineaComercialId?: string;
   motivo: MotivoConsumoCapaCosto;
   fecha: string;
   generarId: () => string;
@@ -520,7 +523,7 @@ export interface ResultadoConsumirCapasFifo {
  * salida con menos capas de las que realmente cubren la cantidad.
  */
 export function consumirCapasFIFO(params: ParametrosConsumirCapasFifo): ResultadoConsumirCapasFifo {
-  const { capasDisponibles, cantidadRequerida, empresaId, movimientoSalidaId, lineaDocumentoSalidaId, motivo, fecha, generarId, nombreParaError } = params;
+  const { capasDisponibles, cantidadRequerida, empresaId, movimientoSalidaId, lineaDocumentoSalidaId, lineaComercialId, motivo, fecha, generarId, nombreParaError } = params;
 
   const capasOrdenadas = ordenarCapasFifo(capasDisponibles);
   let restante = cantidadRequerida;
@@ -546,6 +549,7 @@ export function consumirCapasFIFO(params: ParametrosConsumirCapasFifo): Resultad
       empresaId,
       movimientoSalidaId,
       lineaDocumentoSalidaId,
+      ...(lineaComercialId ? { lineaComercialId } : {}),
       capaId: capa.id,
       cantidadConsumida: consumir,
       costoUnitarioBaseMonedaBase: capa.costoUnitarioBaseMonedaBase,

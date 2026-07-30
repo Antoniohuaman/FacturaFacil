@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { instalarLocalStorageDePrueba } from '../../gestion-inventario/repositories/localStorageDePrueba';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
-import { aplicarLiberacionesOVVenta, construirHuellaVenta, esCacheVentaValida, prepararAnulacionDescuentoStockComprobante } from './useComprobanteActions';
+import { aplicarLiberacionesOVVenta, construirHuellaVenta, esCacheVentaValida, prepararAnulacionDescuentoStockComprobante, resolverMovimientosOriginalesDeLinea } from './useComprobanteActions';
+import type { CartItem } from '../models/comprobante.types';
 import { STORAGE_KEY_MOVEMENTS } from '../../gestion-inventario/repositories/stock.repository';
 import type { MovimientoStock } from '../../gestion-inventario/models/inventory.types';
 import {
@@ -13,6 +14,8 @@ import {
 import type { DatosLineaOperacionCuantitativa, DatosOperacionSalidaCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { Product } from '../../catalogo-articulos/models/types';
+import { guardarCapaCostoInventario } from '../../gestion-inventario/repositories/capaCostoInventario.repository';
+import { listarConsumosCapaCostoInventarioPorEmpresa } from '../../gestion-inventario/repositories/consumoCapaCostoInventario.repository';
 import { lsKey } from '../../../../../shared/tenant';
 
 instalarLocalStorageDePrueba();
@@ -390,6 +393,133 @@ describe('Comprobante desde OV — corrección post-1D §1: descuento + liberaci
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(15);
     expect(productosFinales[0].stockReservadoOVPorEstablecimiento?.['est-1']).toBe(0);
+  });
+});
+
+describe('Cierre correctivo (identidad estable de línea) — canal Factura/Boleta/POS: mismo contrato "venta"/"venta_salida" para los tres', () => {
+  it('el lineaComercialId de la línea del carrito llega intacto al MovimientoStock y al ConsumoCapaCostoInventario — nunca se regenera desde el índice', async () => {
+    const documentoIdTecnico = crypto.randomUUID();
+    localStorage.setItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA), JSON.stringify([crearProducto({ stockPorAlmacen: { 'alm-1': 20 } })]));
+    const almacenesMap = new Map([['alm-1', crearAlmacen()]]);
+    guardarCapaCostoInventario({
+      id: 'capa-1', empresaId: EMPRESA, establecimientoId: 'est-1', productoId: 'prod-1', almacenId: 'alm-1',
+      movimientoEntradaId: 'mov-ni-1', tipoDocumentoOrigen: 'nota_ingreso', documentoOrigenId: 'ni-1',
+      cantidadInicial: 20, cantidadDisponible: 20, costoUnitarioBaseOriginal: 10, costoUnitarioBaseMonedaBase: 10,
+      valorValorizableOriginal: 200, valorValorizableMonedaBase: 200, monedaBase: 'PEN', monedaOriginal: 'PEN',
+      tipoCambioAplicado: 1, fechaTipoCambio: '2026-01-01', fechaEntrada: '2026-01-01T00:00:00.000Z',
+      estado: 'disponible', procedencia: 'compra', usuario: 'user-1', fechaCreacion: '2026-01-01T00:00:00.000Z',
+    }, EMPRESA);
+
+    // Este es EXACTAMENTE el contrato que `useComprobanteActions.tsx` construye para Factura,
+    // Boleta y POS por igual (tipoDocumento:'venta', tipoOperacion:'venta_salida') — los tres
+    // comparten el mismo código (`data.source` solo cambia el `origen` de la instantánea, nunca
+    // este contrato de inventario).
+    const datos: DatosOperacionSalidaCuantitativa = {
+      modoOperacion: 'valorizado',
+      empresaId: EMPRESA,
+      documentoId: documentoIdTecnico,
+      tipoDocumento: 'venta',
+      tipoOperacion: 'venta_salida',
+      claveIdempotencia: `venta_salida:${documentoIdTecnico}`,
+      usuario: 'user-1',
+      fecha: fechaActual(),
+      motivo: 'VENTA',
+      documentoReferencia: 'B001-00000003',
+      lineas: [
+        { lineaId: `${documentoIdTecnico}-0`, lineaComercialId: 'linea-comercial-venta-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 },
+      ],
+    };
+
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+
+    expect(resultado.movimientos[0].lineaComercialId).toBe('linea-comercial-venta-1');
+    expect(resultado.movimientos[0].lineaOrigenId).toBe(`${documentoIdTecnico}-0`);
+    const consumos = listarConsumosCapaCostoInventarioPorEmpresa(EMPRESA);
+    expect(consumos[0].lineaComercialId).toBe('linea-comercial-venta-1');
+  });
+});
+
+describe('resolverMovimientosOriginalesDeLinea — cierre correctivo: devolución de la línea EXACTA', () => {
+  function crearMovimientoVenta(overrides: Partial<MovimientoStock> = {}): MovimientoStock {
+    return {
+      id: 'mov-1', productoId: 'prod-1', productoCodigo: 'P001', productoNombre: 'Producto 1',
+      tipo: 'SALIDA', motivo: 'VENTA', cantidad: 5, cantidadAnterior: 20, cantidadNueva: 15,
+      usuario: 'user-1', fecha: new Date('2026-08-01T00:00:00.000Z'), almacenId: 'alm-1',
+      almacenCodigo: 'ALM01', almacenNombre: 'Almacén Principal', EstablecimientoId: 'est-1',
+      EstablecimientoCodigo: '', EstablecimientoNombre: '', esTransferencia: false,
+      empresaId: EMPRESA, documentoOrigenId: 'doc-tec-1', tipoDocumentoOrigen: 'venta',
+      estado: 'confirmado', claveIdempotencia: 'venta_salida:doc-tec-1', documentoReferencia: 'B001-1',
+      ...overrides,
+    };
+  }
+
+  function crearItemNC(overrides: Partial<CartItem> = {}): CartItem {
+    return {
+      id: 'prod-1', code: 'P001', name: 'Producto 1', price: 10, quantity: 2,
+      stock: 0, requiresStockControl: true, tipoDetalle: 'catalogo',
+      ...overrides,
+    };
+  }
+
+  it('documento NUEVO: localiza por lineaComercialId — distingue dos líneas del mismo producto con precios distintos', () => {
+    const movLineaA = crearMovimientoVenta({ id: 'mov-a', lineaComercialId: 'linea-A', cantidad: 2 });
+    const movLineaB = crearMovimientoVenta({ id: 'mov-b', lineaComercialId: 'linea-B', cantidad: 3 });
+    const itemDevuelveLineaA = crearItemNC({ lineaId: 'linea-A' });
+
+    const resultado = resolverMovimientosOriginalesDeLinea(itemDevuelveLineaA, [movLineaA, movLineaB], [itemDevuelveLineaA]);
+    expect(resultado).toEqual([movLineaA]);
+  });
+
+  it('documento NUEVO: distingue dos líneas del mismo producto con descuentos/presentaciones/almacenes distintos', () => {
+    const movLineaA = crearMovimientoVenta({ id: 'mov-a', lineaComercialId: 'linea-A', almacenId: 'alm-1' });
+    const movLineaB = crearMovimientoVenta({ id: 'mov-b', lineaComercialId: 'linea-B', almacenId: 'alm-2' });
+    const itemDevuelveLineaB = crearItemNC({ lineaId: 'linea-B' });
+
+    const resultado = resolverMovimientosOriginalesDeLinea(itemDevuelveLineaB, [movLineaA, movLineaB], [itemDevuelveLineaB]);
+    expect(resultado).toEqual([movLineaB]);
+  });
+
+  it('una línea dividida entre almacenes: varios movimientos con el MISMO lineaComercialId se agrupan correctamente', () => {
+    const seg1 = crearMovimientoVenta({ id: 'mov-1', lineaComercialId: 'linea-A', almacenId: 'alm-1', cantidad: 3 });
+    const seg2 = crearMovimientoVenta({ id: 'mov-2', lineaComercialId: 'linea-A', almacenId: 'alm-2', cantidad: 2 });
+    const item = crearItemNC({ lineaId: 'linea-A' });
+
+    const resultado = resolverMovimientosOriginalesDeLinea(item, [seg1, seg2], [item]);
+    expect(resultado).toHaveLength(2);
+  });
+
+  it('documento LEGACY (sin lineaId): fallback por productoId cuando es inequívoco (una sola línea de ese producto en la NC)', () => {
+    const mov = crearMovimientoVenta({ lineaComercialId: undefined });
+    const item = crearItemNC({ lineaId: undefined });
+
+    const resultado = resolverMovimientosOriginalesDeLinea(item, [mov], [item]);
+    expect(resultado).toEqual([mov]);
+  });
+
+  it('documento LEGACY ambiguo: rechaza con error de dominio claro cuando hay varias líneas del mismo producto sin identidad estable', () => {
+    const mov = crearMovimientoVenta({ lineaComercialId: undefined });
+    const itemA = crearItemNC({ lineaId: undefined, price: 10 });
+    const itemB = crearItemNC({ lineaId: undefined, price: 8 }); // segunda línea del MISMO producto, precio distinto
+
+    expect(() => resolverMovimientosOriginalesDeLinea(itemA, [mov], [itemA, itemB])).toThrow(
+      /No es posible determinar de forma inequívoca/
+    );
+  });
+
+  it('nunca elige en silencio por posición: el error se lanza ANTES de cualquier efecto, sin importar el orden de los ítems', () => {
+    const mov = crearMovimientoVenta({ lineaComercialId: undefined });
+    const itemA = crearItemNC({ lineaId: undefined });
+    const itemB = crearItemNC({ lineaId: undefined });
+
+    expect(() => resolverMovimientosOriginalesDeLinea(itemB, [mov], [itemA, itemB])).toThrow();
+  });
+
+  it('item con lineaId presente pero sin ningún movimiento que lo referencie: cae al fallback legacy (inequívoco en este caso)', () => {
+    const mov = crearMovimientoVenta({ lineaComercialId: undefined });
+    const item = crearItemNC({ lineaId: 'linea-sin-match' });
+
+    const resultado = resolverMovimientosOriginalesDeLinea(item, [mov], [item]);
+    expect(resultado).toEqual([mov]);
   });
 });
 

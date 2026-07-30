@@ -8,6 +8,7 @@ import type { CartItem, PaymentTotals, Currency } from '../../../models/comproba
 import { QUICK_PAYMENT_BASE_AMOUNTS } from '../../../models/constants';
 import { useCurrency } from './useCurrency';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
+import { calcularDesgloseFinancieroVenta } from '../../core/desgloseFinancieroVenta';
 
 interface CashBill {
   id: string;
@@ -41,35 +42,19 @@ export const usePayment = (currency: Currency = 'PEN') => {
       };
     }
 
-    const subtotal = cartItems.reduce((sum, item) => {
-      const itemPrice = item.price * item.quantity;
-      // Calcular precio sin IGV según el tipo
-      if (item.igvType === 'igv18') {
-        return sum + (itemPrice / 1.18);
-      } else if (item.igvType === 'igv10') {
-        return sum + (itemPrice / 1.10);
-      } else {
-        // exonerado, inafecto, gratuita
-        return sum + itemPrice;
-      }
-    }, 0);
+    // Cierre de brecha (venta neta canónica): delega en la única función de dominio compartida —
+    // antes esta función ignoraba `descuentoItem` por completo (bug real: el desglose de
+    // impuestos, `calcularDesgloseTributos`, sí lo aplicaba, produciendo un total inconsistente
+    // para el MISMO carrito dentro del mismo documento). El precio de Emisión Tradicional/POS
+    // siempre incluye IGV (convención ya vigente de este canal, `precioIncluyeImpuesto: true`).
+    const desglose = calcularDesgloseFinancieroVenta(cartItems, {
+      monedaDocumento: currency,
+      precioIncluyeImpuesto: true,
+    });
 
-    const igv = cartItems.reduce((sum, item) => {
-      const itemPrice = item.price * item.quantity;
-      // Calcular IGV según el tipo
-      if (item.igvType === 'igv18') {
-        return sum + (itemPrice * 0.18 / 1.18);
-      } else if (item.igvType === 'igv10') {
-        return sum + (itemPrice * 0.10 / 1.10);
-      } else {
-        // exonerado, inafecto, gratuita = 0% IGV
-        return sum + 0;
-      }
-    }, 0);
-
-    const total = cartItems.reduce((sum, item) => {
-      return sum + (item.price * item.quantity);
-    }, 0);
+    const subtotal = desglose.reduce((sum, d) => sum + d.ventaNetaSinImpuesto, 0);
+    const igv = desglose.reduce((sum, d) => sum + d.impuesto, 0);
+    const total = desglose.reduce((sum, d) => sum + d.total, 0);
 
     return {
       subtotal: Number(subtotal.toFixed(2)),

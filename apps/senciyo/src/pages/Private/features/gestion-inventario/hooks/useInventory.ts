@@ -20,6 +20,7 @@ import { InventoryService } from '../services/inventory.service';
 import { ServicioKardexValorizado } from '../services/servicioKardexValorizado';
 import { StockRepository, STOCK_MOVEMENTS_CHANGED_EVENT } from '../repositories/stock.repository';
 import { TransferenciaRepository } from '../repositories/transferencia.repository';
+import { listarConsumosPorMovimientoSalida } from '../repositories/consumoCapaCostoInventario.repository';
 import { generateTransferId } from '../utils/inventory.helpers';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
@@ -460,8 +461,14 @@ export const useInventory = () => {
 
   /**
    * Crea una nueva transferencia.
-   * Intra-establecimiento: mueve stock inmediatamente → CONFIRMADA.
-   * Inter-establecimiento: crea entidad → PENDIENTE (sin mover stock).
+   * Intra-establecimiento: mueve stock inmediatamente vía el motor central → CONFIRMADA.
+   * Inter-establecimiento: SIEMPRE crea entidad → PENDIENTE (sin mover stock), sin importar el
+   * estado de valorización de la empresa — el ciclo logístico PENDIENTE→EN_TRANSITO→RECIBIDA es
+   * semántica de NEGOCIO (control de tránsito físico entre establecimientos), no una decisión de
+   * costeo. La empresa cuantitativa y la valorizada recorren EXACTAMENTE los mismos estados; lo
+   * único que cambia es que, en modo valorizado exclusivo, el despacho y la recepción (abajo)
+   * consumen/crean capas de costo en el momento correcto de cada etapa — nunca de una vez, nunca
+   * por adelantado.
    */
   const handleCreateTransfer = useCallback(async (data: StockTransferData) => {
     try {
@@ -491,6 +498,7 @@ export const useInventory = () => {
       }
 
       const esIntra = almacenOrigen.establecimientoId === almacenDestino.establecimientoId;
+      const valorizacionHabilitadaTransfer = resolverModoOperacion(estadoValorizacion) === 'valorizado_exclusivo';
 
       if (esIntra) {
         // Etapa 1E: transferencia atómica vía el motor central (transferirStockValorizado) — una
@@ -532,7 +540,7 @@ export const useInventory = () => {
           // Cierre puntual Etapa 4A: fuente real de la empresa (nunca un flag omitido) — con
           // 'activa' consume capas exactas en origen y crea la capa espejo en destino; en cualquier
           // otro estado preserva exactamente el comportamiento cuantitativo puro ya aprobado.
-          valorizacionHabilitada: resolverModoOperacion(estadoValorizacion) === 'valorizado_exclusivo',
+          valorizacionHabilitada: valorizacionHabilitadaTransfer,
         });
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos, movimientos y el documento
@@ -546,7 +554,10 @@ export const useInventory = () => {
           'Transferencia confirmada'
         );
       } else {
-        // Inter-establecimiento: solo registrar como PENDIENTE
+        // Inter-establecimiento: SIEMPRE el flujo físico de dos fases — se registra como PENDIENTE,
+        // sin mover stock ni tocar capas todavía, hasta que se despache y luego se reciba (ver
+        // `handleDespacharTransfer`/`handleRecibirTransfer`, donde SÍ se decide, en cada etapa por
+        // separado, si la empresa está en modo valorizado exclusivo).
 
         // BRECHA-01: si el usuario confirmó habilitar el producto en el establecimiento destino
         if (data.habilitarProductoEnDestino && !product.disponibleEnTodos && almacenDestino.establecimientoId) {
@@ -603,8 +614,14 @@ export const useInventory = () => {
     }
   }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion]);
 
-  /** Despacha una transferencia inter-establecimiento (PENDIENTE → EN_TRANSITO) */
-  const handleDespacharTransfer = useCallback((transferenciaId: string) => {
+  /**
+   * Despacha una transferencia inter-establecimiento (PENDIENTE → EN_TRANSITO).
+   * Cierre de brecha: en modo valorizado exclusivo, este es el punto correcto donde la
+   * transferencia consume capas FIFO en el almacén origen — reutiliza el motor central de salidas
+   * (`registrarSalidaValorizada`, tipoOperacion:'transferencia'), nunca un motor nuevo. En
+   * cualquier otro modo, conserva exactamente el camino legado (`InventoryService.registerTransferSalida`).
+   */
+  const handleDespacharTransfer = useCallback(async (transferenciaId: string) => {
     try {
       const transferencia = TransferenciaRepository.getById(transferenciaId);
       if (!transferencia || transferencia.estado !== 'PENDIENTE') {
@@ -630,26 +647,64 @@ export const useInventory = () => {
         return;
       }
 
-      const result = InventoryService.registerTransferSalida(
-        product,
-        almacenOrigen,
-        transferencia,
-        usuarioNombre
-      );
+      const valorizacionHabilitadaDespacho = resolverModoOperacion(estadoValorizacion) === 'valorizado_exclusivo';
+      let movimientoSalidaId: string;
 
-      const finalProduct = syncEstablecimientoStock(
-        result.product,
-        [almacenOrigen.establecimientoId].filter(Boolean),
-        almacenesActivos
-      );
-      updateProduct(finalProduct.id, finalProduct);
-      setMovimientos(prev => [result.movement, ...prev]);
+      if (valorizacionHabilitadaDespacho) {
+        const empresaId = getTenantEmpresaId();
+        const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
+        const datosDespacho: DatosOperacionSalidaCuantitativa = {
+          modoOperacion: 'valorizado',
+          empresaId,
+          documentoId: transferencia.id,
+          tipoDocumento: 'transferencia',
+          tipoOperacion: 'transferencia',
+          claveIdempotencia: `DESPACHO-${transferencia.id}`,
+          usuario: usuarioNombre,
+          fecha: new Date().toISOString(),
+          motivo: 'TRANSFERENCIA_ALMACEN',
+          documentoReferencia: transferencia.documentoReferencia,
+          lineas: [{
+            lineaId: `${transferencia.id}-despacho`,
+            productoId: transferencia.productoId,
+            almacenId: almacenOrigen.id,
+            cantidadUnidadMinima: transferencia.cantidad,
+          }],
+        };
+
+        const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datosDespacho, {
+          almacenes: almacenesMap,
+          generarId: () => crypto.randomUUID(),
+          fechaActual: () => new Date().toISOString(),
+          estadoValorizacion,
+        });
+
+        // La unidad de trabajo ya escribió productos y movimientos — nunca una segunda escritura manual.
+        sincronizarInventarioTrasConfirmacion();
+        movimientoSalidaId = resultado.movimientos[0]?.id ?? resultado.resultadoIds[0];
+      } else {
+        const result = InventoryService.registerTransferSalida(
+          product,
+          almacenOrigen,
+          transferencia,
+          usuarioNombre
+        );
+
+        const finalProduct = syncEstablecimientoStock(
+          result.product,
+          [almacenOrigen.establecimientoId].filter(Boolean),
+          almacenesActivos
+        );
+        updateProduct(finalProduct.id, finalProduct);
+        setMovimientos(prev => [result.movement, ...prev]);
+        movimientoSalidaId = result.movement.id;
+      }
 
       const updated: Transferencia = {
         ...transferencia,
         estado: 'EN_TRANSITO',
         fechaDespacho: new Date(),
-        movimientoSalidaId: result.movement.id,
+        movimientoSalidaId,
       };
       TransferenciaRepository.upsert(updated);
       setTransferencias(prev => prev.map(t => t.id === transferenciaId ? updated : t));
@@ -659,10 +714,18 @@ export const useInventory = () => {
       console.error('Error al despachar transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo despachar la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion]);
 
-  /** Confirma la recepción de una transferencia (EN_TRANSITO → RECIBIDA) */
-  const handleRecibirTransfer = useCallback((transferenciaId: string) => {
+  /**
+   * Confirma la recepción de una transferencia (EN_TRANSITO → RECIBIDA).
+   * Cierre de brecha: si el despacho consumió capas reales (`listarConsumosPorMovimientoSalida`),
+   * la recepción crea la capa espejo en destino con el costo EXACTO de esos consumos — fuente de
+   * verdad la operación de despacho YA OCURRIDA, nunca el estado de valorización ACTUAL de la
+   * empresa (mismo principio ya aplicado en reversos). Reutiliza el motor central de entradas
+   * (`registrarEntradaValorizada`, tipoOperacion:'transferencia'). Si el despacho fue cuantitativo
+   * (sin consumos), la recepción también lo es — conserva exactamente el camino legado.
+   */
+  const handleRecibirTransfer = useCallback(async (transferenciaId: string) => {
     try {
       const transferencia = TransferenciaRepository.getById(transferenciaId);
       if (!transferencia || transferencia.estado !== 'EN_TRANSITO') {
@@ -688,26 +751,69 @@ export const useInventory = () => {
         return;
       }
 
-      const result = InventoryService.registerTransferEntrada(
-        product,
-        almacenDestino,
-        transferencia,
-        usuarioNombre
-      );
+      const empresaId = getTenantEmpresaId();
+      const consumosDespacho = transferencia.movimientoSalidaId
+        ? listarConsumosPorMovimientoSalida(transferencia.movimientoSalidaId, empresaId)
+        : [];
+      let movimientoEntradaId: string;
 
-      const finalProduct = syncEstablecimientoStock(
-        result.product,
-        [almacenDestino.establecimientoId].filter(Boolean),
-        almacenesActivos
-      );
-      updateProduct(finalProduct.id, finalProduct);
-      setMovimientos(prev => [result.movement, ...prev]);
+      if (consumosDespacho.length > 0) {
+        const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
+        const datosRecepcion: DatosOperacionEntradaCuantitativa = {
+          modoOperacion: 'valorizado',
+          empresaId,
+          documentoId: transferencia.id,
+          tipoDocumento: 'transferencia',
+          tipoOperacion: 'transferencia',
+          claveIdempotencia: `RECEPCION-${transferencia.id}`,
+          usuario: usuarioNombre,
+          fecha: new Date().toISOString(),
+          motivo: 'TRANSFERENCIA_ALMACEN',
+          documentoReferencia: transferencia.documentoReferencia,
+          // Una línea por cada consumo real del despacho — nunca un costo promedio: si el despacho
+          // consumió de varias capas, la recepción crea una capa espejo por cada una.
+          lineas: consumosDespacho.map((consumo, indice) => ({
+            lineaId: `${transferencia.id}-recepcion-${indice}`,
+            productoId: transferencia.productoId,
+            almacenId: almacenDestino.id,
+            cantidadUnidadMinima: consumo.cantidadConsumida,
+            costoUnitarioBaseMonedaBase: consumo.costoUnitarioBaseMonedaBase,
+          })),
+        };
+
+        const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datosRecepcion, {
+          almacenes: almacenesMap,
+          generarId: () => crypto.randomUUID(),
+          fechaActual: () => new Date().toISOString(),
+          estadoValorizacion,
+          monedaBase: currencyManager.getSnapshot().baseCurrency.code,
+        });
+
+        sincronizarInventarioTrasConfirmacion();
+        movimientoEntradaId = resultado.movimientos[0]?.id ?? resultado.resultadoIds[0];
+      } else {
+        const result = InventoryService.registerTransferEntrada(
+          product,
+          almacenDestino,
+          transferencia,
+          usuarioNombre
+        );
+
+        const finalProduct = syncEstablecimientoStock(
+          result.product,
+          [almacenDestino.establecimientoId].filter(Boolean),
+          almacenesActivos
+        );
+        updateProduct(finalProduct.id, finalProduct);
+        setMovimientos(prev => [result.movement, ...prev]);
+        movimientoEntradaId = result.movement.id;
+      }
 
       const updated: Transferencia = {
         ...transferencia,
         estado: 'RECIBIDA',
         fechaRecepcion: new Date(),
-        movimientoEntradaId: result.movement.id,
+        movimientoEntradaId,
       };
       TransferenciaRepository.upsert(updated);
       setTransferencias(prev => prev.map(t => t.id === transferenciaId ? updated : t));
@@ -717,7 +823,7 @@ export const useInventory = () => {
       console.error('Error al recibir transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo confirmar la recepción', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion]);
 
   /** Cancela una transferencia PENDIENTE sin mover stock */
   const handleCancelarTransfer = useCallback((transferenciaId: string) => {
@@ -819,6 +925,52 @@ export const useInventory = () => {
         setTransferencias(TransferenciaRepository.getAll());
         success(`${transferenciaId} anulada · Stock restituido`, 'Transferencia anulada');
         return;
+      }
+
+      // Cierre de brecha: transferencia inter-establecimiento POR ETAPAS (EN_TRANSITO o RECIBIDA)
+      // cuyo despacho consumió capas reales (`handleDespacharTransfer` en modo valorizado) — se
+      // anula en UN plan atómico vía `anularDocumentoValorizado`, listando EXPLÍCITAMENTE los
+      // movimientos ya ocurridos (salida y, si ya se recibió, también entrada) — nunca el
+      // mecanismo de "pareja automática" de `revertirMovimientoValorizado` (pensado solo para la
+      // variante atómica de una sola llamada, cuyos movimientos sí llevan `esTransferencia`/
+      // `transferenciaId`). Si el despacho fue cuantitativo (sin consumos), cae al camino legado.
+      if (
+        (transferencia.estado === 'EN_TRANSITO' || transferencia.estado === 'RECIBIDA') &&
+        transferencia.movimientoSalidaId
+      ) {
+        const empresaIdAnulacion = getTenantEmpresaId();
+        const consumosDespacho = listarConsumosPorMovimientoSalida(transferencia.movimientoSalidaId, empresaIdAnulacion);
+        if (consumosDespacho.length > 0) {
+          const almacenesMap = new Map(almacenesActivos.map(a => [a.id, a]));
+          const movimientoIds = [transferencia.movimientoSalidaId, transferencia.movimientoEntradaId].filter(
+            (id): id is string => Boolean(id)
+          );
+          await ServicioKardexValorizado.anularDocumentoValorizado({
+            empresaId: empresaIdAnulacion,
+            tipoOperacion: 'anulacion',
+            documentoId: transferencia.id,
+            tipoDocumentoOrigen: 'transferencia',
+            movimientoIds,
+            claveIdempotencia: `ANULACION-transferencia-${transferencia.id}`,
+            usuario: usuarioNombre,
+            fecha: new Date().toISOString(),
+            motivoUsuario: 'Anulación de transferencia',
+            documentoReferencia: transferenciaId,
+          }, {
+            almacenes: almacenesMap,
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+            estadoValorizacion,
+            valorizacionHabilitada: true,
+          });
+
+          sincronizarInventarioTrasConfirmacion();
+          const updadaPorEtapas: Transferencia = { ...transferencia, estado: 'ANULADA', fechaAnulacion: new Date() };
+          TransferenciaRepository.upsert(updadaPorEtapas);
+          setTransferencias(prev => prev.map(t => t.id === transferenciaId ? updadaPorEtapas : t));
+          success(`${transferenciaId} anulada · Stock restituido`, 'Transferencia anulada');
+          return;
+        }
       }
 
       // Verificación única final: el camino legacy (abajo) muta cantidades directamente, sin pasar

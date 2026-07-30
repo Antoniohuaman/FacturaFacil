@@ -87,6 +87,16 @@ export interface MovimientoStock {
   documentoOrigenId?: string;
   tipoDocumentoOrigen?: TipoDocumentoOrigenMovimiento;
   lineaOrigenId?: string;
+  /**
+   * Identidad ESTABLE de la línea comercial de origen (CartItem.lineaId), distinta de
+   * `lineaOrigenId`: `lineaOrigenId` es la clave TÉCNICA del segmento (única por movimiento, usada
+   * para el emparejamiento exacto movimiento↔consumo dentro del motor — nunca se reutiliza entre
+   * segmentos). `lineaComercialId` es la identidad de la LÍNEA DEL CARRITO que originó este
+   * movimiento — cuando una línea se reparte entre varios almacenes (FIFO), todos sus segmentos
+   * comparten el MISMO `lineaComercialId` pero cada uno conserva su propio `lineaOrigenId` distinto.
+   * Ausente en canales que todavía no generan una identidad estable de línea (fallback legacy).
+   */
+  lineaComercialId?: string;
   /** Para ENTRADA: referencia 1:1 a la CapaCostoInventario creada. Para SALIDA: no se usa (la relación es 1:N vía ConsumoCapaCostoInventario.movimientoSalidaId). */
   capaId?: string;
   /** Ausente equivale a 'confirmado' (compatibilidad con movimientos históricos). */

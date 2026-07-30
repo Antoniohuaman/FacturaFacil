@@ -6,10 +6,15 @@ import {
   resolverSnapshotInventarioLinea,
   obtenerAplicacionesPago,
   obtenerCuentasPorPagarDePago,
+  obtenerNotasIngresoActivasCC,
+  motivoBloqueoAnulacionCC,
+  puedeAnularCC,
 } from './reglasCompras';
 import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
 import type { PagoCompra } from '../modelos/PagoCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
+import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
+import type { NotaIngreso } from '../../gestion-inventario/models/notaIngreso.types';
 
 const UNIDADES_CAJA_DE_12: ProductUnitOption[] = [
   { code: 'NIU', label: 'Unidad', isBase: true, factorConversion: 1 },
@@ -326,5 +331,148 @@ describe('obtenerCuentasPorPagarDePago', () => {
       ],
     });
     expect(obtenerCuentasPorPagarDePago(pago, [cxpA])).toEqual([cxpA]);
+  });
+});
+
+function crearCCParaAnulacion(overrides: Partial<ComprobanteCompra> = {}): ComprobanteCompra {
+  return {
+    id: 'cc-1',
+    tipoRegistro: 'comprobante_compra',
+    serieProveedor: 'F001',
+    numeroProveedor: '00000123',
+    tipoComprobanteProveedor: 'Factura',
+    fechaRegistro: '2026-01-01',
+    proveedorId: 'prov-1',
+    proveedorTipoDocumento: 'RUC',
+    proveedorNumeroDocumento: '20123456789',
+    proveedorNombre: 'Proveedor de prueba',
+    moneda: 'PEN',
+    formaPago: 'contado',
+    modalidadInventario: 'con_nota_ingreso',
+    lineas: [],
+    totales: { subtotal: 0, subtotalExonerado: 0, subtotalInafecto: 0, descuentoTotal: 0, igv: 0, total: 0, moneda: 'PEN' },
+    adjuntos: [],
+    historial: [],
+    fechaCreacion: '2026-01-01',
+    fechaActualizacion: '2026-01-01',
+    estadoDocumento: 'registrado',
+    estadoPago: 'pendiente',
+    estadoInventario: 'pendiente',
+    ...overrides,
+  };
+}
+
+function crearNIParaAnulacion(overrides: Partial<NotaIngreso> = {}): NotaIngreso {
+  return {
+    id: 'ni-1',
+    tipoDocumento: 'nota_ingreso',
+    serie: 'NI01',
+    correlativo: '00000001',
+    numero: 'NI01-00000001',
+    estado: 'Generada',
+    esBorrador: false,
+    fechaDocumento: '2026-08-01',
+    fechaIngresoAlmacen: '2026-08-01',
+    tipoIngreso: '02',
+    almacenDestinoId: 'alm-1',
+    almacenDestinoNombre: 'Almacén Principal',
+    almacenDestinoCodigo: 'ALM01',
+    moneda: 'PEN',
+    lineas: [],
+    baseImponible: 0,
+    descuentos: 0,
+    isc: 0,
+    impuesto: 0,
+    noGravados: 0,
+    otc: 0,
+    total: 0,
+    usuario: 'Ana',
+    fechaCreacion: '2026-08-01T00:00:00.000Z',
+    fechaActualizacion: '2026-08-01T00:00:00.000Z',
+    historial: [],
+    ...overrides,
+  };
+}
+
+describe('obtenerNotasIngresoActivasCC — cierre de brecha CC↔NI', () => {
+  it('sin ninguna NI relacionada, no hay ninguna activa', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: [] });
+    expect(obtenerNotasIngresoActivasCC(cc, [crearNIParaAnulacion()])).toEqual([]);
+  });
+
+  it('una NI relacionada y Generada cuenta como activa', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1'] });
+    const nota = crearNIParaAnulacion({ estado: 'Generada' });
+    expect(obtenerNotasIngresoActivasCC(cc, [nota])).toEqual([nota]);
+  });
+
+  it('una NI relacionada y Anulada NO cuenta como activa', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1'] });
+    const nota = crearNIParaAnulacion({ estado: 'Anulada' });
+    expect(obtenerNotasIngresoActivasCC(cc, [nota])).toEqual([]);
+  });
+
+  it('con varias NI relacionadas, solo cuenta las no anuladas', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1', 'ni-2'] });
+    const activa = crearNIParaAnulacion({ id: 'ni-1', estado: 'Generada' });
+    const anulada = crearNIParaAnulacion({ id: 'ni-2', estado: 'Anulada' });
+    expect(obtenerNotasIngresoActivasCC(cc, [activa, anulada])).toEqual([activa]);
+  });
+
+  it('ignora una NI que no pertenece a este CC aunque esté activa', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1'] });
+    const deOtroCC = crearNIParaAnulacion({ id: 'ni-otro', estado: 'Generada' });
+    expect(obtenerNotasIngresoActivasCC(cc, [deOtroCC])).toEqual([]);
+  });
+});
+
+describe('motivoBloqueoAnulacionCC / puedeAnularCC — cierre de brecha CC↔NI (bloqueo permanente tras NI anulada)', () => {
+  it('CC registrado sin ninguna NI relacionada puede anularse', () => {
+    const cc = crearCCParaAnulacion();
+    expect(motivoBloqueoAnulacionCC(cc, [])).toBeNull();
+    expect(puedeAnularCC(cc, [])).toBe(true);
+  });
+
+  it('CC con una NI ACTIVA relacionada no puede anularse', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1'] });
+    const nota = crearNIParaAnulacion({ estado: 'Generada' });
+    expect(motivoBloqueoAnulacionCC(cc, [nota])).toMatch(/nota de ingreso activa/);
+    expect(puedeAnularCC(cc, [nota])).toBe(false);
+  });
+
+  it('cierre de brecha: CC cuya ÚNICA NI ya fue anulada SÍ puede anularse (antes quedaba bloqueado para siempre)', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1'] });
+    const nota = crearNIParaAnulacion({ estado: 'Anulada' });
+    expect(motivoBloqueoAnulacionCC(cc, [nota])).toBeNull();
+    expect(puedeAnularCC(cc, [nota])).toBe(true);
+  });
+
+  it('CC con dos NI, una activa y otra anulada, sigue bloqueado (todavía hay efecto de inventario vigente)', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1', 'ni-2'] });
+    const activa = crearNIParaAnulacion({ id: 'ni-1', estado: 'Generada' });
+    const anulada = crearNIParaAnulacion({ id: 'ni-2', estado: 'Anulada' });
+    expect(puedeAnularCC(cc, [activa, anulada])).toBe(false);
+  });
+
+  it('CC con dos NI, ambas anuladas, puede anularse', () => {
+    const cc = crearCCParaAnulacion({ notasIngresoRelacionadas: ['ni-1', 'ni-2'] });
+    const anulada1 = crearNIParaAnulacion({ id: 'ni-1', estado: 'Anulada' });
+    const anulada2 = crearNIParaAnulacion({ id: 'ni-2', estado: 'Anulada' });
+    expect(puedeAnularCC(cc, [anulada1, anulada2])).toBe(true);
+  });
+
+  it('borrador nunca puede anularse (se elimina, no se anula) sin importar el estado de sus NI', () => {
+    const cc = crearCCParaAnulacion({ estadoDocumento: 'borrador' });
+    expect(motivoBloqueoAnulacionCC(cc, [])).toMatch(/borradores se eliminan/);
+  });
+
+  it('CC ya anulado no puede volver a anularse', () => {
+    const cc = crearCCParaAnulacion({ estadoDocumento: 'anulado' });
+    expect(motivoBloqueoAnulacionCC(cc, [])).toMatch(/ya se encuentra anulado/);
+  });
+
+  it('CC con pagos registrados no puede anularse aunque no tenga ninguna NI', () => {
+    const cc = crearCCParaAnulacion({ estadoPago: 'parcial' });
+    expect(motivoBloqueoAnulacionCC(cc, [])).toMatch(/pagos registrados/);
   });
 });

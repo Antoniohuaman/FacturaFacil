@@ -15,6 +15,7 @@ import type { Almacen } from '../../configuracion-sistema/modelos/Almacen';
 import type { Product } from '../../catalogo-articulos/models/types';
 import type {
   DatosOperacionEntradaCuantitativa,
+  DatosLineaOperacionCuantitativa,
 } from '../models/operacionEntradaInventario.types';
 import type { OperacionIdempotenteInventario, TipoOperacionIdempotenteInventario } from '../models/operacionIdempotenteInventario.types';
 import type { PlanUnidadTrabajoInventario } from '../models/planUnidadTrabajoInventario.types';
@@ -39,14 +40,22 @@ import {
  * `ajuste_positivo`; Etapa 3 agrega `ni_automatica`/`ni_confirmacion` — la entrada real generada o
  * confirmada desde un Comprobante de Compra; Etapa 4A-cierre agrega `importacion` — el lado de
  * ENTRADA de un lote de importación en modo reemplazo/sumatoria, reutilizado por
- * `importacionCuantitativaInventario.ts` vía `construirCapasEntradaValorizada`, nunca duplicado).
- * Cualquier otro `tipoOperacion` de entrada (`anulacion`) sigue siendo exclusivamente cuantitativo.
+ * `importacionCuantitativaInventario.ts` vía `construirCapasEntradaValorizada`, nunca duplicado;
+ * cierre de brecha de devoluciones agrega `devolucion_cliente` — la devolución física de una Nota
+ * de Crédito, que recupera el costo histórico de los consumos originales en vez de recibir un
+ * costo nuevo). Cualquier otro `tipoOperacion` de entrada (`anulacion`) sigue siendo exclusivamente
+ * cuantitativo.
  */
 export const TIPOS_OPERACION_ENTRADA_VALORIZABLES = new Set<TipoOperacionIdempotenteInventario>([
   'ajuste_positivo',
   'ni_automatica',
   'ni_confirmacion',
   'importacion',
+  'devolucion_cliente',
+  // Cierre de brecha (transferencia inter-establecimiento por etapas): el leg de RECEPCIÓN
+  // (EN_TRANSITO→RECIBIDA) crea la capa espejo en el almacén destino con el costo EXACTO tomado
+  // de los consumos reales del despacho — reutiliza este motor, nunca uno nuevo.
+  'transferencia',
 ]);
 
 /**
@@ -100,6 +109,8 @@ function tipoMovimientoParaOperacionEntrada(tipoOperacion: TipoOperacionIdempote
   switch (tipoOperacion) {
     case 'ni_automatica':
     case 'ni_confirmacion':
+    case 'devolucion_cliente':
+    case 'transferencia':
       return 'ENTRADA';
     case 'ajuste_positivo':
       return 'AJUSTE_POSITIVO';
@@ -189,6 +200,10 @@ function origenCapaParaTipoOperacion(
       return { procedencia: 'compra', tipoDocumentoOrigen: 'nota_ingreso' };
     case 'importacion':
       return { procedencia: 'importacion', tipoDocumentoOrigen: 'importacion' };
+    case 'devolucion_cliente':
+      return { procedencia: 'devolucion_cliente', tipoDocumentoOrigen: 'devolucion_cliente' };
+    case 'transferencia':
+      return { procedencia: 'transferencia', tipoDocumentoOrigen: 'transferencia' };
     default:
       throw new Error(`entradaCuantitativaInventario: tipoOperacion "${tipoOperacion}" no tiene una procedencia de capa de costo definida.`);
   }
@@ -249,6 +264,7 @@ export function construirCapasEntradaValorizada(
       tipoDocumentoOrigen,
       documentoOrigenId: datos.documentoId,
       lineaOrigenId: linea.lineaId,
+      ...(linea.consumoOrigenId ? { consumoOrigenId: linea.consumoOrigenId } : {}),
       ...(tieneSnapshotComercial
         ? {
             cantidadComercialOriginal: redondearAPrecision(
@@ -276,6 +292,104 @@ export function construirCapasEntradaValorizada(
       fechaCreacion: datos.fecha,
     };
   });
+}
+
+/** Consumo original de una venta, ya resuelto por el llamador (Kardex de la SALIDA original), disponible como fuente de costo para una devolución física. */
+export interface ConsumoDisponibleDevolucion {
+  consumoId: string;
+  cantidadConsumida: number;
+  costoUnitarioBaseMonedaBase: number;
+  fecha: string;
+  estado: 'confirmado' | 'revertido';
+}
+
+/**
+ * Cuánto de cada consumo original YA fue devuelto físicamente — suma `cantidadInicial` de toda
+ * capa `procedencia:'devolucion_cliente'` NO revertida cuyo `consumoOrigenId` apunte a ese consumo.
+ * Una devolución revertida nunca cuenta como devuelta (libera el saldo disponible de nuevo).
+ * Nunca cuenta capas de otra procedencia — evita confundir una transferencia o un ajuste con una
+ * devolución real.
+ */
+export function calcularCantidadYaDevueltaPorConsumo(
+  capasExistentes: readonly CapaCostoInventario[]
+): Map<string, number> {
+  const acumulado = new Map<string, number>();
+  for (const capa of capasExistentes) {
+    if (capa.procedencia !== 'devolucion_cliente' || capa.estado === 'revertida' || !capa.consumoOrigenId) continue;
+    acumulado.set(capa.consumoOrigenId, (acumulado.get(capa.consumoOrigenId) ?? 0) + capa.cantidadInicial);
+  }
+  return acumulado;
+}
+
+/**
+ * Distribuye una cantidad física devuelta (de UN producto, ya resuelta a un almacén de destino)
+ * sobre los consumos originales de la venta que se está devolviendo, en orden histórico
+ * determinístico (fecha del consumo, luego id) — nunca usa costo actual, último costo, precio de
+ * compra ni precio de venta: el costo de cada línea resultante es exactamente el
+ * `costoUnitarioBaseMonedaBase` del consumo que la originó. Nunca ejecuta un FIFO nuevo sobre las
+ * capas vigentes — el FIFO relevante aquí es sobre los CONSUMOS HISTÓRICOS de la venta, no sobre el
+ * stock actual.
+ *
+ * Rechaza la operación COMPLETA (nunca líneas parciales) en dos casos distintos:
+ * - cero consumos disponibles → la venta original no tiene costo histórico registrado (pudo
+ *   ocurrir en modo cuantitativo, antes de activar valorización) — mensaje de dominio específico,
+ *   nunca se inventa costo ni se asume cero.
+ * - cantidad solicitada mayor que lo disponible → intento de sobre-devolución (ya se devolvió
+ *   antes una parte, o la venta no tenía tanta cantidad).
+ */
+export function construirLineasDevolucionFisica(
+  cantidadADevolver: number,
+  productoId: string,
+  almacenId: string,
+  consumosOriginales: readonly ConsumoDisponibleDevolucion[],
+  cantidadYaDevueltaPorConsumo: ReadonlyMap<string, number>,
+  generarLineaId: () => string
+): DatosLineaOperacionCuantitativa[] {
+  const disponibles = consumosOriginales
+    .filter((c) => c.estado === 'confirmado')
+    .map((c) => ({
+      ...c,
+      disponibleParaDevolver: redondearAPrecision(
+        c.cantidadConsumida - (cantidadYaDevueltaPorConsumo.get(c.consumoId) ?? 0),
+        PRECISION_CANTIDAD_UNIDAD_MINIMA
+      ),
+    }))
+    .filter((c) => c.disponibleParaDevolver > 0)
+    .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.consumoId < b.consumoId ? -1 : a.consumoId > b.consumoId ? 1 : 0));
+
+  if (disponibles.length === 0) {
+    throw new Error(
+      'No es posible valorizar automáticamente esta devolución porque la venta original no tiene costo histórico registrado.'
+    );
+  }
+
+  const totalDisponible = redondearAPrecision(
+    disponibles.reduce((s, c) => s + c.disponibleParaDevolver, 0),
+    PRECISION_CANTIDAD_UNIDAD_MINIMA
+  );
+  if (redondearAPrecision(cantidadADevolver - totalDisponible, PRECISION_CANTIDAD_UNIDAD_MINIMA) > 0) {
+    throw new Error(
+      `entradaCuantitativaInventario: la cantidad a devolver (${cantidadADevolver}) del producto "${productoId}" excede lo disponible para devolver de la venta original (${totalDisponible}).`
+    );
+  }
+
+  const lineas: DatosLineaOperacionCuantitativa[] = [];
+  let restante = cantidadADevolver;
+  for (const consumo of disponibles) {
+    if (restante <= 0) break;
+    const cantidadLinea = redondearAPrecision(Math.min(restante, consumo.disponibleParaDevolver), PRECISION_CANTIDAD_UNIDAD_MINIMA);
+    if (cantidadLinea <= 0) continue;
+    lineas.push({
+      lineaId: generarLineaId(),
+      productoId,
+      almacenId,
+      cantidadUnidadMinima: cantidadLinea,
+      costoUnitarioBaseMonedaBase: consumo.costoUnitarioBaseMonedaBase,
+      consumoOrigenId: consumo.consumoId,
+    });
+    restante = redondearAPrecision(restante - cantidadLinea, PRECISION_CANTIDAD_UNIDAD_MINIMA);
+  }
+  return lineas;
 }
 
 /**

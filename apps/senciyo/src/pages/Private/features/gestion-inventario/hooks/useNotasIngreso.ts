@@ -178,6 +178,13 @@ export const useNotasIngreso = () => {
         // persistir aquí. Solo se rehidrata el store de productos y se refresca el Kardex.
         sincronizarInventarioTrasConfirmacion();
 
+        // Cierre de brecha: sin esto, el CC de origen (si lo tiene) queda con estadoInventario
+        // desactualizado y bloqueado para anularse para siempre, aunque el inventario ya se revirtió
+        // arriba — mismo patrón que `generarNI` usa para la confirmación (comprasOpcional es
+        // opcional: no-op si esta NI no tiene `comprobanteCompraOrigenId`, o si Compras no está
+        // montado en este árbol).
+        comprasOpcional?.sincronizarComprobanteTrasAnulacionNI(notaActualizada);
+
         feedback.success(`Nota de Ingreso ${nota.numero ?? nota.id} anulada.`);
         return true;
       } catch (err) {
@@ -188,7 +195,7 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback, comprasOpcional],
   );
 
   const eliminarNI = useCallback(

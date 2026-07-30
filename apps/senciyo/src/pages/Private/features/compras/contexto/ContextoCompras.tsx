@@ -97,6 +97,8 @@ import {
   calcularMontoRetencion,
   obtenerAplicacionesPago,
   round2,
+  sincronizarCCTrasConfirmacionNI,
+  sincronizarCCTrasAnulacionNI,
 } from '../logica/reglasCompras';
 import type { LineaCompra } from '../modelos/LineaCompra';
 import { calcularEstadoFacturacion, calcularEstadoInventarioCC, calcularEstadoInventarioOC } from '../utilidades/calcularEstadosCompra';
@@ -446,62 +448,6 @@ export function construirNotaIngresoDesdeCC(
     fechaCreacion: ts,
     fechaActualizacion: ts,
     historial: [{ fecha: ts, usuario, accion: 'Borrador creado desde Comprobante de Compra', detalle: `Origen: ${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}` }],
-  };
-}
-
-/**
- * Sincroniza el Comprobante de Compra de origen tras una confirmación (nueva o repetida) de su NI
- * — actualiza `cantidadIngresadaInventario`/`cantidadPendienteInventario` por línea (vía
- * `lineaCompraOrigenId`, nunca recalculando desde el catálogo), `estadoInventario` (con evidencia
- * real de que la NI automática quedó confirmada) y las relaciones existentes
- * `notasIngresoRelacionadas`/`movimientosInventarioRelacionados`. Pura — el llamador persiste.
- * Devuelve `null` si el CC no existe o la NI no le pertenece (nada que sincronizar).
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export function sincronizarCCTrasConfirmacionNI(
-  comprobantes: ComprobanteCompra[],
-  nota: NotaIngreso,
-  movimientoIds: string[],
-  ts: string,
-): ComprobanteCompra | null {
-  if (!nota.comprobanteCompraOrigenId) return null;
-  const cc = comprobantes.find((c) => c.id === nota.comprobanteCompraOrigenId);
-  if (!cc) return null;
-
-  const lineas = cc.lineas.map((linea) => {
-    const lineaNI = nota.lineas.find((l) => l.lineaCompraOrigenId === linea.id);
-    if (!lineaNI) return linea;
-    const cantidadComercialIngresada = lineaNI.cantidadComercialOriginal ?? 0;
-    const cantidadIngresadaInventario = round2(linea.cantidadIngresadaInventario + cantidadComercialIngresada);
-    return {
-      ...linea,
-      cantidadIngresadaInventario,
-      cantidadPendienteInventario: Math.max(0, round2(linea.cantidadFacturada - cantidadIngresadaInventario)),
-    };
-  });
-
-  const notasIngresoRelacionadas = cc.notasIngresoRelacionadas?.includes(nota.id)
-    ? cc.notasIngresoRelacionadas
-    : [...(cc.notasIngresoRelacionadas ?? []), nota.id];
-  const movimientosInventarioRelacionados = Array.from(
-    new Set([...(cc.movimientosInventarioRelacionados ?? []), ...movimientoIds]),
-  );
-
-  return {
-    ...cc,
-    lineas,
-    notasIngresoRelacionadas,
-    movimientosInventarioRelacionados,
-    estadoInventario: calcularEstadoInventarioCC(lineas, cc.modalidadInventario, nota.modalidadOrigenCompra === 'automatico'),
-    fechaActualizacion: ts,
-    historial: [
-      ...cc.historial,
-      {
-        fecha: ts,
-        accion: 'Nota de Ingreso confirmada',
-        detalle: `NI ${nota.numero ?? nota.id} — ${movimientoIds.length} movimiento(s) de inventario.`,
-      },
-    ],
   };
 }
 
@@ -976,6 +922,15 @@ interface ContextoComprasTipo {
    * (`useNotasIngreso.ts`) — no-op si la NI no tiene `comprobanteCompraOrigenId`.
    */
   sincronizarComprobanteTrasConfirmacionNI(nota: NotaIngreso, movimientoIds: string[]): void;
+
+  /**
+   * Cierre de brecha: sincroniza el CC de origen tras la ANULACIÓN de su NI (`useNotasIngreso.ts` →
+   * `anularNI`) — el inverso exacto de `sincronizarComprobanteTrasConfirmacionNI`. Sin esto, el CC
+   * quedaba con `estadoInventario` desactualizado (mostrando "Convertido"/"completo" para siempre)
+   * y bloqueado para anularse aunque el inventario ya se hubiera revertido. No-op si la NI no tiene
+   * `comprobanteCompraOrigenId`.
+   */
+  sincronizarComprobanteTrasAnulacionNI(nota: NotaIngreso): void;
 
   /**
    * Registra un Pago aplicado a una o varias Cuentas por Pagar (mismo
@@ -1831,6 +1786,22 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * Cierre de brecha: notifica que una NI con origen en un CC fue ANULADA por la vía manual
+   * existente (`useNotasIngreso.ts` → `anularNI`) — sincroniza el CC exactamente igual que la vía de
+   * confirmación (misma función `sincronizarCCTrasAnulacionNI`). No-op si la NI no tiene
+   * `comprobanteCompraOrigenId` o el CC no existe en este contexto.
+   */
+  const sincronizarComprobanteTrasAnulacionNI = useCallback(
+    (nota: NotaIngreso): void => {
+      const actualizado = sincronizarCCTrasAnulacionNI(state.comprobantes, nota, ahora());
+      if (!actualizado) return;
+      agregarOActualizarCC(actualizado);
+      dispatch({ type: 'ACTUALIZAR_COMPROBANTE', payload: actualizado });
+    },
+    [state.comprobantes],
+  );
+
+  /**
    * Dispara el ingreso automático (Etapa 3, §13) justo después de registrar un CC con
    * `modalidadInventario==='ingreso_automatico'` — reutiliza `procesarGeneracionNIDesdeCC`. Un
    * fallo NUNCA deshace el registro del comprobante ya persistido (§14: "failure before touching
@@ -2228,7 +2199,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       const cc = state.comprobantes.find((c) => c.id === id);
       if (!cc) throw new Error(`Comprobante ${id} no encontrado.`);
 
-      const motivoBloqueo = motivoBloqueoAnulacionCC(cc);
+      const motivoBloqueo = motivoBloqueoAnulacionCC(cc, cargarNotasIngreso());
       if (motivoBloqueo) throw new Error(motivoBloqueo);
 
       const ts = ahora();
@@ -2620,6 +2591,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         anularComprobanteCompra,
         generarNotaIngresoDesdeCC,
         sincronizarComprobanteTrasConfirmacionNI,
+        sincronizarComprobanteTrasAnulacionNI,
         registrarPagoCompra,
         anularPagoCompra,
         refrescarProveedores,

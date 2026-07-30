@@ -500,3 +500,98 @@ describe('transferirStockValorizado — cierre final Etapa 1E §1: la presencia 
     expect(capa?.cantidadDisponible).toBe(20);
   });
 });
+
+describe('transferirStockValorizado — inter-establecimiento (cierre de brecha)', () => {
+  const EST_2 = 'est-2';
+
+  function almacenesInter(): Map<string, Almacen> {
+    return new Map([
+      ['alm-1', crearAlmacen({ id: 'alm-1', establecimientoId: EST_1 })],
+      ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02', nombreAlmacen: 'Almacén 2', establecimientoId: EST_2 })],
+    ]);
+  }
+
+  function datosInter(overrides: Partial<DatosTransferenciaInventario> = {}): DatosTransferenciaInventario {
+    return datosBase({ establecimientoOrigenId: EST_1, establecimientoDestinoId: EST_2, ...overrides });
+  }
+
+  it('el motor central ya es agnóstico al establecimiento: mueve stock entre establecimientos distintos igual que intra', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 3 } })]);
+
+    const resultado = await ServicioKardexValorizado.transferirStockValorizado(datosInter({ empresaId }), {
+      almacenes: almacenesInter(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
+    });
+
+    expect(resultado.movimientos).toHaveLength(2);
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(15);
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(8);
+  });
+
+  it('modo valorizado: consume la capa en origen y crea la capa espejo en el establecimiento destino real, con el mismo costo y moneda', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20, costoUnitarioBaseMonedaBase: 12.5 }), empresaId);
+
+    await ServicioKardexValorizado.transferirStockValorizado(datosInter({ empresaId, cantidadUnidadMinima: 5 }), {
+      almacenes: almacenesInter(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
+    });
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    const capaOrigen = capas.find((c) => c.id === 'capa-1');
+    expect(capaOrigen?.cantidadDisponible).toBe(15);
+
+    const capaDestino = capas.find((c) => c.almacenId === 'alm-2');
+    expect(capaDestino?.establecimientoId).toBe(EST_2);
+    expect(capaDestino?.costoUnitarioBaseMonedaBase).toBe(12.5);
+    expect(capaDestino?.monedaBase).toBe(capaOrigen?.monedaBase);
+    expect(capaDestino?.tipoCambioAplicado).toBe(capaOrigen?.tipoCambioAplicado);
+  });
+
+  it('el valor total del inventario de la empresa no cambia: origen disminuye y destino aumenta en la misma magnitud', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20, costoUnitarioBaseMonedaBase: 12.5 }), empresaId);
+
+    await ServicioKardexValorizado.transferirStockValorizado(datosInter({ empresaId, cantidadUnidadMinima: 8 }), {
+      almacenes: almacenesInter(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
+    });
+
+    const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
+    const valorOrigen = capas.filter((c) => c.almacenId === 'alm-1').reduce((s, c) => s + c.cantidadDisponible * c.costoUnitarioBaseMonedaBase, 0);
+    const valorDestino = capas.filter((c) => c.almacenId === 'alm-2').reduce((s, c) => s + c.cantidadDisponible * c.costoUnitarioBaseMonedaBase, 0);
+    // 20 unidades a 12.5 = 250 en total, sin importar cómo se reparten entre almacenes.
+    expect(valorOrigen + valorDestino).toBe(250);
+    expect(valorDestino).toBe(8 * 12.5);
+  });
+
+  it('doble clic (misma clave) en una transferencia inter-establecimiento no duplica movimientos ni capas', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 0 } })]);
+    guardarCapaCostoInventario(crearCapa({ id: 'capa-1', cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+    const datos = datosInter({ empresaId, cantidadUnidadMinima: 5 });
+    const deps = { almacenes: almacenesInter(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const, valorizacionHabilitada: true };
+
+    const r1 = await ServicioKardexValorizado.transferirStockValorizado(datos, deps);
+    const r2 = await ServicioKardexValorizado.transferirStockValorizado(datos, deps);
+
+    expect(r1.estado).toBe('nueva');
+    expect(r2.estado).toBe('repetida');
+    expect(listarCapasCostoInventarioPorEmpresa(empresaId).filter((c) => c.almacenId === 'alm-2')).toHaveLength(1);
+  });
+
+  it('stock insuficiente en origen rechaza la transferencia inter-establecimiento completa', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 3, 'alm-2': 0 } })]);
+
+    await expect(
+      ServicioKardexValorizado.transferirStockValorizado(datosInter({ empresaId, cantidadUnidadMinima: 5 }), {
+        almacenes: almacenesInter(), generarId, fechaActual, estadoValorizacion: 'no_iniciada',
+      })
+    ).rejects.toThrow();
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(3);
+  });
+});

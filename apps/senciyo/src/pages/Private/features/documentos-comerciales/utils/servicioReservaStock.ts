@@ -298,6 +298,7 @@ export function prepararDescuentoStockDocumento(
 
       lineasOperacion.push({
         lineaId: `${operacionId}-${indiceLinea}`,
+        ...(item.lineaId ? { lineaComercialId: item.lineaId } : {}),
         productoId: producto.id,
         almacenId: alloc.almacenId,
         cantidadUnidadMinima: alloc.qtyUnidadMinima,

@@ -4,6 +4,7 @@ import type { CuentaPorPagar, EstadoPagoCxP } from '../modelos/CuentaPorPagar';
 import type { PagoCompra, AplicacionPagoCompra } from '../modelos/PagoCompra';
 import type { RequerimientoCompra, EstadoPrincipalRC } from '../modelos/RequerimientoCompra';
 import type { LineaCompra, TipoAfectacionCompra } from '../modelos/LineaCompra';
+import type { NotaIngreso } from '../../gestion-inventario/models/notaIngreso.types';
 import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 import {
@@ -14,6 +15,7 @@ import type { TratamientoImpuestoCompra } from '../../configuracion-sistema/cont
 import type { Tax } from '../../configuracion-sistema/modelos/Tax';
 import { getFactorToUnidadMinima, convertToUnidadMinima, type ProductoConUnidades } from '@/shared/inventory/unitConversion';
 import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
+import { calcularEstadoInventarioCC } from '../utilidades/calcularEstadosCompra';
 
 /**
  * Comprobantes de Compra realmente generados por esta OC — relación
@@ -564,12 +566,31 @@ export function puedeImprimirCC(cc: ComprobanteCompra): boolean {
 }
 
 /**
- * Determina si un comprobante de compra puede anularse, o el motivo puntual
- * del bloqueo. No puede anularse si ya tiene pagos aplicados (estadoPago
- * distinto de 'pendiente') ni si ya tiene una nota de ingreso o movimiento de
- * inventario relacionado.
+ * Notas de Ingreso relacionadas con un CC (por `notasIngresoRelacionadas`) que siguen vigentes —
+ * es decir, que NO están anuladas. Una NI anulada sigue existiendo para historial/trazabilidad,
+ * pero nunca cuenta como "efecto de inventario todavía vigente" sobre el CC (mismo patrón que
+ * `obtenerComprobantesActivosOC` para OC↔CC).
  */
-export function motivoBloqueoAnulacionCC(cc: ComprobanteCompra): string | null {
+export function obtenerNotasIngresoActivasCC(
+  cc: ComprobanteCompra,
+  notas: NotaIngreso[],
+): NotaIngreso[] {
+  const idsRelacionados = new Set(cc.notasIngresoRelacionadas ?? []);
+  if (idsRelacionados.size === 0) return [];
+  return notas.filter((n) => idsRelacionados.has(n.id) && n.estado !== 'Anulada');
+}
+
+/**
+ * Determina si un comprobante de compra puede anularse, o el motivo puntual del bloqueo. No puede
+ * anularse si ya tiene pagos aplicados (estadoPago distinto de 'pendiente') ni si tiene al menos
+ * una Nota de Ingreso relacionada que siga ACTIVA (cierre de brecha: antes bloqueaba para siempre
+ * con solo que `notasIngresoRelacionadas` tuviera algún id, sin importar si esa NI ya había sido
+ * anulada — un CC cuya única NI fue anulada quedaba imposibilitado de anularse aunque el reverso de
+ * inventario ya hubiera restaurado el stock). `notas` debe ser la colección COMPLETA de Notas de
+ * Ingreso de la empresa — nunca se infiere ni se omite: sin ella no hay forma de distinguir una NI
+ * activa de una anulada.
+ */
+export function motivoBloqueoAnulacionCC(cc: ComprobanteCompra, notas: NotaIngreso[]): string | null {
   if (cc.estadoDocumento === 'borrador') return 'Los borradores se eliminan, no se anulan.';
   if (cc.estadoDocumento === 'anulado') return 'El comprobante de compra ya se encuentra anulado.';
   if (cc.estadoDocumento !== 'registrado') {
@@ -578,17 +599,116 @@ export function motivoBloqueoAnulacionCC(cc: ComprobanteCompra): string | null {
   if (cc.estadoPago !== 'pendiente') {
     return 'No se puede anular el comprobante porque tiene pagos registrados. Anula primero el pago relacionado.';
   }
-  if (
-    (cc.notasIngresoRelacionadas?.length ?? 0) > 0 ||
-    (cc.movimientosInventarioRelacionados?.length ?? 0) > 0
-  ) {
-    return 'No se puede anular el comprobante porque tiene una nota de ingreso o un movimiento de inventario relacionado.';
+  if (obtenerNotasIngresoActivasCC(cc, notas).length > 0) {
+    return 'No se puede anular el comprobante porque tiene una nota de ingreso activa relacionada. Anula primero esa nota de ingreso.';
   }
   return null;
 }
 
-export function puedeAnularCC(cc: ComprobanteCompra): boolean {
-  return motivoBloqueoAnulacionCC(cc) === null;
+export function puedeAnularCC(cc: ComprobanteCompra, notas: NotaIngreso[]): boolean {
+  return motivoBloqueoAnulacionCC(cc, notas) === null;
+}
+
+/**
+ * Sincroniza el Comprobante de Compra de origen tras una confirmación (nueva o repetida) de su NI
+ * — actualiza `cantidadIngresadaInventario`/`cantidadPendienteInventario` por línea (vía
+ * `lineaCompraOrigenId`, nunca recalculando desde el catálogo), `estadoInventario` (con evidencia
+ * real de que la NI automática quedó confirmada) y las relaciones existentes
+ * `notasIngresoRelacionadas`/`movimientosInventarioRelacionados`. Pura — el llamador persiste.
+ * Devuelve `null` si el CC no existe o la NI no le pertenece (nada que sincronizar).
+ */
+export function sincronizarCCTrasConfirmacionNI(
+  comprobantes: ComprobanteCompra[],
+  nota: NotaIngreso,
+  movimientoIds: string[],
+  ts: string,
+): ComprobanteCompra | null {
+  if (!nota.comprobanteCompraOrigenId) return null;
+  const cc = comprobantes.find((c) => c.id === nota.comprobanteCompraOrigenId);
+  if (!cc) return null;
+
+  const lineas = cc.lineas.map((linea) => {
+    const lineaNI = nota.lineas.find((l) => l.lineaCompraOrigenId === linea.id);
+    if (!lineaNI) return linea;
+    const cantidadComercialIngresada = lineaNI.cantidadComercialOriginal ?? 0;
+    const cantidadIngresadaInventario = round2(linea.cantidadIngresadaInventario + cantidadComercialIngresada);
+    return {
+      ...linea,
+      cantidadIngresadaInventario,
+      cantidadPendienteInventario: Math.max(0, round2(linea.cantidadFacturada - cantidadIngresadaInventario)),
+    };
+  });
+
+  const notasIngresoRelacionadas = cc.notasIngresoRelacionadas?.includes(nota.id)
+    ? cc.notasIngresoRelacionadas
+    : [...(cc.notasIngresoRelacionadas ?? []), nota.id];
+  const movimientosInventarioRelacionados = Array.from(
+    new Set([...(cc.movimientosInventarioRelacionados ?? []), ...movimientoIds]),
+  );
+
+  return {
+    ...cc,
+    lineas,
+    notasIngresoRelacionadas,
+    movimientosInventarioRelacionados,
+    estadoInventario: calcularEstadoInventarioCC(lineas, cc.modalidadInventario, nota.modalidadOrigenCompra === 'automatico'),
+    fechaActualizacion: ts,
+    historial: [
+      ...cc.historial,
+      {
+        fecha: ts,
+        accion: 'Nota de Ingreso confirmada',
+        detalle: `NI ${nota.numero ?? nota.id} — ${movimientoIds.length} movimiento(s) de inventario.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Cierre de brecha: sincroniza el Comprobante de Compra de origen tras la ANULACIÓN de su NI — el
+ * inverso exacto de `sincronizarCCTrasConfirmacionNI`: descuenta de `cantidadIngresadaInventario`
+ * por línea (vía `lineaCompraOrigenId`) exactamente lo que esa NI había ingresado, y recalcula
+ * `estadoInventario` con el estado real resultante (nunca "automatico" — la NI que lo justificaba
+ * ya no está vigente). Nunca borra `notasIngresoRelacionadas`/`movimientosInventarioRelacionados`:
+ * son historial documental, no un contador de vigencia — la vigencia real se deriva aparte, vía
+ * `obtenerNotasIngresoActivasCC` (arriba), nunca de la longitud de estos arrays. Pura — el llamador
+ * persiste. Devuelve `null` si el CC no existe o la NI no le pertenece.
+ */
+export function sincronizarCCTrasAnulacionNI(
+  comprobantes: ComprobanteCompra[],
+  nota: NotaIngreso,
+  ts: string,
+): ComprobanteCompra | null {
+  if (!nota.comprobanteCompraOrigenId) return null;
+  const cc = comprobantes.find((c) => c.id === nota.comprobanteCompraOrigenId);
+  if (!cc) return null;
+
+  const lineas = cc.lineas.map((linea) => {
+    const lineaNI = nota.lineas.find((l) => l.lineaCompraOrigenId === linea.id);
+    if (!lineaNI) return linea;
+    const cantidadComercialAnulada = lineaNI.cantidadComercialOriginal ?? 0;
+    const cantidadIngresadaInventario = Math.max(0, round2(linea.cantidadIngresadaInventario - cantidadComercialAnulada));
+    return {
+      ...linea,
+      cantidadIngresadaInventario,
+      cantidadPendienteInventario: Math.max(0, round2(linea.cantidadFacturada - cantidadIngresadaInventario)),
+    };
+  });
+
+  return {
+    ...cc,
+    lineas,
+    estadoInventario: calcularEstadoInventarioCC(lineas, cc.modalidadInventario, false),
+    fechaActualizacion: ts,
+    historial: [
+      ...cc.historial,
+      {
+        fecha: ts,
+        accion: 'Nota de Ingreso anulada',
+        detalle: `NI ${nota.numero ?? nota.id} anulada — inventario revertido.`,
+      },
+    ],
+  };
 }
 
 export function puedeRegistrarPago(cxp: CuentaPorPagar): boolean {

@@ -44,6 +44,14 @@ export interface CapaCostoInventario {
 
   /** Si esta capa nació de una transferencia, referencia a la capa de origen (conserva procedencia, nunca revaloriza). */
   capaOrigenId?: string;
+  /**
+   * Si esta capa nació de una devolución física (NC), FK al `ConsumoCapaCostoInventario` original
+   * de la venta que se está devolviendo — nunca a la capa directamente, porque el costo histórico
+   * correcto de la devolución es el del CONSUMO (puede diferir de la capa si esta ya fue tocada por
+   * otras salidas). Permite calcular cuánto de un consumo ya fue devuelto (evita sobre-devolución)
+   * y trazar venta→línea→movimiento→consumo→devolución de extremo a extremo.
+   */
+  consumoOrigenId?: string;
 
   // --- Nivel comercial: snapshot de la presentación tal como se compró (ausente si la entrada ya nació en unidad mínima, ej. un ajuste manual) ---
   /** Cantidad en la presentación comprada (ej. 2 cajas). */

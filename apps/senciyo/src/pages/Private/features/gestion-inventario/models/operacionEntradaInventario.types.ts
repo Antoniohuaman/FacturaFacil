@@ -49,6 +49,14 @@ export interface LiberacionReservaLegacyOV {
 /** Línea sin costo (modo cuantitativo) o con costo obligatorio (modo valorizado, Etapa 2 §10 — solo ajuste_positivo). */
 export interface DatosLineaOperacionCuantitativa {
   lineaId: string;
+  /**
+   * Identidad ESTABLE de la línea comercial (CartItem.lineaId) que originó este segmento —
+   * distinta de `lineaId` (que es la clave TÉCNICA única de este segmento). Cuando una línea del
+   * carrito se reparte entre varios almacenes, todos sus segmentos comparten el mismo
+   * `lineaComercialId` pero cada uno tiene su propio `lineaId` técnico. Ausente en canales que
+   * todavía no generan una identidad estable (el motor nunca la inventa ni la deriva del índice).
+   */
+  lineaComercialId?: string;
   productoId: string;
   almacenId: string;
   /** Ya ajustada a `PRECISION_CANTIDAD_UNIDAD_MINIMA` por el llamador — el motor valida, nunca redondea en silencio. */
@@ -85,6 +93,13 @@ export interface DatosLineaOperacionCuantitativa {
   tipoCambioAplicado?: number;
   /** Fecha/referencia del tipo de cambio usado — snapshot, acompaña a `tipoCambioAplicado`. */
   fechaTipoCambio?: string;
+  /**
+   * Devolución física por NC — FK al `ConsumoCapaCostoInventario` original de la venta que esta
+   * línea de entrada está devolviendo (OBLIGATORIO cuando `tipoOperacion:'devolucion_cliente'`,
+   * ausente en cualquier otro caso). El motor lo copia tal cual a la `CapaCostoInventario`
+   * resultante — nunca lo deriva ni lo recalcula.
+   */
+  consumoOrigenId?: string;
 }
 
 /**
