@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Award, Settings, ShoppingCart, Users } from "lucide-react";
 import DetalleVentasDiariasModal from "../components/DetalleVentasDiariasModal";
@@ -6,6 +6,7 @@ import DetalleCrecimientoModal from "../components/DetalleCrecimientoModal";
 import Toolbar from "../components/Toolbar";
 import ReportsHub from "../components/ReportsHub";
 import KpiCards from "../components/KpiCards";
+import RentabilidadVentasPage from "./RentabilidadVentasPage";
 import VentasPorComprobanteCard from "../components/VentasPorComprobanteCard";
 import VentasPorEstablecimientoCard from "../components/VentasPorEstablecimientoCard";
 import DetalleVentasDiariasCard from "../components/DetalleVentasDiariasCard";
@@ -18,41 +19,71 @@ import { useIndicadores } from "../hooks/useIndicadores";
 import { useIndicadoresFilters } from "../hooks/useIndicadoresFilters";
 import { useNotificacionesIndicador } from "../hooks/useNotificacionesIndicador";
 import { createEmptyNotificacionPayload } from "../models/notificacionesDefaults";
-import type { IndicadoresFilters } from "../models/indicadores";
+import {
+  resolverVistaIndicadores,
+  construirNavegacionVista,
+  construirNormalizacionVista,
+  type IndicadoresFilters,
+  type IndicadoresView
+} from "../models/indicadores";
 import type { NotificacionIndicadorPayload } from "../models/notificaciones";
 import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
+import { useComprobanteContext } from "../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext";
 import { useFocusFromQuery } from "../../../../../hooks/useFocusFromQuery";
+import { StockRepository } from "../../gestion-inventario/repositories/stock.repository";
+import { listarConsumosCapaCostoInventarioPorEmpresa } from "../../gestion-inventario/repositories/consumoCapaCostoInventario.repository";
+import { listarCapasCostoInventarioPorEmpresa } from "../../gestion-inventario/repositories/capaCostoInventario.repository";
+import { proyectarFilasRentabilidadVentas, calcularIndicadoresRentabilidad } from "../services/consultaRentabilidadVentas.service";
+import { getTenantEmpresaId } from "@/shared/tenant";
+import { currencyManager } from "@/shared/currency";
 
 const NOTIFICADOR_GENERAL_ID = "indicadores-general";
-type IndicatorsTab = "resumen" | "reportes";
+type IndicatorsTab = IndicadoresView;
 
+// Orden obligatorio de navegación (mejora de UX/visibilidad, §3-§6): Resumen → Rentabilidad →
+// Reportes. Única definición visual — reutilizada tal cual, nunca copiada a otra página.
 const INDICADORES_TABS: Array<{ id: IndicatorsTab; label: string }> = [
   { id: "resumen", label: "Resumen" },
+  { id: "rentabilidad", label: "Rentabilidad" },
   { id: "reportes", label: "Reportes" }
 ];
 
 const IndicadoresPage: React.FC = () => {
   useFocusFromQuery();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeView: IndicatorsTab = searchParams.get("view") === "reportes" ? "reportes" : "resumen";
-  const handleViewChange = (nextView: IndicatorsTab) => {
-    if (nextView === activeView) {
+  const rawView = searchParams.get("view");
+  const activeView: IndicatorsTab = resolverVistaIndicadores(rawView);
+
+  // Único punto de navegación entre pestañas (nunca una segunda función/lógica de navegación).
+  // Por defecto genera una entrada de historial real (Atrás/Adelante deben poder recuperar la
+  // pestaña anterior); `options.replace` se reserva para normalización/compatibilidad, nunca para
+  // un cambio de pestaña iniciado por el usuario.
+  const handleViewChange = useCallback((nextView: IndicatorsTab, options?: { replace?: boolean }) => {
+    const decision = construirNavegacionVista(Object.fromEntries(searchParams), nextView);
+    if (!decision) {
       return;
     }
-    const nextParams = new URLSearchParams(searchParams);
-    if (nextView === "resumen") {
-      nextParams.delete("view");
-    } else {
-      nextParams.set("view", nextView);
+    setSearchParams(decision.params, { replace: options?.replace ?? decision.replace });
+  }, [searchParams, setSearchParams]);
+
+  // Normaliza una URL inválida (view desconocido o "resumen" explícito redundante) sin generar
+  // historial — nunca window.location, nunca una segunda función de navegación: misma decisión
+  // pura (`construirNormalizacionVista`) que ya usa `handleViewChange` para los cambios reales.
+  useEffect(() => {
+    const decision = construirNormalizacionVista(Object.fromEntries(searchParams));
+    if (decision) {
+      setSearchParams(decision.params, { replace: decision.replace });
     }
-    setSearchParams(nextParams, { replace: true });
-  };
+  }, [searchParams, setSearchParams]);
   const isReportView = activeView === "reportes";
+  const isRentabilidadView = activeView === "rentabilidad";
+  const isResumenView = activeView === "resumen";
   const [openDetalleModal, setOpenDetalleModal] = useState(false);
   const [openDetalleCrecimientoModal, setOpenDetalleCrecimientoModal] = useState(false);
   const [openNotificacionesModal, setOpenNotificacionesModal] = useState(false);
   const { dateRange, EstablecimientoId } = useIndicadoresFilters();
   const { state: configState } = useConfigurationContext();
+  const { state: comprobanteState } = useComprobanteContext();
 
   const filters = useMemo<IndicadoresFilters>(() => ({
     dateRange,
@@ -60,6 +91,36 @@ const IndicadoresPage: React.FC = () => {
   }), [dateRange, EstablecimientoId]);
 
   const { data, status, error } = useIndicadores(filters);
+
+  // Utilidad bruta del carrusel (§10-§11) — reutiliza la MISMA proyección central de
+  // Rentabilidad de Ventas, nunca una fórmula duplicada en este archivo ni en KpiCards.tsx.
+  // Solo se lee/calcula en la vista Resumen (§19): en Rentabilidad/Reportes esta tarjeta no se
+  // renderiza, así que recalcularla ahí sería trabajo duplicado e innecesario.
+  const empresaId = getTenantEmpresaId();
+  const monedaBaseRentabilidad = currencyManager.getSnapshot().baseCurrency.code;
+  const movimientosRentabilidad = useMemo(() => (isResumenView ? StockRepository.getMovements() : []), [isResumenView]);
+  const consumosRentabilidad = useMemo(() => (isResumenView ? listarConsumosCapaCostoInventarioPorEmpresa(empresaId) : []), [isResumenView, empresaId]);
+  const capasRentabilidad = useMemo(() => (isResumenView ? listarCapasCostoInventarioPorEmpresa(empresaId) : []), [isResumenView, empresaId]);
+
+  const indicadoresRentabilidad = useMemo(() => {
+    if (!isResumenView) return null;
+    const filas = proyectarFilasRentabilidadVentas({
+      empresaId,
+      monedaBase: monedaBaseRentabilidad,
+      comprobantes: comprobanteState.comprobantes,
+      movimientos: movimientosRentabilidad,
+      consumos: consumosRentabilidad,
+      capas: capasRentabilidad,
+      periodo: { desde: dateRange.startDate, hasta: dateRange.endDate },
+      establecimientoId: EstablecimientoId,
+    });
+    return calcularIndicadoresRentabilidad(filas);
+  }, [isResumenView, empresaId, monedaBaseRentabilidad, comprobanteState.comprobantes, movimientosRentabilidad, consumosRentabilidad, capasRentabilidad, dateRange.startDate, dateRange.endDate, EstablecimientoId]);
+
+  // Navega cambiando únicamente el query param "view" — la MISMA función que usan las pestañas,
+  // nunca una segunda lógica de navegación ni window.location; conserva periodo/establecimiento
+  // porque ambos viven en el store compartido `useIndicadoresFilters`, no en la URL.
+  const handleVerRentabilidad = () => handleViewChange("rentabilidad");
 
   const normalizedEstablecimientoId = EstablecimientoId || "Todos";
   const notificationsFilters = useMemo(() => ({
@@ -152,11 +213,14 @@ const IndicadoresPage: React.FC = () => {
         )}
       />
       
-      {/* TOOLBAR - Controles y acciones */}
-      {!isReportView && <Toolbar />}
+      {/* TOOLBAR - Controles y acciones (solo Resumen; Rentabilidad tiene su propio bloque de
+          Período/Establecimiento y Reportes el suyo — nunca duplicar el filtro) */}
+      {isResumenView && <Toolbar />}
 
       {isReportView ? (
         <ReportsHub />
+      ) : isRentabilidadView ? (
+        <RentabilidadVentasPage />
       ) : (
         <div className="p-4 md:p-6">
           {error && (
@@ -170,7 +234,17 @@ const IndicadoresPage: React.FC = () => {
 
           {data && (
             <>
-              <KpiCards data={data.kpis} onViewGrowthDetails={() => setOpenDetalleCrecimientoModal(true)} />
+              <KpiCards
+                data={data.kpis}
+                onViewGrowthDetails={() => setOpenDetalleCrecimientoModal(true)}
+                rentabilidad={indicadoresRentabilidad ? {
+                  utilidadBruta: indicadoresRentabilidad.utilidadBrutaCubierta,
+                  margenBrutoCubierto: indicadoresRentabilidad.margenBrutoCubierto,
+                  coberturaPorcentaje: indicadoresRentabilidad.coberturaPorcentaje,
+                  monedaBase: monedaBaseRentabilidad
+                } : undefined}
+                onVerRentabilidad={handleVerRentabilidad}
+              />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <VentasPorComprobanteCard data={data.ventasPorComprobante} dateRange={dateRange} totalVentasPeriodo={data.totalVentasPeriodo} />

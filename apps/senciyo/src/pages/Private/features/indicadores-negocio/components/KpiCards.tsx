@@ -1,11 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ShoppingCart, Users, DollarSign, TrendingUp, Ticket, Ban, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Users, DollarSign, TrendingUp, Ticket, Ban, ChevronLeft, ChevronRight, Percent } from 'lucide-react';
 import type { KpiSummary } from '../models/indicadores';
 import { formatCurrency } from '../utils/formatters';
+import { formatMoney } from '@/shared/currency';
+
+/** Utilidad bruta del periodo — ya calculada por `consultaRentabilidadVentas.service.ts` (nunca una fórmula duplicada aquí). */
+interface RentabilidadResumenKpi {
+  utilidadBruta: number;
+  margenBrutoCubierto: number | null;
+  coberturaPorcentaje: number | null;
+  monedaBase: string;
+}
 
 interface KpiCardsProps {
   data: KpiSummary;
   onViewGrowthDetails: () => void;
+  /** Ausente mientras la proyección de Rentabilidad aún no está lista — las 2 tarjetas nunca se renderizan a medias. */
+  rentabilidad?: RentabilidadResumenKpi;
+  onVerRentabilidad?: () => void;
 }
 
 /**
@@ -17,7 +29,7 @@ interface KpiCardsProps {
 const cardBase =
   'flex-1 min-w-[240px] sm:min-w-[260px] max-w-[320px] min-h-[92px] flex flex-col rounded-2xl p-3 shadow-sm snap-start border';
 
-const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
+const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails, rentabilidad, onVerRentabilidad }) => {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -133,6 +145,42 @@ const KpiCards: React.FC<KpiCardsProps> = ({ data, onViewGrowthDetails }) => {
 
           <p className="text-[0.7rem] text-gray-500 dark:text-gray-400 mt-auto">Periodo seleccionado</p>
         </div>
+
+        {/* Utilidad bruta — inmediatamente después de Total de Ventas (mejora de visibilidad):
+            misma proyección central de Rentabilidad de Ventas, nunca un cálculo propio de este
+            carrusel. Ausente hasta que la proyección está lista (nunca un valor parcial/estimado). */}
+        {rentabilidad && (
+          <button
+            type="button"
+            onClick={onVerRentabilidad}
+            className={`${cardBase} bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800/30 text-left cursor-pointer hover:-translate-y-0.5 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500`}
+            data-focus="indicadores:kpi:rentabilidad-utilidad-bruta"
+            aria-label="Utilidad bruta — ver rentabilidad de ventas"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-indigo-200 dark:bg-indigo-800 rounded-lg">
+                  <Percent className="h-5 w-5 text-indigo-800 dark:text-indigo-200" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">Utilidad bruta</h3>
+                  <p className="text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                    {formatMoney(rentabilidad.utilidadBruta, rentabilidad.monedaBase)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[0.7rem] text-gray-500 dark:text-gray-400 mt-auto truncate">
+              {rentabilidad.coberturaPorcentaje === null
+                ? 'Sin ventas inventariables en el período'
+                : rentabilidad.margenBrutoCubierto !== null
+                  ? `Margen: ${(rentabilidad.margenBrutoCubierto * 100).toFixed(1)}% · Cobertura: ${rentabilidad.coberturaPorcentaje.toFixed(1)}%`
+                  : `Cobertura de costo: ${rentabilidad.coberturaPorcentaje.toFixed(1)}%`}
+            </p>
+            <p className="text-[0.65rem] text-indigo-600 dark:text-indigo-300 font-medium mt-0.5">Ver rentabilidad →</p>
+          </button>
+        )}
 
         {/* Card 2 */}
         <div

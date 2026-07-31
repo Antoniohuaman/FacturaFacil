@@ -4,6 +4,7 @@ import {
   Layers,
   Package,
   Tag,
+  TrendingUp,
   Users,
   Wallet
 } from "lucide-react";
@@ -15,7 +16,8 @@ export type ReportCategory =
   | "Precios"
   | "Inventario"
   | "Cobranzas"
-  | "Caja";
+  | "Caja"
+  | "Rentabilidad";
 
 export interface ReportDefinition {
   id: string;
@@ -26,8 +28,12 @@ export interface ReportDefinition {
   icon: LucideIcon;
 }
 
+// Orden de aparición en el Reports Hub — "Rentabilidad" se ubica junto a "Comprobantes" por ser
+// la categoría analítica más consultada tras el detalle de ventas (mejora de visibilidad, no
+// afecta el cálculo ni los datos del reporte).
 export const reportCategories: ReportCategory[] = [
   "Comprobantes",
+  "Rentabilidad",
   "Documentos",
   "Clientes",
   "Precios",
@@ -100,5 +106,13 @@ export const reportDefinitions: ReportDefinition[] = [
     category: "Caja",
     modulePath: "/control-caja?tab=reportes",
     icon: Wallet
+  },
+  {
+    id: "rentabilidad-ventas",
+    name: "Rentabilidad de ventas",
+    description: "Venta neta, costo, utilidad y margen por producto vendido",
+    category: "Rentabilidad",
+    modulePath: "/indicadores?view=rentabilidad",
+    icon: TrendingUp
   }
 ];

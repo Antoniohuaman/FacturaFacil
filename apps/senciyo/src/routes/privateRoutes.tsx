@@ -159,6 +159,17 @@ export const privateRoutes: RouteObject[] = [
       { path: "/clientes/:clienteId/:clienteName/historial", element: conPermisos(<HistorialCompras />, ['clientes.ver', 'clientes.editar']) },
       { path: "/importar-clientes", element: conPermisos(<ImportarClientesPage />, ['clientes.importar']) },
       { path: "/indicadores", element: conPermisos(<IndicadoresPage />, ['indicadores.ver']) },
+      // Rentabilidad de ventas ahora vive dentro de Indicadores (pestaña "Rentabilidad") — la
+      // ruta anterior se conserva como alias, nunca como una segunda página productiva. Preserva
+      // todos los parámetros reales (autoExport, from, to, EstablecimientoId, returnTo, etc.).
+      {
+        path: "/indicadores/reportes/rentabilidad-ventas",
+        loader: ({ request }) => {
+          const url = new URL(request.url);
+          url.searchParams.set("view", "rentabilidad");
+          return redirect(`/indicadores?${url.searchParams.toString()}`);
+        },
+      },
       { path: "/administrar-empresas", element: conPermisos(<AdministrarEmpresas />, ['config.panel.ver']) },
       { path: "/configuracion", element: conPermisos(<ConfigurationDashboard />, ['config.panel.ver']) },
       { path: "/configuracion/empresa", element: conPermisos(<CompanyConfiguration />, ['config.empresa.ver', 'config.empresa.editar']) },
