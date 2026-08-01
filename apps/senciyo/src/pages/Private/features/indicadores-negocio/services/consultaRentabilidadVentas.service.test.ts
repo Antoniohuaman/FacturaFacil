@@ -3,13 +3,16 @@ import {
   proyectarFilasRentabilidadVentas,
   filtrarFilasRentabilidad,
   calcularIndicadoresRentabilidad,
+  calcularResultadoOperativo,
   agruparFilasRentabilidad,
   calcularAmplitudPeriodoEnDias,
   determinarClavePeriodo,
   resolverOrigenesCostoLinea,
   obtenerColumnasConfigurables,
   type ParametrosProyeccionRentabilidad,
+  type IndicadoresRentabilidadVentas,
 } from './consultaRentabilidadVentas.service';
+import type { IndicadoresGastosOperativos } from '../../gastos/servicios/consultaGastosOperativos.service';
 import type { Comprobante } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import type { InstantaneaDocumentoComercial } from '../../comprobantes-electronicos/models/instantaneaDocumentoComercial';
 import type { CartItem } from '../../comprobantes-electronicos/models/comprobante.types';
@@ -702,5 +705,82 @@ describe('obtenerColumnasConfigurables', () => {
     expect(columnas).not.toContain('fecha');
     expect(columnas).not.toContain('cliente');
     expect(columnas).toContain('ventaNeta');
+  });
+});
+
+describe('calcularResultadoOperativo (§14/§20-D — Gastos operativos / Utilidad operativa / Margen operativo)', () => {
+  function crearIndicadoresRentabilidad(overrides: Partial<IndicadoresRentabilidadVentas> = {}): IndicadoresRentabilidadVentas {
+    return {
+      ventaNetaTotal: 1000,
+      ventaNetaCubierta: 1000,
+      costoVentaCubierto: 600,
+      utilidadBrutaCubierta: 400,
+      margenBrutoCubierto: 0.4,
+      coberturaPorcentaje: 100,
+      lineasSinCosto: 0,
+      lineasNoInventariables: 0,
+      lineasTipoCambioNoDisponible: 0,
+      totalLineas: 5,
+      ...overrides,
+    };
+  }
+
+  function crearIndicadoresGastos(overrides: Partial<IndicadoresGastosOperativos> = {}): IndicadoresGastosOperativos {
+    return {
+      gastosOperativosReconocidos: 150,
+      totalLineas: 3,
+      lineasSinTipoCambio: 0,
+      ...overrides,
+    };
+  }
+
+  it('utilidad operativa estimada = utilidad bruta cubierta − gastos operativos reconocidos', () => {
+    const resultado = calcularResultadoOperativo(crearIndicadoresRentabilidad({ utilidadBrutaCubierta: 400 }), crearIndicadoresGastos({ gastosOperativosReconocidos: 150 }));
+    expect(resultado.utilidadOperativaEstimada).toBe(250);
+  });
+
+  it('margen operativo estimado = utilidad operativa estimada ÷ venta neta cubierta', () => {
+    const resultado = calcularResultadoOperativo(
+      crearIndicadoresRentabilidad({ ventaNetaCubierta: 1000, utilidadBrutaCubierta: 400 }),
+      crearIndicadoresGastos({ gastosOperativosReconocidos: 150 }),
+    );
+    expect(resultado.margenOperativoEstimado).toBeCloseTo(0.25, 10);
+  });
+
+  it('venta neta cubierta 0: el margen operativo es null, nunca una división por cero', () => {
+    const resultado = calcularResultadoOperativo(
+      crearIndicadoresRentabilidad({ ventaNetaCubierta: 0, utilidadBrutaCubierta: 0 }),
+      crearIndicadoresGastos({ gastosOperativosReconocidos: 0 }),
+    );
+    expect(resultado.margenOperativoEstimado).toBeNull();
+  });
+
+  it('cobertura de costo 100% y sin líneas de gasto sin tipo de cambio: esCompleto = true (se omite "estimada")', () => {
+    const resultado = calcularResultadoOperativo(
+      crearIndicadoresRentabilidad({ coberturaPorcentaje: 100 }),
+      crearIndicadoresGastos({ lineasSinTipoCambio: 0 }),
+    );
+    expect(resultado.esCompleto).toBe(true);
+  });
+
+  it('cobertura de costo menor a 100%: esCompleto = false (debe decir "estimada")', () => {
+    const resultado = calcularResultadoOperativo(
+      crearIndicadoresRentabilidad({ coberturaPorcentaje: 80 }),
+      crearIndicadoresGastos({ lineasSinTipoCambio: 0 }),
+    );
+    expect(resultado.esCompleto).toBe(false);
+  });
+
+  it('cobertura de costo 100% pero con líneas de gasto sin tipo de cambio: esCompleto = false igualmente', () => {
+    const resultado = calcularResultadoOperativo(
+      crearIndicadoresRentabilidad({ coberturaPorcentaje: 100 }),
+      crearIndicadoresGastos({ lineasSinTipoCambio: 2 }),
+    );
+    expect(resultado.esCompleto).toBe(false);
+  });
+
+  it('propaga gastosOperativosReconocidos sin recalcularlo (nunca una segunda fórmula)', () => {
+    const resultado = calcularResultadoOperativo(crearIndicadoresRentabilidad(), crearIndicadoresGastos({ gastosOperativosReconocidos: 150 }));
+    expect(resultado.gastosOperativosReconocidos).toBe(150);
   });
 });

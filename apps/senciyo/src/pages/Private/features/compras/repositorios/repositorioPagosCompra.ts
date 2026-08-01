@@ -55,6 +55,21 @@ export function obtenerPagoPorId(id: string): PagoCompra | undefined {
   return cargarPagosCompra().find((p) => p.id === id);
 }
 
+/** Filtro puro (sin storage) reutilizado por `listarPagosPorOrigen` y por las pruebas — separado del acceso a localStorage para poder probarlo de forma aislada. `PagoCompra.tipoOrigen` es opcional: un pago histórico sin el campo se interpreta como `'compra'` (§10/§11 del alcance: se creó antes de existir Gastos). */
+export function filtrarPagosPorOrigen(pagos: readonly PagoCompra[], origen: 'compra' | 'gasto'): PagoCompra[] {
+  return pagos.filter((pago) => (pago.tipoOrigen ?? 'compra') === origen);
+}
+
+/**
+ * Selector único de aislamiento por origen documental (mismo criterio que
+ * `listarCuentasPorPagarPorOrigen` en `repositorioCuentasPorPagar.ts`):
+ * Compras y Gastos consumen el MISMO almacén de pagos a través de esta
+ * función, nunca el arreglo completo sin filtrar.
+ */
+export function listarPagosPorOrigen(origen: 'compra' | 'gasto'): PagoCompra[] {
+  return filtrarPagosPorOrigen(cargarPagosCompra(), origen);
+}
+
 export function agregarOActualizarPago(pago: PagoCompra): void {
   const pagos = cargarPagosCompra();
   const idx = pagos.findIndex((p) => p.id === pago.id);

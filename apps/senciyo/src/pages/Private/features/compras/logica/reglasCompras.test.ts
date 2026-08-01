@@ -233,6 +233,8 @@ describe('resolverSnapshotInventarioLinea', () => {
 function crearCxP(overrides: Partial<CuentaPorPagar> = {}): CuentaPorPagar {
   return {
     id: overrides.id ?? 'cxp-1',
+    tipoOrigen: 'compra',
+    documentoOrigenId: 'cc-1',
     comprobanteCompraId: 'cc-1',
     comprobanteCompraNumero: 'FR23-366',
     tipoComprobanteOrigen: '01',

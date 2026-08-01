@@ -449,6 +449,38 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     descripcion: 'Anular pagos registrados a proveedores.',
     modulo: 'compras',
   },
+  {
+    id: 'gastos.ver',
+    nombre: 'Ver gastos',
+    descripcion: 'Acceder al listado y detalle de gastos operativos.',
+    modulo: 'gastos',
+    rutas: ['/gastos'],
+  },
+  {
+    id: 'gastos.crear',
+    nombre: 'Registrar gastos',
+    descripcion: 'Registrar y editar gastos operativos (mientras no tengan pagos aplicados).',
+    modulo: 'gastos',
+  },
+  {
+    id: 'gastos.anular',
+    nombre: 'Anular gastos',
+    descripcion: 'Anular gastos operativos registrados.',
+    modulo: 'gastos',
+  },
+  {
+    id: 'gastos.pagar',
+    nombre: 'Registrar pagos de gastos',
+    descripcion: 'Registrar y anular pagos de gastos operativos.',
+    modulo: 'gastos',
+  },
+  {
+    id: 'gastos.categorias.gestionar',
+    nombre: 'Gestionar categorías de gastos',
+    descripcion: 'Crear, editar, desactivar y reactivar categorías de gastos.',
+    modulo: 'gastos',
+    rutas: ['/configuracion/negocio'],
+  },
 ];
 
 export const MAPA_PERMISOS_POR_ID: Record<IdPermiso, PermisoCatalogo> =

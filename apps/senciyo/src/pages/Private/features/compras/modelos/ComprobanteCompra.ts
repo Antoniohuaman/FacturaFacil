@@ -10,9 +10,11 @@ import type { AdjuntoCompra } from './AdjuntoCompra';
 import type { TrazabilidadCompra } from './TrazabilidadCompra';
 import type { EventoHistorialCompras } from './EventoHistorialCompras';
 import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
+import type { EstadoPago } from './CuentaPorPagar';
 
 export type EstadoDocumentoCC = 'borrador' | 'registrado' | 'anulado';
-export type EstadoPagoCC = 'pendiente' | 'parcial' | 'pagado';
+/** Alias histórico de `EstadoPago` (dominio general de CxP/Pagos en `CuentaPorPagar.ts`) — nunca una unión paralela; se conserva el nombre por compatibilidad con el código existente. */
+export type EstadoPagoCC = EstadoPago;
 export type EstadoInventarioCC = 'pendiente' | 'parcial' | 'completo' | 'automatico' | 'no_aplica';
 
 /**

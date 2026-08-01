@@ -86,6 +86,10 @@ const GuiasRemision = lazy(() => import("../pages/Private/features/guias-remisio
 const FormularioGREPage = lazy(() => import("../pages/Private/features/guias-remision/paginas/FormularioGREPage"));
 const GuiasRemisionLayout = lazy(() => import("../pages/Private/features/guias-remision/paginas/GuiasRemisionLayout"));
 
+// Gastos - diferido
+const PaginaGastos = lazy(() => import("../pages/Private/features/gastos/paginas/PaginaGastos"));
+const GastosLayout = lazy(() => import("../pages/Private/features/gastos/paginas/GastosLayout"));
+
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import { PermisoGuard } from "./PermisoGuard";
 import { SinPermiso } from "../pages/Private/SinPermiso";
@@ -178,7 +182,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "/configuracion/usuarios", element: conPermisos(<ConfiguracionUsuarios />, ['config.usuarios.gestionar', 'config.usuarios.accesos.gestionar']) },
       { path: "/configuracion/empleados", loader: () => redirect("/configuracion/usuarios") },
       { path: "/configuracion/series", element: conPermisos(<SeriesConfiguration />, ['config.series.gestionar']) },
-      { path: "/configuracion/negocio", element: conPermisos(<BusinessConfiguration />, ['config.negocio.gestionar']) },
+      { path: "/configuracion/negocio", element: conPermisos(<BusinessConfiguration />, ['config.negocio.gestionar', 'gastos.categorias.gestionar']) },
       { path: "/configuracion/diseno", element: conPermisos(<VoucherDesignConfigurationNew />, ['config.diseno_comprobante.gestionar']) },
       { path: "/configuracion/cajas", element: conPermisos(<CajasConfiguration />, ['config.cajas.gestionar']) },
       { path: "/configuracion/cajas/new", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
@@ -191,6 +195,13 @@ export const privateRoutes: RouteObject[] = [
         children: [
           { path: "/compras", element: conPermisos(<PaginaCompras />, ['compras.ordenes.ver']) },
           { path: "/compras/pagos/nuevo", element: conPermisos(<PaginaRegistrarPagoCompra />, ['compras.ordenes.ver']) },
+        ],
+      },
+      // Gastos — layout route garantiza el provider para todas las rutas hijas
+      {
+        element: <GastosLayout />,
+        children: [
+          { path: "/gastos", element: conPermisos(<PaginaGastos />, ['gastos.ver']) },
         ],
       },
       { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },

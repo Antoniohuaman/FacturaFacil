@@ -11,6 +11,7 @@ import {
   Tag,
   NotebookPen,
   FileCode2,
+  Receipt as ExpenseCategoriesIcon,
 } from 'lucide-react';
 import { PageHeader, Button } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
@@ -20,13 +21,14 @@ import { TaxesSection } from '../components/negocio/SeccionImpuestos';
 import { PaymentMethodsSection } from '../components/negocio/SeccionMediosPago';
 import { SalesPreferencesSection } from '../components/negocio/SeccionPreferenciasVenta';
 import { CategoriesSection } from '../components/negocio/SeccionCategorias';
+import { SeccionCategoriasGasto } from '../components/negocio/SeccionCategoriasGasto';
 import { BankAccountsSection } from '../components/negocio/SeccionCuentasBancarias';
 import { AccountingDashboard } from '../components/negocio/TableroContable';
 import { AccountingAccountsSection } from '../components/negocio/SeccionCuentasContables';
 import { SeccionConfiguracionTributaria } from '../components/negocio/SeccionConfiguracionTributaria';
-import { obtenerUsuarioDesdeSesion, tienePermiso } from '../utilidades/permisos';
+import { obtenerUsuarioDesdeSesion, tienePermiso, tieneAlgunoDePermisos } from '../utilidades/permisos';
 
-type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'accounting' | 'preferences' | 'tributaria';
+type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'expenseCategories' | 'accounting' | 'preferences' | 'tributaria';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
@@ -49,6 +51,13 @@ export function BusinessConfiguration() {
     return true;
   };
 
+  const puedeGestionarCategoriasGasto = tieneAlgunoDePermisos({
+    usuario: usuarioActual,
+    permisos: ['gastos.categorias.gestionar', 'config.negocio.gestionar'],
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId,
+  });
+
   const [activeSection, setActiveSection] = useState<BusinessSection>('payments');
   const [accountingView, setAccountingView] = useState<'dashboard' | 'accounts'>('dashboard');
 
@@ -58,6 +67,7 @@ export function BusinessConfiguration() {
     { id: 'units' as BusinessSection, label: 'Unidades', icon: Scale },
     { id: 'taxes' as BusinessSection, label: 'Impuestos', icon: Receipt },
     { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
+    { id: 'expenseCategories' as BusinessSection, label: 'Categorías de gastos', icon: ExpenseCategoriesIcon },
     { id: 'accounting' as BusinessSection, label: 'Datos contables', icon: NotebookPen },
     { id: 'preferences' as BusinessSection, label: 'Preferencias', icon: Settings },
     { id: 'tributaria' as BusinessSection, label: 'Configuración tributaria', icon: FileCode2 },
@@ -186,6 +196,11 @@ export function BusinessConfiguration() {
                     dispatch({ type: 'SET_CATEGORIES', payload: categories });
                   }}
                 />
+              )}
+
+              {/* Expense Categories Section */}
+              {activeSection === 'expenseCategories' && (
+                <SeccionCategoriasGasto puedeGestionar={puedeGestionarCategoriasGasto} />
               )}
 
               {activeSection === 'accounting' && (

@@ -81,6 +81,23 @@ export function tieneMedioDeCaja(medios: MedioPagoCompra[]): boolean {
   return medios.some((medio) => esMedioDeCaja(medio.medioPagoCodigo));
 }
 
+/**
+ * Protección real de idempotencia del COMANDO completo de registrar un pago
+ * (Pago + aplicación a CxP + movimiento de Caja como una sola operación),
+ * no solo del movimiento de Caja. Se comprueba contra los pagos YA
+ * PERSISTIDOS de la empresa activa (`pagos` ya viene tenantizado por el
+ * repositorio que lo cargó) — nunca contra estado en memoria de un
+ * formulario. Nunca compara `undefined === undefined`: dos pagos sin clave
+ * jamás se consideran el mismo. Reutilizable por Compras y Gastos.
+ */
+export function buscarPagoPorClaveIdempotencia(
+  pagos: readonly PagoCompra[],
+  claveIdempotencia: string | undefined,
+): PagoCompra | undefined {
+  if (!claveIdempotencia) return undefined;
+  return pagos.find((pago) => pago.claveIdempotencia === claveIdempotencia);
+}
+
 export function validarPagoCompraBasico(pago: Partial<PagoCompra>): ErrorValidacion[] {
   const errores: ErrorValidacion[] = [];
 

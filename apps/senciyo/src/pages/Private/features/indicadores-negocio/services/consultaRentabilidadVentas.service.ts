@@ -19,6 +19,7 @@ import type { MovimientoStock } from '../../gestion-inventario/models/inventory.
 import type { ConsumoCapaCostoInventario } from '../../gestion-inventario/models/consumoCapaCostoInventario.types';
 import type { CapaCostoInventario } from '../../gestion-inventario/models/capaCostoInventario.types';
 import type { OrigenCostoMovimiento } from '../../gestion-inventario/services/consultaKardexValorizado.service';
+import type { IndicadoresGastosOperativos } from '../../gastos/servicios/consultaGastosOperativos.service';
 import { convertMoney } from '@/shared/currency';
 
 export type EstadoCostoRentabilidad =
@@ -185,6 +186,8 @@ export interface FilaRentabilidadVenta {
 
 export interface IndicadoresRentabilidadVentas {
   ventaNetaTotal: number;
+  /** Venta neta de las líneas con costo cubierto — base del margen bruto Y del margen operativo estimado de Indicadores → Rentabilidad (nunca recalculada aparte). */
+  ventaNetaCubierta: number;
   costoVentaCubierto: number;
   utilidadBrutaCubierta: number;
   margenBrutoCubierto: number | null;
@@ -744,6 +747,7 @@ export function calcularIndicadoresRentabilidad(filas: readonly FilaRentabilidad
 
   return {
     ventaNetaTotal: redondear(ventaNetaTotal),
+    ventaNetaCubierta: redondear(ventaNetaCubierta),
     costoVentaCubierto: redondear(costoVentaCubierto),
     utilidadBrutaCubierta,
     margenBrutoCubierto,
@@ -752,6 +756,33 @@ export function calcularIndicadoresRentabilidad(filas: readonly FilaRentabilidad
     lineasNoInventariables,
     lineasTipoCambioNoDisponible,
     totalLineas: filas.length,
+  };
+}
+
+export interface ResultadoOperativoEstimado {
+  gastosOperativosReconocidos: number;
+  utilidadOperativaEstimada: number;
+  margenOperativoEstimado: number | null;
+  /** `true` solo cuando la cobertura de costo de venta es 100% Y no hay líneas de gasto sin tipo de cambio — únicamente entonces se omite la palabra "estimada" (§14, nunca "Utilidad neta"). */
+  esCompleto: boolean;
+}
+
+/** Combina Rentabilidad de Ventas con Gastos operativos — única fórmula de Utilidad/Margen operativo, nunca recalculada en la página ni duplicada entre Indicadores y Reportes (§13/§14). */
+export function calcularResultadoOperativo(
+  indicadoresRentabilidad: IndicadoresRentabilidadVentas,
+  indicadoresGastos: IndicadoresGastosOperativos,
+): ResultadoOperativoEstimado {
+  const utilidadOperativaEstimada = redondear(indicadoresRentabilidad.utilidadBrutaCubierta - indicadoresGastos.gastosOperativosReconocidos);
+  const margenOperativoEstimado = indicadoresRentabilidad.ventaNetaCubierta !== 0
+    ? utilidadOperativaEstimada / indicadoresRentabilidad.ventaNetaCubierta
+    : null;
+  const esCompleto = indicadoresRentabilidad.coberturaPorcentaje === 100 && indicadoresGastos.lineasSinTipoCambio === 0;
+
+  return {
+    gastosOperativosReconocidos: indicadoresGastos.gastosOperativosReconocidos,
+    utilidadOperativaEstimada,
+    margenOperativoEstimado,
+    esCompleto,
   };
 }
 

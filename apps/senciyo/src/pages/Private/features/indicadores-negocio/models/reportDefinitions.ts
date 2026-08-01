@@ -3,6 +3,7 @@ import {
   FileText,
   Layers,
   Package,
+  Receipt,
   Tag,
   TrendingUp,
   Users,
@@ -17,7 +18,8 @@ export type ReportCategory =
   | "Inventario"
   | "Cobranzas"
   | "Caja"
-  | "Rentabilidad";
+  | "Rentabilidad"
+  | "Gastos";
 
 export interface ReportDefinition {
   id: string;
@@ -34,6 +36,7 @@ export interface ReportDefinition {
 export const reportCategories: ReportCategory[] = [
   "Comprobantes",
   "Rentabilidad",
+  "Gastos",
   "Documentos",
   "Clientes",
   "Precios",
@@ -114,5 +117,13 @@ export const reportDefinitions: ReportDefinition[] = [
     category: "Rentabilidad",
     modulePath: "/indicadores?view=rentabilidad",
     icon: TrendingUp
+  },
+  {
+    id: "gastos-operativos",
+    name: "Gastos operativos",
+    description: "Gastos reconocidos con filtros por categoría, proveedor y estado de pago",
+    category: "Gastos",
+    modulePath: "/gastos",
+    icon: Receipt
   }
 ];

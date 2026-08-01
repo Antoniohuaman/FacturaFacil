@@ -9,6 +9,7 @@ import type {
 } from "../models";
 import type { ToastMessage, ToastType } from "../components/common/Toast";
 import { calcularResumenCaja } from "../utils/calculations";
+import { esMovimientoDuplicadoPorIdempotencia } from "../utils/validators";
 import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
 import { lsKey } from "../../../../../shared/tenant";
 import { useTenant } from "../../../../../shared/tenant/TenantContext";
@@ -423,6 +424,16 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
       return;
     }
 
+    // Protección real contra doble clic/reintento (nunca solo un botón
+    // deshabilitado en React): se comprueba contra el historial YA
+    // persistido de esta caja, no solo el estado en memoria del formulario
+    // que dispara la acción. Ausente para Compras/Cobranzas (nunca envían
+    // `claveIdempotencia`) — su comportamiento no cambia.
+    if (esMovimientoDuplicadoPorIdempotencia(movimientos, historialMovimientos, movimiento.claveIdempotencia)) {
+      showToast("info", "Movimiento ya registrado", "Este movimiento ya había sido registrado — no se duplicó.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Simular llamada a API
@@ -455,7 +466,7 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
     } finally {
       setIsLoading(false);
     }
-  }, [aperturaActual, establecimientoId, rolesConfigurados, showToast, usuarioActual]);
+  }, [aperturaActual, establecimientoId, rolesConfigurados, showToast, usuarioActual, movimientos, historialMovimientos]);
 
   const getResumen = useCallback((): ResumenCaja => {
     return calcularResumenCaja(aperturaActual, movimientos);

@@ -46,11 +46,12 @@ import {
   eliminarCCDelStorage,
 } from '../repositorios/repositorioComprobantesCompra';
 import {
-  cargarCuentasPorPagar,
+  listarCuentasPorPagarPorOrigen,
   agregarOActualizarCxP,
 } from '../repositorios/repositorioCuentasPorPagar';
 import {
   cargarPagosCompra,
+  listarPagosPorOrigen,
   agregarOActualizarPago,
 } from '../repositorios/repositorioPagosCompra';
 import {
@@ -983,8 +984,12 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'ESTABLECER_REQUERIMIENTOS', payload: cargarRequerimientosCompra() });
       dispatch({ type: 'ESTABLECER_ORDENES', payload: cargarOrdenesCompra() });
       dispatch({ type: 'ESTABLECER_COMPROBANTES', payload: cargarComprobantesCompra() });
-      dispatch({ type: 'ESTABLECER_CUENTAS_POR_PAGAR', payload: cargarCuentasPorPagar() });
-      dispatch({ type: 'ESTABLECER_PAGOS', payload: cargarPagosCompra() });
+      // Aislamiento por origen documental (§10 del alcance de Gastos): Compras
+      // solo carga en su estado CxP/Pagos con tipoOrigen === 'compra' — nunca
+      // el arreglo completo del almacén compartido. Gastos usa el mismo
+      // selector con 'gasto' desde su propio contexto.
+      dispatch({ type: 'ESTABLECER_CUENTAS_POR_PAGAR', payload: listarCuentasPorPagarPorOrigen('compra') });
+      dispatch({ type: 'ESTABLECER_PAGOS', payload: listarPagosPorOrigen('compra') });
       dispatch({ type: 'ESTABLECER_PROVEEDORES', payload: cargarProveedores() });
       dispatch({ type: 'SET_ERROR_CARGA', payload: null });
     } catch (e) {
@@ -2353,7 +2358,11 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
       const id = generarId();
       const ts = ahora();
-      const numeroPago = siguienteNumeroPago(state.pagos, seriePago);
+      // Numeración SIEMPRE contra el almacén completo (ambos orígenes): la
+      // serie "PG" es compartida con Gastos (§11 del alcance) y `state.pagos`
+      // ahora solo contiene origen 'compra' — usar ese estado filtrado aquí
+      // podría reutilizar un número ya emitido por un pago de Gasto.
+      const numeroPago = siguienteNumeroPago(cargarPagosCompra(), seriePago);
 
       // El movimiento de caja se intenta antes de comprometer el pago/CxP:
       // si falla, no queda un pago "fantasma" sin su contraparte en caja. Es
@@ -2445,7 +2454,6 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       return pago;
     },
     [
-      state.pagos,
       state.cuentasPorPagar,
       state.comprobantes,
       monedaBase,

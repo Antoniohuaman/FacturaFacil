@@ -46,6 +46,7 @@ const permisosContador: IdPermiso[] = [
   'compras.comprobantes.ver',
   'compras.cuentas_por_pagar.ver',
   'compras.pagos.ver',
+  'gastos.ver',
 ];
 
 export const ROLES_DEL_SISTEMA: RolDelSistema[] = [

@@ -18,6 +18,7 @@ import {
   proyectarFilasRentabilidadVentas,
   filtrarFilasRentabilidad,
   calcularIndicadoresRentabilidad,
+  calcularResultadoOperativo,
   calcularAmplitudPeriodoEnDias,
   agruparFilasRentabilidad,
   ETIQUETA_COLUMNA_RENTABILIDAD,
@@ -33,6 +34,14 @@ import {
   type ColumnaOpcionalLineaRentabilidad,
 } from '../services/consultaRentabilidadVentas.service';
 import { useIndicadoresFilters } from '../hooks/useIndicadoresFilters';
+import {
+  proyectarFilasGastosOperativos,
+  filtrarFilasGastosOperativos,
+  calcularIndicadoresGastosOperativos,
+} from '../../gastos/servicios/consultaGastosOperativos.service';
+import { cargarGastos } from '../../gastos/repositorios/repositorioGastos';
+import { cargarCuentasPorPagar } from '../../compras/repositorios/repositorioCuentasPorPagar';
+import { cargarCategoriasGasto } from '../../gastos/repositorios/repositorioCategoriasGasto';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useComprobanteContext } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import type { ComprobanteStatus } from '../../comprobantes-electronicos/models/comprobante.types';
@@ -303,6 +312,45 @@ const RentabilidadVentasPage: React.FC = () => {
     () => calcularAmplitudPeriodoEnDias(dateRange.startDate, dateRange.endDate),
     [dateRange.startDate, dateRange.endDate]
   );
+
+  // Resultado operativo — Gastos operativos / Utilidad operativa / Margen operativo (§14).
+  // Reutiliza EXCLUSIVAMENTE la proyección canónica de Gastos (`consultaGastosOperativos.service.ts`);
+  // nunca inserta gastos como filas de venta ni recalcula el importe reconocido aquí.
+  const gastos = useMemo(() => cargarGastos(), []);
+  const cuentasPorPagarGasto = useMemo(() => cargarCuentasPorPagar(), []);
+  const categoriasGastoPorId = useMemo(() => {
+    const mapa = new Map<string, string>();
+    cargarCategoriasGasto(empresaId).forEach((categoria) => mapa.set(categoria.id, categoria.nombre));
+    return mapa;
+  }, [empresaId]);
+  const establecimientosPorId = useMemo(() => {
+    const mapa = new Map<string, string>();
+    configState.Establecimientos.forEach((est) => mapa.set(est.id, est.nombreEstablecimiento));
+    return mapa;
+  }, [configState.Establecimientos]);
+
+  const filasGastosOperativos = useMemo(
+    () => filtrarFilasGastosOperativos(
+      proyectarFilasGastosOperativos({
+        gastos,
+        cuentasPorPagar: cuentasPorPagarGasto,
+        categorias: categoriasGastoPorId,
+        establecimientos: establecimientosPorId,
+        monedaBase,
+        periodo: { desde: dateRange.startDate, hasta: dateRange.endDate },
+        establecimientoId: EstablecimientoId,
+      }),
+      {},
+    ),
+    [gastos, cuentasPorPagarGasto, categoriasGastoPorId, establecimientosPorId, monedaBase, dateRange.startDate, dateRange.endDate, EstablecimientoId]
+  );
+  const indicadoresGastos = useMemo(() => calcularIndicadoresGastosOperativos(filasGastosOperativos), [filasGastosOperativos]);
+  const resultadoOperativo = useMemo(
+    () => calcularResultadoOperativo(indicadores, indicadoresGastos),
+    [indicadores, indicadoresGastos]
+  );
+  const etiquetaUtilidadOperativa = resultadoOperativo.esCompleto ? 'Utilidad operativa' : 'Utilidad operativa estimada';
+  const etiquetaMargenOperativo = resultadoOperativo.esCompleto ? 'Margen operativo' : 'Margen operativo estimado';
   const grupos = useMemo(
     () => agruparFilasRentabilidad(filasFiltradas, agrupacion, amplitudPeriodoDias),
     [filasFiltradas, agrupacion, amplitudPeriodoDias]
@@ -569,6 +617,30 @@ const RentabilidadVentasPage: React.FC = () => {
               Los importes de rentabilidad se muestran en la moneda base de la empresa.
             </p>
           </div>
+        </section>
+
+        {/* Resultado operativo — Gastos operativos reconocidos en el mismo periodo/establecimiento,
+            nunca insertados como filas de venta (§14). */}
+        <section>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Resultado operativo</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <TarjetaIndicador label="Gastos operativos" valor={formatMoney(resultadoOperativo.gastosOperativosReconocidos, monedaBase)} />
+            <TarjetaIndicador label={etiquetaUtilidadOperativa} valor={formatMoney(resultadoOperativo.utilidadOperativaEstimada, monedaBase)} />
+            <TarjetaIndicador
+              label={etiquetaMargenOperativo}
+              valor={resultadoOperativo.margenOperativoEstimado === null ? '—' : `${(resultadoOperativo.margenOperativoEstimado * 100).toFixed(1)}%`}
+            />
+          </div>
+          {!resultadoOperativo.esCompleto && (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-900/30">
+              <p className="text-slate-700 dark:text-gray-200">
+                Resultado estimado: cobertura de costo de venta <span className="font-semibold">{indicadores.coberturaPorcentaje === null ? '—' : `${indicadores.coberturaPorcentaje.toFixed(1)}%`}</span>
+                {indicadoresGastos.lineasSinTipoCambio > 0 && (
+                  <>{' · '}Gastos sin tipo de cambio: <span className="font-semibold">{indicadoresGastos.lineasSinTipoCambio}</span></>
+                )}
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Buscador / Agrupar / Filtros / Columnas / Exportar */}

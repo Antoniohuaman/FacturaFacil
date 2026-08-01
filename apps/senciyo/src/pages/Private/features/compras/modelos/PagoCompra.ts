@@ -43,9 +43,17 @@ export interface AsignacionCuotaPago {
  * `comprobanteCompraId` se guarda junto al FK de la CxP por el mismo motivo
  * que `PagoCompra.comprobantesCompraAplicados` ya lo hacía: evita un join
  * adicional para resolver el comprobante de compra al mostrar el detalle.
+ *
+ * `tipoOrigen`/`documentoOrigenId` generalizan esta aplicación a un origen
+ * documental genérico (compra o gasto) — ausentes en aplicaciones existentes
+ * (se asumen `'compra'`, mismo criterio que `CuentaPorPagar.tipoOrigen`).
+ * Para `tipoOrigen === 'gasto'`, `comprobanteCompraId` queda como cadena
+ * vacía (nunca se lee sin filtrar antes por el origen).
  */
 export interface AplicacionPagoCompra {
   cuentaPorPagarId: string;
+  tipoOrigen?: 'compra' | 'gasto';
+  documentoOrigenId?: string;
   comprobanteCompraId: string;
   importeAplicado: number;
   /** Asignación exacta por cuota DENTRO de esta CxP (cronograma real de crédito) — ausente si esta CxP no tiene cuotas propias o se aplicó de forma agregada. */
@@ -55,6 +63,24 @@ export interface AplicacionPagoCompra {
 export interface PagoCompra {
   id: string;
   numeroPago: string;
+
+  /**
+   * Origen documental del pago — ausente = 'compra' (compatibilidad con
+   * pagos existentes). Permite a las tablas de Compras filtrar sin inspeccionar
+   * `aplicaciones` línea por línea; la fuente real de origen por documento
+   * sigue viviendo en cada `AplicacionPagoCompra.tipoOrigen`.
+   */
+  tipoOrigen?: 'compra' | 'gasto';
+
+  /**
+   * Clave de idempotencia del COMANDO completo de registrar este pago
+   * (Pago + aplicación a CxP + movimiento de Caja) — generalización
+   * aditiva, ausente en pagos existentes. Un segundo intento con la misma
+   * clave nunca crea un segundo Pago ni reaplica el importe a la CxP (ver
+   * `buscarPagoPorClaveIdempotencia` en `servicioPagoCompra.ts`); el
+   * movimiento de Caja usa la MISMA clave (`Movimiento.claveIdempotencia`).
+   */
+  claveIdempotencia?: string;
 
   // Fechas
   fechaPago: string;

@@ -63,6 +63,15 @@ export interface Movimiento {
   usuarioNombre: string;
   comprobante?: string;
   observaciones?: string;
+  /**
+   * Clave opcional de idempotencia — generalización aditiva (Compras y
+   * Cobranzas nunca la envían, por lo que su comportamiento no cambia). Un
+   * consumidor que la envíe (ej. Gastos) protege su acción real contra doble
+   * clic/reintento: `agregarMovimiento` rechaza un segundo movimiento con la
+   * misma clave dentro de la misma caja, comprobado contra el historial
+   * realmente persistido — no solo un botón deshabilitado en React.
+   */
+  claveIdempotencia?: string;
 }
 
 export interface ConfiguracionCaja {

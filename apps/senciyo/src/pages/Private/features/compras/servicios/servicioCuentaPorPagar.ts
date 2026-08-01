@@ -1,5 +1,6 @@
 import type { CuentaPorPagar, CuotaCuentaPorPagar } from '../modelos/CuentaPorPagar';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
+import type { Gasto } from '../../gastos/modelos/Gasto';
 import { generarCuotasDesdeCC, resolverFechaVencimientoCxP } from '../mapeadores/mapeadorCCaCuentaPorPagar';
 import { round2 } from '../logica/reglasCompras';
 import { assertBusinessDate, ensureBusinessDateIso, getBusinessTodayISODate } from '@/shared/time/businessTime';
@@ -24,6 +25,8 @@ export function generarCuentaPorPagar(cc: ComprobanteCompra, id: string): Cuenta
 
   return {
     id,
+    tipoOrigen: 'compra',
+    documentoOrigenId: cc.id,
     comprobanteCompraId: cc.id,
     comprobanteCompraNumero: `${cc.serieProveedor ?? ''}-${cc.numeroProveedor ?? ''}`,
     tipoComprobanteOrigen: cc.tipoComprobanteProveedor ?? '',
@@ -262,8 +265,14 @@ export function revertirPagoDeCuentaPorPagar(
   };
 }
 
-/** Anula la CxP como consecuencia de la anulación de su comprobante de compra origen. */
-export function anularCuentaPorPagarPorComprobante(
+/**
+ * Anula una CxP — genérica desde siempre (nunca leyó campos de
+ * `ComprobanteCompra`), por lo que sirve igual para origen 'compra' o
+ * 'gasto'. `anularCuentaPorPagarPorComprobante` se conserva como alias por
+ * compatibilidad con el código y las pruebas existentes de Compras — nunca
+ * una segunda implementación independiente que pueda divergir.
+ */
+export function anularCuentaPorPagar(
   cxp: CuentaPorPagar,
   motivo: string,
   fecha: string,
@@ -273,9 +282,65 @@ export function anularCuentaPorPagarPorComprobante(
     estadoPago: 'anulada',
     historial: [
       ...cxp.historial,
-      { fecha, accion: 'CxP anulada por comprobante anulado', detalle: motivo },
+      { fecha, accion: 'CxP anulada', detalle: motivo },
     ],
     fechaActualizacion: fecha,
+  };
+}
+
+/** Alias histórico — ver `anularCuentaPorPagar`. */
+export const anularCuentaPorPagarPorComprobante = anularCuentaPorPagar;
+
+/**
+ * Genera la Cuenta por Pagar de un gasto operativo registrado. Reutiliza EL
+ * MISMO motor de aplicar/revertir pago que `generarCuentaPorPagar` (nunca una
+ * segunda CxP ni un segundo modelo/repositorio) — la única diferencia es el
+ * origen documental: `tipoOrigen: 'gasto'`, `documentoOrigenId` apunta al
+ * propio gasto, y los campos específicos de Compras
+ * (`comprobanteCompraId`/`comprobanteCompraNumero`/`tipoComprobanteOrigen`)
+ * quedan vacíos — ningún consumidor de Compras debe leerlos sin filtrar
+ * antes por `tipoOrigen === 'compra'` (ver `TablaCuentasPorPagar.tsx`).
+ * Se genera TANTO para gastos al contado como al crédito (mismo criterio que
+ * ya usa Compras: todo documento genera CxP, el pago se registra siempre
+ * como una acción manual y separada contra esa CxP — nunca una segunda
+ * fuente de "saldo pendiente" fuera de ella).
+ */
+export function generarCuentaPorPagarDesdeGasto(gasto: Gasto, id: string): CuentaPorPagar {
+  const fechaVencimiento = gasto.condicionPago === 'credito' ? gasto.fechaVencimiento : undefined;
+  return {
+    id,
+    tipoOrigen: 'gasto',
+    documentoOrigenId: gasto.id,
+    comprobanteCompraId: '',
+    comprobanteCompraNumero: '',
+    tipoComprobanteOrigen: gasto.tipoDocumento ?? '',
+    proveedorId: gasto.proveedorId ?? '',
+    proveedorNombre: gasto.proveedorNombre ?? gasto.beneficiario ?? 'Sin proveedor',
+    proveedorNumeroDocumento: gasto.proveedorNumeroDocumento ?? '',
+    moneda: gasto.moneda,
+    tipoCambio: gasto.tipoCambio,
+    total: gasto.total,
+    totalPagado: 0,
+    saldoPendiente: gasto.total,
+    formaPago: gasto.condicionPago,
+    fechaEmision: gasto.fechaEmision ?? gasto.fechaReconocimiento,
+    fechaVencimiento,
+    // Gastos no maneja cronograma de cuotas en su primer alcance — el saldo
+    // se sigue únicamente a nivel de CxP, mismo criterio que una compra al
+    // contado sin cuotas.
+    cuotas: undefined,
+    estadoPago: 'pendiente',
+    estadoVencimiento: calcularEstadoVencimiento(fechaVencimiento, gasto.total),
+    pagosRelacionados: [],
+    historial: [
+      {
+        fecha: gasto.fechaReconocimiento,
+        accion: 'Cuenta por pagar generada',
+        detalle: `Desde gasto: ${gasto.concepto}`,
+      },
+    ],
+    fechaCreacion: gasto.fechaReconocimiento,
+    fechaActualizacion: gasto.fechaReconocimiento,
   };
 }
 

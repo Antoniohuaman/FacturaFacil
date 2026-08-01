@@ -2,6 +2,26 @@
  * Validadores para el módulo de Control de Caja
  */
 
+import type { Movimiento } from '../models/Caja';
+
+/**
+ * Protección real contra doble clic/reintento al registrar un movimiento de
+ * caja: comprueba contra el historial YA PERSISTIDO (nunca solo el estado en
+ * memoria del formulario que dispara la acción) si ya existe un movimiento
+ * con la misma `claveIdempotencia`. Ausente o `undefined` → nunca hay
+ * duplicado (Compras/Cobranzas no envían clave y su comportamiento no
+ * cambia).
+ */
+export const esMovimientoDuplicadoPorIdempotencia = (
+  movimientos: readonly Pick<Movimiento, 'claveIdempotencia'>[],
+  historialMovimientos: readonly Pick<Movimiento, 'claveIdempotencia'>[],
+  claveIdempotencia: string | undefined,
+): boolean => {
+  if (!claveIdempotencia) return false;
+  const coincide = (mov: Pick<Movimiento, 'claveIdempotencia'>) => mov.claveIdempotencia === claveIdempotencia;
+  return movimientos.some(coincide) || historialMovimientos.some(coincide);
+};
+
 /**
  * Valida si un descuadre está dentro del margen permitido
  */
