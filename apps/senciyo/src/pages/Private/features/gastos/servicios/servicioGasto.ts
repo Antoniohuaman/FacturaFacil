@@ -9,7 +9,9 @@ import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
 import type { PagoCompra } from '../../compras/modelos/PagoCompra';
 import type { MonedaCompra } from '../../compras/modelos/tiposBaseCompras';
 import type { AdjuntoCompra } from '../../compras/modelos/AdjuntoCompra';
+import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
 import { tieneCxPPagosActivos, recalcularEstadoPagoComprobante, round2 } from '../../compras/logica/reglasCompras';
+import { siguienteCorrelativoInterno } from '@/shared/numbering/correlativoInterno';
 import type {
   Gasto,
   EstadoPagoGasto,
@@ -37,9 +39,35 @@ export interface DatosNuevoGasto {
   impuesto: number;
   total: number;
   tratamientoImpuesto: TratamientoImpuestoGasto;
+  impuestoId?: string;
+  tasaImpuesto?: number;
   condicionPago: 'contado' | 'credito';
+  formaPagoMetodoId?: string;
+  creditTerms?: CreditScheduleTerms;
   observaciones?: string;
   adjuntos?: AdjuntoCompra[];
+}
+
+/**
+ * Prefijo de la referencia interna del gasto — única fuente (§5 de la
+ * corrección: nunca disperso en varios componentes). NUNCA una serie
+ * tributaria: SenciYo no emite el comprobante del gasto.
+ */
+export const PREFIJO_REFERENCIA_INTERNA_GASTO = 'GTO';
+
+/**
+ * Siguiente referencia interna correlativa — consume la utilidad genérica
+ * compartida (`shared/numbering/correlativoInterno.ts`), la MISMA que usa
+ * `siguienteNumeroPago` para la serie "PG". Secuencia independiente: un
+ * gasto nunca depende del generador de numeración de Pago, cada una cuenta
+ * sus propios registros.
+ */
+export function siguienteReferenciaInternaGasto(gastos: readonly Pick<Gasto, 'referenciaInterna'>[]): string {
+  return siguienteCorrelativoInterno({
+    registros: gastos,
+    obtenerNumero: (g) => g.referenciaInterna,
+    prefijo: PREFIJO_REFERENCIA_INTERNA_GASTO,
+  });
 }
 
 export interface ErrorValidacionGasto {
@@ -73,11 +101,12 @@ export function validarGastoBasico(datos: Partial<DatosNuevoGasto>): ErrorValida
   return errores;
 }
 
-/** Construye el Gasto — nace siempre en estado 'registrado' (nunca 'borrador'): registrar un gasto reconoce el hecho económico de inmediato. */
-export function crearGasto(datos: DatosNuevoGasto, id: string, usuario?: string): Gasto {
+/** Construye el Gasto — nace siempre en estado 'registrado' (nunca 'borrador'): registrar un gasto reconoce el hecho económico de inmediato. `referenciaInterna` se resuelve ANTES de llamar (ver `siguienteReferenciaInternaGasto`), mismo criterio que `numeroPago` se resuelve antes de construir un `PagoCompra`. */
+export function crearGasto(datos: DatosNuevoGasto, id: string, referenciaInterna: string, usuario?: string): Gasto {
   const ts = datos.fechaReconocimiento;
   return {
     id,
+    referenciaInterna,
     empresaId: datos.empresaId,
     establecimientoId: datos.establecimientoId,
     fechaReconocimiento: datos.fechaReconocimiento,
@@ -98,14 +127,18 @@ export function crearGasto(datos: DatosNuevoGasto, id: string, usuario?: string)
     impuesto: round2(datos.impuesto),
     total: round2(datos.total),
     tratamientoImpuesto: datos.tratamientoImpuesto,
+    impuestoId: datos.tratamientoImpuesto === 'sin_desglose' ? undefined : datos.impuestoId,
+    tasaImpuesto: datos.tratamientoImpuesto === 'sin_desglose' ? undefined : datos.tasaImpuesto,
     condicionPago: datos.condicionPago,
+    formaPagoMetodoId: datos.condicionPago === 'credito' ? datos.formaPagoMetodoId : undefined,
+    creditTerms: datos.condicionPago === 'credito' ? datos.creditTerms : undefined,
     cuentaPorPagarId: undefined,
     pagosRelacionados: [],
     adjuntos: datos.adjuntos ?? [],
     observaciones: datos.observaciones,
     estadoDocumento: 'registrado',
     historial: [
-      { fecha: ts, usuario, accion: 'Gasto registrado', detalle: datos.concepto },
+      { fecha: ts, usuario, accion: 'Gasto registrado', detalle: `${referenciaInterna} — ${datos.concepto}` },
     ],
     creadoPor: usuario,
     fechaCreacion: ts,
@@ -185,6 +218,13 @@ export function datosParaDuplicarGasto(gasto: Gasto): Omit<DatosNuevoGasto, 'fec
     impuesto: gasto.impuesto,
     total: gasto.total,
     tratamientoImpuesto: gasto.tratamientoImpuesto,
+    impuestoId: gasto.impuestoId,
+    tasaImpuesto: gasto.tasaImpuesto,
     condicionPago: gasto.condicionPago,
+    formaPagoMetodoId: gasto.formaPagoMetodoId,
+    // El cronograma de cuotas NUNCA se duplica automáticamente — es propio de
+    // cada ocurrencia real del crédito (fechas/vencimientos distintos), el
+    // usuario lo reconfigura en el formulario si corresponde (la forma de
+    // pago/plantilla base sí se conserva, igual que categoría o moneda).
   };
 }

@@ -1,3 +1,6 @@
+import { formatearFecha } from '@/shared/formatters/fechas';
+import { siguienteCorrelativoInterno } from '@/shared/numbering/correlativoInterno';
+
 /** Sin correlativo (borrador aún no registrado): serie + "sin correlativo", sin corchetes ni número simulado. */
 export function formatearNumeroCompra(serie: string, correlativo: string | number | undefined): string {
   if (!correlativo) return `${serie} sin correlativo`;
@@ -20,21 +23,10 @@ export function formatearNumeroComprobanteCompra(cc: {
   return `${cc.tipoComprobanteProveedor ?? 'Comprobante'} sin número`;
 }
 
-export function formatearFechaCompra(isoDate: string): string {
-  if (!isoDate) return '—';
-  const partes = isoDate.split('T')[0].split('-');
-  const [year, month, day] = partes;
-  if (!year || !month || !day) return isoDate;
-  return `${day}/${month}/${year}`;
-}
+/** Reexporta el formateador transversal (`shared/formatters/fechas.ts`) por compatibilidad con el código existente de Compras — nunca una segunda implementación. */
+export const formatearFechaCompra = formatearFecha;
 
-/** Calcula el siguiente número correlativo de pago para una serie, a partir de los pagos ya registrados. */
+/** Calcula el siguiente número correlativo de pago para una serie — delega en la utilidad genérica compartida (`shared/numbering/correlativoInterno.ts`), la MISMA que usa `siguienteReferenciaInternaGasto` con su propio prefijo independiente. */
 export function siguienteNumeroPago(pagos: Array<{ numeroPago: string }>, serie: string): string {
-  const prefijo = serie;
-  const existentes = pagos
-    .filter((p) => p.numeroPago.startsWith(`${prefijo}-`))
-    .map((p) => parseInt(p.numeroPago.split('-').pop() ?? '0', 10))
-    .filter((n) => !isNaN(n));
-  const siguiente = existentes.length > 0 ? Math.max(...existentes) + 1 : 1;
-  return `${prefijo}-${String(siguiente).padStart(8, '0')}`;
+  return siguienteCorrelativoInterno({ registros: pagos, obtenerNumero: (p) => p.numeroPago, prefijo: serie });
 }

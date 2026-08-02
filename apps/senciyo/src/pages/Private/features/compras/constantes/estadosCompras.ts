@@ -13,6 +13,8 @@ import type {
 import type { EstadoPagoCxP, EstadoVencimientoCxP } from '../modelos/CuentaPorPagar';
 import type { EstadoDocumentoPago } from '../modelos/PagoCompra';
 import type { EstadoPrincipalRC } from '../modelos/RequerimientoCompra';
+import { BADGE_ESTADO_PAGO } from '@/shared/status/estadoPago';
+import { BADGE_ESTADO_DOCUMENTO_REGISTRABLE } from '@/shared/status/estadoDocumento';
 
 /**
  * Etiqueta visual del estado principal de la OC. El valor interno persistido
@@ -84,17 +86,14 @@ export const BADGE_ESTADO_PRINCIPAL_CC: Record<EstadoPrincipalCC, string> = {
   Convertido: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
 };
 
+/** 'borrador' es propio del CC; 'registrado'/'anulado' delegan en el badge transversal (`shared/status/estadoDocumento.ts`) — nunca un color paralelo. */
 export const BADGE_ESTADO_DOCUMENTO_CC: Record<EstadoDocumentoCC, string> = {
   borrador: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-  registrado: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  anulado: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300',
+  ...BADGE_ESTADO_DOCUMENTO_REGISTRABLE,
 };
 
-export const BADGE_ESTADO_PAGO_CC: Record<EstadoPagoCC, string> = {
-  pendiente: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
-  parcial: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  pagado: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-};
+/** `EstadoPagoCC` es literalmente `EstadoPago` (ver `CuentaPorPagar.ts`) — alias directo del badge transversal, nunca un mapa paralelo. */
+export const BADGE_ESTADO_PAGO_CC: Record<EstadoPagoCC, string> = BADGE_ESTADO_PAGO;
 
 export const BADGE_ESTADO_INVENTARIO_CC: Record<EstadoInventarioCC, string> = {
   pendiente: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',

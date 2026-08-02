@@ -323,6 +323,7 @@ export function generarCuentaPorPagarDesdeGasto(gasto: Gasto, id: string): Cuent
     totalPagado: 0,
     saldoPendiente: gasto.total,
     formaPago: gasto.condicionPago,
+    formaPagoMetodoId: gasto.formaPagoMetodoId,
     fechaEmision: gasto.fechaEmision ?? gasto.fechaReconocimiento,
     fechaVencimiento,
     // Gastos no maneja cronograma de cuotas en su primer alcance — el saldo

@@ -8,10 +8,12 @@ import {
 } from './consultaGastosOperativos.service';
 import type { Gasto } from '../modelos/Gasto';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
+import type { PagoCompra } from '../../compras/modelos/PagoCompra';
 
 function crearGastoFixture(overrides: Partial<Gasto> = {}): Gasto {
   return {
     id: 'gasto-1',
+    referenciaInterna: 'GTO-00000001',
     empresaId: 'empresa-1',
     fechaReconocimiento: '2026-07-15',
     categoriaId: 'cat-1',
@@ -174,6 +176,35 @@ describe('filtrarFilasGastosOperativos', () => {
       cuentasPorPagar: [crearCxPFixture()],
     });
     expect(filtrarFilasGastosOperativos(filas, { categoriaId: 'cat-1' })).toHaveLength(1);
+  });
+
+  it('la búsqueda encuentra por referencia interna del gasto', () => {
+    const filas = proyectar({ gastos: [crearGastoFixture({ referenciaInterna: 'GTO-00000042' })], cuentasPorPagar: [crearCxPFixture()] });
+    expect(filtrarFilasGastosOperativos(filas, { busqueda: 'GTO-00000042' })).toHaveLength(1);
+  });
+
+  it('la búsqueda encuentra por RUC/documento del proveedor', () => {
+    const filas = proyectar({ gastos: [crearGastoFixture({ proveedorNumeroDocumento: '20123456789' })], cuentasPorPagar: [crearCxPFixture()] });
+    expect(filtrarFilasGastosOperativos(filas, { busqueda: '20123456789' })).toHaveLength(1);
+  });
+
+  it('la búsqueda encuentra por serie y número del documento sustentatorio', () => {
+    const filas = proyectar({
+      gastos: [crearGastoFixture({ serieDocumentoProveedor: 'F001', numeroDocumentoProveedor: '000123' })],
+      cuentasPorPagar: [crearCxPFixture()],
+    });
+    expect(filtrarFilasGastosOperativos(filas, { busqueda: '000123' })).toHaveLength(1);
+  });
+
+  it('la búsqueda encuentra por número de pago PG relacionado', () => {
+    const gasto = crearGastoFixture({ pagosRelacionados: ['pago-1'] });
+    const cxp = crearCxPFixture({ estadoPago: 'pagada' });
+    const pago = { id: 'pago-1', numeroPago: 'PG01-00000007' } as PagoCompra;
+    const filas = proyectarFilasGastosOperativos({
+      gastos: [gasto], cuentasPorPagar: [cxp], pagos: [pago], categorias, establecimientos, monedaBase: 'PEN', periodo,
+    });
+    expect(filas[0].numerosPago).toEqual(['PG01-00000007']);
+    expect(filtrarFilasGastosOperativos(filas, { busqueda: 'PG01-00000007' })).toHaveLength(1);
   });
 });
 

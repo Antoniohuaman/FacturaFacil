@@ -105,11 +105,14 @@ describe('Aislamiento de Cuentas por Pagar por origen documental', () => {
   });
 
   it('3. CxP histórica sin tipoOrigen se normaliza e interpreta como "compra"', () => {
-    const historica = { ...crearCxPCompra({ id: 'cxp-historica' }) } as CuentaPorPagar & { tipoOrigen?: 'compra' | 'gasto' };
-    delete historica.tipoOrigen;
-    const normalizada = normalizarOrigenCxP(historica as CuentaPorPagar);
+    const completa = crearCxPCompra({ id: 'cxp-historica' });
+    // Fixture real de un registro persistido ANTES de la generalización de
+    // origen documental — el campo simplemente no existía todavía.
+    const { tipoOrigen: tipoOrigenOriginal, ...resto } = completa;
+    expect(tipoOrigenOriginal).toBe('compra');
+    const normalizada = normalizarOrigenCxP(resto as CuentaPorPagar);
     expect(normalizada.tipoOrigen).toBe('compra');
-    expect(normalizada.documentoOrigenId).toBe(historica.comprobanteCompraId);
+    expect(normalizada.documentoOrigenId).toBe(completa.comprobanteCompraId);
     expect(filtrarCuentasPorPagarPorOrigen([normalizada], 'compra').map((c) => c.id)).toContain('cxp-historica');
   });
 

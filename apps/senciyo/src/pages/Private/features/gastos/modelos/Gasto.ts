@@ -8,6 +8,7 @@ import type { MonedaCompra } from '../../compras/modelos/tiposBaseCompras';
 import type { EventoHistorialCompras } from '../../compras/modelos/EventoHistorialCompras';
 import type { AdjuntoCompra, TipoAdjuntoCompra } from '../../compras/modelos/AdjuntoCompra';
 import type { EstadoPago } from '../../compras/modelos/CuentaPorPagar';
+import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
 
 export type EstadoDocumentoGasto = 'registrado' | 'anulado';
 
@@ -50,6 +51,16 @@ export const TRATAMIENTO_IMPUESTO_GASTO_LABELS: Record<TratamientoImpuestoGasto,
 export interface Gasto {
   id: string;
   empresaId: string;
+  /**
+   * Referencia interna legible y estable (ej. "GTO-000001") — para búsqueda,
+   * Drawer, impresión, Excel e historial. NUNCA una serie tributaria: no
+   * existe una serie "GS" en Series de Comprobantes (SenciYo no emite el
+   * comprobante del gasto). Generada una sola vez con la misma utilidad
+   * genérica de numeración que ya usan los Pagos (`siguienteNumeroPago`,
+   * adaptada al arreglo de gastos), nunca una cuarta implementación de
+   * correlativos copiada.
+   */
+  referenciaInterna: string;
   /** Ausente = gasto general de la empresa (nunca prorrateado automáticamente entre establecimientos). */
   establecimientoId?: string;
 
@@ -75,16 +86,34 @@ export interface Gasto {
   serieDocumentoProveedor?: string;
   numeroDocumentoProveedor?: string;
 
-  // Importes — fuente de verdad, nunca recalculados en JSX.
+  // Importes — fuente de verdad, nunca recalculados en JSX. subtotal/impuesto/total
+  // son el resultado YA CALCULADO por `servicioImpuestoGasto.ts` en el momento del
+  // registro (snapshot histórico, nunca recalculado con la tasa vigente después).
   moneda: MonedaCompra;
   tipoCambio?: number;
   subtotal: number;
   impuesto: number;
   total: number;
   tratamientoImpuesto: TratamientoImpuestoGasto;
+  /** FK al `Tax` de Configuración usado para derivar impuesto/total — trazabilidad, ausente cuando `tratamientoImpuesto === 'sin_desglose'`. */
+  impuestoId?: string;
+  /** Tasa resuelta (fracción, ej. 0.18) AL MOMENTO del registro — snapshot histórico, nunca releído en vivo de la configuración actual para un gasto ya registrado. */
+  tasaImpuesto?: number;
 
   // Condición y origen de la obligación.
   condicionPago: 'contado' | 'credito';
+  /**
+   * FK a `PaymentMethod.id` (Configuración de Negocio → Pagos → Formas de
+   * pago) — la MISMA fuente que usa Compras para decidir si una forma de
+   * pago es de crédito (`PaymentMethod.code === 'CREDITO'`) y para
+   * hidratar su plantilla de cuotas configurada
+   * (`PaymentMethod.creditSchedule`), vía `useCreditTermsConfigurator`
+   * (`@/shared/payments/useCreditTermsConfigurator`). Solo relevante
+   * cuando `condicionPago === 'credito'`.
+   */
+  formaPagoMetodoId?: string;
+  /** Cronograma de cuotas cuando el crédito se pactó en más de una cuota — mismo motor y tipo que Compras (`@/shared/payments/paymentTerms`), nunca un cronograma paralelo. Ausente en contado o crédito de una sola cuota (vencimiento único). */
+  creditTerms?: CreditScheduleTerms;
   /** Presente siempre que exista una Cuenta por Pagar asociada (contado y crédito) — ver servicioGasto. */
   cuentaPorPagarId?: string;
   /** Pagos (PagoCompra) aplicados a este gasto — mismo criterio que `ComprobanteCompra.pagosRelacionados`. */

@@ -1,53 +1,83 @@
 // gastos/paginas/PaginaGastos.tsx
 //
-// Página única del módulo Gastos (§2 del alcance: sin tabs). Mismo patrón
-// visual y funcional que Compras: encabezado simple, toolbar
-// Buscar/Periodo/Filtros/Actualizar/Columnas/Exportar/Nuevo, tabla con menú
-// de acciones por fila, paginación, Drawer compartido para
-// ver/crear/editar/pagar. Reutiliza `ColumnsManager`, `exportDatasetToExcel`,
-// `useFeedback`, `Drawer` — nunca copiados, siempre importados.
+// Página única del módulo Gastos (§1 del alcance: sin tabs principales).
+// Mismo patrón visual y funcional que Compras: encabezado simple, toolbar
+// Buscar/Periodo/Filtros/Actualizar/Columnas/Exportar/Registrar, fila de
+// tabla completa clickeable (abre el Drawer de detalle), acciones directas
+// con tooltip + menú "..." para las secundarias, paginación. Reutiliza
+// `ColumnsManager`, `exportDatasetToExcel`, `useFeedback`, `Drawer`,
+// `ModalAnularDocumento` y el mismo patrón `BadgeEstado` de Compras — nunca
+// copiados, siempre importados. Sin tarjetas de resumen ni gráficos: las
+// métricas viven en Indicadores.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, Copy, Ban, FileDown, MoreVertical, Plus, RefreshCw, Search, SlidersHorizontal, Wallet } from 'lucide-react';
+import { Copy, Eye, FileDown, MoreVertical, Pencil, Plus, Printer, RefreshCw, Search, SlidersHorizontal, Wallet, XCircle } from 'lucide-react';
 import { PageHeader } from '@/contasis';
 import { formatMoney, currencyManager } from '@/shared/currency';
 import { getTenantEmpresaId, lsKey } from '@/shared/tenant';
+import { useTenant } from '@/shared/tenant/TenantContext';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/exportToExcel';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { round2 } from '../../compras/logica/reglasCompras';
+import { ModalAnularDocumento } from '@/shared/ui';
+import { BADGE_ESTADO_PAGO } from '@/shared/status/estadoPago';
+import { BADGE_ESTADO_DOCUMENTO_REGISTRABLE } from '@/shared/status/estadoDocumento';
+import { MOTIVOS_ANULACION_GASTO } from '../constantes/motivosAnulacionGasto';
+import { listarCuentasPorPagarPorOrigen } from '../../compras/repositorios/repositorioCuentasPorPagar';
+import { listarPagosPorOrigen } from '../../compras/repositorios/repositorioPagosCompra';
 import { useContextoGastos } from '../contexto/useContextoGastos';
 import { cargarCategoriasGasto, EVENTO_CATEGORIAS_GASTO_CAMBIADAS } from '../repositorios/repositorioCategoriasGasto';
-import { listarCuentasPorPagarPorOrigen } from '../../compras/repositorios/repositorioCuentasPorPagar';
 import {
   proyectarFilasGastosOperativos,
   filtrarFilasGastosOperativos,
-  calcularIndicadoresGastosOperativos,
   agruparFilasGastosOperativos,
   type AgrupacionGasto,
   type FilaGastoOperativo,
 } from '../servicios/consultaGastosOperativos.service';
 import { ESTADO_DOCUMENTO_GASTO_LABELS, ESTADO_PAGO_GASTO_LABELS, type EstadoDocumentoGasto, type EstadoPagoGasto, type Gasto } from '../modelos/Gasto';
-import { datosParaDuplicarGasto } from '../servicios/servicioGasto';
+import { datosParaDuplicarGasto, puedeEditarGasto, resolverEstadoPagoGasto } from '../servicios/servicioGasto';
+import { imprimirGasto, type EmpresaImpresionGasto } from '../servicios/servicioImpresionGasto';
 import DrawerGasto, { type ModoDrawerGasto } from '../componentes/DrawerGasto';
 
-type ColumnaGastoId = 'fecha' | 'categoria' | 'proveedor' | 'documento' | 'condicionPago' | 'total' | 'estadoPago';
+type ColumnaGastoId =
+  | 'referenciaInterna' | 'fecha' | 'categoria' | 'proveedor' | 'documento' | 'condicionPago' | 'total' | 'estadoPago' | 'estadoDocumento'
+  | 'fechaEmision' | 'fechaVencimiento' | 'subtotal' | 'impuesto' | 'importeReconocido' | 'saldoPendiente'
+  | 'moneda' | 'tipoCambio' | 'establecimiento' | 'numerosPago' | 'cantidadPagos' | 'usuario' | 'cantidadAdjuntos';
 
 const ETIQUETA_COLUMNA: Record<ColumnaGastoId, string> = {
-  fecha: 'Fecha',
+  referenciaInterna: 'Gasto / referencia',
+  fecha: 'Fecha de reconocimiento',
   categoria: 'Categoría',
   proveedor: 'Proveedor o beneficiario',
-  documento: 'Documento',
+  documento: 'Documento sustentatorio',
   condicionPago: 'Condición de pago',
   total: 'Total',
   estadoPago: 'Estado de pago',
+  estadoDocumento: 'Estado documental',
+  fechaEmision: 'Fecha de emisión',
+  fechaVencimiento: 'Fecha de vencimiento',
+  subtotal: 'Subtotal',
+  impuesto: 'Impuesto',
+  importeReconocido: 'Importe reconocido como gasto',
+  saldoPendiente: 'Saldo pendiente',
+  moneda: 'Moneda',
+  tipoCambio: 'Tipo de cambio',
+  establecimiento: 'Establecimiento',
+  numerosPago: 'Números de pago PG',
+  cantidadPagos: 'Cantidad de pagos',
+  usuario: 'Usuario de registro',
+  cantidadAdjuntos: 'Cantidad de adjuntos',
 };
 
-const ORDEN_COLUMNAS_POR_DEFECTO: ColumnaGastoId[] = ['fecha', 'categoria', 'proveedor', 'documento', 'condicionPago', 'total', 'estadoPago'];
+const COLUMNAS_POR_DEFECTO: ColumnaGastoId[] = ['referenciaInterna', 'proveedor', 'fecha', 'categoria', 'documento', 'condicionPago', 'total', 'estadoPago', 'estadoDocumento'];
+const COLUMNAS_OPCIONALES: ColumnaGastoId[] = ['fechaEmision', 'fechaVencimiento', 'subtotal', 'impuesto', 'importeReconocido', 'saldoPendiente', 'moneda', 'tipoCambio', 'establecimiento', 'numerosPago', 'cantidadPagos', 'usuario', 'cantidadAdjuntos'];
+const ORDEN_COLUMNAS_TODAS: ColumnaGastoId[] = [...COLUMNAS_POR_DEFECTO, ...COLUMNAS_OPCIONALES];
 
-const CLAVE_COLUMNAS = 'gastos_tabla_columnas_v1';
+const CLAVE_COLUMNAS = 'gastos_tabla_columnas_v2';
 const TAMANO_PAGINA = 25;
 
 const OPCIONES_AGRUPACION: Array<{ value: AgrupacionGasto; label: string }> = [
@@ -73,12 +103,12 @@ interface PreferenciaColumnasGasto {
 }
 
 const PREFERENCIA_COLUMNAS_POR_DEFECTO: PreferenciaColumnasGasto = {
-  visibles: [...ORDEN_COLUMNAS_POR_DEFECTO],
-  orden: [...ORDEN_COLUMNAS_POR_DEFECTO],
+  visibles: [...COLUMNAS_POR_DEFECTO],
+  orden: [...ORDEN_COLUMNAS_TODAS],
 };
 
 function esColumnaValida(valor: unknown): valor is ColumnaGastoId {
-  return typeof valor === 'string' && (ORDEN_COLUMNAS_POR_DEFECTO as string[]).includes(valor);
+  return typeof valor === 'string' && (ORDEN_COLUMNAS_TODAS as string[]).includes(valor);
 }
 
 function cargarPreferenciaColumnas(empresaId: string): PreferenciaColumnasGasto {
@@ -88,7 +118,7 @@ function cargarPreferenciaColumnas(empresaId: string): PreferenciaColumnasGasto 
     const parsed = JSON.parse(raw) as Partial<PreferenciaColumnasGasto>;
     const visibles = Array.isArray(parsed.visibles) ? parsed.visibles.filter(esColumnaValida) : [];
     const ordenGuardado = Array.isArray(parsed.orden) ? parsed.orden.filter(esColumnaValida) : [];
-    const faltantes = ORDEN_COLUMNAS_POR_DEFECTO.filter((id) => !ordenGuardado.includes(id));
+    const faltantes = ORDEN_COLUMNAS_TODAS.filter((id) => !ordenGuardado.includes(id));
     return { visibles, orden: [...ordenGuardado, ...faltantes] };
   } catch {
     return PREFERENCIA_COLUMNAS_POR_DEFECTO;
@@ -103,33 +133,57 @@ function guardarPreferenciaColumnas(empresaId: string, preferencia: PreferenciaC
   }
 }
 
-function renderCelda(fila: FilaGastoOperativo, gasto: Gasto, id: ColumnaGastoId): React.ReactNode {
+function renderCelda(fila: FilaGastoOperativo, gasto: Gasto, id: ColumnaGastoId, monedaBase: string): React.ReactNode {
   switch (id) {
+    case 'referenciaInterna': return <span className="font-mono">{fila.referenciaInterna}</span>;
     case 'fecha': return fila.fecha.slice(0, 10);
     case 'categoria': return fila.categoriaNombre;
     case 'proveedor': return fila.proveedorONombre;
     case 'documento': return gasto.tipoDocumento ? `${gasto.serieDocumentoProveedor ?? ''}-${gasto.numeroDocumentoProveedor ?? ''}` : 'Sin documento';
     case 'condicionPago': return gasto.condicionPago === 'credito' ? 'Crédito' : 'Contado';
     case 'total': return formatMoney(fila.total, fila.monedaOriginal);
-    case 'estadoPago': return fila.estadoDocumento === 'anulado' ? 'Anulado' : ESTADO_PAGO_GASTO_LABELS[fila.estadoPago];
+    case 'estadoPago': return fila.estadoDocumento === 'anulado' ? '—' : (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${BADGE_ESTADO_PAGO[fila.estadoPago]}`}>
+        {ESTADO_PAGO_GASTO_LABELS[fila.estadoPago]}
+      </span>
+    );
+    case 'estadoDocumento': return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${BADGE_ESTADO_DOCUMENTO_REGISTRABLE[fila.estadoDocumento]}`}>
+        {ESTADO_DOCUMENTO_GASTO_LABELS[fila.estadoDocumento]}
+      </span>
+    );
+    case 'fechaEmision': return gasto.fechaEmision ? gasto.fechaEmision.slice(0, 10) : '—';
+    case 'fechaVencimiento': return gasto.fechaVencimiento ? gasto.fechaVencimiento.slice(0, 10) : '—';
+    case 'subtotal': return formatMoney(fila.subtotal, fila.monedaOriginal);
+    case 'impuesto': return formatMoney(fila.impuesto, fila.monedaOriginal);
+    case 'importeReconocido': return fila.importeReconocidoBase === null ? '—' : formatMoney(fila.importeReconocidoBase, monedaBase);
+    case 'saldoPendiente': return '—';
+    case 'moneda': return fila.monedaOriginal;
+    case 'tipoCambio': return fila.tipoCambio ? fila.tipoCambio.toFixed(4) : '—';
+    case 'establecimiento': return fila.establecimientoNombre;
+    case 'numerosPago': return fila.numerosPago.join(', ') || '—';
+    case 'cantidadPagos': return fila.cantidadPagos;
+    case 'usuario': return gasto.creadoPor ?? '—';
+    case 'cantidadAdjuntos': return gasto.adjuntos.length;
     default: return '—';
   }
 }
 
 export default function PaginaGastos() {
   const feedback = useFeedback();
-  const { state } = useContextoGastos();
+  const { state, anularGasto } = useContextoGastos();
   const { state: config } = useConfigurationContext();
+  const { activeWorkspace } = useTenant();
   const empresaId = getTenantEmpresaId();
   const monedaBase = currencyManager.getSnapshot().baseCurrency.code;
 
   const [categorias, setCategorias] = useState(() => cargarCategoriasGasto(empresaId));
+  const recargarCategorias = useCallback(() => setCategorias(cargarCategoriasGasto(empresaId)), [empresaId]);
   useEffect(() => {
-    const recargar = () => setCategorias(cargarCategoriasGasto(empresaId));
-    recargar();
-    window.addEventListener(EVENTO_CATEGORIAS_GASTO_CAMBIADAS, recargar);
-    return () => window.removeEventListener(EVENTO_CATEGORIAS_GASTO_CAMBIADAS, recargar);
-  }, [empresaId]);
+    recargarCategorias();
+    window.addEventListener(EVENTO_CATEGORIAS_GASTO_CAMBIADAS, recargarCategorias);
+    return () => window.removeEventListener(EVENTO_CATEGORIAS_GASTO_CAMBIADAS, recargarCategorias);
+  }, [recargarCategorias]);
 
   const establecimientoOptions = useMemo(() => {
     const activos = config.Establecimientos.filter((e) => e.estaActivoEstablecimiento !== false);
@@ -157,6 +211,7 @@ export default function PaginaGastos() {
   const [agrupacion, setAgrupacion] = useState<AgrupacionGasto>('sin_agrupar');
   const [pagina, setPagina] = useState(1);
   const [exportando, setExportando] = useState(false);
+  const [actualizando, setActualizando] = useState(false);
 
   const [preferenciaColumnas, setPreferenciaColumnas] = useState<PreferenciaColumnasGasto>(() => cargarPreferenciaColumnas(empresaId));
   useEffect(() => { guardarPreferenciaColumnas(empresaId, preferenciaColumnas); }, [empresaId, preferenciaColumnas]);
@@ -167,6 +222,7 @@ export default function PaginaGastos() {
   const filtrosPanelRef = useRef<HTMLDivElement>(null);
 
   const [drawer, setDrawer] = useState<{ modo: ModoDrawerGasto; gasto?: Gasto; valoresIniciales?: ReturnType<typeof datosParaDuplicarGasto> } | null>(null);
+  const [anulandoGasto, setAnulandoGasto] = useState<Gasto | null>(null);
 
   useEffect(() => {
     function cerrarAlHacerClickFuera(e: MouseEvent) {
@@ -189,17 +245,42 @@ export default function PaginaGastos() {
     return listarCuentasPorPagarPorOrigen('gasto').filter((c) => idsRelevantes.has(c.id));
   }, [state.gastos]);
 
+  const pagos = useMemo(() => {
+    const idsRelevantes = new Set(state.gastos.flatMap((g) => g.pagosRelacionados));
+    return listarPagosPorOrigen('gasto').filter((p) => idsRelevantes.has(p.id));
+  }, [state.gastos]);
+
+  const empresaImpresion: EmpresaImpresionGasto | undefined = useMemo(() => (
+    activeWorkspace
+      ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal }
+      : undefined
+  ), [activeWorkspace]);
+
+  const handleImprimirGasto = useCallback((gasto: Gasto) => {
+    const cuentaPorPagar = cuentasPorPagar.find((c) => c.id === gasto.cuentaPorPagarId);
+    void imprimirGasto({
+      gasto,
+      empresa: empresaImpresion,
+      categoriaNombre: categoriasPorId.get(gasto.categoriaId) ?? 'Sin categoría',
+      establecimientoNombre: gasto.establecimientoId ? establecimientosPorId.get(gasto.establecimientoId) ?? gasto.establecimientoId : 'General',
+      cuentaPorPagar,
+      pagos: pagos.filter((p) => gasto.pagosRelacionados.includes(p.id)),
+      estadoPago: resolverEstadoPagoGasto(cuentaPorPagar),
+    });
+  }, [cuentasPorPagar, pagos, categoriasPorId, establecimientosPorId, empresaImpresion]);
+
   const filasBase = useMemo(
     () => proyectarFilasGastosOperativos({
       gastos: state.gastos,
       cuentasPorPagar,
+      pagos,
       categorias: categoriasPorId,
       establecimientos: establecimientosPorId,
       monedaBase,
       periodo: { desde: fechaDesde, hasta: fechaHasta },
       establecimientoId,
     }),
-    [state.gastos, cuentasPorPagar, categoriasPorId, establecimientosPorId, monedaBase, fechaDesde, fechaHasta, establecimientoId],
+    [state.gastos, cuentasPorPagar, pagos, categoriasPorId, establecimientosPorId, monedaBase, fechaDesde, fechaHasta, establecimientoId],
   );
 
   const filasFiltradas = useMemo(
@@ -213,7 +294,6 @@ export default function PaginaGastos() {
     [filasBase, busqueda, filtroCategoriaId, filtroEstadoDocumento, filtroEstadoPago, filtroConDocumento],
   );
 
-  const indicadores = useMemo(() => calcularIndicadoresGastosOperativos(filasFiltradas), [filasFiltradas]);
   const gruposParaExportar = useMemo(
     () => (agrupacion === 'sin_agrupar' ? [] : agruparFilasGastosOperativos(filasFiltradas, agrupacion)),
     [filasFiltradas, agrupacion],
@@ -267,16 +347,34 @@ export default function PaginaGastos() {
     const grupos = esSinAgrupar ? [] : agruparFilasGastosOperativos(filas, modo);
     const columnas: SimpleExcelColumn[] = esSinAgrupar
       ? [
-          { header: 'Fecha', key: 'fecha', width: 14, numFmt: 'dd/mm/yyyy' },
+          { header: 'Referencia interna', key: 'referenciaInterna', width: 16 },
           { header: 'Concepto', key: 'concepto', width: 32 },
           { header: 'Categoría', key: 'categoria', width: 20 },
           { header: 'Proveedor o beneficiario', key: 'proveedor', width: 28 },
-          { header: 'Establecimiento', key: 'establecimiento', width: 20 },
+          { header: 'RUC/documento', key: 'ruc', width: 16 },
+          { header: 'Fecha de reconocimiento', key: 'fecha', width: 14, numFmt: 'dd/mm/yyyy' },
+          { header: 'Fecha de emisión', key: 'fechaEmision', width: 14, numFmt: 'dd/mm/yyyy' },
+          { header: 'Tipo de documento', key: 'tipoDocumento', width: 18 },
+          { header: 'Serie', key: 'serie', width: 10 },
+          { header: 'Número', key: 'numero', width: 12 },
+          { header: 'Subtotal', key: 'subtotal', width: 14, numFmt: '#,##0.00' },
+          { header: 'Impuesto', key: 'impuesto', width: 14, numFmt: '#,##0.00' },
+          { header: 'Tratamiento del impuesto', key: 'tratamientoImpuesto', width: 20 },
           { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
-          { header: 'Moneda', key: 'moneda', width: 10 },
-          { header: 'Gasto reconocido (moneda base)', key: 'reconocido', width: 20, numFmt: '#,##0.00' },
+          { header: 'Importe reconocido', key: 'reconocido', width: 18, numFmt: '#,##0.00' },
+          { header: 'Condición de pago', key: 'condicionPago', width: 16 },
+          { header: 'Número de cuotas', key: 'numeroCuotas', width: 14, numFmt: '#,##0' },
+          { header: 'Vencimiento', key: 'vencimiento', width: 14, numFmt: 'dd/mm/yyyy' },
+          { header: 'Saldo pendiente', key: 'saldoPendiente', width: 16, numFmt: '#,##0.00' },
           { header: 'Estado documental', key: 'estadoDocumento', width: 16 },
           { header: 'Estado de pago', key: 'estadoPago', width: 16 },
+          { header: 'Números PG relacionados', key: 'numerosPago', width: 24 },
+          { header: 'Total pagado', key: 'totalPagado', width: 14, numFmt: '#,##0.00' },
+          { header: 'Establecimiento', key: 'establecimiento', width: 20 },
+          { header: 'Moneda', key: 'moneda', width: 10 },
+          { header: 'Tipo de cambio', key: 'tipoCambio', width: 14, numFmt: '#,##0.0000' },
+          { header: 'Usuario', key: 'usuario', width: 18 },
+          { header: 'Cantidad de adjuntos', key: 'cantidadAdjuntos', width: 16, numFmt: '#,##0' },
         ]
       : [
           { header: OPCIONES_AGRUPACION.find((o) => o.value === modo)?.label ?? 'Grupo', key: 'grupo', width: 28 },
@@ -286,22 +384,44 @@ export default function PaginaGastos() {
         ];
 
     const rows = esSinAgrupar
-      ? filas.map((f) => ({
-          fecha: new Date(`${f.fecha.slice(0, 10)}T00:00:00`),
-          concepto: f.concepto,
-          categoria: f.categoriaNombre,
-          proveedor: f.proveedorONombre,
-          establecimiento: f.establecimientoNombre,
-          total: f.total,
-          moneda: f.monedaOriginal,
-          reconocido: f.importeReconocidoBase,
-          estadoDocumento: ESTADO_DOCUMENTO_GASTO_LABELS[f.estadoDocumento],
-          estadoPago: f.estadoDocumento === 'anulado' ? '—' : ESTADO_PAGO_GASTO_LABELS[f.estadoPago],
-        }))
+      ? filas.map((f) => {
+          const gasto = gastosPorId.get(f.gastoId);
+          const cxp = cuentasPorPagar.find((c) => c.id === gasto?.cuentaPorPagarId);
+          return {
+            referenciaInterna: f.referenciaInterna,
+            concepto: f.concepto,
+            categoria: f.categoriaNombre,
+            proveedor: f.proveedorONombre,
+            ruc: f.proveedorNumeroDocumento,
+            fecha: new Date(`${f.fecha.slice(0, 10)}T00:00:00`),
+            fechaEmision: gasto?.fechaEmision ? new Date(`${gasto.fechaEmision.slice(0, 10)}T00:00:00`) : null,
+            tipoDocumento: gasto?.tipoDocumento ?? '',
+            serie: f.serieDocumento,
+            numero: f.numeroDocumento,
+            subtotal: f.subtotal,
+            impuesto: f.impuesto,
+            tratamientoImpuesto: gasto ? gasto.tratamientoImpuesto : '',
+            total: f.total,
+            reconocido: f.importeReconocidoBase,
+            condicionPago: f.condicionPago === 'credito' ? 'Crédito' : 'Contado',
+            numeroCuotas: gasto?.creditTerms?.schedule.length ?? (f.condicionPago === 'credito' ? 1 : null),
+            vencimiento: gasto?.fechaVencimiento ? new Date(`${gasto.fechaVencimiento.slice(0, 10)}T00:00:00`) : null,
+            saldoPendiente: cxp?.saldoPendiente ?? 0,
+            estadoDocumento: ESTADO_DOCUMENTO_GASTO_LABELS[f.estadoDocumento],
+            estadoPago: f.estadoDocumento === 'anulado' ? '—' : ESTADO_PAGO_GASTO_LABELS[f.estadoPago],
+            numerosPago: f.numerosPago.join(', '),
+            totalPagado: cxp ? round2(cxp.totalPagado) : 0,
+            establecimiento: f.establecimientoNombre,
+            moneda: f.monedaOriginal,
+            tipoCambio: f.tipoCambio ?? null,
+            usuario: gasto?.creadoPor ?? '',
+            cantidadAdjuntos: gasto?.adjuntos.length ?? 0,
+          };
+        })
       : grupos.map((g) => ({ grupo: g.etiqueta, total: g.totalGastos, reconocido: g.importeReconocidoBase, cantidad: g.cantidadFilas }));
 
     await exportDatasetToExcel({ rows, columns: columnas, filename: `gastos_operativos_${fechaDesde}_${fechaHasta}`, worksheetName: 'Gastos' });
-  }, [feedback, fechaDesde, fechaHasta]);
+  }, [feedback, fechaDesde, fechaHasta, gastosPorId, cuentasPorPagar]);
 
   const handleExportarClick = useCallback(async () => {
     if (exportando) return;
@@ -344,7 +464,25 @@ export default function PaginaGastos() {
   const gastoActivo = menu ? gastosPorId.get(menu.id) : undefined;
 
   function abrirVer(gasto: Gasto) { setDrawer({ modo: 'ver', gasto }); setMenu(null); }
+  function abrirEditar(gasto: Gasto, e?: React.MouseEvent) { e?.stopPropagation(); setDrawer({ modo: 'editar', gasto }); setMenu(null); }
   function abrirDuplicar(gasto: Gasto) { setDrawer({ modo: 'crear', valoresIniciales: datosParaDuplicarGasto(gasto) }); setMenu(null); }
+  function abrirRegistrarPago(gasto: Gasto, e?: React.MouseEvent) { e?.stopPropagation(); setDrawer({ modo: 'ver', gasto }); setMenu(null); }
+
+  async function handleConfirmarAnularGasto(motivo: string) {
+    if (!anulandoGasto) return;
+    await anularGasto(anulandoGasto.id, motivo);
+    feedback.success('Gasto anulado.');
+    setAnulandoGasto(null);
+  }
+
+  function handleActualizar() {
+    setActualizando(true);
+    recargarCategorias();
+    // `state.gastos`/CxP/Pagos ya son reactivos vía contexto — releer
+    // categorías (la única fuente que no se refresca automáticamente al
+    // navegar) es el trabajo real de "Actualizar", nunca un no-op disfrazado.
+    window.setTimeout(() => setActualizando(false), 300);
+  }
 
   const filtrosAvanzadosActivos = [filtroCategoriaId, filtroEstadoDocumento, filtroEstadoPago].filter(Boolean).length + (filtroConDocumento !== 'todos' ? 1 : 0);
 
@@ -354,31 +492,6 @@ export default function PaginaGastos() {
       <div className="px-4 md:px-6 pt-1 pb-1 text-sm text-gray-500 dark:text-gray-400">Gestión y control de gastos operativos</div>
 
       <div className="p-4 md:p-6 space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Gastos del periodo</p>
-            <p className="mt-1 text-xl font-bold text-gray-900 dark:text-gray-100">{formatMoney(indicadores.gastosOperativosReconocidos, monedaBase)}</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Pendiente</p>
-            <p className="mt-1 text-xl font-bold text-gray-900 dark:text-gray-100">
-              {filasFiltradas.filter((f) => f.estadoDocumento === 'registrado' && f.estadoPago !== 'pagado').length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Pagado</p>
-            <p className="mt-1 text-xl font-bold text-gray-900 dark:text-gray-100">
-              {filasFiltradas.filter((f) => f.estadoPago === 'pagado').length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Categoría principal</p>
-            <p className="mt-1 text-base font-bold text-gray-900 dark:text-gray-100 truncate">
-              {[...agruparFilasGastosOperativos(filasFiltradas, 'categoria')].sort((a, b) => b.importeReconocidoBase - a.importeReconocidoBase)[0]?.etiqueta ?? '—'}
-            </p>
-          </div>
-        </div>
-
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[220px] relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -386,7 +499,7 @@ export default function PaginaGastos() {
               type="text"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por concepto o proveedor..."
+              placeholder="Buscar por concepto, proveedor, documento o N° de pago..."
               className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
@@ -463,11 +576,12 @@ export default function PaginaGastos() {
 
           <button
             type="button"
-            onClick={() => setBusqueda((b) => b)}
+            onClick={handleActualizar}
+            disabled={actualizando}
             title="Actualizar"
-            className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/60"
+            className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/60 disabled:opacity-50"
           >
-            <RefreshCw size={16} className="text-gray-400" />
+            <RefreshCw size={16} className={`text-gray-400 ${actualizando ? 'animate-spin' : ''}`} />
           </button>
 
           <ColumnsManager
@@ -479,7 +593,7 @@ export default function PaginaGastos() {
             buttonLabel="Columnas"
           />
 
-          <button type="button" onClick={() => void handleExportarClick()} disabled={exportando} className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/60 disabled:opacity-50">
+          <button type="button" onClick={() => void handleExportarClick()} disabled={exportando} title="Exportar a Excel" className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/60 disabled:opacity-50">
             <FileDown size={16} className="text-gray-400" />
             Exportar
           </button>
@@ -494,41 +608,62 @@ export default function PaginaGastos() {
           <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900/40">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
-                  {agrupacion === 'sin_agrupar' ? 'Concepto' : OPCIONES_AGRUPACION.find((o) => o.value === agrupacion)?.label}
-                </th>
-                {agrupacion === 'sin_agrupar' && columnasOrdenVisible.map((id) => (
-                  <th key={id} className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">{ETIQUETA_COLUMNA[id]}</th>
-                ))}
+                {agrupacion === 'sin_agrupar' ? (
+                  columnasOrdenVisible.map((id) => (
+                    <th key={id} className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">{ETIQUETA_COLUMNA[id]}</th>
+                  ))
+                ) : (
+                  <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">{OPCIONES_AGRUPACION.find((o) => o.value === agrupacion)?.label}</th>
+                )}
                 {agrupacion !== 'sin_agrupar' && (
                   <>
                     <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Total</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Gasto reconocido</th>
                   </>
                 )}
-                {agrupacion === 'sin_agrupar' && <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Acciones</th>}
+                {agrupacion === 'sin_agrupar' && <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Acciones</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {agrupacion === 'sin_agrupar' && filasPagina.length === 0 && (
-                <tr><td colSpan={columnasOrdenVisible.length + 2} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">No hay gastos para los filtros seleccionados.</td></tr>
+                <tr><td colSpan={columnasOrdenVisible.length + 1} className="px-3 py-8 text-center text-gray-500 dark:text-gray-400">No hay gastos para los filtros seleccionados.</td></tr>
               )}
               {agrupacion === 'sin_agrupar' && filasPagina.map((fila) => {
                 const gasto = gastosPorId.get(fila.gastoId);
                 if (!gasto) return null;
+                const esEditable = puedeEditarGasto(gasto);
+                const puedePagar = gasto.estadoDocumento === 'registrado' && (fila.estadoPago === 'pendiente' || fila.estadoPago === 'parcial');
+                const puedeAnular = gasto.estadoDocumento === 'registrado' && fila.cantidadPagos === 0;
                 return (
-                  <tr key={fila.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                    <td className="px-3 py-2 text-gray-900 dark:text-gray-100">
-                      <div className="font-medium">{fila.concepto}</div>
-                      {fila.estadoDocumento === 'anulado' && <span className="text-xs text-rose-600 dark:text-rose-300">Anulado</span>}
-                    </td>
+                  <tr key={fila.id} onClick={() => abrirVer(gasto)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40">
                     {columnasOrdenVisible.map((id) => (
-                      <td key={id} className="px-3 py-2 text-gray-700 dark:text-gray-200">{renderCelda(fila, gasto, id)}</td>
+                      <td key={id} className="px-3 py-2 text-gray-700 dark:text-gray-200 whitespace-nowrap">{renderCelda(fila, gasto, id, monedaBase)}</td>
                     ))}
                     <td className="px-3 py-2">
-                      <button type="button" onClick={(e) => abrirMenu(e, gasto.id)} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" aria-label="Acciones">
-                        <MoreVertical size={16} />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button type="button" title="Editar" disabled={!esEditable} onClick={(e) => abrirEditar(gasto, e)} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:pointer-events-none dark:hover:bg-gray-700">
+                          <Pencil size={15} />
+                        </button>
+                        {puedePagar && (
+                          <button type="button" title="Registrar pago" onClick={(e) => abrirRegistrarPago(gasto, e)} className="p-1.5 rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20">
+                            <Wallet size={15} />
+                          </button>
+                        )}
+                        {gasto.estadoDocumento === 'registrado' && (
+                          <button
+                            type="button"
+                            title={puedeAnular ? 'Anular' : 'Anula primero los pagos relacionados'}
+                            disabled={!puedeAnular}
+                            onClick={(e) => { e.stopPropagation(); setAnulandoGasto(gasto); }}
+                            className="p-1.5 rounded-md text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:pointer-events-none dark:hover:bg-red-900/20"
+                          >
+                            <XCircle size={15} />
+                          </button>
+                        )}
+                        <button type="button" onClick={(e) => abrirMenu(e, gasto.id)} title="Más acciones" className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700" aria-label="Más acciones">
+                          <MoreVertical size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -564,19 +699,12 @@ export default function PaginaGastos() {
           <button onClick={() => abrirVer(gastoActivo)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
             <Eye size={15} /> Ver detalle
           </button>
-          {gastoActivo.estadoDocumento === 'registrado' && (
-            <button onClick={() => { setMenu(null); setDrawer({ modo: 'ver', gasto: gastoActivo }); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
-              <Wallet size={15} /> Registrar pago
-            </button>
-          )}
           <button onClick={() => abrirDuplicar(gastoActivo)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
             <Copy size={15} /> Duplicar
           </button>
-          {gastoActivo.estadoDocumento === 'registrado' && (
-            <button onClick={() => { setMenu(null); setDrawer({ modo: 'ver', gasto: gastoActivo }); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-              <Ban size={15} /> Anular
-            </button>
-          )}
+          <button onClick={() => { setMenu(null); handleImprimirGasto(gastoActivo); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
+            <Printer size={15} /> Imprimir / Guardar PDF
+          </button>
         </div>
       )}
 
@@ -600,6 +728,17 @@ export default function PaginaGastos() {
               return actualizado ? { ...d, gasto: actualizado } : d;
             });
           }}
+        />
+      )}
+
+      {anulandoGasto && (
+        <ModalAnularDocumento
+          abierto
+          titulo="Anular gasto"
+          descripcion={`¿Confirmas anular el gasto "${anulandoGasto.concepto}"? Esta acción no elimina el registro, solo lo marca como anulado.`}
+          motivos={[...MOTIVOS_ANULACION_GASTO]}
+          onConfirmar={handleConfirmarAnularGasto}
+          onCerrar={() => setAnulandoGasto(null)}
         />
       )}
     </div>

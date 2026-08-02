@@ -31,6 +31,8 @@ export interface RegistrarPagoGastoInput {
 export interface ContextoGastosValue {
   state: EstadoGastos;
   registrarGasto(datos: DatosNuevoGasto, usuarioId?: string): Promise<Gasto>;
+  /** Solo permitido mientras `puedeEditarGasto` sea true (sin pagos aplicados, no anulado) — conserva id/referenciaInterna/historial previo, resincroniza la CxP si el total cambió. */
+  editarGasto(id: string, datos: DatosNuevoGasto, usuarioId?: string): Promise<Gasto>;
   anularGasto(id: string, motivo: string, anuladoPor?: string): Promise<void>;
   registrarPagoGasto(input: RegistrarPagoGastoInput, usuarioId?: string): Promise<PagoCompra>;
   anularPagoGasto(pagoId: string, motivo: string, anuladoPor?: string): Promise<void>;

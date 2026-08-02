@@ -327,6 +327,7 @@ function crearCCFixture(overrides: Partial<ComprobanteCompra> = {}): Comprobante
 function crearGastoFixture(overrides: Partial<Gasto> = {}): Gasto {
   return {
     id: 'gasto-1',
+    referenciaInterna: 'GTO-00000001',
     empresaId: 'empresa-1',
     fechaReconocimiento: '2026-07-01',
     categoriaId: 'cat-alquileres',
@@ -357,6 +358,11 @@ describe('generarCuentaPorPagar — origen compra permanece intacto tras general
     expect(cxp.saldoPendiente).toBe(118);
     expect(cxp.estadoPago).toBe('pendiente');
   });
+
+  it('10. Compra existente sin regresión: sigue propagando formaPagoMetodoId del CC sin verse afectada por la generalización a Gastos', () => {
+    const cxp = generarCuentaPorPagar(crearCCFixture({ formaPagoMetodoId: 'metodo-credito-1' }), 'cxp-cc-2');
+    expect(cxp.formaPagoMetodoId).toBe('metodo-credito-1');
+  });
 });
 
 describe('generarCuentaPorPagarDesdeGasto', () => {
@@ -376,6 +382,14 @@ describe('generarCuentaPorPagarDesdeGasto', () => {
     );
     expect(cxp.proveedorId).toBe('');
     expect(cxp.proveedorNombre).toBe('Movilidad conductor');
+  });
+
+  it('propaga formaPagoMetodoId a la CxP cuando el gasto tiene una forma de pago configurada (§3 de la corrección — misma fuente que Compras)', () => {
+    const cxp = generarCuentaPorPagarDesdeGasto(
+      crearGastoFixture({ condicionPago: 'credito', formaPagoMetodoId: 'metodo-credito-1' }),
+      'cxp-gasto-forma-pago',
+    );
+    expect(cxp.formaPagoMetodoId).toBe('metodo-credito-1');
   });
 
   it('gasto al crédito propaga la fecha de vencimiento; al contado la deja indefinida', () => {

@@ -1,18 +1,17 @@
 import type { MonedaCompra } from './tiposBaseCompras';
 import type { EventoHistorialCompras } from './EventoHistorialCompras';
+import type { EstadoPago } from '@/shared/status/estadoPago';
 
 export type EstadoPagoCxP = 'pendiente' | 'parcial' | 'pagada' | 'anulada';
 export type EstadoVencimientoCxP = 'vigente' | 'por_vencer' | 'vence_hoy' | 'vencida';
 
 /**
- * Estado de pago DERIVADO de un documento (ComprobanteCompra o Gasto) a
- * partir del `EstadoPagoCxP` de su Cuenta por Pagar — transversal a Compras
- * y Gastos, por lo que vive aquí (dominio general de CxP/Pagos) y no en
- * `ComprobanteCompra.ts`. `ComprobanteCompra.ts` reexporta este mismo tipo
- * como `EstadoPagoCC` por compatibilidad con el código existente; nunca
- * declarar una segunda unión paralela.
+ * Reexporta el tipo transversal `EstadoPago` (`shared/status/estadoPago.ts`,
+ * fuente canónica) por compatibilidad con el código existente que lo importa
+ * desde aquí (`ComprobanteCompra.ts` como `EstadoPagoCC`, `Gasto.ts` como
+ * `EstadoPagoGasto`) — nunca una segunda unión paralela.
  */
-export type EstadoPago = 'pendiente' | 'parcial' | 'pagado';
+export type { EstadoPago };
 
 export const ESTADO_PAGO_CXP_LABELS: Record<EstadoPagoCxP, string> = {
   pendiente: 'Pendiente',

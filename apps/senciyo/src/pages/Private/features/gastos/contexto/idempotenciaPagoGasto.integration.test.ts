@@ -32,6 +32,7 @@ import type { Gasto } from '../modelos/Gasto';
 function crearGastoFixture(overrides: Partial<Gasto> = {}): Gasto {
   return {
     id: 'gasto-1',
+    referenciaInterna: 'GTO-00000001',
     empresaId: 'empresa-A',
     fechaReconocimiento: '2026-07-01',
     categoriaId: 'cat-alquileres',

@@ -1057,6 +1057,26 @@ export interface ResultadoLineaCompra {
 }
 
 /**
+ * Deriva base imponible e IGV a partir de un importe TAX-INCLUSIVE (total) y
+ * una tasa (ej. 0.18) — única fórmula de conversión total→base de todo el
+ * sistema. `calcularLineaCompra` (líneas de Compras) y el motor tributario de
+ * Gastos (`servicioImpuestoGasto.ts`) parten AMBOS de aquí; nunca una resta
+ * anticipada de un IGV ya redondeado, nunca una fórmula paralela. Tasa ≤ 0 ⇒
+ * el total ya es la base (sin IGV).
+ */
+export function derivarBaseImponibleDesdeTotal(total: number, tasaIgv: number): { baseImponible: number; igv: number } {
+  if (tasaIgv <= 0) return { baseImponible: total, igv: 0 };
+  const baseImponible = total / (1 + tasaIgv);
+  return { baseImponible, igv: total - baseImponible };
+}
+
+/** Dirección inversa: base imponible → IGV y total, con la MISMA tasa — nunca una fórmula paralela a `derivarBaseImponibleDesdeTotal`. */
+export function derivarTotalDesdeBaseImponible(baseImponible: number, tasaIgv: number): { igv: number; total: number } {
+  const igv = tasaIgv > 0 ? baseImponible * tasaIgv : 0;
+  return { igv, total: baseImponible + igv };
+}
+
+/**
  * Única función de cálculo por línea (formulario, drawer, impresión y
  * persistencia parten todos de aquí — ver sección 7/2 del alcance). Costo
  * unitario es tax-inclusive (misma convención que Comprobantes): si la línea
@@ -1076,9 +1096,8 @@ export function calcularLineaCompra(linea: {
   const neto = bruto - descuento;
 
   if (linea.tipoAfectacion === 'gravado') {
-    const tasa = linea.tasaIgv ?? 0;
-    const baseImponible = tasa > 0 ? neto / (1 + tasa) : neto;
-    return { baseImponible, igv: neto - baseImponible, total: neto };
+    const { baseImponible, igv } = derivarBaseImponibleDesdeTotal(neto, linea.tasaIgv ?? 0);
+    return { baseImponible, igv, total: neto };
   }
 
   return { baseImponible: neto, igv: 0, total: neto };

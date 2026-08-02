@@ -8,6 +8,7 @@ import {
   motivoBloqueoAnulacionGasto,
   puedeAnularGasto,
   datosParaDuplicarGasto,
+  siguienteReferenciaInternaGasto,
   type DatosNuevoGasto,
 } from './servicioGasto';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
@@ -112,25 +113,78 @@ describe('validarGastoBasico', () => {
 
 describe('crearGasto', () => {
   it('nace siempre en estado "registrado" — nunca "borrador"', () => {
-    const gasto = crearGasto(crearDatosGastoBasicos(), 'gasto-1', 'usuario-1');
+    const gasto = crearGasto(crearDatosGastoBasicos(), 'gasto-1', 'GTO-00000001', 'usuario-1');
     expect(gasto.estadoDocumento).toBe('registrado');
   });
 
   it('sin proveedorId, conserva el beneficiario de texto libre', () => {
-    const gasto = crearGasto(crearDatosGastoBasicos({ proveedorId: undefined, beneficiario: 'Movilidad conductor' }), 'gasto-2');
+    const gasto = crearGasto(crearDatosGastoBasicos({ proveedorId: undefined, beneficiario: 'Movilidad conductor' }), 'gasto-2', 'GTO-00000002');
     expect(gasto.beneficiario).toBe('Movilidad conductor');
     expect(gasto.proveedorId).toBeUndefined();
   });
 
   it('con proveedorId, el beneficiario de texto libre se descarta (nunca ambos a la vez)', () => {
-    const gasto = crearGasto(crearDatosGastoBasicos({ proveedorId: 'prov-1', beneficiario: 'texto que no debería guardarse' }), 'gasto-3');
+    const gasto = crearGasto(crearDatosGastoBasicos({ proveedorId: 'prov-1', beneficiario: 'texto que no debería guardarse' }), 'gasto-3', 'GTO-00000003');
     expect(gasto.proveedorId).toBe('prov-1');
     expect(gasto.beneficiario).toBeUndefined();
   });
 
   it('gasto al contado nunca guarda fecha de vencimiento, aunque se haya enviado una', () => {
-    const gasto = crearGasto(crearDatosGastoBasicos({ condicionPago: 'contado', fechaVencimiento: '2026-08-01' }), 'gasto-4');
+    const gasto = crearGasto(crearDatosGastoBasicos({ condicionPago: 'contado', fechaVencimiento: '2026-08-01' }), 'gasto-4', 'GTO-00000004');
     expect(gasto.fechaVencimiento).toBeUndefined();
+  });
+
+  it('genera con la referenciaInterna provista (nunca una serie GS, mismo criterio que un pago PG)', () => {
+    const gasto = crearGasto(crearDatosGastoBasicos(), 'gasto-5', 'GTO-00000005');
+    expect(gasto.referenciaInterna).toBe('GTO-00000005');
+  });
+
+  describe('crédito y forma de pago configurada (§3 de la corrección)', () => {
+    it('3. Crédito simple: sin formaPagoMetodoId, conserva la fecha de vencimiento manual', () => {
+      const gasto = crearGasto(
+        crearDatosGastoBasicos({ condicionPago: 'credito', fechaVencimiento: '2026-09-01', formaPagoMetodoId: undefined }),
+        'gasto-6', 'GTO-00000006',
+      );
+      expect(gasto.fechaVencimiento).toBe('2026-09-01');
+      expect(gasto.formaPagoMetodoId).toBeUndefined();
+      expect(gasto.creditTerms).toBeUndefined();
+    });
+
+    it('4/8. Crédito con plantilla configurada: persiste formaPagoMetodoId y el cronograma (CreditScheduleTerms) tal cual se recibieron', () => {
+      const cronograma = {
+        schedule: [
+          { numeroCuota: 1, diasCredito: 30, porcentaje: 50, fechaVencimiento: '2026-08-01', importe: 59 },
+          { numeroCuota: 2, diasCredito: 60, porcentaje: 50, fechaVencimiento: '2026-09-01', importe: 59 },
+        ],
+        fechaVencimientoGlobal: '2026-09-01',
+        totalPorcentaje: 100,
+      };
+      const gasto = crearGasto(
+        crearDatosGastoBasicos({ condicionPago: 'credito', formaPagoMetodoId: 'metodo-credito-1', creditTerms: cronograma }),
+        'gasto-7', 'GTO-00000007',
+      );
+      expect(gasto.formaPagoMetodoId).toBe('metodo-credito-1');
+      expect(gasto.creditTerms).toEqual(cronograma);
+    });
+
+    it('5. Cambio manual de condición a contado descarta formaPagoMetodoId y creditTerms, aunque se hayan enviado', () => {
+      const gasto = crearGasto(
+        crearDatosGastoBasicos({ condicionPago: 'contado', formaPagoMetodoId: 'metodo-credito-1', creditTerms: { schedule: [], fechaVencimientoGlobal: '2026-09-01' } }),
+        'gasto-8', 'GTO-00000008',
+      );
+      expect(gasto.formaPagoMetodoId).toBeUndefined();
+      expect(gasto.creditTerms).toBeUndefined();
+    });
+  });
+});
+
+describe('siguienteReferenciaInternaGasto — referencia interna legible y estable, nunca una serie tributaria', () => {
+  it('sin gastos previos, la primera referencia es GTO-00000001', () => {
+    expect(siguienteReferenciaInternaGasto([])).toBe('GTO-00000001');
+  });
+
+  it('incrementa a partir de la referencia más alta ya usada', () => {
+    expect(siguienteReferenciaInternaGasto([{ referenciaInterna: 'GTO-00000001' }, { referenciaInterna: 'GTO-00000003' }])).toBe('GTO-00000004');
   });
 });
 
@@ -168,6 +222,30 @@ describe('resolverEstadoPagoGasto — estado de pago SIEMPRE derivado de la CxP,
 
   it('CxP con estadoPago "pagada": pagado', () => {
     expect(resolverEstadoPagoGasto(crearCxPFixture({ estadoPago: 'pagada' }))).toBe('pagado');
+  });
+
+  it('9. Pago parcial de un gasto con cronograma de cuotas configurado: el estado de pago refleja el saldo de la CxP y el cronograma (snapshot histórico) permanece intacto — mismo criterio que un ComprobanteCompra con crédito en cuotas', () => {
+    const gasto = crearGasto(
+      crearDatosGastoBasicos({
+        condicionPago: 'credito',
+        formaPagoMetodoId: 'metodo-credito-1',
+        fechaVencimiento: '2026-09-01',
+        creditTerms: {
+          fechaVencimientoGlobal: '2026-09-01',
+          schedule: [
+            { numeroCuota: 1, fechaVencimiento: '2026-08-01', importe: 59, dias: 30 },
+            { numeroCuota: 2, fechaVencimiento: '2026-09-01', importe: 59, dias: 60 },
+          ],
+        },
+      }),
+      'gasto-1',
+      'GTO-00000001',
+    );
+    const cxpTrasPagoParcial = crearCxPFixture({ totalPagado: 59, saldoPendiente: 59, estadoPago: 'parcial' });
+
+    expect(resolverEstadoPagoGasto(cxpTrasPagoParcial)).toBe('parcial');
+    expect(gasto.creditTerms?.schedule).toHaveLength(2);
+    expect(gasto.creditTerms?.schedule[0].importe).toBe(59);
   });
 });
 
@@ -212,7 +290,7 @@ describe('motivoBloqueoAnulacionGasto / puedeAnularGasto (§20-A)', () => {
 
 describe('datosParaDuplicarGasto — nunca un clon silencioso', () => {
   it('copia los datos financieros/de identificación, pero omite fecha de reconocimiento, observaciones y adjuntos', () => {
-    const original = crearGasto(crearDatosGastoBasicos({ observaciones: 'nota original' }), 'gasto-1', 'usuario-1');
+    const original = crearGasto(crearDatosGastoBasicos({ observaciones: 'nota original' }), 'gasto-1', 'GTO-00000001', 'usuario-1');
     const prefill = datosParaDuplicarGasto(original);
     expect(prefill.concepto).toBe(original.concepto);
     expect(prefill.total).toBe(original.total);
@@ -224,7 +302,7 @@ describe('datosParaDuplicarGasto — nunca un clon silencioso', () => {
 
 describe('moneda extranjera / tipo de cambio faltante (§20-A)', () => {
   it('un gasto en moneda extranjera sin tipo de cambio se crea igual (la validación de TC es responsabilidad de Rentabilidad Operativa, no del registro)', () => {
-    const gasto = crearGasto(crearDatosGastoBasicos({ moneda: 'USD', tipoCambio: undefined }), 'gasto-usd-1');
+    const gasto = crearGasto(crearDatosGastoBasicos({ moneda: 'USD', tipoCambio: undefined }), 'gasto-usd-1', 'GTO-00000006');
     expect(gasto.moneda).toBe('USD');
     expect(gasto.tipoCambio).toBeUndefined();
   });

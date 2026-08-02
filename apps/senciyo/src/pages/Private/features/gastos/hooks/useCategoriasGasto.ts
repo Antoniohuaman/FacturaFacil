@@ -15,12 +15,16 @@ import {
   guardarCategoriasGasto,
   EVENTO_CATEGORIAS_GASTO_CAMBIADAS,
 } from '../repositorios/repositorioCategoriasGasto';
+import {
+  contarUsoCategoriaGasto,
+  crearCategoriaGasto,
+  editarCategoriaGasto,
+  cambiarEstadoCategoriaGasto,
+  type DatosCategoriaGasto,
+} from '../servicios/servicioCategoriaGasto';
 import type { CategoriaGasto } from '../modelos/CategoriaGasto';
 
-export interface DatosCategoriaGasto {
-  nombre: string;
-  descripcion?: string;
-}
+export type { DatosCategoriaGasto };
 
 interface UseCategoriasGastoReturn {
   categorias: CategoriaGasto[];
@@ -46,46 +50,28 @@ export function useCategoriasGasto(): UseCategoriasGastoReturn {
     return () => window.removeEventListener(EVENTO_CATEGORIAS_GASTO_CAMBIADAS, recargar);
   }, [empresaId]);
 
-  const contarUso = useCallback((categoriaId: string): number => {
-    let conteo = 0;
-    for (const gasto of cargarGastos()) {
-      if (gasto.estadoDocumento === 'anulado') continue;
-      if (gasto.categoriaId === categoriaId) conteo += 1;
-    }
-    return conteo;
-  }, []);
+  const contarUso = useCallback((categoriaId: string): number => contarUsoCategoriaGasto(cargarGastos(), categoriaId), []);
 
   const crearCategoria = useCallback((datos: DatosCategoriaGasto) => {
-    const nueva: CategoriaGasto = {
-      id: generarIdCategoria(),
-      empresaId,
-      nombre: datos.nombre.trim(),
-      descripcion: datos.descripcion?.trim() || undefined,
-      estado: 'activa',
-      orden: categorias.length,
-      fechaCreacion: new Date().toISOString(),
-    };
-    const siguiente = [...categorias, nueva];
+    const siguiente = crearCategoriaGasto(categorias, datos, empresaId, generarIdCategoria(), new Date().toISOString());
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
   }, [categorias, empresaId]);
 
   const editarCategoria = useCallback((id: string, datos: DatosCategoriaGasto) => {
-    const siguiente = categorias.map((c) =>
-      c.id === id ? { ...c, nombre: datos.nombre.trim(), descripcion: datos.descripcion?.trim() || undefined } : c,
-    );
+    const siguiente = editarCategoriaGasto(categorias, id, datos);
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
   }, [categorias]);
 
   const desactivarCategoria = useCallback((id: string) => {
-    const siguiente = categorias.map((c) => (c.id === id ? { ...c, estado: 'inactiva' as const } : c));
+    const siguiente = cambiarEstadoCategoriaGasto(categorias, id, 'inactiva');
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
   }, [categorias]);
 
   const reactivarCategoria = useCallback((id: string) => {
-    const siguiente = categorias.map((c) => (c.id === id ? { ...c, estado: 'activa' as const } : c));
+    const siguiente = cambiarEstadoCategoriaGasto(categorias, id, 'activa');
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
   }, [categorias]);

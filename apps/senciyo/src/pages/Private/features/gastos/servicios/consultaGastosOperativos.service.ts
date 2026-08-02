@@ -10,6 +10,7 @@
 import { round2 } from '../../compras/logica/reglasCompras';
 import { convertMoney } from '@/shared/currency';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
+import type { PagoCompra } from '../../compras/modelos/PagoCompra';
 import type { Gasto, EstadoDocumentoGasto } from '../modelos/Gasto';
 import { importeReconocidoComoGasto, resolverEstadoPagoGasto } from './servicioGasto';
 
@@ -18,6 +19,7 @@ export type AgrupacionGasto = 'sin_agrupar' | 'categoria' | 'proveedor' | 'estab
 export interface FilaGastoOperativo {
   id: string;
   gastoId: string;
+  referenciaInterna: string;
   fecha: string;
   concepto: string;
   categoriaId: string;
@@ -26,12 +28,22 @@ export interface FilaGastoOperativo {
   establecimientoId?: string;
   establecimientoNombre: string;
   monedaOriginal: string;
+  subtotal: number;
+  impuesto: number;
   total: number;
+  tipoCambio?: number;
+  condicionPago: 'contado' | 'credito';
   /** En moneda base — `null` cuando falta un TC histórico válido (nunca asumido en 1). */
   importeReconocidoBase: number | null;
   estadoDocumento: EstadoDocumentoGasto;
   estadoPago: 'pendiente' | 'parcial' | 'pagado';
   tieneDocumento: boolean;
+  proveedorNumeroDocumento: string;
+  serieDocumento: string;
+  numeroDocumento: string;
+  cantidadPagos: number;
+  /** Números PG de los pagos aplicados a este gasto — para búsqueda y columnas opcionales (§4/§18 del alcance). */
+  numerosPago: string[];
 }
 
 export interface GrupoGastoOperativo {
@@ -51,6 +63,8 @@ export interface IndicadoresGastosOperativos {
 export interface ParametrosProyeccionGastos {
   gastos: readonly Gasto[];
   cuentasPorPagar: readonly CuentaPorPagar[];
+  /** Pagos (origen 'gasto') ya filtrados por el llamador — solo para exponer números PG por fila, nunca para recalcular montos. */
+  pagos?: readonly PagoCompra[];
   categorias: ReadonlyMap<string, string>;
   establecimientos: ReadonlyMap<string, string>;
   monedaBase: string;
@@ -67,8 +81,9 @@ function convertirAMonedaBase(importe: number, monedaOriginal: string, monedaBas
 
 /** Proyecta una fila por gasto dentro del periodo/establecimiento indicados. Filtra por `fechaReconocimiento` — nunca por fecha de pago. */
 export function proyectarFilasGastosOperativos(params: ParametrosProyeccionGastos): FilaGastoOperativo[] {
-  const { gastos, cuentasPorPagar, categorias, establecimientos, monedaBase, periodo, establecimientoId } = params;
+  const { gastos, cuentasPorPagar, pagos = [], categorias, establecimientos, monedaBase, periodo, establecimientoId } = params;
   const cxpPorId = new Map(cuentasPorPagar.map((c) => [c.id, c] as const));
+  const pagosPorId = new Map(pagos.map((p) => [p.id, p] as const));
 
   return gastos
     .filter((g) => {
@@ -87,6 +102,7 @@ export function proyectarFilasGastosOperativos(params: ParametrosProyeccionGasto
       return {
         id: g.id,
         gastoId: g.id,
+        referenciaInterna: g.referenciaInterna,
         fecha: g.fechaReconocimiento,
         concepto: g.concepto,
         categoriaId: g.categoriaId,
@@ -95,11 +111,22 @@ export function proyectarFilasGastosOperativos(params: ParametrosProyeccionGasto
         establecimientoId: g.establecimientoId,
         establecimientoNombre: g.establecimientoId ? establecimientos.get(g.establecimientoId) ?? g.establecimientoId : 'General',
         monedaOriginal: g.moneda,
+        subtotal: g.subtotal,
+        impuesto: g.impuesto,
         total: g.total,
+        tipoCambio: g.tipoCambio,
+        condicionPago: g.condicionPago,
         importeReconocidoBase,
         estadoDocumento: g.estadoDocumento,
         estadoPago: resolverEstadoPagoGasto(cxp),
         tieneDocumento: Boolean(g.tipoDocumento),
+        proveedorNumeroDocumento: g.proveedorNumeroDocumento ?? '',
+        serieDocumento: g.serieDocumentoProveedor ?? '',
+        numeroDocumento: g.numeroDocumentoProveedor ?? '',
+        cantidadPagos: g.pagosRelacionados.length,
+        numerosPago: g.pagosRelacionados
+          .map((pagoId) => pagosPorId.get(pagoId)?.numeroPago)
+          .filter((numero): numero is string => Boolean(numero)),
       };
     });
 }
@@ -119,7 +146,18 @@ export function filtrarFilasGastosOperativos(filas: readonly FilaGastoOperativo[
   return filas.filter((fila) => {
     if (!filtros.estadoDocumento && fila.estadoDocumento === 'anulado') return false;
     if (busquedaNormalizada) {
-      const haystack = `${fila.concepto} ${fila.proveedorONombre}`.toLowerCase();
+      // Concepto, proveedor/beneficiario, RUC/documento, serie y número del
+      // documento sustentatorio, referencia interna del gasto y número(s) de
+      // pago PG relacionados — todos en un único buscador (§4 del alcance).
+      const haystack = [
+        fila.concepto,
+        fila.proveedorONombre,
+        fila.proveedorNumeroDocumento,
+        fila.serieDocumento,
+        fila.numeroDocumento,
+        fila.referenciaInterna,
+        ...fila.numerosPago,
+      ].join(' ').toLowerCase();
       if (!haystack.includes(busquedaNormalizada)) return false;
     }
     if (filtros.categoriaId && fila.categoriaId !== filtros.categoriaId) return false;

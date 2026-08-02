@@ -9,3 +9,4 @@ export * from './two-column-fields';
 export * from './fields-configuration-modal';
 export * from './collapsible-notes';
 export * from './document-form-footer';
+export * from './modal-anular-documento';

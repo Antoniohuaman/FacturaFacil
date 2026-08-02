@@ -47,6 +47,8 @@ import {
   crearGasto,
   validarGastoBasico,
   motivoBloqueoAnulacionGasto,
+  puedeEditarGasto,
+  siguienteReferenciaInternaGasto,
   type DatosNuevoGasto,
   type ErrorValidacionGasto,
 } from '../servicios/servicioGasto';
@@ -120,7 +122,8 @@ export function GastosProvider({ children }: GastosProviderProps) {
       lanzarSiHayErrores(validarGastoBasico(datos));
 
       const id = generarId('gasto');
-      let gasto = crearGasto(datos, id, usuarioId);
+      const referenciaInterna = siguienteReferenciaInternaGasto(state.gastos);
+      let gasto = crearGasto(datos, id, referenciaInterna, usuarioId);
 
       // Todo gasto genera su Cuenta por Pagar (contado o crédito), mismo
       // criterio que ya usa Compras: el saldo pendiente vive únicamente en la
@@ -135,7 +138,54 @@ export function GastosProvider({ children }: GastosProviderProps) {
 
       return gasto;
     },
-    [],
+    [state.gastos],
+  );
+
+  const editarGasto = useCallback(
+    async (id: string, datos: DatosNuevoGasto, usuarioId?: string): Promise<Gasto> => {
+      const gastoActual = state.gastos.find((g) => g.id === id);
+      if (!gastoActual) throw new Error(`Gasto ${id} no encontrado.`);
+      if (!puedeEditarGasto(gastoActual)) {
+        throw new Error('Este gasto ya no puede editarse: tiene pagos aplicados o está anulado.');
+      }
+      lanzarSiHayErrores(validarGastoBasico(datos));
+
+      const ts = ahora();
+      // Reconstruye los campos editables desde `crearGasto` (misma fórmula de
+      // construcción que al registrar, nunca una segunda), preservando
+      // identidad/auditoría/relaciones que la edición nunca debe tocar.
+      const reconstruido = crearGasto(datos, gastoActual.id, gastoActual.referenciaInterna, gastoActual.creadoPor);
+      const gastoActualizado: Gasto = {
+        ...reconstruido,
+        pagosRelacionados: gastoActual.pagosRelacionados,
+        cuentaPorPagarId: gastoActual.cuentaPorPagarId,
+        gastoOrigenDuplicadoId: gastoActual.gastoOrigenDuplicadoId,
+        historial: [
+          ...gastoActual.historial,
+          { fecha: ts, usuario: usuarioId, accion: 'Gasto editado', detalle: gastoActual.concepto },
+        ],
+        creadoPor: gastoActual.creadoPor,
+        fechaCreacion: gastoActual.fechaCreacion,
+        fechaActualizacion: ts,
+      };
+      agregarOActualizarGasto(gastoActualizado);
+
+      // Resincroniza la CxP (aún sin pagos, garantizado por `puedeEditarGasto`)
+      // con los importes/condición de pago editados — mismo criterio que
+      // `resincronizarCuentaPorPagar` en Compras para un CC editado antes de
+      // cualquier pago.
+      if (gastoActualizado.cuentaPorPagarId) {
+        const cxpActual = listarCuentasPorPagarPorOrigen('gasto').find((c) => c.id === gastoActualizado.cuentaPorPagarId);
+        if (cxpActual) {
+          const cxpResincronizada = generarCuentaPorPagarDesdeGasto(gastoActualizado, cxpActual.id);
+          agregarOActualizarCxP(cxpResincronizada);
+        }
+      }
+
+      dispatch({ type: 'ACTUALIZAR_GASTO', payload: gastoActualizado });
+      return gastoActualizado;
+    },
+    [state.gastos],
   );
 
   const anularGasto = useCallback(
@@ -364,6 +414,7 @@ export function GastosProvider({ children }: GastosProviderProps) {
   const value: ContextoGastosValue = {
     state,
     registrarGasto,
+    editarGasto,
     anularGasto,
     registrarPagoGasto,
     anularPagoGasto,
