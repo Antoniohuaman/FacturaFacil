@@ -17,9 +17,63 @@ import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import { ESTADO_PAGO_CXP_LABELS } from '../modelos/CuentaPorPagar';
 import type { MedioPagoCompra, AplicacionPagoCompra, AsignacionCuotaPago, PagoCompra } from '../modelos/PagoCompra';
 import type { AdjuntoCompra } from '../modelos/AdjuntoCompra';
+import type { MonedaCompra } from '../modelos/tiposBaseCompras';
 
 function generarIdLinea(): string {
   return `ml-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** Clave de idempotencia de UN intento lógico de pago — generada una sola vez por sesión del formulario (nunca dentro de `registrarPago`, donde `Date.now()` cambiaría en cada reintento y anularía la protección). */
+function generarClaveIdempotenciaPago(): string {
+  return `pago-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export interface ParametrosConstruccionDatosPagoCentral {
+  fechaPago: string;
+  proveedorId: string;
+  proveedorNombre: string;
+  moneda: MonedaCompra;
+  tipoCambio: number | undefined;
+  mediosPago: MedioPagoCompra[];
+  aplicaciones: AplicacionPagoCompra[];
+  documentoSustentoTipo: string;
+  documentoSustentoSerie: string;
+  documentoSustentoNumero: string;
+  concepto: string;
+  observaciones: string;
+  adjuntos: AdjuntoCompra[];
+  claveIdempotencia: string;
+}
+
+/**
+ * Construye el payload real que `registrarPago` envía al comando inyectado
+ * (`registrarPagoCompra`/`registrarPagoGastoCentral`) — SIEMPRE incluye
+ * `claveIdempotencia`, para que "Registrar pago" (este formulario central,
+ * compartido por Compras y Gastos) tenga la MISMA garantía de idempotencia
+ * que ya tiene "Registrar y pagar". Extraída como función pura (en vez de
+ * quedar solo como un objeto literal dentro de `registrarPago`) para poder
+ * probar el payload real sin montar el hook — este proyecto no tiene una
+ * librería de testing de componentes React.
+ */
+export function construirDatosPagoCentral(
+  parametros: ParametrosConstruccionDatosPagoCentral,
+): DatosPagoFormularioCentral {
+  return {
+    fechaPago: parametros.fechaPago,
+    proveedorId: parametros.proveedorId,
+    proveedorNombre: parametros.proveedorNombre,
+    moneda: parametros.moneda,
+    tipoCambio: parametros.tipoCambio,
+    mediosPago: parametros.mediosPago,
+    aplicaciones: parametros.aplicaciones,
+    documentoSustentoTipo: parametros.documentoSustentoTipo || undefined,
+    documentoSustentoSerie: parametros.documentoSustentoSerie || undefined,
+    documentoSustentoNumero: parametros.documentoSustentoNumero || undefined,
+    concepto: parametros.concepto || undefined,
+    observaciones: parametros.observaciones || undefined,
+    adjuntos: parametros.adjuntos,
+    claveIdempotencia: parametros.claveIdempotencia,
+  };
 }
 
 function round2(n: number): number {
@@ -41,6 +95,8 @@ export interface ErroresPagoPorCampo {
   medios?: Record<string, ErrorMedioPago>;
   diferencia?: string;
   tipoCambio?: string;
+  /** Restricción propia del origen documental (p. ej. Gastos: efectivo en moneda extranjera, GAS-P1-004) — `undefined` para Compras, que no inyecta `validarRestriccionesOrigen`. */
+  restriccionOrigen?: string;
 }
 
 /** Contrato de datos del pago — idéntico al que ya espera `ContextoCompras.tsx#registrarPagoCompra`. Un origen distinto (Gasto) implementa una función con esta MISMA forma, nunca un segundo formulario (§11 de la corrección). */
@@ -59,6 +115,14 @@ export type DatosPagoFormularioCentral = Omit<
 /** Dependencias inyectadas por el origen documental (compra o gasto) — nunca un `useCompras()` fijo dentro del hook, para que sea reutilizable desde cualquier módulo sin acoplarlo a Compras (§11 de la corrección). */
 export interface DependenciasFormularioPagoCentral {
   registrarPago(datos: DatosPagoFormularioCentral, usuarioId?: string, seriePago?: string): Promise<PagoCompra>;
+  /**
+   * Restricción adicional específica del origen (opcional): devuelve un
+   * mensaje de bloqueo o `null`/`undefined` si no aplica. Compras no la usa
+   * (comportamiento sin cambios); Gastos la inyecta para bloquear pago en
+   * efectivo cuando la moneda del documento es distinta de la moneda base
+   * (GAS-P1-004) — sin tocar la validación genérica de este hook compartido.
+   */
+  validarRestriccionesOrigen?(contexto: { moneda: string; mediosPago: MedioPagoCompra[]; hayMedioDeCaja: boolean }): string | null | undefined;
 }
 
 function crearMedioDesde(medio: PaymentMeanOption | undefined, monto: number): MedioPagoCompra {
@@ -125,7 +189,7 @@ export function useFormularioPagoCompra(
   importesIniciales: Record<string, number>,
   dependencias: DependenciasFormularioPagoCentral,
 ) {
-  const { registrarPago: registrarPagoOrigen } = dependencias;
+  const { registrarPago: registrarPagoOrigen, validarRestriccionesOrigen } = dependencias;
   const { state: config } = useConfigurationContext();
   const { status: estadoCaja } = useCaja();
   const { accounts: cuentasBancarias } = useBankAccounts();
@@ -219,6 +283,13 @@ export function useFormularioPagoCompra(
   const [concepto, setConcepto] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [adjuntos, setAdjuntos] = useState<AdjuntoCompra[]>([]);
+  // Un único intento lógico de pago por sesión de este formulario (§ misma
+  // garantía que ya tiene "Registrar y pagar" de Gastos): se genera una vez
+  // al montar, se reutiliza en cada reintento (doble clic, reintento tras un
+  // error de Caja) y solo se renueva tras un registro exitoso, para que una
+  // eventual reutilización del mismo formulario en una operación NUEVA nunca
+  // se confunda con un reintento de la anterior.
+  const [claveIdempotencia, setClaveIdempotencia] = useState(() => generarClaveIdempotenciaPago());
   const [enviando, setEnviando] = useState(false);
   // Mismo esquema que los formularios de OC/CC/RQ: sin errores en un
   // formulario recién abierto, solo tras un intento real de registrar el
@@ -392,6 +463,11 @@ export function useFormularioPagoCompra(
       porCampo.tipoCambio = 'El tipo de cambio es obligatorio y debe ser mayor a 0.';
       lista.push(porCampo.tipoCambio);
     }
+    const motivoRestriccionOrigen = validarRestriccionesOrigen?.({ moneda, mediosPago, hayMedioDeCaja });
+    if (motivoRestriccionOrigen) {
+      porCampo.restriccionOrigen = motivoRestriccionOrigen;
+      lista.push(motivoRestriccionOrigen);
+    }
     return { lista, porCampo };
   }
 
@@ -452,7 +528,7 @@ export function useFormularioPagoCompra(
         .filter((aplicacion) => aplicacion.importeAplicado > 0);
 
       const pago = await registrarPagoOrigen(
-        {
+        construirDatosPagoCentral({
           fechaPago,
           proveedorId,
           proveedorNombre,
@@ -460,19 +536,24 @@ export function useFormularioPagoCompra(
           tipoCambio: tipoCambio ? parseFloat(tipoCambio) : undefined,
           mediosPago,
           aplicaciones: aplicacionesPago,
-          documentoSustentoTipo: documentoSustentoTipo || undefined,
-          documentoSustentoSerie: documentoSustentoSerie || undefined,
-          documentoSustentoNumero: documentoSustentoNumero || undefined,
-          concepto: concepto || undefined,
-          observaciones: observaciones || undefined,
+          documentoSustentoTipo,
+          documentoSustentoSerie,
+          documentoSustentoNumero,
+          concepto,
+          observaciones,
           adjuntos,
-        },
+          claveIdempotencia,
+        }),
         session?.userId,
         seriePG!.series,
       );
       feedback.success(
         `Pago ${pago.numeroPago} registrado correctamente.${hayMedioDeCaja ? ' Caja actualizada.' : ''}`,
       );
+      // Renueva la clave para una eventual operación NUEVA con esta misma
+      // instancia del formulario — nunca para el reintento que acaba de
+      // completarse (ese ya usó y consumió la clave anterior).
+      setClaveIdempotencia(generarClaveIdempotenciaPago());
       return true;
     } catch (e) {
       setErrorGeneral(e instanceof Error ? e.message : 'Error al registrar el pago.');

@@ -6,12 +6,13 @@
 // `ComprobanteCompra`, nunca una reimplementación paralela).
 
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
-import type { PagoCompra } from '../../compras/modelos/PagoCompra';
+import type { PagoCompra, MedioPagoCompra } from '../../compras/modelos/PagoCompra';
 import type { MonedaCompra } from '../../compras/modelos/tiposBaseCompras';
 import type { AdjuntoCompra } from '../../compras/modelos/AdjuntoCompra';
 import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
 import type { Series } from '../../configuracion-sistema/modelos/Series';
 import { tieneCxPPagosActivos, recalcularEstadoPagoComprobante, round2 } from '../../compras/logica/reglasCompras';
+import { esMedioDeCaja } from '../../compras/servicios/servicioPagoCompra';
 import { getNombreTipoDocumentoProveedor } from '../../compras/constantes/tiposDocumentoProveedor';
 import { isExpenseSeries } from '@/shared/series/expenseSeries';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
@@ -116,19 +117,62 @@ function validarCamposMinimosGasto(datos: Partial<DatosNuevoGasto>): ErrorValida
   if (!datos.fechaReconocimiento) {
     errores.push({ campo: 'fechaReconocimiento', mensaje: 'La fecha del gasto es obligatoria.' });
   }
-  if (!datos.total || datos.total <= 0) {
+  // `Number.isFinite` rechaza además `Infinity`/`-Infinity` (que sí pasarían
+  // la comparación `<= 0` de un total positivo) y cualquier `NaN` residual,
+  // no solo depende de la coerción implícita a booleano de `!datos.total`.
+  if (typeof datos.total !== 'number' || !Number.isFinite(datos.total) || datos.total <= 0) {
     errores.push({ campo: 'total', mensaje: 'El total debe ser mayor a 0.' });
   }
 
   return errores;
 }
 
-/** Un gasto exige proveedor O beneficiario de texto libre — nunca ninguno de los dos (§9 del alcance: no se permite un gasto sin identificar a quién se le pagó/paga). */
-export function validarGastoBasico(datos: Partial<DatosNuevoGasto>): ErrorValidacionGasto[] {
+/**
+ * Un gasto en moneda distinta de la moneda base exige un tipo de cambio
+ * histórico real (finito y mayor a 0) antes de poder registrarse — nunca se
+ * asume 1, nunca se registra "pendiente de completar". Un borrador puede
+ * seguir sin él (`validarMinimoBorradorGasto` no llama esta función): recién
+ * al registrar (o "Registrar y pagar") se exige, igual que ya exige la fecha
+ * de vencimiento para crédito.
+ */
+function validarTipoCambioGasto(datos: Partial<DatosNuevoGasto>, monedaBase: string): ErrorValidacionGasto[] {
+  if (!datos.moneda || !monedaBase || datos.moneda === monedaBase) return [];
+  if (typeof datos.tipoCambio !== 'number' || !Number.isFinite(datos.tipoCambio) || datos.tipoCambio <= 0) {
+    return [{ campo: 'tipoCambio', mensaje: 'El tipo de cambio es obligatorio y debe ser mayor a 0 cuando la moneda del gasto es distinta de la moneda base de la empresa.' }];
+  }
+  return [];
+}
+
+/**
+ * "Impuesto aplicable" es obligatorio cuando el usuario eligió un tratamiento
+ * con desglose real (recuperable/no recuperable) — sin un impuesto
+ * seleccionado, `resolverImpuestoGasto` resuelve `null` y el motor tributario
+ * asume tasa 0% en silencio, lo que traiciona la elección explícita del
+ * usuario de llevar un desglose (el subtotal terminaría igual al total pese
+ * a haber marcado "Recuperable"/"No recuperable"). "Sin desglose" nunca
+ * exige impuesto: ahí el total ES el importe, por diseño.
+ */
+function validarImpuestoAplicableGasto(datos: Partial<DatosNuevoGasto>): ErrorValidacionGasto[] {
+  if (datos.tratamientoImpuesto && datos.tratamientoImpuesto !== 'sin_desglose' && !datos.impuestoId) {
+    return [{ campo: 'impuestoId', mensaje: 'Selecciona el impuesto aplicable.' }];
+  }
+  return [];
+}
+
+/**
+ * Un gasto exige proveedor O beneficiario de texto libre — nunca ninguno de
+ * los dos (§9 del alcance: no se permite un gasto sin identificar a quién se
+ * le pagó/paga). `monedaBase` es la moneda base real de la empresa
+ * (`currencyManager`/`config.currencies`, nunca asumida 'PEN') — exigida
+ * para poder validar el tipo de cambio.
+ */
+export function validarGastoBasico(datos: Partial<DatosNuevoGasto>, monedaBase: string): ErrorValidacionGasto[] {
   const errores = validarCamposMinimosGasto(datos);
   if (datos.condicionPago === 'credito' && !datos.fechaVencimiento) {
     errores.push({ campo: 'fechaVencimiento', mensaje: 'La fecha de vencimiento es obligatoria para gastos al crédito.' });
   }
+  errores.push(...validarTipoCambioGasto(datos, monedaBase));
+  errores.push(...validarImpuestoAplicableGasto(datos));
   return errores;
 }
 
@@ -485,6 +529,44 @@ export function puedeAnularGasto(
   pagos: readonly PagoCompra[],
 ): boolean {
   return motivoBloqueoAnulacionGasto(gasto, cuentaPorPagar, pagos) === null;
+}
+
+/**
+ * Un motivo de anulación (de gasto o de pago) nunca puede quedar vacío o ser
+ * solo espacios — la validación vive aquí, no solo en el modal que lo
+ * captura, para que `anularGasto`/`anularPagoGasto` lo rechacen igual si se
+ * invocaran directamente. Devuelve el motivo ya recortado (`trim()`), listo
+ * para persistirse tal cual — nunca el texto crudo con espacios sobrantes.
+ */
+export function normalizarMotivoAnulacion(motivo: string | undefined): string {
+  const motivoLimpio = motivo?.trim() ?? '';
+  if (!motivoLimpio) {
+    throw new Error('Ingresa un motivo de anulación.');
+  }
+  return motivoLimpio;
+}
+
+/**
+ * GAS-P1-004: mientras Caja no sea multimoneda (`Movimiento` no conserva una
+ * moneda propia, `control-caja/models/Caja.ts`), un gasto en moneda distinta
+ * de la moneda base de la empresa NO puede pagarse con un medio que impacte
+ * Caja física — el monto se registraría en Caja sin conversión, como si
+ * fuera moneda base, descuadrando el saldo real. Medios que no impactan Caja
+ * (transferencia, tarjeta, Yape, etc.) siguen permitidos sin restricción:
+ * la regla usa la MISMA función `esMedioDeCaja` que ya decide esto en Caja
+ * y en Compras, nunca una lista de medios propia. Se evalúa la operación
+ * COMPLETA (todos los medios de pago a la vez): basta que uno solo de caja
+ * esté presente para bloquear el intento entero, antes de persistir nada.
+ */
+export function motivoBloqueoEfectivoMonedaExtranjera(
+  moneda: string,
+  monedaBase: string,
+  mediosPago: readonly Pick<MedioPagoCompra, 'medioPagoCodigo' | 'monto'>[],
+): string | null {
+  if (!moneda || !monedaBase || moneda === monedaBase) return null;
+  const hayMedioDeCaja = mediosPago.some((m) => m.monto > 0 && esMedioDeCaja(m.medioPagoCodigo));
+  if (!hayMedioDeCaja) return null;
+  return 'No se puede registrar un pago en efectivo porque la moneda del gasto es distinta de la moneda base de la empresa.';
 }
 
 /**

@@ -55,6 +55,8 @@ function crearSerieGastoFixture(overrides: Partial<Series> = {}): Series {
   };
 }
 
+const MONEDA_BASE_FIXTURE = 'PEN';
+
 function crearDatosGastoFixture(overrides: Partial<DatosNuevoGasto> = {}): DatosNuevoGasto {
   return {
     empresaId: 'empresa-1',
@@ -67,6 +69,7 @@ function crearDatosGastoFixture(overrides: Partial<DatosNuevoGasto> = {}): Datos
     impuesto: 18,
     total: 118,
     tratamientoImpuesto: 'no_recuperable',
+    impuestoId: 'imp-igv',
     condicionPago: 'contado',
     ...overrides,
   };
@@ -91,7 +94,7 @@ function simularRegistrarGasto(
   incrementSeriesCorrelative: (seriesId: string, nextCorrelative: number) => void,
   gastosExistentes: readonly Gasto[] = [],
 ): SalidaComandoRegistrar {
-  const erroresBasicos = validarGastoBasico(datos);
+  const erroresBasicos = validarGastoBasico(datos, MONEDA_BASE_FIXTURE);
   if (erroresBasicos.length > 0) throw new Error(erroresBasicos.map((e) => e.mensaje).join(' '));
 
   const gastoExistentePorClave = buscarGastoPorClaveIdempotencia(gastosExistentes, datos.claveIdempotencia);

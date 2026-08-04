@@ -5,6 +5,7 @@ import type {
   RolPersonalizado,
   TipoRolConfiguracion,
 } from '../roles/tiposRolesPermisos';
+import { CATALOGO_PERMISOS } from '../roles/catalogoPermisos';
 import { normalizarCorreo } from './usuariosAsignaciones';
 
 type SesionPermisosBasica = {
@@ -136,6 +137,30 @@ export const obtenerRolesPorIds = (
     });
 };
 
+type ParametrosResolucionPermisos = Omit<ParametrosPermiso, 'permisoId'>;
+
+/**
+ * Une los permisos de todos los roles asignados al usuario (globales + los
+ * asignados específicamente para el establecimiento activo). Es la única
+ * fuente de verdad para resolver "qué puede hacer realmente este usuario" —
+ * tanto `tienePermiso` como el cálculo de acceso total se derivan de aquí.
+ */
+export const obtenerPermisosDeUsuario = ({
+  usuario,
+  rolesDisponibles,
+  establecimientoId,
+}: ParametrosResolucionPermisos): Set<string> => {
+  if (!usuario) return new Set();
+
+  const ids = new Set<string>(usuario.systemAccess.roleIds ?? []);
+  obtenerRoleIdsPorEstablecimiento(usuario, establecimientoId).forEach((id) => ids.add(id));
+
+  const rolesAsignados = obtenerRolesPorIds(Array.from(ids), rolesDisponibles);
+  const permisos = new Set<string>();
+  rolesAsignados.forEach((rol) => rol.permisos.forEach((permisoId) => permisos.add(permisoId)));
+  return permisos;
+};
+
 export const tienePermiso = ({
   usuario,
   permisoId,
@@ -145,13 +170,36 @@ export const tienePermiso = ({
   if (!usuario) return false;
   if (!permisoId) return false;
 
-  const ids = new Set<string>(usuario.systemAccess.roleIds ?? []);
-  obtenerRoleIdsPorEstablecimiento(usuario, establecimientoId).forEach((id) => ids.add(id));
-
-  const rolesAsignados = obtenerRolesPorIds(Array.from(ids), rolesDisponibles);
-  return rolesAsignados.some((rol) => rol.permisos.includes(permisoId));
+  return obtenerPermisosDeUsuario({ usuario, rolesDisponibles, establecimientoId }).has(permisoId);
 };
 
 export const tieneAlgunoDePermisos = (
   params: Omit<ParametrosPermiso, 'permisoId'> & { permisos: string[] },
 ): boolean => params.permisos.some((permisoId) => tienePermiso({ ...params, permisoId }));
+
+/**
+ * Acceso total = el usuario tiene, a través de sus roles asignados, TODOS
+ * los permisos definidos hoy en el catálogo (`CATALOGO_PERMISOS`). No depende
+ * de ningún id de rol, correo o nombre de usuario específico: cualquier rol
+ * (del sistema o personalizado) que cubra el 100% del catálogo otorga acceso
+ * total, exactamente igual que hoy lo hace el rol "Administrador".
+ */
+export const tieneAccesoTotalCatalogo = (params: ParametrosResolucionPermisos): boolean => {
+  if (!params.usuario) return false;
+  const permisos = obtenerPermisosDeUsuario(params);
+  if (permisos.size === 0) return false;
+  return CATALOGO_PERMISOS.every((permiso) => permisos.has(permiso.id));
+};
+
+/**
+ * Resuelve los permisos reales que debe llevar `UserSession.permissions`.
+ * Devuelve la lista granular del usuario y, únicamente cuando esos permisos
+ * cubren el catálogo completo, agrega también `'*'` (por compatibilidad con
+ * las pantallas que hoy usan ese wildcard para identificar una sesión con
+ * acceso total, p. ej. gestión de usuarios).
+ */
+export const resolverPermisosSesion = (params: ParametrosResolucionPermisos): string[] => {
+  const permisos = obtenerPermisosDeUsuario(params);
+  const listado = Array.from(permisos);
+  return tieneAccesoTotalCatalogo(params) ? ['*', ...listado] : listado;
+};

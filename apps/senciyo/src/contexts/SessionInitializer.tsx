@@ -2,6 +2,10 @@ import { useEffect, useRef } from 'react';
 import { useUserSession } from './UserSessionContext';
 import { useConfigurationContext } from '../pages/Private/features/configuracion-sistema/contexto/ContextoConfiguracion';
 import { construirNombreCompleto } from '../pages/Private/features/configuracion-sistema/utilidades/usuariosAsignaciones';
+import {
+  obtenerUsuarioDesdeSesion,
+  resolverPermisosSesion,
+} from '../pages/Private/features/configuracion-sistema/utilidades/permisos';
 import { useAuthStore } from '../pages/Private/features/autenticacion/store/AuthStore';
 import { clientesClient } from '../pages/Private/features/gestion-clientes/api';
 import { useTenant } from '../shared/tenant/TenantContext';
@@ -10,10 +14,17 @@ import { useTenant } from '../shared/tenant/TenantContext';
  * Componente que sincroniza el UserSessionContext con ConfigurationContext
  * Inicializa la sesión del usuario con el establecimiento principal o el primero disponible
  */
+const sonPermisosIguales = (a: string[], b: string[]): boolean => {
+  if (a.length !== b.length) return false;
+  const ordenadosA = [...a].sort();
+  const ordenadosB = [...b].sort();
+  return ordenadosA.every((permiso, indice) => permiso === ordenadosB[indice]);
+};
+
 export function SessionInitializer({ children }: { children: React.ReactNode }) {
   const { session, setSession, clearSession } = useUserSession();
   const { tenantId, activeEstablecimientoId, setActiveEstablecimientoId } = useTenant();
-  const { state } = useConfigurationContext();
+  const { state, rolesConfigurados } = useConfigurationContext();
   const initializedRef = useRef(false);
   const ensuredClienteGeneralRef = useRef<string | null>(null);
   const isAuthenticated = useAuthStore((store) => store.isAuthenticated);
@@ -59,6 +70,10 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
 
     if (!session && !initializedRef.current) {
       initializedRef.current = true;
+      const usuarioInicial = obtenerUsuarioDesdeSesion(state.users, {
+        userId: authUser.id,
+        userEmail: authUser.email,
+      });
       setSession({
         userId: authUser.id,
         userName: construirNombreCompleto(authUser.nombre, authUser.apellido),
@@ -68,7 +83,18 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
         currentEstablecimientoId: establecimientoResuelto.id,
         currentEstablecimiento: establecimientoResuelto,
         availableEstablecimientos: activeEstablecimientos,
-        permissions: ['*'],
+        // Los permisos reales se resuelven desde el rol asignado al usuario
+        // (ver `resolverPermisosSesion`). Si el usuario todavía no tiene un
+        // registro en `state.users` (primer render tras autenticarse, antes
+        // de que ConfigurationContext le aprovisione el rol Administrador
+        // como propietario del tenant), esto se recalcula automáticamente
+        // en el efecto de reconciliación de abajo en cuanto ese registro
+        // exista — nunca queda forzado a '*' de forma incondicional.
+        permissions: resolverPermisosSesion({
+          usuario: usuarioInicial,
+          rolesDisponibles: rolesConfigurados,
+          establecimientoId: establecimientoResuelto.id,
+        }),
         role: authUser.rol,
       });
       return;
@@ -101,7 +127,20 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
       !session.currentEstablecimiento ||
       session.currentEstablecimiento.id !== establecimientoResuelto.id;
 
-    if (!companyDesactualizada && !establecimientosDesactualizados && !establecimientoDesactualizado) {
+    const usuarioActual = obtenerUsuarioDesdeSesion(state.users, session);
+    const permisosResueltos = resolverPermisosSesion({
+      usuario: usuarioActual,
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId: establecimientoResuelto.id,
+    });
+    const permisosDesactualizados = !sonPermisosIguales(session.permissions, permisosResueltos);
+
+    if (
+      !companyDesactualizada &&
+      !establecimientosDesactualizados &&
+      !establecimientoDesactualizado &&
+      !permisosDesactualizados
+    ) {
       return;
     }
 
@@ -112,6 +151,7 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
       currentEstablecimientoId: establecimientoResuelto.id,
       currentEstablecimiento: establecimientoResuelto,
       availableEstablecimientos: activeEstablecimientos,
+      permissions: permisosResueltos,
     });
   }, [
     activeEstablecimientoId,
@@ -121,6 +161,8 @@ export function SessionInitializer({ children }: { children: React.ReactNode }) 
     setSession,
     state.company,
     state.Establecimientos,
+    state.users,
+    rolesConfigurados,
     isAuthenticated,
     authUser,
     authReady,

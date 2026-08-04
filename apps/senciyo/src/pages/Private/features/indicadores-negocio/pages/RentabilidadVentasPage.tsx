@@ -39,7 +39,7 @@ import {
   filtrarFilasGastosOperativos,
   calcularIndicadoresGastosOperativos,
 } from '../../gastos/servicios/consultaGastosOperativos.service';
-import { cargarGastos } from '../../gastos/repositorios/repositorioGastos';
+import { cargarGastos, EVENTO_GASTOS_CAMBIADOS } from '../../gastos/repositorios/repositorioGastos';
 import { cargarCuentasPorPagar } from '../../compras/repositorios/repositorioCuentasPorPagar';
 import { cargarCategoriasGasto } from '../../gastos/repositorios/repositorioCategoriasGasto';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -316,8 +316,24 @@ const RentabilidadVentasPage: React.FC = () => {
   // Resultado operativo — Gastos operativos / Utilidad operativa / Margen operativo (§14).
   // Reutiliza EXCLUSIVAMENTE la proyección canónica de Gastos (`consultaGastosOperativos.service.ts`);
   // nunca inserta gastos como filas de venta ni recalcula el importe reconocido aquí.
-  const gastos = useMemo(() => cargarGastos(), []);
-  const cuentasPorPagarGasto = useMemo(() => cargarCuentasPorPagar(), []);
+  //
+  // GAS-P2-003: `gastos`/`cuentasPorPagarGasto` releen el repositorio cuando
+  // se registra/edita/anula un gasto (evento `gastos_cambiados`, el MISMO
+  // que ya usa `useCategoriasGasto.ts` para su propio recálculo reactivo) —
+  // nunca solo al montar la página. Estado (no `useMemo` con dependencia
+  // artificial) actualizado directamente por el listener — sin polling, sin
+  // intervalos: reacciona al evento real que el repositorio ya emite en cada
+  // escritura.
+  const [gastos, setGastos] = useState(() => cargarGastos());
+  const [cuentasPorPagarGasto, setCuentasPorPagarGasto] = useState(() => cargarCuentasPorPagar());
+  useEffect(() => {
+    const recargar = () => {
+      setGastos(cargarGastos());
+      setCuentasPorPagarGasto(cargarCuentasPorPagar());
+    };
+    window.addEventListener(EVENTO_GASTOS_CAMBIADOS, recargar);
+    return () => window.removeEventListener(EVENTO_GASTOS_CAMBIADOS, recargar);
+  }, []);
   const categoriasGastoPorId = useMemo(() => {
     const mapa = new Map<string, string>();
     cargarCategoriasGasto(empresaId).forEach((categoria) => mapa.set(categoria.id, categoria.nombre));

@@ -18,6 +18,8 @@ import { formatMoney, currencyManager } from '@/shared/currency';
 import { getTenantEmpresaId, lsKey } from '@/shared/tenant';
 import { useTenant } from '@/shared/tenant/TenantContext';
 import { useFeedback } from '@/shared/feedback/useFeedback';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { exportDatasetToExcel, type SimpleExcelColumn } from '@/shared/export/exportToExcel';
 import { useAutoExportRequest } from '@/shared/export/useAutoExportRequest';
@@ -162,10 +164,21 @@ export default function PaginaGastos() {
   const feedback = useFeedback();
   const navigate = useNavigate();
   const { state, anularGasto, descartarBorradorGasto } = useContextoGastos();
-  const { state: config } = useConfigurationContext();
+  const { state: config, rolesConfigurados } = useConfigurationContext();
   const { activeWorkspace } = useTenant();
   const empresaId = getTenantEmpresaId();
   const monedaBase = currencyManager.getSnapshot().baseCurrency.code;
+
+  // Fuente única de permisos reales (misma que usa `PermisoGuard`/`ContextoGastos`):
+  // ocultar/deshabilitar aquí es solo la primera capa — el comando en
+  // `ContextoGastos.tsx` vuelve a rechazar la operación aunque se invoque
+  // sin pasar por estos botones.
+  const { session } = useUserSession();
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(config.users, session), [config.users, session]);
+  const parametrosPermiso = { usuario: usuarioActual, rolesDisponibles: rolesConfigurados, establecimientoId: session?.currentEstablecimientoId };
+  const puedeCrearGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.crear' });
+  const puedeAnularGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.anular' });
+  const puedePagarGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.pagar' });
 
   const [categorias, setCategorias] = useState(() => cargarCategoriasGasto(empresaId));
   const recargarCategorias = useCallback(() => setCategorias(cargarCategoriasGasto(empresaId)), [empresaId]);
@@ -616,10 +629,12 @@ export default function PaginaGastos() {
             Exportar
           </button>
 
-          <button type="button" onClick={() => navigate('/gastos/nuevo')} className="shrink-0 flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap">
-            <Plus size={16} />
-            Registrar gasto
-          </button>
+          {puedeCrearGastos && (
+            <button type="button" onClick={() => navigate('/gastos/nuevo')} className="shrink-0 flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap">
+              <Plus size={16} />
+              Registrar gasto
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -652,15 +667,17 @@ export default function PaginaGastos() {
                     ))}
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-1">
-                        <button type="button" title={esEditable ? (esBorrador ? 'Editar / Registrar' : 'Editar') : 'Un gasto anulado no puede editarse'} disabled={!esEditable} onClick={(e) => abrirEditar(gasto, e)} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:pointer-events-none dark:hover:bg-gray-700">
-                          <Pencil size={15} />
-                        </button>
-                        {puedePagar && (
+                        {puedeCrearGastos && (
+                          <button type="button" title={esEditable ? (esBorrador ? 'Editar / Registrar' : 'Editar') : 'Un gasto anulado no puede editarse'} disabled={!esEditable} onClick={(e) => abrirEditar(gasto, e)} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-30 disabled:pointer-events-none dark:hover:bg-gray-700">
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {puedePagar && puedePagarGastos && (
                           <button type="button" title="Registrar pago" onClick={(e) => abrirRegistrarPago(gasto, e)} className="p-1.5 rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20">
                             <Wallet size={15} />
                           </button>
                         )}
-                        {gasto.estadoDocumento === 'registrado' && (
+                        {gasto.estadoDocumento === 'registrado' && puedeAnularGastos && (
                           <button
                             type="button"
                             title={motivoBloqueoAnular ?? 'Anular'}
@@ -678,7 +695,7 @@ export default function PaginaGastos() {
                             <XCircle size={15} />
                           </button>
                         )}
-                        {esBorrador && (
+                        {esBorrador && puedeCrearGastos && (
                           <button
                             type="button"
                             title="Descartar borrador"
@@ -720,9 +737,11 @@ export default function PaginaGastos() {
           <button onClick={() => abrirVer(gastoActivo)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
             <Eye size={15} /> Ver detalle
           </button>
-          <button onClick={() => abrirDuplicar(gastoActivo)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
-            <Copy size={15} /> Duplicar
-          </button>
+          {puedeCrearGastos && (
+            <button onClick={() => abrirDuplicar(gastoActivo)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
+              <Copy size={15} /> Duplicar
+            </button>
+          )}
           <button onClick={() => { setMenu(null); handleImprimirGasto(gastoActivo); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60">
             <Printer size={15} /> Imprimir / Guardar PDF
           </button>

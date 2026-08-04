@@ -612,3 +612,56 @@ describe('construirFilaExcelGastoOperativo (§15/§22-G de la corrección — ma
     }
   });
 });
+
+/**
+ * GAS-P2-003: `RentabilidadVentasPage.tsx` releía `gastos`/`cuentasPorPagar`
+ * solo una vez (`useMemo(() => cargarGastos(), [])`) — el indicador quedaba
+ * congelado con el primer valor aunque el usuario registrara/editara/anulara
+ * un gasto después. La corrección suscribe la página al evento real
+ * `EVENTO_GASTOS_CAMBIADOS` (el mismo que ya usa `useCategoriasGasto.ts`) y
+ * vuelve a llamar `cargarGastos()`/`cargarCuentasPorPagar()` cuando se
+ * dispara — no se puede montar el componente React en este proyecto (sin
+ * jsdom ni librería de testing de componentes), pero este bloque prueba con
+ * las funciones REALES de producción que, dado un arreglo de gastos FRESCO
+ * (exactamente lo que produce un nuevo `cargarGastos()` tras el evento), el
+ * resultado operativo SÍ refleja el cambio — la mitad de la corrección que sí
+ * es verificable sin un DOM real.
+ */
+describe('Reactividad del resultado operativo ante cambios en Gastos (GAS-P2-003)', () => {
+  it('registrar un nuevo gasto y volver a proyectar con el arreglo actualizado incrementa los gastos operativos reconocidos', () => {
+    const gastosAntes: Gasto[] = [];
+    const indicadoresAntes = calcularIndicadoresGastosOperativos(proyectar({ gastos: gastosAntes }));
+    expect(indicadoresAntes.gastosOperativosReconocidos).toBe(0);
+
+    // Simula lo que `cargarGastos()` devolvería tras el evento
+    // `gastos_cambiados` disparado al registrar un gasto nuevo.
+    const gastosDespues: Gasto[] = [crearGastoFixture({ id: 'gasto-nuevo', total: 118 })];
+    const indicadoresDespues = calcularIndicadoresGastosOperativos(proyectar({ gastos: gastosDespues }));
+    expect(indicadoresDespues.gastosOperativosReconocidos).toBe(118);
+  });
+
+  it('editar el importe de un gasto ya existente y volver a proyectar refleja el nuevo total, no el original', () => {
+    const gastoOriginal = crearGastoFixture({ id: 'gasto-1', total: 118, subtotal: 100, impuesto: 18 });
+    const indicadoresAntes = calcularIndicadoresGastosOperativos(proyectar({ gastos: [gastoOriginal] }));
+    expect(indicadoresAntes.gastosOperativosReconocidos).toBe(118);
+
+    // Simula la relectura tras editar el gasto (mismo id, nuevo total) — lo
+    // que `cargarGastos()` devolvería después de que `editarGasto` persista.
+    const gastoEditado = crearGastoFixture({ id: 'gasto-1', total: 200, subtotal: 200, impuesto: 0, tratamientoImpuesto: 'sin_desglose' });
+    const indicadoresDespues = calcularIndicadoresGastosOperativos(proyectar({ gastos: [gastoEditado] }));
+    expect(indicadoresDespues.gastosOperativosReconocidos).toBe(200);
+  });
+
+  it('anular un gasto y volver a proyectar hace que deje de afectar el resultado (queda en 0, no en su total anterior)', () => {
+    const gastoRegistrado = crearGastoFixture({ id: 'gasto-1', total: 118 });
+    const indicadoresAntes = calcularIndicadoresGastosOperativos(proyectar({ gastos: [gastoRegistrado] }));
+    expect(indicadoresAntes.gastosOperativosReconocidos).toBe(118);
+
+    // Simula la relectura tras anular el gasto — lo que `cargarGastos()`
+    // devolvería después de que `anularGasto` persista `estadoDocumento: 'anulado'`.
+    const gastoAnulado = crearGastoFixture({ id: 'gasto-1', total: 118, estadoDocumento: 'anulado', motivoAnulacion: 'Gasto duplicado' });
+    const filasDespues = proyectar({ gastos: [gastoAnulado] });
+    const indicadoresDespues = calcularIndicadoresGastosOperativos(filasDespues);
+    expect(indicadoresDespues.gastosOperativosReconocidos).toBe(0);
+  });
+});

@@ -75,7 +75,7 @@ async function simularRegistrarGastoConPagoInmediato(entrada: EntradaComandoCont
   if (entrada.datos.condicionPago !== 'contado') {
     throw new Error('Esta operación es exclusiva para gastos al contado.');
   }
-  const erroresBasicos = validarGastoBasico(entrada.datos);
+  const erroresBasicos = validarGastoBasico(entrada.datos, 'PEN');
   if (erroresBasicos.length > 0) throw new Error(erroresBasicos.map((e) => e.mensaje).join(' '));
 
   const pagoExistente = buscarPagoPorClaveIdempotencia(entrada.pagosExistentes, entrada.claveIdempotencia);

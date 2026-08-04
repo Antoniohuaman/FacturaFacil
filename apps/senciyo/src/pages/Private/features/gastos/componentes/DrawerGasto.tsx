@@ -8,15 +8,17 @@
 // del detalle (General/Pagos/Adjuntos/Historial — internos del Drawer,
 // nunca tabs principales del módulo).
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Receipt, Clock, Wallet, Paperclip, XCircle, Trash2, Printer, Pencil, MoreHorizontal } from 'lucide-react';
 import { Drawer } from '@/shared/ui/drawer/Drawer';
 import { formatMoney } from '@/shared/currency';
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import { useTenant } from '@/shared/tenant/TenantContext';
+import { useUserSession } from '@/contexts/UserSessionContext';
 import { CreditScheduleSummaryCard } from '@/shared/payments/CreditScheduleSummaryCard';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import AdjuntosCompra from '../../compras/componentes/adjuntos/AdjuntosCompra';
 import { ModalAnularDocumento } from '@/shared/ui';
 import { formatearFecha } from '@/shared/formatters/fechas';
@@ -88,9 +90,19 @@ type TabGasto = 'general' | 'pagos' | 'adjuntos' | 'historial';
 export default function DrawerGasto({ gasto, categorias, establecimientos, pestanaInicial, onCerrar, onEditar, onGuardado }: DrawerGastoProps) {
   const feedback = useFeedback();
   const navigate = useNavigate();
-  const { state: config } = useConfigurationContext();
+  const { state: config, rolesConfigurados } = useConfigurationContext();
   const { activeWorkspace } = useTenant();
   const { anularGasto, descartarBorradorGasto, anularPagoGasto, obtenerCuentaPorPagarDeGasto, obtenerPagosDeGasto } = useContextoGastos();
+
+  // Misma fuente de permisos reales que `PaginaGastos.tsx`/`ContextoGastos.tsx`
+  // — el Drawer oculta las acciones sin permiso, pero el comando real vuelve
+  // a rechazarlas de todas formas si se invocara sin pasar por aquí.
+  const { session } = useUserSession();
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(config.users, session), [config.users, session]);
+  const parametrosPermiso = { usuario: usuarioActual, rolesDisponibles: rolesConfigurados, establecimientoId: session?.currentEstablecimientoId };
+  const puedeCrearGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.crear' });
+  const puedeAnularGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.anular' });
+  const puedePagarGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.pagar' });
 
   const [tabActivo, setTabActivo] = useState<TabGasto>(pestanaInicial ?? 'general');
   const [menuAccionesAbierto, setMenuAccionesAbierto] = useState(false);
@@ -178,7 +190,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
 
   const accionesEncabezado = (
     <div className="flex shrink-0 items-center gap-1">
-      {gasto.estadoDocumento !== 'anulado' && (
+      {gasto.estadoDocumento !== 'anulado' && puedeCrearGastos && (
         <button
           type="button"
           title={esEditable ? (esBorrador ? 'Editar / Registrar' : 'Editar') : 'Un gasto con pagos aplicados ya no puede editarse'}
@@ -189,7 +201,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
           <Pencil size={14} /> {esBorrador ? 'Editar / Registrar' : 'Editar'}
         </button>
       )}
-      {esBorrador && (
+      {esBorrador && puedeCrearGastos && (
         <button
           type="button"
           title="Descartar borrador"
@@ -199,7 +211,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
           <Trash2 size={14} /> Descartar
         </button>
       )}
-      {gasto.estadoDocumento === 'registrado' && (estadoPago === 'pendiente' || estadoPago === 'parcial') && (
+      {gasto.estadoDocumento === 'registrado' && (estadoPago === 'pendiente' || estadoPago === 'parcial') && puedePagarGastos && (
         <button
           type="button"
           title="Registrar pago"
@@ -209,7 +221,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
           <Wallet size={14} /> Registrar pago
         </button>
       )}
-      {gasto.estadoDocumento === 'registrado' && (
+      {gasto.estadoDocumento === 'registrado' && puedeAnularGastos && (
         <button
           type="button"
           title={tienePagosActivos ? 'Anula primero los pagos relacionados' : 'Anular gasto'}
@@ -354,7 +366,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
                       <Campo label="Importe" valor={formatMoney(p.montoTotalPagado, p.moneda)} />
                       <Campo label="Medio(s) de pago" valor={p.mediosPago.map((m) => m.medioPagoNombre).join(', ') || '—'} />
                       {p.creadoPor && <Campo label="Usuario" valor={p.creadoPor} />}
-                      {p.estadoDocumento === 'registrado' && (
+                      {p.estadoDocumento === 'registrado' && puedePagarGastos && (
                         <div className="flex justify-end pt-1">
                           <button type="button" onClick={() => setAnulandoPago({ id: p.id, numeroPago: p.numeroPago })} className="text-red-600 text-xs font-medium hover:underline">
                             Anular pago
@@ -366,7 +378,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
                 </div>
               )}
 
-              {gasto.estadoDocumento === 'registrado' && (estadoPago === 'pendiente' || estadoPago === 'parcial') && (
+              {gasto.estadoDocumento === 'registrado' && (estadoPago === 'pendiente' || estadoPago === 'parcial') && puedePagarGastos && (
                 <div className="pt-2 border-t border-gray-100">
                   <button
                     type="button"

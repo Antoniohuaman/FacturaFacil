@@ -10,12 +10,13 @@
 // mismo patrón de registrar-antes-de-comprometer ya usado por
 // `ContextoCompras.tsx` — nunca una segunda implementación independiente.
 
-import { useEffect, useReducer, useCallback, type ReactNode } from 'react';
+import { useEffect, useReducer, useCallback, useMemo, type ReactNode } from 'react';
 import { getTenantEmpresaId } from '@/shared/tenant';
 import { ContextoGastos, type ContextoGastosValue, type RegistrarGastoConPagoInmediatoInput, type EstadoGastos } from './useContextoGastos';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { getConfiguredPaymentMeans } from '@/shared/payments/paymentMeans';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import { useSeriesCommands } from '../../configuracion-sistema/hooks/useComandosSeries';
 import { useCaja } from '../../control-caja/context/CajaContext';
 import { siguienteNumeroPago } from '../../compras/utilidades/formatearCompras';
@@ -52,6 +53,8 @@ import {
   validarGastoBasico,
   validarMinimoBorradorGasto,
   motivoBloqueoAnulacionGasto,
+  motivoBloqueoEfectivoMonedaExtranjera,
+  normalizarMotivoAnulacion,
   nivelEdicionGasto,
   puedeDescartarBorradorGasto,
   MOTIVO_DESCARTE_BORRADOR_GASTO,
@@ -120,11 +123,42 @@ interface MovimientoCajaIntentadoGasto {
 
 export function GastosProvider({ children }: GastosProviderProps) {
   const [state, dispatch] = useReducer(reductorGastos, { gastos: [], cargado: false });
-  const { state: config } = useConfigurationContext();
+  const { state: config, rolesConfigurados } = useConfigurationContext();
   const { incrementSeriesCorrelative } = useSeriesCommands();
   const { status: estadoCaja, agregarMovimiento, activeCajaId } = useCaja();
   const { session } = useUserSession();
   const empresaId = getTenantEmpresaId();
+  // Moneda base real de la empresa (nunca asumida 'PEN') — fuente única para
+  // validar tipo de cambio y para bloquear efectivo en moneda extranjera
+  // (GAS-P1-004), reutilizada por todos los comandos de este contexto en vez
+  // de recalcularse de forma distinta en cada uno.
+  const monedaBase = config.currencies.find((c) => c.isBaseCurrency)?.code ?? '';
+
+  // Usuario real de configuración (roles/permisos) detrás de la sesión
+  // autenticada — misma fuente de verdad que usa `PermisoGuard` para las
+  // rutas. Cada comando de este contexto vuelve a verificar el permiso aquí,
+  // en el propio dominio: ocultar un botón en la UI no es suficiente,
+  // porque los comandos son invocables directamente (p. ej. desde otro
+  // componente o la consola) sin pasar por el guard de rutas.
+  const usuarioActual = useMemo(
+    () => obtenerUsuarioDesdeSesion(config.users, session),
+    [config.users, session],
+  );
+
+  const verificarPermisoGasto = useCallback(
+    (permisoId: string, mensajeError: string) => {
+      const autorizado = tienePermiso({
+        usuario: usuarioActual,
+        permisoId,
+        rolesDisponibles: rolesConfigurados,
+        establecimientoId: session?.currentEstablecimientoId,
+      });
+      if (!autorizado) {
+        throw new Error(mensajeError);
+      }
+    },
+    [usuarioActual, rolesConfigurados, session?.currentEstablecimientoId],
+  );
 
   /**
    * Revierte movimientos de Caja ya aplicados cuando el resto de la
@@ -177,6 +211,7 @@ export function GastosProvider({ children }: GastosProviderProps) {
    */
   const guardarBorradorGasto = useCallback(
     async (datos: DatosNuevoGasto, usuarioId?: string, gastoExistenteId?: string): Promise<Gasto> => {
+      verificarPermisoGasto('gastos.crear', 'No tienes permiso para registrar gastos.');
       lanzarSiHayErrores(validarMinimoBorradorGasto(datos));
 
       if (gastoExistenteId) {
@@ -203,11 +238,12 @@ export function GastosProvider({ children }: GastosProviderProps) {
       dispatch({ type: 'AGREGAR_GASTO', payload: gasto });
       return gasto;
     },
-    [state.gastos],
+    [state.gastos, verificarPermisoGasto],
   );
 
   const descartarBorradorGasto = useCallback(
     async (id: string, usuarioId?: string): Promise<void> => {
+      verificarPermisoGasto('gastos.crear', 'No tienes permiso para descartar borradores de gastos.');
       const gasto = state.gastos.find((g) => g.id === id);
       if (!gasto) throw new Error(`Gasto ${id} no encontrado.`);
       if (!puedeDescartarBorradorGasto(gasto)) {
@@ -231,12 +267,13 @@ export function GastosProvider({ children }: GastosProviderProps) {
       agregarOActualizarGasto(gastoDescartado);
       dispatch({ type: 'ACTUALIZAR_GASTO', payload: gastoDescartado });
     },
-    [state.gastos],
+    [state.gastos, verificarPermisoGasto],
   );
 
   const registrarGasto = useCallback(
     async (datos: DatosNuevoGasto, usuarioId?: string, gastoExistenteId?: string): Promise<Gasto> => {
-      lanzarSiHayErrores(validarGastoBasico(datos));
+      verificarPermisoGasto('gastos.crear', 'No tienes permiso para registrar gastos.');
+      lanzarSiHayErrores(validarGastoBasico(datos, monedaBase));
 
       // Idempotencia del COMANDO "Registrar gasto"/conversión de borrador
       // (§13 de la corrección final, fortalecida en la corrección técnica
@@ -307,7 +344,7 @@ export function GastosProvider({ children }: GastosProviderProps) {
 
       return gasto;
     },
-    [config.series, incrementSeriesCorrelative],
+    [config.series, monedaBase, incrementSeriesCorrelative, verificarPermisoGasto],
   );
 
   /**
@@ -326,7 +363,9 @@ export function GastosProvider({ children }: GastosProviderProps) {
    */
   const registrarGastoConPagoInmediato = useCallback(
     async (input: RegistrarGastoConPagoInmediatoInput, usuarioId?: string): Promise<Gasto> => {
-      lanzarSiHayErrores(validarGastoBasico(input.datos));
+      verificarPermisoGasto('gastos.crear', 'No tienes permiso para registrar gastos.');
+      verificarPermisoGasto('gastos.pagar', 'No tienes permiso para registrar pagos de gastos.');
+      lanzarSiHayErrores(validarGastoBasico(input.datos, monedaBase));
 
       // Idempotencia del COMANDO completo (gasto + CxP + pago + Caja) — un
       // reintento con la MISMA clave nunca crea un segundo gasto ni un
@@ -351,6 +390,14 @@ export function GastosProvider({ children }: GastosProviderProps) {
       }
       if (tieneMedioDeCaja(input.mediosPago) && estadoCaja !== 'abierta') {
         throw new Error('Abre una caja para registrar el pago en efectivo.');
+      }
+      // GAS-P1-004: Caja no es multimoneda — un gasto en moneda extranjera
+      // pagado en efectivo se registraría en Caja sin conversión. Se valida
+      // en dominio (no solo en la UI) para que no pueda evadirse invocando
+      // el comando directamente.
+      const motivoBloqueoMoneda = motivoBloqueoEfectivoMonedaExtranjera(input.datos.moneda, monedaBase, input.mediosPago);
+      if (motivoBloqueoMoneda) {
+        throw new Error(motivoBloqueoMoneda);
       }
       const serieGasto = resolverSerieGastoSeleccionada(config.series, input.datos.serieId);
       if (!serieGasto) {
@@ -471,11 +518,23 @@ export function GastosProvider({ children }: GastosProviderProps) {
         throw error;
       }
     },
-    [state.gastos, estadoCaja, activeCajaId, agregarMovimiento, compensarMovimientosCajaGasto, session, config.series, incrementSeriesCorrelative],
+    [
+      state.gastos,
+      estadoCaja,
+      activeCajaId,
+      agregarMovimiento,
+      compensarMovimientosCajaGasto,
+      session,
+      config.series,
+      monedaBase,
+      incrementSeriesCorrelative,
+      verificarPermisoGasto,
+    ],
   );
 
   const editarGasto = useCallback(
     async (id: string, datos: DatosNuevoGasto, usuarioId?: string): Promise<Gasto> => {
+      verificarPermisoGasto('gastos.crear', 'No tienes permiso para editar gastos.');
       const gastoActual = state.gastos.find((g) => g.id === id);
       if (!gastoActual) throw new Error(`Gasto ${id} no encontrado.`);
       const nivel = nivelEdicionGasto(gastoActual, obtenerCuentaPorPagarDeGasto(gastoActual), obtenerPagosDeGasto(gastoActual));
@@ -506,7 +565,7 @@ export function GastosProvider({ children }: GastosProviderProps) {
         return gastoActualizado;
       }
 
-      lanzarSiHayErrores(validarGastoBasico(datos));
+      lanzarSiHayErrores(validarGastoBasico(datos, monedaBase));
 
       // Edición completa (borrador, o registrado sin pagos aplicados).
       // Reconstruye los campos editables desde `crearGasto` (misma fórmula de
@@ -545,11 +604,13 @@ export function GastosProvider({ children }: GastosProviderProps) {
       dispatch({ type: 'ACTUALIZAR_GASTO', payload: gastoActualizado });
       return gastoActualizado;
     },
-    [state.gastos, obtenerCuentaPorPagarDeGasto, obtenerPagosDeGasto],
+    [state.gastos, obtenerCuentaPorPagarDeGasto, obtenerPagosDeGasto, monedaBase, verificarPermisoGasto],
   );
 
   const anularGasto = useCallback(
     async (id: string, motivo: string, anuladoPor?: string): Promise<void> => {
+      verificarPermisoGasto('gastos.anular', 'No tienes permiso para anular gastos.');
+      const motivoLimpio = normalizarMotivoAnulacion(motivo);
       const gasto = state.gastos.find((g) => g.id === id);
       if (!gasto) throw new Error(`Gasto ${id} no encontrado.`);
 
@@ -562,24 +623,24 @@ export function GastosProvider({ children }: GastosProviderProps) {
 
       const ts = ahora();
       if (cxp) {
-        const cxpAnulada = anularCuentaPorPagar(cxp, motivo, ts);
+        const cxpAnulada = anularCuentaPorPagar(cxp, motivoLimpio, ts);
         agregarOActualizarCxP(cxpAnulada);
       }
 
       const gastoAnulado: Gasto = {
         ...gasto,
         estadoDocumento: 'anulado',
-        motivoAnulacion: motivo,
+        motivoAnulacion: motivoLimpio,
         tipoCierre: 'anulacion',
         fechaAnulacion: ts,
         anuladoPor,
-        historial: [...gasto.historial, { fecha: ts, usuario: anuladoPor, accion: 'Gasto anulado', detalle: motivo }],
+        historial: [...gasto.historial, { fecha: ts, usuario: anuladoPor, accion: 'Gasto anulado', detalle: motivoLimpio }],
         fechaActualizacion: ts,
       };
       agregarOActualizarGasto(gastoAnulado);
       dispatch({ type: 'ACTUALIZAR_GASTO', payload: gastoAnulado });
     },
-    [state.gastos],
+    [state.gastos, verificarPermisoGasto],
   );
 
   /**
@@ -613,6 +674,7 @@ export function GastosProvider({ children }: GastosProviderProps) {
       usuarioId?: string,
       seriePago?: string,
     ): Promise<PagoCompra> => {
+      verificarPermisoGasto('gastos.pagar', 'No tienes permiso para registrar pagos de gastos.');
       const pagoExistente = buscarPagoPorClaveIdempotencia(listarPagosPorOrigen('gasto'), datos.claveIdempotencia);
       if (pagoExistente) return pagoExistente;
 
@@ -634,6 +696,14 @@ export function GastosProvider({ children }: GastosProviderProps) {
 
       if (tieneMedioDeCaja(datos.mediosPago) && estadoCaja !== 'abierta') {
         throw new Error('Abre una caja para registrar el pago en efectivo.');
+      }
+      // GAS-P1-004: mismo bloqueo que en "Registrar y pagar" — Caja no es
+      // multimoneda, así que un gasto en moneda extranjera nunca puede
+      // pagarse con un medio que impacte Caja física, sin importar si el
+      // pago se registra desde este flujo independiente o desde el inmediato.
+      const motivoBloqueoMoneda = motivoBloqueoEfectivoMonedaExtranjera(datos.moneda, monedaBase, datos.mediosPago);
+      if (motivoBloqueoMoneda) {
+        throw new Error(motivoBloqueoMoneda);
       }
       if (!seriePago) {
         throw new Error('No hay una serie de pago (PG) configurada. Ve a Configuración → Series y crea una serie activa de tipo "Pago a proveedor".');
@@ -716,11 +786,22 @@ export function GastosProvider({ children }: GastosProviderProps) {
         throw error;
       }
     },
-    [state.gastos, estadoCaja, activeCajaId, agregarMovimiento, compensarMovimientosCajaGasto, session, config.currencies],
+    [
+      state.gastos,
+      estadoCaja,
+      activeCajaId,
+      agregarMovimiento,
+      compensarMovimientosCajaGasto,
+      session,
+      config.currencies,
+      verificarPermisoGasto,
+    ],
   );
 
   const anularPagoGasto = useCallback(
     async (pagoId: string, motivo: string, anuladoPor?: string): Promise<void> => {
+      verificarPermisoGasto('gastos.pagar', 'No tienes permiso para anular pagos de gastos.');
+      const motivoLimpio = normalizarMotivoAnulacion(motivo);
       const pagos = listarPagosPorOrigen('gasto');
       const pago = pagos.find((p) => p.id === pagoId);
       if (!pago) throw new Error(`Pago ${pagoId} no encontrado.`);
@@ -754,10 +835,10 @@ export function GastosProvider({ children }: GastosProviderProps) {
       const pagoAnulado: PagoCompra = {
         ...pago,
         estadoDocumento: 'anulado',
-        motivoAnulacion: motivo,
+        motivoAnulacion: motivoLimpio,
         fechaAnulacion: ts,
         anuladoPor,
-        historial: [...pago.historial, { fecha: ts, usuario: anuladoPor, accion: 'Pago anulado', detalle: motivo }],
+        historial: [...pago.historial, { fecha: ts, usuario: anuladoPor, accion: 'Pago anulado', detalle: motivoLimpio }],
       };
       agregarOActualizarPago(pagoAnulado);
 
@@ -781,7 +862,7 @@ export function GastosProvider({ children }: GastosProviderProps) {
         dispatch({ type: 'ACTUALIZAR_GASTO', payload: gastoActualizado });
       }
     },
-    [state.gastos, estadoCaja, agregarMovimiento, session],
+    [state.gastos, estadoCaja, agregarMovimiento, session, verificarPermisoGasto],
   );
 
   const value: ContextoGastosValue = {

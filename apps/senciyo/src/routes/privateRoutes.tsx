@@ -204,9 +204,9 @@ export const privateRoutes: RouteObject[] = [
         element: <GastosLayout />,
         children: [
           { path: "/gastos", element: conPermisos(<PaginaGastos />, ['gastos.ver']) },
-          { path: "/gastos/nuevo", element: conPermisos(<PaginaFormularioGasto />, ['gastos.ver']) },
-          { path: "/gastos/:id/editar", element: conPermisos(<PaginaFormularioGasto />, ['gastos.ver']) },
-          { path: "/gastos/:id/pagar", element: conPermisos(<PaginaRegistrarPagoGasto />, ['gastos.ver']) },
+          { path: "/gastos/nuevo", element: conPermisos(<PaginaFormularioGasto />, ['gastos.crear']) },
+          { path: "/gastos/:id/editar", element: conPermisos(<PaginaFormularioGasto />, ['gastos.crear']) },
+          { path: "/gastos/:id/pagar", element: conPermisos(<PaginaRegistrarPagoGasto />, ['gastos.pagar']) },
         ],
       },
       { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },

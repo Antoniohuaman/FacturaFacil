@@ -4,6 +4,7 @@ import {
   crearCategoriaGasto,
   editarCategoriaGasto,
   cambiarEstadoCategoriaGasto,
+  existeNombreCategoriaGastoDuplicado,
 } from './servicioCategoriaGasto';
 import type { CategoriaGasto } from '../modelos/CategoriaGasto';
 import type { Gasto } from '../modelos/Gasto';
@@ -109,6 +110,32 @@ describe('crearCategoriaGasto', () => {
     crearCategoriaGasto(categorias, { nombre: 'Publicidad' }, 'empresa-1', 'cat-2', '2026-07-02T00:00:00.000Z');
     expect(categorias).toHaveLength(1);
   });
+
+  it('rechaza un nombre duplicado con distinta capitalización y espacios ("Alquileres" ya existe, no acepta " alquileres ")', () => {
+    const categorias = [crearCategoriaFixture({ nombre: 'Alquileres' })];
+    expect(() => crearCategoriaGasto(categorias, { nombre: ' alquileres ' }, 'empresa-1', 'cat-2', '2026-07-02T00:00:00.000Z'))
+      .toThrow('Ya existe una categoría de gasto con ese nombre.');
+  });
+});
+
+describe('existeNombreCategoriaGastoDuplicado', () => {
+  it('detecta el mismo nombre sin importar mayúsculas/minúsculas o espacios al inicio/fin', () => {
+    const categorias = [crearCategoriaFixture({ nombre: 'Alquileres' })];
+    expect(existeNombreCategoriaGastoDuplicado(categorias, 'alquileres')).toBe(true);
+    expect(existeNombreCategoriaGastoDuplicado(categorias, '  Alquileres  ')).toBe(true);
+    expect(existeNombreCategoriaGastoDuplicado(categorias, 'ALQUILERES')).toBe(true);
+  });
+
+  it('no considera duplicado un nombre distinto', () => {
+    const categorias = [crearCategoriaFixture({ nombre: 'Alquileres' })];
+    expect(existeNombreCategoriaGastoDuplicado(categorias, 'Publicidad')).toBe(false);
+  });
+
+  it('editar una categoría sin cambiar su propio nombre NUNCA se detecta como duplicada contra sí misma', () => {
+    const categorias = [crearCategoriaFixture({ id: 'cat-1', nombre: 'Alquileres' })];
+    expect(existeNombreCategoriaGastoDuplicado(categorias, 'Alquileres', 'cat-1')).toBe(false);
+    expect(existeNombreCategoriaGastoDuplicado(categorias, '  alquileres  ', 'cat-1')).toBe(false);
+  });
 });
 
 describe('editarCategoriaGasto', () => {
@@ -117,6 +144,17 @@ describe('editarCategoriaGasto', () => {
     const siguiente = editarCategoriaGasto(categorias, 'cat-1', { nombre: 'Alquileres y rentas', descripcion: 'Incluye locales' });
     expect(siguiente.find((c) => c.id === 'cat-1')).toMatchObject({ nombre: 'Alquileres y rentas', descripcion: 'Incluye locales' });
     expect(siguiente.find((c) => c.id === 'cat-2')?.nombre).toBe('Publicidad');
+  });
+
+  it('editar una categoría sin cambiar su propio nombre no falla por "duplicado"', () => {
+    const categorias = [crearCategoriaFixture({ id: 'cat-1', nombre: 'Alquileres' })];
+    expect(() => editarCategoriaGasto(categorias, 'cat-1', { nombre: 'Alquileres', descripcion: 'Actualizada' })).not.toThrow();
+  });
+
+  it('rechaza renombrar una categoría al nombre (normalizado) de OTRA categoría existente', () => {
+    const categorias = [crearCategoriaFixture({ id: 'cat-1', nombre: 'Alquileres' }), crearCategoriaFixture({ id: 'cat-2', nombre: 'Publicidad' })];
+    expect(() => editarCategoriaGasto(categorias, 'cat-2', { nombre: '  ALQUILERES  ' }))
+      .toThrow('Ya existe una categoría de gasto con ese nombre.');
   });
 });
 

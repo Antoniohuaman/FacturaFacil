@@ -12,15 +12,27 @@
 //   3) construir el Pago y aplicarlo a la CxP con la función real
 //      `aplicarPagoACuentaPorPagar`.
 //
+// GAS-P1-003 (corrección aplicada): el payload que el formulario central
+// envía a este comando se construye con la función REAL
+// `construirDatosPagoCentral` (`compras/hooks/useFormularioPagoCompra.ts`) —
+// la MISMA que usa el hook en producción, nunca una reimplementación de "qué
+// campos lleva el payload". El describe "Propagación real de
+// claveIdempotencia" prueba exactamente el defecto original: antes de esta
+// corrección, `useFormularioPagoCompra.ts` nunca incluía
+// `claveIdempotencia` en el objeto enviado a `registrarPagoGastoCentral`, por
+// lo que `buscarPagoPorClaveIdempotencia` nunca encontraba un pago existente
+// y un reintento podía duplicar el pago y su movimiento de Caja.
+//
 // Se prueban las funciones/composición REALES de producción, no una
 // reimplementación paralela. Lo que esta prueba NO cubre (limitación del
 // entorno: `environment: 'node'` en vitest ⇒ `typeof window === 'undefined'`,
 // por lo que los repositorios de localStorage siempre devuelven `[]`/no-op
 // aquí, y no existe una librería de testing de componentes React en este
-// proyecto): el hook `registrarPagoGastoCentral` en sí montado dentro de
-// `GastosProvider`/`FormularioPagoCompra`, la escritura real a localStorage,
-// y el `agregarMovimiento` real de `CajaContext.tsx` (su propia protección de
-// idempotencia — clave compartida — ya está probada por separado en
+// proyecto): el hook `useFormularioPagoCompra`/`registrarPagoGastoCentral`
+// montados de punta a punta dentro de `GastosProvider`/`FormularioPagoCompra`,
+// la escritura real a localStorage, y el `agregarMovimiento` real de
+// `CajaContext.tsx` (su propia protección de idempotencia — clave
+// compartida — ya está probada por separado en
 // `control-caja/utils/validators.test.ts`).
 
 import { describe, it, expect } from 'vitest';
@@ -28,6 +40,7 @@ import { buscarPagoPorClaveIdempotencia } from '../../compras/servicios/servicio
 import { aplicarPagoACuentaPorPagar, revertirPagoDeCuentaPorPagar } from '../../compras/servicios/servicioCuentaPorPagar';
 import { generarCuentaPorPagarDesdeGasto } from '../servicios/servicioCuentaPorPagarGasto';
 import { motivoBloqueoAnulacionPago, round2 } from '../../compras/logica/reglasCompras';
+import { construirDatosPagoCentral } from '../../compras/hooks/useFormularioPagoCompra';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
 import type { PagoCompra, MedioPagoCompra } from '../../compras/modelos/PagoCompra';
 import type { Gasto } from '../modelos/Gasto';
@@ -357,5 +370,75 @@ describe('Idempotencia integral del comando "registrar pago de gasto" (§2 de la
     const cxpRevertida = revertirPagoDeCuentaPorPagar(cxpPagada, 118, 'pago-anular', '2026-07-06');
     expect(cxpRevertida.saldoPendiente).toBe(118);
     expect(cxpRevertida.estadoPago).toBe('pendiente');
+  });
+});
+
+describe('Propagación real de claveIdempotencia en el payload del formulario central (GAS-P1-003)', () => {
+  const aplicacionBase = {
+    cuentaPorPagarId: 'cxp-1',
+    tipoOrigen: 'gasto' as const,
+    documentoOrigenId: 'gasto-1',
+    comprobanteCompraId: '',
+    importeAplicado: 118,
+  };
+  const parametrosBase = {
+    fechaPago: '2026-07-05',
+    proveedorId: '',
+    proveedorNombre: 'Inmobiliaria XYZ',
+    moneda: 'PEN',
+    tipoCambio: undefined,
+    mediosPago: [crearMedioEfectivo(118)],
+    aplicaciones: [aplicacionBase],
+    documentoSustentoTipo: '',
+    documentoSustentoSerie: '',
+    documentoSustentoNumero: '',
+    concepto: '',
+    observaciones: '',
+    adjuntos: [],
+  };
+
+  it('el payload real siempre incluye la claveIdempotencia recibida — nunca queda undefined', () => {
+    const payload = construirDatosPagoCentral({ ...parametrosBase, claveIdempotencia: 'clave-form-1' });
+    expect(payload.claveIdempotencia).toBe('clave-form-1');
+  });
+
+  it('reutilizar la MISMA clave de estado en dos "envíos" (sin regenerarla) produce dos payloads con idéntica claveIdempotencia — la condición que permite a buscarPagoPorClaveIdempotencia detectar el reintento', () => {
+    // Simula la clave generada UNA VEZ por sesión del formulario
+    // (`useState(() => generarClaveIdempotenciaPago())`), reutilizada en dos
+    // "clics" de Registrar — nunca regenerada con `Date.now()` dentro del submit.
+    const claveDeEstado = 'pago-1700000000000-abc1234';
+    const primerEnvio = construirDatosPagoCentral({ ...parametrosBase, claveIdempotencia: claveDeEstado });
+    const reintento = construirDatosPagoCentral({ ...parametrosBase, claveIdempotencia: claveDeEstado });
+
+    expect(reintento.claveIdempotencia).toBe(primerEnvio.claveIdempotencia);
+
+    const pagoDelPrimerEnvio: PagoCompra = {
+      id: 'pago-1', numeroPago: 'PG01-1', fechaPago: primerEnvio.fechaPago, proveedorId: '', proveedorNombre: primerEnvio.proveedorNombre,
+      moneda: primerEnvio.moneda, montoTotalPagado: 118, mediosPago: primerEnvio.mediosPago, claveIdempotencia: primerEnvio.claveIdempotencia,
+      cuentasPorPagarAplicadas: ['cxp-1'], comprobantesCompraAplicados: [], tipoOrigen: 'gasto', estadoDocumento: 'registrado', historial: [], fechaCreacion: '2026-07-05T00:00:00.000Z',
+    };
+
+    // Con la clave real propagada, el reintento SÍ se reconoce como el mismo pago.
+    const encontrado = buscarPagoPorClaveIdempotencia([pagoDelPrimerEnvio], reintento.claveIdempotencia);
+    expect(encontrado).toBe(pagoDelPrimerEnvio);
+  });
+
+  it('regresión del defecto original: si cada envío generara su PROPIA clave (Date.now() dentro del submit, en vez de una sola vez por sesión) el reintento nunca se detectaría y se duplicaría el pago', () => {
+    // Reproduce EXACTAMENTE el bug que causaba GAS-P1-003 antes de esta
+    // corrección: `useFormularioPagoCompra.ts` nunca pasaba `claveIdempotencia`
+    // (quedaba `undefined`), así que `buscarPagoPorClaveIdempotencia` siempre
+    // retornaba `undefined` — cada "reintento" creaba un pago nuevo.
+    const payloadSinClavePropagada = construirDatosPagoCentral({ ...parametrosBase, claveIdempotencia: undefined as unknown as string });
+    expect(payloadSinClavePropagada.claveIdempotencia).toBeUndefined();
+
+    const pagoPrevio: PagoCompra = {
+      id: 'pago-1', numeroPago: 'PG01-1', fechaPago: '2026-07-05', proveedorId: '', proveedorNombre: 'Inmobiliaria XYZ',
+      moneda: 'PEN', montoTotalPagado: 118, mediosPago: [], claveIdempotencia: undefined,
+      cuentasPorPagarAplicadas: ['cxp-1'], comprobantesCompraAplicados: [], tipoOrigen: 'gasto', estadoDocumento: 'registrado', historial: [], fechaCreacion: '2026-07-05T00:00:00.000Z',
+    };
+
+    // `buscarPagoPorClaveIdempotencia` nunca reconoce una clave `undefined` —
+    // así se comportaba (incorrectamente) el flujo antes de la corrección.
+    expect(buscarPagoPorClaveIdempotencia([pagoPrevio], payloadSinClavePropagada.claveIdempotencia)).toBeUndefined();
   });
 });

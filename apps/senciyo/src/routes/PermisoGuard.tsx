@@ -23,11 +23,18 @@ export function PermisoGuard({ children, permisos, fallbackPath = '/sin-permiso'
     return null;
   }
 
-  if (session?.permissions?.includes('*')) {
-    return <>{children}</>;
+  const usuarioActual = obtenerUsuarioDesdeSesion(state.users, session);
+
+  if (!usuarioActual) {
+    // El usuario autenticado todavía no tiene un registro de configuración
+    // (roles/permisos) aprovisionado en este tenant — ocurre por un instante
+    // en el primer render tras iniciar sesión, mientras ConfigurationContext
+    // le asigna su rol de propietario. No es una denegación real: se espera
+    // a que el registro exista antes de decidir, igual que se espera a que
+    // `session` exista más arriba.
+    return null;
   }
 
-  const usuarioActual = obtenerUsuarioDesdeSesion(state.users, session);
   const tieneAcceso = tieneAlgunoDePermisos({
     usuario: usuarioActual,
     permisos,

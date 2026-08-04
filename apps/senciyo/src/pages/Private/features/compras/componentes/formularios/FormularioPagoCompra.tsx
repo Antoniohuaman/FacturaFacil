@@ -115,6 +115,12 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
           </div>
         )}
 
+        {f.erroresPorCampo.restriccionOrigen && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+            {f.erroresPorCampo.restriccionOrigen}
+          </div>
+        )}
+
         {!f.seriePG && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
             No hay una serie PG activa configurada. Ve a Configuración → Series y crea una serie de tipo &quot;Pago a proveedor&quot;.

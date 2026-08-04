@@ -22,12 +22,16 @@ import {
   motivoBloqueoAnulacionGasto,
   puedeAnularGasto,
   datosParaDuplicarGasto,
+  motivoBloqueoEfectivoMonedaExtranjera,
+  normalizarMotivoAnulacion,
   type DatosNuevoGasto,
 } from './servicioGasto';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
-import type { PagoCompra } from '../../compras/modelos/PagoCompra';
+import type { PagoCompra, MedioPagoCompra } from '../../compras/modelos/PagoCompra';
 import type { Series } from '../../configuracion-sistema/modelos/Series';
 import { getDocumentTypeForVoucherType } from '../../configuracion-sistema/utilidades/catalogoSeries';
+
+const MONEDA_BASE_FIXTURE = 'PEN';
 
 function crearDatosGastoBasicos(overrides: Partial<DatosNuevoGasto> = {}): DatosNuevoGasto {
   return {
@@ -41,6 +45,7 @@ function crearDatosGastoBasicos(overrides: Partial<DatosNuevoGasto> = {}): Datos
     impuesto: 18,
     total: 118,
     tratamientoImpuesto: 'no_recuperable',
+    impuestoId: 'imp-igv',
     condicionPago: 'contado',
     ...overrides,
   };
@@ -97,32 +102,66 @@ function crearPagoFixture(overrides: Partial<PagoCompra> = {}): PagoCompra {
 
 describe('validarGastoBasico', () => {
   it('acepta un gasto válido sin proveedor formal (beneficiario de texto libre)', () => {
-    expect(validarGastoBasico(crearDatosGastoBasicos())).toEqual([]);
+    expect(validarGastoBasico(crearDatosGastoBasicos(), MONEDA_BASE_FIXTURE)).toEqual([]);
   });
 
   it('exige proveedor O beneficiario — sin ninguno de los dos, falla', () => {
-    const errores = validarGastoBasico(crearDatosGastoBasicos({ beneficiario: undefined, proveedorId: undefined }));
+    const errores = validarGastoBasico(crearDatosGastoBasicos({ beneficiario: undefined, proveedorId: undefined }), MONEDA_BASE_FIXTURE);
     expect(errores.some((e) => e.campo === 'beneficiario')).toBe(true);
   });
 
   it('con proveedorId presente, no exige beneficiario', () => {
-    const errores = validarGastoBasico(crearDatosGastoBasicos({ beneficiario: undefined, proveedorId: 'prov-1' }));
+    const errores = validarGastoBasico(crearDatosGastoBasicos({ beneficiario: undefined, proveedorId: 'prov-1' }), MONEDA_BASE_FIXTURE);
     expect(errores.some((e) => e.campo === 'beneficiario')).toBe(false);
   });
 
   it('exige categoría, concepto, fecha de reconocimiento y total > 0', () => {
-    const errores = validarGastoBasico({});
+    const errores = validarGastoBasico({}, MONEDA_BASE_FIXTURE);
     expect(errores.map((e) => e.campo).sort()).toEqual(['beneficiario', 'categoriaId', 'concepto', 'fechaReconocimiento', 'total'].sort());
   });
 
   it('gasto al crédito sin fecha de vencimiento falla', () => {
-    const errores = validarGastoBasico(crearDatosGastoBasicos({ condicionPago: 'credito' }));
+    const errores = validarGastoBasico(crearDatosGastoBasicos({ condicionPago: 'credito' }), MONEDA_BASE_FIXTURE);
     expect(errores.some((e) => e.campo === 'fechaVencimiento')).toBe(true);
   });
 
   it('gasto al crédito CON fecha de vencimiento no falla por ese campo', () => {
-    const errores = validarGastoBasico(crearDatosGastoBasicos({ condicionPago: 'credito', fechaVencimiento: '2026-08-01' }));
+    const errores = validarGastoBasico(crearDatosGastoBasicos({ condicionPago: 'credito', fechaVencimiento: '2026-08-01' }), MONEDA_BASE_FIXTURE);
     expect(errores.some((e) => e.campo === 'fechaVencimiento')).toBe(false);
+  });
+
+  it('total NaN/Infinity es rechazado explícitamente (GAS-P2-009)', () => {
+    expect(validarGastoBasico(crearDatosGastoBasicos({ total: Number.NaN }), MONEDA_BASE_FIXTURE).some((e) => e.campo === 'total')).toBe(true);
+    expect(validarGastoBasico(crearDatosGastoBasicos({ total: Number.POSITIVE_INFINITY }), MONEDA_BASE_FIXTURE).some((e) => e.campo === 'total')).toBe(true);
+  });
+
+  it('moneda extranjera sin tipo de cambio (o con tipo de cambio inválido) es rechazada (GAS-P2-006)', () => {
+    const sinTipoCambio = validarGastoBasico(crearDatosGastoBasicos({ moneda: 'USD' }), MONEDA_BASE_FIXTURE);
+    expect(sinTipoCambio.some((e) => e.campo === 'tipoCambio')).toBe(true);
+
+    const tipoCambioCero = validarGastoBasico(crearDatosGastoBasicos({ moneda: 'USD', tipoCambio: 0 }), MONEDA_BASE_FIXTURE);
+    expect(tipoCambioCero.some((e) => e.campo === 'tipoCambio')).toBe(true);
+
+    const tipoCambioValido = validarGastoBasico(crearDatosGastoBasicos({ moneda: 'USD', tipoCambio: 3.75 }), MONEDA_BASE_FIXTURE);
+    expect(tipoCambioValido.some((e) => e.campo === 'tipoCambio')).toBe(false);
+  });
+
+  it('gasto en la moneda base nunca exige tipo de cambio', () => {
+    const errores = validarGastoBasico(crearDatosGastoBasicos({ moneda: MONEDA_BASE_FIXTURE, tipoCambio: undefined }), MONEDA_BASE_FIXTURE);
+    expect(errores.some((e) => e.campo === 'tipoCambio')).toBe(false);
+  });
+
+  it('tratamiento con desglose (recuperable/no recuperable) sin impuesto seleccionado es rechazado (GAS-P2-004)', () => {
+    const sinImpuesto = validarGastoBasico(crearDatosGastoBasicos({ tratamientoImpuesto: 'recuperable', impuestoId: undefined }), MONEDA_BASE_FIXTURE);
+    expect(sinImpuesto.some((e) => e.campo === 'impuestoId')).toBe(true);
+
+    const conImpuesto = validarGastoBasico(crearDatosGastoBasicos({ tratamientoImpuesto: 'recuperable', impuestoId: 'imp-igv' }), MONEDA_BASE_FIXTURE);
+    expect(conImpuesto.some((e) => e.campo === 'impuestoId')).toBe(false);
+  });
+
+  it('"sin_desglose" nunca exige impuesto aplicable', () => {
+    const errores = validarGastoBasico(crearDatosGastoBasicos({ tratamientoImpuesto: 'sin_desglose', impuestoId: undefined }), MONEDA_BASE_FIXTURE);
+    expect(errores.some((e) => e.campo === 'impuestoId')).toBe(false);
   });
 });
 
@@ -730,5 +769,68 @@ describe('filtrarErroresVigentes — revalidación reactiva de campo (correcció
 
   it('un mapa base vacío (sin intento de envío previo) siempre produce un resultado vacío', () => {
     expect(filtrarErroresVigentes({}, [{ campo: 'concepto', mensaje: 'El concepto es obligatorio.' }])).toEqual({});
+  });
+});
+
+describe('motivoBloqueoEfectivoMonedaExtranjera (GAS-P1-004)', () => {
+  function crearMedio(codigo: string, monto: number): MedioPagoCompra {
+    return { id: `medio-${codigo}`, medioPagoCodigo: codigo, medioPagoNombre: codigo, monto };
+  }
+  const EFECTIVO = '008'; // catálogo 59 SUNAT
+  const TRANSFERENCIA = '003';
+
+  it('gasto en moneda base pagado en efectivo: permitido', () => {
+    expect(motivoBloqueoEfectivoMonedaExtranjera('PEN', 'PEN', [crearMedio(EFECTIVO, 100)])).toBeNull();
+  });
+
+  it('gasto en moneda extranjera pagado en efectivo: rechazado', () => {
+    const motivo = motivoBloqueoEfectivoMonedaExtranjera('USD', 'PEN', [crearMedio(EFECTIVO, 100)]);
+    expect(motivo).not.toBeNull();
+    expect(motivo).toBe('No se puede registrar un pago en efectivo porque la moneda del gasto es distinta de la moneda base de la empresa.');
+  });
+
+  it('gasto en moneda extranjera pagado por transferencia (no impacta Caja): permitido', () => {
+    expect(motivoBloqueoEfectivoMonedaExtranjera('USD', 'PEN', [crearMedio(TRANSFERENCIA, 100)])).toBeNull();
+  });
+
+  it('mezcla de medios que incluye efectivo, en moneda extranjera: la operación COMPLETA se rechaza', () => {
+    const motivo = motivoBloqueoEfectivoMonedaExtranjera('USD', 'PEN', [crearMedio(TRANSFERENCIA, 60), crearMedio(EFECTIVO, 40)]);
+    expect(motivo).not.toBeNull();
+  });
+
+  it('mezcla de medios SIN efectivo, en moneda extranjera: permitido', () => {
+    const motivo = motivoBloqueoEfectivoMonedaExtranjera('USD', 'PEN', [crearMedio(TRANSFERENCIA, 60), crearMedio('005', 40)]);
+    expect(motivo).toBeNull();
+  });
+
+  it('un medio de caja con monto 0 (línea vacía) no dispara el bloqueo por sí solo', () => {
+    expect(motivoBloqueoEfectivoMonedaExtranjera('USD', 'PEN', [crearMedio(EFECTIVO, 0)])).toBeNull();
+  });
+
+  it('el mensaje de bloqueo no contiene ningún código ni símbolo de moneda hardcodeado', () => {
+    const motivo = motivoBloqueoEfectivoMonedaExtranjera('USD', 'PEN', [crearMedio(EFECTIVO, 100)]);
+    expect(motivo).not.toMatch(/USD|PEN|S\/|\$/);
+  });
+
+  it('sin moneda base resuelta (config incompleta): no bloquea por defecto en vez de fallar', () => {
+    expect(motivoBloqueoEfectivoMonedaExtranjera('USD', '', [crearMedio(EFECTIVO, 100)])).toBeNull();
+  });
+});
+
+describe('normalizarMotivoAnulacion (anular gasto / anular pago de gasto)', () => {
+  it('rechaza cadena vacía', () => {
+    expect(() => normalizarMotivoAnulacion('')).toThrow('Ingresa un motivo de anulación.');
+  });
+
+  it('rechaza un motivo con solo espacios', () => {
+    expect(() => normalizarMotivoAnulacion('   ')).toThrow('Ingresa un motivo de anulación.');
+  });
+
+  it('rechaza un valor inexistente (undefined)', () => {
+    expect(() => normalizarMotivoAnulacion(undefined)).toThrow('Ingresa un motivo de anulación.');
+  });
+
+  it('acepta un motivo válido y devuelve el texto recortado', () => {
+    expect(normalizarMotivoAnulacion('  Gasto duplicado  ')).toBe('Gasto duplicado');
   });
 });

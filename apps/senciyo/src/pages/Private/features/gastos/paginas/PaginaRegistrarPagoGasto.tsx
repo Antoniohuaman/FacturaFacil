@@ -10,9 +10,10 @@
 
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
+import { currencyManager } from '@/shared/currency';
 import FormularioPagoCompra from '../../compras/componentes/formularios/FormularioPagoCompra';
 import { useContextoGastos } from '../contexto/useContextoGastos';
-import { presentarReferenciaGasto } from '../servicios/servicioGasto';
+import { presentarReferenciaGasto, motivoBloqueoEfectivoMonedaExtranjera } from '../servicios/servicioGasto';
 
 function EstadoNoDisponible({ mensaje, onVolver }: { mensaje: string; onVolver: () => void }) {
   return (
@@ -51,11 +52,21 @@ export default function PaginaRegistrarPagoGasto() {
     return <EstadoNoDisponible mensaje="Este gasto ya no tiene saldo pendiente por pagar." onVolver={volver} />;
   }
 
+  const monedaBase = currencyManager.getSnapshot().baseCurrency.code;
+
   return (
     <FormularioPagoCompra
       cxps={[cxp]}
       importesIniciales={{ [cxp.id]: cxp.saldoPendiente }}
-      dependencias={{ registrarPago: registrarPagoGastoCentral }}
+      dependencias={{
+        registrarPago: registrarPagoGastoCentral,
+        // GAS-P1-004: bloquea en la UI, con feedback inmediato, el mismo
+        // caso que el dominio (`registrarPagoGastoCentral`) ya rechaza —
+        // Caja no es multimoneda, así que un gasto en moneda extranjera no
+        // puede pagarse con un medio que la impacte.
+        validarRestriccionesOrigen: ({ moneda, mediosPago }) =>
+          motivoBloqueoEfectivoMonedaExtranjera(moneda, monedaBase, mediosPago),
+      }}
       metadatosOrigen={{
         tipoOrigen: 'gasto',
         etiquetaModulo: 'Gastos',

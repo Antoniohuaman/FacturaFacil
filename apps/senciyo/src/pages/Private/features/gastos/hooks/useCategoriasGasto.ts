@@ -7,8 +7,11 @@
 // repositorio de Gastos (`repositorioGastos.ts`), nunca un contador
 // desincronizable guardado en la propia categoría.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getTenantEmpresaId } from '@/shared/tenant';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import { cargarGastos, EVENTO_GASTOS_CAMBIADOS } from '../repositorios/repositorioGastos';
 import {
   cargarCategoriasGasto,
@@ -41,7 +44,30 @@ function generarIdCategoria(): string {
 
 export function useCategoriasGasto(): UseCategoriasGastoReturn {
   const empresaId = getTenantEmpresaId();
+  const { session } = useUserSession();
+  const { state: config, rolesConfigurados } = useConfigurationContext();
   const [categorias, setCategorias] = useState<CategoriaGasto[]>(() => cargarCategoriasGasto(empresaId));
+
+  const usuarioActual = useMemo(
+    () => obtenerUsuarioDesdeSesion(config.users, session),
+    [config.users, session],
+  );
+
+  // Igual que en `ContextoGastos.tsx`: la gestión de categorías se protege
+  // en el propio comando, no solo ocultando los botones de
+  // `SeccionCategoriasGasto.tsx` — un llamador directo del hook sin el
+  // permiso `gastos.categorias.gestionar` es rechazado igual.
+  const verificarPermisoCategorias = useCallback(() => {
+    const autorizado = tienePermiso({
+      usuario: usuarioActual,
+      permisoId: 'gastos.categorias.gestionar',
+      rolesDisponibles: rolesConfigurados,
+      establecimientoId: session?.currentEstablecimientoId,
+    });
+    if (!autorizado) {
+      throw new Error('No tienes permiso para gestionar categorías de gastos.');
+    }
+  }, [usuarioActual, rolesConfigurados, session?.currentEstablecimientoId]);
   // Fuerza un re-render cuando cambian los GASTOS (no solo las categorías) —
   // `contarUso` siempre lee `cargarGastos()` en vivo, pero sin esto la
   // columna "En uso" quedaría desactualizada mientras el componente no se
@@ -64,28 +90,32 @@ export function useCategoriasGasto(): UseCategoriasGastoReturn {
   const contarUso = useCallback((categoriaId: string): number => contarUsoCategoriaGasto(cargarGastos(), categoriaId), []);
 
   const crearCategoria = useCallback((datos: DatosCategoriaGasto) => {
+    verificarPermisoCategorias();
     const siguiente = crearCategoriaGasto(categorias, datos, empresaId, generarIdCategoria(), new Date().toISOString());
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
-  }, [categorias, empresaId]);
+  }, [categorias, empresaId, verificarPermisoCategorias]);
 
   const editarCategoria = useCallback((id: string, datos: DatosCategoriaGasto) => {
+    verificarPermisoCategorias();
     const siguiente = editarCategoriaGasto(categorias, id, datos);
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
-  }, [categorias]);
+  }, [categorias, verificarPermisoCategorias]);
 
   const desactivarCategoria = useCallback((id: string) => {
+    verificarPermisoCategorias();
     const siguiente = cambiarEstadoCategoriaGasto(categorias, id, 'inactiva');
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
-  }, [categorias]);
+  }, [categorias, verificarPermisoCategorias]);
 
   const reactivarCategoria = useCallback((id: string) => {
+    verificarPermisoCategorias();
     const siguiente = cambiarEstadoCategoriaGasto(categorias, id, 'activa');
     guardarCategoriasGasto(siguiente);
     setCategorias(siguiente);
-  }, [categorias]);
+  }, [categorias, verificarPermisoCategorias]);
 
   return { categorias, contarUso, crearCategoria, editarCategoria, desactivarCategoria, reactivarCategoria };
 }

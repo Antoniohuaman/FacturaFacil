@@ -49,6 +49,7 @@ import {
   validarGastoBasico,
   validarMinimoBorradorGasto,
   filtrarErroresVigentes,
+  motivoBloqueoEfectivoMonedaExtranjera,
   type DatosNuevoGasto,
 } from '../servicios/servicioGasto';
 import {
@@ -185,6 +186,16 @@ export default function FormularioGasto({
   const puedeGestionarFormasDePago = tienePermiso({
     usuario: usuarioActual,
     permisoId: 'config.negocio.gestionar',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: establecimientoIdSesion,
+  });
+  // "Registrar y pagar" ejecuta el pago en el mismo acto (§6): la ruta de
+  // este formulario solo exige `gastos.crear`, así que el permiso de pago se
+  // verifica aquí además — mismo doble enforcement que ya aplica
+  // `registrarGastoConPagoInmediato` en `ContextoGastos.tsx`.
+  const puedePagarGastos = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'gastos.pagar',
     rolesDisponibles: rolesConfigurados,
     establecimientoId: establecimientoIdSesion,
   });
@@ -354,7 +365,7 @@ export default function FormularioGasto({
   function calcularErroresGasto(intent: IntentGasto, datos: DatosNuevoGasto) {
     const errores = intent === 'guardar_borrador'
       ? validarMinimoBorradorGasto(datos)
-      : validarGastoBasico(datos);
+      : validarGastoBasico(datos, monedaBase);
     // Registrar/Registrar y pagar exigen una serie de Gasto activa
     // seleccionada (§2 de la corrección) — Guardar borrador nunca la exige.
     // El gasto ya registrado (edición completa/limitada) no pasa por aquí:
@@ -364,6 +375,19 @@ export default function FormularioGasto({
     }
     return errores;
   }
+
+  /**
+   * GAS-P1-004: "Registrar y pagar" paga el gasto en el mismo acto — Caja no
+   * es multimoneda, así que un gasto en moneda extranjera no puede pagarse
+   * con un medio que la impacte, ni siquiera en este atajo. Se muestra de
+   * inmediato (sin esperar al intento de envío) igual que el aviso
+   * equivalente del formulario central de "Registrar pago"
+   * (`FormularioPagoCompra.tsx`), reutilizando la MISMA regla de dominio —
+   * `registrarGastoConPagoInmediato` la vuelve a exigir de todas formas.
+   */
+  const motivoBloqueoMonedaRegistrarYPagar = mostrarPagoAhora
+    ? motivoBloqueoEfectivoMonedaExtranjera(moneda, monedaBase, mediosPago)
+    : null;
 
   /**
    * Revalidación reactiva DERIVADA en el render (§1 de la corrección final
@@ -592,16 +616,18 @@ export default function FormularioGasto({
                   {moneda !== monedaBase && (
                     <label className="space-y-1 sm:col-span-4">
                       <span className="text-xs text-gray-500">Tipo de cambio *</span>
-                      <input type="number" step="0.0001" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} className={`${claseControl(false)} text-right`} />
+                      <input type="number" step="0.0001" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} aria-invalid={Boolean(erroresMostrados.tipoCambio)} className={`${claseControl(Boolean(erroresMostrados.tipoCambio))} text-right`} />
+                      <MensajeErrorCampo mensaje={erroresMostrados.tipoCambio} />
                     </label>
                   )}
                   {tratamientoImpuesto !== 'sin_desglose' && (
                     <label className="space-y-1 sm:col-span-5">
                       <span className="text-xs text-gray-500">Impuesto aplicable *</span>
-                      <select value={impuestoId} onChange={(e) => setImpuestoId(e.target.value)} className={claseControl(false)}>
+                      <select value={impuestoId} onChange={(e) => setImpuestoId(e.target.value)} aria-invalid={Boolean(erroresMostrados.impuestoId)} className={claseControl(Boolean(erroresMostrados.impuestoId))}>
                         <option value="">Selecciona un impuesto...</option>
                         {impuestosDisponibles.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
                       </select>
+                      <MensajeErrorCampo mensaje={erroresMostrados.impuestoId} />
                     </label>
                   )}
                 </div>
@@ -703,6 +729,11 @@ export default function FormularioGasto({
                     </button>
                   }
                 >
+                  {motivoBloqueoMonedaRegistrarYPagar && (
+                    <div className="mb-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                      {motivoBloqueoMonedaRegistrarYPagar}
+                    </div>
+                  )}
                   <EditorMediosPagoCompra
                     mediosPago={mediosPago}
                     mediosDisponibles={mediosDisponibles}
@@ -772,7 +803,7 @@ export default function FormularioGasto({
                   ▼
                 </button>
               </div>
-              {menuRegistrarAbierto && (
+              {menuRegistrarAbierto && puedePagarGastos && (
                 <div className="absolute bottom-full right-0 mb-1 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
                   <button
                     type="button"

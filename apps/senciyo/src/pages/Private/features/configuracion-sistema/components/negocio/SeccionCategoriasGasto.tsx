@@ -24,12 +24,21 @@ interface CategoriaGastoModalProps {
 function ModalCategoriaGasto({ categoria, onClose, onGuardar }: CategoriaGastoModalProps) {
   const [nombre, setNombre] = useState(categoria?.nombre ?? '');
   const [descripcion, setDescripcion] = useState(categoria?.descripcion ?? '');
+  // `onGuardar` (crearCategoria/editarCategoria) puede rechazar sincrónicamente
+  // un nombre duplicado (normalizado sin distinguir mayúsculas/espacios) — se
+  // captura aquí para mostrar el mismo mensaje que ya usa el dominio, en vez
+  // de dejar una excepción sin manejar.
+  const [error, setError] = useState<string | null>(null);
 
   const manejarEnvio = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) return;
-    onGuardar({ nombre, descripcion });
-    onClose();
+    try {
+      onGuardar({ nombre, descripcion });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la categoría.');
+    }
   };
 
   return (
@@ -43,6 +52,11 @@ function ModalCategoriaGasto({ categoria, onClose, onGuardar }: CategoriaGastoMo
             </h3>
           </div>
           <form onSubmit={manejarEnvio} className="px-6 py-4 space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nombre <span className="text-blue-600 font-bold">*</span>
@@ -50,7 +64,7 @@ function ModalCategoriaGasto({ categoria, onClose, onGuardar }: CategoriaGastoMo
               <Input
                 type="text"
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={(e) => { setNombre(e.target.value); setError(null); }}
                 placeholder="Nombre de la categoría"
                 required
               />

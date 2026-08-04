@@ -35,6 +35,24 @@ export function contarUsoCategoriaGasto(gastos: readonly Gasto[], categoriaId: s
   return conteo;
 }
 
+const normalizarNombreCategoriaGasto = (nombre: string): string => nombre.trim().toLowerCase();
+
+/**
+ * Evita categorías duplicadas por nombre (ignorando mayúsculas/minúsculas y
+ * espacios al inicio/fin) — "Alquileres", "alquileres" y " Alquileres " se
+ * consideran el mismo nombre. `idAExcluir` permite que editar una categoría
+ * sin cambiar su propio nombre nunca se detecte como un duplicado consigo
+ * misma.
+ */
+export function existeNombreCategoriaGastoDuplicado(
+  categorias: readonly CategoriaGasto[],
+  nombre: string,
+  idAExcluir?: string,
+): boolean {
+  const normalizado = normalizarNombreCategoriaGasto(nombre);
+  return categorias.some((c) => c.id !== idAExcluir && normalizarNombreCategoriaGasto(c.nombre) === normalizado);
+}
+
 export function crearCategoriaGasto(
   categorias: readonly CategoriaGasto[],
   datos: DatosCategoriaGasto,
@@ -42,6 +60,9 @@ export function crearCategoriaGasto(
   id: string,
   fechaCreacion: string,
 ): CategoriaGasto[] {
+  if (existeNombreCategoriaGastoDuplicado(categorias, datos.nombre)) {
+    throw new Error('Ya existe una categoría de gasto con ese nombre.');
+  }
   const nueva: CategoriaGasto = {
     id,
     empresaId,
@@ -55,6 +76,9 @@ export function crearCategoriaGasto(
 }
 
 export function editarCategoriaGasto(categorias: readonly CategoriaGasto[], id: string, datos: DatosCategoriaGasto): CategoriaGasto[] {
+  if (existeNombreCategoriaGastoDuplicado(categorias, datos.nombre, id)) {
+    throw new Error('Ya existe una categoría de gasto con ese nombre.');
+  }
   return categorias.map((c) =>
     c.id === id ? { ...c, nombre: datos.nombre.trim(), descripcion: datos.descripcion?.trim() || undefined } : c,
   );
