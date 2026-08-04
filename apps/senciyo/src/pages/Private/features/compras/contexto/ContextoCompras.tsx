@@ -2339,7 +2339,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       const cuentasPorPagarAplicadas = datos.aplicaciones.map((a) => a.cuentaPorPagarId);
       const comprobantesCompraAplicados = datos.aplicaciones.map((a) => a.comprobanteCompraId);
 
-      lanzarSiHayErrores(validarPagoCompraBasico({ ...datos, montoTotalPagado }));
+      lanzarSiHayErrores(validarPagoCompraBasico({ ...datos, montoTotalPagado }, 'compra'));
       lanzarSiHayErrores(validarMediosPagoCompra(datos.mediosPago, mediosDisponibles));
       lanzarSiHayErrores(validarTipoCambioRequerido(datos.moneda, monedaBase, datos.tipoCambio));
       // Defensa de servicio: el formulario ya restringe la selección al mismo
@@ -2352,7 +2352,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       }
       if (!seriePago) {
         throw new Error(
-          'No hay una serie de pago (PG) configurada. Ve a Configuración → Series y crea una serie activa de tipo "Pago de Compra".',
+          'No hay una serie de pago (PG) configurada. Ve a Configuración → Series y crea una serie activa de tipo "Pago a proveedor".',
         );
       }
 

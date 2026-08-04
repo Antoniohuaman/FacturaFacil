@@ -84,6 +84,18 @@ describe('construirRepresentacionImpresaGasto (§2/§10-A de la corrección)', (
     expect(html).toContain('F001-123');
   });
 
+  it('reutiliza la MISMA fuente única que el listado/Drawer/Excel (§15 de la corrección final) — nunca un guion suelto cuando falta la serie o el número', () => {
+    const html = renderizar({
+      gasto: crearGastoFixture({ tipoDocumento: '03', serieDocumentoProveedor: undefined, numeroDocumentoProveedor: '456' }),
+      categoriaNombre: 'Alquileres',
+      establecimientoNombre: 'General',
+      pagos: [],
+      estadoPago: 'pendiente',
+    });
+    expect(html).toContain('Boleta de Venta · 456');
+    expect(html).not.toContain('-456');
+  });
+
   it('muestra "Sin documento" cuando el gasto no tiene documento sustentatorio', () => {
     const html = renderizar({
       gasto: crearGastoFixture({ beneficiario: 'Movilidad varios' }),
@@ -128,6 +140,18 @@ describe('construirRepresentacionImpresaGasto (§2/§10-A de la corrección)', (
     });
     expect(html).toContain('Cuota 1');
     expect(html).toContain('Cuota 2');
+  });
+
+  it('incluye el nombre de la forma de pago configurada cuando se provee (§8/§22 — nunca solo "Contado"/"Crédito")', () => {
+    const html = renderizar({
+      gasto: crearGastoFixture({ formaPagoMetodoId: 'metodo-1' }),
+      categoriaNombre: 'Alquileres',
+      establecimientoNombre: 'General',
+      formaPagoNombre: 'Transferencia bancaria',
+      pagos: [],
+      estadoPago: 'pendiente',
+    });
+    expect(html).toContain('Transferencia bancaria');
   });
 
   it('incluye los pagos PG relacionados y sus medios de pago', () => {
@@ -211,6 +235,31 @@ describe('construirRepresentacionImpresaGasto (§2/§10-A de la corrección)', (
     expect(html).toContain('factura.pdf');
     expect(html).toContain('jperez');
     expect(html).toContain('Registrado');
+  });
+
+  it('un borrador SIN serie elegida nunca muestra su identificador técnico feo en la constancia impresa (corrección de UX)', () => {
+    const html = renderizar({
+      gasto: crearGastoFixture({ referenciaInterna: 'BORR-gasto-1700000000-abc123', estadoDocumento: 'borrador' }),
+      categoriaNombre: 'Alquileres',
+      establecimientoNombre: 'General',
+      pagos: [],
+      estadoPago: 'pendiente',
+    });
+    expect(html).toContain('Sin serie · Sin correlativo');
+    expect(html).not.toContain('BORR-');
+  });
+
+  it('un borrador CON serie elegida muestra "G001 · Sin correlativo" en la constancia impresa — MISMA presentación que el listado/Drawer (corrección técnica final §11)', () => {
+    const html = renderizar({
+      gasto: crearGastoFixture({ referenciaInterna: 'BORR-gasto-1700000000-abc123', estadoDocumento: 'borrador', serieId: 'series-gto-g001-est-1' }),
+      categoriaNombre: 'Alquileres',
+      establecimientoNombre: 'General',
+      pagos: [],
+      estadoPago: 'pendiente',
+      series: [{ id: 'series-gto-g001-est-1', series: 'G001' }],
+    });
+    expect(html).toContain('G001 · Sin correlativo');
+    expect(html).not.toContain('BORR-');
   });
 
   it('un gasto anulado muestra el estado y el motivo de anulación', () => {

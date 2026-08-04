@@ -65,6 +65,22 @@ export interface CuentaPorPagar {
   comprobanteCompraId: string;
   comprobanteCompraNumero: string;
   tipoComprobanteOrigen: string;
+  /**
+   * Referencia propia y neutral del documento origen (§4 de la corrección
+   * puntual) — para "compra" no se usa (ya cubierto por
+   * `comprobanteCompraNumero`); para "gasto" es la `referenciaInterna` del
+   * Gasto (ej. "G001-00000004"). Nunca confundir con el documento
+   * sustentatorio del proveedor (`numeroDocumentoSustentatorio`).
+   */
+  numeroDocumentoOrigen?: string;
+  /**
+   * Documento sustentatorio del proveedor asociado al gasto (ej. "Factura ·
+   * F001-000123"), cuando existe — un dato SEPARADO del documento origen,
+   * nunca interpretado como si fuera el propio documento del sistema.
+   * Ausente para origen "compra" (`comprobanteCompraNumero`/
+   * `tipoComprobanteOrigen` YA son ese documento).
+   */
+  numeroDocumentoSustentatorio?: string;
 
   // Proveedor
   proveedorId: string;

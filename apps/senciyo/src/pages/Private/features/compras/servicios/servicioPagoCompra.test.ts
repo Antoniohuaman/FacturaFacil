@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { validarAplicacionesPagoCompra } from './servicioPagoCompra';
+import { validarAplicacionesPagoCompra, validarPagoCompraBasico } from './servicioPagoCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
+import type { PagoCompra } from '../modelos/PagoCompra';
 
 function crearCxP(overrides: Partial<CuentaPorPagar> = {}): CuentaPorPagar {
   return {
@@ -28,6 +29,55 @@ function crearCxP(overrides: Partial<CuentaPorPagar> = {}): CuentaPorPagar {
     ...overrides,
   };
 }
+
+function crearDatosPagoBasicos(overrides: Partial<PagoCompra> = {}): Partial<PagoCompra> {
+  return {
+    fechaPago: '2026-07-15',
+    proveedorId: 'prov-1',
+    proveedorNombre: 'EMPRESA PERU SAC',
+    moneda: 'PEN',
+    montoTotalPagado: 100,
+    mediosPago: [{ id: 'medio-1', medioPagoCodigo: '008', medioPagoNombre: 'Efectivo', monto: 100 }],
+    ...overrides,
+  };
+}
+
+describe('validarPagoCompraBasico — contraparte pagable neutral por origen (corrección final consolidada §7)', () => {
+  it('origen "compra" (por defecto): exige proveedorId, aunque exista un nombre visible', () => {
+    const errores = validarPagoCompraBasico(crearDatosPagoBasicos({ proveedorId: undefined }));
+    expect(errores.some((e) => e.campo === 'proveedorId' && e.mensaje === 'El proveedor es obligatorio.')).toBe(true);
+  });
+
+  it('origen "compra" explícito: se comporta igual que el valor por defecto (regresión del flujo de Compras)', () => {
+    const conProveedor = validarPagoCompraBasico(crearDatosPagoBasicos(), 'compra');
+    expect(conProveedor.some((e) => e.campo === 'proveedorId')).toBe(false);
+
+    const sinProveedor = validarPagoCompraBasico(crearDatosPagoBasicos({ proveedorId: undefined }), 'compra');
+    expect(sinProveedor.some((e) => e.campo === 'proveedorId')).toBe(true);
+  });
+
+  it('origen "gasto" con proveedor registrado: válido, nunca exige nada adicional', () => {
+    const errores = validarPagoCompraBasico(crearDatosPagoBasicos({ proveedorId: 'prov-1', proveedorNombre: 'Proveedor SAC' }), 'gasto');
+    expect(errores.some((e) => e.campo === 'proveedorId')).toBe(false);
+  });
+
+  it('origen "gasto" con beneficiario libre (sin proveedorId): válido — nunca "El proveedor es obligatorio" cuando ya hay un nombre visible', () => {
+    const errores = validarPagoCompraBasico(crearDatosPagoBasicos({ proveedorId: undefined, proveedorNombre: 'EMPRESA PERU SAC' }), 'gasto');
+    expect(errores.some((e) => e.campo === 'proveedorId')).toBe(false);
+  });
+
+  it('origen "gasto" sin ninguna contraparte (ni proveedorId ni proveedorNombre): rechaza con un mensaje neutral', () => {
+    const errores = validarPagoCompraBasico(crearDatosPagoBasicos({ proveedorId: undefined, proveedorNombre: undefined }), 'gasto');
+    const error = errores.find((e) => e.campo === 'proveedorId');
+    expect(error).toBeDefined();
+    expect(error?.mensaje).toBe('Indica un proveedor o un beneficiario.');
+  });
+
+  it('origen "gasto" con proveedorNombre en blanco (solo espacios): rechaza igual que si estuviera vacío', () => {
+    const errores = validarPagoCompraBasico(crearDatosPagoBasicos({ proveedorId: undefined, proveedorNombre: '   ' }), 'gasto');
+    expect(errores.some((e) => e.campo === 'proveedorId')).toBe(true);
+  });
+});
 
 describe('validarAplicacionesPagoCompra', () => {
   it('rechaza un pago sin ningún documento seleccionado', () => {

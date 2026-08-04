@@ -4,18 +4,18 @@ import { getConfiguredPaymentMeans, type PaymentMeanOption } from '@/shared/paym
 import type { CreditInstallment } from '@/shared/payments/paymentTerms';
 import { normalizarImporte } from '@/shared/currency';
 import type { CreditInstallmentAllocationInput } from '@/shared/payments/CreditInstallmentsTable';
-import { useCompras } from '../contexto/ContextoCompras';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useBankAccounts } from '../../configuracion-sistema/hooks/useCuentasBancarias';
 import { useCaja } from '../../control-caja';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { siguienteNumeroPago } from '../utilidades/formatearCompras';
+import { cargarPagosCompra } from '../repositorios/repositorioPagosCompra';
 import { esMedioBancario, requiereReferencia, tieneMedioDeCaja, validarAplicacionesPagoCompra } from '../servicios/servicioPagoCompra';
 import { calcularDiasCredito } from '../servicios/servicioCuentaPorPagar';
 import { resolverNombreFormaPago } from '../logica/reglasCompras';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
 import { ESTADO_PAGO_CXP_LABELS } from '../modelos/CuentaPorPagar';
-import type { MedioPagoCompra, AplicacionPagoCompra, AsignacionCuotaPago } from '../modelos/PagoCompra';
+import type { MedioPagoCompra, AplicacionPagoCompra, AsignacionCuotaPago, PagoCompra } from '../modelos/PagoCompra';
 import type { AdjuntoCompra } from '../modelos/AdjuntoCompra';
 
 function generarIdLinea(): string {
@@ -41,6 +41,24 @@ export interface ErroresPagoPorCampo {
   medios?: Record<string, ErrorMedioPago>;
   diferencia?: string;
   tipoCambio?: string;
+}
+
+/** Contrato de datos del pago — idéntico al que ya espera `ContextoCompras.tsx#registrarPagoCompra`. Un origen distinto (Gasto) implementa una función con esta MISMA forma, nunca un segundo formulario (§11 de la corrección). */
+export type DatosPagoFormularioCentral = Omit<
+  PagoCompra,
+  | 'id'
+  | 'numeroPago'
+  | 'estadoDocumento'
+  | 'historial'
+  | 'fechaCreacion'
+  | 'montoTotalPagado'
+  | 'cuentasPorPagarAplicadas'
+  | 'comprobantesCompraAplicados'
+> & { aplicaciones: AplicacionPagoCompra[] };
+
+/** Dependencias inyectadas por el origen documental (compra o gasto) — nunca un `useCompras()` fijo dentro del hook, para que sea reutilizable desde cualquier módulo sin acoplarlo a Compras (§11 de la corrección). */
+export interface DependenciasFormularioPagoCentral {
+  registrarPago(datos: DatosPagoFormularioCentral, usuarioId?: string, seriePago?: string): Promise<PagoCompra>;
 }
 
 function crearMedioDesde(medio: PaymentMeanOption | undefined, monto: number): MedioPagoCompra {
@@ -102,8 +120,12 @@ function tieneCronogramaReal(cxp: CuentaPorPagar): boolean {
  * comercial del comprobante origen (CuentaPorPagar.formaPago) y nunca entran
  * a este catálogo ni al modelo MedioPagoCompra.
  */
-export function useFormularioPagoCompra(cxps: CuentaPorPagar[], importesIniciales: Record<string, number>) {
-  const { state: comprasState, registrarPagoCompra } = useCompras();
+export function useFormularioPagoCompra(
+  cxps: CuentaPorPagar[],
+  importesIniciales: Record<string, number>,
+  dependencias: DependenciasFormularioPagoCentral,
+) {
+  const { registrarPago: registrarPagoOrigen } = dependencias;
   const { state: config } = useConfigurationContext();
   const { status: estadoCaja } = useCaja();
   const { accounts: cuentasBancarias } = useBankAccounts();
@@ -119,7 +141,14 @@ export function useFormularioPagoCompra(cxps: CuentaPorPagar[], importesIniciale
   const seriePG = config.series.find(
     (s) => s.documentType?.code === 'PG' && s.status === 'ACTIVE' && s.isActive,
   );
-  const numeroPagoPreview = seriePG ? siguienteNumeroPago(comprasState.pagos, seriePG.series) : null;
+  // Numeración PG SIEMPRE contra el almacén completo (ambos orígenes,
+  // corrección técnica final §8) — la serie "PG" es compartida entre Compras
+  // y Gastos, así que la previsualización debe leer la MISMA fuente global
+  // que usa el registro real (`ContextoCompras.tsx`/`ContextoGastos.tsx` ya
+  // llaman `siguienteNumeroPago(cargarPagosCompra(), ...)` al confirmar);
+  // nunca un listado ya filtrado por origen, que podría previsualizar un
+  // número que el otro origen ya emitió.
+  const numeroPagoPreview = seriePG ? siguienteNumeroPago(cargarPagosCompra(), seriePG.series) : null;
 
   const mediosDisponibles: PaymentMeanOption[] = useMemo(
     () => getConfiguredPaymentMeans().filter((m) => m.isVisible),
@@ -308,8 +337,12 @@ export function useFormularioPagoCompra(cxps: CuentaPorPagar[], importesIniciale
       const cuotas = cuotasPorDocumento[cxp.id];
       if (!cuotas) return;
       const asignaciones = asignacionesCuotasPorDocumento[cxp.id] ?? [];
+      // `comprobanteCompraNumero` es cadena vacía en una CxP de origen Gasto
+      // (§11 de la corrección: el mensaje debe seguir siendo válido para
+      // ambos orígenes, nunca solo para Compras).
+      const etiquetaDocumento = cxp.comprobanteCompraNumero || 'este documento';
       if (asignaciones.length === 0) {
-        const mensaje = `Selecciona al menos una cuota de ${cxp.comprobanteCompraNumero} para registrar el pago.`;
+        const mensaje = `Selecciona al menos una cuota de ${etiquetaDocumento} para registrar el pago.`;
         porCampo.aplicaciones = porCampo.aplicaciones ?? mensaje;
         lista.push(mensaje);
         return;
@@ -320,7 +353,7 @@ export function useFormularioPagoCompra(cxps: CuentaPorPagar[], importesIniciale
         return a.amount < 0 || normalizarImporte(a.amount, cxp.moneda) > normalizarImporte(saldoCuota, cxp.moneda);
       });
       if (cuotaConImporteInvalido) {
-        const mensaje = `Hay una cuota de ${cxp.comprobanteCompraNumero} con un importe inválido (negativo o mayor a su saldo pendiente).`;
+        const mensaje = `Hay una cuota de ${etiquetaDocumento} con un importe inválido (negativo o mayor a su saldo pendiente).`;
         porCampo.aplicaciones = porCampo.aplicaciones ?? mensaje;
         lista.push(mensaje);
       }
@@ -400,6 +433,8 @@ export function useFormularioPagoCompra(cxps: CuentaPorPagar[], importesIniciale
             const importeAplicadoDoc = round2(asignacionesCuotas.reduce((acc, a) => acc + a.monto, 0));
             return {
               cuentaPorPagarId: cxp.id,
+              tipoOrigen: cxp.tipoOrigen,
+              documentoOrigenId: cxp.documentoOrigenId,
               comprobanteCompraId: cxp.comprobanteCompraId,
               importeAplicado: importeAplicadoDoc,
               asignacionesCuotas,
@@ -408,13 +443,15 @@ export function useFormularioPagoCompra(cxps: CuentaPorPagar[], importesIniciale
           // Documento SIN cronograma real: importe simple a nivel documento.
           return {
             cuentaPorPagarId: cxp.id,
+            tipoOrigen: cxp.tipoOrigen,
+            documentoOrigenId: cxp.documentoOrigenId,
             comprobanteCompraId: cxp.comprobanteCompraId,
             importeAplicado: aplicacionesSimples[cxp.id] ?? 0,
           };
         })
         .filter((aplicacion) => aplicacion.importeAplicado > 0);
 
-      const pago = await registrarPagoCompra(
+      const pago = await registrarPagoOrigen(
         {
           fechaPago,
           proveedorId,

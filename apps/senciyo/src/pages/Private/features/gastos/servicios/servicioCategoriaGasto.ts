@@ -8,18 +8,29 @@
 
 import type { CategoriaGasto, EstadoCategoriaGasto } from '../modelos/CategoriaGasto';
 import type { Gasto } from '../modelos/Gasto';
+import { esBorradorDescartadoGasto } from './servicioGasto';
 
 export interface DatosCategoriaGasto {
   nombre: string;
   descripcion?: string;
 }
 
-/** Cuenta los gastos NO anulados que usan esta categoría — fuente única de "en uso", nunca un contador desincronizable guardado en la propia categoría. */
+/**
+ * Cuenta las referencias históricas reales a esta categoría (§20 de la
+ * corrección): borradores no descartados + gastos registrados + gastos
+ * anulados — un borrador nunca fue registrado oficialmente, pero mientras
+ * exista referencia igual bloquea la eliminación física de su categoría; un
+ * gasto anulado, aunque sin efecto operativo, conserva su historial. Solo se
+ * excluyen los borradores DESCARTADOS (`esBorradorDescartadoGasto`), que
+ * nunca llegaron a comprometer nada. Fuente única de "en uso", nunca un
+ * contador desincronizable guardado en la propia categoría.
+ */
 export function contarUsoCategoriaGasto(gastos: readonly Gasto[], categoriaId: string): number {
   let conteo = 0;
   for (const gasto of gastos) {
-    if (gasto.estadoDocumento === 'anulado') continue;
-    if (gasto.categoriaId === categoriaId) conteo += 1;
+    if (gasto.categoriaId !== categoriaId) continue;
+    if (esBorradorDescartadoGasto(gasto)) continue;
+    conteo += 1;
   }
   return conteo;
 }

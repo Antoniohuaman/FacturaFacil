@@ -16,6 +16,10 @@ interface ModalAnularDocumentoProps {
   motivos: string[];
   onConfirmar: (motivo: string) => Promise<void>;
   onCerrar: () => void;
+  /** Textos del formulario de motivo — por defecto los de anulación. Un consumidor con una acción distinta (ej. "Descartar borrador", nunca "Anular") los personaliza sin duplicar el modal. */
+  etiquetaMotivo?: string;
+  textoBotonConfirmar?: string;
+  textoProcesando?: string;
 }
 
 export default function ModalAnularDocumento({
@@ -25,6 +29,9 @@ export default function ModalAnularDocumento({
   motivos,
   onConfirmar,
   onCerrar,
+  etiquetaMotivo = 'Motivo de anulación',
+  textoBotonConfirmar = 'Confirmar anulación',
+  textoProcesando = 'Anulando...',
 }: ModalAnularDocumentoProps) {
   const [motivoSeleccionado, setMotivoSeleccionado] = useState('');
   const [motivoPersonalizado, setMotivoPersonalizado] = useState('');
@@ -78,7 +85,7 @@ export default function ModalAnularDocumento({
           <p className="text-sm text-gray-600">{descripcion}</p>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Motivo de anulación</label>
+            <label className="text-sm font-medium text-gray-700">{etiquetaMotivo}</label>
             <select
               value={motivoSeleccionado}
               onChange={(e) => {
@@ -129,7 +136,7 @@ export default function ModalAnularDocumento({
             disabled={procesando || !puedeConfirmar}
             className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {procesando ? 'Anulando...' : 'Confirmar anulación'}
+            {procesando ? textoProcesando : textoBotonConfirmar}
           </button>
         </div>
       </div>

@@ -12,7 +12,7 @@ import {
   useConfiguracionCampos,
   type CampoConfigurableDocumento,
 } from '@/shared/ui';
-import { useFormularioPagoCompra } from '../../hooks/useFormularioPagoCompra';
+import { useFormularioPagoCompra, type DependenciasFormularioPagoCentral } from '../../hooks/useFormularioPagoCompra';
 import TablaDocumentosPagoCompra from '../pagos/TablaDocumentosPagoCompra';
 import EditorMediosPagoCompra from '../pagos/EditorMediosPagoCompra';
 import ResumenPagoCompra from '../pagos/ResumenPagoCompra';
@@ -20,11 +20,31 @@ import AdjuntosCompra from '../adjuntos/AdjuntosCompra';
 import type { CuentaPorPagar } from '../../modelos/CuentaPorPagar';
 import { enfocarPrimerCampoConError } from '../../modelos/ErroresValidacion';
 
+/**
+ * Contexto visual/de navegación según el origen documental (§4 de la
+ * corrección puntual) — generaliza ÚNICAMENTE el texto y el breadcrumb del
+ * formulario compartido, nunca su lógica. Compras pasa sus valores actuales
+ * tal cual (sin cambio de comportamiento); Gastos pasa los suyos propios.
+ */
+export interface MetadatosOrigenFormularioPago {
+  tipoOrigen: 'compra' | 'gasto';
+  /** Primer nivel del breadcrumb — "Compras" o "Gastos". */
+  etiquetaModulo: string;
+  /** Segundo nivel del breadcrumb — sección genérica ("Cuentas por Pagar") o la referencia del documento origen puntual (ej. la referencia del gasto). */
+  etiquetaDocumentoOrigen: string;
+  /** Título visible de la página. */
+  tituloFormulario: string;
+}
+
 interface FormularioPagoCompraProps {
   /** Documentos a pagar (1 o varios), ya resueltos por el paso previo de selección — mismo proveedor y moneda. */
   cxps: CuentaPorPagar[];
   /** Importe inicial a aplicar por CxP (cuentaPorPagarId -> monto), propuesto por el paso de selección. */
   importesIniciales: Record<string, number>;
+  /** Inyectadas por el llamador según el origen documental (compra o gasto) — nunca un `useCompras()` fijo aquí (§11 de la corrección: mismo formulario para ambos orígenes). */
+  dependencias: DependenciasFormularioPagoCentral;
+  /** Breadcrumb/título según origen (§4 de la corrección puntual) — nunca "Compras" hardcodeado para un pago de Gasto. */
+  metadatosOrigen: MetadatosOrigenFormularioPago;
   onExito: () => void;
   onCancelar: () => void;
 }
@@ -34,9 +54,9 @@ const CAMPOS_PAGO_DEFAULT: CampoConfigurableDocumento[] = [
 ];
 const STORAGE_KEY_CAMPOS_PAGO = 'compras_pago_campos_config';
 
-export default function FormularioPagoCompra({ cxps, importesIniciales, onExito, onCancelar }: FormularioPagoCompraProps) {
+export default function FormularioPagoCompra({ cxps, importesIniciales, dependencias, metadatosOrigen, onExito, onCancelar }: FormularioPagoCompraProps) {
   const { session } = useUserSession();
-  const f = useFormularioPagoCompra(cxps, importesIniciales);
+  const f = useFormularioPagoCompra(cxps, importesIniciales, dependencias);
   const proveedorNombre = cxps[0]?.proveedorNombre ?? '';
   const { campos: camposConfigurables, esVisible, guardar: guardarCamposConfigurables } =
     useConfiguracionCampos(CAMPOS_PAGO_DEFAULT, STORAGE_KEY_CAMPOS_PAGO);
@@ -68,8 +88,8 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, onExito,
         breadcrumb={
           <Breadcrumb
             items={[
-              { label: 'Compras', onClick: onCancelar },
-              { label: 'Cuentas por Pagar', onClick: onCancelar },
+              { label: metadatosOrigen.etiquetaModulo, onClick: onCancelar },
+              { label: metadatosOrigen.etiquetaDocumentoOrigen, onClick: onCancelar },
               { label: 'Registrar pago' },
             ]}
           />
@@ -77,7 +97,7 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, onExito,
         title={
           <div className="flex items-center gap-2.5">
             <div>
-              <h1 className="text-lg font-semibold text-gray-900 leading-tight">Registrar Pago de Compra</h1>
+              <h1 className="text-lg font-semibold text-gray-900 leading-tight">{metadatosOrigen.tituloFormulario}</h1>
             </div>
             {f.numeroPagoPreview && (
               <span className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-0.5 rounded">
@@ -97,7 +117,7 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, onExito,
 
         {!f.seriePG && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
-            No hay una serie PG activa configurada. Ve a Configuración → Series y crea una serie de tipo &quot;Pago de Compra&quot;.
+            No hay una serie PG activa configurada. Ve a Configuración → Series y crea una serie de tipo &quot;Pago a proveedor&quot;.
           </div>
         )}
 
@@ -319,7 +339,7 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, onExito,
         deshabilitado={f.enviando || f.bloqueadoEstructural}
         tituloBotonPrimario={
           !f.seriePG
-            ? 'Configura una serie de tipo "Pago de Compra" en Configuración → Series.'
+            ? 'Configura una serie de tipo "Pago a proveedor" en Configuración → Series.'
             : !f.hayMediosConfigurados
               ? 'Configura al menos un medio de pago activo en Configuración → Pagos.'
               : undefined
@@ -329,7 +349,7 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, onExito,
 
       <FieldsConfigurationModal
         abierto={modalCamposAbierto}
-        titulo="Configuración de campos — Pago de Compra"
+        titulo="Configuración de campos — Pago a proveedor"
         campos={camposConfigurables}
         valoresPorDefecto={CAMPOS_PAGO_DEFAULT}
         onGuardar={(nuevos) => {

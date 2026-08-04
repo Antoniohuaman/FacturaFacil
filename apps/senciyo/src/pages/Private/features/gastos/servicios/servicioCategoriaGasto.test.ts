@@ -45,21 +45,48 @@ function crearGastoFixture(overrides: Partial<Gasto> = {}): Gasto {
   };
 }
 
-describe('contarUsoCategoriaGasto (§22-B: cantidad de usos)', () => {
+describe('contarUsoCategoriaGasto (§20 de la corrección: borradores no descartados + registrados + anulados)', () => {
   it('cuenta los gastos registrados que usan la categoría', () => {
     const gastos = [crearGastoFixture({ id: 'g1', categoriaId: 'cat-1' }), crearGastoFixture({ id: 'g2', categoriaId: 'cat-1' })];
     expect(contarUsoCategoriaGasto(gastos, 'cat-1')).toBe(2);
   });
 
-  it('excluye gastos anulados del conteo de uso', () => {
-    const gastos = [crearGastoFixture({ id: 'g1', categoriaId: 'cat-1', estadoDocumento: 'anulado' })];
+  it('INCLUYE gastos anulados genuinos en el conteo — un gasto anulado conserva su referencia histórica y sigue bloqueando la eliminación física de su categoría', () => {
+    const gastos = [crearGastoFixture({ id: 'g1', categoriaId: 'cat-1', estadoDocumento: 'anulado', motivoAnulacion: 'Gasto duplicado' })];
+    expect(contarUsoCategoriaGasto(gastos, 'cat-1')).toBe(1);
+  });
+
+  it('EXCLUYE un borrador descartado (motivoAnulacion técnico "Borrador descartado") — nunca fue registrado oficialmente, no cuenta como uso histórico', () => {
+    const gastos = [crearGastoFixture({ id: 'g1', categoriaId: 'cat-1', estadoDocumento: 'anulado', motivoAnulacion: 'Borrador descartado' })];
     expect(contarUsoCategoriaGasto(gastos, 'cat-1')).toBe(0);
+  });
+
+  it('INCLUYE un borrador activo (no descartado) — mientras exista, referencia la categoría', () => {
+    const gastos = [crearGastoFixture({ id: 'g1', categoriaId: 'cat-1', estadoDocumento: 'borrador' })];
+    expect(contarUsoCategoriaGasto(gastos, 'cat-1')).toBe(1);
   });
 
   it('un gasto histórico conserva su categoría aunque otra categoría cambie de estado (el conteo es por categoriaId, no por estado de la categoría)', () => {
     const gastos = [crearGastoFixture({ id: 'g1', categoriaId: 'cat-1' })];
     expect(contarUsoCategoriaGasto(gastos, 'cat-1')).toBe(1);
     expect(contarUsoCategoriaGasto(gastos, 'cat-otra')).toBe(0);
+  });
+
+  it('varias categorías con uso real mixto (borrador, registrado, anulado genuino, borrador descartado) — cada una refleja su conteo exacto', () => {
+    const gastos = [
+      crearGastoFixture({ id: 'g1', categoriaId: 'cat-alquileres' }),
+      crearGastoFixture({ id: 'g2', categoriaId: 'cat-alquileres' }),
+      crearGastoFixture({ id: 'g3', categoriaId: 'cat-movilidad' }),
+      crearGastoFixture({ id: 'g4', categoriaId: 'cat-movilidad', estadoDocumento: 'anulado', motivoAnulacion: 'Error en importes' }),
+      crearGastoFixture({ id: 'g5', categoriaId: 'cat-publicidad-inactiva' }),
+      crearGastoFixture({ id: 'g6', categoriaId: 'cat-viaticos', estadoDocumento: 'borrador' }),
+      crearGastoFixture({ id: 'g7', categoriaId: 'cat-viaticos', estadoDocumento: 'anulado', motivoAnulacion: 'Borrador descartado' }),
+    ];
+    expect(contarUsoCategoriaGasto(gastos, 'cat-alquileres')).toBe(2);
+    expect(contarUsoCategoriaGasto(gastos, 'cat-movilidad')).toBe(2);
+    expect(contarUsoCategoriaGasto(gastos, 'cat-publicidad-inactiva')).toBe(1);
+    expect(contarUsoCategoriaGasto(gastos, 'cat-viaticos')).toBe(1);
+    expect(contarUsoCategoriaGasto(gastos, 'cat-sin-uso')).toBe(0);
   });
 });
 

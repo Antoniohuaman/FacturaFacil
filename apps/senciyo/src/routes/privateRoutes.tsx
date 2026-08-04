@@ -88,6 +88,8 @@ const GuiasRemisionLayout = lazy(() => import("../pages/Private/features/guias-r
 
 // Gastos - diferido
 const PaginaGastos = lazy(() => import("../pages/Private/features/gastos/paginas/PaginaGastos"));
+const PaginaFormularioGasto = lazy(() => import("../pages/Private/features/gastos/paginas/PaginaFormularioGasto"));
+const PaginaRegistrarPagoGasto = lazy(() => import("../pages/Private/features/gastos/paginas/PaginaRegistrarPagoGasto"));
 const GastosLayout = lazy(() => import("../pages/Private/features/gastos/paginas/GastosLayout"));
 
 import RouteErrorBoundary from "./RouteErrorBoundary";
@@ -202,6 +204,9 @@ export const privateRoutes: RouteObject[] = [
         element: <GastosLayout />,
         children: [
           { path: "/gastos", element: conPermisos(<PaginaGastos />, ['gastos.ver']) },
+          { path: "/gastos/nuevo", element: conPermisos(<PaginaFormularioGasto />, ['gastos.ver']) },
+          { path: "/gastos/:id/editar", element: conPermisos(<PaginaFormularioGasto />, ['gastos.ver']) },
+          { path: "/gastos/:id/pagar", element: conPermisos(<PaginaRegistrarPagoGasto />, ['gastos.ver']) },
         ],
       },
       { path: "/notificaciones", element: conPermisos(<NotificationsCenterPage />, ['notificaciones.ver']) },

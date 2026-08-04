@@ -1479,6 +1479,7 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
   const stockEntrySeriesMigratedRef = useRef(false);
   const stockExitSeriesMigratedRef = useRef(false);
   const purchaseRequisitionSeriesMigratedRef = useRef(false);
+  const expenseSeriesMigratedRef = useRef(false);
   const almacenNombresNormalizadosRef = useRef(false);
   const dispatch = useCallback((action: ConfigurationAction) => {
     if (action.type === 'SET_CURRENCIES') {
@@ -1823,6 +1824,40 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
 
     dispatch({ type: 'SET_SERIES', payload: [...state.series, ...allNewSeries] });
     purchaseRequisitionSeriesMigratedRef.current = true;
+  }, [dispatch, state.Establecimientos, state.company, state.series]);
+
+  // Backfill de la serie de Gasto (GTO/G001) para establecimientos ya
+  // existentes — mismo patrón que el backfill de NI/NS/RQ: el usuario nunca
+  // debe verse obligado a crear manualmente la primera serie de Gasto antes
+  // de poder registrar uno.
+  useEffect(() => {
+    if (expenseSeriesMigratedRef.current) return;
+    if (!seriesHydratedRef.current) return;
+    if (!state.Establecimientos.length) return;
+
+    const allNewSeries: Series[] = [];
+    for (const est of state.Establecimientos) {
+      const hasExpenseSeries = state.series.some(
+        s => s.EstablecimientoId === est.id && s.documentType?.code === 'GTO',
+      );
+      if (!hasExpenseSeries) {
+        const missing = buildMissingDefaultSeries({
+          EstablecimientoId: est.id,
+          environmentType: obtenerEntornoTecnicoEmisionEmpresa(state.company) ?? 'TESTING',
+          existingSeries: state.series,
+          isMainEstablecimiento: est.isMainEstablecimiento,
+        });
+        allNewSeries.push(...missing.filter(s => s.documentType?.code === 'GTO'));
+      }
+    }
+
+    if (!allNewSeries.length) {
+      expenseSeriesMigratedRef.current = true;
+      return;
+    }
+
+    dispatch({ type: 'SET_SERIES', payload: [...state.series, ...allNewSeries] });
+    expenseSeriesMigratedRef.current = true;
   }, [dispatch, state.Establecimientos, state.company, state.series]);
 
   // Normaliza nombres de almacenes generados automáticamente en versiones anteriores:

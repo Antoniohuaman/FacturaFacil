@@ -4,7 +4,7 @@ import { imprimirComprobante } from '@/shared/impresion/ServicioImpresionComprob
 import { formatMoney, normalizarImporte } from '@/shared/currency';
 import type { PagoCompra, MedioPagoCompra } from '../modelos/PagoCompra';
 import { ESTADO_DOCUMENTO_PAGO_LABELS } from '../modelos/PagoCompra';
-import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
+import type { CuentaPorPagar, TipoOrigenCxP } from '../modelos/CuentaPorPagar';
 import type { MonedaCompra } from '../modelos/tiposBaseCompras';
 import type { ErrorValidacion } from './tiposServiciosCompras';
 import { formatearFechaCompra } from '../utilidades/formatearCompras';
@@ -98,11 +98,24 @@ export function buscarPagoPorClaveIdempotencia(
   return pagos.find((pago) => pago.claveIdempotencia === claveIdempotencia);
 }
 
-export function validarPagoCompraBasico(pago: Partial<PagoCompra>): ErrorValidacion[] {
+/**
+ * Contraparte pagable neutral (§7 de la corrección puntual): origen "compra"
+ * exige un proveedor REGISTRADO (`proveedorId`), regla actual de Compras sin
+ * cambios. Origen "gasto" acepta también un beneficiario libre sin
+ * `proveedorId` (un gasto legítimamente registrado sin proveedor formal) —
+ * exige únicamente que exista UN nombre visible (`proveedorNombre`, que para
+ * Gastos ya lleva el beneficiario cuando no hay proveedor formal). Nunca
+ * inventa un proveedor ficticio ni un id vacío para "pasar" la validación.
+ */
+export function validarPagoCompraBasico(pago: Partial<PagoCompra>, origen: TipoOrigenCxP = 'compra'): ErrorValidacion[] {
   const errores: ErrorValidacion[] = [];
 
-  if (!pago.proveedorId) {
-    errores.push({ campo: 'proveedorId', mensaje: 'El proveedor es obligatorio.' });
+  if (origen === 'compra') {
+    if (!pago.proveedorId) {
+      errores.push({ campo: 'proveedorId', mensaje: 'El proveedor es obligatorio.' });
+    }
+  } else if (!pago.proveedorId && !pago.proveedorNombre?.trim()) {
+    errores.push({ campo: 'proveedorId', mensaje: 'Indica un proveedor o un beneficiario.' });
   }
   if (!pago.fechaPago) {
     errores.push({ campo: 'fechaPago', mensaje: 'La fecha de pago es obligatoria.' });
@@ -246,7 +259,7 @@ function construirRepresentacionImpresaPago(pago: PagoCompra, empresa: EmpresaOC
       createElement(
         'div',
         { style: { textAlign: 'right' as const } },
-        createElement('h2', { style: { margin: 0, fontSize: '14px' } }, 'PAGO DE COMPRA'),
+        createElement('h2', { style: { margin: 0, fontSize: '14px' } }, 'PAGO A PROVEEDOR'),
         createElement('p', { style: { margin: 0, fontWeight: 700 } }, pago.numeroPago),
         createElement('p', { style: { margin: 0, fontSize: '11px' } }, ESTADO_DOCUMENTO_PAGO_LABELS[pago.estadoDocumento]),
         createElement('p', { style: { margin: 0, fontSize: '11px' } }, `Fecha: ${formatearFechaCompra(pago.fechaPago)}`),
@@ -287,7 +300,7 @@ function construirRepresentacionImpresaPago(pago: PagoCompra, empresa: EmpresaOC
 export async function imprimirPagoCompra(pago: PagoCompra, empresa: EmpresaOC | undefined): Promise<void> {
   await imprimirComprobante({
     formato: 'A4',
-    titulo: `Pago de Compra ${pago.numeroPago}`,
+    titulo: `Pago a proveedor ${pago.numeroPago}`,
     render: () => construirRepresentacionImpresaPago(pago, empresa),
   });
 }

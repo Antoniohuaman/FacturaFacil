@@ -4,11 +4,9 @@ import {
   revertirPagoDeCuentaPorPagar,
   recalcularEstadoCuentaPorPagar,
   generarCuentaPorPagar,
-  generarCuentaPorPagarDesdeGasto,
 } from './servicioCuentaPorPagar';
 import type { CuentaPorPagar, CuotaCuentaPorPagar } from '../modelos/CuentaPorPagar';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
-import type { Gasto } from '../../gastos/modelos/Gasto';
 
 function crearCxP(overrides: Partial<CuentaPorPagar> = {}): CuentaPorPagar {
   return {
@@ -324,31 +322,6 @@ function crearCCFixture(overrides: Partial<ComprobanteCompra> = {}): Comprobante
   } as ComprobanteCompra;
 }
 
-function crearGastoFixture(overrides: Partial<Gasto> = {}): Gasto {
-  return {
-    id: 'gasto-1',
-    referenciaInterna: 'GTO-00000001',
-    empresaId: 'empresa-1',
-    fechaReconocimiento: '2026-07-01',
-    categoriaId: 'cat-alquileres',
-    concepto: 'Alquiler de julio',
-    beneficiario: 'Inmobiliaria XYZ',
-    moneda: 'PEN',
-    subtotal: 100,
-    impuesto: 18,
-    total: 118,
-    tratamientoImpuesto: 'no_recuperable',
-    condicionPago: 'contado',
-    pagosRelacionados: [],
-    adjuntos: [],
-    estadoDocumento: 'registrado',
-    historial: [],
-    fechaCreacion: '2026-07-01T00:00:00.000Z',
-    fechaActualizacion: '2026-07-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
 describe('generarCuentaPorPagar — origen compra permanece intacto tras generalizar a Gastos', () => {
   it('produce tipoOrigen "compra" con documentoOrigenId igual a comprobanteCompraId', () => {
     const cxp = generarCuentaPorPagar(crearCCFixture(), 'cxp-cc-1');
@@ -362,66 +335,5 @@ describe('generarCuentaPorPagar — origen compra permanece intacto tras general
   it('10. Compra existente sin regresión: sigue propagando formaPagoMetodoId del CC sin verse afectada por la generalización a Gastos', () => {
     const cxp = generarCuentaPorPagar(crearCCFixture({ formaPagoMetodoId: 'metodo-credito-1' }), 'cxp-cc-2');
     expect(cxp.formaPagoMetodoId).toBe('metodo-credito-1');
-  });
-});
-
-describe('generarCuentaPorPagarDesdeGasto', () => {
-  it('genera una CxP con tipoOrigen "gasto" y documentoOrigenId apuntando al gasto, sin campos de ComprobanteCompra', () => {
-    const cxp = generarCuentaPorPagarDesdeGasto(crearGastoFixture(), 'cxp-gasto-1');
-    expect(cxp.tipoOrigen).toBe('gasto');
-    expect(cxp.documentoOrigenId).toBe('gasto-1');
-    expect(cxp.comprobanteCompraId).toBe('');
-    expect(cxp.saldoPendiente).toBe(118);
-    expect(cxp.estadoPago).toBe('pendiente');
-  });
-
-  it('sin proveedor formal, usa el beneficiario de texto libre como nombre de la CxP', () => {
-    const cxp = generarCuentaPorPagarDesdeGasto(
-      crearGastoFixture({ proveedorId: undefined, proveedorNombre: undefined, beneficiario: 'Movilidad conductor' }),
-      'cxp-gasto-2',
-    );
-    expect(cxp.proveedorId).toBe('');
-    expect(cxp.proveedorNombre).toBe('Movilidad conductor');
-  });
-
-  it('propaga formaPagoMetodoId a la CxP cuando el gasto tiene una forma de pago configurada (§3 de la corrección — misma fuente que Compras)', () => {
-    const cxp = generarCuentaPorPagarDesdeGasto(
-      crearGastoFixture({ condicionPago: 'credito', formaPagoMetodoId: 'metodo-credito-1' }),
-      'cxp-gasto-forma-pago',
-    );
-    expect(cxp.formaPagoMetodoId).toBe('metodo-credito-1');
-  });
-
-  it('gasto al crédito propaga la fecha de vencimiento; al contado la deja indefinida', () => {
-    const cxpCredito = generarCuentaPorPagarDesdeGasto(
-      crearGastoFixture({ condicionPago: 'credito', fechaVencimiento: '2026-08-01' }),
-      'cxp-gasto-3',
-    );
-    expect(cxpCredito.fechaVencimiento).toBe('2026-08-01');
-
-    const cxpContado = generarCuentaPorPagarDesdeGasto(crearGastoFixture({ condicionPago: 'contado' }), 'cxp-gasto-4');
-    expect(cxpContado.fechaVencimiento).toBeUndefined();
-  });
-
-  it('reutiliza el MISMO motor aplicarPagoACuentaPorPagar/revertirPagoDeCuentaPorPagar que Compras — nunca un motor paralelo (pago total + reversión)', () => {
-    const cxp = generarCuentaPorPagarDesdeGasto(crearGastoFixture(), 'cxp-gasto-5');
-    const pagada = aplicarPagoACuentaPorPagar(cxp, 118, 'pago-gasto-1', '2026-07-05');
-    expect(pagada.saldoPendiente).toBe(0);
-    expect(pagada.estadoPago).toBe('pagada');
-
-    const revertida = revertirPagoDeCuentaPorPagar(pagada, 118, 'pago-gasto-1', '2026-07-06');
-    expect(revertida.saldoPendiente).toBe(118);
-    expect(revertida.estadoPago).toBe('pendiente');
-  });
-
-  it('un pago PARCIAL de un gasto al crédito deja la CxP en estado "parcial" con el saldo restante correcto', () => {
-    const cxp = generarCuentaPorPagarDesdeGasto(
-      crearGastoFixture({ condicionPago: 'credito', fechaVencimiento: '2026-08-01', total: 118 }),
-      'cxp-gasto-6',
-    );
-    const parcial = aplicarPagoACuentaPorPagar(cxp, 50, 'pago-gasto-2', '2026-07-10');
-    expect(parcial.totalPagado).toBe(50);
-    expect(parcial.saldoPendiente).toBe(68);
-    expect(parcial.estadoPago).toBe('parcial');
   });
 });

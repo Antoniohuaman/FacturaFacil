@@ -1,7 +1,9 @@
 // Prueba de integración del COMANDO completo "registrar pago de gasto"
-// (corrección puntual §2: idempotencia integral, no solo de la función pura
-// de Caja). `simularRegistrarPagoGasto` reproduce, en el MISMO orden, la
-// lógica real de `ContextoGastos.tsx#registrarPagoGasto`:
+// (idempotencia integral, no solo de la función pura de Caja).
+// `simularRegistrarPagoGasto` reproduce, en el MISMO orden, la lógica real de
+// `ContextoGastos.tsx#registrarPagoGastoCentral` (el único comando de pago de
+// Gasto en producción — §11 de la corrección: el formulario central
+// generalizado, nunca un `FormularioPagoGasto` ni un motor de pago paralelo):
 //   1) buscar un Pago existente con la misma claveIdempotencia (real:
 //      `buscarPagoPorClaveIdempotencia`) — si existe, retorna de inmediato
 //      SIN tocar Caja ni la CxP;
@@ -15,15 +17,16 @@
 // entorno: `environment: 'node'` en vitest ⇒ `typeof window === 'undefined'`,
 // por lo que los repositorios de localStorage siempre devuelven `[]`/no-op
 // aquí, y no existe una librería de testing de componentes React en este
-// proyecto): el hook `registrarPagoGasto` en sí montado dentro de
-// `GastosProvider`, la escritura real a localStorage, y el `agregarMovimiento`
-// real de `CajaContext.tsx` (su propia protección de idempotencia — clave
-// compartida — ya está probada por separado en
+// proyecto): el hook `registrarPagoGastoCentral` en sí montado dentro de
+// `GastosProvider`/`FormularioPagoCompra`, la escritura real a localStorage,
+// y el `agregarMovimiento` real de `CajaContext.tsx` (su propia protección de
+// idempotencia — clave compartida — ya está probada por separado en
 // `control-caja/utils/validators.test.ts`).
 
 import { describe, it, expect } from 'vitest';
 import { buscarPagoPorClaveIdempotencia } from '../../compras/servicios/servicioPagoCompra';
-import { generarCuentaPorPagarDesdeGasto, aplicarPagoACuentaPorPagar, revertirPagoDeCuentaPorPagar } from '../../compras/servicios/servicioCuentaPorPagar';
+import { aplicarPagoACuentaPorPagar, revertirPagoDeCuentaPorPagar } from '../../compras/servicios/servicioCuentaPorPagar';
+import { generarCuentaPorPagarDesdeGasto } from '../servicios/servicioCuentaPorPagarGasto';
 import { motivoBloqueoAnulacionPago, round2 } from '../../compras/logica/reglasCompras';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
 import type { PagoCompra, MedioPagoCompra } from '../../compras/modelos/PagoCompra';
@@ -77,7 +80,7 @@ function esMedioDeCajaSimulado(codigo: string): boolean {
   return codigo === 'EFECTIVO';
 }
 
-/** Reproduce la orquestación real de `registrarPagoGasto` con funciones de producción — ver cabecera del archivo. */
+/** Reproduce la orquestación real de `registrarPagoGastoCentral` con funciones de producción — ver cabecera del archivo. */
 async function simularRegistrarPagoGasto(entrada: EntradaComando): Promise<SalidaComando> {
   const pagoExistente = buscarPagoPorClaveIdempotencia(entrada.pagosExistentes, entrada.claveIdempotencia);
   if (pagoExistente) {

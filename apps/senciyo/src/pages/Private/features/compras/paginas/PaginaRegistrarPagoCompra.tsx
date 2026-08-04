@@ -26,8 +26,16 @@ function EstadoNoDisponible({ mensaje, onVolver }: { mensaje: string; onVolver: 
   );
 }
 
+const METADATOS_ORIGEN_COMPRA = {
+  tipoOrigen: 'compra' as const,
+  etiquetaModulo: 'Compras',
+  etiquetaDocumentoOrigen: 'Cuentas por Pagar',
+  tituloFormulario: 'Registrar pago a proveedor',
+};
+
 export default function PaginaRegistrarPagoCompra() {
-  const { state } = useCompras();
+  const { state, registrarPagoCompra } = useCompras();
+  const dependenciasPago = { registrarPago: registrarPagoCompra };
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const cuentaPorPagarId = searchParams.get('cuentaPorPagarId');
@@ -68,6 +76,8 @@ export default function PaginaRegistrarPagoCompra() {
       <FormularioPagoCompra
         cxps={[cxpPreseleccionada]}
         importesIniciales={{ [cxpPreseleccionada.id]: cxpPreseleccionada.saldoPendiente }}
+        dependencias={dependenciasPago}
+        metadatosOrigen={METADATOS_ORIGEN_COMPRA}
         onExito={volverAPagos}
         onCancelar={volverACuentasPorPagar}
       />
@@ -102,6 +112,8 @@ export default function PaginaRegistrarPagoCompra() {
     <FormularioPagoCompra
       cxps={seleccion.cxps}
       importesIniciales={seleccion.importesIniciales}
+      dependencias={dependenciasPago}
+      metadatosOrigen={METADATOS_ORIGEN_COMPRA}
       onExito={volverAPagos}
       onCancelar={volverAPagos}
     />

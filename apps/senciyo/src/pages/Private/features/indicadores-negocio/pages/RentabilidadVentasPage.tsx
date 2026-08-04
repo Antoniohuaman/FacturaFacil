@@ -340,7 +340,11 @@ const RentabilidadVentasPage: React.FC = () => {
         periodo: { desde: dateRange.startDate, hasta: dateRange.endDate },
         establecimientoId: EstablecimientoId,
       }),
-      {},
+      // Rentabilidad excluye siempre los gastos anulados — antes era el
+      // comportamiento implícito de `filtrarFilasGastosOperativos`, ahora
+      // debe pedirse explícitamente (el listado operativo de Gastos sí
+      // debe mostrarlos por defecto).
+      { estadoDocumento: 'registrado' },
     ),
     [gastos, cuentasPorPagarGasto, categoriasGastoPorId, establecimientosPorId, monedaBase, dateRange.startDate, dateRange.endDate, EstablecimientoId]
   );

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getTenantEmpresaId } from '@/shared/tenant';
-import { cargarGastos } from '../repositorios/repositorioGastos';
+import { cargarGastos, EVENTO_GASTOS_CAMBIADOS } from '../repositorios/repositorioGastos';
 import {
   cargarCategoriasGasto,
   guardarCategoriasGasto,
@@ -42,6 +42,11 @@ function generarIdCategoria(): string {
 export function useCategoriasGasto(): UseCategoriasGastoReturn {
   const empresaId = getTenantEmpresaId();
   const [categorias, setCategorias] = useState<CategoriaGasto[]>(() => cargarCategoriasGasto(empresaId));
+  // Fuerza un re-render cuando cambian los GASTOS (no solo las categorías) —
+  // `contarUso` siempre lee `cargarGastos()` en vivo, pero sin esto la
+  // columna "En uso" quedaría desactualizada mientras el componente no se
+  // vuelva a renderizar por otra razón (§14 de la corrección).
+  const [, forzarRecalculoUso] = useState(0);
 
   useEffect(() => {
     const recargar = () => setCategorias(cargarCategoriasGasto(empresaId));
@@ -49,6 +54,12 @@ export function useCategoriasGasto(): UseCategoriasGastoReturn {
     window.addEventListener(EVENTO_CATEGORIAS_GASTO_CAMBIADAS, recargar);
     return () => window.removeEventListener(EVENTO_CATEGORIAS_GASTO_CAMBIADAS, recargar);
   }, [empresaId]);
+
+  useEffect(() => {
+    const recalcular = () => forzarRecalculoUso((n) => n + 1);
+    window.addEventListener(EVENTO_GASTOS_CAMBIADOS, recalcular);
+    return () => window.removeEventListener(EVENTO_GASTOS_CAMBIADOS, recalcular);
+  }, []);
 
   const contarUso = useCallback((categoriaId: string): number => contarUsoCategoriaGasto(cargarGastos(), categoriaId), []);
 

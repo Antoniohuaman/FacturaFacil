@@ -415,11 +415,11 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
     },
     isActive: true,
   },
-  // Pago de Compra (documento interno de pagos a proveedores)
+  // Pago a proveedor (documento interno de pagos — usado por Compras y Gastos)
   {
     id: 'PG',
     code: 'PG',
-    name: 'Pago de Compra',
+    name: 'Pago a proveedor',
     shortName: 'PG',
     category: 'OTHER',
     properties: {
@@ -439,6 +439,38 @@ export const SUNAT_DOCUMENT_TYPES: DocumentType[] = [
       seriesLength: 4,
       correlativeLength: 8,
       allowedPrefixes: ['PG'],
+    },
+    isActive: true,
+  },
+  // Gasto (documento interno operativo — semilla sugerida G001, §15 de la corrección)
+  {
+    id: 'GTO',
+    code: 'GTO',
+    name: 'Gasto',
+    shortName: 'GTO',
+    category: 'OTHER',
+    properties: {
+      affectsTaxes: false,
+      requiresCustomerRuc: false,
+      requiresCustomerName: true,
+      allowsCredit: true,
+      requiresPaymentMethod: true,
+      canBeVoided: true,
+      canHaveCreditNote: false,
+      canHaveDebitNote: false,
+      isElectronic: false,
+      requiresSignature: false,
+    },
+    seriesConfiguration: {
+      // 'G' (no 'G001'): mismo patrón de prefijo corto que el resto de tipos
+      // documentales (F, B, OC, NI...) — G001 es solo la SUGERENCIA inicial que
+      // arma `generateInitialSeriesCode` (prefijo + correlativo con ceros), nunca
+      // la única serie de Gasto permitida (corrección técnica final §3). El
+      // usuario puede crear G002, G003, u otro código válido para este tipo.
+      defaultPrefix: 'G',
+      seriesLength: 4,
+      correlativeLength: 8,
+      allowedPrefixes: ['G'],
     },
     isActive: true,
   },

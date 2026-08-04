@@ -14,7 +14,8 @@ export type SeriesVoucherType =
   | 'GRE_TRANSPORTISTA'
   | 'PURCHASE_ORDER'
   | 'PAYMENT_PURCHASE'
-  | 'PURCHASE_REQUISITION';
+  | 'PURCHASE_REQUISITION'
+  | 'EXPENSE';
 
 export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, string> = {
   INVOICE: '01',
@@ -31,6 +32,7 @@ export const SERIES_VOUCHER_TYPE_TO_DOCUMENT_CODE: Record<SeriesVoucherType, str
   PURCHASE_ORDER: 'OC',
   PAYMENT_PURCHASE: 'PG',
   PURCHASE_REQUISITION: 'RQ',
+  EXPENSE: 'GTO',
 };
 
 export const CREDIT_NOTE_DEFAULT_SERIES_CODES = ['FNC1', 'BNC1'] as const;
@@ -115,12 +117,24 @@ export const getVoucherTypeFromSeries = (
     return 'PURCHASE_ORDER';
   }
 
-  if (series.documentType.code === 'PG' || series.documentType.name.includes('Pago de Compra')) {
+  // `name` acepta la etiqueta histórica ("Pago de Compra") y la vigente
+  // ("Pago a proveedor", §13 de la corrección) — registros ya persistidos
+  // con el nombre antiguo se siguen clasificando correctamente, nunca se
+  // renombran.
+  if (
+    series.documentType.code === 'PG'
+    || series.documentType.name.includes('Pago de Compra')
+    || series.documentType.name.includes('Pago a proveedor')
+  ) {
     return 'PAYMENT_PURCHASE';
   }
 
   if (series.documentType.code === 'RQ' || series.documentType.name.includes('Requerimiento de Compra')) {
     return 'PURCHASE_REQUISITION';
+  }
+
+  if (series.documentType.code === 'GTO' || series.documentType.name === 'Gasto') {
+    return 'EXPENSE';
   }
 
   return normalizedSeries.startsWith('B') ? 'RECEIPT' : 'INVOICE';
@@ -233,6 +247,7 @@ export const validateSeriesCodeForVoucherType = (
     case 'PURCHASE_ORDER':
     case 'PAYMENT_PURCHASE':
     case 'PURCHASE_REQUISITION':
+    case 'EXPENSE':
       return /^[A-Z0-9]{4}$/.test(normalized);
     case 'GRE_REMITENTE':
       return /^T[A-Z0-9]{3}$/.test(normalized);
@@ -320,6 +335,8 @@ export const generateSeriesSuggestion = (
     case 'PAYMENT_PURCHASE':
     case 'PURCHASE_REQUISITION':
       return '';
+    case 'EXPENSE':
+      return generatePrefixedSeriesSuggestion('G', existingSeries, 'G001');
     case 'GRE_REMITENTE':
       return generatePrefixedSeriesSuggestion('T', existingSeries, 'T001');
     case 'GRE_TRANSPORTISTA':

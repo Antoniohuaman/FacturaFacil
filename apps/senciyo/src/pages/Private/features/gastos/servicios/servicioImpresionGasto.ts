@@ -17,15 +17,14 @@ import { formatMoney } from '@/shared/currency';
 import { formatearFecha } from '@/shared/formatters/fechas';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
 import type { PagoCompra } from '../../compras/modelos/PagoCompra';
-import { getNombreTipoDocumentoProveedor } from '../../compras/constantes/tiposDocumentoProveedor';
+import type { Series } from '../../configuracion-sistema/modelos/Series';
 import {
-  ESTADO_DOCUMENTO_GASTO_LABELS,
   ESTADO_PAGO_GASTO_LABELS,
   TRATAMIENTO_IMPUESTO_GASTO_LABELS,
   type Gasto,
   type EstadoPagoGasto,
 } from '../modelos/Gasto';
-import { importeReconocidoComoGasto } from './servicioGasto';
+import { importeReconocidoComoGasto, presentarReferenciaGasto, presentarEstadoDocumentoGasto, nombreDocumentoSustentatorioGasto, esBorradorDescartadoGasto } from './servicioGasto';
 
 /** Datos de empresa para el encabezado — forma mínima y neutral (no importa `EmpresaOC` de Compras: el mismo shape, sin acoplar Gastos a ese módulo). */
 export interface EmpresaImpresionGasto {
@@ -39,9 +38,13 @@ export interface DatosImpresionGasto {
   empresa?: EmpresaImpresionGasto;
   categoriaNombre: string;
   establecimientoNombre: string;
+  /** Nombre de la forma de pago configurada en Configuración de Negocio → Pagos (§8/§22 de la corrección) — nunca "Contado"/"Crédito" a secas, que es solo la condición derivada. */
+  formaPagoNombre?: string;
   cuentaPorPagar?: CuentaPorPagar;
   pagos: readonly PagoCompra[];
   estadoPago: EstadoPagoGasto;
+  /** Catálogo central de Series — para resolver "G001 · Sin correlativo" si el gasto impreso es un borrador (corrección técnica final §11), nunca una serie inventada. */
+  series?: readonly Pick<Series, 'id' | 'series'>[];
 }
 
 function fila(label: string, valor: string) {
@@ -70,7 +73,7 @@ function seccion(titulo: string, children: Array<ReturnType<typeof createElement
 
 /** Construye la representación imprimible del gasto. Mismo patrón que `construirRepresentacionImpresaPago` (servicioPagoCompra.ts): sin componente/archivo separado, createElement inline. Exportada para poder verificar en tests (vía `renderToStaticMarkup`) que contiene los campos exigidos por la constancia. */
 export function construirRepresentacionImpresaGasto(datos: DatosImpresionGasto) {
-  const { gasto, empresa, categoriaNombre, establecimientoNombre, cuentaPorPagar, pagos, estadoPago } = datos;
+  const { gasto, empresa, categoriaNombre, establecimientoNombre, formaPagoNombre, cuentaPorPagar, pagos, estadoPago, series = [] } = datos;
   const importeReconocido = importeReconocidoComoGasto(gasto);
 
   return createElement(
@@ -90,9 +93,9 @@ export function construirRepresentacionImpresaGasto(datos: DatosImpresionGasto) 
         'div',
         { style: { textAlign: 'right' as const } },
         createElement('h2', { style: { margin: 0, fontSize: '14px' } }, 'CONSTANCIA / DETALLE DE GASTO'),
-        createElement('p', { style: { margin: 0, fontWeight: 700 } }, gasto.referenciaInterna),
-        createElement('p', { style: { margin: 0, fontSize: '11px' } }, ESTADO_DOCUMENTO_GASTO_LABELS[gasto.estadoDocumento]),
-        createElement('p', { style: { margin: 0, fontSize: '11px' } }, gasto.estadoDocumento === 'anulado' ? 'Anulado' : ESTADO_PAGO_GASTO_LABELS[estadoPago]),
+        createElement('p', { style: { margin: 0, fontWeight: 700 } }, presentarReferenciaGasto(gasto, series)),
+        createElement('p', { style: { margin: 0, fontSize: '11px' } }, presentarEstadoDocumentoGasto(gasto)),
+        createElement('p', { style: { margin: 0, fontSize: '11px' } }, gasto.estadoDocumento === 'anulado' ? presentarEstadoDocumentoGasto(gasto) : ESTADO_PAGO_GASTO_LABELS[estadoPago]),
       ),
     ),
     seccion('Datos del gasto', [
@@ -108,12 +111,11 @@ export function construirRepresentacionImpresaGasto(datos: DatosImpresionGasto) 
       gasto.proveedorNumeroDocumento ? fila('Documento', gasto.proveedorNumeroDocumento) : null,
     ]),
     seccion('Documento sustentatorio', [
-      gasto.tipoDocumento
-        ? fila('Tipo de documento', getNombreTipoDocumentoProveedor(gasto.tipoDocumento))
-        : fila('Documento', 'Sin documento'),
-      gasto.tipoDocumento && (gasto.serieDocumentoProveedor || gasto.numeroDocumentoProveedor)
-        ? fila('Serie - número', `${gasto.serieDocumentoProveedor ?? ''}-${gasto.numeroDocumentoProveedor ?? ''}`)
-        : null,
+      // Misma fuente única que el listado/Drawer/Excel (§15 de la
+      // corrección final) — nunca una segunda concatenación de
+      // tipo/serie/número que podría desalinearse (p. ej. un guion suelto
+      // cuando falta uno de los dos).
+      fila('Documento', nombreDocumentoSustentatorioGasto(gasto)),
     ]),
     seccion('Importes', [
       fila('Moneda', gasto.moneda),
@@ -125,6 +127,7 @@ export function construirRepresentacionImpresaGasto(datos: DatosImpresionGasto) 
     ]),
     seccion('Condición de pago', [
       fila('Condición', gasto.condicionPago === 'credito' ? 'Crédito' : 'Contado'),
+      formaPagoNombre ? fila('Forma de pago', formaPagoNombre) : null,
       gasto.fechaVencimiento ? fila('Vencimiento', formatearFecha(gasto.fechaVencimiento)) : null,
       cuentaPorPagar ? fila('Saldo pendiente', formatMoney(cuentaPorPagar.saldoPendiente, cuentaPorPagar.moneda)) : null,
     ]),
@@ -151,7 +154,7 @@ export function construirRepresentacionImpresaGasto(datos: DatosImpresionGasto) 
       ? seccion('Historial', gasto.historial.map((h) => fila(`${formatearFecha(h.fecha)} — ${h.accion}`, h.detalle ?? '')))
       : null,
     gasto.estadoDocumento === 'anulado' && gasto.motivoAnulacion
-      ? seccion('Anulación', [fila('Motivo', gasto.motivoAnulacion)])
+      ? seccion(esBorradorDescartadoGasto(gasto) ? 'Descarte' : 'Anulación', [fila('Motivo', gasto.motivoAnulacion)])
       : null,
   );
 }
@@ -165,7 +168,7 @@ export function construirRepresentacionImpresaGasto(datos: DatosImpresionGasto) 
 export async function imprimirGasto(datos: DatosImpresionGasto): Promise<void> {
   await imprimirComprobante({
     formato: 'A4',
-    titulo: `Gasto ${datos.gasto.referenciaInterna}`,
+    titulo: `Gasto ${presentarReferenciaGasto(datos.gasto, datos.series)}`,
     render: () => construirRepresentacionImpresaGasto(datos),
   });
 }

@@ -54,98 +54,120 @@ const voucherTypeConfig = {
     icon: FileCheck,
     color: 'blue',
     prefix: 'F',
-    description: 'Para ventas a empresas con RUC - Debe empezar con "F"'
+    description: 'Para ventas a empresas con RUC - Debe empezar con "F"',
+    helperText: 'Debe comenzar con "F" seguido de 3 caracteres alfanuméricos (ej: FE01, F001).'
   },
   RECEIPT: {
     label: 'Boleta Electrónica',
     icon: Receipt,
     color: 'green',
     prefix: 'B',
-    description: 'Para ventas a consumidores finales - Debe empezar con "B"'
+    description: 'Para ventas a consumidores finales - Debe empezar con "B"',
+    helperText: 'Debe comenzar con "B" seguido de 3 caracteres alfanuméricos (ej: BE01, B001).'
   },
   CREDIT_NOTE: {
     label: 'Nota de Crédito Electrónica',
     icon: FileText,
     color: 'rose',
     prefix: 'FNC/BNC',
-    description: 'Corrige o anula comprobantes electrónicos. Se sugieren FNC1 y BNC1 al iniciar'
+    description: 'Corrige o anula comprobantes electrónicos. Se sugieren FNC1 y BNC1 al iniciar',
+    helperText: 'Debe comenzar con "F" o "B" seguido de 3 caracteres alfanuméricos (ej: FNC1, BNC1).'
   },
   SALE_NOTE: {
     label: 'Nota de Venta',
     icon: Clipboard,
     color: 'orange',
     prefix: '',
-    description: 'Documento interno, sin validez tributaria - Serie libre'
+    description: 'Documento interno, sin validez tributaria - Serie libre',
+    helperText: 'Código libre de 4 caracteres, letras y números (ej: NV01, NOTA).'
   },
   QUOTE: {
     label: 'Cotización',
     icon: MessageSquare,
     color: 'purple',
     prefix: '',
-    description: 'Propuesta comercial para clientes - Serie libre'
+    description: 'Propuesta comercial para clientes - Serie libre',
+    helperText: 'Código libre de 4 caracteres, letras y números (ej: COT1, PRES).'
   },
   SALE_ORDER: {
     label: 'Orden de Venta',
     icon: Building2,
     color: 'indigo',
     prefix: '',
-    description: 'Pedido de compra del cliente - Serie libre'
+    description: 'Pedido de compra del cliente - Serie libre',
+    helperText: 'Código libre de 4 caracteres, letras y números (ej: OV01, PED1).'
   },
   COLLECTION: {
     label: 'Recibo de Cobranza',
     icon: NotebookPen,
     color: 'cyan',
     prefix: 'C',
-    description: 'Documenta pagos registrados - Debe empezar con "C"'
+    description: 'Documenta pagos registrados - Debe empezar con "C"',
+    helperText: 'Debe comenzar con "C" seguido de 3 caracteres alfanuméricos (ej: C001).'
   },
   STOCK_ENTRY: {
     label: 'Nota de Ingreso',
     icon: FileText,
     color: 'teal',
     prefix: 'NI',
-    description: 'Documento interno de inventario - Registra entradas al almacén'
+    description: 'Documento interno de inventario - Registra entradas al almacén',
+    helperText: 'Código libre de 4 caracteres; por convención se usa "NI01" (ej: NI01, NI02).'
   },
   STOCK_EXIT: {
     label: 'Nota de Salida',
     icon: FileText,
     color: 'orange',
     prefix: 'NS',
-    description: 'Documento interno de inventario - Registra salidas del almacén'
+    description: 'Documento interno de inventario - Registra salidas del almacén',
+    helperText: 'Código libre de 4 caracteres; por convención se usa "NS01" (ej: NS01, NS02).'
   },
   GRE_REMITENTE: {
     label: 'GRE Remitente',
     icon: Truck,
     color: 'teal',
     prefix: 'T',
-    description: 'Guía de Remisión Electrónica Remitente (código 09)'
+    description: 'Guía de Remisión Electrónica Remitente (código 09)',
+    helperText: 'Debe comenzar con "T" seguido de 3 caracteres alfanuméricos (ej: T001).'
   },
   GRE_TRANSPORTISTA: {
     label: 'GRE Transportista',
     icon: Truck,
     color: 'indigo',
     prefix: 'V',
-    description: 'Guía de Remisión Electrónica Transportista (código 31)'
+    description: 'Guía de Remisión Electrónica Transportista (código 31)',
+    helperText: 'Debe comenzar con "V" seguido de 3 caracteres alfanuméricos (ej: V001).'
   },
   PURCHASE_ORDER: {
     label: 'Orden de Compra',
     icon: FileText,
     color: 'orange',
     prefix: 'OC',
-    description: 'Documento interno de compras - Pedido al proveedor'
+    description: 'Documento interno de compras - Pedido al proveedor',
+    helperText: 'Código libre de 4 caracteres; por convención se usa "OC01" (ej: OC01, OC02).'
   },
   PAYMENT_PURCHASE: {
-    label: 'Pago de Compra',
+    label: 'Pago a proveedor',
     icon: NotebookPen,
     color: 'teal',
     prefix: 'PG',
-    description: 'Documento interno de compras - Registro de pago al proveedor'
+    description: 'Documento interno de registro de pago a proveedores — usado por Compras y por Gastos',
+    helperText: 'Código libre de 4 caracteres; por convención se usa "PG01" (ej: PG01, PG02).'
   },
   PURCHASE_REQUISITION: {
     label: 'Requerimiento de Compra',
     icon: Clipboard,
     color: 'orange',
     prefix: 'RQ',
-    description: 'Documento interno de compras - Solicitud previa a la Orden de Compra'
+    description: 'Documento interno de compras - Solicitud previa a la Orden de Compra',
+    helperText: 'Código libre de 4 caracteres; por convención se usa "RQ01" (ej: RQ01, RQ02).'
+  },
+  EXPENSE: {
+    label: 'Gasto',
+    icon: Receipt,
+    color: 'rose',
+    prefix: 'G001',
+    description: 'Documento interno operativo - Registro de gastos de la empresa',
+    helperText: 'Código libre de 4 caracteres; por convención se usa "G001" (ej: G001, G002).'
   }
 };
 
@@ -669,23 +691,9 @@ export function SeriesConfiguration() {
               type="text"
               value={datosFormulario.series}
               onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value.toUpperCase() }))}
-              placeholder={
-                datosFormulario.type === 'INVOICE' ? 'FE01' :
-                  datosFormulario.type === 'RECEIPT' ? 'BE01' :
-                    datosFormulario.type === 'CREDIT_NOTE' ? 'FNC1' :
-                      datosFormulario.type === 'QUOTE' ? 'CT01' :
-                        datosFormulario.type === 'COLLECTION' ? 'C001' :
-                          'NV01'
-              }
+              placeholder={generateSeriesCode(datosFormulario.type)}
               maxLength={4}
-              helperText={
-                datosFormulario.type === 'INVOICE' ? 'Factura: Debe empezar con "F" + 3 caracteres (ej: FE01, FT01, F001)' :
-                  datosFormulario.type === 'RECEIPT' ? 'Boleta: Debe empezar con "B" + 3 caracteres (ej: BE01, BL01, B001)' :
-                    datosFormulario.type === 'CREDIT_NOTE' ? 'Nota de Crédito: Debe empezar con "F" o "B" + 3 caracteres alfanuméricos (ej: FNC1, BNC1, F001, B7X9)' :
-                      datosFormulario.type === 'QUOTE' ? 'Cotización: Serie libre de 4 caracteres (ej: CT01, C001, COT1)' :
-                        datosFormulario.type === 'COLLECTION' ? 'Recibo de Cobranza: Debe empezar con "C" + 3 caracteres (ej: C001, CABC)' :
-                          'Nota de Venta: Serie libre de 4 caracteres (ej: NV01, NT01, NOTA)'
-              }
+              helperText={voucherTypeConfig[datosFormulario.type].helperText}
               required
             />
 

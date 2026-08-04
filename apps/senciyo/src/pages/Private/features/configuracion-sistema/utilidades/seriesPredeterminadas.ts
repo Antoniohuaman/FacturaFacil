@@ -20,6 +20,7 @@ const VOUCHER_TYPES_FOR_SEED: SeriesVoucherType[] = [
   'PURCHASE_ORDER',
   'PAYMENT_PURCHASE',
   'PURCHASE_REQUISITION',
+  'EXPENSE',
 ];
 
 const buildSeriesSeed = ({
@@ -49,7 +50,12 @@ const buildSeriesSeed = ({
     EstablecimientoId,
     documentType,
     series: seriesCode,
-    correlativeNumber: 1,
+    // 0 = "ningún documento emitido todavía" (última numeración USADA, no la
+    // próxima disponible) — misma semántica que ya consumen `getNextExpenseDocument`/
+    // `getNextCollectionDocument` (preview = correlativeNumber + 1, confirmación
+    // persiste el número YA usado, nunca +1 otra vez). Sembrar en 1 hacía que el
+    // primer documento emitido leyera "00000002" en vez de "00000001".
+    correlativeNumber: 0,
     configuration: {
       minimumDigits,
       startNumber: 1,

@@ -9,12 +9,26 @@ import type { EventoHistorialCompras } from '../../compras/modelos/EventoHistori
 import type { AdjuntoCompra, TipoAdjuntoCompra } from '../../compras/modelos/AdjuntoCompra';
 import type { EstadoPago } from '../../compras/modelos/CuentaPorPagar';
 import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
+import { BADGE_ESTADO_DOCUMENTO_REGISTRABLE } from '@/shared/status/estadoDocumento';
 
-export type EstadoDocumentoGasto = 'registrado' | 'anulado';
+/**
+ * `borrador` — guardado sin numeración oficial ni efecto financiero
+ * (§4 de la corrección): no consume serie/correlativo, no genera CxP/Pago,
+ * no afecta Caja ni Rentabilidad. Se convierte en `registrado` recién al
+ * ejecutar "Registrar gasto"/"Registrar y pagar" — nunca antes.
+ */
+export type EstadoDocumentoGasto = 'borrador' | 'registrado' | 'anulado';
 
 export const ESTADO_DOCUMENTO_GASTO_LABELS: Record<EstadoDocumentoGasto, string> = {
+  borrador: 'Borrador',
   registrado: 'Registrado',
   anulado: 'Anulado',
+};
+
+/** 'borrador' es propio del Gasto; 'registrado'/'anulado' delegan en el badge transversal (`shared/status/estadoDocumento.ts`) — mismo patrón que `BADGE_ESTADO_DOCUMENTO_CC` en Compras, nunca un color paralelo. */
+export const BADGE_ESTADO_DOCUMENTO_GASTO: Record<EstadoDocumentoGasto, string> = {
+  borrador: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  ...BADGE_ESTADO_DOCUMENTO_REGISTRABLE,
 };
 
 /**
@@ -52,15 +66,23 @@ export interface Gasto {
   id: string;
   empresaId: string;
   /**
-   * Referencia interna legible y estable (ej. "GTO-000001") — para búsqueda,
-   * Drawer, impresión, Excel e historial. NUNCA una serie tributaria: no
-   * existe una serie "GS" en Series de Comprobantes (SenciYo no emite el
-   * comprobante del gasto). Generada una sola vez con la misma utilidad
-   * genérica de numeración que ya usan los Pagos (`siguienteNumeroPago`,
-   * adaptada al arreglo de gastos), nunca una cuarta implementación de
-   * correlativos copiada.
+   * Referencia interna definitiva (ej. "G001-00000005") — para búsqueda,
+   * Drawer, impresión, Excel e historial. Se resuelve desde el catálogo
+   * central de Series (tipo documental "Gasto", código "GTO"), NUNCA
+   * inventada localmente: ver `serieId` y `getNextExpenseDocument`
+   * (`@/shared/series/expenseSeries`). Un borrador sin registrar todavía
+   * lleva un identificador técnico interno (`referenciaTecnicaBorradorGasto`),
+   * nunca presentado al usuario (ver `presentarReferenciaGasto`).
    */
   referenciaInterna: string;
+  /**
+   * FK a la `Series` (Configuración → Series, tipo documental "Gasto")
+   * elegida por el usuario en el formulario. Un borrador puede llevarla
+   * como simple selección (sin consumir su correlativo); un gasto
+   * registrado la conserva como la serie DEFINITIVA que ya reservó su
+   * correlativo — nunca se cambia después de registrado.
+   */
+  serieId?: string;
   /** Ausente = gasto general de la empresa (nunca prorrateado automáticamente entre establecimientos). */
   establecimientoId?: string;
 
@@ -127,9 +149,33 @@ export interface Gasto {
   motivoAnulacion?: string;
   fechaAnulacion?: string;
   anuladoPor?: string;
+  /**
+   * Señal ESTRUCTURADA de por qué `estadoDocumento` llegó a 'anulado'
+   * (corrección técnica final §12) — nunca se distingue un borrador
+   * descartado de un gasto genuinamente anulado comparando el TEXTO de
+   * `motivoAnulacion` contra `MOTIVO_DESCARTE_BORRADOR_GASTO` (frágil: un
+   * usuario podría escribir ese mismo texto como motivo real). Ausente en
+   * gastos existentes anulados/descartados ANTES de esta corrección —
+   * `esBorradorDescartadoGasto` conserva el criterio de texto SOLO como
+   * respaldo de compatibilidad para esos registros históricos, nunca para
+   * los nuevos.
+   */
+  tipoCierre?: 'descarte_borrador' | 'anulacion';
 
   /** Presente cuando este gasto nació de la acción "Duplicar gasto" — trazabilidad, nunca genera un segundo reconocimiento del original. */
   gastoOrigenDuplicadoId?: string;
+
+  /**
+   * Clave de idempotencia del COMANDO "Registrar gasto" (sin pago) o de la
+   * conversión borrador→registrado (§13 de la corrección final) — un
+   * reintento con la MISMA clave nunca crea un segundo gasto, una segunda
+   * CxP ni consume el correlativo dos veces (ver
+   * `buscarGastoPorClaveIdempotencia` en `servicioGasto.ts`). Generalización
+   * aditiva, ausente en gastos existentes y en "Registrar y pagar" (que ya
+   * tiene su propia clave persistida en el `PagoCompra`, ver
+   * `PagoCompra.claveIdempotencia`).
+   */
+  claveIdempotencia?: string;
 
   historial: EventoHistorialCompras[];
   creadoPor?: string;

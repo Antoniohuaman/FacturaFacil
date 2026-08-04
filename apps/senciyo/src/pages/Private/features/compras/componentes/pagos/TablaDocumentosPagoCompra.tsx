@@ -86,10 +86,22 @@ export default function TablaDocumentosPagoCompra({
               <Fragment key={cxp.id}>
                 <tr>
                   <td className="px-4 py-3 font-mono text-gray-700 align-top">
-                    {cxp.comprobanteCompraNumero}
-                    <div className="text-xs text-gray-400 font-sans">
-                      {getNombreTipoDocumentoProveedor(cxp.tipoComprobanteOrigen)}
-                    </div>
+                    {cxp.tipoOrigen === 'gasto' ? (
+                      <>
+                        <span className="font-sans text-[10px] uppercase tracking-wide text-gray-400">Gasto</span>
+                        <div>{cxp.numeroDocumentoOrigen}</div>
+                        {cxp.numeroDocumentoSustentatorio && (
+                          <div className="text-xs text-gray-400 font-sans">{cxp.numeroDocumentoSustentatorio}</div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {cxp.comprobanteCompraNumero}
+                        <div className="text-xs text-gray-400 font-sans">
+                          {getNombreTipoDocumentoProveedor(cxp.tipoComprobanteOrigen)}
+                        </div>
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-gray-600 align-top">
                     {resolverNombreFormaPago(cxp, config.paymentMethods)}
