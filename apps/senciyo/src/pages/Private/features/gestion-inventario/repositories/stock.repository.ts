@@ -14,21 +14,15 @@ export const STOCK_MOVEMENTS_CHANGED_EVENT = 'facturafacil:stock-movements-chang
  */
 export class StockRepository {
   /**
-   * Obtener todos los movimientos de stock
+   * Obtener todos los movimientos de stock de la empresa activa. Lectura pura respecto de la
+   * persistencia: lee la clave tenantizada, valida y devuelve el resultado — nunca copia, migra,
+   * sobrescribe ni borra ninguna otra clave (ver VAL-P0-002: una migración automática destructiva
+   * en este mismo punto llegó a copiar y borrar una clave legacy compartida entre empresas).
    */
   static getMovements(): MovimientoStock[] {
     try {
       const tenantKey = lsKey(STORAGE_KEY_MOVEMENTS);
-      let data = localStorage.getItem(tenantKey);
-
-      if (!data) {
-        const legacyData = localStorage.getItem(STORAGE_KEY_MOVEMENTS);
-        if (legacyData) {
-          localStorage.setItem(tenantKey, legacyData);
-          localStorage.removeItem(STORAGE_KEY_MOVEMENTS);
-          data = legacyData;
-        }
-      }
+      const data = localStorage.getItem(tenantKey);
 
       if (!data) return [];
 

@@ -5,7 +5,7 @@ import {
   type ProductDataLineaCompra,
   type ContextoTributarioLineaCompra,
 } from '../../servicios/servicioOrdenCompra';
-import { calcularLineaCompra, resolverSnapshotInventarioLinea, round2 } from '../../logica/reglasCompras';
+import { calcularLineaCompra, resolverSnapshotInventarioLinea, resolverEsImpuestoRecuperableLinea, round2 } from '../../logica/reglasCompras';
 import type { LineaCompra } from '../../modelos/LineaCompra';
 import type { Product } from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
 
@@ -51,6 +51,16 @@ export function useLineasCompra(lineasIniciales: LineaCompra[], contextoTributar
       cantidadPendienteInventario: 0,
       factorConversionAplicado: snapshot.factorConversionAplicado,
       cantidadDocumentadaInventariable: snapshot.cantidadDocumentadaInventariable,
+      // VAL-P1-007/VAL-P2-004: snapshot de recuperabilidad tributaria, resuelto con la política
+      // vigente AHORA (mientras la línea todavía es un borrador editable) — nunca se recalcula más
+      // tarde al confirmar la Nota de Ingreso. Se recomputa en cada edición de la línea (cambio de
+      // producto, de tipoAfectacion, o de la elección manual `impuestoRecuperableManual`) para que
+      // el snapshot nunca quede desactualizado respecto de lo que el usuario ve en pantalla.
+      esImpuestoRecuperable: resolverEsImpuestoRecuperableLinea(
+        linea.tipoAfectacion,
+        contextoTributario.tratamientoImpuestoCompra,
+        linea.impuestoRecuperableManual,
+      ),
     };
   }
 

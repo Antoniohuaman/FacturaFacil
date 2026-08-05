@@ -6,6 +6,8 @@ import { usePreferenciasDisponibilidad } from '../../stores/usePreferenciasDispo
 import { useFeedback } from '@/shared/feedback/useFeedback';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionInventario';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../../configuracion-sistema/utilidades/permisos';
 import type { DensidadTabla, ColumnaDisponibilidad } from '../../models/disponibilidad.types';
 
 interface DisponibilidadSettingsProps {
@@ -51,8 +53,16 @@ const DisponibilidadSettings: React.FC<DisponibilidadSettingsProps> = ({ isOpen,
     resetearPreferencias,
   } = usePreferenciasDisponibilidad();
 
-  const { state: configState } = useConfigurationContext();
-  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
+  const usuarioActual = obtenerUsuarioDesdeSesion(configState.users, session);
+  const puedeVerCostos = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'inventario.costos.ver',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion) && puedeVerCostos;
   const columnasOfrecidas = puedeConsultarValorizado
     ? (Object.keys(COLUMNAS_INFO) as ColumnaDisponibilidad[])
     : COLUMNAS_SIEMPRE_DISPONIBLES;

@@ -9,6 +9,7 @@ import {
 } from '../../logica/reglasCompras';
 import type { LineaCompra } from '../../modelos/LineaCompra';
 import type { UseLineasCompraResultado } from './useLineasCompra';
+import type { TratamientoImpuestoCompra } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
 import ProductSelector from '../../../comprobantes-electronicos/lista-comprobantes/pages/ProductSelector';
 
 interface SeccionProductosCompraProps {
@@ -23,6 +24,12 @@ interface SeccionProductosCompraProps {
   etiquetaCosto?: string;
   /** Etiqueta del total del panel de resumen. Por defecto "Total"; un Requerimiento de Compra la muestra como "Total referencial". */
   etiquetaTotal?: string;
+  /**
+   * Política tributaria vigente de la empresa (VAL-P1-007) — cuando es `'segun_afectacion'`, cada
+   * línea gravada exige una elección explícita de recuperabilidad (columna "Impuesto"). Ausente en
+   * Requerimiento de Compra, donde el tratamiento tributario todavía no aplica.
+   */
+  tratamientoImpuestoCompra?: TratamientoImpuestoCompra;
 }
 
 interface DefinicionColumna extends ColumnaTablaLineas {
@@ -95,6 +102,7 @@ export default function SeccionProductosCompra({
   mensajeBloqueo,
   etiquetaCosto = 'Costo U.',
   etiquetaTotal = 'Total',
+  tratamientoImpuestoCompra,
 }: SeccionProductosCompraProps) {
   const { lineas, actualizarLinea, actualizarUnidadLinea, eliminarLinea, agregarProductosDesdeCatalogo } = lineasCompra;
   const [mostrarColumnas, setMostrarColumnas] = useState(false);
@@ -206,12 +214,49 @@ export default function SeccionProductosCompra({
 
       case 'impuesto': {
         const tasaIgv = linea.tasaIgv ?? 0;
+        // VAL-P1-007: con "Definir por cada línea" activo, cada línea gravada necesita su propia
+        // elección explícita de recuperabilidad — nunca un valor asumido igual para todas.
+        const requiereEleccionManual =
+          tratamientoImpuestoCompra === 'segun_afectacion' && linea.tipoAfectacion === 'gravado';
         return (
           <td className="px-3 py-2.5 text-center">
-            <BadgeImpuesto
-              etiqueta={formatearEtiquetaImpuesto(linea.tipoAfectacion, tasaIgv)}
-              tono={linea.tipoAfectacion === 'sin_configurar' ? 'advertencia' : 'neutral'}
-            />
+            <div className="flex flex-col items-center gap-1">
+              <BadgeImpuesto
+                etiqueta={formatearEtiquetaImpuesto(linea.tipoAfectacion, tasaIgv)}
+                tono={linea.tipoAfectacion === 'sin_configurar' ? 'advertencia' : 'neutral'}
+              />
+              {requiereEleccionManual && (
+                <>
+                  <select
+                    value={
+                      linea.impuestoRecuperableManual === undefined
+                        ? ''
+                        : linea.impuestoRecuperableManual
+                        ? 'recuperable'
+                        : 'no_recuperable'
+                    }
+                    disabled={disabled}
+                    onChange={(e) =>
+                      actualizarLinea(
+                        linea.id,
+                        'impuestoRecuperableManual',
+                        e.target.value === '' ? undefined : e.target.value === 'recuperable',
+                      )
+                    }
+                    className={`w-full text-[11px] border rounded px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-violet-400 disabled:bg-gray-100 disabled:text-gray-400 ${
+                      linea.impuestoRecuperableManual === undefined ? 'border-red-300 text-red-600' : 'border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <option value="">Elegir IGV...</option>
+                    <option value="recuperable">IGV recuperable (excluir del costo)</option>
+                    <option value="no_recuperable">IGV no recuperable (incluir en costo)</option>
+                  </select>
+                  {linea.impuestoRecuperableManual === undefined && (
+                    <span className="text-[10px] font-medium text-red-600">Falta definir</span>
+                  )}
+                </>
+              )}
+            </div>
           </td>
         );
       }

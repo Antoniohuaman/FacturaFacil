@@ -169,6 +169,11 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
       return;
     }
 
+    if (!Number.isFinite(newStock) || newStock < 0) {
+      alert(`Este ajuste dejaría el stock en ${newStock} (negativo). Reduce la cantidad o cambia el tipo de movimiento.`);
+      return;
+    }
+
     submittingRef.current = true;
     onAdjust({
       productoId: selectedProductId,
@@ -407,6 +412,11 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
                       `}>
                         {stockActualAlmacen} → {newStock}
                       </div>
+                      {newStock < 0 && (
+                        <p className="mt-1 text-[11px] font-medium text-red-600 dark:text-red-400">
+                          Stock insuficiente: este movimiento no puede confirmarse porque dejaría el stock en negativo.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -484,7 +494,15 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!selectedProductId || !cantidad || Number(cantidad) <= 0 || !selectedalmacenId || (requiereCosto && (!costoUnitario || Number(costoUnitario) <= 0))}
+              disabled={
+                !selectedProductId ||
+                !cantidad ||
+                Number(cantidad) <= 0 ||
+                !selectedalmacenId ||
+                (requiereCosto && (!costoUnitario || Number(costoUnitario) <= 0)) ||
+                !Number.isFinite(newStock) ||
+                newStock < 0
+              }
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Registrar Movimiento

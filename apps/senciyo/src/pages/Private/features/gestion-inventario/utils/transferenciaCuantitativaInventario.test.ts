@@ -6,6 +6,7 @@ import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStora
 import { guardarCapaCostoInventario, listarCapasCostoInventarioPorEmpresa } from '../repositories/capaCostoInventario.repository';
 import { listarConsumosCapaCostoInventarioPorEmpresa } from '../repositories/consumoCapaCostoInventario.repository';
 import { CLAVE_COLECCION_TRANSFERENCIAS } from '../repositories/transferencia.repository';
+import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import type { CapaCostoInventario } from '../models/capaCostoInventario.types';
 import type { DatosTransferenciaInventario } from '../models/operacionTransferenciaInventario.types';
 import type { Product } from '../../catalogo-articulos/models/types';
@@ -593,5 +594,75 @@ describe('transferirStockValorizado — inter-establecimiento (cierre de brecha)
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
     expect(productos[0].stockPorAlmacen['alm-1']).toBe(3);
+  });
+});
+
+// PR-12/PR-13 (Corrección 6 / VAL-P1-009): con valorización activa (`valorizacionHabilitada:
+// true`), se valida tanto el lado origen como el destino de la transferencia.
+describe('transferirStockValorizado — bloqueo de movimiento retroactivo incompatible (VAL-P1-009)', () => {
+  function sembrarMovimiento(empresaId: string, productoId: string, almacenId: string, fecha: string): void {
+    localStorage.setItem(
+      lsKey(STORAGE_KEY_MOVEMENTS, empresaId),
+      JSON.stringify([
+        { id: 'mov-existente', productoId, almacenId, cantidad: 1, cantidadAnterior: 0, cantidadNueva: 1, fecha, tipo: 'ENTRADA' },
+      ]),
+    );
+  }
+
+  it('PR-12: fecha anterior a un movimiento confirmado en el ALMACÉN ORIGEN rechaza toda la transferencia', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 3 } })]);
+    guardarCapaCostoInventario(crearCapa({ empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+    sembrarMovimiento(empresaId, 'prod-1', 'alm-1', '2026-08-10T00:00:00.000Z');
+
+    await expect(
+      ServicioKardexValorizado.transferirStockValorizado(
+        datosBase({ empresaId, fecha: '2026-08-01T00:00:00.000Z' }),
+        { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true },
+      ),
+    ).rejects.toThrow(/fecha anterior/);
+
+    const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
+    expect(productos[0].stockPorAlmacen['alm-1']).toBe(20);
+    expect(productos[0].stockPorAlmacen['alm-2']).toBe(3);
+  });
+
+  it('PR-12: fecha anterior a un movimiento confirmado en el ALMACÉN DESTINO también rechaza toda la transferencia', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 3 } })]);
+    guardarCapaCostoInventario(crearCapa({ empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+    sembrarMovimiento(empresaId, 'prod-1', 'alm-2', '2026-08-10T00:00:00.000Z');
+
+    await expect(
+      ServicioKardexValorizado.transferirStockValorizado(
+        datosBase({ empresaId, fecha: '2026-08-01T00:00:00.000Z' }),
+        { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true },
+      ),
+    ).rejects.toThrow(/fecha anterior/);
+  });
+
+  it('PR-13: fecha igual o posterior al último movimiento confirmado sigue funcionando (mismo comportamiento previo)', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 3 } })]);
+    guardarCapaCostoInventario(crearCapa({ empresaId, cantidadInicial: 20, cantidadDisponible: 20 }), empresaId);
+    sembrarMovimiento(empresaId, 'prod-1', 'alm-1', '2026-08-01T00:00:00.000Z');
+
+    const resultado = await ServicioKardexValorizado.transferirStockValorizado(
+      datosBase({ empresaId, fecha: '2026-08-10T00:00:00.000Z' }),
+      { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true },
+    );
+    expect(resultado.movimientos).toHaveLength(2);
+  });
+
+  it('modo cuantitativo (valorizacionHabilitada ausente/false) nunca aplica este bloqueo', async () => {
+    const empresaId = 'emp-A';
+    sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 20, 'alm-2': 3 } })]);
+    sembrarMovimiento(empresaId, 'prod-1', 'alm-1', '2026-08-10T00:00:00.000Z');
+
+    const resultado = await ServicioKardexValorizado.transferirStockValorizado(
+      datosBase({ empresaId, fecha: '2026-08-01T00:00:00.000Z' }),
+      { almacenes: almacenesBase(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' },
+    );
+    expect(resultado.movimientos).toHaveLength(2);
   });
 });

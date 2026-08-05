@@ -663,7 +663,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
               ordenVentaOrigenId: doc.id,
               notaSalidaIds: doc.notaSalidaIds,
               notaSalidaIdLegacy: doc.notaSalidaId,
-            });
+            }, getTenantEmpresaId());
             if (nsActivas.length > 0) {
               return { exito: false, error: 'No se puede anular una OV con Notas de Salida activas. Anule primero las Notas de Salida.' };
             }

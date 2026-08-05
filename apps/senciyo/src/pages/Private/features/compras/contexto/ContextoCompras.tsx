@@ -1695,6 +1695,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         );
       }
 
+      const empresaId = getTenantEmpresaId();
       const modalidadOrigenCompra = cc.modalidadInventario === 'ingreso_automatico' ? 'automatico' : 'manual';
       const notaBase = construirNotaIngresoDesdeCC(
         cc,
@@ -1709,7 +1710,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       );
 
       if (modalidadOrigenCompra === 'manual') {
-        agregarOActualizarNI(notaBase);
+        agregarOActualizarNI(notaBase, empresaId);
         const ts = notaBase.fechaCreacion;
         const comprobante: ComprobanteCompra = {
           ...cc,
@@ -1724,8 +1725,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       }
 
       const productsMap = new Map(allProducts.map((p) => [p.id, p]));
-      const empresaId = getTenantEmpresaId();
-      const notasExistentes = cargarNotasIngreso();
+      const notasExistentes = cargarNotasIngreso(empresaId);
       const { notaActualizada, movimientos } = await generarNIEnInventario(
         notaBase,
         notasExistentes,
@@ -1740,7 +1740,18 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
           monedaBase: currencyManager.getSnapshot().baseCurrency.code,
         },
       );
-      agregarOActualizarNI(notaActualizada);
+      // El inventario (movimiento + capa) ya quedó confirmado por la unidad de trabajo — si la
+      // persistencia del documento falla desde aquí, nunca se debe presentar como éxito: se relanza
+      // con contexto explícito (mismo criterio que useNotasIngreso.generarNI). El llamador automático
+      // (dispararIngresoAutomaticoSiCorresponde) ya registra este mensaje en el historial del CC.
+      try {
+        agregarOActualizarNI(notaActualizada, empresaId);
+      } catch (errorPersistencia) {
+        const detalle = errorPersistencia instanceof Error ? errorPersistencia.message : 'error desconocido';
+        throw new Error(
+          `El movimiento de inventario se registró correctamente, pero la Nota de Ingreso no pudo guardarse (${detalle}). Vuelve a intentar: la operación es segura de repetir y no duplicará el movimiento.`,
+        );
+      }
       sincronizarInventarioTrasConfirmacion();
 
       const comprobante =
@@ -1864,7 +1875,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       >,
       usuarioId?: string,
     ): Promise<{ comprobante: ComprobanteCompra; cuentaPorPagar: CuentaPorPagar }> => {
-      lanzarSiHayErrores(validarComprobanteCompraBasico(datos));
+      lanzarSiHayErrores(validarComprobanteCompraBasico(datos, config.preferenciasInventario.tratamientoImpuestoCompra));
       lanzarSiHayErrores(validarTipoCambioRequerido(datos.moneda, monedaBase, datos.tipoCambio));
 
       if (validarComprobanteCompraDuplicado(state.comprobantes, datos)) {
@@ -1931,7 +1942,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
       return { comprobante: comprobanteFinal, cuentaPorPagar };
     },
-    [state.ordenes, state.comprobantes, monedaBase, dispararIngresoAutomaticoSiCorresponde],
+    [state.ordenes, state.comprobantes, monedaBase, dispararIngresoAutomaticoSiCorresponde, config.preferenciasInventario],
   );
 
   const guardarBorradorCC = useCallback(
@@ -2047,7 +2058,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         cc = aplicarDatosHeredadosCC(cc, ocOrigen);
       }
 
-      lanzarSiHayErrores(validarComprobanteCompraBasico(cc));
+      lanzarSiHayErrores(validarComprobanteCompraBasico(cc, config.preferenciasInventario.tratamientoImpuestoCompra));
       lanzarSiHayErrores(validarTipoCambioRequerido(cc.moneda, monedaBase, cc.tipoCambio));
 
       const otrosComprobantes = state.comprobantes.filter((c) => c.id !== id);
@@ -2080,7 +2091,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
       return { comprobante: comprobanteFinal, cuentaPorPagar };
     },
-    [state.ordenes, state.comprobantes, monedaBase, dispararIngresoAutomaticoSiCorresponde],
+    [state.ordenes, state.comprobantes, monedaBase, dispararIngresoAutomaticoSiCorresponde, config.preferenciasInventario],
   );
 
   /**
@@ -2129,7 +2140,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         fechaCreacion: existente.fechaCreacion,
       };
 
-      lanzarSiHayErrores(validarComprobanteCompraBasico(cc));
+      lanzarSiHayErrores(validarComprobanteCompraBasico(cc, config.preferenciasInventario.tratamientoImpuestoCompra));
       lanzarSiHayErrores(validarTipoCambioRequerido(cc.moneda, monedaBase, cc.tipoCambio));
 
       const otrosComprobantes = state.comprobantes.filter((c) => c.id !== id);
@@ -2164,7 +2175,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
       return { comprobante: actualizado, cuentaPorPagar };
     },
-    [state.comprobantes, state.cuentasPorPagar, monedaBase],
+    [state.comprobantes, state.cuentasPorPagar, monedaBase, config.preferenciasInventario],
   );
 
   const eliminarComprobanteCompraBorrador = useCallback(
@@ -2204,7 +2215,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
       const cc = state.comprobantes.find((c) => c.id === id);
       if (!cc) throw new Error(`Comprobante ${id} no encontrado.`);
 
-      const motivoBloqueo = motivoBloqueoAnulacionCC(cc, cargarNotasIngreso());
+      const motivoBloqueo = motivoBloqueoAnulacionCC(cc, cargarNotasIngreso(getTenantEmpresaId()));
       if (motivoBloqueo) throw new Error(motivoBloqueo);
 
       const ts = ahora();

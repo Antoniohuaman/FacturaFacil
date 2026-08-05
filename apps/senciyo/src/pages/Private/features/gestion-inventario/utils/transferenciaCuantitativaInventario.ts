@@ -29,7 +29,7 @@ import { ejecutarUnidadTrabajoInventario } from './unidadTrabajoInventario';
 import { serializarCanonicamente } from './serializacionCanonicaInventario';
 import { calcularHashInventario } from './hashInventario';
 import { redondearAPrecision, PRECISION_CANTIDAD_UNIDAD_MINIMA, PRECISION_COSTO_UNITARIO_INTERNO } from './precisionInventario';
-import { parsearColeccion, esProductoAlmacenable, consumirCapasFIFO } from './operacionCuantitativaInventarioComun';
+import { parsearColeccion, esProductoAlmacenable, consumirCapasFIFO, validarSinMovimientoRetroactivoIncompatible } from './operacionCuantitativaInventarioComun';
 import { InventoryService } from '../services/inventory.service';
 import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStorage';
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
@@ -318,6 +318,27 @@ export function prepararOperacionTransferencia(
 
   const movimientosAnteriores = parsearColeccion(movimientosRaw, `la colección de movimientos ("${claveMovimientos}")`);
   const movimientosFinales = [...movimientosAnteriores, movimientoSalida, movimientoEntrada];
+
+  // Corrección 6 / VAL-P1-009: solo aplica en modo valorizado (capas FIFO cuyo orden podría
+  // corromperse) — se valida tanto el lado origen como el destino de la transferencia.
+  if (valorizacionHabilitada) {
+    validarSinMovimientoRetroactivoIncompatible({
+      productoId: datos.productoId,
+      almacenId: datos.almacenOrigenId,
+      nombreProducto: producto.nombre,
+      nombreAlmacen: almacenOrigen.nombreAlmacen,
+      fechaPropuesta: fechaOperacion,
+      movimientosExistentes: movimientosAnteriores,
+    });
+    validarSinMovimientoRetroactivoIncompatible({
+      productoId: datos.productoId,
+      almacenId: datos.almacenDestinoId,
+      nombreProducto: producto.nombre,
+      nombreAlmacen: almacenDestino.nombreAlmacen,
+      fechaPropuesta: fechaOperacion,
+      movimientosExistentes: movimientosAnteriores,
+    });
+  }
 
   // ── Modo valorizado (§4): SOLO si `valorizacionHabilitada` fue fijado explícitamente a `true`
   // por el llamador (cierre final de Etapa 1E, §1) — nunca por la mera presencia de capas. Ningún

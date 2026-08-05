@@ -192,6 +192,67 @@ export function esProductoAlmacenable(valor: unknown): valor is Product {
   return typeof valor === 'object' && valor !== null && typeof (valor as { id?: unknown }).id === 'string';
 }
 
+interface MovimientoComparablePorFecha {
+  productoId: string;
+  almacenId?: string;
+  almacenOrigenId?: string;
+  almacenDestinoId?: string;
+  fecha: string | number | Date;
+}
+
+function esMovimientoComparablePorFecha(valor: unknown): valor is MovimientoComparablePorFecha {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const candidato = valor as Record<string, unknown>;
+  return (
+    typeof candidato.productoId === 'string' &&
+    (candidato.fecha !== undefined && candidato.fecha !== null) &&
+    (typeof candidato.almacenId === 'string' ||
+      typeof candidato.almacenOrigenId === 'string' ||
+      typeof candidato.almacenDestinoId === 'string')
+  );
+}
+
+/**
+ * Decisión funcional del prototipo (Corrección 6 / VAL-P1-009): con la valorización activa, un
+ * movimiento no puede confirmarse con `fecha` anterior al último movimiento YA CONFIRMADO del
+ * mismo producto+almacén — eso alteraría retroactivamente el orden FIFO de capas ya consumidas.
+ * No es un motor de recálculo: rechaza la operación completa (nunca reordena ni recalcula capas
+ * históricas, nunca marca un "requiere recálculo" — el llamador debe usar una fecha válida y
+ * reintentar). Reutilizada tal cual por transferencias (origen y destino), que no pasan por
+ * `calcularMutacionesCuantitativas`.
+ */
+export function validarSinMovimientoRetroactivoIncompatible(params: {
+  productoId: string;
+  almacenId: string;
+  nombreProducto: string;
+  nombreAlmacen: string;
+  fechaPropuesta: Date;
+  movimientosExistentes: readonly unknown[];
+}): void {
+  const { productoId, almacenId, nombreProducto, nombreAlmacen, fechaPropuesta, movimientosExistentes } = params;
+  let fechaMasReciente: Date | undefined;
+
+  for (const elemento of movimientosExistentes) {
+    if (!esMovimientoComparablePorFecha(elemento)) continue;
+    if (elemento.productoId !== productoId) continue;
+    const tocaEsteAlmacen =
+      elemento.almacenId === almacenId ||
+      elemento.almacenOrigenId === almacenId ||
+      elemento.almacenDestinoId === almacenId;
+    if (!tocaEsteAlmacen) continue;
+
+    const fecha = new Date(elemento.fecha);
+    if (Number.isNaN(fecha.getTime())) continue;
+    if (!fechaMasReciente || fecha > fechaMasReciente) fechaMasReciente = fecha;
+  }
+
+  if (fechaMasReciente && fechaPropuesta < fechaMasReciente) {
+    throw new Error(
+      `No se puede registrar este movimiento con una fecha anterior porque existen movimientos valorizados posteriores de "${nombreProducto}" en "${nombreAlmacen}" (último: ${fechaMasReciente.toISOString()}). Usa una fecha igual o posterior al último movimiento registrado.`
+    );
+  }
+}
+
 export interface ResultadoMutacionesCuantitativas {
   movimientosGenerados: MovimientoStock[];
   /** Solo los productos tocados por esta operación, ya con `recalcularTotalesStock` aplicado. */
@@ -286,6 +347,19 @@ export function calcularMutacionesCuantitativas(
     const almacen = almacenes.get(linea.almacenId);
     if (!almacen) {
       throw new Error(`operacionCuantitativaInventarioComun: la línea "${linea.lineaId}" referencia un almacén ("${linea.almacenId}") que no existe.`);
+    }
+
+    // Corrección 6 / VAL-P1-009: solo aplica en modo valorizado — el modo cuantitativo puro no
+    // tiene capas FIFO cuyo orden pueda corromperse.
+    if (datos.modoOperacion === 'valorizado') {
+      validarSinMovimientoRetroactivoIncompatible({
+        productoId: linea.productoId,
+        almacenId: linea.almacenId,
+        nombreProducto: producto.nombre,
+        nombreAlmacen: almacen.nombreAlmacen,
+        fechaPropuesta: fechaOperacion,
+        movimientosExistentes: movimientosAnteriores,
+      });
     }
 
     validarLinea?.({ producto, almacen, linea });

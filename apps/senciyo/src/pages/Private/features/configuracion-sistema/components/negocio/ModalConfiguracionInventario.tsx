@@ -15,6 +15,8 @@ import {
 import type { StockDescuentoDocumento } from '../../contexto/ContextoConfiguracion';
 import { useConfigurationContext } from '../../contexto/ContextoConfiguracion';
 import { useFeedback } from '@/shared/feedback/useFeedback';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../utilidades/permisos';
 import SeccionValorizacionInventario from './SeccionValorizacionInventario';
 
 interface Props {
@@ -102,10 +104,21 @@ function TooltipInfo({ text }: { text: string }) {
 }
 
 export default function ModalConfiguracionInventario({ isOpen, onClose }: Props) {
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
   const feedback = useFeedback();
+  const { session } = useUserSession();
   const prefs = state.salesPreferences;
   const estaActivo = prefs.controlStockActivo ?? false;
+
+  // VAL-P1-001: "abrir la sección de valorización" es la operación protegida — nunca se decide
+  // por nombre de rol, solo por el catálogo de permisos (misma fuente que SeccionValorizacionInventario.tsx).
+  const usuarioActual = obtenerUsuarioDesdeSesion(state.users, session);
+  const puedeConfigurarValorizacion = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'inventario.valorizacion.configurar',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
 
   const [localFyB, setLocalFyB] = useState<StockDescuentoDocumento>(
     prefs.stockDescuentoFacturaYBoleta ?? 'automatico',
@@ -354,14 +367,16 @@ export default function ModalConfiguracionInventario({ isOpen, onClose }: Props)
                   </table>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setMostrandoValorizacion(true)}
-                  className="mt-3 flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800"
-                >
-                  <Calculator className="w-3.5 h-3.5" />
-                  Valorización del inventario
-                </button>
+                {puedeConfigurarValorizacion && (
+                  <button
+                    type="button"
+                    onClick={() => setMostrandoValorizacion(true)}
+                    className="mt-3 flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    <Calculator className="w-3.5 h-3.5" />
+                    Valorización del inventario
+                  </button>
+                )}
               </div>
 
               {/* Footer */}

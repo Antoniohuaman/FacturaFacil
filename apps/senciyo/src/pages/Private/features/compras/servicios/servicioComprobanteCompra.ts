@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { ErrorValidacion } from './tiposServiciosCompras';
+import type { TratamientoImpuestoCompra } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import {
   validarFechaVencimientoCredito,
   validarLineasCompra,
@@ -17,6 +18,7 @@ import type { EmpresaOC } from './servicioOrdenCompra';
 
 export function validarComprobanteCompraBasico(
   cc: Partial<ComprobanteCompra>,
+  tratamientoImpuestoCompra?: TratamientoImpuestoCompra,
 ): ErrorValidacion[] {
   const errores: ErrorValidacion[] = [];
 
@@ -52,7 +54,7 @@ export function validarComprobanteCompraBasico(
     errores.push({ campo: 'lineas', mensaje: 'Se requiere al menos una línea.' });
   }
   if (cc.lineas) {
-    errores.push(...validarLineasCompra(cc.lineas));
+    errores.push(...validarLineasCompra(cc.lineas, tratamientoImpuestoCompra));
     // El total se recalcula siempre desde las líneas (nunca se confía en
     // `cc.totales.total` recibido) y se normaliza con la precisión real de
     // la moneda del documento — nunca dos decimales fijos — antes de exigir

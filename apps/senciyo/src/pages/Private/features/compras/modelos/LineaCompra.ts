@@ -101,6 +101,21 @@ export interface LineaCompra {
   tasaIgv?: number;
   igv: number;
   total: number;
+  /**
+   * Elección explícita del usuario sobre si el IGV de ESTA línea es recuperable — solo se
+   * solicita (y solo tiene efecto) cuando la empresa tiene `tratamientoImpuestoCompra ===
+   * 'segun_afectacion'` y la línea es `tipoAfectacion === 'gravado'`. Ausente para cualquier otra
+   * política (decidida globalmente) o para líneas sin IGV que decidir.
+   */
+  impuestoRecuperableManual?: boolean;
+  /**
+   * Snapshot histórico de recuperabilidad tributaria — resuelto y congelado con
+   * `resolverEsImpuestoRecuperableLinea` cada vez que la línea se construye o edita (nunca
+   * recalculado al confirmar la Nota de Ingreso, ver `mapeadorCCaNI.calcularCostoValorizableLineaCompra`).
+   * `null` únicamente cuando la política es `segun_afectacion` y falta `impuestoRecuperableManual`
+   * para una línea gravada — ese estado bloquea el registro (`validarLineasCompra`).
+   */
+  esImpuestoRecuperable?: boolean | null;
 
   // Destino de inventario
   almacenDestinoId?: string;

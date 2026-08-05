@@ -7,9 +7,10 @@ import { isProductEnabledForEstablecimiento } from '../../catalogo-articulos/mod
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { InventoryService } from '../services/inventory.service';
 import { summarizeProductStock } from '@/shared/inventory/stockGateway';
-import { useCurrentEstablecimientoId } from '../../../../../contexts/UserSessionContext';
+import { useCurrentEstablecimientoId, useUserSession } from '../../../../../contexts/UserSessionContext';
 import { getTenantEmpresaId } from '@/shared/tenant';
 import { esValorizacionActiva } from '../utils/estadoActivacionValorizacionInventario';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import {
   calcularValorStockPorProductoAlmacen,
   obtenerValorStockProducto,
@@ -37,10 +38,20 @@ interface UpdateThresholdInput {
  */
 export const useInventarioDisponibilidad = () => {
   const { allProducts, updateProduct } = useProductStore();
-  const { state: configState } = useConfigurationContext();
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
   const currentEstablecimientoId = useCurrentEstablecimientoId();
+  const { session } = useUserSession();
   const empresaId = getTenantEmpresaId();
-  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
+  // VAL-P1-001: el valor de stock (columna "Valor stock" / resumen) exige el permiso específico
+  // además de que la valorización esté activa — misma fuente de verdad que el resto del módulo.
+  const usuarioActual = obtenerUsuarioDesdeSesion(configState.users, session);
+  const puedeVerCostos = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'inventario.costos.ver',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion) && puedeVerCostos;
 
   const almacenesActivos = useMemo(
     () => configState.almacenes.filter(w => w.estaActivoAlmacen),

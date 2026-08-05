@@ -6,6 +6,7 @@ import { useFeedback } from '@/shared/feedback/useFeedback';
 import { getTenantEmpresaId } from '@/shared/tenant';
 import { useUserSession } from '@/contexts/UserSessionContext';
 import { currencyManager } from '@/shared/currency';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../utilidades/permisos';
 import type { Almacen } from '../../modelos/Almacen';
 import type { ValorizacionInicialInventario } from '../../../gestion-inventario/models/valorizacionInicialInventario.types';
 import { obtenerLoteActivoPorEmpresa } from '../../../gestion-inventario/repositories/valorizacionInicialInventario.repository';
@@ -28,7 +29,7 @@ function claveDetalle(productoId: string, almacenId: string): string {
 }
 
 export default function SeccionValorizacionInventario() {
-  const { state, dispatch } = useConfigurationContext();
+  const { state, dispatch, rolesConfigurados } = useConfigurationContext();
   const { allProducts } = useProductStore();
   const feedback = useFeedback();
   const { session } = useUserSession();
@@ -36,6 +37,18 @@ export default function SeccionValorizacionInventario() {
 
   const estadoValorizacion = state.preferenciasInventario.estadoValorizacion;
   const tratamientoImpuestoCompra = state.preferenciasInventario.tratamientoImpuestoCompra;
+
+  // VAL-P1-001: permisos granulares de valorización — única fuente de verdad `tienePermiso`
+  // (catálogo de roles/permisos), nunca comparaciones de nombre de rol ni una segunda fuente.
+  // Se recalculan en cada render a partir de la sesión/rol vigentes: cambiar de empresa, de
+  // establecimiento o de rol (reasignación) se refleja de inmediato, sin arrastrar autorización de
+  // una sesión anterior.
+  const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(state.users, session), [state.users, session]);
+  const establecimientoId = session?.currentEstablecimientoId;
+  const puedeVerCostos = tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.costos.ver', rolesDisponibles: rolesConfigurados, establecimientoId });
+  const puedeConfigurar = tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.valorizacion.configurar', rolesDisponibles: rolesConfigurados, establecimientoId });
+  const puedeConfirmarCostos = tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.valorizacion.confirmar_costos', rolesDisponibles: rolesConfigurados, establecimientoId });
+  const puedeActivar = tienePermiso({ usuario: usuarioActual, permisoId: 'inventario.valorizacion.activar', rolesDisponibles: rolesConfigurados, establecimientoId });
 
   const almacenesMap = useMemo(() => new Map<string, Almacen>(state.almacenes.map((a) => [a.id, a])), [state.almacenes]);
   const empresaId = getTenantEmpresaId();
@@ -92,6 +105,10 @@ export default function SeccionValorizacionInventario() {
   };
 
   const handleIniciar = () => {
+    if (!puedeConfigurar) {
+      feedback.error('No tienes permiso para configurar la valorización del inventario.');
+      return;
+    }
     try {
       const resultado = iniciarPreparacionValorizacion(estadoValorizacion, {
         empresaId,
@@ -110,6 +127,10 @@ export default function SeccionValorizacionInventario() {
   };
 
   const handleConfirmarCosto = (detalle: DetalleValorizacionInicial) => {
+    if (!puedeConfirmarCostos) {
+      feedback.error('No tienes permiso para confirmar costos de valorización.');
+      return;
+    }
     const clave = claveDetalle(detalle.productoId, detalle.almacenId);
     // Nunca depende de que `costosLocales[clave]` exista: aceptar la propuesta sin tocar el input
     // debe funcionar igual que confirmarla tras editarla.
@@ -131,6 +152,10 @@ export default function SeccionValorizacionInventario() {
   };
 
   const handleRecalcular = (productoId: string, almacenId: string) => {
+    if (!puedeConfirmarCostos) {
+      feedback.error('No tienes permiso para confirmar costos de valorización.');
+      return;
+    }
     try {
       const loteActualizado = recalcularDetalle(empresaId, productoId, almacenId, allProducts, new Date().toISOString());
       setLote(loteActualizado);
@@ -144,6 +169,10 @@ export default function SeccionValorizacionInventario() {
   };
 
   const handleCancelar = () => {
+    if (!puedeConfigurar) {
+      feedback.error('No tienes permiso para configurar la valorización del inventario.');
+      return;
+    }
     try {
       const resultado = cancelarPreparacion(estadoValorizacion, empresaId);
       actualizarEstadoValorizacion(resultado.estadoValorizacion);
@@ -155,6 +184,10 @@ export default function SeccionValorizacionInventario() {
   };
 
   const handleValidar = () => {
+    if (!puedeConfirmarCostos) {
+      feedback.error('No tienes permiso para confirmar costos de valorización.');
+      return;
+    }
     try {
       const resultado = validarYTransicionarAValidada(estadoValorizacion, empresaId, tratamientoImpuestoCompra, allProducts, almacenesMap);
       actualizarEstadoValorizacion(resultado.estadoValorizacion);
@@ -180,6 +213,14 @@ export default function SeccionValorizacionInventario() {
    * antes de que el primer `setActivando(true)` se refleje.
    */
   const handleActivar = useCallback(async () => {
+    // Segunda validación lógica inmediatamente antes de ejecutar la acción irreversible — se
+    // repite aquí (no solo en el render del botón) porque este mismo handler también se dispara
+    // automáticamente al reanudar tras una recarga (ver el efecto de abajo), sin pasar por ningún
+    // clic ni por el estado `disabled` del botón.
+    if (!puedeActivar) {
+      feedback.error('No tienes permiso para activar la valorización del inventario.');
+      return;
+    }
     if (activandoRef.current || !puedeReanudarOIniciarActivacion(estadoValorizacion)) {
       if (!puedeReanudarOIniciarActivacion(estadoValorizacion)) {
         feedback.error('La activación no está disponible desde el estado actual.');
@@ -218,7 +259,7 @@ export default function SeccionValorizacionInventario() {
       activandoRef.current = false;
       setActivando(false);
     }
-  }, [estadoValorizacion, feedback, empresaId, tratamientoImpuestoCompra, allProducts, almacenesMap, dispatch, state.preferenciasInventario]);
+  }, [estadoValorizacion, feedback, empresaId, tratamientoImpuestoCompra, allProducts, almacenesMap, dispatch, state.preferenciasInventario, puedeActivar]);
 
   // Recarga durante 'activando' (cierre Etapa 4B, §7): la operación real (ledger de idempotencia +
   // unidad de trabajo) es la fuente de verdad, nunca este componente — reanuda automáticamente
@@ -229,6 +270,20 @@ export default function SeccionValorizacionInventario() {
       handleActivar();
     }
   }, [estadoValorizacion, handleActivar]);
+
+  // VAL-P1-001: "abrir la sección de configuración de valorización" es en sí misma la operación
+  // protegida por `inventario.valorizacion.configurar` — un usuario sin este permiso nunca ve el
+  // asistente (ni su estado actual), sin importar si llegó aquí manipulando el modal/estado. Se
+  // evalúa después de todos los hooks (incluida la reanudación automática de la activación, que no
+  // depende de que ESTA sesión tenga permiso — es una reconciliación técnica de una operación ya
+  // autorizada por quien la inició) para no romper las reglas de hooks de React.
+  if (!puedeConfigurar) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+        No tienes permiso para configurar la valorización del inventario.
+      </div>
+    );
+  }
 
   if (estadoValorizacion === 'no_iniciada' || estadoValorizacion === 'cancelada_antes_activacion') {
     return (
@@ -273,14 +328,18 @@ export default function SeccionValorizacionInventario() {
             en que ese efecto no se haya disparado (p. ej. la pestaña estuvo en segundo plano). Nunca
             inicia una segunda activación — reutiliza `handleActivar`, cuya idempotencia real la
             garantiza el ledger de `ejecutarActivacionValorizacion`, nunca este botón. */}
-        <button
-          type="button"
-          onClick={handleActivar}
-          disabled={activando}
-          className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {activando ? 'Reanudando…' : 'Reanudar activación'}
-        </button>
+        {puedeActivar ? (
+          <button
+            type="button"
+            onClick={handleActivar}
+            disabled={activando}
+            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {activando ? 'Reanudando…' : 'Reanudar activación'}
+          </button>
+        ) : (
+          <p className="text-xs text-amber-700">No tienes permiso para activar la valorización del inventario.</p>
+        )}
       </div>
     );
   }
@@ -292,14 +351,18 @@ export default function SeccionValorizacionInventario() {
           <p className="font-semibold">La activación no pudo completarse.</p>
           {errorActivacion && <p className="mt-1">{errorActivacion}</p>}
         </div>
-        <button
-          type="button"
-          onClick={handleActivar}
-          disabled={activando}
-          className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {activando ? 'Reintentando…' : 'Reintentar activación'}
-        </button>
+        {puedeActivar ? (
+          <button
+            type="button"
+            onClick={handleActivar}
+            disabled={activando}
+            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {activando ? 'Reintentando…' : 'Reintentar activación'}
+          </button>
+        ) : (
+          <p className="text-xs text-amber-700">No tienes permiso para activar la valorización del inventario.</p>
+        )}
       </div>
     );
   }
@@ -336,7 +399,11 @@ export default function SeccionValorizacionInventario() {
           <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-xs text-green-800">
             Preparación validada.
           </div>
-          {bloqueantesActivacion.length > 0 ? (
+          {!puedeActivar ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+              No tienes permiso para activar la valorización del inventario.
+            </div>
+          ) : bloqueantesActivacion.length > 0 ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-xs font-semibold text-amber-800 mb-1">La activación todavía no está disponible:</p>
               <ul className="list-disc pl-4 text-[11px] text-amber-700 space-y-0.5">
@@ -428,7 +495,7 @@ export default function SeccionValorizacionInventario() {
         </div>
         <div className="rounded-lg border border-gray-200 p-2">
           <p className="text-gray-500">Unidades / valor estimado</p>
-          <p className="font-semibold text-gray-800">{unidadesDetectadas} / {valorEstimado.toFixed(2)}</p>
+          <p className="font-semibold text-gray-800">{unidadesDetectadas} / {puedeVerCostos ? valorEstimado.toFixed(2) : '—'}</p>
         </div>
       </div>
 
@@ -459,10 +526,12 @@ export default function SeccionValorizacionInventario() {
                   <td className="px-3 py-2 text-gray-600">{almacen?.nombreAlmacen ?? d.almacenId}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-gray-800">{d.cantidadDetectada}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-gray-500">
-                    {d.origenPropuesta === 'sin_propuesta' ? '—' : d.costoPropuesto.toFixed(2)}
+                    {!puedeVerCostos ? '—' : d.origenPropuesta === 'sin_propuesta' ? '—' : d.costoPropuesto.toFixed(2)}
                   </td>
                   <td className="px-3 py-2">
-                    {lote.estado === 'validada' ? (
+                    {!puedeVerCostos ? (
+                      <span className="tabular-nums text-gray-400">—</span>
+                    ) : lote.estado === 'validada' ? (
                       <span className="tabular-nums text-gray-800">{d.costoConfirmado?.toFixed(2) ?? '—'}</span>
                     ) : (
                       <input
@@ -478,7 +547,9 @@ export default function SeccionValorizacionInventario() {
                   <td className="px-3 py-2 text-gray-600">{estadoDetalle(d)}</td>
                   {lote.estado !== 'validada' && (
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {d.requiereRecalculo ? (
+                      {!puedeConfirmarCostos ? (
+                        <span className="text-[11px] text-gray-400">Sin permiso</span>
+                      ) : d.requiereRecalculo ? (
                         <button
                           type="button"
                           onClick={() => handleRecalcular(d.productoId, d.almacenId)}
@@ -525,7 +596,8 @@ export default function SeccionValorizacionInventario() {
           <button
             type="button"
             onClick={handleValidar}
-            disabled={motivosBloqueo.length > 0}
+            disabled={motivosBloqueo.length > 0 || !puedeConfirmarCostos}
+            title={!puedeConfirmarCostos ? 'No tienes permiso para confirmar costos de valorización.' : undefined}
             className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Validar preparación

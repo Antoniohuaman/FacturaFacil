@@ -342,6 +342,70 @@ describe('calcularCostoValorizableLineaCompra', () => {
     expect(resultado.costoUnitarioBaseOriginal).toBe(118);
   });
 
+  // PR-10/PR-11 (Corrección 5 / VAL-P1-007 / VAL-P2-004): el snapshot ya congelado en la línea
+  // (`esImpuestoRecuperable`) es la ÚNICA fuente usada aquí — nunca se vuelve a derivar de
+  // `contexto.tratamientoImpuestoCompra`, ni siquiera si ese contexto cambió después de que la
+  // línea se registró.
+  describe('snapshot de recuperabilidad (nunca se recalcula con la configuración vigente)', () => {
+    it('PR-10: dos líneas del mismo comprobante, cada una con su propio snapshot, producen costos distintos y correctos', () => {
+      const lineaExcluida = calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0, esImpuestoRecuperable: true },
+        1, 1, ccBase, { tratamientoImpuestoCompra: 'segun_afectacion', monedaBase: 'PEN' },
+      );
+      const lineaIncluida = calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0, esImpuestoRecuperable: false },
+        1, 1, ccBase, { tratamientoImpuestoCompra: 'segun_afectacion', monedaBase: 'PEN' },
+      );
+      expect(lineaExcluida.esImpuestoRecuperable).toBe(true);
+      expect(lineaExcluida.costoUnitarioBaseOriginal).toBe(100); // subtotal, sin IGV
+      expect(lineaIncluida.esImpuestoRecuperable).toBe(false);
+      expect(lineaIncluida.costoUnitarioBaseOriginal).toBe(118); // total, con IGV
+    });
+
+    it('PR-11: un snapshot esImpuestoRecuperable=true se respeta aunque el CONTEXTO diga "impuesto_no_recuperable" (cambio posterior de configuración)', () => {
+      const resultado = calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0, esImpuestoRecuperable: true },
+        1, 1, ccBase,
+        // La configuración "vigente ahora" es la opuesta a lo que dice el snapshot de la línea —
+        // el snapshot debe ganar siempre, nunca la configuración vigente al momento del cálculo.
+        { tratamientoImpuestoCompra: 'impuesto_no_recuperable', monedaBase: 'PEN' },
+      );
+      expect(resultado.esImpuestoRecuperable).toBe(true);
+      expect(resultado.costoUnitarioBaseOriginal).toBe(100);
+    });
+
+    it('PR-11: un snapshot esImpuestoRecuperable=false se respeta aunque el contexto diga "impuesto_recuperable"', () => {
+      const resultado = calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0, esImpuestoRecuperable: false },
+        1, 1, ccBase,
+        { tratamientoImpuestoCompra: 'impuesto_recuperable', monedaBase: 'PEN' },
+      );
+      expect(resultado.esImpuestoRecuperable).toBe(false);
+      expect(resultado.costoUnitarioBaseOriginal).toBe(118);
+    });
+
+    it('línea histórica sin snapshot (esImpuestoRecuperable undefined) cae al fallback: se resuelve en vivo con el contexto, igual que antes de esta corrección', () => {
+      const resultado = calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0 },
+        1, 1, ccBase,
+        { tratamientoImpuestoCompra: 'impuesto_recuperable', monedaBase: 'PEN' },
+      );
+      expect(resultado.esImpuestoRecuperable).toBe(true);
+      expect(resultado.costoUnitarioBaseOriginal).toBe(100);
+    });
+
+    it('un snapshot esImpuestoRecuperable=null (indeterminado, ya resuelto así) nunca se reintenta con el contexto vigente', () => {
+      const resultado = calcularCostoValorizableLineaCompra(
+        { subtotal: 100, total: 118, tipoAfectacion: 'gravado', descuentoUnitario: 0, esImpuestoRecuperable: null },
+        1, 1, ccBase,
+        // Si se recalculara con el contexto, esto sería 'true' — el snapshot null debe prevalecer.
+        { tratamientoImpuestoCompra: 'impuesto_recuperable', monedaBase: 'PEN' },
+      );
+      expect(resultado.esImpuestoRecuperable).toBeNull();
+      expect(resultado.costoUnitarioBaseOriginal).toBe(118);
+    });
+  });
+
   it('categoría no gravada (exonerado): esImpuestoRecuperable siempre null sin importar el tratamiento de la empresa, costo = total', () => {
     const resultado = calcularCostoValorizableLineaCompra(
       { subtotal: 100, total: 100, tipoAfectacion: 'exonerado', descuentoUnitario: 0 },

@@ -153,10 +153,18 @@ export function resolverTratamientoTributarioProducto(
  * confirmar la línea) puedan reutilizar exactamente esta misma regla sin reconstruir un producto
  * falso solo para volver a pasar por el parseo de etiqueta/impuestoId. Única fuente de verdad de
  * esta determinación — nunca se duplica en otro módulo.
+ *
+ * `recuperableManualLinea` es la elección explícita del usuario para UNA línea concreta — solo
+ * tiene efecto cuando `tratamientoEmpresa==='segun_afectacion'` (VAL-P1-007: antes de esta
+ * corrección, esa política siempre devolvía `null` para toda línea, pese a que la UI prometía
+ * "definir por cada línea"). El llamador (`reglasCompras.resolverEsImpuestoRecuperableLinea`) debe
+ * invocar esto en el momento de construir/editar la línea — nunca al confirmar la Nota de Ingreso
+ * — para que el resultado quede congelado con la política vigente en ese momento.
  */
 export function resolverRecuperabilidadImpuesto(
   categoria: CategoriaTributariaImpuesto,
-  tratamientoEmpresa: TratamientoImpuestoCompra
+  tratamientoEmpresa: TratamientoImpuestoCompra,
+  recuperableManualLinea?: boolean
 ): boolean | null {
   // Solo una categoría gravada tiene IGV que pueda ser recuperable o no — el resto (incluida
   // 'gratuita') no tiene IGV que resolver.
@@ -164,9 +172,12 @@ export function resolverRecuperabilidadImpuesto(
 
   if (tratamientoEmpresa === 'impuesto_recuperable') return true;
   if (tratamientoEmpresa === 'impuesto_no_recuperable') return false;
-  // 'pendiente_configuracion' y 'segun_afectacion' (sin una determinación por línea todavía
-  // definida — esa granularidad de prorrateo queda fuera de alcance) devuelven `null`: nunca se
-  // asume recuperabilidad por defecto cuando la política no la determina explícitamente.
+  if (tratamientoEmpresa === 'segun_afectacion') {
+    // Sin elección explícita todavía: indeterminado — el llamador (`validarLineasCompra`) debe
+    // bloquear la confirmación del documento en vez de asumir un valor por defecto.
+    return typeof recuperableManualLinea === 'boolean' ? recuperableManualLinea : null;
+  }
+  // 'pendiente_configuracion': nunca se asume recuperabilidad por defecto.
   return null;
 }
 

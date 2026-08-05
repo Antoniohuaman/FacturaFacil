@@ -9,7 +9,9 @@ import type { ErrorValidacion } from '../servicios/tiposServiciosCompras';
 import { esProductoInventariable } from '@/shared/inventory/clasificacionInventario';
 import {
   resolverTratamientoTributarioProducto,
+  resolverRecuperabilidadImpuesto,
   type DatosProductoParaResolucionTributaria,
+  type CategoriaTributariaImpuesto,
 } from '@/shared/catalogos-sunat/resolucionTributaria';
 import type { TratamientoImpuestoCompra } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import type { Tax } from '../../configuracion-sistema/modelos/Tax';
@@ -824,7 +826,10 @@ export function validarTipoCambioRequerido(
  * - descuento no negativo,
  * - total de línea no negativo.
  */
-export function validarLineasCompra(lineas: LineaCompra[]): ErrorValidacion[] {
+export function validarLineasCompra(
+  lineas: LineaCompra[],
+  tratamientoImpuestoCompra?: TratamientoImpuestoCompra,
+): ErrorValidacion[] {
   const errores: ErrorValidacion[] = [];
 
   lineas.forEach((linea, i) => {
@@ -849,6 +854,21 @@ export function validarLineasCompra(lineas: LineaCompra[]): ErrorValidacion[] {
       errores.push({
         campo: `${prefijo}.tipoAfectacion`,
         mensaje: `El producto "${nombre}" no tiene impuesto configurado.`,
+      });
+    }
+
+    // VAL-P1-007: con "Definir por cada línea" activo, una línea inventariable gravada sin
+    // elección explícita de recuperabilidad queda tributariamente indeterminada — nunca se asume
+    // (ni recuperable ni no recuperable) y se bloquea el registro con un mensaje accionable.
+    if (
+      tratamientoImpuestoCompra === 'segun_afectacion' &&
+      linea.tipoAfectacion === 'gravado' &&
+      (linea.esInventariable ?? false) &&
+      typeof linea.impuestoRecuperableManual !== 'boolean'
+    ) {
+      errores.push({
+        campo: `${prefijo}.impuestoRecuperableManual`,
+        mensaje: `Define si el IGV de "${nombre}" es recuperable o no antes de registrar el comprobante.`,
       });
     }
 
@@ -1275,6 +1295,27 @@ export function resolverImpuestoProducto(
       // rama defensiva, no alcanzable con datos reales.
       return { tipoAfectacion: 'sin_configurar', tasaIgv: 0 };
   }
+}
+
+/**
+ * Snapshot de recuperabilidad tributaria de UNA línea de compra (VAL-P1-007) — adaptador delgado
+ * sobre `resolverRecuperabilidadImpuesto` (núcleo central), con el mismo criterio que
+ * `resolverImpuestoProducto`: nunca reimplementa la regla, solo la reutiliza con el tipo ya
+ * resuelto de la línea. Debe invocarse cada vez que la línea se construye o edita
+ * (`useLineasCompra.recalcularLinea`) — nunca al confirmar la Nota de Ingreso — para que el
+ * resultado quede congelado con la política tributaria vigente en el momento de la compra, no con
+ * la vigente al momento de la confirmación (que puede ser días después en modo manual).
+ */
+export function resolverEsImpuestoRecuperableLinea(
+  tipoAfectacion: TipoAfectacionCompra,
+  tratamientoEmpresa: TratamientoImpuestoCompra,
+  impuestoRecuperableManual?: boolean,
+): boolean | null {
+  return resolverRecuperabilidadImpuesto(
+    tipoAfectacion as CategoriaTributariaImpuesto,
+    tratamientoEmpresa,
+    impuestoRecuperableManual,
+  );
 }
 
 /**

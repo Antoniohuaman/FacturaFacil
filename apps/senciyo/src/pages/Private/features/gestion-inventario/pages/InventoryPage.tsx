@@ -30,6 +30,8 @@ import { currencyManager, formatMoney } from '@/shared/currency';
 import { esValorizacionActiva } from '../utils/estadoActivacionValorizacionInventario';
 import { proyectarKardexValorizado } from '../services/consultaKardexValorizado.service';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 
 /**
  * Corrección final Etapa 5 — el ColumnsManager de Movimientos administra TODAS las columnas
@@ -139,10 +141,21 @@ const formatMovementTimestamp = (value: Date | string): string => {
 export const InventoryPage: React.FC = () => {
   useFocusFromQuery();
   const location = useLocation();
-  const { state: configState } = useConfigurationContext();
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
   const controlStockActivo = configState.salesPreferences.controlStockActivo ?? false;
   const estadoValorizacion = configState.preferenciasInventario.estadoValorizacion;
-  const puedeConsultarValorizado = esValorizacionActiva(estadoValorizacion);
+  // VAL-P1-001: las columnas/exportación valorizadas de Movimientos exigen el permiso específico
+  // además de que la valorización esté activa — misma fuente de verdad (`tienePermiso`) que el
+  // resto del módulo, nunca una segunda lista de permisos local a esta pantalla.
+  const usuarioActualInventario = obtenerUsuarioDesdeSesion(configState.users, session);
+  const puedeVerCostosInventario = tienePermiso({
+    usuario: usuarioActualInventario,
+    permisoId: 'inventario.costos.ver',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
+  const puedeConsultarValorizado = esValorizacionActiva(estadoValorizacion) && puedeVerCostosInventario;
   const empresaId = getTenantEmpresaId();
   const [modalInventarioOpen, setModalInventarioOpen] = useState(false);
   const [preferenciaColumnasMovimientos, setPreferenciaColumnasMovimientos] = useState<PreferenciaColumnasMovimientos>(

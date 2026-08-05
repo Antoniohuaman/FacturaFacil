@@ -1,8 +1,7 @@
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 import type { LineaCompra } from '../modelos/LineaCompra';
 import type { TratamientoImpuestoCompra } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
-import { calcularEsInventariable, resolverSnapshotInventarioLinea } from '../logica/reglasCompras';
-import { resolverRecuperabilidadImpuesto, type CategoriaTributariaImpuesto } from '@/shared/catalogos-sunat/resolucionTributaria';
+import { calcularEsInventariable, resolverSnapshotInventarioLinea, resolverEsImpuestoRecuperableLinea } from '../logica/reglasCompras';
 import { redondearAPrecision, PRECISION_COSTO_UNITARIO_INTERNO } from '../../gestion-inventario/utils/precisionInventario';
 
 export interface LineaNIDesdeCC {
@@ -84,12 +83,17 @@ export interface ResultadoCostoValorizableLinea {
  * `notaIngreso.service.ts`). Pasos exactos:
  *  1. Importe neto real de la línea después de descuentos: `LineaCompra.subtotal` (base imponible,
  *     sin impuesto) o `LineaCompra.total` (con impuesto), según corresponda excluir o no.
- *  2. Recuperabilidad resuelta con la fuente tributaria central (`resolverRecuperabilidadImpuesto`)
- *     a partir de `tipoAfectacion` (ya snapshot en la línea — nunca se vuelve a parsear una
- *     etiqueta ni a re-consultar el producto).
+ *  2. Recuperabilidad: se usa EXCLUSIVAMENTE el snapshot ya congelado en la línea
+ *     (`LineaCompra.esImpuestoRecuperable`, resuelto por `resolverEsImpuestoRecuperableLinea` en el
+ *     momento de construir/editar la línea) — VAL-P2-004/VAL-P1-007: nunca se vuelve a derivar de
+ *     `contexto.tratamientoImpuestoCompra` aquí, para que un cambio posterior de la configuración
+ *     general (o, en modo manual, el tiempo transcurrido entre registrar el CC y confirmar la NI)
+ *     nunca altere el costo de una línea ya registrada. Una línea histórica sin snapshot (creada
+ *     antes de este campo) se resuelve una única vez con la configuración vigente, igual criterio
+ *     que el ya usado para `factorConversionAplicado`/`cantidadDocumentadaInventariable`.
  *  3. Si es recuperable, se excluye el impuesto (`subtotal`); si no lo es o no está determinado
- *     (`segun_afectacion` sin señal adicional), se conserva en el costo (`total`) — nunca se asume
- *     recuperabilidad quitando impuesto sin una determinación explícita.
+ *     (`segun_afectacion` sin elección de línea), se conserva en el costo (`total`) — nunca se
+ *     asume recuperabilidad quitando impuesto sin una determinación explícita.
  *  4-5. El costo total valorizable se divide entre la cantidad real en unidad mínima.
  *  6. Se convierte a moneda base con el tipo de cambio HISTÓRICO del documento — nunca la
  *     cotización vigente.
@@ -99,7 +103,7 @@ export interface ResultadoCostoValorizableLinea {
  * base no está configurada, o las monedas difieren sin un tipo de cambio histórico válido.
  */
 export function calcularCostoValorizableLineaCompra(
-  linea: Pick<LineaCompra, 'subtotal' | 'total' | 'tipoAfectacion' | 'descuentoUnitario'>,
+  linea: Pick<LineaCompra, 'subtotal' | 'total' | 'tipoAfectacion' | 'descuentoUnitario' | 'esImpuestoRecuperable'>,
   cantidadEnUnidadMinima: number,
   factorConversionAplicado: number,
   cc: Pick<ComprobanteCompra, 'moneda' | 'tipoCambio' | 'fechaRegistro'>,
@@ -118,10 +122,13 @@ export function calcularCostoValorizableLineaCompra(
     throw new Error('No se puede calcular el costo valorizable: no hay una moneda base configurada para la empresa.');
   }
 
-  const esImpuestoRecuperable = resolverRecuperabilidadImpuesto(
-    linea.tipoAfectacion as CategoriaTributariaImpuesto,
-    contexto.tratamientoImpuestoCompra
-  );
+  // Snapshot ya congelado en la línea; solo se resuelve en vivo como fallback de compatibilidad
+  // para líneas históricas creadas antes de que este campo existiera (`undefined`, nunca `null`
+  // explícito — `null` significa "ya se resolvió y quedó indeterminado", una decisión ya tomada
+  // que tampoco se debe recalcular).
+  const esImpuestoRecuperable = linea.esImpuestoRecuperable !== undefined
+    ? linea.esImpuestoRecuperable
+    : resolverEsImpuestoRecuperableLinea(linea.tipoAfectacion, contexto.tratamientoImpuestoCompra);
   // Recuperable → se excluye del costo (subtotal, sin impuesto). No recuperable O indeterminado
   // (segun_afectacion sin señal adicional) → se conserva en el costo (total, con impuesto) —
   // nunca se asume recuperabilidad para excluir impuesto sin una determinación explícita.

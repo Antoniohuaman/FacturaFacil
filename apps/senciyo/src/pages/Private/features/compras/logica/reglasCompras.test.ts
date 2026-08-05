@@ -3,13 +3,16 @@ import {
   calcularEsInventariable,
   calcularAfectaInventarioLinea,
   resolverImpuestoProducto,
+  resolverEsImpuestoRecuperableLinea,
   resolverSnapshotInventarioLinea,
   obtenerAplicacionesPago,
   obtenerCuentasPorPagarDePago,
   obtenerNotasIngresoActivasCC,
   motivoBloqueoAnulacionCC,
   puedeAnularCC,
+  validarLineasCompra,
 } from './reglasCompras';
+import type { LineaCompra } from '../modelos/LineaCompra';
 import type { ProductUnitOption } from '@/shared/units/productUnitOptions';
 import type { PagoCompra } from '../modelos/PagoCompra';
 import type { CuentaPorPagar } from '../modelos/CuentaPorPagar';
@@ -117,6 +120,104 @@ describe('resolverImpuestoProducto (adaptador delgado sobre resolverTratamientoT
     }];
     const r = resolverImpuestoProducto({ impuestoId: 'tax-1', impuestoTexto: 'Exonerado (0.00%)' }, 'impuesto_recuperable', taxes);
     expect(r).toEqual({ tipoAfectacion: 'gravado', tasaIgv: 0.1 });
+  });
+});
+
+// PR-10/PR-11 (Corrección 5 / VAL-P1-007): "Definir por cada línea" debe permitir tratamientos
+// distintos por línea, y ese snapshot no debe recalcularse si la configuración cambia después.
+describe('resolverEsImpuestoRecuperableLinea (VAL-P1-007)', () => {
+  it('impuesto_recuperable: siempre recuperable en categoría gravada, sin importar la elección manual', () => {
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'impuesto_recuperable')).toBe(true);
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'impuesto_recuperable', false)).toBe(true);
+  });
+
+  it('impuesto_no_recuperable: siempre no recuperable en categoría gravada', () => {
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'impuesto_no_recuperable')).toBe(false);
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'impuesto_no_recuperable', true)).toBe(false);
+  });
+
+  it('segun_afectacion SIN elección manual queda indeterminado (null) — nunca se asume', () => {
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'segun_afectacion')).toBeNull();
+  });
+
+  it('segun_afectacion CON elección manual usa exactamente esa elección — dos líneas distintas, dos resultados distintos', () => {
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'segun_afectacion', true)).toBe(true);
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'segun_afectacion', false)).toBe(false);
+  });
+
+  it('categoría no gravada nunca tiene IGV que decidir: siempre null, sin importar la política o la elección manual', () => {
+    expect(resolverEsImpuestoRecuperableLinea('exonerado', 'segun_afectacion', true)).toBeNull();
+    expect(resolverEsImpuestoRecuperableLinea('inafecto', 'impuesto_recuperable')).toBeNull();
+  });
+
+  it('pendiente_configuracion nunca asume recuperabilidad', () => {
+    expect(resolverEsImpuestoRecuperableLinea('gravado', 'pendiente_configuracion', true)).toBeNull();
+  });
+});
+
+describe('validarLineasCompra — bloqueo de línea tributariamente indeterminada (VAL-P1-007)', () => {
+  function crearLineaGravadaInventariable(overrides: Partial<LineaCompra> = {}): LineaCompra {
+    return {
+      id: 'linea-1',
+      productoId: 'prod-1',
+      nombreProducto: 'Producto gravado',
+      clasificacion: 'producto',
+      esInventariable: true,
+      afectaInventario: true,
+      unidadMedida: 'Unidad',
+      unidadMedidaCodigo: 'NIU',
+      unidadesDisponibles: UNIDADES_CAJA_DE_12,
+      cantidadSolicitada: 10,
+      cantidadRecibida: 0,
+      cantidadFacturada: 0,
+      cantidadIngresadaInventario: 0,
+      cantidadPendienteRecepcion: 10,
+      cantidadPendienteFacturacion: 10,
+      cantidadPendienteInventario: 0,
+      costoUnitario: 10,
+      subtotal: 100,
+      tipoAfectacion: 'gravado',
+      tasaIgv: 0.18,
+      igv: 18,
+      total: 118,
+      almacenDestinoId: 'alm-1',
+      ...overrides,
+    };
+  }
+
+  it('con segun_afectacion, una línea gravada inventariable SIN impuestoRecuperableManual bloquea el registro', () => {
+    const errores = validarLineasCompra([crearLineaGravadaInventariable()], 'segun_afectacion');
+    expect(errores.some((e) => e.campo === 'lineas[0].impuestoRecuperableManual')).toBe(true);
+  });
+
+  it('con segun_afectacion, una línea gravada CON impuestoRecuperableManual definido (true o false) no bloquea', () => {
+    const conTrue = validarLineasCompra([crearLineaGravadaInventariable({ impuestoRecuperableManual: true })], 'segun_afectacion');
+    const conFalse = validarLineasCompra([crearLineaGravadaInventariable({ impuestoRecuperableManual: false })], 'segun_afectacion');
+    expect(conTrue.some((e) => e.campo === 'lineas[0].impuestoRecuperableManual')).toBe(false);
+    expect(conFalse.some((e) => e.campo === 'lineas[0].impuestoRecuperableManual')).toBe(false);
+  });
+
+  it('dos líneas del mismo comprobante pueden tener elecciones DIFERENTES y ambas pasan la validación', () => {
+    const lineaA = crearLineaGravadaInventariable({ id: 'linea-A', impuestoRecuperableManual: true });
+    const lineaB = crearLineaGravadaInventariable({ id: 'linea-B', impuestoRecuperableManual: false });
+    const errores = validarLineasCompra([lineaA, lineaB], 'segun_afectacion');
+    expect(errores.filter((e) => e.campo.endsWith('.impuestoRecuperableManual'))).toHaveLength(0);
+  });
+
+  it('con impuesto_recuperable (no segun_afectacion), nunca exige impuestoRecuperableManual', () => {
+    const errores = validarLineasCompra([crearLineaGravadaInventariable()], 'impuesto_recuperable');
+    expect(errores.some((e) => e.campo === 'lineas[0].impuestoRecuperableManual')).toBe(false);
+  });
+
+  it('una línea NO inventariable (servicio) nunca exige impuestoRecuperableManual, aunque sea gravada', () => {
+    const linea = crearLineaGravadaInventariable({ esInventariable: false, clasificacion: 'servicio' });
+    const errores = validarLineasCompra([linea], 'segun_afectacion');
+    expect(errores.some((e) => e.campo === 'lineas[0].impuestoRecuperableManual')).toBe(false);
+  });
+
+  it('sin tratamientoImpuestoCompra (parámetro omitido, ej. OC/RC) nunca exige la elección manual', () => {
+    const errores = validarLineasCompra([crearLineaGravadaInventariable()]);
+    expect(errores.some((e) => e.campo === 'lineas[0].impuestoRecuperableManual')).toBe(false);
   });
 });
 

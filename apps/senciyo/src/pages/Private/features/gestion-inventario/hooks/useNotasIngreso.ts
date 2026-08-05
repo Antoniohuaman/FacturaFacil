@@ -33,11 +33,11 @@ export const useNotasIngreso = () => {
   const usuarioNombre = session?.userName ?? user?.nombre ?? 'Usuario';
   const usuarioId = session?.userId ?? '';
 
-  const [notas, setNotas] = useState<NotaIngreso[]>(() => cargarNotasIngreso());
+  const [notas, setNotas] = useState<NotaIngreso[]>(() => cargarNotasIngreso(getTenantEmpresaId()));
   const [procesando, setProcesando] = useState(false);
 
   useEffect(() => {
-    const recargar = () => setNotas(cargarNotasIngreso());
+    const recargar = () => setNotas(cargarNotasIngreso(getTenantEmpresaId()));
     window.addEventListener(NOTAS_INGRESO_CHANGED_EVENT, recargar);
     return () => window.removeEventListener(NOTAS_INGRESO_CHANGED_EVENT, recargar);
   }, []);
@@ -55,14 +55,15 @@ export const useNotasIngreso = () => {
             ? [{ fecha: ahora, usuario: usuarioNombre, accion: 'Borrador guardado' }]
             : nota.historial,
         };
-        agregarOActualizarNI(borrador);
+        agregarOActualizarNI(borrador, getTenantEmpresaId());
         if (!opciones?.silencioso) {
           feedback.success('Borrador guardado correctamente.');
         }
         return true;
-      } catch {
+      } catch (err) {
         if (!opciones?.silencioso) {
-          feedback.error('No se pudo guardar el borrador.');
+          const msg = err instanceof Error ? err.message : 'No se pudo guardar el borrador.';
+          feedback.error(msg);
         }
         return false;
       }
@@ -75,7 +76,8 @@ export const useNotasIngreso = () => {
       if (procesando) return false;
       setProcesando(true);
       try {
-        const notasActuales = cargarNotasIngreso();
+        const empresaId = getTenantEmpresaId();
+        const notasActuales = cargarNotasIngreso(empresaId);
         const nota = notasActuales.find(n => n.id === notaId);
         if (!nota) {
           feedback.error('Nota de Ingreso no encontrada.');
@@ -100,7 +102,7 @@ export const useNotasIngreso = () => {
           productsMap,
           almacenesMap,
           usuarioNombre,
-          getTenantEmpresaId(),
+          empresaId,
           {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
@@ -109,7 +111,18 @@ export const useNotasIngreso = () => {
           },
         );
 
-        agregarOActualizarNI(notaActualizada);
+        // El inventario (movimiento + capa) ya quedó confirmado por la unidad de trabajo — de aquí
+        // en adelante persistir el documento es lo único que falta. Si esto falla (cuota excedida,
+        // corrupción), nunca se debe mostrar éxito: se relanza con contexto explícito de que el
+        // inventario sí se registró y que reintentar es seguro (misma claveIdempotencia).
+        try {
+          agregarOActualizarNI(notaActualizada, empresaId);
+        } catch (errorPersistencia) {
+          const detalle = errorPersistencia instanceof Error ? errorPersistencia.message : 'error desconocido';
+          throw new Error(
+            `El movimiento de inventario se registró correctamente, pero la Nota de Ingreso no pudo guardarse (${detalle}). Vuelve a intentar: la operación es segura de repetir y no duplicará el movimiento.`,
+          );
+        }
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
         // persistir aquí. Solo se rehidrata el store de productos y se refresca el Kardex.
@@ -138,7 +151,8 @@ export const useNotasIngreso = () => {
       if (procesando) return false;
       setProcesando(true);
       try {
-        const notasActuales = cargarNotasIngreso();
+        const empresaId = getTenantEmpresaId();
+        const notasActuales = cargarNotasIngreso(empresaId);
         const nota = notasActuales.find(n => n.id === notaId);
         if (!nota) {
           feedback.error('Nota de Ingreso no encontrada.');
@@ -163,7 +177,7 @@ export const useNotasIngreso = () => {
           almacenesMap,
           motivoAnulacion,
           usuarioNombre,
-          getTenantEmpresaId(),
+          empresaId,
           {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
@@ -172,7 +186,17 @@ export const useNotasIngreso = () => {
           },
         );
 
-        agregarOActualizarNI(notaActualizada);
+        // La reversa de inventario ya quedó confirmada — si la persistencia del documento falla
+        // ahora, nunca se debe mostrar éxito: se relanza con contexto explícito (mismo criterio que
+        // en `generarNI`).
+        try {
+          agregarOActualizarNI(notaActualizada, empresaId);
+        } catch (errorPersistencia) {
+          const detalle = errorPersistencia instanceof Error ? errorPersistencia.message : 'error desconocido';
+          throw new Error(
+            `La reversa de inventario se registró correctamente, pero la Nota de Ingreso no pudo guardarse (${detalle}). Vuelve a intentar: la operación es segura de repetir.`,
+          );
+        }
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
         // persistir aquí. Solo se rehidrata el store de productos y se refresca el Kardex.
@@ -200,19 +224,26 @@ export const useNotasIngreso = () => {
 
   const eliminarNI = useCallback(
     (notaId: string): boolean => {
-      const notasActuales = cargarNotasIngreso();
-      const nota = notasActuales.find(n => n.id === notaId);
-      if (!nota) {
-        feedback.error('Nota no encontrada.');
+      try {
+        const empresaId = getTenantEmpresaId();
+        const notasActuales = cargarNotasIngreso(empresaId);
+        const nota = notasActuales.find(n => n.id === notaId);
+        if (!nota) {
+          feedback.error('Nota no encontrada.');
+          return false;
+        }
+        if (nota.estado !== 'Borrador') {
+          feedback.error('Solo se pueden eliminar borradores. Las notas generadas deben anularse.');
+          return false;
+        }
+        guardarNotasIngreso(notasActuales.filter(n => n.id !== notaId), empresaId);
+        feedback.success('Borrador eliminado.');
+        return true;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'No se pudo eliminar el borrador.';
+        feedback.error(msg);
         return false;
       }
-      if (nota.estado !== 'Borrador') {
-        feedback.error('Solo se pueden eliminar borradores. Las notas generadas deben anularse.');
-        return false;
-      }
-      guardarNotasIngreso(notasActuales.filter(n => n.id !== notaId));
-      feedback.success('Borrador eliminado.');
-      return true;
     },
     [feedback],
   );

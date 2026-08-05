@@ -178,6 +178,18 @@ export class InventoryService {
     const cantidadAnterior = this.getStock(product, data.almacenId);
     const cantidadNueva = cantidadAnterior + this.signoParaTipoMovimiento(data.tipo) * data.cantidad;
 
+    // VAL-P1-003: esta es la única función de cálculo que alimenta tanto `registerAdjustment`
+    // (ajuste manual ENTRADA/SALIDA/DEVOLUCION/MERMA) como `updateBulkStock` — el rechazo vive aquí
+    // una sola vez, no en cada llamador. Mismo criterio que ya aplica el motor nuevo
+    // (`operacionCuantitativaInventarioComun.calcularMutacionesCuantitativas`, que rechaza stock
+    // negativo por defecto): nunca se deja un resultado con cantidad negativa ni se permite un
+    // bypass llamando directamente al servicio sin pasar por el modal.
+    if (!Number.isFinite(cantidadNueva) || cantidadNueva < 0) {
+      throw new Error(
+        `Este ajuste dejaría el stock de "${product.nombre}" en "${almacen.nombreAlmacen}" en ${cantidadNueva} (negativo) — operación rechazada.`
+      );
+    }
+
     const productoActualizado = this.updateStock(product, data.almacenId, cantidadNueva);
 
     const movimientoPropuesto: MovimientoStock = {

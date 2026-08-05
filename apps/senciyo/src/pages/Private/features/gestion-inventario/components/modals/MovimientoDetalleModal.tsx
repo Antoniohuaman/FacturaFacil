@@ -11,6 +11,8 @@ import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionIn
 import { proyectarKardexValorizado } from '../../services/consultaKardexValorizado.service';
 import { getTenantEmpresaId } from '@/shared/tenant';
 import { formatMoney } from '@/shared/currency';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../../configuracion-sistema/utilidades/permisos';
 
 interface MovimientoDetalleModalProps {
   movimiento: MovimientoStock;
@@ -66,9 +68,19 @@ const MovimientoDetalleModal: React.FC<MovimientoDetalleModalProps> = ({ movimie
   const esEntrada = movimiento.tipo === 'ENTRADA' || movimiento.tipo === 'AJUSTE_POSITIVO' || movimiento.tipo === 'DEVOLUCION';
   const fuente = inferirFuente(movimiento);
 
-  const { state: configState } = useConfigurationContext();
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
   const estadoValorizacion = configState.preferenciasInventario.estadoValorizacion;
-  const puedeConsultarValorizado = esValorizacionActiva(estadoValorizacion);
+  // VAL-P1-001: consultar el detalle de costo exige el permiso específico además de que la
+  // valorización esté activa — misma fuente de verdad (`tienePermiso`) que el resto del módulo.
+  const usuarioActual = obtenerUsuarioDesdeSesion(configState.users, session);
+  const puedeVerCostos = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'inventario.costos.ver',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
+  const puedeConsultarValorizado = esValorizacionActiva(estadoValorizacion) && puedeVerCostos;
 
   // Etapa 5: misma proyección que la tabla y la exportación — un solo movimiento por invocación
   // (el modal es una acción puntual del usuario, nunca un render por fila).

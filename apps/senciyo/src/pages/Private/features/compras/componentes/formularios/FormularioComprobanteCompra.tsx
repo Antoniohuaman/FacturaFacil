@@ -936,6 +936,7 @@ export default function FormularioComprobanteCompra({
             totalesCalculados={totalesCalculados}
             disabled={camposHeredadosBloqueados}
             mensajeBloqueo={mensajeProductosHeredados}
+            tratamientoImpuestoCompra={config.preferenciasInventario.tratamientoImpuestoCompra}
           />
         </div>
 

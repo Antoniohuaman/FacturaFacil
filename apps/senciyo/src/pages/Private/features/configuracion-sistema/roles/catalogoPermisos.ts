@@ -194,6 +194,30 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     modulo: 'inventario',
   },
   {
+    id: 'inventario.costos.ver',
+    nombre: 'Ver costos valorizados',
+    descripcion: 'Ver costo unitario, valor de stock y demas informacion monetaria del Kardex valorizado.',
+    modulo: 'inventario',
+  },
+  {
+    id: 'inventario.valorizacion.configurar',
+    nombre: 'Configurar valorizacion de inventario',
+    descripcion: 'Abrir la preparacion de valorizacion, definir el tratamiento de impuestos, y iniciar o cancelar la preparacion.',
+    modulo: 'inventario',
+  },
+  {
+    id: 'inventario.valorizacion.confirmar_costos',
+    nombre: 'Confirmar costos de valorizacion',
+    descripcion: 'Confirmar el costo inicial de un producto y almacen, y validar la preparacion de valorizacion.',
+    modulo: 'inventario',
+  },
+  {
+    id: 'inventario.valorizacion.activar',
+    nombre: 'Activar valorizacion de inventario',
+    descripcion: 'Ejecutar la activacion definitiva e irreversible de la valorizacion de inventario.',
+    modulo: 'inventario',
+  },
+  {
     id: 'catalogo.ver',
     nombre: 'Ver catalogo',
     descripcion: 'Acceder al catalogo de productos.',

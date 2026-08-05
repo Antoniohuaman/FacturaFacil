@@ -13,6 +13,8 @@ import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 import type { Almacen } from '../../../configuracion-sistema/modelos/Almacen';
 import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionInventario';
 import { currencyManager, formatMoney } from '@/shared/currency';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../../configuracion-sistema/utilidades/permisos';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -64,8 +66,18 @@ const DisponibilidadTable: React.FC<DisponibilidadTableProps> = ({
   almacenesParaColumnas,
   mostrarColumnasPorAlmacen,
 }) => {
-  const { state: configState } = useConfigurationContext();
-  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
+  // VAL-P1-001: misma fuente de verdad que el resto del módulo — "Valor stock" exige el permiso
+  // específico además de que la valorización esté activa.
+  const usuarioActual = obtenerUsuarioDesdeSesion(configState.users, session);
+  const puedeVerCostos = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'inventario.costos.ver',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion) && puedeVerCostos;
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const [savingCellId, setSavingCellId] = useState<string | null>(null);
   const [cellErrors, setCellErrors] = useState<Record<string, string>>({});

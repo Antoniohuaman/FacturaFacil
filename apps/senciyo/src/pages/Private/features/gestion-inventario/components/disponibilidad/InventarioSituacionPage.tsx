@@ -17,6 +17,8 @@ import type { AutoExportRequest } from '@/shared/export/autoExportParams';
 import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { esValorizacionActiva } from '../../utils/estadoActivacionValorizacionInventario';
 import { currencyManager, formatMoney } from '@/shared/currency';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../../configuracion-sistema/utilidades/permisos';
 
 type ThresholdField = 'stockMinimo' | 'stockMaximo';
 
@@ -70,8 +72,16 @@ const InventarioSituacionPage: React.FC<InventarioSituacionPageProps> = ({
     updateStockThreshold,
     resumen
   } = useInventarioDisponibilidad();
-  const { state: configState } = useConfigurationContext();
-  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion);
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
+  const { session } = useUserSession();
+  const usuarioActual = obtenerUsuarioDesdeSesion(configState.users, session);
+  const puedeVerCostos = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'inventario.costos.ver',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
+  const puedeConsultarValorizado = esValorizacionActiva(configState.preferenciasInventario.estadoValorizacion) && puedeVerCostos;
 
   // Preferencias de UI
   const { densidad, columnasVisibles, mostrarColumnasPorAlmacen, itemsPorPagina } = usePreferenciasDisponibilidad();

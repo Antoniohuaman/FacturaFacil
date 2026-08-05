@@ -194,8 +194,9 @@ function revertirSnapshotsAnulacionConNS(
   snapshotKardex: ReturnType<typeof StockRepository.getMovements>,
   snapshotTodosLosProductos: ReturnType<typeof useProductStore.getState>['allProducts'],
   snapshotDocs: ReturnType<typeof cargarDocumentosDesdeStorage> | undefined,
+  empresaId: string,
 ): ResultadoRollbackAnulacion {
-  const resultNS = persistirNotasSalidaCompleto(snapshotNSList);
+  const resultNS = persistirNotasSalidaCompleto(snapshotNSList, empresaId);
   if (!resultNS.exito) {
     return { exito: false, error: `No se pudo restaurar la Nota de Salida: ${resultNS.error}` };
   }
@@ -821,7 +822,16 @@ const InvoiceListDashboard = () => {
   const canGenerarNotaSalida = useCallback((c: Comprobante): boolean => {
     if (!esElegibleParaNotaSalida(c)) return false;
     if (c.notaSalidaGenerada && c.notaSalidaId) return false;
-    return !cargarNotasSalida().some(n => n.comprobanteOrigenId === c.id && n.estado !== 'Anulada');
+    // Gate de solo lectura para habilitar una acción en la tabla: ante una colección de NS
+    // corrupta, falla cerrado (deshabilita la acción) en vez de romper el renderizado de toda la
+    // lista — el usuario encuentra el error real y accionable al intentar una operación que
+    // efectivamente lea/escriba NS (p. ej. `confirmVoid`), donde sí se muestra con `feedback.error`.
+    try {
+      return !cargarNotasSalida(getTenantEmpresaId()).some(n => n.comprobanteOrigenId === c.id && n.estado !== 'Anulada');
+    } catch (err) {
+      console.error('[ListaComprobantes] No se pudo verificar Notas de Salida existentes:', err);
+      return false;
+    }
   }, []);
 
   const handleGenerarNotaSalida = useCallback((comprobante: Comprobante) => {
@@ -909,7 +919,7 @@ const InvoiceListDashboard = () => {
           ordenVentaOrigenId: ovIdGuard,
           notaSalidaIds: ovActual?.notaSalidaIds,
           notaSalidaIdLegacy: ovActual?.notaSalidaId,
-        });
+        }, getTenantEmpresaId());
         if (nsActivas.length > 0) {
           feedback.error(
             'No se puede anular el comprobante porque tiene una Nota de Salida vigente. Anule primero la Nota de Salida.',
@@ -958,7 +968,16 @@ const InvoiceListDashboard = () => {
 
     // Fase 1c — Escenario B: nota_salida con NS activa → anular NS primero.
     if (modo === 'nota_salida' && comprobante.notaSalidaId && comprobante.notaSalidaGenerada) {
-      const snapNSList = cargarNotasSalida();
+      const empresaIdNS = getTenantEmpresaId();
+      let snapNSList: NotaSalida[];
+      try {
+        snapNSList = cargarNotasSalida(empresaIdNS);
+      } catch (err) {
+        feedback.error(
+          `No se pudo leer las Notas de Salida antes de anular: ${err instanceof Error ? err.message : 'error desconocido'}.`,
+        );
+        return;
+      }
       const snapKardexNS = StockRepository.getMovements();
       const snapTodosProductosNS = useProductStore.getState().allProducts.map(clonarProductoParaSnapshot);
       snapshotNSList = snapNSList;
@@ -970,6 +989,7 @@ const InvoiceListDashboard = () => {
           snapKardexNS,
           snapTodosProductosNS,
           snapshotDocsParaRollback,
+          empresaIdNS,
         );
         if (!rollback.exito) {
           feedback.error(
@@ -1083,7 +1103,7 @@ const InvoiceListDashboard = () => {
           : 'No se pudo restaurar la Orden de Venta. Revise el estado manualmente.';
         const rollback =
           snapshotNSList !== undefined && snapshotKardexNS !== undefined && snapshotTodosProductosNS !== undefined
-            ? revertirSnapshotsAnulacionConNS(snapshotNSList, snapshotKardexNS, snapshotTodosProductosNS, snapshotDocsParaRollback)
+            ? revertirSnapshotsAnulacionConNS(snapshotNSList, snapshotKardexNS, snapshotTodosProductosNS, snapshotDocsParaRollback, getTenantEmpresaId())
             : revertirSnapshotsAnulacion(snapshotKardex, snapshotProductos, snapshotDocsParaRollback);
         if (!rollback.exito) {
           feedback.error(

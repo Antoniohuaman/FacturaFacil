@@ -719,3 +719,102 @@ describe('registrarEntradaValorizada — tipoOperacion "devolucion_cliente" (cie
     expect(listarCapasCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
   });
 });
+
+// PR-12/PR-13 (Corrección 6 / VAL-P1-009): con valorización activa, una entrada con `fecha`
+// anterior a un movimiento ya confirmado del mismo producto+almacén se rechaza; una fecha válida
+// (igual o posterior) sigue funcionando exactamente igual que antes de esta corrección.
+describe('entradaCuantitativaInventario — bloqueo de movimiento retroactivo incompatible (VAL-P1-009)', () => {
+  function movimientoExistente(fecha: string) {
+    return {
+      id: 'mov-existente',
+      productoId: 'prod-1',
+      almacenId: 'alm-1',
+      cantidad: 5,
+      cantidadAnterior: 0,
+      cantidadNueva: 5,
+      fecha,
+      tipo: 'ENTRADA',
+    };
+  }
+
+  it('PR-12: modo valorizado, fecha anterior al último movimiento confirmado → rechaza toda la operación', () => {
+    const productos = [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })];
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    const movimientosRaw = JSON.stringify([movimientoExistente('2026-08-10T00:00:00.000Z')]);
+
+    expect(() =>
+      calcularMutacionesEntrada(
+        datosBase({
+          modoOperacion: 'valorizado',
+          fecha: '2026-08-01T00:00:00.000Z', // anterior al movimiento existente (10 de agosto)
+          lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10, costoUnitarioBaseMonedaBase: 10 }],
+        }),
+        JSON.stringify(productos),
+        movimientosRaw,
+        almacenes,
+        generarId,
+      ),
+    ).toThrow(/fecha anterior/);
+  });
+
+  it('PR-13: modo valorizado, fecha igual o posterior al último movimiento confirmado → continúa funcionando', () => {
+    const productos = [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })];
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    const movimientosRaw = JSON.stringify([movimientoExistente('2026-08-01T00:00:00.000Z')]);
+
+    const resultado = calcularMutacionesEntrada(
+      datosBase({
+        modoOperacion: 'valorizado',
+        fecha: '2026-08-10T00:00:00.000Z', // posterior al movimiento existente
+        lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10, costoUnitarioBaseMonedaBase: 10 }],
+      }),
+      JSON.stringify(productos),
+      movimientosRaw,
+      almacenes,
+      generarId,
+    );
+    expect(resultado.movimientosGenerados).toHaveLength(1);
+    expect(resultado.movimientosGenerados[0].cantidadNueva).toBe(15);
+  });
+
+  it('modo cuantitativo (sin valorización) nunca aplica este bloqueo — mismo comportamiento previo a la corrección', () => {
+    const productos = [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })];
+    const almacenes = new Map([['alm-1', crearAlmacen()]]);
+    const movimientosRaw = JSON.stringify([movimientoExistente('2026-08-10T00:00:00.000Z')]);
+
+    const resultado = calcularMutacionesEntrada(
+      datosBase({
+        modoOperacion: 'cuantitativo',
+        fecha: '2026-08-01T00:00:00.000Z', // anterior, pero modo cuantitativo: no hay capas que proteger
+        lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10 }],
+      }),
+      JSON.stringify(productos),
+      movimientosRaw,
+      almacenes,
+      generarId,
+    );
+    expect(resultado.movimientosGenerados).toHaveLength(1);
+  });
+
+  it('un movimiento existente de OTRO producto o de OTRO almacén nunca bloquea (el filtro es por producto+almacén, no global)', () => {
+    const productos = [crearProducto({ id: 'prod-1', stockPorAlmacen: { 'alm-1': 5 } }), crearProducto({ id: 'prod-2', stockPorAlmacen: { 'alm-1': 5 } })];
+    const almacenes = new Map([['alm-1', crearAlmacen()], ['alm-2', crearAlmacen({ id: 'alm-2', codigoAlmacen: 'ALM02' })]]);
+    const movimientosRaw = JSON.stringify([
+      { ...movimientoExistente('2026-08-10T00:00:00.000Z'), productoId: 'prod-2' },
+      { ...movimientoExistente('2026-08-10T00:00:00.000Z'), almacenId: 'alm-2' },
+    ]);
+
+    const resultado = calcularMutacionesEntrada(
+      datosBase({
+        modoOperacion: 'valorizado',
+        fecha: '2026-08-01T00:00:00.000Z',
+        lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10, costoUnitarioBaseMonedaBase: 10 }],
+      }),
+      JSON.stringify(productos),
+      movimientosRaw,
+      almacenes,
+      generarId,
+    );
+    expect(resultado.movimientosGenerados).toHaveLength(1);
+  });
+});

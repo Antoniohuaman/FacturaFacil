@@ -242,3 +242,78 @@ describe('InventoryService.registerAdjustment (deprecated) — mismo resultado n
     expect(localStorage.length).toBeGreaterThan(0);
   });
 });
+
+// PR-08 (Corrección 4 / VAL-P1-003): un ajuste que dejaría el stock negativo es rechazado por el
+// servicio — no solo por la interfaz. `calcularAjustePropuesto` es la única función de cálculo
+// reutilizada tanto por `registerAdjustment` (ajuste manual) como por `updateBulkStock`, así que
+// probarla aquí cubre ambos llamadores sin duplicar la validación.
+describe('InventoryService.calcularAjustePropuesto — rechazo de stock negativo (VAL-P1-003)', () => {
+  it('SALIDA que excede el stock disponible lanza y no deja rastro en localStorage', () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 5 } });
+    const almacen = crearAlmacen();
+    expect(() =>
+      InventoryService.calcularAjustePropuesto({
+        product: producto,
+        almacen,
+        data: crearDatosAjuste({ tipo: 'SALIDA', motivo: 'VENTA', cantidad: 8 }),
+        usuario: 'user-1',
+        generarId: () => 'mov-1',
+        fechaActual: () => new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    ).toThrow(/negativo/);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('MERMA que excede el stock disponible también se rechaza', () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 2 } });
+    const almacen = crearAlmacen();
+    expect(() =>
+      InventoryService.calcularAjustePropuesto({
+        product: producto,
+        almacen,
+        data: crearDatosAjuste({ tipo: 'MERMA', motivo: 'PRODUCTO_DAÑADO', cantidad: 3 }),
+        usuario: 'user-1',
+        generarId: () => 'mov-1',
+        fechaActual: () => new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    ).toThrow(/negativo/);
+  });
+
+  it('SALIDA que deja el stock exactamente en 0 SÍ se permite (0 no es negativo)', () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 5 } });
+    const almacen = crearAlmacen();
+    const resultado = InventoryService.calcularAjustePropuesto({
+      product: producto,
+      almacen,
+      data: crearDatosAjuste({ tipo: 'SALIDA', motivo: 'VENTA', cantidad: 5 }),
+      usuario: 'user-1',
+      generarId: () => 'mov-1',
+      fechaActual: () => new Date('2026-01-01T00:00:00.000Z'),
+    });
+    expect(resultado.cantidadNueva).toBe(0);
+  });
+
+  it('registerAdjustment (wrapper deprecado) propaga el mismo rechazo — no hay bypass llamando directo al servicio', () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 1 } });
+    const almacen = crearAlmacen();
+    expect(() =>
+      InventoryService.registerAdjustment(producto, almacen, crearDatosAjuste({ tipo: 'SALIDA', motivo: 'VENTA', cantidad: 10 }), 'user-1'),
+    ).toThrow(/negativo/);
+    // Rechazado antes de persistir: ningún movimiento fantasma queda en el Kardex.
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('ENTRADA/DEVOLUCION (signo positivo) nunca activan el rechazo, sin importar la cantidad', () => {
+    const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
+    const almacen = crearAlmacen();
+    const resultado = InventoryService.calcularAjustePropuesto({
+      product: producto,
+      almacen,
+      data: crearDatosAjuste({ tipo: 'ENTRADA', motivo: 'COMPRA', cantidad: 100 }),
+      usuario: 'user-1',
+      generarId: () => 'mov-1',
+      fechaActual: () => new Date('2026-01-01T00:00:00.000Z'),
+    });
+    expect(resultado.cantidadNueva).toBe(100);
+  });
+});
