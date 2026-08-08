@@ -7,7 +7,6 @@ import {
   CreditCard,
   Scale,
   Receipt,
-  Settings,
   Tag,
   NotebookPen,
   FileCode2,
@@ -19,7 +18,6 @@ import { useUserSession } from '../../../../../contexts/UserSessionContext';
 import { UnitsSection } from '../components/negocio/SeccionUnidades';
 import { TaxesSection } from '../components/negocio/SeccionImpuestos';
 import { PaymentMethodsSection } from '../components/negocio/SeccionMediosPago';
-import { SalesPreferencesSection } from '../components/negocio/SeccionPreferenciasVenta';
 import { CategoriesSection } from '../components/negocio/SeccionCategorias';
 import { SeccionCategoriasGasto } from '../components/negocio/SeccionCategoriasGasto';
 import { BankAccountsSection } from '../components/negocio/SeccionCuentasBancarias';
@@ -28,7 +26,7 @@ import { AccountingAccountsSection } from '../components/negocio/SeccionCuentasC
 import { SeccionConfiguracionTributaria } from '../components/negocio/SeccionConfiguracionTributaria';
 import { obtenerUsuarioDesdeSesion, tienePermiso, tieneAlgunoDePermisos } from '../utilidades/permisos';
 
-type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'expenseCategories' | 'accounting' | 'preferences' | 'tributaria';
+type BusinessSection = 'payments' | 'bankAccounts' | 'units' | 'taxes' | 'categories' | 'expenseCategories' | 'accounting' | 'tributaria';
 
 export function BusinessConfiguration() {
   const navigate = useNavigate();
@@ -69,7 +67,6 @@ export function BusinessConfiguration() {
     { id: 'categories' as BusinessSection, label: 'Categorías', icon: Tag },
     { id: 'expenseCategories' as BusinessSection, label: 'Categorías de gastos', icon: ExpenseCategoriesIcon },
     { id: 'accounting' as BusinessSection, label: 'Datos contables', icon: NotebookPen },
-    { id: 'preferences' as BusinessSection, label: 'Preferencias', icon: Settings },
     { id: 'tributaria' as BusinessSection, label: 'Configuración tributaria', icon: FileCode2 },
   ];
 
@@ -216,12 +213,6 @@ export function BusinessConfiguration() {
                 <SeccionConfiguracionTributaria />
               )}
 
-              {/* Preferences Section */}
-              {activeSection === 'preferences' && (
-                <SalesPreferencesSection
-                  preferences={salesPreferences}
-                />
-              )}
             </div>
           </div>
         </div>

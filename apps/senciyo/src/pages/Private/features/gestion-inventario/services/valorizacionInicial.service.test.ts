@@ -17,6 +17,7 @@ import {
   capacidadBloqueaActivacion,
   ejecutarActivacionValorizacion,
   verificarReconciliacionCapasIniciales,
+  validarYActivarValorizacion,
 } from './valorizacionInicial.service';
 import {
   obtenerLoteActivoPorEmpresa,
@@ -99,7 +100,7 @@ describe('iniciarPreparacionValorizacion', () => {
     });
   });
 
-  it('rechaza iniciar desde un estado que no sea no_iniciada o cancelada_antes_activacion', () => {
+  it('rechaza iniciar desde un estado que no sea no_iniciada', () => {
     expect(() => iniciarPreparacionValorizacion('validada', depsBase())).toThrow();
     expect(() => iniciarPreparacionValorizacion('activa', depsBase())).toThrow();
   });
@@ -111,10 +112,11 @@ describe('iniciarPreparacionValorizacion', () => {
     expect(listarValorizacionInicialInventarioPorEmpresa('emp-A')).toHaveLength(1);
   });
 
-  it('reiniciar tras cancelación crea un lote NUEVO (nunca reutiliza el cancelado)', () => {
+  it('reiniciar tras cancelación (corrección UX-INV-P0-001: cancelar regresa a no_iniciada) crea un lote NUEVO (nunca reutiliza el cancelado)', () => {
     const primero = iniciarPreparacionValorizacion('no_iniciada', depsBase());
-    cancelarPreparacion('pendiente_costos', 'emp-A');
-    const segundo = iniciarPreparacionValorizacion('cancelada_antes_activacion', depsBase());
+    const cancelacion = cancelarPreparacion('pendiente_costos', 'emp-A');
+    expect(cancelacion.estadoValorizacion).toBe('no_iniciada');
+    const segundo = iniciarPreparacionValorizacion(cancelacion.estadoValorizacion, depsBase());
     expect(segundo.lote.id).not.toBe(primero.lote.id);
     expect(listarValorizacionInicialInventarioPorEmpresa('emp-A')).toHaveLength(2);
     expect(obtenerLoteActivoPorEmpresa('emp-A')?.id).toBe(segundo.lote.id);
@@ -204,10 +206,10 @@ describe('recalcularDetalle', () => {
 });
 
 describe('cancelarPreparacion', () => {
-  it('cancela un lote en pendiente_costos', () => {
+  it('UXCFG-09/corrección UX-INV-P0-001: cancela un lote en pendiente_costos y regresa DIRECTO a no_iniciada — nunca un estado de compañía "cancelada" distinto del punto de partida', () => {
     iniciarPreparacionValorizacion('no_iniciada', depsBase());
     const resultado = cancelarPreparacion('pendiente_costos', 'emp-A');
-    expect(resultado.estadoValorizacion).toBe('cancelada_antes_activacion');
+    expect(resultado.estadoValorizacion).toBe('no_iniciada');
     expect(resultado.lote.estado).toBe('cancelada');
   });
 
@@ -372,6 +374,7 @@ describe('verificarCondicionesValidacion / validarYTransicionarAValidada', () =>
       generarId,
       fechaActual,
       estadoValorizacion: 'pendiente_costos',
+      controlStockActivo: true,
     });
 
     // El stock quedó confirmado por el motor (la mutación real nunca se revierte por un fallo de bookkeeping).
@@ -473,7 +476,6 @@ describe('Etapa 4B: puedeIniciarActivacion (guarda de la máquina central)', () 
     expect(puedeIniciarActivacion('no_iniciada')).toBe(false);
     expect(puedeIniciarActivacion('en_preparacion')).toBe(false);
     expect(puedeIniciarActivacion('pendiente_costos')).toBe(false);
-    expect(puedeIniciarActivacion('cancelada_antes_activacion')).toBe(false);
     expect(puedeIniciarActivacion('activando')).toBe(false);
     expect(puedeIniciarActivacion('activa')).toBe(false);
     expect(puedeIniciarActivacion('suspendida_por_inconsistencia')).toBe(false);
@@ -495,7 +497,6 @@ describe('Etapa 4B: puedeReanudarOIniciarActivacion (revisión final §3 — rec
     expect(puedeReanudarOIniciarActivacion('no_iniciada')).toBe(false);
     expect(puedeReanudarOIniciarActivacion('en_preparacion')).toBe(false);
     expect(puedeReanudarOIniciarActivacion('pendiente_costos')).toBe(false);
-    expect(puedeReanudarOIniciarActivacion('cancelada_antes_activacion')).toBe(false);
     expect(puedeReanudarOIniciarActivacion('activa')).toBe(false);
     expect(puedeReanudarOIniciarActivacion('suspendida_por_inconsistencia')).toBe(false);
   });
@@ -856,6 +857,86 @@ describe('Etapa 4B: ejecutarActivacionValorizacion — creación de capas inicia
   });
 });
 
+describe('validarYActivarValorizacion — orquestador único (encargo de centralización §11, fix H-2)', () => {
+  const almacenesCompletos = new Map([
+    ['alm-1', crearAlmacenCompleto('alm-1')],
+    ['alm-2', crearAlmacenCompleto('alm-2', { establecimientoId: 'est-2' })],
+  ]);
+
+  it('desde "pendiente_costos" con costos confirmados: valida y activa en una sola llamada, sin dejar "validada" como estado de compañía intermedio', async () => {
+    const productos = [crearProducto({ stockPorAlmacen: { 'alm-1': 10 } })];
+    iniciarPreparacionValorizacion('no_iniciada', { empresaId: 'emp-A', usuario: 'user-1', productos, almacenes: almacenesCompletos, generarId, fechaActual });
+    const loteInicial = obtenerLoteActivoPorEmpresa('emp-A')!;
+    for (const detalle of loteInicial.detalles) {
+      confirmarCostoDetalle('emp-A', detalle.productoId, detalle.almacenId, 8, fechaActual());
+    }
+
+    const resultado = await validarYActivarValorizacion({
+      estadoValorizacionActual: 'pendiente_costos',
+      empresaId: 'emp-A', tratamientoImpuestoCompra: 'impuesto_recuperable', productos, almacenes: almacenesCompletos,
+      monedaBase: 'PEN', generarId, fechaActual,
+    });
+
+    expect(resultado.estadoValorizacion).toBe('activa');
+    expect(listarCapasCostoInventarioPorEmpresa('emp-A')).toHaveLength(1);
+  });
+
+  it('desde "pendiente_costos" con costos sin confirmar: rechaza sin activar y el lote permanece en "pendiente_costos" (nunca a medias)', async () => {
+    const productos = [crearProducto({ stockPorAlmacen: { 'alm-1': 10 } })];
+    iniciarPreparacionValorizacion('no_iniciada', depsBase({ productos }));
+
+    await expect(
+      validarYActivarValorizacion({
+        estadoValorizacionActual: 'pendiente_costos',
+        empresaId: 'emp-A', tratamientoImpuestoCompra: 'impuesto_recuperable', productos, almacenes: almacenesCompletos,
+        monedaBase: 'PEN', generarId, fechaActual,
+      })
+    ).rejects.toThrow();
+
+    expect(obtenerLoteActivoPorEmpresa('emp-A')?.estado).toBe('pendiente_costos');
+    expect(listarCapasCostoInventarioPorEmpresa('emp-A')).toHaveLength(0);
+  });
+
+  it('desde "validada" (ya validado en una sesión previa): omite la revalidación y activa directo', async () => {
+    const productos = [crearProducto({ stockPorAlmacen: { 'alm-1': 10 } })];
+    prepararLoteValidado('emp-A', productos, almacenesCompletos, 8);
+
+    const resultado = await validarYActivarValorizacion({
+      estadoValorizacionActual: 'validada',
+      empresaId: 'emp-A', tratamientoImpuestoCompra: 'impuesto_recuperable', productos, almacenes: almacenesCompletos,
+      monedaBase: 'PEN', generarId, fechaActual,
+    });
+
+    expect(resultado.estadoValorizacion).toBe('activa');
+    expect(listarCapasCostoInventarioPorEmpresa('emp-A')).toHaveLength(1);
+  });
+
+  it('rechaza explícitamente desde un estado no reanudable/iniciable (ej. "no_iniciada", "activa") sin tocar nada', async () => {
+    const productos = [crearProducto({ stockPorAlmacen: { 'alm-1': 10 } })];
+
+    await expect(
+      validarYActivarValorizacion({
+        estadoValorizacionActual: 'no_iniciada',
+        empresaId: 'emp-A', tratamientoImpuestoCompra: 'impuesto_recuperable', productos, almacenes: almacenesCompletos,
+        monedaBase: 'PEN', generarId, fechaActual,
+      })
+    ).rejects.toThrow();
+
+    prepararLoteValidado('emp-B', productos, almacenesCompletos, 8);
+    await ejecutarActivacionValorizacion({
+      empresaId: 'emp-B', tratamientoImpuestoCompra: 'impuesto_recuperable', productos, almacenes: almacenesCompletos,
+      monedaBase: 'PEN', generarId, fechaActual,
+    });
+    await expect(
+      validarYActivarValorizacion({
+        estadoValorizacionActual: 'activa',
+        empresaId: 'emp-B', tratamientoImpuestoCompra: 'impuesto_recuperable', productos, almacenes: almacenesCompletos,
+        monedaBase: 'PEN', generarId, fechaActual,
+      })
+    ).rejects.toThrow();
+  });
+});
+
 describe('Etapa 4B: ejecutarActivacionValorizacion — idempotencia y recuperación', () => {
   const almacenesCompletos = new Map([['alm-1', crearAlmacenCompleto('alm-1')]]);
 
@@ -1163,7 +1244,7 @@ describe('Etapa 4B: pruebas de humo de integración post-activación — todos l
       motivo: 'VENTA', lineas: [{ lineaId: 'linea-venta-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 5 }],
     };
     const resultadoVenta = await ServicioKardexValorizado.registrarSalidaValorizada(datosVenta, {
-      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa',
+      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true,
     });
     expect(resultadoVenta.estado).toBe('nueva');
     expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId).some((c) => c.motivo === 'salida')).toBe(true);
@@ -1176,7 +1257,7 @@ describe('Etapa 4B: pruebas de humo de integración post-activación — todos l
       motivo: 'AJUSTE_INVENTARIO', lineas: [{ lineaId: 'linea-ajuste-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 3 }],
     };
     await ServicioKardexValorizado.registrarSalidaValorizada(datosAjusteNegativo, {
-      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa',
+      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true,
     });
     expect(listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.id === capaMigracion.id)?.cantidadDisponible).toBe(12);
 
@@ -1187,7 +1268,7 @@ describe('Etapa 4B: pruebas de humo de integración post-activación — todos l
       motivo: 'COMPRA', lineas: [{ lineaId: 'linea-ni-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10, costoUnitarioBaseMonedaBase: 12 }],
     };
     await ServicioKardexValorizado.registrarEntradaValorizada(datosEntrada, {
-      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN',
+      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN', controlStockActivo: true,
     });
     const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
     expect(capas).toHaveLength(2);
@@ -1201,7 +1282,7 @@ describe('Etapa 4B: pruebas de humo de integración post-activación — todos l
       cantidadUnidadMinima: 4, usuario: 'user-1', fecha: fechaSecuencial(), motivo: 'TRANSFERENCIA_ALMACEN',
     };
     await ServicioKardexValorizado.transferirStockValorizado(datosTransferencia, {
-      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', valorizacionHabilitada: true,
+      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', valorizacionHabilitada: true, controlStockActivo: true,
     });
     const capaDestino = listarCapasCostoInventarioPorEmpresa(empresaId).find((c) => c.almacenId === 'alm-2');
     expect(capaDestino).toBeDefined();
@@ -1216,7 +1297,7 @@ describe('Etapa 4B: pruebas de humo de integración post-activación — todos l
       lineas: [{ lineaId: 'IMPORT-lote-import-1-1', productoId: 'prod-1', almacenId: 'alm-1', diferencia: 6, costoUnitarioBaseMonedaBase: 15 }],
     };
     await ServicioKardexValorizado.importarStockValorizado(datosImportacion, {
-      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN',
+      almacenes: almacenesCompletos, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN', controlStockActivo: true,
     });
     const capasFinal = listarCapasCostoInventarioPorEmpresa(empresaId);
     expect(capasFinal.find((c) => c.procedencia === 'importacion' && c.costoUnitarioBaseMonedaBase === 15)).toBeDefined();
@@ -1245,10 +1326,11 @@ describe('Etapa 4B: pruebas de humo de integración post-activación — todos l
         datosAjuste: { productoId: 'prod-1', almacenId: 'alm-1', tipo: 'AJUSTE_NEGATIVO', motivo: 'AJUSTE_INVENTARIO', cantidad: 1, observaciones: '', documentoReferencia: '' },
         usuario: 'user-1',
         estadoValorizacion: 'activa',
+        controlStockActivo: true,
       })
     ).toThrow(/no está disponible/);
 
     const { puedeAnularTransferenciaLegacy } = await import('../hooks/useInventory');
-    expect(puedeAnularTransferenciaLegacy('activa')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'activa')).toBe(false);
   });
 });

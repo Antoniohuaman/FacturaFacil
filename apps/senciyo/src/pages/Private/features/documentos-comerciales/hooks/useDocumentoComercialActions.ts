@@ -194,8 +194,9 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
       documentoIdExistente,
       resolverNumeroFallback,
       estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+      controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
     }),
-    [activeEstablecimientoId, configState.almacenes, configState.preferenciasInventario, session],
+    [activeEstablecimientoId, configState.almacenes, configState.preferenciasInventario, configState.salesPreferences, session],
   );
 
   /**
@@ -728,6 +729,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+          controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
           valorizacionHabilitada: true,
         });
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
@@ -799,7 +801,7 @@ export function useDocumentoComercialActions(): UseDocumentoComercialActionsRetu
 
       return { exito: true, documento: actualizado };
     },
-    [state.documentos, actualizarEnContext, session, configState.almacenes, configState.preferenciasInventario.estadoValorizacion],
+    [state.documentos, actualizarEnContext, session, configState.almacenes, configState.preferenciasInventario.estadoValorizacion, configState.salesPreferences?.controlStockActivo],
   );
 
   const duplicarDocumento = useCallback(

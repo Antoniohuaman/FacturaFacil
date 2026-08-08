@@ -26,7 +26,7 @@ function generarId(): string {
 function fechaActual(): string {
   return '2026-08-01T00:00:00.000Z';
 }
-const dependencias = { generarId, fechaActual, estadoValorizacion: 'no_iniciada' };
+const dependencias = { generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true };
 
 function crearAlmacen(overrides: Partial<Almacen> = {}): Almacen {
   return {
@@ -529,7 +529,7 @@ describe('notaIngreso.service — anularNIEnInventario', () => {
 });
 
 describe('notaIngreso.service — modo valorizado (Etapa 3, §10-§11, §15)', () => {
-  const dependenciasValorizadas = { generarId, fechaActual, estadoValorizacion: 'activa' as const, monedaBase: 'PEN' };
+  const dependenciasValorizadas = { generarId, fechaActual, estadoValorizacion: 'activa' as const, controlStockActivo: true, monedaBase: 'PEN' };
 
   it('generarNIEnInventario en modo valorizado (estadoValorizacion="activa") crea una CapaCostoInventario con procedencia "compra" y los snapshots de la línea', async () => {
     const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });
@@ -632,8 +632,8 @@ describe('notaIngreso.service — modo valorizado (Etapa 3, §10-§11, §15)', (
 });
 
 describe('notaIngreso.service — anularNIEnInventario: la decisión de revertir capas nunca depende únicamente del estadoValorizacion/modo ACTUAL', () => {
-  const dependenciasNoIniciada = { generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const };
-  const dependenciasActiva = { generarId, fechaActual, estadoValorizacion: 'activa' as const, monedaBase: 'PEN' };
+  const dependenciasNoIniciada = { generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const, controlStockActivo: true };
+  const dependenciasActiva = { generarId, fechaActual, estadoValorizacion: 'activa' as const, controlStockActivo: true, monedaBase: 'PEN' };
 
   it('escenario 1: NI confirmada CUANTITATIVAMENTE antes de activar, anulada con la empresa ya "activa" — revierte cantidad, nunca busca ni exige una capa inexistente', async () => {
     const producto = crearProducto({ stockPorAlmacen: { 'alm-1': 0 } });

@@ -58,6 +58,9 @@ const ConfiguracionConexionSunat = lazy(() =>
 const ConfiguracionTransporte = lazy(() =>
   import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionTransporte").then((m) => ({ default: m.ConfiguracionTransporte }))
 );
+const ConfiguracionInventarioPage = lazy(() =>
+  import("../pages/Private/features/configuracion-sistema/paginas/ConfiguracionInventario").then((m) => ({ default: m.ConfiguracionInventarioPage }))
+);
 const CatalogoArticulosMain = lazy(() => import("../pages/Private/features/catalogo-articulos/pages/CatalogoArticulosMain"));
 const ListaPrecios = lazy(() =>
   import("../pages/Private/features/lista-precios/components/ListaPrecios").then((m) => ({ default: m.ListaPrecios }))
@@ -191,6 +194,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "/configuracion/cajas/:id", element: conPermisos(<CajaFormPage />, ['config.cajas.gestionar']) },
       { path: "/configuracion/conexion-sunat", element: conPermisos(<ConfiguracionConexionSunat />, ['config.conexion-sunat.gestionar']) },
       { path: "/configuracion/transporte", element: conPermisos(<ConfiguracionTransporte />, ['config.transporte.gestionar']) },
+      { path: "/configuracion/inventario", element: conPermisos(<ConfiguracionInventarioPage />, ['inventario.ver', 'inventario.configurar', 'inventario.valorizacion.configurar']) },
       // Compras — layout route garantiza el provider para todas las rutas hijas
       {
         element: <ComprasLayout />,

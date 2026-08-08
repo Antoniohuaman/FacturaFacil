@@ -986,6 +986,7 @@ export const useComprobanteActions = () => {
             fechaActual: () => new Date().toISOString(),
             permitirStockNegativo: allowNegativeStock,
             estadoValorizacion: preferenciasInventario.estadoValorizacion,
+            controlStockActivo,
           });
 
           // Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos ni
@@ -1213,6 +1214,7 @@ export const useComprobanteActions = () => {
                 generarId: () => crypto.randomUUID(),
                 fechaActual: () => new Date().toISOString(),
                 estadoValorizacion: preferenciasInventario.estadoValorizacion,
+                controlStockActivo,
                 monedaBase: currencyManager.getSnapshot().baseCurrency.code,
               });
 

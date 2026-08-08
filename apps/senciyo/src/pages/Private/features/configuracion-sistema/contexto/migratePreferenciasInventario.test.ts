@@ -62,3 +62,34 @@ describe('migratePreferenciasInventario', () => {
     expect(motivos.some((m) => m.includes('tratamiento de impuestos'))).toBe(true);
   });
 });
+
+// Corrección UX final 2026-08-07 (cierre de UX-INV-P0-001): `inventarioConfiguradoAlgunaVez` es el
+// único dato de ciclo de vida nuevo — distingue "Pendiente de configurar" (nunca se activó nada) de
+// "Inactivo" (se activó alguna vez, hoy está apagado). El retro-cómputo que combina este campo con
+// `salesPreferences.controlStockActivo` vive en el useEffect de hidratación del contexto (no es una
+// función pura extraíble) y se verifica por lectura de código, mismo criterio ya usado para CFG-04.
+describe('migratePreferenciasInventario — inventarioConfiguradoAlgunaVez (cierre de UX-INV-P0-001)', () => {
+  it('UXCFG-24: snapshot ausente (empresa nueva) normaliza a false — "Pendiente de configurar"', () => {
+    expect(migratePreferenciasInventario(undefined).inventarioConfiguradoAlgunaVez).toBe(false);
+  });
+
+  it('snapshot con el campo ausente (persistido antes de que este campo existiera) normaliza a false, nunca lo infiere true por sí solo', () => {
+    expect(migratePreferenciasInventario({ estadoValorizacion: 'no_iniciada', tratamientoImpuestoCompra: 'pendiente_configuracion' }).inventarioConfiguradoAlgunaVez).toBe(false);
+  });
+
+  it('conserva el booleano explícito ya persistido, en ambos sentidos', () => {
+    expect(migratePreferenciasInventario({ inventarioConfiguradoAlgunaVez: true }).inventarioConfiguradoAlgunaVez).toBe(true);
+    expect(migratePreferenciasInventario({ inventarioConfiguradoAlgunaVez: false }).inventarioConfiguradoAlgunaVez).toBe(false);
+  });
+
+  it('un valor corrupto (no booleano) nunca se acepta en silencio — normaliza a false', () => {
+    // @ts-expect-error — corrupción deliberada del tipo.
+    expect(migratePreferenciasInventario({ inventarioConfiguradoAlgunaVez: 'si' }).inventarioConfiguradoAlgunaVez).toBe(false);
+  });
+
+  it('es monótono por construcción de la función pura: nunca convierte true en false por sí sola (solo normaliza ausentes/corruptos a false)', () => {
+    const migrado = migratePreferenciasInventario({ inventarioConfiguradoAlgunaVez: true, estadoValorizacion: 'no_iniciada' });
+    expect(migrado.inventarioConfiguradoAlgunaVez).toBe(true);
+    expect(migrado.estadoValorizacion).toBe('no_iniciada');
+  });
+});

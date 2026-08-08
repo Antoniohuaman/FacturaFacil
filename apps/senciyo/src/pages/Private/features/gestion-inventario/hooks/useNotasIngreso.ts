@@ -107,6 +107,7 @@ export const useNotasIngreso = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
             monedaBase: currencyManager.getSnapshot().baseCurrency.code,
           },
         );
@@ -143,7 +144,7 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback, comprasOpcional],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, configState.salesPreferences?.controlStockActivo, usuarioNombre, feedback, comprasOpcional],
   );
 
   const anularNI = useCallback(
@@ -182,6 +183,7 @@ export const useNotasIngreso = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
             monedaBase: currencyManager.getSnapshot().baseCurrency.code,
           },
         );
@@ -219,7 +221,7 @@ export const useNotasIngreso = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback, comprasOpcional],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, configState.salesPreferences?.controlStockActivo, usuarioNombre, feedback, comprasOpcional],
   );
 
   const eliminarNI = useCallback(

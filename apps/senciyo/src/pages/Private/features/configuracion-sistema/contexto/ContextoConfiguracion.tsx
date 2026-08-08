@@ -53,6 +53,7 @@ import {
 import { EmpresaStatus, RegimenTributario, type Empresa as EmpresaTenant } from '../../autenticacion/types/auth.types';
 import type { EstadoActivacionValorizacion } from '../../gestion-inventario/models/estadoActivacionValorizacion.types';
 import { esEstadoActivacionValorizacionValido } from '../../gestion-inventario/models/estadoActivacionValorizacion.types';
+import { esValorizacionActiva } from '../../gestion-inventario/utils/estadoActivacionValorizacionInventario';
 
 // Category interface - moved from catalogo-articulos
 export interface Category {
@@ -118,6 +119,17 @@ export type PreferenciasInventario = {
    * hasta `'validada'`; `'activando'`/`'activa'` quedan reservados para el cierre de la Etapa 4.
    */
   estadoValorizacion: EstadoActivacionValorizacion;
+  /**
+   * Único dato de ciclo de vida de Inventario (corrección UX final 2026-08-07, cierre de
+   * UX-INV-P0-001): `true` desde la primera vez que la empresa activó Inventario (cuantitativo o
+   * valorizado), para siempre — nunca vuelve a `false`, ni al desactivar el control de existencias
+   * ni al cancelar una preparación de valorización. Es la única forma de distinguir "Pendiente de
+   * configurar" (nunca se activó nada) de "Inactivo" (se activó alguna vez, hoy está apagado) — dos
+   * estados visuales distintos que antes eran indistinguibles. NO es el modo de Inventario, NO
+   * reemplaza `controlStockActivo` ni `estadoValorizacion` — ver
+   * `resolverEstadoVisualInventario` (gestion-inventario/utils/estadoActivacionValorizacionInventario.ts).
+   */
+  inventarioConfiguradoAlgunaVez: boolean;
 };
 
 interface ConfigurationState {
@@ -879,6 +891,7 @@ const PREFERENCIAS_VENTAS_PREDETERMINADAS: SalesPreferences = {
 const PREFERENCIAS_INVENTARIO_PREDETERMINADAS: PreferenciasInventario = {
   tratamientoImpuestoCompra: 'pendiente_configuracion',
   estadoValorizacion: 'no_iniciada',
+  inventarioConfiguradoAlgunaVez: false,
 };
 
 const loadTenantConfigFromStorage = (storageKey: StorageKey): PersistedTenantConfig | null => {
@@ -950,6 +963,12 @@ function esTratamientoImpuestoCompraValido(valor: unknown): valor is Tratamiento
  * `estadoValorizacion` (Etapa 2): toda empresa existente parte de `'no_iniciada'` — un valor
  * corrupto/desconocido en el snapshot persistido nunca se acepta en silencio (nunca se infiere un
  * estado de activación distinto de `'no_iniciada'` a partir de datos ajenos).
+ * `inventarioConfiguradoAlgunaVez` (corrección UX final 2026-08-07): un valor ausente o no-booleano
+ * nunca se infiere `true` aquí — solo se acepta el booleano explícito ya persistido. El
+ * retro-cómputo para snapshots anteriores a la existencia de este campo (empresa que ya estaba
+ * activa/valorizada antes de que este campo existiera) ocurre en la hidratación
+ * (`ContextoConfiguracion` useEffect de carga), que es el único punto que ya combina esta fuente
+ * con `salesPreferences.controlStockActivo` — nunca aquí, que solo ve `PreferenciasInventario`.
  */
 /** Exportada (además de usada internamente) para que las pruebas verifiquen directamente la normalización de valores corruptos/ausentes sin tener que renderizar el contexto completo. */
 export const migratePreferenciasInventario = (
@@ -957,6 +976,7 @@ export const migratePreferenciasInventario = (
 ): PreferenciasInventario => ({
   tratamientoImpuestoCompra: esTratamientoImpuestoCompraValido(stored?.tratamientoImpuestoCompra) ? stored.tratamientoImpuestoCompra : 'pendiente_configuracion',
   estadoValorizacion: esEstadoActivacionValorizacionValido(stored?.estadoValorizacion) ? stored.estadoValorizacion : 'no_iniciada',
+  inventarioConfiguradoAlgunaVez: typeof stored?.inventarioConfiguradoAlgunaVez === 'boolean' ? stored.inventarioConfiguradoAlgunaVez : false,
 });
 
 const loadSalesPreferencesFromStorage = (storageKey: StorageKey): SalesPreferences => {
@@ -1608,10 +1628,32 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       dispatch({ type: 'SET_ALMACENES', payload: persisted.almacenes });
       dispatch({ type: 'SET_CAJAS', payload: persisted.cajas });
       dispatch({ type: 'SET_ROLES_PERSONALIZADOS', payload: persisted.rolesPersonalizados });
-      dispatch({ type: 'SET_SALES_PREFERENCES', payload: persisted.salesPreferences });
+      const preferenciasInventarioMigradas = migratePreferenciasInventario(persisted.preferenciasInventario);
+      // CFG-04 (§17 de la centralización): "Valorización activa" implica "control de Inventario
+      // activo" — un snapshot legado/inconsistente donde `controlStockActivo` quedó en `false` con
+      // la valorización ya activa (o suspendida por inconsistencia tras haber estado activa) se
+      // corrige coherentemente AQUÍ, en la única hidratación que ya combina ambas fuentes, nunca
+      // desactivando ni borrando la valorización ni sus capas/movimientos.
+      const salesPreferencesCoherentes =
+        esValorizacionActiva(preferenciasInventarioMigradas.estadoValorizacion) && !persisted.salesPreferences.controlStockActivo
+          ? { ...persisted.salesPreferences, controlStockActivo: true }
+          : persisted.salesPreferences;
+      dispatch({ type: 'SET_SALES_PREFERENCES', payload: salesPreferencesCoherentes });
+      // Retro-cómputo de `inventarioConfiguradoAlgunaVez` (corrección UX final 2026-08-07): un
+      // snapshot persistido ANTES de que este campo existiera nunca lo trae, así que
+      // `migratePreferenciasInventario` ya lo normalizó a `false` — pero si esta empresa sigue
+      // operando con el control de existencias activo, o si ya tiene cualquier historial de
+      // valorización distinto de `'no_iniciada'`, es la evidencia de que SÍ se configuró alguna vez.
+      // Mismo criterio que CFG-04 arriba: se corrige aquí, en la única hidratación que ya combina
+      // ambas fuentes, nunca inventando una tercera fuente ni reescribiendo lo que sí es fiable.
+      const preferenciasInventarioCoherentes =
+        !preferenciasInventarioMigradas.inventarioConfiguradoAlgunaVez &&
+        (salesPreferencesCoherentes.controlStockActivo || preferenciasInventarioMigradas.estadoValorizacion !== 'no_iniciada')
+          ? { ...preferenciasInventarioMigradas, inventarioConfiguradoAlgunaVez: true }
+          : preferenciasInventarioMigradas;
       dispatch({
         type: 'SET_PREFERENCIAS_INVENTARIO',
-        payload: migratePreferenciasInventario(persisted.preferenciasInventario),
+        payload: preferenciasInventarioCoherentes,
       });
       if (persisted.units.length) {
         dispatch({ type: 'SET_UNITS', payload: persisted.units });
@@ -2284,7 +2326,8 @@ export function ConfigurationProvider({ children, tenantIdOverride }: Configurat
       state.salesPreferences.stockDescuentoNotaVenta !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoNotaVenta ||
       state.salesPreferences.stockDescuentoGuiaRemision !== PREFERENCIAS_VENTAS_PREDETERMINADAS.stockDescuentoGuiaRemision ||
       state.preferenciasInventario.tratamientoImpuestoCompra !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.tratamientoImpuestoCompra ||
-      state.preferenciasInventario.estadoValorizacion !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.estadoValorizacion;
+      state.preferenciasInventario.estadoValorizacion !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.estadoValorizacion ||
+      state.preferenciasInventario.inventarioConfiguradoAlgunaVez !== PREFERENCIAS_INVENTARIO_PREDETERMINADAS.inventarioConfiguradoAlgunaVez;
 
     if (!hasMeaningfulConfig) {
       return;

@@ -677,7 +677,7 @@ describe('registrarEntradaValorizada — tipoOperacion "devolucion_cliente" (cie
     };
 
     await ServicioKardexValorizado.registrarEntradaValorizada(datos, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN',
     });
 
     const capas = listarCapasCostoInventarioPorEmpresa(empresaId);
@@ -711,8 +711,8 @@ describe('registrarEntradaValorizada — tipoOperacion "devolucion_cliente" (cie
       ],
     };
 
-    const r1 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
-    const r2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
+    const r1 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' });
+    const r2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' });
 
     expect(r1.estado).toBe('nueva');
     expect(r2.estado).toBe('repetida');

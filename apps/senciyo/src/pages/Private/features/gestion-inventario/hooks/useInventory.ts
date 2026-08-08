@@ -36,7 +36,7 @@ import {
 } from '../../../../../shared/inventory/sesionPendienteOperacionInventario';
 import { serializarCanonicamente } from '../utils/serializacionCanonicaInventario';
 import { currencyManager } from '@/shared/currency';
-import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
+import { resolverModoOperacion, resolverModoInventario } from '../utils/estadoActivacionValorizacionInventario';
 import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
 
 type AdjustmentModalOptions = {
@@ -126,8 +126,14 @@ export function limpiarSesionPendienteTransferencia(empresaId: string): void {
  * genuinamente libre. Se usa la MISMA función productiva en el caller y aquí, para que la prueba
  * ejercite la regla real, nunca una copia de la condición.
  */
-export function puedeAnularTransferenciaLegacy(estadoValorizacion: EstadoActivacionValorizacion): boolean {
-  return resolverModoOperacion(estadoValorizacion) === 'cuantitativo_libre';
+export function puedeAnularTransferenciaLegacy(
+  controlStockActivo: boolean,
+  estadoValorizacion: EstadoActivacionValorizacion
+): boolean {
+  return (
+    resolverModoInventario(controlStockActivo, estadoValorizacion) === 'cuantitativo' &&
+    resolverModoOperacion(estadoValorizacion) === 'cuantitativo_libre'
+  );
 }
 
 export interface ParametrosConstruirDatosAjuste {
@@ -243,6 +249,7 @@ export const useInventory = () => {
   const establecimientoId = session?.currentEstablecimientoId;
   const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(configState.users, session), [configState.users, session]);
   const estadoValorizacion = configState.preferenciasInventario.estadoValorizacion;
+  const controlStockActivo = configState.salesPreferences?.controlStockActivo ?? false;
 
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([]);
   const [transferencias, setTransferencias] = useState<Transferencia[]>([]);
@@ -376,6 +383,7 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          controlStockActivo,
           monedaBase: currencyManager.getSnapshot().baseCurrency.code,
         });
 
@@ -414,6 +422,7 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          controlStockActivo,
         });
 
         // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a
@@ -431,7 +440,14 @@ export const useInventory = () => {
       // Etapa 4A, §10: ENTRADA/SALIDA/DEVOLUCION/MERMA siguen fuera del alcance de esta migración
       // (no son tipos de operación valorizables) y esta ruta muta stock directamente, sin capas —
       // en cualquier estado distinto de los dos modos cuantitativos libres se bloquea con un
-      // mensaje claro en vez de dejar el stock desincronizado de las capas de costo.
+      // mensaje claro en vez de dejar el stock desincronizado de las capas de costo. Modo de
+      // inventario centralizado (fix H-1): con el Inventario inactivo se bloquea antes de mirar el
+      // estado de valorización.
+      if (resolverModoInventario(controlStockActivo, estadoValorizacion) === 'inactivo') {
+        throw new Error(
+          `El ajuste de tipo "${data.tipo}" no está disponible: el Inventario está inactivo para esta empresa.`
+        );
+      }
       const modoResuelto = resolverModoOperacion(estadoValorizacion);
       if (modoResuelto !== 'cuantitativo_libre' && modoResuelto !== 'cuantitativo_invalida_snapshot') {
         throw new Error(
@@ -457,7 +473,7 @@ export const useInventory = () => {
       console.error('Error al registrar ajuste:', err);
       error(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion, controlStockActivo]);
 
   /**
    * Crea una nueva transferencia.
@@ -537,6 +553,7 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          controlStockActivo,
           // Cierre puntual Etapa 4A: fuente real de la empresa (nunca un flag omitido) — con
           // 'activa' consume capas exactas en origen y crea la capa espejo en destino; en cualquier
           // otro estado preserva exactamente el comportamiento cuantitativo puro ya aprobado.
@@ -612,7 +629,7 @@ export const useInventory = () => {
       console.error('Error al crear transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo crear la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion, controlStockActivo]);
 
   /**
    * Despacha una transferencia inter-establecimiento (PENDIENTE → EN_TRANSITO).
@@ -677,6 +694,7 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          controlStockActivo,
         });
 
         // La unidad de trabajo ya escribió productos y movimientos — nunca una segunda escritura manual.
@@ -714,7 +732,7 @@ export const useInventory = () => {
       console.error('Error al despachar transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo despachar la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion, controlStockActivo]);
 
   /**
    * Confirma la recepción de una transferencia (EN_TRANSITO → RECIBIDA).
@@ -786,6 +804,7 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          controlStockActivo,
           monedaBase: currencyManager.getSnapshot().baseCurrency.code,
         });
 
@@ -823,7 +842,7 @@ export const useInventory = () => {
       console.error('Error al recibir transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo confirmar la recepción', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion, controlStockActivo]);
 
   /** Cancela una transferencia PENDIENTE sin mover stock */
   const handleCancelarTransfer = useCallback((transferenciaId: string) => {
@@ -911,6 +930,7 @@ export const useInventory = () => {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion,
+          controlStockActivo,
           // Cierre puntual Etapa 4A: SIEMPRE `true` — la fuente de verdad de si hay que restaurar
           // capas/consumos es la operación ORIGINAL y sus artefactos reales (localizados por
           // movimientoId/capaOrigenId), nunca el estadoValorizacion ACTUAL de la empresa en el
@@ -961,6 +981,7 @@ export const useInventory = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion,
+            controlStockActivo,
             valorizacionHabilitada: true,
           });
 
@@ -979,7 +1000,7 @@ export const useInventory = () => {
       // 'cuantitativo_invalida_snapshot', evadiría la invalidación atómica del snapshot de
       // valorización inicial que solo `ejecutarOperacionInventario` dispara. Se bloquea ANTES de
       // modificar cantidades — solo se permite en el único modo genuinamente libre.
-      if (!puedeAnularTransferenciaLegacy(estadoValorizacion)) {
+      if (!puedeAnularTransferenciaLegacy(controlStockActivo, estadoValorizacion)) {
         warning(
           'Esta transferencia histórica no puede anularse en el estado de valorización actual de la empresa. Contacte soporte.',
           'Anulación no disponible'
@@ -1025,7 +1046,7 @@ export const useInventory = () => {
       console.error('Error al anular transferencia:', err);
       error(err instanceof Error ? err.message : 'No se pudo anular la transferencia', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, usuarioActual, updateProduct, usuarioNombre, success, error, warning, estadoValorizacion, controlStockActivo]);
 
   const handleMassStockUpdate = useCallback((data: MassStockUpdateData) => {
     try {
@@ -1041,7 +1062,14 @@ export const useInventory = () => {
 
       // Etapa 4A, §10: actualización masiva muta stock directamente por fila (registerAdjustment
       // interno), sin capas — se bloquea en cualquier estado distinto de los dos modos
-      // cuantitativos libres, igual que el resto de mutaciones directas de este hook.
+      // cuantitativos libres, igual que el resto de mutaciones directas de este hook. Modo de
+      // inventario centralizado (fix H-1): con el Inventario inactivo se bloquea antes de mirar el
+      // estado de valorización, exactamente igual que el motor central.
+      if (resolverModoInventario(controlStockActivo, estadoValorizacion) === 'inactivo') {
+        throw new Error(
+          'La actualización masiva no está disponible: el Inventario está inactivo para esta empresa.'
+        );
+      }
       const modoResueltoMasivo = resolverModoOperacion(estadoValorizacion);
       if (modoResueltoMasivo !== 'cuantitativo_libre' && modoResueltoMasivo !== 'cuantitativo_invalida_snapshot') {
         throw new Error(
@@ -1065,7 +1093,7 @@ export const useInventory = () => {
       console.error('Error en actualización masiva:', err);
       error(err instanceof Error ? err.message : 'No se pudo completar la actualización masiva', 'Error');
     }
-  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion]);
+  }, [allProducts, almacenesActivos, establecimientoId, rolesConfigurados, updateProduct, usuarioNombre, success, error, warning, usuarioActual, estadoValorizacion, controlStockActivo]);
 
   const openAdjustmentModal = useCallback((
     productId: string,

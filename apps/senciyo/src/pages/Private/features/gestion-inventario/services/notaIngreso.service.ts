@@ -62,6 +62,8 @@ export interface DependenciasEntradaCuantitativaNI {
   fechaActual: () => string;
   /** Estado de activación de valorización de la EMPRESA (Etapa 2) — obligatorio: el motor lo exige para resolver el modo de operación antes de mutar stock, nunca se omite silenciosamente. */
   estadoValorizacion: EstadoActivacionValorizacion;
+  /** Switch maestro de control de existencias (`SalesPreferences.controlStockActivo`) — obligatorio, igual que `estadoValorizacion`: el motor bloquea toda mutación cuando el modo de inventario resuelto es `'inactivo'`. */
+  controlStockActivo: boolean;
   /** Moneda base real de la empresa (Etapa 3) — requerida únicamente cuando el modo resuelto es `valorizado_exclusivo` (el motor crea `CapaCostoInventario`). Ausente mientras la empresa no esté en ese modo. */
   monedaBase?: string;
 }
@@ -276,6 +278,7 @@ export const generarNIEnInventario = async (
       generarId: dependencias.generarId,
       fechaActual: dependencias.fechaActual,
       estadoValorizacion: dependencias.estadoValorizacion,
+      controlStockActivo: dependencias.controlStockActivo,
       monedaBase: dependencias.monedaBase,
     });
 
@@ -373,6 +376,7 @@ export const anularNIEnInventario = async (
       generarId: dependencias.generarId,
       fechaActual: dependencias.fechaActual,
       estadoValorizacion: dependencias.estadoValorizacion,
+      controlStockActivo: dependencias.controlStockActivo,
       valorizacionHabilitada,
       monedaBase: dependencias.monedaBase,
     });

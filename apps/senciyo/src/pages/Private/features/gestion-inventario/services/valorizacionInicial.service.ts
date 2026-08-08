@@ -87,9 +87,9 @@ export interface ResultadoTransicionValorizacion {
 }
 
 /**
- * Inicia una preparación nueva (`no_iniciada → en_preparacion`) o la reinicia tras una cancelación
- * (`cancelada_antes_activacion → en_preparacion`) — ambos casos crean un lote NUEVO con la
- * detección recién calculada. Es IDEMPOTENTE: si ya existe una preparación en curso
+ * Inicia una preparación nueva (`no_iniciada → en_preparacion`) — una cancelación siempre devuelve
+ * a `no_iniciada`, así que iniciar de nuevo después de cancelar es la misma transición, con un lote
+ * NUEVO creado con la detección recién calculada. Es IDEMPOTENTE: si ya existe una preparación en curso
  * (`en_preparacion`/`pendiente_costos`), devuelve el lote activo existente sin crear uno segundo
  * (§13 del encargo: "doble inicio no duplica lote"). Detecta el stock y resuelve la transición
  * directamente hasta `'pendiente_costos'` — en esta arquitectura síncrona no existe un paso
@@ -106,7 +106,7 @@ export function iniciarPreparacionValorizacion(
     }
   }
 
-  if (estadoValorizacionActual !== 'no_iniciada' && estadoValorizacionActual !== 'cancelada_antes_activacion') {
+  if (estadoValorizacionActual !== 'no_iniciada') {
     throw new Error(
       `valorizacionInicial.service: no se puede iniciar una preparación desde el estado "${estadoValorizacionActual}".`
     );
@@ -241,15 +241,18 @@ export function recalcularDetalle(
 }
 
 /**
- * Cancela la preparación en curso (`en_preparacion`/`pendiente_costos`/`validada` →
- * `cancelada_antes_activacion`) — siempre segura en esta etapa: `'activa'` es inalcanzable, así que
- * nunca existe una capa o movimiento de migración que revertir. Nunca elimina el lote (auditoría).
+ * Cancela la preparación en curso (`en_preparacion`/`pendiente_costos`/`validada` → `no_iniciada`,
+ * corrección UX-INV-P0-001 2026-08-07) — siempre segura: `'activa'` es inalcanzable desde estos
+ * estados, así que nunca existe una capa o movimiento de migración que revertir. Nunca elimina el
+ * lote (auditoría): el LOTE conserva su propio `estado: 'cancelada'` (`EstadoLoteValorizacionInicial`,
+ * distinto del estado de la EMPRESA) para el historial, aunque la empresa vuelva exactamente al
+ * mismo punto de partida que si nunca hubiera iniciado nada.
  */
 export function cancelarPreparacion(
   estadoValorizacionActual: EstadoActivacionValorizacion,
   empresaId: string
 ): ResultadoTransicionValorizacion {
-  validarTransicionEstadoValorizacion(estadoValorizacionActual, 'cancelada_antes_activacion');
+  validarTransicionEstadoValorizacion(estadoValorizacionActual, 'no_iniciada');
 
   const lote = obtenerLoteActivoPorEmpresa(empresaId);
   if (!lote) {
@@ -257,7 +260,7 @@ export function cancelarPreparacion(
   }
   const loteActualizado: ValorizacionInicialInventario = { ...lote, estado: 'cancelada' };
   actualizarValorizacionInicialInventario(loteActualizado, empresaId);
-  return { lote: loteActualizado, estadoValorizacion: 'cancelada_antes_activacion' };
+  return { lote: loteActualizado, estadoValorizacion: 'no_iniciada' };
 }
 
 export interface RequisitoValidacion {
@@ -1058,4 +1061,49 @@ export async function ejecutarActivacionValorizacion(
   }
 
   return { lote: loteFinal, estadoValorizacion: 'activa' };
+}
+
+export interface ParametrosValidarYActivarValorizacion extends ParametrosEjecutarActivacion {
+  /** Estado de activación de valorización ACTUAL de la empresa a nivel de compañía (`PreferenciasInventario.estadoValorizacion`) — nunca `lote.estado`, que es la máquina de estados propia del lote de valorización inicial. */
+  estadoValorizacionActual: EstadoActivacionValorizacion;
+}
+
+/**
+ * Orquestador único de "revisar resumen → click en Activar" (encargo de centralización, §11 —
+ * fix de H-2). Une `validarYTransicionarAValidada` + `ejecutarActivacionValorizacion` en una sola
+ * llamada para que `'validada'` deje de ser un estado de COMPAÑÍA visible y abandonable entre
+ * sesiones: la UI nunca necesita despachar `SET_PREFERENCIAS_INVENTARIO` con `estadoValorizacion:
+ * 'validada'` como paso intermedio — solo despacha el resultado FINAL de esta función
+ * (`'activa'` o `'fallida_recuperable'`). El lote sigue transicionando internamente por
+ * `pendiente_costos → validada` (persistido por `validarYTransicionarAValidada`), pero eso es un
+ * detalle de implementación del lote, no un estado que el usuario deba ver ni confirmar por
+ * separado.
+ *
+ * - Desde `'pendiente_costos'`: valida y transiciona el lote a `'validada'` PRIMERO (lanza sin
+ *   mutar nada si no cumple condiciones — el modo de la empresa queda intacto, nunca a medias) y
+ *   continúa de inmediato a la activación.
+ * - Desde `'validada'`/`'activando'`/`'fallida_recuperable'` (recarga a mitad de camino de una
+ *   activación YA confirmada por el usuario): omite el primer paso y activa/reanuda directamente —
+ *   la propia idempotencia de `ejecutarActivacionValorizacion` garantiza que reanudar nunca
+ *   duplica ni reactiva por error.
+ * - Cualquier otro estado (`no_iniciada`, `en_preparacion`, `activa`, `suspendida_por_inconsistencia`)
+ *   rechaza la llamada explícitamente antes de tocar nada — nunca se asume "reanudable" por omisión.
+ */
+export async function validarYActivarValorizacion(
+  params: ParametrosValidarYActivarValorizacion
+): Promise<ResultadoActivacionValorizacion> {
+  const { estadoValorizacionActual, empresaId, tratamientoImpuestoCompra, productos, almacenes } = params;
+
+  const puedeEjecutar = estadoValorizacionActual === 'pendiente_costos' || puedeReanudarOIniciarActivacion(estadoValorizacionActual);
+  if (!puedeEjecutar) {
+    throw new Error(
+      `valorizacionInicial.service: no se puede activar la valorización de la empresa "${empresaId}" desde el estado actual ("${estadoValorizacionActual}") — solo es válido desde "pendiente_costos", "validada", "activando" o "fallida_recuperable".`
+    );
+  }
+
+  if (estadoValorizacionActual === 'pendiente_costos') {
+    validarYTransicionarAValidada(estadoValorizacionActual, empresaId, tratamientoImpuestoCompra, productos, almacenes);
+  }
+
+  return ejecutarActivacionValorizacion(params);
 }

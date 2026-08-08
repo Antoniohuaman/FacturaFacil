@@ -62,8 +62,8 @@ describe('OPCIONES_TRATAMIENTO_IMPUESTO — correspondencia opción visual ↔ v
     expect(resolucion.esRecuperable).toBe(false);
   });
 
-  it('"Definir por cada línea de compra" persiste "segun_afectacion" y no determina esRecuperable por sí sola (queda null)', () => {
-    const opcion = OPCIONES_TRATAMIENTO_IMPUESTO.find((o) => o.label === 'Definir por cada línea de compra');
+  it('"Decidir en cada línea de compra" persiste "segun_afectacion" y no determina esRecuperable por sí sola (queda null)', () => {
+    const opcion = OPCIONES_TRATAMIENTO_IMPUESTO.find((o) => o.label === 'Decidir en cada línea de compra');
     expect(opcion?.valor).toBe('segun_afectacion');
 
     const resolucion = resolverTratamientoTributarioProducto({ impuestoId: 'tax-igv18' }, opcion!.valor, [crearTaxGravado()]);

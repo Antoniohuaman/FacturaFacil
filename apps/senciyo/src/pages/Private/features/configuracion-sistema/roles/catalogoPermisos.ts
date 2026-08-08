@@ -200,6 +200,12 @@ export const CATALOGO_PERMISOS: PermisoCatalogo[] = [
     modulo: 'inventario',
   },
   {
+    id: 'inventario.configurar',
+    nombre: 'Configurar inventario',
+    descripcion: 'Activar o desactivar el control de existencias y definir las reglas de descuento de stock por documento (Factura/Boleta, Nota de Venta, Guia de Remision).',
+    modulo: 'inventario',
+  },
+  {
     id: 'inventario.valorizacion.configurar',
     nombre: 'Configurar valorizacion de inventario',
     descripcion: 'Abrir la preparacion de valorizacion, definir el tratamiento de impuestos, y iniciar o cancelar la preparacion.',

@@ -1,7 +1,7 @@
 // src/features/inventario/pages/InventoryPage.tsx
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { MovimientoStock } from '../models';
 import { Download, Settings } from 'lucide-react';
 import { useInventory } from '../hooks';
@@ -15,7 +15,6 @@ import InventarioSituacionPage from '../components/disponibilidad/InventarioSitu
 import NotasIngresoPanel from '../components/notas-ingreso/NotasIngresoPanel';
 import NotasSalidaPanel from '../components/notas-salida/NotasSalidaPanel';
 import CintilloControlStock from '../components/CintilloControlStock';
-import ModalConfiguracionInventario from '../../configuracion-sistema/components/negocio/ModalConfiguracionInventario';
 import { PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { cargarXlsx } from '@/shared/export/cargarLibreriasExcel';
@@ -27,7 +26,7 @@ import { REPORTS_HUB_PATH } from '@/shared/export/autoExportParams';
 import { inferirFuente } from '../utils/inventory.helpers';
 import { getTenantEmpresaId, lsKey } from '@/shared/tenant';
 import { currencyManager, formatMoney } from '@/shared/currency';
-import { esValorizacionActiva } from '../utils/estadoActivacionValorizacionInventario';
+import { esValorizacionActiva, resolverModoInventario, resolverEstadoVisualInventario } from '../utils/estadoActivacionValorizacionInventario';
 import { proyectarKardexValorizado } from '../services/consultaKardexValorizado.service';
 import ColumnsManager, { type ColumnsManagerColumn } from '@/shared/columns/ColumnsManager';
 import { useUserSession } from '@/contexts/UserSessionContext';
@@ -44,6 +43,24 @@ import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sis
 type ColumnaMovimientoOperativa = 'fecha' | 'tipo' | 'motivo' | 'almacen' | 'cantidad' | 'stock' | 'documento' | 'usuario';
 type ColumnaMovimientoValorizada = 'costoUnitario' | 'valorMovimiento';
 type ColumnaMovimientoConfigurable = ColumnaMovimientoOperativa | ColumnaMovimientoValorizada;
+
+// §8 de la centralización: el header debe mostrar los mismos 5 estados reales que
+// `/configuracion/inventario` (nunca "Inventario: Inactivo" si está contradicho por el estado
+// real) — misma fuente `resolverEstadoVisualInventario`, nunca un cálculo local nuevo.
+const ETIQUETA_ESTADO_VISUAL_INVENTORY_PAGE: Record<ReturnType<typeof resolverEstadoVisualInventario>, string> = {
+  pendiente: 'Pendiente de configurar',
+  inactivo: 'Inactivo',
+  cuantitativo_activo: 'Activo',
+  valorizado_activo: 'Activo · Valorizado FIFO',
+  requiere_atencion: 'Requiere atención',
+};
+const CLASE_ESTADO_VISUAL_INVENTORY_PAGE: Record<ReturnType<typeof resolverEstadoVisualInventario>, string> = {
+  pendiente: 'bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400',
+  inactivo: 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-500 text-gray-600 dark:text-gray-300',
+  cuantitativo_activo: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-700 dark:text-green-400',
+  valorizado_activo: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-700 dark:text-green-400',
+  requiere_atencion: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400',
+};
 
 const ETIQUETA_COLUMNA_MOVIMIENTO: Record<ColumnaMovimientoConfigurable, string> = {
   fecha: 'Fecha',
@@ -141,6 +158,7 @@ const formatMovementTimestamp = (value: Date | string): string => {
 export const InventoryPage: React.FC = () => {
   useFocusFromQuery();
   const location = useLocation();
+  const navigate = useNavigate();
   const { state: configState, rolesConfigurados } = useConfigurationContext();
   const { session } = useUserSession();
   const controlStockActivo = configState.salesPreferences.controlStockActivo ?? false;
@@ -157,7 +175,14 @@ export const InventoryPage: React.FC = () => {
   });
   const puedeConsultarValorizado = esValorizacionActiva(estadoValorizacion) && puedeVerCostosInventario;
   const empresaId = getTenantEmpresaId();
-  const [modalInventarioOpen, setModalInventarioOpen] = useState(false);
+  const modoInventario = resolverModoInventario(controlStockActivo, estadoValorizacion);
+  const estadoVisualInventario = resolverEstadoVisualInventario(modoInventario, estadoValorizacion, configState.preferenciasInventario.inventarioConfiguradoAlgunaVez);
+  // §8 de la centralización: "Configurar inventario" es solo un atajo hacia la única fuente de
+  // verdad (`/configuracion/inventario`) — nunca abre una implementación distinta. `returnTo`
+  // permite volver exactamente a esta pantalla de Inventario.
+  const irAConfigurarInventario = useCallback(() => {
+    navigate(`/configuracion/inventario?returnTo=${encodeURIComponent(location.pathname + location.search)}`);
+  }, [navigate, location.pathname, location.search]);
   const [preferenciaColumnasMovimientos, setPreferenciaColumnasMovimientos] = useState<PreferenciaColumnasMovimientos>(
     () => cargarPreferenciaColumnasMovimientos(empresaId)
   );
@@ -449,30 +474,20 @@ export const InventoryPage: React.FC = () => {
         title={
           <div className="flex items-center gap-2">
             <h1 className="text-h3 font-poppins text-primary truncate">Inventario</h1>
-            {controlStockActivo ? (
-              <>
-                <span
-                  title="Inventario activo"
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 text-xs font-medium text-green-700 dark:text-green-400"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 flex-shrink-0" />
-                  Activo
-                </span>
-                <button
-                  title="Editar configuración de inventario"
-                  onClick={() => setModalInventarioOpen(true)}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <span
-                title="Inventario inactivo"
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400"
+            <span
+              title={ETIQUETA_ESTADO_VISUAL_INVENTORY_PAGE[estadoVisualInventario]}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${CLASE_ESTADO_VISUAL_INVENTORY_PAGE[estadoVisualInventario]}`}
+            >
+              {ETIQUETA_ESTADO_VISUAL_INVENTORY_PAGE[estadoVisualInventario]}
+            </span>
+            {modoInventario !== 'inactivo' && (
+              <button
+                title="Editar configuración de inventario"
+                onClick={irAConfigurarInventario}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                Inactivo
-              </span>
+                <Settings className="w-4 h-4" />
+              </button>
             )}
           </div>
         }
@@ -596,7 +611,8 @@ export const InventoryPage: React.FC = () => {
       {/* Banner: control de inventario inactivo */}
       {!controlStockActivo && (
         <CintilloControlStock
-          onConfigurar={() => setModalInventarioOpen(true)}
+          onConfigurar={irAConfigurarInventario}
+          yaConfiguradoAntes={configState.preferenciasInventario.inventarioConfiguradoAlgunaVez}
         />
       )}
 
@@ -728,11 +744,6 @@ export const InventoryPage: React.FC = () => {
       </div>
 
       {/* Modal configuración de inventario */}
-      <ModalConfiguracionInventario
-        isOpen={modalInventarioOpen}
-        onClose={() => setModalInventarioOpen(false)}
-      />
-
       {/* Modales */}
       <AdjustmentModal
         isOpen={showAdjustmentModal}

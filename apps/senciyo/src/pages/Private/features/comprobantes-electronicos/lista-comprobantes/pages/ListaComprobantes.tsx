@@ -1074,6 +1074,7 @@ const InvoiceListDashboard = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
             valorizacionHabilitada: true,
           });
           // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se

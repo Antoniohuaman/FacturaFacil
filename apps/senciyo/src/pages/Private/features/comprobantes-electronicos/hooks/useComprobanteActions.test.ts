@@ -349,7 +349,7 @@ describe('Comprobante desde OV — corrección post-1D §1: descuento + liberaci
       lineas,
     };
 
-    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
     expect(resultado.estado).toBe('nueva');
 
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -385,8 +385,8 @@ describe('Comprobante desde OV — corrección post-1D §1: descuento + liberaci
       lineas,
     };
 
-    const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
-    const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const primero = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
+    const segundo = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(primero.estado).toBe('nueva');
     expect(segundo.estado).toBe('repetida');
@@ -430,7 +430,7 @@ describe('Cierre correctivo (identidad estable de línea) — canal Factura/Bole
       ],
     };
 
-    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes: almacenesMap, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(resultado.movimientos[0].lineaComercialId).toBe('linea-comercial-venta-1');
     expect(resultado.movimientos[0].lineaOrigenId).toBe(`${documentoIdTecnico}-0`);
@@ -578,7 +578,7 @@ describe('Anulación de comprobante/POS — cierre final Etapa 1E §2: integraci
       motivo: 'VENTA', documentoReferencia: 'B001-1',
       lineas: [crearLinea({ cantidadUnidadMinima: cantidad })],
     };
-    return ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    return ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
   }
 
   it('restaura el stock EXACTAMENTE una vez', async () => {
@@ -593,7 +593,7 @@ describe('Anulación de comprobante/POS — cierre final Etapa 1E §2: integraci
     );
     expect(datosAnulacion).not.toBeNull();
 
-    await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
     const productosFinales = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
     expect(productosFinales[0].stockPorAlmacen['alm-1']).toBe(20);
   });
@@ -606,8 +606,8 @@ describe('Anulación de comprobante/POS — cierre final Etapa 1E §2: integraci
       { id: 'B001-2', inventarioDocumentoId: 'cbte-tec-2' }, 'B001-2', EMPRESA, movimientos, 'user-2', fechaActual(),
     );
 
-    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
-    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const r1 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
+    const r2 = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(r1.estado).toBe('nueva');
     expect(r2.estado).toBe('repetida');
@@ -623,7 +623,7 @@ describe('Anulación de comprobante/POS — cierre final Etapa 1E §2: integraci
       { id: 'B001-3', inventarioDocumentoId: 'cbte-tec-3' }, 'B001-3', EMPRESA, movimientos, 'user-2', fechaActual(),
     );
 
-    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado = await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion!, { almacenes: almacenesMap(), generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
     // El único movimiento nuevo es el reverso generado por el motor — con `movimientoReversoDeId`
     // apuntando al original, nunca un AJUSTE_POSITIVO/ENTRADA fabricado por fuera del plan.
     expect(resultado.movimientos).toHaveLength(1);

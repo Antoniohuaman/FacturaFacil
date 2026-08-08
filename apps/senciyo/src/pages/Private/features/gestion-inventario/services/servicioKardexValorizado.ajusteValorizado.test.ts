@@ -88,7 +88,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datosAjusteValorizado({ empresaId }), {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN',
     });
 
     expect(resultado.estado).toBe('nueva');
@@ -116,7 +116,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     await expect(
       ServicioKardexValorizado.registrarEntradaValorizada(
         datosAjusteValorizado({ empresaId, lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10, costoUnitarioBaseMonedaBase: 0 }] }),
-        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' }
       )
     ).rejects.toThrow(/costoUnitarioBaseMonedaBase/);
 
@@ -131,7 +131,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     await expect(
       ServicioKardexValorizado.registrarEntradaValorizada(
         datosAjusteValorizado({ empresaId, lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10, costoUnitarioBaseMonedaBase: -5 }] }),
-        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' }
       )
     ).rejects.toThrow(/costoUnitarioBaseMonedaBase/);
   });
@@ -144,7 +144,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     await expect(
       ServicioKardexValorizado.registrarEntradaValorizada(
         datosAjusteValorizado({ empresaId, lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10, costoUnitarioBaseMonedaBase: NaN }] }),
-        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' }
       )
     ).rejects.toThrow(/costoUnitarioBaseMonedaBase/);
   });
@@ -157,7 +157,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     await expect(
       ServicioKardexValorizado.registrarEntradaValorizada(
         datosAjusteValorizado({ empresaId, lineas: [{ lineaId: 'linea-1', productoId: 'prod-1', almacenId: 'alm-1', cantidadUnidadMinima: 10 }] }),
-        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' }
       )
     ).rejects.toThrow(/costoUnitarioBaseMonedaBase/);
   });
@@ -170,7 +170,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     await expect(
       ServicioKardexValorizado.registrarEntradaValorizada(
         datosAjusteValorizado({ empresaId, tipoOperacion: 'anulacion', tipoDocumento: 'nota_ingreso' }),
-        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' }
+        { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' }
       )
     ).rejects.toThrow(/ajuste_positivo, ni_automatica, ni_confirmacion/);
   });
@@ -181,7 +181,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosAjusteValorizado({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosAjusteValorizado({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true })
     ).rejects.toThrow(/monedaBase/);
   });
 
@@ -191,8 +191,8 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
     const datos = datosAjusteValorizado({ empresaId });
 
-    await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
-    const resultado2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
+    await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' });
+    const resultado2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' });
 
     expect(resultado2.estado).toBe('repetida');
     expect(listarCapasCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
@@ -203,7 +203,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     sembrarProductos(empresaId, [crearProducto()]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
-    await ServicioKardexValorizado.registrarEntradaValorizada(datosAjusteValorizado({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' });
+    await ServicioKardexValorizado.registrarEntradaValorizada(datosAjusteValorizado({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' });
 
     const datosCostoDistinto = datosAjusteValorizado({
       empresaId,
@@ -211,7 +211,7 @@ describe('ServicioKardexValorizado.registrarEntradaValorizada — ajuste positiv
     });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosCostoDistinto, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', monedaBase: 'PEN' })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosCostoDistinto, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, monedaBase: 'PEN' })
     ).rejects.toThrow();
     expect(listarCapasCostoInventarioPorEmpresa(empresaId)).toHaveLength(1);
   });
@@ -240,7 +240,7 @@ describe('ServicioKardexValorizado — modo "valorizado_exclusivo" (estadoValori
     };
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datosCuantitativos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa' })
+      ServicioKardexValorizado.registrarEntradaValorizada(datosCuantitativos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true })
     ).rejects.toThrow(/valorizado_exclusivo/);
 
     expect(listarCapasCostoInventarioPorEmpresa(empresaId)).toHaveLength(0);
@@ -252,7 +252,7 @@ describe('ServicioKardexValorizado — modo "valorizado_exclusivo" (estadoValori
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     const resultado = await ServicioKardexValorizado.registrarEntradaValorizada(datosAjusteValorizado({ empresaId }), {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, monedaBase: 'PEN',
     });
 
     expect(resultado.estado).toBe('nueva');

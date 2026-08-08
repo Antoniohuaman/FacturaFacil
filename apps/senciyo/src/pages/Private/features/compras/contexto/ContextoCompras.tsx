@@ -1737,6 +1737,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
           generarId: () => crypto.randomUUID(),
           fechaActual: () => new Date().toISOString(),
           estadoValorizacion: config.preferenciasInventario.estadoValorizacion,
+          controlStockActivo: config.salesPreferences?.controlStockActivo ?? false,
           monedaBase: currencyManager.getSnapshot().baseCurrency.code,
         },
       );
@@ -1758,7 +1759,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         sincronizarCCTrasConfirmacionNI([cc], notaActualizada, movimientos.map((m) => m.id), ahora()) ?? cc;
       return { comprobante, nota: notaActualizada };
     },
-    [config.almacenes, config.series, config.preferenciasInventario, allProducts, session?.currentEstablecimientoId],
+    [config.almacenes, config.series, config.preferenciasInventario, config.salesPreferences?.controlStockActivo, allProducts, session?.currentEstablecimientoId],
   );
 
   /**

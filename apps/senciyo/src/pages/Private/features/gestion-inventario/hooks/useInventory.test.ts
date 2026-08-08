@@ -125,7 +125,7 @@ describe('useInventory — sesión pendiente PERSISTENTE (localStorage, tenantiz
     // Antes de la "recarga": se obtiene el operacionId y se construye/envía el ajuste.
     const operacionId1 = obtenerOperacionIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
     const datos1 = construirDatosAjustePositivo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
-    const resultado1 = await ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado1 = await ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     // "Recarga de pantalla" simulada: no se limpió la sesión (no hubo éxito reconocido todavía
     // desde la perspectiva de la UI) — una nueva obtención con el MISMO contenido debe reutilizar
@@ -133,7 +133,7 @@ describe('useInventory — sesión pendiente PERSISTENTE (localStorage, tenantiz
     const operacionId2 = obtenerOperacionIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
     expect(operacionId2).toBe(operacionId1);
     const datos2 = construirDatosAjustePositivo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId2, fecha: fechaActual() });
-    const resultado2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado2 = await ServicioKardexValorizado.registrarEntradaValorizada(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(resultado1.estado).toBe('nueva');
     expect(resultado2.estado).toBe('repetida');
@@ -176,7 +176,7 @@ describe('useInventory — sesión pendiente PERSISTENTE (localStorage, tenantiz
     const datos1 = construirDatosAjustePositivo({ data, almacen: crearAlmacen(), empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual() });
 
     await expect(
-      ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+      ServicioKardexValorizado.registrarEntradaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true })
     ).rejects.toThrow();
 
     // La sesión sigue pendiente (no se limpió) — el reintento reutiliza el mismo id.
@@ -233,12 +233,12 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
 
     const operacionId1 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
     const datos1 = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
-    const resultado1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado1 = await ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     const operacionId2 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
     expect(operacionId2).toBe(operacionId1);
     const datos2 = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId2, fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
-    const resultado2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado2 = await ServicioKardexValorizado.registrarSalidaValorizada(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(resultado1.estado).toBe('nueva');
     expect(resultado2.estado).toBe('repetida');
@@ -259,7 +259,7 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
     const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+      ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true })
     ).rejects.toThrow(/negativo/);
   });
 
@@ -280,7 +280,7 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
     const datos1 = construirDatosAjusteNegativo({ data, almacen: crearAlmacen(), empresaId: EMPRESA, usuario: 'user-1', operacionId: operacionId1, fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
     await expect(
-      ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+      ServicioKardexValorizado.registrarSalidaValorizada(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true })
     ).rejects.toThrow();
 
     const operacionId2 = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
@@ -298,7 +298,7 @@ describe('useInventory — ajuste negativo (Etapa 1D, §20): motor de salidas + 
     const operacionId = obtenerOperacionIdEstablePersistenteAjusteNegativo(EMPRESA, data, () => crypto.randomUUID());
     const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
-    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado = await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(resultado.productosActualizados[0].stockReservadoOVPorEstablecimiento?.['est-1']).toBe(7);
   });
@@ -351,7 +351,7 @@ describe('Etapa 4A: construirDatosAjusteNegativo resuelve modoOperacion desde es
     const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual(), estadoValorizacion: 'activa' });
 
     expect(datos.modoOperacion).toBe('valorizado');
-    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa' });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true });
 
     const capa = listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === 'capa-1');
     expect(capa?.cantidadDisponible).toBe(4);
@@ -374,7 +374,7 @@ describe('Etapa 4A: construirDatosAjusteNegativo resuelve modoOperacion desde es
     const datos = construirDatosAjusteNegativo({ data, almacen, empresaId: EMPRESA, usuario: 'user-1', operacionId, fecha: fechaActual(), estadoValorizacion: 'no_iniciada' });
 
     expect(datos.modoOperacion).toBe('cuantitativo');
-    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    await ServicioKardexValorizado.registrarSalidaValorizada(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(listarConsumosCapaCostoInventarioPorEmpresa(EMPRESA)).toHaveLength(0);
     expect(listarCapasCostoInventarioPorEmpresa(EMPRESA).find((c) => c.id === 'capa-1')?.cantidadDisponible).toBe(10);
@@ -413,13 +413,13 @@ describe('useInventory — transferencia (Etapa 1E): sesión pendiente persisten
       establecimientoDestinoId: 'est-1', almacenDestinoId: data.almacenDestinoId, cantidadUnidadMinima: data.cantidad,
       usuario: 'user-1', fecha: fechaActual(), motivo: 'TRANSFERENCIA_ALMACEN',
     };
-    const resultado1 = await ServicioKardexValorizado.transferirStockValorizado(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado1 = await ServicioKardexValorizado.transferirStockValorizado(datos1, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     // "Doble clic": misma sesión, sin limpiar — reutiliza el mismo transferenciaId.
     const transferenciaId2 = obtenerTransferenciaIdEstablePersistente(EMPRESA, data, () => crypto.randomUUID());
     expect(transferenciaId2).toBe(transferenciaId1);
     const datos2: DatosTransferenciaInventario = { ...datos1, transferenciaId: transferenciaId2, claveIdempotencia: `TRANSFER-${transferenciaId2}` };
-    const resultado2 = await ServicioKardexValorizado.transferirStockValorizado(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    const resultado2 = await ServicioKardexValorizado.transferirStockValorizado(datos2, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(resultado1.estado).toBe('nueva');
     expect(resultado2.estado).toBe('repetida');
@@ -489,7 +489,7 @@ describe('useInventory — transferencia (Etapa 1E): sesión pendiente persisten
     };
 
     await ServicioKardexValorizado.transferirStockValorizado(datos, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', valorizacionHabilitada: true,
+      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, valorizacionHabilitada: true,
     });
 
     const capas = listarCapasCostoInventarioPorEmpresa(EMPRESA);
@@ -548,7 +548,7 @@ describe('useInventory — transferencia (Etapa 1E): sesión pendiente persisten
     };
 
     await ServicioKardexValorizado.transferirStockValorizado(datos, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true,
       valorizacionHabilitada: resolverModoOperacion('no_iniciada') === 'valorizado_exclusivo',
     });
 
@@ -577,7 +577,7 @@ describe('Cierre final puntual Etapa 4A: anulación productiva de transferencias
       establecimientoDestinoId: 'est-1', almacenDestinoId: data.almacenDestinoId, cantidadUnidadMinima: data.cantidad,
       usuario: 'user-1', fecha: fechaActual(), motivo: 'TRANSFERENCIA_ALMACEN',
     };
-    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     const transferenciaGuardada = (JSON.parse(localStorage.getItem(lsKey(CLAVE_COLECCION_TRANSFERENCIAS, EMPRESA)) ?? '[]') as Transferencia[]).find((t) => t.id === transferenciaId);
     // Exactamente la guarda que `handleAnularTransferencia` evalúa antes de decidir el camino de anulación.
@@ -632,7 +632,7 @@ describe('Cierre final puntual Etapa 4A: anulación productiva de transferencias
       usuario: 'user-1', fecha: fechaActual(), motivo: 'TRANSFERENCIA_ALMACEN',
     };
     await ServicioKardexValorizado.transferirStockValorizado(datosCreacion, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, valorizacionHabilitada: true,
     });
     const transferenciaGuardada = (JSON.parse(localStorage.getItem(lsKey(CLAVE_COLECCION_TRANSFERENCIAS, EMPRESA)) ?? '[]') as Transferencia[]).find((t) => t.id === transferenciaId)!;
     const movimientoId = transferenciaGuardada.movimientoSalidaId!;
@@ -649,7 +649,7 @@ describe('Cierre final puntual Etapa 4A: anulación productiva de transferencias
       motivoUsuario: 'Anulación de transferencia',
       documentoReferencia: transferenciaId,
     }, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', valorizacionHabilitada: true,
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true, valorizacionHabilitada: true,
     });
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];
@@ -668,25 +668,24 @@ describe('Cierre final puntual Etapa 4A: anulación productiva de transferencias
 });
 
 describe('Verificación única final: puedeAnularTransferenciaLegacy — guarda del fallback de handleAnularTransfer', () => {
-  it('1. cuantitativo_libre (no_iniciada / cancelada_antes_activacion): conserva el comportamiento actual — permite el camino legacy', () => {
-    expect(puedeAnularTransferenciaLegacy('no_iniciada')).toBe(true);
-    expect(puedeAnularTransferenciaLegacy('cancelada_antes_activacion')).toBe(true);
+  it('1. cuantitativo_libre (no_iniciada): conserva el comportamiento actual — permite el camino legacy', () => {
+    expect(puedeAnularTransferenciaLegacy(true, 'no_iniciada')).toBe(true);
   });
 
   it('2. cuantitativo_invalida_snapshot (en_preparacion / pendiente_costos): se bloquea antes de modificar stock', () => {
-    expect(puedeAnularTransferenciaLegacy('en_preparacion')).toBe(false);
-    expect(puedeAnularTransferenciaLegacy('pendiente_costos')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'en_preparacion')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'pendiente_costos')).toBe(false);
   });
 
   it('3. empresa activa (valorizado_exclusivo): se bloquea antes de modificar stock o capas', () => {
-    expect(puedeAnularTransferenciaLegacy('activa')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'activa')).toBe(false);
   });
 
   it('bloqueado_snapshot_aprobado / bloqueado_activacion_en_curso / bloqueado_suspension: también se bloquean', () => {
-    expect(puedeAnularTransferenciaLegacy('validada')).toBe(false);
-    expect(puedeAnularTransferenciaLegacy('activando')).toBe(false);
-    expect(puedeAnularTransferenciaLegacy('fallida_recuperable')).toBe(false);
-    expect(puedeAnularTransferenciaLegacy('suspendida_por_inconsistencia')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'validada')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'activando')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'fallida_recuperable')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'suspendida_por_inconsistencia')).toBe(false);
   });
 
   it('4. transferencia nueva con artefactos del motor: la guarda de handleAnularTransfer decide ANTES de llegar a esta verificación — sigue usando el reverso central sin importar el resultado de puedeAnularTransferenciaLegacy', async () => {
@@ -713,13 +712,13 @@ describe('Verificación única final: puedeAnularTransferenciaLegacy — guarda 
       establecimientoDestinoId: 'est-1', almacenDestinoId: data.almacenDestinoId, cantidadUnidadMinima: data.cantidad,
       usuario: 'user-1', fecha: fechaActual(), motivo: 'TRANSFERENCIA_ALMACEN',
     };
-    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    await ServicioKardexValorizado.transferirStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
     const transferenciaGuardada = (JSON.parse(localStorage.getItem(lsKey(CLAVE_COLECCION_TRANSFERENCIAS, EMPRESA)) ?? '[]') as Transferencia[]).find((t) => t.id === transferenciaId)!;
 
     // Aunque la empresa esté 'activa' (puedeAnularTransferenciaLegacy sería false), la guarda del
     // motor nuevo captura el caso primero — el reverso central se ejecuta igual, sin pasar por
     // el guard legacy en absoluto.
-    expect(puedeAnularTransferenciaLegacy('activa')).toBe(false);
+    expect(puedeAnularTransferenciaLegacy(true, 'activa')).toBe(false);
     await ServicioKardexValorizado.revertirMovimientoValorizado({
       empresaId: EMPRESA,
       movimientoId: transferenciaGuardada.movimientoSalidaId!,
@@ -731,7 +730,7 @@ describe('Verificación única final: puedeAnularTransferenciaLegacy — guarda 
       motivoUsuario: 'Anulación de transferencia',
       documentoReferencia: transferenciaId,
     }, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', valorizacionHabilitada: true,
+      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, valorizacionHabilitada: true,
     });
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, EMPRESA)) as string) as Product[];

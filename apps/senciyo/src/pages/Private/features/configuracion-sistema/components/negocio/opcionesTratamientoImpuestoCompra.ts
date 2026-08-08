@@ -29,16 +29,16 @@ export const OPCIONES_TRATAMIENTO_IMPUESTO: readonly OpcionTratamientoImpuestoCo
   {
     valor: 'impuesto_recuperable',
     label: 'Excluir impuestos recuperables',
-    ayuda: 'El impuesto recuperable no forma parte del costo.',
+    ayuda: 'Si recuperas el impuesto como crédito fiscal, no forma parte del costo.',
   },
   {
     valor: 'impuesto_no_recuperable',
     label: 'Incluir impuestos en el costo',
-    ayuda: 'El impuesto no recuperable forma parte del costo.',
+    ayuda: 'Si no puedes recuperarlo, forma parte del costo del producto.',
   },
   {
     valor: 'segun_afectacion',
-    label: 'Definir por cada línea de compra',
-    ayuda: 'Cada línea de tus compras decide si su impuesto forma parte del costo.',
+    label: 'Decidir en cada línea de compra',
+    ayuda: 'Podrás elegirlo para cada producto al registrar una compra.',
   },
 ];

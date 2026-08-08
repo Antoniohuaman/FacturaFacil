@@ -167,6 +167,7 @@ export const useNotasSalida = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
           });
 
           // 6. Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos
@@ -241,7 +242,7 @@ export const useNotasSalida = () => {
         setProcesando(false);
       }
     },
-    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback, activeEstablecimientoId],
+    [procesando, allProducts, configState.almacenes, configState.preferenciasInventario, configState.salesPreferences?.controlStockActivo, usuarioNombre, feedback, activeEstablecimientoId],
   );
 
   const anularNS = useCallback(
@@ -280,6 +281,7 @@ export const useNotasSalida = () => {
             generarId: () => crypto.randomUUID(),
             fechaActual: () => new Date().toISOString(),
             estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
             valorizacionHabilitada: true,
           });
           // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve
@@ -346,7 +348,7 @@ export const useNotasSalida = () => {
         setProcesando(false);
       }
     },
-    [procesando, configState.almacenes, configState.preferenciasInventario, usuarioNombre, feedback],
+    [procesando, configState.almacenes, configState.preferenciasInventario, configState.salesPreferences?.controlStockActivo, usuarioNombre, feedback],
   );
 
   const marcarComoEntregada = useCallback(

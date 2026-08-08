@@ -96,6 +96,7 @@ describe('Etapa 4A, §10: registrarAjusteDeStock bloquea la mutación directa fu
       datosAjuste: crearDatosAjuste(),
       usuario: 'user-1',
       estadoValorizacion: 'no_iniciada',
+      controlStockActivo: true,
     });
 
     expect(resultado.productoActualizado.stockPorAlmacen['alm-1']).toBe(15);
@@ -114,6 +115,7 @@ describe('Etapa 4A, §10: registrarAjusteDeStock bloquea la mutación directa fu
         datosAjuste: crearDatosAjuste(),
         usuario: 'user-1',
         estadoValorizacion: 'activa',
+        controlStockActivo: true,
       })
     ).toThrow(/no está disponible/);
 
@@ -132,6 +134,7 @@ describe('Etapa 4A, §10: registrarAjusteDeStock bloquea la mutación directa fu
         datosAjuste: crearDatosAjuste(),
         usuario: 'user-1',
         estadoValorizacion: 'activando',
+        controlStockActivo: true,
       })
     ).toThrow(/no está disponible/);
 

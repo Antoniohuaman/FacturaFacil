@@ -85,7 +85,7 @@ import { PRODUCT_STORAGE_KEY } from '../../catalogo-articulos/utils/catalogStora
 import { STORAGE_KEY_MOVEMENTS } from '../repositories/stock.repository';
 import { lsKey } from '../../../../../shared/tenant';
 import type { EstadoActivacionValorizacion } from '../models/estadoActivacionValorizacion.types';
-import { resolverModoOperacion } from '../utils/estadoActivacionValorizacionInventario';
+import { resolverModoOperacion, resolverModoInventario } from '../utils/estadoActivacionValorizacionInventario';
 import {
   invalidarLoteValorizacionInicialSiAfectado,
   drenarInvalidacionesPendientes,
@@ -131,6 +131,17 @@ export interface DependenciasOperacionCuantitativa {
    * `'cuantitativo_invalida_snapshot'` (`en_preparacion`/`pendiente_costos`).
    */
   estadoValorizacion: EstadoActivacionValorizacion;
+  /**
+   * Switch maestro de control de existencias (`SalesPreferences.controlStockActivo`) — dependencia
+   * de TENANT, OBLIGATORIA igual que `estadoValorizacion` desde la centralización del modo de
+   * inventario. Antes de este campo el motor solo conocía el estado de valorización: Compras/NI
+   * podían mover stock con el Inventario apagado porque `resolverModoOperacion('no_iniciada')`
+   * siempre resolvía `'cuantitativo_libre'`, sin importar el switch maestro (H-1,
+   * docs/AUDITORIA_FLUJO_ACTIVACION_VALORIZACION_INVENTARIO_2026-08-05.md).
+   * `ejecutarOperacionInventario` resuelve `resolverModoInventario(controlStockActivo,
+   * estadoValorizacion)` ANTES de reservar y bloquea toda mutación cuando el modo es `'inactivo'`.
+   */
+  controlStockActivo: boolean;
   /**
    * Moneda base de la empresa (Etapa 2) — requerida únicamente cuando se registra una entrada en
    * modo `'valorizado'` (crea `CapaCostoInventario`). Ausente en todo consumidor cuantitativo.
@@ -221,6 +232,16 @@ async function ejecutarOperacionInventario<T extends ContratoOperacionInventario
   // antes de reservar. La validación FUNCIONAL (producto/almacén existen, stock resultante) sí
   // depende del estado externo y por eso NO se adelanta aquí.
   funciones.validarContrato(datos);
+
+  // Modo de inventario centralizado (fix H-1): se resuelve ANTES que la máquina de estados de
+  // valorización porque el switch maestro manda sobre CUALQUIER estado de valorización — con el
+  // Inventario apagado no se mueve stock ni se crean capas, sin excepción.
+  const modoInventario = resolverModoInventario(dependencias.controlStockActivo, dependencias.estadoValorizacion);
+  if (modoInventario === 'inactivo') {
+    throw new Error(
+      `ServicioKardexValorizado.${funciones.nombreMetodo}: el Inventario está inactivo para la empresa "${datos.empresaId}" (controlStockActivo=false) — ninguna mutación de stock puede ejecutarse mientras el modo de inventario resuelto sea "inactivo".`
+    );
+  }
 
   // Máquina de estados de activación de valorización (Etapa 2, cierre de bloqueante 1 de la
   // revisión): se resuelve SIEMPRE, ANTES de reservar — ninguna llamada directa al motor puede

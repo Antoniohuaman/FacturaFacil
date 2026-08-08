@@ -435,6 +435,7 @@ const PanelImportacionStock: React.FC<PanelImportacionStockProps> = ({ onRecarga
         generarId: () => crypto.randomUUID(),
         fechaActual: () => new Date().toISOString(),
         estadoValorizacion,
+        controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
         monedaBase: currencyManager.getSnapshot().baseCurrency.code,
       });
       // La unidad de trabajo (Etapa 1B) ya escribió productos y movimientos — nunca se vuelve a

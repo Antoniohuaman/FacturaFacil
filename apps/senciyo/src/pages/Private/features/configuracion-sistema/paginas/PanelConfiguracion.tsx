@@ -16,12 +16,14 @@ import {
   Shield,
   Banknote,
   Truck,
-  KeyRound
+  KeyRound,
+  Package
 } from 'lucide-react';
 import { PageHeader } from '@/contasis';
 import { useConfigurationContext } from '../contexto/ContextoConfiguracion';
 import { IndicadorEstado } from '../components/comunes/IndicadorEstado';
 import { esEntornoDemoEmpresa, obtenerEtiquetaEntornoEmpresa } from '@/shared/empresas/entornoEmpresa';
+import { resolverModoInventario, resolverEstadoVisualInventario } from '../../gestion-inventario/utils/estadoActivacionValorizacionInventario';
 
 interface ConfigurationModule {
   id: string;
@@ -74,6 +76,31 @@ export function ConfigurationDashboard() {
       completionPercentage: state.cajas.length > 0 ? 100 : 0
     }
   };
+
+  // Inventario: modo resuelto por la fuente central única (nunca un booleano/estado local nuevo) —
+  // ver `resolverModoInventario` (gestion-inventario/utils/estadoActivacionValorizacionInventario.ts).
+  const estadoValorizacionInventario = state.preferenciasInventario.estadoValorizacion;
+  const modoInventario = resolverModoInventario(state.salesPreferences.controlStockActivo, estadoValorizacionInventario);
+  const estadoVisualInventario = resolverEstadoVisualInventario(modoInventario, estadoValorizacionInventario, state.preferenciasInventario.inventarioConfiguradoAlgunaVez);
+  const ETIQUETA_INVENTARIO: Record<typeof estadoVisualInventario, string> = {
+    pendiente: 'Pendiente de configurar',
+    inactivo: 'Inactivo',
+    cuantitativo_activo: 'Activo · Control de existencias',
+    valorizado_activo: 'Activo · Valorizado FIFO',
+    requiere_atencion: 'Requiere atención — hay una inconsistencia por revisar',
+  };
+  const inventarioDescripcion = ETIQUETA_INVENTARIO[estadoVisualInventario];
+  // Los 3 estados del dashboard (complete/partial/pending) son compartidos por todos los módulos de
+  // Configuración — no se crea un cuarto bucket solo para Inventario. "Inactivo" se configuró
+  // alguna vez (la configuración en sí está completa, solo pausada) y por eso se agrupa con
+  // "complete", nunca con "pending" (que significa "nunca se tocó"). Solo "requiere_atencion" (una
+  // inconsistencia técnica real, no una configuración incompleta) usa "partial".
+  const inventarioStatus: 'complete' | 'partial' | 'pending' =
+    estadoVisualInventario === 'valorizado_activo' || estadoVisualInventario === 'cuantitativo_activo' || estadoVisualInventario === 'inactivo'
+      ? 'complete'
+      : estadoVisualInventario === 'pendiente'
+        ? 'pending'
+        : 'partial';
 
   const modules: ConfigurationModule[] = [
     {
@@ -141,6 +168,17 @@ export function ConfigurationDashboard() {
       completionPercentage: status.users.isConfigured ? 100 : 0,
       priority: 'medium',
       estimatedTime: '10 min'
+    },
+    {
+      id: 'inventario',
+      title: 'Inventario',
+      description: inventarioDescripcion,
+      icon: Package,
+      path: '/configuracion/inventario',
+      status: inventarioStatus,
+      completionPercentage: inventarioStatus === 'complete' ? 100 : inventarioStatus === 'partial' ? 60 : 0,
+      priority: 'high',
+      estimatedTime: '5 min'
     },
     {
       id: 'cajas',

@@ -474,6 +474,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
         datosAjuste: data,
         usuario: session?.userName || 'Usuario',
         estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+        controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
       });
     } catch (err) {
       showErrorToastAjuste(err instanceof Error ? err.message : 'No se pudo registrar el ajuste', 'Error');
@@ -482,7 +483,7 @@ const ProductsSection: React.FC<ProductsSectionProps> = ({
 
     setShowAdjustmentModal(false);
     refrescarStockEnCarrito();
-  }, [catalogProducts, configState.almacenes, configState.preferenciasInventario, refrescarStockEnCarrito, session?.userName, showErrorToastAjuste]);
+  }, [catalogProducts, configState.almacenes, configState.preferenciasInventario, configState.salesPreferences?.controlStockActivo, refrescarStockEnCarrito, session?.userName, showErrorToastAjuste]);
 
   const getUnitOptionsForProduct = useCallback(
     (sku: string) => {

@@ -402,6 +402,8 @@ export interface ParametrosEjecutarDescuentoStockNV {
   resolverNumeroFallback: () => { numero: string; correlativo: string };
   /** Estado de activación de valorización de la EMPRESA (Etapa 2) — obligatorio: el motor lo exige para resolver el modo de operación antes de mutar stock, nunca se omite silenciosamente. */
   estadoValorizacion: EstadoActivacionValorizacion;
+  /** Switch maestro de control de existencias (`SalesPreferences.controlStockActivo`) — obligatorio, igual que `estadoValorizacion`: el motor bloquea toda mutación cuando el modo de inventario resuelto es `'inactivo'`. */
+  controlStockActivo: boolean;
 }
 
 export interface ResultadoEjecutarDescuentoStockNV {
@@ -442,7 +444,7 @@ export function cancelarNotaVentaPendiente(empresaId: string): void {
 export async function ejecutarDescuentoStockNV(
   params: ParametrosEjecutarDescuentoStockNV,
 ): Promise<ResultadoEjecutarDescuentoStockNV> {
-  const { datos, almacenes, establecimientoId, empresaId, usuario, documentoIdExistente, resolverNumeroFallback, estadoValorizacion } = params;
+  const { datos, almacenes, establecimientoId, empresaId, usuario, documentoIdExistente, resolverNumeroFallback, estadoValorizacion, controlStockActivo } = params;
   // `documentoIdExistente` forma parte de la huella (corrección post-1D, §2): dos borradores con
   // el mismo contenido nunca comparten sesión pendiente.
   const huella = construirHuellaNotaVenta(datos, establecimientoId, documentoIdExistente);
@@ -496,6 +498,7 @@ export async function ejecutarDescuentoStockNV(
       generarId: () => crypto.randomUUID(),
       fechaActual: () => new Date().toISOString(),
       estadoValorizacion,
+      controlStockActivo,
     });
 
     // Sincronización oficial de UI (Etapa 1B) — nunca una segunda escritura de productos.

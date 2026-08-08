@@ -7,20 +7,23 @@
 // comentario en `configuracion-sistema/modelos/Configuration.ts`), nunca en una segunda
 // configuración paralela.
 //
-// Etapa 2 construye y prueba el recorrido productivo hasta 'validada' únicamente:
+// Recorrido productivo hasta 'validada':
 //   no_iniciada → en_preparacion → pendiente_costos → validada
-//   validada → cancelada_antes_activacion → en_preparacion
-// Las transiciones 'validada' → 'activando' → 'activa' NO se implementan en esta etapa (quedan
-// para el cierre de la Etapa 4, gateadas por `verificarCondicionesActivacion`) — ningún código de
-// esta etapa las produce; `validarTransicionEstadoValorizacion`
-// (utils/estadoActivacionValorizacionInventario.ts) las rechaza explícitamente si algo las invoca.
+//   en_preparacion/pendiente_costos/validada → no_iniciada (cancelar la preparación siempre
+//   regresa al punto de partida — cierre de la corrección UX-INV-P0-001, 2026-08-07: no existe un
+//   estado "cancelada" de compañía distinto de 'no_iniciada', porque antes de 'activa' nunca existe
+//   ninguna capa ni movimiento que una cancelación pueda poner en riesgo. El lote de preparación
+//   conserva su propio historial — `EstadoLoteValorizacionInicial` en
+//   valorizacionInicialInventario.types.ts — así que la auditoría de "hubo una preparación
+//   cancelada" no depende de este enum de compañía).
+// Las transiciones 'validada' → 'activando' → 'activa' quedan gateadas por
+// `verificarCondicionesActivacion`.
 
 export type EstadoActivacionValorizacion =
   | 'no_iniciada'
   | 'en_preparacion'
   | 'pendiente_costos'
   | 'validada'
-  | 'cancelada_antes_activacion'
   | 'activando'
   | 'activa'
   | 'fallida_recuperable'
@@ -31,7 +34,6 @@ export const ESTADOS_ACTIVACION_VALORIZACION: readonly EstadoActivacionValorizac
   'en_preparacion',
   'pendiente_costos',
   'validada',
-  'cancelada_antes_activacion',
   'activando',
   'activa',
   'fallida_recuperable',

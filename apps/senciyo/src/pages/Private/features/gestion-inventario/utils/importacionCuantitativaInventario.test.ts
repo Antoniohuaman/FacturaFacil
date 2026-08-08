@@ -115,7 +115,7 @@ describe('ServicioKardexValorizado.importarStockValorizado — lote mixto de ent
     });
 
     const resultado = await ServicioKardexValorizado.importarStockValorizado(datos, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true,
     });
 
     expect(resultado.estado).toBe('nueva');
@@ -151,7 +151,7 @@ describe('ServicioKardexValorizado.importarStockValorizado — lote mixto de ent
     });
 
     const resultado = await ServicioKardexValorizado.importarStockValorizado(datos, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true,
     });
 
     expect(resultado.estado).toBe('nueva');
@@ -177,7 +177,7 @@ describe('ServicioKardexValorizado.importarStockValorizado — lote mixto de ent
     });
 
     await expect(
-      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true })
     ).rejects.toThrow(/negativo/);
 
     // NINGUNA línea se aplicó — ni siquiera la válida.
@@ -198,7 +198,7 @@ describe('ServicioKardexValorizado.importarStockValorizado — lote mixto de ent
     });
 
     await expect(
-      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' })
+      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true })
     ).rejects.toThrow(/no existe en el catálogo/);
   });
 
@@ -207,7 +207,7 @@ describe('ServicioKardexValorizado.importarStockValorizado — lote mixto de ent
     sembrarProductos(empresaId, [crearProducto({ stockPorAlmacen: { 'alm-1': 5 } })]);
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
     const datos = datosImportacionBase({ empresaId });
-    const dependencias = { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const };
+    const dependencias = { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' as const, controlStockActivo: true };
 
     const primero = await ServicioKardexValorizado.importarStockValorizado(datos, dependencias);
     expect(primero.estado).toBe('nueva');
@@ -250,7 +250,7 @@ describe('ServicioKardexValorizado.importarStockValorizado — lote mixto de ent
       ],
     });
 
-    await ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos' });
+    await ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'pendiente_costos', controlStockActivo: true });
 
     const loteActualizado = obtenerLoteActivoPorEmpresa(empresaId)!;
     expect(loteActualizado.detalles.find((d) => d.productoId === 'prod-1')?.requiereRecalculo).toBe(true);
@@ -263,7 +263,7 @@ describe('ServicioKardexValorizado.importarStockValorizado — lote mixto de ent
     const almacenes = new Map([['alm-1', crearAlmacen()]]);
 
     await expect(
-      ServicioKardexValorizado.importarStockValorizado(datosImportacionBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'validada' })
+      ServicioKardexValorizado.importarStockValorizado(datosImportacionBase({ empresaId }), { almacenes, generarId, fechaActual, estadoValorizacion: 'validada', controlStockActivo: true })
     ).rejects.toThrow(/bloquea toda mutación/);
 
     expect(localStorage.getItem(lsKey(CLAVE_COLECCION_OPERACIONES_IDEMPOTENTES, empresaId))).toBeNull();
@@ -314,7 +314,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
     });
 
     const resultado = await ServicioKardexValorizado.importarStockValorizado(datos, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'activa',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true,
     });
 
     expect(resultado.estado).toBe('nueva');
@@ -345,7 +345,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
     });
 
     const resultado = await ServicioKardexValorizado.importarStockValorizado(datos, {
-      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN',
+      almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, monedaBase: 'PEN',
     });
 
     expect(resultado.estado).toBe('nueva');
@@ -373,7 +373,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
     });
 
     await expect(
-      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN' })
+      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, monedaBase: 'PEN' })
     ).rejects.toThrow(/requiere costoUnitarioBaseMonedaBase/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
@@ -399,7 +399,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
       ],
     });
 
-    await ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN' });
+    await ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, monedaBase: 'PEN' });
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
     expect(productos.find((p) => p.id === 'prod-1')?.stockPorAlmacen?.['alm-1']).toBe(20);
@@ -433,7 +433,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
         { lineaId: 'IMPORT-lote-1-2', productoId: 'prod-2', almacenId: 'alm-1', diferencia: -8 },
       ],
     });
-    const dependencias = { almacenes, generarId, fechaActual, estadoValorizacion: 'activa' as const, monedaBase: 'PEN' };
+    const dependencias = { almacenes, generarId, fechaActual, estadoValorizacion: 'activa' as const, controlStockActivo: true, monedaBase: 'PEN' };
 
     const primero = await ServicioKardexValorizado.importarStockValorizado(datos, dependencias);
     expect(primero.estado).toBe('nueva');
@@ -461,7 +461,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
     });
 
     await expect(
-      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN' })
+      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, monedaBase: 'PEN' })
     ).rejects.toThrow(/distinta de cero/);
 
     expect(localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, empresaId))).toBeNull();
@@ -485,7 +485,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
       ],
     });
 
-    await ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada' });
+    await ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'no_iniciada', controlStockActivo: true });
 
     expect(listarConsumosCapaCostoInventarioPorEmpresa(empresaId)).toHaveLength(0);
     expect(listarCapasCostoInventarioPorEmpresa(empresaId)).toHaveLength(1); // la única preexistente, sin cambios
@@ -511,7 +511,7 @@ describe('Etapa 4A, §8: importación en modo reemplazo — la reducción real d
     });
 
     await expect(
-      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', monedaBase: 'PEN' })
+      ServicioKardexValorizado.importarStockValorizado(datos, { almacenes, generarId, fechaActual, estadoValorizacion: 'activa', controlStockActivo: true, monedaBase: 'PEN' })
     ).rejects.toThrow(/no cubren exactamente/);
 
     const productos = JSON.parse(localStorage.getItem(lsKey(PRODUCT_STORAGE_KEY, empresaId)) as string) as Product[];
