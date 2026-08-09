@@ -161,3 +161,34 @@ describe('validarGREParaEmitir — motivo 02 (Compra): Destinatario auto-derivad
     expect(errores.destinatario).toBe('El Destinatario es obligatorio.');
   });
 });
+
+describe('validarGREParaEmitir — motivo 07 (Recojo de bienes transformados): misma regla central que Compra', () => {
+  function guiaRecojoValida(): GuiaRemision {
+    return {
+      ...guiaValidaBase(),
+      motivoTraslado: '07',
+      destinatarioNombre: 'Empresa Emisora S.A.C.',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: '20111111111',
+      compradorNombre: 'Proveedor Transformador S.A.C.',
+      compradorTipoDocumento: 'RUC',
+      compradorNumeroDocumento: '20999999999',
+    };
+  }
+
+  it('con destinatario (empresa) y Proveedor completos, no hay errores de actores', () => {
+    const errores = validarGREParaEmitir(guiaRecojoValida());
+    expect(errores.destinatario).toBeUndefined();
+    expect(errores.comprador).toBeUndefined();
+  });
+
+  it('sin Proveedor es inválido — el Proveedor es obligatorio en Recojo de bienes transformados', () => {
+    const errores = validarGREParaEmitir({ ...guiaRecojoValida(), compradorNombre: '' });
+    expect(errores.comprador).toBe('El Proveedor es obligatorio.');
+  });
+
+  it('sin destinatario (empresa no derivada) es inválido, con el mensaje bajo la etiqueta Destinatario', () => {
+    const errores = validarGREParaEmitir({ ...guiaRecojoValida(), destinatarioNombre: '' });
+    expect(errores.destinatario).toBe('El Destinatario es obligatorio.');
+  });
+});

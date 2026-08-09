@@ -4,7 +4,7 @@ import type { TipoGRE } from '../modelos/GuiaRemision';
 
 /** Regla para el actor principal de la guía. */
 export interface ReglaActorGRE {
-  /** Etiqueta visible en el formulario (ej. 'Destinatario', 'Proveedor', 'Tercero/Transformador'). */
+  /** Etiqueta visible en el formulario (ej. 'Destinatario', 'Proveedor', 'Tercero/Transformador (destino)'). */
   label: string;
   /** Si true, el campo es obligatorio para emitir. */
   obligatorio: boolean;
@@ -123,10 +123,14 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
 
   '07': {
     ...REGLA_BASE,
-    actorPrincipal: { label: 'Tercero/Transformador', obligatorio: true },
+    // Recojo de bienes transformados: misma semántica de actores que Compra ('02') — el
+    // destinatario es la propia empresa emisora (quien recibe los bienes ya transformados), y el
+    // Proveedor es el tercero que realizó la transformación y los entrega.
+    actorPrincipal: { ...REGLA_BASE.actorPrincipal, autoDerivadoDeEmpresa: true },
+    actorSecundario: { label: 'Proveedor', obligatorio: true, requiereBusquedaTercero: true },
     documentosRecomendados: [],
     ayudaMotivo:
-      'Recojo de bienes transformados: el actor es el tercero que realizó la transformación y devuelve los bienes.',
+      'Para Recojo de bienes transformados, el destinatario es la propia empresa (quien recibe los bienes ya transformados); el Proveedor es quien realizó la transformación y los entrega.',
   },
 
   '08': {
