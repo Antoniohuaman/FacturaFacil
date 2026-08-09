@@ -8,6 +8,20 @@ export interface ReglaActorGRE {
   label: string;
   /** Si true, el campo es obligatorio para emitir. */
   obligatorio: boolean;
+  /**
+   * Cuando es `true`, este actor NO se busca/selecciona manualmente — se deriva automáticamente
+   * de la empresa emisora (RUC + razón social de `Company`/`activeWorkspace`), igual que SUNAT SOL
+   * lo hace para Motivo 02 (Compra): el destinatario es la propia empresa que recibe los bienes.
+   * Ausente/`false` en cualquier otro caso — el formulario sigue exigiendo selección real.
+   */
+  autoDerivadoDeEmpresa?: boolean;
+  /**
+   * Cuando es `true` (solo el Proveedor de Motivo 02, Compra), el actor secundario se busca con el
+   * mismo buscador real de terceros (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes)
+   * que ya usa el actor principal — nunca un segundo buscador nuevo. Ausente/`false` conserva el
+   * campo de texto libre ya existente (Comprador, Motivo 03), sin cambios.
+   */
+  requiereBusquedaTercero?: boolean;
 }
 
 /** Regla completa de flujo para un motivo+tipo de guía. */
@@ -15,9 +29,9 @@ export interface ReglaFlujoGRE {
   /** Actor principal — siempre presente. */
   actorPrincipal: ReglaActorGRE;
   /**
-   * Actor secundario (comprador).
-   * Solo presente para motivo '03' (Venta con entrega a terceros).
-   * null para todos los demás motivos.
+   * Actor secundario (comprador/proveedor, según el motivo).
+   * Presente para motivo '03' (Venta con entrega a terceros, Comprador) y '02' (Compra,
+   * Proveedor). `null` para todos los demás motivos.
    */
   actorSecundario: (ReglaActorGRE & { label: string }) | null;
   /**
@@ -64,10 +78,15 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
 
   '02': {
     ...REGLA_BASE,
-    actorPrincipal: { label: 'Proveedor', obligatorio: true },
+    // El destinatario de una GRE Remitente por Compra es la propia empresa emisora (quien recibe
+    // los bienes) — se deriva automáticamente, nunca se busca/selecciona (mismo comportamiento que
+    // SUNAT SOL). El Proveedor (quien vende y traslada los bienes) es el actor secundario real que
+    // el usuario sí selecciona.
+    actorPrincipal: { ...REGLA_BASE.actorPrincipal, autoDerivadoDeEmpresa: true },
+    actorSecundario: { label: 'Proveedor', obligatorio: true, requiereBusquedaTercero: true },
     documentosRecomendados: ['01', '03', '04'],
     ayudaMotivo:
-      'Para Compra, el actor principal es el Proveedor (quien vende y envía los bienes).',
+      'Para Compra, el destinatario es la propia empresa (quien recibe los bienes); el Proveedor es quien los vende y traslada.',
   },
 
   '03': {
@@ -210,4 +229,83 @@ export function obtenerReglaFlujoGRE(tipoGRE: TipoGRE, motivo: string): ReglaFlu
  */
 export function obtenerDocumentosRecomendadosGRE(tipoGRE: TipoGRE, motivo: string): string[] {
   return obtenerReglaFlujoGRE(tipoGRE, motivo).documentosRecomendados;
+}
+
+/** Datos reales de la empresa emisora (misma fuente que ya usa la impresión: `activeWorkspace`). */
+export interface DatosEmpresaGRE {
+  razonSocial: string;
+  ruc: string;
+  domicilioFiscal?: string;
+}
+
+/** Ajuste de campos de Destinatario a aplicar cuando el cambio de motivo lo requiere. */
+export interface AjusteDestinatarioGRE {
+  destinatarioClienteId: string | number | undefined;
+  destinatarioNombre: string;
+  destinatarioTipoDocumento: string;
+  destinatarioNumeroDocumento: string;
+  destinatarioDireccion: string | undefined;
+  destinatarioDepartamento: string | undefined;
+  destinatarioProvincia: string | undefined;
+  destinatarioDistrito: string | undefined;
+  destinatarioUbigeo: string | undefined;
+}
+
+/**
+ * Regla central (GRE-P1-Compra): calcula el ajuste de Destinatario al cambiar de motivo de
+ * traslado, para cualquier motivo con `actorPrincipal.autoDerivadoDeEmpresa` (hoy: '02', Compra).
+ *
+ * - Al ENTRAR a un motivo auto-derivado: puebla el Destinatario con los datos reales de la
+ *   empresa emisora (snapshot — se congela en el documento, nunca se re-deriva en impresión).
+ * - Al SALIR de un motivo auto-derivado: limpia ese Destinatario automático, porque ya no
+ *   corresponde a un motivo distinto (nunca se conserva un dato que el sistema generó para un
+ *   contexto que dejó de aplicar).
+ * - Si no hay transición hacia/desde un motivo auto-derivado (incluye permanecer en el mismo
+ *   motivo, p. ej. al editar otros campos de una Compra ya guardada), devuelve `null`: el llamador
+ *   no debe tocar el Destinatario, preservando cualquier snapshot válido existente (borradores).
+ *
+ * Única fuente de esta regla — nunca debe reimplementarse con `if (motivo === '02')` sueltos.
+ */
+export function calcularAjusteDestinatarioPorCambioMotivo(
+  tipoGRE: TipoGRE,
+  motivoAnterior: string,
+  motivoNuevo: string,
+  empresa: DatosEmpresaGRE | null,
+): AjusteDestinatarioGRE | null {
+  const reglaAnterior = obtenerReglaFlujoGRE(tipoGRE, motivoAnterior);
+  const reglaNueva = obtenerReglaFlujoGRE(tipoGRE, motivoNuevo);
+  const entrando =
+    Boolean(reglaNueva.actorPrincipal.autoDerivadoDeEmpresa) && !reglaAnterior.actorPrincipal.autoDerivadoDeEmpresa;
+  const saliendo =
+    !reglaNueva.actorPrincipal.autoDerivadoDeEmpresa && Boolean(reglaAnterior.actorPrincipal.autoDerivadoDeEmpresa);
+
+  if (entrando) {
+    return {
+      destinatarioClienteId: undefined,
+      destinatarioNombre: empresa?.razonSocial ?? '',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: empresa?.ruc ?? '',
+      destinatarioDireccion: empresa?.domicilioFiscal,
+      destinatarioDepartamento: undefined,
+      destinatarioProvincia: undefined,
+      destinatarioDistrito: undefined,
+      destinatarioUbigeo: undefined,
+    };
+  }
+
+  if (saliendo) {
+    return {
+      destinatarioClienteId: undefined,
+      destinatarioNombre: '',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: '',
+      destinatarioDireccion: undefined,
+      destinatarioDepartamento: undefined,
+      destinatarioProvincia: undefined,
+      destinatarioDistrito: undefined,
+      destinatarioUbigeo: undefined,
+    };
+  }
+
+  return null;
 }

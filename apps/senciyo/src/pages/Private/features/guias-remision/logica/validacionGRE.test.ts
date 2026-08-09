@@ -129,3 +129,35 @@ describe('validarGREParaEmitir — cantidad de bienes (GRE-P1-005)', () => {
     expect(errores.bienes).toContain('Producto Defectuoso');
   });
 });
+
+describe('validarGREParaEmitir — motivo 02 (Compra): Destinatario auto-derivado + Proveedor obligatorio', () => {
+  function guiaCompraValida(): GuiaRemision {
+    return {
+      ...guiaValidaBase(),
+      motivoTraslado: '02',
+      // Destinatario = la propia empresa, ya poblado por el flujo de cambio de motivo (snapshot).
+      destinatarioNombre: 'Empresa Emisora S.A.C.',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: '20111111111',
+      compradorNombre: 'Proveedor S.A.C.',
+      compradorTipoDocumento: 'RUC',
+      compradorNumeroDocumento: '20999999999',
+    };
+  }
+
+  it('con destinatario (empresa) y Proveedor completos, no hay errores de actores', () => {
+    const errores = validarGREParaEmitir(guiaCompraValida());
+    expect(errores.destinatario).toBeUndefined();
+    expect(errores.comprador).toBeUndefined();
+  });
+
+  it('sin Proveedor (compradorNombre vacío) es inválido — el Proveedor es obligatorio en Compra', () => {
+    const errores = validarGREParaEmitir({ ...guiaCompraValida(), compradorNombre: '' });
+    expect(errores.comprador).toBe('El Proveedor es obligatorio.');
+  });
+
+  it('sin destinatario (empresa no derivada) es inválido, con el mensaje bajo la etiqueta Destinatario', () => {
+    const errores = validarGREParaEmitir({ ...guiaCompraValida(), destinatarioNombre: '' });
+    expect(errores.destinatario).toBe('El Destinatario es obligatorio.');
+  });
+});

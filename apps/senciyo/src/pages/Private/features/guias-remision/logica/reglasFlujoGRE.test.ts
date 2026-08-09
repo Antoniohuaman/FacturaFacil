@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { obtenerReglaFlujoGRE } from './reglasFlujoGRE';
+import { obtenerReglaFlujoGRE, calcularAjusteDestinatarioPorCambioMotivo } from './reglasFlujoGRE';
+
+const EMPRESA_A = { razonSocial: 'Empresa A S.A.C.', ruc: '20111111111', domicilioFiscal: 'Av. A 100' };
+const EMPRESA_B = { razonSocial: 'Empresa B S.A.C.', ruc: '20222222222', domicilioFiscal: 'Av. B 200' };
 
 describe('obtenerReglaFlujoGRE — Remitente', () => {
   it('motivo 01 (Venta) usa la regla base: Destinatario obligatorio, sin actor secundario, punto de llegada obligatorio', () => {
@@ -10,9 +13,16 @@ describe('obtenerReglaFlujoGRE — Remitente', () => {
     expect(regla.requiereEspecificacion).toBe(false);
   });
 
-  it('motivo 02 (Compra) exige Proveedor como actor principal', () => {
+  it('motivo 02 (Compra): el destinatario (actor principal) es la propia empresa, auto-derivado, y el Proveedor es el actor secundario con búsqueda real de tercero', () => {
     const regla = obtenerReglaFlujoGRE('remitente', '02');
-    expect(regla.actorPrincipal).toEqual({ label: 'Proveedor', obligatorio: true });
+    expect(regla.actorPrincipal.label).toBe('Destinatario');
+    expect(regla.actorPrincipal.obligatorio).toBe(true);
+    expect(regla.actorPrincipal.autoDerivadoDeEmpresa).toBe(true);
+    expect(regla.actorSecundario).toEqual({
+      label: 'Proveedor',
+      obligatorio: true,
+      requiereBusquedaTercero: true,
+    });
   });
 
   it('motivo 03 (Venta con entrega a terceros) agrega un actor secundario opcional (Comprador)', () => {
@@ -52,7 +62,69 @@ describe('obtenerReglaFlujoGRE — Transportista', () => {
   it('un motivo exclusivo de Remitente (ej. 02, Compra) no está en el mapa de Transportista — cae a la regla base', () => {
     const reglaRemitente = obtenerReglaFlujoGRE('remitente', '02');
     const reglaTransportista = obtenerReglaFlujoGRE('transportista', '02');
-    expect(reglaRemitente.actorPrincipal.label).toBe('Proveedor');
+    expect(reglaRemitente.actorPrincipal.autoDerivadoDeEmpresa).toBe(true);
+    expect(reglaRemitente.actorSecundario?.label).toBe('Proveedor');
     expect(reglaTransportista.actorPrincipal.label).toBe('Destinatario');
+    expect(reglaTransportista.actorPrincipal.autoDerivadoDeEmpresa).toBeUndefined();
+    expect(reglaTransportista.actorSecundario).toBeNull();
+  });
+});
+
+describe('calcularAjusteDestinatarioPorCambioMotivo', () => {
+  it('al entrar a Compra (01 → 02) puebla el Destinatario con los datos reales de la empresa activa', () => {
+    const ajuste = calcularAjusteDestinatarioPorCambioMotivo('remitente', '01', '02', EMPRESA_A);
+    expect(ajuste).toEqual({
+      destinatarioClienteId: undefined,
+      destinatarioNombre: 'Empresa A S.A.C.',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: '20111111111',
+      destinatarioDireccion: 'Av. A 100',
+      destinatarioDepartamento: undefined,
+      destinatarioProvincia: undefined,
+      destinatarioDistrito: undefined,
+      destinatarioUbigeo: undefined,
+    });
+  });
+
+  it('aislamiento multi-tenant: la misma transición con la empresa B produce los datos de la empresa B, nunca de A', () => {
+    const ajuste = calcularAjusteDestinatarioPorCambioMotivo('remitente', '01', '02', EMPRESA_B);
+    expect(ajuste?.destinatarioNombre).toBe('Empresa B S.A.C.');
+    expect(ajuste?.destinatarioNumeroDocumento).toBe('20222222222');
+  });
+
+  it('sin empresa activa (null), no hardcodea ningún valor por defecto — usa cadenas vacías', () => {
+    const ajuste = calcularAjusteDestinatarioPorCambioMotivo('remitente', '01', '02', null);
+    expect(ajuste?.destinatarioNombre).toBe('');
+    expect(ajuste?.destinatarioNumeroDocumento).toBe('');
+  });
+
+  it('al salir de Compra (02 → 01) limpia el Destinatario auto-derivado', () => {
+    const ajuste = calcularAjusteDestinatarioPorCambioMotivo('remitente', '02', '01', EMPRESA_A);
+    expect(ajuste).toEqual({
+      destinatarioClienteId: undefined,
+      destinatarioNombre: '',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: '',
+      destinatarioDireccion: undefined,
+      destinatarioDepartamento: undefined,
+      destinatarioProvincia: undefined,
+      destinatarioDistrito: undefined,
+      destinatarioUbigeo: undefined,
+    });
+  });
+
+  it('permanecer en Compra (02 → 02, ej. al editar otro campo) no toca el Destinatario — preserva el snapshot ya guardado', () => {
+    const ajuste = calcularAjusteDestinatarioPorCambioMotivo('remitente', '02', '02', EMPRESA_A);
+    expect(ajuste).toBeNull();
+  });
+
+  it('transición entre dos motivos que no son auto-derivados (01 → 03) no toca el Destinatario', () => {
+    const ajuste = calcularAjusteDestinatarioPorCambioMotivo('remitente', '01', '03', EMPRESA_A);
+    expect(ajuste).toBeNull();
+  });
+
+  it('para Transportista, motivo 02 no es auto-derivado (cae a la regla base) — no produce ajuste', () => {
+    const ajuste = calcularAjusteDestinatarioPorCambioMotivo('transportista', '01', '02', EMPRESA_A);
+    expect(ajuste).toBeNull();
   });
 });

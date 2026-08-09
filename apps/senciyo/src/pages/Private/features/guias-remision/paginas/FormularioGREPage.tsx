@@ -28,7 +28,7 @@ import type {
 } from '../modelos/GuiaRemision';
 import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS, TIPO_GRE_CODIGO_DOCUMENTO } from '../modelos/GuiaRemision';
 import { validarGREParaEmitir, hayErrores } from '../logica/validacionGRE';
-import { obtenerReglaFlujoGRE } from '../logica/reglasFlujoGRE';
+import { obtenerReglaFlujoGRE, calcularAjusteDestinatarioPorCambioMotivo } from '../logica/reglasFlujoGRE';
 import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
 import ModalEmisionExitosaGRE from '../components/modales/ModalEmisionExitosaGRE';
 import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37 } from '../../configuracion-sistema/datos/catalogosGRE';
@@ -936,9 +936,28 @@ export default function FormularioGREPage() {
           fechaEmision={guia.fechaEmision}
           onFechaEmisionChange={(f) => setGuia((prev) => ({ ...prev, fechaEmision: f }))}
           motivoTraslado={guia.motivoTraslado}
-          onMotivoTrasladoChange={(m) =>
-            setGuia((prev) => ({ ...prev, motivoTraslado: m as GuiaRemision['motivoTraslado'] }))
-          }
+          onMotivoTrasladoChange={(m) => {
+            const motivoNuevo = m as GuiaRemision['motivoTraslado'];
+            setGuia((prev) => {
+              const ajusteDestinatario = calcularAjusteDestinatarioPorCambioMotivo(
+                prev.tipo,
+                prev.motivoTraslado,
+                motivoNuevo,
+                activeWorkspace
+                  ? {
+                      razonSocial: activeWorkspace.razonSocial,
+                      ruc: activeWorkspace.ruc,
+                      domicilioFiscal: activeWorkspace.domicilioFiscal,
+                    }
+                  : null,
+              );
+              return {
+                ...prev,
+                motivoTraslado: motivoNuevo,
+                ...ajusteDestinatario,
+              };
+            });
+          }}
           destinatario={destinatarioActual}
           onDestinatarioChange={setDestinatario}
           errorDestinatario={intentoEmitir ? (erroresMinimos.destinatario ?? null) : null}

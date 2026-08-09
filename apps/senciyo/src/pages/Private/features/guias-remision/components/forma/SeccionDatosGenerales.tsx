@@ -62,39 +62,31 @@ const INPUT_CLS =
 
 const LABEL_CLS = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1';
 
-export default function SeccionDatosGenerales({
-  tipo,
-  serie,
-  seriesDisponibles,
-  onSerieChange,
-  fechaEmision,
-  onFechaEmisionChange,
-  motivoTraslado,
-  onMotivoTrasladoChange,
-  destinatario,
-  onDestinatarioChange,
-  errorDestinatario,
-  documentosRelacionados,
-  onDocumentosRelacionadosChange,
-  regla,
-  comprador,
-  onCompradorChange,
-  errorComprador,
-  especificacionMotivo,
-  onEspecificacionChange,
-  errorEspecificacion,
-}: SeccionDatosGeneralesProps) {
-  const { clientes, createCliente } = useClientes();
+/**
+ * Buscador real de terceros (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes) —
+ * extraído del bloque de Destinatario para poder reutilizarse tal cual en cualquier actor que
+ * realmente requiera selección manual (hoy: Destinatario en general, y Proveedor para Motivo 02 —
+ * Compra). Un solo buscador real, nunca uno nuevo por actor.
+ */
+function BuscadorTercero({
+  datos,
+  onChange,
+  error,
+  clientes,
+  createCliente,
+  tipoCuentaPorDefecto,
+}: {
+  datos: DatosDestinatario | null;
+  onChange: (datos: DatosDestinatario | null) => void;
+  error?: string | null;
+  clientes: Cliente[];
+  createCliente: ReturnType<typeof useClientes>['createCliente'];
+  tipoCuentaPorDefecto: 'Cliente' | 'Proveedor';
+}) {
   const [busqueda, setBusqueda] = useState('');
   const [mostrarResultados, setMostrarResultados] = useState(false);
   const [consultando, setConsultando] = useState(false);
   const busquedaRef = useRef<HTMLInputElement>(null);
-
-  const motivosFiltrados = MOTIVOS_TRASLADO.filter(
-    (m) =>
-      m.estado === 'Vigente' &&
-      (tipo === 'remitente' ? m.aplicacion !== 'Transportista' : m.aplicacion !== 'Remitente'),
-  );
 
   const clientesFiltrados = clientes
     .filter((c) => {
@@ -125,11 +117,11 @@ export default function SeccionDatosGenerales({
 
   const seleccionarCliente = useCallback(
     (c: Cliente) => {
-      onDestinatarioChange(construirDatosDesde(c));
+      onChange(construirDatosDesde(c));
       setBusqueda('');
       setMostrarResultados(false);
     },
-    [construirDatosDesde, onDestinatarioChange],
+    [construirDatosDesde, onChange],
   );
 
   const consultarDocumento = useCallback(async () => {
@@ -137,11 +129,11 @@ export default function SeccionDatosGenerales({
     if (doc.length !== 11 && doc.length !== 8) return;
     setConsultando(true);
     try {
-      let datos: DatosDestinatario | null = null;
+      let datosConsultados: DatosDestinatario | null = null;
       if (doc.length === 11) {
         const r = await servicioConsultaDocumentos.consultarRuc(doc);
         if (r?.data?.razonSocial) {
-          datos = {
+          datosConsultados = {
             nombre: r.data.razonSocial,
             tipoDocumento: 'RUC',
             numeroDocumento: doc,
@@ -155,31 +147,30 @@ export default function SeccionDatosGenerales({
       } else {
         const r = await servicioConsultaDocumentos.consultarDni(doc);
         if (r?.data?.nombres) {
-          datos = {
+          datosConsultados = {
             nombre: `${r.data.nombres} ${r.data.apellidoPaterno} ${r.data.apellidoMaterno}`.trim(),
             tipoDocumento: 'DNI',
             numeroDocumento: doc,
           };
         }
       }
-      if (datos) {
+      if (datosConsultados) {
         const existente = clientes.find(
           (c) => (c.numeroDocumento ?? c.document ?? '').replace(/\D/g, '') === doc,
         );
         if (!existente && createCliente) {
-          const tipoCuenta = motivoTraslado === '02' ? 'Proveedor' : 'Cliente';
           const nuevo = await createCliente({
-            documentType: datos.tipoDocumento as DocumentType,
-            documentNumber: datos.numeroDocumento,
-            name: datos.nombre,
-            type: tipoCuenta as 'Cliente' | 'Proveedor',
-            address: datos.direccion ?? '',
+            documentType: datosConsultados.tipoDocumento as DocumentType,
+            documentNumber: datosConsultados.numeroDocumento,
+            name: datosConsultados.nombre,
+            type: tipoCuentaPorDefecto,
+            address: datosConsultados.direccion ?? '',
           });
-          if (nuevo) datos.clienteId = nuevo.id;
+          if (nuevo) datosConsultados.clienteId = nuevo.id;
         } else if (existente) {
-          datos.clienteId = existente.id;
+          datosConsultados.clienteId = existente.id;
         }
-        onDestinatarioChange(datos);
+        onChange(datosConsultados);
         setBusqueda('');
         setMostrarResultados(false);
       }
@@ -188,11 +179,128 @@ export default function SeccionDatosGenerales({
     } finally {
       setConsultando(false);
     }
-  }, [busqueda, clientes, createCliente, motivoTraslado, onDestinatarioChange]);
+  }, [busqueda, clientes, createCliente, tipoCuentaPorDefecto, onChange]);
 
   const soloDigitos = busqueda.replace(/\D/g, '');
   const puedeConsultar = soloDigitos.length === 11 || soloDigitos.length === 8;
   const etiquetaConsulta = soloDigitos.length === 11 ? 'SUNAT' : soloDigitos.length === 8 ? 'RENIEC' : 'SUNAT';
+
+  if (datos) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+            {datos.tipoDocumento} {datos.numeroDocumento} · {datos.nombre}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <div
+        className={`flex h-9 w-full rounded-lg border overflow-hidden transition-colors ${
+          error
+            ? 'border-red-400 dark:border-red-500'
+            : 'border-gray-200 dark:border-gray-600 focus-within:border-violet-500 dark:focus-within:border-violet-500'
+        }`}
+      >
+        <div className="relative flex-1 bg-white dark:bg-gray-800">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <input
+            ref={busquedaRef}
+            type="text"
+            value={busqueda}
+            onChange={(e) => {
+              setBusqueda(e.target.value);
+              setMostrarResultados(e.target.value.length > 0);
+            }}
+            onFocus={() => setMostrarResultados(busqueda.length > 0)}
+            onBlur={() => setTimeout(() => setMostrarResultados(false), 200)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && puedeConsultar) void consultarDocumento();
+            }}
+            placeholder="Buscar por RUC, DNI o nombre"
+            className="h-full w-full pl-9 pr-2 text-sm bg-transparent text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => void consultarDocumento()}
+          disabled={!puedeConsultar || consultando}
+          className={`h-full px-3 text-[11px] font-semibold shrink-0 flex items-center gap-1.5 border-l transition-colors disabled:opacity-40 disabled:cursor-default ${
+            puedeConsultar
+              ? 'border-gray-200 dark:border-gray-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+              : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400'
+          }`}
+        >
+          {consultando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+          <span>{etiquetaConsulta}</span>
+        </button>
+      </div>
+
+      {mostrarResultados && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {clientesFiltrados.length > 0 ? (
+            clientesFiltrados.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onMouseDown={() => seleccionarCliente(c)}
+                className="w-full flex flex-col text-left px-3 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 border-b border-gray-100 dark:border-gray-700 last:border-0"
+              >
+                <span className="text-sm text-gray-900 dark:text-white font-medium truncate">
+                  {c.razonSocial ?? c.name}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{c.document}</span>
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Sin coincidencias</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function SeccionDatosGenerales({
+  tipo,
+  serie,
+  seriesDisponibles,
+  onSerieChange,
+  fechaEmision,
+  onFechaEmisionChange,
+  motivoTraslado,
+  onMotivoTrasladoChange,
+  destinatario,
+  onDestinatarioChange,
+  errorDestinatario,
+  documentosRelacionados,
+  onDocumentosRelacionadosChange,
+  regla,
+  comprador,
+  onCompradorChange,
+  errorComprador,
+  especificacionMotivo,
+  onEspecificacionChange,
+  errorEspecificacion,
+}: SeccionDatosGeneralesProps) {
+  const { clientes, createCliente } = useClientes();
+
+  const motivosFiltrados = MOTIVOS_TRASLADO.filter(
+    (m) =>
+      m.estado === 'Vigente' &&
+      (tipo === 'remitente' ? m.aplicacion !== 'Transportista' : m.aplicacion !== 'Remitente'),
+  );
 
   return (
     <ConfigurationCard title="Datos de la guía" icon={Hash}>
@@ -212,91 +320,27 @@ export default function SeccionDatosGenerales({
               )}
             </label>
 
-            {destinatario ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 rounded-lg">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {destinatario.tipoDocumento} {destinatario.numeroDocumento} · {destinatario.nombre}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onDestinatarioChange(null)}
-                  className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+            {regla.actorPrincipal.autoDerivadoDeEmpresa ? (
+              // Actor autoderivado de la propia empresa (hoy: Motivo Compra) — de solo lectura, sin
+              // buscador ni botón de cambio. Una sola fila: documento y razón social, igual que el
+              // resto de campos read-only del formulario.
+              <div className="flex flex-wrap items-baseline gap-x-2 min-h-9 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                  {destinatario ? `${destinatario.tipoDocumento} ${destinatario.numeroDocumento}` : '—'}
+                </span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {destinatario?.nombre || '—'}
+                </span>
               </div>
             ) : (
-              <div className="relative">
-                <div className={`flex h-9 w-full rounded-lg border overflow-hidden transition-colors ${
-                  errorDestinatario
-                    ? 'border-red-400 dark:border-red-500'
-                    : 'border-gray-200 dark:border-gray-600 focus-within:border-violet-500 dark:focus-within:border-violet-500'
-                }`}>
-                  <div className="relative flex-1 bg-white dark:bg-gray-800">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                    <input
-                      ref={busquedaRef}
-                      type="text"
-                      value={busqueda}
-                      onChange={(e) => {
-                        setBusqueda(e.target.value);
-                        setMostrarResultados(e.target.value.length > 0);
-                      }}
-                      onFocus={() => setMostrarResultados(busqueda.length > 0)}
-                      onBlur={() => setTimeout(() => setMostrarResultados(false), 200)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && puedeConsultar) void consultarDocumento();
-                      }}
-                      placeholder="Buscar por RUC, DNI o nombre"
-                      className="h-full w-full pl-9 pr-2 text-sm bg-transparent text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void consultarDocumento()}
-                    disabled={!puedeConsultar || consultando}
-                    className={`h-full px-3 text-[11px] font-semibold shrink-0 flex items-center gap-1.5 border-l transition-colors disabled:opacity-40 disabled:cursor-default ${
-                      puedeConsultar
-                        ? 'border-gray-200 dark:border-gray-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                        : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400'
-                    }`}
-                  >
-                    {consultando
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <Search className="h-3.5 w-3.5" />
-                    }
-                    <span>{etiquetaConsulta}</span>
-                  </button>
-                </div>
-
-                {mostrarResultados && (
-                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {clientesFiltrados.length > 0 ? (
-                      clientesFiltrados.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onMouseDown={() => seleccionarCliente(c)}
-                          className="w-full flex flex-col text-left px-3 py-2 hover:bg-violet-50 dark:hover:bg-violet-900/20 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                        >
-                          <span className="text-sm text-gray-900 dark:text-white font-medium truncate">
-                            {c.razonSocial ?? c.name}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {c.document}
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                        Sin coincidencias
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+              <BuscadorTercero
+                datos={destinatario}
+                onChange={onDestinatarioChange}
+                error={errorDestinatario}
+                clientes={clientes}
+                createCliente={createCliente}
+                tipoCuentaPorDefecto="Cliente"
+              />
             )}
 
             {errorDestinatario && (
@@ -307,9 +351,10 @@ export default function SeccionDatosGenerales({
             )}
           </div>
 
-          {/* Actor secundario (comprador) — solo visible cuando la regla lo indica.
-              Se usan inputs controlados ligados a comprador?.campo (nunca dentro de
-              una rama donde TypeScript hubiera narrowed comprador a never). */}
+          {/* Actor secundario (comprador/proveedor) — solo visible cuando la regla lo indica.
+              Motivo 02 (Compra, Proveedor): reutiliza el mismo buscador real de terceros.
+              Resto de motivos con actor secundario (ej. 03, Comprador): campo de texto libre ya
+              existente, sin cambios. */}
           {regla.actorSecundario !== null && onCompradorChange && (
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -320,7 +365,7 @@ export default function SeccionDatosGenerales({
                     <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
                   )}
                 </label>
-                {comprador && (
+                {comprador && !regla.actorSecundario.requiereBusquedaTercero && (
                   <button
                     type="button"
                     onClick={() => onCompradorChange(null)}
@@ -331,56 +376,71 @@ export default function SeccionDatosGenerales({
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-3">
-                  <select
-                    value={comprador?.tipoDocumento ?? 'RUC'}
-                    onChange={(e) =>
-                      onCompradorChange({
-                        nombre: comprador?.nombre ?? '',
-                        tipoDocumento: e.target.value,
-                        numeroDocumento: comprador?.numeroDocumento ?? '',
-                      })
-                    }
-                    className={INPUT_CLS}
-                  >
-                    <option value="RUC">RUC</option>
-                    <option value="DNI">DNI</option>
-                    <option value="CE">CE</option>
-                    <option value="OTRO">Otro</option>
-                  </select>
+
+              {regla.actorSecundario.requiereBusquedaTercero ? (
+                <BuscadorTercero
+                  datos={comprador ? { nombre: comprador.nombre, tipoDocumento: comprador.tipoDocumento, numeroDocumento: comprador.numeroDocumento } : null}
+                  onChange={(datos) =>
+                    onCompradorChange(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
+                  }
+                  error={errorComprador}
+                  clientes={clientes}
+                  createCliente={createCliente}
+                  tipoCuentaPorDefecto="Proveedor"
+                />
+              ) : (
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-3">
+                    <select
+                      value={comprador?.tipoDocumento ?? 'RUC'}
+                      onChange={(e) =>
+                        onCompradorChange({
+                          nombre: comprador?.nombre ?? '',
+                          tipoDocumento: e.target.value,
+                          numeroDocumento: comprador?.numeroDocumento ?? '',
+                        })
+                      }
+                      className={INPUT_CLS}
+                    >
+                      <option value="RUC">RUC</option>
+                      <option value="DNI">DNI</option>
+                      <option value="CE">CE</option>
+                      <option value="OTRO">Otro</option>
+                    </select>
+                  </div>
+                  <div className="col-span-4">
+                    <input
+                      type="text"
+                      value={comprador?.numeroDocumento ?? ''}
+                      placeholder="N° documento"
+                      className={INPUT_CLS}
+                      onChange={(e) =>
+                        onCompradorChange({
+                          nombre: comprador?.nombre ?? '',
+                          tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
+                          numeroDocumento: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="col-span-5">
+                    <input
+                      type="text"
+                      value={comprador?.nombre ?? ''}
+                      placeholder="Nombre / Razón social"
+                      className={INPUT_CLS}
+                      onChange={(e) =>
+                        onCompradorChange({
+                          nombre: e.target.value,
+                          tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
+                          numeroDocumento: comprador?.numeroDocumento ?? '',
+                        })
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="col-span-4">
-                  <input
-                    type="text"
-                    value={comprador?.numeroDocumento ?? ''}
-                    placeholder="N° documento"
-                    className={INPUT_CLS}
-                    onChange={(e) =>
-                      onCompradorChange({
-                        nombre: comprador?.nombre ?? '',
-                        tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
-                        numeroDocumento: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="col-span-5">
-                  <input
-                    type="text"
-                    value={comprador?.nombre ?? ''}
-                    placeholder="Nombre / Razón social"
-                    className={INPUT_CLS}
-                    onChange={(e) =>
-                      onCompradorChange({
-                        nombre: e.target.value,
-                        tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
-                        numeroDocumento: comprador?.numeroDocumento ?? '',
-                      })
-                    }
-                  />
-                </div>
-              </div>
+              )}
+
               {errorComprador && (
                 <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
                   <AlertCircle className="h-3 w-3 shrink-0" />
