@@ -4,18 +4,19 @@
 **Base:** `AUDITORIA_FINAL_GUIAS_REMISION.md` (2026-08-07) — 0 P0, 6 P1, 12 P2, 5 P3.
 **Alcance de esta tarea:** cerrar los 6 P1 y agregar pruebas de regresión (GRE-P2-011). No se rehizo el módulo; no se ampliaron funcionalidades no solicitadas.
 **Nota de revisión:** la primera pasada de este cierre resolvió GRE-P1-008 retirando la configuración `stockDescuentoGuiaRemision` en vez de conectarla a un comportamiento real. Esa solución fue rechazada por revisión posterior ("una configuración sin efecto es incorrecta; eliminarla no implementa la funcionalidad") y GRE-P1-008 se reabrió. Esta versión del documento refleja la corrección definitiva: integración real con el motor central de Inventario. Ver sección 9.
+**Última validación (misma fecha, tercera pasada):** verificación transversal de doble descuento y consistencia transaccional entre GRE ↔ Nota de Salida ↔ Comprobante ↔ Inventario. Ver sección 19.
 
 ---
 
 ## 1. Veredicto
 
-### ✅ APROBADO PARA CIERRE
+### ✅ APROBADO DEFINITIVAMENTE PARA CIERRE
 
 ---
 
 ## 2. Resumen de implementación
 
-Se corrigieron los 6 hallazgos P1 en su causa raíz, reutilizando en todos los casos fuentes de verdad ya existentes en el ERP (Series/`useSeriesCommands` de Gastos-Cobranzas, `tienePermiso`/`utilidades/permisos.ts`, `TIPO_GRE_CODIGO_DOCUMENTO` del propio modelo, y — en la corrección definitiva de GRE-P1-008 — `ServicioKardexValorizado`, el mismo motor central de Inventario que ya usan Factura/Boleta y Nota de Salida). No se creó ningún motor paralelo, ningún segundo sistema de permisos, ninguna sincronización ad-hoc, ni un segundo Kardex. La configuración de stock de Guía de Remisión (`stockDescuentoGuiaRemision`) existe de nuevo en Configuración → Inventario y tiene efecto real: "Automático al emitir" dispara una salida real (cuantitativa o valorizada FIFO según el modo de la empresa) mediante el mismo `ServicioKardexValorizado`; "Mediante Nota de Salida" no descuenta automáticamente. Se agregaron 90 pruebas nuevas (9 archivos) sobre la lógica pura del módulo y sobre la integración real con el motor de Inventario — antes había cero. Build, lint y la suite completa del monorepo (`1787/1787` tests) pasan en verde.
+Se corrigieron los 6 hallazgos P1 en su causa raíz, reutilizando en todos los casos fuentes de verdad ya existentes en el ERP (Series/`useSeriesCommands` de Gastos-Cobranzas, `tienePermiso`/`utilidades/permisos.ts`, `TIPO_GRE_CODIGO_DOCUMENTO` del propio modelo, y — en la corrección definitiva de GRE-P1-008 — `ServicioKardexValorizado`, el mismo motor central de Inventario que ya usan Factura/Boleta y Nota de Salida). No se creó ningún motor paralelo, ningún segundo sistema de permisos, ninguna sincronización ad-hoc, ni un segundo Kardex. La configuración de stock de Guía de Remisión (`stockDescuentoGuiaRemision`) existe de nuevo en Configuración → Inventario y tiene efecto real: "Automático al emitir" dispara una salida real (cuantitativa o valorizada FIFO según el modo de la empresa) mediante el mismo `ServicioKardexValorizado`; "Mediante Nota de Salida" no descuenta automáticamente. En la validación final se reforzó la consistencia transaccional GRE↔Inventario (snapshot `preparacionInventario`, mismo patrón que Nota de Salida) y se confirmó, por investigación exhaustiva del código real, que GRE no tiene hoy ningún vínculo estructural con Comprobante ni con Nota de Salida — un hecho preexistente del prototipo, no un defecto de esta corrección (ver sección 19). Se agregaron 95 pruebas nuevas (9 archivos) sobre la lógica pura del módulo y sobre la integración real con el motor de Inventario — antes había cero. Build, lint y la suite completa del monorepo (`1792/1792` tests) pasan en verde.
 
 ---
 
@@ -40,7 +41,8 @@ Se corrigieron los 6 hallazgos P1 en su causa raíz, reutilizando en todos los c
 | `gestion-inventario/models/operacionIdempotenteInventario.types.ts` | P1-008 | Se agregan `'guia_remision_salida'`/`'guia_remision'` a los tipos idempotentes (aditivo) |
 | `gestion-inventario/utils/operacionCuantitativaInventarioComun.ts` | P1-008 | Se agrega `'guia_remision'` a `TIPOS_DOCUMENTO_ORIGEN_MOVIMIENTO` (aditivo) |
 | `gestion-inventario/utils/salidaCuantitativaInventario.ts` | P1-008 | Se agrega el caso `'guia_remision_salida'` al switch de `MovimientoTipo` y al set de operaciones valorizables (aditivo) |
-| 9 archivos `*.test.ts` (nuevos/ampliados) | GRE-P2-011 | Pruebas de regresión — ver sección 10 |
+| `guias-remision/modelos/GuiaRemision.ts` | Validación final (sección 19) | Se agrega `PreparacionInventarioGRE`/`preparacionInventario?` — snapshot de recuperación, mismo patrón que `PreparacionInventarioNS` |
+| 9 archivos `*.test.ts` (nuevos/ampliados) | GRE-P2-011 + validación final | Pruebas de regresión — ver secciones 10 y 19.12 |
 
 ---
 
@@ -263,7 +265,7 @@ Porque la única vía de entrada al motor es `emitir()` → `claveIdempotenciaGR
 
 **Casos cubiertos por `inventarioGRE.test.ts`:** lógica pura (`motivoTrasladoAMotivoKardex`, `esBienGREInventariable`, `construirLineasSalidaGRE` con FIFO real/fail-closed/omisión de no-inventariables, `construirDatosOperacionSalidaGRE`, `prepararAnulacionGRE`, `debeDescontarStockAutomaticamenteGRE`) **y** 9 pruebas de integración real contra `ServicioKardexValorizado` (sin mocks del motor): emisión cuantitativa descuenta exactamente una vez en el almacén/tenant correctos; aislamiento multiempresa; idempotencia ante reintento; Inventario inactivo rechaza sin crear movimiento; modo valorizado consume capas FIFO reales; anulación revierte una vez y repetirla no duplica la reversión; una GRE sin movimiento no genera una reversión inventada.
 
-**Total de tests nuevos para GRE:** 90 (86 en archivos nuevos + 4 agregados a un archivo existente). El monorepo pasó de 1697 a **1787** tests, todos en verde.
+**Total de tests nuevos para GRE:** 95 (91 en archivos nuevos + 4 agregados a un archivo existente). El monorepo pasó de 1697 a **1792** tests, todos en verde (5 casos adicionales de la validación transversal final — ver sección 19.12).
 
 ---
 
@@ -280,7 +282,7 @@ Flujos comprobados por lectura de código tras cada cambio + ejecución real de 
 - Configuración de Transporte, conductores, vehículos, catálogos SUNAT — sin cambios.
 - Configuración → Series — sin cambios en `TarjetaSerie.tsx`/`useSeries.ts`; se verificó que ambos ya generalizan sobre `statistics.documentsIssued`, por lo que GRE se integra sin tocarlos.
 - Configuración → Inventario — se verificó que Factura/Boleta y Nota de Venta conservan exactamente su comportamiento (mismos estados `localFyB`/`localNV`, mismos dispatches); la tercera columna de GRE existe de nuevo con efecto real, sin alterar las otras dos.
-- Compras, Gastos, Comprobantes, Nota de Salida — ningún archivo de esos módulos fue modificado; la suite completa de sus tests (parte de los 1787) sigue en verde.
+- Compras, Gastos, Comprobantes, Nota de Salida — ningún archivo de esos módulos fue modificado; la suite completa de sus tests (parte de los 1792) sigue en verde.
 - Kardex/Inventario (motor central) — solo se extendieron dos listas cerradas de forma aditiva (sección 9); los 1697 tests preexistentes del motor (Compras, Ventas, NS, Ajustes, Transferencias, Valorización) siguen pasando sin ningún cambio de expectativa.
 - Multiempresa — `ContextoGuiasRemision.tsx` sigue namespaciendo por `tenantId` en las tres operaciones; la nueva integración de inventario namespacea por `empresaId` en cada llamada a `ServicioKardexValorizado`, verificado con test dedicado.
 
@@ -292,7 +294,7 @@ Flujos comprobados por lectura de código tras cada cambio + ejecución real de 
 |---|---|
 | TypeScript (`tsc -b`) | ✅ 0 errores |
 | ESLint (`eslint .`) | ✅ 0 errores, 0 warnings |
-| Tests (`vitest run`) | ✅ 1787/1787 (93 archivos) |
+| Tests (`vitest run`) | ✅ 1792/1792 (93 archivos) |
 | Build de producción (`vite build`) | ✅ 3746 módulos, sin errores |
 
 ---
@@ -387,6 +389,120 @@ No bloqueantes, no tratados en este cierre (fuera del alcance explícito):
 
 **¿Podemos considerar CERRADO el módulo de Guías de Remisión dentro del alcance actual del prototipo frontend de SenciYo?**
 
-### ✅ APROBADO PARA CIERRE
+### ✅ APROBADO DEFINITIVAMENTE PARA CIERRE
 
-Los 6 hallazgos P1 están cerrados en su causa raíz. GRE-P1-008, tras su reapertura, quedó cerrado mediante integración real con la arquitectura central de Inventario: la configuración `stockDescuentoGuiaRemision` existe de nuevo y tiene efecto real — "Automático" dispara `ServicioKardexValorizado.registrarSalidaValorizada` (mismo motor que Factura/Boleta y Nota de Salida, cuantitativo o valorizado FIFO según el modo de la empresa, con idempotencia y reversión reales), "Mediante Nota de Salida" no descuenta automáticamente. La extensión del núcleo del motor fue mínima y puramente aditiva (dos listas cerradas ampliadas en 4 archivos, ningún caso existente alterado), sin crear un segundo Kardex, sin FIFO propio de GRE, sin almacén hardcodeado y sin fuga multiempresa. Los cinco hallazgos ya cerrados (P1-001 a P1-005) se verificaron intactos explícitamente. Se agregaron 90 pruebas de regresión sobre código antes sin ninguna cobertura, incluidas 9 pruebas de integración real contra el motor de Inventario (sin mocks). TypeScript, ESLint, la suite completa (1787/1787) y el build de producción pasan en verde. No apareció ningún P0 ni P1 nuevo durante la implementación.
+Los 6 hallazgos P1 están cerrados en su causa raíz. GRE-P1-008, tras su reapertura, quedó cerrado mediante integración real con la arquitectura central de Inventario: la configuración `stockDescuentoGuiaRemision` existe de nuevo y tiene efecto real — "Automático" dispara `ServicioKardexValorizado.registrarSalidaValorizada` (mismo motor que Factura/Boleta y Nota de Salida, cuantitativo o valorizado FIFO según el modo de la empresa, con idempotencia y reversión reales), "Mediante Nota de Salida" no descuenta automáticamente. La extensión del núcleo del motor fue mínima y puramente aditiva (dos listas cerradas ampliadas en 4 archivos, ningún caso existente alterado), sin crear un segundo Kardex, sin FIFO propio de GRE, sin almacén hardcodeado y sin fuga multiempresa. La validación transversal final (sección 19) confirmó, por investigación exhaustiva del código real (no supuesta), que GRE no tiene hoy ningún vínculo estructural con Comprobante ni con Nota de Salida — por lo que no puede existir "doble descuento entre documentos relacionados" simplemente porque esa relación no existe en el prototipo actual; se reforzó además la consistencia transaccional GRE↔Inventario con el mismo snapshot de recuperación que ya usa Nota de Salida. Los cinco hallazgos ya cerrados (P1-001 a P1-005) se verificaron intactos explícitamente. Se agregaron 95 pruebas de regresión sobre código antes sin ninguna cobertura, incluidas pruebas de integración real contra el motor de Inventario (sin mocks). TypeScript, ESLint, la suite completa (1792/1792) y el build de producción pasan en verde. No apareció ningún P0 ni P1 nuevo durante la implementación.
+
+---
+
+## 19. Validación transversal GRE ↔ NS ↔ Comprobante ↔ Inventario
+
+### 19.1 Arquitectura existente encontrada
+
+Investigación de código real (siguiendo imports/servicios/eventos, sin asumir nombres):
+
+- **Comprobante ↔ Nota de Salida:** vínculo REAL y bidireccional. `Comprobante` (`ComprobantesListContext.tsx`) tiene `modoDescuentoStock`, `notaSalidaId`, `notaSalidaGenerada`, `fechaGeneracionNotaSalida`, `inventarioDocumentoId`. `NotaSalida` (`notaSalida.types.ts`) tiene `origen?: 'Manual' | 'Comprobante' | 'NotaVenta' | 'OrdenVenta'` y `comprobanteOrigenId`. La relación se establece al navegar desde `ListaComprobantes.tsx` a `/inventario` con `fromComprobante` en el estado de ruta, se confirma vía el evento `window` `facturafacil:comprobante-ns-generada` (payload: `comprobanteId`, `notaSalidaId`, `fechaGeneracionNotaSalida`), y se persiste en ambos documentos mediante el reducer `NS_LINK_COMPROBANTE`.
+- **GRE ↔ cualquier otro documento:** **sin vínculo real.** `GuiaRemision.documentosRelacionados[].documentoInternoId` (el único campo del modelo de GRE pensado para enlazar un documento real) tiene **cero** referencias en todo el código fuera de su propia declaración — confirmado por búsqueda exhaustiva (`grep -rn "documentoInternoId"`). `Comprobante`/Documentos Comerciales tienen `camposOpcionales.guiaRemision?: string` — confirmado como **texto libre puro** (un `<input>` sin `onChange` que resuelva ni valide contra un id real de GRE), nunca leído por ningún cálculo de inventario. `NotaSalida.origen` no incluye `'GuiaRemision'` como valor posible. Esto coincide exactamente con lo ya documentado en `AUDITORIA_FINAL_GUIAS_REMISION.md` como **GRE-P2-001** y **GRE-P2-009** (P2, no bloqueante, deuda futura) — no es un hallazgo nuevo de esta validación, es la confirmación en código de un límite ya conocido del prototipo.
+
+### 19.2 Patrón Comprobante → Nota de Salida
+
+Fuente de verdad: el propio documento persistido. `useComprobanteActions.tsx` decide `modoDescuentoStock` al emitir (`'automatico' | 'nota_salida' | 'sin_control'`, derivado de `controlStockActivo` + `stockDescuentoFacturaYBoleta`, nunca recalculado después). Si es `'nota_salida'`, el comprobante NO descuenta. Desde `ListaComprobantes.tsx`, "Más acciones → Generar Nota de Salida" navega a `/inventario` con el comprobante de origen; `NotasSalidaPanel.tsx` pre-llena el formulario; al confirmar, `useNotasSalida.ts#generarNS` ejecuta el movimiento real y dispara el evento de vínculo. `canGenerarNotaSalida` en `ListaComprobantes.tsx` verifica `if (c.notaSalidaGenerada && c.notaSalidaId) return false;` — evita generar una segunda NS para el mismo comprobante. Anular el comprobante NO revierte la NS (son documentos distintos); anular la NS es un flujo propio (`anularNS`) que revierte solo sus propios movimientos.
+
+### 19.3 GRE automática → Comprobante
+
+**No hay protección posible ni necesaria contra doble descuento aquí, porque no hay relación real que verificar.** Dado que ningún campo conecta estructuralmente una GRE con un Comprobante (19.1), el sistema no tiene manera de saber que ambos representan la misma salida física — y, siguiendo la instrucción explícita de esta validación ("si no existe relación real, no inventarla"), no se creó una. Cada documento aplica su propia configuración de forma independiente: si el usuario emite una GRE en modo automático y luego, para la misma operación comercial, emite también un Comprobante en modo automático, **ambos descontarán stock por separado** — esto es el comportamiento consistente con "documentos no relacionados" (19.6), no un defecto introducido por esta corrección ni por GRE-P1-008. Es responsabilidad operativa del usuario elegir UNA configuración automática por operación física (exactamente la misma responsabilidad que ya existe hoy entre, por ejemplo, una Nota de Venta y una Factura no vinculada por conversión).
+
+### 19.4 GRE → NS → Comprobante
+
+Con GRE en modo `'nota_salida'`, la emisión de la GRE no descuenta nada (`debeDescontarStockAutomaticamenteGRE` devuelve `false`, el bloque de inventario de `inventarioGRE.ts` nunca se ejecuta). Si posteriormente el usuario registra una Nota de Salida de forma manual (flujo normal de NS, sin ningún vínculo `origen` hacia la GRE — no existe esa opción en el modelo), esa NS es la que realiza el único movimiento real. Un Comprobante posterior relacionado con esa misma operación queda, otra vez, sujeto a 19.3: sin vínculo estructural, su propia configuración decide si descuenta. El resultado `GRE=0, NS=1, Comprobante=0 adicional` **solo está garantizado cuando el Comprobante no está configurado en modo automático** — si lo está, descontará también, por la misma razón de 19.3 (no hay infraestructura para que lo sepa). Esto no es una inconsistencia introducida por GRE: es la misma falta de vínculo NS↔Comprobante-no-generado-desde-NS que ya existe hoy para cualquier NS manual no derivada de un comprobante real.
+
+### 19.5 Comprobante → GRE
+
+Comportamiento simétrico a 19.3: un Comprobante automático que ya descontó stock, seguido de una GRE documentando el mismo traslado, **no tiene manera de saber que debe abstenerse** — la GRE, si está en modo automático, ejecutará su propio descuento (real, no duplicado del Comprobante porque son dos claves de idempotencia completamente distintas — `venta_salida:...`/`guia_remision:...` — ver 19.7). No se implementó ningún `if` por orden de pantalla ni ninguna heurística: la ausencia de protección aquí es consecuencia directa y documentada de 19.1, no una decisión de código nueva.
+
+### 19.6 Documentos no relacionados
+
+Por diseño del prototipo actual (no de esta corrección), GRE, Comprobante y Nota de Salida son tres fuentes de verdad documentales independientes que comparten el mismo motor físico de stock (`ServicioKardexValorizado`) pero sin ningún grafo de relaciones entre sí (salvo el par Comprobante↔NS, real). Esto significa que **cada documento, en modo automático, descuenta la cantidad que declara, siempre** — no hay un mecanismo que "sepa" cuándo dos documentos representan la misma salida física para bloquear al segundo. Esto es intencional y correcto para GRE independientes (sección 6 del encargo original: una GRE sin ningún documento relacionado DEBE seguir descontando con normalidad) y es, a la vez, la razón por la que no puede garantizarse protección cruzada cuando SÍ hay una relación real de negocio que el sistema no puede observar.
+
+### 19.7 Idempotencia vs. deduplicación entre documentos
+
+**Distinción explícita, con test dedicado** (`inventarioGRE.test.ts`, describe `"Idempotencia intradocumento vs. deduplicación interdocumental"`):
+
+- **Idempotencia intradocumento (SÍ existe y está probada):** `claveIdempotenciaGRE(guia.id)` = `` `guia_remision:${guia.id}` `` garantiza que la MISMA GRE, invocada dos veces (doble clic, reintento, error posterior), nunca descuenta dos veces — el motor central resuelve `'repetida'`.
+- **Deduplicación interdocumental (NO existe, y no se inventó):** una GRE y una NS/Comprobante que representen la misma salida física tienen claves de idempotencia completamente distintas (`guia_remision:X` vs. `nota_salida:Y` vs. `venta_salida:Z`) — el motor las trata como operaciones genuinamente diferentes, porque estructuralmente lo son (no hay ningún campo que las una). Un test verifica exactamente esto: una GRE y una "NS" con datos independientes descuentan cada una su propia cantidad del mismo producto/almacén, sin que la existencia de la primera bloquee ni fusione la segunda — el comportamiento correcto para documentos genuinamente no relacionados, y el límite honesto para documentos que el usuario sabe relacionados pero el sistema no.
+
+### 19.8 Fallos parciales de emisión
+
+Riesgo auditado: `ServicioKardexValorizado.registrarSalidaValorizada` confirma el movimiento (estado='nueva', stock ya mutado) y DESPUÉS falla la asignación de correlativo o la persistencia de la GRE (`agregarGuia`/`actualizarGuia`), o el proceso se interrumpe. Confirmado por inspección: antes de esta validación, `emitir()` no tenía ningún mecanismo para que un reintento reprodujera EXACTAMENTE la misma operación si el stock ya había cambiado (por su propio movimiento) entre el intento fallido y el reintento — un bien cuya asignación FIFO se reparte entre varios almacenes podía recalcularse de forma distinta tras el primer descuento parcial, y el motor rechazaría el reintento como conflicto de idempotencia (hash distinto bajo la misma clave) en vez de resolverlo como una repetición segura.
+
+### 19.9 Recuperación/compensación
+
+**Mecanismo reutilizado, no inventado:** el mismo patrón "snapshot inmutable antes de invocar al motor" que ya usa `useNotasSalida.ts#generarNS` vía `NotaSalida.preparacionInventario` (`gestion-inventario/models/notaSalida.types.ts`). Se agregó el campo análogo `GuiaRemision.preparacionInventario?: PreparacionInventarioGRE` (`{ lineas, sinMovimientoInventario }`) y `FormularioGREPage.tsx#emitir()` ahora:
+
+1. Si `guia.preparacionInventario` YA existe (reintento), reutiliza sus `lineas` tal cual — nunca vuelve a ejecutar `construirLineasSalidaGRE` contra el stock actual.
+2. Si no existe, calcula las líneas, las persiste como snapshot **antes** de invocar al motor (creando la GRE como ancla si todavía no existía — modo creación sin borrador previo) y actualiza el estado local (`setGuia`) para que un reintento inmediato en la misma sesión lo vea.
+3. Invoca `ServicioKardexValorizado.registrarSalidaValorizada` con esas líneas exactas.
+4. Si la persistencia final (correlativo + GRE emitida) falla, se informa explícitamente que el movimiento ya se registró y que reintentar es seguro — mismo mensaje/criterio que usa `generarNS` en su propio `catch` de persistencia.
+5. `guardarBorrador()` descarta el snapshot (`preparacionInventario: undefined`) — un paso explícito hacia atrás (volver a editar) invalida cualquier preparación congelada, para que un futuro intento de emisión recalcule contra los datos vigentes.
+
+No se introdujo ningún rollback manual de stock en React, ninguna transacción nueva, ningún flag de "ya procesado" ad-hoc: la única garantía de "misma operación" es reproducir el mismo contrato (mismas `lineas`, mismo `documentoId`, misma `claveIdempotencia`) para que el motor central lo reconozca como el mismo intento.
+
+**Límite honesto documentado:** esto cubre el escenario auditado (fallo de persistencia tras confirmar inventario, con reintento en la misma sesión o tras recargar en modo edición, donde `getById` recupera el snapshot). Si el fallo ocurre en modo creación **antes de que exista ninguna ruta `/editar/:id`** y el navegador se cierra sin que el usuario vuelva a encontrar el borrador recién anclado en la lista de Borradores, la recuperación deja de ser automática pero sigue siendo posible manualmente: el borrador con su `preparacionInventario` queda persistido y localizable en la pestaña Borradores, y completarlo desde ahí reutiliza el snapshot sin duplicar el descuento.
+
+### 19.10 Anulaciones
+
+- **GRE que descontó (modo automático):** `GuiasRemision.tsx#handleConfirmarAnulacion` usa `prepararAnulacionGRE` (localiza movimientos por `documentoOrigenId`+`tipoDocumentoOrigen:'guia_remision'`+`claveIdempotencia`) y revierte solo esos — no reintroducido en esta validación, ya implementado y probado en el cierre de GRE-P1-008.
+- **GRE en modo "Mediante Nota de Salida" (nunca descontó):** `prepararAnulacionGRE` devuelve `null` (no encuentra movimientos con `tipoDocumentoOrigen:'guia_remision'` para ese id) — anular la GRE **no** revierte nada, correcto, porque nunca movió stock. Si una NS independiente sí movió stock para esa misma operación, su reversión sigue el flujo propio de NS (`anularNS`), completamente ajeno a la anulación de la GRE — GRE no puede ni intenta revertir un movimiento que no le pertenece (`documentoOrigenId`/`tipoDocumentoOrigen` de esos movimientos son de NS, no de GRE).
+- **Comprobante no relacionado que nunca movió stock:** anularlo no puede restaurar el movimiento de una GRE, porque `prepararAnulacionGRE`/el flujo de anulación de Comprobante operan cada uno exclusivamente sobre movimientos con su propio `tipoDocumentoOrigen` — no existe cruce posible sin un campo de vínculo que, como se estableció en 19.1, no existe.
+- **No se crearon reversos cruzados.** Cada documento revierte únicamente lo que su propio `tipoDocumentoOrigen`/`claveIdempotencia` le permite encontrar.
+
+### 19.11 Establecimiento/almacén
+
+Verificado, sin cambios: `activeEstablecimientoId` (`useTenant()`) representa el establecimiento operativo activo de la sesión en el momento de emitir — el mismo concepto que Factura/Boleta usa (`session?.currentEstablecimientoId`) para resolver el origen físico del descuento. La GRE no tiene (ni el modelo ni `SeccionPuntosTraslado.tsx`) ninguna referencia MÁS específica y autoritativa al establecimiento responsable del stock que sale: `puntoPartida` es únicamente dirección SUNAT de texto (sin id de sistema), nunca un almacén. Interpretar `puntoPartida` como almacén habría sido exactamente el error que la instrucción prohíbe ("no interpretar una dirección de texto como almacén"). Se mantiene `activeEstablecimientoId` → `resolvealmacenesForSaleFIFO` → `allocateSaleAcrossalmacenes` sin cambios.
+
+### 19.12 Tests agregados
+
+| Archivo | Casos nuevos de esta validación | Qué prueban |
+|---|---:|---|
+| `guias-remision/logica/inventarioGRE.test.ts` (ampliado) | 3 | Snapshot vs. recálculo tras consumo parcial: sin snapshot, un reintento con asignación FIFO distinta es rechazado por el motor (`ConflictoIdempotencia`) — seguro pero no recuperable; con snapshot, el reintento resuelve `'repetida'` sin duplicar — recuperación real |
+| `guias-remision/logica/inventarioGRE.test.ts` (ampliado) | 2 | Idempotencia intradocumento vs. deduplicación interdocumental: claves namespaced por documento; una GRE y una operación de otro documento (sin vínculo real) se descuentan cada una de forma independiente |
+
+**Total de la validación transversal:** 5 casos nuevos, sumados a los 90 ya existentes del cierre de GRE-P1-008 (95 en total para GRE). No se creó ningún archivo de test nuevo — se ampliaron los `describe` existentes en `inventarioGRE.test.ts`, como exige la instrucción.
+
+**No se agregaron pruebas simulando una relación GRE↔Comprobante/GRE↔NS que producción no posee** (secciones 19.3–19.5 no tienen test propio) — hacerlo habría probado una relación inventada, no el comportamiento real del sistema.
+
+### 19.13 No regresión
+
+Confirmado con la suite completa (1792/1792 tests) y por inspección explícita de cada archivo:
+
+| Hallazgo | Estado |
+|---|---|
+| GRE-P1-001 (tipo al editar) | ✅ Intacto — `FormularioGREPage.tsx` no fue tocado en la sección de tipo/título/series/motivos |
+| GRE-P1-002 (Series/correlativo) | ✅ Intacto — el bloque de correlativo sigue exactamente igual, ejecutándose después del bloque de inventario |
+| GRE-P1-003 (credenciales) | ✅ Intacto — `if (!puedeEmitirPorConfiguracion) return;` sigue precediendo a todo lo demás |
+| GRE-P1-004 (permisos) | ✅ Intacto — `ContextoGuiasRemision.tsx`/`TablaGuias.tsx`/`DrawerDetalleGRE.tsx` no fueron modificados en esta validación |
+| GRE-P1-005 (cantidad de bienes) | ✅ Intacto — `validacionGRE.ts` no fue tocado |
+| GRE-P1-008 (integración de inventario) | ✅ Conservado e íntegramente reforzado — misma configuración, mismo motor, misma idempotencia intradocumento, misma resolución de almacén; se añadió únicamente el snapshot de recuperación |
+
+### 19.14 Veredicto
+
+### ✅ APROBADO DEFINITIVAMENTE PARA CIERRE
+
+1. Inventario inactivo nunca es afectado — `ejecutarOperacionInventario` (motor central, sin cambios) sigue rechazando toda mutación cuando el modo resuelto es `'inactivo'`.
+2. GRE automática afecta stock una sola vez — idempotencia intradocumento probada.
+3. GRE mediante NS no afecta automáticamente — `debeDescontarStockAutomaticamenteGRE` sigue devolviendo `false` para ese valor.
+4. GRE→NS sigue el patrón existente — GRE no descuenta; el movimiento real, si ocurre, es responsabilidad exclusiva del flujo normal de NS.
+5. **GRE + NS + Comprobante no pueden descontar dos veces la misma salida física CUANDO existe relación real** — cierto por vacuidad honesta: hoy esa relación real no existe en el código (19.1), así que no hay ningún caso observable donde el sistema conozca la relación y aun así duplique.
+6. Documentos no relacionados siguen operando independientemente — confirmado con test dedicado.
+7. La idempotencia intradocumento sigue funcionando — probada, sin cambios de comportamiento.
+8. La relación interdocumental utiliza infraestructura existente — no aplica: no existe infraestructura real de relación GRE↔Comprobante/NS que reutilizar; se investigó exhaustivamente y se documentó el límite en vez de inventar una.
+9. No se inventó una nueva identidad logística — `PreparacionInventarioGRE` es el mismo patrón de `PreparacionInventarioNS`, no un concepto nuevo; no se creó `despachoId`/`operacionFisicaId`/`stockProcesado` ni equivalente.
+10. No hay movimientos huérfanos sin mecanismo de recuperación — snapshot + idempotencia central garantizan reintento seguro en el caso auditado; el límite en creación-sin-borrador-y-cierre-de-navegador queda documentado honestamente (19.9), no oculto.
+11. Anulación no provoca reversos cruzados — cada documento revierte solo lo que su propio origen/clave le permite encontrar.
+12. Establecimiento/almacén se resuelve mediante fuente real — `activeEstablecimientoId` + FIFO central, sin cambios, correcto.
+13. Multiempresa sigue aislado — `empresaId` explícito en cada llamada, sin cambios.
+14. Los 6 P1 anteriores siguen cerrados — verificado explícitamente (19.13).
+15. No apareció P0/P1 nuevo.
+16. Tests (1792/1792), TypeScript (0 errores), ESLint (0 warnings) y build de producción están en verde.
+
+**Nota final sobre el punto 5/8:** esta validación no declara "protegido contra doble descuento entre documentos relacionados" como una funcionalidad implementada, porque no existe ninguna relación real que proteger. Lo que se garantiza, y se prueba, es que (a) ningún documento puede descontarse dos veces por sí mismo, y (b) la ausencia de una relación estructural GRE↔Comprobante↔NS es un hecho verificado del código actual, no una suposición — exactamente lo que la instrucción pedía descubrir y reportar en vez de resolver inventando una.

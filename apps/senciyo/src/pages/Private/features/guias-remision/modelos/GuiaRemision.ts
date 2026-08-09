@@ -1,4 +1,5 @@
 import type { CodigoMotivoTraslado, CodigoModalidadTransporte } from '../../configuracion-sistema/datos/catalogosGRE';
+import type { DatosLineaOperacionCuantitativa } from '../../gestion-inventario/models/operacionEntradaInventario.types';
 export type { CodigoMotivoTraslado, CodigoModalidadTransporte };
 
 export type TipoGRE = 'remitente' | 'transportista';
@@ -83,6 +84,21 @@ export interface EventoGRE {
   fecha: string; // ISO string — serializa limpio a JSON
 }
 
+/**
+ * Snapshot INMUTABLE de la preparación de inventario de una GRE — mismo patrón que
+ * `PreparacionInventarioNS` (`gestion-inventario/models/notaSalida.types.ts`), persistido junto
+ * con la guía ANTES de invocar a `ServicioKardexValorizado`. Un reintento (p. ej. tras un fallo
+ * entre confirmar el movimiento y persistir la GRE como emitida) reutiliza este snapshot
+ * EXACTAMENTE tal cual — nunca vuelve a ejecutar la asignación FIFO contra el stock actual (que ya
+ * refleja el movimiento del intento anterior), garantizando que la operación reintentada resuelva
+ * siempre la misma clave/hash de idempotencia en `ServicioKardexValorizado`.
+ */
+export interface PreparacionInventarioGRE {
+  lineas: DatosLineaOperacionCuantitativa[];
+  /** `true` cuando la primera preparación legítima determinó que esta GRE no genera ningún movimiento (sin bienes inventariables) — persistido explícitamente para que un reintento no tenga que inferirlo de nuevo. */
+  sinMovimientoInventario: boolean;
+}
+
 export interface GuiaRemision {
   id: string;
   tipo: TipoGRE;
@@ -128,6 +144,9 @@ export interface GuiaRemision {
 
   observaciones?: string;
   historial?: EventoGRE[];
+
+  /** Ausente en un borrador que nunca intentó emitirse con descuento automático. Ver `PreparacionInventarioGRE`. */
+  preparacionInventario?: PreparacionInventarioGRE;
 
   creadoEl: Date;
   actualizadoEl: Date;

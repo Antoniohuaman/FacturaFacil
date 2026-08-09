@@ -687,6 +687,11 @@ export default function FormularioGREPage() {
         esBorrador: true,
         estado: 'Borrador',
         historial: [...(guia.historial ?? []), evento],
+        // Guardar como borrador es un paso atrás explícito respecto a un intento de emisión — si
+        // quedó un snapshot de un intento fallido anterior (`preparacionInventario`), se descarta:
+        // un futuro intento de emisión debe recalcular la salida contra los datos/stock vigentes,
+        // nunca reutilizar una preparación que ya no corresponde a lo que el usuario está editando.
+        preparacionInventario: undefined,
       };
       if (modoEdicion) {
         await actualizarGuia(borrador);
@@ -712,9 +717,18 @@ export default function FormularioGREPage() {
     if (!serieActiva) return;
     setGuardando(true);
     try {
-      // GRE-P1-008: la salida real de stock (si corresponde) ocurre ANTES de asignar
-      // correlativo/persistir — una emisión que falla por stock insuficiente no debe consumir
-      // numeración de Series ni quedar registrada como emitida.
+      // `guiaTrabajo` (no `guia`/`setGuia`) es la copia de trabajo de esta invocación — se
+      // reasigna localmente a medida que se persisten checkpoints, sin depender de un re-render.
+      let guiaTrabajo = guia;
+      // En modo edición la guía ya existe en el datasource desde la carga inicial (`getById`).
+      // En modo creación, puede no existir todavía si el usuario nunca guardó un borrador —
+      // `yaPersistida` rastrea si ESTA invocación ya la ancló, para no duplicarla con `agregarGuia`
+      // una segunda vez ni perderla con `actualizarGuia` sobre un id inexistente.
+      let yaPersistida = modoEdicion;
+
+      // GRE-P1-008 + consistencia transaccional (auditoría de cierre): la salida real de stock (si
+      // corresponde) ocurre ANTES de asignar correlativo — una emisión que falla por stock
+      // insuficiente no debe consumir numeración de Series ni quedar registrada como emitida.
       if (debeDescontarStockAutomaticamenteGRE(configState.salesPreferences?.controlStockActivo, configState.salesPreferences?.stockDescuentoGuiaRemision)) {
         if (!activeEstablecimientoId) {
           feedback.error('No se pudo resolver el establecimiento activo para descontar stock.');
@@ -728,13 +742,41 @@ export default function FormularioGREPage() {
           feedback.error('No hay almacenes activos configurados para el establecimiento activo.');
           return;
         }
-        const productsMap = new Map((allProducts as Product[]).map((p) => [String(p.id), p]));
+
+        let lineas;
         try {
-          const { lineas } = construirLineasSalidaGRE(guia, productsMap, almacenesOrdenados);
+          if (guiaTrabajo.preparacionInventario) {
+            // Reintento tras un fallo previo (el movimiento ya pudo haberse confirmado; la
+            // persistencia de la GRE quedó pendiente) — se reutiliza EXACTAMENTE el snapshot ya
+            // congelado, nunca se recalcula la asignación FIFO contra el stock actual (que ya
+            // refleja el movimiento del intento anterior). Mismo patrón que
+            // `reconstruirOperacionNSDesdeSnapshot` en `useNotasSalida.ts`.
+            lineas = guiaTrabajo.preparacionInventario.lineas;
+          } else {
+            const productsMap = new Map((allProducts as Product[]).map((p) => [String(p.id), p]));
+            ({ lineas } = construirLineasSalidaGRE(guiaTrabajo, productsMap, almacenesOrdenados));
+
+            // Ancla de persistencia + snapshot INMUTABLE ANTES de invocar al motor — mismo patrón
+            // que `useNotasSalida.ts#generarNS` (persistir `preparacionInventario` antes de tocar
+            // inventario). Garantiza que, si el proceso se interrumpe entre confirmar el movimiento
+            // y persistir la GRE emitida, un reintento reutilice la MISMA operación.
+            guiaTrabajo = {
+              ...guiaTrabajo,
+              preparacionInventario: { lineas, sinMovimientoInventario: lineas.length === 0 },
+            };
+            if (yaPersistida) {
+              await actualizarGuia(guiaTrabajo);
+            } else {
+              await agregarGuia(guiaTrabajo);
+              yaPersistida = true;
+            }
+            setGuia(guiaTrabajo);
+          }
+
           if (lineas.length > 0) {
             const almacenesMap = new Map(configState.almacenes.map((a) => [a.id, a]));
             const datosOperacion = construirDatosOperacionSalidaGRE({
-              guia,
+              guia: guiaTrabajo,
               lineas,
               empresaId: tenantId,
               usuario: session?.userName || 'Usuario',
@@ -767,16 +809,27 @@ export default function FormularioGREPage() {
         fecha: new Date().toISOString(),
       };
       const emitida: GuiaRemision = {
-        ...guia,
+        ...guiaTrabajo,
         esBorrador: false,
         estado: 'Pendiente',
         correlativo: correlativeStr,
-        historial: [...(guia.historial ?? []), evento],
+        historial: [...(guiaTrabajo.historial ?? []), evento],
       };
-      if (modoEdicion) {
-        await actualizarGuia(emitida);
-      } else {
-        await agregarGuia(emitida);
+      try {
+        if (yaPersistida) {
+          await actualizarGuia(emitida);
+        } else {
+          await agregarGuia(emitida);
+        }
+      } catch (errorPersistencia) {
+        // El movimiento de inventario (si correspondía) ya se confirmó — nunca se revierte desde
+        // aquí. Mismo criterio que `useNotasSalida.ts#generarNS`: se informa explícitamente que
+        // reintentar es seguro (misma clave de idempotencia) en vez de dejar un error genérico.
+        const detalle = errorPersistencia instanceof Error ? errorPersistencia.message : 'error desconocido';
+        feedback.error(
+          `El movimiento de inventario (si correspondía) ya se registró correctamente, pero la GRE no pudo guardarse como emitida (${detalle}). Vuelve a intentar: la operación es segura de repetir y no volverá a descontar stock.`,
+        );
+        return;
       }
       // Confirma el consumo de la serie oficial recién DESPUÉS de persistir la GRE — la misma
       // secuencia que usan Gastos/Cobranzas. Esto es lo que hace que Configuración → Series
