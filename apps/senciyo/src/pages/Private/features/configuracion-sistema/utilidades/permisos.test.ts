@@ -350,3 +350,46 @@ describe('Permisos de valorización de inventario (VAL-P1-001)', () => {
     }
   });
 });
+
+// GRE-P1-004: Anular/Eliminar borrador/Duplicar reutilizan `ventas.gre.emitir` (mismo permiso que
+// crear/editar/emitir) — se prueba contra la función real `tienePermiso`, el mismo guard que
+// `ContextoGuiasRemision.tsx` vuelve a exigir dentro de `agregarGuia`/`actualizarGuia`/
+// `eliminarGuia`, no solo en el guard de rutas.
+describe('Permisos de acciones internas de GRE (GRE-P1-004)', () => {
+  it('un usuario con solo "ventas.gre.ver" puede ver el listado pero NO tiene el permiso que exigen anular/eliminar borrador/duplicar', () => {
+    const rolSoloVer = crearRolFixture({ id: 'rol-gre-solo-ver', permisos: ['ventas.gre.ver'] });
+    const usuario = crearUsuarioFixture({ systemAccess: { username: 'ana', email: 'ana@empresa.test', roleIds: ['rol-gre-solo-ver'], roles: [], permissions: [] } });
+    const parametros = { usuario, rolesDisponibles: [rolSoloVer], establecimientoId: ESTABLECIMIENTO_1 };
+
+    expect(tienePermiso({ ...parametros, permisoId: 'ventas.gre.ver' })).toBe(true);
+    expect(tienePermiso({ ...parametros, permisoId: 'ventas.gre.emitir' })).toBe(false);
+  });
+
+  it('un usuario con "ventas.gre.emitir" tiene el permiso que habilita crear, editar, anular, eliminar borrador y duplicar', () => {
+    const rolCompleto = crearRolFixture({ id: 'rol-gre-completo', permisos: ['ventas.gre.ver', 'ventas.gre.emitir'] });
+    const usuario = crearUsuarioFixture({ systemAccess: { username: 'ana', email: 'ana@empresa.test', roleIds: ['rol-gre-completo'], roles: [], permissions: [] } });
+    const parametros = { usuario, rolesDisponibles: [rolCompleto], establecimientoId: ESTABLECIMIENTO_1 };
+
+    expect(tienePermiso({ ...parametros, permisoId: 'ventas.gre.emitir' })).toBe(true);
+  });
+
+  it('los roles predeterminados conservan el comportamiento actual: Vendedor autorizado, Contador sin acceso a GRE', () => {
+    const rolesConfigurados = listarRolesConfigurados(ROLES_DEL_SISTEMA);
+    const usuarioVendedor = crearUsuarioFixture({ systemAccess: { username: 'v', email: 'v@empresa.test', roleIds: [ID_ROL_VENDEDOR], roles: [], permissions: [] } });
+    const usuarioContador = crearUsuarioFixture({ systemAccess: { username: 'c', email: 'c@empresa.test', roleIds: [ID_ROL_CONTADOR], roles: [], permissions: [] } });
+
+    expect(tienePermiso({ usuario: usuarioVendedor, permisoId: 'ventas.gre.emitir', rolesDisponibles: rolesConfigurados, establecimientoId: ESTABLECIMIENTO_1 })).toBe(true);
+    expect(tienePermiso({ usuario: usuarioContador, permisoId: 'ventas.gre.ver', rolesDisponibles: rolesConfigurados, establecimientoId: ESTABLECIMIENTO_1 })).toBe(false);
+    expect(tienePermiso({ usuario: usuarioContador, permisoId: 'ventas.gre.emitir', rolesDisponibles: rolesConfigurados, establecimientoId: ESTABLECIMIENTO_1 })).toBe(false);
+  });
+
+  it('retirar "ventas.gre.emitir" de un rol personalizado bloquea de inmediato la posibilidad de anular/eliminar/duplicar, conservando solo lectura', () => {
+    const rolConEmitir = crearRolFixture({ id: 'rol-gre-x', permisos: ['ventas.gre.ver', 'ventas.gre.emitir'] });
+    const rolSinEmitir = crearRolFixture({ id: 'rol-gre-x', permisos: ['ventas.gre.ver'] }); // mismo id — reemplaza la definición del rol
+    const usuario = crearUsuarioFixture({ systemAccess: { username: 'ana', email: 'ana@empresa.test', roleIds: ['rol-gre-x'], roles: [], permissions: [] } });
+
+    expect(tienePermiso({ usuario, permisoId: 'ventas.gre.emitir', rolesDisponibles: [rolConEmitir], establecimientoId: ESTABLECIMIENTO_1 })).toBe(true);
+    expect(tienePermiso({ usuario, permisoId: 'ventas.gre.emitir', rolesDisponibles: [rolSinEmitir], establecimientoId: ESTABLECIMIENTO_1 })).toBe(false);
+    expect(tienePermiso({ usuario, permisoId: 'ventas.gre.ver', rolesDisponibles: [rolSinEmitir], establecimientoId: ESTABLECIMIENTO_1 })).toBe(true);
+  });
+});

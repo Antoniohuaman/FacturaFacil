@@ -55,6 +55,11 @@ export const TIPOS_OPERACION_SALIDA_VALORIZABLES = new Set<TipoOperacionIdempote
   // usado por `transferenciaCuantitativaInventario.ts` (la variante ATÓMICA intra-establecimiento
   // sigue construyendo sus propios movimientos directamente, sin pasar por aquí).
   'transferencia',
+  // GRE-P1-008: la Guía de Remisión configurada en modo "automático" es una salida física real de
+  // bienes — consume capas FIFO exactamente igual que Nota de Salida/venta cuando la empresa está
+  // en modo valorizado. La regla por línea (`validarLinea` en `calcularMutacionesSalida`, arriba)
+  // sigue rechazando cualquier producto no inventariable, sin excepción para este tipoOperacion.
+  'guia_remision_salida',
 ]);
 
 /**
@@ -84,6 +89,7 @@ function tipoMovimientoParaOperacionSalida(tipoOperacion: TipoOperacionIdempoten
     case 'nota_salida':
     case 'venta_salida':
     case 'transferencia':
+    case 'guia_remision_salida':
       return 'SALIDA';
     case 'ajuste_negativo':
       return 'AJUSTE_NEGATIVO';

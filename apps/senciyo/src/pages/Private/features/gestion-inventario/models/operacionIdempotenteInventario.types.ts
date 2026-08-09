@@ -20,7 +20,7 @@
 export type TipoOperacionIdempotenteInventario =
   | 'ni_automatica' | 'ni_confirmacion'
   | 'ajuste_positivo' | 'ajuste_negativo'
-  | 'nota_salida' | 'venta_salida'
+  | 'nota_salida' | 'venta_salida' | 'guia_remision_salida'
   | 'importacion' | 'transferencia'
   | 'anulacion' | 'reverso'
   | 'devolucion_cliente' | 'devolucion_proveedor'
@@ -29,7 +29,7 @@ export type TipoOperacionIdempotenteInventario =
 export type EstadoOperacionIdempotenteInventario = 'preparada' | 'confirmada' | 'fallida' | 'revertida';
 
 export type ReferenciaDocumentoTipoOperacionIdempotente =
-  | 'comprobante_compra' | 'nota_ingreso' | 'nota_salida' | 'venta' | 'ajuste' | 'importacion' | 'transferencia' | 'valorizacion_inicial' | 'nota_credito';
+  | 'comprobante_compra' | 'nota_ingreso' | 'nota_salida' | 'venta' | 'ajuste' | 'importacion' | 'transferencia' | 'valorizacion_inicial' | 'nota_credito' | 'guia_remision';
 
 export interface OperacionIdempotenteInventario {
   id: string;

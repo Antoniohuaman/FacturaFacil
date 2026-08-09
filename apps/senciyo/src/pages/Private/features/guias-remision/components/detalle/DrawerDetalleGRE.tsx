@@ -36,6 +36,8 @@ interface Props {
   onDuplicar: (guia: GuiaRemision) => void;
   onEditar: (guia: GuiaRemision) => void;
   onEliminarBorrador: (guia: GuiaRemision) => void;
+  /** Permiso real del usuario (`ventas.gre.emitir`) para Anular/Eliminar borrador/Duplicar — GRE-P1-004. */
+  puedeGestionar: boolean;
 }
 
 export default function DrawerDetalleGRE({
@@ -47,6 +49,7 @@ export default function DrawerDetalleGRE({
   onDuplicar,
   onEditar,
   onEliminarBorrador,
+  puedeGestionar,
 }: Props) {
   const [tabActivo, setTabActivo] = useState<TabDrawer>('general');
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
@@ -128,7 +131,7 @@ export default function DrawerDetalleGRE({
               Editar
             </button>
           )}
-          {puedeEliminarBorradorGRE(guia) && (
+          {puedeEliminarBorradorGRE(guia) && puedeGestionar && (
             <button
               type="button"
               onClick={() => onEliminarBorrador(guia)}
@@ -148,15 +151,17 @@ export default function DrawerDetalleGRE({
                 <Printer className="h-3.5 w-3.5" />
                 Imprimir
               </button>
-              <button
-                type="button"
-                onClick={() => onDuplicar(guia)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg transition-colors"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                Duplicar
-              </button>
-              {puedeAnularGRE(guia) && (
+              {puedeGestionar && (
+                <button
+                  type="button"
+                  onClick={() => onDuplicar(guia)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg transition-colors"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Duplicar
+                </button>
+              )}
+              {puedeAnularGRE(guia) && puedeGestionar && (
                 <button
                   type="button"
                   onClick={() => onAnular(guia)}

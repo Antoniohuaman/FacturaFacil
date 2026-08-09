@@ -2,6 +2,10 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Truck, Plus, Search, SlidersHorizontal, Columns3 } from 'lucide-react';
 import { useTenant } from '@/shared/tenant/TenantContext';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { useFeedback } from '@/shared/feedback';
+import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { obtenerUsuarioDesdeSesion, tienePermiso } from '../../configuracion-sistema/utilidades/permisos';
 import { useGuiasRemision } from '../contexto/ContextoGuiasRemision';
 import TablaGuias from '../components/lista/TablaGuias';
 import DrawerDetalleGRE from '../components/detalle/DrawerDetalleGRE';
@@ -19,6 +23,11 @@ import { FILTROS_GRE_VACIO, aplicarFiltrosGRE, contarFiltrosActivosGRE } from '.
 import { cargarColumnasGRE, persistirColumnasGRE } from '../logica/columnasGRE';
 import type { ColumnaGREConfig } from '../logica/columnasGRE';
 import { useEstadoConfiguracionGRE } from '../logica/useEstadoConfiguracionGRE';
+import { prepararAnulacionGRE } from '../logica/inventarioGRE';
+import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
+import { STORAGE_KEY_MOVEMENTS } from '../../gestion-inventario/repositories/stock.repository';
+import { sincronizarInventarioTrasConfirmacion } from '@/shared/inventory/accionesStock';
+import { lsKey } from '@/shared/tenant';
 
 type Tab = 'listado' | 'borradores';
 
@@ -27,6 +36,23 @@ export default function GuiasRemision() {
   const { id: idParam } = useParams<{ id?: string }>();
   const { tenantId, activeWorkspace } = useTenant();
   const { state, actualizarGuia, eliminarGuia, agregarGuia } = useGuiasRemision();
+
+  // Permiso real (no solo estado del documento) para Anular/Eliminar borrador/Duplicar —
+  // GRE-P1-004. `ContextoGuiasRemision` vuelve a exigir este mismo permiso al ejecutar la
+  // mutación; aquí solo se usa para decidir qué botones mostrar.
+  const { session } = useUserSession();
+  const feedback = useFeedback();
+  const { state: configState, rolesConfigurados } = useConfigurationContext();
+  const usuarioActual = useMemo(
+    () => obtenerUsuarioDesdeSesion(configState.users, session),
+    [configState.users, session],
+  );
+  const puedeGestionarGRE = tienePermiso({
+    usuario: usuarioActual,
+    permisoId: 'ventas.gre.emitir',
+    rolesDisponibles: rolesConfigurados,
+    establecimientoId: session?.currentEstablecimientoId,
+  });
 
   const { credencialesCompletas, autorizacionEspecialEmisor, refrescar } = useEstadoConfiguracionGRE();
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
@@ -103,6 +129,36 @@ export default function GuiasRemision() {
         descripcion: modalAnular.motivo.trim() || 'Anulación sin motivo indicado',
         fecha: new Date().toISOString(),
       };
+      // GRE-P1-008: si esta GRE produjo una salida real de stock al emitirse (modalidad
+      // "automático"), anularla debe revertir esos movimientos mediante el mismo patrón central
+      // que usan Comprobantes/Nota de Salida — nunca sumar stock a mano ni reconstruir capas
+      // desde la UI. Si la GRE no produjo movimiento (inventario inactivo, modalidad "Mediante
+      // Nota de Salida", o solo bienes no inventariables), `datosAnulacion` es `null` y no se
+      // inventa ninguna reversión.
+      if (tenantId) {
+        const movimientosRaw = localStorage.getItem(lsKey(STORAGE_KEY_MOVEMENTS, tenantId));
+        const { datosAnulacion } = prepararAnulacionGRE(
+          guia,
+          tenantId,
+          movimientosRaw,
+          modalAnular.motivo.trim() || 'Anulación sin motivo indicado',
+          usuarioActual?.personalInfo.fullName || session?.userName || 'Usuario',
+          evento.fecha,
+        );
+        if (datosAnulacion) {
+          const almacenesMap = new Map(configState.almacenes.map((a) => [a.id, a]));
+          await ServicioKardexValorizado.anularDocumentoValorizado(datosAnulacion, {
+            almacenes: almacenesMap,
+            generarId: () => crypto.randomUUID(),
+            fechaActual: () => new Date().toISOString(),
+            estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
+            valorizacionHabilitada: true,
+          });
+          sincronizarInventarioTrasConfirmacion();
+        }
+      }
+
       const anulada: GuiaRemision = {
         ...guia,
         estado: 'Anulada',
@@ -111,7 +167,8 @@ export default function GuiasRemision() {
       await actualizarGuia(anulada);
       if (guiaDetalle?.id === guia.id) setGuiaDetalle(anulada);
       setModalAnular({ open: false, guia: null, motivo: '', cargando: false });
-    } catch {
+    } catch (errorAnulacion) {
+      feedback.error(errorAnulacion instanceof Error ? errorAnulacion.message : 'No se pudo anular la guía de remisión.');
       setModalAnular((prev) => ({ ...prev, cargando: false }));
     }
   };
@@ -324,6 +381,7 @@ export default function GuiasRemision() {
           onEliminarBorrador={handleEliminarBorrador}
           onDuplicar={(g) => void handleDuplicar(g)}
           onImprimir={handleImprimir}
+          puedeGestionar={puedeGestionarGRE}
         />
       </div>
 
@@ -341,6 +399,7 @@ export default function GuiasRemision() {
           onDuplicar={(g) => void handleDuplicar(g)}
           onEditar={handleEditarDesdeDrawer}
           onEliminarBorrador={handleEliminarBorrador}
+          puedeGestionar={puedeGestionarGRE}
         />
       )}
 

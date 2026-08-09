@@ -35,6 +35,11 @@ export function validarGREParaEmitir(guia: GuiaRemision): ErroresValidacionGRE {
 
   if (guia.bienes.length === 0) {
     errores.bienes = 'Debe incluir al menos un bien.';
+  } else {
+    const bienInvalido = guia.bienes.find((b) => !Number.isFinite(b.cantidad) || b.cantidad <= 0);
+    if (bienInvalido) {
+      errores.bienes = `La cantidad de "${bienInvalido.descripcion || 'un bien'}" debe ser mayor a 0.`;
+    }
   }
 
   if (guia.pesoTotal === undefined || guia.pesoTotal <= 0) {

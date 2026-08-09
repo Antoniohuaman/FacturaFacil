@@ -87,7 +87,7 @@ export function calcularHashOperacionCuantitativa(datos: DatosOperacionCuantitat
 }
 
 export const TIPOS_DOCUMENTO_ORIGEN_MOVIMIENTO: readonly TipoDocumentoOrigenMovimiento[] = [
-  'comprobante_compra', 'nota_ingreso', 'nota_salida', 'ajuste', 'importacion', 'transferencia', 'venta', 'nota_credito', 'migracion',
+  'comprobante_compra', 'nota_ingreso', 'nota_salida', 'ajuste', 'importacion', 'transferencia', 'venta', 'nota_credito', 'migracion', 'guia_remision',
 ];
 
 /** `ReferenciaDocumentoTipoOperacionIdempotente` (Etapa 1B) y `TipoDocumentoOrigenMovimiento` (MovimientoStock) son dos enums distintos con miembros solapados — este guard evita un cast al construir `documentoOrigenId`/`tipoDocumentoOrigen`. */

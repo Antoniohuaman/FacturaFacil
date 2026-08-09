@@ -33,6 +33,8 @@ interface Props {
   onEliminarBorrador: (guia: GuiaRemision) => void;
   onDuplicar: (guia: GuiaRemision) => void;
   onImprimir: (guia: GuiaRemision) => void;
+  /** Permiso real del usuario (`ventas.gre.emitir`) para Anular/Eliminar borrador/Duplicar — GRE-P1-004. Se combina con los predicados de estado, nunca los reemplaza. */
+  puedeGestionar: boolean;
 }
 
 function descripcionMotivo(codigo: string): string {
@@ -131,7 +133,7 @@ function celdaGuia(col: ColumnaGREConfig, guia: GuiaRemision): React.ReactNode {
   }
 }
 
-export default function TablaGuias({ guias, columnas, onVerDetalle, onAnular, onEliminarBorrador, onDuplicar, onImprimir }: Props) {
+export default function TablaGuias({ guias, columnas, onVerDetalle, onAnular, onEliminarBorrador, onDuplicar, onImprimir, puedeGestionar }: Props) {
   const navigate = useNavigate();
   const [pagina, setPagina] = useState(1);
   const [menuAbierto, setMenuAbierto] = useState<string | null>(null);
@@ -220,7 +222,7 @@ export default function TablaGuias({ guias, columnas, onVerDetalle, onAnular, on
                           <Printer className="h-4 w-4" />
                         </button>
                       )}
-                      {!guia.esBorrador && puedeAnularGRE(guia) && (
+                      {!guia.esBorrador && puedeAnularGRE(guia) && puedeGestionar && (
                         <button
                           type="button"
                           title="Anular"
@@ -240,7 +242,7 @@ export default function TablaGuias({ guias, columnas, onVerDetalle, onAnular, on
                           <Edit3 className="h-4 w-4" />
                         </button>
                       )}
-                      {guia.esBorrador && puedeEliminarBorradorGRE(guia) && (
+                      {guia.esBorrador && puedeEliminarBorradorGRE(guia) && puedeGestionar && (
                         <button
                           type="button"
                           title="Eliminar borrador"
@@ -273,7 +275,7 @@ export default function TablaGuias({ guias, columnas, onVerDetalle, onAnular, on
                               <Eye className="h-4 w-4" />
                               Ver detalle
                             </button>
-                            {!guia.esBorrador && (
+                            {!guia.esBorrador && puedeGestionar && (
                               <button
                                 type="button"
                                 onClick={() => {

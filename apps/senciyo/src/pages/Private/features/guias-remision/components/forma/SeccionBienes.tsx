@@ -461,7 +461,10 @@ export default function SeccionBienes({
                 value={bien.cantidad}
                 min={0}
                 step="any"
-                onChange={(e) => actualizarCantidad(bien.id, parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const parsed = parseFloat(e.target.value);
+                  actualizarCantidad(bien.id, Number.isFinite(parsed) && parsed >= 0 ? parsed : 0);
+                }}
                 className={`${CELL} text-center`}
                 style={{ width: '44px' }}
               />

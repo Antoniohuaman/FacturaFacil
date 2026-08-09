@@ -35,7 +35,7 @@ export type MovimientoMotivo =
  */
 export type TipoDocumentoOrigenMovimiento =
   | 'comprobante_compra' | 'nota_ingreso' | 'nota_salida' | 'ajuste' | 'importacion'
-  | 'transferencia' | 'venta' | 'nota_credito' | 'migracion';
+  | 'transferencia' | 'venta' | 'nota_credito' | 'migracion' | 'guia_remision';
 
 /** Estado estructural del movimiento (§10.6) — 'confirmado' es el valor asumido para movimientos históricos que no tienen este campo. */
 export type EstadoMovimientoStock = 'confirmado' | 'revertido';

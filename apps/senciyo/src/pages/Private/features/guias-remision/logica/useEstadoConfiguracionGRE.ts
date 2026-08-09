@@ -20,11 +20,48 @@ export interface EstadoConfiguracionGRE {
   refrescar: () => void;
 }
 
+export type DerivacionEstadoConfiguracionGRE = Omit<EstadoConfiguracionGRE, 'cargando' | 'refrescar'>;
+
+/**
+ * Lógica PURA (sin React) que decide si una empresa puede emitir GRE según su configuración real
+ * de credenciales SUNAT — GRE-P1-003. Extraída del hook para que la misma regla pueda probarse
+ * sin renderizar un componente y, en principio, consumirse desde cualquier capa que la necesite
+ * sin arrastrar una dependencia de React. `emitir()` en `FormularioGREPage.tsx` y el banner/botón
+ * de la UI leen exactamente el mismo resultado — nunca dos cálculos distintos.
+ */
+export function derivarEstadoConfiguracionGRE(
+  conexion: ConexionSunat | null | undefined,
+  transportista: DatosTransportista | null | undefined,
+): DerivacionEstadoConfiguracionGRE {
+  const solCompleto = Boolean(conexion?.accesoSOL?.usuarioSOL?.trim() && conexion?.accesoSOL?.claveSOL?.trim());
+  const greCompleto = Boolean(conexion?.credencialesGRE?.clientId?.trim() && conexion?.credencialesGRE?.clientSecret?.trim());
+  const credencialesCompletas = solCompleto && greCompleto;
+
+  const faltantesCredenciales: string[] = [];
+  if (!solCompleto) faltantesCredenciales.push('Acceso SOL (usuario y clave)');
+  if (!greCompleto) faltantesCredenciales.push('Credenciales GRE (Client ID y Client Secret)');
+
+  const codigoEnt = transportista?.codigoEntidadAutorizadora?.trim();
+  const numAut = transportista?.numeroAutorizacion?.trim();
+  let autorizacionEspecialEmisor: AutorizacionEmisorGRE | undefined;
+  if (codigoEnt && numAut) {
+    const entidad = ENTIDADES_AUTORIZADORAS_D37.find((e) => e.codigo === codigoEnt);
+    autorizacionEspecialEmisor = { entidadNombre: entidad?.entidad ?? codigoEnt, numeroAutorizacion: numAut };
+  }
+
+  return {
+    credencialesCompletas,
+    puedeEmitirPorConfiguracion: credencialesCompletas,
+    faltantesCredenciales,
+    autorizacionEspecialEmisor,
+  };
+}
+
 export function useEstadoConfiguracionGRE(): EstadoConfiguracionGRE {
   const { tenantId } = useTenant();
-  const [solCompleto, setSolCompleto] = useState(false);
-  const [greCompleto, setGreCompleto] = useState(false);
-  const [autorizacion, setAutorizacion] = useState<AutorizacionEmisorGRE | undefined>(undefined);
+  const [derivado, setDerivado] = useState<DerivacionEstadoConfiguracionGRE>(() =>
+    derivarEstadoConfiguracionGRE(undefined, undefined),
+  );
   const [cargando, setCargando] = useState(true);
   const [refKey, setRefKey] = useState(0);
 
@@ -40,23 +77,7 @@ export function useEstadoConfiguracionGRE(): EstadoConfiguracionGRE {
       datosTransportistaDataSource.get(tenantId) as Promise<DatosTransportista | null>,
     ]).then(([conexion, transportista]) => {
       if (cancelled) return;
-      setSolCompleto(
-        Boolean(conexion?.accesoSOL?.usuarioSOL?.trim() && conexion?.accesoSOL?.claveSOL?.trim()),
-      );
-      setGreCompleto(
-        Boolean(conexion?.credencialesGRE?.clientId?.trim() && conexion?.credencialesGRE?.clientSecret?.trim()),
-      );
-      const codigoEnt = transportista?.codigoEntidadAutorizadora?.trim();
-      const numAut = transportista?.numeroAutorizacion?.trim();
-      if (codigoEnt && numAut) {
-        const entidad = ENTIDADES_AUTORIZADORAS_D37.find((e) => e.codigo === codigoEnt);
-        setAutorizacion({
-          entidadNombre: entidad?.entidad ?? codigoEnt,
-          numeroAutorizacion: numAut,
-        });
-      } else {
-        setAutorizacion(undefined);
-      }
+      setDerivado(derivarEstadoConfiguracionGRE(conexion, transportista));
       setCargando(false);
     });
     return () => {
@@ -66,17 +87,5 @@ export function useEstadoConfiguracionGRE(): EstadoConfiguracionGRE {
 
   const refrescar = useCallback(() => setRefKey((k) => k + 1), []);
 
-  const credencialesCompletas = solCompleto && greCompleto;
-  const faltantesCredenciales: string[] = [];
-  if (!solCompleto) faltantesCredenciales.push('Acceso SOL (usuario y clave)');
-  if (!greCompleto) faltantesCredenciales.push('Credenciales GRE (Client ID y Client Secret)');
-
-  return {
-    credencialesCompletas,
-    puedeEmitirPorConfiguracion: credencialesCompletas,
-    faltantesCredenciales,
-    autorizacionEspecialEmisor: autorizacion,
-    cargando,
-    refrescar,
-  };
+  return { ...derivado, cargando, refrescar };
 }

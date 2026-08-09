@@ -73,6 +73,10 @@ type CampoDescuento =
   | 'stockDescuentoNotaVenta'
   | 'stockDescuentoGuiaRemision';
 
+// Guía de Remisión (GRE-P1-008): "Automático al emitir" dispara la salida real mediante el mismo
+// motor central de Inventario (`ServicioKardexValorizado`, vía `guias-remision/logica/inventarioGRE.ts`)
+// que ya usan Factura/Boleta y Nota de Salida — ver CIERRE_FINAL_GUIAS_REMISION.md, sección
+// "Corrección definitiva GRE-P1-008".
 const OPCIONES_CONFIGURABLES: Array<{ campo: CampoDescuento; label: string; textoAutomatico: string; icon: React.ComponentType<{ className?: string }> }> = [
   { campo: 'stockDescuentoFacturaYBoleta', label: 'Factura / Boleta', textoAutomatico: 'Automático al emitir', icon: FileText },
   { campo: 'stockDescuentoNotaVenta', label: 'Nota de Venta', textoAutomatico: 'Automático al generar', icon: ShoppingCart },

@@ -3,8 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Save, X, Send } from 'lucide-react';
 import { useGuiasRemision } from '../contexto/ContextoGuiasRemision';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
+import { useSeriesCommands } from '../../configuracion-sistema/hooks/useComandosSeries';
 import { useTenant } from '@/shared/tenant/TenantContext';
+import { useUserSession } from '@/contexts/UserSessionContext';
+import { useFeedback } from '@/shared/feedback';
+import { useProductStore } from '../../catalogo-articulos/hooks/useProductStore';
+import type { Product } from '../../catalogo-articulos/models/types';
+import { resolvealmacenesForSaleFIFO } from '@/shared/inventory/stockGateway';
+import { sincronizarInventarioTrasConfirmacion } from '@/shared/inventory/accionesStock';
+import { ServicioKardexValorizado } from '../../gestion-inventario/services/servicioKardexValorizado';
 import { guiasRemisionDataSource } from '../api/fuenteDatosGRE';
+import { getNextGuiaRemisionDocument } from '@/shared/series/guiaRemisionSeries';
+import { construirLineasSalidaGRE, construirDatosOperacionSalidaGRE, debeDescontarStockAutomaticamenteGRE } from '../logica/inventarioGRE';
 import { useEstadoConfiguracionGRE } from '../logica/useEstadoConfiguracionGRE';
 import BannerConfiguracionGRE from '../components/compartido/BannerConfiguracionGRE';
 import ModalConfiguracionGRE from '../components/modales/ModalConfiguracionGRE';
@@ -16,7 +26,7 @@ import type {
   TransportePublico,
   EventoGRE,
 } from '../modelos/GuiaRemision';
-import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS } from '../modelos/GuiaRemision';
+import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS, TIPO_GRE_CODIGO_DOCUMENTO } from '../modelos/GuiaRemision';
 import { validarGREParaEmitir, hayErrores } from '../logica/validacionGRE';
 import { obtenerReglaFlujoGRE } from '../logica/reglasFlujoGRE';
 import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
@@ -517,15 +527,22 @@ export default function FormularioGREPage() {
   const navigate = useNavigate();
   const { tenantId, activeEstablecimientoId, activeWorkspace } = useTenant();
   const { state: configState } = useConfigurationContext();
+  const { session } = useUserSession();
+  const feedback = useFeedback();
+  const { allProducts } = useProductStore();
   const { agregarGuia, actualizarGuia } = useGuiasRemision();
+  const { incrementSeriesCorrelative } = useSeriesCommands();
 
-  const tipo: TipoGRE = esTipoValido(tipoParam) ? tipoParam : 'remitente';
+  // `tipoParam` solo inicializa una guía NUEVA (no existe segmento :tipoParam en la ruta de
+  // edición). Una vez cargada la guía, `guia.tipo` es la única fuente de verdad del tipo — nunca
+  // se vuelve a leer `tipoParam` para nada más (ver GRE-P1-001).
+  const tipoInicial: TipoGRE = esTipoValido(tipoParam) ? tipoParam : 'remitente';
   const modoEdicion = Boolean(id);
 
   const { credencialesCompletas, puedeEmitirPorConfiguracion, faltantesCredenciales, autorizacionEspecialEmisor, refrescar } = useEstadoConfiguracionGRE();
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
 
-  const [guia, setGuia] = useState<GuiaRemision>(() => GUIA_REMISION_BORRADOR(tipo));
+  const [guia, setGuia] = useState<GuiaRemision>(() => GUIA_REMISION_BORRADOR(tipoInicial));
   const [cargando, setCargando] = useState(modoEdicion);
   const [guardando, setGuardando] = useState(false);
   const [intentoEmitir, setIntentoEmitir] = useState(false);
@@ -559,7 +576,7 @@ export default function FormularioGREPage() {
       .finally(() => setCargando(false));
   }, [modoEdicion, id, tenantId]);
 
-  const codigoDocumento = tipo === 'remitente' ? '09' : '31';
+  const codigoDocumento = TIPO_GRE_CODIGO_DOCUMENTO[guia.tipo];
 
   const seriesDisponibles = configState.series
     .filter(
@@ -570,6 +587,18 @@ export default function FormularioGREPage() {
         (activeEstablecimientoId ? s.EstablecimientoId === activeEstablecimientoId : true),
     )
     .map((s) => s.series);
+
+  // Objeto Series real seleccionado — única fuente de verdad del correlativo (GRE-P1-002):
+  // `Series.correlativeNumber`/`statistics.documentsIssued`, la misma que consumen
+  // Gastos/Cobranzas vía `useSeriesCommands`. Ya NO se escanean guías existentes para calcular
+  // el siguiente número.
+  const serieActiva = configState.series.find(
+    (s) =>
+      s.series === guia.serie &&
+      s.documentType.code === codigoDocumento &&
+      s.isActive &&
+      s.status === 'ACTIVE',
+  );
 
   useEffect(() => {
     if (modoEdicion) return;
@@ -674,9 +703,63 @@ export default function FormularioGREPage() {
     setIntentoEmitir(true);
     if (hayErrores(validarGREParaEmitir(guia))) return;
     if (!tenantId) return;
+    // Precondición de dominio — no solo del botón (GRE-P1-003): la emisión debe rechazarse aquí
+    // mismo si la configuración obligatoria (credenciales SUNAT) está incompleta, sin importar
+    // qué componente invoque a `emitir()`.
+    if (!puedeEmitirPorConfiguracion) return;
+    // La serie seleccionada debe seguir existiendo y activa al momento de emitir (GRE-P1-002) —
+    // puede haber sido desactivada/eliminada desde Configuración → Series mientras se editaba.
+    if (!serieActiva) return;
     setGuardando(true);
     try {
-      const correlativo = await guiasRemisionDataSource.nextCorrelativo(tenantId, guia.serie);
+      // GRE-P1-008: la salida real de stock (si corresponde) ocurre ANTES de asignar
+      // correlativo/persistir — una emisión que falla por stock insuficiente no debe consumir
+      // numeración de Series ni quedar registrada como emitida.
+      if (debeDescontarStockAutomaticamenteGRE(configState.salesPreferences?.controlStockActivo, configState.salesPreferences?.stockDescuentoGuiaRemision)) {
+        if (!activeEstablecimientoId) {
+          feedback.error('No se pudo resolver el establecimiento activo para descontar stock.');
+          return;
+        }
+        const almacenesOrdenados = resolvealmacenesForSaleFIFO({
+          almacenes: configState.almacenes,
+          EstablecimientoId: activeEstablecimientoId,
+        });
+        if (!almacenesOrdenados.length) {
+          feedback.error('No hay almacenes activos configurados para el establecimiento activo.');
+          return;
+        }
+        const productsMap = new Map((allProducts as Product[]).map((p) => [String(p.id), p]));
+        try {
+          const { lineas } = construirLineasSalidaGRE(guia, productsMap, almacenesOrdenados);
+          if (lineas.length > 0) {
+            const almacenesMap = new Map(configState.almacenes.map((a) => [a.id, a]));
+            const datosOperacion = construirDatosOperacionSalidaGRE({
+              guia,
+              lineas,
+              empresaId: tenantId,
+              usuario: session?.userName || 'Usuario',
+              fecha: new Date().toISOString(),
+              estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+            });
+            // Mismo motor central que Factura/Boleta y Nota de Salida (ServicioKardexValorizado):
+            // reserva idempotente + FIFO + (en modo valorizado) consumo de capas — nada de eso se
+            // reimplementa aquí.
+            await ServicioKardexValorizado.registrarSalidaValorizada(datosOperacion, {
+              almacenes: almacenesMap,
+              generarId: () => crypto.randomUUID(),
+              fechaActual: () => new Date().toISOString(),
+              estadoValorizacion: configState.preferenciasInventario.estadoValorizacion,
+              controlStockActivo: configState.salesPreferences?.controlStockActivo ?? false,
+            });
+            sincronizarInventarioTrasConfirmacion();
+          }
+        } catch (errorStock) {
+          feedback.error(errorStock instanceof Error ? errorStock.message : 'No se pudo registrar la salida de stock de la GRE.');
+          return;
+        }
+      }
+
+      const { correlative, correlativeStr } = getNextGuiaRemisionDocument(serieActiva);
       const evento: EventoGRE = {
         id: crypto.randomUUID(),
         tipo: 'emision',
@@ -687,7 +770,7 @@ export default function FormularioGREPage() {
         ...guia,
         esBorrador: false,
         estado: 'Pendiente',
-        correlativo,
+        correlativo: correlativeStr,
         historial: [...(guia.historial ?? []), evento],
       };
       if (modoEdicion) {
@@ -695,11 +778,31 @@ export default function FormularioGREPage() {
       } else {
         await agregarGuia(emitida);
       }
+      // Confirma el consumo de la serie oficial recién DESPUÉS de persistir la GRE — la misma
+      // secuencia que usan Gastos/Cobranzas. Esto es lo que hace que Configuración → Series
+      // refleje el uso real de GRE y bloquee la eliminación de una serie en uso.
+      incrementSeriesCorrelative(serieActiva.id, correlative);
       setModalExito({ open: true, guia: emitida });
     } finally {
       setGuardando(false);
     }
-  }, [guia, modoEdicion, actualizarGuia, agregarGuia, tenantId]);
+  }, [
+    guia,
+    modoEdicion,
+    actualizarGuia,
+    agregarGuia,
+    tenantId,
+    puedeEmitirPorConfiguracion,
+    serieActiva,
+    incrementSeriesCorrelative,
+    configState.salesPreferences,
+    configState.almacenes,
+    configState.preferenciasInventario,
+    activeEstablecimientoId,
+    allProducts,
+    session,
+    feedback,
+  ]);
 
   if (cargando) {
     return (
@@ -725,7 +828,7 @@ export default function FormularioGREPage() {
             </button>
             <span className="text-gray-300 dark:text-gray-600">/</span>
             <h1 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-              {modoEdicion ? 'Editar' : 'Nueva'} {TIPO_GRE_LABELS[tipo]}
+              {modoEdicion ? 'Editar' : 'Nueva'} {TIPO_GRE_LABELS[guia.tipo]}
             </h1>
             {guia.serie && (
               <span className="shrink-0 text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded-full tabular-nums">
@@ -740,9 +843,9 @@ export default function FormularioGREPage() {
                 <button
                   key={t}
                   type="button"
-                  onClick={() => tipo !== t && navigate(`/guias-remision/nuevo/${t}`)}
+                  onClick={() => guia.tipo !== t && navigate(`/guias-remision/nuevo/${t}`)}
                   className={`px-3 py-1 rounded-md text-[13px] font-medium transition-all ${
-                    tipo === t
+                    guia.tipo === t
                       ? 'bg-white dark:bg-slate-700 text-violet-700 dark:text-violet-400 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
@@ -773,7 +876,7 @@ export default function FormularioGREPage() {
 
         {/* 1. Datos de la guía */}
         <SeccionDatosGenerales
-          tipo={tipo}
+          tipo={guia.tipo}
           serie={guia.serie}
           seriesDisponibles={seriesDisponibles}
           onSerieChange={(s) => setGuia((prev) => ({ ...prev, serie: s }))}

@@ -100,7 +100,12 @@ export type SalesPreferences = {
   stockDescuentoFacturaYBoleta?: StockDescuentoDocumento;
   /** Cómo se descuenta el stock al generar una Nota de Venta. */
   stockDescuentoNotaVenta?: StockDescuentoDocumento;
-  /** Cómo se descuenta el stock al emitir una Guía de Remisión. */
+  /**
+   * Cómo se descuenta el stock al emitir una Guía de Remisión — GRE-P1-008. `'automatico'`
+   * dispara la salida real vía `ServicioKardexValorizado` (mismo motor central que Factura/Boleta
+   * y Nota de Salida); `'nota_salida'` no descuenta automáticamente — el despacho físico se
+   * registra mediante el flujo normal de Nota de Salida, fuera de GRE.
+   */
   stockDescuentoGuiaRemision?: StockDescuentoDocumento;
 };
 
