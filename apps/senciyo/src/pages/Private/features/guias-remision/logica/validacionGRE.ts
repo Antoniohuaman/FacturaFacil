@@ -1,9 +1,10 @@
 import type { GuiaRemision } from '../modelos/GuiaRemision';
-import { obtenerReglaFlujoGRE } from './reglasFlujoGRE';
+import { obtenerReglaFlujoGRE, obtenerDatosRolActorGRE } from './reglasFlujoGRE';
 
 export interface ErroresValidacionGRE {
   serie?: string;
   destinatario?: string;
+  proveedor?: string;
   comprador?: string;
   especificacion?: string;
   bienes?: string;
@@ -25,8 +26,11 @@ export function validarGREParaEmitir(guia: GuiaRemision): ErroresValidacionGRE {
     errores.destinatario = `El ${regla.actorPrincipal.label} es obligatorio.`;
   }
 
-  if (regla.actorSecundario !== null && regla.actorSecundario.obligatorio && !guia.compradorNombre?.trim()) {
-    errores.comprador = `El ${regla.actorSecundario.label} es obligatorio.`;
+  for (const actor of regla.actoresAdicionales) {
+    const datosActor = obtenerDatosRolActorGRE(guia, actor.rol);
+    if (actor.obligatorio && !datosActor.nombre?.trim()) {
+      errores[actor.rol] = `El ${actor.label} es obligatorio.`;
+    }
   }
 
   if (regla.requiereEspecificacion && !guia.especificacionMotivo?.trim()) {

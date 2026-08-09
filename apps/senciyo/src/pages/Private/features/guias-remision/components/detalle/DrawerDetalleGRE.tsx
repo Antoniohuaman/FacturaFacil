@@ -23,7 +23,7 @@ import {
   puedeEditarGRE,
   puedeEliminarBorradorGRE,
 } from '../../logica/estadosGRE';
-import { obtenerReglaFlujoGRE } from '../../logica/reglasFlujoGRE';
+import { obtenerReglaFlujoGRE, obtenerDatosRolActorGRE } from '../../logica/reglasFlujoGRE';
 
 type TabDrawer = 'general' | 'bienes' | 'transporte' | 'documentos' | 'historial';
 
@@ -265,17 +265,21 @@ function TabGeneral({ guia, motivo }: { guia: GuiaRemision; motivo?: string }) {
         )}
       </Seccion>
 
-      {regla.actorSecundario !== null && guia.compradorNombre && (
-        <Seccion titulo={regla.actorSecundario.label}>
-          <Campo label="Nombre / Razón social">{guia.compradorNombre}</Campo>
-          {(guia.compradorTipoDocumento || guia.compradorNumeroDocumento) && (
-            <div className="grid grid-cols-2 gap-3">
-              <Campo label="Tipo documento">{guia.compradorTipoDocumento || '—'}</Campo>
-              <Campo label="Número">{guia.compradorNumeroDocumento || '—'}</Campo>
-            </div>
-          )}
-        </Seccion>
-      )}
+      {regla.actoresAdicionales.map((actor) => {
+        const datosActor = obtenerDatosRolActorGRE(guia, actor.rol);
+        if (!datosActor.nombre) return null;
+        return (
+          <Seccion key={actor.rol} titulo={actor.label}>
+            <Campo label="Nombre / Razón social">{datosActor.nombre}</Campo>
+            {(datosActor.tipoDocumento || datosActor.numeroDocumento) && (
+              <div className="grid grid-cols-2 gap-3">
+                <Campo label="Tipo documento">{datosActor.tipoDocumento || '—'}</Campo>
+                <Campo label="Número">{datosActor.numeroDocumento || '—'}</Campo>
+              </div>
+            )}
+          </Seccion>
+        );
+      })}
 
       {regla.requiereEspecificacion && guia.especificacionMotivo && (
         <Seccion titulo="Especificación del motivo">

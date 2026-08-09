@@ -1,8 +1,8 @@
-import type { TipoGRE } from '../modelos/GuiaRemision';
+import type { GuiaRemision, TipoGRE } from '../modelos/GuiaRemision';
 
 // ─── Tipos ───────────────────────────────────────────────────
 
-/** Regla para el actor principal de la guía. */
+/** Regla para un actor de la guía (principal o adicional). */
 export interface ReglaActorGRE {
   /** Etiqueta visible en el formulario (ej. 'Destinatario', 'Proveedor', 'Tercero/Transformador (destino)'). */
   label: string;
@@ -12,30 +12,46 @@ export interface ReglaActorGRE {
    * Cuando es `true`, este actor NO se busca/selecciona manualmente — se deriva automáticamente
    * de la empresa emisora (RUC + razón social de `Company`/`activeWorkspace`), igual que SUNAT SOL
    * lo hace para Motivo 02 (Compra): el destinatario es la propia empresa que recibe los bienes.
-   * Ausente/`false` en cualquier otro caso — el formulario sigue exigiendo selección real.
+   * Fijo por motivo — a diferencia de `permiteMismoRemitente`, el usuario no puede desactivarlo.
    */
   autoDerivadoDeEmpresa?: boolean;
   /**
+   * Cuando es `true` (hoy: Motivo 13, Otros), el formulario ofrece un switch "¿Es el mismo
+   * remitente?" para que el USUARIO decida, documento por documento, si el Destinatario es la
+   * propia empresa (igual fuente/snapshot que `autoDerivadoDeEmpresa`) o un tercero real
+   * (`BuscadorTercero`). El estado elegido se persiste en `destinatarioEsMismoRemitente`.
+   */
+  permiteMismoRemitente?: boolean;
+  /**
    * Tipo de cuenta a registrar cuando este actor se busca/crea mediante el buscador real de
    * terceros (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes) y no existe aún en el
-   * catálogo. Todo actor secundario de GRE usa ese mismo buscador — este campo solo distingue bajo
-   * qué tipo de cuenta debe quedar creado (p. ej. 'Proveedor' para Compra/Recojo de bienes
-   * transformados, 'Cliente' para el Comprador de Venta con entrega a terceros). Ausente en el
-   * actor principal, que siempre es 'Cliente'.
+   * catálogo (p. ej. 'Proveedor' para Compra/Recojo de bienes transformados, 'Cliente' para el
+   * Comprador de Venta con entrega a terceros). Ausente en el actor principal, que siempre es
+   * 'Cliente'.
    */
   tipoCuentaTercero?: 'Cliente' | 'Proveedor';
 }
 
+/**
+ * Actor adicional con rol documental explícito. `rol` determina en qué campos de `GuiaRemision`
+ * vive su snapshot (`proveedor*` o `comprador*`) — cada rol tiene su propia ranura independiente,
+ * nunca comparten campos, por lo que pueden coexistir en el mismo documento (motivo '13').
+ */
+export interface RolActorGRE extends ReglaActorGRE {
+  rol: 'proveedor' | 'comprador';
+}
+
 /** Regla completa de flujo para un motivo+tipo de guía. */
 export interface ReglaFlujoGRE {
-  /** Actor principal — siempre presente. */
+  /** Actor principal — siempre presente (Destinatario, salvo relabels puntuales). */
   actorPrincipal: ReglaActorGRE;
   /**
-   * Actor secundario (comprador/proveedor, según el motivo).
-   * Presente para motivo '03' (Venta con entrega a terceros, Comprador) y '02' (Compra,
-   * Proveedor). `null` para todos los demás motivos.
+   * Actores adicionales del motivo, cada uno con su rol documental explícito. Puede tener 0, 1
+   * (Proveedor en Compra/Recojo; Comprador en Venta con entrega a terceros) o 2 elementos
+   * simultáneos (Proveedor + Comprador en Otros) — nunca se fuerzan dos terceros dentro de una
+   * única ranura genérica.
    */
-  actorSecundario: (ReglaActorGRE & { label: string }) | null;
+  actoresAdicionales: RolActorGRE[];
   /**
    * Códigos de documentos relacionados recomendados para este motivo
    * (catálogo DOCUMENTOS_RELACIONADOS_GRE).
@@ -62,7 +78,7 @@ export interface ReglaFlujoGRE {
 
 const REGLA_BASE: ReglaFlujoGRE = {
   actorPrincipal: { label: 'Destinatario', obligatorio: true },
-  actorSecundario: null,
+  actoresAdicionales: [],
   documentosRecomendados: ['01', '03'],
   puntoLlegadaObligatorio: true,
   requiereEspecificacion: false,
@@ -82,10 +98,10 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
     ...REGLA_BASE,
     // El destinatario de una GRE Remitente por Compra es la propia empresa emisora (quien recibe
     // los bienes) — se deriva automáticamente, nunca se busca/selecciona (mismo comportamiento que
-    // SUNAT SOL). El Proveedor (quien vende y traslada los bienes) es el actor secundario real que
+    // SUNAT SOL). El Proveedor (quien vende y traslada los bienes) es el actor adicional real que
     // el usuario sí selecciona.
     actorPrincipal: { ...REGLA_BASE.actorPrincipal, autoDerivadoDeEmpresa: true },
-    actorSecundario: { label: 'Proveedor', obligatorio: true, tipoCuentaTercero: 'Proveedor' },
+    actoresAdicionales: [{ rol: 'proveedor', label: 'Proveedor', obligatorio: true, tipoCuentaTercero: 'Proveedor' }],
     documentosRecomendados: ['01', '03', '04'],
     ayudaMotivo:
       'Para Compra, el destinatario es la propia empresa (quien recibe los bienes); el Proveedor es quien los vende y traslada.',
@@ -98,7 +114,7 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
     // bienes) difiere del comprador (quien los adquirió) — por eso el Comprador es obligatorio
     // siempre que se elige este motivo, igual que el Destinatario. Usa el mismo buscador real de
     // terceros (RUC/DNI/nombre, SUNAT/RENIEC, catálogo de clientes) que el resto de actores.
-    actorSecundario: { label: 'Comprador', obligatorio: true, tipoCuentaTercero: 'Cliente' },
+    actoresAdicionales: [{ rol: 'comprador', label: 'Comprador', obligatorio: true, tipoCuentaTercero: 'Cliente' }],
     documentosRecomendados: ['01', '03'],
     ayudaMotivo:
       'Venta con entrega a terceros: el destinatario recibe físicamente los bienes; el comprador es quien adquirió.',
@@ -133,7 +149,7 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
     // destinatario es la propia empresa emisora (quien recibe los bienes ya transformados), y el
     // Proveedor es el tercero que realizó la transformación y los entrega.
     actorPrincipal: { ...REGLA_BASE.actorPrincipal, autoDerivadoDeEmpresa: true },
-    actorSecundario: { label: 'Proveedor', obligatorio: true, tipoCuentaTercero: 'Proveedor' },
+    actoresAdicionales: [{ rol: 'proveedor', label: 'Proveedor', obligatorio: true, tipoCuentaTercero: 'Proveedor' }],
     documentosRecomendados: [],
     ayudaMotivo:
       'Para Recojo de bienes transformados, el destinatario es la propia empresa (quien recibe los bienes ya transformados); el Proveedor es quien realizó la transformación y los entrega.',
@@ -154,6 +170,16 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
 
   '13': {
     ...REGLA_BASE,
+    // Otros: el destinatario puede ser la propia empresa (switch "mismo remitente", igual fuente
+    // que Compra/Recojo) o un tercero real — a diferencia de esos motivos, aquí NO es fijo, lo
+    // decide el usuario documento por documento. Proveedor y Comprador pueden coexistir: ninguno
+    // de los dos es obligatorio por regla real de SUNAT, así que no se fuerza su obligatoriedad
+    // solo porque el catálogo SUNAT los contempla.
+    actorPrincipal: { ...REGLA_BASE.actorPrincipal, permiteMismoRemitente: true },
+    actoresAdicionales: [
+      { rol: 'proveedor', label: 'Proveedor', obligatorio: false, tipoCuentaTercero: 'Proveedor' },
+      { rol: 'comprador', label: 'Comprador', obligatorio: false, tipoCuentaTercero: 'Cliente' },
+    ],
     documentosRecomendados: [],
     requiereEspecificacion: true,
     ayudaMotivo: 'Otros motivos: especifique el motivo de traslado en el campo correspondiente.',
@@ -241,6 +267,50 @@ export function obtenerDocumentosRecomendadosGRE(tipoGRE: TipoGRE, motivo: strin
   return obtenerReglaFlujoGRE(tipoGRE, motivo).documentosRecomendados;
 }
 
+/**
+ * Devuelve los datos snapshot del actor adicional de un rol dado, ya persistidos en la GRE — la
+ * única fuente que deben leer formulario, validación e impresión (nunca reconstruir desde el
+ * catálogo maestro de clientes/proveedores).
+ */
+export function obtenerDatosRolActorGRE(
+  guia: Pick<
+    GuiaRemision,
+    'proveedorNombre' | 'proveedorTipoDocumento' | 'proveedorNumeroDocumento' | 'compradorNombre' | 'compradorTipoDocumento' | 'compradorNumeroDocumento'
+  >,
+  rol: 'proveedor' | 'comprador',
+): { nombre?: string; tipoDocumento?: string; numeroDocumento?: string } {
+  return rol === 'proveedor'
+    ? { nombre: guia.proveedorNombre, tipoDocumento: guia.proveedorTipoDocumento, numeroDocumento: guia.proveedorNumeroDocumento }
+    : { nombre: guia.compradorNombre, tipoDocumento: guia.compradorTipoDocumento, numeroDocumento: guia.compradorNumeroDocumento };
+}
+
+/**
+ * Migración de datos legacy: antes de existir campos `proveedor*` independientes, las GRE de
+ * motivos con un único actor adicional de rol 'proveedor' (Compra, Recojo de bienes
+ * transformados) lo guardaban en los campos `comprador*` (única ranura que existía entonces). Al
+ * cargar un documento persistido con esa forma antigua, reubica el dato al campo real que le
+ * corresponde — nunca descarta información — y es idempotente: una vez migrado, los campos
+ * `comprador*` legacy quedan vacíos y una segunda ejecución no vuelve a tocar nada.
+ */
+export function normalizarActoresAdicionalesLegacyGRE(guia: GuiaRemision): GuiaRemision {
+  const regla = obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado);
+  const esSoloProveedor =
+    regla.actoresAdicionales.length === 1 && regla.actoresAdicionales[0].rol === 'proveedor';
+  const tieneDatosLegacy = !guia.proveedorNombre?.trim() && Boolean(guia.compradorNombre?.trim());
+
+  if (!esSoloProveedor || !tieneDatosLegacy) return guia;
+
+  return {
+    ...guia,
+    proveedorNombre: guia.compradorNombre,
+    proveedorTipoDocumento: guia.compradorTipoDocumento,
+    proveedorNumeroDocumento: guia.compradorNumeroDocumento,
+    compradorNombre: undefined,
+    compradorTipoDocumento: undefined,
+    compradorNumeroDocumento: undefined,
+  };
+}
+
 /** Datos reales de la empresa emisora (misma fuente que ya usa la impresión: `activeWorkspace`). */
 export interface DatosEmpresaGRE {
   razonSocial: string;
@@ -248,7 +318,7 @@ export interface DatosEmpresaGRE {
   domicilioFiscal?: string;
 }
 
-/** Ajuste de campos de Destinatario a aplicar cuando el cambio de motivo lo requiere. */
+/** Ajuste de campos de Destinatario a aplicar cuando el cambio de motivo (o el switch "mismo remitente") lo requiere. */
 export interface AjusteDestinatarioGRE {
   destinatarioClienteId: string | number | undefined;
   destinatarioNombre: string;
@@ -259,20 +329,57 @@ export interface AjusteDestinatarioGRE {
   destinatarioProvincia: string | undefined;
   destinatarioDistrito: string | undefined;
   destinatarioUbigeo: string | undefined;
+  destinatarioEsMismoRemitente: boolean | undefined;
+}
+
+function construirDestinatarioEmpresa(empresa: DatosEmpresaGRE | null): Omit<AjusteDestinatarioGRE, 'destinatarioEsMismoRemitente'> {
+  return {
+    destinatarioClienteId: undefined,
+    destinatarioNombre: empresa?.razonSocial ?? '',
+    destinatarioTipoDocumento: 'RUC',
+    destinatarioNumeroDocumento: empresa?.ruc ?? '',
+    destinatarioDireccion: empresa?.domicilioFiscal,
+    destinatarioDepartamento: undefined,
+    destinatarioProvincia: undefined,
+    destinatarioDistrito: undefined,
+    destinatarioUbigeo: undefined,
+  };
+}
+
+function limpiarDestinatario(): Omit<AjusteDestinatarioGRE, 'destinatarioEsMismoRemitente'> {
+  return {
+    destinatarioClienteId: undefined,
+    destinatarioNombre: '',
+    destinatarioTipoDocumento: 'RUC',
+    destinatarioNumeroDocumento: '',
+    destinatarioDireccion: undefined,
+    destinatarioDepartamento: undefined,
+    destinatarioProvincia: undefined,
+    destinatarioDistrito: undefined,
+    destinatarioUbigeo: undefined,
+  };
+}
+
+/** El destinatario está efectivamente auto-derivado de la empresa: fijo por motivo (Compra/Recojo) o por elección del usuario vía switch (Otros). */
+function esDestinatarioAutoDerivado(actor: ReglaActorGRE, mismoRemitente: boolean): boolean {
+  return Boolean(actor.autoDerivadoDeEmpresa) || Boolean(actor.permiteMismoRemitente && mismoRemitente);
 }
 
 /**
- * Regla central (GRE-P1-Compra): calcula el ajuste de Destinatario al cambiar de motivo de
- * traslado, para cualquier motivo con `actorPrincipal.autoDerivadoDeEmpresa` (hoy: '02', Compra).
+ * Regla central: calcula el ajuste de Destinatario al cambiar de motivo de traslado, para
+ * cualquier motivo con `actorPrincipal.autoDerivadoDeEmpresa` (Compra, Recojo de bienes
+ * transformados) o `permiteMismoRemitente` (Otros, según el switch vigente antes del cambio).
  *
- * - Al ENTRAR a un motivo auto-derivado: puebla el Destinatario con los datos reales de la
- *   empresa emisora (snapshot — se congela en el documento, nunca se re-deriva en impresión).
- * - Al SALIR de un motivo auto-derivado: limpia ese Destinatario automático, porque ya no
- *   corresponde a un motivo distinto (nunca se conserva un dato que el sistema generó para un
- *   contexto que dejó de aplicar).
- * - Si no hay transición hacia/desde un motivo auto-derivado (incluye permanecer en el mismo
- *   motivo, p. ej. al editar otros campos de una Compra ya guardada), devuelve `null`: el llamador
- *   no debe tocar el Destinatario, preservando cualquier snapshot válido existente (borradores).
+ * - Al ENTRAR a un motivo con destinatario auto-derivado fijo: puebla el Destinatario con los
+ *   datos reales de la empresa emisora (snapshot — se congela en el documento, nunca se re-deriva
+ *   en impresión).
+ * - Al SALIR de un motivo cuyo destinatario era efectivamente auto-derivado (fijo, o por switch
+ *   activo): limpia ese Destinatario, porque ya no corresponde a un motivo distinto — y si el
+ *   motivo nuevo ofrece el switch (Otros), lo deja en `false` (arranca siempre apagado, nunca
+ *   asume que el usuario querría reactivarlo).
+ * - Si no hay transición real (incluye permanecer en el mismo motivo, p. ej. al editar otros
+ *   campos de un documento ya guardado), devuelve `null`: el llamador no debe tocar el
+ *   Destinatario, preservando cualquier snapshot válido existente (borradores).
  *
  * Única fuente de esta regla — nunca debe reimplementarse con `if (motivo === '02')` sueltos.
  */
@@ -281,88 +388,92 @@ export function calcularAjusteDestinatarioPorCambioMotivo(
   motivoAnterior: string,
   motivoNuevo: string,
   empresa: DatosEmpresaGRE | null,
+  mismoRemitenteAntes: boolean = false,
 ): AjusteDestinatarioGRE | null {
+  if (motivoAnterior === motivoNuevo) return null;
+
   const reglaAnterior = obtenerReglaFlujoGRE(tipoGRE, motivoAnterior);
   const reglaNueva = obtenerReglaFlujoGRE(tipoGRE, motivoNuevo);
-  const entrando =
-    Boolean(reglaNueva.actorPrincipal.autoDerivadoDeEmpresa) && !reglaAnterior.actorPrincipal.autoDerivadoDeEmpresa;
-  const saliendo =
-    !reglaNueva.actorPrincipal.autoDerivadoDeEmpresa && Boolean(reglaAnterior.actorPrincipal.autoDerivadoDeEmpresa);
+  const antes = esDestinatarioAutoDerivado(reglaAnterior.actorPrincipal, mismoRemitenteAntes);
+  // Al llegar a un motivo nuevo el switch siempre arranca apagado — solo `autoDerivadoDeEmpresa`
+  // (fijo) puede dejar el destinatario auto-derivado nada más entrar.
+  const despues = Boolean(reglaNueva.actorPrincipal.autoDerivadoDeEmpresa);
 
-  if (entrando) {
-    return {
-      destinatarioClienteId: undefined,
-      destinatarioNombre: empresa?.razonSocial ?? '',
-      destinatarioTipoDocumento: 'RUC',
-      destinatarioNumeroDocumento: empresa?.ruc ?? '',
-      destinatarioDireccion: empresa?.domicilioFiscal,
-      destinatarioDepartamento: undefined,
-      destinatarioProvincia: undefined,
-      destinatarioDistrito: undefined,
-      destinatarioUbigeo: undefined,
-    };
+  if (despues && !antes) {
+    return { ...construirDestinatarioEmpresa(empresa), destinatarioEsMismoRemitente: undefined };
   }
 
-  if (saliendo) {
+  if (!despues && antes) {
     return {
-      destinatarioClienteId: undefined,
-      destinatarioNombre: '',
-      destinatarioTipoDocumento: 'RUC',
-      destinatarioNumeroDocumento: '',
-      destinatarioDireccion: undefined,
-      destinatarioDepartamento: undefined,
-      destinatarioProvincia: undefined,
-      destinatarioDistrito: undefined,
-      destinatarioUbigeo: undefined,
+      ...limpiarDestinatario(),
+      destinatarioEsMismoRemitente: reglaNueva.actorPrincipal.permiteMismoRemitente ? false : undefined,
     };
   }
 
   return null;
 }
 
-/** Ajuste de campos del actor secundario a aplicar cuando el cambio de motivo lo requiere. */
-export interface AjusteActorSecundarioGRE {
-  compradorNombre: string;
-  compradorTipoDocumento: undefined;
-  compradorNumeroDocumento: undefined;
+/**
+ * Calcula el ajuste de Destinatario al activar/desactivar el switch "¿Es el mismo remitente?"
+ * (motivo '13' — Otros). Misma construcción de datos que `calcularAjusteDestinatarioPorCambioMotivo`
+ * — reutilizada, nunca duplicada — pero disparada por la acción del usuario sobre el switch en
+ * lugar de un cambio de motivo.
+ */
+export function calcularAjusteDestinatarioPorMismoRemitente(
+  activar: boolean,
+  empresa: DatosEmpresaGRE | null,
+): AjusteDestinatarioGRE {
+  return activar
+    ? { ...construirDestinatarioEmpresa(empresa), destinatarioEsMismoRemitente: true }
+    : { ...limpiarDestinatario(), destinatarioEsMismoRemitente: false };
+}
+
+/** Ajuste de campos de los actores adicionales (Proveedor/Comprador) a aplicar cuando el cambio de motivo lo requiere. */
+export interface AjusteActoresAdicionalesGRE {
+  proveedorNombre?: string;
+  proveedorTipoDocumento?: string;
+  proveedorNumeroDocumento?: string;
+  compradorNombre?: string;
+  compradorTipoDocumento?: string;
+  compradorNumeroDocumento?: string;
+}
+
+const ROLES_ACTOR_ADICIONAL = ['proveedor', 'comprador'] as const;
+
+function limpiarRolActorAdicional(rol: 'proveedor' | 'comprador'): AjusteActoresAdicionalesGRE {
+  return rol === 'proveedor'
+    ? { proveedorNombre: '', proveedorTipoDocumento: undefined, proveedorNumeroDocumento: undefined }
+    : { compradorNombre: '', compradorTipoDocumento: undefined, compradorNumeroDocumento: undefined };
 }
 
 /**
- * Calcula el ajuste del actor secundario (`comprador*`) al cambiar de motivo de traslado. Esos
- * campos son compartidos por todos los motivos que tienen actor secundario (Proveedor en Compra y
- * Recojo de bienes transformados; Comprador en Venta con entrega a terceros) — mismo snapshot,
- * significado distinto según el motivo.
+ * Calcula el ajuste de los actores adicionales (Proveedor/Comprador, cada uno en su propia ranura
+ * de rol) al cambiar de motivo de traslado. Como Proveedor y Comprador ahora tienen campos
+ * documentales independientes, la normalización es puramente por rol: si un rol deja de estar
+ * presente en el motivo nuevo, se limpia su snapshot; si sigue presente (incluso si cambia su
+ * obligatoriedad, p. ej. Compra → Otros) se conserva; si es un rol nuevo que no existía antes, no
+ * hay nada que poblar automáticamente — el usuario debe seleccionarlo.
  *
- * - Si el motivo nuevo comparte el mismo actor secundario que el anterior (mismo `label` y
- *   `tipoCuentaTercero`, p. ej. Compra → Recojo de bienes transformados, ambos Proveedor):
- *   conserva el snapshot ya seleccionado.
- * - Si el motivo nuevo tiene un actor secundario distinto, o ya no tiene actor secundario, y el
- *   anterior sí lo tenía: limpia el snapshot — nunca debe mostrarse un Proveedor bajo la etiqueta
- *   Comprador (o viceversa).
- * - Si ni el motivo anterior ni el nuevo tienen actor secundario, no hay nada que ajustar.
- *
- * Devuelve `null` cuando no hay que tocar el actor secundario (incluye permanecer en el mismo
- * motivo, preservando cualquier snapshot válido existente en un borrador).
- *
- * Única fuente de esta regla — nunca debe reimplementarse con `if (motivo === '03')` sueltos.
+ * Devuelve `null` cuando no hay que tocar ningún actor adicional (incluye permanecer en el mismo
+ * motivo). Única fuente de esta regla — nunca debe reimplementarse con `if (motivo === '03')` sueltos.
  */
-export function calcularAjusteActorSecundarioPorCambioMotivo(
+export function calcularAjusteActoresAdicionalesPorCambioMotivo(
   tipoGRE: TipoGRE,
   motivoAnterior: string,
   motivoNuevo: string,
-): AjusteActorSecundarioGRE | null {
-  const anterior = obtenerReglaFlujoGRE(tipoGRE, motivoAnterior).actorSecundario;
-  const nuevo = obtenerReglaFlujoGRE(tipoGRE, motivoNuevo).actorSecundario;
+): AjusteActoresAdicionalesGRE | null {
+  if (motivoAnterior === motivoNuevo) return null;
 
-  if (anterior === null) return null;
+  const reglaAnterior = obtenerReglaFlujoGRE(tipoGRE, motivoAnterior);
+  const reglaNueva = obtenerReglaFlujoGRE(tipoGRE, motivoNuevo);
 
-  const mismoActor =
-    nuevo !== null && anterior.label === nuevo.label && anterior.tipoCuentaTercero === nuevo.tipoCuentaTercero;
-  if (mismoActor) return null;
-
-  return {
-    compradorNombre: '',
-    compradorTipoDocumento: undefined,
-    compradorNumeroDocumento: undefined,
-  };
+  let ajuste: AjusteActoresAdicionalesGRE | null = null;
+  for (const rol of ROLES_ACTOR_ADICIONAL) {
+    const presenteAntes = reglaAnterior.actoresAdicionales.some((a) => a.rol === rol);
+    const presenteDespues = reglaNueva.actoresAdicionales.some((a) => a.rol === rol);
+    if (presenteAntes && !presenteDespues) {
+      ajuste = { ...(ajuste ?? {}), ...limpiarRolActorAdicional(rol) };
+    }
+  }
+  return ajuste;
 }

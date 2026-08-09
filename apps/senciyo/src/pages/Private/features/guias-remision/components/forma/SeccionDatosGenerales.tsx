@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { Search, Loader2, X, User, Hash, Calendar, ChevronDown, AlertCircle } from 'lucide-react';
+import { Switch } from '@/contasis';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
 import { servicioConsultaDocumentos } from '@/shared/documentos/servicioConsultaDocumentos';
@@ -28,7 +29,8 @@ interface DatosDestinatario {
   ubigeo?: string;
 }
 
-interface DatosComprador {
+/** Forma común de un actor adicional (Proveedor o Comprador) — cada rol vive en su propia ranura documental independiente. */
+interface DatosActorAdicional {
   nombre: string;
   tipoDocumento: string;
   numeroDocumento: string;
@@ -46,11 +48,17 @@ interface SeccionDatosGeneralesProps {
   destinatario: DatosDestinatario | null;
   onDestinatarioChange: (datos: DatosDestinatario | null) => void;
   errorDestinatario?: string | null;
+  /** Estado del switch "¿Es el mismo remitente?" — solo relevante cuando `regla.actorPrincipal.permiteMismoRemitente`. */
+  mismoRemitente?: boolean;
+  onMismoRemitenteChange?: (activo: boolean) => void;
   documentosRelacionados: DocumentoRelacionadoGRE[];
   onDocumentosRelacionadosChange: (docs: DocumentoRelacionadoGRE[]) => void;
   regla: ReglaFlujoGRE;
-  comprador?: DatosComprador | null;
-  onCompradorChange?: (datos: DatosComprador | null) => void;
+  proveedor?: DatosActorAdicional | null;
+  onProveedorChange?: (datos: DatosActorAdicional | null) => void;
+  errorProveedor?: string | null;
+  comprador?: DatosActorAdicional | null;
+  onCompradorChange?: (datos: DatosActorAdicional | null) => void;
   errorComprador?: string | null;
   especificacionMotivo?: string;
   onEspecificacionChange?: (valor: string) => void;
@@ -65,8 +73,8 @@ const LABEL_CLS = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb
 /**
  * Buscador real de terceros (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes) —
  * extraído del bloque de Destinatario para poder reutilizarse tal cual en cualquier actor que
- * realmente requiera selección manual (hoy: Destinatario en general, y Proveedor para Motivo 02 —
- * Compra). Un solo buscador real, nunca uno nuevo por actor.
+ * realmente requiera selección manual (Destinatario, Proveedor, Comprador). Un solo buscador
+ * real, nunca uno nuevo por actor.
  */
 function BuscadorTercero({
   datos,
@@ -284,9 +292,14 @@ export default function SeccionDatosGenerales({
   destinatario,
   onDestinatarioChange,
   errorDestinatario,
+  mismoRemitente,
+  onMismoRemitenteChange,
   documentosRelacionados,
   onDocumentosRelacionadosChange,
   regla,
+  proveedor,
+  onProveedorChange,
+  errorProveedor,
   comprador,
   onCompradorChange,
   errorComprador,
@@ -302,6 +315,10 @@ export default function SeccionDatosGenerales({
       (tipo === 'remitente' ? m.aplicacion !== 'Transportista' : m.aplicacion !== 'Remitente'),
   );
 
+  const destinatarioEsAutoDerivado =
+    Boolean(regla.actorPrincipal.autoDerivadoDeEmpresa) ||
+    Boolean(regla.actorPrincipal.permiteMismoRemitente && mismoRemitente);
+
   return (
     <ConfigurationCard title="Datos de la guía" icon={Hash}>
       {/* Grid de dos columnas — patrón Datos del comprobante */}
@@ -310,20 +327,30 @@ export default function SeccionDatosGenerales({
         {/* ── Columna izquierda: Actores + Documentos relacionados ── */}
         <div className="col-span-12 xl:col-span-7 space-y-3">
 
-          {/* Actor principal (destinatario/proveedor/etc) */}
+          {/* Actor principal (destinatario) */}
           <div>
-            <label className={LABEL_CLS}>
-              <User className="inline h-3 w-3 mr-1" />
-              {regla.actorPrincipal.label}
-              {!regla.actorPrincipal.obligatorio && (
-                <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
+            <div className="flex items-center justify-between mb-1">
+              <label className={`${LABEL_CLS} mb-0`}>
+                <User className="inline h-3 w-3 mr-1" />
+                {regla.actorPrincipal.label}
+                {!regla.actorPrincipal.obligatorio && (
+                  <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
+                )}
+              </label>
+              {regla.actorPrincipal.permiteMismoRemitente && onMismoRemitenteChange && (
+                <Switch
+                  checked={Boolean(mismoRemitente)}
+                  onChange={onMismoRemitenteChange}
+                  label="Mismo remitente"
+                  size="sm"
+                />
               )}
-            </label>
+            </div>
 
-            {regla.actorPrincipal.autoDerivadoDeEmpresa ? (
-              // Actor autoderivado de la propia empresa (hoy: Motivo Compra) — de solo lectura, sin
-              // buscador ni botón de cambio. Una sola fila: documento y razón social, igual que el
-              // resto de campos read-only del formulario.
+            {destinatarioEsAutoDerivado ? (
+              // Destinatario auto-derivado de la propia empresa — de solo lectura, sin buscador ni
+              // botón de cambio. Una sola fila: documento y razón social, igual que el resto de
+              // campos read-only del formulario.
               <div className="flex flex-wrap items-baseline gap-x-2 min-h-9 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
                   {destinatario ? `${destinatario.tipoDocumento} ${destinatario.numeroDocumento}` : '—'}
@@ -351,50 +378,70 @@ export default function SeccionDatosGenerales({
             )}
           </div>
 
-          {/* Actor secundario (comprador/proveedor, según el motivo) — solo visible cuando la
-              regla lo indica. Reutiliza exactamente el mismo buscador real de terceros que usa el
-              actor principal (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes); el
-              tipo de cuenta a registrar si el tercero no existe aún viene de la regla central. */}
-          {regla.actorSecundario !== null && onCompradorChange && (
-            <div>
-              <label className={LABEL_CLS}>
-                <User className="inline h-3 w-3 mr-1" />
-                {regla.actorSecundario.label}
-                {!regla.actorSecundario.obligatorio && (
-                  <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
-                )}
-              </label>
+          {/* Actores adicionales (Proveedor/Comprador) — 0, 1 o 2 según el motivo, cada uno en su
+              propia ranura documental independiente. Todos reutilizan exactamente el mismo
+              buscador real de terceros que usa el Destinatario. */}
+          {regla.actoresAdicionales.length > 0 && (
+            <div
+              className={
+                regla.actoresAdicionales.length > 1 ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : undefined
+              }
+            >
+              {regla.actoresAdicionales.map((actor) => {
+                const datosActor = actor.rol === 'proveedor' ? proveedor : comprador;
+                const onChangeActor = actor.rol === 'proveedor' ? onProveedorChange : onCompradorChange;
+                const errorActor = actor.rol === 'proveedor' ? errorProveedor : errorComprador;
+                if (!onChangeActor) return null;
 
-              <BuscadorTercero
-                datos={comprador ? { nombre: comprador.nombre, tipoDocumento: comprador.tipoDocumento, numeroDocumento: comprador.numeroDocumento } : null}
-                onChange={(datos) =>
-                  onCompradorChange(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
-                }
-                error={errorComprador}
-                clientes={clientes}
-                createCliente={createCliente}
-                tipoCuentaPorDefecto={regla.actorSecundario.tipoCuentaTercero ?? 'Cliente'}
-              />
+                return (
+                  <div key={actor.rol}>
+                    <label className={LABEL_CLS}>
+                      <User className="inline h-3 w-3 mr-1" />
+                      {actor.label}
+                      {!actor.obligatorio && (
+                        <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
+                      )}
+                    </label>
 
-              {errorComprador && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3 shrink-0" />
-                  {errorComprador}
-                </p>
-              )}
+                    <BuscadorTercero
+                      datos={
+                        datosActor
+                          ? { nombre: datosActor.nombre, tipoDocumento: datosActor.tipoDocumento, numeroDocumento: datosActor.numeroDocumento }
+                          : null
+                      }
+                      onChange={(datos) =>
+                        onChangeActor(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
+                      }
+                      error={errorActor}
+                      clientes={clientes}
+                      createCliente={createCliente}
+                      tipoCuentaPorDefecto={actor.tipoCuentaTercero ?? 'Cliente'}
+                    />
+
+                    {errorActor && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        {errorActor}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {/* Campo especificación — solo visible para motivo '13' y similares */}
           {regla.requiereEspecificacion && onEspecificacionChange && (
             <div>
-              <label className={LABEL_CLS}>Especifique el motivo de traslado</label>
-              <textarea
+              <label className={LABEL_CLS}>
+                Especifique el motivo de traslado <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
                 value={especificacionMotivo ?? ''}
                 onChange={(e) => onEspecificacionChange(e.target.value)}
-                rows={2}
-                placeholder="Describa el motivo del traslado…"
-                className={`w-full px-2 py-2 text-sm border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none ${
+                placeholder="Describa el motivo del traslado..."
+                className={`w-full h-9 px-2 text-sm border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none ${
                   errorEspecificacion
                     ? 'border-red-400 dark:border-red-500'
                     : 'border-gray-200 dark:border-gray-600'

@@ -31,7 +31,8 @@ import { validarGREParaEmitir, hayErrores } from '../logica/validacionGRE';
 import {
   obtenerReglaFlujoGRE,
   calcularAjusteDestinatarioPorCambioMotivo,
-  calcularAjusteActorSecundarioPorCambioMotivo,
+  calcularAjusteDestinatarioPorMismoRemitente,
+  calcularAjusteActoresAdicionalesPorCambioMotivo,
 } from '../logica/reglasFlujoGRE';
 import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
 import ModalEmisionExitosaGRE from '../components/modales/ModalEmisionExitosaGRE';
@@ -62,7 +63,8 @@ interface DatosDestinatario {
   ubigeo?: string;
 }
 
-interface DatosComprador {
+/** Forma común de un actor adicional (Proveedor o Comprador) — cada rol vive en su propia ranura documental independiente. */
+interface DatosActorAdicional {
   nombre: string;
   tipoDocumento: string;
   numeroDocumento: string;
@@ -659,7 +661,24 @@ export default function FormularioGREPage() {
       }
     : null;
 
-  const compradorActual: DatosComprador | null = guia.compradorNombre
+  const proveedorActual: DatosActorAdicional | null = guia.proveedorNombre
+    ? {
+        nombre: guia.proveedorNombre,
+        tipoDocumento: guia.proveedorTipoDocumento ?? 'RUC',
+        numeroDocumento: guia.proveedorNumeroDocumento ?? '',
+      }
+    : null;
+
+  const setProveedor = useCallback((datos: DatosActorAdicional | null) => {
+    setGuia((prev) => ({
+      ...prev,
+      proveedorNombre: datos?.nombre || undefined,
+      proveedorTipoDocumento: datos?.tipoDocumento || undefined,
+      proveedorNumeroDocumento: datos?.numeroDocumento || undefined,
+    }));
+  }, []);
+
+  const compradorActual: DatosActorAdicional | null = guia.compradorNombre
     ? {
         nombre: guia.compradorNombre,
         tipoDocumento: guia.compradorTipoDocumento ?? 'RUC',
@@ -667,7 +686,7 @@ export default function FormularioGREPage() {
       }
     : null;
 
-  const setComprador = useCallback((datos: DatosComprador | null) => {
+  const setComprador = useCallback((datos: DatosActorAdicional | null) => {
     setGuia((prev) => ({
       ...prev,
       compradorNombre: datos?.nombre || undefined,
@@ -675,6 +694,25 @@ export default function FormularioGREPage() {
       compradorNumeroDocumento: datos?.numeroDocumento || undefined,
     }));
   }, []);
+
+  const onMismoRemitenteChange = useCallback(
+    (activar: boolean) => {
+      setGuia((prev) => ({
+        ...prev,
+        ...calcularAjusteDestinatarioPorMismoRemitente(
+          activar,
+          activeWorkspace
+            ? {
+                razonSocial: activeWorkspace.razonSocial,
+                ruc: activeWorkspace.ruc,
+                domicilioFiscal: activeWorkspace.domicilioFiscal,
+              }
+            : null,
+        ),
+      }));
+    },
+    [activeWorkspace],
+  );
 
   const guardarBorrador = useCallback(async () => {
     if (!guia.serie) return;
@@ -954,8 +992,9 @@ export default function FormularioGREPage() {
                       domicilioFiscal: activeWorkspace.domicilioFiscal,
                     }
                   : null,
+                prev.destinatarioEsMismoRemitente ?? false,
               );
-              const ajusteActorSecundario = calcularAjusteActorSecundarioPorCambioMotivo(
+              const ajusteActoresAdicionales = calcularAjusteActoresAdicionalesPorCambioMotivo(
                 prev.tipo,
                 prev.motivoTraslado,
                 motivoNuevo,
@@ -964,18 +1003,23 @@ export default function FormularioGREPage() {
                 ...prev,
                 motivoTraslado: motivoNuevo,
                 ...ajusteDestinatario,
-                ...ajusteActorSecundario,
+                ...ajusteActoresAdicionales,
               };
             });
           }}
           destinatario={destinatarioActual}
           onDestinatarioChange={setDestinatario}
           errorDestinatario={intentoEmitir ? (erroresMinimos.destinatario ?? null) : null}
+          mismoRemitente={guia.destinatarioEsMismoRemitente}
+          onMismoRemitenteChange={onMismoRemitenteChange}
           documentosRelacionados={guia.documentosRelacionados}
           onDocumentosRelacionadosChange={(docs) =>
             setGuia((prev) => ({ ...prev, documentosRelacionados: docs }))
           }
           regla={regla}
+          proveedor={proveedorActual}
+          onProveedorChange={setProveedor}
+          errorProveedor={intentoEmitir ? (erroresMinimos.proveedor ?? null) : null}
           comprador={compradorActual}
           onCompradorChange={setComprador}
           errorComprador={intentoEmitir ? (erroresMinimos.comprador ?? null) : null}

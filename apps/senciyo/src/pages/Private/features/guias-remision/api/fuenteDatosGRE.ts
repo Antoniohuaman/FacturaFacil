@@ -1,5 +1,6 @@
 import type { GuiaRemision } from '../modelos/GuiaRemision';
 import { STORAGE_KEY_GRE } from '../modelos/GuiaRemision';
+import { normalizarActoresAdicionalesLegacyGRE } from '../logica/reglasFlujoGRE';
 
 export interface IGuiasRemisionDataSource {
   list(empresaId: string): Promise<GuiaRemision[]>;
@@ -27,11 +28,13 @@ class LocalStorageGuiasRemisionDataSource implements IGuiasRemisionDataSource {
       const raw = localStorage.getItem(this.getKey(empresaId));
       if (!raw) return [];
       const parsed = JSON.parse(raw) as GuiaRemision[];
-      return parsed.map((g) => ({
-        ...g,
-        creadoEl: coerceDateGRE(g.creadoEl),
-        actualizadoEl: coerceDateGRE(g.actualizadoEl),
-      }));
+      return parsed.map((g) =>
+        normalizarActoresAdicionalesLegacyGRE({
+          ...g,
+          creadoEl: coerceDateGRE(g.creadoEl),
+          actualizadoEl: coerceDateGRE(g.actualizadoEl),
+        }),
+      );
     } catch {
       return [];
     }

@@ -121,6 +121,13 @@ export interface GuiaRemision {
   destinatarioProvincia?: string;
   destinatarioDistrito?: string;
   destinatarioUbigeo?: string;
+  /**
+   * `true` cuando el usuario indicó explícitamente que el Destinatario es la propia
+   * empresa/remitente (solo aplica a motivos que ofrecen esta opción, hoy '13' — Otros). Snapshot
+   * persistido junto con el documento — nunca se re-deriva a partir de este flag en impresión, que
+   * sigue leyendo únicamente los campos `destinatario*` ya poblados.
+   */
+  destinatarioEsMismoRemitente?: boolean;
 
   pesoTotal?: number;
   unidadPeso: UnidadPeso;
@@ -134,7 +141,15 @@ export interface GuiaRemision {
   transportePrivado?: TransportePrivado;
   transportePublico?: TransportePublico;
 
-  // Actor secundario: comprador (motivo '03' — Venta con entrega a terceros)
+  // Actor adicional — rol Proveedor (motivos '02' — Compra, '07' — Recojo de bienes
+  // transformados, '13' — Otros): quien vende/transformó los bienes y los traslada. Snapshot
+  // independiente — nunca comparte campos con el rol Comprador, ambos pueden coexistir (motivo '13').
+  proveedorNombre?: string;
+  proveedorNumeroDocumento?: string;
+  proveedorTipoDocumento?: string;
+
+  // Actor adicional — rol Comprador (motivos '03' — Venta con entrega a terceros, '13' — Otros):
+  // quien adquirió los bienes cuando difiere del Destinatario que los recibe físicamente.
   compradorNombre?: string;
   compradorNumeroDocumento?: string;
   compradorTipoDocumento?: string;

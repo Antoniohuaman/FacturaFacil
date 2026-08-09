@@ -17,7 +17,7 @@ import {
   formatearPlaca,
   nombreCompletoConductor,
 } from '../../configuracion-sistema/components/transporte/helpersTransporte';
-import { obtenerReglaFlujoGRE } from '../logica/reglasFlujoGRE';
+import { obtenerReglaFlujoGRE, obtenerDatosRolActorGRE } from '../logica/reglasFlujoGRE';
 
 // ─── Interfaz pública ────────────────────────────────────────
 
@@ -505,16 +505,20 @@ export default function RepresentacionImpresaGRE({
           </Grid2>
         </Seccion>
 
-        {regla.actorSecundario !== null && guia.compradorNombre && (
-          <Seccion titulo={regla.actorSecundario.label}>
-            <Grid2>
-              <Campo label="Nombre / Razón social" value={guia.compradorNombre} />
-              {guia.compradorTipoDocumento && guia.compradorNumeroDocumento && (
-                <Campo label={guia.compradorTipoDocumento} value={guia.compradorNumeroDocumento} />
-              )}
-            </Grid2>
-          </Seccion>
-        )}
+        {regla.actoresAdicionales.map((actor) => {
+          const datosActor = obtenerDatosRolActorGRE(guia, actor.rol);
+          if (!datosActor.nombre) return null;
+          return (
+            <Seccion key={actor.rol} titulo={actor.label}>
+              <Grid2>
+                <Campo label="Nombre / Razón social" value={datosActor.nombre} />
+                {datosActor.tipoDocumento && datosActor.numeroDocumento && (
+                  <Campo label={datosActor.tipoDocumento} value={datosActor.numeroDocumento} />
+                )}
+              </Grid2>
+            </Seccion>
+          );
+        })}
 
         {/* 4. Puntos de traslado */}
         <Seccion titulo="Puntos de traslado">

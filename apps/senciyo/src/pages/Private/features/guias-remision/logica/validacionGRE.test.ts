@@ -170,21 +170,21 @@ describe('validarGREParaEmitir — motivo 02 (Compra): Destinatario auto-derivad
       destinatarioNombre: 'Empresa Emisora S.A.C.',
       destinatarioTipoDocumento: 'RUC',
       destinatarioNumeroDocumento: '20111111111',
-      compradorNombre: 'Proveedor S.A.C.',
-      compradorTipoDocumento: 'RUC',
-      compradorNumeroDocumento: '20999999999',
+      proveedorNombre: 'Proveedor S.A.C.',
+      proveedorTipoDocumento: 'RUC',
+      proveedorNumeroDocumento: '20999999999',
     };
   }
 
   it('con destinatario (empresa) y Proveedor completos, no hay errores de actores', () => {
     const errores = validarGREParaEmitir(guiaCompraValida());
     expect(errores.destinatario).toBeUndefined();
-    expect(errores.comprador).toBeUndefined();
+    expect(errores.proveedor).toBeUndefined();
   });
 
-  it('sin Proveedor (compradorNombre vacío) es inválido — el Proveedor es obligatorio en Compra', () => {
-    const errores = validarGREParaEmitir({ ...guiaCompraValida(), compradorNombre: '' });
-    expect(errores.comprador).toBe('El Proveedor es obligatorio.');
+  it('sin Proveedor (proveedorNombre vacío) es inválido — el Proveedor es obligatorio en Compra', () => {
+    const errores = validarGREParaEmitir({ ...guiaCompraValida(), proveedorNombre: '' });
+    expect(errores.proveedor).toBe('El Proveedor es obligatorio.');
   });
 
   it('sin destinatario (empresa no derivada) es inválido, con el mensaje bajo la etiqueta Destinatario', () => {
@@ -201,25 +201,91 @@ describe('validarGREParaEmitir — motivo 07 (Recojo de bienes transformados): m
       destinatarioNombre: 'Empresa Emisora S.A.C.',
       destinatarioTipoDocumento: 'RUC',
       destinatarioNumeroDocumento: '20111111111',
-      compradorNombre: 'Proveedor Transformador S.A.C.',
-      compradorTipoDocumento: 'RUC',
-      compradorNumeroDocumento: '20999999999',
+      proveedorNombre: 'Proveedor Transformador S.A.C.',
+      proveedorTipoDocumento: 'RUC',
+      proveedorNumeroDocumento: '20999999999',
     };
   }
 
   it('con destinatario (empresa) y Proveedor completos, no hay errores de actores', () => {
     const errores = validarGREParaEmitir(guiaRecojoValida());
     expect(errores.destinatario).toBeUndefined();
-    expect(errores.comprador).toBeUndefined();
+    expect(errores.proveedor).toBeUndefined();
   });
 
   it('sin Proveedor es inválido — el Proveedor es obligatorio en Recojo de bienes transformados', () => {
-    const errores = validarGREParaEmitir({ ...guiaRecojoValida(), compradorNombre: '' });
-    expect(errores.comprador).toBe('El Proveedor es obligatorio.');
+    const errores = validarGREParaEmitir({ ...guiaRecojoValida(), proveedorNombre: '' });
+    expect(errores.proveedor).toBe('El Proveedor es obligatorio.');
   });
 
   it('sin destinatario (empresa no derivada) es inválido, con el mensaje bajo la etiqueta Destinatario', () => {
     const errores = validarGREParaEmitir({ ...guiaRecojoValida(), destinatarioNombre: '' });
     expect(errores.destinatario).toBe('El Destinatario es obligatorio.');
+  });
+});
+
+describe('validarGREParaEmitir — motivo 13 (Otros): especificación obligatoria + Destinatario (switch) + Proveedor/Comprador opcionales y coexistentes', () => {
+  function guiaOtrosValida(): GuiaRemision {
+    return {
+      ...guiaValidaBase(),
+      motivoTraslado: '13',
+      especificacionMotivo: 'Traslado por préstamo de maquinaria',
+      destinatarioNombre: 'Tercero Destinatario S.A.C.',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: '20555555555',
+    };
+  }
+
+  it('sin especificación es inválido (obligatoria en Otros)', () => {
+    const errores = validarGREParaEmitir({ ...guiaOtrosValida(), especificacionMotivo: '' });
+    expect(errores.especificacion).toBe('Debe especificar el motivo de traslado.');
+  });
+
+  it('con especificación completa, no hay error de especificación — la validación de dominio es la que decide, no un modal', () => {
+    const errores = validarGREParaEmitir(guiaOtrosValida());
+    expect(errores.especificacion).toBeUndefined();
+  });
+
+  it('sin Proveedor ni Comprador es válido — ninguno es obligatorio por regla real de SUNAT para Otros', () => {
+    const errores = validarGREParaEmitir(guiaOtrosValida());
+    expect(errores.proveedor).toBeUndefined();
+    expect(errores.comprador).toBeUndefined();
+  });
+
+  it('Destinatario switch OFF, sin tercero seleccionado: inválido (sigue siendo obligatorio como cualquier Destinatario)', () => {
+    const errores = validarGREParaEmitir({ ...guiaOtrosValida(), destinatarioNombre: '' });
+    expect(errores.destinatario).toBe('El Destinatario es obligatorio.');
+  });
+
+  it('Destinatario switch ON (empresa emisora auto-derivada) satisface la obligatoriedad igual que un tercero', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaOtrosValida(),
+      destinatarioEsMismoRemitente: true,
+      destinatarioNombre: 'Empresa Emisora S.A.C.',
+      destinatarioNumeroDocumento: '20111111111',
+    });
+    expect(errores.destinatario).toBeUndefined();
+  });
+
+  it('Proveedor y Comprador coexisten sin pisarse: ambos completos, ninguno reporta error', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaOtrosValida(),
+      proveedorNombre: 'Proveedor Otros S.A.C.',
+      proveedorNumeroDocumento: '20666666666',
+      compradorNombre: 'Comprador Otros S.A.C.',
+      compradorNumeroDocumento: '20777777777',
+    });
+    expect(errores.proveedor).toBeUndefined();
+    expect(errores.comprador).toBeUndefined();
+  });
+
+  it('solo Proveedor informado (sin Comprador): válido, y viceversa — ninguno depende de la presencia del otro', () => {
+    const soloProveedor = validarGREParaEmitir({ ...guiaOtrosValida(), proveedorNombre: 'Proveedor Otros S.A.C.' });
+    expect(soloProveedor.proveedor).toBeUndefined();
+    expect(soloProveedor.comprador).toBeUndefined();
+
+    const soloComprador = validarGREParaEmitir({ ...guiaOtrosValida(), compradorNombre: 'Comprador Otros S.A.C.' });
+    expect(soloComprador.proveedor).toBeUndefined();
+    expect(soloComprador.comprador).toBeUndefined();
   });
 });
