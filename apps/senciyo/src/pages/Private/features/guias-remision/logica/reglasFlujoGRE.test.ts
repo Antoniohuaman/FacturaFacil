@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { obtenerReglaFlujoGRE, calcularAjusteDestinatarioPorCambioMotivo } from './reglasFlujoGRE';
+import {
+  obtenerReglaFlujoGRE,
+  calcularAjusteDestinatarioPorCambioMotivo,
+  calcularAjusteActorSecundarioPorCambioMotivo,
+} from './reglasFlujoGRE';
 
 const EMPRESA_A = { razonSocial: 'Empresa A S.A.C.', ruc: '20111111111', domicilioFiscal: 'Av. A 100' };
 const EMPRESA_B = { razonSocial: 'Empresa B S.A.C.', ruc: '20222222222', domicilioFiscal: 'Av. B 200' };
@@ -21,13 +25,17 @@ describe('obtenerReglaFlujoGRE — Remitente', () => {
     expect(regla.actorSecundario).toEqual({
       label: 'Proveedor',
       obligatorio: true,
-      requiereBusquedaTercero: true,
+      tipoCuentaTercero: 'Proveedor',
     });
   });
 
-  it('motivo 03 (Venta con entrega a terceros) agrega un actor secundario opcional (Comprador)', () => {
+  it('motivo 03 (Venta con entrega a terceros): Comprador es obligatorio y usa el mismo buscador real de terceros, registrado como Cliente', () => {
     const regla = obtenerReglaFlujoGRE('remitente', '03');
-    expect(regla.actorSecundario).toEqual({ label: 'Comprador', obligatorio: false });
+    expect(regla.actorSecundario).toEqual({
+      label: 'Comprador',
+      obligatorio: true,
+      tipoCuentaTercero: 'Cliente',
+    });
   });
 
   it('motivo 13 (Otros) exige especificar el motivo de traslado', () => {
@@ -49,7 +57,7 @@ describe('obtenerReglaFlujoGRE — Remitente', () => {
     expect(regla.actorSecundario).toEqual({
       label: 'Proveedor',
       obligatorio: true,
-      requiereBusquedaTercero: true,
+      tipoCuentaTercero: 'Proveedor',
     });
   });
 
@@ -198,5 +206,46 @@ describe('calcularAjusteDestinatarioPorCambioMotivo', () => {
   it('07 → 17: SÍ debe limpiar el Destinatario auto-derivado, porque 17 exige seleccionar un tercero real', () => {
     const ajuste = calcularAjusteDestinatarioPorCambioMotivo('remitente', '07', '17', EMPRESA_A);
     expect(ajuste?.destinatarioNombre).toBe('');
+  });
+});
+
+describe('calcularAjusteActorSecundarioPorCambioMotivo', () => {
+  it('01 → 03 (sin actor secundario antes, Comprador ahora): no hay nada que limpiar, el usuario debe seleccionarlo', () => {
+    const ajuste = calcularAjusteActorSecundarioPorCambioMotivo('remitente', '01', '03');
+    expect(ajuste).toBeNull();
+  });
+
+  it('03 → 01 (Comprador antes, sin actor secundario ahora): limpia el snapshot residual', () => {
+    const ajuste = calcularAjusteActorSecundarioPorCambioMotivo('remitente', '03', '01');
+    expect(ajuste).toEqual({
+      compradorNombre: '',
+      compradorTipoDocumento: undefined,
+      compradorNumeroDocumento: undefined,
+    });
+  });
+
+  it('02 → 07 (Proveedor → Proveedor, mismo actor secundario): preserva el snapshot ya seleccionado', () => {
+    const ajuste = calcularAjusteActorSecundarioPorCambioMotivo('remitente', '02', '07');
+    expect(ajuste).toBeNull();
+  });
+
+  it('02 → 03 (Proveedor → Comprador, actor secundario distinto): limpia — nunca debe verse un Proveedor bajo la etiqueta Comprador', () => {
+    const ajuste = calcularAjusteActorSecundarioPorCambioMotivo('remitente', '02', '03');
+    expect(ajuste?.compradorNombre).toBe('');
+  });
+
+  it('03 → 02 (Comprador → Proveedor, actor secundario distinto): limpia en la dirección inversa', () => {
+    const ajuste = calcularAjusteActorSecundarioPorCambioMotivo('remitente', '03', '02');
+    expect(ajuste?.compradorNombre).toBe('');
+  });
+
+  it('03 → 03 (permanecer en el mismo motivo, ej. al editar otro campo): no toca el Comprador — preserva el snapshot del borrador', () => {
+    const ajuste = calcularAjusteActorSecundarioPorCambioMotivo('remitente', '03', '03');
+    expect(ajuste).toBeNull();
+  });
+
+  it('01 → 01 (ningún motivo tiene actor secundario): no produce ajuste', () => {
+    const ajuste = calcularAjusteActorSecundarioPorCambioMotivo('remitente', '01', '01');
+    expect(ajuste).toBeNull();
   });
 });

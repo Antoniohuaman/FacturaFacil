@@ -351,95 +351,30 @@ export default function SeccionDatosGenerales({
             )}
           </div>
 
-          {/* Actor secundario (comprador/proveedor) — solo visible cuando la regla lo indica.
-              Motivo 02 (Compra, Proveedor): reutiliza el mismo buscador real de terceros.
-              Resto de motivos con actor secundario (ej. 03, Comprador): campo de texto libre ya
-              existente, sin cambios. */}
+          {/* Actor secundario (comprador/proveedor, según el motivo) — solo visible cuando la
+              regla lo indica. Reutiliza exactamente el mismo buscador real de terceros que usa el
+              actor principal (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes); el
+              tipo de cuenta a registrar si el tercero no existe aún viene de la regla central. */}
           {regla.actorSecundario !== null && onCompradorChange && (
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className={`${LABEL_CLS} mb-0`}>
-                  <User className="inline h-3 w-3 mr-1" />
-                  {regla.actorSecundario.label}
-                  {!regla.actorSecundario.obligatorio && (
-                    <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
-                  )}
-                </label>
-                {comprador && !regla.actorSecundario.requiereBusquedaTercero && (
-                  <button
-                    type="button"
-                    onClick={() => onCompradorChange(null)}
-                    className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                  >
-                    <X className="h-3 w-3" />
-                    Limpiar
-                  </button>
+              <label className={LABEL_CLS}>
+                <User className="inline h-3 w-3 mr-1" />
+                {regla.actorSecundario.label}
+                {!regla.actorSecundario.obligatorio && (
+                  <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
                 )}
-              </div>
+              </label>
 
-              {regla.actorSecundario.requiereBusquedaTercero ? (
-                <BuscadorTercero
-                  datos={comprador ? { nombre: comprador.nombre, tipoDocumento: comprador.tipoDocumento, numeroDocumento: comprador.numeroDocumento } : null}
-                  onChange={(datos) =>
-                    onCompradorChange(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
-                  }
-                  error={errorComprador}
-                  clientes={clientes}
-                  createCliente={createCliente}
-                  tipoCuentaPorDefecto="Proveedor"
-                />
-              ) : (
-                <div className="grid grid-cols-12 gap-2">
-                  <div className="col-span-3">
-                    <select
-                      value={comprador?.tipoDocumento ?? 'RUC'}
-                      onChange={(e) =>
-                        onCompradorChange({
-                          nombre: comprador?.nombre ?? '',
-                          tipoDocumento: e.target.value,
-                          numeroDocumento: comprador?.numeroDocumento ?? '',
-                        })
-                      }
-                      className={INPUT_CLS}
-                    >
-                      <option value="RUC">RUC</option>
-                      <option value="DNI">DNI</option>
-                      <option value="CE">CE</option>
-                      <option value="OTRO">Otro</option>
-                    </select>
-                  </div>
-                  <div className="col-span-4">
-                    <input
-                      type="text"
-                      value={comprador?.numeroDocumento ?? ''}
-                      placeholder="N° documento"
-                      className={INPUT_CLS}
-                      onChange={(e) =>
-                        onCompradorChange({
-                          nombre: comprador?.nombre ?? '',
-                          tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
-                          numeroDocumento: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="col-span-5">
-                    <input
-                      type="text"
-                      value={comprador?.nombre ?? ''}
-                      placeholder="Nombre / Razón social"
-                      className={INPUT_CLS}
-                      onChange={(e) =>
-                        onCompradorChange({
-                          nombre: e.target.value,
-                          tipoDocumento: comprador?.tipoDocumento ?? 'RUC',
-                          numeroDocumento: comprador?.numeroDocumento ?? '',
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              )}
+              <BuscadorTercero
+                datos={comprador ? { nombre: comprador.nombre, tipoDocumento: comprador.tipoDocumento, numeroDocumento: comprador.numeroDocumento } : null}
+                onChange={(datos) =>
+                  onCompradorChange(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
+                }
+                error={errorComprador}
+                clientes={clientes}
+                createCliente={createCliente}
+                tipoCuentaPorDefecto={regla.actorSecundario.tipoCuentaTercero ?? 'Cliente'}
+              />
 
               {errorComprador && (
                 <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">

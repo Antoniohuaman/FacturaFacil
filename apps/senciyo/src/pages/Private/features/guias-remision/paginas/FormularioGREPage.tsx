@@ -28,7 +28,11 @@ import type {
 } from '../modelos/GuiaRemision';
 import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS, TIPO_GRE_CODIGO_DOCUMENTO } from '../modelos/GuiaRemision';
 import { validarGREParaEmitir, hayErrores } from '../logica/validacionGRE';
-import { obtenerReglaFlujoGRE, calcularAjusteDestinatarioPorCambioMotivo } from '../logica/reglasFlujoGRE';
+import {
+  obtenerReglaFlujoGRE,
+  calcularAjusteDestinatarioPorCambioMotivo,
+  calcularAjusteActorSecundarioPorCambioMotivo,
+} from '../logica/reglasFlujoGRE';
 import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
 import ModalEmisionExitosaGRE from '../components/modales/ModalEmisionExitosaGRE';
 import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37 } from '../../configuracion-sistema/datos/catalogosGRE';
@@ -951,10 +955,16 @@ export default function FormularioGREPage() {
                     }
                   : null,
               );
+              const ajusteActorSecundario = calcularAjusteActorSecundarioPorCambioMotivo(
+                prev.tipo,
+                prev.motivoTraslado,
+                motivoNuevo,
+              );
               return {
                 ...prev,
                 motivoTraslado: motivoNuevo,
                 ...ajusteDestinatario,
+                ...ajusteActorSecundario,
               };
             });
           }}

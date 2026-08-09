@@ -130,6 +130,37 @@ describe('validarGREParaEmitir — cantidad de bienes (GRE-P1-005)', () => {
   });
 });
 
+describe('validarGREParaEmitir — motivo 03 (Venta con entrega a terceros): Destinatario + Comprador, ambos obligatorios', () => {
+  function guiaVentaTercerosValida(): GuiaRemision {
+    return {
+      ...guiaValidaBase(),
+      motivoTraslado: '03',
+      destinatarioNombre: 'La Bodega de Lima S.A.C.',
+      destinatarioTipoDocumento: 'RUC',
+      destinatarioNumeroDocumento: '20502380673',
+      compradorNombre: 'Fundo La Bodega S.A.C.',
+      compradorTipoDocumento: 'RUC',
+      compradorNumeroDocumento: '20600638131',
+    };
+  }
+
+  it('con Destinatario y Comprador completos, no hay errores de actores', () => {
+    const errores = validarGREParaEmitir(guiaVentaTercerosValida());
+    expect(errores.destinatario).toBeUndefined();
+    expect(errores.comprador).toBeUndefined();
+  });
+
+  it('sin Comprador es inválido — el Comprador es obligatorio en Venta con entrega a terceros', () => {
+    const errores = validarGREParaEmitir({ ...guiaVentaTercerosValida(), compradorNombre: '' });
+    expect(errores.comprador).toBe('El Comprador es obligatorio.');
+  });
+
+  it('sin Destinatario (receptor) es inválido', () => {
+    const errores = validarGREParaEmitir({ ...guiaVentaTercerosValida(), destinatarioNombre: '' });
+    expect(errores.destinatario).toBeDefined();
+  });
+});
+
 describe('validarGREParaEmitir — motivo 02 (Compra): Destinatario auto-derivado + Proveedor obligatorio', () => {
   function guiaCompraValida(): GuiaRemision {
     return {

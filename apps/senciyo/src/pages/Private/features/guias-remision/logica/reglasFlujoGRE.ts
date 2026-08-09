@@ -16,12 +16,14 @@ export interface ReglaActorGRE {
    */
   autoDerivadoDeEmpresa?: boolean;
   /**
-   * Cuando es `true` (solo el Proveedor de Motivo 02, Compra), el actor secundario se busca con el
-   * mismo buscador real de terceros (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes)
-   * que ya usa el actor principal — nunca un segundo buscador nuevo. Ausente/`false` conserva el
-   * campo de texto libre ya existente (Comprador, Motivo 03), sin cambios.
+   * Tipo de cuenta a registrar cuando este actor se busca/crea mediante el buscador real de
+   * terceros (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes) y no existe aún en el
+   * catálogo. Todo actor secundario de GRE usa ese mismo buscador — este campo solo distingue bajo
+   * qué tipo de cuenta debe quedar creado (p. ej. 'Proveedor' para Compra/Recojo de bienes
+   * transformados, 'Cliente' para el Comprador de Venta con entrega a terceros). Ausente en el
+   * actor principal, que siempre es 'Cliente'.
    */
-  requiereBusquedaTercero?: boolean;
+  tipoCuentaTercero?: 'Cliente' | 'Proveedor';
 }
 
 /** Regla completa de flujo para un motivo+tipo de guía. */
@@ -83,7 +85,7 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
     // SUNAT SOL). El Proveedor (quien vende y traslada los bienes) es el actor secundario real que
     // el usuario sí selecciona.
     actorPrincipal: { ...REGLA_BASE.actorPrincipal, autoDerivadoDeEmpresa: true },
-    actorSecundario: { label: 'Proveedor', obligatorio: true, requiereBusquedaTercero: true },
+    actorSecundario: { label: 'Proveedor', obligatorio: true, tipoCuentaTercero: 'Proveedor' },
     documentosRecomendados: ['01', '03', '04'],
     ayudaMotivo:
       'Para Compra, el destinatario es la propia empresa (quien recibe los bienes); el Proveedor es quien los vende y traslada.',
@@ -92,7 +94,11 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
   '03': {
     ...REGLA_BASE,
     actorPrincipal: { label: 'Destinatario (receptor)', obligatorio: true },
-    actorSecundario: { label: 'Comprador', obligatorio: false },
+    // El motivo 03 existe precisamente porque el destinatario (quien recibe físicamente los
+    // bienes) difiere del comprador (quien los adquirió) — por eso el Comprador es obligatorio
+    // siempre que se elige este motivo, igual que el Destinatario. Usa el mismo buscador real de
+    // terceros (RUC/DNI/nombre, SUNAT/RENIEC, catálogo de clientes) que el resto de actores.
+    actorSecundario: { label: 'Comprador', obligatorio: true, tipoCuentaTercero: 'Cliente' },
     documentosRecomendados: ['01', '03'],
     ayudaMotivo:
       'Venta con entrega a terceros: el destinatario recibe físicamente los bienes; el comprador es quien adquirió.',
@@ -127,7 +133,7 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
     // destinatario es la propia empresa emisora (quien recibe los bienes ya transformados), y el
     // Proveedor es el tercero que realizó la transformación y los entrega.
     actorPrincipal: { ...REGLA_BASE.actorPrincipal, autoDerivadoDeEmpresa: true },
-    actorSecundario: { label: 'Proveedor', obligatorio: true, requiereBusquedaTercero: true },
+    actorSecundario: { label: 'Proveedor', obligatorio: true, tipoCuentaTercero: 'Proveedor' },
     documentosRecomendados: [],
     ayudaMotivo:
       'Para Recojo de bienes transformados, el destinatario es la propia empresa (quien recibe los bienes ya transformados); el Proveedor es quien realizó la transformación y los entrega.',
@@ -312,4 +318,51 @@ export function calcularAjusteDestinatarioPorCambioMotivo(
   }
 
   return null;
+}
+
+/** Ajuste de campos del actor secundario a aplicar cuando el cambio de motivo lo requiere. */
+export interface AjusteActorSecundarioGRE {
+  compradorNombre: string;
+  compradorTipoDocumento: undefined;
+  compradorNumeroDocumento: undefined;
+}
+
+/**
+ * Calcula el ajuste del actor secundario (`comprador*`) al cambiar de motivo de traslado. Esos
+ * campos son compartidos por todos los motivos que tienen actor secundario (Proveedor en Compra y
+ * Recojo de bienes transformados; Comprador en Venta con entrega a terceros) — mismo snapshot,
+ * significado distinto según el motivo.
+ *
+ * - Si el motivo nuevo comparte el mismo actor secundario que el anterior (mismo `label` y
+ *   `tipoCuentaTercero`, p. ej. Compra → Recojo de bienes transformados, ambos Proveedor):
+ *   conserva el snapshot ya seleccionado.
+ * - Si el motivo nuevo tiene un actor secundario distinto, o ya no tiene actor secundario, y el
+ *   anterior sí lo tenía: limpia el snapshot — nunca debe mostrarse un Proveedor bajo la etiqueta
+ *   Comprador (o viceversa).
+ * - Si ni el motivo anterior ni el nuevo tienen actor secundario, no hay nada que ajustar.
+ *
+ * Devuelve `null` cuando no hay que tocar el actor secundario (incluye permanecer en el mismo
+ * motivo, preservando cualquier snapshot válido existente en un borrador).
+ *
+ * Única fuente de esta regla — nunca debe reimplementarse con `if (motivo === '03')` sueltos.
+ */
+export function calcularAjusteActorSecundarioPorCambioMotivo(
+  tipoGRE: TipoGRE,
+  motivoAnterior: string,
+  motivoNuevo: string,
+): AjusteActorSecundarioGRE | null {
+  const anterior = obtenerReglaFlujoGRE(tipoGRE, motivoAnterior).actorSecundario;
+  const nuevo = obtenerReglaFlujoGRE(tipoGRE, motivoNuevo).actorSecundario;
+
+  if (anterior === null) return null;
+
+  const mismoActor =
+    nuevo !== null && anterior.label === nuevo.label && anterior.tipoCuentaTercero === nuevo.tipoCuentaTercero;
+  if (mismoActor) return null;
+
+  return {
+    compradorNombre: '',
+    compradorTipoDocumento: undefined,
+    compradorNumeroDocumento: undefined,
+  };
 }
