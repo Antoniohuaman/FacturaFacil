@@ -1,5 +1,6 @@
 import type { GuiaRemision, EstadoGRE, TipoGRE } from '../modelos/GuiaRemision';
 import type { CodigoMotivoTraslado, CodigoModalidadTransporte } from '../modelos/GuiaRemision';
+import { aplicaMotivoTrasladoGRE, aplicaModalidadTransporteGRE } from './reglasFlujoGRE';
 
 export interface FiltrosAvanzadosGRE {
   estados: EstadoGRE[];
@@ -91,8 +92,11 @@ export function aplicarFiltrosGRE(
     if (hayAvanzados) {
       if (filtros.estados.length > 0 && !filtros.estados.includes(g.estado)) return false;
       if (filtros.tipo !== null && g.tipo !== filtros.tipo) return false;
-      if (filtros.motivoTraslado !== null && g.motivoTraslado !== filtros.motivoTraslado) return false;
-      if (filtros.modalidad !== null && g.modalidadTransporte !== filtros.modalidad) return false;
+      // Motivo/Modalidad son conceptos exclusivos de GRE Remitente — un filtro por cualquiera de
+      // los dos nunca debe hacer coincidir una GRE Transportista, aunque conserve un valor legacy
+      // heredado en esos campos (que ya no representa un hecho real del documento).
+      if (filtros.motivoTraslado !== null && (!aplicaMotivoTrasladoGRE(g.tipo) || g.motivoTraslado !== filtros.motivoTraslado)) return false;
+      if (filtros.modalidad !== null && (!aplicaModalidadTransporteGRE(g.tipo) || g.modalidadTransporte !== filtros.modalidad)) return false;
 
       const dest = filtros.destinatario.trim().toLowerCase();
       if (dest && !(g.destinatarioNombre ?? '').toLowerCase().includes(dest)) return false;

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Plus, Trash2, FileText } from 'lucide-react';
+import { Plus, Trash2, FileText, AlertCircle } from 'lucide-react';
 import { DOCUMENTOS_RELACIONADOS_GRE } from '../../../configuracion-sistema/datos/catalogosGRE';
 import type { DocumentoRelacionadoGRE } from '../../modelos/GuiaRemision';
 import { DOCUMENTO_RELACIONADO_VACIO } from '../../modelos/GuiaRemision';
@@ -8,6 +8,7 @@ interface SeccionDocumentosRelacionadosProps {
   documentos: DocumentoRelacionadoGRE[];
   onChange: (documentos: DocumentoRelacionadoGRE[]) => void;
   documentosRecomendados?: string[];
+  error?: string | null;
 }
 
 const CELL_CLS =
@@ -17,6 +18,7 @@ export default function SeccionDocumentosRelacionados({
   documentos,
   onChange,
   documentosRecomendados,
+  error,
 }: SeccionDocumentosRelacionadosProps) {
   const agregar = useCallback(() => {
     onChange([...documentos, DOCUMENTO_RELACIONADO_VACIO()]);
@@ -91,6 +93,13 @@ export default function SeccionDocumentosRelacionados({
           Agregar documento
         </button>
       </div>
+
+      {error && (
+        <p className="mb-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {error}
+        </p>
+      )}
 
       {documentos.length === 0 ? (
         <p className="text-xs text-gray-400 dark:text-gray-500 py-1">

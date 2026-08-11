@@ -81,4 +81,21 @@ describe('derivarEstadoConfiguracionGRE (GRE-P1-003)', () => {
     const estado = derivarEstadoConfiguracionGRE(undefined, transportista);
     expect(estado.autorizacionEspecialEmisor?.numeroAutorizacion).toBe('AUT-123');
   });
+
+  it('sin datos de transportista, numeroRegistroMTC es undefined — GRE Transportista debe mostrarlo como "No configurado", nunca como dato falso', () => {
+    const estado = derivarEstadoConfiguracionGRE(undefined, undefined);
+    expect(estado.numeroRegistroMTC).toBeUndefined();
+  });
+
+  it('reutiliza el numeroRegistroMTC ya configurado en Configuración → Transporte (misma fuente que ya usa la autorización especial)', () => {
+    const transportista: DatosTransportista = { numeroRegistroMTC: 'MTC-000123' } as DatosTransportista;
+    const estado = derivarEstadoConfiguracionGRE(undefined, transportista);
+    expect(estado.numeroRegistroMTC).toBe('MTC-000123');
+  });
+
+  it('un numeroRegistroMTC en blanco (solo espacios) cuenta como no configurado', () => {
+    const transportista: DatosTransportista = { numeroRegistroMTC: '   ' } as DatosTransportista;
+    const estado = derivarEstadoConfiguracionGRE(undefined, transportista);
+    expect(estado.numeroRegistroMTC).toBeUndefined();
+  });
 });

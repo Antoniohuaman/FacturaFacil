@@ -6,7 +6,7 @@ import { useConfigurationContext } from '../../../configuracion-sistema/contexto
 import ProductModal from '../../../catalogo-articulos/components/ProductModal';
 import type { Product } from '../../../catalogo-articulos/models/types';
 import { BIENES_NORMALIZADOS } from '../../../configuracion-sistema/datos/catalogosGRE';
-import type { BienGRE, UnidadPeso } from '../../modelos/GuiaRemision';
+import type { BienGRE, TipoGRE, UnidadPeso } from '../../modelos/GuiaRemision';
 import { BIEN_GRE_VACIO } from '../../modelos/GuiaRemision';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
@@ -120,6 +120,12 @@ interface SeccionBienesProps {
   unidadPeso: UnidadPeso;
   onPesoTotalChange: (peso: number | undefined) => void;
   onUnidadPesoChange: (unidad: UnidadPeso) => void;
+  /** GRE Transportista: el traslado es por el total de los bienes consignados en el documento relacionado (indicador SUNAT). */
+  tipo?: TipoGRE;
+  indicadorTrasladoTotalBienes?: boolean;
+  onIndicadorTrasladoTotalBienesChange?: (valor: boolean) => void;
+  /** Existe al menos un documento relacionado real — el indicador solo tiene sentido en relación con uno. */
+  hayDocumentoRelacionado?: boolean;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -130,6 +136,10 @@ export default function SeccionBienes({
   unidadPeso,
   onPesoTotalChange,
   onUnidadPesoChange,
+  tipo,
+  indicadorTrasladoTotalBienes,
+  onIndicadorTrasladoTotalBienesChange,
+  hayDocumentoRelacionado,
 }: SeccionBienesProps) {
   const { allProducts, addProduct, categories: productCategories } = useProductStore();
   const { state: configState } = useConfigurationContext();
@@ -750,6 +760,14 @@ export default function SeccionBienes({
 
   const totalCols = visibleColumns.length;
 
+  // GRE Transportista: con el indicador activo y un documento relacionado real, el detalle de
+  // bienes ya está sustentado por ese documento — no se invita a cargarlo manualmente como una
+  // segunda fuente concurrente (ni se inventa a partir del documento: no existe integración real
+  // para leerlo). Los bienes ya ingresados NUNCA se descartan: solo se oculta la UI de captura
+  // manual mientras este estado esté activo.
+  const detalleSustentadoPorDocumento =
+    tipo === 'transportista' && Boolean(indicadorTrasladoTotalBienes) && Boolean(hayDocumentoRelacionado);
+
   // ══════════════════════════════════════════════════════════════════════
   return (
     <>
@@ -757,10 +775,10 @@ export default function SeccionBienes({
         title="Bienes a transportar"
         icon={Package}
         badge={bienes.length > 0 ? bienes.length : undefined}
-        actions={columnasAction}
+        actions={detalleSustentadoPorDocumento ? undefined : columnasAction}
       >
         {/* ── Panel de personalización de columnas ── */}
-        {showColumnConfig && (
+        {showColumnConfig && !detalleSustentadoPorDocumento && (
           <div className="mb-3 p-4 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/10 dark:to-purple-900/10 rounded-lg border border-violet-200 dark:border-violet-700 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -841,6 +859,12 @@ export default function SeccionBienes({
           </div>
         )}
 
+        {detalleSustentadoPorDocumento ? (
+          <div className="p-3 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-500 dark:text-gray-400">
+            El detalle de los bienes se encuentra en los documentos relacionados.
+          </div>
+        ) : (
+          <>
         {/* ── Área de búsqueda ── */}
         <div className="mb-3 p-2.5 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/10 dark:to-purple-900/10 rounded-lg border border-violet-100 dark:border-violet-800/30">
           <div className="flex items-center gap-2 flex-wrap">
@@ -1041,6 +1065,38 @@ export default function SeccionBienes({
             </table>
           </div>
         </div>
+          </>
+        )}
+
+        {/* GRE Transportista: indicador de traslado por el total de los bienes consignados en el
+            documento relacionado — vive aquí (junto al detalle de bienes/peso), no en "Datos de
+            transporte", porque describe el contenido trasladado, no el transporte en sí. */}
+        {tipo === 'transportista' && (
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <label
+              className={`flex items-center gap-1.5 w-fit ${hayDocumentoRelacionado || indicadorTrasladoTotalBienes ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
+              title={!hayDocumentoRelacionado ? 'Requiere al menos un documento relacionado.' : undefined}
+            >
+              <input
+                type="checkbox"
+                checked={!!indicadorTrasladoTotalBienes}
+                disabled={!hayDocumentoRelacionado && !indicadorTrasladoTotalBienes}
+                onChange={(e) => onIndicadorTrasladoTotalBienesChange?.(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500 disabled:cursor-not-allowed"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Traslado por el total de los bienes consignados
+              </span>
+            </label>
+            {!hayDocumentoRelacionado && (
+              <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+                {indicadorTrasladoTotalBienes
+                  ? 'No hay documentos relacionados — agrega uno o desactiva este indicador antes de emitir.'
+                  : 'Agrega un documento relacionado para poder activarlo.'}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ── Peso bruto total y unidad de peso ── */}
         <div className="flex flex-wrap items-end gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">

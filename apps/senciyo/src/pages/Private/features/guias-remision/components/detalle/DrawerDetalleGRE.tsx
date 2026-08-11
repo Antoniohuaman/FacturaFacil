@@ -23,7 +23,16 @@ import {
   puedeEditarGRE,
   puedeEliminarBorradorGRE,
 } from '../../logica/estadosGRE';
-import { obtenerReglaFlujoGRE, obtenerDatosRolActorGRE } from '../../logica/reglasFlujoGRE';
+import {
+  obtenerReglaFlujoGRE,
+  obtenerDatosRolActorGRE,
+  aplicaModalidadTransporteGRE,
+  aplicaMotivoTrasladoGRE,
+  aplicaM1oLGRE,
+  esTransportePrivadoGRE,
+  textoTipoPagadorFleteGRE,
+  obtenerDatosPagadorFleteGRE,
+} from '../../logica/reglasFlujoGRE';
 
 type TabDrawer = 'general' | 'bienes' | 'transporte' | 'documentos' | 'historial';
 
@@ -75,7 +84,7 @@ export default function DrawerDetalleGRE({
         : '—';
 
   const motivo = MOTIVOS_TRASLADO.find((m) => m.codigo === guia.motivoTraslado);
-  const esPrivado = guia.modalidadTransporte === '02';
+  const esPrivado = esTransportePrivadoGRE(guia.tipo, guia.modalidadTransporte);
 
   const tabs: { id: TabDrawer; label: string }[] = [
     { id: 'general', label: 'General' },
@@ -245,47 +254,91 @@ function Seccion({ titulo, children }: { titulo: string; children: React.ReactNo
 
 function TabGeneral({ guia, motivo }: { guia: GuiaRemision; motivo?: string }) {
   const regla = obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado);
-  return (
-    <>
-      <Seccion titulo={regla.actorPrincipal.label}>
-        <Campo label="Nombre / Razón social">{guia.destinatarioNombre || '—'}</Campo>
-        <div className="grid grid-cols-2 gap-3">
-          <Campo label="Tipo documento">{guia.destinatarioTipoDocumento}</Campo>
-          <Campo label="Número">{guia.destinatarioNumeroDocumento || '—'}</Campo>
-        </div>
-        {guia.destinatarioDireccion && (
-          <Campo label="Dirección">{guia.destinatarioDireccion}</Campo>
-        )}
-        {guia.destinatarioDistrito && (
-          <Campo label="Distrito / Provincia">
-            {[guia.destinatarioDistrito, guia.destinatarioProvincia, guia.destinatarioDepartamento]
-              .filter(Boolean)
-              .join(', ')}
-          </Campo>
+  const esTransportista = guia.tipo === 'transportista';
+
+  const bloqueDestinatario = (
+    <Seccion titulo={regla.actorPrincipal.label}>
+      <Campo label="Nombre / Razón social">{guia.destinatarioNombre || '—'}</Campo>
+      <div className="grid grid-cols-2 gap-3">
+        <Campo label="Tipo documento">{guia.destinatarioTipoDocumento}</Campo>
+        <Campo label="Número">{guia.destinatarioNumeroDocumento || '—'}</Campo>
+      </div>
+      {guia.destinatarioDireccion && (
+        <Campo label="Dirección">{guia.destinatarioDireccion}</Campo>
+      )}
+      {guia.destinatarioDistrito && (
+        <Campo label="Distrito / Provincia">
+          {[guia.destinatarioDistrito, guia.destinatarioProvincia, guia.destinatarioDepartamento]
+            .filter(Boolean)
+            .join(', ')}
+        </Campo>
+      )}
+    </Seccion>
+  );
+
+  const bloqueActoresAdicionales = regla.actoresAdicionales.map((actor) => {
+    const datosActor = obtenerDatosRolActorGRE(guia, actor.rol);
+    if (!datosActor.nombre) return null;
+    return (
+      <Seccion key={actor.rol} titulo={actor.label}>
+        <Campo label="Nombre / Razón social">{datosActor.nombre}</Campo>
+        {(datosActor.tipoDocumento || datosActor.numeroDocumento) && (
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Tipo documento">{datosActor.tipoDocumento || '—'}</Campo>
+            <Campo label="Número">{datosActor.numeroDocumento || '—'}</Campo>
+          </div>
         )}
       </Seccion>
+    );
+  });
 
-      {regla.actoresAdicionales.map((actor) => {
-        const datosActor = obtenerDatosRolActorGRE(guia, actor.rol);
-        if (!datosActor.nombre) return null;
-        return (
-          <Seccion key={actor.rol} titulo={actor.label}>
-            <Campo label="Nombre / Razón social">{datosActor.nombre}</Campo>
-            {(datosActor.tipoDocumento || datosActor.numeroDocumento) && (
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Tipo documento">{datosActor.tipoDocumento || '—'}</Campo>
-                <Campo label="Número">{datosActor.numeroDocumento || '—'}</Campo>
-              </div>
-            )}
-          </Seccion>
-        );
-      })}
+  return (
+    <>
+      {/* GRE Transportista: Remitente antes de Destinatario (igual que formulario e impresión). */}
+      {esTransportista ? (
+        <>
+          {bloqueActoresAdicionales}
+          {bloqueDestinatario}
+        </>
+      ) : (
+        <>
+          {bloqueDestinatario}
+          {bloqueActoresAdicionales}
+        </>
+      )}
 
       {regla.requiereEspecificacion && guia.especificacionMotivo && (
         <Seccion titulo="Especificación del motivo">
           <p className="text-sm text-gray-700 dark:text-gray-300">{guia.especificacionMotivo}</p>
         </Seccion>
       )}
+
+      {/* Subcontratador (GRE Transportista) — indicador booleano, independiente del motivo. */}
+      {esTransportista && guia.transporteSubcontratado && guia.subcontratadorNombre && (
+        <Seccion titulo="Subcontratador">
+          <Campo label="Nombre / Razón social">{guia.subcontratadorNombre}</Campo>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Tipo documento">{guia.subcontratadorTipoDocumento || '—'}</Campo>
+            <Campo label="Número">{guia.subcontratadorNumeroDocumento || '—'}</Campo>
+          </div>
+        </Seccion>
+      )}
+
+      {/* Datos del pagador del flete — mismos datos concretos que la impresión, sin importar el rol. */}
+      {esTransportista &&
+        (() => {
+          const datosPagador = obtenerDatosPagadorFleteGRE(guia);
+          if (!datosPagador?.nombre) return null;
+          return (
+            <Seccion titulo="Datos del pagador del flete">
+              <Campo label="Nombre / Razón social">{datosPagador.nombre}</Campo>
+              <div className="grid grid-cols-2 gap-3">
+                <Campo label="Tipo documento">{datosPagador.tipoDocumento || '—'}</Campo>
+                <Campo label="Número">{datosPagador.numeroDocumento || '—'}</Campo>
+              </div>
+            </Seccion>
+          );
+        })()}
 
       <Seccion titulo="Datos generales">
         <div className="grid grid-cols-2 gap-3">
@@ -297,12 +350,17 @@ function TabGeneral({ guia, motivo }: { guia: GuiaRemision; motivo?: string }) {
                 : guia.serie || '—'}
             </span>
           </Campo>
-          <Campo label="Motivo de traslado">
-            {guia.motivoTraslado} — {motivo ?? '—'}
-          </Campo>
-          <Campo label="Modalidad">
-            {guia.modalidadTransporte === '02' ? 'Privado' : 'Público'}
-          </Campo>
+          {/* GRE Transportista no usa motivo de traslado — se omite por completo. */}
+          {aplicaMotivoTrasladoGRE(guia.tipo) && (
+            <Campo label="Motivo de traslado">
+              {guia.motivoTraslado} — {motivo ?? '—'}
+            </Campo>
+          )}
+          {aplicaModalidadTransporteGRE(guia.tipo) && (
+            <Campo label="Modalidad">
+              {guia.modalidadTransporte === '02' ? 'Privado' : 'Público'}
+            </Campo>
+          )}
         </div>
       </Seccion>
 
@@ -440,9 +498,12 @@ function TabTransporte({
     <>
       {esPrivado && guia.transportePrivado ? (
         <TransportePrivadoDetalle
+          tipo={guia.tipo}
           tp={guia.transportePrivado}
           vehiculos={vehiculos}
           conductores={conductores}
+          transporteSubcontratado={guia.tipo === 'transportista' ? guia.transporteSubcontratado : undefined}
+          pagadorFlete={guia.tipo === 'transportista' ? guia.pagadorFlete : undefined}
         />
       ) : !esPrivado && guia.transportePublico ? (
         <TransportePublicoDetalle
@@ -473,28 +534,43 @@ function IndicadorBoolean({ label, valor }: { label: string; valor?: boolean }) 
 }
 
 function TransportePrivadoDetalle({
+  tipo,
   tp,
   vehiculos,
   conductores,
+  transporteSubcontratado,
+  pagadorFlete,
 }: {
+  tipo: GuiaRemision['tipo'];
   tp: GuiaRemision['transportePrivado'] & object;
   vehiculos: Vehiculo[];
   conductores: Conductor[];
+  transporteSubcontratado?: boolean;
+  pagadorFlete?: GuiaRemision['pagadorFlete'];
 }) {
+  // M1/L es exclusivo de GRE Remitente — un valor legacy heredado en `esM1oL` nunca se muestra
+  // como real para Transportista.
+  const m1oLAplicable = aplicaM1oLGRE(tipo);
+  const esM1oLReal = m1oLAplicable && Boolean(tp.esM1oL);
+
   return (
     <>
       <Seccion titulo="Transporte privado">
         <div className="space-y-1.5">
-          <IndicadorBoolean label="Vehículo M1/L" valor={tp.esM1oL} />
+          {m1oLAplicable && <IndicadorBoolean label="Vehículo M1/L" valor={tp.esM1oL} />}
           <IndicadorBoolean label="Transbordo programado" valor={tp.transbordo} />
-          {!tp.esM1oL && (
+          {!esM1oLReal && (
             <>
               <IndicadorBoolean label="Retorno de vehículo vacío" valor={tp.retornoVehiculoVacio} />
               <IndicadorBoolean label="Retorno con envases vacíos" valor={tp.retornoEnvases} />
             </>
           )}
+          {transporteSubcontratado !== undefined && (
+            <IndicadorBoolean label="Transporte subcontratado" valor={transporteSubcontratado} />
+          )}
         </div>
-        {tp.esM1oL && tp.placaVehiculoM1L && (
+        {pagadorFlete && <Campo label="Pagador del flete">{textoTipoPagadorFleteGRE(pagadorFlete)}</Campo>}
+        {esM1oLReal && tp.placaVehiculoM1L && (
           <Campo label="Placa M1/L">
             <span className="font-mono">{tp.placaVehiculoM1L}</span>
           </Campo>
@@ -502,7 +578,7 @@ function TransportePrivadoDetalle({
         <Campo label="Fecha de inicio de traslado">{tp.fechaInicioTraslado || '—'}</Campo>
       </Seccion>
 
-      {!tp.esM1oL && tp.vehiculosIds.length > 0 && (
+      {!esM1oLReal && tp.vehiculosIds.length > 0 && (
         <Seccion titulo="Vehículos">
           <ul className="space-y-2">
             {tp.vehiculosIds.map((vid, idx) => {
@@ -520,6 +596,9 @@ function TransportePrivadoDetalle({
                     <span className="font-mono font-semibold text-gray-900 dark:text-white">
                       {formatearPlaca(v.placa)}
                     </span>
+                    {v.numeroTUCE && (
+                      <span className="text-gray-500 dark:text-gray-400 ml-1.5">· TUCE {v.numeroTUCE}</span>
+                    )}
                     {ent && (
                       <span className="text-gray-500 dark:text-gray-400 ml-1.5">
                         · {ent.abreviatura}
@@ -534,7 +613,7 @@ function TransportePrivadoDetalle({
         </Seccion>
       )}
 
-      {!tp.esM1oL && tp.conductoresIds.length > 0 && (
+      {!esM1oLReal && tp.conductoresIds.length > 0 && (
         <Seccion titulo="Conductores">
           <ul className="space-y-2">
             {tp.conductoresIds.map((cid, idx) => {

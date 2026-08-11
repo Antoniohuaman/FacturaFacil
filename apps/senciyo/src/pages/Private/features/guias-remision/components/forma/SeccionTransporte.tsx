@@ -22,7 +22,19 @@ import {
   nombreCompletoConductor,
   formatearPlaca,
 } from '../../../configuracion-sistema/components/transporte/helpersTransporte';
-import type { TransportePrivado, TransportePublico } from '../../modelos/GuiaRemision';
+import type { TransportePrivado, TransportePublico, TipoGRE } from '../../modelos/GuiaRemision';
+import { aplicaModalidadTransporteGRE, aplicaM1oLGRE, esTransportePrivadoGRE } from '../../logica/reglasFlujoGRE';
+import { useClientes } from '../../../gestion-clientes/hooks/useClientes';
+import {
+  BuscadorTercero,
+  type DatosDestinatario,
+  type DatosActorAdicional,
+  type TipoPagadorFleteGRE,
+} from './SeccionDatosGenerales';
+
+const LABEL_CLS_TRANSPORTE = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1';
+const INPUT_CLS_TRANSPORTE =
+  'h-9 px-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-violet-500 outline-none w-full sm:w-56';
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -206,6 +218,15 @@ function PanelVehiculos({
                 <span className="font-mono font-semibold text-gray-900 dark:text-white shrink-0">
                   {formatearPlaca(v.placa)}
                 </span>
+                {/* TUCE si existe */}
+                {v.numeroTUCE && (
+                  <span
+                    className="text-gray-500 dark:text-gray-400 shrink-0"
+                    title="Número de TUCE (Tarjeta Única de Circulación Electrónica)"
+                  >
+                    TUCE {v.numeroTUCE}
+                  </span>
+                )}
                 {/* Autorización si existe */}
                 {authTexto && (
                   <span
@@ -523,11 +544,12 @@ function BloquePlacaM1L({ placa, todos, conductores, onChange, onCrear }: Bloque
 // ─── Transporte Privado ─────────────────────────────────────
 
 interface SeccionTransportePrivadoProps {
+  tipo: TipoGRE;
   transporte: TransportePrivado;
   onChange: (t: TransportePrivado) => void;
 }
 
-function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePrivadoProps) {
+function SeccionTransportePrivado({ tipo, transporte, onChange }: SeccionTransportePrivadoProps) {
   const { tenantId } = useTenant();
   const [conductores, setConductores] = useState<Conductor[]>([]);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
@@ -547,7 +569,10 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
   const set = <K extends keyof TransportePrivado>(campo: K, valor: TransportePrivado[K]) =>
     onChange({ ...transporte, [campo]: valor });
 
-  const esM1oL = !!transporte.esM1oL;
+  // M1/L es exclusivo de GRE Remitente — un valor legacy heredado en `esM1oL` nunca se lee como
+  // real para Transportista, que siempre registra vehículo(s) y conductor(es) completos.
+  const m1oLAplicable = aplicaM1oLGRE(tipo);
+  const esM1oL = m1oLAplicable && !!transporte.esM1oL;
 
   const toggleM1oL = (checked: boolean) => {
     onChange({
@@ -613,7 +638,12 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pb-1">
-          {(esM1oL ? INDICADORES.filter((i) => i.campo === 'transbordo') : INDICADORES).map(
+          {/* GRE Transportista: "Realiza transbordo programado" se muestra en "Punto de partida y
+              llegada", no aquí — se excluye de esta lista solo para ese tipo. GRE Remitente
+              conserva el checkbox aquí sin cambios. */}
+          {(esM1oL ? INDICADORES.filter((i) => i.campo === 'transbordo') : INDICADORES)
+            .filter((i) => tipo !== 'transportista' || i.campo !== 'transbordo')
+            .map(
             ({ campo, label }) => (
               <label key={campo} className="flex items-center gap-1.5 cursor-pointer">
                 <input
@@ -628,21 +658,24 @@ function SeccionTransportePrivado({ transporte, onChange }: SeccionTransportePri
               </label>
             ),
           )}
-          {/* Checkbox M1/L — comportamiento especial: cambia el bloque de vehículos/conductores */}
-          <label
-            className="flex items-center gap-1.5 cursor-pointer"
-            title="Vehículos de categoría M1 (automóviles y similares) o L (motocicletas y similares). Solo se requiere la placa del vehículo."
-          >
-            <input
-              type="checkbox"
-              checked={esM1oL}
-              onChange={(e) => toggleM1oL(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
-            />
-            <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
-              Vehículo categoría M1 o L
-            </span>
-          </label>
+          {/* Checkbox M1/L — comportamiento especial: cambia el bloque de vehículos/conductores.
+              Exclusivo de GRE Remitente; no forma parte del formulario documental Transportista. */}
+          {m1oLAplicable && (
+            <label
+              className="flex items-center gap-1.5 cursor-pointer"
+              title="Vehículos de categoría M1 (automóviles y similares) o L (motocicletas y similares). Solo se requiere la placa del vehículo."
+            >
+              <input
+                type="checkbox"
+                checked={esM1oL}
+                onChange={(e) => toggleM1oL(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+              />
+              <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Vehículo categoría M1 o L
+              </span>
+            </label>
+          )}
         </div>
       </div>
 
@@ -977,23 +1010,56 @@ const TRANSPORTE_PUBLICO_VACIO: TransportePublico = {
 // ─── Componente principal ───────────────────────────────────
 
 interface SeccionTransporteProps {
+  /**
+   * GRE Transportista es siempre quien traslada con sus propios recursos — el selector
+   * público/privado (que documenta si el REMITENTE usa transporte propio o contrata uno externo)
+   * es un concepto exclusivo de GRE Remitente y no se muestra aquí; Transportista usa siempre la
+   * forma "transporte privado" (sus propios vehículos/conductores).
+   */
+  tipo: TipoGRE;
   modalidadTransporte: string;
   onModalidadChange: (codigo: string) => void;
   transportePrivado?: TransportePrivado;
   onTransportePrivadoChange: (t: TransportePrivado) => void;
   transportePublico?: TransportePublico;
   onTransportePublicoChange: (t: TransportePublico) => void;
+  /** GRE Transportista: indicador documental real de traslado subcontratado a otro transportista. */
+  transporteSubcontratado?: boolean;
+  onTransporteSubcontratadoChange?: (valor: boolean) => void;
+  /** Snapshot del Subcontratador — solo relevante/visible cuando `transporteSubcontratado` es `true`. */
+  subcontratador?: DatosActorAdicional | null;
+  onSubcontratadorChange?: (datos: DatosActorAdicional | null) => void;
+  errorSubcontratador?: string | null;
+  /** Pagador del flete — siempre requerido en GRE Transportista. */
+  pagadorFlete?: TipoPagadorFleteGRE;
+  onPagadorFleteChange?: (valor: TipoPagadorFleteGRE) => void;
+  pagadorTercero?: DatosActorAdicional | null;
+  onPagadorTerceroChange?: (datos: DatosActorAdicional | null) => void;
+  errorPagadorFlete?: string | null;
 }
 
 export default function SeccionTransporte({
+  tipo,
   modalidadTransporte,
   onModalidadChange,
   transportePrivado,
   onTransportePrivadoChange,
   transportePublico,
   onTransportePublicoChange,
+  transporteSubcontratado,
+  onTransporteSubcontratadoChange,
+  subcontratador,
+  onSubcontratadorChange,
+  errorSubcontratador,
+  pagadorFlete,
+  onPagadorFleteChange,
+  pagadorTercero,
+  onPagadorTerceroChange,
+  errorPagadorFlete,
 }: SeccionTransporteProps) {
-  const esPrivado = modalidadTransporte === '02';
+  const { clientes, createCliente } = useClientes();
+  const esTransportista = tipo === 'transportista';
+  const esPrivado = esTransportePrivadoGRE(tipo, modalidadTransporte);
 
   const selectorModalidad = (
     <div className="flex bg-gray-100 rounded-lg p-0.5 shrink-0">
@@ -1020,10 +1086,105 @@ export default function SeccionTransporte({
       icon={Truck}
       headerPaddingClassName="px-4 py-2"
       contentClassName="px-4 py-3"
-      actions={selectorModalidad}
+      actions={aplicaModalidadTransporteGRE(tipo) ? selectorModalidad : undefined}
     >
+      {esTransportista && (
+        <div className="space-y-3 pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
+          {/* Transporte subcontratado — indicador documental real, independiente del motivo. */}
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!transporteSubcontratado}
+              onChange={(e) => onTransporteSubcontratadoChange?.(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+            />
+            <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Transporte subcontratado
+            </span>
+          </label>
+
+          {transporteSubcontratado && (
+            <div>
+              <label className={LABEL_CLS_TRANSPORTE}>
+                Subcontratador <span className="text-red-500">*</span>
+              </label>
+              {/* El Subcontratador es siempre la empresa transportista a la que se subcontrata el
+                  traslado — se identifica con RUC, nunca con documento de persona natural. */}
+              <BuscadorTercero
+                datos={
+                  subcontratador
+                    ? { nombre: subcontratador.nombre, tipoDocumento: subcontratador.tipoDocumento, numeroDocumento: subcontratador.numeroDocumento }
+                    : null
+                }
+                onChange={(datos: DatosDestinatario | null) =>
+                  onSubcontratadorChange?.(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
+                }
+                error={errorSubcontratador}
+                clientes={clientes}
+                createCliente={createCliente}
+                tipoCuentaPorDefecto="Proveedor"
+                soloRuc
+              />
+              {errorSubcontratador && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errorSubcontratador}</p>
+              )}
+            </div>
+          )}
+
+          {/* Pagador del flete — compacto: label y selector en la misma línea, ancho acotado (no
+              se estira a todo el ancho de la tarjeta). "Otro" reutiliza el mismo buscador real de
+              terceros; "Remitente"/"Subcontratador" referencian el snapshot ya consignado. */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 shrink-0">
+                Pagador del flete
+              </label>
+              <select
+                value={pagadorFlete ?? ''}
+                onChange={(e) => onPagadorFleteChange?.(e.target.value as TipoPagadorFleteGRE)}
+                className={INPUT_CLS_TRANSPORTE}
+              >
+                <option value="" disabled>
+                  — Seleccionar —
+                </option>
+                <option value="Remitente">Remitente</option>
+                {transporteSubcontratado && (
+                  <option value="Subcontratador">Subcontratador</option>
+                )}
+                <option value="Otro">Otro (tercero)</option>
+              </select>
+            </div>
+
+            {pagadorFlete === 'Otro' && (
+              <div className="mt-2">
+                <label className={LABEL_CLS_TRANSPORTE}>Tercero pagador</label>
+                <BuscadorTercero
+                  datos={
+                    pagadorTercero
+                      ? { nombre: pagadorTercero.nombre, tipoDocumento: pagadorTercero.tipoDocumento, numeroDocumento: pagadorTercero.numeroDocumento }
+                      : null
+                  }
+                  onChange={(datos: DatosDestinatario | null) =>
+                    onPagadorTerceroChange?.(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
+                  }
+                  error={errorPagadorFlete}
+                  clientes={clientes}
+                  createCliente={createCliente}
+                  tipoCuentaPorDefecto="Cliente"
+                />
+              </div>
+            )}
+
+            {errorPagadorFlete && pagadorFlete !== 'Otro' && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errorPagadorFlete}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {esPrivado ? (
         <SeccionTransportePrivado
+          tipo={tipo}
           transporte={transportePrivado ?? TRANSPORTE_PRIVADO_VACIO}
           onChange={onTransportePrivadoChange}
         />

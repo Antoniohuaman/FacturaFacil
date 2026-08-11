@@ -154,6 +154,46 @@ export interface GuiaRemision {
   compradorNumeroDocumento?: string;
   compradorTipoDocumento?: string;
 
+  // Actor adicional — rol Remitente (GRE Transportista, siempre presente, independiente del
+  // motivo): quien entrega/remite los bienes — independiente de la propia empresa transportista
+  // que emite esta GRE. El Destinatario puede derivarse de este snapshot ("mismo remitente"), pero
+  // ambos actores tienen sus propios campos y nunca se pisan.
+  remitenteNombre?: string;
+  remitenteNumeroDocumento?: string;
+  remitenteTipoDocumento?: string;
+
+  /** GRE Transportista: `true` cuando el traslado es subcontratado a otro transportista — indicador documental real, independiente del motivo de traslado. Snapshot persistido; nunca se re-deriva. */
+  transporteSubcontratado?: boolean;
+
+  // Subcontratador (GRE Transportista, cuando `transporteSubcontratado` es `true`): el tercero
+  // transportista al que se subcontrata el traslado. Snapshot independiente, propia ranura — no
+  // comparte campos con ningún otro actor.
+  subcontratadorNombre?: string;
+  subcontratadorNumeroDocumento?: string;
+  subcontratadorTipoDocumento?: string;
+
+  // Pagador del flete (GRE Transportista) — dato documental propio, independiente de los roles de
+  // actor adicional: identifica QUIÉN paga el servicio de transporte, no un participante de la
+  // carga. Cuando es 'Remitente'/'Subcontratador', referencia el snapshot ya consignado de ese
+  // actor (nunca se copian sus datos por separado). Cuando es 'Otro', usa su propio snapshot de
+  // tercero independiente (`pagadorTercero*`). `undefined` significa "aún no definido" — bloquea la
+  // emisión mediante la validación existente, nunca se infiere ninguna de las 3 opciones.
+  pagadorFlete?: 'Remitente' | 'Subcontratador' | 'Otro';
+  pagadorTerceroNombre?: string;
+  pagadorTerceroNumeroDocumento?: string;
+  pagadorTerceroTipoDocumento?: string;
+
+  /** GRE Transportista: `true` cuando el traslado es por el total de los bienes consignados en el documento (indicador SUNAT). Dato documental real — nunca derivado solo al imprimir. */
+  indicadorTrasladoTotalBienes?: boolean;
+
+  /**
+   * GRE Transportista: snapshot del Registro MTC de la empresa (Configuración → Transporte) en el
+   * momento de EMITIR — se congela aquí para que una GRE ya emitida nunca cambie retroactivamente
+   * si la Configuración se actualiza después. Ausente en un borrador todavía no emitido, que sigue
+   * mostrando el valor vigente de Configuración (nada que congelar todavía).
+   */
+  numeroRegistroMTC?: string;
+
   // Campo libre para motivo '13' — Otros
   especificacionMotivo?: string;
 
@@ -215,7 +255,10 @@ export const GUIA_REMISION_BORRADOR = (tipo: TipoGRE): GuiaRemision => ({
   esBorrador: true,
   serie: '',
   fechaEmision: new Date().toISOString().split('T')[0],
-  motivoTraslado: '01',
+  // GRE Transportista no usa el motivo de traslado para nada (ni UI, ni reglas, ni impresión) — el
+  // campo se mantiene solo porque el tipo lo exige; '13' es un valor inerte sin significado
+  // funcional para este tipo.
+  motivoTraslado: tipo === 'transportista' ? '13' : '01',
   modalidadTransporte: '02',
   destinatarioNombre: '',
   destinatarioTipoDocumento: 'RUC',

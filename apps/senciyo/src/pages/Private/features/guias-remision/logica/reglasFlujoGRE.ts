@@ -16,10 +16,16 @@ export interface ReglaActorGRE {
    */
   autoDerivadoDeEmpresa?: boolean;
   /**
-   * Cuando es `true` (hoy: Motivo 13, Otros), el formulario ofrece un switch "¿Es el mismo
-   * remitente?" para que el USUARIO decida, documento por documento, si el Destinatario es la
-   * propia empresa (igual fuente/snapshot que `autoDerivadoDeEmpresa`) o un tercero real
-   * (`BuscadorTercero`). El estado elegido se persiste en `destinatarioEsMismoRemitente`.
+   * Cuando es `true`, el formulario ofrece un switch "¿Es el mismo remitente?" para que el
+   * USUARIO decida, documento por documento, si el Destinatario coincide con otro actor ya
+   * consignado en la misma GRE:
+   * - GRE Remitente, motivo '13' (Otros): el Destinatario puede ser la propia empresa emisora
+   *   (misma fuente/snapshot que `autoDerivadoDeEmpresa`).
+   * - GRE Transportista (todos sus motivos): el Destinatario puede ser el actor Remitente ya
+   *   seleccionado en esta misma GRE — NUNCA la empresa transportista emisora, que es un concepto
+   *   distinto (ver `ReglaFlujoGRE`).
+   * El estado elegido se persiste en `destinatarioEsMismoRemitente`; la fuente concreta que puebla
+   * el snapshot la decide el llamador (`FormularioGREPage.tsx`) según `tipoGRE`, nunca esta regla.
    */
   permiteMismoRemitente?: boolean;
   /**
@@ -34,11 +40,13 @@ export interface ReglaActorGRE {
 
 /**
  * Actor adicional con rol documental explícito. `rol` determina en qué campos de `GuiaRemision`
- * vive su snapshot (`proveedor*` o `comprador*`) — cada rol tiene su propia ranura independiente,
- * nunca comparten campos, por lo que pueden coexistir en el mismo documento (motivo '13').
+ * vive su snapshot (`proveedor*`, `comprador*` o `remitente*`) — cada rol tiene su propia ranura
+ * independiente, nunca comparten campos. El Subcontratador de GRE Transportista NO es un rol de
+ * este tipo: es un indicador documental booleano (`guia.transporteSubcontratado`) con su propio
+ * snapshot (`subcontratador*`), autónomo — no varía por motivo ni participa en esta matriz.
  */
 export interface RolActorGRE extends ReglaActorGRE {
-  rol: 'proveedor' | 'comprador';
+  rol: 'proveedor' | 'comprador' | 'remitente';
 }
 
 /** Regla completa de flujo para un motivo+tipo de guía. */
@@ -46,10 +54,10 @@ export interface ReglaFlujoGRE {
   /** Actor principal — siempre presente (Destinatario, salvo relabels puntuales). */
   actorPrincipal: ReglaActorGRE;
   /**
-   * Actores adicionales del motivo, cada uno con su rol documental explícito. Puede tener 0, 1
-   * (Proveedor en Compra/Recojo; Comprador en Venta con entrega a terceros) o 2 elementos
-   * simultáneos (Proveedor + Comprador en Otros) — nunca se fuerzan dos terceros dentro de una
-   * única ranura genérica.
+   * Actores adicionales del motivo, cada uno con su rol documental explícito. P. ej.: Proveedor en
+   * Compra/Recojo; Comprador en Venta con entrega a terceros; Proveedor + Comprador en Otros
+   * (Remitente); Remitente en cualquier motivo de Transportista; Remitente + Subcontratador en
+   * Transportista motivo '20' — nunca se fuerzan dos terceros dentro de una única ranura genérica.
    */
   actoresAdicionales: RolActorGRE[];
   /**
@@ -64,9 +72,14 @@ export interface ReglaFlujoGRE {
   puntoLlegadaObligatorio: boolean;
   /**
    * El formulario debe mostrar un campo "Especifique el motivo".
-   * Obligatorio para motivo '13' (Otros).
+   * Obligatorio para motivo '13' (Otros), en Remitente y en Transportista.
    */
   requiereEspecificacion: boolean;
+  /**
+   * GRE Transportista: exige consignar quién paga el flete (Remitente / Subcontratador / Otro
+   * tercero). `false` para GRE Remitente, donde ese concepto no existe.
+   */
+  requierePagadorFlete: boolean;
   /**
    * Ayuda contextual del motivo — disponible como tooltip discreto sobre el campo.
    * null si no aplica.
@@ -82,7 +95,20 @@ const REGLA_BASE: ReglaFlujoGRE = {
   documentosRecomendados: ['01', '03'],
   puntoLlegadaObligatorio: true,
   requiereEspecificacion: false,
+  requierePagadorFlete: false,
   ayudaMotivo: null,
+};
+
+/**
+ * Actor Remitente de GRE Transportista — mismo para los 4 motivos ('13'/'20'/'21'/'22'): la propia
+ * empresa transportista (emisor de esta GRE) es un concepto distinto y nunca sustituye a este
+ * actor, que siempre se busca/selecciona como un tercero real.
+ */
+const ACTOR_REMITENTE_TRANSPORTISTA: RolActorGRE = {
+  rol: 'remitente',
+  label: 'Remitente',
+  obligatorio: true,
+  tipoCuentaTercero: 'Cliente',
 };
 
 // ─── Matriz por motivo ────────────────────────────────────────
@@ -218,34 +244,23 @@ const REGLAS_REMITENTE: Record<string, ReglaFlujoGRE> = {
   },
 };
 
-const REGLAS_TRANSPORTISTA: Record<string, ReglaFlujoGRE> = {
-  '13': {
-    ...REGLA_BASE,
-    documentosRecomendados: [],
-    requiereEspecificacion: true,
-    ayudaMotivo: 'Otros motivos: especifique el motivo de traslado en el campo correspondiente.',
-  },
-
-  '20': {
-    ...REGLA_BASE,
-    documentosRecomendados: ['09', '31'],
-    ayudaMotivo:
-      'Traslado por subcontrata: incluya la GRE Remitente del dueño de los bienes.',
-  },
-
-  '21': {
-    ...REGLA_BASE,
-    documentosRecomendados: ['09'],
-    ayudaMotivo:
-      'Transbordo programado: incluya la GRE Remitente y/o Transportista de origen.',
-  },
-
-  '22': {
-    ...REGLA_BASE,
-    documentosRecomendados: ['09', '82'],
-    ayudaMotivo:
-      'Traslado por contrato de almacenamiento: incluya la GRE Remitente y la Declaración jurada de mudanza si aplica.',
-  },
+/**
+ * Regla única de GRE Transportista — no varía por motivo de traslado: SUNAT no distingue reglas
+ * de Transportista por motivo (ese catálogo es un dato heredado del documento pero no gobierna su
+ * funcionalidad real). El Remitente es siempre un actor real presente; el Destinatario puede ser
+ * el mismo Remitente (switch); nunca requiere "Especifique el motivo"; siempre exige Pagador del
+ * flete. Transporte subcontratado, transbordo y traslado por el total de bienes son indicadores
+ * documentales booleanos independientes de esta regla (`guia.transporteSubcontratado`,
+ * `guia.transportePrivado.transbordo`, `guia.indicadorTrasladoTotalBienes`).
+ */
+const REGLA_TRANSPORTISTA: ReglaFlujoGRE = {
+  actorPrincipal: { ...REGLA_BASE.actorPrincipal, permiteMismoRemitente: true },
+  actoresAdicionales: [ACTOR_REMITENTE_TRANSPORTISTA],
+  documentosRecomendados: ['09'],
+  puntoLlegadaObligatorio: true,
+  requiereEspecificacion: false,
+  requierePagadorFlete: true,
+  ayudaMotivo: null,
 };
 
 // ─── Helper público ───────────────────────────────────────────
@@ -255,8 +270,8 @@ const REGLAS_TRANSPORTISTA: Record<string, ReglaFlujoGRE> = {
  * Nunca lanza — si no hay regla específica, devuelve la regla base.
  */
 export function obtenerReglaFlujoGRE(tipoGRE: TipoGRE, motivo: string): ReglaFlujoGRE {
-  const mapa = tipoGRE === 'transportista' ? REGLAS_TRANSPORTISTA : REGLAS_REMITENTE;
-  return mapa[motivo] ?? REGLA_BASE;
+  if (tipoGRE === 'transportista') return REGLA_TRANSPORTISTA;
+  return REGLAS_REMITENTE[motivo] ?? REGLA_BASE;
 }
 
 /**
@@ -267,56 +282,96 @@ export function obtenerDocumentosRecomendadosGRE(tipoGRE: TipoGRE, motivo: strin
   return obtenerReglaFlujoGRE(tipoGRE, motivo).documentosRecomendados;
 }
 
+export type DatosActorGRE = { nombre?: string; tipoDocumento?: string; numeroDocumento?: string };
+
+type CamposActoresAdicionalesGRE = Pick<
+  GuiaRemision,
+  | 'proveedorNombre'
+  | 'proveedorTipoDocumento'
+  | 'proveedorNumeroDocumento'
+  | 'compradorNombre'
+  | 'compradorTipoDocumento'
+  | 'compradorNumeroDocumento'
+  | 'remitenteNombre'
+  | 'remitenteTipoDocumento'
+  | 'remitenteNumeroDocumento'
+>;
+
 /**
  * Devuelve los datos snapshot del actor adicional de un rol dado, ya persistidos en la GRE — la
  * única fuente que deben leer formulario, validación e impresión (nunca reconstruir desde el
  * catálogo maestro de clientes/proveedores).
  */
 export function obtenerDatosRolActorGRE(
-  guia: Pick<
-    GuiaRemision,
-    'proveedorNombre' | 'proveedorTipoDocumento' | 'proveedorNumeroDocumento' | 'compradorNombre' | 'compradorTipoDocumento' | 'compradorNumeroDocumento'
-  >,
-  rol: 'proveedor' | 'comprador',
-): { nombre?: string; tipoDocumento?: string; numeroDocumento?: string } {
-  return rol === 'proveedor'
-    ? { nombre: guia.proveedorNombre, tipoDocumento: guia.proveedorTipoDocumento, numeroDocumento: guia.proveedorNumeroDocumento }
-    : { nombre: guia.compradorNombre, tipoDocumento: guia.compradorTipoDocumento, numeroDocumento: guia.compradorNumeroDocumento };
+  guia: CamposActoresAdicionalesGRE,
+  rol: RolActorGRE['rol'],
+): DatosActorGRE {
+  switch (rol) {
+    case 'proveedor':
+      return { nombre: guia.proveedorNombre, tipoDocumento: guia.proveedorTipoDocumento, numeroDocumento: guia.proveedorNumeroDocumento };
+    case 'comprador':
+      return { nombre: guia.compradorNombre, tipoDocumento: guia.compradorTipoDocumento, numeroDocumento: guia.compradorNumeroDocumento };
+    case 'remitente':
+      return { nombre: guia.remitenteNombre, tipoDocumento: guia.remitenteTipoDocumento, numeroDocumento: guia.remitenteNumeroDocumento };
+  }
 }
 
 /**
- * Migración de datos legacy: antes de existir campos `proveedor*` independientes, las GRE de
- * motivos con un único actor adicional de rol 'proveedor' (Compra, Recojo de bienes
- * transformados) lo guardaban en los campos `comprador*` (única ranura que existía entonces). Al
- * cargar un documento persistido con esa forma antigua, reubica el dato al campo real que le
- * corresponde — nunca descarta información — y es idempotente: una vez migrado, los campos
- * `comprador*` legacy quedan vacíos y una segunda ejecución no vuelve a tocar nada.
+ * Migración de datos legacy — un único punto de entrada llamado por `fuenteDatosGRE.ts` al
+ * cargar cada documento, que aplica todas las normalizaciones legacy conocidas de forma
+ * independiente e idempotente (nunca se reimplementan por separado en un loader paralelo):
+ *
+ * - Proveedor/Comprador: antes de existir campos `proveedor*` independientes, las GRE de motivos
+ *   con un único actor adicional de rol 'proveedor' (Compra, Recojo de bienes transformados) lo
+ *   guardaban en los campos `comprador*` (única ranura que existía entonces). Reubica el dato al
+ *   campo real que le corresponde — nunca descarta información.
+ * - Pagador del flete: la opción "Sin pagador de flete" existió brevemente y fue retirada — un
+ *   documento que la hubiera persistido queda normalizado a `undefined` (nunca seleccionado),
+ *   nunca se infiere Remitente/Subcontratador/Otro en su lugar (sería inventar una decisión que
+ *   el usuario nunca tomó).
  */
 export function normalizarActoresAdicionalesLegacyGRE(guia: GuiaRemision): GuiaRemision {
+  let normalizado = guia;
+
   const regla = obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado);
   const esSoloProveedor =
     regla.actoresAdicionales.length === 1 && regla.actoresAdicionales[0].rol === 'proveedor';
   const tieneDatosLegacy = !guia.proveedorNombre?.trim() && Boolean(guia.compradorNombre?.trim());
+  if (esSoloProveedor && tieneDatosLegacy) {
+    normalizado = {
+      ...normalizado,
+      proveedorNombre: guia.compradorNombre,
+      proveedorTipoDocumento: guia.compradorTipoDocumento,
+      proveedorNumeroDocumento: guia.compradorNumeroDocumento,
+      compradorNombre: undefined,
+      compradorTipoDocumento: undefined,
+      compradorNumeroDocumento: undefined,
+    };
+  }
 
-  if (!esSoloProveedor || !tieneDatosLegacy) return guia;
+  const pagadorFleteLegacy: string | undefined = guia.pagadorFlete;
+  if (pagadorFleteLegacy === 'SinPagador') {
+    normalizado = { ...normalizado, pagadorFlete: undefined };
+  }
 
-  return {
-    ...guia,
-    proveedorNombre: guia.compradorNombre,
-    proveedorTipoDocumento: guia.compradorTipoDocumento,
-    proveedorNumeroDocumento: guia.compradorNumeroDocumento,
-    compradorNombre: undefined,
-    compradorTipoDocumento: undefined,
-    compradorNumeroDocumento: undefined,
-  };
+  return normalizado;
 }
 
-/** Datos reales de la empresa emisora (misma fuente que ya usa la impresión: `activeWorkspace`). */
-export interface DatosEmpresaGRE {
-  razonSocial: string;
-  ruc: string;
-  domicilioFiscal?: string;
+/**
+ * Fuente real que respalda un Destinatario auto-derivado — la propia empresa emisora
+ * (`activeWorkspace`, GRE Remitente) o el actor Remitente ya seleccionado en la misma GRE (GRE
+ * Transportista). Misma forma genérica para ambas fuentes: quien llama decide cuál usar según
+ * `tipoGRE`, esta regla central nunca asume ni consulta una fuente concreta por sí misma.
+ */
+export interface FuenteDestinatarioAutoDerivadoGRE {
+  nombre: string;
+  numeroDocumento: string;
+  tipoDocumento?: string;
+  direccion?: string;
 }
+
+/** @deprecated Usar {@link FuenteDestinatarioAutoDerivadoGRE}. Mantenido como alias por compatibilidad de nombre público. */
+export type DatosEmpresaGRE = FuenteDestinatarioAutoDerivadoGRE;
 
 /** Ajuste de campos de Destinatario a aplicar cuando el cambio de motivo (o el switch "mismo remitente") lo requiere. */
 export interface AjusteDestinatarioGRE {
@@ -332,13 +387,15 @@ export interface AjusteDestinatarioGRE {
   destinatarioEsMismoRemitente: boolean | undefined;
 }
 
-function construirDestinatarioEmpresa(empresa: DatosEmpresaGRE | null): Omit<AjusteDestinatarioGRE, 'destinatarioEsMismoRemitente'> {
+function construirDestinatarioDesdeFuente(
+  fuente: FuenteDestinatarioAutoDerivadoGRE | null,
+): Omit<AjusteDestinatarioGRE, 'destinatarioEsMismoRemitente'> {
   return {
     destinatarioClienteId: undefined,
-    destinatarioNombre: empresa?.razonSocial ?? '',
-    destinatarioTipoDocumento: 'RUC',
-    destinatarioNumeroDocumento: empresa?.ruc ?? '',
-    destinatarioDireccion: empresa?.domicilioFiscal,
+    destinatarioNombre: fuente?.nombre ?? '',
+    destinatarioTipoDocumento: fuente?.tipoDocumento ?? 'RUC',
+    destinatarioNumeroDocumento: fuente?.numeroDocumento ?? '',
+    destinatarioDireccion: fuente?.direccion,
     destinatarioDepartamento: undefined,
     destinatarioProvincia: undefined,
     destinatarioDistrito: undefined,
@@ -360,7 +417,7 @@ function limpiarDestinatario(): Omit<AjusteDestinatarioGRE, 'destinatarioEsMismo
   };
 }
 
-/** El destinatario está efectivamente auto-derivado de la empresa: fijo por motivo (Compra/Recojo) o por elección del usuario vía switch (Otros). */
+/** El destinatario está efectivamente auto-derivado: fijo por motivo (Compra/Recojo) o por elección del usuario vía switch (Otros Remitente / cualquier motivo Transportista). */
 function esDestinatarioAutoDerivado(actor: ReglaActorGRE, mismoRemitente: boolean): boolean {
   return Boolean(actor.autoDerivadoDeEmpresa) || Boolean(actor.permiteMismoRemitente && mismoRemitente);
 }
@@ -368,15 +425,17 @@ function esDestinatarioAutoDerivado(actor: ReglaActorGRE, mismoRemitente: boolea
 /**
  * Regla central: calcula el ajuste de Destinatario al cambiar de motivo de traslado, para
  * cualquier motivo con `actorPrincipal.autoDerivadoDeEmpresa` (Compra, Recojo de bienes
- * transformados) o `permiteMismoRemitente` (Otros, según el switch vigente antes del cambio).
+ * transformados) o `permiteMismoRemitente` (Otros Remitente y todos los motivos de Transportista),
+ * según el switch vigente antes del cambio.
  *
- * - Al ENTRAR a un motivo con destinatario auto-derivado fijo: puebla el Destinatario con los
- *   datos reales de la empresa emisora (snapshot — se congela en el documento, nunca se re-deriva
- *   en impresión).
+ * - Al ENTRAR a un motivo con destinatario auto-derivado fijo: puebla el Destinatario con la
+ *   `fuente` provista (snapshot — se congela en el documento, nunca se re-deriva en impresión).
  * - Al SALIR de un motivo cuyo destinatario era efectivamente auto-derivado (fijo, o por switch
- *   activo): limpia ese Destinatario, porque ya no corresponde a un motivo distinto — y si el
- *   motivo nuevo ofrece el switch (Otros), lo deja en `false` (arranca siempre apagado, nunca
- *   asume que el usuario querría reactivarlo).
+ *   activo) hacia un motivo que NO ofrece el switch: limpia ese Destinatario, porque ya no
+ *   corresponde.
+ * - Al TRANSICIONAR entre dos motivos que AMBOS ofrecen el switch (p. ej. entre los motivos de
+ *   Transportista): el switch y su snapshot se PRESERVAN tal cual — cambiar de motivo no implica
+ *   cambiar de Remitente/Destinatario.
  * - Si no hay transición real (incluye permanecer en el mismo motivo, p. ej. al editar otros
  *   campos de un documento ya guardado), devuelve `null`: el llamador no debe tocar el
  *   Destinatario, preservando cualquier snapshot válido existente (borradores).
@@ -387,7 +446,7 @@ export function calcularAjusteDestinatarioPorCambioMotivo(
   tipoGRE: TipoGRE,
   motivoAnterior: string,
   motivoNuevo: string,
-  empresa: DatosEmpresaGRE | null,
+  fuente: FuenteDestinatarioAutoDerivadoGRE | null,
   mismoRemitenteAntes: boolean = false,
 ): AjusteDestinatarioGRE | null {
   if (motivoAnterior === motivoNuevo) return null;
@@ -395,12 +454,14 @@ export function calcularAjusteDestinatarioPorCambioMotivo(
   const reglaAnterior = obtenerReglaFlujoGRE(tipoGRE, motivoAnterior);
   const reglaNueva = obtenerReglaFlujoGRE(tipoGRE, motivoNuevo);
   const antes = esDestinatarioAutoDerivado(reglaAnterior.actorPrincipal, mismoRemitenteAntes);
-  // Al llegar a un motivo nuevo el switch siempre arranca apagado — solo `autoDerivadoDeEmpresa`
-  // (fijo) puede dejar el destinatario auto-derivado nada más entrar.
-  const despues = Boolean(reglaNueva.actorPrincipal.autoDerivadoDeEmpresa);
+  // El switch se conserva si el motivo nuevo también lo ofrece (transiciones dentro de
+  // Transportista, o entre motivos Remitente que igualmente permiten "mismo remitente"); si el
+  // motivo nuevo es fijo (`autoDerivadoDeEmpresa`) queda auto-derivado sin importar el switch; si
+  // el motivo nuevo no ofrece ninguno de los dos, queda en `false`.
+  const despues = esDestinatarioAutoDerivado(reglaNueva.actorPrincipal, mismoRemitenteAntes);
 
   if (despues && !antes) {
-    return { ...construirDestinatarioEmpresa(empresa), destinatarioEsMismoRemitente: undefined };
+    return { ...construirDestinatarioDesdeFuente(fuente), destinatarioEsMismoRemitente: undefined };
   }
 
   if (!despues && antes) {
@@ -414,21 +475,22 @@ export function calcularAjusteDestinatarioPorCambioMotivo(
 }
 
 /**
- * Calcula el ajuste de Destinatario al activar/desactivar el switch "¿Es el mismo remitente?"
- * (motivo '13' — Otros). Misma construcción de datos que `calcularAjusteDestinatarioPorCambioMotivo`
- * — reutilizada, nunca duplicada — pero disparada por la acción del usuario sobre el switch en
- * lugar de un cambio de motivo.
+ * Calcula el ajuste de Destinatario al activar/desactivar el switch "¿Es el mismo remitente?".
+ * Misma construcción de datos que `calcularAjusteDestinatarioPorCambioMotivo` — reutilizada, nunca
+ * duplicada — pero disparada por la acción del usuario sobre el switch en lugar de un cambio de
+ * motivo. `fuente` es la propia empresa (GRE Remitente, motivo '13') o el Remitente ya seleccionado
+ * en esta GRE (GRE Transportista) — decidido por el llamador, nunca por esta función.
  */
 export function calcularAjusteDestinatarioPorMismoRemitente(
   activar: boolean,
-  empresa: DatosEmpresaGRE | null,
+  fuente: FuenteDestinatarioAutoDerivadoGRE | null,
 ): AjusteDestinatarioGRE {
   return activar
-    ? { ...construirDestinatarioEmpresa(empresa), destinatarioEsMismoRemitente: true }
+    ? { ...construirDestinatarioDesdeFuente(fuente), destinatarioEsMismoRemitente: true }
     : { ...limpiarDestinatario(), destinatarioEsMismoRemitente: false };
 }
 
-/** Ajuste de campos de los actores adicionales (Proveedor/Comprador) a aplicar cuando el cambio de motivo lo requiere. */
+/** Ajuste de campos de los actores adicionales (Proveedor/Comprador/Remitente) a aplicar cuando el cambio de motivo lo requiere. */
 export interface AjusteActoresAdicionalesGRE {
   proveedorNombre?: string;
   proveedorTipoDocumento?: string;
@@ -436,26 +498,33 @@ export interface AjusteActoresAdicionalesGRE {
   compradorNombre?: string;
   compradorTipoDocumento?: string;
   compradorNumeroDocumento?: string;
+  remitenteNombre?: string;
+  remitenteTipoDocumento?: string;
+  remitenteNumeroDocumento?: string;
 }
 
-const ROLES_ACTOR_ADICIONAL = ['proveedor', 'comprador'] as const;
+const ROLES_ACTOR_ADICIONAL: readonly RolActorGRE['rol'][] = ['proveedor', 'comprador', 'remitente'];
 
-function limpiarRolActorAdicional(rol: 'proveedor' | 'comprador'): AjusteActoresAdicionalesGRE {
-  return rol === 'proveedor'
-    ? { proveedorNombre: '', proveedorTipoDocumento: undefined, proveedorNumeroDocumento: undefined }
-    : { compradorNombre: '', compradorTipoDocumento: undefined, compradorNumeroDocumento: undefined };
+function limpiarRolActorAdicional(rol: RolActorGRE['rol']): AjusteActoresAdicionalesGRE {
+  switch (rol) {
+    case 'proveedor':
+      return { proveedorNombre: '', proveedorTipoDocumento: undefined, proveedorNumeroDocumento: undefined };
+    case 'comprador':
+      return { compradorNombre: '', compradorTipoDocumento: undefined, compradorNumeroDocumento: undefined };
+    case 'remitente':
+      return { remitenteNombre: '', remitenteTipoDocumento: undefined, remitenteNumeroDocumento: undefined };
+  }
 }
 
 /**
- * Calcula el ajuste de los actores adicionales (Proveedor/Comprador, cada uno en su propia ranura
- * de rol) al cambiar de motivo de traslado. Como Proveedor y Comprador ahora tienen campos
- * documentales independientes, la normalización es puramente por rol: si un rol deja de estar
- * presente en el motivo nuevo, se limpia su snapshot; si sigue presente (incluso si cambia su
- * obligatoriedad, p. ej. Compra → Otros) se conserva; si es un rol nuevo que no existía antes, no
- * hay nada que poblar automáticamente — el usuario debe seleccionarlo.
+ * Calcula el ajuste de los actores adicionales al cambiar de motivo de traslado. Cada rol tiene su
+ * propia ranura documental independiente, así que la normalización es puramente por rol: si un rol
+ * deja de estar presente en el motivo nuevo, se limpia su snapshot; si sigue presente (p. ej.
+ * Remitente en cualquier motivo de Transportista) se conserva; si es un rol nuevo que no existía
+ * antes, no hay nada que poblar automáticamente — el usuario debe seleccionarlo.
  *
  * Devuelve `null` cuando no hay que tocar ningún actor adicional (incluye permanecer en el mismo
- * motivo). Única fuente de esta regla — nunca debe reimplementarse con `if (motivo === '03')` sueltos.
+ * motivo). Única fuente de esta regla — nunca debe reimplementarse con `if (motivo === '20')` sueltos.
  */
 export function calcularAjusteActoresAdicionalesPorCambioMotivo(
   tipoGRE: TipoGRE,
@@ -477,3 +546,155 @@ export function calcularAjusteActoresAdicionalesPorCambioMotivo(
   }
   return ajuste;
 }
+
+// ─── Transporte subcontratado y Subcontratador (GRE Transportista) ────────
+
+/** Ajuste de campos de Subcontratador (y, si corresponde, Pagador del flete) al activar/desactivar "Transporte subcontratado". */
+export interface AjusteSubcontratadoGRE {
+  subcontratadorNombre?: string;
+  subcontratadorTipoDocumento?: string;
+  subcontratadorNumeroDocumento?: string;
+  pagadorFlete?: GuiaRemision['pagadorFlete'];
+}
+
+/**
+ * Calcula el ajuste al activar/desactivar el indicador "Transporte subcontratado":
+ * - Al ACTIVAR: no hay nada que limpiar — el usuario aún debe seleccionar el Subcontratador.
+ * - Al DESACTIVAR: limpia el snapshot del Subcontratador (deja de ser un actor válido del
+ *   documento) y, si el Pagador del flete elegido era 'Subcontratador', lo limpia también —
+ *   nunca se deja un pagador apuntando a un actor que ya no existe. Única fuente de esta
+ *   transición — nunca debe reimplementarse con un `useEffect` disperso.
+ */
+export function calcularAjusteSubcontratadoGRE(
+  activar: boolean,
+  pagadorFleteActual: GuiaRemision['pagadorFlete'],
+): AjusteSubcontratadoGRE {
+  if (activar) return {};
+  return {
+    subcontratadorNombre: '',
+    subcontratadorTipoDocumento: undefined,
+    subcontratadorNumeroDocumento: undefined,
+    ...(pagadorFleteActual === 'Subcontratador' ? { pagadorFlete: undefined } : {}),
+  };
+}
+
+/** El Pagador del flete = 'Subcontratador' solo es una combinación válida cuando el transporte está subcontratado y hay un Subcontratador real consignado. */
+export function pagadorSubcontratadorEsValidoGRE(guia: Pick<GuiaRemision, 'transporteSubcontratado' | 'subcontratadorNombre'>): boolean {
+  return Boolean(guia.transporteSubcontratado) && Boolean(guia.subcontratadorNombre?.trim());
+}
+
+/**
+ * El Subcontratador (GRE Transportista) no es una persona natural cualquiera: es la empresa
+ * transportista a la que se subcontrata el traslado, identificada siempre por RUC. Sin
+ * Subcontratador consignado aún no hay nada que validar aquí (esa obligatoriedad la exige
+ * `validarGREParaEmitir` por separado) — esta función solo protege que, cuando SÍ existe un
+ * Subcontratador, su documento sea realmente un RUC.
+ */
+export function subcontratadorTieneDocumentoValidoGRE(
+  guia: Pick<GuiaRemision, 'subcontratadorNombre' | 'subcontratadorTipoDocumento'>,
+): boolean {
+  if (!guia.subcontratadorNombre?.trim()) return true;
+  return guia.subcontratadorTipoDocumento === 'RUC';
+}
+
+/**
+ * El indicador "traslado por el total de los bienes consignados" (GRE Transportista) solo es
+ * coherente cuando existe al menos un documento relacionado real que lo sustente — sin documento
+ * no hay nada de lo que el indicador pueda ser "el total". Única fuente para esta regla: la usan
+ * tanto la UI (para deshabilitar el checkbox) como la validación de dominio (para rechazar la
+ * combinación al emitir), nunca reimplementada por separado en cada consumidor.
+ */
+export function indicadorTrasladoTotalEsValidoGRE(
+  guia: Pick<GuiaRemision, 'tipo' | 'indicadorTrasladoTotalBienes' | 'documentosRelacionados'>,
+): boolean {
+  if (guia.tipo !== 'transportista' || !guia.indicadorTrasladoTotalBienes) return true;
+  return guia.documentosRelacionados.length > 0;
+}
+
+// ─── Pagador del flete (GRE Transportista) ─────────────────────
+
+const PAGADOR_FLETE_LABELS: Record<NonNullable<GuiaRemision['pagadorFlete']>, string> = {
+  Remitente: 'Remitente',
+  Subcontratador: 'Subcontratador',
+  Otro: 'Otro (tercero)',
+};
+
+/** Etiqueta legible del tipo de Pagador del flete — única fuente para formulario, impresión, Vista previa y Drawer. */
+export function textoTipoPagadorFleteGRE(pagadorFlete: GuiaRemision['pagadorFlete']): string | undefined {
+  return pagadorFlete ? PAGADOR_FLETE_LABELS[pagadorFlete] : undefined;
+}
+
+type CamposPagadorFleteGRE = Pick<
+  GuiaRemision,
+  | 'pagadorFlete'
+  | 'remitenteNombre' | 'remitenteTipoDocumento' | 'remitenteNumeroDocumento'
+  | 'subcontratadorNombre' | 'subcontratadorTipoDocumento' | 'subcontratadorNumeroDocumento'
+  | 'pagadorTerceroNombre' | 'pagadorTerceroTipoDocumento' | 'pagadorTerceroNumeroDocumento'
+>;
+
+/**
+ * Snapshot con los datos concretos (nombre + documento) de QUIEN paga el flete, sin importar el
+ * rol — Remitente y Subcontratador leen el mismo snapshot ya consignado para ese actor (nunca se
+ * duplica el dato, solo se referencia); "Otro" lee su propio snapshot independiente. `null` cuando
+ * el pagador todavía no está definido. Única fuente para impresión, Vista previa y Drawer — nunca
+ * se reimplementa en cada consumidor.
+ */
+export function obtenerDatosPagadorFleteGRE(guia: CamposPagadorFleteGRE): DatosActorGRE | null {
+  switch (guia.pagadorFlete) {
+    case 'Remitente':
+      return { nombre: guia.remitenteNombre, tipoDocumento: guia.remitenteTipoDocumento, numeroDocumento: guia.remitenteNumeroDocumento };
+    case 'Subcontratador':
+      return { nombre: guia.subcontratadorNombre, tipoDocumento: guia.subcontratadorTipoDocumento, numeroDocumento: guia.subcontratadorNumeroDocumento };
+    case 'Otro':
+      return { nombre: guia.pagadorTerceroNombre, tipoDocumento: guia.pagadorTerceroTipoDocumento, numeroDocumento: guia.pagadorTerceroNumeroDocumento };
+    default:
+      return null;
+  }
+}
+
+// ─── Modalidad de transporte (público/privado) ─────────────────
+
+/**
+ * La modalidad de transporte (público/privado, catálogo `MODALIDADES_TRANSPORTE`) describe si el
+ * REMITENTE traslada con recursos propios o contrata un transportista externo — es un concepto
+ * exclusivo de GRE Remitente. GRE Transportista no lo tiene: el transportista siempre traslada con
+ * sus propios recursos (misma forma documental "transporte privado" — vehículos/conductores
+ * propios), sin importar el valor heredado que el campo `modalidadTransporte` conserve en el
+ * modelo compartido. `guia.modalidadTransporte` sigue existiendo y siendo editable en Remitente sin
+ * cambios; para Transportista su valor nunca debe leerse ni mostrarse como un hecho real del
+ * documento — únicamente estas dos funciones deciden eso, para no distribuir el chequeo en cada
+ * consumidor (formulario, validación, impresión, drawer, listado).
+ */
+export function aplicaModalidadTransporteGRE(tipoGRE: TipoGRE): boolean {
+  return tipoGRE === 'remitente';
+}
+
+/**
+ * El motivo de traslado (catálogo `MOTIVOS_TRASLADO`) es un concepto exclusivo de GRE Remitente —
+ * GRE Transportista no lo usa para nada (ni UI, ni reglas, ni impresión); el campo
+ * `guia.motivoTraslado` se mantiene en el modelo solo porque el tipo lo exige, con un valor
+ * inerte. Única fuente para decidir si el motivo debe mostrarse — nunca un `if (tipo ===
+ * 'transportista')` repetido en cada consumidor (formulario, impresión, drawer, listado).
+ */
+export function aplicaMotivoTrasladoGRE(tipoGRE: TipoGRE): boolean {
+  return tipoGRE === 'remitente';
+}
+
+/**
+ * El indicador "Vehículo categoría M1 o L" (`TransportePrivado.esM1oL` / `TransportePublico.esM1oL`)
+ * es un concepto exclusivo de GRE Remitente — no forma parte del formulario documental de GRE
+ * Transportista, que siempre registra vehículo(s) y conductor(es) completos. `guia.transportePrivado`
+ * sigue existiendo y siendo editable en Remitente sin cambios; para Transportista un valor legacy
+ * heredado en `esM1oL`/`placaVehiculoM1L` nunca debe leerse ni mostrarse como un hecho real del
+ * documento — única fuente para no distribuir el chequeo en cada consumidor (formulario,
+ * validación, impresión, drawer).
+ */
+export function aplicaM1oLGRE(tipoGRE: TipoGRE): boolean {
+  return tipoGRE === 'remitente';
+}
+
+/** Si la modalidad no aplica (Transportista), el documento siempre usa la forma "transporte privado" — nunca se lee el valor heredado de `modalidadTransporte`. */
+export function esTransportePrivadoGRE(tipoGRE: TipoGRE, modalidadTransporte: string): boolean {
+  return !aplicaModalidadTransporteGRE(tipoGRE) || modalidadTransporte === '02';
+}
+

@@ -17,7 +17,16 @@ import {
   formatearPlaca,
   nombreCompletoConductor,
 } from '../../configuracion-sistema/components/transporte/helpersTransporte';
-import { obtenerReglaFlujoGRE, obtenerDatosRolActorGRE } from '../logica/reglasFlujoGRE';
+import {
+  obtenerReglaFlujoGRE,
+  obtenerDatosRolActorGRE,
+  aplicaModalidadTransporteGRE,
+  aplicaMotivoTrasladoGRE,
+  aplicaM1oLGRE,
+  esTransportePrivadoGRE,
+  textoTipoPagadorFleteGRE,
+  obtenerDatosPagadorFleteGRE,
+} from '../logica/reglasFlujoGRE';
 
 // ─── Interfaz pública ────────────────────────────────────────
 
@@ -26,6 +35,8 @@ export interface EmpresaGRE {
   ruc?: string;
   direccion?: string;
   autorizacionEspecialEmisor?: { entidadNombre: string; numeroAutorizacion: string };
+  /** Registro MTC de la propia empresa transportista (Configuración → Transporte) — informativo, GRE Transportista. */
+  numeroRegistroMTC?: string;
 }
 
 interface Props {
@@ -78,23 +89,30 @@ const TD: CSSProperties = {
 
 // ─── Micro-componentes ────────────────────────────────────────
 
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+/**
+ * `titulo` es opcional para permitir, en GRE Transportista, retirar únicamente el encabezado
+ * redundante de "Puntos de traslado" (SUNAT no lo repite) sin duplicar el wrapper de espaciado —
+ * cuando se omite, se conserva el margen superior pero no se imprime la etiqueta ni su línea.
+ */
+function Seccion({ titulo, children }: { titulo?: string; children: React.ReactNode }) {
   return (
     <div style={SIN_CORTE}>
-      <div style={{ marginTop: '14px', marginBottom: '5px' }}>
-        <p
-          style={{
-            fontSize: '9px',
-            fontWeight: 'bold',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: '#6B7280',
-            borderBottom: '1px solid #E5E7EB',
-            paddingBottom: '2px',
-          }}
-        >
-          {titulo}
-        </p>
+      <div style={{ marginTop: '14px', marginBottom: titulo ? '5px' : 0 }}>
+        {titulo && (
+          <p
+            style={{
+              fontSize: '9px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: '#6B7280',
+              borderBottom: '1px solid #E5E7EB',
+              paddingBottom: '2px',
+            }}
+          >
+            {titulo}
+          </p>
+        )}
       </div>
       {children}
     </div>
@@ -152,6 +170,11 @@ function CabeceraGRE({
 
   const actor = TIPO_GRE_LABELS[guia.tipo].replace(/^GRE\s+/i, '').toUpperCase();
   const abreviaturaEntidad = resolverAbreviaturaEntidad(empresa.autorizacionEspecialEmisor?.entidadNombre);
+  // Registro MTC (GRE Transportista): prefiere el snapshot congelado en la propia guía al emitir
+  // — nunca el valor vigente de Configuración, que puede haber cambiado después de la emisión.
+  // Sin snapshot todavía (borrador, o guía emitida antes de existir este campo), cae al valor
+  // vigente que ya recibía este componente.
+  const numeroRegistroMTC = guia.numeroRegistroMTC ?? empresa.numeroRegistroMTC;
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '24px', ...SIN_CORTE }}>
@@ -187,6 +210,12 @@ function CabeceraGRE({
               {empresa.autorizacionEspecialEmisor.numeroAutorizacion}
             </p>
           </div>
+        )}
+        {guia.tipo === 'transportista' && numeroRegistroMTC && (
+          <p style={{ fontSize: '10px', color: '#374151', margin: '6px 0 0' }}>
+            <span style={{ color: '#9CA3AF' }}>Registro MTC: </span>
+            {numeroRegistroMTC}
+          </p>
         )}
       </div>
 
@@ -281,13 +310,17 @@ function ListaVehiculos({
         if (!v) return null;
         const ent = ENTIDADES_AUTORIZADORAS_D37.find((e) => e.codigo === v.codigoEntidadAutorizadora);
         return (
-          <div key={vid} style={{ fontSize: '10px', marginBottom: '3px', display: 'flex', gap: '10px' }}>
+          <div key={vid} style={{ fontSize: '10px', marginBottom: '3px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{ color: '#9CA3AF', minWidth: '72px' }}>
               {idx === 0 ? 'Principal' : `Secundario ${idx}`}
             </span>
             <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#111827' }}>
               {formatearPlaca(v.placa)}
             </span>
+            {/* TUCE — dato real del vehículo ya existente en el snapshot; se omite si no existe, nunca se inventa. */}
+            {v.numeroTUCE && (
+              <span style={{ color: '#6B7280' }}>· TUCE {v.numeroTUCE}</span>
+            )}
             {ent && (
               <span style={{ color: '#6B7280' }}>
                 · {ent.abreviatura}
@@ -336,28 +369,37 @@ function ListaConductores({
 // ─── Datos del traslado (modalidad + indicadores) ──────────────
 
 function DatosDelTraslado({ guia }: { guia: GuiaRemision }) {
-  const esPrivado = guia.modalidadTransporte === '02';
+  const esPrivado = esTransportePrivadoGRE(guia.tipo, guia.modalidadTransporte);
+  const esTransportista = guia.tipo === 'transportista';
   const modalidadCat = MODALIDADES_TRANSPORTE.find((m) => m.codigo === guia.modalidadTransporte);
   const tp = esPrivado ? guia.transportePrivado : guia.transportePublico;
   const fechaLabel = esPrivado ? 'Fecha de inicio de traslado' : 'Fecha de entrega de bienes al transportista';
   const fechaValor = esPrivado
     ? guia.transportePrivado?.fechaInicioTraslado
     : guia.transportePublico?.fechaEntregaBienes;
+  // M1/L es exclusivo de GRE Remitente — un valor legacy heredado en `esM1oL` nunca se imprime
+  // como real para Transportista.
+  const m1oLAplicable = aplicaM1oLGRE(guia.tipo);
+  const esM1oLReal = m1oLAplicable && Boolean(tp?.esM1oL);
 
   return (
     <Seccion titulo="Datos del traslado">
       <Grid2>
-        <Campo
-          label="Modalidad de transporte"
-          value={`${guia.modalidadTransporte} — ${modalidadCat?.descripcion ?? '—'}`}
-        />
+        {aplicaModalidadTransporteGRE(guia.tipo) && (
+          <Campo
+            label="Modalidad de transporte"
+            value={`${guia.modalidadTransporte} — ${modalidadCat?.descripcion ?? '—'}`}
+          />
+        )}
         <Campo label={fechaLabel} value={fechaValor} />
+        {/* Solo el TIPO de pagador va aquí — sus datos concretos (Remitente/Subcontratador/Otro) se imprimen en un bloque separado más abajo. */}
+        {esTransportista && guia.pagadorFlete && <Campo label="Pagador del flete" value={textoTipoPagadorFleteGRE(guia.pagadorFlete)} />}
       </Grid2>
       {tp && (
         <div style={{ marginTop: '6px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 16px', maxWidth: '360px' }}>
-          <IndicadorSiNo label="Vehículo categoría M1/L" valor={tp.esM1oL} />
+          {m1oLAplicable && <IndicadorSiNo label="Vehículo categoría M1/L" valor={tp.esM1oL} />}
           <IndicadorSiNo label="Transbordo programado" valor={tp.transbordo} />
-          {esPrivado && guia.transportePrivado && !guia.transportePrivado.esM1oL && (
+          {esPrivado && guia.transportePrivado && !esM1oLReal && (
             <>
               <IndicadorSiNo label="Retorno de vehículo vacío" valor={guia.transportePrivado.retornoVehiculoVacio} />
               <IndicadorSiNo label="Retorno con envases vacíos" valor={guia.transportePrivado.retornoEnvases} />
@@ -369,6 +411,7 @@ function DatosDelTraslado({ guia }: { guia: GuiaRemision }) {
               <IndicadorSiNo label="Retorno con envases vacíos" valor={guia.transportePublico.retornoEnvases} />
             </>
           )}
+          {esTransportista && <IndicadorSiNo label="Transporte subcontratado" valor={guia.transporteSubcontratado} />}
         </div>
       )}
     </Seccion>
@@ -407,14 +450,114 @@ export default function RepresentacionImpresaGRE({
 }: Props) {
   const motivo = MOTIVOS_TRASLADO.find((m) => m.codigo === guia.motivoTraslado);
   const regla = obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado);
-  const esPrivado = guia.modalidadTransporte === '02';
+  const esTransportista = guia.tipo === 'transportista';
+  const esPrivado = esTransportePrivadoGRE(guia.tipo, guia.modalidadTransporte);
   const tpPrivado = guia.transportePrivado;
   const tpPublico = guia.transportePublico;
+  // M1/L es exclusivo de GRE Remitente — un valor legacy heredado en `esM1oL` nunca desvía la
+  // impresión de Transportista hacia el bloque de "solo placa".
+  const tpPrivadoEsM1oL = aplicaM1oLGRE(guia.tipo) && Boolean(tpPrivado?.esM1oL);
+  // Subcontratador (GRE Transportista): indicador documental booleano independiente del motivo —
+  // se imprime junto a vehículos/conductores, no entre los participantes principales.
+  const hayDatosSubcontratador = Boolean(guia.transporteSubcontratado && guia.subcontratadorNombre);
+
+  const bloqueDestinatarioImpreso = (
+    <Seccion titulo={regla.actorPrincipal.label}>
+      <Grid2>
+        <Campo label="Nombre / Razón social" value={guia.destinatarioNombre || '—'} />
+        <Campo label={guia.destinatarioTipoDocumento} value={guia.destinatarioNumeroDocumento || '—'} />
+        {guia.destinatarioDireccion && <Campo label="Dirección" value={guia.destinatarioDireccion} />}
+        {(guia.destinatarioDistrito ?? guia.destinatarioProvincia ?? guia.destinatarioDepartamento) && (
+          <Campo
+            label="Distrito / Provincia / Departamento"
+            value={partes(guia.destinatarioDistrito, guia.destinatarioProvincia, guia.destinatarioDepartamento)}
+          />
+        )}
+        {guia.destinatarioUbigeo && <Campo label="Ubigeo" value={guia.destinatarioUbigeo} />}
+      </Grid2>
+    </Seccion>
+  );
+
+  const bloqueActoresAdicionalesImpreso = regla.actoresAdicionales.map((actor) => {
+    const datosActor = obtenerDatosRolActorGRE(guia, actor.rol);
+    if (!datosActor.nombre) return null;
+    return (
+      <Seccion key={actor.rol} titulo={actor.label}>
+        <Grid2>
+          <Campo label="Nombre / Razón social" value={datosActor.nombre} />
+          {datosActor.tipoDocumento && datosActor.numeroDocumento && (
+            <Campo label={datosActor.tipoDocumento} value={datosActor.numeroDocumento} />
+          )}
+        </Grid2>
+      </Seccion>
+    );
+  });
+
+  // GRE Transportista: tabla compacta alineada con SUNAT (Documento / Número / RUC) — fecha de
+  // emisión del documento relacionado y Origen (Interno/Externo) son metadatos internos del
+  // sistema, no documentales; siguen existiendo en el modelo y en el formulario, solo se omiten
+  // de esta impresión. GRE Remitente conserva sus 4 columnas originales sin cambios.
+  const bloqueDocumentosRelacionadosImpreso = guia.documentosRelacionados.length > 0 && (
+    <Seccion titulo="Documentos relacionados">
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+        <thead>
+          <tr>
+            <th style={{ ...TH, textAlign: 'left' }}>{esTransportista ? 'Documento' : 'Tipo de documento'}</th>
+            <th style={{ ...TH, textAlign: 'left' }}>Número</th>
+            {esTransportista ? (
+              <th style={{ ...TH, width: '110px' }}>RUC</th>
+            ) : (
+              <>
+                <th style={{ ...TH, width: '90px' }}>Fecha emisión</th>
+                <th style={{ ...TH, width: '70px' }}>Origen</th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {guia.documentosRelacionados.map((doc) => {
+            const tipoCat = DOCUMENTOS_RELACIONADOS_GRE.find((x) => x.codigo === doc.tipoDocumentoCodigo);
+            return (
+              <tr key={doc.id} style={{ borderTop: '1px solid #E5E7EB', ...SIN_CORTE }}>
+                <td style={TD}>{tipoCat?.documento ?? `Tipo ${doc.tipoDocumentoCodigo}`}</td>
+                {esTransportista ? (
+                  <>
+                    <td style={{ ...TD, fontFamily: 'monospace' }}>{doc.numeroDocumento}</td>
+                    <td style={{ ...TD, textAlign: 'center', fontFamily: 'monospace' }}>
+                      {doc.rucEmisorExterno ?? '—'}
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td style={{ ...TD, fontFamily: 'monospace' }}>
+                      {doc.numeroDocumento}
+                      {doc.rucEmisorExterno && (
+                        <p style={{ fontSize: '8px', color: '#9CA3AF', margin: '1px 0 0' }}>
+                          RUC emisor: {doc.rucEmisorExterno}
+                        </p>
+                      )}
+                    </td>
+                    <td style={{ ...TD, textAlign: 'center' }}>{doc.fechaEmision ?? '—'}</td>
+                    <td style={{ ...TD, textAlign: 'center' }}>{doc.origen}</td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </Seccion>
+  );
 
   // La columna "Peso (kg)" por línea solo se muestra si el documento realmente tiene, para al
   // menos un bien, un peso de línea calculado (snapshot real, nunca inventado) — evita una
   // columna de ceros cuando el catálogo no tiene peso configurado por producto.
   const hayPesoPorLinea = guia.bienes.some((b) => b.pesoLineaKg !== undefined && b.pesoLineaKg > 0);
+  // GRE Transportista + traslado por el total de los bienes consignados: el detalle vive en el
+  // documento relacionado (ya impreso arriba), no aquí — nunca se imprime una tabla vacía ni
+  // "Sin bienes registrados" cuando el propio documento declara que no corresponde detallarlos.
+  // Peso bruto/unidad e indicador siguen imprimiéndose siempre (ver más abajo).
+  const bienesSustentadosPorDocumento = esTransportista && Boolean(guia.indicadorTrasladoTotalBienes);
 
   const footerFontSize: Record<string, string> = { small: '9px', medium: '11px', large: '13px' };
   const footerAlign: Record<string, CSSProperties['textAlign']> = {
@@ -476,11 +619,13 @@ export default function RepresentacionImpresaGRE({
 
         <hr style={{ border: 'none', borderTop: '2px solid #111827', margin: '12px 0' }} />
 
-        {/* 2. Datos de emisión */}
+        {/* 2. Datos de emisión — GRE Transportista no usa motivo de traslado: se omite por completo (nunca se imprime un código/descripción sin significado funcional). */}
         <Seccion titulo="Datos de emisión">
           <Grid2>
             <Campo label="Fecha de emisión" value={guia.fechaEmision} />
-            <Campo label="Motivo de traslado" value={`${guia.motivoTraslado} — ${motivo?.descripcion ?? '—'}`} />
+            {aplicaMotivoTrasladoGRE(guia.tipo) && (
+              <Campo label="Motivo de traslado" value={`${guia.motivoTraslado} — ${motivo?.descripcion ?? '—'}`} />
+            )}
           </Grid2>
           {regla.requiereEspecificacion && guia.especificacionMotivo && (
             <div style={{ marginTop: '4px' }}>
@@ -489,39 +634,27 @@ export default function RepresentacionImpresaGRE({
           )}
         </Seccion>
 
-        {/* 3. Participante(s) — label y obligatoriedad según reglasFlujoGRE (tipo + motivo) */}
-        <Seccion titulo={regla.actorPrincipal.label}>
-          <Grid2>
-            <Campo label="Nombre / Razón social" value={guia.destinatarioNombre || '—'} />
-            <Campo label={guia.destinatarioTipoDocumento} value={guia.destinatarioNumeroDocumento || '—'} />
-            {guia.destinatarioDireccion && <Campo label="Dirección" value={guia.destinatarioDireccion} />}
-            {(guia.destinatarioDistrito ?? guia.destinatarioProvincia ?? guia.destinatarioDepartamento) && (
-              <Campo
-                label="Distrito / Provincia / Departamento"
-                value={partes(guia.destinatarioDistrito, guia.destinatarioProvincia, guia.destinatarioDepartamento)}
-              />
-            )}
-            {guia.destinatarioUbigeo && <Campo label="Ubigeo" value={guia.destinatarioUbigeo} />}
-          </Grid2>
-        </Seccion>
+        {/* 3. Participante(s) — GRE Transportista imprime Remitente antes de Destinatario (puede
+            derivarse de él); GRE Remitente conserva su orden original (Destinatario primero). */}
+        {esTransportista ? (
+          <>
+            {bloqueActoresAdicionalesImpreso}
+            {bloqueDestinatarioImpreso}
+          </>
+        ) : (
+          <>
+            {bloqueDestinatarioImpreso}
+            {bloqueActoresAdicionalesImpreso}
+          </>
+        )}
 
-        {regla.actoresAdicionales.map((actor) => {
-          const datosActor = obtenerDatosRolActorGRE(guia, actor.rol);
-          if (!datosActor.nombre) return null;
-          return (
-            <Seccion key={actor.rol} titulo={actor.label}>
-              <Grid2>
-                <Campo label="Nombre / Razón social" value={datosActor.nombre} />
-                {datosActor.tipoDocumento && datosActor.numeroDocumento && (
-                  <Campo label={datosActor.tipoDocumento} value={datosActor.numeroDocumento} />
-                )}
-              </Grid2>
-            </Seccion>
-          );
-        })}
+        {/* GRE Transportista: Documentos relacionados se imprime aquí, justo después de los
+            participantes — GRE Remitente lo conserva en su posición original (antes de Observaciones). */}
+        {esTransportista && bloqueDocumentosRelacionadosImpreso}
 
-        {/* 4. Puntos de traslado */}
-        <Seccion titulo="Puntos de traslado">
+        {/* 4. Puntos de traslado — GRE Transportista retira el encabezado general (redundante, no
+            existe en la representación de SUNAT); GRE Remitente conserva su título original. */}
+        <Seccion titulo={esTransportista ? undefined : 'Puntos de traslado'}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
             <div>
               <p style={{ fontSize: '9px', color: '#9CA3AF', marginBottom: '2px' }}>Punto de partida</p>
@@ -554,79 +687,83 @@ export default function RepresentacionImpresaGRE({
           </div>
         </Seccion>
 
-        {/* 5. Bienes a transportar */}
-        <Seccion titulo="Bienes a transportar">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-            <thead>
-              <tr>
-                <th style={{ ...TH, textAlign: 'center', width: '28px' }}>N°</th>
-                <th style={{ ...TH, textAlign: 'left', width: '80px' }}>Código</th>
-                <th style={{ ...TH, textAlign: 'left' }}>Descripción</th>
-                <th style={{ ...TH, width: '50px' }}>U.M.</th>
-                <th style={{ ...TH, textAlign: 'right', width: '60px' }}>Cantidad</th>
-                {hayPesoPorLinea && <th style={{ ...TH, textAlign: 'right', width: '70px' }}>Peso (kg)</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {guia.bienes.length === 0 && (
+        {/* 5. Bienes — GRE Transportista usa "Bienes por transportar" (terminología SUNAT); GRE
+            Remitente conserva "Bienes a transportar" sin cambios. */}
+        <Seccion titulo={esTransportista ? 'Bienes por transportar' : 'Bienes a transportar'}>
+          {!bienesSustentadosPorDocumento && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+              <thead>
                 <tr>
-                  <td colSpan={hayPesoPorLinea ? 6 : 5} style={{ ...TD, textAlign: 'center', color: '#9CA3AF' }}>
-                    Sin bienes registrados
-                  </td>
+                  <th style={{ ...TH, textAlign: 'center', width: '28px' }}>N°</th>
+                  <th style={{ ...TH, textAlign: 'left', width: '80px' }}>Código</th>
+                  <th style={{ ...TH, textAlign: 'left' }}>Descripción</th>
+                  <th style={{ ...TH, width: '50px' }}>U.M.</th>
+                  <th style={{ ...TH, textAlign: 'right', width: '60px' }}>Cantidad</th>
+                  {hayPesoPorLinea && <th style={{ ...TH, textAlign: 'right', width: '70px' }}>Peso (kg)</th>}
                 </tr>
-              )}
-              {guia.bienes.map((b, idx) => (
-                <tr key={b.id} style={{ borderTop: '1px solid #E5E7EB', ...SIN_CORTE }}>
-                  <td style={{ ...TD, textAlign: 'center', color: '#6B7280' }}>{idx + 1}</td>
-                  <td style={{ ...TD, fontFamily: 'monospace', color: '#6B7280', fontSize: '9px' }}>
-                    {b.codigoBien ?? (b.productoId != null ? String(b.productoId) : '—')}
-                  </td>
-                  <td style={TD}>
-                    <span style={{ color: '#111827' }}>{b.descripcion || '—'}</span>
-                    {b.normalizado && (
-                      <span
-                        style={{
-                          marginLeft: '5px',
-                          fontSize: '8px',
-                          padding: '0 4px',
-                          background: '#EDE9FE',
-                          color: '#5B21B6',
-                          borderRadius: '3px',
-                          fontWeight: 'bold',
-                        }}
-                      >
-                        SUNAT
-                      </span>
-                    )}
-                    {b.codigoProductoSunat && (
-                      <p style={{ fontSize: '8px', color: '#9CA3AF', fontFamily: 'monospace', margin: '1px 0 0' }}>
-                        Cód. SUNAT: {b.codigoProductoSunat}
-                      </p>
-                    )}
-                    {b.codigoSubpartidaNacional && (
-                      <p style={{ fontSize: '8px', color: '#9CA3AF', fontFamily: 'monospace', margin: '1px 0 0' }}>
-                        Subpartida: {b.codigoSubpartidaNacional}
-                      </p>
-                    )}
-                    {b.codigoGTIN && (
-                      <p style={{ fontSize: '8px', color: '#9CA3AF', fontFamily: 'monospace', margin: '1px 0 0' }}>
-                        GTIN: {b.codigoGTIN}
-                      </p>
-                    )}
-                  </td>
-                  <td style={{ ...TD, textAlign: 'center' }}>{b.unidad}</td>
-                  <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace' }}>{b.cantidad}</td>
-                  {hayPesoPorLinea && (
-                    <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace' }}>
-                      {b.pesoLineaKg !== undefined ? b.pesoLineaKg.toFixed(3) : '—'}
+              </thead>
+              <tbody>
+                {guia.bienes.length === 0 && (
+                  <tr>
+                    <td colSpan={hayPesoPorLinea ? 6 : 5} style={{ ...TD, textAlign: 'center', color: '#9CA3AF' }}>
+                      Sin bienes registrados
                     </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </tr>
+                )}
+                {guia.bienes.map((b, idx) => (
+                  <tr key={b.id} style={{ borderTop: '1px solid #E5E7EB', ...SIN_CORTE }}>
+                    <td style={{ ...TD, textAlign: 'center', color: '#6B7280' }}>{idx + 1}</td>
+                    <td style={{ ...TD, fontFamily: 'monospace', color: '#6B7280', fontSize: '9px' }}>
+                      {b.codigoBien ?? (b.productoId != null ? String(b.productoId) : '—')}
+                    </td>
+                    <td style={TD}>
+                      <span style={{ color: '#111827' }}>{b.descripcion || '—'}</span>
+                      {b.normalizado && (
+                        <span
+                          style={{
+                            marginLeft: '5px',
+                            fontSize: '8px',
+                            padding: '0 4px',
+                            background: '#EDE9FE',
+                            color: '#5B21B6',
+                            borderRadius: '3px',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          SUNAT
+                        </span>
+                      )}
+                      {b.codigoProductoSunat && (
+                        <p style={{ fontSize: '8px', color: '#9CA3AF', fontFamily: 'monospace', margin: '1px 0 0' }}>
+                          Cód. SUNAT: {b.codigoProductoSunat}
+                        </p>
+                      )}
+                      {b.codigoSubpartidaNacional && (
+                        <p style={{ fontSize: '8px', color: '#9CA3AF', fontFamily: 'monospace', margin: '1px 0 0' }}>
+                          Subpartida: {b.codigoSubpartidaNacional}
+                        </p>
+                      )}
+                      {b.codigoGTIN && (
+                        <p style={{ fontSize: '8px', color: '#9CA3AF', fontFamily: 'monospace', margin: '1px 0 0' }}>
+                          GTIN: {b.codigoGTIN}
+                        </p>
+                      )}
+                    </td>
+                    <td style={{ ...TD, textAlign: 'center' }}>{b.unidad}</td>
+                    <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace' }}>{b.cantidad}</td>
+                    {hayPesoPorLinea && (
+                      <td style={{ ...TD, textAlign: 'right', fontFamily: 'monospace' }}>
+                        {b.pesoLineaKg !== undefined ? b.pesoLineaKg.toFixed(3) : '—'}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
-          {/* Resumen de peso — bloque propio, nunca mezclado con el título de la tabla */}
+          {/* Resumen de peso — bloque propio, nunca mezclado con el título de la tabla; siempre se
+              imprime, incluso cuando el traslado es por el total de los bienes consignados. */}
           <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'flex-end', gap: '24px', ...SIN_CORTE }}>
             <p style={{ fontSize: '10px', color: '#6B7280', margin: 0 }}>
               Unidad de medida del peso bruto: <strong style={{ color: '#111827' }}>{guia.unidadPeso}</strong>
@@ -637,16 +774,26 @@ export default function RepresentacionImpresaGRE({
           </div>
         </Seccion>
 
+        {/* Indicador de traslado por el total de los bienes consignados — GRE Transportista */}
+        {guia.tipo === 'transportista' && (
+          <div style={{ marginTop: '4px', maxWidth: '360px' }}>
+            <IndicadorSiNo
+              label="Traslado por el total de los bienes consignados"
+              valor={guia.indicadorTrasladoTotalBienes}
+            />
+          </div>
+        )}
+
         {/* 6-9. Datos del traslado, transporte, vehículos, conductores */}
         <DatosDelTraslado guia={guia} />
 
         {!esPrivado && tpPublico && <BloqueTransportista tp={tpPublico} />}
 
-        {esPrivado && tpPrivado && !tpPrivado.esM1oL && (
+        {esPrivado && tpPrivado && !tpPrivadoEsM1oL && (
           <ListaVehiculos vehiculosIds={tpPrivado.vehiculosIds} vehiculos={vehiculos} />
         )}
-        {esPrivado && tpPrivado?.esM1oL && (
-          <ListaVehiculos vehiculosIds={[]} vehiculos={vehiculos} placaM1L={tpPrivado.placaVehiculoM1L} />
+        {esPrivado && tpPrivadoEsM1oL && (
+          <ListaVehiculos vehiculosIds={[]} vehiculos={vehiculos} placaM1L={tpPrivado?.placaVehiculoM1L} />
         )}
         {!esPrivado && tpPublico && !tpPublico.esM1oL && tpPublico.registrarVehiculosConductores && (
           <ListaVehiculos vehiculosIds={tpPublico.vehiculosIds} vehiculos={vehiculos} />
@@ -655,48 +802,47 @@ export default function RepresentacionImpresaGRE({
           <ListaVehiculos vehiculosIds={[]} vehiculos={vehiculos} placaM1L={tpPublico.placaVehiculoM1L} />
         )}
 
-        {esPrivado && tpPrivado && !tpPrivado.esM1oL && (
+        {esPrivado && tpPrivado && !tpPrivadoEsM1oL && (
           <ListaConductores conductoresIds={tpPrivado.conductoresIds} conductores={conductores} />
         )}
         {!esPrivado && tpPublico && !tpPublico.esM1oL && tpPublico.registrarVehiculosConductores && (
           <ListaConductores conductoresIds={tpPublico.conductoresIds} conductores={conductores} />
         )}
 
-        {/* 10. Documentos relacionados — solo si existen realmente */}
-        {guia.documentosRelacionados.length > 0 && (
-          <Seccion titulo="Documentos relacionados">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...TH, textAlign: 'left' }}>Tipo de documento</th>
-                  <th style={{ ...TH, textAlign: 'left' }}>Número</th>
-                  <th style={{ ...TH, width: '90px' }}>Fecha emisión</th>
-                  <th style={{ ...TH, width: '70px' }}>Origen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {guia.documentosRelacionados.map((doc) => {
-                  const tipoCat = DOCUMENTOS_RELACIONADOS_GRE.find((x) => x.codigo === doc.tipoDocumentoCodigo);
-                  return (
-                    <tr key={doc.id} style={{ borderTop: '1px solid #E5E7EB', ...SIN_CORTE }}>
-                      <td style={TD}>{tipoCat?.documento ?? `Tipo ${doc.tipoDocumentoCodigo}`}</td>
-                      <td style={{ ...TD, fontFamily: 'monospace' }}>
-                        {doc.numeroDocumento}
-                        {doc.rucEmisorExterno && (
-                          <p style={{ fontSize: '8px', color: '#9CA3AF', margin: '1px 0 0' }}>
-                            RUC emisor: {doc.rucEmisorExterno}
-                          </p>
-                        )}
-                      </td>
-                      <td style={{ ...TD, textAlign: 'center' }}>{doc.fechaEmision ?? '—'}</td>
-                      <td style={{ ...TD, textAlign: 'center' }}>{doc.origen}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {/* Subcontratador (GRE Transportista) — indicador booleano, nunca vía motivo; solo si realmente existe */}
+        {hayDatosSubcontratador && (
+          <Seccion titulo="Subcontratador">
+            <Grid2>
+              <Campo label="Nombre / Razón social" value={guia.subcontratadorNombre} />
+              {guia.subcontratadorTipoDocumento && guia.subcontratadorNumeroDocumento && (
+                <Campo label={guia.subcontratadorTipoDocumento} value={guia.subcontratadorNumeroDocumento} />
+              )}
+            </Grid2>
           </Seccion>
         )}
+
+        {/* Datos del pagador del flete — bloque separado con los datos concretos de QUIEN paga,
+            sin importar el rol: Remitente y Subcontratador leen el mismo snapshot ya consignado
+            para ese actor (arriba); "Otro" usa su propio snapshot. Sin pagador definido, no hay
+            bloque que imprimir (la validación existente bloquea la emisión en ese caso). */}
+        {esTransportista &&
+          (() => {
+            const datosPagador = obtenerDatosPagadorFleteGRE(guia);
+            if (!datosPagador?.nombre) return null;
+            return (
+              <Seccion titulo="Datos del pagador del flete">
+                <Grid2>
+                  <Campo label="Nombre / Razón social" value={datosPagador.nombre} />
+                  {datosPagador.tipoDocumento && datosPagador.numeroDocumento && (
+                    <Campo label={datosPagador.tipoDocumento} value={datosPagador.numeroDocumento} />
+                  )}
+                </Grid2>
+              </Seccion>
+            );
+          })()}
+
+        {/* 10. Documentos relacionados — GRE Remitente conserva su posición original al final; GRE Transportista ya lo imprimió antes de Puntos de traslado. */}
+        {!esTransportista && bloqueDocumentosRelacionadosImpreso}
 
         {/* 11. Observaciones — bloque independiente al final, solo si existen */}
         {guia.observaciones && (

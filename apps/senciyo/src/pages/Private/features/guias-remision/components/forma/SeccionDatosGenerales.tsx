@@ -12,12 +12,13 @@ import type {
   CodigoModalidadTransporte,
   DocumentoRelacionadoGRE,
 } from '../../modelos/GuiaRemision';
-import type { ReglaFlujoGRE } from '../../logica/reglasFlujoGRE';
+import type { ReglaFlujoGRE, RolActorGRE } from '../../logica/reglasFlujoGRE';
+import { aplicaMotivoTrasladoGRE } from '../../logica/reglasFlujoGRE';
 import SeccionDocumentosRelacionados from './SeccionDocumentosRelacionados';
 
 export type { TipoGRE, CodigoMotivoTraslado, CodigoModalidadTransporte };
 
-interface DatosDestinatario {
+export interface DatosDestinatario {
   clienteId?: string | number;
   nombre: string;
   tipoDocumento: string;
@@ -29,12 +30,15 @@ interface DatosDestinatario {
   ubigeo?: string;
 }
 
-/** Forma común de un actor adicional (Proveedor o Comprador) — cada rol vive en su propia ranura documental independiente. */
-interface DatosActorAdicional {
+/** Forma común de un actor adicional (Proveedor/Comprador/Remitente/Subcontratador) — cada rol vive en su propia ranura documental independiente. */
+export interface DatosActorAdicional {
   nombre: string;
   tipoDocumento: string;
   numeroDocumento: string;
 }
+
+/** GRE Transportista: quién paga el servicio de transporte — mismas opciones que el modelo documental (`GuiaRemision.pagadorFlete`). */
+export type TipoPagadorFleteGRE = 'Remitente' | 'Subcontratador' | 'Otro';
 
 interface SeccionDatosGeneralesProps {
   tipo: TipoGRE;
@@ -51,18 +55,21 @@ interface SeccionDatosGeneralesProps {
   /** Estado del switch "¿Es el mismo remitente?" — solo relevante cuando `regla.actorPrincipal.permiteMismoRemitente`. */
   mismoRemitente?: boolean;
   onMismoRemitenteChange?: (activo: boolean) => void;
+  /** El switch queda deshabilitado mientras no exista una fuente real de la que derivar (empresa activa / Remitente aún no seleccionado). */
+  mismoRemitenteDeshabilitado?: boolean;
   documentosRelacionados: DocumentoRelacionadoGRE[];
   onDocumentosRelacionadosChange: (docs: DocumentoRelacionadoGRE[]) => void;
+  errorDocumentosRelacionados?: string | null;
   regla: ReglaFlujoGRE;
-  proveedor?: DatosActorAdicional | null;
-  onProveedorChange?: (datos: DatosActorAdicional | null) => void;
-  errorProveedor?: string | null;
-  comprador?: DatosActorAdicional | null;
-  onCompradorChange?: (datos: DatosActorAdicional | null) => void;
-  errorComprador?: string | null;
+  /** Snapshot actual de cada actor adicional presente en `regla.actoresAdicionales`, por rol. */
+  actoresAdicionalesValores: Partial<Record<RolActorGRE['rol'], DatosActorAdicional | null>>;
+  onActorAdicionalChange: (rol: RolActorGRE['rol'], datos: DatosActorAdicional | null) => void;
+  erroresActoresAdicionales?: Partial<Record<RolActorGRE['rol'], string | null | undefined>>;
   especificacionMotivo?: string;
   onEspecificacionChange?: (valor: string) => void;
   errorEspecificacion?: string | null;
+  /** GRE Transportista: Registro MTC de la empresa (Configuración → Transporte), de solo lectura — sustituye al selector de Motivo en la columna derecha. */
+  numeroRegistroMTC?: string;
 }
 
 const INPUT_CLS =
@@ -73,16 +80,18 @@ const LABEL_CLS = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb
 /**
  * Buscador real de terceros (RUC/DNI/nombre, consulta SUNAT/RENIEC, catálogo de clientes) —
  * extraído del bloque de Destinatario para poder reutilizarse tal cual en cualquier actor que
- * realmente requiera selección manual (Destinatario, Proveedor, Comprador). Un solo buscador
- * real, nunca uno nuevo por actor.
+ * realmente requiera selección manual (Destinatario, Proveedor, Comprador, Remitente,
+ * Subcontratador, Pagador-Otro). Exportado para que `SeccionTransporte.tsx` lo reutilice sin
+ * duplicarlo — un solo buscador real en todo el módulo.
  */
-function BuscadorTercero({
+export function BuscadorTercero({
   datos,
   onChange,
   error,
   clientes,
   createCliente,
   tipoCuentaPorDefecto,
+  soloRuc,
 }: {
   datos: DatosDestinatario | null;
   onChange: (datos: DatosDestinatario | null) => void;
@@ -90,14 +99,20 @@ function BuscadorTercero({
   clientes: Cliente[];
   createCliente: ReturnType<typeof useClientes>['createCliente'];
   tipoCuentaPorDefecto: 'Cliente' | 'Proveedor';
+  /** Restringe la identificación a RUC — para roles que normativamente son siempre una empresa (p. ej. Subcontratador de GRE Transportista), nunca una persona natural. */
+  soloRuc?: boolean;
 }) {
   const [busqueda, setBusqueda] = useState('');
   const [mostrarResultados, setMostrarResultados] = useState(false);
   const [consultando, setConsultando] = useState(false);
   const busquedaRef = useRef<HTMLInputElement>(null);
 
+  const esRuc = (c: Cliente): boolean =>
+    (c.numeroDocumento ?? c.document ?? '').replace(/\D/g, '').length === 11;
+
   const clientesFiltrados = clientes
     .filter((c) => {
+      if (soloRuc && !esRuc(c)) return false;
       const q = busqueda.toLowerCase();
       return (
         (c.name ?? '').toLowerCase().includes(q) ||
@@ -134,7 +149,7 @@ function BuscadorTercero({
 
   const consultarDocumento = useCallback(async () => {
     const doc = busqueda.trim().replace(/\D/g, '');
-    if (doc.length !== 11 && doc.length !== 8) return;
+    if (doc.length !== 11 && (soloRuc || doc.length !== 8)) return;
     setConsultando(true);
     try {
       let datosConsultados: DatosDestinatario | null = null;
@@ -187,11 +202,11 @@ function BuscadorTercero({
     } finally {
       setConsultando(false);
     }
-  }, [busqueda, clientes, createCliente, tipoCuentaPorDefecto, onChange]);
+  }, [busqueda, clientes, createCliente, tipoCuentaPorDefecto, onChange, soloRuc]);
 
   const soloDigitos = busqueda.replace(/\D/g, '');
-  const puedeConsultar = soloDigitos.length === 11 || soloDigitos.length === 8;
-  const etiquetaConsulta = soloDigitos.length === 11 ? 'SUNAT' : soloDigitos.length === 8 ? 'RENIEC' : 'SUNAT';
+  const puedeConsultar = soloDigitos.length === 11 || (!soloRuc && soloDigitos.length === 8);
+  const etiquetaConsulta = !soloRuc && soloDigitos.length === 8 ? 'RENIEC' : 'SUNAT';
 
   if (datos) {
     return (
@@ -236,7 +251,7 @@ function BuscadorTercero({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && puedeConsultar) void consultarDocumento();
             }}
-            placeholder="Buscar por RUC, DNI o nombre"
+            placeholder={soloRuc ? 'Buscar por RUC o nombre' : 'Buscar por documento o nombre'}
             className="h-full w-full pl-9 pr-2 text-sm bg-transparent text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none"
           />
         </div>
@@ -294,18 +309,18 @@ export default function SeccionDatosGenerales({
   errorDestinatario,
   mismoRemitente,
   onMismoRemitenteChange,
+  mismoRemitenteDeshabilitado,
   documentosRelacionados,
   onDocumentosRelacionadosChange,
+  errorDocumentosRelacionados,
   regla,
-  proveedor,
-  onProveedorChange,
-  errorProveedor,
-  comprador,
-  onCompradorChange,
-  errorComprador,
+  actoresAdicionalesValores,
+  onActorAdicionalChange,
+  erroresActoresAdicionales,
   especificacionMotivo,
   onEspecificacionChange,
   errorEspecificacion,
+  numeroRegistroMTC,
 }: SeccionDatosGeneralesProps) {
   const { clientes, createCliente } = useClientes();
 
@@ -319,6 +334,112 @@ export default function SeccionDatosGenerales({
     Boolean(regla.actorPrincipal.autoDerivadoDeEmpresa) ||
     Boolean(regla.actorPrincipal.permiteMismoRemitente && mismoRemitente);
 
+  // Actor principal (Destinatario) — extraído a variable para poder reordenarlo respecto de los
+  // actores adicionales según el tipo de GRE (ver más abajo), sin duplicar su markup.
+  const bloqueDestinatario = (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className={`${LABEL_CLS} mb-0`}>
+          <User className="inline h-3 w-3 mr-1" />
+          {regla.actorPrincipal.label}
+          {!regla.actorPrincipal.obligatorio && (
+            <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
+          )}
+        </label>
+        {regla.actorPrincipal.permiteMismoRemitente && onMismoRemitenteChange && (
+          <Switch
+            checked={Boolean(mismoRemitente)}
+            onChange={onMismoRemitenteChange}
+            disabled={mismoRemitenteDeshabilitado}
+            label="Mismo remitente"
+            size="sm"
+          />
+        )}
+      </div>
+
+      {destinatarioEsAutoDerivado ? (
+        // Destinatario auto-derivado (empresa emisora, o Remitente de esta misma GRE en
+        // Transportista) — de solo lectura, sin buscador ni botón de cambio. Una sola fila:
+        // documento y razón social, igual que el resto de campos read-only del formulario.
+        <div className="flex flex-wrap items-baseline gap-x-2 min-h-9 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+            {destinatario ? `${destinatario.tipoDocumento} ${destinatario.numeroDocumento}` : '—'}
+          </span>
+          <span className="text-sm font-medium text-gray-900 dark:text-white">
+            {destinatario?.nombre || '—'}
+          </span>
+        </div>
+      ) : (
+        <BuscadorTercero
+          datos={destinatario}
+          onChange={onDestinatarioChange}
+          error={errorDestinatario}
+          clientes={clientes}
+          createCliente={createCliente}
+          tipoCuentaPorDefecto="Cliente"
+        />
+      )}
+
+      {errorDestinatario && (
+        <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {errorDestinatario}
+        </p>
+      )}
+    </div>
+  );
+
+  // Actores adicionales (Proveedor/Comprador/Remitente) — 0 a 2 según el motivo (Remitente) o
+  // siempre exactamente Remitente (Transportista), cada uno en su propia ranura documental
+  // independiente. Todos reutilizan exactamente el mismo buscador real de terceros que el
+  // Destinatario.
+  const bloqueActoresAdicionales = regla.actoresAdicionales.length > 0 && (
+    <div
+      className={
+        regla.actoresAdicionales.length > 1 ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : undefined
+      }
+    >
+      {regla.actoresAdicionales.map((actor) => {
+        const datosActor = actoresAdicionalesValores[actor.rol] ?? null;
+        const errorActor = erroresActoresAdicionales?.[actor.rol] ?? null;
+
+        return (
+          <div key={actor.rol}>
+            <label className={LABEL_CLS}>
+              <User className="inline h-3 w-3 mr-1" />
+              {actor.label}
+              {!actor.obligatorio && (
+                <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
+              )}
+            </label>
+
+            <BuscadorTercero
+              datos={
+                datosActor
+                  ? { nombre: datosActor.nombre, tipoDocumento: datosActor.tipoDocumento, numeroDocumento: datosActor.numeroDocumento }
+                  : null
+              }
+              onChange={(datos) =>
+                onActorAdicionalChange(actor.rol, datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
+              }
+              error={errorActor}
+              clientes={clientes}
+              createCliente={createCliente}
+              tipoCuentaPorDefecto={actor.tipoCuentaTercero ?? 'Cliente'}
+            />
+
+            {errorActor && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                {errorActor}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <ConfigurationCard title="Datos de la guía" icon={Hash}>
       {/* Grid de dos columnas — patrón Datos del comprobante */}
@@ -327,107 +448,19 @@ export default function SeccionDatosGenerales({
         {/* ── Columna izquierda: Actores + Documentos relacionados ── */}
         <div className="col-span-12 xl:col-span-7 space-y-3">
 
-          {/* Actor principal (destinatario) */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className={`${LABEL_CLS} mb-0`}>
-                <User className="inline h-3 w-3 mr-1" />
-                {regla.actorPrincipal.label}
-                {!regla.actorPrincipal.obligatorio && (
-                  <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
-                )}
-              </label>
-              {regla.actorPrincipal.permiteMismoRemitente && onMismoRemitenteChange && (
-                <Switch
-                  checked={Boolean(mismoRemitente)}
-                  onChange={onMismoRemitenteChange}
-                  label="Mismo remitente"
-                  size="sm"
-                />
-              )}
-            </div>
-
-            {destinatarioEsAutoDerivado ? (
-              // Destinatario auto-derivado de la propia empresa — de solo lectura, sin buscador ni
-              // botón de cambio. Una sola fila: documento y razón social, igual que el resto de
-              // campos read-only del formulario.
-              <div className="flex flex-wrap items-baseline gap-x-2 min-h-9 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-lg">
-                <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
-                  {destinatario ? `${destinatario.tipoDocumento} ${destinatario.numeroDocumento}` : '—'}
-                </span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {destinatario?.nombre || '—'}
-                </span>
-              </div>
-            ) : (
-              <BuscadorTercero
-                datos={destinatario}
-                onChange={onDestinatarioChange}
-                error={errorDestinatario}
-                clientes={clientes}
-                createCliente={createCliente}
-                tipoCuentaPorDefecto="Cliente"
-              />
-            )}
-
-            {errorDestinatario && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3 shrink-0" />
-                {errorDestinatario}
-              </p>
-            )}
-          </div>
-
-          {/* Actores adicionales (Proveedor/Comprador) — 0, 1 o 2 según el motivo, cada uno en su
-              propia ranura documental independiente. Todos reutilizan exactamente el mismo
-              buscador real de terceros que usa el Destinatario. */}
-          {regla.actoresAdicionales.length > 0 && (
-            <div
-              className={
-                regla.actoresAdicionales.length > 1 ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : undefined
-              }
-            >
-              {regla.actoresAdicionales.map((actor) => {
-                const datosActor = actor.rol === 'proveedor' ? proveedor : comprador;
-                const onChangeActor = actor.rol === 'proveedor' ? onProveedorChange : onCompradorChange;
-                const errorActor = actor.rol === 'proveedor' ? errorProveedor : errorComprador;
-                if (!onChangeActor) return null;
-
-                return (
-                  <div key={actor.rol}>
-                    <label className={LABEL_CLS}>
-                      <User className="inline h-3 w-3 mr-1" />
-                      {actor.label}
-                      {!actor.obligatorio && (
-                        <span className="ml-1 text-[10px] font-normal text-gray-400">(opcional)</span>
-                      )}
-                    </label>
-
-                    <BuscadorTercero
-                      datos={
-                        datosActor
-                          ? { nombre: datosActor.nombre, tipoDocumento: datosActor.tipoDocumento, numeroDocumento: datosActor.numeroDocumento }
-                          : null
-                      }
-                      onChange={(datos) =>
-                        onChangeActor(datos ? { nombre: datos.nombre, tipoDocumento: datos.tipoDocumento, numeroDocumento: datos.numeroDocumento } : null)
-                      }
-                      error={errorActor}
-                      clientes={clientes}
-                      createCliente={createCliente}
-                      tipoCuentaPorDefecto={actor.tipoCuentaTercero ?? 'Cliente'}
-                    />
-
-                    {errorActor && (
-                      <p className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3 shrink-0" />
-                        {errorActor}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+          {/* GRE Transportista: el Remitente (quien entrega los bienes) se consigna ANTES del
+              Destinatario, porque el Destinatario puede derivarse de él ("mismo remitente"). GRE
+              Remitente conserva su orden original (Destinatario primero). */}
+          {tipo === 'transportista' ? (
+            <>
+              {bloqueActoresAdicionales}
+              {bloqueDestinatario}
+            </>
+          ) : (
+            <>
+              {bloqueDestinatario}
+              {bloqueActoresAdicionales}
+            </>
           )}
 
           {/* Campo especificación — solo visible para motivo '13' y similares */}
@@ -462,6 +495,7 @@ export default function SeccionDatosGenerales({
               documentos={documentosRelacionados}
               onChange={onDocumentosRelacionadosChange}
               documentosRecomendados={regla.documentosRecomendados}
+              error={errorDocumentosRelacionados}
             />
           </div>
         </div>
@@ -514,24 +548,36 @@ export default function SeccionDatosGenerales({
             </div>
           </div>
 
-          {/* Motivo de traslado — ancho completo de la columna derecha */}
-          <div>
-            <label className={LABEL_CLS} title={regla.ayudaMotivo ?? undefined}>
-              Motivo de traslado
-            </label>
-            <select
-              value={motivoTraslado}
-              onChange={(e) => onMotivoTrasladoChange(e.target.value)}
-              title={regla.ayudaMotivo ?? undefined}
-              className={INPUT_CLS}
-            >
-              {motivosFiltrados.map((m) => (
-                <option key={m.codigo} value={m.codigo}>
-                  {m.codigo} – {m.descripcion}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* GRE Transportista no usa motivo de traslado — en su lugar, Registro MTC (Configuración
+              → Transporte), de solo lectura. Distinto de la Autorización especial, que se muestra
+              por separado en la cabecera de impresión. GRE Remitente conserva su selector de
+              Motivo sin cambios. */}
+          {!aplicaMotivoTrasladoGRE(tipo) ? (
+            <div>
+              <label className={LABEL_CLS}>Registro MTC</label>
+              <div className="flex items-center min-h-9 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <span className="text-sm text-gray-900 dark:text-white">{numeroRegistroMTC || '—'}</span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className={LABEL_CLS} title={regla.ayudaMotivo ?? undefined}>
+                Motivo de traslado
+              </label>
+              <select
+                value={motivoTraslado}
+                onChange={(e) => onMotivoTrasladoChange(e.target.value)}
+                title={regla.ayudaMotivo ?? undefined}
+                className={INPUT_CLS}
+              >
+                {motivosFiltrados.map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.codigo} – {m.descripcion}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
     </ConfigurationCard>

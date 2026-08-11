@@ -54,7 +54,7 @@ export default function GuiasRemision() {
     establecimientoId: session?.currentEstablecimientoId,
   });
 
-  const { credencialesCompletas, autorizacionEspecialEmisor, refrescar } = useEstadoConfiguracionGRE();
+  const { credencialesCompletas, autorizacionEspecialEmisor, numeroRegistroMTC, refrescar } = useEstadoConfiguracionGRE();
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
 
   const [tabActivo, setTabActivo] = useState<Tab>('listado');
@@ -222,7 +222,7 @@ export default function GuiasRemision() {
   };
 
   const empresaImpresion: EmpresaGRE | undefined = activeWorkspace
-    ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal, autorizacionEspecialEmisor }
+    ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal, autorizacionEspecialEmisor, numeroRegistroMTC }
     : undefined;
 
   const handleImprimir = (guia: GuiaRemision) => {

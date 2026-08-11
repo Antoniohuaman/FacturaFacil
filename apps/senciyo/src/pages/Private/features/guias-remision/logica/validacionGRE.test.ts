@@ -289,3 +289,252 @@ describe('validarGREParaEmitir — motivo 13 (Otros): especificación obligatori
     expect(soloComprador.comprador).toBeUndefined();
   });
 });
+
+describe('validarGREParaEmitir — GRE Transportista: Remitente + Destinatario + Pagador del flete', () => {
+  /** El motivo ya no diferencia nada en Transportista — se fija en '13' (valor inerte) y en su
+   * lugar el helper recibe si el transporte está subcontratado (indicador real, booleano). */
+  function guiaTransportistaValida(opciones: { subcontratado?: boolean } = {}): GuiaRemision {
+    return {
+      ...guiaValidaBase(),
+      tipo: 'transportista',
+      motivoTraslado: '13',
+      // GRE Transportista no usa M1/L (exclusivo de Remitente) — a diferencia de `guiaValidaBase`,
+      // su transporte privado siempre registra vehículo(s) y conductor(es) reales.
+      transportePrivado: {
+        fechaInicioTraslado: '2026-08-08',
+        vehiculosIds: ['veh-1'],
+        conductoresIds: ['cond-1'],
+      },
+      destinatarioNombre: 'Destinatario Transportista S.A.C.',
+      destinatarioNumeroDocumento: '20888888888',
+      destinatarioTipoDocumento: 'RUC',
+      remitenteNombre: 'Remitente Transportista S.A.C.',
+      remitenteNumeroDocumento: '20999999999',
+      remitenteTipoDocumento: 'RUC',
+      pagadorFlete: 'Remitente',
+      ...(opciones.subcontratado
+        ? {
+            transporteSubcontratado: true,
+            subcontratadorNombre: 'Subcontratador S.A.C.',
+            subcontratadorNumeroDocumento: '20777777777',
+            subcontratadorTipoDocumento: 'RUC',
+          }
+        : {}),
+    };
+  }
+
+  it('con Destinatario, Remitente y Pagador completos, no hay errores de actores', () => {
+    const errores = validarGREParaEmitir(guiaTransportistaValida());
+    expect(errores.destinatario).toBeUndefined();
+    expect(errores.remitente).toBeUndefined();
+    expect(errores.pagadorFlete).toBeUndefined();
+  });
+
+  it('sin Remitente es inválido', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida(), remitenteNombre: '' });
+    expect(errores.remitente).toBe('El Remitente es obligatorio.');
+  });
+
+  it('sin Destinatario es inválido — sigue siendo el actor principal, igual que en Remitente', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida(), destinatarioNombre: '' });
+    expect(errores.destinatario).toBe('El Destinatario es obligatorio.');
+  });
+
+  it('Destinatario "mismo remitente" (switch ON, snapshot del Remitente) satisface la obligatoriedad', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      destinatarioEsMismoRemitente: true,
+      destinatarioNombre: 'Remitente Transportista S.A.C.',
+      destinatarioNumeroDocumento: '20999999999',
+    });
+    expect(errores.destinatario).toBeUndefined();
+  });
+
+  it('nunca exige "Especifique el motivo" — Transportista no usa motivo de traslado para nada', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida(), especificacionMotivo: undefined });
+    expect(errores.especificacion).toBeUndefined();
+  });
+
+  it('sin Pagador del flete es inválido — es obligatorio en Transportista', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida(), pagadorFlete: undefined });
+    expect(errores.pagadorFlete).toBe('Debe indicar quién paga el flete.');
+  });
+
+  it('Pagador = Subcontratador sin transporteSubcontratado activo: inválido — combinación incoherente aunque exista un subcontratadorNombre', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      pagadorFlete: 'Subcontratador',
+      transporteSubcontratado: false,
+      subcontratadorNombre: 'Sub S.A.C.',
+    });
+    expect(errores.pagadorFlete).toBeDefined();
+  });
+
+  it('Pagador = Subcontratador con transporteSubcontratado activo pero sin Subcontratador consignado: inválido', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida({ subcontratado: true }),
+      pagadorFlete: 'Subcontratador',
+      subcontratadorNombre: '',
+    });
+    expect(errores.pagadorFlete).toBeDefined();
+  });
+
+  it('Pagador = Subcontratador con transporteSubcontratado activo y Subcontratador consignado: válido', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida({ subcontratado: true }), pagadorFlete: 'Subcontratador' });
+    expect(errores.pagadorFlete).toBeUndefined();
+  });
+
+  it('Pagador = Otro sin tercero pagador: inválido', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida(), pagadorFlete: 'Otro', pagadorTerceroNombre: undefined });
+    expect(errores.pagadorFlete).toBeDefined();
+  });
+
+  it('Pagador = Otro con tercero pagador consignado (mismo buscador real de terceros): válido', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      pagadorFlete: 'Otro',
+      pagadorTerceroNombre: 'Tercero Pagador S.A.C.',
+      pagadorTerceroNumeroDocumento: '20666666666',
+    });
+    expect(errores.pagadorFlete).toBeUndefined();
+  });
+
+  it('transporteSubcontratado=true exige Subcontratador consignado', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida({ subcontratado: true }), subcontratadorNombre: '' });
+    expect(errores.subcontratador).toBe('El Subcontratador es obligatorio cuando el transporte es subcontratado.');
+  });
+
+  it('transporteSubcontratado=false (u omitido) no exige Subcontratador', () => {
+    expect(validarGREParaEmitir(guiaTransportistaValida()).subcontratador).toBeUndefined();
+    expect(validarGREParaEmitir({ ...guiaTransportistaValida(), transporteSubcontratado: false }).subcontratador).toBeUndefined();
+  });
+
+  it('GRE Transportista siempre valida contra transportePrivado, sin importar modalidadTransporte — el selector público/privado es exclusivo de Remitente', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida(), modalidadTransporte: '01', transportePublico: undefined });
+    expect(errores.transporte).toBeUndefined();
+  });
+
+  it('GRE Transportista con vehículos/conductores propios (no M1/L) sigue validando correctamente contra transportePrivado', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      transportePrivado: {
+        fechaInicioTraslado: '2026-08-08',
+        vehiculosIds: ['veh-1'],
+        conductoresIds: ['cond-1'],
+        esM1oL: false,
+      },
+    });
+    expect(errores.transporte).toBeUndefined();
+  });
+
+  it('M1/L es exclusivo de GRE Remitente: un valor legacy esM1oL=true en Transportista NUNCA desvía la validación a "solo placa" — sigue exigiendo vehículo y conductor', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      transportePrivado: {
+        fechaInicioTraslado: '2026-08-08',
+        vehiculosIds: [],
+        conductoresIds: [],
+        esM1oL: true,
+        placaVehiculoM1L: 'ABC-123',
+      },
+    });
+    expect(errores.transporte).toBe('Debe asignar al menos un vehículo.');
+  });
+
+  it('M1/L legacy en Transportista con vehículo y conductor asignados: válido (la placa M1/L nunca se exige)', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      transportePrivado: {
+        fechaInicioTraslado: '2026-08-08',
+        vehiculosIds: ['veh-1'],
+        conductoresIds: ['cond-1'],
+        esM1oL: true,
+      },
+    });
+    expect(errores.transporte).toBeUndefined();
+  });
+
+  it('indicadorTrasladoTotalBienes=true con documento relacionado válido: no exige bienes en el detalle', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      bienes: [],
+      indicadorTrasladoTotalBienes: true,
+      documentosRelacionados: [{ id: 'doc-1', origen: 'EXTERNO', tipoDocumentoCodigo: '01', numeroDocumento: 'F001-1' }],
+    });
+    expect(errores.bienes).toBeUndefined();
+  });
+
+  it('indicadorTrasladoTotalBienes=true SIN documento relacionado: sigue exigiendo bienes — el indicador solo no basta', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      bienes: [],
+      indicadorTrasladoTotalBienes: true,
+      documentosRelacionados: [],
+    });
+    expect(errores.bienes).toBe('Debe incluir al menos un bien.');
+  });
+
+  it('indicadorTrasladoTotalBienes=false con documento relacionado pero sin bienes: sigue exigiendo bienes', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      bienes: [],
+      indicadorTrasladoTotalBienes: false,
+      documentosRelacionados: [{ id: 'doc-1', origen: 'EXTERNO', tipoDocumentoCodigo: '01', numeroDocumento: 'F001-1' }],
+    });
+    expect(errores.bienes).toBe('Debe incluir al menos un bien.');
+  });
+
+  it('indicadorTrasladoTotalBienes=true SIN documento relacionado: inválido en dominio, no solo deshabilitado en UI — protege incluso un borrador legacy que llegó a este estado', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      indicadorTrasladoTotalBienes: true,
+      documentosRelacionados: [],
+    });
+    expect(errores.documentosRelacionados).toBe(
+      'El traslado por el total de los bienes consignados requiere al menos un documento relacionado.',
+    );
+  });
+
+  it('indicadorTrasladoTotalBienes=true CON documento relacionado: sin error de documentos relacionados', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      indicadorTrasladoTotalBienes: true,
+      documentosRelacionados: [{ id: 'doc-1', origen: 'EXTERNO', tipoDocumentoCodigo: '01', numeroDocumento: 'F001-1' }],
+    });
+    expect(errores.documentosRelacionados).toBeUndefined();
+  });
+
+  it('indicadorTrasladoTotalBienes=false (u omitido): nunca exige documentos relacionados por esta regla, con o sin ellos', () => {
+    expect(validarGREParaEmitir({ ...guiaTransportistaValida(), indicadorTrasladoTotalBienes: false, documentosRelacionados: [] }).documentosRelacionados).toBeUndefined();
+    expect(validarGREParaEmitir(guiaTransportistaValida()).documentosRelacionados).toBeUndefined();
+  });
+
+  it('Subcontratador con RUC: válido', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida({ subcontratado: true }),
+      subcontratadorTipoDocumento: 'RUC',
+    });
+    expect(errores.subcontratador).toBeUndefined();
+  });
+
+  it('Subcontratador con DNI: inválido — debe identificarse siempre con RUC (es una empresa, no una persona natural)', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida({ subcontratado: true }),
+      subcontratadorTipoDocumento: 'DNI',
+    });
+    expect(errores.subcontratador).toBe('El Subcontratador debe identificarse con RUC.');
+  });
+
+  it('Subcontratador con Carné de Extranjería: inválido', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida({ subcontratado: true }),
+      subcontratadorTipoDocumento: 'CE',
+    });
+    expect(errores.subcontratador).toBe('El Subcontratador debe identificarse con RUC.');
+  });
+
+  it('Pagador sin definir (undefined): sigue siendo obligatorio indicar Remitente, Subcontratador u Otro', () => {
+    const errores = validarGREParaEmitir({ ...guiaTransportistaValida(), pagadorFlete: undefined });
+    expect(errores.pagadorFlete).toBe('Debe indicar quién paga el flete.');
+  });
+});

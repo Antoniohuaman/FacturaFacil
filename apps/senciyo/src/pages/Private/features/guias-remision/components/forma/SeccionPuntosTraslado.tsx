@@ -9,7 +9,7 @@ import {
   listarDistritos,
   obtenerUbigeo,
 } from '@/shared/catalogos/ubigeo.pe';
-import type { PuntoTraslado } from '../../modelos/GuiaRemision';
+import type { PuntoTraslado, TipoGRE } from '../../modelos/GuiaRemision';
 import { leerDireccionesClientePersistidas } from '../../../gestion-clientes/utils/direccionesCliente';
 
 // ─── Tipos internos ─────────────────────────────────────────
@@ -316,6 +316,10 @@ interface SeccionPuntosTrasladoProps {
   onPuntoLlegadaChange: (punto: PuntoTraslado) => void;
   motivoTraslado: string;
   destinatario: DatosDestinatario | null;
+  /** GRE Transportista: muestra el indicador "Realiza transbordo programado" aquí, no en "Datos de transporte" (donde permanece para GRE Remitente). */
+  tipo?: TipoGRE;
+  transbordo?: boolean;
+  onTransbordoChange?: (valor: boolean) => void;
 }
 
 export default function SeccionPuntosTraslado({
@@ -325,6 +329,9 @@ export default function SeccionPuntosTraslado({
   onPuntoLlegadaChange,
   motivoTraslado,
   destinatario,
+  tipo,
+  transbordo,
+  onTransbordoChange,
 }: SeccionPuntosTrasladoProps) {
   const { state: configState } = useConfigurationContext();
   const { activeEstablecimientoId } = useTenant();
@@ -487,6 +494,19 @@ export default function SeccionPuntosTraslado({
 
   return (
     <ConfigurationCard title="Punto de partida y llegada" icon={MapPin}>
+      {tipo === 'transportista' && (
+        <label className="flex items-center gap-1.5 cursor-pointer pb-3 mb-3 border-b border-gray-100 dark:border-gray-700 w-fit">
+          <input
+            type="checkbox"
+            checked={!!transbordo}
+            onChange={(e) => onTransbordoChange?.(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+          />
+          <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            Realiza transbordo programado
+          </span>
+        </label>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 sm:divide-x divide-gray-100 dark:divide-gray-700">
         <div className="pb-5 sm:pb-0 sm:pr-5">
           <CampoPunto

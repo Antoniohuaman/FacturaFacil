@@ -30,17 +30,27 @@ import { GUIA_REMISION_BORRADOR, TIPO_GRE_LABELS, TIPO_GRE_CODIGO_DOCUMENTO } fr
 import { validarGREParaEmitir, hayErrores } from '../logica/validacionGRE';
 import {
   obtenerReglaFlujoGRE,
+  obtenerDatosRolActorGRE,
+  aplicaModalidadTransporteGRE,
+  aplicaMotivoTrasladoGRE,
+  aplicaM1oLGRE,
+  esTransportePrivadoGRE,
+  textoTipoPagadorFleteGRE,
+  obtenerDatosPagadorFleteGRE,
   calcularAjusteDestinatarioPorCambioMotivo,
   calcularAjusteDestinatarioPorMismoRemitente,
   calcularAjusteActoresAdicionalesPorCambioMotivo,
+  calcularAjusteSubcontratadoGRE,
 } from '../logica/reglasFlujoGRE';
+import type { RolActorGRE, FuenteDestinatarioAutoDerivadoGRE } from '../logica/reglasFlujoGRE';
 import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
 import ModalEmisionExitosaGRE from '../components/modales/ModalEmisionExitosaGRE';
-import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37 } from '../../configuracion-sistema/datos/catalogosGRE';
+import { MOTIVOS_TRASLADO, ENTIDADES_AUTORIZADORAS_D37, DOCUMENTOS_RELACIONADOS_GRE } from '../../configuracion-sistema/datos/catalogosGRE';
 import { vehiculosDataSource, conductoresDataSource } from '../../configuracion-sistema/api/fuenteDatosTransporte';
 import type { Vehiculo, Conductor } from '../../configuracion-sistema/modelos/Transporte';
 import { formatearPlaca, nombreCompletoConductor } from '../../configuracion-sistema/components/transporte/helpersTransporte';
 import SeccionDatosGenerales from '../components/forma/SeccionDatosGenerales';
+import type { DatosActorAdicional } from '../components/forma/SeccionDatosGenerales';
 import SeccionBienes from '../components/forma/SeccionBienes';
 import SeccionPuntosTraslado from '../components/forma/SeccionPuntosTraslado';
 import SeccionTransporte from '../components/forma/SeccionTransporte';
@@ -63,16 +73,44 @@ interface DatosDestinatario {
   ubigeo?: string;
 }
 
-/** Forma común de un actor adicional (Proveedor o Comprador) — cada rol vive en su propia ranura documental independiente. */
-interface DatosActorAdicional {
-  nombre: string;
-  tipoDocumento: string;
-  numeroDocumento: string;
-}
-
 // ─── Vista previa en formato documento ─────────────────────
 
-function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: GuiaRemision; onCerrar: () => void; autorizacionEspecialEmisor?: { entidadNombre: string; numeroAutorizacion: string } }) {
+/** Bloque compacto de un actor (Destinatario/Proveedor/Comprador/Remitente/Subcontratador) — misma
+ * lectura de snapshot (`obtenerDatosRolActorGRE`) que ya usan `RepresentacionImpresaGRE.tsx` y
+ * `DrawerDetalleGRE.tsx`. Nunca se renderiza si el actor no tiene nombre real (sin bloques vacíos). */
+function BloqueActorVistaPrevia({
+  label,
+  datos,
+  direccion,
+}: {
+  label: string;
+  datos: { nombre?: string; tipoDocumento?: string; numeroDocumento?: string };
+  direccion?: string;
+}) {
+  if (!datos.nombre) return null;
+  return (
+    <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{label}</p>
+      <p className="font-semibold text-gray-900 dark:text-white">{datos.nombre}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        {datos.tipoDocumento} {datos.numeroDocumento}
+        {direccion && ` · ${direccion}`}
+      </p>
+    </div>
+  );
+}
+
+function VistaPrevia({
+  guia,
+  onCerrar,
+  autorizacionEspecialEmisor,
+  numeroRegistroMTC,
+}: {
+  guia: GuiaRemision;
+  onCerrar: () => void;
+  autorizacionEspecialEmisor?: { entidadNombre: string; numeroAutorizacion: string };
+  numeroRegistroMTC?: string;
+}) {
   const motivo = MOTIVOS_TRASLADO.find((m) => m.codigo === guia.motivoTraslado);
   const { tenantId } = useTenant();
   const [vehiculosPrevia, setVehiculosPrevia] = useState<Vehiculo[]>([]);
@@ -83,6 +121,40 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
     void vehiculosDataSource.list(tenantId).then(setVehiculosPrevia);
     void conductoresDataSource.list(tenantId).then(setConductoresPrevia);
   }, [tenantId]);
+
+  // Misma regla central que el formulario/impresión — la Vista previa reacciona al documento en
+  // vez de reconstruir su propia lista de actores. GRE Transportista: sin Motivo de traslado, sin
+  // Subcontratador vía regla — ambos son indicadores documentales booleanos (`transporteSubcontratado`).
+  const regla = obtenerReglaFlujoGRE(guia.tipo, guia.motivoTraslado);
+  const esTransportista = guia.tipo === 'transportista';
+  const hayDatosSubcontratador = Boolean(guia.transporteSubcontratado && guia.subcontratadorNombre);
+  const esPrivado = esTransportePrivadoGRE(guia.tipo, guia.modalidadTransporte);
+  // M1/L es exclusivo de GRE Remitente — un valor legacy heredado en `esM1oL` nunca se muestra
+  // como real en Transportista, que siempre registra vehículo(s)/conductor(es) completos.
+  const m1oLAplicable = aplicaM1oLGRE(guia.tipo);
+  const esM1oLReal = m1oLAplicable && Boolean(guia.transportePrivado?.esM1oL);
+
+  // Bloque del actor principal (Destinatario) — extraído para poder reordenarlo respecto de los
+  // actores adicionales (Remitente primero en GRE Transportista, igual que en el formulario real).
+  const bloqueDestinatarioPrevia = (
+    <BloqueActorVistaPrevia
+      label={regla.actorPrincipal.label}
+      datos={{
+        nombre: guia.destinatarioNombre,
+        tipoDocumento: guia.destinatarioTipoDocumento,
+        numeroDocumento: guia.destinatarioNumeroDocumento,
+      }}
+      direccion={guia.destinatarioDireccion}
+    />
+  );
+
+  const bloqueActoresAdicionalesPrevia = regla.actoresAdicionales.length > 0 && (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {regla.actoresAdicionales.map((actor) => (
+        <BloqueActorVistaPrevia key={actor.rol} label={actor.label} datos={obtenerDatosRolActorGRE(guia, actor.rol)} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-violet-200 dark:border-violet-700 shadow-sm overflow-hidden">
@@ -120,18 +192,31 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
             <p className="text-xs text-gray-500 dark:text-gray-400">Fecha de emisión</p>
             <p className="font-medium text-gray-900 dark:text-white">{guia.fechaEmision || '—'}</p>
           </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Motivo de traslado</p>
-            <p className="font-medium text-gray-900 dark:text-white">
-              {guia.motivoTraslado} – {motivo?.descripcion ?? '—'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Modalidad</p>
-            <p className="font-medium text-gray-900 dark:text-white">
-              {guia.modalidadTransporte === '02' ? 'Transporte privado' : 'Transporte público'}
-            </p>
-          </div>
+          {/* GRE Transportista no usa motivo de traslado — se omite por completo, nunca se muestra un código/descripción sin significado funcional. */}
+          {aplicaMotivoTrasladoGRE(guia.tipo) && (
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Motivo de traslado</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {guia.motivoTraslado} – {motivo?.descripcion ?? '—'}
+              </p>
+            </div>
+          )}
+          {aplicaModalidadTransporteGRE(guia.tipo) ? (
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Modalidad</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {guia.modalidadTransporte === '02' ? 'Transporte privado' : 'Transporte público'}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Registro MTC</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {/* Prefiere el snapshot ya congelado en la guía (emitida) sobre el valor vigente de Configuración. */}
+                {guia.numeroRegistroMTC ?? numeroRegistroMTC ?? 'No configurado'}
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400">Estado</p>
             <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
@@ -140,15 +225,34 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
           </div>
         </div>
 
-        {/* Destinatario */}
-        {guia.destinatarioNombre && (
-          <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Destinatario</p>
-            <p className="font-semibold text-gray-900 dark:text-white">{guia.destinatarioNombre}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {guia.destinatarioTipoDocumento} {guia.destinatarioNumeroDocumento}
-              {guia.destinatarioDireccion && ` · ${guia.destinatarioDireccion}`}
-            </p>
+        {/* GRE Transportista: Remitente se consigna antes de Destinatario (puede derivarse de él).
+            GRE Remitente conserva su orden original (Destinatario primero). */}
+        {esTransportista ? (
+          <>
+            {bloqueActoresAdicionalesPrevia}
+            {bloqueDestinatarioPrevia}
+          </>
+        ) : (
+          <>
+            {bloqueDestinatarioPrevia}
+            {bloqueActoresAdicionalesPrevia}
+          </>
+        )}
+
+        {/* Documentos relacionados — solo si existen realmente */}
+        {guia.documentosRelacionados.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Documentos relacionados</p>
+            <ul className="space-y-1">
+              {guia.documentosRelacionados.map((doc) => (
+                <li key={doc.id} className="text-xs text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">
+                    {DOCUMENTOS_RELACIONADOS_GRE.find((t) => t.codigo === doc.tipoDocumentoCodigo)?.documento ?? `Tipo ${doc.tipoDocumentoCodigo}`}
+                  </span>
+                  {' — '}{doc.numeroDocumento}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -235,22 +339,34 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
           </div>
         )}
 
+        {/* Indicador de traslado por el total de los bienes consignados — GRE Transportista */}
+        {guia.tipo === 'transportista' && (
+          <p className="text-xs text-gray-600 dark:text-gray-300">
+            <span className="text-gray-400 dark:text-gray-500">Traslado por el total de los bienes consignados: </span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {guia.indicadorTrasladoTotalBienes ? 'Sí' : 'No'}
+            </span>
+          </p>
+        )}
+
         {/* ─── Transporte privado ─── */}
-        {guia.modalidadTransporte === '02' && guia.transportePrivado && (
+        {esPrivado && guia.transportePrivado && (
           <>
             <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos del traslado</p>
               <div className="flex flex-wrap gap-1.5">
-                <span className="text-xs px-2 py-0.5 rounded bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300">
-                  Transporte privado
-                </span>
-                {guia.transportePrivado.esM1oL && (
+                {aplicaModalidadTransporteGRE(guia.tipo) && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-violet-50 dark:bg-violet-900/20 font-medium text-violet-700 dark:text-violet-300">
+                    Transporte privado
+                  </span>
+                )}
+                {esM1oLReal && (
                   <span className="text-xs px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 font-medium text-amber-700 dark:text-amber-400">
                     Vehículo categoría M1 o L
                   </span>
                 )}
               </div>
-              {guia.transportePrivado.esM1oL && guia.transportePrivado.placaVehiculoM1L && (
+              {esM1oLReal && guia.transportePrivado.placaVehiculoM1L && (
                 <p className="text-xs">
                   <span className="text-gray-500 dark:text-gray-400">Placa: </span>
                   <span className="font-mono font-semibold text-gray-900 dark:text-white">
@@ -273,13 +389,15 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
                     {guia.transportePrivado.transbordo ? 'Sí' : 'No'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-gray-500 dark:text-gray-400 truncate">Vehículo categoría M1 o L</span>
-                  <span className={`font-medium shrink-0 ${guia.transportePrivado.esM1oL ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                    {guia.transportePrivado.esM1oL ? 'Sí' : 'No'}
-                  </span>
-                </div>
-                {!guia.transportePrivado.esM1oL && (
+                {m1oLAplicable && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-500 dark:text-gray-400 truncate">Vehículo categoría M1 o L</span>
+                    <span className={`font-medium shrink-0 ${esM1oLReal ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {esM1oLReal ? 'Sí' : 'No'}
+                    </span>
+                  </div>
+                )}
+                {!esM1oLReal && (
                   <>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-gray-500 dark:text-gray-400 truncate">Retorno de vehículo vacío</span>
@@ -295,9 +413,25 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
                     </div>
                   </>
                 )}
+                {esTransportista && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-500 dark:text-gray-400 truncate">Transporte subcontratado</span>
+                    <span className={`font-medium shrink-0 ${guia.transporteSubcontratado ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {guia.transporteSubcontratado ? 'Sí' : 'No'}
+                    </span>
+                  </div>
+                )}
+                {esTransportista && guia.pagadorFlete && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-500 dark:text-gray-400 truncate">Pagador del flete</span>
+                    <span className="font-medium shrink-0 text-gray-900 dark:text-white">
+                      {textoTipoPagadorFleteGRE(guia.pagadorFlete)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-            {!guia.transportePrivado.esM1oL && guia.transportePrivado.vehiculosIds.length > 0 && (
+            {!esM1oLReal && guia.transportePrivado.vehiculosIds.length > 0 && (
               <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos de los vehículos</p>
                 <ul className="space-y-1.5">
@@ -316,6 +450,9 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
                           <span className="font-mono font-semibold text-gray-900 dark:text-white">
                             {formatearPlaca(v.placa)}
                           </span>
+                          {v.numeroTUCE && (
+                            <span className="text-gray-500 dark:text-gray-400 ml-1.5">· TUCE {v.numeroTUCE}</span>
+                          )}
                           {ent && (
                             <span className="text-gray-500 dark:text-gray-400 ml-2">
                               · {ent.entidad}{v.numeroAutorizacion ? ` – Aut. ${v.numeroAutorizacion}` : ''}
@@ -328,7 +465,7 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
                 </ul>
               </div>
             )}
-            {!guia.transportePrivado.esM1oL && guia.transportePrivado.conductoresIds.length > 0 && (
+            {!esM1oLReal && guia.transportePrivado.conductoresIds.length > 0 && (
               <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos de los conductores</p>
                 <ul className="space-y-1.5">
@@ -358,7 +495,7 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
         )}
 
         {/* ─── Transporte público ─── */}
-        {guia.modalidadTransporte === '01' && guia.transportePublico && (
+        {!esPrivado && guia.transportePublico && (
           <>
             <div className="border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2 text-sm">
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Datos del traslado</p>
@@ -514,6 +651,21 @@ function VistaPrevia({ guia, onCerrar, autorizacionEspecialEmisor }: { guia: Gui
           </>
         )}
 
+        {/* Subcontratador — solo si el transporte está realmente subcontratado y hay uno consignado. */}
+        {hayDatosSubcontratador && (
+          <BloqueActorVistaPrevia
+            label="Subcontratador"
+            datos={{ nombre: guia.subcontratadorNombre, tipoDocumento: guia.subcontratadorTipoDocumento, numeroDocumento: guia.subcontratadorNumeroDocumento }}
+          />
+        )}
+
+        {/* Datos del pagador del flete — mismos datos concretos que la representación impresa, sin importar el rol. */}
+        {(() => {
+          const datosPagador = obtenerDatosPagadorFleteGRE(guia);
+          if (!datosPagador?.nombre) return null;
+          return <BloqueActorVistaPrevia label="Datos del pagador del flete" datos={datosPagador} />;
+        })()}
+
         {/* Observaciones */}
         {guia.observaciones && (
           <div>
@@ -545,7 +697,7 @@ export default function FormularioGREPage() {
   const tipoInicial: TipoGRE = esTipoValido(tipoParam) ? tipoParam : 'remitente';
   const modoEdicion = Boolean(id);
 
-  const { credencialesCompletas, puedeEmitirPorConfiguracion, faltantesCredenciales, autorizacionEspecialEmisor, refrescar } = useEstadoConfiguracionGRE();
+  const { credencialesCompletas, puedeEmitirPorConfiguracion, faltantesCredenciales, autorizacionEspecialEmisor, numeroRegistroMTC, refrescar } = useEstadoConfiguracionGRE();
   const [modalConfigOpen, setModalConfigOpen] = useState(false);
 
   const [guia, setGuia] = useState<GuiaRemision>(() => GUIA_REMISION_BORRADOR(tipoInicial));
@@ -661,58 +813,117 @@ export default function FormularioGREPage() {
       }
     : null;
 
-  const proveedorActual: DatosActorAdicional | null = guia.proveedorNombre
-    ? {
-        nombre: guia.proveedorNombre,
-        tipoDocumento: guia.proveedorTipoDocumento ?? 'RUC',
-        numeroDocumento: guia.proveedorNumeroDocumento ?? '',
-      }
-    : null;
-
-  const setProveedor = useCallback((datos: DatosActorAdicional | null) => {
-    setGuia((prev) => ({
-      ...prev,
-      proveedorNombre: datos?.nombre || undefined,
-      proveedorTipoDocumento: datos?.tipoDocumento || undefined,
-      proveedorNumeroDocumento: datos?.numeroDocumento || undefined,
-    }));
-  }, []);
-
-  const compradorActual: DatosActorAdicional | null = guia.compradorNombre
-    ? {
-        nombre: guia.compradorNombre,
-        tipoDocumento: guia.compradorTipoDocumento ?? 'RUC',
-        numeroDocumento: guia.compradorNumeroDocumento ?? '',
-      }
-    : null;
-
-  const setComprador = useCallback((datos: DatosActorAdicional | null) => {
-    setGuia((prev) => ({
-      ...prev,
-      compradorNombre: datos?.nombre || undefined,
-      compradorTipoDocumento: datos?.tipoDocumento || undefined,
-      compradorNumeroDocumento: datos?.numeroDocumento || undefined,
-    }));
-  }, []);
+  // Fuente real que respalda el switch "Mismo remitente": la propia empresa emisora (GRE
+  // Remitente, motivo Otros) o el actor Remitente ya seleccionado en esta misma GRE (GRE
+  // Transportista) — decidido aquí, una sola vez por tipo; la regla central nunca asume la fuente.
+  const fuenteMismoRemitente: FuenteDestinatarioAutoDerivadoGRE | null = useMemo(
+    () =>
+      guia.tipo === 'transportista'
+        ? guia.remitenteNombre
+          ? {
+              nombre: guia.remitenteNombre,
+              numeroDocumento: guia.remitenteNumeroDocumento ?? '',
+              tipoDocumento: guia.remitenteTipoDocumento,
+            }
+          : null
+        : activeWorkspace
+          ? {
+              nombre: activeWorkspace.razonSocial,
+              numeroDocumento: activeWorkspace.ruc,
+              tipoDocumento: 'RUC',
+              direccion: activeWorkspace.domicilioFiscal,
+            }
+          : null,
+    [guia.tipo, guia.remitenteNombre, guia.remitenteNumeroDocumento, guia.remitenteTipoDocumento, activeWorkspace],
+  );
 
   const onMismoRemitenteChange = useCallback(
     (activar: boolean) => {
       setGuia((prev) => ({
         ...prev,
-        ...calcularAjusteDestinatarioPorMismoRemitente(
-          activar,
-          activeWorkspace
-            ? {
-                razonSocial: activeWorkspace.razonSocial,
-                ruc: activeWorkspace.ruc,
-                domicilioFiscal: activeWorkspace.domicilioFiscal,
-              }
-            : null,
-        ),
+        ...calcularAjusteDestinatarioPorMismoRemitente(activar, fuenteMismoRemitente),
       }));
     },
-    [activeWorkspace],
+    [fuenteMismoRemitente],
   );
+
+  const actoresAdicionalesValores: Partial<Record<RolActorGRE['rol'], DatosActorAdicional | null>> = {
+    proveedor: guia.proveedorNombre
+      ? { nombre: guia.proveedorNombre, tipoDocumento: guia.proveedorTipoDocumento ?? 'RUC', numeroDocumento: guia.proveedorNumeroDocumento ?? '' }
+      : null,
+    comprador: guia.compradorNombre
+      ? { nombre: guia.compradorNombre, tipoDocumento: guia.compradorTipoDocumento ?? 'RUC', numeroDocumento: guia.compradorNumeroDocumento ?? '' }
+      : null,
+    remitente: guia.remitenteNombre
+      ? { nombre: guia.remitenteNombre, tipoDocumento: guia.remitenteTipoDocumento ?? 'RUC', numeroDocumento: guia.remitenteNumeroDocumento ?? '' }
+      : null,
+  };
+
+  // Subcontratador (GRE Transportista) — indicador booleano `transporteSubcontratado`
+  // independiente del motivo, ya no forma parte del bucle genérico de actores adicionales.
+  const subcontratadorActual: DatosActorAdicional | null = guia.subcontratadorNombre
+    ? { nombre: guia.subcontratadorNombre, tipoDocumento: guia.subcontratadorTipoDocumento ?? 'RUC', numeroDocumento: guia.subcontratadorNumeroDocumento ?? '' }
+    : null;
+
+  const onSubcontratadorChange = useCallback((datos: DatosActorAdicional | null) => {
+    setGuia((prev) => ({
+      ...prev,
+      subcontratadorNombre: datos?.nombre || undefined,
+      subcontratadorTipoDocumento: datos?.tipoDocumento || undefined,
+      subcontratadorNumeroDocumento: datos?.numeroDocumento || undefined,
+      // Si se retira el Subcontratador y el pagador del flete lo referenciaba, esa elección queda
+      // incoherente — se normaliza aquí mismo.
+      ...(!datos && prev.pagadorFlete === 'Subcontratador' ? { pagadorFlete: undefined as GuiaRemision['pagadorFlete'] } : {}),
+    }));
+  }, []);
+
+  const onTransporteSubcontratadoChange = useCallback((activar: boolean) => {
+    setGuia((prev) => ({
+      ...prev,
+      transporteSubcontratado: activar,
+      ...calcularAjusteSubcontratadoGRE(activar, prev.pagadorFlete),
+    }));
+  }, []);
+
+  const onActorAdicionalChange = useCallback((rol: RolActorGRE['rol'], datos: DatosActorAdicional | null) => {
+    setGuia((prev) => {
+      switch (rol) {
+        case 'proveedor':
+          return {
+            ...prev,
+            proveedorNombre: datos?.nombre || undefined,
+            proveedorTipoDocumento: datos?.tipoDocumento || undefined,
+            proveedorNumeroDocumento: datos?.numeroDocumento || undefined,
+          };
+        case 'comprador':
+          return {
+            ...prev,
+            compradorNombre: datos?.nombre || undefined,
+            compradorTipoDocumento: datos?.tipoDocumento || undefined,
+            compradorNumeroDocumento: datos?.numeroDocumento || undefined,
+          };
+        case 'remitente': {
+          const ajusteRemitente = {
+            remitenteNombre: datos?.nombre || undefined,
+            remitenteTipoDocumento: datos?.tipoDocumento || undefined,
+            remitenteNumeroDocumento: datos?.numeroDocumento || undefined,
+          };
+          // "Mismo remitente" activo significa que Destinatario ES el Remitente — si el Remitente
+          // cambia, Destinatario debe seguirlo para no quedar mostrando un tercero distinto bajo
+          // esa etiqueta (misma función central que activa el switch, no una sincronización aparte).
+          if (!prev.destinatarioEsMismoRemitente) return { ...prev, ...ajusteRemitente };
+          return {
+            ...prev,
+            ...ajusteRemitente,
+            ...calcularAjusteDestinatarioPorMismoRemitente(
+              true,
+              datos ? { nombre: datos.nombre, numeroDocumento: datos.numeroDocumento, tipoDocumento: datos.tipoDocumento } : null,
+            ),
+          };
+        }
+      }
+    });
+  }, []);
 
   const guardarBorrador = useCallback(async () => {
     if (!guia.serie) return;
@@ -856,6 +1067,10 @@ export default function FormularioGREPage() {
         estado: 'Pendiente',
         correlativo: correlativeStr,
         historial: [...(guiaTrabajo.historial ?? []), evento],
+        // Snapshot documental del Registro MTC vigente al momento de EMITIR (GRE Transportista) —
+        // se congela aquí para que la GRE emitida nunca cambie retroactivamente si Configuración
+        // → Transporte se actualiza después. Mismo patrón que el resto de snapshots de GRE.
+        ...(guiaTrabajo.tipo === 'transportista' ? { numeroRegistroMTC } : {}),
       };
       try {
         if (yaPersistida) {
@@ -890,6 +1105,7 @@ export default function FormularioGREPage() {
     puedeEmitirPorConfiguracion,
     serieActiva,
     incrementSeriesCorrelative,
+    numeroRegistroMTC,
     configState.salesPreferences,
     configState.almacenes,
     configState.preferenciasInventario,
@@ -966,6 +1182,7 @@ export default function FormularioGREPage() {
             guia={guia}
             onCerrar={() => setMostrarVistaPrevia(false)}
             autorizacionEspecialEmisor={autorizacionEspecialEmisor}
+            numeroRegistroMTC={numeroRegistroMTC}
           />
         )}
 
@@ -985,13 +1202,7 @@ export default function FormularioGREPage() {
                 prev.tipo,
                 prev.motivoTraslado,
                 motivoNuevo,
-                activeWorkspace
-                  ? {
-                      razonSocial: activeWorkspace.razonSocial,
-                      ruc: activeWorkspace.ruc,
-                      domicilioFiscal: activeWorkspace.domicilioFiscal,
-                    }
-                  : null,
+                fuenteMismoRemitente,
                 prev.destinatarioEsMismoRemitente ?? false,
               );
               const ajusteActoresAdicionales = calcularAjusteActoresAdicionalesPorCambioMotivo(
@@ -1012,20 +1223,24 @@ export default function FormularioGREPage() {
           errorDestinatario={intentoEmitir ? (erroresMinimos.destinatario ?? null) : null}
           mismoRemitente={guia.destinatarioEsMismoRemitente}
           onMismoRemitenteChange={onMismoRemitenteChange}
+          mismoRemitenteDeshabilitado={!fuenteMismoRemitente}
           documentosRelacionados={guia.documentosRelacionados}
           onDocumentosRelacionadosChange={(docs) =>
             setGuia((prev) => ({ ...prev, documentosRelacionados: docs }))
           }
+          errorDocumentosRelacionados={intentoEmitir ? (erroresMinimos.documentosRelacionados ?? null) : null}
           regla={regla}
-          proveedor={proveedorActual}
-          onProveedorChange={setProveedor}
-          errorProveedor={intentoEmitir ? (erroresMinimos.proveedor ?? null) : null}
-          comprador={compradorActual}
-          onCompradorChange={setComprador}
-          errorComprador={intentoEmitir ? (erroresMinimos.comprador ?? null) : null}
+          actoresAdicionalesValores={actoresAdicionalesValores}
+          onActorAdicionalChange={onActorAdicionalChange}
+          erroresActoresAdicionales={
+            intentoEmitir
+              ? { proveedor: erroresMinimos.proveedor, comprador: erroresMinimos.comprador, remitente: erroresMinimos.remitente }
+              : undefined
+          }
           especificacionMotivo={guia.especificacionMotivo}
           onEspecificacionChange={(v) => setGuia((prev) => ({ ...prev, especificacionMotivo: v }))}
           errorEspecificacion={intentoEmitir ? (erroresMinimos.especificacion ?? null) : null}
+          numeroRegistroMTC={numeroRegistroMTC}
         />
 
         {/* 2. Bienes a transportar */}
@@ -1036,6 +1251,12 @@ export default function FormularioGREPage() {
           unidadPeso={guia.unidadPeso}
           onPesoTotalChange={(peso) => setGuia((prev) => ({ ...prev, pesoTotal: peso }))}
           onUnidadPesoChange={(unidad) => setGuia((prev) => ({ ...prev, unidadPeso: unidad }))}
+          tipo={guia.tipo}
+          indicadorTrasladoTotalBienes={guia.indicadorTrasladoTotalBienes}
+          onIndicadorTrasladoTotalBienesChange={(v) =>
+            setGuia((prev) => ({ ...prev, indicadorTrasladoTotalBienes: v }))
+          }
+          hayDocumentoRelacionado={guia.documentosRelacionados.length > 0}
         />
 
         {/* 4. Puntos de traslado */}
@@ -1050,10 +1271,19 @@ export default function FormularioGREPage() {
           }
           motivoTraslado={guia.motivoTraslado}
           destinatario={destinatarioActual}
+          tipo={guia.tipo}
+          transbordo={guia.transportePrivado?.transbordo}
+          onTransbordoChange={(v) =>
+            setGuia((prev) => ({
+              ...prev,
+              transportePrivado: { ...(prev.transportePrivado ?? { fechaInicioTraslado: '', vehiculosIds: [], conductoresIds: [] }), transbordo: v },
+            }))
+          }
         />
 
         {/* 5. Datos de transporte */}
         <SeccionTransporte
+          tipo={guia.tipo}
           modalidadTransporte={guia.modalidadTransporte}
           onModalidadChange={(m) =>
             setGuia((prev) => ({
@@ -1069,6 +1299,27 @@ export default function FormularioGREPage() {
           onTransportePublicoChange={(t: TransportePublico) =>
             setGuia((prev) => ({ ...prev, transportePublico: t }))
           }
+          transporteSubcontratado={guia.transporteSubcontratado}
+          onTransporteSubcontratadoChange={onTransporteSubcontratadoChange}
+          subcontratador={subcontratadorActual}
+          onSubcontratadorChange={onSubcontratadorChange}
+          errorSubcontratador={intentoEmitir ? (erroresMinimos.subcontratador ?? null) : null}
+          pagadorFlete={guia.pagadorFlete}
+          onPagadorFleteChange={(v) => setGuia((prev) => ({ ...prev, pagadorFlete: v }))}
+          pagadorTercero={
+            guia.pagadorTerceroNombre
+              ? { nombre: guia.pagadorTerceroNombre, tipoDocumento: guia.pagadorTerceroTipoDocumento ?? 'RUC', numeroDocumento: guia.pagadorTerceroNumeroDocumento ?? '' }
+              : null
+          }
+          onPagadorTerceroChange={(datos) =>
+            setGuia((prev) => ({
+              ...prev,
+              pagadorTerceroNombre: datos?.nombre || undefined,
+              pagadorTerceroTipoDocumento: datos?.tipoDocumento || undefined,
+              pagadorTerceroNumeroDocumento: datos?.numeroDocumento || undefined,
+            }))
+          }
+          errorPagadorFlete={intentoEmitir ? (erroresMinimos.pagadorFlete ?? null) : null}
         />
 
         {/* 6. Observaciones — compactas */}
@@ -1101,7 +1352,7 @@ export default function FormularioGREPage() {
         }}
         onImprimir={(g) => {
           if (tenantId) {
-            void imprimirGuiaGRE(g, tenantId, activeWorkspace ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal, autorizacionEspecialEmisor } : undefined);
+            void imprimirGuiaGRE(g, tenantId, activeWorkspace ? { razonSocial: activeWorkspace.razonSocial, ruc: activeWorkspace.ruc, direccion: activeWorkspace.domicilioFiscal, autorizacionEspecialEmisor, numeroRegistroMTC } : undefined);
           }
         }}
         onIrAlListado={() => {

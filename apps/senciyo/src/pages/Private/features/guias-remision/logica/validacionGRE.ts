@@ -1,13 +1,25 @@
 import type { GuiaRemision } from '../modelos/GuiaRemision';
-import { obtenerReglaFlujoGRE, obtenerDatosRolActorGRE } from './reglasFlujoGRE';
+import {
+  obtenerReglaFlujoGRE,
+  obtenerDatosRolActorGRE,
+  esTransportePrivadoGRE,
+  aplicaM1oLGRE,
+  pagadorSubcontratadorEsValidoGRE,
+  subcontratadorTieneDocumentoValidoGRE,
+  indicadorTrasladoTotalEsValidoGRE,
+} from './reglasFlujoGRE';
 
 export interface ErroresValidacionGRE {
   serie?: string;
   destinatario?: string;
   proveedor?: string;
   comprador?: string;
+  remitente?: string;
+  subcontratador?: string;
+  pagadorFlete?: string;
   especificacion?: string;
   bienes?: string;
+  documentosRelacionados?: string;
   pesoTotal?: string;
   puntoPartida?: string;
   puntoLlegada?: string;
@@ -37,9 +49,47 @@ export function validarGREParaEmitir(guia: GuiaRemision): ErroresValidacionGRE {
     errores.especificacion = 'Debe especificar el motivo de traslado.';
   }
 
-  if (guia.bienes.length === 0) {
+  // GRE Transportista: el Subcontratador es un indicador documental booleano independiente del
+  // motivo — solo obligatorio cuando el usuario activó "Transporte subcontratado". Cuando existe,
+  // debe identificarse siempre con RUC (es una empresa transportista, nunca una persona natural).
+  if (guia.tipo === 'transportista' && guia.transporteSubcontratado) {
+    if (!guia.subcontratadorNombre?.trim()) {
+      errores.subcontratador = 'El Subcontratador es obligatorio cuando el transporte es subcontratado.';
+    } else if (!subcontratadorTieneDocumentoValidoGRE(guia)) {
+      errores.subcontratador = 'El Subcontratador debe identificarse con RUC.';
+    }
+  }
+
+  if (regla.requierePagadorFlete) {
+    if (!guia.pagadorFlete) {
+      errores.pagadorFlete = 'Debe indicar quién paga el flete.';
+    } else if (guia.pagadorFlete === 'Subcontratador' && !pagadorSubcontratadorEsValidoGRE(guia)) {
+      errores.pagadorFlete = 'El pagador no puede ser el Subcontratador si el transporte no está subcontratado o no se ha consignado uno.';
+    } else if (guia.pagadorFlete === 'Otro' && !guia.pagadorTerceroNombre?.trim()) {
+      errores.pagadorFlete = 'Debe seleccionar el tercero pagador.';
+    }
+  }
+
+  // GRE Transportista: "traslado por el total de los bienes consignados" solo es coherente si
+  // existe al menos un documento relacionado real que lo sustente — protección de dominio, no solo
+  // deshabilitar el checkbox en la UI (que además puede quedar en este estado por un borrador
+  // legacy que nunca lo tuvo).
+  if (!indicadorTrasladoTotalEsValidoGRE(guia)) {
+    errores.documentosRelacionados =
+      'El traslado por el total de los bienes consignados requiere al menos un documento relacionado.';
+  }
+
+  // GRE Transportista: si el traslado es por el total de los bienes consignados en un documento
+  // relacionado real, el detalle de bienes ya está sustentado por ese documento — no se exige
+  // duplicarlo manualmente en esta guía.
+  const bienesSustentadosPorDocumento =
+    guia.tipo === 'transportista' &&
+    Boolean(guia.indicadorTrasladoTotalBienes) &&
+    guia.documentosRelacionados.length > 0;
+
+  if (guia.bienes.length === 0 && !bienesSustentadosPorDocumento) {
     errores.bienes = 'Debe incluir al menos un bien.';
-  } else {
+  } else if (guia.bienes.length > 0) {
     const bienInvalido = guia.bienes.find((b) => !Number.isFinite(b.cantidad) || b.cantidad <= 0);
     if (bienInvalido) {
       errores.bienes = `La cantidad de "${bienInvalido.descripcion || 'un bien'}" debe ser mayor a 0.`;
@@ -65,13 +115,16 @@ export function validarGREParaEmitir(guia: GuiaRemision): ErroresValidacionGRE {
 }
 
 function validarTransporte(guia: GuiaRemision): string | undefined {
-  const privado = guia.modalidadTransporte === '02';
+  const privado = esTransportePrivadoGRE(guia.tipo, guia.modalidadTransporte);
+  // GRE Transportista no usa el indicador M1/L (exclusivo de Remitente) — un valor legacy heredado
+  // en `esM1oL` nunca desvía la validación hacia la rama de solo-placa.
+  const tratarComoM1oLPrivado = aplicaM1oLGRE(guia.tipo) && Boolean(guia.transportePrivado?.esM1oL);
 
   if (privado) {
     const tp = guia.transportePrivado;
     if (!tp) return 'Faltan datos de transporte privado.';
     if (!tp.fechaInicioTraslado) return 'La fecha de inicio de traslado es obligatoria.';
-    if (tp.esM1oL) {
+    if (tratarComoM1oLPrivado) {
       if (!tp.placaVehiculoM1L?.trim()) return 'La placa del vehículo M1/L es obligatoria.';
     } else {
       if (tp.vehiculosIds.length === 0) return 'Debe asignar al menos un vehículo.';

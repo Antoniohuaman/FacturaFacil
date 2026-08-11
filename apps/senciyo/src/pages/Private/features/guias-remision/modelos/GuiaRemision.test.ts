@@ -29,4 +29,18 @@ describe('GUIA_REMISION_BORRADOR', () => {
     const b = GUIA_REMISION_BORRADOR('remitente');
     expect(a.id).not.toBe(b.id);
   });
+
+  it('el motivo por defecto es siempre válido para el tipo de guía — "01" (Venta) no existe en el catálogo de Transportista', () => {
+    expect(GUIA_REMISION_BORRADOR('remitente').motivoTraslado).toBe('01');
+    expect(GUIA_REMISION_BORRADOR('transportista').motivoTraslado).toBe('13');
+  });
+
+  it('un borrador Transportista nuevo nunca arranca con transporteSubcontratado activo — el usuario debe activarlo explícitamente', () => {
+    expect(GUIA_REMISION_BORRADOR('transportista').transporteSubcontratado).toBeUndefined();
+  });
+
+  it('un borrador nuevo nunca arranca con un snapshot de Registro MTC — se congela solo al emitir', () => {
+    expect(GUIA_REMISION_BORRADOR('transportista').numeroRegistroMTC).toBeUndefined();
+    expect(GUIA_REMISION_BORRADOR('remitente').numeroRegistroMTC).toBeUndefined();
+  });
 });

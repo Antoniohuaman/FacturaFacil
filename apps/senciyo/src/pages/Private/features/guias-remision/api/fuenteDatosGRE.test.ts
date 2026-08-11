@@ -138,3 +138,101 @@ describe('fuenteDatosGRE — migración legacy de Proveedor (motivos 02/07) al c
     expect(leida.compradorNombre).toBeUndefined();
   });
 });
+
+describe('fuenteDatosGRE — GRE Transportista: persistencia de Remitente + Destinatario + Subcontratador + Pagador del flete', () => {
+  it('guardar y rehidratar (getById) conserva los cuatro actores/datos de forma independiente (motivo 20)', async () => {
+    const g = guia({
+      id: 'g-transportista-20',
+      tipo: 'transportista',
+      motivoTraslado: '20',
+      destinatarioEsMismoRemitente: true,
+      destinatarioNombre: 'Remitente Transportista S.A.C.',
+      destinatarioNumeroDocumento: '20999999999',
+      remitenteNombre: 'Remitente Transportista S.A.C.',
+      remitenteNumeroDocumento: '20999999999',
+      subcontratadorNombre: 'Subcontratador S.A.C.',
+      subcontratadorNumeroDocumento: '20777777777',
+      pagadorFlete: 'Subcontratador',
+      indicadorTrasladoTotalBienes: true,
+    });
+    await guiasRemisionDataSource.save(EMPRESA_A, g);
+    const rehidratada = await guiasRemisionDataSource.getById(EMPRESA_A, 'g-transportista-20');
+
+    expect(rehidratada?.destinatarioEsMismoRemitente).toBe(true);
+    expect(rehidratada?.remitenteNombre).toBe('Remitente Transportista S.A.C.');
+    expect(rehidratada?.subcontratadorNombre).toBe('Subcontratador S.A.C.');
+    expect(rehidratada?.pagadorFlete).toBe('Subcontratador');
+    expect(rehidratada?.indicadorTrasladoTotalBienes).toBe(true);
+  });
+
+  it('Pagador "Otro" persiste su propio snapshot de tercero, independiente de Remitente/Subcontratador', async () => {
+    const g = guia({
+      id: 'g-transportista-pagador-otro',
+      tipo: 'transportista',
+      motivoTraslado: '13',
+      remitenteNombre: 'Remitente S.A.C.',
+      pagadorFlete: 'Otro',
+      pagadorTerceroNombre: 'Tercero Pagador S.A.C.',
+      pagadorTerceroNumeroDocumento: '20555555555',
+    });
+    await guiasRemisionDataSource.save(EMPRESA_A, g);
+    const rehidratada = await guiasRemisionDataSource.getById(EMPRESA_A, 'g-transportista-pagador-otro');
+
+    expect(rehidratada?.pagadorFlete).toBe('Otro');
+    expect(rehidratada?.pagadorTerceroNombre).toBe('Tercero Pagador S.A.C.');
+    expect(rehidratada?.remitenteNombre).toBe('Remitente S.A.C.');
+  });
+});
+
+describe('fuenteDatosGRE — GRE Transportista legacy: borradores anteriores a la corrección de motivo/subcontratado', () => {
+  it('un borrador Transportista con motivo "20" legacy (sin transporteSubcontratado) carga sin romperse y NO infiere el indicador desde el motivo', async () => {
+    const legacy = guia({
+      id: 'g-legacy-transportista-20',
+      tipo: 'transportista',
+      motivoTraslado: '20',
+      especificacionMotivo: 'Traslado por subcontrata',
+      remitenteNombre: 'Remitente Legacy S.A.C.',
+      subcontratadorNombre: 'Subcontratador Legacy S.A.C.',
+      pagadorFlete: 'Subcontratador',
+    });
+    await guiasRemisionDataSource.save(EMPRESA_A, legacy);
+
+    const leida = await guiasRemisionDataSource.getById(EMPRESA_A, 'g-legacy-transportista-20');
+    expect(leida).not.toBeNull();
+    // El dato legacy se conserva intacto (no se destruye)...
+    expect(leida?.subcontratadorNombre).toBe('Subcontratador Legacy S.A.C.');
+    // ...pero el indicador real NUNCA se infiere automáticamente desde el motivo heredado.
+    expect(leida?.transporteSubcontratado).toBeUndefined();
+  });
+
+  it('un borrador Transportista con motivo "21" legacy (transbordo por motivo, ya no por indicador) carga sin romperse', async () => {
+    const legacy = guia({
+      id: 'g-legacy-transportista-21',
+      tipo: 'transportista',
+      motivoTraslado: '21',
+      remitenteNombre: 'Remitente Legacy S.A.C.',
+      transportePrivado: { fechaInicioTraslado: '2026-08-08', vehiculosIds: [], conductoresIds: [] },
+    });
+    await guiasRemisionDataSource.save(EMPRESA_A, legacy);
+
+    const leida = await guiasRemisionDataSource.getById(EMPRESA_A, 'g-legacy-transportista-21');
+    expect(leida).not.toBeNull();
+    expect(leida?.transportePrivado?.transbordo).toBeUndefined();
+  });
+
+  it('un borrador Transportista legacy con indicadorTrasladoTotalBienes=true y SIN documentos relacionados carga sin romperse — el estado inválido se resuelve en validación al emitir, nunca inventando un documento', async () => {
+    const legacy = guia({
+      id: 'g-legacy-traslado-total-sin-documento',
+      tipo: 'transportista',
+      remitenteNombre: 'Remitente Legacy S.A.C.',
+      indicadorTrasladoTotalBienes: true,
+      documentosRelacionados: [],
+    });
+    await guiasRemisionDataSource.save(EMPRESA_A, legacy);
+
+    const leida = await guiasRemisionDataSource.getById(EMPRESA_A, 'g-legacy-traslado-total-sin-documento');
+    expect(leida).not.toBeNull();
+    expect(leida?.indicadorTrasladoTotalBienes).toBe(true);
+    expect(leida?.documentosRelacionados).toEqual([]);
+  });
+});

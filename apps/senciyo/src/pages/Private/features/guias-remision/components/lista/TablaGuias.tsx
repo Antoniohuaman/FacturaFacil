@@ -15,6 +15,7 @@ import type { GuiaRemision } from '../../modelos/GuiaRemision';
 import { TIPO_GRE_LABELS } from '../../modelos/GuiaRemision';
 import { MOTIVOS_TRASLADO, MODALIDADES_TRANSPORTE } from '../../../configuracion-sistema/datos/catalogosGRE';
 import type { ColumnaGREConfig } from '../../logica/columnasGRE';
+import { aplicaModalidadTransporteGRE, aplicaMotivoTrasladoGRE } from '../../logica/reglasFlujoGRE';
 import {
   getEstadoGRELabel,
   getEstadoGREBadgeClass,
@@ -75,7 +76,7 @@ function celdaGuia(col: ColumnaGREConfig, guia: GuiaRemision): React.ReactNode {
     case 'motivo':
       return (
         <span className="text-xs text-gray-700 dark:text-gray-300 line-clamp-1">
-          {descripcionMotivo(guia.motivoTraslado)}
+          {aplicaMotivoTrasladoGRE(guia.tipo) ? descripcionMotivo(guia.motivoTraslado) : '—'}
         </span>
       );
     case 'fechaEmision':
@@ -89,7 +90,11 @@ function celdaGuia(col: ColumnaGREConfig, guia: GuiaRemision): React.ReactNode {
         </span>
       );
     case 'modalidad':
-      return <span className="text-xs text-gray-700 dark:text-gray-300">{descripcionModalidad(guia.modalidadTransporte)}</span>;
+      return (
+        <span className="text-xs text-gray-700 dark:text-gray-300">
+          {aplicaModalidadTransporteGRE(guia.tipo) ? descripcionModalidad(guia.modalidadTransporte) : '—'}
+        </span>
+      );
     case 'fechaTraslado': {
       const fecha = guia.transportePrivado?.fechaInicioTraslado ?? guia.transportePublico?.fechaEntregaBienes ?? null;
       return <span className="text-xs text-gray-700 dark:text-gray-300">{fecha ?? '—'}</span>;

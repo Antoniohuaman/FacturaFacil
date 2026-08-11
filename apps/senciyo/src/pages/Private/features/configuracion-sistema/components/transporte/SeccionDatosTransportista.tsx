@@ -3,37 +3,22 @@ import { Save } from 'lucide-react';
 import { Button } from '@/contasis';
 import { useNotifications } from '../compartido/SistemaNotificaciones.contexto';
 import type { Company } from '../../modelos/Company';
-import type { DatosTransportista, EstadoTransportista } from '../../modelos/Transporte';
+import type { DatosTransportista } from '../../modelos/Transporte';
 import type { IDatosTransportistaDataSource } from '../../api/fuenteDatosTransporte';
 import { ENTIDADES_AUTORIZADORAS_D37 } from '../../datos/catalogosGRE';
+import {
+  validarDatosTransportista,
+  type FormStateDatosTransportista,
+  type FormErrorsDatosTransportista,
+} from './validarDatosTransportista';
 
 interface SeccionDatosTransportistaProps {
   empresa: Company;
   datasource: IDatosTransportistaDataSource;
 }
 
-interface FormState {
-  numeroRegistroMTC: string;
-  estado: EstadoTransportista;
-  codigoEntidadAutorizadora: string;
-  numeroAutorizacion: string;
-}
-
-interface FormErrors {
-  numeroRegistroMTC?: string;
-  numeroAutorizacion?: string;
-}
-
-function validar(form: FormState): FormErrors {
-  const e: FormErrors = {};
-  if (!form.numeroRegistroMTC.trim()) {
-    e.numeroRegistroMTC = 'El número de registro MTC es obligatorio';
-  }
-  if (form.codigoEntidadAutorizadora && !form.numeroAutorizacion.trim()) {
-    e.numeroAutorizacion = 'Indica el número de autorización de la entidad seleccionada';
-  }
-  return e;
-}
+type FormState = FormStateDatosTransportista;
+type FormErrors = FormErrorsDatosTransportista;
 
 const FORM_VACIO: FormState = {
   numeroRegistroMTC: '',
@@ -80,17 +65,15 @@ export function SeccionDatosTransportista({ empresa, datasource }: SeccionDatosT
 
   const setField = (campo: keyof FormState, valor: string) => {
     const next = { ...form, [campo]: valor };
-    if (campo === 'codigoEntidadAutorizadora' && !valor) {
-      next.numeroAutorizacion = '';
-    }
     setForm(next);
-    const err = validar(next);
-    setErrors({ ...errors, [campo]: err[campo as keyof FormErrors] });
+    // `validarDatosTransportista` es puro sobre el formulario completo — recalcularlo entero
+    // mantiene ambos lados de la pareja Entidad/Número sincronizados, sin importar cuál se edita.
+    setErrors(validarDatosTransportista(next));
   };
 
   const manejarGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
-    const err = validar(form);
+    const err = validarDatosTransportista(form);
     if (Object.keys(err).length > 0) {
       setErrors(err);
       return;
@@ -98,13 +81,13 @@ export function SeccionDatosTransportista({ empresa, datasource }: SeccionDatosT
     setErrors({});
     setGuardando(true);
     try {
+      // La coherencia Entidad/Número ya la garantizó `validar` arriba (ambos vacíos o ambos con
+      // valor) — aquí solo se persiste tal cual, sin repetir la condición.
       const resultado = await datasource.save(empresa.id, {
         numeroRegistroMTC: form.numeroRegistroMTC.trim(),
         estado: form.estado,
         codigoEntidadAutorizadora: form.codigoEntidadAutorizadora || undefined,
-        numeroAutorizacion: form.codigoEntidadAutorizadora
-          ? form.numeroAutorizacion.trim() || undefined
-          : undefined,
+        numeroAutorizacion: form.numeroAutorizacion.trim() || undefined,
       });
       setDatos(resultado);
       showSuccess('Datos guardados', 'Los datos del transportista se actualizaron correctamente.');
@@ -147,7 +130,7 @@ export function SeccionDatosTransportista({ empresa, datasource }: SeccionDatosT
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Número de Registro MTC *
+            Número de Registro MTC
           </label>
           <input
             type="text"
@@ -155,15 +138,9 @@ export function SeccionDatosTransportista({ empresa, datasource }: SeccionDatosT
             onChange={(e) => setField('numeroRegistroMTC', e.target.value)}
             disabled={guardando}
             placeholder="Número asignado por el MTC"
-            className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${
-              errors.numeroRegistroMTC
-                ? 'border-red-500 focus:ring-red-500'
-                : 'border-gray-300 focus:ring-blue-500'
-            }`}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
-          {errors.numeroRegistroMTC && (
-            <p className="text-xs text-red-600 mt-1">{errors.numeroRegistroMTC}</p>
-          )}
+          <p className="text-xs text-gray-400 mt-1">Consignar cuando corresponda.</p>
         </div>
 
         <div>
@@ -190,15 +167,16 @@ export function SeccionDatosTransportista({ empresa, datasource }: SeccionDatosT
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Entidad emisora
-              <span className="text-gray-400 font-normal ml-1">(opcional)</span>
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Entidad emisora</label>
             <select
               value={form.codigoEntidadAutorizadora}
               onChange={(e) => setField('codigoEntidadAutorizadora', e.target.value)}
               disabled={guardando}
-              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
+              className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 bg-white disabled:opacity-50 ${
+                errors.codigoEntidadAutorizadora
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
             >
               <option value="">— Sin autorización especial —</option>
               {ENTIDADES_AUTORIZADORAS_D37.filter((ent) => ent.estado === 'Vigente').map((ent) => (
@@ -207,32 +185,29 @@ export function SeccionDatosTransportista({ empresa, datasource }: SeccionDatosT
                 </option>
               ))}
             </select>
+            {errors.codigoEntidadAutorizadora && (
+              <p className="text-xs text-red-600 mt-1">{errors.codigoEntidadAutorizadora}</p>
+            )}
           </div>
 
-          {form.codigoEntidadAutorizadora ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Número de autorización *
-              </label>
-              <input
-                type="text"
-                value={form.numeroAutorizacion}
-                onChange={(e) => setField('numeroAutorizacion', e.target.value)}
-                disabled={guardando}
-                placeholder="Número de autorización"
-                className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${
-                  errors.numeroAutorizacion
-                    ? 'border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:ring-blue-500'
-                }`}
-              />
-              {errors.numeroAutorizacion && (
-                <p className="text-xs text-red-600 mt-1">{errors.numeroAutorizacion}</p>
-              )}
-            </div>
-          ) : (
-            <div />
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Número de autorización</label>
+            <input
+              type="text"
+              value={form.numeroAutorizacion}
+              onChange={(e) => setField('numeroAutorizacion', e.target.value)}
+              disabled={guardando}
+              placeholder="Número de autorización"
+              className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${
+                errors.numeroAutorizacion
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
+            />
+            {errors.numeroAutorizacion && (
+              <p className="text-xs text-red-600 mt-1">{errors.numeroAutorizacion}</p>
+            )}
+          </div>
         </div>
       </div>
 

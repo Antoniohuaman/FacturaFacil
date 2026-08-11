@@ -16,6 +16,8 @@ export interface EstadoConfiguracionGRE {
   puedeEmitirPorConfiguracion: boolean;
   faltantesCredenciales: string[];
   autorizacionEspecialEmisor: AutorizacionEmisorGRE | undefined;
+  /** Registro MTC de la propia empresa transportista (Configuración → Transporte) — informativo, GRE Transportista. */
+  numeroRegistroMTC: string | undefined;
   cargando: boolean;
   refrescar: () => void;
 }
@@ -54,6 +56,7 @@ export function derivarEstadoConfiguracionGRE(
     puedeEmitirPorConfiguracion: credencialesCompletas,
     faltantesCredenciales,
     autorizacionEspecialEmisor,
+    numeroRegistroMTC: transportista?.numeroRegistroMTC?.trim() || undefined,
   };
 }
 
