@@ -399,6 +399,60 @@ describe('validarGREParaEmitir — GRE Transportista: Remitente + Destinatario +
     expect(errores.pagadorFlete).toBeUndefined();
   });
 
+  it('Pagador = Otro con tercero de documento distinto al del Remitente: válido', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(), // remitenteNumeroDocumento: '20999999999'
+      pagadorFlete: 'Otro',
+      pagadorTerceroNombre: 'Tercero Pagador S.A.C.',
+      pagadorTerceroTipoDocumento: 'RUC',
+      pagadorTerceroNumeroDocumento: '20666666666',
+    });
+    expect(errores.pagadorFlete).toBeUndefined();
+  });
+
+  it('Pagador = Otro con el mismo RUC que el Remitente: inválido — ya existe la opción "Remitente" para ese caso', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(), // remitenteNumeroDocumento: '20999999999'
+      pagadorFlete: 'Otro',
+      pagadorTerceroNombre: 'Remitente Transportista S.A.C.',
+      pagadorTerceroTipoDocumento: 'RUC',
+      pagadorTerceroNumeroDocumento: '20999999999',
+    });
+    expect(errores.pagadorFlete).toBeDefined();
+  });
+
+  it('Subcontratado activo + Pagador = Otro con el mismo RUC que el Subcontratador: inválido — ya existe la opción "Subcontratador"', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida({ subcontratado: true }), // subcontratadorNumeroDocumento: '20777777777'
+      pagadorFlete: 'Otro',
+      pagadorTerceroNombre: 'Subcontratador S.A.C.',
+      pagadorTerceroTipoDocumento: 'RUC',
+      pagadorTerceroNumeroDocumento: '20777777777',
+    });
+    expect(errores.pagadorFlete).toBeDefined();
+  });
+
+  it('Pagador = Otro con DNI (persona natural) distinto de RUC: sigue funcionando — "Otro" no está restringido solo a RUC', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaTransportistaValida(),
+      pagadorFlete: 'Otro',
+      pagadorTerceroNombre: 'Juan Pérez',
+      pagadorTerceroTipoDocumento: 'DNI',
+      pagadorTerceroNumeroDocumento: '12345678',
+    });
+    expect(errores.pagadorFlete).toBeUndefined();
+  });
+
+  it('GRE Remitente: pagadorFlete no se valida en absoluto (no es un concepto de Remitente) — sin regresión aunque el campo legacy tenga cualquier valor', () => {
+    const errores = validarGREParaEmitir({
+      ...guiaValidaBase(),
+      pagadorFlete: 'Otro',
+      pagadorTerceroNombre: undefined,
+      pagadorTerceroNumeroDocumento: undefined,
+    });
+    expect(errores.pagadorFlete).toBeUndefined();
+  });
+
   it('transporteSubcontratado=true exige Subcontratador consignado', () => {
     const errores = validarGREParaEmitir({ ...guiaTransportistaValida({ subcontratado: true }), subcontratadorNombre: '' });
     expect(errores.subcontratador).toBe('El Subcontratador es obligatorio cuando el transporte es subcontratado.');

@@ -597,6 +597,50 @@ export function subcontratadorTieneDocumentoValidoGRE(
   return guia.subcontratadorTipoDocumento === 'RUC';
 }
 
+/** Compara dos actores por identidad documental real (tipo + número de documento) — nunca por nombre visual, que puede repetirse o variar en mayúsculas/espacios sin ser el mismo sujeto. Sin número en cualquiera de los dos lados, no hay identidad que comparar. */
+function mismaIdentidadDocumentalGRE(
+  a: { tipoDocumento?: string; numeroDocumento?: string },
+  b: { tipoDocumento?: string; numeroDocumento?: string },
+): boolean {
+  const numeroA = a.numeroDocumento?.trim();
+  const numeroB = b.numeroDocumento?.trim();
+  if (!numeroA || !numeroB) return false;
+  return a.tipoDocumento === b.tipoDocumento && numeroA === numeroB;
+}
+
+/**
+ * El tercero pagador (Pagador del flete = 'Otro') no puede ser el mismo Remitente ni el mismo
+ * Subcontratador (cuando el transporte está subcontratado) — ambos ya tienen su propia opción
+ * específica en el selector ('Remitente' / 'Subcontratador'); permitir que "Otro" apunte al mismo
+ * sujeto sería una contradicción documental. Comparación por identidad real (tipo + número de
+ * documento), reutilizando `mismaIdentidadDocumentalGRE` — nunca por nombre visual. Sin tercero
+ * consignado aún, no hay nada que contradecir (esa obligatoriedad la exige `validarGREParaEmitir`
+ * por separado). El Destinatario nunca se valida aquí: no existe ninguna regla que lo prohíba como
+ * pagador tercero.
+ */
+export function pagadorTerceroEsValidoGRE(
+  guia: Pick<
+    GuiaRemision,
+    | 'pagadorFlete' | 'pagadorTerceroTipoDocumento' | 'pagadorTerceroNumeroDocumento'
+    | 'remitenteTipoDocumento' | 'remitenteNumeroDocumento'
+    | 'transporteSubcontratado' | 'subcontratadorTipoDocumento' | 'subcontratadorNumeroDocumento'
+  >,
+): boolean {
+  if (guia.pagadorFlete !== 'Otro') return true;
+  const tercero = { tipoDocumento: guia.pagadorTerceroTipoDocumento, numeroDocumento: guia.pagadorTerceroNumeroDocumento };
+  if (!tercero.numeroDocumento?.trim()) return true;
+
+  const remitente = { tipoDocumento: guia.remitenteTipoDocumento, numeroDocumento: guia.remitenteNumeroDocumento };
+  if (mismaIdentidadDocumentalGRE(tercero, remitente)) return false;
+
+  if (guia.transporteSubcontratado) {
+    const subcontratador = { tipoDocumento: guia.subcontratadorTipoDocumento, numeroDocumento: guia.subcontratadorNumeroDocumento };
+    if (mismaIdentidadDocumentalGRE(tercero, subcontratador)) return false;
+  }
+
+  return true;
+}
+
 /**
  * El indicador "traslado por el total de los bienes consignados" (GRE Transportista) solo es
  * coherente cuando existe al menos un documento relacionado real que lo sustente — sin documento
@@ -696,5 +740,28 @@ export function aplicaM1oLGRE(tipoGRE: TipoGRE): boolean {
 /** Si la modalidad no aplica (Transportista), el documento siempre usa la forma "transporte privado" — nunca se lee el valor heredado de `modalidadTransporte`. */
 export function esTransportePrivadoGRE(tipoGRE: TipoGRE, modalidadTransporte: string): boolean {
   return !aplicaModalidadTransporteGRE(tipoGRE) || modalidadTransporte === '02';
+}
+
+// ─── Descripción documental del bien (GRE) ─────────────────────
+
+/**
+ * "Descripción detallada del bien" (concepto documental SUNAT): el nombre del producto nunca debe
+ * perderse, sin importar qué tan vacía o completa esté la descripción/detalle adicional del
+ * producto. Regla:
+ *  - Sin descripción adicional (`undefined` o cadena vacía tras `trim()`): se usa solo el nombre.
+ *  - Con descripción adicional que YA contiene el nombre (el usuario lo tipeó dos veces): se usa
+ *    tal cual, sin duplicar.
+ *  - Con descripción adicional distinta: se combinan como "Nombre — Detalle", sin concatenar a
+ *    ciegas cuando no aporta nada nuevo.
+ * Única fuente para construir `BienGRE.descripcion` al consignar un bien desde el catálogo — el
+ * snapshot resultante es lo único que leen después impresión, Vista previa y Drawer (ninguno
+ * vuelve a consultar el catálogo en vivo).
+ */
+export function obtenerDescripcionDetalladaBienGRE(nombreProducto: string, descripcionProducto?: string): string {
+  const nombre = nombreProducto.trim();
+  const detalle = descripcionProducto?.trim();
+  if (!detalle) return nombre;
+  if (detalle.toLowerCase().includes(nombre.toLowerCase())) return detalle;
+  return `${nombre} — ${detalle}`;
 }
 

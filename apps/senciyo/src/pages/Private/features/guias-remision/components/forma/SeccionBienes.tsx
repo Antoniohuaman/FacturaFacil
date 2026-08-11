@@ -8,6 +8,7 @@ import type { Product } from '../../../catalogo-articulos/models/types';
 import { BIENES_NORMALIZADOS } from '../../../configuracion-sistema/datos/catalogosGRE';
 import type { BienGRE, TipoGRE, UnidadPeso } from '../../modelos/GuiaRemision';
 import { BIEN_GRE_VACIO } from '../../modelos/GuiaRemision';
+import { obtenerDescripcionDetalladaBienGRE } from '../../logica/reglasFlujoGRE';
 import { getUnitDisplayForUI } from '@/shared/units/unitDisplay';
 
 // ── Column system ──────────────────────────────────────────────────────────
@@ -271,7 +272,7 @@ export default function SeccionBienes({
       return {
         ...BIEN_GRE_VACIO(),
         productoId: prod.id,
-        descripcion: prod.descripcion ?? prod.nombre,
+        descripcion: obtenerDescripcionDetalladaBienGRE(prod.nombre, prod.descripcion),
         unidad: prod.unidad ?? 'NIU',
         codigoBien: prod.codigo ?? '',
         pesoLineaKg: typeof prod.peso === 'number' ? prod.peso : undefined,

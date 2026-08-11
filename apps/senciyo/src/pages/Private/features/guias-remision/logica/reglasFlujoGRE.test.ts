@@ -9,6 +9,7 @@ import {
   calcularAjusteSubcontratadoGRE,
   pagadorSubcontratadorEsValidoGRE,
   subcontratadorTieneDocumentoValidoGRE,
+  pagadorTerceroEsValidoGRE,
   indicadorTrasladoTotalEsValidoGRE,
   textoTipoPagadorFleteGRE,
   obtenerDatosPagadorFleteGRE,
@@ -16,6 +17,7 @@ import {
   aplicaMotivoTrasladoGRE,
   aplicaM1oLGRE,
   esTransportePrivadoGRE,
+  obtenerDescripcionDetalladaBienGRE,
 } from './reglasFlujoGRE';
 import { GUIA_REMISION_BORRADOR } from '../modelos/GuiaRemision';
 import type { GuiaRemision } from '../modelos/GuiaRemision';
@@ -640,6 +642,72 @@ describe('subcontratadorTieneDocumentoValidoGRE — el Subcontratador es siempre
   });
 });
 
+describe('pagadorTerceroEsValidoGRE — el tercero de Pagador="Otro" no puede ser el mismo Remitente ni el mismo Subcontratador', () => {
+  const base = {
+    pagadorFlete: 'Otro' as const,
+    remitenteTipoDocumento: 'RUC',
+    remitenteNumeroDocumento: '20147559898',
+    transporteSubcontratado: false,
+    subcontratadorTipoDocumento: undefined as string | undefined,
+    subcontratadorNumeroDocumento: undefined as string | undefined,
+  };
+
+  it('Pagador distinto de "Otro": siempre válido — la regla no le aplica', () => {
+    expect(
+      pagadorTerceroEsValidoGRE({ ...base, pagadorFlete: 'Remitente', pagadorTerceroTipoDocumento: 'RUC', pagadorTerceroNumeroDocumento: '20147559898' }),
+    ).toBe(true);
+  });
+
+  it('Otro + tercero con documento distinto al Remitente: válido', () => {
+    expect(
+      pagadorTerceroEsValidoGRE({ ...base, pagadorTerceroTipoDocumento: 'RUC', pagadorTerceroNumeroDocumento: '20999999999' }),
+    ).toBe(true);
+  });
+
+  it('Otro + mismo RUC que el Remitente: inválido — ya existe la opción "Remitente"', () => {
+    expect(
+      pagadorTerceroEsValidoGRE({ ...base, pagadorTerceroTipoDocumento: 'RUC', pagadorTerceroNumeroDocumento: '20147559898' }),
+    ).toBe(false);
+  });
+
+  it('Subcontratado activo + Otro + mismo RUC que el Subcontratador: inválido — ya existe la opción "Subcontratador"', () => {
+    expect(
+      pagadorTerceroEsValidoGRE({
+        ...base,
+        transporteSubcontratado: true,
+        subcontratadorTipoDocumento: 'RUC',
+        subcontratadorNumeroDocumento: '20777777777',
+        pagadorTerceroTipoDocumento: 'RUC',
+        pagadorTerceroNumeroDocumento: '20777777777',
+      }),
+    ).toBe(false);
+  });
+
+  it('Subcontratado inactivo: el mismo número del (ex) Subcontratador no se compara — solo aplica cuando realmente está subcontratado', () => {
+    expect(
+      pagadorTerceroEsValidoGRE({
+        ...base,
+        transporteSubcontratado: false,
+        subcontratadorTipoDocumento: 'RUC',
+        subcontratadorNumeroDocumento: '20777777777',
+        pagadorTerceroTipoDocumento: 'RUC',
+        pagadorTerceroNumeroDocumento: '20777777777',
+      }),
+    ).toBe(true);
+  });
+
+  it('Otro con DNI distinto del tipo de documento del Remitente (RUC): válido aunque el número coincidiera dígito a dígito — la identidad exige mismo tipo y mismo número', () => {
+    expect(
+      pagadorTerceroEsValidoGRE({ ...base, pagadorTerceroTipoDocumento: 'DNI', pagadorTerceroNumeroDocumento: '12345678' }),
+    ).toBe(true);
+  });
+
+  it('sin tercero consignado aún (numeroDocumento vacío): válido — nada que contradecir todavía', () => {
+    expect(pagadorTerceroEsValidoGRE({ ...base, pagadorTerceroTipoDocumento: undefined, pagadorTerceroNumeroDocumento: undefined })).toBe(true);
+    expect(pagadorTerceroEsValidoGRE({ ...base, pagadorTerceroTipoDocumento: 'RUC', pagadorTerceroNumeroDocumento: '   ' })).toBe(true);
+  });
+});
+
 describe('indicadorTrasladoTotalEsValidoGRE — exige documento relacionado real', () => {
   it('GRE Remitente: siempre válido — el indicador no le aplica', () => {
     expect(indicadorTrasladoTotalEsValidoGRE({ tipo: 'remitente', indicadorTrasladoTotalBienes: true, documentosRelacionados: [] })).toBe(true);
@@ -712,5 +780,37 @@ describe('obtenerDatosPagadorFleteGRE — snapshot único reutilizado por impres
     const datosDelRolSubcontratador = { nombre: guia.subcontratadorNombre, tipoDocumento: guia.subcontratadorTipoDocumento, numeroDocumento: guia.subcontratadorNumeroDocumento };
     const datosDelPagador = obtenerDatosPagadorFleteGRE(guia);
     expect(datosDelPagador).toEqual(datosDelRolSubcontratador);
+  });
+});
+
+describe('obtenerDescripcionDetalladaBienGRE — "Descripción detallada del bien" (SUNAT): el nombre nunca se pierde', () => {
+  it('sin descripción adicional (undefined): usa solo el nombre — nunca queda vacía', () => {
+    expect(obtenerDescripcionDetalladaBienGRE('CORAZON DE POLLO', undefined)).toBe('CORAZON DE POLLO');
+  });
+
+  it('con descripción adicional vacía (cadena vacía, el default real del formulario de productos): usa solo el nombre — el bug real era `??` no cubriendo este caso', () => {
+    expect(obtenerDescripcionDetalladaBienGRE('CORAZON DE POLLO', '')).toBe('CORAZON DE POLLO');
+  });
+
+  it('con descripción adicional solo espacios en blanco: se trata igual que vacía', () => {
+    expect(obtenerDescripcionDetalladaBienGRE('CORAZON DE POLLO', '   ')).toBe('CORAZON DE POLLO');
+  });
+
+  it('con descripción adicional real y distinta: combina nombre y detalle, sin perder ninguno', () => {
+    expect(obtenerDescripcionDetalladaBienGRE('CORAZON DE POLLO', 'Presentación x1kg, congelado')).toBe(
+      'CORAZON DE POLLO — Presentación x1kg, congelado',
+    );
+  });
+
+  it('si la descripción adicional ya contiene el nombre (el usuario lo tipeó en ambos campos): se usa tal cual, sin duplicar', () => {
+    expect(obtenerDescripcionDetalladaBienGRE('CORAZON DE POLLO', 'Corazon de pollo x1kg congelado')).toBe(
+      'Corazon de pollo x1kg congelado',
+    );
+  });
+
+  it('recorta espacios sobrantes del nombre y del detalle', () => {
+    expect(obtenerDescripcionDetalladaBienGRE('  CORAZON DE POLLO  ', '  Presentación x1kg  ')).toBe(
+      'CORAZON DE POLLO — Presentación x1kg',
+    );
   });
 });

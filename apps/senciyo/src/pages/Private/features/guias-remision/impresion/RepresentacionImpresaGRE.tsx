@@ -493,59 +493,59 @@ export default function RepresentacionImpresaGRE({
     );
   });
 
-  // GRE Transportista: tabla compacta alineada con SUNAT (Documento / Número / RUC) — fecha de
-  // emisión del documento relacionado y Origen (Interno/Externo) son metadatos internos del
-  // sistema, no documentales; siguen existiendo en el modelo y en el formulario, solo se omiten
-  // de esta impresión. GRE Remitente conserva sus 4 columnas originales sin cambios.
+  // Cada documento relacionado resuelto contra el catálogo real una sola vez — evita repetir el
+  // `.find()` en las dos representaciones (línea compacta de Transportista / tabla de Remitente).
+  const documentosRelacionadosConTipo = guia.documentosRelacionados.map((doc) => ({
+    doc,
+    tipoCat: DOCUMENTOS_RELACIONADOS_GRE.find((x) => x.codigo === doc.tipoDocumentoCodigo),
+  }));
+
+  // GRE Transportista: una línea compacta por documento (sin tabla) — la denominación viene del
+  // mismo catálogo `DOCUMENTOS_RELACIONADOS_GRE` (nunca hardcodeada), el número es el ya persistido
+  // en el documento, y el RUC solo se agrega si el documento realmente lo tiene. Fecha de emisión
+  // y Origen (Interno/Externo) son metadatos internos del sistema, no documentales; siguen
+  // existiendo en el modelo y en el formulario, solo se omiten de esta impresión.
+  // GRE Remitente conserva su tabla original de 4 columnas, sin cambios.
   const bloqueDocumentosRelacionadosImpreso = guia.documentosRelacionados.length > 0 && (
     <Seccion titulo="Documentos relacionados">
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-        <thead>
-          <tr>
-            <th style={{ ...TH, textAlign: 'left' }}>{esTransportista ? 'Documento' : 'Tipo de documento'}</th>
-            <th style={{ ...TH, textAlign: 'left' }}>Número</th>
-            {esTransportista ? (
-              <th style={{ ...TH, width: '110px' }}>RUC</th>
-            ) : (
-              <>
-                <th style={{ ...TH, width: '90px' }}>Fecha emisión</th>
-                <th style={{ ...TH, width: '70px' }}>Origen</th>
-              </>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {guia.documentosRelacionados.map((doc) => {
-            const tipoCat = DOCUMENTOS_RELACIONADOS_GRE.find((x) => x.codigo === doc.tipoDocumentoCodigo);
-            return (
+      {esTransportista ? (
+        <div style={{ fontSize: '10px', color: '#111827' }}>
+          {documentosRelacionadosConTipo.map(({ doc, tipoCat }) => (
+            <p key={doc.id} style={{ margin: '2px 0' }}>
+              {tipoCat?.documento ?? `Tipo ${doc.tipoDocumentoCodigo}`} N.° <span style={{ fontFamily: 'monospace' }}>{doc.numeroDocumento}</span>
+              {doc.rucEmisorExterno && <> · RUC {doc.rucEmisorExterno}</>}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+          <thead>
+            <tr>
+              <th style={{ ...TH, textAlign: 'left' }}>Tipo de documento</th>
+              <th style={{ ...TH, textAlign: 'left' }}>Número</th>
+              <th style={{ ...TH, width: '90px' }}>Fecha emisión</th>
+              <th style={{ ...TH, width: '70px' }}>Origen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {documentosRelacionadosConTipo.map(({ doc, tipoCat }) => (
               <tr key={doc.id} style={{ borderTop: '1px solid #E5E7EB', ...SIN_CORTE }}>
                 <td style={TD}>{tipoCat?.documento ?? `Tipo ${doc.tipoDocumentoCodigo}`}</td>
-                {esTransportista ? (
-                  <>
-                    <td style={{ ...TD, fontFamily: 'monospace' }}>{doc.numeroDocumento}</td>
-                    <td style={{ ...TD, textAlign: 'center', fontFamily: 'monospace' }}>
-                      {doc.rucEmisorExterno ?? '—'}
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td style={{ ...TD, fontFamily: 'monospace' }}>
-                      {doc.numeroDocumento}
-                      {doc.rucEmisorExterno && (
-                        <p style={{ fontSize: '8px', color: '#9CA3AF', margin: '1px 0 0' }}>
-                          RUC emisor: {doc.rucEmisorExterno}
-                        </p>
-                      )}
-                    </td>
-                    <td style={{ ...TD, textAlign: 'center' }}>{doc.fechaEmision ?? '—'}</td>
-                    <td style={{ ...TD, textAlign: 'center' }}>{doc.origen}</td>
-                  </>
-                )}
+                <td style={{ ...TD, fontFamily: 'monospace' }}>
+                  {doc.numeroDocumento}
+                  {doc.rucEmisorExterno && (
+                    <p style={{ fontSize: '8px', color: '#9CA3AF', margin: '1px 0 0' }}>
+                      RUC emisor: {doc.rucEmisorExterno}
+                    </p>
+                  )}
+                </td>
+                <td style={{ ...TD, textAlign: 'center' }}>{doc.fechaEmision ?? '—'}</td>
+                <td style={{ ...TD, textAlign: 'center' }}>{doc.origen}</td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      )}
     </Seccion>
   );
 

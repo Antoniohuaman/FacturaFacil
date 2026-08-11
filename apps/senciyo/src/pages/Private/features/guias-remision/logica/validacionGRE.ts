@@ -6,6 +6,7 @@ import {
   aplicaM1oLGRE,
   pagadorSubcontratadorEsValidoGRE,
   subcontratadorTieneDocumentoValidoGRE,
+  pagadorTerceroEsValidoGRE,
   indicadorTrasladoTotalEsValidoGRE,
 } from './reglasFlujoGRE';
 
@@ -67,6 +68,9 @@ export function validarGREParaEmitir(guia: GuiaRemision): ErroresValidacionGRE {
       errores.pagadorFlete = 'El pagador no puede ser el Subcontratador si el transporte no está subcontratado o no se ha consignado uno.';
     } else if (guia.pagadorFlete === 'Otro' && !guia.pagadorTerceroNombre?.trim()) {
       errores.pagadorFlete = 'Debe seleccionar el tercero pagador.';
+    } else if (guia.pagadorFlete === 'Otro' && !pagadorTerceroEsValidoGRE(guia)) {
+      errores.pagadorFlete =
+        'El tercero pagador no puede ser el mismo Remitente ni el mismo Subcontratador — seleccione esa opción directamente.';
     }
   }
 
