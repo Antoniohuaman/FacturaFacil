@@ -13,7 +13,7 @@ import type {
   DocumentoRelacionadoGRE,
 } from '../../modelos/GuiaRemision';
 import type { ReglaFlujoGRE, RolActorGRE } from '../../logica/reglasFlujoGRE';
-import { aplicaMotivoTrasladoGRE } from '../../logica/reglasFlujoGRE';
+import { aplicaMotivoTrasladoGRE, destinatarioEsAutoDerivadoGRE } from '../../logica/reglasFlujoGRE';
 import SeccionDocumentosRelacionados from './SeccionDocumentosRelacionados';
 
 export type { TipoGRE, CodigoMotivoTraslado, CodigoModalidadTransporte };
@@ -330,9 +330,7 @@ export default function SeccionDatosGenerales({
       (tipo === 'remitente' ? m.aplicacion !== 'Transportista' : m.aplicacion !== 'Remitente'),
   );
 
-  const destinatarioEsAutoDerivado =
-    Boolean(regla.actorPrincipal.autoDerivadoDeEmpresa) ||
-    Boolean(regla.actorPrincipal.permiteMismoRemitente && mismoRemitente);
+  const destinatarioEsAutoDerivado = destinatarioEsAutoDerivadoGRE(regla, mismoRemitente);
 
   // Actor principal (Destinatario) — extraído a variable para poder reordenarlo respecto de los
   // actores adicionales según el tipo de GRE (ver más abajo), sin duplicar su markup.
@@ -516,7 +514,6 @@ export default function SeccionDatosGenerales({
                       onChange={(e) => onSerieChange(e.target.value)}
                       className={`${INPUT_CLS} appearance-none pr-7`}
                     >
-                      <option value="">— —</option>
                       {seriesDisponibles.map((s) => (
                         <option key={s} value={s}>
                           {s}

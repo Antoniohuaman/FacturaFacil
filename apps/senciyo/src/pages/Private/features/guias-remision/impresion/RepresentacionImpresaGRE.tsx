@@ -60,6 +60,19 @@ function partes(...args: (string | undefined)[]): string {
   return args.filter((x): x is string => Boolean(x)).join(', ');
 }
 
+/**
+ * Línea territorial compacta para Puntos de traslado: distrito/provincia/departamento y Ubigeo en
+ * una sola línea (nunca una línea independiente para el Ubigeo), separados por "·" — mismo
+ * separador que ya usa el resto de la representación impresa. Construida únicamente con los datos
+ * reales disponibles: sin Ubigeo, solo la ubicación territorial; sin ubicación territorial pero con
+ * Ubigeo, solo el Ubigeo; sin ninguno, cadena vacía (no imprime nada, nunca un placeholder falso).
+ */
+function lineaTerritorialConUbigeo(distrito: string | undefined, provincia: string | undefined, departamento: string | undefined, ubigeo: string | undefined): string {
+  const territorial = partes(distrito, provincia, departamento);
+  if (territorial && ubigeo) return `${territorial} · Ubigeo ${ubigeo}`;
+  return territorial || (ubigeo ? `Ubigeo ${ubigeo}` : '');
+}
+
 /** Resuelve la abreviatura de la entidad autorizadora a partir del nombre completo ya resuelto (misma fuente única `ENTIDADES_AUTORIZADORAS_D37` — nunca una segunda tabla). */
 function resolverAbreviaturaEntidad(entidadNombre?: string): string | undefined {
   if (!entidadNombre) return undefined;
@@ -493,59 +506,25 @@ export default function RepresentacionImpresaGRE({
     );
   });
 
-  // Cada documento relacionado resuelto contra el catálogo real una sola vez — evita repetir el
-  // `.find()` en las dos representaciones (línea compacta de Transportista / tabla de Remitente).
-  const documentosRelacionadosConTipo = guia.documentosRelacionados.map((doc) => ({
-    doc,
-    tipoCat: DOCUMENTOS_RELACIONADOS_GRE.find((x) => x.codigo === doc.tipoDocumentoCodigo),
-  }));
-
-  // GRE Transportista: una línea compacta por documento (sin tabla) — la denominación viene del
-  // mismo catálogo `DOCUMENTOS_RELACIONADOS_GRE` (nunca hardcodeada), el número es el ya persistido
-  // en el documento, y el RUC solo se agrega si el documento realmente lo tiene. Fecha de emisión
-  // y Origen (Interno/Externo) son metadatos internos del sistema, no documentales; siguen
-  // existiendo en el modelo y en el formulario, solo se omiten de esta impresión.
-  // GRE Remitente conserva su tabla original de 4 columnas, sin cambios.
+  // Documentos relacionados: una línea compacta por documento (sin tabla), igual para ambos tipos
+  // de GRE — la denominación viene del catálogo real `DOCUMENTOS_RELACIONADOS_GRE` (nunca
+  // hardcodeada), el número es el ya persistido en el documento, y el RUC solo se agrega si el
+  // documento realmente lo tiene. Fecha de emisión y Origen (Interno/Externo) son metadatos
+  // internos del sistema, no documentales; siguen existiendo en el modelo y en el formulario, solo
+  // se omiten de esta impresión. Una sola resolución/representación — nunca duplicada por tipo.
   const bloqueDocumentosRelacionadosImpreso = guia.documentosRelacionados.length > 0 && (
     <Seccion titulo="Documentos relacionados">
-      {esTransportista ? (
-        <div style={{ fontSize: '10px', color: '#111827' }}>
-          {documentosRelacionadosConTipo.map(({ doc, tipoCat }) => (
+      <div style={{ fontSize: '10px', color: '#111827' }}>
+        {guia.documentosRelacionados.map((doc) => {
+          const tipoCat = DOCUMENTOS_RELACIONADOS_GRE.find((x) => x.codigo === doc.tipoDocumentoCodigo);
+          return (
             <p key={doc.id} style={{ margin: '2px 0' }}>
               {tipoCat?.documento ?? `Tipo ${doc.tipoDocumentoCodigo}`} N.° <span style={{ fontFamily: 'monospace' }}>{doc.numeroDocumento}</span>
               {doc.rucEmisorExterno && <> · RUC {doc.rucEmisorExterno}</>}
             </p>
-          ))}
-        </div>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-          <thead>
-            <tr>
-              <th style={{ ...TH, textAlign: 'left' }}>Tipo de documento</th>
-              <th style={{ ...TH, textAlign: 'left' }}>Número</th>
-              <th style={{ ...TH, width: '90px' }}>Fecha emisión</th>
-              <th style={{ ...TH, width: '70px' }}>Origen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documentosRelacionadosConTipo.map(({ doc, tipoCat }) => (
-              <tr key={doc.id} style={{ borderTop: '1px solid #E5E7EB', ...SIN_CORTE }}>
-                <td style={TD}>{tipoCat?.documento ?? `Tipo ${doc.tipoDocumentoCodigo}`}</td>
-                <td style={{ ...TD, fontFamily: 'monospace' }}>
-                  {doc.numeroDocumento}
-                  {doc.rucEmisorExterno && (
-                    <p style={{ fontSize: '8px', color: '#9CA3AF', margin: '1px 0 0' }}>
-                      RUC emisor: {doc.rucEmisorExterno}
-                    </p>
-                  )}
-                </td>
-                <td style={{ ...TD, textAlign: 'center' }}>{doc.fechaEmision ?? '—'}</td>
-                <td style={{ ...TD, textAlign: 'center' }}>{doc.origen}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          );
+        })}
+      </div>
     </Seccion>
   );
 
@@ -648,9 +627,9 @@ export default function RepresentacionImpresaGRE({
           </>
         )}
 
-        {/* GRE Transportista: Documentos relacionados se imprime aquí, justo después de los
-            participantes — GRE Remitente lo conserva en su posición original (antes de Observaciones). */}
-        {esTransportista && bloqueDocumentosRelacionadosImpreso}
+        {/* Documentos relacionados — se imprime aquí, justo después de los participantes y antes de
+            los puntos de traslado, con el mismo orden documental para ambos tipos de GRE. */}
+        {bloqueDocumentosRelacionadosImpreso}
 
         {/* 4. Puntos de traslado — GRE Transportista retira el encabezado general (redundante, no
             existe en la representación de SUNAT); GRE Remitente conserva su título original. */}
@@ -661,13 +640,10 @@ export default function RepresentacionImpresaGRE({
               <p style={{ fontSize: '11px', color: '#111827', fontWeight: 500, margin: 0 }}>
                 {guia.puntoPartida.direccion || '—'}
               </p>
-              {partes(guia.puntoPartida.distrito, guia.puntoPartida.provincia, guia.puntoPartida.departamento) && (
+              {lineaTerritorialConUbigeo(guia.puntoPartida.distrito, guia.puntoPartida.provincia, guia.puntoPartida.departamento, guia.puntoPartida.ubigeo) && (
                 <p style={{ fontSize: '10px', color: '#6B7280', marginTop: '1px' }}>
-                  {partes(guia.puntoPartida.distrito, guia.puntoPartida.provincia, guia.puntoPartida.departamento)}
+                  {lineaTerritorialConUbigeo(guia.puntoPartida.distrito, guia.puntoPartida.provincia, guia.puntoPartida.departamento, guia.puntoPartida.ubigeo)}
                 </p>
-              )}
-              {guia.puntoPartida.ubigeo && (
-                <p style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '1px' }}>Ubigeo: {guia.puntoPartida.ubigeo}</p>
               )}
             </div>
             <div>
@@ -675,13 +651,10 @@ export default function RepresentacionImpresaGRE({
               <p style={{ fontSize: '11px', color: '#111827', fontWeight: 500, margin: 0 }}>
                 {guia.puntoLlegada.direccion || '—'}
               </p>
-              {partes(guia.puntoLlegada.distrito, guia.puntoLlegada.provincia, guia.puntoLlegada.departamento) && (
+              {lineaTerritorialConUbigeo(guia.puntoLlegada.distrito, guia.puntoLlegada.provincia, guia.puntoLlegada.departamento, guia.puntoLlegada.ubigeo) && (
                 <p style={{ fontSize: '10px', color: '#6B7280', marginTop: '1px' }}>
-                  {partes(guia.puntoLlegada.distrito, guia.puntoLlegada.provincia, guia.puntoLlegada.departamento)}
+                  {lineaTerritorialConUbigeo(guia.puntoLlegada.distrito, guia.puntoLlegada.provincia, guia.puntoLlegada.departamento, guia.puntoLlegada.ubigeo)}
                 </p>
-              )}
-              {guia.puntoLlegada.ubigeo && (
-                <p style={{ fontSize: '9px', color: '#9CA3AF', marginTop: '1px' }}>Ubigeo: {guia.puntoLlegada.ubigeo}</p>
               )}
             </div>
           </div>
@@ -840,9 +813,6 @@ export default function RepresentacionImpresaGRE({
               </Seccion>
             );
           })()}
-
-        {/* 10. Documentos relacionados — GRE Remitente conserva su posición original al final; GRE Transportista ya lo imprimió antes de Puntos de traslado. */}
-        {!esTransportista && bloqueDocumentosRelacionadosImpreso}
 
         {/* 11. Observaciones — bloque independiente al final, solo si existen */}
         {guia.observaciones && (

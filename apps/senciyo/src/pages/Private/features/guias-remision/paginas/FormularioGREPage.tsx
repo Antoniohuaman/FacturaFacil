@@ -41,6 +41,7 @@ import {
   calcularAjusteDestinatarioPorMismoRemitente,
   calcularAjusteActoresAdicionalesPorCambioMotivo,
   calcularAjusteSubcontratadoGRE,
+  tieneDatosIngresadosGRE,
 } from '../logica/reglasFlujoGRE';
 import type { RolActorGRE, FuenteDestinatarioAutoDerivadoGRE } from '../logica/reglasFlujoGRE';
 import { imprimirGuiaGRE } from '../impresion/imprimirGuiaGRE';
@@ -680,7 +681,20 @@ function VistaPrevia({
 
 // ─── Formulario principal ───────────────────────────────────
 
+/**
+ * `key` fuerza un remount completo de `FormularioGREPageInterna` cuando cambia `tipoParam` (nueva
+ * guía) o `id` (edición) — sin esto, React Router reutiliza la misma instancia del componente al
+ * navegar entre `/guias-remision/nuevo/remitente` y `/guias-remision/nuevo/transportista` (misma
+ * ruta, distinto parámetro), y todo el estado local (`guia` y el de cada sección hija) queda
+ * congelado en el tipo anterior — el selector superior cambiaba de ruta pero el formulario seguía
+ * mostrando los datos y reglas del tipo original.
+ */
 export default function FormularioGREPage() {
+  const { tipoParam, id } = useParams<{ tipoParam?: string; id?: string }>();
+  return <FormularioGREPageInterna key={id ?? tipoParam ?? 'nueva'} />;
+}
+
+function FormularioGREPageInterna() {
   const { tipoParam, id } = useParams<{ tipoParam?: string; id?: string }>();
   const navigate = useNavigate();
   const { tenantId, activeEstablecimientoId, activeWorkspace } = useTenant();
@@ -813,6 +827,19 @@ export default function FormularioGREPage() {
       }
     : null;
 
+  // Proveedor (GRE Remitente: Compra, Recojo de bienes transformados) y Remitente (GRE
+  // Transportista) — mismo snapshot de identidad ya persistido que usa el resto del formulario;
+  // sin datos de dirección propios en el modelo (los actores adicionales nunca los tuvieron), la
+  // resolución de sus direcciones reales depende enteramente del maestro de Clientes (ver
+  // `SeccionPuntosTraslado.tsx`).
+  const proveedorActual: DatosDestinatario | null = guia.proveedorNombre
+    ? { nombre: guia.proveedorNombre, tipoDocumento: guia.proveedorTipoDocumento ?? 'RUC', numeroDocumento: guia.proveedorNumeroDocumento ?? '' }
+    : null;
+
+  const remitenteActual: DatosDestinatario | null = guia.remitenteNombre
+    ? { nombre: guia.remitenteNombre, tipoDocumento: guia.remitenteTipoDocumento ?? 'RUC', numeroDocumento: guia.remitenteNumeroDocumento ?? '' }
+    : null;
+
   // Fuente real que respalda el switch "Mismo remitente": la propia empresa emisora (GRE
   // Remitente, motivo Otros) o el actor Remitente ya seleccionado en esta misma GRE (GRE
   // Transportista) — decidido aquí, una sola vez por tipo; la regla central nunca asume la fuente.
@@ -924,6 +951,40 @@ export default function FormularioGREPage() {
       }
     });
   }, []);
+
+  // Referencias estables — `SeccionPuntosTraslado` las incluye en las dependencias de su resolución
+  // automática de direcciones; con una función nueva en cada render (como antes), ese efecto se
+  // re-ejecutaría en cada tecla escrita en cualquier otro campo del formulario, sin ganar nada.
+  const onPuntoPartidaChange = useCallback((p: PuntoTraslado) => {
+    setGuia((prev) => ({ ...prev, puntoPartida: p }));
+  }, []);
+
+  const onPuntoLlegadaChange = useCallback((p: PuntoTraslado) => {
+    setGuia((prev) => ({ ...prev, puntoLlegada: p }));
+  }, []);
+
+  // Cambiar de tipo GRE Remitente ↔ Transportista (solo creación): con datos ya ingresados, protege
+  // al usuario con el mismo diálogo de confirmación reutilizable del proyecto (`feedback.openConfirm`)
+  // antes de navegar — nunca un modal nuevo. La ruta destino usa la MISMA página con `key` distinto
+  // (ver `FormularioGREPage`), que remonta el formulario completo y lo inicializa limpio para el
+  // nuevo tipo (fuentes de verdad/reglas propias de ese tipo, sin arrastrar nada del anterior).
+  const cambiarTipoGRE = useCallback(
+    async (nuevoTipo: TipoGRE) => {
+      if (nuevoTipo === guia.tipo) return;
+      if (tieneDatosIngresadosGRE(guia)) {
+        const confirmado = await feedback.openConfirm({
+          title: 'Cambiar tipo de guía',
+          message: 'Al cambiar el tipo de guía se limpiarán los datos ingresados en este formulario.',
+          confirmText: 'Cambiar tipo',
+          cancelText: 'Cancelar',
+          icon: 'warning',
+        });
+        if (!confirmado) return;
+      }
+      navigate(`/guias-remision/nuevo/${nuevoTipo}`);
+    },
+    [guia, feedback, navigate],
+  );
 
   const guardarBorrador = useCallback(async () => {
     if (!guia.serie) return;
@@ -1154,7 +1215,7 @@ export default function FormularioGREPage() {
                 <button
                   key={t}
                   type="button"
-                  onClick={() => guia.tipo !== t && navigate(`/guias-remision/nuevo/${t}`)}
+                  onClick={() => void cambiarTipoGRE(t)}
                   className={`px-3 py-1 rounded-md text-[13px] font-medium transition-all ${
                     guia.tipo === t
                       ? 'bg-white dark:bg-slate-700 text-violet-700 dark:text-violet-400 shadow-sm'
@@ -1262,15 +1323,14 @@ export default function FormularioGREPage() {
         {/* 4. Puntos de traslado */}
         <SeccionPuntosTraslado
           puntoPartida={guia.puntoPartida}
-          onPuntoPartidaChange={(p: PuntoTraslado) =>
-            setGuia((prev) => ({ ...prev, puntoPartida: p }))
-          }
+          onPuntoPartidaChange={onPuntoPartidaChange}
           puntoLlegada={guia.puntoLlegada}
-          onPuntoLlegadaChange={(p: PuntoTraslado) =>
-            setGuia((prev) => ({ ...prev, puntoLlegada: p }))
-          }
+          onPuntoLlegadaChange={onPuntoLlegadaChange}
           motivoTraslado={guia.motivoTraslado}
           destinatario={destinatarioActual}
+          destinatarioEsMismoRemitente={guia.destinatarioEsMismoRemitente}
+          proveedor={proveedorActual}
+          remitente={remitenteActual}
           tipo={guia.tipo}
           transbordo={guia.transportePrivado?.transbordo}
           onTransbordoChange={(v) =>

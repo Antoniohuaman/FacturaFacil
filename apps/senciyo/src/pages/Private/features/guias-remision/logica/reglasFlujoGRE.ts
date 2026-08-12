@@ -1,4 +1,5 @@
 import type { GuiaRemision, TipoGRE } from '../modelos/GuiaRemision';
+import { GUIA_REMISION_BORRADOR } from '../modelos/GuiaRemision';
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -280,6 +281,62 @@ export function obtenerReglaFlujoGRE(tipoGRE: TipoGRE, motivo: string): ReglaFlu
  */
 export function obtenerDocumentosRecomendadosGRE(tipoGRE: TipoGRE, motivo: string): string[] {
   return obtenerReglaFlujoGRE(tipoGRE, motivo).documentosRecomendados;
+}
+
+/**
+ * ¿El Destinatario documental es realmente la propia empresa (nunca un tercero real)? Ocurre en dos
+ * casos, ambos ya modelados en `ReglaActorGRE` — nunca una tercera fuente:
+ *  - `autoDerivadoDeEmpresa` (fijo por motivo, p. ej. Compra/Recojo de bienes transformados): el
+ *    usuario no puede desactivarlo.
+ *  - `permiteMismoRemitente` + el switch "Mismo remitente" activo: el usuario decide, documento por
+ *    documento, que el Destinatario coincide con el Remitente/la propia empresa.
+ * Única fuente para esta decisión — la usan el formulario (para mostrar el campo de solo lectura)
+ * y la resolución de puntos de traslado (para decidir si el Punto de llegada usa las direcciones de
+ * la empresa o las de un tercero real), nunca reimplementada por separado en cada consumidor.
+ */
+export function destinatarioEsAutoDerivadoGRE(regla: ReglaFlujoGRE, mismoRemitente: boolean | undefined): boolean {
+  return Boolean(regla.actorPrincipal.autoDerivadoDeEmpresa) || Boolean(regla.actorPrincipal.permiteMismoRemitente && mismoRemitente);
+}
+
+/** Actor real (con direcciones propias) que alimenta cada punto de traslado — nunca una dirección independiente del actor salvo que el usuario la registre manualmente vía "Otra dirección". */
+export type RolPuntoTrasladoGRE = 'empresa' | 'destinatario' | 'proveedor' | 'remitente';
+
+export interface RolesPuntosTrasladoGRE {
+  /** Actor cuyas direcciones reales alimentan el Punto de partida. */
+  origen: RolPuntoTrasladoGRE;
+  /** Actor cuyas direcciones reales alimentan el Punto de llegada. */
+  destino: RolPuntoTrasladoGRE;
+}
+
+/**
+ * Determina qué actor real alimenta el Punto de partida (origen) y el Punto de llegada (destino)
+ * de una GRE — única fuente para esta decisión, consumida por `SeccionPuntosTraslado.tsx`. Nunca se
+ * reimplementa como `if (motivo === 'xx')` disperso en cada consumidor; se deriva enteramente de los
+ * mismos campos de `ReglaActorGRE` que ya gobiernan el resto del formulario (`autoDerivadoDeEmpresa`,
+ * `permiteMismoRemitente`) — ningún motivo nuevo necesita tocar esta función para comportarse bien.
+ *   - GRE Transportista: origen=Remitente (quien entrega los bienes), destino=Destinatario (quien
+ *     los recibe) — ninguno es la propia empresa transportista, que solo ejecuta el traslado.
+ *   - GRE Remitente con Destinatario auto-derivado de la empresa (Compra, Recojo de bienes
+ *     transformados, o "Mismo remitente" activo en Otros): destino=empresa; origen=Proveedor si el
+ *     motivo lo exige como actor real (Compra/Recojo), o empresa si no hay Proveedor en juego.
+ *   - GRE Remitente en cualquier otro caso: origen=empresa (quien remite), destino=Destinatario (el
+ *     tercero real que el usuario busca/selecciona).
+ */
+export function obtenerRolesPuntosTrasladoGRE(
+  tipoGRE: TipoGRE,
+  motivoTraslado: string,
+  destinatarioEsMismoRemitente: boolean | undefined,
+): RolesPuntosTrasladoGRE {
+  if (tipoGRE === 'transportista') return { origen: 'remitente', destino: 'destinatario' };
+
+  const regla = obtenerReglaFlujoGRE(tipoGRE, motivoTraslado);
+  const destinoEsEmpresa = destinatarioEsAutoDerivadoGRE(regla, destinatarioEsMismoRemitente);
+  const hayProveedorReal = regla.actorPrincipal.autoDerivadoDeEmpresa && regla.actoresAdicionales.some((a) => a.rol === 'proveedor');
+
+  return {
+    origen: hayProveedorReal ? 'proveedor' : 'empresa',
+    destino: destinoEsEmpresa ? 'empresa' : 'destinatario',
+  };
 }
 
 export type DatosActorGRE = { nombre?: string; tipoDocumento?: string; numeroDocumento?: string };
@@ -763,5 +820,28 @@ export function obtenerDescripcionDetalladaBienGRE(nombreProducto: string, descr
   if (!detalle) return nombre;
   if (detalle.toLowerCase().includes(nombre.toLowerCase())) return detalle;
   return `${nombre} — ${detalle}`;
+}
+
+// ─── Cambio de tipo GRE Remitente ↔ Transportista ──────────────
+
+/**
+ * ¿El borrador tiene información realmente ingresada por el usuario? Compara contra un borrador
+ * recién creado del mismo tipo (`GUIA_REMISION_BORRADOR`), ignorando únicamente los campos que se
+ * autocompletan sin intervención del usuario: identidad/fechas técnicas, la serie (se
+ * autoasigna igual en el formulario destino) y el punto de partida (se re-deriva igual del
+ * establecimiento activo). Ninguno de esos representa pérdida real de información — el resto del
+ * documento (actores, bienes, documentos relacionados, transporte, observaciones, punto de
+ * llegada, etc.) sí. Única fuente para decidir si el cambio de tipo GRE Remitente ↔ Transportista
+ * debe pedir confirmación antes de limpiar el formulario.
+ */
+const CAMPOS_AUTOCOMPLETADOS_GRE = ['id', 'creadoEl', 'actualizadoEl', 'serie', 'puntoPartida'] as const;
+
+export function tieneDatosIngresadosGRE(guia: GuiaRemision): boolean {
+  const normalizar = (g: GuiaRemision): Partial<GuiaRemision> => {
+    const copia: Partial<GuiaRemision> = { ...g };
+    for (const campo of CAMPOS_AUTOCOMPLETADOS_GRE) delete copia[campo];
+    return copia;
+  };
+  return JSON.stringify(normalizar(guia)) !== JSON.stringify(normalizar(GUIA_REMISION_BORRADOR(guia.tipo)));
 }
 

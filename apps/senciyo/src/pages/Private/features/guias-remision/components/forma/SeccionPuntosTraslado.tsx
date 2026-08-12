@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin, X } from 'lucide-react';
 import { ConfigurationCard } from '../../../comprobantes-electronicos/shared/form-core/components/ConfigurationCard';
 import { useConfigurationContext } from '../../../configuracion-sistema/contexto/ContextoConfiguracion';
@@ -10,6 +10,8 @@ import {
   obtenerUbigeo,
 } from '@/shared/catalogos/ubigeo.pe';
 import type { PuntoTraslado, TipoGRE } from '../../modelos/GuiaRemision';
+import type { RolPuntoTrasladoGRE } from '../../logica/reglasFlujoGRE';
+import { obtenerRolesPuntosTrasladoGRE } from '../../logica/reglasFlujoGRE';
 import { leerDireccionesClientePersistidas } from '../../../gestion-clientes/utils/direccionesCliente';
 
 // ─── Tipos internos ─────────────────────────────────────────
@@ -40,6 +42,133 @@ const OTRA = '__otra__';
 const INPUT_CLS =
   'w-full h-8 px-2 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed';
 
+// ─── Resolución de direcciones reales de un actor (Destinatario/Proveedor/Remitente) ─
+
+/**
+ * Construye las opciones de dirección de UN actor real (Destinatario, Proveedor o Remitente) a
+ * partir de sus propios datos y del mismo maestro de direcciones de Gestión de Clientes que ya usa
+ * el resto del módulo — nunca una segunda fuente. La dirección ya consignada en el actor (si la
+ * tiene: viene del cliente seleccionado o de la consulta SUNAT/RENIEC) se antepone como Principal;
+ * el resto de direcciones persistidas para ese mismo RUC/documento se agregan después, sin
+ * duplicar. Un actor sin ninguna dirección real devuelve una lista vacía — nunca se fabrica una.
+ */
+function construirOpcionesDireccionActorGRE(actor: DatosDestinatario | null): OpcionDireccion[] {
+  if (!actor) return [];
+
+  const lista: OpcionDireccion[] = [];
+  const vistas = new Set<string>();
+  const etiqueta = `${actor.tipoDocumento} ${actor.numeroDocumento} · ${actor.nombre}`;
+
+  if (actor.direccion?.trim()) {
+    const ubigeo =
+      actor.ubigeo ??
+      (actor.departamento && actor.provincia && actor.distrito
+        ? obtenerUbigeo(actor.departamento, actor.provincia, actor.distrito)
+        : undefined);
+
+    lista.push({
+      id: 'actor-principal',
+      etiqueta,
+      punto: {
+        departamento: actor.departamento,
+        provincia: actor.provincia,
+        distrito: actor.distrito,
+        ubigeo: ubigeo || undefined,
+        direccion: actor.direccion,
+      },
+    });
+    vistas.add(actor.direccion.trim().toLowerCase());
+  }
+
+  const payload = leerDireccionesClientePersistidas({
+    clienteId: actor.clienteId,
+    tipoDocumento: actor.tipoDocumento,
+    numeroDocumento: actor.numeroDocumento,
+  });
+  if (payload) {
+    const ordenadas = payload.principalId
+      ? [
+          ...payload.direcciones.filter((d) => d.id === payload.principalId),
+          ...payload.direcciones.filter((d) => d.id !== payload.principalId),
+        ]
+      : payload.direcciones;
+
+    for (const dir of ordenadas) {
+      const norm = dir.direccion.trim().toLowerCase();
+      if (!dir.direccion.trim() || vistas.has(norm)) continue;
+      vistas.add(norm);
+      const ubigeo =
+        dir.ubigeo ||
+        obtenerUbigeo(dir.departamento, dir.provincia, dir.distrito) ||
+        undefined;
+      lista.push({
+        id: `actor-extra-${dir.id}`,
+        etiqueta,
+        punto: {
+          departamento: dir.departamento || undefined,
+          provincia: dir.provincia || undefined,
+          distrito: dir.distrito || undefined,
+          ubigeo,
+          direccion: dir.direccion,
+        },
+      });
+    }
+  }
+
+  return lista;
+}
+
+/** Identidad estable del actor (tipo + número de documento) — sirve para detectar cuándo cambió realmente, sin comparar por nombre visual. `undefined` mientras el actor no exista todavía. */
+function identidadActorGRE(actor: DatosDestinatario | null): string | undefined {
+  const numero = actor?.numeroDocumento?.trim();
+  if (!numero) return undefined;
+  return `${actor?.tipoDocumento}:${numero}`;
+}
+
+// ─── Resolución automática del punto (sin clic de confirmación) ─────
+
+/**
+ * Resuelve automáticamente `punto` a partir de las opciones reales de su actor — sin exigir nunca
+ * un clic de confirmación adicional. Dos disparadores, cada uno cubriendo un caso real distinto:
+ *  - El actor cambió de verdad (nunca en el primer render, que preserva intacto el snapshot con el
+ *    que este campo se montó — un borrador ya guardado, o simplemente un formulario nuevo vacío):
+ *    la dirección anterior queda obsoleta sin importar si ya tenía un valor — nunca puede seguir
+ *    asociada al actor equivocado (Remitente/Destinatario eliminado o cambiado).
+ *  - El punto sigue vacío y ya hay opciones reales disponibles (recién seleccionado el actor, o las
+ *    opciones tardaron en llegar — p. ej. mientras carga Configuración/Establecimientos): se
+ *    autoselecciona la primera (la Principal, por construcción de `opciones`), sin exigir que el
+ *    usuario haga clic para "confirmarla".
+ * Misma función para los 4 roles posibles (empresa/destinatario/proveedor/remitente) — nunca un
+ * `if` por tipo de GRE o por motivo.
+ */
+function useResolucionAutomaticaPuntoGRE(
+  punto: PuntoTraslado,
+  onChange: (punto: PuntoTraslado) => void,
+  identidadActor: string | undefined,
+  opciones: OpcionDireccion[],
+) {
+  const identidadAnteriorRef = useRef<string | undefined>(undefined);
+  const primeraVezRef = useRef(true);
+  const hayDireccion = Boolean(punto.direccion?.trim());
+
+  useEffect(() => {
+    const esPrimeraVez = primeraVezRef.current;
+    primeraVezRef.current = false;
+    const identidadAnterior = identidadAnteriorRef.current;
+    identidadAnteriorRef.current = identidadActor;
+
+    if (!esPrimeraVez && identidadActor !== identidadAnterior) {
+      const principal = opciones[0];
+      onChange(principal ? principal.punto : { direccion: '' });
+      return;
+    }
+
+    if (!hayDireccion && identidadActor && opciones.length > 0) {
+      onChange(opciones[0].punto);
+    }
+  }, [identidadActor, opciones, hayDireccion, onChange]);
+}
+
 // ─── Componente por punto (partida o llegada) ────────────────
 
 interface CampoPuntoProps {
@@ -47,13 +176,27 @@ interface CampoPuntoProps {
   punto: PuntoTraslado;
   onChange: (punto: PuntoTraslado) => void;
   opciones: OpcionDireccion[];
+  /** Identidad del actor real (empresa/destinatario/proveedor/remitente) que alimenta este punto — `undefined` mientras ese actor todavía no exista, lo que impide mostrar cualquier dirección como confirmada. */
+  identidadActor: string | undefined;
 }
 
-function CampoPunto({ titulo, punto, onChange, opciones }: CampoPuntoProps) {
+function CampoPunto({ titulo, punto, onChange, opciones, identidadActor }: CampoPuntoProps) {
+  useResolucionAutomaticaPuntoGRE(punto, onChange, identidadActor, opciones);
+
   const hayDireccion = Boolean(punto.direccion?.trim());
 
   const [editando, setEditando] = useState(!hayDireccion);
   const [seleccionId, setSeleccionId] = useState('');
+
+  // La dirección resuelta automáticamente (o cargada de un borrador) puede llegar por props
+  // DESPUÉS del montaje inicial — `editando` es estado local y no se resincroniza solo. Sin este
+  // efecto, quedaba mostrando el selector como si nada estuviera confirmado, aunque `punto.direccion`
+  // ya tuviera un valor real: exigía un clic redundante del usuario para "confirmar" algo que ya
+  // estaba resuelto. Al confirmarse (automática o manualmente) pasa directo a la vista resumen; no
+  // interfiere con "Cambiar dirección" (que reabre el selector sin que `hayDireccion` cambie).
+  useEffect(() => {
+    if (hayDireccion) setEditando(false);
+  }, [hayDireccion]);
 
   // Estado temporal del formulario manual — siempre empieza vacío
   const [dpto, setDpto] = useState('');
@@ -165,7 +308,9 @@ function CampoPunto({ titulo, punto, onChange, opciones }: CampoPuntoProps) {
         {titulo}
       </p>
 
-      {/* Lista de opciones rápidas */}
+      {/* Lista de opciones rápidas — vacía mientras el actor real de este punto (Remitente/
+          Destinatario/Proveedor) todavía no exista: no hay ninguna dirección que ofrecer ni que
+          confirmar, solo queda la vía manual ("Agregar dirección…", más abajo). */}
       {!modoManual && (
         <div className="space-y-1.5">
           {opciones.map((op) => {
@@ -316,6 +461,12 @@ interface SeccionPuntosTrasladoProps {
   onPuntoLlegadaChange: (punto: PuntoTraslado) => void;
   motivoTraslado: string;
   destinatario: DatosDestinatario | null;
+  /** GRE Remitente, motivo con "Mismo remitente" (switch) — el mismo estado que ya consume `SeccionDatosGenerales.tsx` para decidir si el Destinatario es la propia empresa. */
+  destinatarioEsMismoRemitente?: boolean;
+  /** GRE Remitente, motivos con Proveedor real (Compra, Recojo de bienes transformados) — alimenta el Punto de partida en lugar de la empresa. */
+  proveedor?: DatosDestinatario | null;
+  /** GRE Transportista — actor Remitente real de esta GRE, independiente de la empresa transportista emisora; alimenta el Punto de partida. */
+  remitente?: DatosDestinatario | null;
   /** GRE Transportista: muestra el indicador "Realiza transbordo programado" aquí, no en "Datos de transporte" (donde permanece para GRE Remitente). */
   tipo?: TipoGRE;
   transbordo?: boolean;
@@ -329,6 +480,9 @@ export default function SeccionPuntosTraslado({
   onPuntoLlegadaChange,
   motivoTraslado,
   destinatario,
+  destinatarioEsMismoRemitente,
+  proveedor,
+  remitente,
   tipo,
   transbordo,
   onTransbordoChange,
@@ -336,7 +490,9 @@ export default function SeccionPuntosTraslado({
   const { state: configState } = useConfigurationContext();
   const { activeEstablecimientoId } = useTenant();
 
-  // Establecimientos activos de la empresa emisora (deduplicados por dirección)
+  // Establecimientos activos de la empresa emisora (deduplicados por dirección), con el
+  // establecimiento activo primero cuando existe — misma preferencia que antes, expresada ahora
+  // como orden de la lista (`opciones[0]` es siempre la preferida, sin importar qué rol la consuma).
   const opcionesEmpresa = useMemo((): OpcionDireccion[] => {
     const lista: OpcionDireccion[] = [];
     const vistas = new Set<string>();
@@ -383,114 +539,37 @@ export default function SeccionPuntosTraslado({
       });
     }
 
-    return lista;
-  }, [configState.company, configState.Establecimientos]);
+    if (!activeEstablecimientoId) return lista;
+    const idx = lista.findIndex((o) => o.id === `est-${activeEstablecimientoId}`);
+    if (idx <= 0) return lista;
+    const [activa] = lista.splice(idx, 1);
+    return [activa, ...lista];
+  }, [configState.company, configState.Establecimientos, activeEstablecimientoId]);
 
-  // Pre-seleccionar el establecimiento activo (o el único disponible) al punto de partida
-  // cuando el campo aún está vacío y el motivo no es Compra.
-  useEffect(() => {
-    if (puntoPartida.direccion?.trim()) return; // Ya tiene dirección confirmada
-    if (motivoTraslado === '02') return; // Compra: partida viene del proveedor
-    if (opcionesEmpresa.length === 0) return;
+  // Roles reales (empresa/destinatario/proveedor/remitente) que alimentan cada punto — única
+  // fuente compartida, nunca un `if` por tipo de GRE o por motivo repetido aquí.
+  const roles = useMemo(
+    () => obtenerRolesPuntosTrasladoGRE(tipo ?? 'remitente', motivoTraslado, destinatarioEsMismoRemitente),
+    [tipo, motivoTraslado, destinatarioEsMismoRemitente],
+  );
 
-    const opcionActiva =
-      activeEstablecimientoId
-        ? opcionesEmpresa.find((o) => o.id === `est-${activeEstablecimientoId}`)
-        : undefined;
+  const datosPorRol: Record<Exclude<RolPuntoTrasladoGRE, 'empresa'>, DatosDestinatario | null> = {
+    destinatario,
+    proveedor: proveedor ?? null,
+    remitente: remitente ?? null,
+  };
 
-    const aSeleccionar = opcionActiva ?? opcionesEmpresa[0];
-    if (aSeleccionar) onPuntoPartidaChange(aSeleccionar.punto);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opcionesEmpresa]);
+  function opcionesPorRol(rol: RolPuntoTrasladoGRE): OpcionDireccion[] {
+    return rol === 'empresa' ? opcionesEmpresa : construirOpcionesDireccionActorGRE(datosPorRol[rol]);
+  }
 
-  // Dirección(es) del destinatario/proveedor:
-  // 1. Dirección principal (viene del cliente seleccionado o de la consulta API)
-  // 2. Direcciones adicionales guardadas en localStorage por el módulo de Clientes
-  const opcionesDestinatario = useMemo((): OpcionDireccion[] => {
-    if (!destinatario) return [];
+  function identidadPorRol(rol: RolPuntoTrasladoGRE): string | undefined {
+    return rol === 'empresa' ? 'empresa' : identidadActorGRE(datosPorRol[rol]);
+  }
 
-    const lista: OpcionDireccion[] = [];
-    const vistas = new Set<string>();
-    const etiqueta = `${destinatario.tipoDocumento} ${destinatario.numeroDocumento} · ${destinatario.nombre}`;
-
-    // Dirección principal (del cliente o de la API SUNAT/RENIEC)
-    if (destinatario.direccion?.trim()) {
-      const ubigeo =
-        destinatario.ubigeo ??
-        (destinatario.departamento && destinatario.provincia && destinatario.distrito
-          ? obtenerUbigeo(
-              destinatario.departamento,
-              destinatario.provincia,
-              destinatario.distrito,
-            )
-          : undefined);
-
-      lista.push({
-        id: 'dest-principal',
-        etiqueta,
-        punto: {
-          departamento: destinatario.departamento,
-          provincia: destinatario.provincia,
-          distrito: destinatario.distrito,
-          ubigeo: ubigeo || undefined,
-          direccion: destinatario.direccion,
-        },
-      });
-      vistas.add(destinatario.direccion.trim().toLowerCase());
-    }
-
-    // Direcciones adicionales desde localStorage (mismo esquema que ClienteFormNew)
-    const payload = leerDireccionesClientePersistidas({
-      clienteId: destinatario.clienteId,
-      tipoDocumento: destinatario.tipoDocumento,
-      numeroDocumento: destinatario.numeroDocumento,
-    });
-    if (payload) {
-      const ordenadas = payload.principalId
-        ? [
-            ...payload.direcciones.filter((d) => d.id === payload.principalId),
-            ...payload.direcciones.filter((d) => d.id !== payload.principalId),
-          ]
-        : payload.direcciones;
-
-      for (const dir of ordenadas) {
-        const norm = dir.direccion.trim().toLowerCase();
-        if (!dir.direccion.trim() || vistas.has(norm)) continue;
-        vistas.add(norm);
-        const ubigeo =
-          dir.ubigeo ||
-          obtenerUbigeo(dir.departamento, dir.provincia, dir.distrito) ||
-          undefined;
-        lista.push({
-          id: `dest-extra-${dir.id}`,
-          etiqueta,
-          punto: {
-            departamento: dir.departamento || undefined,
-            provincia: dir.provincia || undefined,
-            distrito: dir.distrito || undefined,
-            ubigeo,
-            direccion: dir.direccion,
-          },
-        });
-      }
-    }
-
-    return lista;
-  }, [destinatario]);
-
-  // Distribución según motivo de traslado:
-  //   '01' Venta  → partida = empresa/establecimientos, llegada = destinatario
-  //   '02' Compra → partida = proveedor,               llegada = empresa/establecimientos
-  //   otros       → empresa/establecimientos para ambos lados
-  const opcionesPartida = useMemo((): OpcionDireccion[] => {
-    if (motivoTraslado === '02') return opcionesDestinatario;
-    return opcionesEmpresa;
-  }, [motivoTraslado, opcionesEmpresa, opcionesDestinatario]);
-
-  const opcionesLlegada = useMemo((): OpcionDireccion[] => {
-    if (motivoTraslado === '01') return opcionesDestinatario;
-    return opcionesEmpresa;
-  }, [motivoTraslado, opcionesEmpresa, opcionesDestinatario]);
+  // Construcción liviana (arreglos de a lo sumo unas pocas direcciones) — no requiere memoizar.
+  const opcionesPartida = opcionesPorRol(roles.origen);
+  const opcionesLlegada = opcionesPorRol(roles.destino);
 
   return (
     <ConfigurationCard title="Punto de partida y llegada" icon={MapPin}>
@@ -514,6 +593,7 @@ export default function SeccionPuntosTraslado({
             punto={puntoPartida}
             onChange={onPuntoPartidaChange}
             opciones={opcionesPartida}
+            identidadActor={identidadPorRol(roles.origen)}
           />
         </div>
         <div className="pt-5 sm:pt-0 sm:pl-5">
@@ -522,6 +602,7 @@ export default function SeccionPuntosTraslado({
             punto={puntoLlegada}
             onChange={onPuntoLlegadaChange}
             opciones={opcionesLlegada}
+            identidadActor={identidadPorRol(roles.destino)}
           />
         </div>
       </div>

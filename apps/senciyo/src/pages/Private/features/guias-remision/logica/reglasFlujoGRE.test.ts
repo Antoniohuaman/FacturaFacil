@@ -18,6 +18,9 @@ import {
   aplicaM1oLGRE,
   esTransportePrivadoGRE,
   obtenerDescripcionDetalladaBienGRE,
+  tieneDatosIngresadosGRE,
+  destinatarioEsAutoDerivadoGRE,
+  obtenerRolesPuntosTrasladoGRE,
 } from './reglasFlujoGRE';
 import { GUIA_REMISION_BORRADOR } from '../modelos/GuiaRemision';
 import type { GuiaRemision } from '../modelos/GuiaRemision';
@@ -812,5 +815,131 @@ describe('obtenerDescripcionDetalladaBienGRE — "Descripción detallada del bie
     expect(obtenerDescripcionDetalladaBienGRE('  CORAZON DE POLLO  ', '  Presentación x1kg  ')).toBe(
       'CORAZON DE POLLO — Presentación x1kg',
     );
+  });
+});
+
+describe('tieneDatosIngresadosGRE — protección contra pérdida de datos al cambiar de tipo GRE', () => {
+  it('un borrador recién creado (Remitente), sin tocar nada, no tiene datos ingresados', () => {
+    expect(tieneDatosIngresadosGRE(GUIA_REMISION_BORRADOR('remitente'))).toBe(false);
+  });
+
+  it('un borrador recién creado (Transportista), sin tocar nada, no tiene datos ingresados', () => {
+    expect(tieneDatosIngresadosGRE(GUIA_REMISION_BORRADOR('transportista'))).toBe(false);
+  });
+
+  it('serie autoasignada (sin ningún otro cambio): no cuenta como dato ingresado — se re-asigna igual en el tipo destino', () => {
+    expect(tieneDatosIngresadosGRE({ ...GUIA_REMISION_BORRADOR('remitente'), serie: 'T001' })).toBe(false);
+  });
+
+  it('punto de partida autocompletado por el establecimiento activo (sin ningún otro cambio): no cuenta como dato ingresado — se re-deriva igual en el tipo destino', () => {
+    expect(
+      tieneDatosIngresadosGRE({
+        ...GUIA_REMISION_BORRADOR('remitente'),
+        puntoPartida: { direccion: 'Av. Principal 123', distrito: 'Miraflores' },
+      }),
+    ).toBe(false);
+  });
+
+  it('destinatario ingresado: sí cuenta como dato ingresado', () => {
+    expect(
+      tieneDatosIngresadosGRE({ ...GUIA_REMISION_BORRADOR('remitente'), destinatarioNombre: 'Cliente S.A.C.' }),
+    ).toBe(true);
+  });
+
+  it('al menos un bien agregado: sí cuenta como dato ingresado', () => {
+    const conBien = {
+      ...GUIA_REMISION_BORRADOR('remitente'),
+      bienes: [{ id: 'b1', descripcion: 'Producto', unidad: 'NIU', cantidad: 1, normalizado: false }],
+    };
+    expect(tieneDatosIngresadosGRE(conBien)).toBe(true);
+  });
+
+  it('al menos un documento relacionado agregado: sí cuenta como dato ingresado', () => {
+    const conDoc = {
+      ...GUIA_REMISION_BORRADOR('transportista'),
+      documentosRelacionados: [{ id: 'd1', origen: 'EXTERNO' as const, tipoDocumentoCodigo: '01', numeroDocumento: 'F001-1' }],
+    };
+    expect(tieneDatosIngresadosGRE(conDoc)).toBe(true);
+  });
+
+  it('punto de llegada ingresado por el usuario: sí cuenta como dato ingresado (a diferencia de punto de partida, no se autocompleta)', () => {
+    expect(
+      tieneDatosIngresadosGRE({
+        ...GUIA_REMISION_BORRADOR('remitente'),
+        puntoLlegada: { direccion: 'Av. Destino 456' },
+      }),
+    ).toBe(true);
+  });
+
+  it('observaciones escritas: sí cuenta como dato ingresado', () => {
+    expect(tieneDatosIngresadosGRE({ ...GUIA_REMISION_BORRADOR('remitente'), observaciones: 'Entregar en horario de oficina' })).toBe(true);
+  });
+
+  it('vehículos/conductores asignados en Transportista: sí cuenta como dato ingresado', () => {
+    const conTransporte = {
+      ...GUIA_REMISION_BORRADOR('transportista'),
+      transportePrivado: { fechaInicioTraslado: '2026-08-08', vehiculosIds: ['veh-1'], conductoresIds: [] },
+    };
+    expect(tieneDatosIngresadosGRE(conTransporte)).toBe(true);
+  });
+});
+
+describe('destinatarioEsAutoDerivadoGRE — el Destinatario documental es la propia empresa', () => {
+  it('autoDerivadoDeEmpresa fijo por motivo (Compra/Recojo): siempre true, sin importar "mismo remitente"', () => {
+    const regla = obtenerReglaFlujoGRE('remitente', '02');
+    expect(destinatarioEsAutoDerivadoGRE(regla, undefined)).toBe(true);
+    expect(destinatarioEsAutoDerivadoGRE(regla, false)).toBe(true);
+  });
+
+  it('permiteMismoRemitente (motivo Otros) con el switch activo: true', () => {
+    const regla = obtenerReglaFlujoGRE('remitente', '13');
+    expect(destinatarioEsAutoDerivadoGRE(regla, true)).toBe(true);
+  });
+
+  it('permiteMismoRemitente con el switch inactivo o sin definir: false', () => {
+    const regla = obtenerReglaFlujoGRE('remitente', '13');
+    expect(destinatarioEsAutoDerivadoGRE(regla, false)).toBe(false);
+    expect(destinatarioEsAutoDerivadoGRE(regla, undefined)).toBe(false);
+  });
+
+  it('regla base (ni autoDerivado ni permiteMismoRemitente, ej. motivo 01): siempre false', () => {
+    const regla = obtenerReglaFlujoGRE('remitente', '01');
+    expect(destinatarioEsAutoDerivadoGRE(regla, true)).toBe(false);
+  });
+});
+
+describe('obtenerRolesPuntosTrasladoGRE — qué actor real alimenta Punto de partida/llegada', () => {
+  it('GRE Transportista: origen=remitente, destino=destinatario — nunca la empresa transportista, para cualquier motivo (heredado, inerte)', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('transportista', '13', false)).toEqual({ origen: 'remitente', destino: 'destinatario' });
+    expect(obtenerRolesPuntosTrasladoGRE('transportista', '20', true)).toEqual({ origen: 'remitente', destino: 'destinatario' });
+  });
+
+  it('GRE Remitente, motivo 01 (Venta): origen=empresa, destino=destinatario', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '01', undefined)).toEqual({ origen: 'empresa', destino: 'destinatario' });
+  });
+
+  it('GRE Remitente, motivo 02 (Compra): origen=proveedor (quien despacha), destino=empresa (quien recibe)', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '02', undefined)).toEqual({ origen: 'proveedor', destino: 'empresa' });
+  });
+
+  it('GRE Remitente, motivo 07 (Recojo de bienes transformados): misma regla que Compra', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '07', undefined)).toEqual({ origen: 'proveedor', destino: 'empresa' });
+  });
+
+  it('GRE Remitente, motivo 13 (Otros) con "Mismo remitente" inactivo: origen=empresa, destino=destinatario (tercero real)', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '13', false)).toEqual({ origen: 'empresa', destino: 'destinatario' });
+  });
+
+  it('GRE Remitente, motivo 13 con "Mismo remitente" activo: destino pasa a empresa — nunca se intenta resolver un tercero inexistente', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '13', true)).toEqual({ origen: 'empresa', destino: 'empresa' });
+  });
+
+  it('GRE Remitente, motivo sin regla especial de actores (ej. 04, 05, 06, 17): origen=empresa, destino=destinatario, igual que motivo 01', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '04', undefined)).toEqual({ origen: 'empresa', destino: 'destinatario' });
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '17', undefined)).toEqual({ origen: 'empresa', destino: 'destinatario' });
+  });
+
+  it('motivo desconocido: cae a la regla base (origen=empresa, destino=destinatario), nunca lanza', () => {
+    expect(obtenerRolesPuntosTrasladoGRE('remitente', '999', undefined)).toEqual({ origen: 'empresa', destino: 'destinatario' });
   });
 });
