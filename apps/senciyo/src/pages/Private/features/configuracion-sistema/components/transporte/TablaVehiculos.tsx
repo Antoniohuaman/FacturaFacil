@@ -386,6 +386,7 @@ export function TablaVehiculos({ empresaId, datasource, conductoresDataSource }:
       <ModalFormularioVehiculo
         isOpen={modalAbierto}
         modo={modoModal}
+        contexto="maestro"
         vehiculo={vehiculoSeleccionado}
         vehiculosExistentes={vehiculos}
         conductores={conductores}

@@ -6,7 +6,11 @@ import {
   ENTIDADES_AUTORIZADORAS_D37,
   CONFIGURACIONES_VEHICULARES,
 } from '../../datos/catalogosGRE';
-import { nombreCompletoConductor } from './helpersTransporte';
+import {
+  nombreCompletoConductor,
+  resolverCamposPrioritariosVehiculo,
+  type ContextoFormularioVehiculo,
+} from './helpersTransporte';
 
 interface FormState {
   placa: string;
@@ -48,6 +52,7 @@ const FORM_VACIO: FormState = {
 interface ModalFormularioVehiculoProps {
   isOpen: boolean;
   modo: 'crear' | 'editar';
+  contexto: ContextoFormularioVehiculo;
   vehiculo?: Vehiculo;
   vehiculosExistentes: Vehiculo[];
   conductores: Conductor[];
@@ -83,6 +88,7 @@ function validar(form: FormState, vehiculosExistentes: Vehiculo[], vehiculoId?: 
 export function ModalFormularioVehiculo({
   isOpen,
   modo,
+  contexto,
   vehiculo,
   vehiculosExistentes,
   conductores,
@@ -90,6 +96,7 @@ export function ModalFormularioVehiculo({
   onSubmit,
   cargando = false,
 }: ModalFormularioVehiculoProps) {
+  const campos = resolverCamposPrioritariosVehiculo(contexto);
   const [form, setForm] = useState<FormState>(FORM_VACIO);
   const [errors, setErrors] = useState<FormErrors>({});
   const [tocados, setTocados] = useState<Set<keyof FormState>>(new Set());
@@ -206,6 +213,151 @@ export function ModalFormularioVehiculo({
       ? 'border-red-500 focus:ring-red-500'
       : 'border-gray-300 focus:ring-blue-500';
 
+  // Cada bloque se define una sola vez y se ubica en un único lugar (prioritario o dentro de "Más
+  // campos opcionales") según `campos` — nunca se repite el JSX entre las dos posiciones posibles.
+  const bloqueTUCE = (
+    <div>
+      <label className="block text-xs font-medium text-gray-700 mb-1">N.° TUCE</label>
+      <input
+        type="text"
+        value={form.numeroTUCE}
+        onChange={(e) => set('numeroTUCE', e.target.value)}
+        disabled={cargando}
+        placeholder="Número TUCE"
+        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+      />
+    </div>
+  );
+
+  const bloqueAutorizacionEspecial = (
+    <div>
+      <p className="text-xs font-medium text-gray-700 mb-2">
+        Autorización especial para el traslado de la carga
+        <span className="text-gray-400 font-normal ml-1">(opcional)</span>
+      </p>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Entidad emisora</label>
+          <select
+            value={form.codigoEntidadAutorizadora}
+            onChange={(e) => set('codigoEntidadAutorizadora', e.target.value)}
+            disabled={cargando}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
+          >
+            <option value="">— Sin autorización especial —</option>
+            {ENTIDADES_AUTORIZADORAS_D37.filter((ent) => ent.estado === 'Vigente').map((ent) => (
+              <option key={ent.codigo} value={ent.codigo}>
+                {ent.abreviatura} — {ent.entidad}
+              </option>
+            ))}
+          </select>
+        </div>
+        {form.codigoEntidadAutorizadora && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              N.° de autorización especial *
+            </label>
+            <input
+              type="text"
+              value={form.numeroAutorizacion}
+              onChange={(e) => set('numeroAutorizacion', e.target.value)}
+              disabled={cargando}
+              placeholder="Número de autorización"
+              className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${estiloInput('numeroAutorizacion')}`}
+            />
+            {tocados.has('numeroAutorizacion') && errors.numeroAutorizacion && (
+              <p className="text-xs text-red-600 mt-1">{errors.numeroAutorizacion}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const bloqueConductoresAsignados = (
+    <div>
+      <p className="text-xs font-medium text-gray-700 mb-2">
+        Conductores asignados
+        <span className="text-gray-400 font-normal ml-1">(opcional)</span>
+      </p>
+
+      {/* Chips de conductores seleccionados */}
+      {form.conductoresIds.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {form.conductoresIds.map((cid) => {
+            const c = conductores.find((x) => x.id === cid);
+            if (!c) return null;
+            return (
+              <span
+                key={cid}
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100"
+              >
+                {nombreCompletoConductor(c)}
+                <button
+                  type="button"
+                  onClick={() => quitarConductor(cid)}
+                  disabled={cargando}
+                  className="hover:text-blue-900 disabled:opacity-50 ml-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Buscador con dropdown */}
+      <div className="relative">
+        <div className="flex items-center w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 bg-white">
+          <Search className="w-3.5 h-3.5 text-gray-400 shrink-0 mr-1.5" />
+          <input
+            type="text"
+            value={buscadorConductor}
+            onChange={(e) => {
+              setBuscadorConductor(e.target.value);
+              setDropdownConductorAbierto(true);
+            }}
+            onFocus={() => setDropdownConductorAbierto(true)}
+            onBlur={() => setTimeout(() => setDropdownConductorAbierto(false), 200)}
+            placeholder={
+              conductoresActivos.length === 0
+                ? 'No hay conductores activos registrados'
+                : conductoresDisponibles.length === 0
+                  ? 'Todos los conductores activos ya están asignados'
+                  : 'Buscar y agregar conductor…'
+            }
+            disabled={cargando || conductoresDisponibles.length === 0}
+            className="flex-1 outline-none text-sm placeholder:text-gray-400 disabled:opacity-50 bg-transparent"
+          />
+        </div>
+
+        {dropdownConductorAbierto && conductoresFiltradosBusqueda.length > 0 && (
+          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+            {conductoresFiltradosBusqueda.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  agregarConductor(c.id);
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 flex items-center gap-2"
+              >
+                <span className="font-medium text-gray-800">
+                  {nombreCompletoConductor(c)}
+                </span>
+                <span className="text-gray-400 font-mono ml-auto shrink-0">
+                  {c.numeroLicencia}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -231,8 +383,8 @@ export function ModalFormularioVehiculo({
         </div>
 
         <form onSubmit={manejarEnvio} className="p-6 space-y-4">
-          {/* Placa y estado */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Placa (+ Estado, solo en el maestro — una GRE siempre da de alta un vehículo nuevo, que nace Activo) */}
+          <div className={campos.estado ? 'grid grid-cols-2 gap-3' : ''}>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Número de placa *</label>
               <input
@@ -248,102 +400,36 @@ export function ModalFormularioVehiculo({
                 <p className="text-xs text-red-600 mt-1">{errors.placa}</p>
               )}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
-              <select
-                value={form.estado}
-                onChange={(e) => set('estado', e.target.value)}
-                disabled={cargando}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
-              >
-                <option value="ACTIVO">Activo</option>
-                <option value="INACTIVO">Inactivo</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Conductores asignados */}
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-xs font-medium text-gray-700 mb-2">
-              Conductores asignados
-              <span className="text-gray-400 font-normal ml-1">(opcional)</span>
-            </p>
-
-            {/* Chips de conductores seleccionados */}
-            {form.conductoresIds.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {form.conductoresIds.map((cid) => {
-                  const c = conductores.find((x) => x.id === cid);
-                  if (!c) return null;
-                  return (
-                    <span
-                      key={cid}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs border border-blue-100"
-                    >
-                      {nombreCompletoConductor(c)}
-                      <button
-                        type="button"
-                        onClick={() => quitarConductor(cid)}
-                        disabled={cargando}
-                        className="hover:text-blue-900 disabled:opacity-50 ml-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  );
-                })}
+            {campos.estado && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+                <select
+                  value={form.estado}
+                  onChange={(e) => set('estado', e.target.value)}
+                  disabled={cargando}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
+                >
+                  <option value="ACTIVO">Activo</option>
+                  <option value="INACTIVO">Inactivo</option>
+                </select>
               </div>
             )}
-
-            {/* Buscador con dropdown */}
-            <div className="relative">
-              <div className="flex items-center w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-blue-500 bg-white">
-                <Search className="w-3.5 h-3.5 text-gray-400 shrink-0 mr-1.5" />
-                <input
-                  type="text"
-                  value={buscadorConductor}
-                  onChange={(e) => {
-                    setBuscadorConductor(e.target.value);
-                    setDropdownConductorAbierto(true);
-                  }}
-                  onFocus={() => setDropdownConductorAbierto(true)}
-                  onBlur={() => setTimeout(() => setDropdownConductorAbierto(false), 200)}
-                  placeholder={
-                    conductoresActivos.length === 0
-                      ? 'No hay conductores activos registrados'
-                      : conductoresDisponibles.length === 0
-                        ? 'Todos los conductores activos ya están asignados'
-                        : 'Buscar y agregar conductor…'
-                  }
-                  disabled={cargando || conductoresDisponibles.length === 0}
-                  className="flex-1 outline-none text-sm placeholder:text-gray-400 disabled:opacity-50 bg-transparent"
-                />
-              </div>
-
-              {dropdownConductorAbierto && conductoresFiltradosBusqueda.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                  {conductoresFiltradosBusqueda.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        agregarConductor(c.id);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 flex items-center gap-2"
-                    >
-                      <span className="font-medium text-gray-800">
-                        {nombreCompletoConductor(c)}
-                      </span>
-                      <span className="text-gray-400 font-mono ml-auto shrink-0">
-                        {c.numeroLicencia}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
+
+          {/* N.° TUCE — prioritario solo en GRE Transportista */}
+          {campos.tuce && <div className="border-t border-gray-100 pt-4">{bloqueTUCE}</div>}
+
+          {/* Autorización especial — prioritaria en GRE Remitente y GRE Transportista */}
+          {campos.autorizacionEspecial && (
+            <div className={campos.tuce ? '' : 'border-t border-gray-100 pt-4'}>
+              {bloqueAutorizacionEspecial}
+            </div>
+          )}
+
+          {/* Conductores asignados — prioritario solo en el maestro */}
+          {campos.conductores && (
+            <div className="border-t border-gray-100 pt-4">{bloqueConductoresAsignados}</div>
+          )}
 
           {/* Sección opcional colapsada */}
           <div className="border-t border-gray-100 pt-3">
@@ -360,6 +446,9 @@ export function ModalFormularioVehiculo({
 
             {opcionalAbierto && (
               <div className="mt-3 space-y-3">
+                {/* Conductores asignados — aquí cuando no es prioritario (alta rápida desde GRE) */}
+                {!campos.conductores && bloqueConductoresAsignados}
+
                 {/* Marca y modelo */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -458,72 +547,26 @@ export function ModalFormularioVehiculo({
                   />
                 </div>
 
-                {/* Certificado de inscripción/habilitación y TUCE */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      N.° de certificado
-                    </label>
-                    <input
-                      type="text"
-                      value={form.numeroCertificado}
-                      onChange={(e) => set('numeroCertificado', e.target.value)}
-                      disabled={cargando}
-                      placeholder="Inscripción o habilitación"
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">N.° TUCE</label>
-                    <input
-                      type="text"
-                      value={form.numeroTUCE}
-                      onChange={(e) => set('numeroTUCE', e.target.value)}
-                      disabled={cargando}
-                      placeholder="Número TUCE"
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Autorización especial */}
+                {/* Certificado de inscripción/habilitación — siempre aquí, distinto del TUCE */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Entidad emisora de autorización especial
+                    N.° de certificado
                   </label>
-                  <select
-                    value={form.codigoEntidadAutorizadora}
-                    onChange={(e) => set('codigoEntidadAutorizadora', e.target.value)}
+                  <input
+                    type="text"
+                    value={form.numeroCertificado}
+                    onChange={(e) => set('numeroCertificado', e.target.value)}
                     disabled={cargando}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
-                  >
-                    <option value="">— Sin autorización especial —</option>
-                    {ENTIDADES_AUTORIZADORAS_D37.filter((ent) => ent.estado === 'Vigente').map((ent) => (
-                      <option key={ent.codigo} value={ent.codigo}>
-                        {ent.abreviatura} — {ent.entidad}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Inscripción o habilitación"
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  />
                 </div>
 
-                {form.codigoEntidadAutorizadora && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      N.° de autorización especial *
-                    </label>
-                    <input
-                      type="text"
-                      value={form.numeroAutorizacion}
-                      onChange={(e) => set('numeroAutorizacion', e.target.value)}
-                      disabled={cargando}
-                      placeholder="Número de autorización"
-                      className={`w-full text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 disabled:opacity-50 ${estiloInput('numeroAutorizacion')}`}
-                    />
-                    {tocados.has('numeroAutorizacion') && errors.numeroAutorizacion && (
-                      <p className="text-xs text-red-600 mt-1">{errors.numeroAutorizacion}</p>
-                    )}
-                  </div>
-                )}
+                {/* N.° TUCE — aquí cuando no es prioritario (maestro y GRE Remitente) */}
+                {!campos.tuce && bloqueTUCE}
+
+                {/* Autorización especial — aquí cuando no es prioritaria (solo el maestro) */}
+                {!campos.autorizacionEspecial && bloqueAutorizacionEspecial}
               </div>
             )}
           </div>

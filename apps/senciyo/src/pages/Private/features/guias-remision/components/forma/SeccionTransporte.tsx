@@ -21,6 +21,7 @@ import { useTenant } from '@/shared/tenant/TenantContext';
 import {
   nombreCompletoConductor,
   formatearPlaca,
+  type ContextoFormularioVehiculo,
 } from '../../../configuracion-sistema/components/transporte/helpersTransporte';
 import type { TransportePrivado, TransportePublico, TipoGRE } from '../../modelos/GuiaRemision';
 import { aplicaModalidadTransporteGRE, aplicaM1oLGRE, esTransportePrivadoGRE } from '../../logica/reglasFlujoGRE';
@@ -73,6 +74,7 @@ interface PanelVehiculosProps {
   conductores: Conductor[];
   onChange: (ids: string[]) => void;
   onCrear: (datos: CreateVehiculoInput) => Promise<void>;
+  contexto: ContextoFormularioVehiculo;
 }
 
 function PanelVehiculos({
@@ -81,6 +83,7 @@ function PanelVehiculos({
   conductores,
   onChange,
   onCrear,
+  contexto,
 }: PanelVehiculosProps) {
   const [dropdownAbierto, setDropdownAbierto] = useState(false);
   const [modalNuevo, setModalNuevo] = useState(false);
@@ -254,6 +257,7 @@ function PanelVehiculos({
       <ModalFormularioVehiculo
         isOpen={modalNuevo}
         modo="crear"
+        contexto={contexto}
         vehiculosExistentes={todos}
         conductores={conductores}
         onClose={() => setModalNuevo(false)}
@@ -528,9 +532,11 @@ function BloquePlacaM1L({ placa, todos, conductores, onChange, onCrear }: Bloque
         </div>
       )}
 
+      {/* M1/L es exclusivo de GRE Remitente (aplicaM1oLGRE) — este bloque nunca se monta para Transportista. */}
       <ModalFormularioVehiculo
         isOpen={modalNuevo}
         modo="crear"
+        contexto="remitente"
         vehiculosExistentes={todos}
         conductores={conductores}
         onClose={() => setModalNuevo(false)}
@@ -696,6 +702,7 @@ function SeccionTransportePrivado({ tipo, transporte, onChange }: SeccionTranspo
             conductores={conductores}
             onChange={(ids) => set('vehiculosIds', ids)}
             onCrear={crearVehiculo}
+            contexto={tipo}
           />
           <PanelConductores
             conductoresIds={transporte.conductoresIds}
@@ -976,6 +983,7 @@ function SeccionTransportePublico({ transporte, onChange }: SeccionTransportePub
                 conductores={conductores}
                 onChange={(ids) => set('vehiculosIds', ids)}
                 onCrear={crearVehiculo}
+                contexto="remitente"
               />
               <PanelConductores
                 conductoresIds={transporte.conductoresIds}
