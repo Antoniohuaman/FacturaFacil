@@ -1,11 +1,17 @@
-import { tryLsKey } from '@/shared/tenant';
+import { lsKey } from '@/shared/tenant';
 import { CLAVES_COMPRAS } from '../constantes/clavesAlmacenamientoCompras';
 import type { CuentaPorPagar, TipoOrigenCxP } from '../modelos/CuentaPorPagar';
 
 export const EVENTO_CXP_CAMBIADA = 'compras_cuentas_por_pagar_cambiada';
 
-const obtenerClave = (): string =>
-  tryLsKey(CLAVES_COMPRAS.CUENTAS_POR_PAGAR) ?? CLAVES_COMPRAS.CUENTAS_POR_PAGAR;
+/**
+ * GAS-P3-001: `lsKey` (nunca `tryLsKey(...) ?? CLAVE`) — la Cuenta por Pagar
+ * es dato tenantizado obligatorio (origen 'compra' Y 'gasto'), nunca debe
+ * caer a una clave sin namespace de empresa. `lsKey` lanza si no hay tenant
+ * activo; cada función de abajo ya envuelve esta llamada en su propio
+ * try/catch, así que sin tenant simplemente no lee/escribe nada.
+ */
+const obtenerClave = (): string => lsKey(CLAVES_COMPRAS.CUENTAS_POR_PAGAR);
 
 /** Normaliza registros persistidos ANTES de la generalización de origen documental (§10): sin `tipoOrigen`, se asume 'compra' y `documentoOrigenId` espeja `comprobanteCompraId` — nunca una segunda fuente que pueda desincronizarse. Exportada (pura, sin storage) para poder probarla directamente. */
 export function normalizarOrigenCxP(cxp: CuentaPorPagar): CuentaPorPagar {

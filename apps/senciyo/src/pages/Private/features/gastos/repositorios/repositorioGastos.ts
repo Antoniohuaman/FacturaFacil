@@ -7,14 +7,22 @@
 // (`repositorioCuentasPorPagar.ts`/`repositorioPagosCompra.ts`), filtrados
 // por `tipoOrigen === 'gasto'` — nunca un segundo almacén de CxP/Pagos.
 
-import { tryLsKey } from '@/shared/tenant';
+import { lsKey } from '@/shared/tenant';
 import type { Gasto } from '../modelos/Gasto';
 
 const CLAVE_GASTOS = 'gastos_registro_v1';
 
 export const EVENTO_GASTOS_CAMBIADOS = 'gastos_cambiados';
 
-const obtenerClave = (): string => tryLsKey(CLAVE_GASTOS) ?? CLAVE_GASTOS;
+/**
+ * GAS-P3-001: `lsKey` (no `tryLsKey(...) ?? CLAVE_GASTOS`) — Gastos es dato
+ * tenantizado OBLIGATORIO, nunca debe leerse/escribirse en una clave sin
+ * namespace de empresa. `lsKey` lanza si no hay tenant activo; el `catch`
+ * de cada función de abajo ya envuelve esta llamada, así que sin tenant el
+ * repositorio simplemente no lee/escribe nada (nunca cae a un almacén
+ * global compartido entre empresas).
+ */
+const obtenerClave = (): string => lsKey(CLAVE_GASTOS);
 
 export function cargarGastos(): Gasto[] {
   if (typeof window === 'undefined') return [];

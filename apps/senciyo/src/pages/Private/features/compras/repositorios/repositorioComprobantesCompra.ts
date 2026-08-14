@@ -1,11 +1,16 @@
-import { tryLsKey } from '@/shared/tenant';
+import { lsKey } from '@/shared/tenant';
 import { CLAVES_COMPRAS } from '../constantes/clavesAlmacenamientoCompras';
 import type { ComprobanteCompra } from '../modelos/ComprobanteCompra';
 
 export const EVENTO_CC_CAMBIADA = 'compras_comprobantes_cambiada';
 
-const obtenerClave = (): string =>
-  tryLsKey(CLAVES_COMPRAS.COMPROBANTES_COMPRA) ?? CLAVES_COMPRAS.COMPROBANTES_COMPRA;
+/**
+ * GAS-P3-001: `lsKey` (nunca `tryLsKey(...) ?? CLAVE`) — el Comprobante de
+ * Compra es dato tenantizado obligatorio (y desde GAS-P2-001 también lo
+ * consume la proyección consolidada de gasto operativo), nunca debe caer a
+ * una clave sin namespace de empresa. Ver `repositorioCuentasPorPagar.ts`.
+ */
+const obtenerClave = (): string => lsKey(CLAVES_COMPRAS.COMPROBANTES_COMPRA);
 
 export function cargarComprobantesCompra(): ComprobanteCompra[] {
   if (typeof window === 'undefined') return [];

@@ -9,8 +9,8 @@ import type {
 } from "../models";
 import type { ToastMessage, ToastType } from "../components/common/Toast";
 import { calcularResumenCaja } from "../utils/calculations";
-import { esMovimientoDuplicadoPorIdempotencia } from "../utils/validators";
-import { DescuadreError, CajaCerradaError, handleCajaError } from "../utils/errors";
+import { esMovimientoDuplicadoPorIdempotencia, motivoRechazoMovimientoCaja } from "../utils/validators";
+import { DescuadreError, CajaCerradaError, PermisoCajaError, handleCajaError } from "../utils/errors";
 import { lsKey } from "../../../../../shared/tenant";
 import { useTenant } from "../../../../../shared/tenant/TenantContext";
 import { useConfigurationContext } from "../../configuracion-sistema/contexto/ContextoConfiguracion";
@@ -408,20 +408,40 @@ export const CajaProvider = ({ children }: CajaProviderProps) => {
   }, [aperturaActual, establecimientoId, margenDescuadre, movimientos, rolesConfigurados, showToast, usuarioActual]);
 
   const agregarMovimiento = useCallback(async (movimiento: Omit<Movimiento, 'id' | 'fecha' | 'cajaId' | 'aperturaId'>) => {
-    if (!aperturaActual) {
+    // GAS-P0-001: única decisión de si el movimiento puede registrarse AHORA
+    // — antes, cada condición mostraba un toast y retornaba en silencio
+    // (`Promise<void>` resuelta), dejando creer al llamador (Gastos, Compras,
+    // Cobranzas) que el egreso/ingreso quedó realmente registrado en Caja
+    // cuando no fue así. Ahora SIEMPRE se lanza una excepción controlada
+    // ante un rechazo — nunca "falló, mostré un toast, y seguí adelante".
+    const motivoRechazo = motivoRechazoMovimientoCaja({
+      cajaAbierta: Boolean(aperturaActual),
+      tienePermisoMovimiento: tienePermiso({
+        usuario: usuarioActual,
+        permisoId: 'caja.movimientos.registrar',
+        rolesDisponibles: rolesConfigurados,
+        establecimientoId,
+      }),
+    });
+
+    if (motivoRechazo === 'caja_cerrada') {
       const error = new CajaCerradaError();
       showToast("error", "Error", error.message);
-      return;
+      throw error;
     }
 
-    if (!tienePermiso({
-      usuario: usuarioActual,
-      permisoId: 'caja.movimientos.registrar',
-      rolesDisponibles: rolesConfigurados,
-      establecimientoId,
-    })) {
-      showToast("error", "Sin permiso", "No tienes permisos para registrar movimientos de caja.");
-      return;
+    if (motivoRechazo === 'sin_permiso') {
+      const error = new PermisoCajaError();
+      showToast("error", "Sin permiso", error.message);
+      throw error;
+    }
+
+    // Inalcanzable en la práctica: `motivoRechazo` ya habría lanzado
+    // 'caja_cerrada' arriba si `aperturaActual` fuera null — este guard
+    // existe únicamente para que TypeScript angoste el tipo de
+    // `aperturaActual` a no nulo en el resto de la función.
+    if (!aperturaActual) {
+      throw new CajaCerradaError();
     }
 
     // Protección real contra doble clic/reintento (nunca solo un botón

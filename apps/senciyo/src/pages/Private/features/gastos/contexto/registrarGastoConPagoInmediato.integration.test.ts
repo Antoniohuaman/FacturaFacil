@@ -17,6 +17,7 @@
 // con las funciones de producción reales.
 
 import { describe, it, expect } from 'vitest';
+import { CajaCerradaError, PermisoCajaError } from '../../control-caja/utils/errors';
 import { validarGastoBasico, crearGasto, type DatosNuevoGasto } from '../servicios/servicioGasto';
 import { aplicarPagoACuentaPorPagar } from '../../compras/servicios/servicioCuentaPorPagar';
 import { generarCuentaPorPagarDesdeGasto } from '../servicios/servicioCuentaPorPagarGasto';
@@ -398,5 +399,49 @@ describe('registrarGastoConPagoInmediato — "Registrar y pagar" deja el gasto r
       }),
     ).rejects.toThrow();
     expect(reversiones).toBe(0);
+  });
+
+  it('15. GAS-P0-001 — Caso 1: gastos.pagar concedido pero caja.movimientos.registrar denegado — la Caja real (agregarMovimiento) rechaza y NO llega a construirse gasto/CxP/pago', async () => {
+    // `registrarCaja` aquí representa `useCaja().agregarMovimiento` — desde
+    // la corrección de GAS-P0-001, esa función NUNCA resuelve en silencio
+    // ante un permiso faltante: lanza `PermisoCajaError` (antes solo
+    // mostraba un toast y resolvía la promesa, dejando que el llamador
+    // persistiera Gasto/CxP/Pago como si el egreso de Caja hubiera ocurrido).
+    await expect(
+      simularRegistrarGastoConPagoInmediato({
+        datos: crearDatosContadoFixture(),
+        mediosPago: [crearMedioEfectivo(50)],
+        claveIdempotencia: 'clave-15',
+        pagosExistentes: [],
+        mediosDisponibles: MEDIOS_DISPONIBLES,
+        cajaAbierta: true, // el estado de Caja del contexto ya está abierto: el permiso es la única causa de rechazo
+        seriePG: 'PG01',
+        registrarCaja: async () => { throw new PermisoCajaError(); },
+      }),
+    ).rejects.toThrow('No tienes permisos para registrar movimientos de caja.');
+    // La función simulada lanza ANTES de construir/retornar gasto, CxP o
+    // pago (misma estructura que `ContextoGastos.tsx#registrarGastoConPagoInmediato`:
+    // ninguna de las 3 escrituras de persistencia ocurre después del `for`
+    // que registra Caja si este lanza).
+  });
+
+  it('16. GAS-P0-001 — Caso 2: la propia Caja rechaza por estar cerrada (defensa en la capa responsable, no solo en la verificación previa de Gastos) — NO se persiste nada', async () => {
+    // Distinto del test 5 (que bloquea ANTES de intentar Caja, por el
+    // propio `estadoCaja` que ya conoce `ContextoGastos.tsx`): aquí se
+    // simula que la Caja real, al momento de registrar, también rechaza por
+    // sí misma — la defensa vive en la capa responsable (Caja), no
+    // únicamente en la verificación previa del llamador.
+    await expect(
+      simularRegistrarGastoConPagoInmediato({
+        datos: crearDatosContadoFixture(),
+        mediosPago: [crearMedioEfectivo(50)],
+        claveIdempotencia: 'clave-16',
+        pagosExistentes: [],
+        mediosDisponibles: MEDIOS_DISPONIBLES,
+        cajaAbierta: true,
+        seriePG: 'PG01',
+        registrarCaja: async () => { throw new CajaCerradaError(); },
+      }),
+    ).rejects.toThrow('La caja está cerrada.');
   });
 });

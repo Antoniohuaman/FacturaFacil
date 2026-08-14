@@ -828,7 +828,14 @@ export function GastosProvider({ children }: GastosProviderProps) {
           referencia: pago.numeroPago,
           usuarioId: session?.userId ?? '',
           usuarioNombre: session?.userName ?? '',
-          claveIdempotencia: `reversion-${pagoId}`,
+          // Clave DETERMINISTA por línea (`:${medio.id}`) — mismo criterio que
+          // el registro (§14 de la corrección técnica final, `registrarGastoConPagoInmediato`/
+          // `registrarPagoGastoCentral`): un pago con dos medios de efectivo
+          // nunca debe compartir la misma clave entre ambas líneas, o
+          // `esMovimientoDuplicadoPorIdempotencia` descartaría la segunda
+          // reversión como si fuera un reintento de la primera, dejando un
+          // egreso original sin su Ingreso compensatorio.
+          claveIdempotencia: `reversion-${pagoId}:${medio.id}`,
         });
       }
 

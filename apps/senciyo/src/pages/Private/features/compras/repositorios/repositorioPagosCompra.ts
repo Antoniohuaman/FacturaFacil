@@ -1,11 +1,15 @@
-import { tryLsKey } from '@/shared/tenant';
+import { lsKey } from '@/shared/tenant';
 import { CLAVES_COMPRAS } from '../constantes/clavesAlmacenamientoCompras';
 import type { PagoCompra } from '../modelos/PagoCompra';
 
 export const EVENTO_PAGOS_CAMBIADOS = 'compras_pagos_cambiados';
 
-const obtenerClave = (): string =>
-  tryLsKey(CLAVES_COMPRAS.PAGOS) ?? CLAVES_COMPRAS.PAGOS;
+/**
+ * GAS-P3-001: `lsKey` (nunca `tryLsKey(...) ?? CLAVE`) — el Pago es dato
+ * tenantizado obligatorio (origen 'compra' Y 'gasto'), nunca debe caer a una
+ * clave sin namespace de empresa. Ver `repositorioCuentasPorPagar.ts`.
+ */
+const obtenerClave = (): string => lsKey(CLAVES_COMPRAS.PAGOS);
 
 export function cargarPagosCompra(): PagoCompra[] {
   if (typeof window === 'undefined') return [];

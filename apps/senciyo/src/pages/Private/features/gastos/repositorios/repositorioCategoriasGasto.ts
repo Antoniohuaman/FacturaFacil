@@ -9,7 +9,7 @@
 // patrón de repositorio que el resto de Gastos/Compras (tryLsKey + array
 // completo), nunca un backend nuevo.
 
-import { tryLsKey } from '@/shared/tenant';
+import { lsKey } from '@/shared/tenant';
 import type { CategoriaGasto } from '../modelos/CategoriaGasto';
 import { CATEGORIAS_GASTO_SEMILLA } from '../modelos/CategoriaGasto';
 
@@ -17,7 +17,8 @@ const CLAVE_CATEGORIAS_GASTO = 'gastos_categorias_v1';
 
 export const EVENTO_CATEGORIAS_GASTO_CAMBIADAS = 'gastos_categorias_cambiadas';
 
-const obtenerClave = (): string => tryLsKey(CLAVE_CATEGORIAS_GASTO) ?? CLAVE_CATEGORIAS_GASTO;
+/** GAS-P3-001: `lsKey` (nunca `tryLsKey(...) ?? CLAVE`) — las categorías de gasto son dato tenantizado obligatorio, nunca una clave sin namespace de empresa. Ver `repositorioGastos.ts`. */
+const obtenerClave = (): string => lsKey(CLAVE_CATEGORIAS_GASTO);
 
 function construirSemilla(empresaId: string): CategoriaGasto[] {
   const ts = new Date().toISOString();

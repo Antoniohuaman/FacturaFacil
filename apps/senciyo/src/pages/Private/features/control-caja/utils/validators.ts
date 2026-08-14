@@ -22,6 +22,28 @@ export const esMovimientoDuplicadoPorIdempotencia = (
   return movimientos.some(coincide) || historialMovimientos.some(coincide);
 };
 
+export type MotivoRechazoMovimientoCaja = 'caja_cerrada' | 'sin_permiso';
+
+/**
+ * Única fuente de verdad que decide si `agregarMovimiento` puede registrar un
+ * movimiento AHORA (GAS-P0-001) — antes, las dos condiciones de abajo solo
+ * mostraban un toast y la promesa se resolvía en silencio como si el
+ * movimiento se hubiera registrado, permitiendo que el llamador (Gastos,
+ * Compras, Cobranzas) siguiera adelante y persistiera un Pago/CxP/Cobranza
+ * como si Caja lo hubiera respaldado, sin que existiera egreso/ingreso real.
+ * `agregarMovimiento` debe LANZAR cuando esta función retorna un motivo —
+ * nunca resolver en silencio. Caja cerrada tiene prioridad sobre el permiso
+ * (un usuario sin caja abierta no necesita enterarse de si tendría permiso).
+ */
+export function motivoRechazoMovimientoCaja(params: {
+  cajaAbierta: boolean;
+  tienePermisoMovimiento: boolean;
+}): MotivoRechazoMovimientoCaja | null {
+  if (!params.cajaAbierta) return 'caja_cerrada';
+  if (!params.tienePermisoMovimiento) return 'sin_permiso';
+  return null;
+}
+
 /**
  * Valida si un descuadre está dentro del margen permitido
  */

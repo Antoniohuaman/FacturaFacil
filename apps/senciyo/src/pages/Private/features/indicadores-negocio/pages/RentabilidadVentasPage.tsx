@@ -37,11 +37,13 @@ import { useIndicadoresFilters } from '../hooks/useIndicadoresFilters';
 import {
   proyectarFilasGastosOperativos,
   filtrarFilasGastosOperativos,
-  calcularIndicadoresGastosOperativos,
+  proyectarLineasGastoDesdeComprobantesCompra,
+  calcularIndicadoresGastoOperativoConsolidado,
 } from '../../gastos/servicios/consultaGastosOperativos.service';
 import { cargarGastos, EVENTO_GASTOS_CAMBIADOS } from '../../gastos/repositorios/repositorioGastos';
 import { cargarCuentasPorPagar } from '../../compras/repositorios/repositorioCuentasPorPagar';
 import { cargarCategoriasGasto } from '../../gastos/repositorios/repositorioCategoriasGasto';
+import { cargarComprobantesCompra, EVENTO_CC_CAMBIADA } from '../../compras/repositorios/repositorioComprobantesCompra';
 import { useConfigurationContext } from '../../configuracion-sistema/contexto/ContextoConfiguracion';
 import { useComprobanteContext } from '../../comprobantes-electronicos/lista-comprobantes/contexts/ComprobantesListContext';
 import type { ComprobanteStatus } from '../../comprobantes-electronicos/models/comprobante.types';
@@ -326,6 +328,12 @@ const RentabilidadVentasPage: React.FC = () => {
   // escritura.
   const [gastos, setGastos] = useState(() => cargarGastos());
   const [cuentasPorPagarGasto, setCuentasPorPagarGasto] = useState(() => cargarCuentasPorPagar());
+  // GAS-P2-001: comprobantes de Compra, para consolidar en el gasto operativo
+  // las líneas `clasificacion === 'gasto'` (un gasto operativo registrado
+  // como comprobante de proveedor en Compras en vez de en el módulo Gastos)
+  // — se recarga con el MISMO patrón reactivo, ante su propio evento de
+  // cambio (`EVENTO_CC_CAMBIADA`), nunca solo al montar la página.
+  const [comprobantesCompra, setComprobantesCompra] = useState(() => cargarComprobantesCompra());
   useEffect(() => {
     const recargar = () => {
       setGastos(cargarGastos());
@@ -333,6 +341,11 @@ const RentabilidadVentasPage: React.FC = () => {
     };
     window.addEventListener(EVENTO_GASTOS_CAMBIADOS, recargar);
     return () => window.removeEventListener(EVENTO_GASTOS_CAMBIADOS, recargar);
+  }, []);
+  useEffect(() => {
+    const recargar = () => setComprobantesCompra(cargarComprobantesCompra());
+    window.addEventListener(EVENTO_CC_CAMBIADA, recargar);
+    return () => window.removeEventListener(EVENTO_CC_CAMBIADA, recargar);
   }, []);
   const categoriasGastoPorId = useMemo(() => {
     const mapa = new Map<string, string>();
@@ -364,7 +377,24 @@ const RentabilidadVentasPage: React.FC = () => {
     ),
     [gastos, cuentasPorPagarGasto, categoriasGastoPorId, establecimientosPorId, monedaBase, dateRange.startDate, dateRange.endDate, EstablecimientoId]
   );
-  const indicadoresGastos = useMemo(() => calcularIndicadoresGastosOperativos(filasGastosOperativos), [filasGastosOperativos]);
+  // GAS-P2-001: líneas de Compra clasificadas como gasto, dentro del MISMO
+  // periodo — sin atribución de establecimiento posible (`ComprobanteCompra`
+  // no tiene ese campo), por lo que solo participan en la vista "Toda la
+  // empresa" (la propia función retorna vacío si `EstablecimientoId` es
+  // específico, nunca adivina una atribución).
+  const filasComprasGastoOperativo = useMemo(
+    () => proyectarLineasGastoDesdeComprobantesCompra({
+      comprobantes: comprobantesCompra,
+      monedaBase,
+      periodo: { desde: dateRange.startDate, hasta: dateRange.endDate },
+      establecimientoId: EstablecimientoId,
+    }),
+    [comprobantesCompra, monedaBase, dateRange.startDate, dateRange.endDate, EstablecimientoId]
+  );
+  const indicadoresGastos = useMemo(
+    () => calcularIndicadoresGastoOperativoConsolidado(filasGastosOperativos, filasComprasGastoOperativo),
+    [filasGastosOperativos, filasComprasGastoOperativo]
+  );
   const resultadoOperativo = useMemo(
     () => calcularResultadoOperativo(indicadores, indicadoresGastos),
     [indicadores, indicadoresGastos]

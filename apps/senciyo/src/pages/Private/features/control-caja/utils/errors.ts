@@ -56,6 +56,20 @@ export class CajaAbiertaError extends CajaError {
 }
 
 /**
+ * GAS-P0-001: lanzada por `agregarMovimiento` cuando el usuario no tiene el
+ * permiso `caja.movimientos.registrar` — antes de esta corrección, esta
+ * condición solo mostraba un toast y resolvía la promesa en silencio, lo que
+ * permitía a un llamador (Gastos/Compras/Cobranzas) persistir un Pago/CxP
+ * como si el egreso/ingreso de Caja se hubiera registrado realmente.
+ */
+export class PermisoCajaError extends CajaError {
+  constructor() {
+    super('No tienes permisos para registrar movimientos de caja.', 'SIN_PERMISO_MOVIMIENTO');
+    this.name = 'PermisoCajaError';
+  }
+}
+
+/**
  * Maneja errores de forma centralizada y retorna un mensaje amigable
  */
 export const handleCajaError = (error: unknown): string => {

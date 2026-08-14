@@ -13,6 +13,7 @@ import { getNombreTipoDocumentoProveedor } from '../../compras/constantes/tiposD
 import { getBusinessDateParts } from '@/shared/time/businessTime';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
 import type { PagoCompra } from '../../compras/modelos/PagoCompra';
+import type { ComprobanteCompra } from '../../compras/modelos/ComprobanteCompra';
 import type { Series } from '../../configuracion-sistema/modelos/Series';
 import type { Gasto, EstadoDocumentoGasto } from '../modelos/Gasto';
 import { importeReconocidoComoGasto, resolverEstadoPagoGasto, presentarReferenciaGasto, presentarEstadoVisualGasto, presentarClaseEstadoVisualGasto, esBorradorDescartadoGasto, ETIQUETA_ALCANCE_TODA_EMPRESA } from './servicioGasto';
@@ -87,8 +88,8 @@ export interface ParametrosProyeccionGastos {
   establecimientoId?: string;
 }
 
-/** Convierte el importe reconocido a moneda base con el TC HISTÓRICO del propio gasto — nunca el vigente, nunca asumido en 1 (mismo criterio que Rentabilidad de Ventas). */
-function convertirAMonedaBase(importe: number, monedaOriginal: string, monedaBase: string, tipoCambio: number | undefined): number | null {
+/** Convierte el importe reconocido a moneda base con el TC HISTÓRICO del propio gasto — nunca el vigente, nunca asumido en 1 (mismo criterio que Rentabilidad de Ventas). Exportada para que `proyectarLineasGastoDesdeComprobantesCompra` (GAS-P2-001) reutilice la MISMA conversión, nunca una segunda fórmula. */
+export function convertirAMonedaBase(importe: number, monedaOriginal: string, monedaBase: string, tipoCambio: number | undefined): number | null {
   if (monedaOriginal === monedaBase) return round2(importe);
   if (!tipoCambio || tipoCambio <= 0) return null;
   return round2(convertMoney(importe, monedaOriginal, monedaBase, tipoCambio));
@@ -228,6 +229,142 @@ export function calcularIndicadoresGastosOperativos(filas: readonly FilaGastoOpe
   return {
     gastosOperativosReconocidos: round2(gastosOperativosReconocidos),
     totalLineas: filas.length,
+    lineasSinTipoCambio,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// GAS-P2-001 — Proyección consolidada del "gasto operativo" de la empresa.
+//
+// La auditoría del módulo de Gastos detectó que un gasto operativo con
+// comprobante formal del proveedor puede registrarse por DOS caminos
+// igualmente válidos: (a) como `Gasto` en este módulo, o (b) como
+// `ComprobanteCompra` en Compras con una línea `clasificacion === 'gasto'`
+// (`compras/modelos/LineaCompra.ts`, usada hoy únicamente para decidir que la
+// línea nunca es inventariable — `calcularEsInventariable`,
+// `compras/logica/reglasCompras.ts`). Ambos caminos generan correctamente su
+// propia Cuenta por Pagar/Pago (nunca se duplica ni se genera una segunda
+// obligación aquí — esto sigue siendo una proyección de LECTURA), pero solo
+// el camino (a) alimentaba los indicadores de "gasto operativo"/Rentabilidad
+// Operativa. Las funciones de abajo consolidan AMBOS orígenes en los MISMOS
+// indicadores (`IndicadoresGastosOperativos`) sin fusionar sus filas ni crear
+// un tercer modelo de persistencia — cada fila conserva su `origen` explícito.
+// ---------------------------------------------------------------------------
+
+/** Una fila de Compras que participa en el gasto operativo consolidado — nunca un `Gasto`, nunca genera CxP/Pago aquí (esos ya existen, generados por Compras). */
+export interface FilaGastoDesdeCompra {
+  id: string;
+  origen: 'compra';
+  comprobanteCompraId: string;
+  lineaId: string;
+  fecha: string;
+  concepto: string;
+  proveedorNombre: string;
+  monedaOriginal: string;
+  tipoCambio?: number;
+  subtotal: number;
+  impuesto: number;
+  total: number;
+  /** En moneda base — `null` cuando falta un TC histórico válido (mismo criterio que `FilaGastoOperativo.importeReconocidoBase`, nunca asumido en 1). */
+  importeReconocidoBase: number | null;
+}
+
+/**
+ * Importe reconocido de UNA línea de Compra clasificada como gasto — mismo
+ * criterio que `importeReconocidoComoGasto` (Gasto.ts): si el IGV de la línea
+ * es recuperable, el impuesto NO forma parte del gasto (solo el subtotal);
+ * en cualquier otro caso (no recuperable, o `esImpuestoRecuperable` ausente/
+ * `null` — nunca ocurre en una línea ya registrada, `validarLineasCompra`
+ * bloquea ese estado antes de guardar) el total completo se reconoce como
+ * gasto. Nunca una segunda fórmula de "qué parte del impuesto es gasto".
+ */
+function importeReconocidoLineaCompraGasto(linea: Pick<import('../../compras/modelos/LineaCompra').LineaCompra, 'subtotal' | 'total' | 'esImpuestoRecuperable'>): number {
+  return linea.esImpuestoRecuperable === true ? round2(linea.subtotal) : round2(linea.total);
+}
+
+/**
+ * Proyecta, como filas de gasto operativo, las líneas `clasificacion ===
+ * 'gasto'` de los Comprobantes de Compra REGISTRADOS (nunca borrador ni
+ * anulado — mismo criterio que el filtro `estadoDocumento: 'registrado'` que
+ * ya aplica Rentabilidad Operativa al proyectar `Gasto`). Filtra por periodo
+ * con `fechaRegistro` (mismo campo que usa Compras para sus propios reportes,
+ * nunca la fecha del documento del proveedor, que puede ser anterior).
+ *
+ * `ComprobanteCompra` no tiene un campo de establecimiento propio (a
+ * diferencia de `Gasto.establecimientoId`) — nunca se le inventa una
+ * atribución: cuando el llamador filtra por un establecimiento ESPECÍFICO
+ * (`establecimientoId` presente y distinto de `undefined`/`'Todos'`), esta
+ * función retorna un arreglo vacío en vez de adivinar a qué establecimiento
+ * pertenece cada línea (evita sobre-contar un gasto de la empresa completa
+ * dentro del reporte de un solo establecimiento). Solo participa en la vista
+ * consolidada de "Toda la empresa".
+ */
+export function proyectarLineasGastoDesdeComprobantesCompra(params: {
+  comprobantes: readonly ComprobanteCompra[];
+  monedaBase: string;
+  periodo: { desde: string; hasta: string };
+  establecimientoId?: string;
+}): FilaGastoDesdeCompra[] {
+  const { comprobantes, monedaBase, periodo, establecimientoId } = params;
+  if (establecimientoId && establecimientoId !== 'Todos') return [];
+
+  const filas: FilaGastoDesdeCompra[] = [];
+  for (const cc of comprobantes) {
+    if (cc.estadoDocumento !== 'registrado') continue;
+    const fecha = cc.fechaRegistro.slice(0, 10);
+    if (periodo.desde && fecha < periodo.desde) continue;
+    if (periodo.hasta && fecha > periodo.hasta) continue;
+
+    for (const linea of cc.lineas) {
+      if (linea.clasificacion !== 'gasto') continue;
+      const importeReconocido = importeReconocidoLineaCompraGasto(linea);
+      filas.push({
+        id: `${cc.id}-${linea.id}`,
+        origen: 'compra',
+        comprobanteCompraId: cc.id,
+        lineaId: linea.id,
+        fecha: cc.fechaRegistro,
+        concepto: linea.nombreProducto,
+        proveedorNombre: cc.proveedorNombre,
+        monedaOriginal: cc.moneda,
+        tipoCambio: cc.tipoCambio,
+        subtotal: round2(linea.subtotal),
+        impuesto: round2(linea.igv),
+        total: round2(linea.total),
+        importeReconocidoBase: convertirAMonedaBase(importeReconocido, cc.moneda, monedaBase, cc.tipoCambio),
+      });
+    }
+  }
+  return filas;
+}
+
+/**
+ * Indicadores consolidados de gasto operativo — MISMA forma
+ * (`IndicadoresGastosOperativos`) que ya consume `calcularResultadoOperativo`
+ * (`indicadores-negocio/services/consultaRentabilidadVentas.service.ts`), por
+ * lo que ese consumidor no necesita ningún cambio: solo se le pasa un total
+ * que ahora también considera las líneas de Compra clasificadas como gasto,
+ * sumadas UNA sola vez cada una (nunca su CxP, nunca su Pago, nunca una
+ * segunda vez si el mismo comprobante tiene varias líneas de gasto — cada
+ * línea aporta solo su propio importe).
+ */
+export function calcularIndicadoresGastoOperativoConsolidado(
+  filasGasto: readonly FilaGastoOperativo[],
+  filasCompras: readonly FilaGastoDesdeCompra[],
+): IndicadoresGastosOperativos {
+  const indicadoresGasto = calcularIndicadoresGastosOperativos(filasGasto);
+  let gastosOperativosReconocidos = indicadoresGasto.gastosOperativosReconocidos;
+  let lineasSinTipoCambio = indicadoresGasto.lineasSinTipoCambio;
+  for (const fila of filasCompras) {
+    if (fila.importeReconocidoBase === null) {
+      lineasSinTipoCambio += 1;
+      continue;
+    }
+    gastosOperativosReconocidos += fila.importeReconocidoBase;
+  }
+  return {
+    gastosOperativosReconocidos: round2(gastosOperativosReconocidos),
+    totalLineas: indicadoresGasto.totalLineas + filasCompras.length,
     lineasSinTipoCambio,
   };
 }

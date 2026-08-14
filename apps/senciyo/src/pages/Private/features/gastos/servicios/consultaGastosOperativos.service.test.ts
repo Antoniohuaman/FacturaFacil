@@ -6,12 +6,16 @@ import {
   agruparFilasGastosOperativos,
   construirFilaExcelGastoOperativo,
   CLAVES_EXCEL_GASTOS_OPERATIVOS,
+  proyectarLineasGastoDesdeComprobantesCompra,
+  calcularIndicadoresGastoOperativoConsolidado,
   type ParametrosProyeccionGastos,
   type FilaGastoOperativo,
 } from './consultaGastosOperativos.service';
 import type { Gasto } from '../modelos/Gasto';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
 import type { PagoCompra } from '../../compras/modelos/PagoCompra';
+import type { ComprobanteCompra } from '../../compras/modelos/ComprobanteCompra';
+import type { LineaCompra } from '../../compras/modelos/LineaCompra';
 import { MOTIVO_DESCARTE_BORRADOR_GASTO } from './servicioGasto';
 
 function crearGastoFixture(overrides: Partial<Gasto> = {}): Gasto {
@@ -663,5 +667,216 @@ describe('Reactividad del resultado operativo ante cambios en Gastos (GAS-P2-003
     const filasDespues = proyectar({ gastos: [gastoAnulado] });
     const indicadoresDespues = calcularIndicadoresGastosOperativos(filasDespues);
     expect(indicadoresDespues.gastosOperativosReconocidos).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GAS-P2-001 — Proyección consolidada Gastos + líneas de Compra 'gasto'
+// ---------------------------------------------------------------------------
+
+function crearLineaCompraFixture(overrides: Partial<LineaCompra> = {}): LineaCompra {
+  return {
+    id: 'linea-1',
+    nombreProducto: 'Mantenimiento de equipos',
+    clasificacion: 'gasto',
+    afectaInventario: false,
+    unidadMedida: 'Unidad',
+    unidadMedidaCodigo: 'NIU',
+    unidadesDisponibles: [],
+    cantidadSolicitada: 1,
+    cantidadRecibida: 1,
+    cantidadFacturada: 1,
+    cantidadIngresadaInventario: 0,
+    cantidadPendienteRecepcion: 0,
+    cantidadPendienteFacturacion: 0,
+    cantidadPendienteInventario: 0,
+    costoUnitario: 100,
+    subtotal: 100,
+    tipoAfectacion: 'gravado',
+    igv: 18,
+    total: 118,
+    esImpuestoRecuperable: false,
+    ...overrides,
+  } as LineaCompra;
+}
+
+function crearComprobanteCompraFixture(overrides: Partial<ComprobanteCompra> = {}): ComprobanteCompra {
+  return {
+    id: 'cc-1',
+    tipoRegistro: 'comprobante_compra',
+    serieProveedor: 'F001',
+    numeroProveedor: '00000123',
+    tipoComprobanteProveedor: 'Factura',
+    fechaRegistro: '2026-07-15',
+    proveedorId: 'prov-1',
+    proveedorTipoDocumento: 'RUC',
+    proveedorNumeroDocumento: '20123456789',
+    proveedorNombre: 'Proveedor de mantenimiento SAC',
+    moneda: 'PEN',
+    formaPago: 'contado',
+    modalidadInventario: 'no_afecta_inventario',
+    lineas: [crearLineaCompraFixture()],
+    totales: { subtotal: 100, subtotalExonerado: 0, subtotalInafecto: 0, descuentoTotal: 0, igv: 18, total: 118, moneda: 'PEN' },
+    adjuntos: [],
+    historial: [],
+    fechaCreacion: '2026-07-15T00:00:00.000Z',
+    fechaActualizacion: '2026-07-15T00:00:00.000Z',
+    estadoDocumento: 'registrado',
+    estadoPago: 'pendiente',
+    estadoInventario: 'no_aplica',
+    ...overrides,
+  } as ComprobanteCompra;
+}
+
+const PERIODO_JULIO = { desde: '2026-07-01', hasta: '2026-07-31' };
+
+describe('proyectarLineasGastoDesdeComprobantesCompra (GAS-P2-001)', () => {
+  it('una línea clasificacion="producto" nunca entra al gasto operativo consolidado', () => {
+    const cc = crearComprobanteCompraFixture({ lineas: [crearLineaCompraFixture({ clasificacion: 'producto' })] });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas).toHaveLength(0);
+  });
+
+  it('una línea clasificacion="servicio" (no "gasto") tampoco entra — respeta la clasificación funcional existente', () => {
+    const cc = crearComprobanteCompraFixture({ lineas: [crearLineaCompraFixture({ clasificacion: 'servicio' })] });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas).toHaveLength(0);
+  });
+
+  it('una línea clasificacion="gasto" entra exactamente UNA vez, con origen "compra"', () => {
+    const cc = crearComprobanteCompraFixture();
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas).toHaveLength(1);
+    expect(filas[0].origen).toBe('compra');
+    expect(filas[0].comprobanteCompraId).toBe('cc-1');
+    expect(filas[0].importeReconocidoBase).toBe(118); // no recuperable → total completo, mismo criterio que Gasto
+  });
+
+  it('un comprobante MIXTO (producto + gasto + servicio) solo aporta la línea clasificada "gasto"', () => {
+    const cc = crearComprobanteCompraFixture({
+      lineas: [
+        crearLineaCompraFixture({ id: 'l-producto', clasificacion: 'producto', total: 500 }),
+        crearLineaCompraFixture({ id: 'l-gasto', clasificacion: 'gasto', subtotal: 100, igv: 18, total: 118 }),
+        crearLineaCompraFixture({ id: 'l-servicio', clasificacion: 'servicio', total: 300 }),
+      ],
+    });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas).toHaveLength(1);
+    expect(filas[0].lineaId).toBe('l-gasto');
+    expect(filas[0].total).toBe(118);
+  });
+
+  it('un comprobante ANULADO nunca contamina el consolidado, aunque tenga líneas "gasto"', () => {
+    const cc = crearComprobanteCompraFixture({ estadoDocumento: 'anulado', motivoAnulacion: 'Error en importes' });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas).toHaveLength(0);
+  });
+
+  it('un comprobante en BORRADOR tampoco contamina el consolidado (mismo criterio que Gasto: solo "registrado")', () => {
+    const cc = crearComprobanteCompraFixture({ estadoDocumento: 'borrador' });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas).toHaveLength(0);
+  });
+
+  it('fuera del periodo filtrado, la línea no se proyecta', () => {
+    const cc = crearComprobanteCompraFixture({ fechaRegistro: '2026-08-01' });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas).toHaveLength(0);
+  });
+
+  it('moneda extranjera con TC histórico del propio comprobante: convierte correctamente a moneda base', () => {
+    const cc = crearComprobanteCompraFixture({
+      moneda: 'USD',
+      tipoCambio: 3.8,
+      lineas: [crearLineaCompraFixture({ subtotal: 100, igv: 18, total: 118, esImpuestoRecuperable: false })],
+    });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas[0].monedaOriginal).toBe('USD');
+    expect(filas[0].tipoCambio).toBe(3.8);
+    expect(filas[0].importeReconocidoBase).toBe(448.4); // 118 * 3.8
+  });
+
+  it('moneda extranjera SIN tipo de cambio: importeReconocidoBase es null (nunca asumido en 1)', () => {
+    const cc = crearComprobanteCompraFixture({ moneda: 'USD', tipoCambio: undefined });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas[0].importeReconocidoBase).toBeNull();
+  });
+
+  it('impuesto recuperable en la línea de Compra: solo el subtotal se reconoce como gasto (mismo criterio que Gasto.tratamientoImpuesto)', () => {
+    const cc = crearComprobanteCompraFixture({
+      lineas: [crearLineaCompraFixture({ subtotal: 100, igv: 18, total: 118, esImpuestoRecuperable: true })],
+    });
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    expect(filas[0].importeReconocidoBase).toBe(100);
+  });
+
+  it('con un establecimiento ESPECÍFICO filtrado, retorna vacío — ComprobanteCompra no tiene atribución de establecimiento, nunca se adivina', () => {
+    const cc = crearComprobanteCompraFixture();
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({
+      comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO, establecimientoId: 'est-1',
+    });
+    expect(filas).toHaveLength(0);
+  });
+
+  it('con establecimientoId="Todos" (vista consolidada de toda la empresa), sí participa', () => {
+    const cc = crearComprobanteCompraFixture();
+    const filas = proyectarLineasGastoDesdeComprobantesCompra({
+      comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO, establecimientoId: 'Todos',
+    });
+    expect(filas).toHaveLength(1);
+  });
+});
+
+describe('calcularIndicadoresGastoOperativoConsolidado (GAS-P2-001)', () => {
+  function proyectar(overrides: Partial<ParametrosProyeccionGastos> = {}): FilaGastoOperativo[] {
+    return proyectarFilasGastosOperativos({
+      gastos: [], cuentasPorPagar: [], categorias, establecimientos: new Map(),
+      monedaBase: 'PEN', periodo: PERIODO_JULIO, ...overrides,
+    });
+  }
+
+  it('un Gasto registrado directo entra normalmente al consolidado (sin líneas de Compra)', () => {
+    const filasGasto = proyectar({ gastos: [crearGastoFixture({ total: 118 })] });
+    const indicadores = calcularIndicadoresGastoOperativoConsolidado(filasGasto, []);
+    expect(indicadores.gastosOperativosReconocidos).toBe(118);
+    expect(indicadores.totalLineas).toBe(1);
+  });
+
+  it('una línea de Compra "gasto" entra normalmente al consolidado (sin Gastos directos)', () => {
+    const cc = crearComprobanteCompraFixture();
+    const filasCompras = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    const indicadores = calcularIndicadoresGastoOperativoConsolidado([], filasCompras);
+    expect(indicadores.gastosOperativosReconocidos).toBe(118);
+    expect(indicadores.totalLineas).toBe(1);
+  });
+
+  it('un Gasto directo + una línea de Compra "gasto" DISTINTOS suman ambos correctamente, sin doble conteo', () => {
+    const filasGasto = proyectar({ gastos: [crearGastoFixture({ id: 'gasto-1', total: 118 })] });
+    const cc = crearComprobanteCompraFixture({ id: 'cc-2' });
+    const filasCompras = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+
+    const indicadores = calcularIndicadoresGastoOperativoConsolidado(filasGasto, filasCompras);
+    expect(indicadores.gastosOperativosReconocidos).toBe(236); // 118 (Gasto) + 118 (línea de Compra)
+    expect(indicadores.totalLineas).toBe(2);
+  });
+
+  it('el mismo comprobante de Compra con pago aplicado NUNCA suma su CxP/Pago como un segundo gasto — solo la línea aporta su propio importe', () => {
+    // La CxP y el Pago generados por Compras para este CC no se leen aquí en
+    // ningún momento (la función ni siquiera los recibe como parámetro) —
+    // confirma que "consolidar" es una proyección de LECTURA de líneas, nunca
+    // una segunda suma del lado financiero ya cubierto por Compras.
+    const cc = crearComprobanteCompraFixture({ estadoPago: 'pagada', pagosRelacionados: ['pago-cc-1'] });
+    const filasCompras = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    const indicadores = calcularIndicadoresGastoOperativoConsolidado([], filasCompras);
+    expect(indicadores.gastosOperativosReconocidos).toBe(118);
+    expect(indicadores.totalLineas).toBe(1);
+  });
+
+  it('una línea de Compra sin tipo de cambio válido se cuenta en lineasSinTipoCambio, nunca se asume 0 ni 1', () => {
+    const cc = crearComprobanteCompraFixture({ moneda: 'USD', tipoCambio: undefined });
+    const filasCompras = proyectarLineasGastoDesdeComprobantesCompra({ comprobantes: [cc], monedaBase: 'PEN', periodo: PERIODO_JULIO });
+    const indicadores = calcularIndicadoresGastoOperativoConsolidado([], filasCompras);
+    expect(indicadores.lineasSinTipoCambio).toBe(1);
+    expect(indicadores.gastosOperativosReconocidos).toBe(0);
   });
 });
