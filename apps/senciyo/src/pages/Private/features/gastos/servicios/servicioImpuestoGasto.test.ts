@@ -61,6 +61,35 @@ describe('resolverImpuestoGasto', () => {
     expect(resuelto!.tasa).toBe(0.18);
     expect(resuelto!.nombre).toContain('18%');
   });
+
+  it('un impuesto de monto fijo (ej. ICBPER) nunca se resuelve como fracción — devuelve null', () => {
+    const icbper = crearTaxFixture({ id: 'tax-icbper', type: 'FIXED_AMOUNT', rate: 0.5, affectationCode: undefined });
+    expect(resolverImpuestoGasto('tax-icbper', [icbper])).toBeNull();
+  });
+});
+
+describe('listarImpuestosConfiguradosGasto — filtros contextuales de Gastos (auditoría de fuentes de verdad §20/§21)', () => {
+  it('excluye impuestos de monto fijo (type !== PERCENTAGE) — nunca se ofrecen para calcularse como fracción', () => {
+    const igv = crearTaxFixture();
+    const icbper = crearTaxFixture({ id: 'tax-icbper', name: 'ICBPER', type: 'FIXED_AMOUNT', rate: 0.5, affectationCode: undefined });
+    const disponibles = listarImpuestosConfiguradosGasto([igv, icbper]);
+    expect(disponibles.map((d) => d.id)).toEqual(['tax-igv']);
+  });
+
+  it('sin tratamientoImpuesto (o distinto de "recuperable"), no filtra por afectación', () => {
+    const gravado = crearTaxFixture();
+    const exonerado = crearTaxFixture({ id: 'tax-exo', name: 'Exonerado', rate: 0, affectationCode: '20' });
+    expect(listarImpuestosConfiguradosGasto([gravado, exonerado]).map((d) => d.id)).toEqual(['tax-igv', 'tax-exo']);
+    expect(listarImpuestosConfiguradosGasto([gravado, exonerado], 'no_recuperable').map((d) => d.id)).toEqual(['tax-igv', 'tax-exo']);
+  });
+
+  it('con tratamientoImpuesto "recuperable", solo ofrece impuestos Gravados (afectación \'10\') — Exonerado/Inafecto/Exportación no tienen IGV que recuperar', () => {
+    const gravado = crearTaxFixture();
+    const exonerado = crearTaxFixture({ id: 'tax-exo', name: 'Exonerado', rate: 0, affectationCode: '20' });
+    const inafecto = crearTaxFixture({ id: 'tax-ina', name: 'Inafecto', rate: 0, affectationCode: '30' });
+    const disponibles = listarImpuestosConfiguradosGasto([gravado, exonerado, inafecto], 'recuperable');
+    expect(disponibles.map((d) => d.id)).toEqual(['tax-igv']);
+  });
 });
 
 describe('calcularImportesGastoDesdeSubtotal (A: ingreso desde subtotal)', () => {

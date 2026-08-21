@@ -2,6 +2,7 @@ import { Calendar, Edit3 } from 'lucide-react';
 import type { CreditScheduleTerms, CreditInstallment } from './paymentTerms';
 import type { CurrencyCode } from '@/shared/currency';
 import { formatMoney } from '@/shared/currency';
+import { formatearFecha } from '@/shared/formatters/fechas';
 import { CreditInstallmentsTable } from './CreditInstallmentsTable';
 
 interface CreditoManualConfig {
@@ -63,7 +64,7 @@ export const CreditScheduleSummaryCard = ({
           {creditTerms?.fechaVencimientoGlobal && (
             <p className="mt-0.5 flex items-center gap-2 text-sm text-slate-600">
               <Calendar className="h-4 w-4 text-slate-400" />
-              Vence: <span className="font-semibold text-slate-900">{creditTerms.fechaVencimientoGlobal}</span>
+              Vence: <span className="font-semibold text-slate-900">{formatearFecha(creditTerms.fechaVencimientoGlobal)}</span>
             </p>
           )}
         </div>

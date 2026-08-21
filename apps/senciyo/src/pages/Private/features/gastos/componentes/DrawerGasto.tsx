@@ -99,6 +99,11 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
   // a rechazarlas de todas formas si se invocara sin pasar por aquí.
   const { session } = useUserSession();
   const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(config.users, session), [config.users, session]);
+  // Nombre visible del usuario que anula/descarta desde este Drawer — MISMA
+  // fuente central ya resuelta arriba, nunca un id técnico (§36 de la
+  // remediación UX: mismo criterio que ya usa `FormularioGasto.tsx` al
+  // registrar/editar).
+  const nombreUsuarioActual = usuarioActual?.personalInfo.fullName || session?.userEmail || undefined;
   const parametrosPermiso = { usuario: usuarioActual, rolesDisponibles: rolesConfigurados, establecimientoId: session?.currentEstablecimientoId };
   const puedeCrearGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.crear' });
   const puedeAnularGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.anular' });
@@ -140,14 +145,14 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
   }
 
   async function handleConfirmarAnularGasto(motivo: string) {
-    await anularGasto(gasto.id, motivo);
+    await anularGasto(gasto.id, motivo, nombreUsuarioActual);
     feedback.success('Gasto anulado.');
     setAnulandoGasto(false);
     onGuardado();
   }
 
   async function handleConfirmarDescartarBorrador() {
-    await descartarBorradorGasto(gasto.id);
+    await descartarBorradorGasto(gasto.id, nombreUsuarioActual);
     feedback.success('Borrador descartado.');
     setDescartandoBorrador(false);
     onGuardado();
@@ -155,7 +160,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
 
   async function handleConfirmarAnularPago(motivo: string) {
     if (!anulandoPago) return;
-    await anularPagoGasto(anulandoPago.id, motivo);
+    await anularPagoGasto(anulandoPago.id, motivo, nombreUsuarioActual);
     feedback.success('Pago anulado.');
     setAnulandoPago(null);
     onGuardado();
@@ -296,7 +301,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
                 <Campo label="Fecha del gasto" valor={formatearFecha(gasto.fechaReconocimiento)} />
                 {gasto.tipoDocumento && gasto.fechaEmision && <Campo label="Fecha del documento" valor={formatearFecha(gasto.fechaEmision)} />}
                 <Campo label="Fecha de registro" valor={`${formatearFecha(gasto.fechaCreacion)} ${gasto.fechaCreacion.slice(11, 16)}`.trim()} />
-                <Campo label="Aplica a" valor={establecimientos.find((e) => e.value === gasto.establecimientoId)?.label ?? ETIQUETA_ALCANCE_TODA_EMPRESA} />
+                <Campo label="Establecimiento" valor={establecimientos.find((e) => e.value === gasto.establecimientoId)?.label ?? ETIQUETA_ALCANCE_TODA_EMPRESA} />
                 {gasto.creadoPor && <Campo label="Registrado por" valor={gasto.creadoPor} />}
               </Seccion>
 
@@ -313,7 +318,7 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
                 <Campo label="IGV" valor={formatMoney(gasto.impuesto, gasto.moneda)} />
                 <Campo label="Total" valor={<span className="font-semibold text-gray-900">{formatMoney(gasto.total, gasto.moneda)}</span>} />
                 <Campo label="Tratamiento del IGV" valor={TRATAMIENTO_IMPUESTO_GASTO_LABELS[gasto.tratamientoImpuesto]} />
-                <Campo label="Importe que afecta la rentabilidad" valor={formatMoney(importeReconocido, gasto.moneda)} />
+                <Campo label="Gasto considerado" valor={formatMoney(importeReconocido, gasto.moneda)} />
                 <Campo label="Moneda" valor={gasto.moneda} />
                 {gasto.tipoCambio && <Campo label="Tipo de cambio" valor={gasto.tipoCambio.toFixed(4)} />}
               </Seccion>
@@ -375,18 +380,6 @@ export default function DrawerGasto({ gasto, categorias, establecimientos, pesta
                       )}
                     </div>
                   ))}
-                </div>
-              )}
-
-              {gasto.estadoDocumento === 'registrado' && (estadoPago === 'pendiente' || estadoPago === 'parcial') && puedePagarGastos && (
-                <div className="pt-2 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={irARegistrarPago}
-                    className="mt-2 text-blue-600 text-xs font-medium hover:underline"
-                  >
-                    + Registrar pago
-                  </button>
                 </div>
               )}
             </>

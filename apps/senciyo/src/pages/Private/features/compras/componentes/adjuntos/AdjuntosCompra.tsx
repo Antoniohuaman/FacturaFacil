@@ -36,6 +36,8 @@ interface AdjuntosCompraProps {
   onEliminar?: (id: string) => void;
   /** Si es false, el botón eliminar se muestra deshabilitado con motivo (nunca se oculta en silencio). Default true. */
   permiteEliminar?: boolean;
+  /** Tipo preseleccionado al montar el componente — si se omite, usa `tiposPermitidos[0]` (comportamiento histórico, sin cambios para quien no lo pase). Permite que un consumidor con contexto adicional (ej. Gastos: solo sugiere "Factura del proveedor" cuando ya hay un documento tributario elegido) evite un default arbitrario. */
+  tipoInicial?: TipoAdjuntoCompra;
 }
 
 /**
@@ -51,9 +53,10 @@ export default function AdjuntosCompra({
   onAgregar,
   onEliminar,
   permiteEliminar = true,
+  tipoInicial,
 }: AdjuntosCompraProps) {
   const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoAdjuntoCompra>(
-    tiposPermitidos[0] ?? 'otro',
+    tipoInicial ?? tiposPermitidos[0] ?? 'otro',
   );
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);

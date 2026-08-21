@@ -3,6 +3,7 @@ import { CheckSquare, Square, Trash2 } from 'lucide-react';
 import type { CreditInstallment } from './paymentTerms';
 import type { CurrencyCode } from '@/shared/currency';
 import { formatMoney, normalizarImporte } from '@/shared/currency';
+import { formatearFecha } from '@/shared/formatters/fechas';
 import { obtenerFechaMinimaPrimeraCuota, sanitizarImporteTexto } from './creditoManualTransaccion';
 
 export type CreditInstallmentAllocationInput = {
@@ -147,7 +148,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                 <tr>
                   <th className={`${cellPadding} text-left w-14`}>N°</th>
                   <th className={`${cellPadding} text-left w-20`}>Días</th>
-                  {showDaysOverdue && <th className={`${cellPadding} text-left w-24`}>Vencidos</th>}
+                  {showDaysOverdue && <th className={`${cellPadding} text-left w-24`}>Días de atraso</th>}
                   <th className={`${cellPadding} text-left w-32`}>Fecha venc.</th>
                   <th className={`${cellPadding} text-right w-16`}>%</th>
                   <th className={`${cellPadding} text-right w-28`}>Importe</th>
@@ -281,7 +282,7 @@ export const CreditInstallmentsTable: React.FC<CreditInstallmentsTableProps> = (
                           className="h-7 w-full rounded border border-slate-200 bg-white px-2 text-[12px] text-slate-700 focus:border-indigo-300 focus:outline-none disabled:bg-slate-50"
                         />
                       ) : (
-                        installment.fechaVencimiento
+                        formatearFecha(installment.fechaVencimiento)
                       )}
                     </td>
                     <td className={`${cellPadding} text-right`}>

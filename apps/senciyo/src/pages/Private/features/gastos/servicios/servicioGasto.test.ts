@@ -24,6 +24,8 @@ import {
   datosParaDuplicarGasto,
   motivoBloqueoEfectivoMonedaExtranjera,
   normalizarMotivoAnulacion,
+  TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES,
+  CODIGOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES,
   type DatosNuevoGasto,
 } from './servicioGasto';
 import type { CuentaPorPagar } from '../../compras/modelos/CuentaPorPagar';
@@ -162,6 +164,40 @@ describe('validarGastoBasico', () => {
   it('"sin_desglose" nunca exige impuesto aplicable', () => {
     const errores = validarGastoBasico(crearDatosGastoBasicos({ tratamientoImpuesto: 'sin_desglose', impuestoId: undefined }), MONEDA_BASE_FIXTURE);
     expect(errores.some((e) => e.campo === 'impuestoId')).toBe(false);
+  });
+
+  it('un documento formal compatible (Factura/Boleta/Recibo por Arrendamiento) con beneficiario libre (sin proveedor formal) es rechazado (auditoría de fuentes de verdad §11/§18)', () => {
+    for (const codigo of CODIGOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES) {
+      const errores = validarGastoBasico(
+        crearDatosGastoBasicos({ tipoDocumento: codigo, proveedorId: undefined, beneficiario: 'Movilidad Juan' }),
+        MONEDA_BASE_FIXTURE,
+      );
+      expect(errores.some((e) => e.campo === 'beneficiario')).toBe(true);
+    }
+  });
+
+  it('un documento formal compatible CON proveedor identificado (proveedorId) no es rechazado', () => {
+    const errores = validarGastoBasico(
+      crearDatosGastoBasicos({ tipoDocumento: '01', proveedorId: 'prov-1', beneficiario: undefined }),
+      MONEDA_BASE_FIXTURE,
+    );
+    expect(errores.some((e) => e.campo === 'beneficiario')).toBe(false);
+  });
+
+  it('sin documento ("Sin documento") o con un tipo fuera del subconjunto compatible, un beneficiario libre nunca es rechazado', () => {
+    const sinDocumento = validarGastoBasico(crearDatosGastoBasicos({ tipoDocumento: undefined, proveedorId: undefined, beneficiario: 'Movilidad Juan' }), MONEDA_BASE_FIXTURE);
+    expect(sinDocumento.some((e) => e.campo === 'beneficiario')).toBe(false);
+
+    // '12' (Recibo por Honorarios) es un registro histórico posible pero ya
+    // no se ofrece como opción activa — nunca se re-valida retroactivamente.
+    const tipoNoCompatible = validarGastoBasico(crearDatosGastoBasicos({ tipoDocumento: '12', proveedorId: undefined, beneficiario: 'Movilidad Juan' }), MONEDA_BASE_FIXTURE);
+    expect(tipoNoCompatible.some((e) => e.campo === 'beneficiario')).toBe(false);
+  });
+});
+
+describe('TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES — subconjunto contextual del catálogo central (nunca lo modifica)', () => {
+  it('solo Factura (01), Boleta de Venta (03) y Recibo por Arrendamiento (14) — el resto queda fuera por incoherencia funcional confirmada en la auditoría', () => {
+    expect(TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES.map((t) => t.codigo).sort()).toEqual(['01', '03', '14']);
   });
 });
 

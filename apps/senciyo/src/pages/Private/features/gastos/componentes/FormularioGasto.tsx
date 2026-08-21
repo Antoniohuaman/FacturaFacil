@@ -50,6 +50,7 @@ import {
   validarMinimoBorradorGasto,
   filtrarErroresVigentes,
   motivoBloqueoEfectivoMonedaExtranjera,
+  TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES,
   type DatosNuevoGasto,
 } from '../servicios/servicioGasto';
 import {
@@ -203,7 +204,11 @@ export default function FormularioGasto({
   const [fechaReconocimiento, setFechaReconocimiento] = useState(gasto?.fechaReconocimiento?.slice(0, 10) ?? getBusinessTodayISODate());
   const [fechaEmision, setFechaEmision] = useState(base?.fechaEmision?.slice(0, 10) ?? '');
   const [fechaVencimiento, setFechaVencimiento] = useState(base?.fechaVencimiento?.slice(0, 10) ?? '');
-  const [categoriaId, setCategoriaId] = useState(base?.categoriaId ?? categorias[0]?.id ?? '');
+  // Nunca preseleccionada automáticamente (§10 de la remediación UX): un
+  // gasto nuevo empieza sin categoría elegida — el usuario decide, en vez de
+  // heredar en silencio la primera del catálogo (ej. "Alquileres") y arriesgar
+  // un registro mal clasificado. Sigue siendo obligatoria al registrar.
+  const [categoriaId, setCategoriaId] = useState(base?.categoriaId ?? '');
   const [establecimientoId, setEstablecimientoId] = useState(base?.establecimientoId ?? '');
   const [concepto, setConcepto] = useState(base?.concepto ?? '');
   const [proveedor, setProveedor] = useState<ProveedorSeleccionado | null>(
@@ -246,7 +251,6 @@ export default function FormularioGasto({
   // vigente (Guardar borrador es más laxo que Registrar/Registrar y pagar),
   // nunca una regla paralela para el onChange.
   const [ultimoIntentoValidado, setUltimoIntentoValidado] = useState<IntentGasto | null>(null);
-  const [menuRegistrarAbierto, setMenuRegistrarAbierto] = useState(false);
 
   // Medios de pago para "Registrar y pagar" — disponible para cualquier
   // forma de pago (§6 de la corrección: ya no exclusivo de "Contado").
@@ -271,8 +275,33 @@ export default function FormularioGasto({
     setMediosPago([nuevoMedioPago(0)]);
   }
 
-  const impuestosDisponibles = useMemo(() => listarImpuestosConfiguradosGasto(config.taxes), [config.taxes]);
+  // Impuesto aplicable: solo impuestos porcentuales y, con tratamiento
+  // "recuperable", solo impuestos Gravados (auditoría de fuentes de verdad
+  // §20/§21) — filtro CONTEXTUAL de Gastos, nunca sobre el catálogo central.
+  const impuestosDisponibles = useMemo(
+    () => listarImpuestosConfiguradosGasto(config.taxes, tratamientoImpuesto),
+    [config.taxes, tratamientoImpuesto],
+  );
   const impuestoSeleccionado = useMemo(() => resolverImpuestoGasto(impuestoId, config.taxes), [impuestoId, config.taxes]);
+  // Ningún impuesto elegido todavía pero el tratamiento SÍ exige desglose —
+  // el Resumen nunca debe mostrar "IGV S/ 0.00" como si el cálculo ya fuera
+  // definitivo (§25 de la remediación UX): la validación ya bloquea el envío
+  // (`validarImpuestoAplicableGasto`), esto es solo la presentación mientras
+  // el usuario todavía no eligió.
+  const impuestoPendienteSeleccion = tratamientoImpuesto !== 'sin_desglose' && !impuestoSeleccionado;
+
+  // Documento sustentatorio — subconjunto compatible con Gastos (§14 de la
+  // remediación UX / auditoría de fuentes de verdad §9). Un gasto YA
+  // registrado con un tipo fuera del subconjunto (registro histórico previo
+  // a esta regla) conserva su opción visible — nunca desaparece del propio
+  // registro que la usa, mismo criterio que `opcionesSerie` arriba.
+  const opcionesTipoDocumento = useMemo(() => {
+    if (tipoDocumento && !TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES.some((t) => t.codigo === tipoDocumento)) {
+      const original = TIPOS_DOCUMENTO_PROVEEDOR.find((t) => t.codigo === tipoDocumento);
+      return original ? [original, ...TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES] : TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES;
+    }
+    return TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES;
+  }, [tipoDocumento]);
 
   const importesCalculados = useMemo(() => {
     const montoNum = Number(monto) || 0;
@@ -526,6 +555,7 @@ export default function FormularioGasto({
                   <label id="campo-categoriaId" className="space-y-1">
                     <span className="text-xs text-gray-500">Categoría *</span>
                     <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} aria-invalid={Boolean(erroresMostrados.categoriaId)} className={claseControl(Boolean(erroresMostrados.categoriaId))}>
+                      <option value="" disabled>Selecciona una categoría</option>
                       {categorias.filter((c) => c.estado === 'activa' || c.id === categoriaId).map((c) => (
                         <option key={c.id} value={c.id}>{c.nombre}</option>
                       ))}
@@ -533,7 +563,7 @@ export default function FormularioGasto({
                     <MensajeErrorCampo mensaje={erroresMostrados.categoriaId} />
                   </label>
                   <label className="space-y-1">
-                    <span className="text-xs text-gray-500">Aplica a</span>
+                    <span className="text-xs text-gray-500">Establecimiento</span>
                     <select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)} className={claseControl(false)}>
                       <option value="">Toda la empresa</option>
                       {establecimientos.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
@@ -548,10 +578,11 @@ export default function FormularioGasto({
               </FormSectionCard>
 
               <FormSectionCard titulo="Proveedor o beneficiario">
-                <label className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                <label className="flex items-center gap-2 text-xs text-gray-600 mb-1">
                   <input type="checkbox" checked={sinProveedorFormal} onChange={(e) => setSinProveedorFormal(e.target.checked)} />
-                  Sin proveedor (movilidad, propinas, gastos sin documento)
+                  Sin proveedor formal
                 </label>
+                <p className="text-[11px] text-gray-400 mb-2">Para movilidad, propinas u otros pagos a personas.</p>
                 <div id="campo-beneficiario">
                 {sinProveedorFormal ? (
                   <div className="space-y-1">
@@ -570,7 +601,7 @@ export default function FormularioGasto({
                     <span className="text-xs text-gray-500">Tipo de documento</span>
                     <select value={tipoDocumento} onChange={(e) => setTipoDocumento(e.target.value)} className={claseControl(false)}>
                       <option value="">Sin documento</option>
-                      {TIPOS_DOCUMENTO_PROVEEDOR.map((t) => <option key={t.codigo} value={t.codigo}>{t.nombre}</option>)}
+                      {opcionesTipoDocumento.map((t) => <option key={t.codigo} value={t.codigo}>{t.nombre}</option>)}
                     </select>
                   </label>
                   {tipoDocumento && (
@@ -632,10 +663,6 @@ export default function FormularioGasto({
                   )}
                 </div>
 
-                {tratamientoImpuesto === 'recuperable' && (
-                  <span className="block text-[11px] text-gray-400 mt-2">El IGV no forma parte del gasto porque puede utilizarse como crédito fiscal.</span>
-                )}
-
                 {tratamientoImpuesto !== 'sin_desglose' && (
                   <div className="mt-3">
                     <span className="text-xs text-gray-500">¿El importe ingresado incluye IGV?</span>
@@ -656,6 +683,11 @@ export default function FormularioGasto({
               <AdjuntosCompra
                 adjuntos={adjuntos}
                 tiposPermitidos={TIPOS_ADJUNTO_GASTO}
+                // Default contextual (§38 de la remediación UX): solo sugiere
+                // "Factura del proveedor" cuando ya hay un documento
+                // tributario elegido — "Sin documento" nunca preselecciona un
+                // tipo de adjunto incompatible con ese escenario.
+                tipoInicial={tipoDocumento ? 'factura_proveedor' : 'otro'}
                 onAgregar={(a) => setAdjuntos((prev) => [...prev, a])}
                 onEliminar={(id) => setAdjuntos((prev) => prev.filter((a) => a.id !== id))}
               />
@@ -666,16 +698,41 @@ export default function FormularioGasto({
 
           <div className="lg:col-span-1 space-y-5">
             <FormSectionCard titulo="Resumen">
-              <div className="space-y-1">
-                <div className="flex justify-between py-1 text-sm"><span className="text-gray-500">Subtotal</span><span>{formatMoney(importesCalculados.subtotal, moneda)}</span></div>
-                <div className="flex justify-between py-1 text-sm"><span className="text-gray-500">IGV</span><span>{formatMoney(importesCalculados.impuesto, moneda)}</span></div>
-                <div className="flex justify-between py-1 text-sm border-t border-gray-100 pt-2"><span className="font-medium text-gray-700">Total</span><span className="font-semibold text-gray-900">{formatMoney(importesCalculados.total, moneda)}</span></div>
+              {/*
+                Divulgación progresiva (§22/§24 de la remediación UX): "sin
+                desglose" no repite 4 veces el mismo número (subtotal=IGV0=
+                total=gasto considerado) — solo el total. "No recuperable"
+                muestra Subtotal/IGV/Total (el gasto considerado sería
+                idéntico al Total, no aporta). Solo "Recuperable" agrega
+                "Gasto considerado" porque ahí SÍ difiere del Total.
+              */}
+              {tratamientoImpuesto === 'sin_desglose' ? (
                 <div className="flex justify-between py-1 text-sm">
-                  <span className="text-gray-500">Importe que afecta la rentabilidad</span>
-                  <span className="font-medium">{formatMoney(importeReconocido, moneda)}</span>
+                  <span className="font-medium text-gray-700">Total del gasto</span>
+                  <span className="font-semibold text-gray-900">{formatMoney(importesCalculados.total, moneda)}</span>
                 </div>
-                <span className="block text-[11px] text-gray-400">Monto que se descontará de la utilidad bruta.</span>
-              </div>
+              ) : impuestoPendienteSeleccion ? (
+                <div className="space-y-1">
+                  <div className="flex justify-between py-1 text-sm"><span className="text-gray-500">Subtotal</span><span className="text-gray-400">—</span></div>
+                  <div className="flex justify-between py-1 text-sm"><span className="text-gray-500">IGV</span><span className="text-gray-400">Selecciona un impuesto</span></div>
+                  <div className="flex justify-between py-1 text-sm border-t border-gray-100 pt-2"><span className="font-medium text-gray-700">Total</span><span className="text-gray-400">—</span></div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex justify-between py-1 text-sm"><span className="text-gray-500">Subtotal</span><span>{formatMoney(importesCalculados.subtotal, moneda)}</span></div>
+                  <div className="flex justify-between py-1 text-sm"><span className="text-gray-500">{tratamientoImpuesto === 'recuperable' ? 'IGV recuperable' : 'IGV'}</span><span>{formatMoney(importesCalculados.impuesto, moneda)}</span></div>
+                  <div className="flex justify-between py-1 text-sm border-t border-gray-100 pt-2"><span className="font-medium text-gray-700">Total</span><span className="font-semibold text-gray-900">{formatMoney(importesCalculados.total, moneda)}</span></div>
+                  {tratamientoImpuesto === 'recuperable' && (
+                    <>
+                      <div className="flex justify-between py-1 text-sm">
+                        <span className="text-gray-500" title="Monto que se descontará de la utilidad bruta.">Gasto considerado</span>
+                        <span className="font-medium">{formatMoney(importeReconocido, moneda)}</span>
+                      </div>
+                      <span className="block text-[11px] text-gray-400">El IGV no forma parte del gasto porque puede utilizarse como crédito fiscal.</span>
+                    </>
+                  )}
+                </div>
+              )}
             </FormSectionCard>
 
             <fieldset disabled={soloEdicionLimitada} className="space-y-5 disabled:opacity-60">
@@ -720,47 +777,54 @@ export default function FormularioGasto({
                 )}
               </FormSectionCard>
 
-              {mostrarPagoAhora ? (
-                <FormSectionCard
-                  titulo="Datos del pago"
-                  acciones={
-                    <button type="button" onClick={ocultarDatosDePago} className="text-xs font-medium text-gray-500 hover:text-gray-700">
-                      Ocultar datos del pago
-                    </button>
-                  }
-                >
-                  {motivoBloqueoMonedaRegistrarYPagar && (
-                    <div className="mb-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-                      {motivoBloqueoMonedaRegistrarYPagar}
-                    </div>
-                  )}
-                  <EditorMediosPagoCompra
-                    mediosPago={mediosPago}
-                    mediosDisponibles={mediosDisponibles}
-                    cuentasBancariasCompatibles={cuentasBancariasCompatibles}
-                    moneda={moneda}
-                    cajaAbierta={estadoCaja === 'abierta'}
-                    hayMedioDeCaja={hayMedioDeCaja}
-                    onAgregar={() => setMediosPago((prev) => [...prev, nuevoMedioPago(0)])}
-                    onEliminar={(id) => setMediosPago((prev) => prev.filter((m) => m.id !== id))}
-                    onCambiarMedio={(id, codigo) => {
-                      const opcion = mediosDisponibles.find((m) => m.code === codigo);
-                      setMediosPago((prev) => prev.map((m) => (m.id === id ? { ...m, medioPagoCodigo: codigo, medioPagoNombre: opcion?.label ?? '' } : m)));
-                    }}
-                    onCambiarCampo={(id, campo, valor) => setMediosPago((prev) => prev.map((m) => (m.id === id ? { ...m, [campo]: valor } : m)))}
-                  />
-                </FormSectionCard>
-              ) : (
-                <div className="px-1">
-                  <button
-                    type="button"
-                    onClick={() => setMostrarPagoAhora(true)}
-                    className="text-left text-xs font-medium text-blue-600 hover:underline"
+              {/*
+                Sin permiso de pago, nunca tiene sentido ofrecer esta sección
+                (§29 de la remediación UX): sin ella nunca puede existir
+                "Registrar y pagar" como acción disponible más abajo.
+              */}
+              {puedePagarGastos && (
+                mostrarPagoAhora ? (
+                  <FormSectionCard
+                    titulo="Datos del pago"
+                    acciones={
+                      <button type="button" onClick={ocultarDatosDePago} className="text-xs font-medium text-gray-500 hover:text-gray-700">
+                        Ocultar datos del pago
+                      </button>
+                    }
                   >
-                    + Agregar datos del pago
-                  </button>
-                  <p className="text-[11px] text-gray-400 mt-1">Completa esta sección para registrar el gasto y el pago en una sola operación.</p>
-                </div>
+                    {motivoBloqueoMonedaRegistrarYPagar && (
+                      <div className="mb-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+                        {motivoBloqueoMonedaRegistrarYPagar}
+                      </div>
+                    )}
+                    <EditorMediosPagoCompra
+                      mediosPago={mediosPago}
+                      mediosDisponibles={mediosDisponibles}
+                      cuentasBancariasCompatibles={cuentasBancariasCompatibles}
+                      moneda={moneda}
+                      cajaAbierta={estadoCaja === 'abierta'}
+                      hayMedioDeCaja={hayMedioDeCaja}
+                      onAgregar={() => setMediosPago((prev) => [...prev, nuevoMedioPago(0)])}
+                      onEliminar={(id) => setMediosPago((prev) => prev.filter((m) => m.id !== id))}
+                      onCambiarMedio={(id, codigo) => {
+                        const opcion = mediosDisponibles.find((m) => m.code === codigo);
+                        setMediosPago((prev) => prev.map((m) => (m.id === id ? { ...m, medioPagoCodigo: codigo, medioPagoNombre: opcion?.label ?? '' } : m)));
+                      }}
+                      onCambiarCampo={(id, campo, valor) => setMediosPago((prev) => prev.map((m) => (m.id === id ? { ...m, [campo]: valor } : m)))}
+                    />
+                  </FormSectionCard>
+                ) : (
+                  <div className="px-1">
+                    <button
+                      type="button"
+                      onClick={() => setMostrarPagoAhora(true)}
+                      className="text-left text-xs font-medium text-blue-600 hover:underline"
+                    >
+                      + Agregar datos del pago
+                    </button>
+                    <p className="text-[11px] text-gray-400 mt-1">Completa esta sección para registrar el gasto y el pago en una sola operación.</p>
+                  </div>
+                )
               )}
             </fieldset>
           </div>
@@ -783,48 +847,27 @@ export default function FormularioGasto({
             </button>
           )}
           {(modo === 'crear' || esBorradorExistente) ? (
-            <div className="relative">
-              <div className="flex" title={!serieSeleccionada ? 'Selecciona una serie de Gasto activa para poder registrar.' : undefined}>
-                <button
-                  type="button"
-                  disabled={enviando !== null || !serieSeleccionada}
-                  onClick={() => void ejecutar('registrar')}
-                  className="px-5 py-2 text-sm bg-blue-600 text-white font-medium rounded-l-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {enviando === 'registrar' ? 'Registrando...' : 'Registrar gasto'}
-                </button>
-                <button
-                  type="button"
-                  disabled={enviando !== null || !serieSeleccionada}
-                  onClick={() => setMenuRegistrarAbierto((v) => !v)}
-                  className="px-2 py-2 text-sm bg-blue-600 text-white font-medium rounded-r-lg border-l border-blue-500 hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  aria-label="Más opciones de registro"
-                >
-                  ▼
-                </button>
-              </div>
-              {menuRegistrarAbierto && puedePagarGastos && (
-                <div className="absolute bottom-full right-0 mb-1 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuRegistrarAbierto(false);
-                      // Directo y predecible (§2 de la corrección final puntual):
-                      // siempre expande la sección de pago (para que el usuario
-                      // vea/corrija los medios) e intenta de inmediato — nunca un
-                      // primer clic que solo expande y un segundo que recién
-                      // registra. Si los medios de pago no son válidos, la MISMA
-                      // validación ya existente de `registrarGastoConPagoInmediato`
-                      // lo informa mediante el banner de error general.
-                      setMostrarPagoAhora(true);
-                      void ejecutar('registrar_y_pagar');
-                    }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    Registrar y pagar
-                  </button>
-                </div>
-              )}
+            // Una sola decisión, nunca dos (§29 de la remediación UX): sin
+            // datos de pago completados, la acción principal es "Registrar
+            // gasto"; con la sección de pago abierta (solo posible con
+            // permiso `gastos.pagar`, ver el gate más arriba), la MISMA
+            // acción se convierte en "Registrar y pagar" — nunca un menú
+            // desplegable con una segunda intención oculta.
+            <div className="flex" title={!serieSeleccionada ? 'Selecciona una serie de Gasto activa para poder registrar.' : undefined}>
+              <button
+                type="button"
+                disabled={enviando !== null || !serieSeleccionada}
+                onClick={() => void ejecutar(mostrarPagoAhora && puedePagarGastos ? 'registrar_y_pagar' : 'registrar')}
+                className="px-5 py-2 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {enviando === 'registrar_y_pagar'
+                  ? 'Registrando y pagando...'
+                  : enviando === 'registrar'
+                    ? 'Registrando...'
+                    : mostrarPagoAhora && puedePagarGastos
+                      ? 'Registrar y pagar'
+                      : 'Registrar gasto'}
+              </button>
             </div>
           ) : (
             <button

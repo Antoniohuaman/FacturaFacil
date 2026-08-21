@@ -65,11 +65,11 @@ const ETIQUETA_COLUMNA: Record<ColumnaGastoId, string> = {
   fechaVencimiento: 'Fecha de vencimiento',
   subtotal: 'Subtotal',
   impuesto: 'IGV',
-  importeReconocido: 'Importe que afecta la rentabilidad',
+  importeReconocido: 'Gasto considerado',
   saldoPendiente: 'Saldo pendiente',
   moneda: 'Moneda',
   tipoCambio: 'Tipo de cambio',
-  establecimiento: 'Aplica a',
+  establecimiento: 'Establecimiento',
   numerosPago: 'Números de pago PG',
   cantidadPagos: 'Cantidad de pagos',
   usuario: 'Usuario',
@@ -124,11 +124,17 @@ function renderCelda(fila: FilaGastoOperativo, gasto: Gasto, id: ColumnaGastoId,
   switch (id) {
     case 'referenciaInterna': {
       const esBorrador = gasto.estadoDocumento === 'borrador';
-      // MISMA fuente que búsqueda/Excel/impresión (§11 de la corrección técnica
-      // final) — nunca una segunda llamada a `presentarReferenciaGasto` sin el
-      // catálogo de Series, que mostraría genéricamente "Sin serie" aunque el
-      // borrador ya tenga una serie elegida.
-      return <span className={esBorrador ? 'text-gray-500 italic' : 'font-mono'}>{fila.referenciaPresentada}</span>;
+      // "¿En qué gasté?" antes que el correlativo (§8 de la remediación UX):
+      // el concepto es la línea principal, la referencia queda como dato
+      // secundario debajo — MISMA fuente que búsqueda/Excel/impresión (§11
+      // de una corrección previa), nunca una segunda llamada a
+      // `presentarReferenciaGasto` sin el catálogo de Series.
+      return (
+        <div className="flex flex-col leading-tight">
+          <span className="max-w-[240px] truncate font-medium text-gray-900 dark:text-gray-100" title={gasto.concepto}>{gasto.concepto}</span>
+          <span className={`text-xs ${esBorrador ? 'italic text-gray-400' : 'font-mono text-gray-400'}`}>{fila.referenciaPresentada}</span>
+        </div>
+      );
     }
     case 'fecha': return formatearFecha(fila.fecha);
     case 'categoria': return fila.categoriaNombre;
@@ -175,6 +181,10 @@ export default function PaginaGastos() {
   // sin pasar por estos botones.
   const { session } = useUserSession();
   const usuarioActual = useMemo(() => obtenerUsuarioDesdeSesion(config.users, session), [config.users, session]);
+  // Nombre visible del usuario que anula/descarta desde el listado — MISMA
+  // fuente central ya resuelta arriba, nunca un id técnico (§36 de la
+  // remediación UX).
+  const nombreUsuarioActual = usuarioActual?.personalInfo.fullName || session?.userEmail || undefined;
   const parametrosPermiso = { usuario: usuarioActual, rolesDisponibles: rolesConfigurados, establecimientoId: session?.currentEstablecimientoId };
   const puedeCrearGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.crear' });
   const puedeAnularGastos = tienePermiso({ ...parametrosPermiso, permisoId: 'gastos.anular' });
@@ -384,7 +394,7 @@ export default function PaginaGastos() {
       { header: 'Total', key: 'total', width: 14, numFmt: '#,##0.00' },
       { header: 'Moneda original', key: 'moneda', width: 12 },
       { header: 'Tipo de cambio', key: 'tipoCambio', width: 14, numFmt: '#,##0.0000' },
-      { header: 'Importe que afecta la rentabilidad', key: 'reconocido', width: 22, numFmt: '#,##0.00' },
+      { header: 'Gasto considerado', key: 'reconocido', width: 22, numFmt: '#,##0.00' },
       { header: 'Moneda base', key: 'monedaBase', width: 12 },
       { header: 'Condición de pago', key: 'condicionPago', width: 16 },
       { header: 'Forma de pago', key: 'formaPago', width: 22 },
@@ -399,7 +409,7 @@ export default function PaginaGastos() {
       { header: 'Estado', key: 'estado', width: 16 },
       { header: 'Números PG relacionados', key: 'numerosPago', width: 24 },
       { header: 'Total pagado', key: 'totalPagado', width: 14, numFmt: '#,##0.00' },
-      { header: 'Aplica a', key: 'establecimiento', width: 20 },
+      { header: 'Establecimiento', key: 'establecimiento', width: 20 },
       { header: 'Usuario', key: 'usuario', width: 18 },
       { header: 'Fecha de registro', key: 'fechaRegistro', width: 18, numFmt: 'dd/mm/yyyy hh:mm' },
       { header: 'Cantidad de adjuntos', key: 'cantidadAdjuntos', width: 16, numFmt: '#,##0' },
@@ -465,14 +475,14 @@ export default function PaginaGastos() {
 
   async function handleConfirmarAnularGasto(motivo: string) {
     if (!anulandoGasto) return;
-    await anularGasto(anulandoGasto.id, motivo);
+    await anularGasto(anulandoGasto.id, motivo, nombreUsuarioActual);
     feedback.success('Gasto anulado.');
     setAnulandoGasto(null);
   }
 
   async function handleConfirmarDescartarBorrador() {
     if (!descartandoBorrador) return;
-    await descartarBorradorGasto(descartandoBorrador.id);
+    await descartarBorradorGasto(descartandoBorrador.id, nombreUsuarioActual);
     feedback.success('Borrador descartado.');
     setDescartandoBorrador(null);
   }
@@ -539,7 +549,7 @@ export default function PaginaGastos() {
             {mostrarFiltros && (
               <div className="absolute right-0 z-40 mt-2 w-80 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-lg space-y-3 max-h-[70vh] overflow-y-auto">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Aplica a</label>
+                  <label className="block text-xs text-gray-500 mb-1">Establecimiento</label>
                   <select value={establecimientoId} onChange={(e) => setEstablecimientoId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
                     {establecimientoOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -552,7 +562,7 @@ export default function PaginaGastos() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Proveedor</label>
+                  <label className="block text-xs text-gray-500 mb-1">Proveedor / beneficiario</label>
                   <select value={filtroProveedorId} onChange={(e) => setFiltroProveedorId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm">
                     <option value="">Todos</option>
                     {proveedorOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

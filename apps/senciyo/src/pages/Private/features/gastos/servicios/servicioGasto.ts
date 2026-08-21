@@ -13,7 +13,7 @@ import type { CreditScheduleTerms } from '@/shared/payments/paymentTerms';
 import type { Series } from '../../configuracion-sistema/modelos/Series';
 import { tieneCxPPagosActivos, recalcularEstadoPagoComprobante, round2 } from '../../compras/logica/reglasCompras';
 import { esMedioDeCaja } from '../../compras/servicios/servicioPagoCompra';
-import { getNombreTipoDocumentoProveedor } from '../../compras/constantes/tiposDocumentoProveedor';
+import { getNombreTipoDocumentoProveedor, TIPOS_DOCUMENTO_PROVEEDOR, type TipoDocumentoProveedorItem } from '../../compras/constantes/tiposDocumentoProveedor';
 import { isExpenseSeries } from '@/shared/series/expenseSeries';
 import { formatBusinessDateTimeIso } from '@/shared/time/businessTime';
 import { BADGE_ESTADO_PAGO } from '@/shared/status/estadoPago';
@@ -33,6 +33,28 @@ import {
  * "General" a secas, reutilizada en listado, Drawer, Excel e impresión.
  */
 export const ETIQUETA_ALCANCE_TODA_EMPRESA = 'Toda la empresa';
+
+/**
+ * Subconjunto de `TIPOS_DOCUMENTO_PROVEEDOR` (catálogo normativo central de
+ * Compras, NUNCA modificado ni duplicado aquí) realmente compatible con
+ * Gastos hoy — auditoría `docs/AUDITORIA_FUENTES_VERDAD_GASTOS.md` §9/§14:
+ * - Excluye Nota de Crédito (07) y Nota de Débito (08): ningún módulo del
+ *   sistema las vincula a un documento original — generarían una CxP
+ *   independiente por el total, exactamente como una Factura, sin el
+ *   tratamiento relacional que su nombre sugiere.
+ * - Excluye Recibo por Honorarios (12): en Compras dispara una retención
+ *   real que reduce el neto a pagar (`FormularioComprobanteCompra.tsx`);
+ *   Gastos no la replica (`servicioCuentaPorPagarGasto.ts`) — mostrarlo aquí
+ *   sugeriría un tratamiento tributario que este módulo no ofrece.
+ * - Excluye Comprobante de Percepción (40), de Retención (56) y de no
+ *   domiciliado (91): labels sin ningún efecto funcional en NINGÚN módulo
+ *   del sistema hoy (no solo en Gastos).
+ * Regla CONTEXTUAL de Gastos sobre la fuente central — nunca al revés.
+ */
+export const CODIGOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES = ['01', '03', '14'] as const;
+
+export const TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES: TipoDocumentoProveedorItem[] =
+  TIPOS_DOCUMENTO_PROVEEDOR.filter((t) => (CODIGOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES as readonly string[]).includes(t.codigo));
 
 export interface DatosNuevoGasto {
   empresaId: string;
@@ -160,6 +182,30 @@ function validarImpuestoAplicableGasto(datos: Partial<DatosNuevoGasto>): ErrorVa
 }
 
 /**
+ * Un documento sustentatorio COMPATIBLE con Gastos (Factura/Boleta/Recibo por
+ * Arrendamiento — ver `TIPOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES`)
+ * identifica siempre a un emisor real: nunca tiene sentido combinarlo con un
+ * beneficiario de texto libre ("Sin proveedor formal"), reservado para
+ * movilidad/propinas/gastos sin documento (auditoría
+ * `docs/AUDITORIA_FUENTES_VERDAD_GASTOS.md` §11/§18). La regla vive en el
+ * dominio (no solo en el formulario) para que el comando la exija igual si
+ * se invocara directamente. Un gasto con un `tipoDocumento` fuera del
+ * subconjunto compatible (registro histórico anterior a esta regla) nunca
+ * se re-valida aquí — solo se exige para el subconjunto que Gastos ofrece
+ * activamente hoy.
+ */
+function validarCoherenciaProveedorDocumentoGasto(datos: Partial<DatosNuevoGasto>): ErrorValidacionGasto[] {
+  const requiereProveedorFormal = Boolean(
+    datos.tipoDocumento
+    && (CODIGOS_DOCUMENTO_SUSTENTATORIO_GASTO_COMPATIBLES as readonly string[]).includes(datos.tipoDocumento),
+  );
+  if (requiereProveedorFormal && !datos.proveedorId) {
+    return [{ campo: 'beneficiario', mensaje: 'Este tipo de documento requiere un proveedor identificable — no puede registrarse con un beneficiario libre.' }];
+  }
+  return [];
+}
+
+/**
  * Un gasto exige proveedor O beneficiario de texto libre — nunca ninguno de
  * los dos (§9 del alcance: no se permite un gasto sin identificar a quién se
  * le pagó/paga). `monedaBase` es la moneda base real de la empresa
@@ -173,6 +219,7 @@ export function validarGastoBasico(datos: Partial<DatosNuevoGasto>, monedaBase: 
   }
   errores.push(...validarTipoCambioGasto(datos, monedaBase));
   errores.push(...validarImpuestoAplicableGasto(datos));
+  errores.push(...validarCoherenciaProveedorDocumentoGasto(datos));
   return errores;
 }
 

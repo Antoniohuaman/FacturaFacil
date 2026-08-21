@@ -144,7 +144,7 @@ export interface Gasto {
   adjuntos: AdjuntoCompra[];
   observaciones?: string;
 
-  // Estado documental — nunca 'borrador': un gasto nace ya reconocido.
+  /** Estado documental real: `'borrador'` (sin numeración ni efecto financiero) → `'registrado'` (vía `convertirBorradorEnRegistrado`, o directo si nunca pasó por borrador) → `'anulado'` (terminal, incluye el descarte de un borrador — ver `tipoCierre`). */
   estadoDocumento: EstadoDocumentoGasto;
   motivoAnulacion?: string;
   fechaAnulacion?: string;
