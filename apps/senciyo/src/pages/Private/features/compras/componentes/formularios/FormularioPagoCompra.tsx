@@ -127,8 +127,8 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
           </div>
         )}
 
-        {/* Documentos a pagar (1 o varios, mismo proveedor y moneda) */}
-        <FormSectionCard titulo={`Documentos a pagar — ${proveedorNombre}`}>
+        {/* Documento(s) a pagar — Gastos siempre envía uno solo; Compras puede enviar varios del mismo proveedor y moneda (remediación §6/§26: singular/plural por cantidad, nunca por origen). */}
+        <FormSectionCard titulo={cxps.length > 1 ? `Documentos a pagar — ${proveedorNombre}` : `Documento a pagar — ${proveedorNombre}`}>
           <div id="campo-aplicaciones" className="space-y-2">
             <TablaDocumentosPagoCompra
               documentos={cxps}
@@ -163,7 +163,20 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
         >
           <TwoColumnDocumentFields
             izquierda={
-              <div id="campo-medios" className="space-y-2">
+              <div id="campo-medios" className="space-y-3">
+                {/*
+                  Lo primero que se lee (remediación UX del pago compartido
+                  §9/§23): cuánto hay que cubrir, justo encima de con qué
+                  medio(s) se cubre — nunca compitiendo en protagonismo con
+                  "Tipo de documento"/"Serie PG"/"Próximo número" (información
+                  técnica, ver la columna derecha). Derivado de "Documentos a
+                  pagar" arriba — nunca un valor editable aparte que pueda
+                  desincronizarse.
+                */}
+                <div className="flex items-baseline justify-between rounded-lg bg-blue-50/60 px-3 py-2">
+                  <span className="text-sm font-medium text-gray-700">Importe a pagar</span>
+                  <span className="text-lg font-semibold text-gray-900">{formatMoney(f.importeAplicado, f.moneda)}</span>
+                </div>
                 <EditorMediosPagoCompra
                   mediosPago={f.mediosPago}
                   mediosDisponibles={f.mediosDisponibles}
@@ -187,30 +200,7 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
             }
             derecha={
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Documento de pago</p>
-
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Tipo de documento</label>
-                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
-                      Pago
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Serie PG</label>
-                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600 font-mono">
-                      {f.seriePG?.series ?? 'Sin serie'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Próximo número</label>
-                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600 font-mono">
-                      {f.numeroPagoPreview ?? '—'}
-                    </div>
-                  </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Fecha de pago</label>
                     <input
@@ -220,19 +210,11 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Moneda</label>
+                    {/* Moneda de la obligación — no editable aquí, dato secundario pero visible (remediación §22). */}
+                    <label className="text-xs text-gray-500">Moneda</label>
                     <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
                       {f.moneda}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Total a pagar</label>
-                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm font-semibold text-gray-900">
-                      {formatMoney(f.importeAplicado, f.moneda)}
                     </div>
                   </div>
                 </div>
@@ -257,15 +239,25 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
                   </div>
                 )}
 
+                {/*
+                  Tipo de documento/Serie/Próximo número: automáticos, no
+                  editables — nunca al mismo nivel visual que Importe/Medio de
+                  pago (remediación §7/§8). El próximo número ya se ve también
+                  en la cabecera de la página; aquí basta una línea discreta.
+                */}
+                <p className="text-[11px] text-gray-400">
+                  Pago{f.seriePG ? ` · Serie ${f.seriePG.series}` : ' · Sin serie'}{f.numeroPagoPreview ? ` · ${f.numeroPagoPreview}` : ''}
+                </p>
+
                 <div className="pt-2 border-t border-gray-100 space-y-1">
                   <label className="text-sm font-medium text-gray-700">
-                    Concepto <span className="text-gray-400 font-normal">(opcional)</span>
+                    Nota del pago <span className="text-gray-400 font-normal">(opcional)</span>
                   </label>
                   <input
                     type="text"
                     value={f.concepto}
                     onChange={(e) => f.setConcepto(e.target.value)}
-                    placeholder="Ingresa un concepto..."
+                    placeholder="Ej. Pago de la primera cuota"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                 </div>
@@ -325,8 +317,8 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
         <ResumenPagoCompra
           moneda={f.moneda}
           saldoInicial={f.saldoInicialTotal}
-          importeAplicado={f.importeAplicado}
           totalMedios={f.totalMedios}
+          cantidadMedios={f.mediosPago.length}
           saldoResultante={f.saldoResultanteTotal}
           diferencia={f.diferencia}
         />
@@ -335,8 +327,8 @@ export default function FormularioPagoCompra({ cxps, importesIniciales, dependen
       <DocumentFormFooter
         infoIzquierda={
           <>
-            Total: <span className="font-semibold text-gray-700">{formatMoney(f.importeAplicado, f.moneda)}</span>
-            {' · '}Saldo resultante: <span className="font-semibold text-gray-700">{formatMoney(f.saldoResultanteTotal, f.moneda)}</span>
+            Pago: <span className="font-semibold text-gray-700">{formatMoney(f.importeAplicado, f.moneda)}</span>
+            {' · '}Saldo después del pago: <span className="font-semibold text-gray-700">{formatMoney(f.saldoResultanteTotal, f.moneda)}</span>
           </>
         }
         onCancelar={onCancelar}
