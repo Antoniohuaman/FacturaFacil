@@ -103,6 +103,41 @@ Build:       npm run build → exitoso
 
 ---
 
+## 7-bis. Compactación y reorganización visual del formulario (segunda remediación, 2026-08-20)
+
+Seguimiento puramente visual — sin tocar CxP, Pago, Caja, series, formas/medios de pago, impuestos ni ninguna fuente de verdad. Antes de cambiar nada se releyó el estado actual del formulario y del listado: gran parte de lo pedido (proporciones de la grilla de "Datos generales", divulgación progresiva del "Documento sustentatorio", proporciones de "Importes", "Forma de pago" compacta, "+ Agregar datos del pago" progresivo, adjuntos en una sola fila) **ya estaba resuelto** por la remediación anterior — no se re-tocó lo que ya cumplía el objetivo, para no introducir cambios sin necesidad.
+
+### Qué se reordenó
+- **Listado** (`PaginaGastos.tsx`): la columna combinada "Gasto / referencia" (concepto + referencia apilados) se separó en dos columnas independientes — **"N° Documento"** (solo serie + correlativo, ej. `G001-00000001`) y **"Concepto"** (nueva, visible por defecto). Orden de columnas por defecto: N° Documento, Concepto, Proveedor, Fecha, Categoría, Total, Estado. Cabecera "Proveedor o beneficiario" → **"Proveedor"** (más compacta; el contenido sigue resolviendo proveedor formal o beneficiario libre sin cambios de modelo). Clave de preferencia de columnas del usuario (`localStorage`) migrada de `v4` a `v5` para que "Concepto" aparezca visible por defecto también para usuarios existentes.
+- **Formulario — Importes**: "Impuesto aplicable" y "¿El importe incluye IGV?" (antes un bloque aparte debajo de la grilla) ahora comparten la misma fila compacta dentro del mismo grid, apareciendo juntos solo cuando el tratamiento tributario los requiere.
+
+### Qué se compactó
+- Label "Concepto / descripción" → **"Concepto"**; placeholder más corto ("Ej. Alquiler del local") que no invita a redactar párrafos — el campo sigue siendo un input de una sola línea, sin cambios en la validación ni en la longitud funcional.
+- Espaciado vertical entre tarjetas del formulario reducido (`space-y-5`→`space-y-4`, `gap-6`→`gap-5`, `py-6`→`py-5`) — únicamente en el contenedor propio de Gastos, sin modificar el componente compartido `FormSectionCard` (que sigue usándose igual en Compras y en el resto del sistema).
+
+### Qué quedó condicional (ya lo estaba, confirmado sin regresión)
+- "Documento sustentatorio": con "Sin documento" solo se ve el selector; con un tipo elegido aparecen Fecha/Serie/Número en una sola fila.
+- "Impuesto aplicable" + "¿Incluye IGV?": solo aparecen con tratamiento distinto de "Sin desglose" (ahora en una sola fila, ver arriba).
+- Cronograma de cuotas: solo aparece cuando la forma de pago es de crédito y tiene cuotas configuradas.
+- "Datos del pago": solo aparece si el usuario la expande explícitamente (y solo si tiene permiso `gastos.pagar`).
+- Adjuntos: selector de tipo + botón de carga + límites ya en una sola fila (`AdjuntosCompra.tsx`, sin cambios — ya cumplía el objetivo).
+
+### Qué NO cambió funcionalmente
+CxP, Pago, Caja, cuotas, idempotencia, anulaciones, series, formas de pago, medios de pago, proveedores/beneficiarios, impuestos, documentos soportados, permisos, multiempresa, filtros, exportación — sin cambios. El buscador del listado ya incluía `concepto` en su índice de búsqueda antes de este cambio (`consultaGastosOperativos.service.ts`), así que separar la columna no afecta la búsqueda.
+
+### Resultado de verificación
+```
+Tests:       2048 passed (97 test files) — sin tests nuevos (cambio puramente visual/de presentación de columnas, sin lógica condicional nueva que requiera prueba aislada)
+TypeScript:  npx tsc -b → 0 errores
+ESLint:      npx eslint . → 0 errores, 0 warnings
+Build:       npm run build → exitoso
+```
+
+### Pendiente de esta pasada
+Ninguno nuevo — los pendientes siguen siendo los de la sección 7 (pantalla "Registrar pago" compartida con Compras, límite del default de Adjuntos, tests de componente/UI).
+
+---
+
 ## 7. Pendientes reales (no implementados en esta pasada)
 
 1. **Pantalla "Registrar pago" (§40-43)**: simplificación del resumen del pago, renombrar "Medios registrados", evaluar el campo "Concepto (opcional)" del pago, reducir protagonismo de "Serie PG"/"Tipo de documento Pago" — todo vive en el componente compartido `FormularioPagoCompra.tsx`/`useFormularioPagoCompra.ts` (también usado por Compras). Requiere una remediación aparte con QA cruzado Compras+Gastos, no un cambio incidental dentro de esta tarea.

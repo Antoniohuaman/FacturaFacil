@@ -498,7 +498,7 @@ export default function FormularioGasto({
         }
       />
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-4">
         {errorGeneral && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorGeneral}
@@ -520,9 +520,9 @@ export default function FormularioGasto({
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-5">
-            <fieldset disabled={soloEdicionLimitada} className="space-y-5 disabled:opacity-60">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 space-y-4">
+            <fieldset disabled={soloEdicionLimitada} className="space-y-4 disabled:opacity-60">
               <FormSectionCard titulo="Datos generales">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <label id="campo-serieId" className="space-y-1">
@@ -571,8 +571,8 @@ export default function FormularioGasto({
                   </label>
                 </div>
                 <label id="campo-concepto" className="block space-y-1 mt-3">
-                  <span className="text-xs text-gray-500">Concepto / descripción *</span>
-                  <input type="text" value={concepto} onChange={(e) => setConcepto(e.target.value)} aria-invalid={Boolean(erroresMostrados.concepto)} className={claseControl(Boolean(erroresMostrados.concepto))} placeholder="Ej: Alquiler de local — julio" />
+                  <span className="text-xs text-gray-500">Concepto *</span>
+                  <input type="text" value={concepto} onChange={(e) => setConcepto(e.target.value)} aria-invalid={Boolean(erroresMostrados.concepto)} className={claseControl(Boolean(erroresMostrados.concepto))} placeholder="Ej. Alquiler del local" />
                   <MensajeErrorCampo mensaje={erroresMostrados.concepto} />
                 </label>
               </FormSectionCard>
@@ -652,30 +652,30 @@ export default function FormularioGasto({
                     </label>
                   )}
                   {tratamientoImpuesto !== 'sin_desglose' && (
-                    <label className="space-y-1 sm:col-span-5">
-                      <span className="text-xs text-gray-500">Impuesto aplicable *</span>
-                      <select value={impuestoId} onChange={(e) => setImpuestoId(e.target.value)} aria-invalid={Boolean(erroresMostrados.impuestoId)} className={claseControl(Boolean(erroresMostrados.impuestoId))}>
-                        <option value="">Selecciona un impuesto...</option>
-                        {impuestosDisponibles.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-                      </select>
-                      <MensajeErrorCampo mensaje={erroresMostrados.impuestoId} />
-                    </label>
+                    <>
+                      <label className="space-y-1 sm:col-span-5">
+                        <span className="text-xs text-gray-500">Impuesto aplicable *</span>
+                        <select value={impuestoId} onChange={(e) => setImpuestoId(e.target.value)} aria-invalid={Boolean(erroresMostrados.impuestoId)} className={claseControl(Boolean(erroresMostrados.impuestoId))}>
+                          <option value="">Selecciona un impuesto...</option>
+                          {impuestosDisponibles.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                        </select>
+                        <MensajeErrorCampo mensaje={erroresMostrados.impuestoId} />
+                      </label>
+                      {/* Misma fila compacta que "Impuesto aplicable" (remediación visual §17-18) — nunca un bloque aparte debajo del grid. */}
+                      <div className="space-y-1 sm:col-span-7">
+                        <span className="text-xs text-gray-500">¿El importe incluye IGV?</span>
+                        <div className="flex gap-3 pt-2">
+                          <label className="flex items-center gap-1.5 text-sm">
+                            <input type="radio" checked={modoIngreso === 'total'} onChange={() => setModoIngreso('total')} /> Sí (es el total)
+                          </label>
+                          <label className="flex items-center gap-1.5 text-sm">
+                            <input type="radio" checked={modoIngreso === 'subtotal'} onChange={() => setModoIngreso('subtotal')} /> No (es el subtotal)
+                          </label>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
-
-                {tratamientoImpuesto !== 'sin_desglose' && (
-                  <div className="mt-3">
-                    <span className="text-xs text-gray-500">¿El importe ingresado incluye IGV?</span>
-                    <div className="flex gap-3 mt-1">
-                      <label className="flex items-center gap-1.5 text-sm">
-                        <input type="radio" checked={modoIngreso === 'total'} onChange={() => setModoIngreso('total')} /> Sí (es el total)
-                      </label>
-                      <label className="flex items-center gap-1.5 text-sm">
-                        <input type="radio" checked={modoIngreso === 'subtotal'} onChange={() => setModoIngreso('subtotal')} /> No (es el subtotal)
-                      </label>
-                    </div>
-                  </div>
-                )}
               </FormSectionCard>
             </fieldset>
 
@@ -696,7 +696,7 @@ export default function FormularioGasto({
             <CollapsibleNotes observaciones={observaciones} onCambiarObservaciones={setObservaciones} />
           </div>
 
-          <div className="lg:col-span-1 space-y-5">
+          <div className="lg:col-span-1 space-y-4">
             <FormSectionCard titulo="Resumen">
               {/*
                 Divulgación progresiva (§22/§24 de la remediación UX): "sin
@@ -735,7 +735,7 @@ export default function FormularioGasto({
               )}
             </FormSectionCard>
 
-            <fieldset disabled={soloEdicionLimitada} className="space-y-5 disabled:opacity-60">
+            <fieldset disabled={soloEdicionLimitada} className="space-y-4 disabled:opacity-60">
               <FormSectionCard titulo="Forma de pago">
                 <label className="block space-y-1">
                   <span className="text-xs text-gray-500">Forma de pago *</span>

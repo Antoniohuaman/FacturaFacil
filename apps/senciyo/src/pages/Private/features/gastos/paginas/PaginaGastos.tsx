@@ -45,16 +45,22 @@ import { imprimirGasto, type EmpresaImpresionGasto } from '../servicios/servicio
 import DrawerGasto from '../componentes/DrawerGasto';
 
 type ColumnaGastoId =
-  | 'referenciaInterna' | 'fecha' | 'categoria' | 'proveedor' | 'documento' | 'condicionPago' | 'total' | 'estado'
+  | 'referenciaInterna' | 'concepto' | 'fecha' | 'categoria' | 'proveedor' | 'documento' | 'condicionPago' | 'total' | 'estado'
   | 'fechaEmision' | 'fechaRegistro' | 'fechaVencimiento' | 'subtotal' | 'impuesto' | 'importeReconocido' | 'saldoPendiente'
   | 'moneda' | 'tipoCambio' | 'establecimiento' | 'numerosPago' | 'cantidadPagos' | 'usuario' | 'cantidadAdjuntos';
 
 /** Textos para el usuario (§2 de la corrección) — los campos internos (fechaReconocimiento, fechaEmision, fechaCreacion...) no se renombran, solo su presentación. */
 const ETIQUETA_COLUMNA: Record<ColumnaGastoId, string> = {
-  referenciaInterna: 'Gasto / referencia',
+  // N° de documento (serie + correlativo) — nunca mezclado con el concepto
+  // (remediación visual §6): son dos columnas separadas desde aquí.
+  referenciaInterna: 'N° Documento',
+  concepto: 'Concepto',
   fecha: 'Fecha del gasto',
   categoria: 'Categoría',
-  proveedor: 'Proveedor o beneficiario',
+  // Label compacto para la cabecera de tabla (remediación visual §8) — el
+  // contenido sigue resolviendo proveedor formal o beneficiario libre
+  // (`fila.proveedorONombre`), sin cambiar el modelo.
+  proveedor: 'Proveedor',
   documento: 'Documento sustentatorio',
   condicionPago: 'Condición de pago',
   total: 'Total',
@@ -76,12 +82,17 @@ const ETIQUETA_COLUMNA: Record<ColumnaGastoId, string> = {
   cantidadAdjuntos: 'Cantidad de adjuntos',
 };
 
-const COLUMNAS_POR_DEFECTO: ColumnaGastoId[] = ['referenciaInterna', 'proveedor', 'fecha', 'categoria', 'total', 'estado'];
+// Orden por defecto = remediación visual §5: N° Documento, Concepto,
+// Proveedor, Fecha, Categoría, Total, Estado (+ Acciones, fija, fuera de este arreglo).
+const COLUMNAS_POR_DEFECTO: ColumnaGastoId[] = ['referenciaInterna', 'concepto', 'proveedor', 'fecha', 'categoria', 'total', 'estado'];
 const COLUMNAS_OPCIONALES: ColumnaGastoId[] = ['fechaRegistro', 'fechaEmision', 'documento', 'condicionPago', 'fechaVencimiento', 'subtotal', 'impuesto', 'importeReconocido', 'saldoPendiente', 'moneda', 'tipoCambio', 'establecimiento', 'numerosPago', 'cantidadPagos', 'usuario', 'cantidadAdjuntos'];
 const ORDEN_COLUMNAS_TODAS: ColumnaGastoId[] = [...COLUMNAS_POR_DEFECTO, ...COLUMNAS_OPCIONALES];
 
-// v4: consolida "Estado de pago"/"Estado documental" en una sola columna "Estado" (§8 de la corrección final) — versión nueva para que las preferencias guardadas de un usuario existente migren limpio en vez de dejar la columna nueva invisible.
-const CLAVE_COLUMNAS = 'gastos_tabla_columnas_v4';
+// v5: separa "Gasto / referencia" en dos columnas — "N° Documento" (solo
+// serie + correlativo) y "Concepto" (nueva, visible por defecto) — remediación
+// visual §5-7. Versión nueva para que las preferencias guardadas de un
+// usuario existente migren limpio en vez de dejar "Concepto" invisible.
+const CLAVE_COLUMNAS = 'gastos_tabla_columnas_v5';
 const TAMANO_PAGINA = 25;
 
 interface PreferenciaColumnasGasto {
@@ -123,19 +134,16 @@ function guardarPreferenciaColumnas(empresaId: string, preferencia: PreferenciaC
 function renderCelda(fila: FilaGastoOperativo, gasto: Gasto, id: ColumnaGastoId, monedaBase: string, cxp: CuentaPorPagar | undefined): React.ReactNode {
   switch (id) {
     case 'referenciaInterna': {
-      const esBorrador = gasto.estadoDocumento === 'borrador';
-      // "¿En qué gasté?" antes que el correlativo (§8 de la remediación UX):
-      // el concepto es la línea principal, la referencia queda como dato
-      // secundario debajo — MISMA fuente que búsqueda/Excel/impresión (§11
-      // de una corrección previa), nunca una segunda llamada a
+      // Serie + correlativo, nunca mezclado con el concepto (remediación
+      // visual §6) — MISMA fuente que búsqueda/Excel/impresión (§11 de una
+      // corrección previa), nunca una segunda llamada a
       // `presentarReferenciaGasto` sin el catálogo de Series.
-      return (
-        <div className="flex flex-col leading-tight">
-          <span className="max-w-[240px] truncate font-medium text-gray-900 dark:text-gray-100" title={gasto.concepto}>{gasto.concepto}</span>
-          <span className={`text-xs ${esBorrador ? 'italic text-gray-400' : 'font-mono text-gray-400'}`}>{fila.referenciaPresentada}</span>
-        </div>
-      );
+      const esBorrador = gasto.estadoDocumento === 'borrador';
+      return <span className={esBorrador ? 'italic text-gray-500' : 'font-mono'}>{fila.referenciaPresentada}</span>;
     }
+    // Columna propia (remediación visual §7) — "¿en qué gasté?" debe
+    // responderse sin abrir el Drawer, sin competir con el N° de documento.
+    case 'concepto': return <span className="block max-w-[260px] truncate" title={gasto.concepto}>{gasto.concepto}</span>;
     case 'fecha': return formatearFecha(fila.fecha);
     case 'categoria': return fila.categoriaNombre;
     case 'proveedor': return fila.proveedorONombre;
